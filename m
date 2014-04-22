@@ -1,105 +1,152 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Tue, 22 Apr 2014 05:39:15 -0700
-Message-ID: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/16] i40e: Add bridge FDB add/del/dump ops
+Date: Tue, 22 Apr 2014 05:39:16 -0700
+Message-ID: <1398170371-3333-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4229 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:45665 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932232AbaDVMje (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:34 -0400
+	id S932544AbaDVMjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:39:36 -0400
+In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Greg provides two patches for i40e, the first adds the netdev ops to support
-the addition of static FDB entries in the physical function (PF) MAC/VLAN
-filter table so that the virtual functions (VFs) can communicate with
-bridged virtual Ethernet ports such as those provided by the virtio
-driver.  The second is to fix an issue where the assignment of a port
-VLAN after it is already up and running requires the VF driver to be
-reloaded, so print a message warning the host administrator about the
-need to reload the VF driver.  In addition, knock the VF offline so that
-it does not continue to receive traffic not on the port VLAN assigned to
-it.
+Add the netdev ops to support addition of static FDB entries in the
+physical function (PF)  MAC/VLAN filter table so that virtual functions
+(VFs) can communicate with bridged virtual Ethernet ports such as those
+provided by the virtio driver.
 
-Jesse provides a patch for i40e and i40evf to unhide and enable the
-PREFENA field in the receive host memory cache (RX-HMC) for best
-performance.
+Change-ID: Ifbd6817a75074e3b5cdf945a5635f26440bf15df
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 97 +++++++++++++++++++++++++++++
+ 1 file changed, 97 insertions(+)
 
-Mitch provides a i40e patch to implement the net device op for Tx
-bandwidth setting.
-
-Catherine removes a firmware workaround that is no longer needed with
-the latest firmware for i40e.  She also provides some minor cleanups
-as well bumps the driver versions.
-
-Anjali provides a fix for i40e displaying IPv4 flow director filters
-which needed additional information to be communicated up above in
-order for it to be displayed correctly.
-
-Shannon adds tracking of the NVM busy state so that the driver won't
-allow a new NVM update command until a completion event is received
-from the current update.  Updates the admin queue API to reflect
-recent changes in the firmware.  Also rearranges the "if netdev" logic
-to prepare for handling non-netdev VSIs.  Lastly rework the fdir
-setup and tear down to use the newly created i40e_vsi_open() and
-i40e_vsi_close(), which also fixes a memory leak of the FDIR queue
-buffer info structs across a reset.
-
-The following are changes since commit 5a9d19ab76f98b7cdc97ba9724be01deba791bc0:
-  Merge branch 'ndo_set_config'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Fix an issue with displaying IPv4 FD filters
-
-Catherine Sullivan (5):
-  i40e/i40evf: Bump build versions
-  i40e: Remove a FW workaround
-  i40e: Cleanup if/else statements
-  i40e: Tweak for-loop in i40e_ethtool.c
-  i40e/i40evf: Bump build versions
-
-Greg Rose (2):
-  i40e: Add bridge FDB add/del/dump ops
-  i40e: Reset the VF upon conflicting VLAN configuration
-
-Jesse Brandeburg (1):
-  i40e/i40evf: unhide and enable to one prefena field
-
-Mitch Williams (1):
-  i40e: Enable VF Tx bandwidth setting
-
-Shannon Nelson (6):
-  i40e/i40evf: add tracking to NVM busy state
-  i40e/i40evf: update AdminQ API
-  i40e: prep vsi_open logic for non-netdev cases
-  i40e: abstract the close path for better netdev vsis
-  i40e: use generic vsi_open to unquiesce vsi
-  i40e: rework fdir setup and teardown
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      |  23 ++
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |   1 +
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  |  41 +---
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  29 +++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  14 +-
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |   1 +
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h     |   1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 261 +++++++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |  93 +++++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |   1 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |  22 ++
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |   1 +
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    |  41 +---
- drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |   1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- 16 files changed, 369 insertions(+), 166 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 861b722..10f0f41 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6644,6 +6644,96 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
+ }
+ 
+ #endif
++#ifdef HAVE_FDB_OPS
++#ifdef USE_CONST_DEV_UC_CHAR
++static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
++			    struct net_device *dev,
++			    const unsigned char *addr,
++			    u16 flags)
++#else
++static int i40e_ndo_fdb_add(struct ndmsg *ndm,
++			    struct net_device *dev,
++			    unsigned char *addr,
++			    u16 flags)
++#endif
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	struct i40e_pf *pf = np->vsi->back;
++	int err = 0;
++
++	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
++		return -EOPNOTSUPP;
++
++	/* Hardware does not support aging addresses so if a
++	 * ndm_state is given only allow permanent addresses
++	 */
++	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
++		netdev_info(dev, "FDB only supports static addresses\n");
++		return -EINVAL;
++	}
++
++	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
++		err = dev_uc_add_excl(dev, addr);
++	else if (is_multicast_ether_addr(addr))
++		err = dev_mc_add_excl(dev, addr);
++	else
++		err = -EINVAL;
++
++	/* Only return duplicate errors if NLM_F_EXCL is set */
++	if (err == -EEXIST && !(flags & NLM_F_EXCL))
++		err = 0;
++
++	return err;
++}
++
++#ifndef USE_DEFAULT_FDB_DEL_DUMP
++#ifdef USE_CONST_DEV_UC_CHAR
++static int i40e_ndo_fdb_del(struct ndmsg *ndm,
++			    struct net_device *dev,
++			    const unsigned char *addr)
++#else
++static int i40e_ndo_fdb_del(struct ndmsg *ndm,
++			    struct net_device *dev,
++			    unsigned char *addr)
++#endif
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	struct i40e_pf *pf = np->vsi->back;
++	int err = -EOPNOTSUPP;
++
++	if (ndm->ndm_state & NUD_PERMANENT) {
++		netdev_info(dev, "FDB only supports static addresses\n");
++		return -EINVAL;
++	}
++
++	if (pf->flags & I40E_FLAG_SRIOV_ENABLED) {
++		if (is_unicast_ether_addr(addr))
++			err = dev_uc_del(dev, addr);
++		else if (is_multicast_ether_addr(addr))
++			err = dev_mc_del(dev, addr);
++		else
++			err = -EINVAL;
++	}
++
++	return err;
++}
++
++static int i40e_ndo_fdb_dump(struct sk_buff *skb,
++			     struct netlink_callback *cb,
++			     struct net_device *dev,
++			     int idx)
++{
++	struct i40e_netdev_priv *np = netdev_priv(dev);
++	struct i40e_pf *pf = np->vsi->back;
++
++	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
++		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++
++	return idx;
++}
++
++#endif /* USE_DEFAULT_FDB_DEL_DUMP */
++#endif /* HAVE_FDB_OPS */
+ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_open		= i40e_open,
+ 	.ndo_stop		= i40e_close,
+@@ -6671,6 +6761,13 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
+ #endif
++#ifdef HAVE_FDB_OPS
++	.ndo_fdb_add		= i40e_ndo_fdb_add,
++#ifndef USE_DEFAULT_FDB_DEL_DUMP
++	.ndo_fdb_del		= i40e_ndo_fdb_del,
++	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
++#endif
++#endif
+ };
+ 
+ /**
 -- 
 1.9.0
