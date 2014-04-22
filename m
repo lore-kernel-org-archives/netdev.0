@@ -1,37 +1,62 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 3/4] netprio_cgroup: use accessor to get id from css
-Date: Tue, 22 Apr 2014 16:33:48 -0400
-Message-ID: <20140422203348.GE2314@mtj.dyndns.org>
-References: <cover.1398147734.git.nasa4836@gmail.com>
- <0b10af801af45fdbf4835e8da54273e9752b239f.1398147734.git.nasa4836@gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: skb_try_coalesce bug?
+Date: Tue, 22 Apr 2014 16:35:59 -0400
+Message-ID: <5356D2AF.7030401@ericsson.com>
+References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>	 <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356C518.7050602@ericsson.com> <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, lizefan@huawei.com, nhorman@tuxdriver.com,
-	daniel.wagner@bmw-carit.de, jiri@resnulli.us,
-	gaofeng@cn.fujitsu.com, stephen@networkplumber.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jianyu Zhan <nasa4836@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0b10af801af45fdbf4835e8da54273e9752b239f.1398147734.git.nasa4836@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Erik Hugne <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usevmg20.ericsson.net ([198.24.6.45]:63519 "EHLO
+	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757594AbaDVUgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 16:36:11 -0400
+In-Reply-To: <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 22, 2014 at 02:31:01PM +0800, Jianyu Zhan wrote:
-> This is a prepared patch for converting from per-cgroup id to
-> per-subsystem id.
+On 04/22/2014 04:05 PM, Eric Dumazet wrote:
+> On Tue, 2014-04-22 at 15:38 -0400, Jon Maloy wrote:
 > 
-> We should not access per-cgroup id directly, since this is
-> implemetation detail.
+>>
+>> In the case I encountered, our head buffer is linear (skb->data_len == 0),
+>> so it is the real tailroom value that is returned. An alas, that one is big
+>> enough to contain the last (small) fragment of the message.
 > 
-> Use the accessor css_from_id() instead.
 > 
-> This patch has no functional change.
+> Whole point of skb_try_coalesce() is to coalesce as much as possible,
+> without guarantee of keeping some sort of 'segments'
+> 
+> skb_try_coalesce - try to merge skb to prior one
+> 
+> If you do not want this to happen, (you seem to want nothing else in
+> your head buffer skb->head), you need to add some logic.
 
-netprio_cgroup is a cgroup identifying controller.  We *do* want to
-use per-cgroup IDs for it.
+Ok. I should have given a little background.
 
-Thanks.
+1: We send a message of 3041 bytes, inclusive TIPC header, via loopback interface.
 
--- 
-tejun
+2: This one gets chopped up in three fragments: 1420, 1420,and 201 bytes.
+   (The mtu was of course wrong, but this is how I discovered the problem).
+
+3: First fragment is received, uncloned, and serves as head.
+
+4;  Second fragment (a clone) is received. skb_try_coalesce() fails at
+    the skb_head_is_locked() test, because the buffer is a clone.
+    Because of this, we add the buffer to skb_shinfo(head)->frag_list
+    instead.
+
+5: Third fragment (also a clone) is received. Now, since we check for
+   space in tailroom of header before we do anything else, it slips
+   in there, and bypasses the already chained-up second segment.
+
+Regards
+///jon
+
+
+> 
+> A helper temporarily setting head->tail = head->end would do it I guess.
+> 
+> 
