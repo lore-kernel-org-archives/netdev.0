@@ -1,72 +1,115 @@
-From: Jianyu Zhan <nasa4836@gmail.com>
-Subject: [PATCH 3/4] netprio_cgroup: use accessor to get id from css
-Date: Tue, 22 Apr 2014 14:31:01 +0800
-Message-ID: <0b10af801af45fdbf4835e8da54273e9752b239f.1398147734.git.nasa4836@gmail.com>
-References: <cover.1398147734.git.nasa4836@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, tj@kernel.org, lizefan@huawei.com,
-	nhorman@tuxdriver.com, daniel.wagner@bmw-carit.de,
-	nasa4836@gmail.com, jiri@resnulli.us, gaofeng@cn.fujitsu.com,
-	stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1398147734.git.nasa4836@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Appana Durga Kedareswara Rao <appana.durga.rao-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH v7 1/2] can: xilinx CAN controller support
+Date: Tue, 22 Apr 2014 07:56:46 +0000
+Message-ID: <707ea084-ed82-407b-8967-1e82a994b784@AM1EHSMHS003.ehs.local>
+References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
+ <53424C32.7090000@monstr.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	"mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Michal Simek <michals-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>,
+	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org" <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>,
+	"mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53424C32.7090000-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is a prepared patch for converting from per-cgroup id to
-per-subsystem id.
+Hi Marc,
 
-We should not access per-cgroup id directly, since this is
-implemetation detail.
+> -----Original Message-----
+> From: Michal Simek [mailto:monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org]
+> Sent: Monday, April 07, 2014 12:27 PM
+> To: Appana Durga Kedareswara Rao
+> Cc: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org; mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org; Michal Simek;
+> grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org; robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org; linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Appana Durga
+> Kedareswara Rao
+> Subject: Re: [PATCH v7 1/2] can: xilinx CAN controller support
+>
+> On 04/02/2014 03:13 PM, Kedareswara rao Appana wrote:
+> > This patch adds xilinx CAN controller support.
+> > This driver supports both ZYNQ CANPS and Soft IP AXI CAN controller.
+> >
+> > Signed-off-by: Kedareswara rao Appana <appanad-gjFFaj9aHVfQT0dZR+AlfA@public.gmane.org>
+> > ---
+> > Changes for v7:
+> > - Updated the driver with review comments.
+> > - Moved the driver bindings doc as a separte patch.
+> > Changes for v6:
+> > - Updated the driver with review comments.
+> > - Used the clock names specified in the data sheet.
+> > - Updated the devicetree bindings doc as per Rob suggestion.
+> > Changes for v5:
+> > - Updated the driver with the review comments.
+> > - Remove the check for the tx fifo full interrupt condition
+> >   form Tx interrupt routine as we are checking it in the _xmit
+> >   routine.
+> > - Clearing the txok interrupt in the tx interrupt routine for
+> >   every Tx can frame.
+> > Changes for v4:
+> > - Added check for the tx fifo full interrupt condition in Tx interrupt
+> > routine.
+> > - Added be iohelper functions.
+> > - Moved the clock enable/disable to probe/remove because of
+> >   Added big endian support for AXI CAN controller case(reading
+> >   a register during probe for that we need to enable clock).
+> > Changes for v3:
+> > - Updated the driver with the review comments.
+> > - Modified the tranmit logic as per Marc suggestion.
+> > - Enabling the clock when the interface is up to reduce the
+> >   Power consumption.
+> > Changes for v2:
+> > - Updated with the review comments.
+> > - Removed the unnecessary debug prints.
+> > - include tx,rx fifo depths in ZYNQ CANPS case also
+> > ---
+> >  drivers/net/can/Kconfig      |    7 +
+> >  drivers/net/can/Makefile     |    1 +
+> >  drivers/net/can/xilinx_can.c | 1176
+> > ++++++++++++++++++++++++++++++++++++++++++
+> >  3 files changed, 1184 insertions(+), 0 deletions(-)  create mode
+> > 100644 drivers/net/can/xilinx_can.c
+>
+> Mark: Any update on this one?
+> BTW: When you apply these patches you should apply 2/2 before 1/2. There
+> is new checking for binding.
+>
 
-Use the accessor css_from_id() instead.
+Ping?
 
-This patch has no functional change.
+Regards,
+Kedar.
 
-Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
----
- net/core/netprio_cgroup.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> Thanks,
+> Michal
+>
+> --
+> Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+> w: www.monstr.eu p: +42-0-721842854
+> Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+> Maintainer of Linux kernel - Xilinx Zynq ARM architecture Microblaze U-
+> BOOT custodian and responsible for u-boot arm zynq platform
+>
 
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index ce285c6..fc21035 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -89,7 +89,7 @@ static int extend_netdev_table(struct net_device *dev, u32 target_idx)
- static u32 netprio_prio(struct cgroup_subsys_state *css, struct net_device *dev)
- {
- 	struct netprio_map *map = rcu_dereference_rtnl(dev->priomap);
--	int id = css->cgroup->id;
-+	int id = css_to_id(css);
- 
- 	if (map && id < map->priomap_len)
- 		return map->priomap[id];
-@@ -109,7 +109,7 @@ static int netprio_set_prio(struct cgroup_subsys_state *css,
- 			    struct net_device *dev, u32 prio)
- {
- 	struct netprio_map *map;
--	int id = css->cgroup->id;
-+	int id = css_to_id(css);
- 	int ret;
- 
- 	/* avoid extending priomap for zero writes */
-@@ -170,7 +170,7 @@ static void cgrp_css_free(struct cgroup_subsys_state *css)
- 
- static u64 read_prioidx(struct cgroup_subsys_state *css, struct cftype *cft)
- {
--	return css->cgroup->id;
-+	return css_to_id(css);
- }
- 
- static int read_priomap(struct seq_file *sf, void *v)
-@@ -222,7 +222,7 @@ static void net_prio_attach(struct cgroup_subsys_state *css,
- 			    struct cgroup_taskset *tset)
- {
- 	struct task_struct *p;
--	void *v = (void *)(unsigned long)css->cgroup->id;
-+	void *v = (void *)(unsigned long)css_to_id(css);
- 
- 	cgroup_taskset_for_each(p, tset) {
- 		task_lock(p);
--- 
-2.0.0-rc0
+
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
