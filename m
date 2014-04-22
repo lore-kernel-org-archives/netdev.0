@@ -1,58 +1,36 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: Porting ethernet over spi driver
-Date: Tue, 22 Apr 2014 11:42:43 +0200
-Message-ID: <53563993.7010704@i2se.com>
-References: <5350ED9E.6080103@lategoodbye.de> <CAOMZO5B-=6rqRgTVS+O+dDWq0SDE9_ytKdW38gN=gzzy-xwEtw@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/3] 6lowpan: add helper to get 6lowpan namespace
+Date: Tue, 22 Apr 2014 11:44:46 +0200
+Message-ID: <1398159886.4211.1.camel@jlt4.sipsolutions.net>
+References: <1397784176-15809-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1397784176-15809-2-git-send-email-mcgrof@do-not-panic.com>
+	 (sfid-20140418_032412_117495_4585013B)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Wahren <info@lategoodbye.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Fabio Estevam <festevam@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.130]:53696 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755206AbaDVJms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 05:42:48 -0400
-In-Reply-To: <CAOMZO5B-=6rqRgTVS+O+dDWq0SDE9_ytKdW38gN=gzzy-xwEtw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	backports@vger.kernel.org, "Luis R. Rodriguez" <mcgrof@suse.com>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397784176-15809-2-git-send-email-mcgrof@do-not-panic.com> (sfid-20140418_032412_117495_4585013B)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 22.04.2014 04:32, schrieb Fabio Estevam:
-> On Fri, Apr 18, 2014 at 6:17 AM, Stefan Wahren <info@lategoodbye.de> wrote:
->> Hi,
->>
->> i'm trying to port a ethernet over spi driver to current mainline, which
->> originally based on kernel 2.6.
->>
->> Now i'm searching for some guidelines, checklists, common pitfalls or just
->> hints about that.
->>
->> Is there something about that, which is up to date?
->>
->> Is there a list or something of legacy function, which shouldn't be used
->> anymore?
->>
->> Are there any new must have features?
->>
->> Is there a good reference implementation for ethernet over spi?
-> Not sure if it is a good reference, but the only one I am aware of is this one:
-> drivers/net/ethernet/microchip/enc28j60.c
+On Thu, 2014-04-17 at 18:22 -0700, Luis R. Rodriguez wrote:
 
-Yes, i already found this one and also:
-drivers/net/ethernet/micrel/ks8851.c
+> +#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
+> [...]
+> +#else
+> +static inline struct netns_ieee802154_lowpan *
+> +net_ieee802154_lowpan(struct net *net)
+> +{
+> +	return NULL;
+> +}
+> +#endif
 
-Unfortunately neither of them have device tree support, so i took some
-parts from here:
-drivers/net/ethernet/freescale/fec_main.c
+Why would that be needed? If nobody compiles 802.15.4 then it seems
+nothing should reference it?
 
->
-> Regards,
->
-> Fabio Estevam
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-BR Stefan Wahren
+johannes
