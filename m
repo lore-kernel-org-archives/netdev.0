@@ -1,7 +1,7 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next v3 2/3] net: ipv6: Use ip6_datagram_send_common in L2TP IPv6.
-Date: Wed, 23 Apr 2014 00:14:15 +0900
-Message-ID: <1398179656-9313-2-git-send-email-lorenzo@google.com>
+Subject: [PATCH net-next v3 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
+Date: Wed, 23 Apr 2014 00:14:16 +0900
+Message-ID: <1398179656-9313-3-git-send-email-lorenzo@google.com>
 References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
  <1398179656-9313-1-git-send-email-lorenzo@google.com>
 Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
@@ -9,179 +9,179 @@ Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
 	Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:33897 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932824AbaDVPOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:14:43 -0400
-Received: by mail-pd0-f171.google.com with SMTP id r10so4973011pdi.2
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 08:14:42 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:33700 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932963AbaDVPOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:14:47 -0400
+Received: by mail-pd0-f169.google.com with SMTP id fp1so5015995pdb.0
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 08:14:46 -0700 (PDT)
 In-Reply-To: <1398179656-9313-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code was also virtually identical with the UDP and raw
-socket sendmsg code.
+This replaces the ad-hoc code used by ping6_sendmsg with the
+implementation now used by UDP, raw and L2TP sockets. This also
+adds the ability to set options via ancillary data, proper
+flowlabel validation, etc. etc.
 
-Tested: compiles with CONFIG_IPV6={m,y} and CONFIG_L2TP_IP={m,y}.
+Tested: Black-box tested using user-mode Linux.
+
+- IPv6 pings using both connect()/send() and sendto() still work.
+- Fragmented IPv6 pings still work.
+- Specifying a flowlabel still works.
+- Attempting to send a flowlabel that is not first set via
+  IPV6_FLOWLABEL_MGR now correctly returns EINVAL.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- net/l2tp/l2tp_ip6.c | 114 +++++-----------------------------------------------
- 1 file changed, 9 insertions(+), 105 deletions(-)
+ net/ipv6/ping.c | 95 +++++++++++++++++++--------------------------------------
+ 1 file changed, 31 insertions(+), 64 deletions(-)
 
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index 7704ea9..9154f39 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -485,19 +485,15 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index bda7429..96730c6 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -81,16 +81,17 @@ static int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		    size_t len)
  {
- 	struct ipv6_txoptions opt_space;
- 	DECLARE_SOCKADDR(struct sockaddr_l2tpip6 *, lsa, msg->msg_name);
--	struct in6_addr *daddr, *final_p, final;
++	DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
+ 	struct inet_sock *inet = inet_sk(sk);
 -	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct ipv6_txoptions *opt = NULL;
--	struct ip6_flowlabel *flowlabel = NULL;
--	struct dst_entry *dst = NULL;
-+	struct ipv6_txoptions *opt;
-+	struct dst_entry *dst;
++	struct ipv6_txoptions *opt, opt_space;
+ 	struct icmp6hdr user_icmph;
+-	int addr_type;
++	int addr_len = msg->msg_namelen;
+ 	struct in6_addr *daddr;
+-	int iif = 0;
  	struct flowi6 fl6;
- 	int addr_len = msg->msg_namelen;
--	int hlimit = -1;
--	int tclass = -1;
--	int dontfrag = -1;
-+	int hlimit, tclass, dontfrag;
- 	int transhdrlen = 4; /* zero session-id */
- 	int ulen = len + transhdrlen;
  	int err;
+-	int hlimit;
+-	struct dst_entry *dst;
++	int hlimit, tclass, dontfrag;
 +	int connected;
++	struct dst_entry *dst = NULL;
+ 	struct rt6_info *rt;
+ 	struct pingfakehdr pfh;
  
- 	/* Rough check on arithmetic overflow,
- 	   better check is made in ip6_append_data().
-@@ -514,7 +510,7 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	 */
- 	memset(&fl6, 0, sizeof(fl6));
+@@ -101,63 +102,38 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (err)
+ 		return err;
  
--	fl6.flowi6_mark = sk->sk_mark;
-+	fl6.flowi6_proto = sk->sk_protocol;
- 
- 	if (lsa) {
- 		if (addr_len < SIN6_LEN_RFC2133)
-@@ -522,103 +518,13 @@ static int l2tp_ip6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- 		if (lsa->l2tp_family && lsa->l2tp_family != AF_INET6)
- 			return -EAFNOSUPPORT;
--
--		daddr = &lsa->l2tp_addr;
--		if (np->sndflow) {
--			fl6.flowlabel = lsa->l2tp_flowinfo & IPV6_FLOWINFO_MASK;
--			if (fl6.flowlabel&IPV6_FLOWLABEL_MASK) {
--				flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
--				if (flowlabel == NULL)
--					return -EINVAL;
--			}
+-	if (msg->msg_name) {
+-		DECLARE_SOCKADDR(struct sockaddr_in6 *, u, msg->msg_name);
+-		if (msg->msg_namelen < sizeof(struct sockaddr_in6) ||
+-		    u->sin6_family != AF_INET6) {
++	if (sin6) {
++		if (addr_len < sizeof(struct sockaddr_in6))
+ 			return -EINVAL;
 -		}
--
--		/*
--		 * Otherwise it will be difficult to maintain
--		 * sk->sk_dst_cache.
--		 */
--		if (sk->sk_state == TCP_ESTABLISHED &&
--		    ipv6_addr_equal(daddr, &sk->sk_v6_daddr))
--			daddr = &sk->sk_v6_daddr;
--
--		if (addr_len >= sizeof(struct sockaddr_in6) &&
--		    lsa->l2tp_scope_id &&
--		    ipv6_addr_type(daddr) & IPV6_ADDR_LINKLOCAL)
--			fl6.flowi6_oif = lsa->l2tp_scope_id;
--	} else {
+-		if (sk->sk_bound_dev_if &&
+-		    sk->sk_bound_dev_if != u->sin6_scope_id) {
+-			return -EINVAL;
+-		}
+-		daddr = &(u->sin6_addr);
+-		iif = u->sin6_scope_id;
++
++		if (sin6->sin6_family != AF_INET6)
++			return -EAFNOSUPPORT;
++
++		daddr = &sin6->sin6_addr;
+ 	} else {
 -		if (sk->sk_state != TCP_ESTABLISHED)
 -			return -EDESTADDRREQ;
--
--		daddr = &sk->sk_v6_daddr;
--		fl6.flowlabel = np->flow_label;
--	}
--
--	if (fl6.flowi6_oif == 0)
--		fl6.flowi6_oif = sk->sk_bound_dev_if;
--
--	if (msg->msg_controllen) {
--		opt = &opt_space;
--		memset(opt, 0, sizeof(struct ipv6_txoptions));
--		opt->tot_len = sizeof(struct ipv6_txoptions);
--
--		err = ip6_datagram_send_ctl(sock_net(sk), sk, msg, &fl6, opt,
--					    &hlimit, &tclass, &dontfrag);
--		if (err < 0) {
--			fl6_sock_release(flowlabel);
--			return err;
--		}
--		if ((fl6.flowlabel & IPV6_FLOWLABEL_MASK) && !flowlabel) {
--			flowlabel = fl6_sock_lookup(sk, fl6.flowlabel);
--			if (flowlabel == NULL)
--				return -EINVAL;
--		}
--		if (!(opt->opt_nflen|opt->opt_flen))
--			opt = NULL;
+ 		daddr = &sk->sk_v6_daddr;
  	}
  
--	if (opt == NULL)
--		opt = np->opt;
--	if (flowlabel)
--		opt = fl6_merge_options(&opt_space, flowlabel, opt);
--	opt = ipv6_fixup_options(&opt_space, opt);
+-	if (!iif)
+-		iif = sk->sk_bound_dev_if;
 -
--	fl6.flowi6_proto = sk->sk_protocol;
--	if (!ipv6_addr_any(daddr))
--		fl6.daddr = *daddr;
--	else
--		fl6.daddr.s6_addr[15] = 0x1; /* :: means loopback (BSD'ism) */
--	if (ipv6_addr_any(&fl6.saddr) && !ipv6_addr_any(&np->saddr))
--		fl6.saddr = np->saddr;
+-	addr_type = ipv6_addr_type(daddr);
+-	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
+-		return -EINVAL;
+-	if (addr_type & IPV6_ADDR_MAPPED)
++	if (ipv6_addr_v4mapped(daddr))
+ 		return -EINVAL;
+ 
+-	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
 -
--	final_p = fl6_update_dst(&fl6, opt, &final);
+ 	memset(&fl6, 0, sizeof(fl6));
 -
+ 	fl6.flowi6_proto = IPPROTO_ICMPV6;
+-	fl6.saddr = np->saddr;
+-	fl6.daddr = *daddr;
+-	fl6.flowi6_mark = sk->sk_mark;
+ 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
+ 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
+-	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+ 
 -	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
 -		fl6.flowi6_oif = np->mcast_oif;
 -	else if (!fl6.flowi6_oif)
 -		fl6.flowi6_oif = np->ucast_oif;
 -
--	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+-	dst = ip6_sk_dst_lookup_flow(sk, &fl6,  daddr);
+-	if (IS_ERR(dst))
+-		return PTR_ERR(dst);
+-	rt = (struct rt6_info *) dst;
 -
--	dst = ip6_dst_lookup_flow(sk, &fl6, final_p);
--	if (IS_ERR(dst)) {
--		err = PTR_ERR(dst);
-+	err = ip6_datagram_send_common(sk, msg, (struct sockaddr_in6 *) lsa,
-+				       addr_len, &fl6, &dst, &opt, &opt_space,
-+				       &hlimit, &tclass, &dontfrag, &connected);
+-	np = inet6_sk(sk);
+-	if (!np)
+-		return -EBADF;
++	err = ip6_datagram_send_common(sk, msg, sin6, addr_len, &fl6, &dst,
++				       &opt, &opt_space, &hlimit, &tclass,
++				       &dontfrag, &connected);
 +	if (err)
- 		goto out;
--	}
--
--	if (hlimit < 0) {
--		if (ipv6_addr_is_multicast(&fl6.daddr))
--			hlimit = np->mcast_hops;
--		else
--			hlimit = np->hop_limit;
--		if (hlimit < 0)
--			hlimit = ip6_dst_hoplimit(dst);
--	}
--
--	if (tclass < 0)
--		tclass = np->tclass;
--
--	if (dontfrag < 0)
--		dontfrag = np->dontfrag;
++		goto out;
  
- 	if (msg->msg_flags & MSG_CONFIRM)
- 		goto do_confirm;
-@@ -637,8 +543,6 @@ back_from_confirm:
- done:
- 	dst_release(dst);
- out:
--	fl6_sock_release(flowlabel);
--
- 	return err < 0 ? err : len;
+-	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+-		fl6.flowi6_oif = np->mcast_oif;
+-	else if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = np->ucast_oif;
++	/* TODO: Move this check into ip6_datagram_sendmsg. */
++	if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(daddr)) &&
++	    !fl6.flowi6_oif) {
++		err = -EINVAL;
++		goto out;
++	}
  
- do_confirm:
+ 	pfh.icmph.type = user_icmph.icmp6_type;
+ 	pfh.icmph.code = user_icmph.icmp6_code;
+@@ -168,18 +144,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	pfh.wcheck = 0;
+ 	pfh.family = AF_INET6;
+ 
+-	if (ipv6_addr_is_multicast(&fl6.daddr))
+-		hlimit = np->mcast_hops;
+-	else
+-		hlimit = np->hop_limit;
+-	if (hlimit < 0)
+-		hlimit = ip6_dst_hoplimit(dst);
+-
++	rt = (struct rt6_info *) dst;
+ 	lock_sock(sk);
+-	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
+-			      0, hlimit,
+-			      np->tclass, NULL, &fl6, rt,
+-			      MSG_DONTWAIT, np->dontfrag);
++	err = ip6_append_data(sk, ping_getfrag, &pfh, len, 0, hlimit, tclass,
++			      opt, &fl6, rt, msg->msg_flags, dontfrag);
+ 
+ 	if (err) {
+ 		ICMP6_INC_STATS(sock_net(sk), rt->rt6i_idev,
+@@ -192,10 +160,9 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	}
+ 	release_sock(sk);
+ 
+-	if (err)
+-		return err;
+-
+-	return len;
++out:
++	dst_release(dst);
++	return err ? err : len;
+ }
+ 
+ #ifdef CONFIG_PROC_FS
 -- 
 1.9.1.423.g4596e3a
