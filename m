@@ -1,179 +1,105 @@
-From: David Gibson <dgibson@redhat.com>
-Subject: RFC: rtnetlink problems with Cisco enic and VFs
-Date: Tue, 22 Apr 2014 14:14:25 +1000
-Message-ID: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: [PATCH] virtio_net: return error when there is no virtqueue or
+	MQ isn't support
+Date: Tue, 22 Apr 2014 12:14:35 +0800
+Message-ID: <20140422041435.GB2543@amosk.info>
+References: <1398093061-13444-1-git-send-email-akong@redhat.com>
+	<5355DDF6.7050509@redhat.com> <20140422032351.GA2543@amosk.info>
+	<5355E7BE.10506@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__22_Apr_2014_14_14_25_+1000_pKu5L=B4irXzXZ=n"
-Cc: Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
-	Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36451 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750705AbaDVEOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 00:14:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---Signature=_Tue__22_Apr_2014_14_14_25_+1000_pKu5L=B4irXzXZ=n
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <5355E7BE.10506@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-I believe I've found a problem with netlink handling which can be
-triggered on Cisco enic devices with a large number (30-40) of virtual
-functions.  I believe this is the cause of a real customer problem
-we've seen.
+On Tue, Apr 22, 2014 at 11:53:34AM +0800, Jason Wang wrote:
+> On 04/22/2014 11:23 AM, Amos Kong wrote:
+> > On Tue, Apr 22, 2014 at 11:11:50AM +0800, Jason Wang wrote:
+> >> On 04/21/2014 11:11 PM, Amos Kong wrote:
+> >>> Currently ethtool returns zero if there is no virtqueue or MQ isn't
+> >>> support, we should return -ENOTSUPP to notice user.
+> >>>
+> >>> Signed-off-by: Amos Kong <akong@redhat.com>
 
- * When requesting a list of interfaces with RTM_GETLINK, enic devices
-   (and currently, _only_ enic devices) report IFLA_VF_PORTS
-   information=20
+NAK this patch.
 
- * IFLA_VF_PORTS information has at least 90 bytes ber virtual function
+> >>> ---
+> >>>  drivers/net/virtio_net.c | 2 +-
+> >>>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>>
+> >>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> >>> index 8a852b5..eaf8266 100644
+> >>> --- a/drivers/net/virtio_net.c
+> >>> +++ b/drivers/net/virtio_net.c
+> >>> @@ -1053,7 +1053,7 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
+> >>>  	struct net_device *dev = vi->dev;
+> >>>  
+> >>>  	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
+> >>> -		return 0;
+> >>> +		return -ENOTSUPP;
+> >>>  
+> >>>  	s.virtqueue_pairs = queue_pairs;
+> >>>  	sg_init_one(&sg, &s, sizeof(s));
+> >> How about check the return value of virtnet_set_queues() in
+> >> virtnet_restore() also?
+> > If we migrate a guest from MQ supported side to MQ non-supported side,
+> > virtnet_restore() will not return error right now.
+> >
+> > If we return error when no vq or no mq support, and check return value
+> > of virtnet_set_queues() in virtnet_restore(), migration will fail. 
+> > Is it expected?
+> >
+> >
+> 
+> I think what you mean is restore not migration here. The point is not to
+> execute VIRTIO_NET_CTRL_MQ when multiqueue is not supported, so it's the
+> caller responsibility to pass a valid queue_pairs to
+> virtnet_set_queues(). This patch is not necessary, your last patch is
+> fine enough to solve the issue. Do you agree?
+ 
+Yes.
 
- * Unlike IFLA_VFINFO_LIST, the ports information is always reported,
-   regardless of the setting of the IFLA_EXT_MASK parameter
+If mq is supported,
+  - change queue to 0: virtnet_send_command() will return error
+  - change queue to >= 1: success
 
- * When IFLA_EXT_MASK is not specified, the reply packets have maximum
-   size NLMSG_GOODSIZE (4k - overheads)
+If mq isn't support, current queue is 1.
+  - change queue to 1: return 0 at mq checking point, nothing is
+                       changed, expected.
+  * change queue to 0:   we should return -INVAL
+    (my first patch checked this in virtnet_set_channels())
+  * change queue to > 1: we should return -INVAL
+    (we already checked 'queue_pairs > vi->max_queue_pairs' in virtnet_set_channels())
 
- * If there are enough virtual functions the IFLA_VF_PORTS information
-   can cause a single interface's info to exceed NLMSG_GOODSIZE
+The * items are lack in current virtnet_send_command(), but can
+already checked it in virtnet_set_channels(), it's enough.
 
- * The number of interfaces necessary to trigger this is reduced
-   substantially if both IPv4 and IPv6 IFLA_AF_SPEC information is
-   present (~972 bytes)
+So we can just apply my first patch [1].
 
- * If the dump function returns -EMSGSIZE on the first message in a
-   packet, netlink_dump() incorrectly assumes the listing is done,
-   omitting information for that interface and any later ones.
+[1] http://www.spinics.net/lists/netdev/msg279631.html
 
- * This can cause getifaddrs(3) to go into an infinite loop
+> Thanks
 
- * 'ip link' is not affected, because it supplies IFLA_EXT_MASK which
-   triggers rtnl_calcit() to recalculate the required packet size to
-   greater than NLMSG_GOODSIZE.
+Thanks.
 
+BTW, -ENOTSUPP isn't an invalid ERROR for virtio-net.
 
-I can see several possible ways to fix this, but they all have
-possible problems.  I'm hoping someone here can determine which, if
-any, are real problems, and therefore what's the right approach to fix
-this.
+/* Defined for the NFSv3 protocol */
+#define ENOTSUPP        524     /* Operation is not supported */
 
-    A) Always calculate the RTM_NEWLINK packet size, rather than
-       assuming NLMSG_GOODSIZE.
-    Problem: The NLMSG_GOODSIZE limit was introduced to stop broken
-             user tools with limited buffers encountering problems
-             (see 115c9b81928360d769a76c632bae62d15206a94a). This
-             approach might mean that such tools break again.
-
-    B) Don't issue the VF port information when RTEXT_FILTER_VF isn't
-       set
-    Problem: Do tools using the port information already set this flag?
-
-    C) Don't include the VF port info when listing interfaces, only
-       when doing GETLINK on a specific interface.
-    Problem: As (B), plus it's ugly.
-
-    D) Detect the case when the first interface in a packet doesn't fit
-       reallocate the packet buffer
-    Problem: As (A), plus more complicated.
-
-As an interim band-aid, here's a patch which adds a WARN_ON() in this
-situation, which will at least make the problem easier to locate for
-the next person to encounter it.
-
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [PATCH] rtnetlink: Warn when interface's information won't fit
-         in our packet
-
-Without IFLA_EXT_MASK specified, the information reported for a single
-interface in response to RTM_GETLINK is expected to fit within a netlink
-packet of NLMSG_GOODSIZE.
-
-If it doesn't, however, things will go badly wrong,  When listing all
-interfaces, netlink_dump() will incorrectly treat -EMSGSIZE on the first
-message in a packet as the end of the listing and omit information for
-that interface and all subsequent ones.  This can cause getifaddrs(3) to
-enter an infinite loop.
-
-This patch won't fix the problem, but it will WARN_ON() making it
-easier to track down what's going wrong.
-
-
-Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
----
- net/core/rtnetlink.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4ff417..5331db2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1198,6 +1198,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb,
-struct netlink_callback *cb) struct hlist_head *head;
- 	struct nlattr *tb[IFLA_MAX+1];
- 	u32 ext_filter_mask =3D 0;
-+	int err;
-=20
- 	s_h =3D cb->args[0];
- 	s_idx =3D cb->args[1];
-@@ -1218,11 +1219,16 @@ static int rtnl_dump_ifinfo(struct sk_buff
-*skb, struct netlink_callback *cb) hlist_for_each_entry_rcu(dev, head,
-index_hlist) { if (idx < s_idx)
- 				goto cont;
--			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
--					     NETLINK_CB
-(cb->skb).portid,
--					     cb->nlh->nlmsg_seq, 0,
--					     NLM_F_MULTI,
--					     ext_filter_mask) <=3D 0)
-+			err =3D rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-+					       NETLINK_CB
-(cb->skb).portid,
-+					       cb->nlh->nlmsg_seq, 0,
-+					       NLM_F_MULTI,
-+					       ext_filter_mask);
-+			/* If we ran out of room on the first message,
-+			 * we're in trouble */
-+			WARN_ON((err =3D=3D -EMSGSIZE) && (skb->len =3D=3D 0));
-+
-+			if (err <=3D 0)
- 				goto out;
-=20
- 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
---=20
-1.9.0
-
-
-
---=20
-David Gibson <dgibson@redhat.com>
-
---Signature=_Tue__22_Apr_2014_14_14_25_+1000_pKu5L=B4irXzXZ=n
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTVeyhAAoJEGw4ysog2bOSKWwQANzlv+soba8ZjxAjea0OASEW
-NDZVq/gEp9TwMg7T34McsiLlpAvlds2kGa408L1fIVeH2hP47yjjg7nfBRN/wD/1
-NOJ5WpXA5FU0zHJQldKZP78NqeTwoElV96T2MP7NYxat8+MduoPfFtebEEpAZgb9
-dHyPa1jiKyADOMQ7aQeEsV/TiClu1q3+H5KihYq2dAGgk1jwzoF4FGz01kfyObx4
-mgNiksnUBkmxqV+fi6tF54KwP2U2+8AMyIQ0kwpXxzP3IdLQqYlzr6MMljhnoTM9
-fQGkwMn/8RM4gOiaYtAcDxpIJl07hNkoD319xVvxjDHz9LoB/oqABLrQdvfhE732
-hTDjI8s0qBIw1NWjOgN7rlucqldO35qqPHo/GQy1q2mJEZ96BqlnyAJMoOFbojUf
-QDWSW4Y88jGTF9j7naamrW0P6sBqau309bV6X2Wl9+mUus271hWtMWzpJcgx5LyD
-UJHH8SbsJnLI+ZvdQsp53+AZQbTxJ8bg2+ueHmj2dXWAeZhAyHBOGDC2moM3XZzg
-gPpt5LgVG98rVQ4z0oZhM3XYSlpBg4R02kodQMSqxt38FIqguekUIJ9HUVrSdjbV
-WGsn2lXyvg8WHP8fxbdOWnUhxbEhmaQZvX8l66CUJh1oiD3ZrHq92/NgaoIqNWwM
-ratgtCZmcxbL/Tb72csR
-=gaM/
------END PGP SIGNATURE-----
-
---Signature=_Tue__22_Apr_2014_14_14_25_+1000_pKu5L=B4irXzXZ=n--
+-- 
+			Amos.
