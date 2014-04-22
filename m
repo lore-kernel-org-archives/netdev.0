@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arc_emac: write initial MAC address from devicetree to
- hw
-Date: Tue, 22 Apr 2014 15:55:35 -0400 (EDT)
-Message-ID: <20140422.155535.567731041058340048.davem@davemloft.net>
-References: <1664530.jeK9vBIgft@typ>
+Subject: Re: [PATCH] virtio_net: zero is an invald queue_pairs number
+Date: Tue, 22 Apr 2014 16:01:55 -0400 (EDT)
+Message-ID: <20140422.160155.2054416620213198046.davem@davemloft.net>
+References: <1397799941-11371-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey.Brodkin@synopsys.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, heiko@sntech.de
-To: max.schwarz@online.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1664530.jeK9vBIgft@typ>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com,
+	virtualization@lists.linux-foundation.org
+To: akong@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1397799941-11371-1-git-send-email-akong@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Max Schwarz <max.schwarz@online.de>
-Date: Fri, 18 Apr 2014 02:17:32 +0200
+From: Amos Kong <akong@redhat.com>
+Date: Fri, 18 Apr 2014 13:45:41 +0800
 
-> The MAC address retrieved from dt was not actually written to the
-> hardware. This meant proper communication was only possible after
-> changing the MAC address.
+> Execute "ethtool -L eth0 combined 0" in guest, if multiqueue
+> is enabled, virtnet_send_command() will return -EINVAL error,
+> there is a validation in QEMU.
 > 
-> Fix that by always writing the mac address during probing.
+> But if multiqueue is disabled, virtnet_set_queues() will just
+> return zero (success). We should return error for this situation.
 > 
-> Signed-off-by: Max Schwarz <max.schwarz@online.de>
+> Signed-off-by: Amos Kong <akong@redhat.com>
 
-Applied, thank you.
+Applied, thanks.
