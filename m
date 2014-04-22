@@ -1,48 +1,62 @@
-From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-Subject: [PATCH] net/phy: micrel: fix bugged test on device tree loading for ksz9021
-Date: Tue, 22 Apr 2014 15:01:04 +0200
-Message-ID: <1398171664-32662-1-git-send-email-hchaumette@adeneo-embedded.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: skb_try_coalesce bug?
+Date: Tue, 22 Apr 2014 06:11:33 -0700
+Message-ID: <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Erik Hugne <erik.hugne@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:48051 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754430AbaDVNLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 09:11:34 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so4859675pdi.2
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 06:11:34 -0700 (PDT)
+In-Reply-To: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In ksz9021_load_values_from_of() val2 to val4 aren't tested against their
-initialization value.
-This causes the test to always succeed, and this value to be used as if it
-was loaded from the devicetree instead of being ignored, in case of a
-missing/invalid property in the ethernet OF device node.
-As a result, the value "0" is written to the relevant registers.
+On Tue, 2014-04-22 at 14:01 +0200, Erik Hugne wrote:
+> It seems that if the head skb of a reassembly chain have enough tailroom
+> to hold the data of a received fragment, skb_try_coalesce() will append this
+> directly to the head, even if preceding fragments have been put on a frag list.
+> This will cause a corrupted buffer to be passed to userland when 
+> skb_copy_datagram_iovec() later copies the contents of head, and then each frag
+> one by one to the target iovec.
+>  
+> Is skb_try_coalesce() broken, or are we using it wrongly in tipc?
 
-Change the conditions to test against the right initialization value.
+I am not sure how it could happen with the current implementation ?
 
-Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
----
- drivers/net/phy/micrel.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+static inline bool skb_is_nonlinear(const struct sk_buff *skb)
+{
+	return skb->data_len;
+}
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index df56b26..8c4b1b2 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -205,13 +205,13 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 	if (val1 != -1)
- 		newval = ((newval & 0xfff0) | ((val1 / PS_TO_REG) & 0xf) << 0);
- 
--	if (val2 != -1)
-+	if (val2 != -2)
- 		newval = ((newval & 0xff0f) | ((val2 / PS_TO_REG) & 0xf) << 4);
- 
--	if (val3 != -1)
-+	if (val3 != -3)
- 		newval = ((newval & 0xf0ff) | ((val3 / PS_TO_REG) & 0xf) << 8);
- 
--	if (val4 != -1)
-+	if (val4 != -4)
- 		newval = ((newval & 0x0fff) | ((val4 / PS_TO_REG) & 0xf) << 12);
- 
- 	return kszphy_extended_write(phydev, reg, newval);
--- 
-1.9.2
+static inline int skb_tailroom(const struct sk_buff *skb)
+{
+	return skb_is_nonlinear(skb) ? 0 : skb->end - skb->tail;
+}
+
+/**
+ * skb_try_coalesce - try to merge skb to prior one
+ * @to: prior buffer
+ * @from: buffer to add
+ * @fragstolen: pointer to boolean
+ * @delta_truesize: how much more was allocated than was requested
+ */
+bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+                      bool *fragstolen, int *delta_truesize)
+{
+        int i, delta, len = from->len;
+
+        *fragstolen = false;
+
+        if (skb_cloned(to))
+                return false;
+
+        if (len <= skb_tailroom(to)) {
+                BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
