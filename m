@@ -1,68 +1,76 @@
-From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v5] core, nfqueue,
- openvswitch: Orphan frags in skb_zerocopy and handle errors
-Date: Tue, 22 Apr 2014 19:02:39 +0100
-Message-ID: <5356AEBF.5010505@citrix.com>
-References: <1395873465-22282-1-git-send-email-zoltan.kiss@citrix.com>	
- <20140327.152956.1528740039185894234.davem@davemloft.net>	
- <20140421112601.GC3200@hercules>
- <1398181118.3624.203.camel@deadeye.wl.decadent.org.uk>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: RFC: rtnetlink problems with Cisco enic and VFs
+Date: Tue, 22 Apr 2014 19:03:19 +0100
+Message-ID: <1398189799.7767.80.camel@deadeye.wl.decadent.org.uk>
+References: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
- therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
- kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
- jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, Luis Henriques
- <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1398181118.3624.203.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-XKkUgCEfnqrbLRXZ+mtn"
+Cc: netdev@vger.kernel.org, Christian Benvenuti <benve@cisco.com>,
+	Sujith Sankar <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
+	Neel Patel <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>
+To: David Gibson <dgibson@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53912 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932335AbaDVSD2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 14:03:28 -0400
+In-Reply-To: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/04/14 16:38, Ben Hutchings wrote:
-> On Mon, 2014-04-21 at 12:26 +0100, Luis Henriques wrote:
->> Hi David,
->>
->> On Thu, Mar 27, 2014 at 03:29:56PM -0400, David Miller wrote:
->>> From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->>> Date: Wed, 26 Mar 2014 22:37:45 +0000
->>>
->>>> skb_zerocopy can copy elements of the frags array between skbs, but it doesn't
->>>> orphan them. Also, it doesn't handle errors, so this patch takes care of that
->>>> as well, and modify the callers accordingly. skb_tx_error() is also added to
->>>> the callers so they will signal the failed delivery towards the creator of the
->>>> skb.
->>>>
->>>> Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
->>>
->>> Fingers crossed :-)  Applied, thanks Zoltan.
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->> Could you please queue this for stable as well?  It has CVE-2014-2568
->> assigned to it and I believe it is applicable to some of the trees.
->
-> It was applied to 3.13, but needs backporting to earlier versions.  I
-> posted my attempt in
-> <1397429860.10849.86.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org> but it needs
-> testing/reviewing.
 
-This one is a different issue, although it is very similar.
+--=-XKkUgCEfnqrbLRXZ+mtn
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Zoli
+On Tue, 2014-04-22 at 14:14 +1000, David Gibson wrote:
+> I believe I've found a problem with netlink handling which can be
+> triggered on Cisco enic devices with a large number (30-40) of virtual
+> functions.  I believe this is the cause of a real customer problem
+> we've seen.
+>=20
+>  * When requesting a list of interfaces with RTM_GETLINK, enic devices
+>    (and currently, _only_ enic devices) report IFLA_VF_PORTS
+>    information=20
+>=20
+>  * IFLA_VF_PORTS information has at least 90 bytes ber virtual function
+>=20
+>  * Unlike IFLA_VFINFO_LIST, the ports information is always reported,
+>    regardless of the setting of the IFLA_EXT_MASK parameter
+[...]
+
+So I think you should make reporting of IFLA_VF_PORTS dependent on the
+same flag as IFLA_VFINFO_LIST.
+
+Ben.
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-XKkUgCEfnqrbLRXZ+mtn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1au5+e/yOyVhhEJAQo+Xw/9FrRh7BnKaOUyEeacnvHgArlvopulSWBu
+ZlW73IUMSYnxyRPwZlL/CK86w/1Ybo/lMedN1P2NVXis+w+LuVYqixCvn5RUzlOc
+Vm3jj1AT90ZJNNc2RdXbUgimF5Pt5j4B25w65N6LOFHrres5dZpIw6oLDuUPxEBu
+Bs0derpfD5QmFBuch256I1kl9GKpqzj1w5q17VTRTpOhGxrOlEv9EmYjwWd3IQWq
+1KPmQhErRpTAlQD0EYSNqmgPXezLZOhCEc+Bq7dy0jJ7xUAfgJwcMEv+M39obVDX
+txJ19u7OKCNVUv9dBL/V8ZM3QVPnYlszc7giDW+an8HaQ/t0fzTR7ZoBM9xoz/UM
+UgZZOEp7os295iU5wYIxFHQfaiJ+FOvg50jrW1iLWIy6b+DRYhW0YSNLCvbATl/u
+IpKRaRAdA2PlujxyrblkR+uv/IbUUgmPKPXHcTZzSS2PFWcggapvoHIjJgZKWTen
+tR4Qf7O0B2e7bkSj3xzAQ+qa9Z0nEQLRGl8hSZwWKfr6VEfGMHkj2NURoMlwi1Ia
+7UZBO9H6q8PBAlMKK9NU9UjqfTbfYJmk+mup5SneG03TYTacDvvPUE8/WOZDB41r
+cm+hBDyDLvvqp68q6YFjSTKYMt8/fIU+BlMumgyLw34MPDUh8J067pegFk26NHYj
+whQ2F1uDUDg=
+=lThU
+-----END PGP SIGNATURE-----
+
+--=-XKkUgCEfnqrbLRXZ+mtn--
