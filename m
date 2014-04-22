@@ -1,94 +1,53 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v7 1/2] can: xilinx CAN controller support
-Date: Tue, 22 Apr 2014 11:08:02 +0000
-Message-ID: <9f70ceca-c6fd-4d57-a54a-8cbf9d888137@CH1EHSMHS016.ehs.local>
-References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
- <53562E7D.7090509@pengutronix.de>
- <957b07ca-f74c-47fb-963a-084710d48c5a@AM1EHSMHS014.ehs.local>
- <535643D9.3070601@pengutronix.de>
+From: David Heidelberger <david.heidelberger@ixit.cz>
+Subject: iputils: maintanace fork
+Date: Tue, 22 Apr 2014 14:07:41 +0200
+Message-ID: <3d2e1f5d3adfab1bae799b8a557e87b8@ixit.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Michal Simek <michals@xilinx.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"wg@grandegger.com" <wg@grandegger.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:54992
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755663AbaDVLII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 07:08:08 -0400
-In-Reply-To: <535643D9.3070601@pengutronix.de>
-Content-Language: en-US
+Received: from 94-84-246-161.wendulka.net ([84.246.161.94]:42417 "EHLO ixit.cz"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755029AbaDVLJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 07:09:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
-ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogVHVlc2RheSwg
-QXByaWwgMjIsIDIwMTQgMzo1NyBQTQ0KPiBUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJh
-bzsgd2dAZ3JhbmRlZ2dlci5jb207IE1pY2hhbCBTaW1lazsNCj4gZ3JhbnQubGlrZWx5QGxpbmFy
-by5vcmc7IHJvYmgrZHRAa2VybmVsLm9yZw0KPiBDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9y
-ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5m
-cmFkZWFkLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGV2aWNldHJlZUB2
-Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2NyAxLzJdIGNhbjogeGlsaW54
-IENBTiBjb250cm9sbGVyIHN1cHBvcnQNCj4NCj4gT24gMDQvMjIvMjAxNCAxMjowNiBQTSwgQXBw
-YW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbyB3cm90ZToNCj4NCj4gPj4gTWVhbndoaWxlIFRob21h
-cyBHbGVpeG5lciBwdXQgc29tZSBlZmZvcnQgaW50byB0aGUgY19jYW4gZHJpdmVyIGFuZA0KPiA+
-PiBmb3VuZCBzb21lIHByb2JsZW1zIGluIG1vc3Qgb2YgdGhlIGNhbiBkcml2ZXIuIFNlZSBjb21t
-ZW50cyBpbmxpbmUuDQo+ID4+DQo+ID4gT2sgd2lsbCBsb29rIGludG8gdGhhdCBwYXRjaGVzDQo+
-DQo+IEkndmUgY29tbWVudGVkIHRoZSByZWxldmFudCBwYXJ0cyBvZiB5b3VyIHBhdGNoLiBBbHRo
-b3VnaCBtb3JlDQo+IGJhY2tncm91bmQgaW5mb3JtYXRpb24gY2FuIGJlIGZvdW5kIGluIHRoZSBj
-X2NhbiBwYXRjaGVzLg0KPg0KT2sNCg0KPiA+Pj4gKy8qKg0KPiA+Pj4gKyAqIHhjYW5fdHhfaW50
-ZXJydXB0IC0gVHggRG9uZSBJc3INCj4gPj4+ICsgKiBAbmRldjogIG5ldF9kZXZpY2UgcG9pbnRl
-cg0KPiA+Pj4gKyAqIEBpc3I6ICAgSW50ZXJydXB0IHN0YXR1cyByZWdpc3RlciB2YWx1ZQ0KPiA+
-Pj4gKyAqLw0KPiA+Pj4gK3N0YXRpYyB2b2lkIHhjYW5fdHhfaW50ZXJydXB0KHN0cnVjdCBuZXRf
-ZGV2aWNlICpuZGV2LCB1MzIgaXNyKSB7DQo+ID4+PiArICAgc3RydWN0IHhjYW5fcHJpdiAqcHJp
-diA9IG5ldGRldl9wcml2KG5kZXYpOw0KPiA+Pj4gKyAgIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRz
-ICpzdGF0cyA9ICZuZGV2LT5zdGF0czsNCj4gPj4+ICsNCj4gPj4+ICsgICB3aGlsZSAocHJpdi0+
-dHhfaGVhZCAtIHByaXYtPnR4X3RhaWwgPiAwKSB7DQo+ID4+PiArICAgICAgICAgICBwcml2LT53
-cml0ZV9yZWcocHJpdiwgWENBTl9JQ1JfT0ZGU0VULA0KPiA+PiBYQ0FOX0lYUl9UWE9LX01BU0sp
-Ow0KPiA+Pj4gKyAgICAgICAgICAgaWYgKCEoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkNCj4g
-Pj4+ICsgICAgICAgICAgICAgICAgICAgYnJlYWs7DQo+ID4+DQo+ID4+IFRoaXMgbG9va3MgYnJv
-a2VuLiBJIGFzc3VtZSB5b3UgaGF2ZSB0byBpc3N1ZSB0aGUNCj4gWENBTl9JWFJfVFhPS19NQVNL
-LQ0KPiA+PiB3cml0ZSBvbmNlIHBlciB0eC1jb21wbGV0ZWQgQ0FOIGZyYW1lLiBJZiB5b3UgZW50
-ZXIgdGhpcyBsb29wIHlvdQ0KPiA+PiB3cml0ZSBvbmNlLCB0aGVuIGlzciBpcyByZWFkLCB0aGVu
-IHlvdSB3cml0ZSBhZ2FpbiBhbmQgbWF5IGV4aXQgdGhpcw0KPiA+PiBsb29wIGlmIFhDQU5fSVhS
-X1RYT0tfTUFTSyBpcyBub3Qgc2V0IGFueW1vcmUuDQo+DQo+IExldCdzIGFzc3VtZSB5b3UgaGF2
-ZSBwdXQgMyBDQU4gZnJhbWVzIGludG8gdGhlIFRYLXF1ZXVlIGFuZCB3ZSdyZSBpbnRvDQo+IHR4
-LWNvbXBsZXRlIGludGVycnVwdCBmb3IgdGhlIGZpcnN0IGZyYW1lIGFuZCB0aGUgb3RoZXIgMiBh
-cmUgc3RpbGwgbm90DQo+IGNvbXBsZXRlZC4NCj4NCj4gVGhpcyBtZWFucyB0aGUgd2hpbGUoKSBs
-b29wIGlzIG5vdCB0ZXJtaW5hdGVkIGJ5IChwcml2LT50eF9oZWFkIC0NCj4gcHJpdi0+dHhfdGFp
-bCA+IDApLCBhcyBpdCBjYW4gbG9vcCAzIHRpbWVzLg0KPg0KPiBXaGF0IGhhcHBlbnMgaXM6DQo+
-DQo+IC0gcHJpdi0+d3JpdGVfcmVnKHByaXYsIFhDQU5fSUNSX09GRlNFVCwgWENBTl9JWFJfVFhP
-S19NQVNLKTsNCj4gLSBpZiAoIShpc3IgJiBYQ0FOX0lYUl9UWE9LX01BU0spKSAtPiBubyBicmVh
-aw0KPiAtIGNhbl9nZXRfZWNob19za2IoKQ0KPiAtIC4uLg0KPiAtIGlzciA9IHByaXYtPnJlYWRf
-cmVnKHByaXYsIFhDQU5fSVNSX09GRlNFVCk7DQo+IC0gbG9vcCAtPg0KPiAtIHByaXYtPndyaXRl
-X3JlZyhwcml2LCBYQ0FOX0lDUl9PRkZTRVQsIFhDQU5fSVhSX1RYT0tfTUFTSyk7DQo+IC0gaWYg
-KCEoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkgLT4gYnJlYWsNCj4NCj4gU28geW91IGhhdmUg
-Mnggd3JpdGVfcmVnKHByaXYsIFhDQU5fSUNSX09GRlNFVCwgWENBTl9JWFJfVFhPS19NQVNLKSwN
-Cj4gYnV0IG9ubHkgYSBzaW5nbGUgVFggY29tcGxldGVkIENBTiBmcmFtZS4NCj4NCg0KT2sgbm93
-IGdvdCBpdCA6KS4gVGhhbmtzIGZvciB0aGUgZXhwbGFuYXRpb24uDQpXaWxsIG1vZGlmeSB0aGUg
-bG9vcCBsb2dpYyBsaWtlIGJlbG93Lg0KDQp3aGlsZSAocHJpdi0+dHhfaGVhZCAtIHByaXYtPnR4
-X3RhaWwgPiAwKSB7DQogICAgICAgICAgICAgICAgIGlmICgoaXNyICYgWENBTl9JWFJfVFhPS19N
-QVNLKSkgew0KICAgICAgICAgICAgICAgIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX0lDUl9P
-RkZTRVQsIFhDQU5fSVhSX1RYT0tfTUFTSyk7DQogICAgICAgICAgICAgICAgICAgICAgICBjYW5f
-Z2V0X2VjaG9fc2tiKG5kZXYsIHByaXYtPnR4X3RhaWwgJQ0KICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgcHJpdi0+dHhfbWF4KTsNCiAgICAgICAgICAgICAg
-ICAgICAgICAgIHByaXYtPnR4X3RhaWwrKzsNCiAgICAgICAgICAgICAgICAgICAgICAgIHN0YXRz
-LT50eF9wYWNrZXRzKys7DQogICAgICAgICAgICAgICAgfSBlbHNlIHsNCiAgICAgICAgICAgICAg
-ICBicmVhazsNCiAgICAgICAgfQ0KICAgICAgICAgICAgICAgIGlzciA9IHByaXYtPnJlYWRfcmVn
-KHByaXYsIFhDQU5fSVNSX09GRlNFVCk7DQogIH0NCkFyZSB5b3Ugb2sgd2l0aCB0aGlzPw0KDQpS
-ZWdhcmRzLA0KS2VkYXIuDQoNCg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJl
-IGludGVuZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQg
-Y29udGFpbihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRh
-cnksIHByaXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlv
-dSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBm
-b3J3YXJkIHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlz
-IGVtYWlsIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4NCg0KCgo=
+Hello,
+
+because latest iputils release (and also last commit in git repo.) 
+happened more than year ago and bugs of iputils differs on every 
+distrubution, because of different number of used patches I decided to 
+work on iputils to get all important patches together.
+
+Project can be found on github [1], build bot on travis-ci [2].
+
+For Yoshfuji Hideaki, first I want to apologize for starting this 
+without notifying you. I though you're not interested anymore, but some 
+people pointed me that you response to emails, only it takes more time. 
+If you're still interested in maintaining iputils, I'm ready to give you 
+full access to github and travis-ci :)
+
+For people with difficulties: report them to github issues, to keep 
+track of them.
+
+For people with patches: please rebase them against lastest work in git 
+repository and submit them as pull request (this ensure automatic build 
+test). Also please try attach some command to test correctness of your 
+changes.
+
+For package maintainers: At moment writing there is RELEASE s20140420 on 
+github, with integrated musl-libc fixes (mostly headers) and most of 
+Debian and Gentoo patches. If you want ensure that quality of code is 
+high enough, read git changelog [3] and travis-ci build history [2] with 
+gcc-4.8 and clang.
+
+Thank you for reading
+David Heidelberger (okias)
+
+[1] https://github.com/iputils/iputils
+[2] https://travis-ci.org/iputils/iputils
+[3] https://github.com/iputils/iputils/commits/master
+[4] http://www.musl-libc.org/
