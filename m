@@ -1,48 +1,47 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH 1/4] dt: bindings: Typo s/clocks-names/clock-names/g
-Date: Tue, 22 Apr 2014 20:40:22 +0200
-Message-ID: <1398192025-31523-1-git-send-email-geert+renesas@glider.be>
-Cc: linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert+renesas@glider.be>,
-	Dinh Nguyen <dinguyen@altera.com>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
-To: Rob Herring <robh+dt@kernel.org>, devicetree@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/3] 6lowpan: add helper to get 6lowpan namespace
+Date: Tue, 22 Apr 2014 20:45:15 +0200
+Message-ID: <1398192315.4211.25.camel@jlt4.sipsolutions.net>
+References: <1397784176-15809-1-git-send-email-mcgrof@do-not-panic.com>
+	 <1397784176-15809-2-git-send-email-mcgrof@do-not-panic.com>
+	 <1398159886.4211.1.camel@jlt4.sipsolutions.net>
+	 <20140422095300.GA9241@omega> <20140422175818.GN27882@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Aring <alex.aring@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	backports@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140422175818.GN27882@wotan.suse.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Cc: Dinh Nguyen <dinguyen@altera.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: netdev@vger.kernel.org
----
- .../devicetree/bindings/net/socfpga-dwmac.txt      |    2 +-
- Documentation/devicetree/bindings/net/stmmac.txt   |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Tue, 2014-04-22 at 19:58 +0200, Luis R. Rodriguez wrote:
 
-diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-index 636f0ac4e223..2a60cd3e8d5d 100644
---- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
-@@ -23,5 +23,5 @@ gmac0: ethernet@ff700000 {
- 	interrupt-names = "macirq";
- 	mac-address = [00 00 00 00 00 00];/* Filled in by U-Boot */
- 	clocks = <&emac_0_clk>;
--	clocks-names = "stmmaceth";
-+	clock-names = "stmmaceth";
- };
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 80c1fb8bfbb8..a2acd2b26baf 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -33,7 +33,7 @@ Optional properties:
- - max-frame-size: See ethernet.txt file in the same directory
- - clocks: If present, the first clock should be the GMAC main clock,
-   further clocks may be specified in derived bindings.
--- clocks-names: One name for each entry in the clocks property, the
-+- clock-names: One name for each entry in the clocks property, the
-   first one should be "stmmaceth".
- 
- Examples:
--- 
-1.7.9.5
+> > > > +#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
+> > > > [...]
+> > > > +#else
+> > > > +static inline struct netns_ieee802154_lowpan *
+> > > > +net_ieee802154_lowpan(struct net *net)
+> > > > +{
+> > > > +	return NULL;
+> > > > +}
+> > > > +#endif
+> > > 
+> > > Why would that be needed? If nobody compiles 802.15.4 then it seems
+> > > nothing should reference it?
+> > > 
+> > Indeed I think this is unnecessary, also.
+> 
+> I wanted to be sure, and I was not. Right now 6lowpan does not depend
+> on CONFIG_NET_NS, is this intentional? I think its fine without it
+> but I was not sure.
+
+I fail to see how !CONFIG_LOWPAN is related CONFIG_NET_NS?
+
+johannes
