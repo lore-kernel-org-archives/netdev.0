@@ -1,25 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sxgbe: Added phy_found error path
-Date: Tue, 22 Apr 2014 16:07:58 -0400 (EDT)
-Message-ID: <20140422.160758.636004651952102485.davem@davemloft.net>
-References: <000701cf5afd$ad1e65f0$075b31d0$%an@samsung.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH 0/2] net: Implement SO_PEERCGROUP and SO_PASSCGROUP socket options
+Date: Tue, 22 Apr 2014 13:08:59 -0700
+Message-ID: <CALCETrWHA5ZmzOHnz9LO+7v4byc8QiynGyjE_ju5sjokNqrjZA@mail.gmail.com>
+References: <1397596546-10153-1-git-send-email-vgoyal@redhat.com> <20140422.160558.627080587952506099.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	ks.giri@samsung.com, vipul.pandya@samsung.com
-To: bh74.an@samsung.com
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <000701cf5afd$ad1e65f0$075b31d0$%an@samsung.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Vivek Goyal <vgoyal@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	cgroups@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	Tejun Heo <tj@kernel.org>, Simo Sorce <ssorce@redhat.com>,
+	lpoetter@redhat.com, kay@redhat.com,
+	Daniel Walsh <dwalsh@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140422.160558.627080587952506099.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Byungho An <bh74.an@samsung.com>
-Date: Fri, 18 Apr 2014 20:59:39 +0900
+On Tue, Apr 22, 2014 at 1:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Vivek Goyal <vgoyal@redhat.com>
+> Date: Tue, 15 Apr 2014 17:15:44 -0400
+>
+>> This is another version of patchset to add support passing cgroup
+>> information of client over unix socket API.
+>
+> I'm marking this patch series as "changes requested" in patchwork
+> because if we still end up adding this feature SO_PASSCGROUP needs to
+> be changed to behave like SO_PASSCRED.
+>
+> Specifically, like SO_PASSCRED, it should pass the "real" cgroup, ie.
+> the cgroup at socket open() time.
+>
 
-> This patch adds phy_found error path when there is no phy device 
-> and changes bus_name.
-> 
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
+I suspect that making this change will render it useless,
+unfortunately.  I really want to understand the use case.
 
-Applied, thanks.
+--Andy
