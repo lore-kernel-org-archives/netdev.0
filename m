@@ -1,53 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/16] i40e: Fix an issue with displaying IPv4 FD filters
-Date: Tue, 22 Apr 2014 05:39:22 -0700
-Message-ID: <1398170371-3333-8-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [patch net-next] vlan: Don't allow vlan devices to change network namespaces.
+Date: Tue, 22 Apr 2014 20:43:06 +0800
+Message-ID: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <kaber@trash.net>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:27100 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932232AbaDVMji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:38 -0400
-In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:33774 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152AbaDVMnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 08:43:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Weilong Chen <chenweilong@huawei.com>
 
-The flow spec coming in for IPv4 filters is IP_USER_FLOW, which
-needed some more info to be communicated up above in order for it
-to be displayed correctly.
+Like bonding, vlan as netdevice doesn't cross netns boundaries.
 
-Change-ID: Ia968238e0d7c4c4df12908ba81f0c4501280f3ec
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Vlan port and vlan itself live in same netns.
+
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/8021q/vlan_dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 03d99cb..d9a41d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1189,6 +1189,12 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
- 		return -EINVAL;
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 733ec28..2ef4a54 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -685,6 +685,9 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
+ 	features |= old_features & NETIF_F_SOFT_FEATURES;
+ 	features |= NETIF_F_LLTX;
  
- 	fsp->flow_type = rule->flow_type;
-+	if (fsp->flow_type == IP_USER_FLOW) {
-+		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
-+		fsp->h_u.usr_ip4_spec.proto = 0;
-+		fsp->m_u.usr_ip4_spec.proto = 0;
-+	}
++	/* Don't allow vlan devices to change network namespaces. */
++	features |= NETIF_F_NETNS_LOCAL;
 +
- 	fsp->h_u.tcp_ip4_spec.psrc = rule->src_port;
- 	fsp->h_u.tcp_ip4_spec.pdst = rule->dst_port;
- 	fsp->h_u.tcp_ip4_spec.ip4src = rule->src_ip[0];
+ 	return features;
+ }
+ 
 -- 
-1.9.0
+1.7.12
