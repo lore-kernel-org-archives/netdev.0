@@ -1,60 +1,75 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: Drivers: net: Hyperv
-Date: Tue, 22 Apr 2014 19:07:16 +0000
-Message-ID: <41548ebb1a774750a56899282d8e9363@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <1398190933-8990-1-git-send-email-kys@microsoft.com>
- <1398190896.7767.91.camel@deadeye.wl.decadent.org.uk>
+From: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Subject: Re: [PATCH 1/3] 6lowpan: add helper to get
+	6lowpan namespace
+Date: Tue, 22 Apr 2014 12:09:09 -0700
+Message-ID: <CAB=NE6UW23sjr0kNMtDLashm-=N6+Pekiw58rSdt5UcJXhG=5w@mail.gmail.com>
+References: <1397784176-15809-1-git-send-email-mcgrof@do-not-panic.com>
+	<1397784176-15809-2-git-send-email-mcgrof@do-not-panic.com>
+	<1398159886.4211.1.camel@jlt4.sipsolutions.net>
+	<20140422095300.GA9241@omega>
+	<20140422175818.GN27882@wotan.suse.de>
+	<1398192315.4211.25.camel@jlt4.sipsolutions.net>
+	<20140422184908.GA16477@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0182.outbound.protection.outlook.com ([207.46.163.182]:25524
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750888AbaDVTHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 15:07:19 -0400
-In-Reply-To: <1398190896.7767.91.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20140422184908.GA16477@omega>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFR1ZXNkYXksIEFwcmlsIDIyLCAy
-MDE0IDExOjIyIEFNDQo+IFRvOiBLWSBTcmluaXZhc2FuDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQu
-bmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBvbGFmQGFlcGZsZS5kZTsNCj4gamFzb3dhbmdA
-cmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogRHJpdmVyczogbmV0OiBIeXBlcnYNCj4gDQo+IE9u
-IFR1ZSwgMjAxNC0wNC0yMiBhdCAxMToyMiAtMDcwMCwgSy4gWS4gU3Jpbml2YXNhbiB3cm90ZToN
-Cj4gPiBJIGFtIHRyeWluZyB0byBwb3J0IHRoZSB2YXJpb3VzIG9mZmxvYWRzIChjaGVja3N1bSwg
-VFNPIGV0Yy4pIHRoYXQgSQ0KPiA+IHJlY2VudGx5IGltcGxlbWVudGVkIGZvciB0aGUgSHlwZXIt
-ViBuZXR3b3JrIGRyaXZlciB0byBhIDIuNi4zMiBrZXJuZWwNCj4gPiBhbmQgd2hpbGUgdGhpcyBj
-b2RlIHdvcmtzIG9uIHRoZSB1cHN0cmVhbSBiaXRzLCBUQ1AgY2hlY2tzdW0gb2ZmbG9hZA0KPiA+
-IGRvZXMgbm90IHNlZW0gdG8gd29yayBvbiB0aGUgMi42LjMyIGtlcm5lbC4gV291bGQgeW91IGtu
-b3cgaWYgdGhlcmUgaXMNCj4gPiBhIGRpZmZlcmVudCB3YXkgdG8gdHVybiBvbiBjaGVja3N1bSBv
-ZmZsb2FkIG9uIDIuNi4zMiBrZXJuZWxzPyAgSSBhbSBzZXR0aW5nDQo+IHRoZSByZWxldmFudCBm
-ZWF0dXJlIGZsYWdzOg0KPiA+DQo+ID4NCj4gPiAgICAgICAgIG5ldC0+ZmVhdHVyZXMgPSAgTkVU
-SUZfRl9TRyB8IE5FVElGX0ZfUlhDU1VNIHwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICBO
-RVRJRl9GX0lQX0NTVU0gfCBORVRJRl9GX1RTTzsNCj4gDQo+IFRoZXJlIGlzIG5vIE5FVElGX0Zf
-UlhDU1VNIGluIDIuNi4zMiwgYnV0IG90aGVyd2lzZSB0aGlzIHNob3VsZCB3b3JrLg0KPiANCj4g
-SSBub3RpY2UgdGhhdCBORVRJRl9GX0hJR0hETUEgaXMgbm90IHRoZXJlLCBhbmQgaXQgc2VlbXMg
-bGlrZSB5b3UgY291bGQgYWRkDQo+IGl0IGFzIG5ldHZzY19zdGFydF94bWl0KCkgZG9lc24ndCBh
-c3N1bWUgcGFnZSBmcmFnbWVudHMgYXJlIGluIGxvd21lbS4NCg0KQmVuLA0KDQpUaGFuayB5b3Ug
-Zm9yIHRoZSBwcm9tcHQgcmVzcG9uc2UuIEkgYWRkZWQgdGhlIEhJR0hETUEgZmVhdHVyZSANCmFu
-ZCB5ZXQgSSBzZWUgdGhlIHNhbWUgYmVoYXZpb3IuDQoNCj4gDQo+ID4gV2hhdCBJIGFtIG9ic2Vy
-dmluZyBpcyB0aGF0IHdoZW4gdGhlIHNrYiBpcyBwcmVzZW50ZWQgdG8gdGhlIGRyaXZlcg0KPiA+
-IGZvciB0cmFuc21pc3Npb24sIFRoZSBpcF9zdW1tZWQgZmllbGQgaW4gdGhlIHNrYiBpcyBzZXQg
-dG8gMC4NCj4gDQo+IE1heWJlIHlvdSB0ZXN0ZWQgb24gYSAzMi1iaXQgc3lzdGVtIGFuZCB0aGUg
-cGFja2V0IGhhZCB0byBiZSBjb3BpZWQgdG8NCj4gbG93bWVtPyAgVGhlIGFsbG9jYXRpb24gYmVo
-YXZpb3VyIG1heSBoYXZlIGNoYW5nZWQgc2luY2UgMi42LjMyLg0KDQpJIGFtIHRlc3Rpbmcgb24g
-YSA2NCBiaXQgVk0uDQoNCj4gDQo+ID4gT24gdGhlIGtlcm5lbCB0aXAsIEkgc2VlIHRoaXMgdmFs
-dWUgc2V0IHRvIENIRUNLU1VNX1BBUlRJQUwgYW5kIHRoZQ0KPiA+IG9mZmxvYWRzIHdvcmsgY29y
-cmVjdGx5IG9uIHRoZSBrZXJuZWwgdGlwLiBUaGUgb3RoZXIgZGlmZmVyZW5jZSBJIHNlZQ0KPiA+
-IGlzIHRoYXQgb24gZW50cnkgaW50byB0aGUgZHJpdmVyLCB0aGUgZXRoX2hkciBzdGF0ZSBpcyBu
-b3QgY29ycmVjdGx5IHNldCBpbiB0aGUNCj4gc2tiLg0KPiA+IEkgbmVlZCB0byBpbnZva2Ugc2ti
-X3Jlc2V0X21hY19oZWFkZXIoKSB0byBnZXQgdGhpcyBzdGF0ZSBjb3JyZWN0bHkgc2V0Lg0KPiA+
-IEFueSBoZWxwIHdvdWxkIGJlIGdyZWF0bHkgYXBwcmVjaWF0ZWQuDQo+IA0KPiBJIGRvbid0IHJl
-Y2FsbCB0aGF0IHByb2JsZW0uDQoNClJlZ2FyZHMsDQoNCksuIFkNCg==
+On Tue, Apr 22, 2014 at 11:49 AM, Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On Tue, Apr 22, 2014 at 08:45:15PM +0200, Johannes Berg wrote:
+>> On Tue, 2014-04-22 at 19:58 +0200, Luis R. Rodriguez wrote:
+>>
+>> > > > > +#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
+>> > > > > [...]
+>> > > > > +#else
+>> > > > > +static inline struct netns_ieee802154_lowpan *
+>> > > > > +net_ieee802154_lowpan(struct net *net)
+>> > > > > +{
+>> > > > > +     return NULL;
+>> > > > > +}
+>> > > > > +#endif
+>> > > >
+>> > > > Why would that be needed? If nobody compiles 802.15.4 then it seems
+>> > > > nothing should reference it?
+>> > > >
+>> > > Indeed I think this is unnecessary, also.
+>> >
+>> > I wanted to be sure, and I was not. Right now 6lowpan does not depend
+>> > on CONFIG_NET_NS, is this intentional? I think its fine without it
+>> > but I was not sure.
+>>
+>> I fail to see how !CONFIG_LOWPAN is related CONFIG_NET_NS?
+>>
+>
+> mhh, IEEE802154_6LOWPAN depends on IPV6 and I think IPV6 is related to
+> CONFIG_NET_NS.
+
+Just test compiled IEEE802154_6LOWPAN without NET_NS and then also
+disabled IPV6 and it compiles, IEEE802154_6LOWPAN already depends on
+IPV6.
+
+  Luis
+
+------------------------------------------------------------------------------
+Start Your Social Network Today - Download eXo Platform
+Build your Enterprise Intranet with eXo Platform Software
+Java Based Open Source Intranet - Social, Extensible, Cloud Ready
+Get Started Now And Turn Your Intranet Into A Collaboration Platform
+http://p.sf.net/sfu/ExoPlatform
