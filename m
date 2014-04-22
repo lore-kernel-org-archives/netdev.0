@@ -1,66 +1,106 @@
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Subject: Re: Porting ethernet over spi driver
-Date: Tue, 22 Apr 2014 12:02:36 +0200
-Message-ID: <53563E3C.3030108@i2se.com>
-References: <5350ED9E.6080103@lategoodbye.de> <1398133328.3624.186.camel@deadeye.wl.decadent.org.uk>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v7 1/2] can: xilinx CAN controller support
+Date: Tue, 22 Apr 2014 10:06:14 +0000
+Message-ID: <bbe8aafc-8fce-4065-91b3-c051ad5c150f@CH1EHSMHS043.ehs.local>
+References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
+ <53424C32.7090000@monstr.eu>
+ <707ea084-ed82-407b-8967-1e82a994b784@AM1EHSMHS003.ehs.local>
+ <53562F36.6020005@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Wahren <info@lategoodbye.de>, netdev@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"monstr@monstr.eu" <monstr@monstr.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.187]:62426 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468AbaDVKCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 06:02:39 -0400
-In-Reply-To: <1398133328.3624.186.camel@deadeye.wl.decadent.org.uk>
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:42539
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755722AbaDVKGZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 06:06:25 -0400
+In-Reply-To: <53562F36.6020005@pengutronix.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 22.04.2014 04:22, schrieb Ben Hutchings:
-> On Fri, 2014-04-18 at 11:17 +0200, Stefan Wahren wrote:
->> Hi,
->>
->> i'm trying to port a ethernet over spi driver to current mainline, which 
->> originally based on kernel 2.6.
->>
->> Now i'm searching for some guidelines, checklists, common pitfalls or 
->> just hints about that.
->>
->> Is there something about that, which is up to date?
-> I don't think there is.
->
->> Is there a list or something of legacy function, which shouldn't be used 
->> anymore?
-> No but the compiler should tell you about functions that were removed!
->
->> Are there any new must have features?
-> You don't say which 2.6.y version you started with, but API changes I
-> can think of that come up when backporting are:
-
-Sorry for being so imprecise, it is 2.6.35.
-
-> - 2.6.24: NAPI now involves a napi_struct rather than fields in
-> net_device
-> - 2.6.29: net device operation pointers moved into struct net_device_ops
-> - 2.6.29: GRO added (can be useful if you have RX checksum offload)
-> - 2.6.36: ndo_get_stats64 added as alternative to ndo_get_stats
-> - 2.6.37: vlan_hwaccel_* functions removed; the driver must attach the
-> tag and call the regular receive function
-> - 2.6.39: ethtool feature setting replaced by net device operations
-> ndo_fix_features & ndo_set_features
-> - 3.2: ndo_set_multicast_list and ndo_set_rx_mode operations merged
-> - 3.10: VLAN functions and feature flags changed to allow for both
-> 802.1q and 802.1ad tags
-
-Thank you for this list.
-
-> Most of the interesting new features are related to multiqueue and
-> protocol offloads that I wouldn't expect to exist in an SPI-attached
-> Ethernet controller.  
-
-You are right.
-
-Btw, is simple power management (suspend, resume) a must-have feature?
-
-BR Stefan Wahren
+SGkgTWFyYywNCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE1hcmMg
+S2xlaW5lLUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiBTZW50OiBUdWVzZGF5
+LCBBcHJpbCAyMiwgMjAxNCAyOjI5IFBNDQo+IFRvOiBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEg
+UmFvOyBtb25zdHJAbW9uc3RyLmV1DQo+IENjOiB3Z0BncmFuZGVnZ2VyLmNvbTsgTWljaGFsIFNp
+bWVrOyBncmFudC5saWtlbHlAbGluYXJvLm9yZzsNCj4gcm9iaCtkdEBrZXJuZWwub3JnOyBsaW51
+eC1jYW5Admdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiBsaW51eC1h
+cm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmc7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5v
+cmc7DQo+IGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0gg
+djcgMS8yXSBjYW46IHhpbGlueCBDQU4gY29udHJvbGxlciBzdXBwb3J0DQo+DQo+IE9uIDA0LzIy
+LzIwMTQgMDk6NTYgQU0sIEFwcGFuYSBEdXJnYSBLZWRhcmVzd2FyYSBSYW8gd3JvdGU6DQo+ID4g
+SGkgTWFyYywNCj4gPg0KPiA+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9t
+OiBNaWNoYWwgU2ltZWsgW21haWx0bzptb25zdHJAbW9uc3RyLmV1XQ0KPiA+PiBTZW50OiBNb25k
+YXksIEFwcmlsIDA3LCAyMDE0IDEyOjI3IFBNDQo+ID4+IFRvOiBBcHBhbmEgRHVyZ2EgS2VkYXJl
+c3dhcmEgUmFvDQo+ID4+IENjOiB3Z0BncmFuZGVnZ2VyLmNvbTsgbWtsQHBlbmd1dHJvbml4LmRl
+OyBNaWNoYWwgU2ltZWs7DQo+ID4+IGdyYW50Lmxpa2VseUBsaW5hcm8ub3JnOyByb2JoK2R0QGtl
+cm5lbC5vcmc7DQo+ID4+IGxpbnV4LWNhbkB2Z2VyLmtlcm5lbC5vcmc7IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmc7DQo+ID4+IGxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZzsgbGlu
+dXgtIGtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4+IGRldmljZXRyZWVAdmdlci5rZXJuZWwu
+b3JnOyBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEgUmFvDQo+ID4+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0ggdjcgMS8yXSBjYW46IHhpbGlueCBDQU4gY29udHJvbGxlciBzdXBwb3J0DQo+ID4+DQo+ID4+
+IE9uIDA0LzAyLzIwMTQgMDM6MTMgUE0sIEtlZGFyZXN3YXJhIHJhbyBBcHBhbmEgd3JvdGU6DQo+
+ID4+PiBUaGlzIHBhdGNoIGFkZHMgeGlsaW54IENBTiBjb250cm9sbGVyIHN1cHBvcnQuDQo+ID4+
+PiBUaGlzIGRyaXZlciBzdXBwb3J0cyBib3RoIFpZTlEgQ0FOUFMgYW5kIFNvZnQgSVAgQVhJIENB
+TiBjb250cm9sbGVyLg0KPiA+Pj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IEtlZGFyZXN3YXJhIHJh
+byBBcHBhbmEgPGFwcGFuYWRAeGlsaW54LmNvbT4NCj4gPj4+IC0tLQ0KPiA+Pj4gQ2hhbmdlcyBm
+b3Igdjc6DQo+ID4+PiAtIFVwZGF0ZWQgdGhlIGRyaXZlciB3aXRoIHJldmlldyBjb21tZW50cy4N
+Cj4gPj4+IC0gTW92ZWQgdGhlIGRyaXZlciBiaW5kaW5ncyBkb2MgYXMgYSBzZXBhcnRlIHBhdGNo
+Lg0KPiA+Pj4gQ2hhbmdlcyBmb3IgdjY6DQo+ID4+PiAtIFVwZGF0ZWQgdGhlIGRyaXZlciB3aXRo
+IHJldmlldyBjb21tZW50cy4NCj4gPj4+IC0gVXNlZCB0aGUgY2xvY2sgbmFtZXMgc3BlY2lmaWVk
+IGluIHRoZSBkYXRhIHNoZWV0Lg0KPiA+Pj4gLSBVcGRhdGVkIHRoZSBkZXZpY2V0cmVlIGJpbmRp
+bmdzIGRvYyBhcyBwZXIgUm9iIHN1Z2dlc3Rpb24uDQo+ID4+PiBDaGFuZ2VzIGZvciB2NToNCj4g
+Pj4+IC0gVXBkYXRlZCB0aGUgZHJpdmVyIHdpdGggdGhlIHJldmlldyBjb21tZW50cy4NCj4gPj4+
+IC0gUmVtb3ZlIHRoZSBjaGVjayBmb3IgdGhlIHR4IGZpZm8gZnVsbCBpbnRlcnJ1cHQgY29uZGl0
+aW9uDQo+ID4+PiAgIGZvcm0gVHggaW50ZXJydXB0IHJvdXRpbmUgYXMgd2UgYXJlIGNoZWNraW5n
+IGl0IGluIHRoZSBfeG1pdA0KPiA+Pj4gICByb3V0aW5lLg0KPiA+Pj4gLSBDbGVhcmluZyB0aGUg
+dHhvayBpbnRlcnJ1cHQgaW4gdGhlIHR4IGludGVycnVwdCByb3V0aW5lIGZvcg0KPiA+Pj4gICBl
+dmVyeSBUeCBjYW4gZnJhbWUuDQo+ID4+PiBDaGFuZ2VzIGZvciB2NDoNCj4gPj4+IC0gQWRkZWQg
+Y2hlY2sgZm9yIHRoZSB0eCBmaWZvIGZ1bGwgaW50ZXJydXB0IGNvbmRpdGlvbiBpbiBUeA0KPiA+
+Pj4gaW50ZXJydXB0IHJvdXRpbmUuDQo+ID4+PiAtIEFkZGVkIGJlIGlvaGVscGVyIGZ1bmN0aW9u
+cy4NCj4gPj4+IC0gTW92ZWQgdGhlIGNsb2NrIGVuYWJsZS9kaXNhYmxlIHRvIHByb2JlL3JlbW92
+ZSBiZWNhdXNlIG9mDQo+ID4+PiAgIEFkZGVkIGJpZyBlbmRpYW4gc3VwcG9ydCBmb3IgQVhJIENB
+TiBjb250cm9sbGVyIGNhc2UocmVhZGluZw0KPiA+Pj4gICBhIHJlZ2lzdGVyIGR1cmluZyBwcm9i
+ZSBmb3IgdGhhdCB3ZSBuZWVkIHRvIGVuYWJsZSBjbG9jaykuDQo+ID4+PiBDaGFuZ2VzIGZvciB2
+MzoNCj4gPj4+IC0gVXBkYXRlZCB0aGUgZHJpdmVyIHdpdGggdGhlIHJldmlldyBjb21tZW50cy4N
+Cj4gPj4+IC0gTW9kaWZpZWQgdGhlIHRyYW5taXQgbG9naWMgYXMgcGVyIE1hcmMgc3VnZ2VzdGlv
+bi4NCj4gPj4+IC0gRW5hYmxpbmcgdGhlIGNsb2NrIHdoZW4gdGhlIGludGVyZmFjZSBpcyB1cCB0
+byByZWR1Y2UgdGhlDQo+ID4+PiAgIFBvd2VyIGNvbnN1bXB0aW9uLg0KPiA+Pj4gQ2hhbmdlcyBm
+b3IgdjI6DQo+ID4+PiAtIFVwZGF0ZWQgd2l0aCB0aGUgcmV2aWV3IGNvbW1lbnRzLg0KPiA+Pj4g
+LSBSZW1vdmVkIHRoZSB1bm5lY2Vzc2FyeSBkZWJ1ZyBwcmludHMuDQo+ID4+PiAtIGluY2x1ZGUg
+dHgscnggZmlmbyBkZXB0aHMgaW4gWllOUSBDQU5QUyBjYXNlIGFsc28NCj4gPj4+IC0tLQ0KPiA+
+Pj4gIGRyaXZlcnMvbmV0L2Nhbi9LY29uZmlnICAgICAgfCAgICA3ICsNCj4gPj4+ICBkcml2ZXJz
+L25ldC9jYW4vTWFrZWZpbGUgICAgIHwgICAgMSArDQo+ID4+PiAgZHJpdmVycy9uZXQvY2FuL3hp
+bGlueF9jYW4uYyB8IDExNzYNCj4gPj4+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKw0KPiA+Pj4gIDMgZmlsZXMgY2hhbmdlZCwgMTE4NCBpbnNlcnRpb25zKCspLCAw
+IGRlbGV0aW9ucygtKSAgY3JlYXRlIG1vZGUNCj4gPj4+IDEwMDY0NCBkcml2ZXJzL25ldC9jYW4v
+eGlsaW54X2Nhbi5jDQo+ID4+DQo+ID4+IE1hcms6IEFueSB1cGRhdGUgb24gdGhpcyBvbmU/DQo+
+ID4+IEJUVzogV2hlbiB5b3UgYXBwbHkgdGhlc2UgcGF0Y2hlcyB5b3Ugc2hvdWxkIGFwcGx5IDIv
+MiBiZWZvcmUgMS8yLg0KPiA+PiBUaGVyZSBpcyBuZXcgY2hlY2tpbmcgZm9yIGJpbmRpbmcuDQo+
+ID4+DQo+ID4NCj4gPiBQaW5nPw0KPg0KPiBEb25lLCB3aGVuIHlvdSByZXBvc3QsIGNhbiB5b3Ug
+Y2hhbmdlIHRoZSBvcmRlciBvZiB0aGUgcGF0Y2hlcywgc28gdGhhdCB0aGUNCj4gYmluZGluZyBj
+b21lcyBmaXJzdC4NCj4NCk9rIFN1cmUuDQoNClJlZ2FyZHMsDQpLZWRhci4NCg0KPiBNYXJjDQo+
+DQo+IC0tDQo+IFBlbmd1dHJvbml4IGUuSy4gICAgICAgICAgICAgICAgICB8IE1hcmMgS2xlaW5l
+LUJ1ZGRlICAgICAgICAgICB8DQo+IEluZHVzdHJpYWwgTGludXggU29sdXRpb25zICAgICAgICB8
+IFBob25lOiArNDktMjMxLTI4MjYtOTI0ICAgICB8DQo+IFZlcnRyZXR1bmcgV2VzdC9Eb3J0bXVu
+ZCAgICAgICAgICB8IEZheDogICArNDktNTEyMS0yMDY5MTctNTU1NSB8DQo+IEFtdHNnZXJpY2h0
+IEhpbGRlc2hlaW0sIEhSQSAyNjg2ICB8IGh0dHA6Ly93d3cucGVuZ3V0cm9uaXguZGUgICB8DQoN
+Cg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUg
+c29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRl
+bnRpYWwgaW5mb3JtYXRpb24gdGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3Ig
+Y29weXJpZ2h0ZWQgdW5kZXIgYXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRl
+bmRlZCByZWNpcGllbnQsIGRvIG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwg
+bWVzc2FnZSBvciBhbnkgYXR0YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5k
+IGFueSBhdHRhY2htZW50cyBpbW1lZGlhdGVseS4NCg0KCgo=
