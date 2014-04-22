@@ -1,218 +1,113 @@
-From: Alexey Charkov <alchark@gmail.com>
-Subject: [PATCH 1/3] net: via-rhine: switch to generic DMA functions
-Date: Tue, 22 Apr 2014 19:28:07 +0400
-Message-ID: <1398180489-20230-2-git-send-email-alchark@gmail.com>
-References: <1390823503-24087-1-git-send-email-alchark@gmail.com>
- <1398180489-20230-1-git-send-email-alchark@gmail.com>
-Cc: Alexey Charkov <alchark@gmail.com>
-To: rl@hellgate.ch, netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux@prisktech.co.nz,
-	robh+dt@kernel.org, davem@davemloft.net, ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:36527 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756743AbaDVP2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:28:43 -0400
-In-Reply-To: <1398180489-20230-1-git-send-email-alchark@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH v5] core, nfqueue,
+ openvswitch: Orphan frags in skb_zerocopy and handle errors
+Date: Tue, 22 Apr 2014 16:38:38 +0100
+Message-ID: <1398181118.3624.203.camel@deadeye.wl.decadent.org.uk>
+References: <1395873465-22282-1-git-send-email-zoltan.kiss@citrix.com>
+ <20140327.152956.1528740039185894234.davem@davemloft.net>
+ <20140421112601.GC3200@hercules>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0802286689288613083=="
+Cc: netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org, kvm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, JBeulich-IBi9RG/b67k@public.gmane.org,
+ therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org,
+ kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+ jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, Paul.Durrant-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Luis Henriques <luis.henriques-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140421112601.GC3200@hercules>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Remove legacy PCI DMA wrappers and instead use generic DMA functions
-directly in preparation for OF bus binding
 
-Signed-off-by: Alexey Charkov <alchark@gmail.com>
----
- drivers/net/ethernet/via/via-rhine.c | 84 ++++++++++++++++++------------------
- 1 file changed, 43 insertions(+), 41 deletions(-)
+--===============0802286689288613083==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-yXhVSZ4fAkZKhh5lQ3eq"
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index f61dc2b..0674d0f 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -919,10 +919,10 @@ static int rhine_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out;
- 
- 	/* this should always be supported */
--	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-+	rc = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
- 	if (rc) {
- 		dev_err(&pdev->dev,
--			"32-bit PCI DMA addresses not supported by the card!?\n");
-+			"32-bit DMA addresses not supported by the card!?\n");
- 		goto err_out_pci_disable;
- 	}
- 
-@@ -1096,23 +1096,25 @@ static int alloc_ring(struct net_device* dev)
- 	void *ring;
- 	dma_addr_t ring_dma;
- 
--	ring = pci_alloc_consistent(rp->pdev,
--				    RX_RING_SIZE * sizeof(struct rx_desc) +
--				    TX_RING_SIZE * sizeof(struct tx_desc),
--				    &ring_dma);
-+	ring = dma_alloc_coherent(&rp->pdev->dev,
-+				  RX_RING_SIZE * sizeof(struct rx_desc) +
-+				  TX_RING_SIZE * sizeof(struct tx_desc),
-+				  &ring_dma,
-+				  GFP_ATOMIC);
- 	if (!ring) {
- 		netdev_err(dev, "Could not allocate DMA memory\n");
- 		return -ENOMEM;
- 	}
- 	if (rp->quirks & rqRhineI) {
--		rp->tx_bufs = pci_alloc_consistent(rp->pdev,
--						   PKT_BUF_SZ * TX_RING_SIZE,
--						   &rp->tx_bufs_dma);
-+		rp->tx_bufs = dma_alloc_coherent(&rp->pdev->dev,
-+						 PKT_BUF_SZ * TX_RING_SIZE,
-+						 &rp->tx_bufs_dma,
-+						 GFP_ATOMIC);
- 		if (rp->tx_bufs == NULL) {
--			pci_free_consistent(rp->pdev,
--				    RX_RING_SIZE * sizeof(struct rx_desc) +
--				    TX_RING_SIZE * sizeof(struct tx_desc),
--				    ring, ring_dma);
-+			dma_free_coherent(&rp->pdev->dev,
-+					  RX_RING_SIZE * sizeof(struct rx_desc) +
-+					  TX_RING_SIZE * sizeof(struct tx_desc),
-+					  ring, ring_dma);
- 			return -ENOMEM;
- 		}
- 	}
-@@ -1129,15 +1131,15 @@ static void free_ring(struct net_device* dev)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
- 
--	pci_free_consistent(rp->pdev,
--			    RX_RING_SIZE * sizeof(struct rx_desc) +
--			    TX_RING_SIZE * sizeof(struct tx_desc),
--			    rp->rx_ring, rp->rx_ring_dma);
-+	dma_free_coherent(&rp->pdev->dev,
-+			  RX_RING_SIZE * sizeof(struct rx_desc) +
-+			  TX_RING_SIZE * sizeof(struct tx_desc),
-+			  rp->rx_ring, rp->rx_ring_dma);
- 	rp->tx_ring = NULL;
- 
- 	if (rp->tx_bufs)
--		pci_free_consistent(rp->pdev, PKT_BUF_SZ * TX_RING_SIZE,
--				    rp->tx_bufs, rp->tx_bufs_dma);
-+		dma_free_coherent(&rp->pdev->dev, PKT_BUF_SZ * TX_RING_SIZE,
-+				  rp->tx_bufs, rp->tx_bufs_dma);
- 
- 	rp->tx_bufs = NULL;
- 
-@@ -1174,8 +1176,8 @@ static void alloc_rbufs(struct net_device *dev)
- 			break;
- 
- 		rp->rx_skbuff_dma[i] =
--			pci_map_single(rp->pdev, skb->data, rp->rx_buf_sz,
--				       PCI_DMA_FROMDEVICE);
-+			dma_map_single(&rp->pdev->dev, skb->data, rp->rx_buf_sz,
-+				       DMA_FROM_DEVICE);
- 		if (dma_mapping_error(&rp->pdev->dev, rp->rx_skbuff_dma[i])) {
- 			rp->rx_skbuff_dma[i] = 0;
- 			dev_kfree_skb(skb);
-@@ -1197,9 +1199,9 @@ static void free_rbufs(struct net_device* dev)
- 		rp->rx_ring[i].rx_status = 0;
- 		rp->rx_ring[i].addr = cpu_to_le32(0xBADF00D0); /* An invalid address. */
- 		if (rp->rx_skbuff[i]) {
--			pci_unmap_single(rp->pdev,
-+			dma_unmap_single(&rp->pdev->dev,
- 					 rp->rx_skbuff_dma[i],
--					 rp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+					 rp->rx_buf_sz, DMA_FROM_DEVICE);
- 			dev_kfree_skb(rp->rx_skbuff[i]);
- 		}
- 		rp->rx_skbuff[i] = NULL;
-@@ -1238,10 +1240,10 @@ static void free_tbufs(struct net_device* dev)
- 		rp->tx_ring[i].addr = cpu_to_le32(0xBADF00D0); /* An invalid address. */
- 		if (rp->tx_skbuff[i]) {
- 			if (rp->tx_skbuff_dma[i]) {
--				pci_unmap_single(rp->pdev,
-+				dma_unmap_single(&rp->pdev->dev,
- 						 rp->tx_skbuff_dma[i],
- 						 rp->tx_skbuff[i]->len,
--						 PCI_DMA_TODEVICE);
-+						 DMA_TO_DEVICE);
- 			}
- 			dev_kfree_skb(rp->tx_skbuff[i]);
- 		}
-@@ -1695,8 +1697,8 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 						       rp->tx_bufs));
- 	} else {
- 		rp->tx_skbuff_dma[entry] =
--			pci_map_single(rp->pdev, skb->data, skb->len,
--				       PCI_DMA_TODEVICE);
-+			dma_map_single(&rp->pdev->dev, skb->data, skb->len,
-+				       DMA_TO_DEVICE);
- 		if (dma_mapping_error(&rp->pdev->dev, rp->tx_skbuff_dma[entry])) {
- 			dev_kfree_skb_any(skb);
- 			rp->tx_skbuff_dma[entry] = 0;
-@@ -1831,10 +1833,10 @@ static void rhine_tx(struct net_device *dev)
- 		}
- 		/* Free the original skb. */
- 		if (rp->tx_skbuff_dma[entry]) {
--			pci_unmap_single(rp->pdev,
-+			dma_unmap_single(&rp->pdev->dev,
- 					 rp->tx_skbuff_dma[entry],
- 					 rp->tx_skbuff[entry]->len,
--					 PCI_DMA_TODEVICE);
-+					 DMA_TO_DEVICE);
- 		}
- 		dev_consume_skb_any(rp->tx_skbuff[entry]);
- 		rp->tx_skbuff[entry] = NULL;
-@@ -1924,19 +1926,19 @@ static int rhine_rx(struct net_device *dev, int limit)
- 			if (pkt_len < rx_copybreak)
- 				skb = netdev_alloc_skb_ip_align(dev, pkt_len);
- 			if (skb) {
--				pci_dma_sync_single_for_cpu(rp->pdev,
--							    rp->rx_skbuff_dma[entry],
--							    rp->rx_buf_sz,
--							    PCI_DMA_FROMDEVICE);
-+				dma_sync_single_for_cpu(&rp->pdev->dev,
-+							rp->rx_skbuff_dma[entry],
-+							rp->rx_buf_sz,
-+							DMA_FROM_DEVICE);
- 
- 				skb_copy_to_linear_data(skb,
- 						 rp->rx_skbuff[entry]->data,
- 						 pkt_len);
- 				skb_put(skb, pkt_len);
--				pci_dma_sync_single_for_device(rp->pdev,
--							       rp->rx_skbuff_dma[entry],
--							       rp->rx_buf_sz,
--							       PCI_DMA_FROMDEVICE);
-+				dma_sync_single_for_device(&rp->pdev->dev,
-+							   rp->rx_skbuff_dma[entry],
-+							   rp->rx_buf_sz,
-+							   DMA_FROM_DEVICE);
- 			} else {
- 				skb = rp->rx_skbuff[entry];
- 				if (skb == NULL) {
-@@ -1945,10 +1947,10 @@ static int rhine_rx(struct net_device *dev, int limit)
- 				}
- 				rp->rx_skbuff[entry] = NULL;
- 				skb_put(skb, pkt_len);
--				pci_unmap_single(rp->pdev,
-+				dma_unmap_single(&rp->pdev->dev,
- 						 rp->rx_skbuff_dma[entry],
- 						 rp->rx_buf_sz,
--						 PCI_DMA_FROMDEVICE);
-+						 DMA_FROM_DEVICE);
- 			}
- 
- 			if (unlikely(desc_length & DescTag))
-@@ -1979,9 +1981,9 @@ static int rhine_rx(struct net_device *dev, int limit)
- 			if (skb == NULL)
- 				break;	/* Better luck next round. */
- 			rp->rx_skbuff_dma[entry] =
--				pci_map_single(rp->pdev, skb->data,
-+				dma_map_single(&rp->pdev->dev, skb->data,
- 					       rp->rx_buf_sz,
--					       PCI_DMA_FROMDEVICE);
-+					       DMA_FROM_DEVICE);
- 			if (dma_mapping_error(&rp->pdev->dev, rp->rx_skbuff_dma[entry])) {
- 				dev_kfree_skb(skb);
- 				rp->rx_skbuff_dma[entry] = 0;
--- 
-1.9.1
+
+--=-yXhVSZ4fAkZKhh5lQ3eq
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2014-04-21 at 12:26 +0100, Luis Henriques wrote:
+> Hi David,
+>=20
+> On Thu, Mar 27, 2014 at 03:29:56PM -0400, David Miller wrote:
+> > From: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> > Date: Wed, 26 Mar 2014 22:37:45 +0000
+> >=20
+> > > skb_zerocopy can copy elements of the frags array between skbs, but i=
+t doesn't
+> > > orphan them. Also, it doesn't handle errors, so this patch takes care=
+ of that
+> > > as well, and modify the callers accordingly. skb_tx_error() is also a=
+dded to
+> > > the callers so they will signal the failed delivery towards the creat=
+or of the
+> > > skb.
+> > >=20
+> > > Signed-off-by: Zoltan Kiss <zoltan.kiss-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>
+> >=20
+> > Fingers crossed :-)  Applied, thanks Zoltan.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+> Could you please queue this for stable as well?  It has CVE-2014-2568
+> assigned to it and I believe it is applicable to some of the trees.
+
+It was applied to 3.13, but needs backporting to earlier versions.  I
+posted my attempt in
+<1397429860.10849.86.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org> but it needs
+testing/reviewing.
+
+Ben.
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-yXhVSZ4fAkZKhh5lQ3eq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1aM/ue/yOyVhhEJAQrEZg/9EvsyUfx8GSmtrzqV7LVBTuzLyAysjdu2
+iFQrjx4AZroLRPtOu2wE0C3JumJfk4Fo271Oy0vV9m/KriF5LN4M1+7b2i2MdJBH
+kwHdIRE3IIN0KFVcQL5uFWv3k34CaUsLkg/SS0v6CC/W9PibguJQo/WnTmvNG8tg
+WtFoec/X/n99PNZbfEobICZaEh14d+H60MTSOz38NOWsfXDn9Qjl/HZ+yQPe9+p7
+YUEo8MemVP5ZRGe94dDMkW6gZ3bwfN+7XVtJ1KOePStl3nqiLGbg98MX/kCIFdrc
+eze4cU5iUWmBoAzzIEVy7Fphv6FXXIHXWsMaf1+liEu3zOtcFowU0R2B06Ekz/57
+cmt8MsfILPioBaDUspbZx3A5JwzBEnhgNDZWfYQVdt4D0n7M4BEvl43/wkhLAEFv
+P9yUatDWHjbwYPAWPruQ9MvCLdTSdbU1P/UsTjrD741OlAMTDpPszzuy4Fq5W/QH
++U1/CQt50XbDpX5wo/cWtRt4Y7u8d0aaM1TtPPOo/p3RwAOJU4GdABpu6zQMq1Ot
+ZKBQHKBqbZz3er1PDT9mWRN3jq0Ct8NHvVTgr6DpJn0+S72YJTGnrYEr33Rn+yml
+AvmNm/r6yTqaEknEyOHVnhVsZMFOol1sGyShkvsCddOx8COEA//WZIn2BSljeMM6
+YOfG/iGwSqY=
+=57mT
+-----END PGP SIGNATURE-----
+
+--=-yXhVSZ4fAkZKhh5lQ3eq--
+
+--===============0802286689288613083==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============0802286689288613083==--
