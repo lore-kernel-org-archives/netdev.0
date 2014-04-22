@@ -1,128 +1,191 @@
-From: Amos Kong <akong@redhat.com>
-Subject: Re: RFC: sharing config interrupt between virtio devices for saving
-	MSI
-Date: Tue, 22 Apr 2014 16:15:27 +0800
-Message-ID: <20140422081527.GC2543@amosk.info>
-References: <20140330111427.GD24476@redhat.com>
-	<20140419040815.GB4681@amosk.info>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arusty@rustcorp.com.au
-To: "MichaelS.Tsirkin" <mst@redhat.com>,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20140419040815.GB4681@amosk.info>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 2/2] ip6gre: add x-netns support
+Date: Tue, 22 Apr 2014 10:15:24 +0200
+Message-ID: <1398154524-5928-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com, mzero@google.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50002 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752384AbaDVIPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 04:15:44 -0400
+In-Reply-To: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 19, 2014 at 12:08:15PM +0800, Amos Kong wrote:
-> 
-> Hi all,
-> 
-> I'm working on this item in Upstream Networking todolist:
-> 
-> | - Sharing config interrupts
-> |    Support more devices by sharing a single msi vector
-> |    between multiple virtio devices.
-> |    (Applies to virtio-blk too).
-> 
-> I have this solution here, and only have draft patches of Solution
-> 1 & 2, let's discuss if solution 3 is feasible.
-> 
-> * We should not introduce perf regression in this change
-> * little effect is acceptable because we are _sharing_ interrupt
-> 
-> Solution 1:
-> ==========
-> share one LSI interrupt for configuration change of all virtio devices.
-> Draft patch: share_lsi_for_all_config.patch
-> 
-> Solution 2:
-> ==========
-> share one MSI interrupt for configuration change of all virtio devices.
-> Draft patch: share_msix_for_all_config.patch
-> 
-> Solution 3:
-> ==========
-> dynamic adjust interrupt policy when device is added or removed
-> Current:
-> -------
-> - try to allocate a MSI to device's config
-> - try to allocate a MSI for each vq
-> - share one MSI for all vqs of one device
-> - share one LSI for config & vqs of one device
-> 
-> additional dynamic policies:
-> ---------------------------
-> - if there is no enough MSI, adjust interrupt allocation for returning
->   some MSI
->    - try to find a device that allocated one MSI for each vq, change
->      it to share one MSI for saving the MSI
->    - try to share one MSI for config of all virtio_pci devices
->    - try to share one LSI for config of all devices
-> 
-> - if device is removed, try to re-allocate freed MSI to existed
->   devices, if they aren't in best status (one MSI for config, one
->   MSI for each vq)
->    - if config of all devices is sharing one LSI, try to upgrade it to MSI
->    - if config of all devices is sharing one MSI, try to allocate one
->      MSI for configuration change of each device
->    - try to find a device that is sharing one MSI for all vqs, try to
->      allocate one MSI for each vq
-> 
-> 
-> 
-> BTW, I saw we still notify all vqs even VIRTIO_PCI_ISR_CONFIG bit of
-> isr is set, is it necessary?
+This patch allows to switch the netns when packet is encapsulated or
+decapsulated. In other word, the encapsulated packet is received in a netns,
+where the lookup is done to find the tunnel. Once the tunnel is found, the
+packet is decapsulated and injecting into the corresponding interface which
+stands to another netns.
 
-[Reply myself]
+When one of the two netns is removed, the tunnel is destroyed.
 
-Quote from Virtio-spec:
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/ip6_gre.c | 52 ++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 32 insertions(+), 20 deletions(-)
 
-| 2.4.3 Dealing With Configuration Changes
-| Some virtio PCI devices can change the device configuration state, as reflected
-| in the virtio header in the PCI configuration space. In this case:
-| 
-| 1. If MSI-X capability is disabled: an interrupt is delivered and the sec-
-| ond highest bit is set in the ISR Status field to indicate that the driver
-| should re-examine the configuration space.
-
-| Note that a single interrupt can
-| indicate both that one or more virtqueue has been used and that the con-
-| figuration space has changed: even if the config bit is set, virtqueues must
-| be scanned. <<<<
-
-It seems current code is fine.
-
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 9d921462b57f..75277b739b04 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -72,6 +72,7 @@ struct ip6gre_net {
+ };
  
-> diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
-> index 101db3f..176aabc 100644
-> --- a/drivers/virtio/virtio_pci.c
-> +++ b/drivers/virtio/virtio_pci.c
-> @@ -259,9 +259,9 @@ static irqreturn_t vp_interrupt(int irq, void
-> *opaque)
->  
->         /* Configuration change?  Tell driver if it wants to know. */
->         if (isr & VIRTIO_PCI_ISR_CONFIG)
-> -               vp_config_changed(irq, opaque);
-> -
-> -       return vp_vring_interrupt(irq, opaque);
-> +               return vp_config_changed(irq, opaque);
-> +       else
-> +               return vp_vring_interrupt(irq, opaque);
->  }
->  
->  static void vp_free_vectors(struct virtio_device *vdev)
-> 
-> -- 
-> 			Amos.
+ static struct rtnl_link_ops ip6gre_link_ops __read_mostly;
++static struct rtnl_link_ops ip6gre_tap_ops __read_mostly;
+ static int ip6gre_tunnel_init(struct net_device *dev);
+ static void ip6gre_tunnel_setup(struct net_device *dev);
+ static void ip6gre_tunnel_link(struct ip6gre_net *ign, struct ip6_tnl *t);
+@@ -353,10 +354,10 @@ failed_free:
+ 
+ static void ip6gre_tunnel_uninit(struct net_device *dev)
+ {
+-	struct net *net = dev_net(dev);
+-	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
++	struct ip6_tnl *t = netdev_priv(dev);
++	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
+ 
+-	ip6gre_tunnel_unlink(ign, netdev_priv(dev));
++	ip6gre_tunnel_unlink(ign, t);
+ 	dev_put(dev);
+ }
+ 
+@@ -611,8 +612,8 @@ static netdev_tx_t ip6gre_xmit2(struct sk_buff *skb,
+ 			 int encap_limit,
+ 			 __u32 *pmtu)
+ {
+-	struct net *net = dev_net(dev);
+ 	struct ip6_tnl *tunnel = netdev_priv(dev);
++	struct net *net = tunnel->net;
+ 	struct net_device *tdev;    /* Device to other host */
+ 	struct ipv6hdr  *ipv6h;     /* Our new IP header */
+ 	unsigned int max_headroom = 0; /* The extra header space needed */
+@@ -979,7 +980,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu)
+ 		int strict = (ipv6_addr_type(&p->raddr) &
+ 			      (IPV6_ADDR_MULTICAST|IPV6_ADDR_LINKLOCAL));
+ 
+-		struct rt6_info *rt = rt6_lookup(dev_net(dev),
++		struct rt6_info *rt = rt6_lookup(t->net,
+ 						 &p->raddr, &p->laddr,
+ 						 p->link, strict);
+ 
+@@ -1063,13 +1064,12 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 	int err = 0;
+ 	struct ip6_tnl_parm2 p;
+ 	struct __ip6_tnl_parm p1;
+-	struct ip6_tnl *t;
+-	struct net *net = dev_net(dev);
++	struct ip6_tnl *t = netdev_priv(dev);
++	struct net *net = t->net;
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+ 
+ 	switch (cmd) {
+ 	case SIOCGETTUNNEL:
+-		t = NULL;
+ 		if (dev == ign->fb_tunnel_dev) {
+ 			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p))) {
+ 				err = -EFAULT;
+@@ -1077,9 +1077,9 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 			}
+ 			ip6gre_tnl_parm_from_user(&p1, &p);
+ 			t = ip6gre_tunnel_locate(net, &p1, 0);
++			if (t == NULL)
++				t = netdev_priv(dev);
+ 		}
+-		if (t == NULL)
+-			t = netdev_priv(dev);
+ 		memset(&p, 0, sizeof(p));
+ 		ip6gre_tnl_parm_to_user(&p, &t->parms);
+ 		if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
+@@ -1242,7 +1242,6 @@ static void ip6gre_tunnel_setup(struct net_device *dev)
+ 	dev->flags |= IFF_NOARP;
+ 	dev->iflink = 0;
+ 	dev->addr_len = sizeof(struct in6_addr);
+-	dev->features |= NETIF_F_NETNS_LOCAL;
+ 	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
+ }
+ 
+@@ -1297,11 +1296,17 @@ static struct inet6_protocol ip6gre_protocol __read_mostly = {
+ 	.flags       = INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+-static void ip6gre_destroy_tunnels(struct ip6gre_net *ign,
+-	struct list_head *head)
++static void ip6gre_destroy_tunnels(struct net *net, struct list_head *head)
+ {
++	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
++	struct net_device *dev, *aux;
+ 	int prio;
+ 
++	for_each_netdev_safe(net, dev, aux)
++		if (dev->rtnl_link_ops == &ip6gre_link_ops ||
++		    dev->rtnl_link_ops == &ip6gre_tap_ops)
++			unregister_netdevice_queue(dev, head);
++
+ 	for (prio = 0; prio < 4; prio++) {
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+@@ -1310,7 +1315,12 @@ static void ip6gre_destroy_tunnels(struct ip6gre_net *ign,
+ 			t = rtnl_dereference(ign->tunnels[prio][h]);
+ 
+ 			while (t != NULL) {
+-				unregister_netdevice_queue(t->dev, head);
++				/* If dev is in the same netns, it has already
++				 * been added to the list by the previous loop.
++				 */
++				if (!net_eq(dev_net(t->dev), net))
++					unregister_netdevice_queue(t->dev,
++								   head);
+ 				t = rtnl_dereference(t->next);
+ 			}
+ 		}
+@@ -1329,6 +1339,11 @@ static int __net_init ip6gre_init_net(struct net *net)
+ 		goto err_alloc_dev;
+ 	}
+ 	dev_net_set(ign->fb_tunnel_dev, net);
++	/* FB netdevice is special: we have one, and only one per netns.
++	 * Allowing to move it to another netns is clearly unsafe.
++	 */
++	ign->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
++
+ 
+ 	ip6gre_fb_tunnel_init(ign->fb_tunnel_dev);
+ 	ign->fb_tunnel_dev->rtnl_link_ops = &ip6gre_link_ops;
+@@ -1349,12 +1364,10 @@ err_alloc_dev:
+ 
+ static void __net_exit ip6gre_exit_net(struct net *net)
+ {
+-	struct ip6gre_net *ign;
+ 	LIST_HEAD(list);
+ 
+-	ign = net_generic(net, ip6gre_net_id);
+ 	rtnl_lock();
+-	ip6gre_destroy_tunnels(ign, &list);
++	ip6gre_destroy_tunnels(net, &list);
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+ }
+@@ -1531,15 +1544,14 @@ out:
+ static int ip6gre_changelink(struct net_device *dev, struct nlattr *tb[],
+ 			    struct nlattr *data[])
+ {
+-	struct ip6_tnl *t, *nt;
+-	struct net *net = dev_net(dev);
++	struct ip6_tnl *t, *nt = netdev_priv(dev);
++	struct net *net = nt->net;
+ 	struct ip6gre_net *ign = net_generic(net, ip6gre_net_id);
+ 	struct __ip6_tnl_parm p;
+ 
+ 	if (dev == ign->fb_tunnel_dev)
+ 		return -EINVAL;
+ 
+-	nt = netdev_priv(dev);
+ 	ip6gre_netlink_parms(data, &p);
+ 
+ 	t = ip6gre_tunnel_locate(net, &p, 0);
+-- 
+1.9.0
