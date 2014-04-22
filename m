@@ -1,55 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 1/3] net: ipv6: Unduplicate
- {raw,udp}v6_sendmsg code
-Date: Tue, 22 Apr 2014 08:59:05 -0700
-Message-ID: <1398182345.29946.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
-	 <1398179656-9313-1-git-send-email-lorenzo@google.com>
+From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+Subject: Re: [PATCH] ARM: i.MX6: Add OF configuration support for ksz9031
+Date: Tue, 22 Apr 2014 18:09:12 +0200
+Message-ID: <1398182952.1593.20.camel@EMBLYSD005.adetelgroup.com>
+References: <1397466496-24750-1-git-send-email-hchaumette@adeneo-embedded.com>
+	 <20140416080322.GA11602@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	hannes@stressinduktion.org, davem@davemloft.net
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:57958 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757254AbaDVP7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:59:09 -0400
-Received: by mail-pd0-f178.google.com with SMTP id x10so5019290pdj.37
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 08:59:09 -0700 (PDT)
-In-Reply-To: <1398179656-9313-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, kernel@pengutronix.de,
+	linux@arm.linux.org.uk, f.fainelli@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	agust@denx.de
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140416080322.GA11602@dragon>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-04-23 at 00:14 +0900, Lorenzo Colitti wrote:
+Le mercredi 16 avril 2014 =C3=A0 16:03 +0800, Shawn Guo a =C3=A9crit :
+> On Mon, Apr 14, 2014 at 11:08:16AM +0200, Hubert Chaumette wrote:
+> > - Adds support for ksz9031 PAD skew configuration over devicetree
+> > - Removes hard-coded pad skew configuration for imx6q-sabrelite, no=
+w redundant
+> >   with arch/arm/boot/dts/imx6qdl-sabrelite.dtsi
+> >=20
+> > Tested on congatec conga-QEVAL board with conga-QMX6 module.
+> >=20
+> > This patch is based on Anatolij Gustschin's patch from
+> > http://www.spinics.net/lists/arm-kernel/msg319771.html
+> >=20
+> > Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+> > ---
+> >  arch/arm/mach-imx/mach-imx6q.c |  45 ----------
+> >  drivers/net/phy/micrel.c       | 185 +++++++++++++++++++++++++++++=
++++++++++++-
+>=20
+> You should probably leave mach-imx6q.c unchanged, because dropping th=
+e
+> phy fix-up from there may break old DTBs.  And the changes on micrel.=
+c
+> should be submitted to net maintainer.
+>=20
+> Shawn
 
-> +	dst = ip6_sk_dst_lookup_flow(sk, fl6, final_p);
-> +	if (IS_ERR(dst)) {
-> +		fl6_sock_release(flowlabel);
-> +		return PTR_ERR(dst);
-> +	}
-> +
-> +	if (*hlimit < 0) {
-> +		if (ipv6_addr_is_multicast(&fl6->daddr))
-> +			*hlimit = np->mcast_hops;
-> +		else
-> +			*hlimit = np->hop_limit;
-> +		if (*hlimit < 0)
-> +			*hlimit = ip6_dst_hoplimit(dst);
-> +	}
-> +
-> +	if (*tclass < 0)
-> +		*tclass = np->tclass;
-> +
-> +	if (*dontfrag < 0)
-> +		*dontfrag = np->dontfrag;
-> +
-> +	*dstp = dst;
-> +	*optp = opt;
-> +
-> +	return 0;
-> +}
+I've re-sent it without the changes to mach-imx6q.c. Thanks for your
+review.
 
-
-Don't you leak a reference on struct ip6_flowlabel *flowlabel ?
+Regards,
+Hubert
