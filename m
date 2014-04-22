@@ -1,17 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/16] i40e: prep vsi_open logic for non-netdev cases
-Date: Tue, 22 Apr 2014 05:39:25 -0700
-Message-ID: <1398170371-3333-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/16] i40e/i40evf: update AdminQ API
+Date: Tue, 22 Apr 2014 05:39:24 -0700
+Message-ID: <1398170371-3333-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:27100 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:3866 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932614AbaDVMjk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932609AbaDVMjk (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 22 Apr 2014 08:39:40 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,64 +18,180 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Rearrange the "if netdev" logic slightly to get ready for handling
-non-netdev VSIs.
+Reflect recent changes in firmware:
+ - remove storm control
+ - simplify PHY link management values
+ - add partition bandwidth configuration
 
-Change-ID: Ia0bfe13d4c994a2351a3c31fe725b75caeb397ee
+Change-ID: If266ed2f9a89ad176cf8a74aeaef68613af76bc8
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 33 ++++++++++++++++-------------
- 1 file changed, 18 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 41 +++++++---------------
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 41 +++++++---------------
+ 2 files changed, 24 insertions(+), 58 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7beef10..7dda8b2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4306,24 +4306,27 @@ int i40e_vsi_open(struct i40e_vsi *vsi)
- 	if (err)
- 		goto err_setup_rx;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+index 7b6374a..f2ba4b7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
+@@ -182,9 +182,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_add_mirror_rule    = 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule = 0x0261,
  
--	if (!vsi->netdev) {
-+	if (vsi->netdev) {
-+		snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
-+			 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
-+		err = i40e_vsi_request_irq(vsi, int_name);
-+		if (err)
-+			goto err_setup_rx;
-+
-+		/* Notify the stack of the actual queue counts. */
-+		err = netif_set_real_num_tx_queues(vsi->netdev,
-+						   vsi->num_queue_pairs);
-+		if (err)
-+			goto err_set_queues;
-+
-+		err = netif_set_real_num_rx_queues(vsi->netdev,
-+						   vsi->num_queue_pairs);
-+		if (err)
-+			goto err_set_queues;
-+	} else {
- 		err = EINVAL;
- 		goto err_setup_rx;
- 	}
--	snprintf(int_name, sizeof(int_name) - 1, "%s-%s",
--		 dev_driver_string(&pf->pdev->dev), vsi->netdev->name);
--	err = i40e_vsi_request_irq(vsi, int_name);
--	if (err)
--		goto err_setup_rx;
+-	i40e_aqc_opc_set_storm_control_config = 0x0280,
+-	i40e_aqc_opc_get_storm_control_config = 0x0281,
 -
--	/* Notify the stack of the actual queue counts. */
--	err = netif_set_real_num_tx_queues(vsi->netdev, vsi->num_queue_pairs);
--	if (err)
--		goto err_set_queues;
--
--	err = netif_set_real_num_rx_queues(vsi->netdev, vsi->num_queue_pairs);
--	if (err)
--		goto err_set_queues;
+ 	/* DCB commands */
+ 	i40e_aqc_opc_dcb_ignore_pfc = 0x0301,
+ 	i40e_aqc_opc_dcb_updated    = 0x0302,
+@@ -207,6 +204,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_query_switching_comp_bw_config        = 0x041A,
+ 	i40e_aqc_opc_suspend_port_tx                       = 0x041B,
+ 	i40e_aqc_opc_resume_port_tx                        = 0x041C,
++	i40e_aqc_opc_configure_partition_bw                = 0x041D,
  
- 	err = i40e_up_complete(vsi);
- 	if (err)
+ 	/* hmc */
+ 	i40e_aqc_opc_query_hmc_resource_profile = 0x0500,
+@@ -1289,27 +1287,6 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
+ 
+-/* Set Storm Control Configuration (direct 0x0280)
+- * Get Storm Control Configuration (direct 0x0281)
+- *    the command and response use the same descriptor structure
+- */
+-struct i40e_aqc_set_get_storm_control_config {
+-	__le32 broadcast_threshold;
+-	__le32 multicast_threshold;
+-	__le32 control_flags;
+-#define I40E_AQC_STORM_CONTROL_MDIPW            0x01
+-#define I40E_AQC_STORM_CONTROL_MDICW            0x02
+-#define I40E_AQC_STORM_CONTROL_BDIPW            0x04
+-#define I40E_AQC_STORM_CONTROL_BDICW            0x08
+-#define I40E_AQC_STORM_CONTROL_BIDU             0x10
+-#define I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT   8
+-#define I40E_AQC_STORM_CONTROL_INTERVAL_MASK    (0x3FF << \
+-					I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT)
+-	u8     reserved[4];
+-};
+-
+-I40E_CHECK_CMD_LENGTH(i40e_aqc_set_get_storm_control_config);
+-
+ /* DCB 0x03xx*/
+ 
+ /* PFC Ignore (direct 0x0301)
+@@ -1499,6 +1476,15 @@ struct i40e_aqc_query_switching_comp_bw_config_resp {
+  * (direct 0x041B and 0x041C) uses the generic SEID struct
+  */
+ 
++/* Configure partition BW
++ * (indirect 0x041D)
++ */
++struct i40e_aqc_configure_partition_bw_data {
++	__le16 pf_valid_bits;
++	u8     min_bw[16];      /* guaranteed bandwidth */
++	u8     max_bw[16];      /* bandwidth limit */
++};
++
+ /* Get and set the active HMC resource profile and status.
+  * (direct 0x0500) and (direct 0x0501)
+  */
+@@ -1583,11 +1569,8 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_FLAG_PAUSE_TX         0x01
+ #define I40E_AQ_PHY_FLAG_PAUSE_RX         0x02
+ #define I40E_AQ_PHY_FLAG_LOW_POWER        0x04
+-#define I40E_AQ_PHY_FLAG_AN_SHIFT         3
+-#define I40E_AQ_PHY_FLAG_AN_MASK          (0x3 << I40E_AQ_PHY_FLAG_AN_SHIFT)
+-#define I40E_AQ_PHY_FLAG_AN_OFF           0x00 /* link forced on */
+-#define I40E_AQ_PHY_FLAG_AN_OFF_LINK_DOWN 0x01
+-#define I40E_AQ_PHY_FLAG_AN_ON            0x02
++#define I40E_AQ_PHY_LINK_ENABLED		  0x08
++#define I40E_AQ_PHY_AN_ENABLED			  0x10
+ #define I40E_AQ_PHY_FLAG_MODULE_QUAL      0x20
+ 	__le16 eee_capability;
+ #define I40E_AQ_EEE_100BASE_TX       0x0002
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 97662b6..6e61766 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -180,9 +180,6 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_add_mirror_rule    = 0x0260,
+ 	i40e_aqc_opc_delete_mirror_rule = 0x0261,
+ 
+-	i40e_aqc_opc_set_storm_control_config = 0x0280,
+-	i40e_aqc_opc_get_storm_control_config = 0x0281,
+-
+ 	/* DCB commands */
+ 	i40e_aqc_opc_dcb_ignore_pfc = 0x0301,
+ 	i40e_aqc_opc_dcb_updated    = 0x0302,
+@@ -205,6 +202,7 @@ enum i40e_admin_queue_opc {
+ 	i40e_aqc_opc_query_switching_comp_bw_config        = 0x041A,
+ 	i40e_aqc_opc_suspend_port_tx                       = 0x041B,
+ 	i40e_aqc_opc_resume_port_tx                        = 0x041C,
++	i40e_aqc_opc_configure_partition_bw                = 0x041D,
+ 
+ 	/* hmc */
+ 	i40e_aqc_opc_query_hmc_resource_profile = 0x0500,
+@@ -1289,27 +1287,6 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
+ 
+-/* Set Storm Control Configuration (direct 0x0280)
+- * Get Storm Control Configuration (direct 0x0281)
+- *    the command and response use the same descriptor structure
+- */
+-struct i40e_aqc_set_get_storm_control_config {
+-	__le32 broadcast_threshold;
+-	__le32 multicast_threshold;
+-	__le32 control_flags;
+-#define I40E_AQC_STORM_CONTROL_MDIPW            0x01
+-#define I40E_AQC_STORM_CONTROL_MDICW            0x02
+-#define I40E_AQC_STORM_CONTROL_BDIPW            0x04
+-#define I40E_AQC_STORM_CONTROL_BDICW            0x08
+-#define I40E_AQC_STORM_CONTROL_BIDU             0x10
+-#define I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT   8
+-#define I40E_AQC_STORM_CONTROL_INTERVAL_MASK    (0x3FF << \
+-					I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT)
+-	u8     reserved[4];
+-};
+-
+-I40E_CHECK_CMD_LENGTH(i40e_aqc_set_get_storm_control_config);
+-
+ /* DCB 0x03xx*/
+ 
+ /* PFC Ignore (direct 0x0301)
+@@ -1499,6 +1476,15 @@ struct i40e_aqc_query_switching_comp_bw_config_resp {
+  * (direct 0x041B and 0x041C) uses the generic SEID struct
+  */
+ 
++/* Configure partition BW
++ * (indirect 0x041D)
++ */
++struct i40e_aqc_configure_partition_bw_data {
++	__le16 pf_valid_bits;
++	u8     min_bw[16];      /* guaranteed bandwidth */
++	u8     max_bw[16];      /* bandwidth limit */
++};
++
+ /* Get and set the active HMC resource profile and status.
+  * (direct 0x0500) and (direct 0x0501)
+  */
+@@ -1583,11 +1569,8 @@ struct i40e_aq_get_phy_abilities_resp {
+ #define I40E_AQ_PHY_FLAG_PAUSE_TX         0x01
+ #define I40E_AQ_PHY_FLAG_PAUSE_RX         0x02
+ #define I40E_AQ_PHY_FLAG_LOW_POWER        0x04
+-#define I40E_AQ_PHY_FLAG_AN_SHIFT         3
+-#define I40E_AQ_PHY_FLAG_AN_MASK          (0x3 << I40E_AQ_PHY_FLAG_AN_SHIFT)
+-#define I40E_AQ_PHY_FLAG_AN_OFF           0x00 /* link forced on */
+-#define I40E_AQ_PHY_FLAG_AN_OFF_LINK_DOWN 0x01
+-#define I40E_AQ_PHY_FLAG_AN_ON            0x02
++#define I40E_AQ_PHY_LINK_ENABLED		  0x08
++#define I40E_AQ_PHY_AN_ENABLED			  0x10
+ #define I40E_AQ_PHY_FLAG_MODULE_QUAL      0x20
+ 	__le16 eee_capability;
+ #define I40E_AQ_EEE_100BASE_TX       0x0002
 -- 
 1.9.0
