@@ -1,198 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/16] i40e: Enable VF Tx bandwidth setting
-Date: Tue, 22 Apr 2014 05:39:19 -0700
-Message-ID: <1398170371-3333-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/16] i40e: Remove a FW workaround
+Date: Tue, 22 Apr 2014 05:39:21 -0700
+Message-ID: <1398170371-3333-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:21185 "EHLO mga09.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21423 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932605AbaDVMjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932603AbaDVMjh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 22 Apr 2014 08:39:37 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Implement the net device op for Tx bandwidth setting. Setting the Tx
-bandwidth is done by 'ip link set <PF device> vf <VF num> rate <Tx
-rate>', with the rate specified in Mbit/sec. The rate setting is
-displayed with 'ip link show'.
+Remove the FW workaround to increment the number of msix vectors.
 
-Change-ID: I4d45dda8320632fdb6ec92c87d083e51070b46ab
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 29 ++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  3 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 67 +++++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  1 +
- 4 files changed, 98 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 922cdcc..f8dfb4b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2253,6 +2253,35 @@ static i40e_status i40e_aq_tx_sched_cmd(struct i40e_hw *hw, u16 seid,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7f16f12..7beef10 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5223,9 +5223,6 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
+ 		}
+ 	} while (err);
  
- /**
-+ * i40e_aq_config_vsi_bw_limit - Configure VSI BW Limit
-+ * @hw: pointer to the hw struct
-+ * @seid: VSI seid
-+ * @credit: BW limit credits (0 = disabled)
-+ * @max_credit: Max BW limit credits
-+ * @cmd_details: pointer to command details structure or NULL
-+ **/
-+i40e_status i40e_aq_config_vsi_bw_limit(struct i40e_hw *hw,
-+				u16 seid, u16 credit, u8 max_credit,
-+				struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_configure_vsi_bw_limit *cmd =
-+		(struct i40e_aqc_configure_vsi_bw_limit *)&desc.params.raw;
-+	i40e_status status;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_configure_vsi_bw_limit);
-+
-+	cmd->vsi_seid = cpu_to_le16(seid);
-+	cmd->credit = cpu_to_le16(credit);
-+	cmd->max_credit = max_credit;
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_config_vsi_tc_bw - Config VSI BW Allocation per TC
-  * @hw: pointer to the hw struct
-  * @seid: VSI seid
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 9cd57e6..10652f6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -167,6 +167,9 @@ i40e_status i40e_aq_delete_element(struct i40e_hw *hw, u16 seid,
- i40e_status i40e_aq_mac_address_write(struct i40e_hw *hw,
- 				    u16 flags, u8 *mac_addr,
- 				    struct i40e_asq_cmd_details *cmd_details);
-+i40e_status i40e_aq_config_vsi_bw_limit(struct i40e_hw *hw,
-+				u16 seid, u16 credit, u8 max_credit,
-+				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_dcb_updated(struct i40e_hw *hw,
- 				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_hmc_resource_profile(struct i40e_hw *hw,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index e3e4df0..5421714 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -434,6 +434,15 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
- 	if (ret)
- 		dev_err(&pf->pdev->dev, "Unable to program ucast filters\n");
- 
-+	/* Set VF bandwidth if specified */
-+	if (vf->tx_rate) {
-+		ret = i40e_aq_config_vsi_bw_limit(&pf->hw, vsi->seid,
-+						  vf->tx_rate / 50, 0, NULL);
-+		if (ret)
-+			dev_err(&pf->pdev->dev, "Unable to set tx rate, VF %d, error code %d.\n",
-+				vf->vf_id, ret);
-+	}
-+
- error_alloc_vsi_res:
- 	return ret;
- }
-@@ -2184,7 +2193,61 @@ error_pvid:
-  **/
- int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int tx_rate)
- {
--	return -EOPNOTSUPP;
-+	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	struct i40e_vsi *vsi;
-+	struct i40e_vf *vf;
-+	int speed = 0;
-+	int ret = 0;
-+
-+	/* validate the request */
-+	if (vf_id >= pf->num_alloc_vfs) {
-+		dev_err(&pf->pdev->dev, "Invalid VF Identifier %d.\n", vf_id);
-+		ret = -EINVAL;
-+		goto error;
-+	}
-+
-+	vf = &(pf->vf[vf_id]);
-+	vsi = pf->vsi[vf->lan_vsi_index];
-+	if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states)) {
-+		dev_err(&pf->pdev->dev, "Uninitialized VF %d.\n", vf_id);
-+		ret = -EINVAL;
-+		goto error;
-+	}
-+
-+	switch (pf->hw.phy.link_info.link_speed) {
-+	case I40E_LINK_SPEED_40GB:
-+		speed = 40000;
-+		break;
-+	case I40E_LINK_SPEED_10GB:
-+		speed = 10000;
-+		break;
-+	case I40E_LINK_SPEED_1GB:
-+		speed = 1000;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	if (tx_rate > speed) {
-+		dev_err(&pf->pdev->dev, "Invalid tx rate %d specified for vf %d.",
-+			tx_rate, vf->vf_id);
-+		ret = -EINVAL;
-+		goto error;
-+	}
-+
-+	/* Tx rate credits are in values of 50Mbps, 0 is disabled*/
-+	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, vsi->seid, tx_rate / 50, 0,
-+					  NULL);
-+	if (ret) {
-+		dev_err(&pf->pdev->dev, "Unable to set tx rate, error code %d.\n",
-+			ret);
-+		ret = -EIO;
-+		goto error;
-+	}
-+	vf->tx_rate = tx_rate;
-+error:
-+	return ret;
- }
- 
- /**
-@@ -2224,7 +2287,7 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
- 
- 	memcpy(&ivi->mac, vf->default_lan_addr.addr, ETH_ALEN);
- 
--	ivi->tx_rate = 0;
-+	ivi->tx_rate = vf->tx_rate;
- 	ivi->vlan = le16_to_cpu(vsi->info.pvid) & I40E_VLAN_MASK;
- 	ivi->qos = (le16_to_cpu(vsi->info.pvid) & I40E_PRIORITY_MASK) >>
- 		   I40E_VLAN_PRIORITY_SHIFT;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-index 389c47f..ba3d1f8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
-@@ -98,6 +98,7 @@ struct i40e_vf {
- 
- 	unsigned long vf_caps;	/* vf's adv. capabilities */
- 	unsigned long vf_states;	/* vf's runtime states */
-+	unsigned int tx_rate;	/* Tx bandwidth limit in Mbps */
- 	bool link_forced;
- 	bool link_up;		/* only valid if vf link is forced */
- };
+-	/* increment MSI-X count because current FW skips one */
+-	pf->hw.func_caps.num_msix_vectors++;
+-
+ 	if (((pf->hw.aq.fw_maj_ver == 2) && (pf->hw.aq.fw_min_ver < 22)) ||
+ 	    (pf->hw.aq.fw_maj_ver < 2)) {
+ 		pf->hw.func_caps.num_msix_vectors++;
 -- 
 1.9.0
