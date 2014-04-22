@@ -1,106 +1,77 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
-Date: Tue, 22 Apr 2014 18:53:57 +0100
-Message-ID: <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk>
-References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu>
+From: "Luis R. Rodriguez" <mcgrof-IBi9RG/b67k@public.gmane.org>
+Subject: Re: [PATCH 1/3] 6lowpan: add helper to get 6lowpan namespace
+Date: Tue, 22 Apr 2014 19:58:18 +0200
+Message-ID: <20140422175818.GN27882@wotan.suse.de>
+References: <1397784176-15809-1-git-send-email-mcgrof@do-not-panic.com> <1397784176-15809-2-git-send-email-mcgrof@do-not-panic.com> <1398159886.4211.1.camel@jlt4.sipsolutions.net> <20140422095300.GA9241@omega>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-EKrvnL+w9SpD0N48zO4a"
-Cc: zhuyj <zyjzyj2000@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
-	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140417050228.GC8243@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="EemXnrF2ob+xzFeB"
+Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>,
+	alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140422095300.GA9241@omega>
+Sender: backports-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
---=-EKrvnL+w9SpD0N48zO4a
-Content-Type: text/plain; charset="UTF-8"
+--EemXnrF2ob+xzFeB
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2014-04-17 at 07:02 +0200, Willy Tarreau wrote:
-> Hi Zhu,
+On Tue, Apr 22, 2014 at 11:53:03AM +0200, Alexander Aring wrote:
+> Hi,
 >=20
-> On Thu, Apr 17, 2014 at 11:35:58AM +0800, zhuyj wrote:
-> > Hi, all
+> On Tue, Apr 22, 2014 at 11:44:46AM +0200, Johannes Berg wrote:
+> > On Thu, 2014-04-17 at 18:22 -0700, Luis R. Rodriguez wrote:
 > >=20
-> > In kernel 2.6.x, linux depends on nic vlan hardware acceleration to=20
-> > insert/extract
-> > vlan tag.
+> > > +#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
+> > > [...]
+> > > +#else
+> > > +static inline struct netns_ieee802154_lowpan *
+> > > +net_ieee802154_lowpan(struct net *net)
+> > > +{
+> > > +	return NULL;
+> > > +}
+> > > +#endif
+> >=20
+> > Why would that be needed? If nobody compiles 802.15.4 then it seems
+> > nothing should reference it?
+> >=20
+> Indeed I think this is unnecessary, also.
 
-This is a gross overstatement.
+I wanted to be sure, and I was not. Right now 6lowpan does not depend
+on CONFIG_NET_NS, is this intentional? I think its fine without it
+but I was not sure.
 
-The problem I know of is that prior to Linux 2.6.37 the RX path behaved
-differently for VLAN-tagged packets depending on whether they were
-extracted by the driver/hardware.
+  Luis
 
-If you put a bridge (or bond) and VLAN device on top of a single
-physical device that doesn't do VLAN tag extraction, the VLAN device
-didn't get any packets because the bridge packet handler was called
-first.  Whereas, if the driver called the 'VLAN accelerated' RX path,
-the VLAN packet handler was called first.  (Linux 2.6.37 actually
-standardised on the former behaviour, and 3.2 fixed it to be the
-latter.)
-
-I don't know whether that's the problem zhuyj has run into.
-
-[...]
-> Well, 2.6.32.x is in deep freeze mode and it receives only critical fixes
-> once in a while. While I can appreciate that the patch above might solve
-> the issue you're facing, I'm wondering if there are not any acceptable
-> workarounds for such a deep freeze kernel. You patch is not huge,
-
-I think it's huge by the standards of 2.6.32.y.
-
-> but it
-> definitely affects a working driver, and I wouldn't like risking to break
-> the tap driver for other users, and I reall don't have the skills to audi=
-t
-> it completely to ensure this is not the case. And if it breaks, I'll have
-> to revert it or seek for some help on netdev.
->=20
-> So I'd say that I'd rather not merge it unless I get an Acked-by from som=
-e
-> netdev people who are willing to help in case of any future regression,
-> which is unlikely but still possible.
-[...]
-
-For what it's worth, I would recommend against applying this.  I don't
-think even Red Hat has backported the VLAN changes, and they have been
-quite aggressive about backporting features to RHEL 6.
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
-
---=-EKrvnL+w9SpD0N48zO4a
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+--EemXnrF2ob+xzFeB
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Version: GnuPG v2.0.9 (GNU/Linux)
 
-iQIVAwUAU1astee/yOyVhhEJAQoFlhAAmYNy3LP5cfNP5uANfK24BqbKQTYFH5HK
-TaMk77EzjAQ4R9vhLPjwgUt5ZVkYCsT+11Xp6D3jL/ioYwzfQRK6iPR1QO36sSbQ
-ONQm9CT5wcWDgtxU3Db4QEpYbReTfus+7WFhvn4YT5GXeUc5UXu/uyrBjPyebCtZ
-pcEq9BsWi0YfepzDwNM9q5m2Q7IVd4oxKTSlR0soumBhspZDqel+2oXJUWRxkOwm
-Wimhv24rNIXPLTyGNbHlILqC3FCmjQtAw0mTj9NhAkjlr2g7qFN0iH7agrHSOCEX
-1XBvQ/8hldiGyKB+dCKqA1ix11s761sIAKKeGHMwtxl3WjUdP5OI4js2NWmhs+dv
-vujefL5lUlVEApTAHraJ9XZZeRP/t4o2aG3T4r8nH990wxxxy4jXHmr9HSwM2H1x
-m6DYR9O1VhWX4xQHO7GvSncmkr2Kxl32mF/N9J763DrHChcDGTZGiTYAJ8zpv3lq
-1eiUzlZQ/WP7KI4TwGfznKCDy8WMlhCa6CwNUlWRAnZDxjfMM3bBi6wMJkARHwss
-/i4PoEndCy1EtXr44hqkwCBuf1FYuAMa3A8KRX7IL0cMlxV1W/A3FsxB4m2QrygS
-0wwo/FXezs5awepCbLn3SFk1cSPg+eLdGES8iwwsFh/4cAGocGa8+4KCEPTMcDt0
-onp7pKr+jpY=
-=zDCF
+iQIcBAEBAgAGBQJTVq26AAoJEPep4JnvMe6zdF8P/i5ERmEO5yxPrcpRwJuOn+UV
+H3GInw94Q7rqvTKna+fSZ4UWqB+DSZKSmEbHXKRk1ClLfpDNj2eP/k//cDdJrKJg
+veYWp3Sbng8qGvvqPVGWnzJGJfXCSUrBYFpNy9+SGpxkBPLTqm6IlB0HC3a+mxwm
+n+mvjVp6SNPEdNWVPCjspFM7QkVDeMw3Xbr5Kg9Q5/z0xahzfw1GaSdgJ3jer/84
+lvtEdiImRq7G89FrGcDXxiHpzowOOnncuxPj4KuMz+DTKa2IBCtflBI9flfo+i6D
+fK/pgw+ftQR/x7kt/Lj8gU7DYlVibsb/idirPTFHgKrqtsIU0guX0iX27nwMjm5X
+D2P+/ZBfS4GFFmjW1UTxUKLk92NqaVv//i+te6SQLWS6N6pIojBxOTYnleG/UQgz
+CPF7dTSUlViY2HA3QCIyjPa0PYzWOHMS7ZnvisPoVtxrr+OHCeMoGcXCmUEKrLda
+xB+jXA/PkT1kOJ1tghAFW2xpilVHY4ppNH9oZnnI3q93doKX1kLS1wcFSumo1+bc
+TrXmOmwav6VMgoz3AIHEgLr7/WcisPjHAO4EcEpIoiKkerMQT9PyqvkoTuYDnajt
+K7Kuk8eFSHh45S2vf4dF+0ErMHoX8hubWUtQUssjPwZOUiFcqtLkwfqZYOZEdKte
+Ot7NN2/6VeLiAa3uA2AZ
+=UZIb
 -----END PGP SIGNATURE-----
 
---=-EKrvnL+w9SpD0N48zO4a--
+--EemXnrF2ob+xzFeB--
