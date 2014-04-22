@@ -1,420 +1,147 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next 1/1] hyperv: Enable sendbuf mechanism on the send path
-Date: Tue, 22 Apr 2014 11:03:32 -0700
-Message-ID: <1398189812-8902-1-git-send-email-kys@microsoft.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 1/1] net: Add rtnl_lock for netif_device_attach/detach
+Date: Tue, 22 Apr 2014 18:26:36 +0100
+Message-ID: <1398187596.7767.60.camel@deadeye.wl.decadent.org.uk>
+References: <1397632082-18453-1-git-send-email-zhen-hual@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Se94WuL3tJsfIamJns3f"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Sathya Perla <sathya.perla@emulex.com>,
+	Subbu Seetharaman <subbu.seetharaman@emulex.com>,
+	Ajit Khaparde <ajit.khaparde@emulex.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1397632082-18453-1-git-send-email-zhen-hual@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We send packets using a copy-free mechanism (this is the Guest to Host transport
-via VMBUS). While this is obviously optimal for large packets,
-it may not be optimal for small packets. Hyper-V host supports
-a second mechanism for sending packets that is "copy based". We implement that
-mechanism in this patch.
 
-With this patch (and all of the other offload and VRSS patches), we are now able
-to almost saturate a 10G interface between Linux VMs on Hyper-V
-on different hosts - close to  9 Gbps as measured via iperf.
+--=-Se94WuL3tJsfIamJns3f
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |   14 +++
- drivers/net/hyperv/netvsc.c     |  226 +++++++++++++++++++++++++++++++++++++--
- drivers/net/hyperv/netvsc_drv.c |    3 +-
- 3 files changed, 234 insertions(+), 9 deletions(-)
+On Wed, 2014-04-16 at 15:08 +0800, Li, Zhen-Hua wrote:
+> From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+>=20
+> As netif_running is called in netif_device_attach/detach. There should be
+> rtnl_lock/unlock called, to avoid dev stat change during netif_device_att=
+ach
+> and detach being called.
+> I checked NIC some drivers,  some of them have netif_device_attach/detach
+> called between rtnl_lock/unlock, while some drivers do not.
+>=20
+> This patch is tring to find a generic way to fix this for all NIC drivers=
+.
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index d1f7826..4b7df5a 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -140,6 +140,8 @@ struct hv_netvsc_packet {
- 	void *send_completion_ctx;
- 	void (*send_completion)(void *context);
- 
-+	u32 send_buf_index;
-+
- 	/* This points to the memory after page_buf */
- 	struct rndis_message *rndis_msg;
- 
-@@ -582,6 +584,9 @@ struct nvsp_message {
- 
- #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
- #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
-+#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024)   /* 1MB */
-+#define NETVSC_INVALID_INDEX			-1
-+
- 
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
- 
-@@ -607,6 +612,15 @@ struct netvsc_device {
- 	u32 recv_section_cnt;
- 	struct nvsp_1_receive_buffer_section *recv_section;
- 
-+	/* Send buffer allocated by us */
-+	void *send_buf;
-+	u32 send_buf_size;
-+	u32 send_buf_gpadl_handle;
-+	u32 send_section_cnt;
-+	u32 send_section_size;
-+	unsigned long *send_section_map;
-+	int map_words;
-+
- 	/* Used for NetVSP initialization protocol */
- 	struct completion channel_init_wait;
- 	struct nvsp_message channel_init_pkt;
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index bbee446..9ee2d78 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -28,6 +28,7 @@
- #include <linux/slab.h>
- #include <linux/netdevice.h>
- #include <linux/if_ether.h>
-+#include <asm/sync_bitops.h>
- 
- #include "hyperv_net.h"
- 
-@@ -80,7 +81,7 @@ get_in_err:
- }
- 
- 
--static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
-+static int netvsc_destroy_buf(struct netvsc_device *net_device)
- {
- 	struct nvsp_message *revoke_packet;
- 	int ret = 0;
-@@ -146,10 +147,62 @@ static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
- 		net_device->recv_section = NULL;
- 	}
- 
-+	/* Deal with the send buffer we may have setup.
-+	 * If we got a  send section size, it means we received a
-+	 * SendsendBufferComplete msg (ie sent
-+	 * NvspMessage1TypeSendReceiveBuffer msg) therefore, we need
-+	 * to send a revoke msg here
-+	 */
-+	if (net_device->send_section_size) {
-+		/* Send the revoke receive buffer */
-+		revoke_packet = &net_device->revoke_packet;
-+		memset(revoke_packet, 0, sizeof(struct nvsp_message));
-+
-+		revoke_packet->hdr.msg_type =
-+			NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
-+		revoke_packet->msg.v1_msg.revoke_recv_buf.id = 0;
-+
-+		ret = vmbus_sendpacket(net_device->dev->channel,
-+				       revoke_packet,
-+				       sizeof(struct nvsp_message),
-+				       (unsigned long)revoke_packet,
-+				       VM_PKT_DATA_INBAND, 0);
-+		/* If we failed here, we might as well return and
-+		 * have a leak rather than continue and a bugchk
-+		 */
-+		if (ret != 0) {
-+			netdev_err(ndev, "unable to send "
-+				   "revoke send buffer to netvsp\n");
-+			return ret;
-+		}
-+	}
-+	/* Teardown the gpadl on the vsp end */
-+	if (net_device->send_buf_gpadl_handle) {
-+		ret = vmbus_teardown_gpadl(net_device->dev->channel,
-+					   net_device->send_buf_gpadl_handle);
-+
-+		/* If we failed here, we might as well return and have a leak
-+		 * rather than continue and a bugchk
-+		 */
-+		if (ret != 0) {
-+			netdev_err(ndev,
-+				   "unable to teardown send buffer's gpadl\n");
-+			return ret;
-+		}
-+		net_device->recv_buf_gpadl_handle = 0;
-+	}
-+	if (net_device->send_buf) {
-+		/* Free up the receive buffer */
-+		free_pages((unsigned long)net_device->send_buf,
-+			   get_order(net_device->send_buf_size));
-+		net_device->send_buf = NULL;
-+	}
-+	kfree(net_device->send_section_map);
-+
- 	return ret;
- }
- 
--static int netvsc_init_recv_buf(struct hv_device *device)
-+static int netvsc_init_buf(struct hv_device *device)
- {
- 	int ret = 0;
- 	int t;
-@@ -248,10 +301,90 @@ static int netvsc_init_recv_buf(struct hv_device *device)
- 		goto cleanup;
- 	}
- 
-+	/* Now setup the send buffer.
-+	 */
-+	net_device->send_buf =
-+		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
-+					 get_order(net_device->send_buf_size));
-+	if (!net_device->send_buf) {
-+		netdev_err(ndev, "unable to allocate send "
-+			   "buffer of size %d\n", net_device->send_buf_size);
-+		ret = -ENOMEM;
-+		goto cleanup;
-+	}
-+
-+	/* Establish the gpadl handle for this buffer on this
-+	 * channel.  Note: This call uses the vmbus connection rather
-+	 * than the channel to establish the gpadl handle.
-+	 */
-+	ret = vmbus_establish_gpadl(device->channel, net_device->send_buf,
-+				    net_device->send_buf_size,
-+				    &net_device->send_buf_gpadl_handle);
-+	if (ret != 0) {
-+		netdev_err(ndev,
-+			   "unable to establish send buffer's gpadl\n");
-+		goto cleanup;
-+	}
-+
-+	/* Notify the NetVsp of the gpadl handle */
-+	init_packet = &net_device->channel_init_pkt;
-+	memset(init_packet, 0, sizeof(struct nvsp_message));
-+	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_SEND_BUF;
-+	init_packet->msg.v1_msg.send_recv_buf.gpadl_handle =
-+		net_device->send_buf_gpadl_handle;
-+	init_packet->msg.v1_msg.send_recv_buf.id = 0;
-+
-+	/* Send the gpadl notification request */
-+	ret = vmbus_sendpacket(device->channel, init_packet,
-+			       sizeof(struct nvsp_message),
-+			       (unsigned long)init_packet,
-+			       VM_PKT_DATA_INBAND,
-+			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-+	if (ret != 0) {
-+		netdev_err(ndev,
-+			   "unable to send send buffer's gpadl to netvsp\n");
-+		goto cleanup;
-+	}
-+
-+	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
-+	BUG_ON(t == 0);
-+
-+	/* Check the response */
-+	if (init_packet->msg.v1_msg.
-+	    send_send_buf_complete.status != NVSP_STAT_SUCCESS) {
-+		netdev_err(ndev, "Unable to complete send buffer "
-+			   "initialization with NetVsp - status %d\n",
-+			   init_packet->msg.v1_msg.
-+			   send_recv_buf_complete.status);
-+		ret = -EINVAL;
-+		goto cleanup;
-+	}
-+
-+	/* Parse the response */
-+	net_device->send_section_size = init_packet->msg.
-+				v1_msg.send_send_buf_complete.section_size;
-+
-+	/* Section count is simply the size divided by the section size.
-+	 */
-+	net_device->send_section_cnt =
-+		net_device->send_buf_size/net_device->send_section_size;
-+
-+	dev_info(&device->device, "Send section size: %d, Section count:%d\n",
-+		 net_device->send_section_size, net_device->send_section_cnt);
-+
-+	/* Setup state for managing the send buffer. */
-+	net_device->map_words = DIV_ROUND_UP(net_device->send_section_cnt,
-+					     BITS_PER_LONG);
-+
-+	net_device->send_section_map =
-+		kzalloc(net_device->map_words * sizeof(ulong), GFP_KERNEL);
-+	if (net_device->send_section_map == NULL)
-+		goto cleanup;
-+
- 	goto exit;
- 
- cleanup:
--	netvsc_destroy_recv_buf(net_device);
-+	netvsc_destroy_buf(net_device);
- 
- exit:
- 	return ret;
-@@ -369,8 +502,9 @@ static int netvsc_connect_vsp(struct hv_device *device)
- 		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
- 	else
- 		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
-+	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
- 
--	ret = netvsc_init_recv_buf(device);
-+	ret = netvsc_init_buf(device);
- 
- cleanup:
- 	return ret;
-@@ -378,7 +512,7 @@ cleanup:
- 
- static void netvsc_disconnect_vsp(struct netvsc_device *net_device)
- {
--	netvsc_destroy_recv_buf(net_device);
-+	netvsc_destroy_buf(net_device);
- }
- 
- /*
-@@ -440,6 +574,12 @@ static inline u32 hv_ringbuf_avail_percent(
- 	return avail_write * 100 / ring_info->ring_datasize;
- }
- 
-+static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
-+					 u32 index)
-+{
-+	sync_change_bit(index, net_device->send_section_map);
-+}
-+
- static void netvsc_send_completion(struct netvsc_device *net_device,
- 				   struct hv_device *device,
- 				   struct vmpacket_descriptor *packet)
-@@ -447,6 +587,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 	struct nvsp_message *nvsp_packet;
- 	struct hv_netvsc_packet *nvsc_packet;
- 	struct net_device *ndev;
-+	u32 send_index;
- 
- 	ndev = net_device->ndev;
- 
-@@ -477,6 +618,9 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 
- 		/* Notify the layer above us */
- 		if (nvsc_packet) {
-+			send_index = nvsc_packet->send_buf_index;
-+			if (send_index != NETVSC_INVALID_INDEX)
-+				netvsc_free_send_slot(net_device, send_index);
- 			q_idx = nvsc_packet->q_idx;
- 			channel = nvsc_packet->channel;
- 			nvsc_packet->send_completion(nvsc_packet->
-@@ -504,6 +648,52 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
- 
- }
- 
-+static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
-+{
-+	unsigned long index;
-+	u32 max_words = net_device->map_words;
-+	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
-+	u32 section_cnt = net_device->send_section_cnt;
-+	int ret_val = NETVSC_INVALID_INDEX;
-+	int i;
-+	int prev_val;
-+
-+	for (i = 0; i < max_words; i++) {
-+		if (!~(map_addr[i]))
-+			continue;
-+		index = ffz(map_addr[i]);
-+		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
-+		if (prev_val)
-+			continue;
-+		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
-+			break;
-+		ret_val = (index + (i * BITS_PER_LONG));
-+		break;
-+	}
-+	return ret_val;
-+}
-+
-+u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
-+			    unsigned int section_index,
-+			    struct hv_netvsc_packet *packet)
-+{
-+	char *start = net_device->send_buf;
-+	char *dest = (start + (section_index * net_device->send_section_size));
-+	int i;
-+	u32 msg_size = 0;
-+
-+	for (i = 0; i < packet->page_buf_cnt; i++) {
-+		char *src = phys_to_virt(packet->page_buf[i].pfn << PAGE_SHIFT);
-+		u32 offset = packet->page_buf[i].offset;
-+		u32 len = packet->page_buf[i].len;
-+
-+		memcpy(dest, (src + offset), len);
-+		msg_size += len;
-+		dest += len;
-+	}
-+	return msg_size;
-+}
-+
- int netvsc_send(struct hv_device *device,
- 			struct hv_netvsc_packet *packet)
- {
-@@ -513,6 +703,10 @@ int netvsc_send(struct hv_device *device,
- 	struct net_device *ndev;
- 	struct vmbus_channel *out_channel = NULL;
- 	u64 req_id;
-+	unsigned int section_index = NETVSC_INVALID_INDEX;
-+	u32 msg_size = 0;
-+	struct sk_buff *skb;
-+
- 
- 	net_device = get_outbound_net_device(device);
- 	if (!net_device)
-@@ -528,10 +722,26 @@ int netvsc_send(struct hv_device *device,
- 		sendMessage.msg.v1_msg.send_rndis_pkt.channel_type = 1;
- 	}
- 
--	/* Not using send buffer section */
-+	/* Attempt to send via sendbuf */
-+	if (packet->total_data_buflen < net_device->send_section_size) {
-+		section_index = netvsc_get_next_send_section(net_device);
-+		if (section_index != NETVSC_INVALID_INDEX) {
-+			msg_size = netvsc_copy_to_send_buf(net_device,
-+							   section_index,
-+							   packet);
-+			skb = (struct sk_buff *)
-+			      packet->send_completion_tid;
-+			if (skb)
-+				dev_kfree_skb_any(skb);
-+			packet->page_buf_cnt = 0;
-+		}
-+	}
-+	packet->send_buf_index = section_index;
-+
-+
- 	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
--		0xFFFFFFFF;
--	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
-+		section_index;
-+	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = msg_size;
- 
- 	if (packet->send_completion)
- 		req_id = (ulong)packet;
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c76b665..939e3af 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -236,10 +236,11 @@ static void netvsc_xmit_completion(void *context)
- 	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
- 	struct sk_buff *skb = (struct sk_buff *)
- 		(unsigned long)packet->send_completion_tid;
-+	u32 index = packet->send_buf_index;
- 
- 	kfree(packet);
- 
--	if (skb)
-+	if (skb && (index == NETVSC_INVALID_INDEX))
- 		dev_kfree_skb_any(skb);
- }
- 
--- 
-1.7.4.1
+I don't think you can generically use the RTNL lock for this.
+
+> Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
+> ---
+>  net/core/dev.c |   18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
+>=20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 5b3042e..795bbc5 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2190,10 +2190,19 @@ EXPORT_SYMBOL(__dev_kfree_skb_any);
+>   */
+>  void netif_device_detach(struct net_device *dev)
+>  {
+> +	/**
+> +	 * As netif_running is called , rtnl_lock and unlock are needed to
+> +	 * avoid __LINK_STATE_START bit changes during this function call.
+> +	 */
+> +	int need_unlock;
+> +
+> +	need_unlock =3D rtnl_trylock();
+
+It is never correct to use trylock and then continue even if it fails.
+I think you're trying to simulate a reentrant mutex but this will fail
+if *any* task already has the mutex.
+
+Furthermore it is currently allowed and useful to call these functions
+from atomic context (transmit or completion path) where it is not
+possible to hold the mutex.
+
+>  	if (test_and_clear_bit(__LINK_STATE_PRESENT, &dev->state) &&
+>  	    netif_running(dev)) {
+>  		netif_tx_stop_all_queues(dev);
+>  	}
+> +	if (need_unlock)
+> +		rtnl_unlock();
+>  }
+>  EXPORT_SYMBOL(netif_device_detach);
+
+For netif_device_detach(), I wonder whether it is necessary to check
+netif_running().  What are we trying to avoid?
+
+> @@ -2205,11 +2214,20 @@ EXPORT_SYMBOL(netif_device_detach);
+>   */
+>  void netif_device_attach(struct net_device *dev)
+>  {
+> +       /**
+> +        * As netif_running is called , rtnl_lock and unlock are needed t=
+o
+> +        * avoid __LINK_STATE_START bit changes during this function call=
+.
+> +        */
+> +       int need_unlock;
+> +
+> +       need_unlock =3D rtnl_trylock();
+>         if (!test_and_set_bit(__LINK_STATE_PRESENT, &dev->state) &&
+>             netif_running(dev)) {
+>                 netif_tx_wake_all_queues(dev);
+>                 __netdev_watchdog_up(dev);
+>         }
+> +       if (need_unlock)
+> +               rtnl_unlock();
+>  }
+>  EXPORT_SYMBOL(netif_device_attach);
+
+I do see a problem if netif_device_detach() races with
+dev_deactivate_many(), which is being mitigated but not avoided by the
+test of netif_running().
+
+I think a proper solution is going to involve changing
+dev_deactivate_many() as well, removing the use of netif_running(), and
+possible using cmpxchg() to atomically manipulate multiple bits of
+dev->state.
+
+Ben.
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-Se94WuL3tJsfIamJns3f
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1amTOe/yOyVhhEJAQrXrRAAqSYBXPHgTHzE6cxzl9I7n15xvysC3Bkd
+puhc8nFji00rY/RKt50QWQNpAKCbHby6UQl5OEYFIH6s9GLORlkCTUgmdKT/zv0i
+Fhvf6FcjW+AwhpKrZBp3Hjaej4Lrt70Ioeq1tEEe2D+MQKzBgZgjYJvRfdfhAYCw
+WGOz3kbuE71YRJOhMSLUbhWFXMb+f2SwGptDniFFxN7Eo7eWtejZXH11QDRB9di+
+pOCMSrtCY/Ue/ljFhhJ2eoD4cYVqK0pRr6uxiXOsLRxZWAxRRzgGa9vt4UiD3f5e
+Oysd6PULOE3duAnXxN/cyRtguF1CJ/zK4gpkaoe/czBpX5Lr3oDGlIkz/kLrU5y6
+k/v39pptUHlgxrXp8kX5ToxP0ItP735+hSXBM/+dSpny9LEBxHiWjLXX5tFMM1Qg
+ri80t57KASXi0+kvOtYFu9y0TPOZ44njI74sYHMegcl7u9b8AmOmMGGwxsq0RmYJ
+q3KGNDgulTYI0N1wTdSYc61DEyfNDhd88d2fC/bh+K2t8I+VHgq5WWDwnB3Dx731
+E37PRl+7VDf5TtMaA8wDf7E4Sl5MR6fL6mSiVKgoY8mGLpgbvvhjWByHJRGtxXdj
+VK10iHYcwqn83TT1MIQNBd5d8XDMHPO50sh1AnQ5fc9HGzZ0hW4LhTx2sgA37179
+2jJDlBkg1IE=
+=KXDx
+-----END PGP SIGNATURE-----
+
+--=-Se94WuL3tJsfIamJns3f--
