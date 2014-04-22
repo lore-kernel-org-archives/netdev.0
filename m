@@ -1,45 +1,47 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH][RFC] bridge: mark packets sent to any local mac address as
- PACKET_HOST
-Date: Tue, 22 Apr 2014 19:50:18 +0200
-Message-ID: <1398189018.19788.2.camel@sakura.staff.proxad.net>
-Reply-To: mbizon@freebox.fr
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] rtlwifi: rtl8188ee: initialize packet_beacon
+Date: Tue, 22 Apr 2014 13:59:19 -0400
+Message-ID: <20140422175919.GC16193@tuxdriver.com>
+References: <1398098324-5193-1-git-send-email-colin.king@canonical.com>
+ <53555240.70806@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:41381 "EHLO ns.iliad.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933214AbaDVR7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 13:59:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Colin King <colin.king@canonical.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53555240.70806@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 21, 2014 at 12:15:44PM -0500, Larry Finger wrote:
+> On 04/21/2014 11:38 AM, Colin King wrote:
+> >From: Colin Ian King <colin.king@canonical.com>
+> >
+> >static code analysis from cppcheck reports:
+> >
+> >[drivers/net/wireless/rtlwifi/rtl8188ee/trx.c:322]:
+> >   (error) Uninitialized variable: packet_beacon
+> >
+> >packet_beacon is not initialized and hence packet_beacon
+> >contains garbage from the stack, so set it to false.
+> >
+> >Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> >---
+> >  drivers/net/wireless/rtlwifi/rtl8188ee/trx.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> This change should have a "Cc: Stable <stable@vger.kernel.org> [3.10+] notation.
+> 
+> Other than that, Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+> 
+> John: Is it possible for you to add stable, or do you want Colin to resubmit.
 
-The bridge code only set PACKET_HOST on packets sent to the bridge mac
-address, packets sent to other local mac addresses are sent to upper
-layer, but ignored because they are marked as PACKET_OTHERHOST.
----
- net/bridge/br_input.c |    1 +
- 1 file changed, 1 insertion(+)
+Got it, thanks...
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 7985dea..b942561 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -120,6 +120,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 			dst->is_local) {
- 		skb2 = skb;
- 		/* Do not forward the packet since it's local. */
-+		skb2->pkt_type = PACKET_HOST;
- 		skb = NULL;
- 	}
- 
 -- 
-1.7.9.5
-
-
--- 
-Maxime
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
