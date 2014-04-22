@@ -1,87 +1,105 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: ax88796 driver
-Date: Tue, 22 Apr 2014 02:59:59 +0100
-Message-ID: <1398131999.3624.167.camel@deadeye.wl.decadent.org.uk>
-References: <534F1550.50704@mail.ru>
+Subject: Re: Porting ethernet over spi driver
+Date: Tue, 22 Apr 2014 03:22:08 +0100
+Message-ID: <1398133328.3624.186.camel@deadeye.wl.decadent.org.uk>
+References: <5350ED9E.6080103@lategoodbye.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-8+B/ADpDq+7q1ubqJCnB"
-Cc: netdev@vger.kernel.org, Ben Dooks <ben.dooks@codethink.co.uk>
-To: Alexander Varnin <fenixk19@mail.ru>
+	protocol="application/pgp-signature"; boundary="=-PaswF9fuO3itSyoUxu1r"
+Cc: netdev@vger.kernel.org
+To: Stefan Wahren <info@lategoodbye.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51713 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51756 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752536AbaDVCAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 22:00:16 -0400
-In-Reply-To: <534F1550.50704@mail.ru>
+	by vger.kernel.org with ESMTP id S1751236AbaDVCWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 22:22:20 -0400
+In-Reply-To: <5350ED9E.6080103@lategoodbye.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-8+B/ADpDq+7q1ubqJCnB
+--=-PaswF9fuO3itSyoUxu1r
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2014-04-17 at 03:42 +0400, Alexander Varnin wrote:
-> Hello!
+On Fri, 2014-04-18 at 11:17 +0200, Stefan Wahren wrote:
+> Hi,
 >=20
-> I am currently working on kernel and dealing with ax88796 driver, that
-> has been written by Ben Dooks <ben@simtec.co.uk>. Since his address is
-> not available anymore (says "Ben doesn't work here any more"), I want
-> to ask help from somebody, who maybe somehow related to this driver.
+> i'm trying to port a ethernet over spi driver to current mainline, which=
+=20
+> originally based on kernel 2.6.
+>=20
+> Now i'm searching for some guidelines, checklists, common pitfalls or=20
+> just hints about that.
+>=20
+> Is there something about that, which is up to date?
 
-I'm cc'ing Ben, but I doubt he'll want to remember this driver.
+I don't think there is.
+
+> Is there a list or something of legacy function, which shouldn't be used=
+=20
+> anymore?
+
+No but the compiler should tell you about functions that were removed!
+
+> Are there any new must have features?
+
+You don't say which 2.6.y version you started with, but API changes I
+can think of that come up when backporting are:
+
+- 2.6.24: NAPI now involves a napi_struct rather than fields in
+net_device
+- 2.6.29: net device operation pointers moved into struct net_device_ops
+- 2.6.29: GRO added (can be useful if you have RX checksum offload)
+- 2.6.36: ndo_get_stats64 added as alternative to ndo_get_stats
+- 2.6.37: vlan_hwaccel_* functions removed; the driver must attach the
+tag and call the regular receive function
+- 2.6.39: ethtool feature setting replaced by net device operations
+ndo_fix_features & ndo_set_features
+- 3.2: ndo_set_multicast_list and ndo_set_rx_mode operations merged
+- 3.10: VLAN functions and feature flags changed to allow for both
+802.1q and 802.1ad tags
+
+Most of the interesting new features are related to multiqueue and
+protocol offloads that I wouldn't expect to exist in an SPI-attached
+Ethernet controller.  There are a few other things you can now expose if
+the hardware supports it:
+
+- MDI(-X) status and control (through ethtool)
+- EEE status and control (through ethtool)
+- Feature flags to disable Ethernet FCS insertion, validation and
+stripping
+
+> Is there a good reference implementation for ethernet over spi?
+
+Don't know.
 
 Ben.
-
-> I want to ask on source code, because there is some non-obvious lines.
->=20
-> Take a look on ax_initial_check function from ax88796.c please [1].
->=20
-> Here is lines 127-129 of it:
->=20
-> ei_outb (E8390_NODMA + E8390_PAGE1 + E8390_STOP, ioaddr + E8390_CMD);
-> regd =3D ei_inb (ioaddr + 0x0d);
-> ei_outb (0xff, ioaddr + 0x0d);
->=20
-> This is supposed to be read and write to 0xD register on PAGE 1 of
-> AX88796. But that offset stands for "Multicast Address Register 5
-> ( MAR5 )" in AX88796 datasheet [2].
->=20
-> What is the point of doing so? That looks very like a mistake. If it
-> is a mistake, I could make and send patch to fix it. But, please,
-> explain why is it done?
->=20
->=20
-> [1] http://lxr.free-electrons.com/source/drivers/net/ethernet/8390/ax8879=
-6.c#L116
-> [2] http://www.digchip.com/datasheets/parts/datasheet/562/AX88796-pdf.php
-
 
 --=20
 Ben Hutchings
 Beware of programmers who carry screwdrivers. - Leonard Brandwein
 
---=-8+B/ADpDq+7q1ubqJCnB
+--=-PaswF9fuO3itSyoUxu1r
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUAU1XNH+e/yOyVhhEJAQqJ+Q//VlEY00dJ4+XXUSqHme3KTcDN7Zu/YkA4
-CQ7WoBv/M626ryFnXk6TgEkH4VO9oSaJl0bLfRAd+xqwSP/GEKW7/bMFAYtjKglt
-cw4ZzRu6Yga8G6uf4YqszAT17XfHV58GvXeLSbU6mIq8fi87+DKSUETXQtFMap3q
-HimxXSIRPoRgWsC7SJ/ZOuQetubChX2vgUtKywz3KxugvarQVMhUVdSk8Bvq0TQ/
-922Wm3bqZKUUww7LlBjDlEW5h9oqMSJAqI+Wc2RPTP4ethSU5eaOCBfi1b0pT+MU
-JL7aujAMeE2+3GbrU86SCPVnZKZkq3tHuKzcKbH2YZJq+KJ53mYlutLCXyuwNlMk
-+vaRKMAWoFkdnmA9oasBXmMbVPV4cLBGRFFfePmTV4Wiwbz8YWR5ixMoziuW607M
-LH0mT6i8fCZsDsiO2SkI7f1rovk7bkapmjjDEEZieanSfSvKaX03D/pvgrPdLDuW
-pBS7TnTqrQlXsQULYK/jOqoYB2ALwoWQe8IQlkMgChHXrzT67lqPfZXFeaAMvotG
-s0lKFyrNpOLZ0Q0byoknCClJMqbbjlKY3QHdSBbGeHXOmC18S+TZnCmtEDrSPi10
-LT3oLHKbFH/U5m/DVP6M6VqDIRjAHVeKJqV2iYvwmAdcJR2xUdxtOelqUD8HyfHn
-wehC8XiNMMA=
-=+MHl
+iQIVAwUAU1XSUOe/yOyVhhEJAQpD3A/+KQrFfy86HYq+bP/3TeQI0H7mJRdicHHM
+tmH3qVC5VF5zOwjB8szcrEo/NYJhPXeFzNsoNHUMk4aTZut+4x9R62tJYym2cw4Z
+AYlfGQo5AqBQTD4dYaAQalEgU2ZdzKEnh5DOkeHALYEvvSF+/769UaFVPERvVz6i
+gUXOfR48F7bxJBIufzLp4NTmzcV6gA8Vn3YyOl5t0QN2PgzK0PzZE0PLdvO7+aIk
+LH6/n6vk/zlXFMCFakZQbwX6sVC+WQrVBUX+SIim1iry0/8zrKJqW39p8pA0q/g2
+jeXgLkST2JnzLmgekCOmVXQg3rXPHgDFOQMl5FzVt0UC1OY548e58bQkWX6F+7OW
+daru21yWyQR091aISz6fZY2GejBXkFjteIaOjwrrvGmIx2fkgU6Yky/EgugohlF+
+TMMvp8HVrddpZb6f2vBzRMOIOLDBHx8nYJygJyzZGwHR5U7qhw9q8ksKBWwtDBwv
+iOqEHp3ADDrLmEogPXz4Q70ORK4CC1IUY7wH2fuR39P1yVDDyR8rqX5Usz1usHw7
+ebyVbBFxjiOXVrHgImIMLyypjrQfkJ5FjCifteEzZxu68yKKw19zUm7qBlBHfvUM
+B/EiAGitbwc2ryK/bHAcPl2heHraRp1/TAUV5ZzqPvrjNYR07tlHSwKktsD+zyBX
+mxjYoUtUZU0=
+=wneJ
 -----END PGP SIGNATURE-----
 
---=-8+B/ADpDq+7q1ubqJCnB--
+--=-PaswF9fuO3itSyoUxu1r--
