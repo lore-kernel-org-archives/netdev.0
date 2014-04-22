@@ -1,152 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] i40e: Add bridge FDB add/del/dump ops
-Date: Tue, 22 Apr 2014 05:39:16 -0700
-Message-ID: <1398170371-3333-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/16] i40e/i40evf: Bump build versions
+Date: Tue, 22 Apr 2014 05:39:20 -0700
+Message-ID: <1398170371-3333-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:45665 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:4229 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932544AbaDVMjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:36 -0400
+	id S932607AbaDVMjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:39:37 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Add the netdev ops to support addition of static FDB entries in the
-physical function (PF)  MAC/VLAN filter table so that virtual functions
-(VFs) can communicate with bridged virtual Ethernet ports such as those
-provided by the virtio driver.
+Bump i40e to 0.3.41 and i40evf to 0.9.20.
 
-Change-ID: Ifbd6817a75074e3b5cdf945a5635f26440bf15df
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: If49251a1a81a0f25e8f74bc8b7d086befb6df676
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 97 +++++++++++++++++++++++++++++
- 1 file changed, 97 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 6 +++---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 861b722..10f0f41 100644
+index 6f1c464..7f16f12 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6644,6 +6644,96 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
- }
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 36
++#define DRV_VERSION_BUILD 41
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+@@ -2312,6 +2312,8 @@ static int i40e_configure_rx_ring(struct i40e_ring *ring)
+ 	rx_ctx.crcstrip = 1;
+ 	rx_ctx.l2tsel = 1;
+ 	rx_ctx.showiv = 1;
++	/* set the prefena field to 1 because the manual says to */
++	rx_ctx.prefena = 1;
+ 
+ 	/* clear the context in the HMC */
+ 	err = i40e_clear_lan_rx_queue_context(hw, pf_q);
+@@ -3140,8 +3142,6 @@ static void i40e_netpoll(struct net_device *netdev)
+ 	pf->flags &= ~I40E_FLAG_IN_NETPOLL;
+ }
  #endif
-+#ifdef HAVE_FDB_OPS
-+#ifdef USE_CONST_DEV_UC_CHAR
-+static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-+			    struct net_device *dev,
-+			    const unsigned char *addr,
-+			    u16 flags)
-+#else
-+static int i40e_ndo_fdb_add(struct ndmsg *ndm,
-+			    struct net_device *dev,
-+			    unsigned char *addr,
-+			    u16 flags)
-+#endif
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	int err = 0;
-+
-+	if (!(pf->flags & I40E_FLAG_SRIOV_ENABLED))
-+		return -EOPNOTSUPP;
-+
-+	/* Hardware does not support aging addresses so if a
-+	 * ndm_state is given only allow permanent addresses
-+	 */
-+	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
-+		netdev_info(dev, "FDB only supports static addresses\n");
-+		return -EINVAL;
-+	}
-+
-+	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-+		err = dev_uc_add_excl(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add_excl(dev, addr);
-+	else
-+		err = -EINVAL;
-+
-+	/* Only return duplicate errors if NLM_F_EXCL is set */
-+	if (err == -EEXIST && !(flags & NLM_F_EXCL))
-+		err = 0;
-+
-+	return err;
-+}
-+
-+#ifndef USE_DEFAULT_FDB_DEL_DUMP
-+#ifdef USE_CONST_DEV_UC_CHAR
-+static int i40e_ndo_fdb_del(struct ndmsg *ndm,
-+			    struct net_device *dev,
-+			    const unsigned char *addr)
-+#else
-+static int i40e_ndo_fdb_del(struct ndmsg *ndm,
-+			    struct net_device *dev,
-+			    unsigned char *addr)
-+#endif
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_pf *pf = np->vsi->back;
-+	int err = -EOPNOTSUPP;
-+
-+	if (ndm->ndm_state & NUD_PERMANENT) {
-+		netdev_info(dev, "FDB only supports static addresses\n");
-+		return -EINVAL;
-+	}
-+
-+	if (pf->flags & I40E_FLAG_SRIOV_ENABLED) {
-+		if (is_unicast_ether_addr(addr))
-+			err = dev_uc_del(dev, addr);
-+		else if (is_multicast_ether_addr(addr))
-+			err = dev_mc_del(dev, addr);
-+		else
-+			err = -EINVAL;
-+	}
-+
-+	return err;
-+}
-+
-+static int i40e_ndo_fdb_dump(struct sk_buff *skb,
-+			     struct netlink_callback *cb,
-+			     struct net_device *dev,
-+			     int idx)
-+{
-+	struct i40e_netdev_priv *np = netdev_priv(dev);
-+	struct i40e_pf *pf = np->vsi->back;
-+
-+	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
-+
-+	return idx;
-+}
-+
-+#endif /* USE_DEFAULT_FDB_DEL_DUMP */
-+#endif /* HAVE_FDB_OPS */
- static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_open		= i40e_open,
- 	.ndo_stop		= i40e_close,
-@@ -6671,6 +6761,13 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
- 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
- #endif
-+#ifdef HAVE_FDB_OPS
-+	.ndo_fdb_add		= i40e_ndo_fdb_add,
-+#ifndef USE_DEFAULT_FDB_DEL_DUMP
-+	.ndo_fdb_del		= i40e_ndo_fdb_del,
-+	.ndo_fdb_dump		= i40e_ndo_fdb_dump,
-+#endif
-+#endif
- };
+-	/* set the prefena field to 1 because the manual says to */
+-	rx_ctx.prefena = 1;
  
  /**
+  * i40e_vsi_control_tx - Start or stop a VSI's rings
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 2797548..2ac157d 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "0.9.16"
++#define DRV_VERSION "0.9.20"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.0
