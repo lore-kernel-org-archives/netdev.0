@@ -1,180 +1,89 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/16] i40e/i40evf: add tracking to NVM busy state
-Date: Tue, 22 Apr 2014 05:39:23 -0700
-Message-ID: <1398170371-3333-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/16] i40e: Reset the VF upon conflicting VLAN configuration
+Date: Tue, 22 Apr 2014 05:39:18 -0700
+Message-ID: <1398170371-3333-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21423 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:45665 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932608AbaDVMji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:38 -0400
+	id S932601AbaDVMjh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:39:37 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The NVM updates take some time and are asynchronous actions that signal
-their completion with an AdminQ event.  This code tracks when there is
-an NVM update outstanding and won't allow a new update command until a
-completion event is received from the current update.
+If a host VMM administrator hoses his VF by assigning a port VLAN after
+it is already up and running with implicit permission to set local
+VLANs then we print a message warning the host administrator that the
+VF driver needs to be reloaded.
 
-Change-ID: Ic132fe16bd9dc09b002ed38297a877c1a01553ce
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Acked-by: Mitch Williams <mitch.a.williams@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+In addition we need to knock the VF offline so that it does not continue
+to receive traffic not on the port VLAN assigned to it.  So we reset the
+VF.  The VF will cease operation and the administrator will be forced to
+unload and reload the VF driver to make it work again.
+
+Change-ID: Iae1ae006b244e74e30a4ee546b3c5fca5cfb40aa
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 23 +++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 22 ++++++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 +
- 4 files changed, 47 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 26 +++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index ed3902b..34415d3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -33,6 +33,16 @@
- static void i40e_resume_aq(struct i40e_hw *hw);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 02c11a7..e3e4df0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -29,6 +29,24 @@
+ /***********************misc routines*****************************/
  
  /**
-+ * i40e_is_nvm_update_op - return true if this is an NVM update operation
-+ * @desc: API request descriptor
++ * i40e_vc_disable_vf
++ * @pf: pointer to the pf info
++ * @vf: pointer to the vf info
++ *
++ * Disable the VF through a SW reset
 + **/
-+static inline bool i40e_is_nvm_update_op(struct i40e_aq_desc *desc)
++static inline void i40e_vc_disable_vf(struct i40e_pf *pf, struct i40e_vf *vf)
 +{
-+	return (desc->opcode == i40e_aqc_opc_nvm_erase) ||
-+	       (desc->opcode == i40e_aqc_opc_nvm_update);
++	struct i40e_hw *hw = &pf->hw;
++	u32 reg;
++
++	reg = rd32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id));
++	reg |= I40E_VPGEN_VFRTRIG_VFSWR_MASK;
++	wr32(hw, I40E_VPGEN_VFRTRIG(vf->vf_id), reg);
++	i40e_flush(hw);
 +}
 +
 +/**
-  *  i40e_adminq_init_regs - Initialize AdminQ registers
-  *  @hw: pointer to the hardware structure
-  *
-@@ -585,6 +595,7 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
- 
- 	/* pre-emptive resource lock release */
- 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
-+	hw->aq.nvm_busy = false;
- 
- 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
- 						    I40E_HMC_PROFILE_DEFAULT,
-@@ -708,6 +719,12 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		goto asq_send_command_exit;
+  * i40e_vc_isvalid_vsi_id
+  * @vf: pointer to the vf info
+  * @vsi_id: vf relative vsi id
+@@ -2088,10 +2106,16 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 		goto error_pvid;
  	}
  
-+	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
-+		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
-+		status = I40E_ERR_NVM;
-+		goto asq_send_command_exit;
+-	if (vsi->info.pvid == 0 && i40e_is_vsi_in_vlan(vsi))
++	if (vsi->info.pvid == 0 && i40e_is_vsi_in_vlan(vsi)) {
+ 		dev_err(&pf->pdev->dev,
+ 			"VF %d has already configured VLAN filters and the administrator is requesting a port VLAN override.\nPlease unload and reload the VF driver for this change to take effect.\n",
+ 			vf_id);
++		/* Administrator Error - knock the VF offline until he does
++		 * the right thing by reconfiguring his network correctly
++		 * and then reloading the VF driver.
++		 */
++		i40e_vc_disable_vf(pf, vf);
 +	}
-+
- 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
- 	if (cmd_details) {
- 		*details = *cmd_details;
-@@ -835,6 +852,9 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
- 	}
  
-+	if (i40e_is_nvm_update_op(desc))
-+		hw->aq.nvm_busy = true;
-+
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
- 	    (!details->async && !details->postpone)) {
-@@ -929,6 +949,9 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 			       e->msg_size);
- 	}
- 
-+	if (i40e_is_nvm_update_op(&e->desc))
-+		hw->aq.nvm_busy = false;
-+
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
- 	 * size
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index 993f768..b1552fb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -90,6 +90,7 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
-+	bool nvm_busy;
- 
- 	struct mutex asq_mutex; /* Send queue lock */
- 	struct mutex arq_mutex; /* Receive queue lock */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 5470ce9..c79df25 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -28,6 +28,16 @@
- #include "i40e_prototype.h"
- 
- /**
-+ * i40e_is_nvm_update_op - return true if this is an NVM update operation
-+ * @desc: API request descriptor
-+ **/
-+static inline bool i40e_is_nvm_update_op(struct i40e_aq_desc *desc)
-+{
-+	return (desc->opcode == i40e_aqc_opc_nvm_erase) ||
-+	       (desc->opcode == i40e_aqc_opc_nvm_update);
-+}
-+
-+/**
-  *  i40e_adminq_init_regs - Initialize AdminQ registers
-  *  @hw: pointer to the hardware structure
-  *
-@@ -659,6 +669,12 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 		goto asq_send_command_exit;
- 	}
- 
-+	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
-+		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
-+		status = I40E_ERR_NVM;
-+		goto asq_send_command_exit;
-+	}
-+
- 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
- 	if (cmd_details) {
- 		*details = *cmd_details;
-@@ -786,6 +802,9 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
- 	}
- 
-+	if (i40e_is_nvm_update_op(desc))
-+		hw->aq.nvm_busy = true;
-+
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
- 	    (!details->async && !details->postpone)) {
-@@ -880,6 +899,9 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 			       e->msg_size);
- 	}
- 
-+	if (i40e_is_nvm_update_op(&e->desc))
-+		hw->aq.nvm_busy = false;
-+
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
- 	 * size
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index 8f72c31d..7d24be5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -87,6 +87,7 @@ struct i40e_adminq_info {
- 	u16 fw_min_ver;                 /* firmware minor version */
- 	u16 api_maj_ver;                /* api major version */
- 	u16 api_min_ver;                /* api minor version */
-+	bool nvm_busy;
- 
- 	struct mutex asq_mutex; /* Send queue lock */
- 	struct mutex arq_mutex; /* Receive queue lock */
+ 	/* Check for condition where there was already a port VLAN ID
+ 	 * filter set and now it is being deleted by setting it to zero.
 -- 
 1.9.0
