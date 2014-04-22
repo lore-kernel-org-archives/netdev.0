@@ -1,42 +1,36 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 0/7] net: rfkill: gpio: Add device tree support
-Date: Tue, 22 Apr 2014 17:06:42 +0200
-Message-ID: <1398179202.4211.15.camel@jlt4.sipsolutions.net>
-References: <1397544101-18135-1-git-send-email-wens@csie.org>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next v2 2/3] net: ipv6: Use ip6_datagram_send_common
+ in L2TP IPv6.
+Date: Wed, 23 Apr 2014 00:11:32 +0900
+Message-ID: <CAKD1Yr1RAdVoBHKrW5ZBUnkLDkk9s_kpJUDZkOOBO_3FgVdD=w@mail.gmail.com>
+References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
+ <1398159499-32413-1-git-send-email-lorenzo@google.com> <1398159499-32413-2-git-send-email-lorenzo@google.com>
+ <1398176622.29946.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linus Walleij <linus.walleij-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, "John W. Linville"
- <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-  Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Heikki Krogerus
- <heikki.krogerus-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Mika Westerberg
- <mika.westerberg-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Alexandre Courbot <gnurou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>, linux-gpio-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2NJ5WGSUOBBJEL3KNAKGQEYMWKLIY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1397544101-18135-1-git-send-email-wens-jdAy2FN1RRM@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:35757 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751421AbaDVPLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 11:11:53 -0400
+Received: by mail-ie0-f175.google.com with SMTP id to1so5342196ieb.34
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 08:11:52 -0700 (PDT)
+In-Reply-To: <1398176622.29946.46.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-15 at 14:41 +0800, Chen-Yu Tsai wrote:
+On Tue, Apr 22, 2014 at 11:23 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Please try CONFIG_IPV6=m and/or CONFIG_L2TP_IP=m then ;)
 
-> The first 2 patches should go through the gpio tree. The 4 rfkill-gpio
-> patches should go through the same tree that Heikki's patches are
-> in. Maxime, can you take the last one?
+:-). I seem to remember having made this mistake before. :-)
 
-Are there no dependencies? Maybe it'd be easier if you sent it as
-separate patch series then?
+> You forgot to EXPORT_SYMBOL(ip6_datagram_send_common)
 
-I can take those four patches into my topic branch on top of Heikki's
-patches, but in any case, there seem to be a bunch of
-comments/discussions so for now I'm not going to do anything with them.
-
-johannes
+Since this is a new function, and the only callers are kernel
+functions that previously were not exported, I made this
+EXPORT_SYMBOL_GPL.
