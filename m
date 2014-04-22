@@ -1,152 +1,47 @@
-From: zhangfei <zhangfei.gao@linaro.org>
-Subject: Re: [PATCH v8 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Tue, 22 Apr 2014 14:03:40 +0800
-Message-ID: <5356063C.6070100@linaro.org>
-References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <1397869980-21187-3-git-send-email-zhangfei.gao@linaro.org> <53555C28.4050303@cogentembedded.com> <CAGVrzcb8Ykxi72x3iBStjTL+OO1BhDc_yZnnPq8ZHra+mtrBEA@mail.gmail.com> <535561BE.9070303@cogentembedded.com>
+From: Li Zefan <lizefan@huawei.com>
+Subject: Re: [PATCH] netclassid_cgroup: explicitly init the early_init field
+Date: Tue, 22 Apr 2014 14:28:34 +0800
+Message-ID: <53560C12.2050309@huawei.com>
+References: <1398144676-9739-1-git-send-email-nasa4836@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="GB2312"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Mark Rutland <mark.rutland@arm.com>,
-	David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, xuwei5@hisilicon.com,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:55822 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002AbaDVGD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 02:03:57 -0400
-Received: by mail-pb0-f44.google.com with SMTP id rp16so4573396pbb.3
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 23:03:52 -0700 (PDT)
-In-Reply-To: <535561BE.9070303@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <tj@kernel.org>, <nhorman@tuxdriver.com>,
+	<aris@redhat.com>, <dborkman@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Jianyu Zhan <nasa4836@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1398144676-9739-1-git-send-email-nasa4836@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 2014/4/22 13:31, Jianyu Zhan wrote:
+> For a cgroup subsystem who should init early, then it should carefully
+> take care of the implementation of css_alloc, because it will be called
+> before mm_init() setup the world.
+> 
+> Luckily we don't, and we better explicitly assign the early_init field
+> to 0, for document reason.
+> 
 
+The initialization is redundant, and your reason is not reasonable.
 
-On 04/22/2014 02:21 AM, Sergei Shtylyov wrote:
-> On 04/21/2014 10:03 PM, Florian Fainelli wrote:
->
->>>> Hisilicon hip04 platform mdio driver
->>>> Reuse Marvell phy drivers/net/phy/marvell.c
->
->>>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
->>> [...]
->
->>>> diff --git a/drivers/net/ethernet/hisilicon/hip04_mdio.c
->>>> b/drivers/net/ethernet/hisilicon/hip04_mdio.c
->>>> new file mode 100644
->>>> index 0000000..19826a3
->>>> --- /dev/null
->>>> +++ b/drivers/net/ethernet/hisilicon/hip04_mdio.c
->>>> @@ -0,0 +1,185 @@
->
-> [...]
->
->>>> +static int hip04_mdio_reset(struct mii_bus *bus)
->>>> +{
->>>> +       int temp, err, i;
->>>> +
->>>> +       for (i = 0; i < PHY_MAX_ADDR; i++) {
->>>> +               hip04_mdio_write(bus, i, 22, 0);
->
->>>     Why? What kind of a register this is? <uapi/linux/mii.h> tells me
->>> it's
->>> MII_SREVISION...
->
->> I think this rather means clause 22 as opposed to clause 45.
->
->     No, the corresponding hip04_mdio_write()'s parameter is a register
-> #, so this is a write of 0 to register #22. A comment certainly wouldn't
-> hurt here...
+> Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
 
-It's private register of the phy marvell 88e1512.
-To make it clearer using define instead.
-#define MII_MARVELL_PHY_PAGE    22
+nack
 
-The registers has been grouped into several pages, access register need 
-choose which page first.
->
->>>> +               temp = hip04_mdio_read(bus, i, MII_BMCR);
->
->>>     You're not checking for error...
->
->>>> +               temp |= BMCR_RESET;
->>>> +               err = hip04_mdio_write(bus, i, MII_BMCR, temp);
->
->>>     Hmm, why you're open coding BMCR reset? There's phy_init_hw()
->>> doing this
->>> correctly...
->
->> Except that this runs way before we have created the PHY driver, so we
->> can't use that function just yet.
->
->     Ah, you're right.
->
->> I already asked about this, and he
->> explained that this was because the PHY devices he uses are not
->> responding correcty to MII_PHYSID1/2 reads.
->
->     So, this manual reset loop helps with reading the ID registers? A
-> comment wouldn't hurt either...
-Yes, it required for get_phy_id, will add comments.
-
->
->>>> +               if (err < 0)
->>>> +                       return err;
->
->     I'm not at all sure we want to leave the reset loop on a first write
-> error.
-Yes, continue can be used instead.
-
->
->>>> +       }
->>>> +
->>>> +       mdelay(500);
->
->     I'm not sure this is enough, given that in phy_init_hw() we poll for
-> 600 ms + 1 ms.
-Though not find clear delay time required from the phy spec, the 
-experiment shows OK.
-Also here can not verify the BMCR_RESET bit, 0xffff will returned if the 
-phy is not exists.
->
->>>> +       return 0;
->>>> +}
->>>> +
->>>> +static int hip04_mdio_probe(struct platform_device *pdev)
->>>> +{
->>>> +       struct resource *r;
->>>> +       struct mii_bus *bus;
->>>> +       struct hip04_mdio_priv *priv;
->>>> +       int ret;
->>>> +
->>>> +       bus = mdiobus_alloc_size(sizeof(struct hip04_mdio_priv));
->>>> +       if (!bus) {
->>>> +               dev_err(&pdev->dev, "Cannot allocate MDIO bus\n");
->>>> +               return -ENOMEM;
->>>> +       }
->>>> +
->>>> +       bus->name = "hip04_mdio_bus";
->>>> +       bus->read = hip04_mdio_read;
->>>> +       bus->write = hip04_mdio_write;
->>>> +       bus->reset = hip04_mdio_reset;
->
->>>     Ah... However I don't think it a good implementation of that bus
->>> method...
->
->     I assumed this method exists to do a hardware reset of the whole
-> bus, not to do a loop of soft-resetting all PHYs...
->
-
-It is required for each phy, if no such reset, the specific phy can NOT be
-detected and get_phy_id returns 0.
-
-Thanks
+> ---
+>  net/core/netclassid_cgroup.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/core/netclassid_cgroup.c b/net/core/netclassid_cgroup.c
+> index 22931e1..1b07dca 100644
+> --- a/net/core/netclassid_cgroup.c
+> +++ b/net/core/netclassid_cgroup.c
+> @@ -108,4 +108,5 @@ struct cgroup_subsys net_cls_cgrp_subsys = {
+>  	.css_free		= cgrp_css_free,
+>  	.attach			= cgrp_attach,
+>  	.base_cftypes		= ss_files,
+> +	.early_init		= 0,
+>  };
+> 
