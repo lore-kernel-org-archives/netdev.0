@@ -1,66 +1,28 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
- changing a filter
-Date: Mon, 21 Apr 2014 16:28:39 -0700
-Message-ID: <CAM_iQpVM-djLiz9Z9Bhz9zac88m8b6t1S-SRUkRxYhOaW_xJvQ@mail.gmail.com>
-References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
-	<534E77D0.8000307@mojatatu.com>
-	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
-	<534FBFF0.3020606@mojatatu.com>
-	<CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
-	<53513619.5060202@mojatatu.com>
-	<CAM_iQpX13QBbGnsKfD1oL6t331-=wRWFU_0ktdtgngpfE1Z6nA@mail.gmail.com>
-	<535259C3.10404@mojatatu.com>
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: [PATCH][net-next] tcp: remove the duplicate prefixes in the
+ logging message
+Date: Tue, 22 Apr 2014 08:04:00 +0800
+Message-ID: <CAJFZqHzKdemchM=1tb2YiXAUv5ufhdAT_UDg3QKyt=uvrGMw_g@mail.gmail.com>
+References: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: joe@perches.com
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:38618 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753211AbaDUX2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 19:28:40 -0400
-Received: by mail-oa0-f51.google.com with SMTP id i4so4830357oah.24
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 16:28:40 -0700 (PDT)
-In-Reply-To: <535259C3.10404@mojatatu.com>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:49080 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561AbaDVAEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 20:04:01 -0400
+Received: by mail-qc0-f169.google.com with SMTP id i17so4726071qcy.14
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 17:04:00 -0700 (PDT)
+In-Reply-To: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 19, 2014 at 4:10 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 04/18/14 13:18, Cong Wang wrote:
->> IOW, what's wrong with changing if (icmp) { A } to if (icmp) { B } ?
->> where A and B could be any complex combination of actions.
->> RTNL lock guarantees this is transactional.
->>
->
-> RTNL is one dimension. The other is the datapath processing.
-> You need to make sure that packets still flow correctly during the
-> change over.
-
-Sure, since we grab tcf_tree_lock() before changing actions in
-tcf_exts_change(), I think this is guaranteed too.
-
-
->
->> I never mean to only add or remove one of them inside, although
->> my specific case is just for appending, my patch should allow to
->> overwrite all the actions together.
->>
->
-> Well - then go nuts and put out a patch.
-> Replace _all or none_ is a reasonable approach.
->
+On Mon, Apr 21, 2014 at 9:17 PM,  <roy.qing.li@gmail.com> wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 >
 
-Great! We both agree on this.
+Sorry, Please drop it, there is a build failure.
 
-Looking at the current code, we first initialize a list of actions
-and then replace them as a whole by splicing the lists with
-tcf_tree_lock held, so this is already done. IOW, this patch
-is enough.
-
-Or am I missing anything?
-
-Thanks!
+-Roy
