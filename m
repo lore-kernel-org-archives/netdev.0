@@ -1,66 +1,92 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v1] iproute2: show counter of carrier on<->off
- transitions
-Date: Tue, 22 Apr 2014 15:46:16 -0700
-Message-ID: <20140422154616.4e4eb445@nehalam.linuxnetplumber.net>
-References: <cover.1396455409.git.decot@googlers.com>
-	<6c78808eaf4b31f98c9de9bef6f29397c67cf09e.1396455409.git.decot@googlers.com>
+From: David Gibson <dgibson@redhat.com>
+Subject: Re: rtnetlink problems with Cisco enic and VFs
+Date: Wed, 23 Apr 2014 09:24:58 +1000
+Message-ID: <20140423092458.d9b5ee99d389e30e87b86376@redhat.com>
+References: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
+	<6CE81A2095B0024BBC77007BD04E553823E85BC2@xmb-aln-x02.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Decotigny <decot@googlers.com>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__23_Apr_2014_09_24_58_+1000_DeM_wnSDj3n4psv3"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sujith Sankar (ssujith)" <ssujith@cisco.com>,
+	Govindarajulu Varadarajan <govindarajulu90@gmail.com>,
+	"Neel Patel (neepatel)" <neepatel@cisco.com>,
+	Nishank Trivedi <nistrive@cisco.com>
+To: "Christian Benvenuti (benve)" <benve@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:43914 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751528AbaDVWqT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 18:46:19 -0400
-Received: by mail-pd0-f182.google.com with SMTP id y10so98279pdj.27
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 15:46:19 -0700 (PDT)
-In-Reply-To: <6c78808eaf4b31f98c9de9bef6f29397c67cf09e.1396455409.git.decot@googlers.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59819 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750705AbaDVXZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 19:25:08 -0400
+In-Reply-To: <6CE81A2095B0024BBC77007BD04E553823E85BC2@xmb-aln-x02.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  2 Apr 2014 09:19:00 -0700
-David Decotigny <decot@googlers.com> wrote:
+--Signature=_Wed__23_Apr_2014_09_24_58_+1000_DeM_wnSDj3n4psv3
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> This patch allows to display the current counter of carrier on<->off
-> transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
-> carrier on/off changes"):
-> 
->   ip -s -s link show dev eth0
->   ...
->   2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 etc.
->     link/ether ............ brd ff:ff:ff:ff:ff:ff
->     RX: bytes  packets  errors  dropped overrun mcast
->     134705     758      0       0       0       0
->     RX errors: length  crc     frame   fifo    missed
->                0        0       0       0       0
->     TX: bytes  packets  errors  dropped carrier collsns
->     77374      731      0       0       0       0
->     TX errors: aborted fifo    window  heartbeat
->                0        0       0       0
->     link: carrier_changes 4
-> 
+On Tue, 22 Apr 2014 19:14:04 +0000
+"Christian Benvenuti (benve)" <benve@cisco.com> wrote:
 
-I wonder if putting it under TX errors would make sense.
-This is where Juniper classifies the error, and it would also
-fit on same line, avoiding adding more clutter.
+> David,
+>=20
+> > -----Original Message-----
+> > From: David Gibson [mailto:dgibson@redhat.com]
+> > Sent: Monday, April 21, 2014 9:14 PM
+> > To: netdev@vger.kernel.org
+> > Cc: Christian Benvenuti (benve); Sujith Sankar (ssujith); Govindarajulu
+> > Varadarajan; Neel Patel (neepatel); Nishank Trivedi
+> > Subject: RFC: rtnetlink problems with Cisco enic and VFs
+> >=20
+> > I believe I've found a problem with netlink handling which can be trigg=
+ered
+> > on Cisco enic devices with a large number (30-40) of virtual functions.=
+  I
+> > believe this is the cause of a real customer problem we've seen.
+> >=20
+> >  * When requesting a list of interfaces with RTM_GETLINK, enic devices
+> >    (and currently, _only_ enic devices) report IFLA_VF_PORTS
+> >    information
+>=20
+> Is the fact that Enic is the only driver implementing ndo_get_vf_port [1]
+> the root cause of the problem and the reason why this happens only with E=
+nic?
 
+Yes, or at least it's one of the factors.
 
-   2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 etc.
-     link/ether ............ brd ff:ff:ff:ff:ff:ff
-     RX: bytes  packets  errors  dropped overrun mcast
-     134705     758      0       0       0       0
-     RX errors: length  crc     frame   fifo    missed
-                0        0       0       0       0
-     TX: bytes  packets  errors  dropped carrier collsns
-     77374      731      0       0       0       0
-     TX errors: aborted fifo    window  heartbeat transition
-                0        0       0       0        4
+>=20
+> /Chris
+>=20
+> [1]
+> This is what makes rtnl_port_size to account for vf_port_size*dev_num_vf(=
+...)
+> and rtnl_port_fill to add IFLA_VF_PORTS.
 
-The risk is break some screen scraping script, but that doesn't
-seem to be that big an issue for adding one column.
+--=20
+David Gibson <dgibson@redhat.com>
 
-The columns also need some re-aligning here but that is different
-correctness issue.
+--Signature=_Wed__23_Apr_2014_09_24_58_+1000_DeM_wnSDj3n4psv3
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJTVvpKAAoJEGw4ysog2bOSMAUP/29eohx3ZNUQmGZ2Kl7f4RGO
+A3Sf0VAYEDqUMXmz8PYu37WB/XaG36rwvb3mdPyMuke9vhPuWigFAOJTDKAcVVS4
+YlD9xQoFv4RHQHKFuyepU7NDYb63L19wO7bPFFHGOzefs3nucj9rLQKbtdYVckgl
+/Ix1ebl9molpYzWnx+DOjZLhDBYNksvunrG1YYGc3uPMCtjFZ1dvPe3Q6w7HHM9E
+S6ssA6EPkFF+DAjQcv1o+kLbtw2pgQfWaFTgeYuQwZyDwGaMXwwOgyAOvGAYSNrl
+X3awpvWkW7oDCuljynN2Fz3n5D27XD0OXm3WCyczdY/Eah/SROtri0r1hOyUoqRG
+WINe4tvVS1JOfvstSbyT+SV0ALdAyXzo9xIyxZ91oAt25Ja80BBz/wPkaMu1Wq6H
+nuZFJBODR2aaPUacuA4V3iDPdw6qfgLbFYGMPjssvFt1grcn7i4kZeFRzBf9r/yn
++zcKAfxTavauYadyLLUcxd/d8295cgGIRQ4nD6wy0eDsZCuETPH94YpSPsIaSU6E
+sU6jyFIJ932lMKXCYYQm42fqolaX+5L6Mwh/g7th6kBldElYGWPXegvOz9BSaCKA
+EkTiP1/gVKS5Zd53ErZYJ5wmC+oKEe8DZ+7Ch6ji0ah8dPKMTZmxQHeGuJn361QM
+vtAJaotGC4R2OvDfD8GL
+=VrpK
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__23_Apr_2014_09_24_58_+1000_DeM_wnSDj3n4psv3--
