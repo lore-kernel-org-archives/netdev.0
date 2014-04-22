@@ -1,62 +1,37 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: skb_try_coalesce bug?
-Date: Tue, 22 Apr 2014 16:35:59 -0400
-Message-ID: <5356D2AF.7030401@ericsson.com>
-References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>	 <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356C518.7050602@ericsson.com> <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2] filter: added BPF random opcode
+Date: Tue, 22 Apr 2014 23:10:44 +0200
+Message-ID: <5356DAD4.8090100@redhat.com>
+References: <1397585816-1267-1-git-send-email-chema@google.com> <1398097284-20528-1-git-send-email-chema@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
+To: Chema Gonzalez <chema@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:63519 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757594AbaDVUgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 16:36:11 -0400
-In-Reply-To: <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3127 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755073AbaDVVKw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 17:10:52 -0400
+In-Reply-To: <1398097284-20528-1-git-send-email-chema@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/22/2014 04:05 PM, Eric Dumazet wrote:
-> On Tue, 2014-04-22 at 15:38 -0400, Jon Maloy wrote:
-> 
->>
->> In the case I encountered, our head buffer is linear (skb->data_len == 0),
->> so it is the real tailroom value that is returned. An alas, that one is big
->> enough to contain the last (small) fragment of the message.
-> 
-> 
-> Whole point of skb_try_coalesce() is to coalesce as much as possible,
-> without guarantee of keeping some sort of 'segments'
-> 
-> skb_try_coalesce - try to merge skb to prior one
-> 
-> If you do not want this to happen, (you seem to want nothing else in
-> your head buffer skb->head), you need to add some logic.
+On 04/21/2014 06:21 PM, Chema Gonzalez wrote:
+> Added a new ancillary load (bpf call in eBPF parlance) that produces
+> a 32-bit random number. We are implementing it as an ancillary load
+> (instead of an ISA opcode) because (a) it is simpler, (b) allows easy
+> JITing, and (c) seems more in line with generic ISAs that do not have
+> "get a random number" as a instruction, but as an OS call.
+>
+> The main use for this ancillary load is to perform random packet sampling.
+>
+> Signed-off-by: Chema Gonzalez <chema@google.com>
 
-Ok. I should have given a little background.
+Generally, I'm fine with your patch. If some day other use cases pop up
+in non-packet filtering areas, we might need to let it return a 64 bit
+number, but lets see. Thanks again for updating bpf_asm as well!
 
-1: We send a message of 3041 bytes, inclusive TIPC header, via loopback interface.
-
-2: This one gets chopped up in three fragments: 1420, 1420,and 201 bytes.
-   (The mtu was of course wrong, but this is how I discovered the problem).
-
-3: First fragment is received, uncloned, and serves as head.
-
-4;  Second fragment (a clone) is received. skb_try_coalesce() fails at
-    the skb_head_is_locked() test, because the buffer is a clone.
-    Because of this, we add the buffer to skb_shinfo(head)->frag_list
-    instead.
-
-5: Third fragment (also a clone) is received. Now, since we check for
-   space in tailroom of header before we do anything else, it slips
-   in there, and bypasses the already chained-up second segment.
-
-Regards
-///jon
-
-
-> 
-> A helper temporarily setting head->tail = head->end would do it I guess.
-> 
-> 
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
