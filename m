@@ -1,185 +1,128 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net-next 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
-Date: Tue, 22 Apr 2014 17:13:35 +0900
-Message-ID: <1398154415-24486-3-git-send-email-lorenzo@google.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
-Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
-	davem@davemloft.net, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:64536 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754344AbaDVIOA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 04:14:00 -0400
-Received: by mail-pa0-f52.google.com with SMTP id kx10so667059pab.25
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 01:13:59 -0700 (PDT)
-In-Reply-To: <1398154415-24486-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: RFC: sharing config interrupt between virtio devices for saving
+	MSI
+Date: Tue, 22 Apr 2014 16:15:27 +0800
+Message-ID: <20140422081527.GC2543@amosk.info>
+References: <20140330111427.GD24476@redhat.com>
+	<20140419040815.GB4681@amosk.info>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arusty@rustcorp.com.au
+To: "MichaelS.Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20140419040815.GB4681@amosk.info>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This replaces the ad-hoc code used by ping6_sendmsg with the
-implementation now used by UDP, raw and L2TP sockets. This also
-adds the ability to set options via ancillary data, proper
-flowlabel validation, etc. etc.
+On Sat, Apr 19, 2014 at 12:08:15PM +0800, Amos Kong wrote:
+> 
+> Hi all,
+> 
+> I'm working on this item in Upstream Networking todolist:
+> 
+> | - Sharing config interrupts
+> |    Support more devices by sharing a single msi vector
+> |    between multiple virtio devices.
+> |    (Applies to virtio-blk too).
+> 
+> I have this solution here, and only have draft patches of Solution
+> 1 & 2, let's discuss if solution 3 is feasible.
+> 
+> * We should not introduce perf regression in this change
+> * little effect is acceptable because we are _sharing_ interrupt
+> 
+> Solution 1:
+> ==========
+> share one LSI interrupt for configuration change of all virtio devices.
+> Draft patch: share_lsi_for_all_config.patch
+> 
+> Solution 2:
+> ==========
+> share one MSI interrupt for configuration change of all virtio devices.
+> Draft patch: share_msix_for_all_config.patch
+> 
+> Solution 3:
+> ==========
+> dynamic adjust interrupt policy when device is added or removed
+> Current:
+> -------
+> - try to allocate a MSI to device's config
+> - try to allocate a MSI for each vq
+> - share one MSI for all vqs of one device
+> - share one LSI for config & vqs of one device
+> 
+> additional dynamic policies:
+> ---------------------------
+> - if there is no enough MSI, adjust interrupt allocation for returning
+>   some MSI
+>    - try to find a device that allocated one MSI for each vq, change
+>      it to share one MSI for saving the MSI
+>    - try to share one MSI for config of all virtio_pci devices
+>    - try to share one LSI for config of all devices
+> 
+> - if device is removed, try to re-allocate freed MSI to existed
+>   devices, if they aren't in best status (one MSI for config, one
+>   MSI for each vq)
+>    - if config of all devices is sharing one LSI, try to upgrade it to MSI
+>    - if config of all devices is sharing one MSI, try to allocate one
+>      MSI for configuration change of each device
+>    - try to find a device that is sharing one MSI for all vqs, try to
+>      allocate one MSI for each vq
+> 
+> 
+> 
+> BTW, I saw we still notify all vqs even VIRTIO_PCI_ISR_CONFIG bit of
+> isr is set, is it necessary?
 
-Tested: Black-box tested using user-mode Linux.
+[Reply myself]
 
-- IPv6 pings using both connect()/send() and sendto() still work.
-- Fragmented IPv6 pings still work.
-- Specifying a flowlabel still works.
-- Attempting to send a flowlabel that is not first set via
-  IPV6_FLOWLABEL_MGR now correctly returns EINVAL.
+Quote from Virtio-spec:
 
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv6/ping.c | 95 +++++++++++++++++++--------------------------------------
- 1 file changed, 31 insertions(+), 64 deletions(-)
+| 2.4.3 Dealing With Configuration Changes
+| Some virtio PCI devices can change the device configuration state, as reflected
+| in the virtio header in the PCI configuration space. In this case:
+| 
+| 1. If MSI-X capability is disabled: an interrupt is delivered and the sec-
+| ond highest bit is set in the ISR Status field to indicate that the driver
+| should re-examine the configuration space.
 
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index bda7429..96730c6 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -81,16 +81,17 @@ static int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		    size_t len)
- {
-+	DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
- 	struct inet_sock *inet = inet_sk(sk);
--	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct ipv6_txoptions *opt, opt_space;
- 	struct icmp6hdr user_icmph;
--	int addr_type;
-+	int addr_len = msg->msg_namelen;
- 	struct in6_addr *daddr;
--	int iif = 0;
- 	struct flowi6 fl6;
- 	int err;
--	int hlimit;
--	struct dst_entry *dst;
-+	int hlimit, tclass, dontfrag;
-+	int connected;
-+	struct dst_entry *dst = NULL;
- 	struct rt6_info *rt;
- 	struct pingfakehdr pfh;
+| Note that a single interrupt can
+| indicate both that one or more virtqueue has been used and that the con-
+| figuration space has changed: even if the config bit is set, virtqueues must
+| be scanned. <<<<
+
+It seems current code is fine.
+
  
-@@ -101,63 +102,38 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	if (err)
- 		return err;
- 
--	if (msg->msg_name) {
--		DECLARE_SOCKADDR(struct sockaddr_in6 *, u, msg->msg_name);
--		if (msg->msg_namelen < sizeof(struct sockaddr_in6) ||
--		    u->sin6_family != AF_INET6) {
-+	if (sin6) {
-+		if (addr_len < sizeof(struct sockaddr_in6))
- 			return -EINVAL;
--		}
--		if (sk->sk_bound_dev_if &&
--		    sk->sk_bound_dev_if != u->sin6_scope_id) {
--			return -EINVAL;
--		}
--		daddr = &(u->sin6_addr);
--		iif = u->sin6_scope_id;
-+
-+		if (sin6->sin6_family != AF_INET6)
-+			return -EAFNOSUPPORT;
-+
-+		daddr = &sin6->sin6_addr;
- 	} else {
--		if (sk->sk_state != TCP_ESTABLISHED)
--			return -EDESTADDRREQ;
- 		daddr = &sk->sk_v6_daddr;
- 	}
- 
--	if (!iif)
--		iif = sk->sk_bound_dev_if;
--
--	addr_type = ipv6_addr_type(daddr);
--	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
--		return -EINVAL;
--	if (addr_type & IPV6_ADDR_MAPPED)
-+	if (ipv6_addr_v4mapped(daddr))
- 		return -EINVAL;
- 
--	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
--
- 	memset(&fl6, 0, sizeof(fl6));
--
- 	fl6.flowi6_proto = IPPROTO_ICMPV6;
--	fl6.saddr = np->saddr;
--	fl6.daddr = *daddr;
--	fl6.flowi6_mark = sk->sk_mark;
- 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
- 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
--	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
- 
--	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
--		fl6.flowi6_oif = np->mcast_oif;
--	else if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->ucast_oif;
--
--	dst = ip6_sk_dst_lookup_flow(sk, &fl6,  daddr);
--	if (IS_ERR(dst))
--		return PTR_ERR(dst);
--	rt = (struct rt6_info *) dst;
--
--	np = inet6_sk(sk);
--	if (!np)
--		return -EBADF;
-+	err = ip6_datagram_send_common(sk, msg, sin6, addr_len, &fl6, &dst,
-+				       &opt, &opt_space, &hlimit, &tclass,
-+				       &dontfrag, &connected);
-+	if (err)
-+		goto out;
- 
--	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
--		fl6.flowi6_oif = np->mcast_oif;
--	else if (!fl6.flowi6_oif)
--		fl6.flowi6_oif = np->ucast_oif;
-+	/* TODO: Move this check into ip6_datagram_sendmsg. */
-+	if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(daddr)) &&
-+	    !fl6.flowi6_oif) {
-+		err = -EINVAL;
-+		goto out;
-+	}
- 
- 	pfh.icmph.type = user_icmph.icmp6_type;
- 	pfh.icmph.code = user_icmph.icmp6_code;
-@@ -168,18 +144,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	pfh.wcheck = 0;
- 	pfh.family = AF_INET6;
- 
--	if (ipv6_addr_is_multicast(&fl6.daddr))
--		hlimit = np->mcast_hops;
--	else
--		hlimit = np->hop_limit;
--	if (hlimit < 0)
--		hlimit = ip6_dst_hoplimit(dst);
--
-+	rt = (struct rt6_info *) dst;
- 	lock_sock(sk);
--	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
--			      0, hlimit,
--			      np->tclass, NULL, &fl6, rt,
--			      MSG_DONTWAIT, np->dontfrag);
-+	err = ip6_append_data(sk, ping_getfrag, &pfh, len, 0, hlimit, tclass,
-+			      opt, &fl6, rt, msg->msg_flags, dontfrag);
- 
- 	if (err) {
- 		ICMP6_INC_STATS(sock_net(sk), rt->rt6i_idev,
-@@ -192,10 +160,9 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	}
- 	release_sock(sk);
- 
--	if (err)
--		return err;
--
--	return len;
-+out:
-+	dst_release(dst);
-+	return err ? err : len;
- }
- 
- #ifdef CONFIG_PROC_FS
--- 
-1.9.1.423.g4596e3a
+> diff --git a/drivers/virtio/virtio_pci.c b/drivers/virtio/virtio_pci.c
+> index 101db3f..176aabc 100644
+> --- a/drivers/virtio/virtio_pci.c
+> +++ b/drivers/virtio/virtio_pci.c
+> @@ -259,9 +259,9 @@ static irqreturn_t vp_interrupt(int irq, void
+> *opaque)
+>  
+>         /* Configuration change?  Tell driver if it wants to know. */
+>         if (isr & VIRTIO_PCI_ISR_CONFIG)
+> -               vp_config_changed(irq, opaque);
+> -
+> -       return vp_vring_interrupt(irq, opaque);
+> +               return vp_config_changed(irq, opaque);
+> +       else
+> +               return vp_vring_interrupt(irq, opaque);
+>  }
+>  
+>  static void vp_free_vectors(struct virtio_device *vdev)
+> 
+> -- 
+> 			Amos.
