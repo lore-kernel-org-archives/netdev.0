@@ -1,117 +1,51 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v7 1/2] can: xilinx CAN controller support
-Date: Tue, 22 Apr 2014 11:18:48 +0000
-Message-ID: <b43293ed-5ecc-4d13-befd-651353fb79ba@CH1EHSMHS033.ehs.local>
-References: <3e750ec3-9d47-4b4e-8173-56698ab19786@CH1EHSMHS029.ehs.local>
- <53562E7D.7090509@pengutronix.de>
- <957b07ca-f74c-47fb-963a-084710d48c5a@AM1EHSMHS014.ehs.local>
- <535643D9.3070601@pengutronix.de>
- <9f70ceca-c6fd-4d57-a54a-8cbf9d888137@CH1EHSMHS016.ehs.local>
- <53564E63.4010803@pengutronix.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] netprio_cgroup: explicitly init the early_init field
+Date: Tue, 22 Apr 2014 07:19:06 -0400
+Message-ID: <20140422111906.GD17116@hmsreliant.think-freely.org>
+References: <1398144722-9864-1-git-send-email-nasa4836@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Michal Simek <michals@xilinx.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"wg@grandegger.com" <wg@grandegger.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, lizefan@huawei.com, tj@kernel.org,
+	daniel.wagner@bmw-carit.de, gaofeng@cn.fujitsu.com,
+	stephen@networkplumber.org, jiri@resnulli.us,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jianyu Zhan <nasa4836@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53564E63.4010803@pengutronix.de>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1398144722-9864-1-git-send-email-nasa4836@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
-ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogVHVlc2RheSwg
-QXByaWwgMjIsIDIwMTQgNDo0MiBQTQ0KPiBUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJh
-bw0KPiBDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZzsgbGludXgta2VybmVs
-QHZnZXIua2VybmVsLm9yZzsNCj4gZGV2aWNldHJlZUB2Z2VyLmtlcm5lbC5vcmc7IE1pY2hhbCBT
-aW1lazsgcm9iaCtkdEBrZXJuZWwub3JnOw0KPiBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgd2dA
-Z3JhbmRlZ2dlci5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRDSCB2NyAxLzJdIGNhbjogeGlsaW54
-IENBTiBjb250cm9sbGVyIHN1cHBvcnQNCj4NCj4gT24gMDQvMjIvMjAxNCAwMTowOCBQTSwgQXBw
-YW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbyB3cm90ZToNCj4gPiBIaSBNYXJjLA0KPiA+DQo+ID4+
-IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+ID4+IEZyb206IE1hcmMgS2xlaW5lLUJ1ZGRl
-IFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiA+PiBTZW50OiBUdWVzZGF5LCBBcHJpbCAy
-MiwgMjAxNCAzOjU3IFBNDQo+ID4+IFRvOiBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEgUmFvOyB3
-Z0BncmFuZGVnZ2VyLmNvbTsgTWljaGFsIFNpbWVrOw0KPiA+PiBncmFudC5saWtlbHlAbGluYXJv
-Lm9yZzsgcm9iaCtkdEBrZXJuZWwub3JnDQo+ID4+IENjOiBsaW51eC1jYW5Admdlci5rZXJuZWwu
-b3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0tDQo+ID4+IGtlcm5lbEBsaXN0
-cy5pbmZyYWRlYWQub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiA+PiBkZXZp
-Y2V0cmVlQHZnZXIua2VybmVsLm9yZw0KPiA+PiBTdWJqZWN0OiBSZTogW1BBVENIIHY3IDEvMl0g
-Y2FuOiB4aWxpbnggQ0FOIGNvbnRyb2xsZXIgc3VwcG9ydA0KPiA+Pg0KPiA+PiBPbiAwNC8yMi8y
-MDE0IDEyOjA2IFBNLCBBcHBhbmEgRHVyZ2EgS2VkYXJlc3dhcmEgUmFvIHdyb3RlOg0KPiA+Pg0K
-PiA+Pj4+IE1lYW53aGlsZSBUaG9tYXMgR2xlaXhuZXIgcHV0IHNvbWUgZWZmb3J0IGludG8gdGhl
-IGNfY2FuIGRyaXZlciBhbmQNCj4gPj4+PiBmb3VuZCBzb21lIHByb2JsZW1zIGluIG1vc3Qgb2Yg
-dGhlIGNhbiBkcml2ZXIuIFNlZSBjb21tZW50cyBpbmxpbmUuDQo+ID4+Pj4NCj4gPj4+IE9rIHdp
-bGwgbG9vayBpbnRvIHRoYXQgcGF0Y2hlcw0KPiA+Pg0KPiA+PiBJJ3ZlIGNvbW1lbnRlZCB0aGUg
-cmVsZXZhbnQgcGFydHMgb2YgeW91ciBwYXRjaC4gQWx0aG91Z2ggbW9yZQ0KPiA+PiBiYWNrZ3Jv
-dW5kIGluZm9ybWF0aW9uIGNhbiBiZSBmb3VuZCBpbiB0aGUgY19jYW4gcGF0Y2hlcy4NCj4gPj4N
-Cj4gPiBPaw0KPiA+DQo+ID4+Pj4+ICsvKioNCj4gPj4+Pj4gKyAqIHhjYW5fdHhfaW50ZXJydXB0
-IC0gVHggRG9uZSBJc3INCj4gPj4+Pj4gKyAqIEBuZGV2OiAgbmV0X2RldmljZSBwb2ludGVyDQo+
-ID4+Pj4+ICsgKiBAaXNyOiAgIEludGVycnVwdCBzdGF0dXMgcmVnaXN0ZXIgdmFsdWUNCj4gPj4+
-Pj4gKyAqLw0KPiA+Pj4+PiArc3RhdGljIHZvaWQgeGNhbl90eF9pbnRlcnJ1cHQoc3RydWN0IG5l
-dF9kZXZpY2UgKm5kZXYsIHUzMiBpc3IpIHsNCj4gPj4+Pj4gKyAgIHN0cnVjdCB4Y2FuX3ByaXYg
-KnByaXYgPSBuZXRkZXZfcHJpdihuZGV2KTsNCj4gPj4+Pj4gKyAgIHN0cnVjdCBuZXRfZGV2aWNl
-X3N0YXRzICpzdGF0cyA9ICZuZGV2LT5zdGF0czsNCj4gPj4+Pj4gKw0KPiA+Pj4+PiArICAgd2hp
-bGUgKHByaXYtPnR4X2hlYWQgLSBwcml2LT50eF90YWlsID4gMCkgew0KPiA+Pj4+PiArICAgICAg
-ICAgICBwcml2LT53cml0ZV9yZWcocHJpdiwgWENBTl9JQ1JfT0ZGU0VULA0KPiA+Pj4+IFhDQU5f
-SVhSX1RYT0tfTUFTSyk7DQo+ID4+Pj4+ICsgICAgICAgICAgIGlmICghKGlzciAmIFhDQU5fSVhS
-X1RYT0tfTUFTSykpDQo+ID4+Pj4+ICsgICAgICAgICAgICAgICAgICAgYnJlYWs7DQo+ID4+Pj4N
-Cj4gPj4+PiBUaGlzIGxvb2tzIGJyb2tlbi4gSSBhc3N1bWUgeW91IGhhdmUgdG8gaXNzdWUgdGhl
-DQo+ID4+IFhDQU5fSVhSX1RYT0tfTUFTSy0NCj4gPj4+PiB3cml0ZSBvbmNlIHBlciB0eC1jb21w
-bGV0ZWQgQ0FOIGZyYW1lLiBJZiB5b3UgZW50ZXIgdGhpcyBsb29wIHlvdQ0KPiA+Pj4+IHdyaXRl
-IG9uY2UsIHRoZW4gaXNyIGlzIHJlYWQsIHRoZW4geW91IHdyaXRlIGFnYWluIGFuZCBtYXkgZXhp
-dA0KPiA+Pj4+IHRoaXMgbG9vcCBpZiBYQ0FOX0lYUl9UWE9LX01BU0sgaXMgbm90IHNldCBhbnlt
-b3JlLg0KPiA+Pg0KPiA+PiBMZXQncyBhc3N1bWUgeW91IGhhdmUgcHV0IDMgQ0FOIGZyYW1lcyBp
-bnRvIHRoZSBUWC1xdWV1ZSBhbmQgd2UncmUNCj4gPj4gaW50byB0eC1jb21wbGV0ZSBpbnRlcnJ1
-cHQgZm9yIHRoZSBmaXJzdCBmcmFtZSBhbmQgdGhlIG90aGVyIDIgYXJlDQo+ID4+IHN0aWxsIG5v
-dCBjb21wbGV0ZWQuDQo+ID4+DQo+ID4+IFRoaXMgbWVhbnMgdGhlIHdoaWxlKCkgbG9vcCBpcyBu
-b3QgdGVybWluYXRlZCBieSAocHJpdi0+dHhfaGVhZCAtDQo+ID4+IHByaXYtPnR4X3RhaWwgPiAw
-KSwgYXMgaXQgY2FuIGxvb3AgMyB0aW1lcy4NCj4gPj4NCj4gPj4gV2hhdCBoYXBwZW5zIGlzOg0K
-PiA+Pg0KPiA+PiAtIHByaXYtPndyaXRlX3JlZyhwcml2LCBYQ0FOX0lDUl9PRkZTRVQsIFhDQU5f
-SVhSX1RYT0tfTUFTSyk7DQo+ID4+IC0gaWYgKCEoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkg
-LT4gbm8gYnJlYWsNCj4gPj4gLSBjYW5fZ2V0X2VjaG9fc2tiKCkNCj4gPj4gLSAuLi4NCj4gPj4g
-LSBpc3IgPSBwcml2LT5yZWFkX3JlZyhwcml2LCBYQ0FOX0lTUl9PRkZTRVQpOw0KPiA+PiAtIGxv
-b3AgLT4NCj4gPj4gLSBwcml2LT53cml0ZV9yZWcocHJpdiwgWENBTl9JQ1JfT0ZGU0VULCBYQ0FO
-X0lYUl9UWE9LX01BU0spOw0KPiA+PiAtIGlmICghKGlzciAmIFhDQU5fSVhSX1RYT0tfTUFTSykp
-IC0+IGJyZWFrDQo+ID4+DQo+ID4+IFNvIHlvdSBoYXZlIDJ4IHdyaXRlX3JlZyhwcml2LCBYQ0FO
-X0lDUl9PRkZTRVQsDQo+IFhDQU5fSVhSX1RYT0tfTUFTSyksDQo+ID4+IGJ1dCBvbmx5IGEgc2lu
-Z2xlIFRYIGNvbXBsZXRlZCBDQU4gZnJhbWUuDQo+ID4+DQo+ID4NCj4gPiBPayBub3cgZ290IGl0
-IDopLiBUaGFua3MgZm9yIHRoZSBleHBsYW5hdGlvbi4NCj4gPiBXaWxsIG1vZGlmeSB0aGUgbG9v
-cCBsb2dpYyBsaWtlIGJlbG93Lg0KPiA+DQo+ID4gd2hpbGUgKHByaXYtPnR4X2hlYWQgLSBwcml2
-LT50eF90YWlsID4gMCkgew0KPiA+ICAgICAgICAgICAgICAgICAgaWYgKChpc3IgJiBYQ0FOX0lY
-Ul9UWE9LX01BU0spKSB7DQo+ID4gICAgICAgICAgICAgICAgIHByaXYtPndyaXRlX3JlZyhwcml2
-LCBYQ0FOX0lDUl9PRkZTRVQsIFhDQU5fSVhSX1RYT0tfTUFTSyk7DQo+ID4gICAgICAgICAgICAg
-ICAgICAgICAgICAgY2FuX2dldF9lY2hvX3NrYihuZGV2LCBwcml2LT50eF90YWlsICUNCj4gPiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBwcml2LT50eF9t
-YXgpOw0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIHByaXYtPnR4X3RhaWwrKzsNCj4gPiAg
-ICAgICAgICAgICAgICAgICAgICAgICBzdGF0cy0+dHhfcGFja2V0cysrOw0KPiA+ICAgICAgICAg
-ICAgICAgICB9IGVsc2Ugew0KPiA+ICAgICAgICAgICAgICAgICBicmVhazsNCj4gPiAgICAgICAg
-IH0NCj4gPg0KPiA+ICAgfQ0KPiA+IEFyZSB5b3Ugb2sgd2l0aCB0aGlzPw0KPg0KPiB3aGF0IGFi
-b3V0IHRoaXM6DQo+DQo+IHdoaWxlICgocHJpdi0+dHhfaGVhZCAtIHByaXYtPnR4X3RhaWwgPiAw
-KSAmJg0KPiAgICAgICAoaXNyICYgWENBTl9JWFJfVFhPS19NQVNLKSkgew0KPg0KPiAgICAgICBb
-Li4uXQ0KPg0KPiAgICAgICBpc3IgPSBwcml2LT5yZWFkX3JlZyhwcml2LCBYQ0FOX0lTUl9PRkZT
-RVQpOyB9DQo+DQo+IG9yIGV2ZW4NCj4NCj4gd2hpbGUgKChwcml2LT50eF9oZWFkIC0gcHJpdi0+
-dHhfdGFpbCA+IDApICYmDQo+ICAgICAgIChwcml2LT5yZWFkX3JlZyhwcml2LCBYQ0FOX0lTUl9P
-RkZTRVQpICYgWENBTl9JWFJfVFhPS19NQVNLKSkNCj4gew0KPg0KPiAgICAgICBbLi4uXQ0KPg0K
-PiB9DQpPayB3aWxsIHVzZSBhbnkgb25lIG9mIHRoZSBhYm92ZS4NCg0KDQpSZWdhcmRzLA0KS2Vk
-YXIuDQoNCj4NCj4gTWFyYw0KPg0KPiAtLQ0KPiBQZW5ndXRyb25peCBlLksuICAgICAgICAgICAg
-ICAgICAgfCBNYXJjIEtsZWluZS1CdWRkZSAgICAgICAgICAgfA0KPiBJbmR1c3RyaWFsIExpbnV4
-IFNvbHV0aW9ucyAgICAgICAgfCBQaG9uZTogKzQ5LTIzMS0yODI2LTkyNCAgICAgfA0KPiBWZXJ0
-cmV0dW5nIFdlc3QvRG9ydG11bmQgICAgICAgICAgfCBGYXg6ICAgKzQ5LTUxMjEtMjA2OTE3LTU1
-NTUgfA0KPiBBbXRzZ2VyaWNodCBIaWxkZXNoZWltLCBIUkEgMjY4NiAgfCBodHRwOi8vd3d3LnBl
-bmd1dHJvbml4LmRlICAgfA0KDQoNCg0KVGhpcyBlbWFpbCBhbmQgYW55IGF0dGFjaG1lbnRzIGFy
-ZSBpbnRlbmRlZCBmb3IgdGhlIHNvbGUgdXNlIG9mIHRoZSBuYW1lZCByZWNpcGllbnQocykgYW5k
-IGNvbnRhaW4ocykgY29uZmlkZW50aWFsIGluZm9ybWF0aW9uIHRoYXQgbWF5IGJlIHByb3ByaWV0
-YXJ5LCBwcml2aWxlZ2VkIG9yIGNvcHlyaWdodGVkIHVuZGVyIGFwcGxpY2FibGUgbGF3LiBJZiB5
-b3UgYXJlIG5vdCB0aGUgaW50ZW5kZWQgcmVjaXBpZW50LCBkbyBub3QgcmVhZCwgY29weSwgb3Ig
-Zm9yd2FyZCB0aGlzIGVtYWlsIG1lc3NhZ2Ugb3IgYW55IGF0dGFjaG1lbnRzLiBEZWxldGUgdGhp
-cyBlbWFpbCBtZXNzYWdlIGFuZCBhbnkgYXR0YWNobWVudHMgaW1tZWRpYXRlbHkuDQoNCgoK
+On Tue, Apr 22, 2014 at 01:32:02PM +0800, Jianyu Zhan wrote:
+> For a cgroup subsystem who should init early, then it should carefully
+> take care of the implementation of css_alloc, because it will be called
+> before mm_init() setup the world.
+> 
+> Luckily we don't, and we better explicitly assign the early_init field
+> to 0, for document reason.
+> 
+> Signed-off-by: Jianyu Zhan <nasa4836@gmail.com>
+> ---
+>  net/core/netprio_cgroup.c | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 13ddd68..fc21035 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -250,6 +250,7 @@ struct cgroup_subsys net_prio_cgrp_subsys = {
+>  	.css_free	= cgrp_css_free,
+>  	.attach		= net_prio_attach,
+>  	.base_cftypes	= ss_files,
+> +	.early_init	= 0,
+>  };
+>  
+>  static int netprio_device_event(struct notifier_block *unused,
+> -- 
+> 2.0.0-rc0
+> 
+> 
+NACK, for the same reason that it doesn't make sense for net_classid.
+Early_init should already be zero.  What problem are you trying to solve here?
+
+Neil
