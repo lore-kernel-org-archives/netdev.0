@@ -1,44 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: skb_try_coalesce bug?
-Date: Tue, 22 Apr 2014 14:37:33 -0700
-Message-ID: <1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>
-	 <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5356C518.7050602@ericsson.com>
-	 <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5356D2AF.7030401@ericsson.com>
-	 <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Subject: Re: [PATCH 0/2] net: Add Keystone NetCP ethernet driver support
+Date: Tue, 22 Apr 2014 15:02:31 -0700
+Message-ID: <20140422150231.2e87b7eb@nehalam.linuxnetplumber.net>
+References: <1398201675-17379-1-git-send-email-santosh.shilimkar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:37525 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752661AbaDVVhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 17:37:37 -0400
-Received: by mail-pd0-f170.google.com with SMTP id v10so52016pde.1
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 14:37:36 -0700 (PDT)
-In-Reply-To: <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Sandeep Nair <sandeep_n-l0cyMroinI0@public.gmane.org>
+To: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1398201675-17379-1-git-send-email-santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-04-22 at 14:29 -0700, Eric Dumazet wrote:
+On Tue, 22 Apr 2014 17:21:13 -0400
+Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org> wrote:
 
-> Then if you do that, you also need to change head->data_len !
+> NetCP driver has a plug-in module architecture where each of the NetCP
+> sub-modules exist as a loadable kernel module which plug in to the netcp
+> core. These sub-modules are represented as "netcp-devices" in the dts
+> bindings. It is mandatory to have the ethernet switch sub-module for
+> the ethernet interface to be operational. Any other sub-module like the
+> PA is optional.
 
-Untested patch would be :
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index c5190ab75290..85077dd7c63e 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2349,6 +2349,7 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
- 			(*tail)->next = frag;
- 		*tail = frag;
- 		(*head)->truesize += frag->truesize;
-+		(*head)->data_len += frag->len;
- 	}
- 	if (fragid == LAST_FRAGMENT) {
- 		*fbuf = *head;
+Where is the implementation of these modules. You need to include
+this as separate patch set. Also the hooks for these modules should all
+be EXPORT_SYMBOL_GPL() to disallow proprietary modules.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
