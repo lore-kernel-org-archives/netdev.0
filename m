@@ -1,39 +1,162 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
- namespaces.
-Date: Tue, 22 Apr 2014 14:54:32 +0200
-Message-ID: <53566688.3060008@6wind.com>
-References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Chen Weilong <chenweilong@huawei.com>, kaber@trash.net,
-	davem@davemloft.net
+Subject: [PATCH net] vxlan: ensure to advertise the right fdb remote
+Date: Tue, 22 Apr 2014 15:01:30 +0200
+Message-ID: <1398171690-4451-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:60214 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751255AbaDVMyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 08:54:37 -0400
-Received: by mail-we0-f169.google.com with SMTP id w62so4998553wes.28
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 05:54:35 -0700 (PDT)
-In-Reply-To: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:50353 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206AbaDVNBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 09:01:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/04/2014 14:43, Chen Weilong a =C3=A9crit :
-> From: Weilong Chen <chenweilong@huawei.com>
->
-> Like bonding, vlan as netdevice doesn't cross netns boundaries.
->
-> Vlan port and vlan itself live in same netns.
->
-> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Do you propose this patch because you've seen bugs?
-I think that it's interesting to have this x-netns feature.
+The goal of this patch is to fix rtnelink notification. The main problem was
+about notification for fdb entry with more than one remote. Before the patch,
+when a remote was added to an existing fdb entry, the kernel advertised the
+first remote instead of the added one. Also when a remote was removed from a fdb
+entry with several remotes, the deleted remote was not advertised.
 
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ drivers/net/vxlan.c | 38 +++++++++++++++++++++-----------------
+ 1 file changed, 21 insertions(+), 17 deletions(-)
 
-Regards,
-Nicolas
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 82355d5d155a..4dbb2ed85b97 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -389,8 +389,8 @@ static inline size_t vxlan_nlmsg_size(void)
+ 		+ nla_total_size(sizeof(struct nda_cacheinfo));
+ }
+ 
+-static void vxlan_fdb_notify(struct vxlan_dev *vxlan,
+-			     struct vxlan_fdb *fdb, int type)
++static void vxlan_fdb_notify(struct vxlan_dev *vxlan, struct vxlan_fdb *fdb,
++			     struct vxlan_rdst *rd, int type)
+ {
+ 	struct net *net = dev_net(vxlan->dev);
+ 	struct sk_buff *skb;
+@@ -400,8 +400,7 @@ static void vxlan_fdb_notify(struct vxlan_dev *vxlan,
+ 	if (skb == NULL)
+ 		goto errout;
+ 
+-	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0,
+-			     first_remote_rtnl(fdb));
++	err = vxlan_fdb_info(skb, vxlan, fdb, 0, 0, type, 0, rd);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in vxlan_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -427,10 +426,7 @@ static void vxlan_ip_miss(struct net_device *dev, union vxlan_addr *ipa)
+ 		.remote_vni = VXLAN_N_VID,
+ 	};
+ 
+-	INIT_LIST_HEAD(&f.remotes);
+-	list_add_rcu(&remote.list, &f.remotes);
+-
+-	vxlan_fdb_notify(vxlan, &f, RTM_GETNEIGH);
++	vxlan_fdb_notify(vxlan, &f, &remote, RTM_GETNEIGH);
+ }
+ 
+ static void vxlan_fdb_miss(struct vxlan_dev *vxlan, const u8 eth_addr[ETH_ALEN])
+@@ -438,11 +434,11 @@ static void vxlan_fdb_miss(struct vxlan_dev *vxlan, const u8 eth_addr[ETH_ALEN])
+ 	struct vxlan_fdb f = {
+ 		.state = NUD_STALE,
+ 	};
++	struct vxlan_rdst remote = { };
+ 
+-	INIT_LIST_HEAD(&f.remotes);
+ 	memcpy(f.eth_addr, eth_addr, ETH_ALEN);
+ 
+-	vxlan_fdb_notify(vxlan, &f, RTM_GETNEIGH);
++	vxlan_fdb_notify(vxlan, &f, &remote, RTM_GETNEIGH);
+ }
+ 
+ /* Hash Ethernet address */
+@@ -533,7 +529,8 @@ static int vxlan_fdb_replace(struct vxlan_fdb *f,
+ 
+ /* Add/update destinations for multicast */
+ static int vxlan_fdb_append(struct vxlan_fdb *f,
+-			    union vxlan_addr *ip, __be16 port, __u32 vni, __u32 ifindex)
++			    union vxlan_addr *ip, __be16 port, __u32 vni,
++			    __u32 ifindex, struct vxlan_rdst **rdp)
+ {
+ 	struct vxlan_rdst *rd;
+ 
+@@ -551,6 +548,7 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 
+ 	list_add_tail_rcu(&rd->list, &f->remotes);
+ 
++	*rdp = rd;
+ 	return 1;
+ }
+ 
+@@ -690,6 +688,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 			    __be16 port, __u32 vni, __u32 ifindex,
+ 			    __u8 ndm_flags)
+ {
++	struct vxlan_rdst *rd = NULL;
+ 	struct vxlan_fdb *f;
+ 	int notify = 0;
+ 
+@@ -726,7 +725,8 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 		if ((flags & NLM_F_APPEND) &&
+ 		    (is_multicast_ether_addr(f->eth_addr) ||
+ 		     is_zero_ether_addr(f->eth_addr))) {
+-			int rc = vxlan_fdb_append(f, ip, port, vni, ifindex);
++			int rc = vxlan_fdb_append(f, ip, port, vni, ifindex,
++						  &rd);
+ 
+ 			if (rc < 0)
+ 				return rc;
+@@ -756,15 +756,18 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 		INIT_LIST_HEAD(&f->remotes);
+ 		memcpy(f->eth_addr, mac, ETH_ALEN);
+ 
+-		vxlan_fdb_append(f, ip, port, vni, ifindex);
++		vxlan_fdb_append(f, ip, port, vni, ifindex, &rd);
+ 
+ 		++vxlan->addrcnt;
+ 		hlist_add_head_rcu(&f->hlist,
+ 				   vxlan_fdb_head(vxlan, mac));
+ 	}
+ 
+-	if (notify)
+-		vxlan_fdb_notify(vxlan, f, RTM_NEWNEIGH);
++	if (notify) {
++		if (rd == NULL)
++			rd = first_remote_rtnl(f);
++		vxlan_fdb_notify(vxlan, f, rd, RTM_NEWNEIGH);
++	}
+ 
+ 	return 0;
+ }
+@@ -785,7 +788,7 @@ static void vxlan_fdb_destroy(struct vxlan_dev *vxlan, struct vxlan_fdb *f)
+ 		    "delete %pM\n", f->eth_addr);
+ 
+ 	--vxlan->addrcnt;
+-	vxlan_fdb_notify(vxlan, f, RTM_DELNEIGH);
++	vxlan_fdb_notify(vxlan, f, first_remote_rtnl(f), RTM_DELNEIGH);
+ 
+ 	hlist_del_rcu(&f->hlist);
+ 	call_rcu(&f->rcu, vxlan_fdb_free);
+@@ -919,6 +922,7 @@ static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 	 */
+ 	if (rd && !list_is_singular(&f->remotes)) {
+ 		list_del_rcu(&rd->list);
++		vxlan_fdb_notify(vxlan, f, rd, RTM_DELNEIGH);
+ 		kfree_rcu(rd, rcu);
+ 		goto out;
+ 	}
+@@ -993,7 +997,7 @@ static bool vxlan_snoop(struct net_device *dev,
+ 
+ 		rdst->remote_ip = *src_ip;
+ 		f->updated = jiffies;
+-		vxlan_fdb_notify(vxlan, f, RTM_NEWNEIGH);
++		vxlan_fdb_notify(vxlan, f, rdst, RTM_NEWNEIGH);
+ 	} else {
+ 		/* learned new entry */
+ 		spin_lock(&vxlan->hash_lock);
+-- 
+1.9.0
