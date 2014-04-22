@@ -1,28 +1,67 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH][net-next] tcp: remove the duplicate prefixes in the
- logging message
-Date: Tue, 22 Apr 2014 08:04:00 +0800
-Message-ID: <CAJFZqHzKdemchM=1tb2YiXAUv5ufhdAT_UDg3QKyt=uvrGMw_g@mail.gmail.com>
-References: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
+From: Liu Yu <allanliuyu@gmail.com>
+Subject: [PATCH] tcp_cubic: fix divide error when SYN flood
+Date: Tue, 22 Apr 2014 09:53:52 +0800
+Message-ID: <5355CBB0.7020905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: joe@perches.com
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:49080 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751561AbaDVAEB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 20:04:01 -0400
-Received: by mail-qc0-f169.google.com with SMTP id i17so4726071qcy.14
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 17:04:00 -0700 (PDT)
-In-Reply-To: <1398086277-27943-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:35765 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028AbaDVBwU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 21:52:20 -0400
+Received: by mail-pa0-f53.google.com with SMTP id ld10so4313926pab.26
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 18:52:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 21, 2014 at 9:17 PM,  <roy.qing.li@gmail.com> wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
 
-Sorry, Please drop it, there is a build failure.
+From: Liu Yu <allanyuliu@tencent.com>
 
--Roy
+commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
+divide error) try to prevent divide error, but it still has a little
+chance that delayed_ack can reach zero. In case machine sufferring
+continuous SYN flood, the argument cnt could be big, and so that
+ratio+cnt could get overflow and may happen to be zero. If so,
+min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
+
+The crash log may like this:
+..
+<6>[27536.083145] possible SYN flooding on port 8080. Sending cookies.
+<6>[27596.092124] possible SYN flooding on port 8080. Sending cookies.
+<6>[27656.109832] possible SYN flooding on port 8080. Sending cookies.
+<0>[27676.940730] divide error: 0000 [#1] SMP
+<0>[27676.987890] last sysfs file: /sys/class/scsi_host/host0/proc_name
+..
+
+CC: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Liu Yu <allanyuliu@tencent.com>
+---
+net/ipv4/tcp_cubic.c | 4 ++--
+1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 8bf2245..9d332b9 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -404,12 +404,12 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
+u32 delay;
+
+if (icsk->icsk_ca_state == TCP_CA_Open) {
+- u32 ratio = ca->delayed_ack;
++ u64 ratio = ca->delayed_ack;
+
+ratio -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+ratio += cnt;
+
+- ca->delayed_ack = min(ratio, ACK_RATIO_LIMIT);
++ ca->delayed_ack = min_t(u64, ratio, ACK_RATIO_LIMIT);
+}
+
+/* Some calls are for duplicates without timetamps */
+-- 
+1.7.1
