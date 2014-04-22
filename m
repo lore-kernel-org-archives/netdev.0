@@ -1,26 +1,51 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: skb_try_coalesce bug?
-Date: Tue, 22 Apr 2014 14:01:25 +0200
-Message-ID: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: Remove useless secid field from xfrm_audit.
+Date: Tue, 22 Apr 2014 14:02:56 +0200
+Message-ID: <20140422120256.GT32371@secunet.com>
+References: <201404190100.IJG17653.VOSHJMtFQFOLOF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Cc: <jmlatten@linux.vnet.ibm.com>, <herbert@gondor.apana.org.au>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:48807 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755707AbaDVMB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 08:01:27 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:50025 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932228AbaDVMDF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:03:05 -0400
 Content-Disposition: inline
+In-Reply-To: <201404190100.IJG17653.VOSHJMtFQFOLOF@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that if the head skb of a reassembly chain have enough tailroom
-to hold the data of a received fragment, skb_try_coalesce() will append this
-directly to the head, even if preceding fragments have been put on a frag list.
-This will cause a corrupted buffer to be passed to userland when 
-skb_copy_datagram_iovec() later copies the contents of head, and then each frag
-one by one to the target iovec.
- 
-Is skb_try_coalesce() broken, or are we using it wrongly in tipc?
+On Sat, Apr 19, 2014 at 01:00:27AM +0900, Tetsuo Handa wrote:
+> >From 049fe797638a75b902b5c7bb845f6320bc0b47f6 Mon Sep 17 00:00:00 2001
+> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Date: Fri, 18 Apr 2014 16:23:46 +0900
+> Subject: [PATCH] xfrm: Remove useless secid field from xfrm_audit.
+> 
+> It seems to me that commit ab5f5e8b "[XFRM]: xfrm audit calls" is doing
+> something strange at xfrm_audit_helper_usrinfo().
+> If secid != 0 && security_secid_to_secctx(secid) != 0, the caller calls
+> audit_log_task_context() which basically does
+> secid != 0 && security_secid_to_secctx(secid) == 0 case
+> except that secid is obtained from current thread's context.
+> 
+> Oh, what happens if secid passed to xfrm_audit_helper_usrinfo() was
+> obtained from other thread's context? It might audit current thread's
+> context rather than other thread's context if security_secid_to_secctx()
+> in xfrm_audit_helper_usrinfo() failed for some reason.
+> 
+> Then, are all the caller of xfrm_audit_helper_usrinfo() passing either
+> secid obtained from current thread's context or secid == 0?
+> It seems to me that they are.
+> 
+> If I didn't miss something, we don't need to pass secid to
+> xfrm_audit_helper_usrinfo() because audit_log_task_context() will
+> obtain secid from current thread's context.
 
-//E
+Yes, looks like that.
+
+Applied to the ipsec-next tree.
+
+Thanks!
