@@ -1,46 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/16] i40e: Remove a FW workaround
-Date: Tue, 22 Apr 2014 05:39:21 -0700
-Message-ID: <1398170371-3333-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 16/16] i40e/i40evf: Bump build versions
+Date: Tue, 22 Apr 2014 05:39:31 -0700
+Message-ID: <1398170371-3333-17-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21423 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:27100 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932603AbaDVMjh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:37 -0400
+	id S932623AbaDVMjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:39:44 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Remove the FW workaround to increment the number of msix vectors.
+Bump i40e to version 0.3.43 and i40evf to version 0.9.21.
 
+Change-ID: Ice4c715731bfa1dfc12dd45418675a3ba6e08d57
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7f16f12..7beef10 100644
+index 159f97a..0c69851 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5223,9 +5223,6 @@ static int i40e_get_capabilities(struct i40e_pf *pf)
- 		}
- 	} while (err);
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
--	/* increment MSI-X count because current FW skips one */
--	pf->hw.func_caps.num_msix_vectors++;
--
- 	if (((pf->hw.aq.fw_maj_ver == 2) && (pf->hw.aq.fw_min_ver < 22)) ||
- 	    (pf->hw.aq.fw_maj_ver < 2)) {
- 		pf->hw.func_caps.num_msix_vectors++;
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 3
+-#define DRV_VERSION_BUILD 41
++#define DRV_VERSION_BUILD 43
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 2ac157d..da6054c 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -31,7 +31,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
+ 
+-#define DRV_VERSION "0.9.20"
++#define DRV_VERSION "0.9.21"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.0
