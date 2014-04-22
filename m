@@ -1,197 +1,180 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/16] i40e/i40evf: update AdminQ API
-Date: Tue, 22 Apr 2014 05:39:24 -0700
-Message-ID: <1398170371-3333-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/16] i40e/i40evf: add tracking to NVM busy state
+Date: Tue, 22 Apr 2014 05:39:23 -0700
+Message-ID: <1398170371-3333-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:3866 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:21423 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932609AbaDVMjk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 08:39:40 -0400
+	id S932608AbaDVMji (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 08:39:38 -0400
 In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Reflect recent changes in firmware:
- - remove storm control
- - simplify PHY link management values
- - add partition bandwidth configuration
+The NVM updates take some time and are asynchronous actions that signal
+their completion with an AdminQ event.  This code tracks when there is
+an NVM update outstanding and won't allow a new update command until a
+completion event is received from the current update.
 
-Change-ID: If266ed2f9a89ad176cf8a74aeaef68613af76bc8
+Change-ID: Ic132fe16bd9dc09b002ed38297a877c1a01553ce
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Mitch Williams <mitch.a.williams@intel.com>
 Acked-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h  | 41 +++++++---------------
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 41 +++++++---------------
- 2 files changed, 24 insertions(+), 58 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 23 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 22 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  1 +
+ 4 files changed, 47 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-index 7b6374a..f2ba4b7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq_cmd.h
-@@ -182,9 +182,6 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_add_mirror_rule    = 0x0260,
- 	i40e_aqc_opc_delete_mirror_rule = 0x0261,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index ed3902b..34415d3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -33,6 +33,16 @@
+ static void i40e_resume_aq(struct i40e_hw *hw);
  
--	i40e_aqc_opc_set_storm_control_config = 0x0280,
--	i40e_aqc_opc_get_storm_control_config = 0x0281,
--
- 	/* DCB commands */
- 	i40e_aqc_opc_dcb_ignore_pfc = 0x0301,
- 	i40e_aqc_opc_dcb_updated    = 0x0302,
-@@ -207,6 +204,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_query_switching_comp_bw_config        = 0x041A,
- 	i40e_aqc_opc_suspend_port_tx                       = 0x041B,
- 	i40e_aqc_opc_resume_port_tx                        = 0x041C,
-+	i40e_aqc_opc_configure_partition_bw                = 0x041D,
- 
- 	/* hmc */
- 	i40e_aqc_opc_query_hmc_resource_profile = 0x0500,
-@@ -1289,27 +1287,6 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
- 
- I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
- 
--/* Set Storm Control Configuration (direct 0x0280)
-- * Get Storm Control Configuration (direct 0x0281)
-- *    the command and response use the same descriptor structure
-- */
--struct i40e_aqc_set_get_storm_control_config {
--	__le32 broadcast_threshold;
--	__le32 multicast_threshold;
--	__le32 control_flags;
--#define I40E_AQC_STORM_CONTROL_MDIPW            0x01
--#define I40E_AQC_STORM_CONTROL_MDICW            0x02
--#define I40E_AQC_STORM_CONTROL_BDIPW            0x04
--#define I40E_AQC_STORM_CONTROL_BDICW            0x08
--#define I40E_AQC_STORM_CONTROL_BIDU             0x10
--#define I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT   8
--#define I40E_AQC_STORM_CONTROL_INTERVAL_MASK    (0x3FF << \
--					I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT)
--	u8     reserved[4];
--};
--
--I40E_CHECK_CMD_LENGTH(i40e_aqc_set_get_storm_control_config);
--
- /* DCB 0x03xx*/
- 
- /* PFC Ignore (direct 0x0301)
-@@ -1499,6 +1476,15 @@ struct i40e_aqc_query_switching_comp_bw_config_resp {
-  * (direct 0x041B and 0x041C) uses the generic SEID struct
-  */
- 
-+/* Configure partition BW
-+ * (indirect 0x041D)
-+ */
-+struct i40e_aqc_configure_partition_bw_data {
-+	__le16 pf_valid_bits;
-+	u8     min_bw[16];      /* guaranteed bandwidth */
-+	u8     max_bw[16];      /* bandwidth limit */
-+};
+ /**
++ * i40e_is_nvm_update_op - return true if this is an NVM update operation
++ * @desc: API request descriptor
++ **/
++static inline bool i40e_is_nvm_update_op(struct i40e_aq_desc *desc)
++{
++	return (desc->opcode == i40e_aqc_opc_nvm_erase) ||
++	       (desc->opcode == i40e_aqc_opc_nvm_update);
++}
 +
- /* Get and set the active HMC resource profile and status.
-  * (direct 0x0500) and (direct 0x0501)
-  */
-@@ -1583,11 +1569,8 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_FLAG_PAUSE_TX         0x01
- #define I40E_AQ_PHY_FLAG_PAUSE_RX         0x02
- #define I40E_AQ_PHY_FLAG_LOW_POWER        0x04
--#define I40E_AQ_PHY_FLAG_AN_SHIFT         3
--#define I40E_AQ_PHY_FLAG_AN_MASK          (0x3 << I40E_AQ_PHY_FLAG_AN_SHIFT)
--#define I40E_AQ_PHY_FLAG_AN_OFF           0x00 /* link forced on */
--#define I40E_AQ_PHY_FLAG_AN_OFF_LINK_DOWN 0x01
--#define I40E_AQ_PHY_FLAG_AN_ON            0x02
-+#define I40E_AQ_PHY_LINK_ENABLED		  0x08
-+#define I40E_AQ_PHY_AN_ENABLED			  0x10
- #define I40E_AQ_PHY_FLAG_MODULE_QUAL      0x20
- 	__le16 eee_capability;
- #define I40E_AQ_EEE_100BASE_TX       0x0002
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-index 97662b6..6e61766 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
-@@ -180,9 +180,6 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_add_mirror_rule    = 0x0260,
- 	i40e_aqc_opc_delete_mirror_rule = 0x0261,
++/**
+  *  i40e_adminq_init_regs - Initialize AdminQ registers
+  *  @hw: pointer to the hardware structure
+  *
+@@ -585,6 +595,7 @@ i40e_status i40e_init_adminq(struct i40e_hw *hw)
  
--	i40e_aqc_opc_set_storm_control_config = 0x0280,
--	i40e_aqc_opc_get_storm_control_config = 0x0281,
--
- 	/* DCB commands */
- 	i40e_aqc_opc_dcb_ignore_pfc = 0x0301,
- 	i40e_aqc_opc_dcb_updated    = 0x0302,
-@@ -205,6 +202,7 @@ enum i40e_admin_queue_opc {
- 	i40e_aqc_opc_query_switching_comp_bw_config        = 0x041A,
- 	i40e_aqc_opc_suspend_port_tx                       = 0x041B,
- 	i40e_aqc_opc_resume_port_tx                        = 0x041C,
-+	i40e_aqc_opc_configure_partition_bw                = 0x041D,
+ 	/* pre-emptive resource lock release */
+ 	i40e_aq_release_resource(hw, I40E_NVM_RESOURCE_ID, 0, NULL);
++	hw->aq.nvm_busy = false;
  
- 	/* hmc */
- 	i40e_aqc_opc_query_hmc_resource_profile = 0x0500,
-@@ -1289,27 +1287,6 @@ struct i40e_aqc_add_delete_mirror_rule_completion {
+ 	ret_code = i40e_aq_set_hmc_resource_profile(hw,
+ 						    I40E_HMC_PROFILE_DEFAULT,
+@@ -708,6 +719,12 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		goto asq_send_command_exit;
+ 	}
  
- I40E_CHECK_CMD_LENGTH(i40e_aqc_add_delete_mirror_rule_completion);
- 
--/* Set Storm Control Configuration (direct 0x0280)
-- * Get Storm Control Configuration (direct 0x0281)
-- *    the command and response use the same descriptor structure
-- */
--struct i40e_aqc_set_get_storm_control_config {
--	__le32 broadcast_threshold;
--	__le32 multicast_threshold;
--	__le32 control_flags;
--#define I40E_AQC_STORM_CONTROL_MDIPW            0x01
--#define I40E_AQC_STORM_CONTROL_MDICW            0x02
--#define I40E_AQC_STORM_CONTROL_BDIPW            0x04
--#define I40E_AQC_STORM_CONTROL_BDICW            0x08
--#define I40E_AQC_STORM_CONTROL_BIDU             0x10
--#define I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT   8
--#define I40E_AQC_STORM_CONTROL_INTERVAL_MASK    (0x3FF << \
--					I40E_AQC_STORM_CONTROL_INTERVAL_SHIFT)
--	u8     reserved[4];
--};
--
--I40E_CHECK_CMD_LENGTH(i40e_aqc_set_get_storm_control_config);
--
- /* DCB 0x03xx*/
- 
- /* PFC Ignore (direct 0x0301)
-@@ -1499,6 +1476,15 @@ struct i40e_aqc_query_switching_comp_bw_config_resp {
-  * (direct 0x041B and 0x041C) uses the generic SEID struct
-  */
- 
-+/* Configure partition BW
-+ * (indirect 0x041D)
-+ */
-+struct i40e_aqc_configure_partition_bw_data {
-+	__le16 pf_valid_bits;
-+	u8     min_bw[16];      /* guaranteed bandwidth */
-+	u8     max_bw[16];      /* bandwidth limit */
-+};
++	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
++		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
++		status = I40E_ERR_NVM;
++		goto asq_send_command_exit;
++	}
 +
- /* Get and set the active HMC resource profile and status.
-  * (direct 0x0500) and (direct 0x0501)
-  */
-@@ -1583,11 +1569,8 @@ struct i40e_aq_get_phy_abilities_resp {
- #define I40E_AQ_PHY_FLAG_PAUSE_TX         0x01
- #define I40E_AQ_PHY_FLAG_PAUSE_RX         0x02
- #define I40E_AQ_PHY_FLAG_LOW_POWER        0x04
--#define I40E_AQ_PHY_FLAG_AN_SHIFT         3
--#define I40E_AQ_PHY_FLAG_AN_MASK          (0x3 << I40E_AQ_PHY_FLAG_AN_SHIFT)
--#define I40E_AQ_PHY_FLAG_AN_OFF           0x00 /* link forced on */
--#define I40E_AQ_PHY_FLAG_AN_OFF_LINK_DOWN 0x01
--#define I40E_AQ_PHY_FLAG_AN_ON            0x02
-+#define I40E_AQ_PHY_LINK_ENABLED		  0x08
-+#define I40E_AQ_PHY_AN_ENABLED			  0x10
- #define I40E_AQ_PHY_FLAG_MODULE_QUAL      0x20
- 	__le16 eee_capability;
- #define I40E_AQ_EEE_100BASE_TX       0x0002
+ 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
+ 	if (cmd_details) {
+ 		*details = *cmd_details;
+@@ -835,6 +852,9 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+ 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+ 	}
+ 
++	if (i40e_is_nvm_update_op(desc))
++		hw->aq.nvm_busy = true;
++
+ 	/* update the error if time out occurred */
+ 	if ((!cmd_completed) &&
+ 	    (!details->async && !details->postpone)) {
+@@ -929,6 +949,9 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
+ 			       e->msg_size);
+ 	}
+ 
++	if (i40e_is_nvm_update_op(&e->desc))
++		hw->aq.nvm_busy = false;
++
+ 	/* Restore the original datalen and buffer address in the desc,
+ 	 * FW updates datalen to indicate the event message
+ 	 * size
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+index 993f768..b1552fb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
+@@ -90,6 +90,7 @@ struct i40e_adminq_info {
+ 	u16 fw_min_ver;                 /* firmware minor version */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
++	bool nvm_busy;
+ 
+ 	struct mutex asq_mutex; /* Send queue lock */
+ 	struct mutex arq_mutex; /* Receive queue lock */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index 5470ce9..c79df25 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -28,6 +28,16 @@
+ #include "i40e_prototype.h"
+ 
+ /**
++ * i40e_is_nvm_update_op - return true if this is an NVM update operation
++ * @desc: API request descriptor
++ **/
++static inline bool i40e_is_nvm_update_op(struct i40e_aq_desc *desc)
++{
++	return (desc->opcode == i40e_aqc_opc_nvm_erase) ||
++	       (desc->opcode == i40e_aqc_opc_nvm_update);
++}
++
++/**
+  *  i40e_adminq_init_regs - Initialize AdminQ registers
+  *  @hw: pointer to the hardware structure
+  *
+@@ -659,6 +669,12 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 		goto asq_send_command_exit;
+ 	}
+ 
++	if (i40e_is_nvm_update_op(desc) && hw->aq.nvm_busy) {
++		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: NVM busy.\n");
++		status = I40E_ERR_NVM;
++		goto asq_send_command_exit;
++	}
++
+ 	details = I40E_ADMINQ_DETAILS(hw->aq.asq, hw->aq.asq.next_to_use);
+ 	if (cmd_details) {
+ 		*details = *cmd_details;
+@@ -786,6 +802,9 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+ 	}
+ 
++	if (i40e_is_nvm_update_op(desc))
++		hw->aq.nvm_busy = true;
++
+ 	/* update the error if time out occurred */
+ 	if ((!cmd_completed) &&
+ 	    (!details->async && !details->postpone)) {
+@@ -880,6 +899,9 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
+ 			       e->msg_size);
+ 	}
+ 
++	if (i40e_is_nvm_update_op(&e->desc))
++		hw->aq.nvm_busy = false;
++
+ 	/* Restore the original datalen and buffer address in the desc,
+ 	 * FW updates datalen to indicate the event message
+ 	 * size
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+index 8f72c31d..7d24be5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
+@@ -87,6 +87,7 @@ struct i40e_adminq_info {
+ 	u16 fw_min_ver;                 /* firmware minor version */
+ 	u16 api_maj_ver;                /* api major version */
+ 	u16 api_min_ver;                /* api minor version */
++	bool nvm_busy;
+ 
+ 	struct mutex asq_mutex; /* Send queue lock */
+ 	struct mutex arq_mutex; /* Receive queue lock */
 -- 
 1.9.0
