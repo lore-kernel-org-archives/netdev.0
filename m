@@ -1,28 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Liu Yu <allanliuyu@gmail.com>
 Subject: Re: [PATCH] tcp_cubic: fix divide error when SYN flood
-Date: Mon, 21 Apr 2014 19:28:37 -0700
-Message-ID: <1398133717.29946.21.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 22 Apr 2014 10:33:24 +0800
+Message-ID: <5355D4F4.2020302@gmail.com>
 References: <5355CBB0.7020905@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Liu Yu <allanliuyu@gmail.com>
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61073 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751236AbaDVC2j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 22:28:39 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so4353324pbb.5
-        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 19:28:39 -0700 (PDT)
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:61378 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754356AbaDVCby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Apr 2014 22:31:54 -0400
+Received: by mail-pb0-f53.google.com with SMTP id rp16so4358607pbb.40
+        for <netdev@vger.kernel.org>; Mon, 21 Apr 2014 19:31:53 -0700 (PDT)
 In-Reply-To: <5355CBB0.7020905@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-04-22 at 09:53 +0800, Liu Yu wrote:
+
+please ignore this.
+sorry for bad format.
+
+Liu Yu said, at 2014/4/22 9:53:
+> 
 > From: Liu Yu <allanyuliu@tencent.com>
 > 
 > commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
@@ -66,14 +70,4 @@ On Tue, 2014-04-22 at 09:53 +0800, Liu Yu wrote:
 > }
 > 
 > /* Some calls are for duplicates without timetamps */
-
-Hi Liu
-
-Your patch is mangled. Check Documentation/email-clients.txt
-
-I do not see how a SYN (flood or not) can be cause of the crash you
-have.
-
-Please provide full stack trace.
-
-Thanks
+> 
