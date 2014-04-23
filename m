@@ -1,73 +1,30 @@
 From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [PATCH 1/2] rtnetlink: Warn when interface's information won't fit in our packet
-Date: Wed, 23 Apr 2014 17:21:04 +1000
-Message-ID: <1398237665-26980-2-git-send-email-david@gibson.dropbear.id.au>
-References: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
+Subject: [0/2] Fix problems with with IFLA_VF_PORTS
+Date: Wed, 23 Apr 2014 17:21:03 +1000
+Message-ID: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
 Cc: ssujith@cisco.com, neepatel@cisco.com, benve@cisco.com,
 	davem@davemloft.net, ben@decadent.org.uk,
-	govindarajulu90@gmail.com, gregory.v.rose@intel.com,
-	David Gibson <david@gibson.dropbear.id.au>
+	govindarajulu90@gmail.com, gregory.v.rose@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:42752 "EHLO ozlabs.org"
+Received: from ozlabs.org ([103.22.144.67]:49135 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756798AbaDWHVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756781AbaDWHVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Apr 2014 03:21:09 -0400
-In-Reply-To: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without IFLA_EXT_MASK specified, the information reported for a single
-interface in response to RTM_GETLINK is expected to fit within a netlink
-packet of NLMSG_GOODSIZE.
+I've had a customer encounter a problem with getifaddrs(3) freezing up
+on a system with a Cisco enic device.
 
-If it doesn't, however, things will go badly wrong,  When listing all
-interfaces, netlink_dump() will incorrectly treat -EMSGSIZE on the first
-message in a packet as the end of the listing and omit information for
-that interface and all subsequent ones.  This can cause getifaddrs(3) to
-enter an infinite loop.
+I've discovered that the problem is caused by an enic device with a
+large number of SR-IOV virtual functions overflowing the normal sized
+packet buffer for netlink, leading to interfaces not being reported
+from an RTM_GETLINK request.
 
-This patch won't fix the problem, but it will WARN_ON() making it easier to
-track down what's going wrong.
+The first patch here just makes the problem easier to locate if it
+occurs again in a different way, by adding a WARN_ON() when we run out
+of room in a netlink packet in this manner.
 
-Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
----
- net/core/rtnetlink.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4ff417..5331db2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1198,6 +1198,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct hlist_head *head;
- 	struct nlattr *tb[IFLA_MAX+1];
- 	u32 ext_filter_mask = 0;
-+	int err;
- 
- 	s_h = cb->args[0];
- 	s_idx = cb->args[1];
-@@ -1218,11 +1219,16 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 		hlist_for_each_entry_rcu(dev, head, index_hlist) {
- 			if (idx < s_idx)
- 				goto cont;
--			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
--					     NETLINK_CB(cb->skb).portid,
--					     cb->nlh->nlmsg_seq, 0,
--					     NLM_F_MULTI,
--					     ext_filter_mask) <= 0)
-+			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-+					       NETLINK_CB(cb->skb).portid,
-+					       cb->nlh->nlmsg_seq, 0,
-+					       NLM_F_MULTI,
-+					       ext_filter_mask);
-+			/* If we ran out of room on the first message,
-+			 * we're in trouble */
-+			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
-+
-+			if (err <= 0)
- 				goto out;
- 
- 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
--- 
-1.9.0
+The second patch actually fixes the problem, by only reporting
+IFLA_VF_PORTS information when the RTEXT_FILTER_VF flag is specified.
