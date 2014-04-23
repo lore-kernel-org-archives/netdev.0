@@ -1,70 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: simplify a
- br_multicast_query_received() function call
-Date: Wed, 23 Apr 2014 14:47:48 -0400 (EDT)
-Message-ID: <20140423.144748.1259564888396787227.davem@davemloft.net>
-References: <1398106775-14857-1-git-send-email-linus.luessing@web.de>
+Subject: Re: [PATCH net-next,v2,1/2] hyperv: Remove recv_pkt_list and lock
+Date: Wed, 23 Apr 2014 14:49:07 -0400 (EDT)
+Message-ID: <20140423.144907.2086744325555588840.davem@davemloft.net>
+References: <1398117284-5236-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1398106775-14857-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1398117284-5236-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Mon, 21 Apr 2014 20:59:35 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 21 Apr 2014 14:54:43 -0700
 
-> The call from the IPv6 part can be simplified as the beginning of the=
+> Removed recv_pkt_list and lock, and updated related code, so that
+> the locking overhead is reduced especially when multiple channels
+> are in use.
+> 
+> The recv_pkt_list isn't actually necessary because the packets are
+> processed sequentially in each channel. It has been replaced by a
+> local variable, and the related lock for this list is also removed.
+> The is_data_pkt field is not used in receive path, so its assignment
+> is cleaned up.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-> calling function ensures that we end up here when having a proper IPv=
-6
-> source address only.
-> =
-
-> Introduced by 6565b9eeef194afbb3beec80d6dd2447f4091f8c
-> ("bridge: multicast: add sanity check for query source addresses")
-> =
-
-> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
-> ---
->  net/bridge/br_multicast.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> =
-
-> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-> index 7b757b5..d2c3aae 100644
-> --- a/net/bridge/br_multicast.c
-> +++ b/net/bridge/br_multicast.c
-> @@ -1282,8 +1282,7 @@ static int br_ip6_multicast_query(struct net_br=
-idge *br,
->  		goto out;
->  	}
->  =
-
-> -	br_multicast_query_received(br, port, &br->ip6_querier,
-> -				    !ipv6_addr_any(&ip6h->saddr),
-> +	br_multicast_query_received(br, port, &br->ip6_querier, 1,
->  				    is_general_query, max_delay);
->  =
-
->  	if (!group)
-
-This doesn't make any sense to me, is_general_query can be false at thi=
-s
-point.
-
-Furthermore, even if your change would be correct, the argument is a
-boolean not an integer.
+Applied.
