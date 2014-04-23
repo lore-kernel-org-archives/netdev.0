@@ -1,49 +1,106 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH][net-next] tcp: remove the duplicate prefixes in the logging message
-Date: Wed, 23 Apr 2014 17:28:55 +0800
-Message-ID: <1398245335-18780-1-git-send-email-roy.qing.li@gmail.com>
-Cc: joe@perches.com
-To: netdev@vger.kernel.org
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH v2] net: cadence: Add architecture dependencies
+Date: Wed, 23 Apr 2014 11:35:55 +0200
+Message-ID: <5357897B.6020105@monstr.eu>
+References: <20140414153849.7138699b@endymion.delvare> <20140422203209.GH12304@sirena.org.uk> <535768E1.8050609@monstr.eu> <20140423094010.17d2d763@endymion.delvare>
+Reply-To: monstr@monstr.eu
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="FR6Sxq7L706Cdsk2NwUwITGhfkTkkH9PF"
+Cc: Mark Brown <broonie@kernel.org>, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:60532 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618AbaDWJ24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 05:28:56 -0400
-Received: by mail-pd0-f178.google.com with SMTP id x10so596207pdj.37
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 02:28:55 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:56018 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752401AbaDWJgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 05:36:06 -0400
+Received: by mail-ee0-f46.google.com with SMTP id t10so537815eei.5
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 02:36:04 -0700 (PDT)
+In-Reply-To: <20140423094010.17d2d763@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--FR6Sxq7L706Cdsk2NwUwITGhfkTkkH9PF
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-The current message is:
-	TCP: TCP: Possible SYN flooding on port 80. Sending cookies. ...
+On 04/23/2014 09:40 AM, Jean Delvare wrote:
+> Hi Mark, Michal,
+>=20
+> On Wed, 23 Apr 2014 09:16:49 +0200, Michal Simek wrote:
+>> On 04/22/2014 10:32 PM, Mark Brown wrote:
+>>> On Mon, Apr 14, 2014 at 03:38:49PM +0200, Jean Delvare wrote:
+>>>> The Cadence ethernet chipsets are only used on specific ARM
+>>>> architectures. Add Kconfig dependencies so that drivers for these
+>>>> chipsets are only buildable on the relevant architectures.
+>>>
+>>> Are you sure they're not used on any of the FPGA platforms like
+>>> Microblaze?
+>=20
+> I'm not sure of anything, embedded isn't my area.
+>=20
+>>> Cadence are an IP company,
+>=20
+> I can't parse this, sorry. What is an "IP company"?
 
-The cause is that pr_info will implicitly print the pr_fmt string, which is standard
-prefix, and explicitly print the "proto" which is "TCP:" too
+Company which is creating this piece of HW which is called IP.
 
-it is unsuitable to not print proto, since proto maybe TCPv6, so use printk directly.
 
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+>>> might be worth having a FPGA
+>>> Kconfig that architectures commonly deployed with lots of soft IPs ca=
+n
+>>> select and the IPs depend on rather than building a custom list for e=
+ach
+>>> IP.
+>=20
+> What are "soft IPs"? I'm afraid I wouldn't be able to translate your
+> proposal into a patch, I just don't understand what you mean exactly.
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 438f3b9..85ebe68 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -892,8 +892,8 @@ bool tcp_syn_flood_action(struct sock *sk,
- 	lopt = inet_csk(sk)->icsk_accept_queue.listen_opt;
- 	if (!lopt->synflood_warned && sysctl_tcp_syncookies != 2) {
- 		lopt->synflood_warned = 1;
--		pr_info("%s: Possible SYN flooding on port %d. %s.  Check SNMP counters.\n",
--			proto, ntohs(tcp_hdr(skb)->dest), msg);
-+		printk(KERN_INFO "%s: Possible SYN flooding on port %d. %s. Check SNMP counters.\n",
-+		       proto, ntohs(tcp_hdr(skb)->dest), msg);
- 	}
- 	return want_cookie;
- }
--- 
-1.7.10.4
+Microblaze is soft-core cpu or soft IP if you like. It means it is writte=
+n
+in VHDL/Verilog or in different hardware description language.
+
+>> macb driver can be used by Microblaze too.
+>=20
+> Thanks for the information. I will send a patch adding MICROBLAZE to
+> the dependencies. Out of curiosity, is there any way I could have found=
+
+> out by myself?
+
+Microblaze doesn't need to be only one. I am not sure if there is
+any AXI bridge for openrisc.
+IMHO you should just add COMPILE_TEST and do not try to extend that
+list of dependencies.
+
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+--FR6Sxq7L706Cdsk2NwUwITGhfkTkkH9PF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlNXiXsACgkQykllyylKDCGCrwCgmiMGS2y/6i1Zr455Io+vwsJF
+lj0Aniy+82G3O47ErL56Q1nNuNS32qKU
+=vfSA
+-----END PGP SIGNATURE-----
+
+--FR6Sxq7L706Cdsk2NwUwITGhfkTkkH9PF--
