@@ -1,96 +1,70 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [Patch 3/3] IB/ib_cm: hang in cm_destroy_id during PCI error
- injection
-Date: Wed, 23 Apr 2014 18:15:15 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A82373992F353B@ORSMSX109.amr.corp.intel.com>
-References: <20140327142813.535289178@linux.vnet.ibm.com>
- <20140327142939.460692817@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: simplify a
+ br_multicast_query_received() function call
+Date: Wed, 23 Apr 2014 14:47:48 -0400 (EDT)
+Message-ID: <20140423.144748.1259564888396787227.davem@davemloft.net>
+References: <1398106775-14857-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-To: "clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	"roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140327142939.460692817-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1398106775-14857-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> Index: b/drivers/infiniband/core/cm.c
-> ===================================================================
-> --- a/drivers/infiniband/core/cm.c
-> +++ b/drivers/infiniband/core/cm.c
-> @@ -161,6 +161,7 @@ struct cm_port {
->  	struct ib_mad_agent *mad_agent;
->  	struct kobject port_obj;
->  	u8 port_num;
-> +	u8 device_fatal;
->  	struct cm_counter_group counter_group[CM_COUNTER_GROUPS];
->  };
-> 
-> @@ -168,6 +169,7 @@ struct cm_device {
->  	struct list_head list;
->  	struct ib_device *ib_device;
->  	struct device *device;
-> +	struct ib_event_handler event_handler;
->  	u8 ack_delay;
->  	struct cm_port *port[0];
->  };
-> @@ -258,6 +260,10 @@ static int cm_alloc_msg(struct cm_id_pri
->  	struct ib_mad_agent *mad_agent;
->  	struct ib_mad_send_buf *m;
->  	struct ib_ah *ah;
-> +	struct cm_port *port = cm_id_priv->av.port;
-> +
-> +	if (port->device_fatal)
-> +		return -EIO;
-> 
->  	mad_agent = cm_id_priv->av.port->mad_agent;
->  	ah = ib_create_ah(mad_agent->qp->pd, &cm_id_priv->av.ah_attr);
-> @@ -290,6 +296,9 @@ static int cm_alloc_response_msg(struct
->  	struct ib_mad_send_buf *m;
->  	struct ib_ah *ah;
-> 
-> +	if (port->device_fatal)
-> +		return -EIO;
-> +
->  	ah = ib_create_ah_from_wc(port->mad_agent->qp->pd, mad_recv_wc->wc,
->  				  mad_recv_wc->recv_buf.grh, port->port_num);
->  	if (IS_ERR(ah))
-> @@ -3764,6 +3773,33 @@ static void cm_remove_port_fs(struct cm_
->  	kobject_put(&port->port_obj);
->  }
-> 
-> +static void ib_cm_event_handler(struct ib_event_handler *handler,
-> +				struct ib_event *event)
-> +{
-> +	struct cm_device *cm_dev;
-> +	struct cm_port *port = NULL;
-> +
-> +	cm_dev = container_of(handler, struct cm_device, event_handler);
-> +	switch (event->event) {
-> +	case IB_EVENT_PORT_ACTIVE:
-> +		port = cm_dev->port[event->element.port_num - 1];
-> +		if (port == NULL)
-> +			return;
-> +		if (port->port_num == event->element.port_num)
-> +			port->device_fatal = 0;
-> +		break;
-> +	case IB_EVENT_DEVICE_FATAL:
-> +		port = cm_dev->port[event->element.port_num - 1];
-> +		if (port == NULL)
-> +			return;
-> +		if (port->port_num == event->element.port_num)
-> +			port->device_fatal = 1;
-> +		break;
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Mon, 21 Apr 2014 20:59:35 +0200
 
-This is a device level event, not a port event.  The port_num value may not be valid.
+> The call from the IPv6 part can be simplified as the beginning of the=
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> calling function ensures that we end up here when having a proper IPv=
+6
+> source address only.
+> =
+
+> Introduced by 6565b9eeef194afbb3beec80d6dd2447f4091f8c
+> ("bridge: multicast: add sanity check for query source addresses")
+> =
+
+> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+> ---
+>  net/bridge/br_multicast.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> =
+
+> diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> index 7b757b5..d2c3aae 100644
+> --- a/net/bridge/br_multicast.c
+> +++ b/net/bridge/br_multicast.c
+> @@ -1282,8 +1282,7 @@ static int br_ip6_multicast_query(struct net_br=
+idge *br,
+>  		goto out;
+>  	}
+>  =
+
+> -	br_multicast_query_received(br, port, &br->ip6_querier,
+> -				    !ipv6_addr_any(&ip6h->saddr),
+> +	br_multicast_query_received(br, port, &br->ip6_querier, 1,
+>  				    is_general_query, max_delay);
+>  =
+
+>  	if (!group)
+
+This doesn't make any sense to me, is_general_query can be false at thi=
+s
+point.
+
+Furthermore, even if your change would be correct, the argument is a
+boolean not an integer.
