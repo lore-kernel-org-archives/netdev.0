@@ -1,83 +1,84 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 0/5]: Preventing abuse when passing file descriptors
-Date: Wed, 23 Apr 2014 14:24:47 -0700
-Message-ID: <87a9bbeo2o.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 1/5] netlink: Rename netlink_capable netlink_allowed
+Date: Wed, 23 Apr 2014 14:25:48 -0700
+Message-ID: <8738h3eo0z.fsf_-_@x220.int.ebiederm.org>
 References: <CALCETrWzUQ7QjykT85ExDfX-+9eDD-D-dcxofUMPvLK=ia9arg@mail.gmail.com>
 	<87r44qrt8v.fsf_-_@x220.int.ebiederm.org>
 	<87r44pnk3c.fsf@x220.int.ebiederm.org>
 	<20140423.153216.1388028648299605195.davem@davemloft.net>
+	<87a9bbeo2o.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: vgoyal@redhat.com, ssorce@redhat.com, security@kernel.org,
 	luto@amacapital.net, netdev@vger.kernel.org, serge@hallyn.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:50421 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339AbaDWVZU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:25:20 -0400
-In-Reply-To: <20140423.153216.1388028648299605195.davem@davemloft.net> (David
-	Miller's message of "Wed, 23 Apr 2014 15:32:16 -0400 (EDT)")
+Received: from out02.mta.xmission.com ([166.70.13.232]:33190 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755272AbaDWV0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:26:19 -0400
+In-Reply-To: <87a9bbeo2o.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
+	message of "Wed, 23 Apr 2014 14:24:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Andy Lutomirski when looking at the networking stack noticed that it is
-possible to trick privilged processes into calling write on a netlink
-socket and send netlink messages they did not intend.
+netlink_capable is a static internal function in af_netlink.c and we
+have better uses for the name netlink_capable.
 
-In particular from time to time there are suid applications that will
-write to stdout or stderr without checking exactly what kind of file
-descriptors those are and can be tricked into acting as a limited form
-of suid cat.  In other conversations the magic string CVE-2014-0181 has
-been used to talk about this issue.
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ net/netlink/af_netlink.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-This patchset cleans things up a bit, adds some clean abstractions that
-when used prevent this kind of problem and then finally changes all of
-the handlers of netlink messages that I could find that call capable to
-use netlink_ns_capable or an appropriate wrapper.
-
-The abstraction netlink_ns_capable verifies that the original creator of
-the netlink socket a message is sent from had the necessary capabilities
-as well as verifying that the current sender of a netlink packet has the
-necessary capabilities.
-
-The idea is to prevent file descriptor passing of any form from
-resulting in a file descriptor that can do more than it can for the
-creator of the file descriptor.
-
-Eric W. Biederman (5):
-      netlink:  Rename netlink_capable netlink_allowed
-      net: Move the permission check in sock_diag_put_filterinfo to packet_diag_dump
-      net: Add variants of capable for use on on sockets
-      net: Add variants of capable for use on netlink messages
-      net: Use netlink_ns_capable to verify the permisions of netlink messages
-
- crypto/crypto_user.c            |  2 +-
- drivers/connector/cn_proc.c     |  2 +-
- drivers/scsi/scsi_netlink.c     |  2 +-
- include/linux/netlink.h         |  7 ++++
- include/linux/sock_diag.h       |  2 +-
- include/net/sock.h              |  5 +++
- kernel/audit.c                  |  4 +--
- net/can/gw.c                    |  4 +--
- net/core/rtnetlink.c            | 20 ++++++-----
- net/core/sock.c                 | 49 +++++++++++++++++++++++++++
- net/core/sock_diag.c            |  4 +--
- net/dcb/dcbnl.c                 |  2 +-
- net/decnet/dn_dev.c             |  4 +--
- net/decnet/dn_fib.c             |  4 +--
- net/decnet/netfilter/dn_rtmsg.c |  2 +-
- net/netfilter/nfnetlink.c       |  2 +-
- net/netlink/af_netlink.c        | 75 ++++++++++++++++++++++++++++++++++++++---
- net/netlink/genetlink.c         |  2 +-
- net/packet/diag.c               |  7 +++-
- net/phonet/pn_netlink.c         |  8 ++---
- net/sched/act_api.c             |  2 +-
- net/sched/cls_api.c             |  2 +-
- net/sched/sch_api.c             |  6 ++--
- net/tipc/netlink.c              |  2 +-
- net/xfrm/xfrm_user.c            |  2 +-
- 25 files changed, 177 insertions(+), 44 deletions(-)
-
-Eric
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 894cda0206bb..7f931fe4d187 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1360,7 +1360,7 @@ retry:
+ 	return err;
+ }
+ 
+-static inline int netlink_capable(const struct socket *sock, unsigned int flag)
++static inline int netlink_allowed(const struct socket *sock, unsigned int flag)
+ {
+ 	return (nl_table[sock->sk->sk_protocol].flags & flag) ||
+ 		ns_capable(sock_net(sock->sk)->user_ns, CAP_NET_ADMIN);
+@@ -1428,7 +1428,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 
+ 	/* Only superuser is allowed to listen multicasts */
+ 	if (nladdr->nl_groups) {
+-		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
++		if (!netlink_allowed(sock, NL_CFG_F_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -1490,7 +1490,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 		return -EINVAL;
+ 
+ 	if ((nladdr->nl_groups || nladdr->nl_pid) &&
+-	    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
++	    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 		return -EPERM;
+ 
+ 	if (!nlk->portid)
+@@ -2096,7 +2096,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 	case NETLINK_ADD_MEMBERSHIP:
+ 	case NETLINK_DROP_MEMBERSHIP: {
+-		if (!netlink_capable(sock, NL_CFG_F_NONROOT_RECV))
++		if (!netlink_allowed(sock, NL_CFG_F_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -2247,7 +2247,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		dst_group = ffs(addr->nl_groups);
+ 		err =  -EPERM;
+ 		if ((dst_group || dst_portid) &&
+-		    !netlink_capable(sock, NL_CFG_F_NONROOT_SEND))
++		    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 			goto out;
+ 	} else {
+ 		dst_portid = nlk->dst_portid;
+-- 
+1.9.1
