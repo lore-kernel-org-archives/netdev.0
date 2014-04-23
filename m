@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] igb: Cleanups to fix incorrect indentation
-Date: Wed, 23 Apr 2014 04:15:25 -0700
-Message-ID: <1398251726-13638-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] igb: Cleanups for messaging
+Date: Wed, 23 Apr 2014 04:15:23 -0700
+Message-ID: <1398251726-13638-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
@@ -10,608 +10,194 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:15123 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753292AbaDWLPk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 07:15:40 -0400
+	id S1752398AbaDWLPi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 07:15:38 -0400
 In-Reply-To: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch fixes WARNING:LEADING_SPACE, WARNING:SPACING, ERROR:SPACING,
-WARNING:SPACE_BEFORE_TAB and ERROR_CODE_INDENT from checkpatch file check.
+This patch fixes WARNING:PREFER_PR_LEVEL and WARNING:SPLIT_STRING
+from checkpatch file check.
 
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   |  8 ++---
- drivers/net/ethernet/intel/igb/e1000_82575.h   | 22 ++++++------
- drivers/net/ethernet/intel/igb/e1000_defines.h | 25 +++++++------
- drivers/net/ethernet/intel/igb/e1000_hw.h      | 50 +++++++++++++-------------
- drivers/net/ethernet/intel/igb/e1000_mac.c     |  4 +--
- drivers/net/ethernet/intel/igb/e1000_nvm.c     |  1 +
- drivers/net/ethernet/intel/igb/e1000_nvm.h     |  2 +-
- drivers/net/ethernet/intel/igb/e1000_regs.h    |  7 ++--
- drivers/net/ethernet/intel/igb/igb.h           |  1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 20 ++++++-----
- drivers/net/ethernet/intel/igb/igb_main.c      | 30 ++++++++++++----
- 11 files changed, 95 insertions(+), 75 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c |  8 +++----
+ drivers/net/ethernet/intel/igb/e1000_mac.c   |  6 ++---
+ drivers/net/ethernet/intel/igb/e1000_phy.c   |  3 +--
+ drivers/net/ethernet/intel/igb/igb_main.c    | 34 ++++++++++------------------
+ 4 files changed, 18 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index b1a759c..49976bf 100644
+index fa36fe1..7b7d08c 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1268,7 +1268,7 @@ static s32 igb_check_for_link_82575(struct e1000_hw *hw)
+@@ -1676,7 +1676,7 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
+ 		    hw->mac.type == e1000_82576) {
+ 			ret_val = hw->nvm.ops.read(hw, NVM_COMPAT, 1, &data);
+ 			if (ret_val) {
+-				printk(KERN_DEBUG "NVM Read Error\n\n");
++				hw_dbg(KERN_DEBUG "NVM Read Error\n\n");
+ 				return ret_val;
+ 			}
  
- 	if (hw->phy.media_type != e1000_media_type_copper) {
- 		ret_val = igb_get_pcs_speed_and_duplex_82575(hw, &speed,
--		                                             &duplex);
-+							     &duplex);
- 		/* Use this flag to determine if link needs to be checked or
- 		 * not.  If  we have link clear the flag so that we do not
- 		 * continue to check for link.
-@@ -1687,7 +1687,7 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- 		 * link either autoneg or be forced to 1000/Full
- 		 */
- 		ctrl_reg |= E1000_CTRL_SPD_1000 | E1000_CTRL_FRCSPD |
--		            E1000_CTRL_FD | E1000_CTRL_FRCDPX;
-+				E1000_CTRL_FD | E1000_CTRL_FRCDPX;
+@@ -2436,8 +2436,7 @@ static s32 igb_update_nvm_checksum_82580(struct e1000_hw *hw)
  
- 		/* set speed of 1000/Full if speed/duplex is forced */
- 		reg |= E1000_PCS_LCTL_FSV_1000 | E1000_PCS_LCTL_FDV_FULL;
-@@ -2003,14 +2003,14 @@ static s32 igb_set_pcie_completion_timeout(struct e1000_hw *hw)
- 	 * 16ms to 55ms
- 	 */
- 	ret_val = igb_read_pcie_cap_reg(hw, PCIE_DEVICE_CONTROL2,
--	                                &pcie_devctl2);
-+					&pcie_devctl2);
- 	if (ret_val)
+ 	ret_val = hw->nvm.ops.read(hw, NVM_COMPATIBILITY_REG_3, 1, &nvm_data);
+ 	if (ret_val) {
+-		hw_dbg("NVM Read Error while updating checksum"
+-			" compatibility bit.\n");
++		hw_dbg("NVM Read Error while updating checksum compatibility bit.\n");
  		goto out;
+ 	}
  
- 	pcie_devctl2 |= PCIE_DEVICE_CONTROL2_16ms;
- 
- 	ret_val = igb_write_pcie_cap_reg(hw, PCIE_DEVICE_CONTROL2,
--	                                 &pcie_devctl2);
-+					 &pcie_devctl2);
- out:
- 	/* disable completion timeout resend */
- 	gcr &= ~E1000_GCR_CMPL_TMOUT_RESEND;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 09d78be..f3667c0 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -37,9 +37,9 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset, u8 dev_addr,
- 		       u8 data);
- 
- #define ID_LED_DEFAULT_82575_SERDES ((ID_LED_DEF1_DEF2 << 12) | \
--                                     (ID_LED_DEF1_DEF2 <<  8) | \
--                                     (ID_LED_DEF1_DEF2 <<  4) | \
--                                     (ID_LED_OFF1_ON2))
-+				     (ID_LED_DEF1_DEF2 <<  8) | \
-+				     (ID_LED_DEF1_DEF2 <<  4) | \
-+				     (ID_LED_OFF1_ON2))
- 
- #define E1000_RAR_ENTRIES_82575        16
- #define E1000_RAR_ENTRIES_82576        24
-@@ -67,16 +67,16 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset, u8 dev_addr,
- #define E1000_MRQC_RSS_FIELD_IPV6_UDP_EX    0x01000000
- 
- #define E1000_EICR_TX_QUEUE ( \
--    E1000_EICR_TX_QUEUE0 |    \
--    E1000_EICR_TX_QUEUE1 |    \
--    E1000_EICR_TX_QUEUE2 |    \
--    E1000_EICR_TX_QUEUE3)
-+	E1000_EICR_TX_QUEUE0 |    \
-+	E1000_EICR_TX_QUEUE1 |    \
-+	E1000_EICR_TX_QUEUE2 |    \
-+	E1000_EICR_TX_QUEUE3)
- 
- #define E1000_EICR_RX_QUEUE ( \
--    E1000_EICR_RX_QUEUE0 |    \
--    E1000_EICR_RX_QUEUE1 |    \
--    E1000_EICR_RX_QUEUE2 |    \
--    E1000_EICR_RX_QUEUE3)
-+	E1000_EICR_RX_QUEUE0 |    \
-+	E1000_EICR_RX_QUEUE1 |    \
-+	E1000_EICR_RX_QUEUE2 |    \
-+	E1000_EICR_RX_QUEUE3)
- 
- /* Immediate Interrupt Rx (A.K.A. Low Latency Interrupt) */
- #define E1000_IMIREXT_SIZE_BP     0x00001000  /* Packet size bypass */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index b05bf92..22078c4 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -101,11 +101,11 @@
- 
- /* Same mask, but for extended and packet split descriptors */
- #define E1000_RXDEXT_ERR_FRAME_ERR_MASK ( \
--    E1000_RXDEXT_STATERR_CE  |            \
--    E1000_RXDEXT_STATERR_SE  |            \
--    E1000_RXDEXT_STATERR_SEQ |            \
--    E1000_RXDEXT_STATERR_CXE |            \
--    E1000_RXDEXT_STATERR_RXE)
-+	E1000_RXDEXT_STATERR_CE  |            \
-+	E1000_RXDEXT_STATERR_SE  |            \
-+	E1000_RXDEXT_STATERR_SEQ |            \
-+	E1000_RXDEXT_STATERR_CXE |            \
-+	E1000_RXDEXT_STATERR_RXE)
- 
- #define E1000_MRQC_RSS_FIELD_IPV4_TCP          0x00010000
- #define E1000_MRQC_RSS_FIELD_IPV4              0x00020000
-@@ -406,12 +406,12 @@
-  *   o LSC    = Link Status Change
-  */
- #define IMS_ENABLE_MASK ( \
--    E1000_IMS_RXT0   |    \
--    E1000_IMS_TXDW   |    \
--    E1000_IMS_RXDMT0 |    \
--    E1000_IMS_RXSEQ  |    \
--    E1000_IMS_LSC    |    \
--    E1000_IMS_DOUTSYNC)
-+	E1000_IMS_RXT0   |    \
-+	E1000_IMS_TXDW   |    \
-+	E1000_IMS_RXDMT0 |    \
-+	E1000_IMS_RXSEQ  |    \
-+	E1000_IMS_LSC    |    \
-+	E1000_IMS_DOUTSYNC)
- 
- /* Interrupt Mask Set */
- #define E1000_IMS_TXDW      E1000_ICR_TXDW      /* Transmit desc written back */
-@@ -1011,8 +1011,7 @@
- #define E1000_VFTA_ENTRY_BIT_SHIFT_MASK      0x1F
- 
- /* DMA Coalescing register fields */
--#define E1000_PCIEMISC_LX_DECISION      0x00000080 /* Lx power decision based
--                                                      on DMA coal */
-+#define E1000_PCIEMISC_LX_DECISION      0x00000080 /* Lx power on DMA coal */
- 
- /* Tx Rate-Scheduler Config fields */
- #define E1000_RTTBCNRC_RS_ENA		0x80000000
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 10741d1..da705a6 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -320,15 +320,15 @@ struct e1000_host_mng_command_info {
- #include "e1000_mbx.h"
- 
- struct e1000_mac_operations {
--	s32  (*check_for_link)(struct e1000_hw *);
--	s32  (*reset_hw)(struct e1000_hw *);
--	s32  (*init_hw)(struct e1000_hw *);
-+	s32 (*check_for_link)(struct e1000_hw *);
-+	s32 (*reset_hw)(struct e1000_hw *);
-+	s32 (*init_hw)(struct e1000_hw *);
- 	bool (*check_mng_mode)(struct e1000_hw *);
--	s32  (*setup_physical_interface)(struct e1000_hw *);
-+	s32 (*setup_physical_interface)(struct e1000_hw *);
- 	void (*rar_set)(struct e1000_hw *, u8 *, u32);
--	s32  (*read_mac_addr)(struct e1000_hw *);
--	s32  (*get_speed_and_duplex)(struct e1000_hw *, u16 *, u16 *);
--	s32  (*acquire_swfw_sync)(struct e1000_hw *, u16);
-+	s32 (*read_mac_addr)(struct e1000_hw *);
-+	s32 (*get_speed_and_duplex)(struct e1000_hw *, u16 *, u16 *);
-+	s32 (*acquire_swfw_sync)(struct e1000_hw *, u16);
- 	void (*release_swfw_sync)(struct e1000_hw *, u16);
- #ifdef CONFIG_IGB_HWMON
- 	s32 (*get_thermal_sensor_data)(struct e1000_hw *);
-@@ -338,31 +338,31 @@ struct e1000_mac_operations {
- };
- 
- struct e1000_phy_operations {
--	s32  (*acquire)(struct e1000_hw *);
--	s32  (*check_polarity)(struct e1000_hw *);
--	s32  (*check_reset_block)(struct e1000_hw *);
--	s32  (*force_speed_duplex)(struct e1000_hw *);
--	s32  (*get_cfg_done)(struct e1000_hw *hw);
--	s32  (*get_cable_length)(struct e1000_hw *);
--	s32  (*get_phy_info)(struct e1000_hw *);
--	s32  (*read_reg)(struct e1000_hw *, u32, u16 *);
-+	s32 (*acquire)(struct e1000_hw *);
-+	s32 (*check_polarity)(struct e1000_hw *);
-+	s32 (*check_reset_block)(struct e1000_hw *);
-+	s32 (*force_speed_duplex)(struct e1000_hw *);
-+	s32 (*get_cfg_done)(struct e1000_hw *hw);
-+	s32 (*get_cable_length)(struct e1000_hw *);
-+	s32 (*get_phy_info)(struct e1000_hw *);
-+	s32 (*read_reg)(struct e1000_hw *, u32, u16 *);
- 	void (*release)(struct e1000_hw *);
--	s32  (*reset)(struct e1000_hw *);
--	s32  (*set_d0_lplu_state)(struct e1000_hw *, bool);
--	s32  (*set_d3_lplu_state)(struct e1000_hw *, bool);
--	s32  (*write_reg)(struct e1000_hw *, u32, u16);
-+	s32 (*reset)(struct e1000_hw *);
-+	s32 (*set_d0_lplu_state)(struct e1000_hw *, bool);
-+	s32 (*set_d3_lplu_state)(struct e1000_hw *, bool);
-+	s32 (*write_reg)(struct e1000_hw *, u32, u16);
- 	s32 (*read_i2c_byte)(struct e1000_hw *, u8, u8, u8 *);
- 	s32 (*write_i2c_byte)(struct e1000_hw *, u8, u8, u8);
- };
- 
- struct e1000_nvm_operations {
--	s32  (*acquire)(struct e1000_hw *);
--	s32  (*read)(struct e1000_hw *, u16, u16, u16 *);
-+	s32 (*acquire)(struct e1000_hw *);
-+	s32 (*read)(struct e1000_hw *, u16, u16, u16 *);
- 	void (*release)(struct e1000_hw *);
--	s32  (*write)(struct e1000_hw *, u16, u16, u16 *);
--	s32  (*update)(struct e1000_hw *);
--	s32  (*validate)(struct e1000_hw *);
--	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
-+	s32 (*write)(struct e1000_hw *, u16, u16, u16 *);
-+	s32 (*update)(struct e1000_hw *);
-+	s32 (*validate)(struct e1000_hw *);
-+	s32 (*valid_led_default)(struct e1000_hw *, u16 *);
- };
- 
- #define E1000_MAX_SENSORS		3
+@@ -2447,8 +2446,7 @@ static s32 igb_update_nvm_checksum_82580(struct e1000_hw *hw)
+ 		ret_val = hw->nvm.ops.write(hw, NVM_COMPATIBILITY_REG_3, 1,
+ 					&nvm_data);
+ 		if (ret_val) {
+-			hw_dbg("NVM Write Error while updating checksum"
+-				" compatibility bit.\n");
++			hw_dbg("NVM Write Error while updating checksum compatibility bit.\n");
+ 			goto out;
+ 		}
+ 	}
 diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index fc2c76e..c0c5fc3 100644
+index 5910a93..fc2c76e 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_mac.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -442,7 +442,7 @@ static u32 igb_hash_mc_addr(struct e1000_hw *hw, u8 *mc_addr)
-  *  The caller must have a packed mc_addr_list of multicast addresses.
-  **/
- void igb_update_mc_addr_list(struct e1000_hw *hw,
--                             u8 *mc_addr_list, u32 mc_addr_count)
-+			     u8 *mc_addr_list, u32 mc_addr_count)
- {
- 	u32 hash_value, hash_bit, hash_reg;
- 	int i;
-@@ -1297,7 +1297,7 @@ static s32 igb_valid_led_default(struct e1000_hw *hw, u16 *data)
+@@ -866,8 +866,7 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
+ 			goto out;
+ 
+ 		if (!(mii_status_reg & MII_SR_AUTONEG_COMPLETE)) {
+-			hw_dbg("Copper PHY and Auto Neg "
+-				 "has not completed.\n");
++			hw_dbg("Copper PHY and Auto Neg has not completed.\n");
+ 			goto out;
+ 		}
+ 
+@@ -932,8 +931,7 @@ s32 igb_config_fc_after_link_up(struct e1000_hw *hw)
+ 				hw_dbg("Flow Control = FULL.\r\n");
+ 			} else {
+ 				hw->fc.current_mode = e1000_fc_rx_pause;
+-				hw_dbg("Flow Control = "
+-				       "RX PAUSE frames only.\r\n");
++				hw_dbg("Flow Control = RX PAUSE frames only.\r\n");
+ 			}
+ 		}
+ 		/* For receiving PAUSE frames ONLY.
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index 4009bba..ec7dc6c 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -924,8 +924,7 @@ static s32 igb_copper_link_autoneg(struct e1000_hw *hw)
+ 	if (phy->autoneg_wait_to_complete) {
+ 		ret_val = igb_wait_autoneg(hw);
+ 		if (ret_val) {
+-			hw_dbg("Error while waiting for "
+-			       "autoneg to complete\n");
++			hw_dbg("Error while waiting for autoneg to complete\n");
+ 			goto out;
+ 		}
  	}
- 
- 	if (*data == ID_LED_RESERVED_0000 || *data == ID_LED_RESERVED_FFFF) {
--		switch(hw->phy.media_type) {
-+		switch (hw->phy.media_type) {
- 		case e1000_media_type_internal_serdes:
- 			*data = ID_LED_DEFAULT_82575_SERDES;
- 			break;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-index 9abf829..89f635f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-@@ -480,6 +480,7 @@ s32 igb_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 		/* Loop to allow for up to whole page write of eeprom */
- 		while (widx < words) {
- 			u16 word_out = data[widx];
-+
- 			word_out = (word_out >> 8) | (word_out << 8);
- 			igb_shift_out_eec_bits(hw, word_out, 16);
- 			widx++;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-index 5b10117..7f54d7e 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-@@ -32,7 +32,7 @@ void igb_release_nvm(struct e1000_hw *hw);
- s32  igb_read_mac_addr(struct e1000_hw *hw);
- s32  igb_read_part_num(struct e1000_hw *hw, u32 *part_num);
- s32  igb_read_part_string(struct e1000_hw *hw, u8 *part_num,
--                          u32 part_num_size);
-+			  u32 part_num_size);
- s32  igb_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_read_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
- s32  igb_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index bdb246e..034e7c5 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -301,9 +301,9 @@
- #define E1000_RA2      0x054E0  /* 2nd half of Rx address array - RW Array */
- #define E1000_PSRTYPE(_i)       (0x05480 + ((_i) * 4))
- #define E1000_RAL(_i)  (((_i) <= 15) ? (0x05400 + ((_i) * 8)) : \
--                                       (0x054E0 + ((_i - 16) * 8)))
-+					(0x054E0 + ((_i - 16) * 8)))
- #define E1000_RAH(_i)  (((_i) <= 15) ? (0x05404 + ((_i) * 8)) : \
--                                       (0x054E4 + ((_i - 16) * 8)))
-+					(0x054E4 + ((_i - 16) * 8)))
- #define E1000_IP4AT_REG(_i)     (0x05840 + ((_i) * 8))
- #define E1000_IP6AT_REG(_i)     (0x05880 + ((_i) * 4))
- #define E1000_WUPM_REG(_i)      (0x05A00 + ((_i) * 4))
-@@ -358,8 +358,7 @@
- #define E1000_VMBMEM(_n)       (0x00800 + (64 * (_n)))
- #define E1000_VMOLR(_n)        (0x05AD0 + (4 * (_n)))
- #define E1000_DVMOLR(_n)       (0x0C038 + (64 * (_n)))
--#define E1000_VLVF(_n)         (0x05D00 + (4 * (_n))) /* VLAN Virtual Machine
--                                                       * Filter - RW */
-+#define E1000_VLVF(_n)         (0x05D00 + (4 * (_n))) /* VLAN VM Filter */
- #define E1000_VMVIR(_n)        (0x03700 + (4 * (_n)))
- 
- struct e1000_hw;
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 2713006..77f1612 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -198,6 +198,7 @@ struct igb_tx_buffer {
- 	unsigned int bytecount;
- 	u16 gso_segs;
- 	__be16 protocol;
-+
- 	DEFINE_DMA_UNMAP_ADDR(dma);
- 	DEFINE_DMA_UNMAP_LEN(len);
- 	u32 tx_flags;
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 1615226..8ef9e28 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1060,8 +1060,8 @@ static struct igb_reg_test reg_test_i350[] = {
- 	{ E1000_TDT(0),	   0x100, 4,  PATTERN_TEST, 0x0000FFFF, 0x0000FFFF },
- 	{ E1000_TDT(4),	   0x40,  4,  PATTERN_TEST, 0x0000FFFF, 0x0000FFFF },
- 	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
- 	{ E1000_TCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
- 	{ E1000_RA,	   0, 16, TABLE64_TEST_LO,
- 						0xFFFFFFFF, 0xFFFFFFFF },
-@@ -1103,8 +1103,8 @@ static struct igb_reg_test reg_test_82580[] = {
- 	{ E1000_TDT(0),	   0x100, 4,  PATTERN_TEST, 0x0000FFFF, 0x0000FFFF },
- 	{ E1000_TDT(4),	   0x40,  4,  PATTERN_TEST, 0x0000FFFF, 0x0000FFFF },
- 	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
- 	{ E1000_TCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
- 	{ E1000_RA,	   0, 16, TABLE64_TEST_LO,
- 						0xFFFFFFFF, 0xFFFFFFFF },
-@@ -1149,14 +1149,14 @@ static struct igb_reg_test reg_test_82576[] = {
- 	{ E1000_TDBAH(4),  0x40, 12,  PATTERN_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
- 	{ E1000_TDLEN(4),  0x40, 12,  PATTERN_TEST, 0x000FFFF0, 0x000FFFFF },
- 	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
--	{ E1000_RCTL, 	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0x003FFFFB },
-+	{ E1000_RCTL,	   0x100, 1,  SET_READ_TEST, 0x04CFB0FE, 0xFFFFFFFF },
- 	{ E1000_TCTL,	   0x100, 1,  SET_READ_TEST, 0xFFFFFFFF, 0x00000000 },
- 	{ E1000_RA,	   0, 16, TABLE64_TEST_LO, 0xFFFFFFFF, 0xFFFFFFFF },
- 	{ E1000_RA,	   0, 16, TABLE64_TEST_HI, 0x83FFFFFF, 0xFFFFFFFF },
- 	{ E1000_RA2,	   0, 8, TABLE64_TEST_LO, 0xFFFFFFFF, 0xFFFFFFFF },
- 	{ E1000_RA2,	   0, 8, TABLE64_TEST_HI, 0x83FFFFFF, 0xFFFFFFFF },
--	{ E1000_MTA,	   0, 128,TABLE32_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
-+	{ E1000_MTA,	   0, 128, TABLE32_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
- 	{ 0, 0, 0, 0 }
- };
- 
-@@ -1218,6 +1218,7 @@ static bool reg_set_and_check(struct igb_adapter *adapter, u64 *data,
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 val;
-+
- 	wr32(reg, write & mask);
- 	val = rd32(reg);
- 	if ((write & mask) != (val & mask)) {
-@@ -1387,14 +1388,14 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	/* Hook up test interrupt handler just for this test */
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		if (request_irq(adapter->msix_entries[0].vector,
--		                igb_test_intr, 0, netdev->name, adapter)) {
-+				igb_test_intr, 0, netdev->name, adapter)) {
- 			*data = 1;
- 			return -1;
- 		}
- 	} else if (adapter->flags & IGB_FLAG_HAS_MSI) {
- 		shared_int = false;
- 		if (request_irq(irq,
--		                igb_test_intr, 0, netdev->name, adapter)) {
-+				igb_test_intr, 0, netdev->name, adapter)) {
- 			*data = 1;
- 			return -1;
- 		}
-@@ -1949,6 +1950,7 @@ static int igb_link_test(struct igb_adapter *adapter, u64 *data)
- 	*data = 0;
- 	if (hw->phy.media_type == e1000_media_type_internal_serdes) {
- 		int i = 0;
-+
- 		hw->mac.serdes_has_link = false;
- 
- 		/* On some blade server designs, link establishment
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index e6e4f4b..642e09f 100644
+index fb98d46..13edca9 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -674,9 +674,9 @@ struct net_device *igb_get_hw_dev(struct e1000_hw *hw)
- static int __init igb_init_module(void)
- {
- 	int ret;
-+
- 	pr_info("%s - version %s\n",
- 	       igb_driver_string, igb_driver_version);
--
- 	pr_info("%s\n", igb_copyright);
+@@ -217,8 +217,7 @@ static void igb_netpoll(struct net_device *);
+ #ifdef CONFIG_PCI_IOV
+ static unsigned int max_vfs = 0;
+ module_param(max_vfs, uint, 0);
+-MODULE_PARM_DESC(max_vfs, "Maximum number of virtual functions to allocate "
+-                 "per physical function");
++MODULE_PARM_DESC(max_vfs, "Maximum number of virtual functions to allocate per physical function");
+ #endif /* CONFIG_PCI_IOV */
  
- #ifdef CONFIG_IGB_DCA
-@@ -1338,6 +1338,7 @@ static int igb_alloc_q_vectors(struct igb_adapter *adapter)
- 	for (; v_idx < q_vectors; v_idx++) {
- 		int rqpv = DIV_ROUND_UP(rxr_remaining, q_vectors - v_idx);
- 		int tqpv = DIV_ROUND_UP(txr_remaining, q_vectors - v_idx);
-+
- 		err = igb_alloc_q_vector(adapter, q_vectors, v_idx,
- 					 tqpv, txr_idx, rqpv, rxr_idx);
- 
-@@ -1477,6 +1478,7 @@ static void igb_irq_disable(struct igb_adapter *adapter)
- 	 */
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 regval = rd32(E1000_EIAM);
-+
- 		wr32(E1000_EIAM, regval & ~adapter->eims_enable_mask);
- 		wr32(E1000_EIMC, adapter->eims_enable_mask);
- 		regval = rd32(E1000_EIAC);
-@@ -1488,6 +1490,7 @@ static void igb_irq_disable(struct igb_adapter *adapter)
- 	wrfl();
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		int i;
-+
- 		for (i = 0; i < adapter->num_q_vectors; i++)
- 			synchronize_irq(adapter->msix_entries[i].vector);
- 	} else {
-@@ -1506,6 +1509,7 @@ static void igb_irq_enable(struct igb_adapter *adapter)
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 ims = E1000_IMS_LSC | E1000_IMS_DOUTSYNC | E1000_IMS_DRSTA;
- 		u32 regval = rd32(E1000_EIAC);
-+
- 		wr32(E1000_EIAC, regval | adapter->eims_enable_mask);
- 		regval = rd32(E1000_EIAM);
- 		wr32(E1000_EIAM, regval | adapter->eims_enable_mask);
-@@ -1738,6 +1742,7 @@ int igb_up(struct igb_adapter *adapter)
- 	/* notify VFs that reset has been completed */
- 	if (adapter->vfs_allocated_count) {
- 		u32 reg_data = rd32(E1000_CTRL_EXT);
-+
- 		reg_data |= E1000_CTRL_EXT_PFRSTD;
- 		wr32(E1000_CTRL_EXT, reg_data);
+ static pci_ers_result_t igb_io_error_detected(struct pci_dev *,
+@@ -384,8 +383,7 @@ static void igb_dump(struct igb_adapter *adapter)
+ 	/* Print netdevice Info */
+ 	if (netdev) {
+ 		dev_info(&adapter->pdev->dev, "Net device Info\n");
+-		pr_info("Device Name     state            trans_start      "
+-			"last_rx\n");
++		pr_info("Device Name     state            trans_start      last_rx\n");
+ 		pr_info("%-15s %016lX %016lX %016lX\n", netdev->name,
+ 			netdev->state, netdev->trans_start, netdev->last_rx);
  	}
-@@ -1953,6 +1958,7 @@ void igb_reset(struct igb_adapter *adapter)
- 	/* disable receive for all VFs and wait one second */
- 	if (adapter->vfs_allocated_count) {
- 		int i;
-+
- 		for (i = 0 ; i < adapter->vfs_allocated_count; i++)
- 			adapter->vf_data[i].flags &= IGB_VF_FLAG_PF_SET_MAC;
+@@ -438,9 +436,7 @@ static void igb_dump(struct igb_adapter *adapter)
+ 		pr_info("------------------------------------\n");
+ 		pr_info("TX QUEUE INDEX = %d\n", tx_ring->queue_index);
+ 		pr_info("------------------------------------\n");
+-		pr_info("T [desc]     [address 63:0  ] [PlPOCIStDDM Ln] "
+-			"[bi->dma       ] leng  ntw timestamp        "
+-			"bi->skb\n");
++		pr_info("T [desc]     [address 63:0  ] [PlPOCIStDDM Ln] [bi->dma       ] leng  ntw timestamp        bi->skb\n");
  
-@@ -3070,6 +3076,7 @@ static int __igb_open(struct net_device *netdev, bool resuming)
- 	/* notify VFs that reset has been completed */
- 	if (adapter->vfs_allocated_count) {
- 		u32 reg_data = rd32(E1000_CTRL_EXT);
-+
- 		reg_data |= E1000_CTRL_EXT_PFRSTD;
- 		wr32(E1000_CTRL_EXT, reg_data);
- 	}
-@@ -3241,7 +3248,7 @@ void igb_setup_tctl(struct igb_adapter *adapter)
-  *  Configure a transmit ring after a reset.
-  **/
- void igb_configure_tx_ring(struct igb_adapter *adapter,
--                           struct igb_ring *ring)
-+			   struct igb_ring *ring)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 txdctl = 0;
-@@ -3423,6 +3430,7 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
- 		if (hw->mac.type > e1000_82575) {
- 			/* Set the default pool for the PF's first queue */
- 			u32 vtctl = rd32(E1000_VT_CTL);
-+
- 			vtctl &= ~(E1000_VT_CTL_DEFAULT_POOL_MASK |
- 				   E1000_VT_CTL_DISABLE_DEF_POOL);
- 			vtctl |= adapter->vfs_allocated_count <<
-@@ -3504,7 +3512,7 @@ void igb_setup_rctl(struct igb_adapter *adapter)
- }
+ 		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
+ 			const char *next_desc;
+@@ -458,9 +454,8 @@ static void igb_dump(struct igb_adapter *adapter)
+ 			else
+ 				next_desc = "";
  
- static inline int igb_set_vf_rlpml(struct igb_adapter *adapter, int size,
--                                   int vfn)
-+				   int vfn)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 vmolr;
-@@ -4070,7 +4078,7 @@ static void igb_spoof_check(struct igb_adapter *adapter)
- 	if (!adapter->wvbr)
- 		return;
+-			pr_info("T [0x%03X]    %016llX %016llX %016llX"
+-				" %04X  %p %016llX %p%s\n", i,
+-				le64_to_cpu(u0->a),
++			pr_info("T [0x%03X]    %016llX %016llX %016llX %04X  %p %016llX %p%s\n",
++				i, le64_to_cpu(u0->a),
+ 				le64_to_cpu(u0->b),
+ 				(u64)dma_unmap_addr(buffer_info, dma),
+ 				dma_unmap_len(buffer_info, len),
+@@ -519,10 +514,8 @@ rx_ring_summary:
+ 		pr_info("------------------------------------\n");
+ 		pr_info("RX QUEUE INDEX = %d\n", rx_ring->queue_index);
+ 		pr_info("------------------------------------\n");
+-		pr_info("R  [desc]      [ PktBuf     A0] [  HeadBuf   DD] "
+-			"[bi->dma       ] [bi->skb] <-- Adv Rx Read format\n");
+-		pr_info("RWB[desc]      [PcsmIpSHl PtRs] [vl er S cks ln] -----"
+-			"----------- [bi->skb] <-- Adv Rx Write-Back format\n");
++		pr_info("R  [desc]      [ PktBuf     A0] [  HeadBuf   DD] [bi->dma       ] [bi->skb] <-- Adv Rx Read format\n");
++		pr_info("RWB[desc]      [PcsmIpSHl PtRs] [vl er S cks ln] ---------------- [bi->skb] <-- Adv Rx Write-Back format\n");
  
--	for(j = 0; j < adapter->vfs_allocated_count; j++) {
-+	for (j = 0; j < adapter->vfs_allocated_count; j++) {
- 		if (adapter->wvbr & (1 << j) ||
- 		    adapter->wvbr & (1 << (j + IGB_STAGGERED_QUEUE_OFFSET))) {
- 			dev_warn(&adapter->pdev->dev,
-@@ -4202,6 +4210,7 @@ static void igb_watchdog_task(struct work_struct *work)
+ 		for (i = 0; i < rx_ring->count; i++) {
+ 			const char *next_desc;
+@@ -4215,8 +4208,8 @@ static void igb_watchdog_task(struct work_struct *work)
  
- 		if (!netif_carrier_ok(netdev)) {
- 			u32 ctrl;
-+
- 			hw->mac.ops.get_speed_and_duplex(hw,
- 							 &adapter->link_speed,
- 							 &adapter->link_duplex);
-@@ -4333,6 +4342,7 @@ static void igb_watchdog_task(struct work_struct *work)
- 	/* Cause software interrupt to ensure Rx ring is cleaned */
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX) {
- 		u32 eics = 0;
-+
- 		for (i = 0; i < adapter->num_q_vectors; i++)
- 			eics |= adapter->q_vector[i]->eims_value;
- 		wr32(E1000_EICS, eics);
-@@ -4663,6 +4673,7 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
- 			return;
- 	} else {
- 		u8 l4_hdr = 0;
-+
- 		switch (first->protocol) {
- 		case htons(ETH_P_IP):
- 			vlan_macip_lens |= skb_network_header_len(skb);
-@@ -4950,6 +4961,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	 */
- 	if (NETDEV_FRAG_PAGE_MAX_SIZE > IGB_MAX_DATA_PER_TXD) {
- 		unsigned short f;
-+
- 		for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
- 			count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
- 	} else {
-@@ -5607,6 +5619,7 @@ static int igb_set_vf_promisc(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 			vmolr |= E1000_VMOLR_MPME;
- 		} else if (vf_data->num_vf_mc_hashes) {
- 			int j;
-+
- 			vmolr |= E1000_VMOLR_ROMPE;
- 			for (j = 0; j < vf_data->num_vf_mc_hashes; j++)
- 				igb_mta_set(hw, vf_data->vf_mc_hashes[j]);
-@@ -5658,6 +5671,7 @@ static void igb_restore_vf_multicasts(struct igb_adapter *adapter)
+ 			ctrl = rd32(E1000_CTRL);
+ 			/* Links status message must follow this format */
+-			printk(KERN_INFO "igb: %s NIC Link is Up %d Mbps %s "
+-			       "Duplex, Flow Control: %s\n",
++			netdev_info(netdev,
++			       "igb: %s NIC Link is Up %d Mbps %s Duplex, Flow Control: %s\n",
+ 			       netdev->name,
+ 			       adapter->link_speed,
+ 			       adapter->link_duplex == FULL_DUPLEX ?
+@@ -4243,9 +4236,7 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			/* check for thermal sensor event */
+ 			if (igb_thermal_sensor_event(hw,
+ 			    E1000_THSTAT_LINK_THROTTLE)) {
+-				netdev_info(netdev, "The network adapter link "
+-					    "speed was downshifted because it "
+-					    "overheated\n");
++				netdev_info(netdev, "The network adapter link speed was downshifted because it overheated\n");
+ 			}
  
- 	for (i = 0; i < adapter->vfs_allocated_count; i++) {
- 		u32 vmolr = rd32(E1000_VMOLR(i));
-+
- 		vmolr &= ~(E1000_VMOLR_ROMPE | E1000_VMOLR_MPME);
+ 			/* adjust timeout factor according to speed/duplex */
+@@ -4277,12 +4268,11 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			/* check for thermal sensor event */
+ 			if (igb_thermal_sensor_event(hw,
+ 			    E1000_THSTAT_PWR_DOWN)) {
+-				netdev_err(netdev, "The network adapter was "
+-					   "stopped because it overheated\n");
++				netdev_err(netdev, "The network adapter was stopped because it overheated\n");
+ 			}
  
- 		vf_data = &adapter->vf_data[i];
-@@ -5756,6 +5770,7 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
+ 			/* Links status message must follow this format */
+-			printk(KERN_INFO "igb: %s NIC Link is Down\n",
++			netdev_info(netdev, "igb: %s NIC Link is Down\n",
+ 			       netdev->name);
+ 			netif_carrier_off(netdev);
  
- 			if (!adapter->vf_data[vf].vlans_enabled) {
- 				u32 size;
-+
- 				reg = rd32(E1000_VMOLR(vf));
- 				size = reg & E1000_VMOLR_RLPML_MASK;
- 				size += 4;
-@@ -5784,6 +5799,7 @@ static s32 igb_vlvf_set(struct igb_adapter *adapter, u32 vid, bool add, u32 vf)
- 			adapter->vf_data[vf].vlans_enabled--;
- 			if (!adapter->vf_data[vf].vlans_enabled) {
- 				u32 size;
-+
- 				reg = rd32(E1000_VMOLR(vf));
- 				size = reg & E1000_VMOLR_RLPML_MASK;
- 				size -= 4;
-@@ -5888,8 +5904,8 @@ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 	 */
- 	if (!add && (adapter->netdev->flags & IFF_PROMISC)) {
- 		u32 vlvf, bits;
--
- 		int regndx = igb_find_vlvf_entry(adapter, vid);
-+
- 		if (regndx < 0)
- 			goto out;
- 		/* See if any other pools are set for this VLAN filter
-@@ -6949,6 +6965,7 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
- 	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
- 	    igb_test_staterr(rx_desc, E1000_RXD_STAT_VP)) {
- 		u16 vid;
-+
- 		if (igb_test_staterr(rx_desc, E1000_RXDEXT_STATERR_LB) &&
- 		    test_bit(IGB_RING_FLAG_RX_LB_VLAN_BSWAP, &rx_ring->flags))
- 			vid = be16_to_cpu(rx_desc->wb.upper.vlan);
-@@ -7158,7 +7175,7 @@ static int igb_mii_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 		break;
- 	case SIOCGMIIREG:
- 		if (igb_read_phy_reg(&adapter->hw, data->reg_num & 0x1F,
--		                     &data->val_out))
-+				     &data->val_out))
- 			return -EIO;
- 		break;
- 	case SIOCSMIIREG:
-@@ -8035,6 +8052,7 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
- 		} /* endif adapter->dmac is not disabled */
- 	} else if (hw->mac.type == e1000_82580) {
- 		u32 reg = rd32(E1000_PCIEMISC);
-+
- 		wr32(E1000_PCIEMISC, reg & ~E1000_PCIEMISC_LX_DECISION);
- 		wr32(E1000_DMACR, 0);
- 	}
 -- 
 1.9.0
