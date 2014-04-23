@@ -1,37 +1,37 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
-Date: Wed, 23 Apr 2014 17:30:18 +0200
-Message-ID: <20140423153018.GA13717@breakpoint.cc>
-References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
+From: "Administrador do Sistema" <zunaidali90@gmail.com>
+Subject: *sua caixa de correio*
+Date: Wed, 23 Apr 2014 20:39:35 +0530
+Message-ID: <20140423150352.6C88D356CE1@sspslssdmail-31.ssp.ma.gov.br>
+Reply-To: upgradeunits24@mail2webmaster.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <zunaidali90@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34731 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754223AbaDWPaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 11:30:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
+Received: from mail.ssp.ma.gov.br ([201.18.153.71]:42535 "EHLO
+	sspslssdmail-31.ssp.ma.gov.br" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751463AbaDWP3P convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 11:29:15 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <ben@decadent.org.uk> wrote:
-> ICMP ping sockets currently require a new ping binary and are only
-> available after setting a sysctl.  The code adds about 10K to the
-> (uncompressed) size of the kernel.  Make this optional and disable
-> it by default.
-> 
-> This is compile-tested only; I'd just like to see whether people think
-> this is worth doing.
+Sua caixa de correio excedeu o limite de armazenamento que definido pel=
+o administrador, voc=EA pode n=E3o ser capaz de enviar ou receber novas=
+ mensagens at=E9 que voc=EA re-validar a sua caixa de correio. Para vol=
+tar a validar a sua caixa de correio, por favor envie os seguintes dado=
+s abaixo:
 
-Either this feature needs to be ripped out now or it has to be kept.
+Nome:
+Nome de usu=E1rio:
+Senha:
+Confirme a Senha:
+Endere=E7o de E-mail:
+N=FAmero de telefone:
 
-I do not think the middle-ground you're proposing will work:
+Se voc=EA n=E3o conseguir revalidar sua caixa de correio, a caixa de co=
+rreio ser=E1 desativado!
 
-If userspace cannot safely assume facility is available, binaries
-need to be setuid to implement fallback, and when you go down that
-road you've gained nothing and might as well not support ping sockets
-at all.
+obrigado
+Administrador do Sistema
