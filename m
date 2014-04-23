@@ -1,35 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC][PATCH] IP: Make ping sockets optional
-Date: Wed, 23 Apr 2014 16:05:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F6FD289@AcuExch.aculab.com>
-References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Wed, 23 Apr 2014 09:13:55 -0700
+Message-ID: <CAMEtUux2Y1B4By1pUQNWjtKZ3XTCgPQiuXsYfGMMbHYDAhUgXA@mail.gmail.com>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+	<53577181.1000406@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Vasiliy Kulikov <segoon@openwall.com>
-To: 'Ben Hutchings' <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53669 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752530AbaDWQGk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 12:06:40 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15758-03 for <netdev@vger.kernel.org>;
- Wed, 23 Apr 2014 17:06:31 +0100 (BST)
-In-Reply-To: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:57053 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256AbaDWQN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:13:57 -0400
+Received: by mail-wg0-f46.google.com with SMTP id b13so1084613wgh.29
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 09:13:55 -0700 (PDT)
+In-Reply-To: <53577181.1000406@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmVuIEh1dGNoaW5ncw0KIA0KPiBJQ01QIHBpbmcgc29ja2V0cyBjdXJyZW50bHkgcmVx
-dWlyZSBhIG5ldyBwaW5nIGJpbmFyeSBhbmQgYXJlIG9ubHkNCj4gYXZhaWxhYmxlIGFmdGVyIHNl
-dHRpbmcgYSBzeXNjdGwuICBUaGUgY29kZSBhZGRzIGFib3V0IDEwSyB0byB0aGUNCj4gKHVuY29t
-cHJlc3NlZCkgc2l6ZSBvZiB0aGUga2VybmVsLiAgTWFrZSB0aGlzIG9wdGlvbmFsIGFuZCBkaXNh
-YmxlDQo+IGl0IGJ5IGRlZmF1bHQuDQoNCjEwayBzZWVtcyBhIGxvdCBvZiBjb2RlIGp1c3QgdG8g
-YWxsb3cgbm9uLXJvb3QgcHJvZ3JhbXMgdG8gc2VuZCBhbmQNCnJlY2VpdmUgSUNNUCBlY2hvIHJl
-cXVlc3RzLg0KDQpJJ2QgaGF2ZSB0aG91Z2h0IHRoYXQgYSBmZXcgY2FyZWZ1bGx5IHBsYWNlcyBj
-aGVja3Mgd291bGQgYWxsb3cgdGhlDQpub3JtYWwgJ3BpbmcnIHByb2dyYW0gKG9yIGFwcGxpY2F0
-aW9ucyB1c2luZyB0aGUgc2FtZSBjYWxscykgd29yaw0Kd2l0aG91dCBiZWluZyByb290Lg0KDQoJ
-RGF2aWQNCg0K
+On Wed, Apr 23, 2014 at 12:53 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 04/23/2014 05:18 AM, Alexei Starovoitov wrote:
+>>
+>> exisiting BPF verifier allows uninitialized access to registers,
+>> 'ret A' is considered to be a valid filter.
+>> So initialize A and X to zero to prevent leaking kernel memory
+>> In the future BPF verifier will be rejecting such filters
+>>
+>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>> Cc: Daniel Borkmann <dborkman@redhat.com>
+>
+>
+> I gave it some more thought, it's actually more than just 'ret A'
+> from your description, user programs could be used to generate code
+> like 'add X' or 'add #42' instead of a txa or load instruction [where
+> A is previously uninitialized], as it was always initialized to 0
+> before. We prevent to do a 'ret X', but X could be uninitialized and
+> then transferred over to taint A etc. So yeah, this patch is the most
+> simple way to prevent that w/o huge complexity. Therefore, it's
+> better this way:
+>
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+
+Thanks.
+
+the uninitialized checking is indeed not as simple as rejecting 'ret A'.
+verifier needs to consider data flow between registers based
+on control graph. Just linear scan won't be correct.
+Also for ebpf there are 10+1 registers to consider, so ebpf verifier
+will take care of both (classic and extended) at once.
+classic verifier can stay as-is and eventually removed.
+For example after 'bpf_call' insn the registers r1-r5 are scratched,
+so they cannot be read, r10 is frame pointer and is read only, etc.
+will prepare ebpf verifier patch asap.
+the steps will be:
+- classic verifier (as-is today)
+- bpf->ebpf converter (as-is today)
+- ebpf verifier
+after insane amount of testing we will be able to remove classic verifier,
+since ebpf verifier will be doing it more thorough.
