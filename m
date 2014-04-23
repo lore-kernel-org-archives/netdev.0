@@ -1,62 +1,73 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 09:13:55 -0700
-Message-ID: <CAMEtUux2Y1B4By1pUQNWjtKZ3XTCgPQiuXsYfGMMbHYDAhUgXA@mail.gmail.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	<53577181.1000406@redhat.com>
+From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 0/2] net: Implement SO_PEERCGROUP and SO_PASSCGROUP
+ socket options
+Date: Wed, 23 Apr 2014 12:16:21 -0400
+Message-ID: <20140423161621.GC24651@redhat.com>
+References: <1397596546-10153-1-git-send-email-vgoyal@redhat.com>
+ <20140422.160558.627080587952506099.davem@davemloft.net>
+ <20140423155512.GA24651@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:57053 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752256AbaDWQN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:13:57 -0400
-Received: by mail-wg0-f46.google.com with SMTP id b13so1084613wgh.29
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 09:13:55 -0700 (PDT)
-In-Reply-To: <53577181.1000406@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
+	dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140423155512.GA24651-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 23, 2014 at 12:53 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 04/23/2014 05:18 AM, Alexei Starovoitov wrote:
->>
->> exisiting BPF verifier allows uninitialized access to registers,
->> 'ret A' is considered to be a valid filter.
->> So initialize A and X to zero to prevent leaking kernel memory
->> In the future BPF verifier will be rejecting such filters
->>
->> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->> Cc: Daniel Borkmann <dborkman@redhat.com>
->
->
-> I gave it some more thought, it's actually more than just 'ret A'
-> from your description, user programs could be used to generate code
-> like 'add X' or 'add #42' instead of a txa or load instruction [where
-> A is previously uninitialized], as it was always initialized to 0
-> before. We prevent to do a 'ret X', but X could be uninitialized and
-> then transferred over to taint A etc. So yeah, this patch is the most
-> simple way to prevent that w/o huge complexity. Therefore, it's
-> better this way:
->
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+On Wed, Apr 23, 2014 at 11:55:12AM -0400, Vivek Goyal wrote:
+> On Tue, Apr 22, 2014 at 04:05:58PM -0400, David Miller wrote:
+> > From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> > Date: Tue, 15 Apr 2014 17:15:44 -0400
+> > 
+> > > This is another version of patchset to add support passing cgroup
+> > > information of client over unix socket API.
+> > 
+> > I'm marking this patch series as "changes requested" in patchwork
+> > because if we still end up adding this feature SO_PASSCGROUP needs to
+> > be changed to behave like SO_PASSCRED.
+> 
+> Does this concern of passing of real uid apply to cgroups also. Even
+> if somebody tricks suid program to write to fd setup by under priviliged
+> program how would that pgram force setuid program to change cgroup.
+> 
+> To me passing cgroup information looks more like "pid" information where
+> we pass the actual pid of setuid program and not the pid of parent who
+> setup fd.
+> 
+> How would one trick setuid program change cgroup? If not, then this class
+> of attack does not seem to apply to SO_PASSCGROUP.
+> 
+> So I think real discussion here should be how "cgroup" information should
+> be used and not necessarily whether we should be passing cgroup
+> information of sender. This information is already available. One can
+> do SO_PASSCRED, get pid, get /proc/pid/cgroup and use cgroup in whatever
+> way they want.
 
-Thanks.
+Kernel uses cgroup information to provide service differentiation. So lets
+say hypothetically I write a logging program which gets the cgroup of
+clinent and uses that information to limit the log file size. Is that
+a problem?
 
-the uninitialized checking is indeed not as simple as rejecting 'ret A'.
-verifier needs to consider data flow between registers based
-on control graph. Just linear scan won't be correct.
-Also for ebpf there are 10+1 registers to consider, so ebpf verifier
-will take care of both (classic and extended) at once.
-classic verifier can stay as-is and eventually removed.
-For example after 'bpf_call' insn the registers r1-r5 are scratched,
-so they cannot be read, r10 is frame pointer and is read only, etc.
-will prepare ebpf verifier patch asap.
-the steps will be:
-- classic verifier (as-is today)
-- bpf->ebpf converter (as-is today)
-- ebpf verifier
-after insane amount of testing we will be able to remove classic verifier,
-since ebpf verifier will be doing it more thorough.
+First of all I am not aware how would I force setuid program to change
+cgroup. So even if one tricks setuid program to effectively convert it
+into "suid cat", cgroup information remains the same and there is no
+privilige escalation here.
+
+And one example Andy had mentioned that what if I pass fd to a service
+which accepts fd and it is running in a cgroup. Then we have a problem
+at kernel level also. What if that fd is a regular file and that service
+it outputting tons of data. Kernel will apply all resource management
+rules based one cgroup of *priviliged service* and not based on
+caller's cgroup who passed the fd to priviliged service. 
+
+So to me passing cgroup information around at run time and use that
+information for resource management in user space will very much
+be in line with what kernel is doing and will be no different.
+
+Thanks
+Vivek
