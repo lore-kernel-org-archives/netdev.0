@@ -1,29 +1,35 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next v3 1/3] net: ipv6: Unduplicate
- {raw,udp}v6_sendmsg code
-Date: Wed, 23 Apr 2014 15:38:31 +0900
-Message-ID: <CAKD1Yr0GiHzrrrF7JwxMCKsyMA_h-aT=0jKNZ-t9BKh-+w1fVg@mail.gmail.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
- <1398179656-9313-1-git-send-email-lorenzo@google.com> <1398182345.29946.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+Subject: Re: [PATCH] ARM: i.MX6: Add OF configuration support for ksz9031
+Date: Wed, 23 Apr 2014 09:01:00 +0200
+Message-ID: <1398236460.3347.9.camel@EMBLYSD005.adetelgroup.com>
+References: <1398181748-6500-1-git-send-email-hchaumette@adeneo-embedded.com>
+	 <20140422162117.GL3461@piout.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:42966 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbaDWGiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 02:38:52 -0400
-Received: by mail-ig0-f182.google.com with SMTP id uy17so633595igb.9
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 23:38:51 -0700 (PDT)
-In-Reply-To: <1398182345.29946.51.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140422162117.GL3461@piout.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 23, 2014 at 12:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Don't you leak a reference on struct ip6_flowlabel *flowlabel ?
+Hi Alexandre,
 
-Yes. Should be fixed in patch series 4.
+Le mardi 22 avril 2014 =C3=A0 18:21 +0200, Alexandre Belloni a =C3=A9cr=
+it :
+As this is version two of your patch, you should probably use [PATCHv2]=
+=2E
+>=20
+Indeed, it seems --subject-prefix is *not* a /send-email/ option...
+
+Also, this doesn't have anything to do with i.mx6 anymore. I think youe
+> subject line should look like:
+> [PATCHv2] net: phy: micrel: Add DT configuration support for ksz9031
+=20
+I didn't change it to avoid breaking the patch's history. I'll do it fo=
+r
+next iterations. Thanks for your input.
+
+Hubert
