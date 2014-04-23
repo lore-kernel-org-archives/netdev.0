@@ -1,68 +1,73 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 09:02:54 +0200
-Message-ID: <5357659E.1070807@redhat.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com> <20140422.235745.1219194947074686642.davem@davemloft.net> <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH v2] net: cadence: Add architecture dependencies
+Date: Wed, 23 Apr 2014 09:16:49 +0200
+Message-ID: <535768E1.8050609@monstr.eu>
+References: <20140414153849.7138699b@endymion.delvare> <20140422203209.GH12304@sirena.org.uk>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="cVdubuLl8mDHNkcTg2P2xIL6L1HShf7Ep"
+Cc: Jean Delvare <jdelvare@suse.de>, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
+To: Mark Brown <broonie@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21716 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753858AbaDWHDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 03:03:00 -0400
-In-Reply-To: <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:45914 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753714AbaDWHQx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 03:16:53 -0400
+Received: by mail-ee0-f42.google.com with SMTP id d17so394258eek.15
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 00:16:52 -0700 (PDT)
+In-Reply-To: <20140422203209.GH12304@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2014 06:59 AM, Alexei Starovoitov wrote:
-> On Tue, Apr 22, 2014 at 8:57 PM, David Miller <davem@davemloft.net> wrote:
->> From: Alexei Starovoitov <ast@plumgrid.com>
->> Date: Tue, 22 Apr 2014 20:18:57 -0700
->>
->>> exisiting BPF verifier allows uninitialized access to registers,
->>> 'ret A' is considered to be a valid filter.
->>> So initialize A and X to zero to prevent leaking kernel memory
->>> In the future BPF verifier will be rejecting such filters
->>>
->>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->>
->> Has the code always been like this?
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--cVdubuLl8mDHNkcTg2P2xIL6L1HShf7Ep
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I think it would be much cleaner to just prevent such filters that
-only contain a 'ret A', or 'ret X' w/o a load into X from attaching.
-By that, we would need to do slightly more work on the verifier
-side (which seemed to allow such cases since ever), but therefore
-can spare us the extra work in fast path.
+On 04/22/2014 10:32 PM, Mark Brown wrote:
+> On Mon, Apr 14, 2014 at 03:38:49PM +0200, Jean Delvare wrote:
+>> The Cadence ethernet chipsets are only used on specific ARM
+>> architectures. Add Kconfig dependencies so that drivers for these
+>> chipsets are only buildable on the relevant architectures.
+>=20
+> Are you sure they're not used on any of the FPGA platforms like
+> Microblaze?  Cadence are an IP company, might be worth having a FPGA
+> Kconfig that architectures commonly deployed with lots of soft IPs can
+> select and the IPs depend on rather than building a custom list for eac=
+h
+> IP.
 
-Only 'ret A' doesn't make sense, and similarly a program that never
-loads anything into X, but wants to return it. We already did a
-similar thing for the scratch memory store where we checked stores
-into M[] and loads from M[] into A. I can take a look if you want ...
-I have some pending BPF cleanups anyway from before the merge window.
+macb driver can be used by Microblaze too.
 
-> the previous interpreter had:
-> unsigned int sk_run_filter(const struct sk_buff *skb,
->                             const struct sock_filter *fentry)
-> {
->          void *ptr;
->          u32 A = 0;                      /* Accumulator */
->          u32 X = 0;                      /* Index Register */
-> ...
-> so it wasn't affected.
->
->> Did the eBPF changes introduce this problem either directly or
->> indirectly?
->
-> this bug is an oversight on my side.
-> I believe in the net-next it should be fixed by making verifier smarter
-> instead of wasting run time cycles to initialize regs.
-> For now the same fix is needed for both net and net-next.
-> We can remove extra assignments when verifier becomes smarter.
-> ebpf verifier that I posted earlier had checks for uninitialized regs and stack.
-> I missed lack of uninit regs part in classic verifier when ebpf verifier and jit
-> were dropped from the patch set.
-> Sorry about this slip.
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+--cVdubuLl8mDHNkcTg2P2xIL6L1HShf7Ep
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlNXaOEACgkQykllyylKDCEnPACeMbiQbXGI7wI+vXHEJNbmmHQK
+Y7AAnRRciorMlb97SlEiN+WQTtnhC2lJ
+=9UTi
+-----END PGP SIGNATURE-----
+
+--cVdubuLl8mDHNkcTg2P2xIL6L1HShf7Ep--
