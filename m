@@ -1,111 +1,126 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH 1/2] mactap: Fix checksum errors for non-gso packets in
  bridge mode
-Date: Wed, 23 Apr 2014 15:39:44 -0400
-Message-ID: <53581700.9010205@redhat.com>
-References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com> <1398271901-32534-2-git-send-email-vyasevic@redhat.com> <20140423192022.GA28446@redhat.com>
-Reply-To: vyasevic@redhat.com
+Date: Wed, 23 Apr 2014 23:10:50 +0300
+Message-ID: <20140423201050.GC28446@redhat.com>
+References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
+ <1398271901-32534-2-git-send-email-vyasevic@redhat.com>
+ <20140423192022.GA28446@redhat.com>
+ <53581700.9010205@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, daniel.lezcano@free.fr,
 	nightnord@gmail.com, kaber@trash.net, eric.dumazet@gmail.com,
 	jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50824 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1325 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757238AbaDWTjv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 15:39:51 -0400
-In-Reply-To: <20140423192022.GA28446@redhat.com>
+	id S1754008AbaDWUKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 16:10:49 -0400
+Content-Disposition: inline
+In-Reply-To: <53581700.9010205@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2014 03:20 PM, Michael S. Tsirkin wrote:
-> On Wed, Apr 23, 2014 at 12:51:40PM -0400, Vlad Yasevich wrote:
->> The following is a problematic configuration:
->>
->>  VM1: virtio-net device connected to macvtap0@eth0
->>  VM2: e1000 device connect to macvtap1@eth0
->>
->> The problem is is that virtio-net supports checksum offloading
->> and thus sends the packets to the host with CHECKSUM_PARTIAL set.
->> On the other hand, e1000 does not support any acceleration.
->>
->> For small TCP packets (and this includes the 3-way handshake),
->> e1000 ends up receiving packets that only have a partial checksum
->> set.  This causes TCP to fail checksum validation and to drop
->> packets.  As a result tcp connections can not be established.
->>
->> Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
->> 	macvtap: Perform GSO on forwarding path.
->> fixes this issue for large packets wthat will end up undergoing GSO.
->> This commit adds a check for the non-GSO case and attempts to
->> compute the checksum for partially checksummed packets in the
->> non-GSO case.
->>
->> CC: Daniel Lezcano <daniel.lezcano@free.fr>
->> CC: Patrick McHardy <kaber@trash.net>
->> CC: Andrian Nord <nightnord@gmail.com>
->> CC: Eric Dumazet <eric.dumazet@gmail.com>
->> CC: Michael S. Tsirkin <mst@redhat.com>
->> CC: Jason Wang <jasowang@redhat.com>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>  drivers/net/macvtap.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->> index ff111a8..ba91084 100644
->> --- a/drivers/net/macvtap.c
->> +++ b/drivers/net/macvtap.c
->> @@ -322,6 +322,13 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
->>  			segs = nskb;
->>  		}
->>  	} else {
->> +		/* If we receive a partial checksum and the tap side
->> +		 * doesn't support checksum offload, compute the checksum.
->> +		 */
->> +		if (skb->ip_summed == CHECKSUM_PARTIAL &&
->> +		    !(features & NETIF_F_ALL_CSUM) &&
->> +		    skb_checksum_help(skb))
->> +			goto drop;
+On Wed, Apr 23, 2014 at 03:39:44PM -0400, Vlad Yasevich wrote:
+> On 04/23/2014 03:20 PM, Michael S. Tsirkin wrote:
+> > On Wed, Apr 23, 2014 at 12:51:40PM -0400, Vlad Yasevich wrote:
+> >> The following is a problematic configuration:
+> >>
+> >>  VM1: virtio-net device connected to macvtap0@eth0
+> >>  VM2: e1000 device connect to macvtap1@eth0
+> >>
+> >> The problem is is that virtio-net supports checksum offloading
+> >> and thus sends the packets to the host with CHECKSUM_PARTIAL set.
+> >> On the other hand, e1000 does not support any acceleration.
+> >>
+> >> For small TCP packets (and this includes the 3-way handshake),
+> >> e1000 ends up receiving packets that only have a partial checksum
+> >> set.  This causes TCP to fail checksum validation and to drop
+> >> packets.  As a result tcp connections can not be established.
+> >>
+> >> Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+> >> 	macvtap: Perform GSO on forwarding path.
+> >> fixes this issue for large packets wthat will end up undergoing GSO.
+> >> This commit adds a check for the non-GSO case and attempts to
+> >> compute the checksum for partially checksummed packets in the
+> >> non-GSO case.
+> >>
+> >> CC: Daniel Lezcano <daniel.lezcano@free.fr>
+> >> CC: Patrick McHardy <kaber@trash.net>
+> >> CC: Andrian Nord <nightnord@gmail.com>
+> >> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> >> CC: Michael S. Tsirkin <mst@redhat.com>
+> >> CC: Jason Wang <jasowang@redhat.com>
+> >> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> >> ---
+> >>  drivers/net/macvtap.c | 7 +++++++
+> >>  1 file changed, 7 insertions(+)
+> >>
+> >> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> >> index ff111a8..ba91084 100644
+> >> --- a/drivers/net/macvtap.c
+> >> +++ b/drivers/net/macvtap.c
+> >> @@ -322,6 +322,13 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+> >>  			segs = nskb;
+> >>  		}
+> >>  	} else {
+> >> +		/* If we receive a partial checksum and the tap side
+> >> +		 * doesn't support checksum offload, compute the checksum.
+> >> +		 */
+> >> +		if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> >> +		    !(features & NETIF_F_ALL_CSUM) &&
+> >> +		    skb_checksum_help(skb))
+> >> +			goto drop;
+> > 
+> > Hmm confused by NETIF_F_ALL_CSUM here.
+> > 
+> > features come from here:
+> >                 feature_mask = NETIF_F_HW_CSUM;
+> > 
+> >                 if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+> >                         if (arg & TUN_F_TSO_ECN)
+> >                                 feature_mask |= NETIF_F_TSO_ECN;
+> >                         if (arg & TUN_F_TSO4)
+> >                                 feature_mask |= NETIF_F_TSO;
+> >                         if (arg & TUN_F_TSO6)
+> >                                 feature_mask |= NETIF_F_TSO6;
+> >                 }
+> > 
+> >                 if (arg & TUN_F_UFO)
+> >                         feature_mask |= NETIF_F_UFO;
+> > 
+> > 
+> > okay so why not just check that NETIF_F_HW_CSUM is set?
 > 
-> Hmm confused by NETIF_F_ALL_CSUM here.
-> 
-> features come from here:
->                 feature_mask = NETIF_F_HW_CSUM;
-> 
->                 if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
->                         if (arg & TUN_F_TSO_ECN)
->                                 feature_mask |= NETIF_F_TSO_ECN;
->                         if (arg & TUN_F_TSO4)
->                                 feature_mask |= NETIF_F_TSO;
->                         if (arg & TUN_F_TSO6)
->                                 feature_mask |= NETIF_F_TSO6;
->                 }
-> 
->                 if (arg & TUN_F_UFO)
->                         feature_mask |= NETIF_F_UFO;
-> 
-> 
-> okay so why not just check that NETIF_F_HW_CSUM is set?
+> We can do that, but it doesn't make much difference.
 
-We can do that, but it doesn't make much difference.
+Seems cleaner to test a single bit otherwise one is left
+wondering what happens if only one bit matches.
 
+> > 
+> > Also does it matter whether specific offloads are enabled?
+> > 
 > 
-> Also does it matter whether specific offloads are enabled?
+> No it doesn't matter at all.  The packet is not a GSO packet
+> so no other acceleration is used.
+
+Hmm how do we know it's not a gso packet?
+All I see is need_gso test which means it needs segmentation.
+
+
+> Also, other offloads are dependent on checksum.
 > 
+> -vlad
 
-No it doesn't matter at all.  The packet is not a GSO packet
-so no other acceleration is used.
-Also, other offloads are dependent on checksum.
+Right so what if checksum is on, but segmentation is off?
+Not the case with e1000 today but can be with other userspace.
 
--vlad
 
-> 
->>  		skb_queue_tail(&q->sk.sk_receive_queue, skb);
->>  	}
->>  
->> -- 
->> 1.9.0
+> > 
+> >>  		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> >>  	}
+> >>  
+> >> -- 
+> >> 1.9.0
