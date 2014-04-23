@@ -1,230 +1,506 @@
-From: Max Schwarz <max.schwarz@online.de>
-Subject: Re: [PATCH 2/2] arc_emac: add clock handling
-Date: Wed, 23 Apr 2014 23:39:26 +0200
-Message-ID: <4205607.5MYc0BULKu@typ>
-References: <2479609.DglKFY1Bsn@phil> <21852569.EUtq6ntoe2@phil>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH V1 net-next 1/1] hyperv: Enable sendbuf mechanism on the
+ send path
+Date: Thu, 24 Apr 2014 00:45:58 +0300
+Message-ID: <20140423214557.GA26890@mwanda>
+References: <1398288285-16268-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>
-To: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.13]:55536 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbaDWVjs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:39:48 -0400
-In-Reply-To: <21852569.EUtq6ntoe2@phil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
+ davem@davemloft.net
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1398288285-16268-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 April 2014 at 14:24:55, Heiko St=FCbner wrote:
-> This adds ability for the arc_emac to really handle its supplying clo=
-ck.
-> To get the needed clock-frequency either a real clock or the previous
-> clock-frequency property must be provided.
->=20
-> Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+
+TLDR; Style nits and we should return -ENOMEM on error instead of
+success.
+
+On Wed, Apr 23, 2014 at 02:24:45PM -0700, K. Y. Srinivasan wrote:
+> We send packets using a copy-free mechanism (this is the Guest to Host transport
+> via VMBUS). While this is obviously optimal for large packets,
+> it may not be optimal for small packets. Hyper-V host supports
+> a second mechanism for sending packets that is "copy based". We implement that
+> mechanism in this patch.
+> 
+> In this version of the patch I have addressed a comment from David Miller.
+> 
+> With this patch (and all of the other offload and VRSS patches), we are now able
+> to almost saturate a 10G interface between Linux VMs on Hyper-V
+> on different hosts - close to  9 Gbps as measured via iperf.
+> 
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 > ---
->  Documentation/devicetree/bindings/net/arc_emac.txt | 12 +++++-
->  drivers/net/ethernet/arc/emac.h                    |  2 +
->  drivers/net/ethernet/arc/emac_main.c               | 46
-> ++++++++++++++++------ 3 files changed, 47 insertions(+), 13 deletion=
-s(-)
->=20
-> diff --git a/Documentation/devicetree/bindings/net/arc_emac.txt
-> b/Documentation/devicetree/bindings/net/arc_emac.txt index 7fbb027..a=
-1d71eb
-> 100644
-> --- a/Documentation/devicetree/bindings/net/arc_emac.txt
-> +++ b/Documentation/devicetree/bindings/net/arc_emac.txt
-> @@ -4,11 +4,15 @@ Required properties:
->  - compatible: Should be "snps,arc-emac"
->  - reg: Address and length of the register set for the device
->  - interrupts: Should contain the EMAC interrupts
-> -- clock-frequency: CPU frequency. It is needed to calculate and set =
-polling
-> -period of EMAC.
->  - max-speed: see ethernet.txt file in the same directory.
->  - phy: see ethernet.txt file in the same directory.
->=20
-> +Clock handling:
-> +The clock frequency is needed to calculate and set polling period of=
- EMAC.
-> +It must be provided by one of:
-> +- clock-frequency: CPU frequency.
-> +- clocks: reference to the clock supplying the EMAC.
+>  drivers/net/hyperv/hyperv_net.h |   14 +++
+>  drivers/net/hyperv/netvsc.c     |  226 +++++++++++++++++++++++++++++++++++++--
+>  drivers/net/hyperv/netvsc_drv.c |    3 +-
+>  3 files changed, 234 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index d1f7826..4b7df5a 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -140,6 +140,8 @@ struct hv_netvsc_packet {
+>  	void *send_completion_ctx;
+>  	void (*send_completion)(void *context);
+>  
+> +	u32 send_buf_index;
 > +
->  Child nodes of the driver are the individual PHY devices connected t=
-o the
->  MDIO bus. They must have a "reg" property given the PHY address on t=
-he MDIO
-> bus.
->=20
-> @@ -19,7 +23,11 @@ Examples:
->  		reg =3D <0xc0fc2000 0x3c>;
->  		interrupts =3D <6>;
->  		mac-address =3D [ 00 11 22 33 44 55 ];
+>  	/* This points to the memory after page_buf */
+>  	struct rndis_message *rndis_msg;
+>  
+> @@ -582,6 +584,9 @@ struct nvsp_message {
+>  
+>  #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+>  #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
+> +#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024)   /* 1MB */
+> +#define NETVSC_INVALID_INDEX			-1
 > +
->  		clock-frequency =3D <80000000>;
-> +		/* or */
-> +		clocks =3D <&emac_clock>;
+>  
+>  #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+>  
+> @@ -607,6 +612,15 @@ struct netvsc_device {
+>  	u32 recv_section_cnt;
+>  	struct nvsp_1_receive_buffer_section *recv_section;
+>  
+> +	/* Send buffer allocated by us */
+> +	void *send_buf;
+> +	u32 send_buf_size;
+> +	u32 send_buf_gpadl_handle;
+> +	u32 send_section_cnt;
+> +	u32 send_section_size;
+> +	unsigned long *send_section_map;
+> +	int map_words;
 > +
->  		max-speed =3D <100>;
->  		phy =3D <&phy0>;
->=20
-> diff --git a/drivers/net/ethernet/arc/emac.h
-> b/drivers/net/ethernet/arc/emac.h index 928fac6..53f85bf 100644
-> --- a/drivers/net/ethernet/arc/emac.h
-> +++ b/drivers/net/ethernet/arc/emac.h
-> @@ -11,6 +11,7 @@
->  #include <linux/dma-mapping.h>
+>  	/* Used for NetVSP initialization protocol */
+>  	struct completion channel_init_wait;
+>  	struct nvsp_message channel_init_pkt;
+> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> index bbee446..c041f63 100644
+> --- a/drivers/net/hyperv/netvsc.c
+> +++ b/drivers/net/hyperv/netvsc.c
+> @@ -28,6 +28,7 @@
+>  #include <linux/slab.h>
 >  #include <linux/netdevice.h>
->  #include <linux/phy.h>
-> +#include <linux/clk.h>
->=20
->  /* STATUS and ENABLE Register bit masks */
->  #define TXINT_MASK	(1<<0)	/* Transmit interrupt */
-> @@ -131,6 +132,7 @@ struct arc_emac_priv {
->  	struct mii_bus *bus;
->=20
->  	void __iomem *regs;
-> +	struct clk *clk;
->=20
->  	struct napi_struct napi;
->  	struct net_device_stats stats;
-> diff --git a/drivers/net/ethernet/arc/emac_main.c
-> b/drivers/net/ethernet/arc/emac_main.c index 0cba97a..68f8ad5 100644
-> --- a/drivers/net/ethernet/arc/emac_main.c
-> +++ b/drivers/net/ethernet/arc/emac_main.c
-> @@ -649,13 +649,6 @@ static int arc_emac_probe(struct platform_device=
- *pdev)
-> return -ENODEV;
+>  #include <linux/if_ether.h>
+> +#include <asm/sync_bitops.h>
+>  
+>  #include "hyperv_net.h"
+>  
+> @@ -80,7 +81,7 @@ get_in_err:
+>  }
+>  
+>  
+> -static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
+> +static int netvsc_destroy_buf(struct netvsc_device *net_device)
+>  {
+>  	struct nvsp_message *revoke_packet;
+>  	int ret = 0;
+> @@ -146,10 +147,62 @@ static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
+>  		net_device->recv_section = NULL;
 >  	}
->=20
-> -	/* Get CPU clock frequency from device tree */
-> -	if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
-> -				 &clock_frequency)) {
-> -		dev_err(&pdev->dev, "failed to retrieve <clock-frequency> from dev=
-ice
-> tree\n"); -		return -EINVAL;
-> -	}
-> -
->  	/* Get IRQ from device tree */
->  	irq =3D irq_of_parse_and_map(pdev->dev.of_node, 0);
->  	if (!irq) {
-> @@ -687,13 +680,32 @@ static int arc_emac_probe(struct platform_devic=
-e
-> *pdev) }
->  	dev_dbg(&pdev->dev, "Registers base address is 0x%p\n", priv->regs)=
-;
->=20
-> +	priv->clk =3D of_clk_get(pdev->dev.of_node, 0);
-> +	if (IS_ERR(priv->clk)) {
-> +		/* Get CPU clock frequency from device tree */
-> +		if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
-> +					&clock_frequency)) {
-> +			dev_err(&pdev->dev, "failed to retrieve <clock-frequency> from de=
-vice
-> tree\n"); +			err =3D -EINVAL;
-> +			goto out_netdev;
-> +		}
-> +	} else {
-> +		err =3D clk_prepare_enable(priv->clk);
-> +		if (err) {
-> +			dev_err(&pdev->dev, "failed to enable clock\n");
-> +			goto out_clkget;
-> +		}
+>  
+> +	/* Deal with the send buffer we may have setup.
+> +	 * If we got a  send section size, it means we received a
+> +	 * SendsendBufferComplete msg (ie sent
+> +	 * NvspMessage1TypeSendReceiveBuffer msg) therefore, we need
+> +	 * to send a revoke msg here
+> +	 */
+> +	if (net_device->send_section_size) {
+> +		/* Send the revoke receive buffer */
+> +		revoke_packet = &net_device->revoke_packet;
+> +		memset(revoke_packet, 0, sizeof(struct nvsp_message));
 > +
-> +		clock_frequency =3D clk_get_rate(priv->clk);
+> +		revoke_packet->hdr.msg_type =
+> +			NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
+
+This fits in 80 characters.
+
+		revoke_packet->hdr.msg_type = NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
+
+> +		revoke_packet->msg.v1_msg.revoke_recv_buf.id = 0;
+> +
+> +		ret = vmbus_sendpacket(net_device->dev->channel,
+> +				       revoke_packet,
+> +				       sizeof(struct nvsp_message),
+> +				       (unsigned long)revoke_packet,
+> +				       VM_PKT_DATA_INBAND, 0);
+> +		/* If we failed here, we might as well return and
+> +		 * have a leak rather than continue and a bugchk
+> +		 */
+> +		if (ret != 0) {
+
+I have never been a big fan of these double negative conditions.  It's
+simpler and more normal style to say:  "if (ret) { ".  There are some
+cases where it makes sense to compare against zero.  For example, if you
+are dealing with a variable as a number then you would say
+"if (x == 0) ... else if (x == 1) ".  Also for strcmp() then you should
+use == 0 and != 0.  But for error codes it's better it's more idiomatic
+to just say "if (ret) ".
+
+> +			netdev_err(ndev, "unable to send "
+> +				   "revoke send buffer to netvsp\n");
+> +			return ret;
+> +		}
+> +	}
+> +	/* Teardown the gpadl on the vsp end */
+> +	if (net_device->send_buf_gpadl_handle) {
+> +		ret = vmbus_teardown_gpadl(net_device->dev->channel,
+> +					   net_device->send_buf_gpadl_handle);
+> +
+> +		/* If we failed here, we might as well return and have a leak
+> +		 * rather than continue and a bugchk
+> +		 */
+> +		if (ret != 0) {
+> +			netdev_err(ndev,
+> +				   "unable to teardown send buffer's gpadl\n");
+> +			return ret;
+> +		}
+> +		net_device->recv_buf_gpadl_handle = 0;
+> +	}
+> +	if (net_device->send_buf) {
+> +		/* Free up the receive buffer */
+> +		free_pages((unsigned long)net_device->send_buf,
+> +			   get_order(net_device->send_buf_size));
+> +		net_device->send_buf = NULL;
+> +	}
+> +	kfree(net_device->send_section_map);
+> +
+>  	return ret;
+
+This patch doesn't introduce this, but it's better to say:
+
+	return 0;
+
+That is more clear so you don't have to back trace and verify what
+"ret" is.
+
+>  }
+>  
+> -static int netvsc_init_recv_buf(struct hv_device *device)
+> +static int netvsc_init_buf(struct hv_device *device)
+>  {
+>  	int ret = 0;
+>  	int t;
+> @@ -248,10 +301,90 @@ static int netvsc_init_recv_buf(struct hv_device *device)
+>  		goto cleanup;
+>  	}
+>  
+> +	/* Now setup the send buffer.
+> +	 */
+> +	net_device->send_buf =
+> +		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
+> +					 get_order(net_device->send_buf_size));
+> +	if (!net_device->send_buf) {
+> +		netdev_err(ndev, "unable to allocate send "
+> +			   "buffer of size %d\n", net_device->send_buf_size);
+
+This string actually fits into 80 characters fine as-is.
+
+		netdev_err(ndev, "unable to allocate send buffer of size %d\n",
+			   net_device->send_buf_size);
+
+
+> +		ret = -ENOMEM;
+> +		goto cleanup;
 > +	}
 > +
->  	id =3D arc_reg_get(priv, R_ID);
->=20
->  	/* Check for EMAC revision 5 or 7, magic number */
->  	if (!(id =3D=3D 0x0005fd02 || id =3D=3D 0x0007fd02)) {
->  		dev_err(&pdev->dev, "ARC EMAC not detected, id=3D0x%x\n", id);
->  		err =3D -ENODEV;
-> -		goto out_netdev;
-> +		goto out_clken;
->  	}
->  	dev_info(&pdev->dev, "ARC EMAC detected with id: 0x%x\n", id);
->=20
-> @@ -708,7 +720,7 @@ static int arc_emac_probe(struct platform_device =
-*pdev)
->  			       ndev->name, ndev);
->  	if (err) {
->  		dev_err(&pdev->dev, "could not allocate IRQ\n");
-> -		goto out_netdev;
-> +		goto out_clken;
->  	}
->=20
->  	/* Get MAC address from device tree */
-> @@ -729,7 +741,7 @@ static int arc_emac_probe(struct platform_device =
-*pdev)
->  	if (!priv->rxbd) {
->  		dev_err(&pdev->dev, "failed to allocate data buffers\n");
->  		err =3D -ENOMEM;
-> -		goto out_netdev;
-> +		goto out_clken;
->  	}
->=20
->  	priv->txbd =3D priv->rxbd + RX_BD_NUM;
-> @@ -741,7 +753,7 @@ static int arc_emac_probe(struct platform_device =
-*pdev)
->  	err =3D arc_mdio_probe(pdev, priv);
->  	if (err) {
->  		dev_err(&pdev->dev, "failed to probe MII bus\n");
-> -		goto out_netdev;
-> +		goto out_clken;
->  	}
->=20
->  	priv->phy_dev =3D of_phy_connect(ndev, phy_node, arc_emac_adjust_li=
-nk, 0,
-> @@ -772,6 +784,12 @@ out_netif_api:
->  	priv->phy_dev =3D NULL;
->  out_mdio:
->  	arc_mdio_remove(priv);
-> +out_clken:
-> +	if (IS_ERR(priv->clk))
-> +		clk_disable_unprepare(priv->clk);
+> +	/* Establish the gpadl handle for this buffer on this
+> +	 * channel.  Note: This call uses the vmbus connection rather
+> +	 * than the channel to establish the gpadl handle.
+> +	 */
+> +	ret = vmbus_establish_gpadl(device->channel, net_device->send_buf,
+> +				    net_device->send_buf_size,
+> +				    &net_device->send_buf_gpadl_handle);
+> +	if (ret != 0) {
+> +		netdev_err(ndev,
+> +			   "unable to establish send buffer's gpadl\n");
 
-Should be if (!IS_ERR(priv->clk)).
+Same.  Just put it on one line.
 
-> +out_clkget:
-> +	if (IS_ERR(priv->clk))
-> +		clk_put(priv->clk);
+		netdev_err(ndev, "unable to establish send buffer's gpadl\n");
 
-The same.
-
->  out_netdev:
->  	free_netdev(ndev);
->  	return err;
-> @@ -787,6 +805,12 @@ static int arc_emac_remove(struct platform_devic=
-e
-> *pdev) arc_mdio_remove(priv);
->  	unregister_netdev(ndev);
->  	netif_napi_del(&priv->napi);
-> +
-> +	if (!IS_ERR(priv->clk)) {
-> +		clk_disable_unprepare(priv->clk);
-> +		clk_put(priv->clk);
+> +		goto cleanup;
 > +	}
 > +
->  	free_netdev(ndev);
->=20
->  	return 0;
+> +	/* Notify the NetVsp of the gpadl handle */
+> +	init_packet = &net_device->channel_init_pkt;
+> +	memset(init_packet, 0, sizeof(struct nvsp_message));
+> +	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_SEND_BUF;
+> +	init_packet->msg.v1_msg.send_recv_buf.gpadl_handle =
+> +		net_device->send_buf_gpadl_handle;
+> +	init_packet->msg.v1_msg.send_recv_buf.id = 0;
+> +
+> +	/* Send the gpadl notification request */
+> +	ret = vmbus_sendpacket(device->channel, init_packet,
+> +			       sizeof(struct nvsp_message),
+> +			       (unsigned long)init_packet,
+> +			       VM_PKT_DATA_INBAND,
+> +			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+> +	if (ret != 0) {
+> +		netdev_err(ndev,
+> +			   "unable to send send buffer's gpadl to netvsp\n");
+> +		goto cleanup;
+> +	}
+> +
+> +	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
+> +	BUG_ON(t == 0);
 
-Apart from that, the clock stuff has been
+Is there no way to just return an error code here?  We may as well use
+wait_for_completion() without the timeout if we're just going to call
+BUG_ON() anyway.
 
-Tested-by: Max Schwarz <max.schwarz@online.de>
-(on the same hardware, radxa rock)
+> +
+> +	/* Check the response */
+> +	if (init_packet->msg.v1_msg.
+> +	    send_send_buf_complete.status != NVSP_STAT_SUCCESS) {
 
-Cheers,
-  Max
+Better to break it up like this:
+
+	if (init_packet->msg.v1_msg.send_send_buf_complete.status !=
+	    NVSP_STAT_SUCCESS) {
+
+There has to be a better name for "send_send_buf_complete"...
+
+> +		netdev_err(ndev, "Unable to complete send buffer "
+> +			   "initialization with NetVsp - status %d\n",
+> +			   init_packet->msg.v1_msg.
+> +			   send_recv_buf_complete.status);
+> +		ret = -EINVAL;
+> +		goto cleanup;
+> +	}
+> +
+> +	/* Parse the response */
+> +	net_device->send_section_size = init_packet->msg.
+> +				v1_msg.send_send_buf_complete.section_size;
+> +
+> +	/* Section count is simply the size divided by the section size.
+> +	 */
+> +	net_device->send_section_cnt =
+> +		net_device->send_buf_size/net_device->send_section_size;
+> +
+> +	dev_info(&device->device, "Send section size: %d, Section count:%d\n",
+> +		 net_device->send_section_size, net_device->send_section_cnt);
+> +
+> +	/* Setup state for managing the send buffer. */
+> +	net_device->map_words = DIV_ROUND_UP(net_device->send_section_cnt,
+> +					     BITS_PER_LONG);
+> +
+> +	net_device->send_section_map =
+> +		kzalloc(net_device->map_words * sizeof(ulong), GFP_KERNEL);
+
+Use kcalloc().
+
+	net_device->send_section_map = kcalloc(net_device->map_words,
+					       sizeof(ulong), GFP_KERNEL);
+
+> +	if (net_device->send_section_map == NULL)
+> +		goto cleanup;
+
+Set "ret = -ENOMEM;"
+
+> +
+>  	goto exit;
+>  
+
+These bunny hops are super annoying.  Just return success here.  Why
+does code have to be all tangled up?
+
+>  cleanup:
+> -	netvsc_destroy_recv_buf(net_device);
+> +	netvsc_destroy_buf(net_device);
+>  
+>  exit:
+>  	return ret;
+> @@ -369,8 +502,9 @@ static int netvsc_connect_vsp(struct hv_device *device)
+>  		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
+>  	else
+>  		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
+> +	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
+>  
+> -	ret = netvsc_init_recv_buf(device);
+> +	ret = netvsc_init_buf(device);
+>  
+>  cleanup:
+>  	return ret;
+> @@ -378,7 +512,7 @@ cleanup:
+>  
+>  static void netvsc_disconnect_vsp(struct netvsc_device *net_device)
+>  {
+> -	netvsc_destroy_recv_buf(net_device);
+> +	netvsc_destroy_buf(net_device);
+>  }
+>  
+>  /*
+> @@ -440,6 +574,12 @@ static inline u32 hv_ringbuf_avail_percent(
+>  	return avail_write * 100 / ring_info->ring_datasize;
+>  }
+>  
+> +static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
+> +					 u32 index)
+> +{
+> +	sync_change_bit(index, net_device->send_section_map);
+> +}
+> +
+>  static void netvsc_send_completion(struct netvsc_device *net_device,
+>  				   struct hv_device *device,
+>  				   struct vmpacket_descriptor *packet)
+> @@ -447,6 +587,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+>  	struct nvsp_message *nvsp_packet;
+>  	struct hv_netvsc_packet *nvsc_packet;
+>  	struct net_device *ndev;
+> +	u32 send_index;
+>  
+>  	ndev = net_device->ndev;
+>  
+> @@ -477,6 +618,9 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+>  
+>  		/* Notify the layer above us */
+>  		if (nvsc_packet) {
+> +			send_index = nvsc_packet->send_buf_index;
+> +			if (send_index != NETVSC_INVALID_INDEX)
+> +				netvsc_free_send_slot(net_device, send_index);
+>  			q_idx = nvsc_packet->q_idx;
+>  			channel = nvsc_packet->channel;
+>  			nvsc_packet->send_completion(nvsc_packet->
+> @@ -504,6 +648,52 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
+>  
+>  }
+>  
+> +static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
+> +{
+> +	unsigned long index;
+> +	u32 max_words = net_device->map_words;
+> +	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
+> +	u32 section_cnt = net_device->send_section_cnt;
+> +	int ret_val = NETVSC_INVALID_INDEX;
+> +	int i;
+> +	int prev_val;
+> +
+> +	for (i = 0; i < max_words; i++) {
+> +		if (!~(map_addr[i]))
+> +			continue;
+> +		index = ffz(map_addr[i]);
+> +		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
+> +		if (prev_val)
+> +			continue;
+> +		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
+> +			break;
+> +		ret_val = (index + (i * BITS_PER_LONG));
+> +		break;
+> +	}
+> +	return ret_val;
+> +}
+> +
+> +u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
+> +			    unsigned int section_index,
+> +			    struct hv_netvsc_packet *packet)
+> +{
+> +	char *start = net_device->send_buf;
+> +	char *dest = (start + (section_index * net_device->send_section_size));
+> +	int i;
+> +	u32 msg_size = 0;
+> +
+> +	for (i = 0; i < packet->page_buf_cnt; i++) {
+> +		char *src = phys_to_virt(packet->page_buf[i].pfn << PAGE_SHIFT);
+> +		u32 offset = packet->page_buf[i].offset;
+> +		u32 len = packet->page_buf[i].len;
+> +
+> +		memcpy(dest, (src + offset), len);
+> +		msg_size += len;
+> +		dest += len;
+> +	}
+> +	return msg_size;
+> +}
+> +
+>  int netvsc_send(struct hv_device *device,
+>  			struct hv_netvsc_packet *packet)
+>  {
+> @@ -513,6 +703,10 @@ int netvsc_send(struct hv_device *device,
+>  	struct net_device *ndev;
+>  	struct vmbus_channel *out_channel = NULL;
+>  	u64 req_id;
+> +	unsigned int section_index = NETVSC_INVALID_INDEX;
+> +	u32 msg_size = 0;
+> +	struct sk_buff *skb;
+> +
+>  
+
+Don't put consecutive blank lines.
+
+>  	net_device = get_outbound_net_device(device);
+>  	if (!net_device)
+> @@ -528,10 +722,26 @@ int netvsc_send(struct hv_device *device,
+>  		sendMessage.msg.v1_msg.send_rndis_pkt.channel_type = 1;
+>  	}
+>  
+> -	/* Not using send buffer section */
+> +	/* Attempt to send via sendbuf */
+> +	if (packet->total_data_buflen < net_device->send_section_size) {
+> +		section_index = netvsc_get_next_send_section(net_device);
+> +		if (section_index != NETVSC_INVALID_INDEX) {
+> +			msg_size = netvsc_copy_to_send_buf(net_device,
+> +							   section_index,
+> +							   packet);
+> +			skb = (struct sk_buff *)
+> +			      (unsigned long)packet->send_completion_tid;
+> +			if (skb)
+> +				dev_kfree_skb_any(skb);
+> +			packet->page_buf_cnt = 0;
+> +		}
+> +	}
+> +	packet->send_buf_index = section_index;
+> +
+> +
+
+Don't put consective blank lines.
+
+regards,
+dan carpenter
+
+>  	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
+> -		0xFFFFFFFF;
+> -	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
+> +		section_index;
+> +	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = msg_size;
+>  
+>  	if (packet->send_completion)
+>  		req_id = (ulong)packet;
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index c76b665..939e3af 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -236,10 +236,11 @@ static void netvsc_xmit_completion(void *context)
+>  	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
+>  	struct sk_buff *skb = (struct sk_buff *)
+>  		(unsigned long)packet->send_completion_tid;
+> +	u32 index = packet->send_buf_index;
+>  
+>  	kfree(packet);
+>  
+> -	if (skb)
+> +	if (skb && (index == NETVSC_INVALID_INDEX))
+>  		dev_kfree_skb_any(skb);
+>  }
+>  
+> -- 
+> 1.7.4.1
+> 
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
