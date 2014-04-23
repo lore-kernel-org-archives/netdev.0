@@ -1,141 +1,82 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 1/2] mactap: Fix checksum errors for non-gso packets in
- bridge mode
-Date: Wed, 23 Apr 2014 16:30:22 -0400
-Message-ID: <535822DE.5020704@redhat.com>
-References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com> <1398271901-32534-2-git-send-email-vyasevic@redhat.com> <20140423192022.GA28446@redhat.com> <53581700.9010205@redhat.com> <20140423201050.GC28446@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Wed, 23 Apr 2014 13:38:33 -0700
+Message-ID: <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+	<20140422.235745.1219194947074686642.davem@davemloft.net>
+	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
+	<20140423.125043.100674358164503915.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel.lezcano@free.fr,
-	nightnord@gmail.com, kaber@trash.net, eric.dumazet@gmail.com,
-	jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43166 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752748AbaDWUa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 16:30:58 -0400
-In-Reply-To: <20140423201050.GC28446@redhat.com>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:35294 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752748AbaDWUie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 16:38:34 -0400
+Received: by mail-we0-f177.google.com with SMTP id u57so1388858wes.36
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 13:38:33 -0700 (PDT)
+In-Reply-To: <20140423.125043.100674358164503915.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2014 04:10 PM, Michael S. Tsirkin wrote:
-> On Wed, Apr 23, 2014 at 03:39:44PM -0400, Vlad Yasevich wrote:
->> On 04/23/2014 03:20 PM, Michael S. Tsirkin wrote:
->>> On Wed, Apr 23, 2014 at 12:51:40PM -0400, Vlad Yasevich wrote:
->>>> The following is a problematic configuration:
->>>>
->>>>  VM1: virtio-net device connected to macvtap0@eth0
->>>>  VM2: e1000 device connect to macvtap1@eth0
->>>>
->>>> The problem is is that virtio-net supports checksum offloading
->>>> and thus sends the packets to the host with CHECKSUM_PARTIAL set.
->>>> On the other hand, e1000 does not support any acceleration.
->>>>
->>>> For small TCP packets (and this includes the 3-way handshake),
->>>> e1000 ends up receiving packets that only have a partial checksum
->>>> set.  This causes TCP to fail checksum validation and to drop
->>>> packets.  As a result tcp connections can not be established.
->>>>
->>>> Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
->>>> 	macvtap: Perform GSO on forwarding path.
->>>> fixes this issue for large packets wthat will end up undergoing GSO.
->>>> This commit adds a check for the non-GSO case and attempts to
->>>> compute the checksum for partially checksummed packets in the
->>>> non-GSO case.
->>>>
->>>> CC: Daniel Lezcano <daniel.lezcano@free.fr>
->>>> CC: Patrick McHardy <kaber@trash.net>
->>>> CC: Andrian Nord <nightnord@gmail.com>
->>>> CC: Eric Dumazet <eric.dumazet@gmail.com>
->>>> CC: Michael S. Tsirkin <mst@redhat.com>
->>>> CC: Jason Wang <jasowang@redhat.com>
->>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>> ---
->>>>  drivers/net/macvtap.c | 7 +++++++
->>>>  1 file changed, 7 insertions(+)
->>>>
->>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->>>> index ff111a8..ba91084 100644
->>>> --- a/drivers/net/macvtap.c
->>>> +++ b/drivers/net/macvtap.c
->>>> @@ -322,6 +322,13 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
->>>>  			segs = nskb;
->>>>  		}
->>>>  	} else {
->>>> +		/* If we receive a partial checksum and the tap side
->>>> +		 * doesn't support checksum offload, compute the checksum.
->>>> +		 */
->>>> +		if (skb->ip_summed == CHECKSUM_PARTIAL &&
->>>> +		    !(features & NETIF_F_ALL_CSUM) &&
->>>> +		    skb_checksum_help(skb))
->>>> +			goto drop;
+On Wed, Apr 23, 2014 at 9:50 AM, David Miller <davem@davemloft.net> wrote:
+> From: Alexei Starovoitov <ast@plumgrid.com>
+> Date: Tue, 22 Apr 2014 21:59:32 -0700
+>
+>> On Tue, Apr 22, 2014 at 8:57 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Alexei Starovoitov <ast@plumgrid.com>
+>>> Date: Tue, 22 Apr 2014 20:18:57 -0700
 >>>
->>> Hmm confused by NETIF_F_ALL_CSUM here.
+>>>> exisiting BPF verifier allows uninitialized access to registers,
+>>>> 'ret A' is considered to be a valid filter.
+>>>> So initialize A and X to zero to prevent leaking kernel memory
+>>>> In the future BPF verifier will be rejecting such filters
+>>>>
+>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 >>>
->>> features come from here:
->>>                 feature_mask = NETIF_F_HW_CSUM;
->>>
->>>                 if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
->>>                         if (arg & TUN_F_TSO_ECN)
->>>                                 feature_mask |= NETIF_F_TSO_ECN;
->>>                         if (arg & TUN_F_TSO4)
->>>                                 feature_mask |= NETIF_F_TSO;
->>>                         if (arg & TUN_F_TSO6)
->>>                                 feature_mask |= NETIF_F_TSO6;
->>>                 }
->>>
->>>                 if (arg & TUN_F_UFO)
->>>                         feature_mask |= NETIF_F_UFO;
->>>
->>>
->>> okay so why not just check that NETIF_F_HW_CSUM is set?
+>>> Has the code always been like this?
 >>
->> We can do that, but it doesn't make much difference.
-> 
-> Seems cleaner to test a single bit otherwise one is left
-> wondering what happens if only one bit matches.
-
-I can certainly do a single test, but if we ever change it,
-this will be another palace that would have to change.
-
-The above is also what dev_start_hard_xmit() does.
-
-> 
->>>
->>> Also does it matter whether specific offloads are enabled?
->>>
+>> the previous interpreter had:
+>> unsigned int sk_run_filter(const struct sk_buff *skb,
+>>                            const struct sock_filter *fentry)
+>> {
+>>         void *ptr;
+>>         u32 A = 0;                      /* Accumulator */
+>>         u32 X = 0;                      /* Index Register */
+>> ...
+>> so it wasn't affected.
 >>
->> No it doesn't matter at all.  The packet is not a GSO packet
->> so no other acceleration is used.
-> 
-> Hmm how do we know it's not a gso packet?
-> All I see is need_gso test which means it needs segmentation.
-
-Part of netif_needs_gso() is a test for skb_is_gso().  So it
-it's gso and doesn't need segmentation (meaning the guest can
-receive large packets), then partial checksum is OK.
-
-> 
-> 
->> Also, other offloads are dependent on checksum.
+>>> Did the eBPF changes introduce this problem either directly or
+>>> indirectly?
 >>
->> -vlad
-> 
-> Right so what if checksum is on, but segmentation is off?
-> Not the case with e1000 today but can be with other userspace.
-> 
+>> this bug is an oversight on my side.
+>> I believe in the net-next it should be fixed by making verifier smarter
+>> instead of wasting run time cycles to initialize regs.
+>> For now the same fix is needed for both net and net-next.
+>> We can remove extra assignments when verifier becomes smarter.
+>> ebpf verifier that I posted earlier had checks for uninitialized regs and stack.
+>> I missed lack of uninit regs part in classic verifier when ebpf verifier and jit
+>> were dropped from the patch set.
+>
+> I think you will need to add the initializations during validation
+> rather than fail because existing BPF filters would be accepted and
+> run.  You can't just make them fail unexpectedly after all of these
+> years.
 
-In this case, the skb will be in need to segmentation and will take
-a different branch.
+In this particular case we can indeed make verifier smarter to the point
+that once it detects uninitialized A/X in a filter, it will add explicit init
+after conversion, so we don't have to pay the penalty at run time.
+It's a very good suggestion.
 
--vlad
-> 
->>>
->>>>  		skb_queue_tail(&q->sk.sk_receive_queue, skb);
->>>>  	}
->>>>  
->>>> -- 
->>>> 1.9.0
+At the same time I think 'ret A' falls into category of the 20 year old bug.
+The filters that using undocumented behavior are destined to be
+broken sooner or later. tcpdump doesn't generate such filters.
+Valid filters will not be affected by strict checking, but I think users
+will be actually happy to see kernel rejecting their buggy filters.
+I think we can have a global flag for bpf verifier whether to reject
+such filters or accept them by adding explicit inits under
+'bpf_permissive_loading' flag.
+Thoughts?
