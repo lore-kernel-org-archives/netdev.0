@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/phy: micrel: fix bugged test on device tree
- loading for ksz9021
-Date: Wed, 23 Apr 2014 14:59:26 -0400 (EDT)
-Message-ID: <20140423.145926.998744821096383568.davem@davemloft.net>
-References: <1398171664-32662-1-git-send-email-hchaumette@adeneo-embedded.com>
+Subject: Re: [PATCH net] vxlan: ensure to advertise the right fdb remote
+Date: Wed, 23 Apr 2014 15:01:42 -0400 (EDT)
+Message-ID: <20140423.150142.917822226454423001.davem@davemloft.net>
+References: <1398171690-4451-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: hchaumette@adeneo-embedded.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398171664-32662-1-git-send-email-hchaumette@adeneo-embedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50829 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932395AbaDWTBo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 15:01:44 -0400
+In-Reply-To: <1398171690-4451-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-Date: Tue, 22 Apr 2014 15:01:04 +0200
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 22 Apr 2014 15:01:30 +0200
 
-> In ksz9021_load_values_from_of() val2 to val4 aren't tested against their
-> initialization value.
-> This causes the test to always succeed, and this value to be used as if it
-> was loaded from the devicetree instead of being ignored, in case of a
-> missing/invalid property in the ethernet OF device node.
-> As a result, the value "0" is written to the relevant registers.
+> The goal of this patch is to fix rtnelink notification. The main problem was
+> about notification for fdb entry with more than one remote. Before the patch,
+> when a remote was added to an existing fdb entry, the kernel advertised the
+> first remote instead of the added one. Also when a remote was removed from a fdb
+> entry with several remotes, the deleted remote was not advertised.
 > 
-> Change the conditions to test against the right initialization value.
-> 
-> Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Applied, thanks.
+Applied, thank you.
