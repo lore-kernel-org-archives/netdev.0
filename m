@@ -1,65 +1,180 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: ax88796 driver
-Date: Wed, 23 Apr 2014 14:05:13 +0100
-Message-ID: <5357BA89.4070503@codethink.co.uk>
-References: <534F1550.50704@mail.ru> <1398131999.3624.167.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ben Dooks <ben-linux@fluff.org>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	Alexander Varnin <fenixk19@mail.ru>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH] mrf24j40: seperate mrf24j40 h/w init and add checkings
+Date: Wed, 23 Apr 2014 18:41:56 +0530
+Message-ID: <1398258716-18319-1-git-send-email-varkab@cdac.in>
+Cc: alan@signal11.us, linux-zigbee-devel@lists.sourceforge.net,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: alex.aring@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:48297 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752185AbaDWNF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 09:05:27 -0400
-In-Reply-To: <1398131999.3624.167.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:48403 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773AbaDWNM0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 09:12:26 -0400
+Received: by mail-pb0-f49.google.com with SMTP id rr13so771105pbb.22
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 06:12:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/04/14 02:59, Ben Hutchings wrote:
-> On Thu, 2014-04-17 at 03:42 +0400, Alexander Varnin wrote:
->> Hello!
->>
->> I am currently working on kernel and dealing with ax88796 driver, that
->> has been written by Ben Dooks <ben@simtec.co.uk>. Since his address is
->> not available anymore (says "Ben doesn't work here any more"), I want
->> to ask help from somebody, who maybe somehow related to this driver.
->
-> I'm cc'ing Ben, but I doubt he'll want to remember this driver.
->
-> Ben.
+Hai Alex,
 
-Hi, I really do not remember this driver as we only used this device
-on a couple of projects before changing to another supplier.
+I followed the process that you mailed earlier, thnks for that.
 
->> I want to ask on source code, because there is some non-obvious lines.
->>
->> Take a look on ax_initial_check function from ax88796.c please [1].
->>
->> Here is lines 127-129 of it:
->>
->> ei_outb (E8390_NODMA + E8390_PAGE1 + E8390_STOP, ioaddr + E8390_CMD);
->> regd = ei_inb (ioaddr + 0x0d);
->> ei_outb (0xff, ioaddr + 0x0d);
->>
->> This is supposed to be read and write to 0xD register on PAGE 1 of
->> AX88796. But that offset stands for "Multicast Address Register 5
->> ( MAR5 )" in AX88796 datasheet [2].
->>
->> What is the point of doing so? That looks very like a mistake. If it
->> is a mistake, I could make and send patch to fix it. But, please,
->> explain why is it done?
->>
->>
->> [1] http://lxr.free-electrons.com/source/drivers/net/ethernet/8390/ax88796.c#L116
->> [2] http://www.digchip.com/datasheets/parts/datasheet/562/AX88796-pdf.php
+I am expecting the mail from Alan about the changes.
 
-Hmm, is there an actual bug here or is this something that
-we think is wrong? I could have a look but I do not have any
-bootable test hardware available.
+Thank you,
+Varka Bhadram.
 
+
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ieee802154/mrf24j40.c |  115 ++++++++++++++++++++++++++++---------
+ 1 file changed, 89 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 246befa..4a9a1ee 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -609,10 +609,95 @@ out:
+ 	return IRQ_HANDLED;
+ }
+ 
++static int mrf24j40_hw_init(struct mrf24j40 *devrec)
++{
++	int ret;
++	u8 val;
++
++	/* Initialize the device.
++		From datasheet section 3.2: Initialization. */
++	ret = write_short_reg(devrec, REG_SOFTRST, 0x07);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_PACON2, 0x98);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_TXSTBL, 0x95);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON0, 0x03);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON1, 0x01);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON6, 0x90);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON7, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON8, 0x10);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_SLPCON1, 0x21);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_CCAEDTH, 0x60);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG6, 0x40);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x04);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x0);
++	if (ret)
++		goto err_ret;
++
++	udelay(192);
++
++	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
++	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	if (ret)
++		goto err_ret;
++
++	val &= ~0x3; /* Clear RX mode (normal) */
++
++	ret = write_short_reg(devrec, REG_RXMCR, val);
++	if (ret)
++		goto err_ret;
++
++	return 0;
++
++err_ret:
++	return ret;
++}
++
+ static int mrf24j40_probe(struct spi_device *spi)
+ {
+ 	int ret = -ENOMEM;
+-	u8 val;
+ 	struct mrf24j40 *devrec;
+ 
+ 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+@@ -649,31 +734,9 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	if (ret)
+ 		goto err_register_device;
+ 
+-	/* Initialize the device.
+-		From datasheet section 3.2: Initialization. */
+-	write_short_reg(devrec, REG_SOFTRST, 0x07);
+-	write_short_reg(devrec, REG_PACON2, 0x98);
+-	write_short_reg(devrec, REG_TXSTBL, 0x95);
+-	write_long_reg(devrec, REG_RFCON0, 0x03);
+-	write_long_reg(devrec, REG_RFCON1, 0x01);
+-	write_long_reg(devrec, REG_RFCON2, 0x80);
+-	write_long_reg(devrec, REG_RFCON6, 0x90);
+-	write_long_reg(devrec, REG_RFCON7, 0x80);
+-	write_long_reg(devrec, REG_RFCON8, 0x10);
+-	write_long_reg(devrec, REG_SLPCON1, 0x21);
+-	write_short_reg(devrec, REG_BBREG2, 0x80);
+-	write_short_reg(devrec, REG_CCAEDTH, 0x60);
+-	write_short_reg(devrec, REG_BBREG6, 0x40);
+-	write_short_reg(devrec, REG_RFCTL, 0x04);
+-	write_short_reg(devrec, REG_RFCTL, 0x0);
+-	udelay(192);
+-
+-	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
+-	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	ret = mrf24j40_hw_init(devrec);
+ 	if (ret)
+-		goto err_read_reg;
+-	val &= ~0x3; /* Clear RX mode (normal) */
+-	write_short_reg(devrec, REG_RXMCR, val);
++		goto err_hw_init;
+ 
+ 	ret = request_threaded_irq(spi->irq,
+ 				   NULL,
+@@ -690,7 +753,7 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	return 0;
+ 
+ err_irq:
+-err_read_reg:
++err_hw_init:
+ 	ieee802154_unregister_device(devrec->dev);
+ err_register_device:
+ 	ieee802154_free_device(devrec->dev);
 -- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+1.7.9.5
