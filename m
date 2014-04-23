@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] gre: allow to switch netns during
- encap/decap
-Date: Wed, 23 Apr 2014 14:54:16 -0400 (EDT)
-Message-ID: <20140423.145416.1660273363864199935.davem@davemloft.net>
-References: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [kbuild] [net-next:master 5/11]
+ drivers/net/macvlan.c:262:23-26: ERROR: skb is NULL but dereferenced.
+Date: Wed, 23 Apr 2014 14:56:08 -0400 (EDT)
+Message-ID: <20140423.145608.1518295148640909261.davem@davemloft.net>
+References: <20140422084934.GU4963@mwanda>
+	<20140422091533.GA22971@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, mzero@google.com
-To: nicolas.dichtel@6wind.com
+Cc: dan.carpenter@oracle.com, kbuild@01.org, julia.lawall@lip6.fr,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50797 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50807 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932090AbaDWSyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 14:54:18 -0400
-In-Reply-To: <1398154524-5928-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1751343AbaDWS4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 14:56:10 -0400
+In-Reply-To: <20140422091533.GA22971@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 22 Apr 2014 10:15:22 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 22 Apr 2014 17:15:34 +0800
 
-> The goal of this serie is to add x-netns support for the module ip_gre and
-> ip6_gre, ie the encapsulation addresses and the network device are not owned by
-> the same namespace.
+> macvlan: Fix leak and NULL dereference on error path
 > 
-> Example to configure an ipv4 gre tunnel:
+> The recent patch that moved broadcasts to process context added
+> a couple of bugs on the error path where we may dereference NULL
+> or leak an skb.  This patch fixes them.
 > 
-> modprobe ip_gre
-> ip netns add netns1
-> ip netns exec netns1 ip link set lo up
-> ip link add gre1 type gre remote 10.16.0.121 local 10.16.0.249 ikey 10 okey 10 csum
-> ip link set gre1 netns netns1
-> ip netns exec netns1 ip link set gre1 up
-> ip netns exec netns1 ip addr add dev gre1 192.168.0.249 remote 192.168.0.121
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Looks good, series applied, thanks Nicolas.
+Applied, thanks Herbert.
