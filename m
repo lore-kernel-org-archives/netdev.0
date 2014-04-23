@@ -1,81 +1,80 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: [Linux-zigbee-devel] [PATCH] mrf24j40: seperate mrf24j40 h/w
- init and add checkings
-Date: Wed, 23 Apr 2014 11:36:34 -0300
-Message-ID: <20140423143633.GA19663@ws>
-References: <1398258716-18319-1-git-send-email-varkab@cdac.in>
- <5357C565.8080009@signal11.us>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next 1/2] tipc: add support for link state subscriptions
+Date: Wed, 23 Apr 2014 17:01:14 +0200
+Message-ID: <1398265275-19849-2-git-send-email-erik.hugne@ericsson.com>
+References: <1398265275-19849-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Varka Bhadram <varkabhadram@gmail.com>, alex.aring@gmail.com,
-	Varka Bhadram <varkab@cdac.in>, netdev@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: Alan Ott <alan@signal11.us>
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.almesberger.net ([204.10.140.10]:36174 "EHLO
-	host.almesberger.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751350AbaDWOrX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 10:47:23 -0400
-Content-Disposition: inline
-In-Reply-To: <5357C565.8080009@signal11.us>
+Received: from sessmg22.ericsson.net ([193.180.251.58]:57220 "EHLO
+	sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753155AbaDWPA3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 11:00:29 -0400
+In-Reply-To: <1398265275-19849-1-git-send-email-erik.hugne@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alan Ott wrote:
-> 3. The code to check for it just adds a lot of bloat without much 
-> measurable benefit.
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-As a very general note, if - in any C program, not just the kernel
-- you have too many error checks for comfort, you may want to
-consider keeping a cumulative error status (e.g., in this case,
-struct mrf24j40), and just check that. Similar to ferror in stdio.
+When links are established over a bearer plane, we create a node
+local publication containing information about the peer node and
+bearer plane. This allows TIPC applications to use the standard
+TIPC topology server subscription mechanism to get notifications
+when a link goes up or down.
 
-Something like
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ include/uapi/linux/tipc.h | 1 +
+ net/tipc/node.c           | 8 +++++++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
-
-static int my_check_and_clear_rc(struct foo *foo)
-{
-	int rc;
-
-	rc = foo->rc;
-	foo->rc = 0;
-	return rc;
-}
-
-
-static int my_operation(struct foo *foo, int arg)
-{
-	int rc;
-
-	/* don't make it worse - optional */
-	if (foo->rc)
-		return foo->rc;
-
-	rc = really_do_my_operation(foo, arg);
-	if (rc < 0 && !foo->rc)
-		foo->rc = rc;
-
-	return foo->rc ? foo->rc : rc;
-}
-
-
-Then the phalanx of tedious checks shrinks to
-
-	/* make sure foo->rc is initialized to 0 */
-
-	my_operation(foo, 1);
-	my_operation(foo, 2);
-	...
-	my_operation(foo, 1000);
-
-	rc = my_check_and_clear_rc(foo);
-	if (rc) {
-		complain("something terribly wrong");
-		...
-	}
-	...
-
-You can easily extend this to also record line numbers, file
-names, and such, if necessary. Add atomic/locking as needed.
-
-- Werner
+diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+index 852373d..53cd790 100644
+--- a/include/uapi/linux/tipc.h
++++ b/include/uapi/linux/tipc.h
+@@ -87,6 +87,7 @@ static inline unsigned int tipc_node(__u32 addr)
+ 
+ #define TIPC_CFG_SRV		0	/* configuration service name type */
+ #define TIPC_TOP_SRV		1	/* topology service name type */
++#define TIPC_LINK_STATE		2	/* link state name type */
+ #define TIPC_RESERVED_TYPES	64	/* lowest user-publishable name type */
+ 
+ /*
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 1d3a499..527e751 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -144,9 +144,12 @@ void tipc_node_stop(void)
+ void tipc_node_link_up(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ {
+ 	struct tipc_link **active = &n_ptr->active_links[0];
++	u32 addr = n_ptr->addr;
++	u32 identity = l_ptr->b_ptr->identity;
+ 
+ 	n_ptr->working_links++;
+-
++	tipc_nametbl_publish(TIPC_LINK_STATE, addr, addr, TIPC_NODE_SCOPE,
++			     identity, addr);
+ 	pr_info("Established link <%s> on network plane %c\n",
+ 		l_ptr->name, l_ptr->b_ptr->net_plane);
+ 
+@@ -203,8 +206,11 @@ static void node_select_active_links(struct tipc_node *n_ptr)
+ void tipc_node_link_down(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
+ {
+ 	struct tipc_link **active;
++	u32 addr = n_ptr->addr;
++	u32 identity = l_ptr->b_ptr->identity;
+ 
+ 	n_ptr->working_links--;
++	tipc_nametbl_withdraw(TIPC_LINK_STATE, addr, identity, addr);
+ 
+ 	if (!tipc_link_is_active(l_ptr)) {
+ 		pr_info("Lost standby link <%s> on network plane %c\n",
+-- 
+1.8.3.2
