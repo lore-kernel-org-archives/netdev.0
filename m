@@ -1,43 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Wed, 23 Apr 2014 13:29:55 -0400 (EDT)
-Message-ID: <20140423.132955.671992126955940387.davem@davemloft.net>
-References: <20140416002010.GA5035@redhat.com>
-	<CALCETrWzHYN3kKcmDTFDfGhZqE4u9+6XDtiOu5nncbK_7KKH0g@mail.gmail.com>
-	<20140423164537.GD24651@redhat.com>
+Subject: Re: skb_try_coalesce bug?
+Date: Wed, 23 Apr 2014 13:33:49 -0400 (EDT)
+Message-ID: <20140423.133349.1007553448019102626.davem@davemloft.net>
+References: <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5357F0B4.5040606@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, tj@kernel.org, dwalsh@redhat.com,
-	linux-kernel@vger.kernel.org, lpoetter@redhat.com,
-	ssorce@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+Cc: eric.dumazet@gmail.com, erik.hugne@ericsson.com,
 	netdev@vger.kernel.org
-To: vgoyal@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140423164537.GD24651@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302AbaDWRdv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 13:33:51 -0400
+In-Reply-To: <5357F0B4.5040606@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivek Goyal <vgoyal@redhat.com>
-Date: Wed, 23 Apr 2014 12:45:37 -0400
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 23 Apr 2014 12:56:20 -0400
 
-> On Tue, Apr 15, 2014 at 08:47:54PM -0700, Andy Lutomirski wrote:
+> On 04/22/2014 05:37 PM, Eric Dumazet wrote:
+>> On Tue, 2014-04-22 at 14:29 -0700, Eric Dumazet wrote:
+>> 
+>>> Then if you do that, you also need to change head->data_len !
+>> 
+>> Untested patch would be :
+>> 
+>> diff --git a/net/tipc/link.c b/net/tipc/link.c
+>> index c5190ab75290..85077dd7c63e 100644
+>> --- a/net/tipc/link.c
+>> +++ b/net/tipc/link.c
+>> @@ -2349,6 +2349,7 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
+>>  			(*tail)->next = frag;
+>>  		*tail = frag;
+>>  		(*head)->truesize += frag->truesize;
+>> +		(*head)->data_len += frag->len;
 > 
-> [..]
->> Here's an attack against SO_PASSCGROUP, as you implemented it: connect
->> a socket and get someone else to write(2) to it.  This isn't very
->> hard.  Now you've impersonated.
-> 
-> If this is a problem then I think kernel requires fixing. Because kernel
-> will apply all resource management policies based on the cgroup at write(2)
-> time and not based on open() time.
+> Just to confirm, does this mean that head's own (linear) data is not
+> included in data_len? 
 
-Anyways, this is not even worth discussing.
+For a given SKB, skb->len is the entire length of the packet, fragments and
+all.
 
-We already agreed that the cgroup passed at write time with SO_PASSGROUP
-enabled should be the socket creation time cgroup.
+skb->data_len counts the sum of all of the page and SKB based fragments, ie.
+all bytes which are not in the top-level SKBs linear area.
 
-Just like SO_PASSCRED does.
-
-The identity given is thus the one at open() time.
+So the linear length is always "skb->len - skb->data_len", and this is exactly
+what skb_headlen() does.
