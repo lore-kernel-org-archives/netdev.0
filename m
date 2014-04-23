@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Tue, 22 Apr 2014 21:43:00 -0400 (EDT)
-Message-ID: <20140422.214300.171999077259349189.davem@davemloft.net>
-References: <20140422.161904.1187535812839850973.davem@davemloft.net>
-	<cover.1398215388.git.rgb@redhat.com>
+Subject: Re: [net-next 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 22 Apr 2014 21:47:30 -0400 (EDT)
+Message-ID: <20140422.214730.466280579426000142.davem@davemloft.net>
+References: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, jamal@mojatatu.com,
-	eparis@redhat.com, sgrubb@redhat.com
-To: rgb@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <cover.1398215388.git.rgb@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44987 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750925AbaDWBrc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 21:47:32 -0400
+In-Reply-To: <1398170371-3333-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Tue, 22 Apr 2014 21:31:52 -0400
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 22 Apr 2014 05:39:15 -0700
 
-> This is a patch set Eric Paris and I have been working on to add a restricted
-> capability read-only netlink multicast socket to kernel audit to enable
-> userspace clients such as systemd/journald to receive audit logs, in addition
-> to the bidirectional auditd userspace client.
+> This series contains updates to i40e and i40evf.
 
-Series applied, thanks Richard.
+Pulled, thanks Jeff.
