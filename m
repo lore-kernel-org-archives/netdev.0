@@ -1,70 +1,48 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] net: filter: initialize A and X registers
-Date: Tue, 22 Apr 2014 20:18:57 -0700
-Message-ID: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Rayagond Kokatanur <rayagond@vayavyalabs.com>
+Subject: Re: basic question about LRO implementation
+Date: Wed, 23 Apr 2014 09:15:57 +0530
+Message-ID: <CAJ3bTp4v9e4rXDh1-MzM13jsj6j56WJQa76GWwhXeOAx-fpg8A@mail.gmail.com>
+References: <CAJ3bTp5v5jbpfnc78YXXEbYxOYpWnkz7UioznwszrvqcuHjD=Q@mail.gmail.com>
+	<1398174850.29946.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:57776 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbaDWDTC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 23:19:02 -0400
-Received: by mail-pb0-f50.google.com with SMTP id md12so303122pbc.23
-        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 20:19:02 -0700 (PDT)
+Received: from mail-qa0-f50.google.com ([209.85.216.50]:49522 "EHLO
+	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755850AbaDWDp6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 23:45:58 -0400
+Received: by mail-qa0-f50.google.com with SMTP id ih12so370989qab.9
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 20:45:57 -0700 (PDT)
+In-Reply-To: <1398174850.29946.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-exisiting BPF verifier allows uninitialized access to registers,
-'ret A' is considered to be a valid filter.
-So initialize A and X to zero to prevent leaking kernel memory
-In the future BPF verifier will be rejecting such filters
+Thank you.
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
----
- net/core/filter.c |   16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/filter.c b/net/core/filter.c
-index cd58614..9d79ca0 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -122,6 +122,13 @@ noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
- 	return 0;
- }
- 
-+/* Register mappings for user programs. */
-+#define A_REG		0
-+#define X_REG		7
-+#define TMP_REG		8
-+#define ARG2_REG	2
-+#define ARG3_REG	3
-+
- /**
-  *	__sk_run_filter - run a filter on a given context
-  *	@ctx: buffer to run the filter on
-@@ -242,6 +249,8 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
- 
- 	regs[FP_REG]  = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
- 	regs[ARG1_REG] = (u64) (unsigned long) ctx;
-+	regs[A_REG] = 0;
-+	regs[X_REG] = 0;
- 
- select_insn:
- 	goto *jumptable[insn->code];
-@@ -643,13 +652,6 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	return raw_smp_processor_id();
- }
- 
--/* Register mappings for user programs. */
--#define A_REG		0
--#define X_REG		7
--#define TMP_REG		8
--#define ARG2_REG	2
--#define ARG3_REG	3
--
- static bool convert_bpf_extensions(struct sock_filter *fp,
- 				   struct sock_filter_int **insnp)
- {
--- 
-1.7.9.5
+On Tue, Apr 22, 2014 at 7:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-04-22 at 13:28 +0530, Rayagond Kokatanur wrote:
+>> Hi All,
+>>
+>> As part of LRO support, every Ethernet driver has to implement a call
+>> back function ".get_skb_header" which does following,
+>>
+>> 1. Checks for TCP packet and return 0 for TCP packet and -1 for non-tcp packets
+>> 2. Get tcp and ip header from given skb
+>> 3. Initialize the flag to indicate IPv4 and  TCP packet.
+>>
+>> All these can be done by using skb - which is passed as input argument
+>> to get_skb_header, there is nothing device specific we do in this api,
+>> hence why can't this be implemented as generic api. By this way we can
+>> avoid every driver implementing same api and hence duplicating the
+>> same code.
+>>
+>> Please let me know if my understanding may be wrong.
+>
+> LRO is deprecated.
+>
+> Use GRO, even if hardware assisted like bnx2x driver ?
+>
+>
+>
