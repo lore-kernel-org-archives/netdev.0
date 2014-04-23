@@ -1,122 +1,112 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] ixgbe: remove vlan_filter_disable and enable functions
-Date: Wed, 23 Apr 2014 04:15:15 -0700
-Message-ID: <1398251726-13638-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 23 Apr 2014 04:15:12 -0700
+Message-ID: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55687 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:15123 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753046AbaDWLPe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 07:15:34 -0400
-In-Reply-To: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1753020AbaDWLPc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 07:15:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates to ixgbe, ixgbevf, e1000e, igb and i40e.
 
-Previously these functions handled stripping setup as well, but this has
-already been removed from these functions. Rather than encapsulating
-this into a function, we can just do the work directly in set_rx_mode.
+Jacob converts the ixgbe low_water into an array which allows the
+algorithm to output different values for different TCs and we can
+distinguish between them.  Removes vlan_filter_disable() and
+vlan_filter_enable() in ixgbe so that we can do the work directly in
+set_rx_mode().  Changes the setting of multicast filters only when
+the interface is not in promiscuous mode for multicast packets in
+ixgbe.  Improves MAC filter handling by adding mac_table API based
+on work done for igb, which includes functions to add/delete MAC
+filters.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 40 ++++-----------------------
- 1 file changed, 6 insertions(+), 34 deletions(-)
+Mark changes register reads in ixgbe to an out-of-line function since
+register reads are slow.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 7a67a9f..220937ba 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3768,35 +3768,6 @@ static int ixgbe_vlan_rx_kill_vid(struct net_device *netdev,
- }
- 
- /**
-- * ixgbe_vlan_filter_disable - helper to disable hw vlan filtering
-- * @adapter: driver data
-- */
--static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 vlnctrl;
--
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
--	vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
--	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
--}
--
--/**
-- * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
-- * @adapter: driver data
-- */
--static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
--{
--	struct ixgbe_hw *hw = &adapter->hw;
--	u32 vlnctrl;
--
--	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
--	vlnctrl |= IXGBE_VLNCTRL_VFE;
--	vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
--	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
--}
--
--/**
-  * ixgbe_vlan_strip_disable - helper to disable hw vlan stripping
-  * @adapter: driver data
-  */
-@@ -3933,11 +3904,13 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 fctrl, vmolr = IXGBE_VMOLR_BAM | IXGBE_VMOLR_AUPE;
-+	u32 vlnctrl;
- 	int count;
- 
- 	/* Check for Promiscuous and All Multicast modes */
- 
- 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
-+	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
- 
- 	/* set all bits that we expect to always be set */
- 	fctrl &= ~IXGBE_FCTRL_SBP; /* disable store-bad-packets */
-@@ -3947,7 +3920,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 
- 	/* clear the bits we are changing the status of */
- 	fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
--
-+	vlnctrl &= ~(IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
- 	if (netdev->flags & IFF_PROMISC) {
- 		hw->addr_ctrl.user_set_promisc = true;
- 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
-@@ -3958,15 +3931,13 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		 */
- 		if (!(adapter->flags & (IXGBE_FLAG_VMDQ_ENABLED |
- 					IXGBE_FLAG_SRIOV_ENABLED)))
--			ixgbe_vlan_filter_disable(adapter);
--		else
--			ixgbe_vlan_filter_enable(adapter);
-+			vlnctrl |= (IXGBE_VLNCTRL_VFE | IXGBE_VLNCTRL_CFIEN);
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
- 			fctrl |= IXGBE_FCTRL_MPE;
- 			vmolr |= IXGBE_VMOLR_MPE;
- 		}
--		ixgbe_vlan_filter_enable(adapter);
-+		vlnctrl |= IXGBE_VLNCTRL_VFE;
- 		hw->addr_ctrl.user_set_promisc = false;
- 	}
- 
-@@ -4010,6 +3981,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
- 		/* NOTE:  VLAN filtering is disabled by setting PROMISC */
- 	}
- 
-+	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
- 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
- 
- 	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+Emil provides a ixgbevf patch to update the driver description since
+it supports more than just 82599 parts now.
+
+David provides several cleanup patches for e1000e which resolve some
+checkpatch issues as well as changing occurrences of returning 0 or 1 in
+bool functions to returning true false or true.
+
+Carolyn provides several cleanup patches for igb which fix checkpatch
+warnings.
+
+Mitch provides a fix for i40evf where the driver would correctly allow
+the virtual function link state to be controlled by 'ip set link', but
+would not report it correctly back.  This is fixed by filling out
+the appropriate field in the VF info struct.
+
+The following are changes since commit fd0d192be6e814495aec91f357b5801afc3b6262:
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Carolyn Wyborny (3):
+  igb: Cleanups for messaging
+  igb: Cleanups to fix braces location warnings
+  igb: Cleanups to fix incorrect indentation
+
+David Ertman (4):
+  e1000e: Cleanup return values in ethtool
+  e1000e: Cleanup to fix checkpatch missing blank lines
+  e1000e: Cleanup checkpatch extra space
+  e1000e: Cleanup use of deprecated DEFINE_PCI_DEVICE_TABLE
+
+Emil Tantilov (1):
+  ixgbevf: remove 82599 from the module description
+
+Jacob Keller (4):
+  ixgbe: convert low_water into an array
+  ixgbe: remove vlan_filter_disable and enable functions
+  ixgbe: change handling of multicast filters
+  ixgbe: improve mac filter handling
+
+Mark Rustad (1):
+  ixgbe: Use out-of-line function for register reads
+
+Mitch Williams (1):
+  i40e: report VF link state correctly
+
+ drivers/net/ethernet/intel/e1000e/e1000.h          |   8 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |  11 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c        |   1 +
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  19 +-
+ drivers/net/ethernet/intel/e1000e/nvm.c            |   1 +
+ drivers/net/ethernet/intel/e1000e/param.c          |   4 +
+ drivers/net/ethernet/intel/e1000e/phy.c            |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   7 +
+ drivers/net/ethernet/intel/igb/e1000_82575.c       |  24 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.h       |  22 +-
+ drivers/net/ethernet/intel/igb/e1000_defines.h     |  25 +-
+ drivers/net/ethernet/intel/igb/e1000_hw.h          |  50 ++--
+ drivers/net/ethernet/intel/igb/e1000_mac.c         |  10 +-
+ drivers/net/ethernet/intel/igb/e1000_nvm.c         |   1 +
+ drivers/net/ethernet/intel/igb/e1000_nvm.h         |   2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c         |   3 +-
+ drivers/net/ethernet/intel/igb/e1000_regs.h        |   7 +-
+ drivers/net/ethernet/intel/igb/igb.h               |   1 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       |  24 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |  74 ++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |  18 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  27 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  35 ++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |  15 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |   2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 319 +++++++++++++++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  49 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |   2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   2 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |   2 +-
+ 32 files changed, 478 insertions(+), 292 deletions(-)
+
 -- 
 1.9.0
