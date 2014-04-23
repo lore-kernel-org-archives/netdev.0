@@ -1,73 +1,82 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: RFC: rtnetlink problems with Cisco enic and VFs
-Date: Tue, 22 Apr 2014 17:04:38 -0700
-Message-ID: <20140422170438.00006b45@unknown>
-References: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
-	<1398189799.7767.80.camel@deadeye.wl.decadent.org.uk>
-	<20140422.141200.1878796491205301689.davem@davemloft.net>
-	<20140423092606.c73425b64d127b8f94469fcb@redhat.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH 0/2] net: Implement SO_PEERCGROUP and SO_PASSCGROUP socket options
+Date: Tue, 22 Apr 2014 17:37:26 -0700
+Message-ID: <CALCETrXzN=EOJk7HB3P9NuBCvpQohJ7Y9U75ew9fCrTeN77VCw@mail.gmail.com>
+References: <CALCETrWHA5ZmzOHnz9LO+7v4byc8QiynGyjE_ju5sjokNqrjZA@mail.gmail.com>
+ <20140422.162927.2182797573155988911.davem@davemloft.net> <CALCETrX_TCbKy-3W590wG3rq9O3Hzbqc_wu3EGg7PKn2NNsTpQ@mail.gmail.com>
+ <20140422.163251.1863774803211446171.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <ben@decadent.org.uk>,
-	<netdev@vger.kernel.org>, <benve@cisco.com>, <ssujith@cisco.com>,
-	<govindarajulu90@gmail.com>, <neepatel@cisco.com>,
-	<nistrive@cisco.com>
-To: David Gibson <dgibson@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43669 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750781AbaDWAEo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Apr 2014 20:04:44 -0400
-In-Reply-To: <20140423092606.c73425b64d127b8f94469fcb@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Simo Sorce <ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Daniel Walsh <dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140422.163251.1863774803211446171.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Apr 2014 09:26:06 +1000
-David Gibson <dgibson@redhat.com> wrote:
+On Tue, Apr 22, 2014 at 1:32 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+> Date: Tue, 22 Apr 2014 13:31:13 -0700
+>
+>> On Tue, Apr 22, 2014 at 1:29 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>> From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+>>> Date: Tue, 22 Apr 2014 13:08:59 -0700
+>>>
+>>>> On Tue, Apr 22, 2014 at 1:05 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>>>>> From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>>> Date: Tue, 15 Apr 2014 17:15:44 -0400
+>>>>>
+>>>>>> This is another version of patchset to add support passing cgroup
+>>>>>> information of client over unix socket API.
+>>>>>
+>>>>> I'm marking this patch series as "changes requested" in patchwork
+>>>>> because if we still end up adding this feature SO_PASSCGROUP needs to
+>>>>> be changed to behave like SO_PASSCRED.
+>>>>>
+>>>>> Specifically, like SO_PASSCRED, it should pass the "real" cgroup, ie.
+>>>>> the cgroup at socket open() time.
+>>>>>
+>>>>
+>>>> I suspect that making this change will render it useless,
+>>>> unfortunately.  I really want to understand the use case.
+>>>
+>>> There was no use case, it is simply the fact that when I discussed this
+>>> feature with Vivek and Simo I told them that it should be implemented
+>>> the same as the existing credential facilities.
+>>>
+>>> For datagram situations there is no "peer" to consider in between
+>>> sendmsg() calls, as the binding is only active during the sendmsg()
+>>> call.
+>>>
+>>> That's why SO_PASSCRED exists in the first place.
+>>>
+>>> Otherwise, without SO_PASSCGROUP, there is no way for datagram sockets
+>>> to find out the peer's open() time cgroup.
+>>
+>> Right.
+>>
+>> I'd still like to know what userspace applications want this feature.
+>> The canonical example seems to be journald, but journald doesn't use
+>> unix datagram sockets AFAICS, nor is the process that opened the
+>> socket interesting (that process is always systemd).
+>
+> It's about rounding out the interface properly, now, rather than having
+> to have a specific use case.
+>
+> I really don't consider a specific use case as a requirement in this
+> case.
 
-> On Tue, 22 Apr 2014 14:12:00 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
-> > From: Ben Hutchings <ben@decadent.org.uk>
-> > Date: Tue, 22 Apr 2014 19:03:19 +0100
-> > 
-> > > On Tue, 2014-04-22 at 14:14 +1000, David Gibson wrote:
-> > >> I believe I've found a problem with netlink handling which can be
-> > >> triggered on Cisco enic devices with a large number (30-40) of
-> > >> virtual functions.  I believe this is the cause of a real
-> > >> customer problem we've seen.
-> > >> 
-> > >>  * When requesting a list of interfaces with RTM_GETLINK, enic
-> > >> devices (and currently, _only_ enic devices) report IFLA_VF_PORTS
-> > >>    information 
-> > >> 
-> > >>  * IFLA_VF_PORTS information has at least 90 bytes ber virtual
-> > >> function
-> > >> 
-> > >>  * Unlike IFLA_VFINFO_LIST, the ports information is always
-> > >> reported, regardless of the setting of the IFLA_EXT_MASK
-> > >> parameter
-> > > [...]
-> > > 
-> > > So I think you should make reporting of IFLA_VF_PORTS dependent
-> > > on the same flag as IFLA_VFINFO_LIST.
-> > 
-> > I think that's what we'll have to do.
-> 
-> Ok, makes logical sense.
-> 
-> But does anyone know what tools make use of the IFLA_VF_PORTS
-> information?  Do they set the IFLA_EXT_MASK already?
-> 
+Sure, but we'll feel really dumb if some variant of this is merged and
+then we learn that it doesn't actually serve the intended purpose and
+we have to extend it before anyone uses it.
 
-So far as I know only the IP route tool 'ip link' sets that.  In fact,
-that's the reason I had to add it some number of years and months ago
-was because there were tools that didn't expect to get all the
-additional VF info and those tools were getting borked by all the
-additional goo sent up for VFs.
+I think that my SCM_IDENTITY proposal from the other thread would be
+better an all counts, but it's rather more complicated.
 
-Beyond that who knows what anyone's been up to with other tools in
-other places?
-
-- Greg
+--Andy
