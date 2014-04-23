@@ -1,73 +1,86 @@
-From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 0/2] net: Implement SO_PEERCGROUP and SO_PASSCGROUP
- socket options
-Date: Wed, 23 Apr 2014 12:16:21 -0400
-Message-ID: <20140423161621.GC24651@redhat.com>
-References: <1397596546-10153-1-git-send-email-vgoyal@redhat.com>
- <20140422.160558.627080587952506099.davem@davemloft.net>
- <20140423155512.GA24651@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net] gianfar: Check if phydev present on ethtool -A
+Date: Wed, 23 Apr 2014 17:21:27 +0100
+Message-ID: <1398270087.7767.157.camel@deadeye.wl.decadent.org.uk>
+References: <1398260327-23381-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ssorce-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	lpoetter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, kay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org,
-	dwalsh-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140423155512.GA24651-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-6JL4qHd/Mf0ucAc6u94m"
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57353 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751580AbaDWQVi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:21:38 -0400
+In-Reply-To: <1398260327-23381-1-git-send-email-claudiu.manoil@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 23, 2014 at 11:55:12AM -0400, Vivek Goyal wrote:
-> On Tue, Apr 22, 2014 at 04:05:58PM -0400, David Miller wrote:
-> > From: Vivek Goyal <vgoyal-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > Date: Tue, 15 Apr 2014 17:15:44 -0400
-> > 
-> > > This is another version of patchset to add support passing cgroup
-> > > information of client over unix socket API.
-> > 
-> > I'm marking this patch series as "changes requested" in patchwork
-> > because if we still end up adding this feature SO_PASSCGROUP needs to
-> > be changed to behave like SO_PASSCRED.
-> 
-> Does this concern of passing of real uid apply to cgroups also. Even
-> if somebody tricks suid program to write to fd setup by under priviliged
-> program how would that pgram force setuid program to change cgroup.
-> 
-> To me passing cgroup information looks more like "pid" information where
-> we pass the actual pid of setuid program and not the pid of parent who
-> setup fd.
-> 
-> How would one trick setuid program change cgroup? If not, then this class
-> of attack does not seem to apply to SO_PASSCGROUP.
-> 
-> So I think real discussion here should be how "cgroup" information should
-> be used and not necessarily whether we should be passing cgroup
-> information of sender. This information is already available. One can
-> do SO_PASSCRED, get pid, get /proc/pid/cgroup and use cgroup in whatever
-> way they want.
 
-Kernel uses cgroup information to provide service differentiation. So lets
-say hypothetically I write a logging program which gets the cgroup of
-clinent and uses that information to limit the log file size. Is that
-a problem?
+--=-6JL4qHd/Mf0ucAc6u94m
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-First of all I am not aware how would I force setuid program to change
-cgroup. So even if one tricks setuid program to effectively convert it
-into "suid cat", cgroup information remains the same and there is no
-privilige escalation here.
+On Wed, 2014-04-23 at 16:38 +0300, Claudiu Manoil wrote:
+> This fixes a seg fault on 'ethtool -A' entry if the
+> interface is down.  Obviously we need to have the
+> phy device initialized / "connected" (see of_phy_connect())
+> to be able to advertise pause frame capabilities.
 
-And one example Andy had mentioned that what if I pass fd to a service
-which accepts fd and it is running in a cgroup. Then we have a problem
-at kernel level also. What if that fd is a regular file and that service
-it outputting tons of data. Kernel will apply all resource management
-rules based one cgroup of *priviliged service* and not based on
-caller's cgroup who passed the fd to priviliged service. 
+Why is the phydev detached while the interface is down?!
 
-So to me passing cgroup information around at run time and use that
-information for resource management in user space will very much
-be in line with what kernel is doing and will be no different.
+> Fixes: 23402bddf9e56eecb27bbd1e5467b3b79b3dbe58
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/gianfar_ethtool.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>=20
+> diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/n=
+et/ethernet/freescale/gianfar_ethtool.c
+> index 891dbee..76d7070 100644
+> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+> @@ -533,6 +533,9 @@ static int gfar_spauseparam(struct net_device *dev,
+>  	struct gfar __iomem *regs =3D priv->gfargrp[0].regs;
+>  	u32 oldadv, newadv;
+> =20
+> +	if (!phydev)
+> +		return -ENODEV;
+> +
+>  	if (!(phydev->supported & SUPPORTED_Pause) ||
+>  	    (!(phydev->supported & SUPPORTED_Asym_Pause) &&
+>  	     (epause->rx_pause !=3D epause->tx_pause)))
 
-Thanks
-Vivek
+I think you can instead remove the following check, as pause support is
+a property of the MAC not the PHY.
+
+Ben.
+
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-6JL4qHd/Mf0ucAc6u94m
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1foh+e/yOyVhhEJAQol/g//djpMn50YGCk16pWr4qkxk9O3BODzvFNC
+BLceWDHBSHTvwCjRjX/O9VbsWPxZ6F4TwCcFU/GzlP43B4w8Yfw1Jd631chQ9ALD
+8oTSqo8CY0tmqIRt/XeRGLTlhadODYkEr5eupdl19qtHSPFAUh/fTWSL+mVKRGBU
+/GaPkMPC9Xt1H2FEykPrQoDR+bJzUUkWV9z6lxTa4SPzhaXj3XHBaPiAT0Pj5S8N
+OJdrIAxdf8f4YiQUrwT9NEfmfMrsGRe+AbEppcVPogFHLOdV8lfHMyeB9b2al7UJ
+gdELvbuNXKG6bPmFG2LJ1k84QtvHr2xvG1bohHZRiOgKTu2zwJl1K6SAcNUfvMzs
+tHp9B3Ly4lqkTWCQsJ9y2MBJ6EW8lsWaLArTpb968+kbFqeI37+hHMTr//d+tjpy
+Rct8NXtwBltbSBXDEYCObSAChFj0rFch7sKvFf/d8gih4Foe8cgl1th380YNliMj
+j3ttFhjaApNStgZqLORd6CdpzEJ3wcn8eD+mXKEb059EFedWuC49r20vLRVtkY34
+Gp2D76Pq7kMizaeifEWqKEQEfE9qavS27vNwF1jT+xaEtugeBE1dlJLvBdLH6wrx
+t0URclGgVF5Gv6P5X50K5HRKQ6d4t4nCrC85axC8vtGAw7pB90jFFbm0aBV0g10O
+PljiYqdIAX8=
+=aVIH
+-----END PGP SIGNATURE-----
+
+--=-6JL4qHd/Mf0ucAc6u94m--
