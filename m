@@ -1,80 +1,80 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] rtnetlink: Warn when interface's information won't
- fit in our packet
-Date: Wed, 23 Apr 2014 18:20:14 +0400
-Message-ID: <5357CC1E.6070609@cogentembedded.com>
-References: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au> <1398237665-26980-2-git-send-email-david@gibson.dropbear.id.au>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH v2] net: cadence: Add architecture dependencies
+Date: Wed, 23 Apr 2014 15:23:08 +0100
+Message-ID: <20140423142308.GC12304@sirena.org.uk>
+References: <20140414153849.7138699b@endymion.delvare>
+ <20140422203209.GH12304@sirena.org.uk>
+ <535768E1.8050609@monstr.eu>
+ <20140423094010.17d2d763@endymion.delvare>
+ <5357897B.6020105@monstr.eu>
+ <20140423124838.37aa0759@endymion.delvare>
+ <5357A0A1.1020600@monstr.eu>
+ <20140423113402.GV12304@sirena.org.uk>
+ <5357BD14.1000608@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ssujith@cisco.com, neepatel@cisco.com, benve@cisco.com,
-	davem@davemloft.net, ben@decadent.org.uk,
-	govindarajulu90@gmail.com, gregory.v.rose@intel.com
-To: David Gibson <david@gibson.dropbear.id.au>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="y9nWygwVi89jFPus"
+Cc: Jean Delvare <jdelvare@suse.de>, netdev@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: Michal Simek <monstr@monstr.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:44593 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752855AbaDWOUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 10:20:17 -0400
-Received: by mail-la0-f54.google.com with SMTP id e16so522414lan.41
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 07:20:16 -0700 (PDT)
-In-Reply-To: <1398237665-26980-2-git-send-email-david@gibson.dropbear.id.au>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:42956 "EHLO
+	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752503AbaDWOXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 10:23:33 -0400
+Content-Disposition: inline
+In-Reply-To: <5357BD14.1000608@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 23-04-2014 11:21, David Gibson wrote:
+--y9nWygwVi89jFPus
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> Without IFLA_EXT_MASK specified, the information reported for a single
-> interface in response to RTM_GETLINK is expected to fit within a netlink
-> packet of NLMSG_GOODSIZE.
+On Wed, Apr 23, 2014 at 03:16:04PM +0200, Michal Simek wrote:
+> On 04/23/2014 01:34 PM, Mark Brown wrote:
 
-> If it doesn't, however, things will go badly wrong,  When listing all
-> interfaces, netlink_dump() will incorrectly treat -EMSGSIZE on the first
-> message in a packet as the end of the listing and omit information for
-> that interface and all subsequent ones.  This can cause getifaddrs(3) to
-> enter an infinite loop.
+> > Distro maintainers like Jean are complaining about build times for their
+> > kernels if they enable absolutely everything so if they're never likely
+> > to see any hardware using something they want to skip it.
 
-> This patch won't fix the problem, but it will WARN_ON() making it easier to
-> track down what's going wrong.
+> Is there any reasonable solution for this?
+> 1. One group is saying use COMPILE_TEST for every driver to have better
+> coverage.
+> 2. Next group is saying I don't want to build everything for my arch.
 
-> Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
-> ---
->   net/core/rtnetlink.c | 16 +++++++++++-----
->   1 file changed, 11 insertions(+), 5 deletions(-)
+> Fixing Kconfig to say !x86 is probably not the right way to go.
 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index d4ff417..5331db2 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-[...]
-> @@ -1218,11 +1219,16 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
->   		hlist_for_each_entry_rcu(dev, head, index_hlist) {
->   			if (idx < s_idx)
->   				goto cont;
-> -			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-> -					     NETLINK_CB(cb->skb).portid,
-> -					     cb->nlh->nlmsg_seq, 0,
-> -					     NLM_F_MULTI,
-> -					     ext_filter_mask) <= 0)
-> +			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
-> +					       NETLINK_CB(cb->skb).portid,
-> +					       cb->nlh->nlmsg_seq, 0,
-> +					       NLM_F_MULTI,
-> +					       ext_filter_mask);
-> +			/* If we ran out of room on the first message,
-> +			 * we're in trouble */
+> Isn't it enough not to enable absolutely everything?
 
-    Hm, comment style... multi-line comments in the networking code should 
-look like this:
+You're misunderstanding - the discussion here is for the !COMPILE_TEST
+case.  Nobody wants to hide things in the COMPILE_TEST case, it's about
+what happens when that's disabled for production kernels.
 
-/* bla
-  * bla
-  */
+--y9nWygwVi89jFPus
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-> +			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
-> +
-> +			if (err <= 0)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-WBR, Sergei
+iQIcBAEBAgAGBQJTV8zJAAoJELSic+t+oim9vaUP/1ptXn73Z97IwA3OxVLf3QBH
+pObS5pbPPm4cAthOHkNLP92HdegQd20i/OuWC5f9CcoVnRtapP67cVhA0ZPTWh99
+4PSLN90iMaXhE7wDtF/iIxZttDSn40IfXk/2qCx6PA0AoQmSKueDfRHcmq5yr+/n
+bGSIeo7V/27+XfmQGX/35shvsDTHlXc09zx9VHluXEr6GPLBgUBshxFAGQbTFr3L
+uJxwwjd4x/xFxKJr/T/NXA93m1IeLahTK4JWgW5P53pqTTVfFrT2SbgRIoogE7AU
+qkP9Q2sUnrbvWe4r2rVRytcmgPOGxkJfhuylB1IpiwH6FppDFLYhyNDMyir02kGJ
+xCS1lSsgS+ZnBxphWiKU3QXFzfK2UAD8CaYepGjwPvoPT1H2QI1jq5bDC7uSO0jL
+kXR/7pT90IXxaFHfjcgFpKoymxDUg9KWcoUySEHkv81G+mepzTDbnNOCAnkY16sP
+VAt/0IKVvjse6RbpdIo7pFc8zgx6aVHxCp6SXz3EGTmIM5kzqBJpz8kby/tHvrQi
+20O+Aw5CSn5dC0Xz+DwLGc+ynLZJS4Z78k8K9SYFIdjZvBu8tG1Va5l2dwd0jYHT
+FdBcYN/WeYBSMMjbd9aSe12BgUbqBIyd4t/aA/N/r/JLJFtYe3YyA7N3Q9jSlZaq
+t40jsOg8KWfNsIRE1sAh
+=rKoy
+-----END PGP SIGNATURE-----
+
+--y9nWygwVi89jFPus--
