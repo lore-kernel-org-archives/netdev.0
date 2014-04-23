@@ -1,45 +1,42 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf-next] IPVS Updates for v3.16
-Date: Wed, 23 Apr 2014 14:17:15 +0200
-Message-ID: <20140423121715.GA12169@localhost>
-References: <1398039407-12060-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: forbid incorrect fall-through in notifier
+Date: Wed, 23 Apr 2014 14:17:55 +0200
+Message-ID: <1398255475-9541-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, fbl@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53449 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754053AbaDWMRX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 08:17:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1398039407-12060-1-git-send-email-horms@verge.net.au>
+Received: from mail-wi0-f175.google.com ([209.85.212.175]:34364 "EHLO
+	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754213AbaDWMR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 08:17:58 -0400
+Received: by mail-wi0-f175.google.com with SMTP id cc10so4783646wib.14
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 05:17:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Simon,
+There are two breaks missing there. The result is that userspace
+receives multiple messages which might be confusing.
 
-On Mon, Apr 21, 2014 at 09:16:46AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> please consider the following updates for IPVS for v3.16.
-> 
-> It consists of a format string fix from Masanari Iida.
-> 
-> 
-> The following changes since commit 6125c94e6972fca79214809a43eb60e27feff3ee:
-> 
->   netfilter: nft_ct: split nft_ct_init() into two functions for get/set (2014-03-30 13:31:44 +0200)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.16
+Introduced-by: 3d249d4c "net: introduce ethernet teaming device"
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/team/team.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-I'm going to manually apply this small patch.
-
-There was a small cleanup for nfnetlink that has reached David's tree
-in a bigger batch that I already applied in my tree, so I needed to
-REbase to avoid problems. You'll also have to rebase as well. Sorry.
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 33008c1..767fe61 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2834,8 +2834,10 @@ static int team_device_event(struct notifier_block *unused,
+ 	case NETDEV_UP:
+ 		if (netif_carrier_ok(dev))
+ 			team_port_change_check(port, true);
++		break;
+ 	case NETDEV_DOWN:
+ 		team_port_change_check(port, false);
++		break;
+ 	case NETDEV_CHANGE:
+ 		if (netif_running(port->dev))
+ 			team_port_change_check(port,
+-- 
+1.9.0
