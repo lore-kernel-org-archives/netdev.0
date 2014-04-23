@@ -1,37 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
 Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 10:14:44 -0700
-Message-ID: <1398273284.29914.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	 <20140422.235745.1219194947074686642.davem@davemloft.net>
-	 <1398229980.29914.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140423.125126.244770898759207308.davem@davemloft.net>
+Date: Wed, 23 Apr 2014 19:20:41 +0200
+Message-ID: <5357F669.8090200@redhat.com>
+References: <20140422.235745.1219194947074686642.davem@davemloft.net> <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com> <5357659E.1070807@redhat.com> <20140423.125235.1748012189632512309.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, dborkman@redhat.com, netdev@vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:34031 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbaDWROr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 13:14:47 -0400
-Received: by mail-pd0-f178.google.com with SMTP id x10so971188pdj.23
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 10:14:46 -0700 (PDT)
-In-Reply-To: <20140423.125126.244770898759207308.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:21888 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751335AbaDWRUs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 13:20:48 -0400
+In-Reply-To: <20140423.125235.1748012189632512309.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-23 at 12:51 -0400, David Miller wrote:
+On 04/23/2014 06:52 PM, David Miller wrote:
+...
+>> I think it would be much cleaner to just prevent such filters that
+>> only contain a 'ret A', or 'ret X' w/o a load into X from attaching.
+>
+> That choice had to be done two decades ago, not now.
+>
+> We have to accept such filters, we always have.
 
-> > David, is it possible for you to push net-next tree ?
-> 
-> What exactly are you asking me to do?  Put this patch in the net-next tree?
-> Or are you asking me to merge net into net-next after I apply it?
-> 
-> It's definitely a 'net' patch.
-
-This net-next push request had nothing to do with this bpf patch, sorry
-for the confusion.
-
-I even missed a s to the 'Thanks', you see ;)
+Yep, very true. :/
