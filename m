@@ -1,73 +1,69 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: [PATCH v2] net: cadence: Add architecture dependencies
-Date: Wed, 23 Apr 2014 12:34:02 +0100
-Message-ID: <20140423113402.GV12304@sirena.org.uk>
-References: <20140414153849.7138699b@endymion.delvare>
- <20140422203209.GH12304@sirena.org.uk>
- <535768E1.8050609@monstr.eu>
- <20140423094010.17d2d763@endymion.delvare>
- <5357897B.6020105@monstr.eu>
- <20140423124838.37aa0759@endymion.delvare>
- <5357A0A1.1020600@monstr.eu>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Wed, 23 Apr 2014 12:41:49 +0100
+Message-ID: <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk>
+References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu>
+	 <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk>
+	 <53577036.2040307@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="zqSjrgky05FRiUsC"
-Cc: Jean Delvare <jdelvare@suse.de>, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: Michal Simek <monstr@monstr.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:42767 "EHLO
-	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750811AbaDWLeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 07:34:18 -0400
-Content-Disposition: inline
-In-Reply-To: <5357A0A1.1020600@monstr.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-22v6WCIoSPmTGYbBNNgO"
+Cc: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, joe@perches.com, julia.lawall@lip6.fr,
+	dingtianhong@huawei.com, linux-kernel@vger.kernel.org,
+	jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53577036.2040307@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---zqSjrgky05FRiUsC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-22v6WCIoSPmTGYbBNNgO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Apr 23, 2014 at 01:14:41PM +0200, Michal Simek wrote:
-> On 04/23/2014 12:48 PM, Jean Delvare wrote:
+On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
+> On 04/23/2014 01:53 AM, Ben Hutchings wrote:
+[...]
+> > For what it's worth, I would recommend against applying this.  I don't
+> > think even Red Hat has backported the VLAN changes, and they have been
+> > quite aggressive about backporting features to RHEL 6.
+> If we do not merge these patches, maybe RHEL 6 can not make tap driver=
+=20
+> support vlan well.
 
-> > Originally I wanted to hide the Cadence drivers from X86 kernel
-> > configuration. If there's still a way to achieve that, let's do it. If
-> > not, we can leave the hardware dependency for ARM_AT91_ETHER and drop
-> > the one for MACB (and subsequently NET_CADENCE.) That's still better
-> > than nothing.
+RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
 
-> Any reason to hide this driver for x86?
+Ben.
 
-Distro maintainers like Jean are complaining about build times for their
-kernels if they enable absolutely everything so if they're never likely
-to see any hardware using something they want to skip it.
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
 
---zqSjrgky05FRiUsC
+--=-22v6WCIoSPmTGYbBNNgO
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+Version: GnuPG v1
 
-iQIcBAEBAgAGBQJTV6UnAAoJELSic+t+oim9et0P+wd1Za5TiW1xdeh1ZAej7wiR
-yhuOnIqJ7I+gwkDdupeTJs4138i/47mwgW7k8vQHd2or2eFEtkyalKtoXanGISd/
-KQAKO3yOohwzsWRxt0AQEcaZN6WO9DgSnwTVid+a34CyUoC+jahnyA4KyOKaPNJQ
-+A5YZrXSrk3hDMsqSmAOQRrXIMYG3CVb1CT7qLMwPyiIqrhnbwYhqhXZQquLt/Om
-ER9WEZ12k8tIsVCRK9xCa2pKBsAb6eiEc3ySIIFL8COYe256tmkZhfQyzjtulFgb
-iOA8clIUyoU3GdmOezgIa8nYhvp0MSqWL0jVJZeAVacV+5xqbC4dJg0DbX8FOq+W
-cHqtpWmdmS6eSg2ZPTkG2lPXOeT15Diim9oE0i7hN4Jesezc35AVvaurwvc1Ewln
-COtHrRoA7K+7gDOZmbnvKR+52DVun+s5As6uQTSxNvsEt8zEbJe6Do3Hni0BVVvD
-/KfrQOokZuoPRDTDQyk+NTqQEpYY77avj0jSzpZ+6FlNg6c0vcg0L2oMyul0xUnK
-YzguqCSNfSgo5m5V/nVtt/YMvBwE92Xg5hz8O4Xpic10M6rVJWs/z/HxNmuqtFzq
-teeZ8766I7hBUsuiPF+0YO+YaAO4CwCugRLNtIg9GF6QCxKEEMMSjtui24Ef87qs
-QIX9Y+dCs2ru+CJMqeQF
-=buTC
+iQIVAwUAU1em/ee/yOyVhhEJAQpRtQ/5AYv96is6qtCzv/jbI9cRIVACT+ZWbV1O
+wLoDJvykX7oBcL9VhBPNdvqwspcfq/9ZtSW4N90g5zi2oNPHUL9GzJFoSthtAXTn
+EJKZkgte8fUWtowJBgyrLXE83XRuLTF39YIeGazQd8nx8U558Q/3pwJrg+35zjdV
+8bFQXrBzQGLZFpRGAjvYcKMqLSVXLoSDG/VBbv4QNTT2lQ0y5EA34vBySJax9cEv
+akna6Ea72r1xL9Zyv5kqutLjkFUouSX2CwrkK7BauaR9wffzyYaB8oaees3CCsiv
+rRMsrNxzFfZB+f6uVyskH27pRji9eYoVcXRS+BnPUJS7QHv8cggMiZh7Xmo/sF4t
+4eWBysYP6Ywmfhoop/eMYXiwrw6b+B2y2M83pjkABV252KpmGGB0mSt3yTXYt0OS
+YpvgXYYaIn7qm2MzeWtGdPSB1vKkJFjaf5WXQIxDnF0we2UcbZHb74EctYnS+Rc3
+ZJe7KxugPxwNjPRikA+seT5c/VcD2YanDzJA/YKXmgcW6EO8i8au6w/tMZeupnpq
+Yay4In9NsA1zHPTRcKMG59aw2ypcZEw9h5Kn44xijt/okcJeBLywfc6YrBshUOrk
+ICFU3T7hQueJErK37HtbdZIwlaHmIbEr+eYWEWvqiVy5dh+Qda7CvOHRCc6zQKUj
+MAEBXOjj8WQ=
+=RAEV
 -----END PGP SIGNATURE-----
 
---zqSjrgky05FRiUsC--
+--=-22v6WCIoSPmTGYbBNNgO--
