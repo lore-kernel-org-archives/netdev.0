@@ -1,83 +1,106 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 15:19:41 -0700
-Message-ID: <CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	<20140422.235745.1219194947074686642.davem@davemloft.net>
-	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
-	<20140423.125043.100674358164503915.davem@davemloft.net>
-	<CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
-	<1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 5/5] net: filter: optimize BPF migration for
+ ARG1/CTX handling
+Date: Thu, 24 Apr 2014 00:21:31 +0200
+Message-ID: <53583CEB.3040203@redhat.com>
+References: <1398286621-3591-1-git-send-email-dborkman@redhat.com> <1398286621-3591-6-git-send-email-dborkman@redhat.com> <CAMEtUux3YZW9G80Da2B3pBB2Sq7C7eC62ntnrVifN8_RJugzHw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Network Development <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:54103 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751333AbaDWWTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 18:19:42 -0400
-Received: by mail-wg0-f51.google.com with SMTP id z12so267127wgg.34
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 15:19:41 -0700 (PDT)
-In-Reply-To: <1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:7105 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751241AbaDWWVi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 18:21:38 -0400
+In-Reply-To: <CAMEtUux3YZW9G80Da2B3pBB2Sq7C7eC62ntnrVifN8_RJugzHw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 23, 2014 at 2:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-04-23 at 13:38 -0700, Alexei Starovoitov wrote:
->
->> In this particular case we can indeed make verifier smarter to the point
->> that once it detects uninitialized A/X in a filter, it will add explicit init
->> after conversion, so we don't have to pay the penalty at run time.
->> It's a very good suggestion.
+On 04/23/2014 11:59 PM, Alexei Starovoitov wrote:
+> On Wed, Apr 23, 2014 at 1:57 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> Currently, at initial setup in __sk_run_filter() we initialize the
+>> BPF stack's frame-pointer and CTX register. However, instead of the
+>> CTX register, we initialize context to ARG1, and during user filter
+>> migration we emit *always* an instruction that copies the content
+>> from ARG1 to CTX. ARG1 is needed in BPF_CALL instructions to setup
+>> ctx, A, X for call emission. However, we nevertheless copy CTX over
+>> to ARG1 in these cases. So all in all, we always emit one instruction
+>> at BPF program beginning that should have actually been avoided to
+>> spare this overhead.
 >>
->> At the same time I think 'ret A' falls into category of the 20 year old bug.
->> The filters that using undocumented behavior are destined to be
->> broken sooner or later. tcpdump doesn't generate such filters.
->> Valid filters will not be affected by strict checking, but I think users
->> will be actually happy to see kernel rejecting their buggy filters.
->> I think we can have a global flag for bpf verifier whether to reject
->> such filters or accept them by adding explicit inits under
->> 'bpf_permissive_loading' flag.
->> Thoughts?
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Alexei Starovoitov <ast@plumgrid.com>
 >
+> First 4 patches look great, but this one I have to disagree.
+> See below.
 >
-> I do not really understand the concerns and this discussion over this
-> bug.
+>> ---
+>>   net/core/filter.c | 10 +---------
+>>   1 file changed, 1 insertion(+), 9 deletions(-)
+>>
+>> diff --git a/net/core/filter.c b/net/core/filter.c
+>> index eada3d5..6fed231 100644
+>> --- a/net/core/filter.c
+>> +++ b/net/core/filter.c
+>> @@ -62,7 +62,6 @@
+>>   #define A      regs[insn->a_reg]
+>>   #define X      regs[insn->x_reg]
+>>   #define FP     regs[BPF_REG_FP]
+>> -#define ARG1   regs[BPF_REG_ARG1]
+>>   #define CTX    regs[BPF_REG_CTX]
+>>   #define K      insn->imm
+>>
+>> @@ -257,7 +256,7 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
+>>   #define CONT_JMP ({ insn++; goto select_insn; })
+>>
+>>          FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+>> -       ARG1 = (u64) (unsigned long) ctx;
+>> +       CTX = (u64) (unsigned long) ctx;
 >
-> BPF JIT does basic checks and forces A=0 if first instruction doesn't
-> set A.
->
-> ( arch/x86/net/bpf_jit_comp.c line 263 )
->
-> X is forced to 0 anyway if X is ever used in the JITed filter.
-> ( line 227, and we have a typo in comment : s/leek/leak/ )
+> R1 (ARG1) is the register that used to pass first argument to the function.
 
-yes, x86 jit is smart to deal around this problem in an efficient way.
-sparc/arm jits copy pasted the idea correctly.
-but s390 jit seems to have a bug, since it's not clearing A
-when 1st insn is BPF_S_LDX_B_MSH
-That shouldn't be a jit job, especially since it can be done by verifier.
-classic bpf has 2 regs, ebpf has 10. Checking 1st insn won't work
-for ebpf.
+Yes that's clear. Which is why f.e. in convert_bpf_extensions() we currently
+copy ctx over to arg1 for calls, i.e.:
 
-> This is not a big deal. If you want to 'optimize', fine, but don't break
-> programs.
+   /* arg1 = ctx */
+   insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+   insn->a_reg = ARG1_REG;
+   insn->x_reg = CTX_REG;
+   insn++;
 
-Fine. I'm not saying to break them by default. I'm suggesting
-to give users a flag to detect invalid programs.
+> For seamless kernel->bpf->kernel transition we have to follow calling
+> convention, so 'void *ctx' has to go into R1 by design.
+> Storing it into R6 (CTX) will only work for classic filters converted
+> to extended.
+> all native ebpf filters will be broken.
 
-> There is no way you add a 'flag' to break a user program, even
-> if _you_ believe its broken.
->
-> Maybe it assumed initial X / A contents were 0.
->
-> Even if not documented, we cannot break this 20 years after the facts.
+My objection was that currently, we do _not_ have _any_ users or even kernel
+API for _native_ filters, at least not in mainline tree. The _main_ users we
+have are currently _all_ being converted, hence this patch. Given that these
+calls have likely just a minority of use cases triggered by tcpdump et al,
+the majority of users still need to do this overhead/additional work.
 
-I'm not suggesting to have this flag by default, but don't you want
-kernel to say that bpf program is using uninitialized register?
-imo the more checking can be done the better user experience will be.
-Just like compiler warnings. Better to have an option to know
-what's wrong with the filter than not having it at all.
+> In documentation we say:
+>      * R1 - R5   - arguments from BPF program to in-kernel function
+> so llvm/gcc are following this ebpf ABI.
+> Calling convention is the same whether to call kernel function from ebpf
+> or ebpf from kernel. So 1st argument (void *ctx) has to go into R1.
+
+Yes, that's clear and convert_bpf_extensions() is doing that. So far we're
+not using llvm/gcc backend here and have the internal instruction set not
+exposed to user space, but even there you would need to prepare R1 - R5 to
+hand-over arguments for the BPF_CALL insns, so why can't we load CTX into R1
+at that time just as we do with convert_bpf_extensions()?
+
+> By convention ld_abs/ld_ind insns are using implicit input register 'ctx' (R6),
+> that's why we do a copy from R1 into R6 as a first insn of the
+> _converted_ filter.
+
+Yep, and R6 stays as is here. So ld_abs/ld_ind insns are correctly using 'ctx'.
+
+Best,
+
+Daniel
