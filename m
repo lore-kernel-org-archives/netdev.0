@@ -1,56 +1,73 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
- namespaces.
-Date: Wed, 23 Apr 2014 10:40:12 +0800
-Message-ID: <5357280C.1000404@huawei.com>
-References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com> <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:31724 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbaDWCke (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 22:40:34 -0400
-In-Reply-To: <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: [PATCH] smc91x: improve definition of debug macros
+Date: Tue, 22 Apr 2014 20:04:42 -0700
+Message-ID: <1398222282-8926-1-git-send-email-zlim.lnx@gmail.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Joe Perches <joe@perches.com>
+To: Nicolas Pitre <nico@fluxnic.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/4/22 22:26, Eric Dumazet wrote:
-> On Tue, 2014-04-22 at 20:43 +0800, Chen Weilong wrote:
->> From: Weilong Chen <chenweilong@huawei.com>
->>
->> Like bonding, vlan as netdevice doesn't cross netns boundaries.
->>
->> Vlan port and vlan itself live in same netns.
-> 
-> Please explain why you believe it should be like that.
-> 
-> bonding and vlan have quite different purpose, so your changelog is
-> quite obscure.
-> 
-> We had a discussion like this one with macvlan, and prior patch was
-> rejected.
-> 
-> 
-> 
-> 
-This idea comes from the different result of two changing namespace orders.
-Test on eth1 and its vlan eth1.5, move them form default ns to a new ns called net0.
-1.move eth1 first,and then eth1.5;
-2.move eth1.5 first, and then eth1;
-As a network manager, I will be happy they both work, I don't care about the orders.
-But, 1) doesn't work, if eth1 was moved to other ns, all related vlans were unregisted.
-you need to create a new eth1.5 in net0.
-And, 2) is not safe, if someone forgets to move eth1, eth1.5 will not work, making
-things complex.
+Redefine some macros that were conditioned upon SMC_DEBUG level.
 
-So what's the better order ?
-I prefer 1), when a vlan dev is setup, it has a namespace, and belongs to it,
-When somebody moves it, it should say 'hey boy, don't move me,I like here :0'
+By allowing compiler to verify parameters used by these macros
+unconditionally, we can flag compilation failures.
 
-Thanks,
-Weilong
+Compiler will still optimize out the unused code path depending on
+SMC_DEBUG, so this is a net gain.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+---
+Note: This patch is based on suggestion by Joe Perches.
+I added his Signed-off-by as well since I didn't receive an objection.
+
+ drivers/net/ethernet/smsc/smc91x.c | 23 ++++++++++++-----------
+ 1 file changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 597909f..bcaa41a 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -147,18 +147,19 @@ MODULE_ALIAS("platform:smc91x");
+  */
+ #define MII_DELAY		1
+ 
+-#if SMC_DEBUG > 0
+-#define DBG(n, dev, args...)				\
+-	do {						\
+-		if (SMC_DEBUG >= (n))			\
+-			netdev_dbg(dev, args);		\
++#define DBG(n, dev, fmt, ...)					\
++	do {							\
++		if (SMC_DEBUG >= (n))				\
++			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
+ 	} while (0)
+ 
+-#define PRINTK(dev, args...)   netdev_info(dev, args)
+-#else
+-#define DBG(n, dev, args...)   do { } while (0)
+-#define PRINTK(dev, args...)   netdev_dbg(dev, args)
+-#endif
++#define PRINTK(dev, fmt, ...)					\
++	do {							\
++		if (SMC_DEBUG > 0)				\
++			netdev_info(dev, fmt, ##__VA_ARGS__);	\
++		else						\
++			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
++	} while (0)
+ 
+ #if SMC_DEBUG > 3
+ static void PRINT_PKT(u_char *buf, int length)
+@@ -191,7 +192,7 @@ static void PRINT_PKT(u_char *buf, int length)
+ 	pr_cont("\n");
+ }
+ #else
+-#define PRINT_PKT(x...)  do { } while (0)
++static inline void PRINT_PKT(u_char *buf, int length) { }
+ #endif
+ 
+ 
+-- 
+1.9.1
