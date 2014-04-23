@@ -1,506 +1,113 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH V1 net-next 1/1] hyperv: Enable sendbuf mechanism on the
- send path
-Date: Thu, 24 Apr 2014 00:45:58 +0300
-Message-ID: <20140423214557.GA26890@mwanda>
-References: <1398288285-16268-1-git-send-email-kys@microsoft.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 5/5] net: filter: optimize BPF migration for
+ ARG1/CTX handling
+Date: Wed, 23 Apr 2014 14:59:15 -0700
+Message-ID: <CAMEtUux3YZW9G80Da2B3pBB2Sq7C7eC62ntnrVifN8_RJugzHw@mail.gmail.com>
+References: <1398286621-3591-1-git-send-email-dborkman@redhat.com>
+	<1398286621-3591-6-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
- davem@davemloft.net
-To: "K. Y. Srinivasan" <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1398288285-16268-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:55339 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178AbaDWV7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:59:16 -0400
+Received: by mail-we0-f177.google.com with SMTP id u57so1414227wes.8
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 14:59:15 -0700 (PDT)
+In-Reply-To: <1398286621-3591-6-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 23, 2014 at 1:57 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> Currently, at initial setup in __sk_run_filter() we initialize the
+> BPF stack's frame-pointer and CTX register. However, instead of the
+> CTX register, we initialize context to ARG1, and during user filter
+> migration we emit *always* an instruction that copies the content
+> from ARG1 to CTX. ARG1 is needed in BPF_CALL instructions to setup
+> ctx, A, X for call emission. However, we nevertheless copy CTX over
+> to ARG1 in these cases. So all in all, we always emit one instruction
+> at BPF program beginning that should have actually been avoided to
+> spare this overhead.
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
 
-TLDR; Style nits and we should return -ENOMEM on error instead of
-success.
+First 4 patches look great, but this one I have to disagree.
+See below.
 
-On Wed, Apr 23, 2014 at 02:24:45PM -0700, K. Y. Srinivasan wrote:
-> We send packets using a copy-free mechanism (this is the Guest to Host transport
-> via VMBUS). While this is obviously optimal for large packets,
-> it may not be optimal for small packets. Hyper-V host supports
-> a second mechanism for sending packets that is "copy based". We implement that
-> mechanism in this patch.
-> 
-> In this version of the patch I have addressed a comment from David Miller.
-> 
-> With this patch (and all of the other offload and VRSS patches), we are now able
-> to almost saturate a 10G interface between Linux VMs on Hyper-V
-> on different hosts - close to  9 Gbps as measured via iperf.
-> 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 > ---
->  drivers/net/hyperv/hyperv_net.h |   14 +++
->  drivers/net/hyperv/netvsc.c     |  226 +++++++++++++++++++++++++++++++++++++--
->  drivers/net/hyperv/netvsc_drv.c |    3 +-
->  3 files changed, 234 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> index d1f7826..4b7df5a 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -140,6 +140,8 @@ struct hv_netvsc_packet {
->  	void *send_completion_ctx;
->  	void (*send_completion)(void *context);
->  
-> +	u32 send_buf_index;
-> +
->  	/* This points to the memory after page_buf */
->  	struct rndis_message *rndis_msg;
->  
-> @@ -582,6 +584,9 @@ struct nvsp_message {
->  
->  #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
->  #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
-> +#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024)   /* 1MB */
-> +#define NETVSC_INVALID_INDEX			-1
-> +
->  
->  #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
->  
-> @@ -607,6 +612,15 @@ struct netvsc_device {
->  	u32 recv_section_cnt;
->  	struct nvsp_1_receive_buffer_section *recv_section;
->  
-> +	/* Send buffer allocated by us */
-> +	void *send_buf;
-> +	u32 send_buf_size;
-> +	u32 send_buf_gpadl_handle;
-> +	u32 send_section_cnt;
-> +	u32 send_section_size;
-> +	unsigned long *send_section_map;
-> +	int map_words;
-> +
->  	/* Used for NetVSP initialization protocol */
->  	struct completion channel_init_wait;
->  	struct nvsp_message channel_init_pkt;
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> index bbee446..c041f63 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -28,6 +28,7 @@
->  #include <linux/slab.h>
->  #include <linux/netdevice.h>
->  #include <linux/if_ether.h>
-> +#include <asm/sync_bitops.h>
->  
->  #include "hyperv_net.h"
->  
-> @@ -80,7 +81,7 @@ get_in_err:
->  }
->  
->  
-> -static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
-> +static int netvsc_destroy_buf(struct netvsc_device *net_device)
->  {
->  	struct nvsp_message *revoke_packet;
->  	int ret = 0;
-> @@ -146,10 +147,62 @@ static int netvsc_destroy_recv_buf(struct netvsc_device *net_device)
->  		net_device->recv_section = NULL;
->  	}
->  
-> +	/* Deal with the send buffer we may have setup.
-> +	 * If we got a  send section size, it means we received a
-> +	 * SendsendBufferComplete msg (ie sent
-> +	 * NvspMessage1TypeSendReceiveBuffer msg) therefore, we need
-> +	 * to send a revoke msg here
-> +	 */
-> +	if (net_device->send_section_size) {
-> +		/* Send the revoke receive buffer */
-> +		revoke_packet = &net_device->revoke_packet;
-> +		memset(revoke_packet, 0, sizeof(struct nvsp_message));
-> +
-> +		revoke_packet->hdr.msg_type =
-> +			NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
+>  net/core/filter.c | 10 +---------
+>  1 file changed, 1 insertion(+), 9 deletions(-)
+>
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index eada3d5..6fed231 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -62,7 +62,6 @@
+>  #define A      regs[insn->a_reg]
+>  #define X      regs[insn->x_reg]
+>  #define FP     regs[BPF_REG_FP]
+> -#define ARG1   regs[BPF_REG_ARG1]
+>  #define CTX    regs[BPF_REG_CTX]
+>  #define K      insn->imm
+>
+> @@ -257,7 +256,7 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
+>  #define CONT_JMP ({ insn++; goto select_insn; })
+>
+>         FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+> -       ARG1 = (u64) (unsigned long) ctx;
+> +       CTX = (u64) (unsigned long) ctx;
 
-This fits in 80 characters.
+R1 (ARG1) is the register that used to pass first argument to the function.
+For seamless kernel->bpf->kernel transition we have to follow calling
+convention, so 'void *ctx' has to go into R1 by design.
+Storing it into R6 (CTX) will only work for classic filters converted
+to extended.
+all native ebpf filters will be broken.
+In documentation we say:
+    * R1 - R5   - arguments from BPF program to in-kernel function
+so llvm/gcc are following this ebpf ABI.
+Calling convention is the same whether to call kernel function from ebpf
+or ebpf from kernel. So 1st argument (void *ctx) has to go into R1.
 
-		revoke_packet->hdr.msg_type = NVSP_MSG1_TYPE_REVOKE_SEND_BUF;
+By convention ld_abs/ld_ind insns are using implicit input register 'ctx' (R6),
+that's why we do a copy from R1 into R6 as a first insn of the
+_converted_ filter.
+The cost of one insn is not zero, yes, but cost of imbalanced ABI is huge.
+For example, I don't know how to teach llvm/gcc to have different ABIs
+in such cases.
 
-> +		revoke_packet->msg.v1_msg.revoke_recv_buf.id = 0;
-> +
-> +		ret = vmbus_sendpacket(net_device->dev->channel,
-> +				       revoke_packet,
-> +				       sizeof(struct nvsp_message),
-> +				       (unsigned long)revoke_packet,
-> +				       VM_PKT_DATA_INBAND, 0);
-> +		/* If we failed here, we might as well return and
-> +		 * have a leak rather than continue and a bugchk
-> +		 */
-> +		if (ret != 0) {
+This dual ABI makes JITs ugly too, since now they must remember to
+emit R6=R1 copy. I would like JITs to worry about instructions only
+and not to deal with such discrepancies.
 
-I have never been a big fan of these double negative conditions.  It's
-simpler and more normal style to say:  "if (ret) { ".  There are some
-cases where it makes sense to compare against zero.  For example, if you
-are dealing with a variable as a number then you would say
-"if (x == 0) ... else if (x == 1) ".  Also for strcmp() then you should
-use == 0 and != 0.  But for error codes it's better it's more idiomatic
-to just say "if (ret) ".
+The whole thing becomes unclean when kernel to ebpf passes
+1st argument in R6, but ebpf to kernel passes 1st argument in R1.
 
-> +			netdev_err(ndev, "unable to send "
-> +				   "revoke send buffer to netvsp\n");
-> +			return ret;
-> +		}
-> +	}
-> +	/* Teardown the gpadl on the vsp end */
-> +	if (net_device->send_buf_gpadl_handle) {
-> +		ret = vmbus_teardown_gpadl(net_device->dev->channel,
-> +					   net_device->send_buf_gpadl_handle);
-> +
-> +		/* If we failed here, we might as well return and have a leak
-> +		 * rather than continue and a bugchk
-> +		 */
-> +		if (ret != 0) {
-> +			netdev_err(ndev,
-> +				   "unable to teardown send buffer's gpadl\n");
-> +			return ret;
-> +		}
-> +		net_device->recv_buf_gpadl_handle = 0;
-> +	}
-> +	if (net_device->send_buf) {
-> +		/* Free up the receive buffer */
-> +		free_pages((unsigned long)net_device->send_buf,
-> +			   get_order(net_device->send_buf_size));
-> +		net_device->send_buf = NULL;
-> +	}
-> +	kfree(net_device->send_section_map);
-> +
->  	return ret;
+So I would suggest to drop this one for now.
 
-This patch doesn't introduce this, but it's better to say:
+I also want to avoid extra generated R6=R1 for converted filters.
+Let's think it through first.
 
-	return 0;
-
-That is more clear so you don't have to back trace and verify what
-"ret" is.
-
->  }
->  
-> -static int netvsc_init_recv_buf(struct hv_device *device)
-> +static int netvsc_init_buf(struct hv_device *device)
->  {
->  	int ret = 0;
->  	int t;
-> @@ -248,10 +301,90 @@ static int netvsc_init_recv_buf(struct hv_device *device)
->  		goto cleanup;
->  	}
->  
-> +	/* Now setup the send buffer.
-> +	 */
-> +	net_device->send_buf =
-> +		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
-> +					 get_order(net_device->send_buf_size));
-> +	if (!net_device->send_buf) {
-> +		netdev_err(ndev, "unable to allocate send "
-> +			   "buffer of size %d\n", net_device->send_buf_size);
-
-This string actually fits into 80 characters fine as-is.
-
-		netdev_err(ndev, "unable to allocate send buffer of size %d\n",
-			   net_device->send_buf_size);
-
-
-> +		ret = -ENOMEM;
-> +		goto cleanup;
-> +	}
-> +
-> +	/* Establish the gpadl handle for this buffer on this
-> +	 * channel.  Note: This call uses the vmbus connection rather
-> +	 * than the channel to establish the gpadl handle.
-> +	 */
-> +	ret = vmbus_establish_gpadl(device->channel, net_device->send_buf,
-> +				    net_device->send_buf_size,
-> +				    &net_device->send_buf_gpadl_handle);
-> +	if (ret != 0) {
-> +		netdev_err(ndev,
-> +			   "unable to establish send buffer's gpadl\n");
-
-Same.  Just put it on one line.
-
-		netdev_err(ndev, "unable to establish send buffer's gpadl\n");
-
-> +		goto cleanup;
-> +	}
-> +
-> +	/* Notify the NetVsp of the gpadl handle */
-> +	init_packet = &net_device->channel_init_pkt;
-> +	memset(init_packet, 0, sizeof(struct nvsp_message));
-> +	init_packet->hdr.msg_type = NVSP_MSG1_TYPE_SEND_SEND_BUF;
-> +	init_packet->msg.v1_msg.send_recv_buf.gpadl_handle =
-> +		net_device->send_buf_gpadl_handle;
-> +	init_packet->msg.v1_msg.send_recv_buf.id = 0;
-> +
-> +	/* Send the gpadl notification request */
-> +	ret = vmbus_sendpacket(device->channel, init_packet,
-> +			       sizeof(struct nvsp_message),
-> +			       (unsigned long)init_packet,
-> +			       VM_PKT_DATA_INBAND,
-> +			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
-> +	if (ret != 0) {
-> +		netdev_err(ndev,
-> +			   "unable to send send buffer's gpadl to netvsp\n");
-> +		goto cleanup;
-> +	}
-> +
-> +	t = wait_for_completion_timeout(&net_device->channel_init_wait, 5*HZ);
-> +	BUG_ON(t == 0);
-
-Is there no way to just return an error code here?  We may as well use
-wait_for_completion() without the timeout if we're just going to call
-BUG_ON() anyway.
-
-> +
-> +	/* Check the response */
-> +	if (init_packet->msg.v1_msg.
-> +	    send_send_buf_complete.status != NVSP_STAT_SUCCESS) {
-
-Better to break it up like this:
-
-	if (init_packet->msg.v1_msg.send_send_buf_complete.status !=
-	    NVSP_STAT_SUCCESS) {
-
-There has to be a better name for "send_send_buf_complete"...
-
-> +		netdev_err(ndev, "Unable to complete send buffer "
-> +			   "initialization with NetVsp - status %d\n",
-> +			   init_packet->msg.v1_msg.
-> +			   send_recv_buf_complete.status);
-> +		ret = -EINVAL;
-> +		goto cleanup;
-> +	}
-> +
-> +	/* Parse the response */
-> +	net_device->send_section_size = init_packet->msg.
-> +				v1_msg.send_send_buf_complete.section_size;
-> +
-> +	/* Section count is simply the size divided by the section size.
-> +	 */
-> +	net_device->send_section_cnt =
-> +		net_device->send_buf_size/net_device->send_section_size;
-> +
-> +	dev_info(&device->device, "Send section size: %d, Section count:%d\n",
-> +		 net_device->send_section_size, net_device->send_section_cnt);
-> +
-> +	/* Setup state for managing the send buffer. */
-> +	net_device->map_words = DIV_ROUND_UP(net_device->send_section_cnt,
-> +					     BITS_PER_LONG);
-> +
-> +	net_device->send_section_map =
-> +		kzalloc(net_device->map_words * sizeof(ulong), GFP_KERNEL);
-
-Use kcalloc().
-
-	net_device->send_section_map = kcalloc(net_device->map_words,
-					       sizeof(ulong), GFP_KERNEL);
-
-> +	if (net_device->send_section_map == NULL)
-> +		goto cleanup;
-
-Set "ret = -ENOMEM;"
-
-> +
->  	goto exit;
->  
-
-These bunny hops are super annoying.  Just return success here.  Why
-does code have to be all tangled up?
-
->  cleanup:
-> -	netvsc_destroy_recv_buf(net_device);
-> +	netvsc_destroy_buf(net_device);
->  
->  exit:
->  	return ret;
-> @@ -369,8 +502,9 @@ static int netvsc_connect_vsp(struct hv_device *device)
->  		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE_LEGACY;
->  	else
->  		net_device->recv_buf_size = NETVSC_RECEIVE_BUFFER_SIZE;
-> +	net_device->send_buf_size = NETVSC_SEND_BUFFER_SIZE;
->  
-> -	ret = netvsc_init_recv_buf(device);
-> +	ret = netvsc_init_buf(device);
->  
->  cleanup:
->  	return ret;
-> @@ -378,7 +512,7 @@ cleanup:
->  
->  static void netvsc_disconnect_vsp(struct netvsc_device *net_device)
->  {
-> -	netvsc_destroy_recv_buf(net_device);
-> +	netvsc_destroy_buf(net_device);
->  }
->  
->  /*
-> @@ -440,6 +574,12 @@ static inline u32 hv_ringbuf_avail_percent(
->  	return avail_write * 100 / ring_info->ring_datasize;
->  }
->  
-> +static inline void netvsc_free_send_slot(struct netvsc_device *net_device,
-> +					 u32 index)
-> +{
-> +	sync_change_bit(index, net_device->send_section_map);
-> +}
-> +
->  static void netvsc_send_completion(struct netvsc_device *net_device,
->  				   struct hv_device *device,
->  				   struct vmpacket_descriptor *packet)
-> @@ -447,6 +587,7 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
->  	struct nvsp_message *nvsp_packet;
->  	struct hv_netvsc_packet *nvsc_packet;
->  	struct net_device *ndev;
-> +	u32 send_index;
->  
->  	ndev = net_device->ndev;
->  
-> @@ -477,6 +618,9 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
->  
->  		/* Notify the layer above us */
->  		if (nvsc_packet) {
-> +			send_index = nvsc_packet->send_buf_index;
-> +			if (send_index != NETVSC_INVALID_INDEX)
-> +				netvsc_free_send_slot(net_device, send_index);
->  			q_idx = nvsc_packet->q_idx;
->  			channel = nvsc_packet->channel;
->  			nvsc_packet->send_completion(nvsc_packet->
-> @@ -504,6 +648,52 @@ static void netvsc_send_completion(struct netvsc_device *net_device,
->  
->  }
->  
-> +static u32 netvsc_get_next_send_section(struct netvsc_device *net_device)
-> +{
-> +	unsigned long index;
-> +	u32 max_words = net_device->map_words;
-> +	unsigned long *map_addr = (unsigned long *)net_device->send_section_map;
-> +	u32 section_cnt = net_device->send_section_cnt;
-> +	int ret_val = NETVSC_INVALID_INDEX;
-> +	int i;
-> +	int prev_val;
-> +
-> +	for (i = 0; i < max_words; i++) {
-> +		if (!~(map_addr[i]))
-> +			continue;
-> +		index = ffz(map_addr[i]);
-> +		prev_val = sync_test_and_set_bit(index, &map_addr[i]);
-> +		if (prev_val)
-> +			continue;
-> +		if ((index + (i * BITS_PER_LONG)) >= section_cnt)
-> +			break;
-> +		ret_val = (index + (i * BITS_PER_LONG));
-> +		break;
-> +	}
-> +	return ret_val;
-> +}
-> +
-> +u32 netvsc_copy_to_send_buf(struct netvsc_device *net_device,
-> +			    unsigned int section_index,
-> +			    struct hv_netvsc_packet *packet)
-> +{
-> +	char *start = net_device->send_buf;
-> +	char *dest = (start + (section_index * net_device->send_section_size));
-> +	int i;
-> +	u32 msg_size = 0;
-> +
-> +	for (i = 0; i < packet->page_buf_cnt; i++) {
-> +		char *src = phys_to_virt(packet->page_buf[i].pfn << PAGE_SHIFT);
-> +		u32 offset = packet->page_buf[i].offset;
-> +		u32 len = packet->page_buf[i].len;
-> +
-> +		memcpy(dest, (src + offset), len);
-> +		msg_size += len;
-> +		dest += len;
-> +	}
-> +	return msg_size;
-> +}
-> +
->  int netvsc_send(struct hv_device *device,
->  			struct hv_netvsc_packet *packet)
->  {
-> @@ -513,6 +703,10 @@ int netvsc_send(struct hv_device *device,
->  	struct net_device *ndev;
->  	struct vmbus_channel *out_channel = NULL;
->  	u64 req_id;
-> +	unsigned int section_index = NETVSC_INVALID_INDEX;
-> +	u32 msg_size = 0;
-> +	struct sk_buff *skb;
-> +
->  
-
-Don't put consecutive blank lines.
-
->  	net_device = get_outbound_net_device(device);
->  	if (!net_device)
-> @@ -528,10 +722,26 @@ int netvsc_send(struct hv_device *device,
->  		sendMessage.msg.v1_msg.send_rndis_pkt.channel_type = 1;
->  	}
->  
-> -	/* Not using send buffer section */
-> +	/* Attempt to send via sendbuf */
-> +	if (packet->total_data_buflen < net_device->send_section_size) {
-> +		section_index = netvsc_get_next_send_section(net_device);
-> +		if (section_index != NETVSC_INVALID_INDEX) {
-> +			msg_size = netvsc_copy_to_send_buf(net_device,
-> +							   section_index,
-> +							   packet);
-> +			skb = (struct sk_buff *)
-> +			      (unsigned long)packet->send_completion_tid;
-> +			if (skb)
-> +				dev_kfree_skb_any(skb);
-> +			packet->page_buf_cnt = 0;
-> +		}
-> +	}
-> +	packet->send_buf_index = section_index;
-> +
-> +
-
-Don't put consective blank lines.
-
-regards,
-dan carpenter
-
->  	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_index =
-> -		0xFFFFFFFF;
-> -	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = 0;
-> +		section_index;
-> +	sendMessage.msg.v1_msg.send_rndis_pkt.send_buf_section_size = msg_size;
->  
->  	if (packet->send_completion)
->  		req_id = (ulong)packet;
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index c76b665..939e3af 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -236,10 +236,11 @@ static void netvsc_xmit_completion(void *context)
->  	struct hv_netvsc_packet *packet = (struct hv_netvsc_packet *)context;
->  	struct sk_buff *skb = (struct sk_buff *)
->  		(unsigned long)packet->send_completion_tid;
-> +	u32 index = packet->send_buf_index;
->  
->  	kfree(packet);
->  
-> -	if (skb)
-> +	if (skb && (index == NETVSC_INVALID_INDEX))
->  		dev_kfree_skb_any(skb);
->  }
->  
-> -- 
-> 1.7.4.1
-> 
-> _______________________________________________
-> devel mailing list
-> devel@linuxdriverproject.org
-> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+>         /* Register for user BPF programs need to be reset first. */
+>         regs[BPF_REG_A] = 0;
+> @@ -896,13 +895,6 @@ do_pass:
+>         new_insn = new_prog;
+>         fp = prog;
+>
+> -       if (new_insn) {
+> -               new_insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+> -               new_insn->a_reg = BPF_REG_CTX;
+> -               new_insn->x_reg = BPF_REG_ARG1;
+> -       }
+> -       new_insn++;
+> -
+>         for (i = 0; i < len; fp++, i++) {
+>                 struct sock_filter_int tmp_insns[6] = { };
+>                 struct sock_filter_int *insn = tmp_insns;
+> --
+> 1.7.11.7
+>
