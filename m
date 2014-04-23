@@ -1,79 +1,70 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
-Date: Wed, 23 Apr 2014 16:55:42 +0100
-Message-ID: <1398268542.7767.145.camel@deadeye.wl.decadent.org.uk>
-References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
-	 <20140423153018.GA13717@breakpoint.cc>
+From: Vivek Goyal <vgoyal@redhat.com>
+Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
+ cgroup path
+Date: Wed, 23 Apr 2014 12:01:06 -0400
+Message-ID: <20140423160106.GB24651@redhat.com>
+References: <CALCETrVBJFgKwRKBE2jAG6kiGgkJ+MyQiw2nyz5yj0h68kCk9A@mail.gmail.com>
+ <1397759013.2628.86.camel@willson.li.ssimo.org>
+ <20140417185023.GA32527@redhat.com>
+ <1397761817.2628.113.camel@willson.li.ssimo.org>
+ <20140417191646.GA2461@redhat.com>
+ <CALCETrW3F1+3qF3thrAmuoWVbRveBJ2=owpigh4mv6iAafoQCw@mail.gmail.com>
+ <20140421150307.GA4367@redhat.com>
+ <CALCETrW5RvbW-Hz_Y7oULP6sEfdhGBh51+mTj4RwobHV-ji+Kg@mail.gmail.com>
+ <20140423150744.GC22755@redhat.com>
+ <CALCETrVhXPK2roQZ7sKMPbJOsLCaMwhUJdL-p0tbUqN8cubsjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-0+xKm6apZCr28I3ar36C"
-Cc: netdev <netdev@vger.kernel.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57288 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756614AbaDWPzy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 11:55:54 -0400
-In-Reply-To: <20140423153018.GA13717@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simo Sorce <ssorce@redhat.com>, Daniel J Walsh <dwalsh@redhat.com>,
+	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CALCETrVhXPK2roQZ7sKMPbJOsLCaMwhUJdL-p0tbUqN8cubsjg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 23, 2014 at 08:37:56AM -0700, Andy Lutomirski wrote:
+> On Wed, Apr 23, 2014 at 8:07 AM, Vivek Goyal <vgoyal@redhat.com> wrote:
+> > On Mon, Apr 21, 2014 at 08:47:51AM -0700, Andy Lutomirski wrote:
+> >
+> > [..]
+> >> To summarize from my reading of how this crap words:
+> >>
+> >> When a unit is created, systemd opens a stream socket pointing at
+> >> /run/systemd/journal/stdout.  It tells journald the unit, along with
+> >> lots of other useful information.  journald records this association
+> >> between the socket and the unit.  Systemd could tell journald the
+> >> cgroup here, too, if it wanted it.
+> >
+> > Ok, that's a fair point. I looked at  connect_logger_as() and I see
+> > that systemd does connect() on behalf of service being launched and
+> > sets up fd and passes bunch of information to journald. So cgroup could
+> > be one of the information and that would act like SO_PEERCGROUP in
+> > this specific case. Not sure why it is not done though. I will let
+> > systemd folks comment on that. I don't have enough background here.
+> >
+> > But this works in this specific case where there is a mechanism to
+> > pass meta information to receiver. What about SSSD use case where
+> > they want to know the cgroup of client and possibly provide differentiated
+> > service based on client.
+> 
+> Separate sockets sounds like it will work just fine, if not better, here, to me.
 
---=-0+xKm6apZCr28I3ar36C
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+That's one way of doing it. But that can't be the argument to not provide
+another way of doing same thing with the help of single socket instead
+of maintaining multiple ones.
 
-On Wed, 2014-04-23 at 17:30 +0200, Florian Westphal wrote:
-> Ben Hutchings <ben@decadent.org.uk> wrote:
-> > ICMP ping sockets currently require a new ping binary and are only
-> > available after setting a sysctl.  The code adds about 10K to the
-> > (uncompressed) size of the kernel.  Make this optional and disable
-> > it by default.
-> >=20
-> > This is compile-tested only; I'd just like to see whether people think
-> > this is worth doing.
->=20
-> Either this feature needs to be ripped out now or it has to be kept.
->=20
-> I do not think the middle-ground you're proposing will work:
->=20
-> If userspace cannot safely assume facility is available, binaries
-> need to be setuid to implement fallback, and when you go down that
-> road you've gained nothing and might as well not support ping sockets
-> at all.
+Setting up separate socket for each client will require knowing every
+client in advance so that one can socket appropriately. But mutiplexing
+everything on one socket, does not have that constraint and should make
+life little bit easier.
 
-Userspace can't assume it now because access is controlled by a sysctl.
+I think they will be just two different ways of doing things and user
+can choose one depending on what suits them.
 
-I think it is for distributions to choose whether to enable this feature
-in ping and the kernel.
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
-
---=-0+xKm6apZCr28I3ar36C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAU1fifue/yOyVhhEJAQoh+w//SOvAdN9qlQ5sgCK8u2qL7s1yQh2jI6pa
-CxHuf0H5VtU+uLQksE2uAQjmRovldvXoPU47y5oc5c4n06gyIACkEntAAm/AbFl2
-1SmGjqU6m54a3D7oxocEAbV3cQ/iOaDP/f+xPfZen3crMLMbtCP8EaDsIwqAAcon
-SUgFTozTpFan3BOnWyPN1BB+9lz13CnbmJJozHRVQ+kpqzBiT3vQyHxuHsUoBHgi
-V/BuIxBPrDb9h82gk5uw2AceDVvgLKkv01AanDG/fXhyFOPQ9eWRs6I+t1NQ6Jfu
-bzQ6ClOO5fIVi/GTKdfps/xHggGzapcRJsr6vI+Eg85BUs5KyERamVXdpB4LfIBp
-5ayQUDrtwXiWMkcdtIGV7C3elKXkSxuhL9LmCARiKxq0tmnBC0nEAnYj1l0M4hUV
-Q5FvcrFx2jIpT79dJdiGeXH0pnHJmv5oBctXqc8cR05sFoqXRBJCPcMbxvBEjP13
-4QFrEKECXHREb0b79sGos31ievoNf5+Vjb4neqDk2Xe/rw8libL29DJli9aAF5i/
-37Z7GdDYBXZmS1i0k546JaUt7Hlp4RE85BulpJKlSr3PbEAQyQNFj7+b3i4pYKWa
-43OJ7lY7O7o2TeIAlHpVMaGawR4UXtO/lSaYun2afJ7QQP53W3mjN2AZ/YHAz+IH
-env0+d7PWy0=
-=ZApA
------END PGP SIGNATURE-----
-
---=-0+xKm6apZCr28I3ar36C--
+Thanks
+Vivek
