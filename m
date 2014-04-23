@@ -1,62 +1,182 @@
-From: Daniel J Walsh <dwalsh@redhat.com>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Wed, 23 Apr 2014 09:40:34 -0400
-Message-ID: <5357C2D2.5060700@redhat.com>
-References: <20140422.161904.1187535812839850973.davem@davemloft.net> <cover.1398215388.git.rgb@redhat.com> <26389161.vp9iWSVLPX@x2> <1398225475.750.7.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, linux-audit@redhat.com,
-	selinux@tycho.nsa.gov, jamal@mojatatu.com, davem@davemloft.net
-To: Eric Paris <eparis@redhat.com>, Steve Grubb <sgrubb@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1398225475.750.7.camel@localhost>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next] mrf24j40: seperate mrf24j40 h/w init and add checkings
+Date: Wed, 23 Apr 2014 19:15:20 +0530
+Message-ID: <1398260720-18936-1-git-send-email-varkab@cdac.in>
+Cc: alan@signal11.us, linux-zigbee-devel@lists.sourceforge.net,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:63502 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757166AbaDWNpu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 09:45:50 -0400
+Received: by mail-pa0-f54.google.com with SMTP id lf10so787718pab.27
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 06:45:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Here are the capabilities we currently give to sysadm_t with
-sysadm_secadm    1.0.0    Disabled
+Sorry for duplication , missed the tag net-next
 
-   allow sysadm_t sysadm_t : capability { chown dac_override
-dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
-net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
-sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
-sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
-   allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
+Hai Alex,
 
-   allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
+I followed the process that you mailed earlier, thnks for that.
 
-cap_audit_write might be a problem?
+I am expecting the mail from Alan about the changes.
 
-On 04/22/2014 11:57 PM, Eric Paris wrote:
-> On Tue, 2014-04-22 at 22:25 -0400, Steve Grubb wrote:
->> On Tuesday, April 22, 2014 09:31:52 PM Richard Guy Briggs wrote:
->>> This is a patch set Eric Paris and I have been working on to add a
->>> restricted capability read-only netlink multicast socket to kernel audit to
->>> enable userspace clients such as systemd/journald to receive audit logs, in
->>> addition to the bidirectional auditd userspace client.
->> Do have the ability to separate of secadm_r and sysadm_r? By allowing this, we 
->> will leak to a sysadmin that he is being audited by the security officer. In a 
->> lot of cases, they are one in the same person. But for others, they are not. I 
->> have a feeling this will cause problems for MLS systems.
-> Why?  This requires CAP_AUDIT_READ.  Just don't give CAP_AUDIT_READ to
-> places you don't want to have read permission.  Exactly the same as you
-> don't give CAP_AUDIT_CONTROL to sysadm_r.  (If we are giving
-> CAP_AUDIT_CONTROL to sysadm_r and you think that any file protections
-> on /var/log/audit/audit.log are adequate we are fooling ourselves!)
->
->> Also, shouldn't we have an audit event for every attempt to connect to this 
->> socket? We really need to know where this information is getting leaked to.
-> We certainly can.  What would you like to see in that event?
->
-> -Eric
->
-> _______________________________________________
-> Selinux mailing list
-> Selinux@tycho.nsa.gov
-> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
-> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
->
->
+Thank you,
+Varka Bhadram.
 
+
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ieee802154/mrf24j40.c |  115 ++++++++++++++++++++++++++++---------
+ 1 file changed, 89 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 246befa..4a9a1ee 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -609,10 +609,95 @@ out:
+ 	return IRQ_HANDLED;
+ }
+ 
++static int mrf24j40_hw_init(struct mrf24j40 *devrec)
++{
++	int ret;
++	u8 val;
++
++	/* Initialize the device.
++		From datasheet section 3.2: Initialization. */
++	ret = write_short_reg(devrec, REG_SOFTRST, 0x07);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_PACON2, 0x98);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_TXSTBL, 0x95);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON0, 0x03);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON1, 0x01);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON6, 0x90);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON7, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON8, 0x10);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_SLPCON1, 0x21);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_CCAEDTH, 0x60);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG6, 0x40);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x04);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x0);
++	if (ret)
++		goto err_ret;
++
++	udelay(192);
++
++	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
++	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	if (ret)
++		goto err_ret;
++
++	val &= ~0x3; /* Clear RX mode (normal) */
++
++	ret = write_short_reg(devrec, REG_RXMCR, val);
++	if (ret)
++		goto err_ret;
++
++	return 0;
++
++err_ret:
++	return ret;
++}
++
+ static int mrf24j40_probe(struct spi_device *spi)
+ {
+ 	int ret = -ENOMEM;
+-	u8 val;
+ 	struct mrf24j40 *devrec;
+ 
+ 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+@@ -649,31 +734,9 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	if (ret)
+ 		goto err_register_device;
+ 
+-	/* Initialize the device.
+-		From datasheet section 3.2: Initialization. */
+-	write_short_reg(devrec, REG_SOFTRST, 0x07);
+-	write_short_reg(devrec, REG_PACON2, 0x98);
+-	write_short_reg(devrec, REG_TXSTBL, 0x95);
+-	write_long_reg(devrec, REG_RFCON0, 0x03);
+-	write_long_reg(devrec, REG_RFCON1, 0x01);
+-	write_long_reg(devrec, REG_RFCON2, 0x80);
+-	write_long_reg(devrec, REG_RFCON6, 0x90);
+-	write_long_reg(devrec, REG_RFCON7, 0x80);
+-	write_long_reg(devrec, REG_RFCON8, 0x10);
+-	write_long_reg(devrec, REG_SLPCON1, 0x21);
+-	write_short_reg(devrec, REG_BBREG2, 0x80);
+-	write_short_reg(devrec, REG_CCAEDTH, 0x60);
+-	write_short_reg(devrec, REG_BBREG6, 0x40);
+-	write_short_reg(devrec, REG_RFCTL, 0x04);
+-	write_short_reg(devrec, REG_RFCTL, 0x0);
+-	udelay(192);
+-
+-	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
+-	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	ret = mrf24j40_hw_init(devrec);
+ 	if (ret)
+-		goto err_read_reg;
+-	val &= ~0x3; /* Clear RX mode (normal) */
+-	write_short_reg(devrec, REG_RXMCR, val);
++		goto err_hw_init;
+ 
+ 	ret = request_threaded_irq(spi->irq,
+ 				   NULL,
+@@ -690,7 +753,7 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	return 0;
+ 
+ err_irq:
+-err_read_reg:
++err_hw_init:
+ 	ieee802154_unregister_device(devrec->dev);
+ err_register_device:
+ 	ieee802154_free_device(devrec->dev);
+-- 
+1.7.9.5
