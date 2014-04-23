@@ -1,42 +1,174 @@
-From: Ji <lijimlee@gmail.com>
-Subject: Question about TLP patch
-Date: Wed, 23 Apr 2014 16:09:19 -0700
-Message-ID: <CAJdgut_YYR4nNM88kbn5hqtDsj27wa5OT=jR9AVcV0b=yYon8Q@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next 5/5] net: filter: optimize BPF migration for
+ ARG1/CTX handling
+Date: Wed, 23 Apr 2014 16:14:50 -0700
+Message-ID: <CAMEtUuzT6smejsgoKP5c_NCw8mQw39xfPR+hsfV1Oh77ZeG3bA@mail.gmail.com>
+References: <1398286621-3591-1-git-send-email-dborkman@redhat.com>
+	<1398286621-3591-6-git-send-email-dborkman@redhat.com>
+	<CAMEtUux3YZW9G80Da2B3pBB2Sq7C7eC62ntnrVifN8_RJugzHw@mail.gmail.com>
+	<53583CEB.3040203@redhat.com>
+	<CAMEtUuzboCLpVXNd+6NQVco=NbX4wcKHt1F+ZkD7DYVpMbBxEw@mail.gmail.com>
+	<5358453E.4050005@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:51031 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751126AbaDWXJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 19:09:20 -0400
-Received: by mail-pd0-f180.google.com with SMTP id v10so1255208pde.11
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 16:09:20 -0700 (PDT)
+Received: from mail-we0-f182.google.com ([74.125.82.182]:41809 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbaDWXOv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 19:14:51 -0400
+Received: by mail-we0-f182.google.com with SMTP id q59so1528791wes.27
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 16:14:50 -0700 (PDT)
+In-Reply-To: <5358453E.4050005@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When reading the patch of Tail Loss Probe:
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6ba8a3b19e764b6a65e4030ab0999be50c291e6c
-, I noticed this change:
+On Wed, Apr 23, 2014 at 3:57 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 04/24/2014 12:37 AM, Alexei Starovoitov wrote:
+>>
+>> On Wed, Apr 23, 2014 at 3:21 PM, Daniel Borkmann <dborkman@redhat.com>
+>> wrote:
+>>>
+>>> On 04/23/2014 11:59 PM, Alexei Starovoitov wrote:
+>>>>
+>>>> On Wed, Apr 23, 2014 at 1:57 PM, Daniel Borkmann <dborkman@redhat.com>
+>>>> wrote:
+>>>>>
+>>>>>
+>>>>> Currently, at initial setup in __sk_run_filter() we initialize the
+>>>>> BPF stack's frame-pointer and CTX register. However, instead of the
+>>>>> CTX register, we initialize context to ARG1, and during user filter
+>>>>> migration we emit *always* an instruction that copies the content
+>>>>> from ARG1 to CTX. ARG1 is needed in BPF_CALL instructions to setup
+>>>>> ctx, A, X for call emission. However, we nevertheless copy CTX over
+>>>>> to ARG1 in these cases. So all in all, we always emit one instruction
+>>>>> at BPF program beginning that should have actually been avoided to
+>>>>> spare this overhead.
+>>>>>
+>>>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>>>>> Cc: Alexei Starovoitov <ast@plumgrid.com>
+>>>>
+>>>>
+>>>> First 4 patches look great, but this one I have to disagree.
+>>>> See below.
+>>>>
+>>>>> ---
+>>>>>    net/core/filter.c | 10 +---------
+>>>>>    1 file changed, 1 insertion(+), 9 deletions(-)
+>>>>>
+>>>>> diff --git a/net/core/filter.c b/net/core/filter.c
+>>>>> index eada3d5..6fed231 100644
+>>>>> --- a/net/core/filter.c
+>>>>> +++ b/net/core/filter.c
+>>>>> @@ -62,7 +62,6 @@
+>>>>>    #define A      regs[insn->a_reg]
+>>>>>    #define X      regs[insn->x_reg]
+>>>>>    #define FP     regs[BPF_REG_FP]
+>>>>> -#define ARG1   regs[BPF_REG_ARG1]
+>>>>>    #define CTX    regs[BPF_REG_CTX]
+>>>>>    #define K      insn->imm
+>>>>>
+>>>>> @@ -257,7 +256,7 @@ unsigned int __sk_run_filter(void *ctx, const
+>>>>> struct
+>>>>> sock_filter_int *insn)
+>>>>>    #define CONT_JMP ({ insn++; goto select_insn; })
+>>>>>
+>>>>>           FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+>>>>> -       ARG1 = (u64) (unsigned long) ctx;
+>>>>> +       CTX = (u64) (unsigned long) ctx;
+>>>>
+>>>>
+>>>>
+>>>> R1 (ARG1) is the register that used to pass first argument to the
+>>>> function.
+>>>
+>>>
+>>> Yes that's clear. Which is why f.e. in convert_bpf_extensions() we
+>>> currently
+>>> copy ctx over to arg1 for calls, i.e.:
+>>>
+>>>    /* arg1 = ctx */
+>>>
+>>>    insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+>>>    insn->a_reg = ARG1_REG;
+>>>    insn->x_reg = CTX_REG;
+>>>    insn++;
+>>>
+>>>> For seamless kernel->bpf->kernel transition we have to follow calling
+>>>> convention, so 'void *ctx' has to go into R1 by design.
+>>>> Storing it into R6 (CTX) will only work for classic filters converted
+>>>> to extended.
+>>>> all native ebpf filters will be broken.
+>>>
+>>>
+>>> My objection was that currently, we do _not_ have _any_ users or even
+>>> kernel
+>>> API for _native_ filters, at least not in mainline tree. The _main_ users
+>>> we
+>>> have are currently _all_ being converted, hence this patch. Given that
+>>> these
+>>> calls have likely just a minority of use cases triggered by tcpdump et
+>>> al,
+>>> the majority of users still need to do this overhead/additional work.
+>>>
+>>>> In documentation we say:
+>>>>       * R1 - R5   - arguments from BPF program to in-kernel function
+>>>> so llvm/gcc are following this ebpf ABI.
+>>>> Calling convention is the same whether to call kernel function from ebpf
+>>>> or ebpf from kernel. So 1st argument (void *ctx) has to go into R1.
+>>>
+>>>
+>>> Yes, that's clear and convert_bpf_extensions() is doing that. So far
+>>> we're
+>>> not using llvm/gcc backend here and have the internal instruction set not
+>>> exposed to user space, but even there you would need to prepare R1 - R5
+>>> to
+>>> hand-over arguments for the BPF_CALL insns, so why can't we load CTX into
+>>> R1
+>>> at that time just as we do with convert_bpf_extensions()?
+>>
+>>
+>> How about then removing extra generated R6=R1 from converted and do
+>> both in __sk_run_filter() ?
+>>          regs[ARG1_REG] = (u64) (unsigned long) ctx;
+>>          regs[CTX_REG] = (u64) (unsigned long) ctx;
+>>
+>> Overhead problem will be solved and ABI is still clean.
+>
+>
+> Well, I just don't understand the concerns of ABI here. Given that we do not
+> have any native BPF code to maintain in the kernel tree and given that we
+> currently do not expose the instruction set to user space, we're free to do
+> what we want, no? Eventually what's in mainline kernel is that dictates an
+> ABI, so far we have it only in kernel space and the only current user of the
+> ABI is the conversion function from user BPF programs. Given that helper
 
-@@ -2321,7 +2322,7 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
-* interval if appropriate.
-*/
-if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
-- (tp->packets_out == (tp->sacked_out + 1) && tp->packets_out < 4) &&
-+ (tp->packets_out >= (tp->sacked_out + 1) && tp->packets_out < 4) &&
-!tcp_may_send_now(sk))
-return !tcp_pause_early_retransmit(sk, flag);
+well, all the patches for llvm and the rest were posted.
+Obviously they cannot go in at once, but breaking this ABI right now
+makes it impossible to continue working on them.
+I want to make ebpf engine to be useful for tracing filters and so on.
+Are you saying forget it, this is classic bpf engine only?
 
-I think the original code is because of RFC5827 Early Retransmit for TCP, 3.2
-"... When conditions (3.a) and (3.b) hold and a TCP connection does
+> function calls may happen less often than executing instructions from the
+> rest of the code, why can't your llvm/gcc backend emit the load of ctx into
+> arg1? JITs don't need to treat that differently in any way, imho. Simply
 
-   support SACK or SCTP is in use, Early Retransmit MUST be used only
+I don't think we're on the same page here. compiler at the end is just
+a piece of sw and can do everything, but imbalanced ebpf ABI is really
+out of normal compiler work flow.
+Pretty much compiler somehow need to generate one way of passing
+arguments into a function, but inside the function it needs to expect
+them in different registers?! That is practically impossible to do
+in normal gcc/llvm.
+Even without any compiler insight.
+If you insist on ctx to be in R6 only, then please kill the whole
+concept of ABI in the doc. It doesn't make sense to pass a value
+into a function in R1, but the function will see in R6?!
 
-   when "oseg - 1" segments have been SACKed...."
-
-With that change, it seems that the condition is relaxed. I wonder
-why it is so. Could you cast some lights on it?
-
-Thanks,
-Ji Li
+> the one who is generating the BPF insns needs to emit ctx into arg1 just as
+> he prepares the other argX registers. Btw, since we know a priori that
+> __skb_get_pay_offset() and __get_raw_cpu_id() are not making use of all
+> prepared registers, we could even go that far and avoid preparing loads for
+> the two.
