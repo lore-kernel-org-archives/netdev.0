@@ -1,58 +1,96 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: skb_try_coalesce bug?
-Date: Wed, 23 Apr 2014 13:54:45 -0400
-Message-ID: <5357FE65.1010400@ericsson.com>
-References: <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com>	<1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>	<5357F0B4.5040606@ericsson.com> <20140423.133349.1007553448019102626.davem@davemloft.net>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [Patch 3/3] IB/ib_cm: hang in cm_destroy_id during PCI error
+ injection
+Date: Wed, 23 Apr 2014 18:15:15 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373992F353B@ORSMSX109.amr.corp.intel.com>
+References: <20140327142813.535289178@linux.vnet.ibm.com>
+ <20140327142939.460692817@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <eric.dumazet@gmail.com>, <erik.hugne@ericsson.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:44881 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753338AbaDWRy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 13:54:57 -0400
-In-Reply-To: <20140423.133349.1007553448019102626.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <brking-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+To: "clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org" <clsoto-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+	"roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140327142939.460692817-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/2014 01:33 PM, David Miller wrote:
-> From: Jon Maloy <jon.maloy@ericsson.com>
-> Date: Wed, 23 Apr 2014 12:56:20 -0400
+> Index: b/drivers/infiniband/core/cm.c
+> ===================================================================
+> --- a/drivers/infiniband/core/cm.c
+> +++ b/drivers/infiniband/core/cm.c
+> @@ -161,6 +161,7 @@ struct cm_port {
+>  	struct ib_mad_agent *mad_agent;
+>  	struct kobject port_obj;
+>  	u8 port_num;
+> +	u8 device_fatal;
+>  	struct cm_counter_group counter_group[CM_COUNTER_GROUPS];
+>  };
 > 
->> On 04/22/2014 05:37 PM, Eric Dumazet wrote:
->>> On Tue, 2014-04-22 at 14:29 -0700, Eric Dumazet wrote:
->>>
->>>> Then if you do that, you also need to change head->data_len !
->>>
->>> Untested patch would be :
->>>
->>> diff --git a/net/tipc/link.c b/net/tipc/link.c
->>> index c5190ab75290..85077dd7c63e 100644
->>> --- a/net/tipc/link.c
->>> +++ b/net/tipc/link.c
->>> @@ -2349,6 +2349,7 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
->>>  			(*tail)->next = frag;
->>>  		*tail = frag;
->>>  		(*head)->truesize += frag->truesize;
->>> +		(*head)->data_len += frag->len;
->>
->> Just to confirm, does this mean that head's own (linear) data is not
->> included in data_len? 
+> @@ -168,6 +169,7 @@ struct cm_device {
+>  	struct list_head list;
+>  	struct ib_device *ib_device;
+>  	struct device *device;
+> +	struct ib_event_handler event_handler;
+>  	u8 ack_delay;
+>  	struct cm_port *port[0];
+>  };
+> @@ -258,6 +260,10 @@ static int cm_alloc_msg(struct cm_id_pri
+>  	struct ib_mad_agent *mad_agent;
+>  	struct ib_mad_send_buf *m;
+>  	struct ib_ah *ah;
+> +	struct cm_port *port = cm_id_priv->av.port;
+> +
+> +	if (port->device_fatal)
+> +		return -EIO;
 > 
-> For a given SKB, skb->len is the entire length of the packet, fragments and
-> all.
+>  	mad_agent = cm_id_priv->av.port->mad_agent;
+>  	ah = ib_create_ah(mad_agent->qp->pd, &cm_id_priv->av.ah_attr);
+> @@ -290,6 +296,9 @@ static int cm_alloc_response_msg(struct
+>  	struct ib_mad_send_buf *m;
+>  	struct ib_ah *ah;
 > 
-> skb->data_len counts the sum of all of the page and SKB based fragments, ie.
-> all bytes which are not in the top-level SKBs linear area.
+> +	if (port->device_fatal)
+> +		return -EIO;
+> +
+>  	ah = ib_create_ah_from_wc(port->mad_agent->qp->pd, mad_recv_wc->wc,
+>  				  mad_recv_wc->recv_buf.grh, port->port_num);
+>  	if (IS_ERR(ah))
+> @@ -3764,6 +3773,33 @@ static void cm_remove_port_fs(struct cm_
+>  	kobject_put(&port->port_obj);
+>  }
 > 
-> So the linear length is always "skb->len - skb->data_len", and this is exactly
-> what skb_headlen() does.
-> 
+> +static void ib_cm_event_handler(struct ib_event_handler *handler,
+> +				struct ib_event *event)
+> +{
+> +	struct cm_device *cm_dev;
+> +	struct cm_port *port = NULL;
+> +
+> +	cm_dev = container_of(handler, struct cm_device, event_handler);
+> +	switch (event->event) {
+> +	case IB_EVENT_PORT_ACTIVE:
+> +		port = cm_dev->port[event->element.port_num - 1];
+> +		if (port == NULL)
+> +			return;
+> +		if (port->port_num == event->element.port_num)
+> +			port->device_fatal = 0;
+> +		break;
+> +	case IB_EVENT_DEVICE_FATAL:
+> +		port = cm_dev->port[event->element.port_num - 1];
+> +		if (port == NULL)
+> +			return;
+> +		if (port->port_num == event->element.port_num)
+> +			port->device_fatal = 1;
+> +		break;
 
-Thank you for the clarification. We'll have to fix this. I am just puzzled that
-our defragmentation algorithm has worked as well as it has until now.
+This is a device level event, not a port event.  The port_num value may not be valid.
 
-///jon
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
