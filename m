@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Tue, 22 Apr 2014 23:55:15 -0400 (EDT)
-Message-ID: <20140422.235515.1172733305552022632.davem@davemloft.net>
-References: <cover.1398215388.git.rgb@redhat.com>
-	<20140422.214300.171999077259349189.davem@davemloft.net>
-	<20140423014929.GL20182@madcap2.tricolour.ca>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Tue, 22 Apr 2014 23:57:45 -0400 (EDT)
+Message-ID: <20140422.235745.1219194947074686642.davem@davemloft.net>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-audit@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, selinux@tycho.nsa.gov,
-	linux-security-module@vger.kernel.org, hadi@mojatatu.com,
-	eparis@redhat.com, sgrubb@redhat.com
-To: rgb@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140423014929.GL20182@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45386 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753517AbaDWD5r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 23:57:47 -0400
+In-Reply-To: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Tue, 22 Apr 2014 21:49:29 -0400
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Tue, 22 Apr 2014 20:18:57 -0700
 
-> On 14/04/22, David Miller wrote:
->> From: Richard Guy Briggs <rgb@redhat.com>
->> Date: Tue, 22 Apr 2014 21:31:52 -0400
->> 
->> > This is a patch set Eric Paris and I have been working on to add a restricted
->> > capability read-only netlink multicast socket to kernel audit to enable
->> > userspace clients such as systemd/journald to receive audit logs, in addition
->> > to the bidirectional auditd userspace client.
->> 
->> Series applied, thanks Richard.
+> exisiting BPF verifier allows uninitialized access to registers,
+> 'ret A' is considered to be a valid filter.
+> So initialize A and X to zero to prevent leaking kernel memory
+> In the future BPF verifier will be rejecting such filters
 > 
-> Thanks for your patience, David.  Can I assume you adopted the 3 audit
-> patches too, becuase of the dependence?
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Yes.
+Has the code always been like this?
+
+Did the eBPF changes introduce this problem either directly or
+indirectly?
