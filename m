@@ -1,48 +1,73 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH 0/2] net: Add Keystone NetCP ethernet driver support
-Date: Tue, 22 Apr 2014 19:56:19 -0400
-Message-ID: <535701A3.5050309@ti.com>
-References: <1398201675-17379-1-git-send-email-santosh.shilimkar@ti.com>
- <20140422150231.2e87b7eb@nehalam.linuxnetplumber.net>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: RFC: rtnetlink problems with Cisco enic and VFs
+Date: Tue, 22 Apr 2014 17:04:38 -0700
+Message-ID: <20140422170438.00006b45@unknown>
+References: <20140422141425.127dabd3c63482a6a655469e@redhat.com>
+	<1398189799.7767.80.camel@deadeye.wl.decadent.org.uk>
+	<20140422.141200.1878796491205301689.davem@davemloft.net>
+	<20140423092606.c73425b64d127b8f94469fcb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Sandeep Nair <sandeep_n@ti.com>,
- Rob Herring <robh+dt@kernel.org>, Grant Likely <grant.likely@linaro.org>,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20140422150231.2e87b7eb@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <ben@decadent.org.uk>,
+	<netdev@vger.kernel.org>, <benve@cisco.com>, <ssujith@cisco.com>,
+	<govindarajulu90@gmail.com>, <neepatel@cisco.com>,
+	<nistrive@cisco.com>
+To: David Gibson <dgibson@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:43669 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750781AbaDWAEo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Apr 2014 20:04:44 -0400
+In-Reply-To: <20140423092606.c73425b64d127b8f94469fcb@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 April 2014 06:02 PM, Stephen Hemminger wrote:
-> On Tue, 22 Apr 2014 17:21:13 -0400
-> Santosh Shilimkar <santosh.shilimkar@ti.com> wrote:
-> 
->> NetCP driver has a plug-in module architecture where each of the NetCP
->> sub-modules exist as a loadable kernel module which plug in to the netcp
->> core. These sub-modules are represented as "netcp-devices" in the dts
->> bindings. It is mandatory to have the ethernet switch sub-module for
->> the ethernet interface to be operational. Any other sub-module like the
->> PA is optional.
-> 
-> Where is the implementation of these modules. You need to include
-> this as separate patch set. Also the hooks for these modules should all
-> be EXPORT_SYMBOL_GPL() to disallow proprietary modules.
-> 
-There is no proprietary issue and all the hooks will be GPL. The plan is
-to add them in another patch-set once the core driver gets merged. They need
-some work to make them upstream ready.
+On Wed, 23 Apr 2014 09:26:06 +1000
+David Gibson <dgibson@redhat.com> wrote:
 
-Regards,
-Santosh
+> On Tue, 22 Apr 2014 14:12:00 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > From: Ben Hutchings <ben@decadent.org.uk>
+> > Date: Tue, 22 Apr 2014 19:03:19 +0100
+> > 
+> > > On Tue, 2014-04-22 at 14:14 +1000, David Gibson wrote:
+> > >> I believe I've found a problem with netlink handling which can be
+> > >> triggered on Cisco enic devices with a large number (30-40) of
+> > >> virtual functions.  I believe this is the cause of a real
+> > >> customer problem we've seen.
+> > >> 
+> > >>  * When requesting a list of interfaces with RTM_GETLINK, enic
+> > >> devices (and currently, _only_ enic devices) report IFLA_VF_PORTS
+> > >>    information 
+> > >> 
+> > >>  * IFLA_VF_PORTS information has at least 90 bytes ber virtual
+> > >> function
+> > >> 
+> > >>  * Unlike IFLA_VFINFO_LIST, the ports information is always
+> > >> reported, regardless of the setting of the IFLA_EXT_MASK
+> > >> parameter
+> > > [...]
+> > > 
+> > > So I think you should make reporting of IFLA_VF_PORTS dependent
+> > > on the same flag as IFLA_VFINFO_LIST.
+> > 
+> > I think that's what we'll have to do.
+> 
+> Ok, makes logical sense.
+> 
+> But does anyone know what tools make use of the IFLA_VF_PORTS
+> information?  Do they set the IFLA_EXT_MASK already?
+> 
+
+So far as I know only the IP route tool 'ip link' sets that.  In fact,
+that's the reason I had to add it some number of years and months ago
+was because there were tools that didn't expect to get all the
+additional VF info and those tools were getting borked by all the
+additional goo sent up for VFs.
+
+Beyond that who knows what anyone's been up to with other tools in
+other places?
+
+- Greg
