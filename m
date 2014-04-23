@@ -1,112 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 23 Apr 2014 04:15:12 -0700
-Message-ID: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 04/14] ixgbe: change handling of multicast filters
+Date: Wed, 23 Apr 2014 04:15:16 -0700
+Message-ID: <1398251726-13638-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15123 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:6546 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753020AbaDWLPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 07:15:32 -0400
+	id S1753112AbaDWLPf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 07:15:35 -0400
+In-Reply-To: <1398251726-13638-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe, ixgbevf, e1000e, igb and i40e.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Jacob converts the ixgbe low_water into an array which allows the
-algorithm to output different values for different TCs and we can
-distinguish between them.  Removes vlan_filter_disable() and
-vlan_filter_enable() in ixgbe so that we can do the work directly in
-set_rx_mode().  Changes the setting of multicast filters only when
-the interface is not in promiscuous mode for multicast packets in
-ixgbe.  Improves MAC filter handling by adding mac_table API based
-on work done for igb, which includes functions to add/delete MAC
-filters.
+In line with changes done by Alex Duyck regarding unicast filters, we
+now only set multicast filters when the interface is not in promiscuous
+mode for multicast packets. This also has an impact on the RAR usage
+such that SR-IOV has some RARs reserved for its own usage.
 
-Mark changes register reads in ixgbe to an out-of-line function since
-register reads are slow.
+Reported-by: Alex Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 45 ++++++++++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 15 +++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h |  2 ++
+ 3 files changed, 53 insertions(+), 9 deletions(-)
 
-Emil provides a ixgbevf patch to update the driver description since
-it supports more than just 82599 parts now.
-
-David provides several cleanup patches for e1000e which resolve some
-checkpatch issues as well as changing occurrences of returning 0 or 1 in
-bool functions to returning true false or true.
-
-Carolyn provides several cleanup patches for igb which fix checkpatch
-warnings.
-
-Mitch provides a fix for i40evf where the driver would correctly allow
-the virtual function link state to be controlled by 'ip set link', but
-would not report it correctly back.  This is fixed by filling out
-the appropriate field in the VF info struct.
-
-The following are changes since commit fd0d192be6e814495aec91f357b5801afc3b6262:
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Carolyn Wyborny (3):
-  igb: Cleanups for messaging
-  igb: Cleanups to fix braces location warnings
-  igb: Cleanups to fix incorrect indentation
-
-David Ertman (4):
-  e1000e: Cleanup return values in ethtool
-  e1000e: Cleanup to fix checkpatch missing blank lines
-  e1000e: Cleanup checkpatch extra space
-  e1000e: Cleanup use of deprecated DEFINE_PCI_DEVICE_TABLE
-
-Emil Tantilov (1):
-  ixgbevf: remove 82599 from the module description
-
-Jacob Keller (4):
-  ixgbe: convert low_water into an array
-  ixgbe: remove vlan_filter_disable and enable functions
-  ixgbe: change handling of multicast filters
-  ixgbe: improve mac filter handling
-
-Mark Rustad (1):
-  ixgbe: Use out-of-line function for register reads
-
-Mitch Williams (1):
-  i40e: report VF link state correctly
-
- drivers/net/ethernet/intel/e1000e/e1000.h          |   8 +-
- drivers/net/ethernet/intel/e1000e/ethtool.c        |  11 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c        |   1 +
- drivers/net/ethernet/intel/e1000e/netdev.c         |  19 +-
- drivers/net/ethernet/intel/e1000e/nvm.c            |   1 +
- drivers/net/ethernet/intel/e1000e/param.c          |   4 +
- drivers/net/ethernet/intel/e1000e/phy.c            |   1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   7 +
- drivers/net/ethernet/intel/igb/e1000_82575.c       |  24 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h       |  22 +-
- drivers/net/ethernet/intel/igb/e1000_defines.h     |  25 +-
- drivers/net/ethernet/intel/igb/e1000_hw.h          |  50 ++--
- drivers/net/ethernet/intel/igb/e1000_mac.c         |  10 +-
- drivers/net/ethernet/intel/igb/e1000_nvm.c         |   1 +
- drivers/net/ethernet/intel/igb/e1000_nvm.h         |   2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.c         |   3 +-
- drivers/net/ethernet/intel/igb/e1000_regs.h        |   7 +-
- drivers/net/ethernet/intel/igb/igb.h               |   1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c       |  24 +-
- drivers/net/ethernet/intel/igb/igb_main.c          |  74 ++---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |  18 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  27 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |  35 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |  15 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |   2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      | 319 +++++++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  49 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |   2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   2 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |   2 +-
- 32 files changed, 478 insertions(+), 292 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 220937ba..84044ed 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3846,6 +3846,36 @@ static void ixgbe_restore_vlan(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
++ * ixgbe_write_mc_addr_list - write multicast addresses to MTA
++ * @netdev: network interface device structure
++ *
++ * Writes multicast address list to the MTA hash table.
++ * Returns: -ENOMEM on failure
++ *                0 on no addresses written
++ *                X on writing X addresses to MTA
++ **/
++static int ixgbe_write_mc_addr_list(struct net_device *netdev)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	struct ixgbe_hw *hw = &adapter->hw;
++
++	if (!netif_running(netdev))
++		return 0;
++
++	if (hw->mac.ops.update_mc_addr_list)
++		hw->mac.ops.update_mc_addr_list(hw, netdev);
++	else
++		return -ENOMEM;
++
++#ifdef CONFIG_PCI_IOV
++	if (adapter->num_vfs)
++		ixgbe_restore_vf_multicasts(adapter);
++#endif
++
++	return netdev_mc_count(netdev);
++}
++
++/**
+  * ixgbe_write_uc_addr_list - write unicast addresses to RAR table
+  * @netdev: network interface device structure
+  *
+@@ -3908,7 +3938,6 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	int count;
+ 
+ 	/* Check for Promiscuous and All Multicast modes */
+-
+ 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+ 	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
+ 
+@@ -3924,7 +3953,7 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	if (netdev->flags & IFF_PROMISC) {
+ 		hw->addr_ctrl.user_set_promisc = true;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+-		vmolr |= (IXGBE_VMOLR_ROPE | IXGBE_VMOLR_MPE);
++		vmolr |= IXGBE_VMOLR_MPE;
+ 		/* Only disable hardware filter vlans in promiscuous mode
+ 		 * if SR-IOV and VMDQ are disabled - otherwise ensure
+ 		 * that hardware VLAN filters remain enabled.
+@@ -3956,11 +3985,13 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 	 * then we should just turn on promiscuous mode so
+ 	 * that we can at least receive multicast traffic
+ 	 */
+-	hw->mac.ops.update_mc_addr_list(hw, netdev);
+-	vmolr |= IXGBE_VMOLR_ROMPE;
+-
+-	if (adapter->num_vfs)
+-		ixgbe_restore_vf_multicasts(adapter);
++	count = ixgbe_write_mc_addr_list(netdev);
++	if (count < 0) {
++		fctrl |= IXGBE_FCTRL_MPE;
++		vmolr |= IXGBE_VMOLR_MPE;
++	} else if (count) {
++		vmolr |= IXGBE_VMOLR_ROMPE;
++	}
+ 
+ 	if (hw->mac.type != ixgbe_mac_82598EB) {
+ 		vmolr |= IXGBE_READ_REG(hw, IXGBE_VMOLR(VMDQ_P(0))) &
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index e6c68d3..2885cb0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -327,6 +327,7 @@ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+ 	u32 vector_bit;
+ 	u32 vector_reg;
+ 	u32 mta_reg;
++	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
+ 
+ 	/* only so many hash values supported */
+ 	entries = min(entries, IXGBE_MAX_VF_MC_ENTRIES);
+@@ -353,10 +354,13 @@ static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+ 		mta_reg |= (1 << vector_bit);
+ 		IXGBE_WRITE_REG(hw, IXGBE_MTA(vector_reg), mta_reg);
+ 	}
++	vmolr |= IXGBE_VMOLR_ROMPE;
++	IXGBE_WRITE_REG(hw, IXGBE_VMOLR(vf), vmolr);
+ 
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_PCI_IOV
+ static void ixgbe_restore_vf_macvlans(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+@@ -382,6 +386,7 @@ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter)
+ 	u32 mta_reg;
+ 
+ 	for (i = 0; i < adapter->num_vfs; i++) {
++		u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(i));
+ 		vfinfo = &adapter->vfinfo[i];
+ 		for (j = 0; j < vfinfo->num_vf_mc_hashes; j++) {
+ 			hw->addr_ctrl.mta_in_use++;
+@@ -391,11 +396,18 @@ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter)
+ 			mta_reg |= (1 << vector_bit);
+ 			IXGBE_WRITE_REG(hw, IXGBE_MTA(vector_reg), mta_reg);
+ 		}
++
++		if (vfinfo->num_vf_mc_hashes)
++			vmolr |= IXGBE_VMOLR_ROMPE;
++		else
++			vmolr &= ~IXGBE_VMOLR_ROMPE;
++		IXGBE_WRITE_REG(hw, IXGBE_VMOLR(i), vmolr);
+ 	}
+ 
+ 	/* Restore any VF macvlans */
+ 	ixgbe_restore_vf_macvlans(adapter);
+ }
++#endif
+ 
+ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
+ 			     u32 vf)
+@@ -495,8 +507,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ static void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+ {
+ 	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
+-	vmolr |= (IXGBE_VMOLR_ROMPE |
+-		  IXGBE_VMOLR_BAM);
++	vmolr |= IXGBE_VMOLR_BAM;
+ 	if (aupe)
+ 		vmolr |= IXGBE_VMOLR_AUPE;
+ 	else
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 139eadd..cea6401 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -34,7 +34,9 @@
+  */
+ #define IXGBE_MAX_VFS_DRV_LIMIT  (IXGBE_MAX_VF_FUNCTIONS - 1)
+ 
++#ifdef CONFIG_PCI_IOV
+ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter);
++#endif
+ void ixgbe_msg_task(struct ixgbe_adapter *adapter);
+ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask);
+ void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter);
 -- 
 1.9.0
