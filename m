@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 net-next 2/2] be2net: Support for configurable RSS
- hash key
-Date: Tue, 22 Apr 2014 21:29:00 -0400 (EDT)
-Message-ID: <20140422.212900.1217135773929892370.davem@davemloft.net>
-References: <1398074880-13300-1-git-send-email-VenkatKumar.Duvvuru@Emulex.com>
-	<d3c0c9d4-8cdc-4ffe-abaa-55c4579d9df4@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH] vlan: unnecessary to check if vlan_pcpu_stats is NULL
+Date: Tue, 22 Apr 2014 21:29:11 -0400 (EDT)
+Message-ID: <20140422.212911.2165311509701645417.davem@davemloft.net>
+References: <1398080948-31851-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: VenkatKumar.Duvvuru@Emulex.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44895 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44905 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752724AbaDWB3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 21:29:01 -0400
-In-Reply-To: <d3c0c9d4-8cdc-4ffe-abaa-55c4579d9df4@CMEXHTCAS1.ad.emulex.com>
+	with ESMTP id S1753097AbaDWB3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 21:29:13 -0400
+In-Reply-To: <1398080948-31851-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-Date: Mon, 21 Apr 2014 15:38:00 +0530
+From: roy.qing.li@gmail.com
+Date: Mon, 21 Apr 2014 19:49:08 +0800
 
-> This be2net patch implements the get/set_rxfh() ethtool hooks.
-> RSS_CONFIG device command is invoked to set hashkey and indirection table.
-> It also uses an initial random value for RSS hash key instead of a
-> hard-coded value as hard-coded values for a hash-key are usually
-> considered a security risk.
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Signed-off-by: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
+> if allocating memory for vlan_pcpu_stats failed, the device can not be operated
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
 Applied.
