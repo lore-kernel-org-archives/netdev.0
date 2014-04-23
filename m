@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 3/5] net: Add variants of capable for use on on sockets
-Date: Wed, 23 Apr 2014 14:26:56 -0700
-Message-ID: <87r44nd9en.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 4/5] net: Add variants of capable for use on netlink messages
+Date: Wed, 23 Apr 2014 14:28:03 -0700
+Message-ID: <87lhuvd9cs.fsf_-_@x220.int.ebiederm.org>
 References: <CALCETrWzUQ7QjykT85ExDfX-+9eDD-D-dcxofUMPvLK=ia9arg@mail.gmail.com>
 	<87r44qrt8v.fsf_-_@x220.int.ebiederm.org>
 	<87r44pnk3c.fsf@x220.int.ebiederm.org>
@@ -13,101 +13,120 @@ Cc: vgoyal@redhat.com, ssorce@redhat.com, security@kernel.org,
 	luto@amacapital.net, netdev@vger.kernel.org, serge@hallyn.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33431 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752339AbaDWV10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:27:26 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:54368 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752339AbaDWV2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:28:34 -0400
 In-Reply-To: <87a9bbeo2o.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Wed, 23 Apr 2014 14:24:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-sk_net_capable - The common case, operations that are safe in a network namespace.
-sk_capable - Operations that are not known to be safe in a network namespace
-sk_ns_capable - The general case for special cases.
+netlink_net_capable - The common case use, for operations that are safe on a network namespace
+netlink_capable - For operations that are only known to be safe for the global root
+netlink_ns_capable - The general case of capable used to handle special cases
+
+__netlink_ns_capable - Same as netlink_ns_capable except taking a netlink_skb_parms instead of
+		       the skbuff of a netlink message.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/net/sock.h |  5 +++++
- net/core/sock.c    | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ include/linux/netlink.h  |  7 ++++++
+ net/netlink/af_netlink.c | 65 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 72 insertions(+)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 8338a14e4805..21569cf456ed 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2255,6 +2255,11 @@ int sock_get_timestampns(struct sock *, struct timespec __user *);
- int sock_recv_errqueue(struct sock *sk, struct msghdr *msg, int len, int level,
- 		       int type);
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index aad8eeaf416d..f64b01787ddc 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -169,4 +169,11 @@ struct netlink_tap {
+ extern int netlink_add_tap(struct netlink_tap *nt);
+ extern int netlink_remove_tap(struct netlink_tap *nt);
  
-+bool sk_ns_capable(const struct sock *sk,
-+		   struct user_namespace *user_ns, int cap);
-+bool sk_capable(const struct sock *sk, int cap);
-+bool sk_net_capable(const struct sock *sk, int cap);
++bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
++			  struct user_namespace *ns, int cap);
++bool netlink_ns_capable(const struct sk_buff *skb,
++			struct user_namespace *ns, int cap);
++bool netlink_capable(const struct sk_buff *skb, int cap);
++bool netlink_net_capable(const struct sk_buff *skb, int cap);
 +
- /*
-  *	Enable debug/info messages
-  */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index b4fff008136f..664ee4295b6f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -145,6 +145,55 @@
- static DEFINE_MUTEX(proto_list_mutex);
- static LIST_HEAD(proto_list);
+ #endif	/* __LINUX_NETLINK_H */
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 7f931fe4d187..81dca96d2be6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1360,6 +1360,71 @@ retry:
+ 	return err;
+ }
  
 +/**
-+ * sk_ns_capable - General socket capability test
-+ * @sk: Socket to use a capability on or through
++ * __netlink_ns_capable - General netlink message capability test
++ * @nsp: NETLINK_CB of the socket buffer holding a netlink command from userspace.
 + * @user_ns: The user namespace of the capability to use
 + * @cap: The capability to use
 + *
-+ * Test to see if the opener of the socket had when the socket was
-+ * created and the current process has the capability @cap in the user
-+ * namespace @user_ns.
++ * Test to see if the opener of the socket we received the message
++ * from had when the netlink socket was created and the sender of the
++ * message has has the capability @cap in the user namespace @user_ns.
 + */
-+bool sk_ns_capable(const struct sock *sk,
-+		   struct user_namespace *user_ns, int cap)
++bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
++			struct user_namespace *user_ns, int cap)
 +{
-+	return file_ns_capable(sk->sk_socket->file, user_ns, cap) &&
-+		ns_capable(user_ns, cap);
++	return sk_ns_capable(nsp->sk, user_ns, cap);
 +}
-+EXPORT_SYMBOL(sk_ns_capable);
++EXPORT_SYMBOL(__netlink_ns_capable);
 +
 +/**
-+ * sk_capable - Socket global capability test
-+ * @sk: Socket to use a capability on or through
-+ * @cap: The global capbility to use
-+ *
-+ * Test to see if the opener of the socket had when the socket was
-+ * created and the current process has the capability @cap in all user
-+ * namespaces.
-+ */
-+bool sk_capable(const struct sock *sk, int cap)
-+{
-+	return sk_ns_capable(sk, &init_user_ns, cap);
-+}
-+EXPORT_SYMBOL(sk_capable);
-+
-+/**
-+ * sk_net_capable - Network namespace socket capability test
-+ * @sk: Socket to use a capability on or through
++ * netlink_ns_capable - General netlink message capability test
++ * @skb: socket buffer holding a netlink command from userspace
++ * @user_ns: The user namespace of the capability to use
 + * @cap: The capability to use
 + *
-+ * Test to see if the opener of the socket had when the socke was created
-+ * and the current process has the capability @cap over the network namespace
-+ * the socket is a member of.
++ * Test to see if the opener of the socket we received the message
++ * from had when the netlink socket was created and the sender of the
++ * message has has the capability @cap in the user namespace @user_ns.
 + */
-+bool sk_net_capable(const struct sock *sk, int cap)
++bool netlink_ns_capable(const struct sk_buff *skb,
++			struct user_namespace *user_ns, int cap)
 +{
-+	return sk_ns_capable(sk, sock_net(sk)->user_ns, cap);
++	return __netlink_ns_capable(&NETLINK_CB(skb), user_ns, cap);
 +}
-+EXPORT_SYMBOL(sk_net_capable);
++EXPORT_SYMBOL(netlink_ns_capable);
 +
++/**
++ * netlink_capable - Netlink global message capability test
++ * @skb: socket buffer holding a netlink command from userspace
++ * @cap: The capability to use
++ *
++ * Test to see if the opener of the socket we received the message
++ * from had when the netlink socket was created and the sender of the
++ * message has has the capability @cap in all user namespaces.
++ */
++bool netlink_capable(const struct sk_buff *skb, int cap)
++{
++	return netlink_ns_capable(skb, &init_user_ns, cap);
++}
++EXPORT_SYMBOL(netlink_capable);
 +
- #ifdef CONFIG_MEMCG_KMEM
- int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
++/**
++ * netlink_net_capable - Netlink network namespace message capability test
++ * @skb: socket buffer holding a netlink command from userspace
++ * @cap: The capability to use
++ *
++ * Test to see if the opener of the socket we received the message
++ * from had when the netlink socket was created and the sender of the
++ * message has has the capability @cap over the network namespace of
++ * the socket we received the message from.
++ */
++bool netlink_net_capable(const struct sk_buff *skb, int cap)
++{
++	return netlink_ns_capable(skb, sock_net(skb->sk)->user_ns, cap);
++}
++EXPORT_SYMBOL(netlink_net_capable);
++
+ static inline int netlink_allowed(const struct socket *sock, unsigned int flag)
  {
+ 	return (nl_table[sock->sk->sk_protocol].flags & flag) ||
 -- 
 1.9.1
