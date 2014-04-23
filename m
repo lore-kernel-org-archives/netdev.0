@@ -1,73 +1,70 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH] smc91x: improve definition of debug macros
-Date: Tue, 22 Apr 2014 20:04:42 -0700
-Message-ID: <1398222282-8926-1-git-send-email-zlim.lnx@gmail.com>
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Joe Perches <joe@perches.com>
-To: Nicolas Pitre <nico@fluxnic.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] net: filter: initialize A and X registers
+Date: Tue, 22 Apr 2014 20:18:57 -0700
+Message-ID: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:57776 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbaDWDTC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Apr 2014 23:19:02 -0400
+Received: by mail-pb0-f50.google.com with SMTP id md12so303122pbc.23
+        for <netdev@vger.kernel.org>; Tue, 22 Apr 2014 20:19:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Redefine some macros that were conditioned upon SMC_DEBUG level.
+exisiting BPF verifier allows uninitialized access to registers,
+'ret A' is considered to be a valid filter.
+So initialize A and X to zero to prevent leaking kernel memory
+In the future BPF verifier will be rejecting such filters
 
-By allowing compiler to verify parameters used by these macros
-unconditionally, we can flag compilation failures.
-
-Compiler will still optimize out the unused code path depending on
-SMC_DEBUG, so this is a net gain.
-
-Signed-off-by: Joe Perches <joe@perches.com>
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
 ---
-Note: This patch is based on suggestion by Joe Perches.
-I added his Signed-off-by as well since I didn't receive an objection.
+ net/core/filter.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
- drivers/net/ethernet/smsc/smc91x.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 597909f..bcaa41a 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -147,18 +147,19 @@ MODULE_ALIAS("platform:smc91x");
-  */
- #define MII_DELAY		1
- 
--#if SMC_DEBUG > 0
--#define DBG(n, dev, args...)				\
--	do {						\
--		if (SMC_DEBUG >= (n))			\
--			netdev_dbg(dev, args);		\
-+#define DBG(n, dev, fmt, ...)					\
-+	do {							\
-+		if (SMC_DEBUG >= (n))				\
-+			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
- 	} while (0)
- 
--#define PRINTK(dev, args...)   netdev_info(dev, args)
--#else
--#define DBG(n, dev, args...)   do { } while (0)
--#define PRINTK(dev, args...)   netdev_dbg(dev, args)
--#endif
-+#define PRINTK(dev, fmt, ...)					\
-+	do {							\
-+		if (SMC_DEBUG > 0)				\
-+			netdev_info(dev, fmt, ##__VA_ARGS__);	\
-+		else						\
-+			netdev_dbg(dev, fmt, ##__VA_ARGS__);	\
-+	} while (0)
- 
- #if SMC_DEBUG > 3
- static void PRINT_PKT(u_char *buf, int length)
-@@ -191,7 +192,7 @@ static void PRINT_PKT(u_char *buf, int length)
- 	pr_cont("\n");
+diff --git a/net/core/filter.c b/net/core/filter.c
+index cd58614..9d79ca0 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -122,6 +122,13 @@ noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ 	return 0;
  }
- #else
--#define PRINT_PKT(x...)  do { } while (0)
-+static inline void PRINT_PKT(u_char *buf, int length) { }
- #endif
  
++/* Register mappings for user programs. */
++#define A_REG		0
++#define X_REG		7
++#define TMP_REG		8
++#define ARG2_REG	2
++#define ARG3_REG	3
++
+ /**
+  *	__sk_run_filter - run a filter on a given context
+  *	@ctx: buffer to run the filter on
+@@ -242,6 +249,8 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
  
+ 	regs[FP_REG]  = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+ 	regs[ARG1_REG] = (u64) (unsigned long) ctx;
++	regs[A_REG] = 0;
++	regs[X_REG] = 0;
+ 
+ select_insn:
+ 	goto *jumptable[insn->code];
+@@ -643,13 +652,6 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ 	return raw_smp_processor_id();
+ }
+ 
+-/* Register mappings for user programs. */
+-#define A_REG		0
+-#define X_REG		7
+-#define TMP_REG		8
+-#define ARG2_REG	2
+-#define ARG3_REG	3
+-
+ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 				   struct sock_filter_int **insnp)
+ {
 -- 
-1.9.1
+1.7.9.5
