@@ -1,68 +1,45 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 2/2] Revert "macvlan : fix checksums error when we are in bridge mode"
-Date: Wed, 23 Apr 2014 12:51:41 -0400
-Message-ID: <1398271901-32534-3-git-send-email-vyasevic@redhat.com>
-References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
-Cc: daniel.lezcano@free.fr, nightnord@gmail.com, kaber@trash.net,
-	eric.dumazet@gmail.com, mst@redhat.com, jasowang@redhat.com,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Wed, 23 Apr 2014 12:52:35 -0400 (EDT)
+Message-ID: <20140423.125235.1748012189632512309.davem@davemloft.net>
+References: <20140422.235745.1219194947074686642.davem@davemloft.net>
+	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
+	<5357659E.1070807@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58213 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754838AbaDWQwC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 12:52:02 -0400
-In-Reply-To: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49721 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756629AbaDWQwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:52:37 -0400
+In-Reply-To: <5357659E.1070807@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 12a2856b604476c27d85a5f9a57ae1661fc46019.
-The commit above doesn't appear to be necessary any more as the
-checksums appear to be correctly computed/validated.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Wed, 23 Apr 2014 09:02:54 +0200
 
-Additionally the above commit breaks kvm configurations where
-one VM is using a device that support checksum offload (virtio) and
-the other VM does not.
-In this case, packets leaving virtio device will have CHECKSUM_PARTIAL
-set.  The packets is forwarded to a macvtap that has offload features
-turned off.  Since we use CHECKSUM_UNNECESSARY, the host does does not
-update the checksum and thus a bad checksum is passed up to
-the guest.
+> On 04/23/2014 06:59 AM, Alexei Starovoitov wrote:
+>> On Tue, Apr 22, 2014 at 8:57 PM, David Miller <davem@davemloft.net>
+>> wrote:
+>>> From: Alexei Starovoitov <ast@plumgrid.com>
+>>> Date: Tue, 22 Apr 2014 20:18:57 -0700
+>>>
+>>>> exisiting BPF verifier allows uninitialized access to registers,
+>>>> 'ret A' is considered to be a valid filter.
+>>>> So initialize A and X to zero to prevent leaking kernel memory
+>>>> In the future BPF verifier will be rejecting such filters
+>>>>
+>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>
+>>> Has the code always been like this?
+> 
+> I think it would be much cleaner to just prevent such filters that
+> only contain a 'ret A', or 'ret X' w/o a load into X from attaching.
 
-CC: Daniel Lezcano <daniel.lezcano@free.fr>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Andrian Nord <nightnord@gmail.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Michael S. Tsirkin <mst@redhat.com>
-CC: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvlan.c | 3 ---
- 1 file changed, 3 deletions(-)
+That choice had to be done two decades ago, not now.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 1831fb7..33b6cf8 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -263,11 +263,9 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 	const struct macvlan_dev *vlan = netdev_priv(dev);
- 	const struct macvlan_port *port = vlan->port;
- 	const struct macvlan_dev *dest;
--	__u8 ip_summed = skb->ip_summed;
- 
- 	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
- 		const struct ethhdr *eth = (void *)skb->data;
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
- 		/* send to other bridge ports directly */
- 		if (is_multicast_ether_addr(eth->h_dest)) {
-@@ -285,7 +283,6 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- xmit_world:
--	skb->ip_summed = ip_summed;
- 	skb->dev = vlan->lowerdev;
- 	return dev_queue_xmit(skb);
- }
--- 
-1.9.0
+We have to accept such filters, we always have.
