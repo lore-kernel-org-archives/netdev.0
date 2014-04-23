@@ -1,57 +1,46 @@
-From: Vivek Goyal <vgoyal@redhat.com>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Wed, 23 Apr 2014 11:07:44 -0400
-Message-ID: <20140423150744.GC22755@redhat.com>
-References: <CALCETrVq4HRpfWOAbZAQbyjuraQd=OxnW=WjSoe5JgBzRStiKg@mail.gmail.com>
- <1397756025.2628.64.camel@willson.li.ssimo.org>
- <CALCETrVBJFgKwRKBE2jAG6kiGgkJ+MyQiw2nyz5yj0h68kCk9A@mail.gmail.com>
- <1397759013.2628.86.camel@willson.li.ssimo.org>
- <20140417185023.GA32527@redhat.com>
- <1397761817.2628.113.camel@willson.li.ssimo.org>
- <20140417191646.GA2461@redhat.com>
- <CALCETrW3F1+3qF3thrAmuoWVbRveBJ2=owpigh4mv6iAafoQCw@mail.gmail.com>
- <20140421150307.GA4367@redhat.com>
- <CALCETrW5RvbW-Hz_Y7oULP6sEfdhGBh51+mTj4RwobHV-ji+Kg@mail.gmail.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [0/2] Fix problems with with IFLA_VF_PORTS
+Date: Wed, 23 Apr 2014 08:14:15 -0700
+Message-ID: <20140423081415.000025af@unknown>
+References: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simo Sorce <ssorce@redhat.com>, Daniel J Walsh <dwalsh@redhat.com>,
-	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	lpoetter@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrW5RvbW-Hz_Y7oULP6sEfdhGBh51+mTj4RwobHV-ji+Kg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <ssujith@cisco.com>,
+	<neepatel@cisco.com>, <benve@cisco.com>, <davem@davemloft.net>,
+	<ben@decadent.org.uk>, <govindarajulu90@gmail.com>
+To: David Gibson <david@gibson.dropbear.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:23724 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753866AbaDWPPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 11:15:03 -0400
+In-Reply-To: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 21, 2014 at 08:47:51AM -0700, Andy Lutomirski wrote:
+On Wed, 23 Apr 2014 17:21:03 +1000
+David Gibson <david@gibson.dropbear.id.au> wrote:
 
-[..]
-> To summarize from my reading of how this crap words:
+> I've had a customer encounter a problem with getifaddrs(3) freezing up
+> on a system with a Cisco enic device.
 > 
-> When a unit is created, systemd opens a stream socket pointing at
-> /run/systemd/journal/stdout.  It tells journald the unit, along with
-> lots of other useful information.  journald records this association
-> between the socket and the unit.  Systemd could tell journald the
-> cgroup here, too, if it wanted it.
+> I've discovered that the problem is caused by an enic device with a
+> large number of SR-IOV virtual functions overflowing the normal sized
+> packet buffer for netlink, leading to interfaces not being reported
+> from an RTM_GETLINK request.
+> 
+> The first patch here just makes the problem easier to locate if it
+> occurs again in a different way, by adding a WARN_ON() when we run out
+> of room in a netlink packet in this manner.
+> 
+> The second patch actually fixes the problem, by only reporting
+> IFLA_VF_PORTS information when the RTEXT_FILTER_VF flag is specified.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Ok, that's a fair point. I looked at  connect_logger_as() and I see
-that systemd does connect() on behalf of service being launched and
-sets up fd and passes bunch of information to journald. So cgroup could
-be one of the information and that would act like SO_PEERCGROUP in
-this specific case. Not sure why it is not done though. I will let
-systemd folks comment on that. I don't have enough background here.
+Once you fix a couple of coding style errors mentioned by Jiri then
 
-But this works in this specific case where there is a mechanism to 
-pass meta information to receiver. What about SSSD use case where 
-they want to know the cgroup of client and possibly provide differentiated
-service based on client.
-
-Also Dan Walsh mentioned that what if a process directly wants to open
-journal socket and log something to journal. 
-
-Thanks
-Vivek
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
