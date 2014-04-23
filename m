@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/5] net: Move the permission check in sock_diag_put_filterinfo to packet_diag_dump
-Date: Wed, 23 Apr 2014 14:26:25 -0700
-Message-ID: <87wqefd9fi.fsf_-_@x220.int.ebiederm.org>
+Subject: [PATCH 3/5] net: Add variants of capable for use on on sockets
+Date: Wed, 23 Apr 2014 14:26:56 -0700
+Message-ID: <87r44nd9en.fsf_-_@x220.int.ebiederm.org>
 References: <CALCETrWzUQ7QjykT85ExDfX-+9eDD-D-dcxofUMPvLK=ia9arg@mail.gmail.com>
 	<87r44qrt8v.fsf_-_@x220.int.ebiederm.org>
 	<87r44pnk3c.fsf@x220.int.ebiederm.org>
@@ -13,107 +13,101 @@ Cc: vgoyal@redhat.com, ssorce@redhat.com, security@kernel.org,
 	luto@amacapital.net, netdev@vger.kernel.org, serge@hallyn.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:33340 "EHLO
+Received: from out02.mta.xmission.com ([166.70.13.232]:33431 "EHLO
 	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756149AbaDWV04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:26:56 -0400
+	with ESMTP id S1752339AbaDWV10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:27:26 -0400
 In-Reply-To: <87a9bbeo2o.fsf_-_@x220.int.ebiederm.org> (Eric W. Biederman's
 	message of "Wed, 23 Apr 2014 14:24:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-The permission check in sock_diag_put_filterinfo is wrong, and it is so removed
-from it's sources it is not clear why it is wrong.  Move the computation
-into packet_diag_dump and pass a bool of the result into sock_diag_filterinfo.
+sk_net_capable - The common case, operations that are safe in a network namespace.
+sk_capable - Operations that are not known to be safe in a network namespace
+sk_ns_capable - The general case for special cases.
 
-This does not yet correct the capability check but instead simply moves it to make
-it clear what is going on.
-
-Reported-by: Andy Lutomirski <luto@amacapital.net>
 Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- include/linux/sock_diag.h | 2 +-
- net/core/sock_diag.c      | 4 ++--
- net/packet/diag.c         | 7 ++++++-
- 3 files changed, 9 insertions(+), 4 deletions(-)
+ include/net/sock.h |  5 +++++
+ net/core/sock.c    | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 54 insertions(+)
 
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index 302ab805b0bb..46cca4c06848 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -23,7 +23,7 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
- void sock_diag_save_cookie(void *sk, __u32 *cookie);
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8338a14e4805..21569cf456ed 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2255,6 +2255,11 @@ int sock_get_timestampns(struct sock *, struct timespec __user *);
+ int sock_recv_errqueue(struct sock *sk, struct msghdr *msg, int len, int level,
+ 		       int type);
  
- int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
--int sock_diag_put_filterinfo(struct sock *sk,
-+int sock_diag_put_filterinfo(bool may_report_filterinfo, struct sock *sk,
- 			     struct sk_buff *skb, int attrtype);
++bool sk_ns_capable(const struct sock *sk,
++		   struct user_namespace *user_ns, int cap);
++bool sk_capable(const struct sock *sk, int cap);
++bool sk_net_capable(const struct sock *sk, int cap);
++
+ /*
+  *	Enable debug/info messages
+  */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b4fff008136f..664ee4295b6f 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -145,6 +145,55 @@
+ static DEFINE_MUTEX(proto_list_mutex);
+ static LIST_HEAD(proto_list);
  
- #endif
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 9deb6abd6cf6..a4216a4c9572 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -49,7 +49,7 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
- }
- EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
- 
--int sock_diag_put_filterinfo(struct sock *sk,
-+int sock_diag_put_filterinfo(bool may_report_filterinfo, struct sock *sk,
- 			     struct sk_buff *skb, int attrtype)
++/**
++ * sk_ns_capable - General socket capability test
++ * @sk: Socket to use a capability on or through
++ * @user_ns: The user namespace of the capability to use
++ * @cap: The capability to use
++ *
++ * Test to see if the opener of the socket had when the socket was
++ * created and the current process has the capability @cap in the user
++ * namespace @user_ns.
++ */
++bool sk_ns_capable(const struct sock *sk,
++		   struct user_namespace *user_ns, int cap)
++{
++	return file_ns_capable(sk->sk_socket->file, user_ns, cap) &&
++		ns_capable(user_ns, cap);
++}
++EXPORT_SYMBOL(sk_ns_capable);
++
++/**
++ * sk_capable - Socket global capability test
++ * @sk: Socket to use a capability on or through
++ * @cap: The global capbility to use
++ *
++ * Test to see if the opener of the socket had when the socket was
++ * created and the current process has the capability @cap in all user
++ * namespaces.
++ */
++bool sk_capable(const struct sock *sk, int cap)
++{
++	return sk_ns_capable(sk, &init_user_ns, cap);
++}
++EXPORT_SYMBOL(sk_capable);
++
++/**
++ * sk_net_capable - Network namespace socket capability test
++ * @sk: Socket to use a capability on or through
++ * @cap: The capability to use
++ *
++ * Test to see if the opener of the socket had when the socke was created
++ * and the current process has the capability @cap over the network namespace
++ * the socket is a member of.
++ */
++bool sk_net_capable(const struct sock *sk, int cap)
++{
++	return sk_ns_capable(sk, sock_net(sk)->user_ns, cap);
++}
++EXPORT_SYMBOL(sk_net_capable);
++
++
+ #ifdef CONFIG_MEMCG_KMEM
+ int mem_cgroup_sockets_init(struct mem_cgroup *memcg, struct cgroup_subsys *ss)
  {
- 	struct sock_fprog_kern *fprog;
-@@ -58,7 +58,7 @@ int sock_diag_put_filterinfo(struct sock *sk,
- 	unsigned int flen;
- 	int err = 0;
- 
--	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN)) {
-+	if (!may_report_filterinfo) {
- 		nla_reserve(skb, attrtype, 0);
- 		return 0;
- 	}
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index 435ff99ba8c7..b34d0de24091 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -128,6 +128,7 @@ static int pdiag_put_fanout(struct packet_sock *po, struct sk_buff *nlskb)
- 
- static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 			struct packet_diag_req *req,
-+			bool may_report_filterinfo,
- 			struct user_namespace *user_ns,
- 			u32 portid, u32 seq, u32 flags, int sk_ino)
- {
-@@ -172,7 +173,8 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
- 		goto out_nlmsg_trim;
- 
- 	if ((req->pdiag_show & PACKET_SHOW_FILTER) &&
--	    sock_diag_put_filterinfo(sk, skb, PACKET_DIAG_FILTER))
-+	    sock_diag_put_filterinfo(may_report_filterinfo, sk, skb,
-+				     PACKET_DIAG_FILTER))
- 		goto out_nlmsg_trim;
- 
- 	return nlmsg_end(skb, nlh);
-@@ -188,9 +190,11 @@ static int packet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct packet_diag_req *req;
- 	struct net *net;
- 	struct sock *sk;
-+	bool may_report_filterinfo;
- 
- 	net = sock_net(skb->sk);
- 	req = nlmsg_data(cb->nlh);
-+	may_report_filterinfo = ns_capable(net->user_ns, CAP_NET_ADMIN);
- 
- 	mutex_lock(&net->packet.sklist_lock);
- 	sk_for_each(sk, &net->packet.sklist) {
-@@ -200,6 +204,7 @@ static int packet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			goto next;
- 
- 		if (sk_diag_fill(sk, skb, req,
-+				 may_report_filterinfo,
- 				 sk_user_ns(NETLINK_CB(cb->skb).sk),
- 				 NETLINK_CB(cb->skb).portid,
- 				 cb->nlh->nlmsg_seq, NLM_F_MULTI,
 -- 
 1.9.1
