@@ -1,65 +1,230 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 14:39:02 -0700
-Message-ID: <1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	 <20140422.235745.1219194947074686642.davem@davemloft.net>
-	 <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
-	 <20140423.125043.100674358164503915.davem@davemloft.net>
-	 <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
+From: Max Schwarz <max.schwarz@online.de>
+Subject: Re: [PATCH 2/2] arc_emac: add clock handling
+Date: Wed, 23 Apr 2014 23:39:26 +0200
+Message-ID: <4205607.5MYc0BULKu@typ>
+References: <2479609.DglKFY1Bsn@phil> <21852569.EUtq6ntoe2@phil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>
+To: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:56597 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017AbaDWVjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:39:05 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y13so256925pdi.14
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 14:39:04 -0700 (PDT)
-In-Reply-To: <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
+Received: from moutng.kundenserver.de ([212.227.17.13]:55536 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017AbaDWVjs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 17:39:48 -0400
+In-Reply-To: <21852569.EUtq6ntoe2@phil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-23 at 13:38 -0700, Alexei Starovoitov wrote:
+On Wednesday 23 April 2014 at 14:24:55, Heiko St=FCbner wrote:
+> This adds ability for the arc_emac to really handle its supplying clo=
+ck.
+> To get the needed clock-frequency either a real clock or the previous
+> clock-frequency property must be provided.
+>=20
+> Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+> ---
+>  Documentation/devicetree/bindings/net/arc_emac.txt | 12 +++++-
+>  drivers/net/ethernet/arc/emac.h                    |  2 +
+>  drivers/net/ethernet/arc/emac_main.c               | 46
+> ++++++++++++++++------ 3 files changed, 47 insertions(+), 13 deletion=
+s(-)
+>=20
+> diff --git a/Documentation/devicetree/bindings/net/arc_emac.txt
+> b/Documentation/devicetree/bindings/net/arc_emac.txt index 7fbb027..a=
+1d71eb
+> 100644
+> --- a/Documentation/devicetree/bindings/net/arc_emac.txt
+> +++ b/Documentation/devicetree/bindings/net/arc_emac.txt
+> @@ -4,11 +4,15 @@ Required properties:
+>  - compatible: Should be "snps,arc-emac"
+>  - reg: Address and length of the register set for the device
+>  - interrupts: Should contain the EMAC interrupts
+> -- clock-frequency: CPU frequency. It is needed to calculate and set =
+polling
+> -period of EMAC.
+>  - max-speed: see ethernet.txt file in the same directory.
+>  - phy: see ethernet.txt file in the same directory.
+>=20
+> +Clock handling:
+> +The clock frequency is needed to calculate and set polling period of=
+ EMAC.
+> +It must be provided by one of:
+> +- clock-frequency: CPU frequency.
+> +- clocks: reference to the clock supplying the EMAC.
+> +
+>  Child nodes of the driver are the individual PHY devices connected t=
+o the
+>  MDIO bus. They must have a "reg" property given the PHY address on t=
+he MDIO
+> bus.
+>=20
+> @@ -19,7 +23,11 @@ Examples:
+>  		reg =3D <0xc0fc2000 0x3c>;
+>  		interrupts =3D <6>;
+>  		mac-address =3D [ 00 11 22 33 44 55 ];
+> +
+>  		clock-frequency =3D <80000000>;
+> +		/* or */
+> +		clocks =3D <&emac_clock>;
+> +
+>  		max-speed =3D <100>;
+>  		phy =3D <&phy0>;
+>=20
+> diff --git a/drivers/net/ethernet/arc/emac.h
+> b/drivers/net/ethernet/arc/emac.h index 928fac6..53f85bf 100644
+> --- a/drivers/net/ethernet/arc/emac.h
+> +++ b/drivers/net/ethernet/arc/emac.h
+> @@ -11,6 +11,7 @@
+>  #include <linux/dma-mapping.h>
+>  #include <linux/netdevice.h>
+>  #include <linux/phy.h>
+> +#include <linux/clk.h>
+>=20
+>  /* STATUS and ENABLE Register bit masks */
+>  #define TXINT_MASK	(1<<0)	/* Transmit interrupt */
+> @@ -131,6 +132,7 @@ struct arc_emac_priv {
+>  	struct mii_bus *bus;
+>=20
+>  	void __iomem *regs;
+> +	struct clk *clk;
+>=20
+>  	struct napi_struct napi;
+>  	struct net_device_stats stats;
+> diff --git a/drivers/net/ethernet/arc/emac_main.c
+> b/drivers/net/ethernet/arc/emac_main.c index 0cba97a..68f8ad5 100644
+> --- a/drivers/net/ethernet/arc/emac_main.c
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -649,13 +649,6 @@ static int arc_emac_probe(struct platform_device=
+ *pdev)
+> return -ENODEV;
+>  	}
+>=20
+> -	/* Get CPU clock frequency from device tree */
+> -	if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
+> -				 &clock_frequency)) {
+> -		dev_err(&pdev->dev, "failed to retrieve <clock-frequency> from dev=
+ice
+> tree\n"); -		return -EINVAL;
+> -	}
+> -
+>  	/* Get IRQ from device tree */
+>  	irq =3D irq_of_parse_and_map(pdev->dev.of_node, 0);
+>  	if (!irq) {
+> @@ -687,13 +680,32 @@ static int arc_emac_probe(struct platform_devic=
+e
+> *pdev) }
+>  	dev_dbg(&pdev->dev, "Registers base address is 0x%p\n", priv->regs)=
+;
+>=20
+> +	priv->clk =3D of_clk_get(pdev->dev.of_node, 0);
+> +	if (IS_ERR(priv->clk)) {
+> +		/* Get CPU clock frequency from device tree */
+> +		if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
+> +					&clock_frequency)) {
+> +			dev_err(&pdev->dev, "failed to retrieve <clock-frequency> from de=
+vice
+> tree\n"); +			err =3D -EINVAL;
+> +			goto out_netdev;
+> +		}
+> +	} else {
+> +		err =3D clk_prepare_enable(priv->clk);
+> +		if (err) {
+> +			dev_err(&pdev->dev, "failed to enable clock\n");
+> +			goto out_clkget;
+> +		}
+> +
+> +		clock_frequency =3D clk_get_rate(priv->clk);
+> +	}
+> +
+>  	id =3D arc_reg_get(priv, R_ID);
+>=20
+>  	/* Check for EMAC revision 5 or 7, magic number */
+>  	if (!(id =3D=3D 0x0005fd02 || id =3D=3D 0x0007fd02)) {
+>  		dev_err(&pdev->dev, "ARC EMAC not detected, id=3D0x%x\n", id);
+>  		err =3D -ENODEV;
+> -		goto out_netdev;
+> +		goto out_clken;
+>  	}
+>  	dev_info(&pdev->dev, "ARC EMAC detected with id: 0x%x\n", id);
+>=20
+> @@ -708,7 +720,7 @@ static int arc_emac_probe(struct platform_device =
+*pdev)
+>  			       ndev->name, ndev);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "could not allocate IRQ\n");
+> -		goto out_netdev;
+> +		goto out_clken;
+>  	}
+>=20
+>  	/* Get MAC address from device tree */
+> @@ -729,7 +741,7 @@ static int arc_emac_probe(struct platform_device =
+*pdev)
+>  	if (!priv->rxbd) {
+>  		dev_err(&pdev->dev, "failed to allocate data buffers\n");
+>  		err =3D -ENOMEM;
+> -		goto out_netdev;
+> +		goto out_clken;
+>  	}
+>=20
+>  	priv->txbd =3D priv->rxbd + RX_BD_NUM;
+> @@ -741,7 +753,7 @@ static int arc_emac_probe(struct platform_device =
+*pdev)
+>  	err =3D arc_mdio_probe(pdev, priv);
+>  	if (err) {
+>  		dev_err(&pdev->dev, "failed to probe MII bus\n");
+> -		goto out_netdev;
+> +		goto out_clken;
+>  	}
+>=20
+>  	priv->phy_dev =3D of_phy_connect(ndev, phy_node, arc_emac_adjust_li=
+nk, 0,
+> @@ -772,6 +784,12 @@ out_netif_api:
+>  	priv->phy_dev =3D NULL;
+>  out_mdio:
+>  	arc_mdio_remove(priv);
+> +out_clken:
+> +	if (IS_ERR(priv->clk))
+> +		clk_disable_unprepare(priv->clk);
 
-> In this particular case we can indeed make verifier smarter to the point
-> that once it detects uninitialized A/X in a filter, it will add explicit init
-> after conversion, so we don't have to pay the penalty at run time.
-> It's a very good suggestion.
-> 
-> At the same time I think 'ret A' falls into category of the 20 year old bug.
-> The filters that using undocumented behavior are destined to be
-> broken sooner or later. tcpdump doesn't generate such filters.
-> Valid filters will not be affected by strict checking, but I think users
-> will be actually happy to see kernel rejecting their buggy filters.
-> I think we can have a global flag for bpf verifier whether to reject
-> such filters or accept them by adding explicit inits under
-> 'bpf_permissive_loading' flag.
-> Thoughts?
+Should be if (!IS_ERR(priv->clk)).
 
+> +out_clkget:
+> +	if (IS_ERR(priv->clk))
+> +		clk_put(priv->clk);
 
-I do not really understand the concerns and this discussion over this
-bug.
+The same.
 
-BPF JIT does basic checks and forces A=0 if first instruction doesn't
-set A.
+>  out_netdev:
+>  	free_netdev(ndev);
+>  	return err;
+> @@ -787,6 +805,12 @@ static int arc_emac_remove(struct platform_devic=
+e
+> *pdev) arc_mdio_remove(priv);
+>  	unregister_netdev(ndev);
+>  	netif_napi_del(&priv->napi);
+> +
+> +	if (!IS_ERR(priv->clk)) {
+> +		clk_disable_unprepare(priv->clk);
+> +		clk_put(priv->clk);
+> +	}
+> +
+>  	free_netdev(ndev);
+>=20
+>  	return 0;
 
-( arch/x86/net/bpf_jit_comp.c line 263 )
+Apart from that, the clock stuff has been
 
-X is forced to 0 anyway if X is ever used in the JITed filter.
-( line 227, and we have a typo in comment : s/leek/leak/ )
+Tested-by: Max Schwarz <max.schwarz@online.de>
+(on the same hardware, radxa rock)
 
-This is not a big deal. If you want to 'optimize', fine, but don't break
-programs.
-
-There is no way you add a 'flag' to break a user program, even
-if _you_ believe its broken.
-
-Maybe it assumed initial X / A contents were 0.
-
-Even if not documented, we cannot break this 20 years after the facts.
+Cheers,
+  Max
