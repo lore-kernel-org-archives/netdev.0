@@ -1,45 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 12:52:35 -0400 (EDT)
-Message-ID: <20140423.125235.1748012189632512309.davem@davemloft.net>
-References: <20140422.235745.1219194947074686642.davem@davemloft.net>
-	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
-	<5357659E.1070807@redhat.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: skb_try_coalesce bug?
+Date: Wed, 23 Apr 2014 12:56:20 -0400
+Message-ID: <5357F0B4.5040606@ericsson.com>
+References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>	 <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356C518.7050602@ericsson.com>	 <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356D2AF.7030401@ericsson.com>	 <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com> <1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: Erik Hugne <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49721 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756629AbaDWQwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:52:37 -0400
-In-Reply-To: <5357659E.1070807@redhat.com>
+Received: from usevmg21.ericsson.net ([198.24.6.65]:45578 "EHLO
+	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752735AbaDWQ4c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:56:32 -0400
+In-Reply-To: <1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 23 Apr 2014 09:02:54 +0200
-
-> On 04/23/2014 06:59 AM, Alexei Starovoitov wrote:
->> On Tue, Apr 22, 2014 at 8:57 PM, David Miller <davem@davemloft.net>
->> wrote:
->>> From: Alexei Starovoitov <ast@plumgrid.com>
->>> Date: Tue, 22 Apr 2014 20:18:57 -0700
->>>
->>>> exisiting BPF verifier allows uninitialized access to registers,
->>>> 'ret A' is considered to be a valid filter.
->>>> So initialize A and X to zero to prevent leaking kernel memory
->>>> In the future BPF verifier will be rejecting such filters
->>>>
->>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
->>>
->>> Has the code always been like this?
+On 04/22/2014 05:37 PM, Eric Dumazet wrote:
+> On Tue, 2014-04-22 at 14:29 -0700, Eric Dumazet wrote:
 > 
-> I think it would be much cleaner to just prevent such filters that
-> only contain a 'ret A', or 'ret X' w/o a load into X from attaching.
+>> Then if you do that, you also need to change head->data_len !
+> 
+> Untested patch would be :
+> 
+> diff --git a/net/tipc/link.c b/net/tipc/link.c
+> index c5190ab75290..85077dd7c63e 100644
+> --- a/net/tipc/link.c
+> +++ b/net/tipc/link.c
+> @@ -2349,6 +2349,7 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
+>  			(*tail)->next = frag;
+>  		*tail = frag;
+>  		(*head)->truesize += frag->truesize;
+> +		(*head)->data_len += frag->len;
 
-That choice had to be done two decades ago, not now.
+Just to confirm, does this mean that head's own (linear) data is not
+included in data_len? 
 
-We have to accept such filters, we always have.
+///jon
+
+>  	}
+>  	if (fragid == LAST_FRAGMENT) {
+>  		*fbuf = *head;
+> 
+> 
