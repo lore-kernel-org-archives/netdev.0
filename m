@@ -1,16 +1,18 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 0/2] Fix macvtap checksum errors in bridge mode
-Date: Wed, 23 Apr 2014 12:51:39 -0400
-Message-ID: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 1/2] mactap: Fix checksum errors for non-gso packets in bridge mode
+Date: Wed, 23 Apr 2014 12:51:40 -0400
+Message-ID: <1398271901-32534-2-git-send-email-vyasevic@redhat.com>
+References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
 Cc: daniel.lezcano@free.fr, nightnord@gmail.com, kaber@trash.net,
 	eric.dumazet@gmail.com, mst@redhat.com, jasowang@redhat.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23074 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2413 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755806AbaDWQwC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751916AbaDWQwC (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Apr 2014 12:52:02 -0400
+In-Reply-To: <1398271901-32534-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,30 +26,45 @@ and thus sends the packets to the host with CHECKSUM_PARTIAL set.
 On the other hand, e1000 does not support any acceleration.
 
 For small TCP packets (and this includes the 3-way handshake),
-e1000 end up receiving packets that only have a partial checksum
+e1000 ends up receiving packets that only have a partial checksum
 set.  This causes TCP to fail checksum validation and to drop
 packets.  As a result tcp connections can not be established.
 
-The following 2 patches resolve this issue. The first patch adds
-a check to the non-gso code path to see if the checksum needs to
-be computed.  The second patch reverts an old commit that set
-ip_summed to CHECKSUM_UNNECESSARY.  Proper checksum update is
-necessary under certain circumstances.
+Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+	macvtap: Perform GSO on forwarding path.
+fixes this issue for large packets wthat will end up undergoing GSO.
+This commit adds a check for the non-GSO case and attempts to
+compute the checksum for partially checksummed packets in the
+non-GSO case.
 
-I wend through the old thread
-  http://comments.gmane.org/gmane.linux.kernel.containers.lxc.general/1459
-and tried the reproducers listed there, but could not cause
-invalid checksum to trigger with this series.
-Daniel and Andrian, if you have the time please try this patch
-set to see if you still see the old checksum issues.
-
-Vlad Yasevich (2):
-  mactap: Fix checksum errors for non-gso packets in bridge mode
-  Revert "macvlan : fix checksums error when we are in bridge mode"
-
- drivers/net/macvlan.c | 3 ---
+CC: Daniel Lezcano <daniel.lezcano@free.fr>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Andrian Nord <nightnord@gmail.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Michael S. Tsirkin <mst@redhat.com>
+CC: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
  drivers/net/macvtap.c | 7 +++++++
- 2 files changed, 7 insertions(+), 3 deletions(-)
+ 1 file changed, 7 insertions(+)
 
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index ff111a8..ba91084 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -322,6 +322,13 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+ 			segs = nskb;
+ 		}
+ 	} else {
++		/* If we receive a partial checksum and the tap side
++		 * doesn't support checksum offload, compute the checksum.
++		 */
++		if (skb->ip_summed == CHECKSUM_PARTIAL &&
++		    !(features & NETIF_F_ALL_CSUM) &&
++		    skb_checksum_help(skb))
++			goto drop;
+ 		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+ 	}
+ 
 -- 
 1.9.0
