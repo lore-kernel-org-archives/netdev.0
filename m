@@ -1,38 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 09:53:37 +0200
-Message-ID: <53577181.1000406@redhat.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] net: cadence: Fix architecture dependencies
+Date: Wed, 23 Apr 2014 10:40:12 +0200
+Message-ID: <20140423104012.68f60014@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michal Simek <monstr@monstr.eu>,
+	Mark Brown <broonie@kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54130 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:56450 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbaDWHxm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 03:53:42 -0400
-In-Reply-To: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+	id S1751275AbaDWIkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 04:40:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2014 05:18 AM, Alexei Starovoitov wrote:
-> exisiting BPF verifier allows uninitialized access to registers,
-> 'ret A' is considered to be a valid filter.
-> So initialize A and X to zero to prevent leaking kernel memory
-> In the future BPF verifier will be rejecting such filters
->
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
+I was told that the Cadence macb driver is also useful on Microblaze.
 
-I gave it some more thought, it's actually more than just 'ret A'
-from your description, user programs could be used to generate code
-like 'add X' or 'add #42' instead of a txa or load instruction [where
-A is previously uninitialized], as it was always initialized to 0
-before. We prevent to do a 'ret X', but X could be uninitialized and
-then transferred over to taint A etc. So yeah, this patch is the most
-simple way to prevent that w/o huge complexity. Therefore, it's
-better this way:
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Michal Simek <monstr@monstr.eu>
+Cc: Mark Brown <broonie@kernel.org>
+---
+ drivers/net/ethernet/cadence/Kconfig |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+--- linux-3.15-rc2.orig/drivers/net/ethernet/cadence/Kconfig	2014-04-22 14:20:30.727102543 +0200
++++ linux-3.15-rc2/drivers/net/ethernet/cadence/Kconfig	2014-04-23 10:34:44.300548144 +0200
+@@ -4,7 +4,7 @@
+ 
+ config NET_CADENCE
+ 	bool "Cadence devices"
+-	depends on HAS_IOMEM && (ARM || AVR32 || COMPILE_TEST)
++	depends on HAS_IOMEM && (ARM || AVR32 || MICROBLAZE || COMPILE_TEST)
+ 	default y
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y.
+@@ -30,7 +30,7 @@ config ARM_AT91_ETHER
+ 
+ config MACB
+ 	tristate "Cadence MACB/GEM support"
+-	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL || ARCH_ZYNQ || COMPILE_TEST)
++	depends on HAS_DMA && (PLATFORM_AT32AP || ARCH_AT91 || ARCH_PICOXCELL || ARCH_ZYNQ || MICROBLAZE || COMPILE_TEST)
+ 	select PHYLIB
+ 	---help---
+ 	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
+
+
+-- 
+Jean Delvare
+SUSE L3 Support
