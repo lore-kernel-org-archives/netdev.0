@@ -1,46 +1,61 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: skb_try_coalesce bug?
-Date: Wed, 23 Apr 2014 12:56:20 -0400
-Message-ID: <5357F0B4.5040606@ericsson.com>
-References: <20140422120125.GC7019@eerihug-hybrid.rnd.ki.sw.ericsson.se>	 <1398172293.29946.37.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356C518.7050602@ericsson.com>	 <1398197116.29946.60.camel@edumazet-glaptop2.roam.corp.google.com>	 <5356D2AF.7030401@ericsson.com>	 <1398202178.29946.62.camel@edumazet-glaptop2.roam.corp.google.com> <1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Wed, 23 Apr 2014 19:10:49 +0200
+Message-ID: <5357F419.1020909@redhat.com>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com> <20140422.235745.1219194947074686642.davem@davemloft.net> <1398229980.29914.6.camel@edumazet-glaptop2.roam.corp.google.com> <20140423.125126.244770898759207308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: eric.dumazet@gmail.com, ast@plumgrid.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg21.ericsson.net ([198.24.6.65]:45578 "EHLO
-	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752735AbaDWQ4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 12:56:32 -0400
-In-Reply-To: <1398202653.29946.63.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55793 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751532AbaDWRK7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 13:10:59 -0400
+In-Reply-To: <20140423.125126.244770898759207308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/22/2014 05:37 PM, Eric Dumazet wrote:
-> On Tue, 2014-04-22 at 14:29 -0700, Eric Dumazet wrote:
-> 
->> Then if you do that, you also need to change head->data_len !
-> 
-> Untested patch would be :
-> 
-> diff --git a/net/tipc/link.c b/net/tipc/link.c
-> index c5190ab75290..85077dd7c63e 100644
-> --- a/net/tipc/link.c
-> +++ b/net/tipc/link.c
-> @@ -2349,6 +2349,7 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
->  			(*tail)->next = frag;
->  		*tail = frag;
->  		(*head)->truesize += frag->truesize;
-> +		(*head)->data_len += frag->len;
+On 04/23/2014 06:51 PM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 22 Apr 2014 22:13:00 -0700
+>
+>> On Tue, 2014-04-22 at 23:57 -0400, David Miller wrote:
+>>> From: Alexei Starovoitov <ast@plumgrid.com>
+>>> Date: Tue, 22 Apr 2014 20:18:57 -0700
+>>>
+>>>> exisiting BPF verifier allows uninitialized access to registers,
+>>>> 'ret A' is considered to be a valid filter.
+>>>> So initialize A and X to zero to prevent leaking kernel memory
+>>>> In the future BPF verifier will be rejecting such filters
+>>>>
+>>>> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+>>>
+>>> Has the code always been like this?
+>>>
+>>> Did the eBPF changes introduce this problem either directly or
+>>> indirectly?
+>>
+>> Original code was fine AFAIK
+>>
+>> Fixes: bd4cf0ed331a2 ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+>>
+>> David, is it possible for you to push net-next tree ?
+>
+> What exactly are you asking me to do?  Put this patch in the net-next tree?
+> Or are you asking me to merge net into net-next after I apply it?
+>
+> It's definitely a 'net' patch.
 
-Just to confirm, does this mean that head's own (linear) data is not
-included in data_len? 
+I think Eric already clarified it in [1].
 
-///jon
+It's definitely against net tree.
 
->  	}
->  	if (fragid == LAST_FRAGMENT) {
->  		*fbuf = *head;
-> 
-> 
+ From my side, it would be awesome, if you could put this into net and
+then merge net into net-next as I have some pending stuff on top of
+this fix. That would at least avoid a bigger merge conflict later on.
+
+Thanks a lot, Dave.
+
+  [1] http://patchwork.ozlabs.org/patch/341693/, April 23, 2014, 1:39 p.m.
