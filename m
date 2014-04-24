@@ -1,88 +1,81 @@
-From: Paul Burton <paul.burton@imgtec.com>
-Subject: Re: [PATCH v3 13/14] MIPS: net: Add BPF JIT
-Date: Thu, 24 Apr 2014 17:31:14 +0100
-Message-ID: <20140424163114.GD36716@pburton-linux.le.imgtec.org>
-References: <1396957635-27071-14-git-send-email-markos.chandras@imgtec.com>
- <1398351013-29490-1-git-send-email-markos.chandras@imgtec.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
+Date: Thu, 24 Apr 2014 18:37:12 +0200
+Message-ID: <20140424163712.GJ1960@order.stressinduktion.org>
+References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk> <20140423153018.GA13717@breakpoint.cc> <1398268542.7767.145.camel@deadeye.wl.decadent.org.uk> <20140423162712.GB13717@breakpoint.cc> <20140424151748.GH1960@order.stressinduktion.org> <1398355320.7767.175.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="eqp4TxRxnD4KrmFZ"
-Cc: <linux-mips@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Markos Chandras <markos.chandras@imgtec.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <1398351013-29490-1-git-send-email-markos.chandras@imgtec.com>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
-
---eqp4TxRxnD4KrmFZ
 Content-Type: text/plain; charset=utf-8
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
+	Vasiliy Kulikov <segoon@openwall.com>, lorenzo@google.com
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:37326 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758003AbaDXQhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:37:13 -0400
 Content-Disposition: inline
+In-Reply-To: <1398355320.7767.175.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2014 at 03:50:13PM +0100, Markos Chandras wrote:
-> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-> new file mode 100644
-> index 0000000..864e5b7
-> --- /dev/null
-> +++ b/arch/mips/net/bpf_jit.c
+On Thu, Apr 24, 2014 at 05:02:00PM +0100, Ben Hutchings wrote:
+> On Thu, 2014-04-24 at 17:17 +0200, Hannes Frederic Sowa wrote:
+> > On Wed, Apr 23, 2014 at 06:27:12PM +0200, Florian Westphal wrote:
+> > > Ben Hutchings <ben@decadent.org.uk> wrote:
+> > > > Userspace can't assume it now because access is controlled by a sysctl.
+> > > > 
+> > > > I think it is for distributions to choose whether to enable this feature
+> > > > in ping and the kernel.
+> > > 
+> > > I am not (yet) buying this argument.
+> > > 
+> > > Saying 'you need to change sysctl foo for this to work' in a program manpage
+> > > is a lot different than 'you need to recompile the kernel'.
+> > 
+> > Maybe we can make the Kconfig option depend on CONFIG_EMBEDDED so that we can
+> > be sure people don't have man-pages on the device. ;)
+> > 
+> > Seriously, I think doing authorization check based on gids in a sysctl is
+> > wrong.
+> 
+> It is quite weird but perhaps made sense in the context of some embedded
+> systems.
 
-... cut ...
+The origins of this interface are in the openwall project. I assume
+embedded devices were not that high up on their agenda.
 
-> +			off = offsetof(struct sk_buff, protocol);
-> +			emit_half_load(r_A, r_skb, off, ctx);
-> +#ifdef CONFIG_CPU_LITTLE_ENDIAN
-> +			/* This needs little endian fixup */
-> +			if (cpu_has_mips_r1) {
+> > Switching over to capabilities seems to make this interface much
+> > more useable to me. But we would need to make sure, that we don't suddenly
+> > allow people to use those sockets where it was restricted previously.
+> 
+> Standard ping could already be implemented as setcap (CAP_NET_RAW).  You
+> want a capability just for ping?
 
-Doesn't cpu_has_mips_r1 cover everything >= r1? ie. everything will now
-take this path, including systems >= r2. Don't you want the inverse
-(!cpu_has_mips_r2) instead?
+That came to my mind at first, yes.
 
-Paul
+Hm, that's quite difficult:
 
-> +				/* Get first byte */
-> +				emit_andi(r_tmp_imm, r_A, 0xff, ctx);
-> +				/* Shift it */
-> +				emit_sll(r_tmp, r_tmp_imm, 8, ctx);
-> +				/* Get second byte */
-> +				emit_srl(r_tmp_imm, r_A, 8, ctx);
-> +				emit_andi(r_tmp_imm, r_tmp_imm, 0xff, ctx);
-> +				/* Put everyting together in r_A */
-> +				emit_or(r_A, r_tmp, r_tmp_imm, ctx);
-> +			} else {
-> +				/* R2 and later have the wsbh instruction */
-> +				emit_wsbh(r_A, r_A, ctx);
-> +			}
+I don't think we can stop respecting ping_group_range. So one possibility
+is to just always allow icmp socket access if CAP_NET_RAW is in the
+effective set *or* user is in a valid gid. But why should people switch
+to icmp sockets and why should we add more code to iputils then if they
+also have full CAP_NET_RAW?
 
---eqp4TxRxnD4KrmFZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+We could be nitpicking and add a new capability, but I would be too
+lazy to do that for the very little gain to give users only access to
+ping/traceroute without giving access to the whole NET_RAW world.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+We absolutely cannot abandon the interface as it already is in use by
+android, as Lorenzo stated. Will android switch to file based capabilities
+in some time? Is that possible?
 
-iQIcBAEBCAAGBQJTWTxSAAoJEIIg2fppPBxlOZIP/Aii/Fp2twZI8SU0RUIQUyXH
-Bd2EuTpe70yxV0F9wripDVnhaP6deBSCLZoQ3Hz10eUEX6DKGQzAJVrGhJtOOJXz
-/uOsohH0aK+269Dv4VdfNwjD4ZJbS9EzgoJQbbdahao6qBIAyUXDYOm9c6HQZhdn
-AIByrZDdZ6Q/56Hg4RTKQQAV+inzzMZRlbsjYBv/kA9z7guO8dKQdOdX92v5qpQe
-Eg1Zj2JqkLf7X6x8HHO4/Habt1Jb1+TXZtyPsX+rusFSRm6jGuwbJAJRGhQRXtOs
-eOC5XF+0qGzlMd8Kv/83YsrcP/o09z+aW65g8+n4kTLpGjLeDg+Q5hOG+VZ3SaUM
-C+KdZ0ABxtPKInOYWceoOSdwr7eeirBKqsNJQV1Fiz+l7vYc/8fPCropdCbLNG/L
-CJlfF8I9xamHpHdIMx/vsQmopu9nP2DllZuMVJeD9PTX7W4WHwQNT7udQ9Elg1Ul
-Bv+BtzPwI646bd+y+LdWICIS+zPTW/s6VVGtNqjSV9Rki0vAtA/6JKZJvtZvbImy
-XQUzz0bErKIUHDgLbATHQfatJpjCo8TF8m3KZLZy7NHpcIoji01GTCO+oiW5aOXf
-Ojc4rrsL8FtNvcBvK5T62gZ1wCbS1ZUzvn3NWMGnua2SoQkAlzRSRAyvszxxxJip
-1+0q2mXsTTToq6SP59NQ
-=EjuO
------END PGP SIGNATURE-----
+I think I am in favour of the Kconfig option that it can be disabled or
+compiled as a module (maybe only visible with CONFIG_EMBEDDED) and push that
+on the deprecated list as file based capabilities made this socket type
+unnecessary.
 
---eqp4TxRxnD4KrmFZ--
+Any thoughts?
+
+Bye,
+
+  Hannes
