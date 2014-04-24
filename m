@@ -1,88 +1,126 @@
-From: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
-Subject: Re: [PATCH] mrf24j40: seperate mrf24j40 h/w
-	init and add checkings
-Date: Thu, 24 Apr 2014 08:49:44 +0530
-Message-ID: <535882D0.8000600@cdac.in>
-References: <1398258716-18319-1-git-send-email-varkab@cdac.in>
-	<5357C565.8080009@signal11.us> <20140423140007.GA24286@omega>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Wed, 23 Apr 2014 20:22:03 -0700
+Message-ID: <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
+	<20140422.235745.1219194947074686642.davem@davemloft.net>
+	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
+	<20140423.125043.100674358164503915.davem@davemloft.net>
+	<CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
+	<1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com>
+	<1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20140423140007.GA24286@omega>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:36842 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbaDXDWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 23:22:05 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so1648182wgh.3
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 20:22:03 -0700 (PDT)
+In-Reply-To: <1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
-
-My view is same as Alex view. If spi_sync() is not able to write and get 
-the data we will get
-an error number return.
-
-The driver is allocating so many kernel resources even if you get the 
-errno return also.
-So this patch will return from driver probe() if spi_sync() returns err.
-
-Thanks and Regards,
-Varka Bhadram
-
-On 04/23/2014 07:30 PM, Alexander Aring wrote:
-> Hi Alan,
+On Wed, Apr 23, 2014 at 7:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2014-04-23 at 15:19 -0700, Alexei Starovoitov wrote:
 >
-> On Wed, Apr 23, 2014 at 09:51:33AM -0400, Alan Ott wrote:
->> On 04/23/2014 09:11 AM, Varka Bhadram wrote:
->>> I followed the process that you mailed earlier, thnks for that.
->>>
->>> I am expecting the mail from Alan about the changes.
->> Hi Varka,
->>
->> Is there a specific problem you're seeing? Typically in the kernel we expect
->> the SPI controller to succeed for a couple reasons:
->> 1. It's part of the basic, core functionality of a system. Checking for
->> errors on SPI transfers is analogous to making sure RAM you wrote actually
->> got written.
->> 2. Most of the time an SPI failure is not something we can detect anyway.
->> (disconnect one of the lines and see what you get).
->> 3. The code to check for it just adds a lot of bloat without much measurable
->> benefit.
->>
->> I've read the above in the comments in other drivers, but I can't remember
->> exactly where right now. There are plenty of examples in the kernel of SPI
->> being done this way, as it seems to be accepted practice in the kernel.
->>
->> If there is a specific issue that you're seeing, then let's talk about it,
->> otherwise I'm going to NAK this change.
->>
-> if somebody hasn't a right spi configuration the probe function should
-> fail. Assumed that spi_sync will return a errno then.
+>> yes, x86 jit is smart to deal around this problem in an efficient way.
+>> sparc/arm jits copy pasted the idea correctly.
 >
-> - Alex
+> Well... not really smart, but sufficient enough (even if I am sure we
+> probably have some bugs)
+>
+>> but s390 jit seems to have a bug, since it's not clearing A
+>> when 1st insn is BPF_S_LDX_B_MSH
+>
+> Sure, JIT is hard and quite risky (You forgot to CC Heiko & Martin, they
+> probably can send the needed patch)
+>
+> Its not yet enabled by default for this reason.
+>
+> I am worried that all recent bpf changes raised the bar so high that
+> nobody but you can really understand what is going on, unless spending
+> a _lot_ of time on it.
 
+I'm trying to explain it as much as I can. If you're willing to listen,
+I'm happy to answer any questions.
 
--------------------------------------------------------------------------------------------------------------------------------
+> net/core/filter.c was about 880 lines in previous release, its now 1800+
+> lines.
 
-This e-mail is for the sole use of the intended recipient(s) and may
-contain confidential and privileged information. If you are not the
-intended recipient, please contact the sender by reply e-mail and destroy
-all copies and the original message. Any unauthorized review, use,
-disclosure, dissemination, forwarding, printing or copying of this email
-is strictly prohibited and appropriate legal action will be taken.
--------------------------------------------------------------------------------------------------------------------------------
+but the whole sk_encode/decode functions are obsolete.
+Now we can remove some code too.
 
+> netdev became a list discussing compiler technology,
+> assembly code and ABI level stuff lately.
+>
+> Say I want to check why we have this code, potentially modifying
+> arbitrary kernel memory :
+>
+>         BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
+>                 atomic_add((u32) X, (atomic_t *)(unsigned long)
+>                            (A + insn->off));
+>                 CONT;
+>         BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
+>                 atomic64_add((u64) X, (atomic64_t *)(unsigned long)
+>                              (A + insn->off));
+>                 CONT;
+>
+>
+>
+> No comments on this scary code, and I couldn't find why it is there.
 
-------------------------------------------------------------------------------
-Start Your Social Network Today - Download eXo Platform
-Build your Enterprise Intranet with eXo Platform Software
-Java Based Open Source Intranet - Social, Extensible, Cloud Ready
-Get Started Now And Turn Your Intranet Into A Collaboration Platform
-http://p.sf.net/sfu/ExoPlatform
+I'm sorry but this very list forced me to drop all the comments and docs
+around ebpf verifier that go into details how this is verified and why
+it is safe.
+I can repost the whole thing as one big series of patches
+or send the links to previous patches where approach to safety is explained.
+I thought the preference was to phase it in gradually.
+Smallest patch at a time. Don't break anything. That's what I'm trying to do.
+
+> $ git grep -n2 BPF_XADD
+> include/linux/filter.h-19-/* ld/ldx fields */
+> include/linux/filter.h-20-#define BPF_DW                0x18    /* double word */
+> include/linux/filter.h:21:#define BPF_XADD      0xc0    /* exclusive add */
+> include/linux/filter.h-22-
+> include/linux/filter.h-23-/* alu/jmp fields */
+> --
+> net/core/filter.c-222-          DL(BPF_STX, BPF_MEM, BPF_W),
+> net/core/filter.c-223-          DL(BPF_STX, BPF_MEM, BPF_DW),
+> net/core/filter.c:224:          DL(BPF_STX, BPF_XADD, BPF_W),
+> net/core/filter.c:225:          DL(BPF_STX, BPF_XADD, BPF_DW),
+> net/core/filter.c-226-          DL(BPF_ST, BPF_MEM, BPF_B),
+> net/core/filter.c-227-          DL(BPF_ST, BPF_MEM, BPF_H),
+> --
+> net/core/filter.c-479-  LDST(BPF_DW, u64)
+> net/core/filter.c-480-#undef LDST
+> net/core/filter.c:481:  BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
+> net/core/filter.c-482-          atomic_add((u32) X, (atomic_t *)(unsigned long)
+> net/core/filter.c-483-                     (A + insn->off));
+> net/core/filter.c-484-          CONT;
+> net/core/filter.c:485:  BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
+> net/core/filter.c-486-          atomic64_add((u64) X, (atomic64_t *)(unsigned long)
+> net/core/filter.c-487-                       (A + insn->off));
+>
+> This looks like premature inclusion, at very minimum.
+>
+> Sure, I probably can find answer reading past months netdev/lkml traffic ?
+
+yes. it's more than one month. It was posted first back in September.
+ebpf architecture didn't change since then.
+Just new use cases were found.
+I thought to apply ebpf to ovs initially, but now it looks like tracing filters
+will benefit it more, so they took a priority. seccomp, nids, etc
+
+> Sorry if this looks like ranting, but I would rather complain before thousand
+> of other lines of code are merged.
+
+It's a valid concern. I need to share and explain more. Point taken.
