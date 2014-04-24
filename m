@@ -1,32 +1,109 @@
 From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [0/2] Fix problems with with IFLA_VF_PORTS (v2)
-Date: Thu, 24 Apr 2014 10:22:34 +1000
-Message-ID: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
+Subject: [PATCH 2/2] rtnetlink: Only supply IFLA_VF_PORTS information when RTEXT_FILTER_VF is set
+Date: Thu, 24 Apr 2014 10:22:36 +1000
+Message-ID: <1398298956-13084-3-git-send-email-david@gibson.dropbear.id.au>
+References: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
 Cc: ssujith@cisco.com, neepatel@cisco.com, benve@cisco.com,
 	davem@davemloft.net, ben@decadent.org.uk,
-	govindarajulu90@gmail.com, gregory.v.rose@intel.com
+	govindarajulu90@gmail.com, gregory.v.rose@intel.com,
+	David Gibson <david@gibson.dropbear.id.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:53633 "EHLO ozlabs.org"
+Received: from ozlabs.org ([103.22.144.67]:34466 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017AbaDXAWg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751272AbaDXAWg (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Apr 2014 20:22:36 -0400
+In-Reply-To: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've had a customer encounter a problem with getifaddrs(3) freezing up
-on a system with a Cisco enic device.
+Since 115c9b81928360d769a76c632bae62d15206a94a (rtnetlink: Fix problem with
+buffer allocation), RTM_NEWLINK messages only contain the IFLA_VFINFO_LIST
+attribute if they were solicited by a GETLINK message containing an
+IFLA_EXT_MASK attribute with the RTEXT_FILTER_VF flag.
 
-I've discovered that the problem is caused by an enic device with a
-large number of SR-IOV virtual functions overflowing the normal sized
-packet buffer for netlink, leading to interfaces not being reported
-from an RTM_GETLINK request.
+That was done because some user programs broke when they received more data
+than expected - because IFLA_VFINFO_LIST contains information for each VF
+it can become large if there are many VFs.
 
-The first patch here just makes the problem easier to locate if it
-occurs again in a different way, by adding a WARN_ON() when we run out
-of room in a netlink packet in this manner.
+However, the IFLA_VF_PORTS attribute, supplied for devices which implement
+ndo_get_vf_port (currently the 'enic' driver only), has the same problem.
+It supplies per-VF information and can therefore become large, but it is
+not currently conditional on the IFLA_EXT_MASK value.
 
-The second patch actually fixes the problem, by only reporting
-IFLA_VF_PORTS information when the RTEXT_FILTER_VF flag is specified.
+Worse, it interacts badly with the existing EXT_MASK handling.  When
+IFLA_EXT_MASK is not supplied, the buffer for netlink replies is fixed at
+NLMSG_GOODSIZE.  If the information for IFLA_VF_PORTS exceeds this, then
+rtnl_fill_ifinfo() returns -EMSGSIZE on the first message in a packet.
+netlink_dump() will misinterpret this as having finished the listing and
+omit data for this interface and all subsequent ones.  That can cause
+getifaddrs(3) to enter an infinite loop.
 
-v2: Corrected some CodingStyle problems
+This patch addresses the problem by only supplying IFLA_VF_PORTS when
+IFLA_EXT_MASK is supplied with the RTEXT_FILTER_VF flag set.
+
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ net/core/rtnetlink.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index b5e384a..a32479a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -774,7 +774,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 		return 0;
+ }
+ 
+-static size_t rtnl_port_size(const struct net_device *dev)
++static size_t rtnl_port_size(const struct net_device *dev,
++			     u32 ext_filter_mask)
+ {
+ 	size_t port_size = nla_total_size(4)		/* PORT_VF */
+ 		+ nla_total_size(PORT_PROFILE_MAX)	/* PORT_PROFILE */
+@@ -790,7 +791,8 @@ static size_t rtnl_port_size(const struct net_device *dev)
+ 	size_t port_self_size = nla_total_size(sizeof(struct nlattr))
+ 		+ port_size;
+ 
+-	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
++	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent ||
++	    !(ext_filter_mask & RTEXT_FILTER_VF))
+ 		return 0;
+ 	if (dev_num_vf(dev->dev.parent))
+ 		return port_self_size + vf_ports_size +
+@@ -826,7 +828,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(ext_filter_mask
+ 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+-	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
++	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
+ 	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
+@@ -888,11 +890,13 @@ static int rtnl_port_self_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
+-static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
++static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
++			  u32 ext_filter_mask)
+ {
+ 	int err;
+ 
+-	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
++	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent ||
++	    !(ext_filter_mask & RTEXT_FILTER_VF))
+ 		return 0;
+ 
+ 	err = rtnl_port_self_fill(skb, dev);
+@@ -1079,7 +1083,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		nla_nest_end(skb, vfinfo);
+ 	}
+ 
+-	if (rtnl_port_fill(skb, dev))
++	if (rtnl_port_fill(skb, dev, ext_filter_mask))
+ 		goto nla_put_failure;
+ 
+ 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
+-- 
+1.9.0
