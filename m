@@ -1,48 +1,87 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 1/3] net: ipv6: Unduplicate {raw,udp}v6_sendmsg code
-Date: Thu, 24 Apr 2014 17:43:05 +0200
-Message-ID: <20140424154305.GI1960@order.stressinduktion.org>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com> <1398235078-27088-1-git-send-email-lorenzo@google.com> <20140424150019.GE1960@order.stressinduktion.org> <20140424150206.GF1960@order.stressinduktion.org> <CAKD1Yr2DSkF59hdGyD=RiDNSseHT8u7Cf-0oYcJU=2uDgV_+Dw@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next v2 5/5] net: filter: optimize BPF migration for
+ ARG1/CTX handling
+Date: Thu, 24 Apr 2014 08:43:39 -0700
+Message-ID: <CAMEtUuzdXjq+pC1ahoEOQX7h7zGrG9PKxGSPoZ0qC0fwnuqc-w@mail.gmail.com>
+References: <1398321927-8845-1-git-send-email-dborkman@redhat.com>
+	<1398321927-8845-6-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37143 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758212AbaDXPnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:43:06 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKD1Yr2DSkF59hdGyD=RiDNSseHT8u7Cf-0oYcJU=2uDgV_+Dw@mail.gmail.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:51234 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758220AbaDXPnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:43:41 -0400
+Received: by mail-wg0-f52.google.com with SMTP id b13so1242247wgh.35
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 08:43:39 -0700 (PDT)
+In-Reply-To: <1398321927-8845-6-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 25, 2014 at 12:13:57AM +0900, Lorenzo Colitti wrote:
-> On Fri, Apr 25, 2014 at 12:02 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > > I am afraid we could jump to do_append_data without having dontfrag
-> > > initialized. The jump happens before we call to ip6_datagram_send_common.
-> > >
-> > > So the initialization of dontfrag to -1 needs to be added to the caller.
-> >
-> > Also see e36d3ff91130002 (udp6: respect IPV6_DONTFRAG sockopt in case there
-> > are pending frames) which was a bug we had some time ago.
-> 
-> Hmm. So I'm the second person to trip over that goto. It doesn't help
-> that the compiler didn't notice that it could have been used
-> uninitialized.
-> 
-> I wonder, is it better to just initialize dontfrag to np->dontfrag
-> instead of -1 in the caller? ip6_datagram_send_ctl seems to just
-> overwrite dontfrag with whatever comes from userspace, so nobody ever
-> checks that it's < 0.
+On Wed, Apr 23, 2014 at 11:45 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> Currently, at initial setup in __sk_run_filter() we initialize the
+> BPF stack's frame-pointer and CTX register. However, instead of the
+> CTX register, we initialize context to ARG1, and during user filter
+> migration we emit *always* an instruction that copies the content
+> from ARG1 over to CTX. ARG1 is needed in BPF_CALL instructions to
+> setup ctx; for user BPF filter ARG2 has A, and ARG3 X for call
+> emission. However, we nevertheless copy CTX over to ARG1 in these
+> cases for user migrated filters. We can spare us this extra interpreter
+> instruction and assign it during initial setup time.
+>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
 
-Yes, that is what I had in mind. So we must not reset dontfrag to -1 in
-datagram_common_send and leave the check just after do_append_data as is.
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Bye,
+> opinion on this particular patch, just wanted to have clarified what we
+> have with ABI here as there's no particular freeze from the code we have
 
-  Hannes
+yes. Of course, we do not have a freeze on ABI.
+I was arguing about merits of not changing it for this particular case.
+Especially when the difference is a single line of code.
+If we want to add another register to ISA, that would be a fine reason
+to change it.
+
+Thanks!
+
+> ---
+>  net/core/filter.c | 12 ++++--------
+>  1 file changed, 4 insertions(+), 8 deletions(-)
+>
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index eada3d5..9744365 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -257,7 +257,10 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
+>  #define CONT_JMP ({ insn++; goto select_insn; })
+>
+>         FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+> -       ARG1 = (u64) (unsigned long) ctx;
+> +       CTX = (u64) (unsigned long) ctx;
+> +
+> +       /* Direct users expect arg1 to be filled already with ctx. */
+> +       ARG1 = CTX;
+>
+>         /* Register for user BPF programs need to be reset first. */
+>         regs[BPF_REG_A] = 0;
+> @@ -896,13 +899,6 @@ do_pass:
+>         new_insn = new_prog;
+>         fp = prog;
+>
+> -       if (new_insn) {
+> -               new_insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
+> -               new_insn->a_reg = BPF_REG_CTX;
+> -               new_insn->x_reg = BPF_REG_ARG1;
+> -       }
+> -       new_insn++;
+> -
+>         for (i = 0; i < len; fp++, i++) {
+>                 struct sock_filter_int tmp_insns[6] = { };
+>                 struct sock_filter_int *insn = tmp_insns;
+> --
+> 1.7.11.7
+>
