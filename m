@@ -1,55 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when
- creating bridge device
-Date: Thu, 24 Apr 2014 11:38:27 -0700
-Message-ID: <20140424113827.6d27ec5b@nehalam.linuxnetplumber.net>
-References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
-	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
-	<1398341177.4171.11.camel@ubuntu-vm-makita>
-	<1398341787.4171.16.camel@ubuntu-vm-makita>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net phy: Check for aneg completion before setting state
+ to PHY_RUNNING
+Date: Thu, 24 Apr 2014 11:53:51 -0700
+Message-ID: <CAGVrzcbrm3KO_=NSJz=KOAcPWvVUMm5kPM7nryJBag6BotKgoQ@mail.gmail.com>
+References: <53587C7F.2000808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
-	bridge <bridge@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, "C. R. Oldham" <cr@saltstack.com>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1398341787.4171.16.camel@ubuntu-vm-makita>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:42163 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753229AbaDXSyd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 14:54:33 -0400
+Received: by mail-qg0-f45.google.com with SMTP id a108so2894118qge.4
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 11:54:32 -0700 (PDT)
+In-Reply-To: <53587C7F.2000808@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Apr 2014 21:16:27 +0900
-Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+2014-04-23 19:52 GMT-07:00 Balakumaran Kannan <kumaran.4353@gmail.com>:
+> phy_state_machine should check whether auto-negotiatin is completed
+> before changing phydev->state from PHY_NOLINK to PHY_RUNNING. If
+> auto-negotiation is not completed phydev->state should be set to
+> PHY_AN.
 
-> +static int br_dev_newlink(struct net *src_net, struct net_device *dev,
-> +			  struct nlattr *tb[], struct nlattr *data[])
-> +{
-> +	int err;
-> +	struct net_bridge *br = netdev_priv(dev);
+I need some time to review this. Just out of curiosity, is this fixing
+a bug you have encountered or was this found by state machine
+inspection?
+
+>
+> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
+> ---
+>  drivers/net/phy/phy.c | 11 +++++++++++
+>  1 file changed, 11 insertions(+)
+>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 1b6d09a..a972056 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -765,6 +765,17 @@ void phy_state_machine(struct work_struct *work)
+>                         break;
+>
+>                 if (phydev->link) {
+> +                       if (AUTONEG_ENABLE == phydev->autoneg) {
+> +                               err = phy_aneg_done(phydev);
+> +                               if (err < 0)
+> +                                       break;
 > +
-> +	if (tb[IFLA_ADDRESS]) {
-> +		spin_lock_bh(&br->lock);
-> +		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
-> +		spin_unlock_bh(&br->lock);
-> +	}
-> +
-> +	err = register_netdevice(dev);
-> +	if (err)
-> +		return err;
-> +
-> +	return 0;
-> +}
+> +                               if (!err) {
+> +                                       phydev->state = PHY_AN;
+> +                                       phydev->link_timeout = PHY_AN_TIMEOUT;
+> +                                       break;
+> +                               }
+> +                       }
+>                         phydev->state = PHY_RUNNING;
+>                         netif_carrier_on(phydev->attached_dev);
+>                         phydev->adjust_link(phydev->attached_dev);
+> --
+> 1.8.2.1
 
-Looks good.
 
-Why not just do simpler tail call??
-    return register_netdevice(dev);
+
+-- 
+Florian
