@@ -1,126 +1,54 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 20:22:03 -0700
-Message-ID: <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	<20140422.235745.1219194947074686642.davem@davemloft.net>
-	<CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
-	<20140423.125043.100674358164503915.davem@davemloft.net>
-	<CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
-	<1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com>
-	<1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Thu, 24 Apr 2014 07:24:47 +0200
+Message-ID: <20140424052447.GC17409@1wt.eu>
+References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu> <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk> <53577036.2040307@gmail.com> <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk> <53587280.4020101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:36842 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451AbaDXDWF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 23:22:05 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so1648182wgh.3
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 20:22:03 -0700 (PDT)
-In-Reply-To: <1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53587280.4020101@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 23, 2014 at 7:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-04-23 at 15:19 -0700, Alexei Starovoitov wrote:
->
->> yes, x86 jit is smart to deal around this problem in an efficient way.
->> sparc/arm jits copy pasted the idea correctly.
->
-> Well... not really smart, but sufficient enough (even if I am sure we
-> probably have some bugs)
->
->> but s390 jit seems to have a bug, since it's not clearing A
->> when 1st insn is BPF_S_LDX_B_MSH
->
-> Sure, JIT is hard and quite risky (You forgot to CC Heiko & Martin, they
-> probably can send the needed patch)
->
-> Its not yet enabled by default for this reason.
->
-> I am worried that all recent bpf changes raised the bar so high that
-> nobody but you can really understand what is going on, unless spending
-> a _lot_ of time on it.
+On Thu, Apr 24, 2014 at 10:10:08AM +0800, zhuyj wrote:
+> On 04/23/2014 07:41 PM, Ben Hutchings wrote:
+> >On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
+> >>On 04/23/2014 01:53 AM, Ben Hutchings wrote:
+> >[...]
+> >>>For what it's worth, I would recommend against applying this.  I don't
+> >>>think even Red Hat has backported the VLAN changes, and they have been
+> >>>quite aggressive about backporting features to RHEL 6.
+> >>If we do not merge these patches, maybe RHEL 6 can not make tap driver
+> >>support vlan well.
+> >RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
+> Hi, Ben
+> 
+> It is well known that extraction vlan tag is not implemented in kernel 
+> 2.6.32.y.  Kernel 2.6.32.y depends on nic hardware to extract vlan tag.
+> So if the patches are not applied, tap driver can not support vlan well.
 
-I'm trying to explain it as much as I can. If you're willing to listen,
-I'm happy to answer any questions.
+What Ben is saying is that RHEL doesn't use 2.6.32.y, but did their own
+fork of 2.6.32 so even if we merged your patch, they wouldn't pick it
+from this tree anyway. However they could possibly take your patch if
+some customers requested the feature even if it's not in 2.6.32.y.
 
-> net/core/filter.c was about 880 lines in previous release, its now 1800+
-> lines.
+Clearly, the fact that nobody complained about this in 4.5 years of
+2.6.32 means that there's no particular reason any user would suddenly
+miss it now. 2.6.32.y is mostly used to update existing deployments but
+rarely for new deployments. That's why the usefulness of your backport
+in this kernel for its users is likely limited, and at the same time
+the risk of causing a regression is far from being null for existing
+users (eg: if some worked around the issue a different way, their
+workaround would likely not work anymore).
 
-but the whole sk_encode/decode functions are obsolete.
-Now we can remove some code too.
-
-> netdev became a list discussing compiler technology,
-> assembly code and ABI level stuff lately.
->
-> Say I want to check why we have this code, potentially modifying
-> arbitrary kernel memory :
->
->         BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
->                 atomic_add((u32) X, (atomic_t *)(unsigned long)
->                            (A + insn->off));
->                 CONT;
->         BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
->                 atomic64_add((u64) X, (atomic64_t *)(unsigned long)
->                              (A + insn->off));
->                 CONT;
->
->
->
-> No comments on this scary code, and I couldn't find why it is there.
-
-I'm sorry but this very list forced me to drop all the comments and docs
-around ebpf verifier that go into details how this is verified and why
-it is safe.
-I can repost the whole thing as one big series of patches
-or send the links to previous patches where approach to safety is explained.
-I thought the preference was to phase it in gradually.
-Smallest patch at a time. Don't break anything. That's what I'm trying to do.
-
-> $ git grep -n2 BPF_XADD
-> include/linux/filter.h-19-/* ld/ldx fields */
-> include/linux/filter.h-20-#define BPF_DW                0x18    /* double word */
-> include/linux/filter.h:21:#define BPF_XADD      0xc0    /* exclusive add */
-> include/linux/filter.h-22-
-> include/linux/filter.h-23-/* alu/jmp fields */
-> --
-> net/core/filter.c-222-          DL(BPF_STX, BPF_MEM, BPF_W),
-> net/core/filter.c-223-          DL(BPF_STX, BPF_MEM, BPF_DW),
-> net/core/filter.c:224:          DL(BPF_STX, BPF_XADD, BPF_W),
-> net/core/filter.c:225:          DL(BPF_STX, BPF_XADD, BPF_DW),
-> net/core/filter.c-226-          DL(BPF_ST, BPF_MEM, BPF_B),
-> net/core/filter.c-227-          DL(BPF_ST, BPF_MEM, BPF_H),
-> --
-> net/core/filter.c-479-  LDST(BPF_DW, u64)
-> net/core/filter.c-480-#undef LDST
-> net/core/filter.c:481:  BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
-> net/core/filter.c-482-          atomic_add((u32) X, (atomic_t *)(unsigned long)
-> net/core/filter.c-483-                     (A + insn->off));
-> net/core/filter.c-484-          CONT;
-> net/core/filter.c:485:  BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
-> net/core/filter.c-486-          atomic64_add((u64) X, (atomic64_t *)(unsigned long)
-> net/core/filter.c-487-                       (A + insn->off));
->
-> This looks like premature inclusion, at very minimum.
->
-> Sure, I probably can find answer reading past months netdev/lkml traffic ?
-
-yes. it's more than one month. It was posted first back in September.
-ebpf architecture didn't change since then.
-Just new use cases were found.
-I thought to apply ebpf to ovs initially, but now it looks like tracing filters
-will benefit it more, so they took a priority. seccomp, nids, etc
-
-> Sorry if this looks like ranting, but I would rather complain before thousand
-> of other lines of code are merged.
-
-It's a valid concern. I need to share and explain more. Point taken.
+Best regards,
+Willy
