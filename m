@@ -1,40 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 23 Apr 2014 22:45:20 -0400 (EDT)
-Message-ID: <20140423.224520.1593121538943289001.davem@davemloft.net>
-References: <20140424114726.07876050b5b805463a085191@canb.auug.org.au>
-	<1398306278.29638.42.camel@jtkirshe-mobl>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 0/3] net: mvneta: fix usage as a module, and support
+ QSGMII properly
+Date: Wed, 23 Apr 2014 22:49:48 -0400
+Message-ID: <20140424024948.GM28159@titan.lakedaemon.net>
+References: <1397569821-5530-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20140421202840.789d0e24@skate>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kubakici@wp.pl, carolyn.wyborny@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398306278.29638.42.camel@jtkirshe-mobl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	George Joseph <george.joseph@fairview5.com>,
+	Tawfik Bayouk <tawfik@marvell.com>, netdev@vger.kernel.org,
+	Alexander Reuter <Alexander.Reuter@gmx.net>, arno@natisbad.org,
+	Willy Tarreau <w@1wt.eu>, Nadav Haklai <nadavh@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Dmitri Epshtein <dima@marvell.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:39761 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614AbaDXCuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 22:50:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20140421202840.789d0e24@skate>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 23 Apr 2014 19:24:38 -0700
-
-> On Thu, 2014-04-24 at 11:47 +1000, Stephen Rothwell wrote:
->> Hi all,
->> 
->> Today's linux-next merge of the net-next tree got a conflict in
->> drivers/net/ethernet/intel/igb/e1000_mac.c between commit c5ffe7e1f745
->> ("e1000e/igb/ixgbe/i40e: fix message terminations") from the net tree
->> and
->> commit c75c4edfc38d ("igb: Cleanups for messaging") from the net-next
->> tree.
->> 
->> I fixed it up (the former was a superset of the latter) and can carry
->> the
->> fix as necessary (no action is required).
+On Mon, Apr 21, 2014 at 08:28:40PM +0200, Thomas Petazzoni wrote:
+> Jason,
 > 
-> Huh, I thought the commit c75c4edfc38d ("igb: Cleanups for messaging")
-> in Dave's net-next already took into account the changes in net.  I will
-> take a look at your fix Stephen, thanks for letting us know.
+> Would it be possible to get PATCH 3/3 merged into 3.15-rc in the not
+> too distant future? David Miller has already sent PATCH 1/3 and PATCH
+> 2/3, and they are part of the just released -rc2. However, the Device
+> Tree fix for Armada XP GP QSGMII usage is missing.
 
-Stephen may have pulled net-next before that went in.
+oops, looks like I missed that one.  I'll queue it up.
+
+thx,
+
+Jason.
