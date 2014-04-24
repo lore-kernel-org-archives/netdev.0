@@ -1,93 +1,60 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 19/26] can: c_can: Use proper u32 variables in c_can_write_msg_object()
-Date: Fri, 25 Apr 2014 00:00:22 +0200
-Message-ID: <1398376829-6771-20-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 22/26] can: c_can: use proper type for 'instance'
+Date: Fri, 25 Apr 2014 00:00:25 +0200
+Message-ID: <1398376829-6771-23-git-send-email-mkl@pengutronix.de>
 References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
+	kernel@pengutronix.de, Wolfram Sang <wsa@sang-engineering.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46148 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932576AbaDXWAp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 18:00:45 -0400
 In-Reply-To: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
+From: Wolfram Sang <wsa@sang-engineering.com>
 
-Instead of obfuscating the code by artificial 16 bit splits use the
-proper 32 bit assignments and split the result when writing to the
-interface.
+Commit 6439fbce1075 (can: c_can: fix error checking of priv->instance in
+probe()) found the warning but applied a suboptimal solution. Since, both
+pdev->id and of_alias_get_id() return integers, it makes sense to convert the
+variable to an integer and avoid the cast.
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
+Signed-off-by: Wolfram Sang <wsa@sang-engineering.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/can/c_can/c_can.h          | 2 +-
+ drivers/net/can/c_can/c_can_platform.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 7c60e6a..61fde41 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -135,9 +135,9 @@
- #define IF_COMM_INVAL		(IF_COMM_ARB | IF_COMM_CONTROL)
+diff --git a/drivers/net/can/c_can/c_can.h b/drivers/net/can/c_can/c_can.h
+index e7de2b9..c56f1b1 100644
+--- a/drivers/net/can/c_can/c_can.h
++++ b/drivers/net/can/c_can/c_can.h
+@@ -183,7 +183,7 @@ struct c_can_priv {
+ 	void *priv;		/* for board-specific data */
+ 	enum c_can_dev_id type;
+ 	u32 __iomem *raminit_ctrlreg;
+-	unsigned int instance;
++	int instance;
+ 	void (*raminit) (const struct c_can_priv *priv, bool enable);
+ 	u32 comm_rcv_high;
+ 	u32 rxmasked;
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index 806d927..1df0b32 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -222,7 +222,7 @@ static int c_can_plat_probe(struct platform_device *pdev)
  
- /* IFx arbitration */
--#define IF_ARB_MSGVAL		BIT(15)
--#define IF_ARB_MSGXTD		BIT(14)
--#define IF_ARB_TRANSMIT		BIT(13)
-+#define IF_ARB_MSGVAL		BIT(31)
-+#define IF_ARB_MSGXTD		BIT(30)
-+#define IF_ARB_TRANSMIT		BIT(29)
- 
- /* IFx message control */
- #define IF_MCONT_NEWDAT		BIT(15)
-@@ -299,18 +299,18 @@ static void c_can_write_msg_object(struct net_device *dev, int iface,
- {
- 	struct c_can_priv *priv = netdev_priv(dev);
- 	u16 ctrl = IF_MCONT_TX | frame->can_dlc;
--	u32 arb = IF_ARB_MSGVAL << 16;
-+	u32 arb = IF_ARB_MSGVAL;
- 	int i;
- 
- 	if (frame->can_id & CAN_EFF_FLAG) {
- 		arb |= frame->can_id & CAN_EFF_MASK;
--		arb |= IF_ARB_MSGXTD << 16;
-+		arb |= IF_ARB_MSGXTD;
- 	} else {
- 		arb |= (frame->can_id & CAN_SFF_MASK) << 18;
- 	}
- 
- 	if (!(frame->can_id & CAN_RTR_FLAG))
--		arb |= IF_ARB_TRANSMIT << 16;
-+		arb |= IF_ARB_TRANSMIT;
- 
- 	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface), arb);
- 	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface), arb >> 16);
-@@ -380,12 +380,12 @@ static int c_can_read_msg_object(struct net_device *dev, int iface, u32 ctrl)
- 	arb = priv->read_reg(priv, C_CAN_IFACE(ARB1_REG, iface));
- 	arb |= priv->read_reg(priv, C_CAN_IFACE(ARB2_REG, iface)) << 16;
- 
--	if (arb & (IF_ARB_MSGXTD << 16))
-+	if (arb & IF_ARB_MSGXTD)
- 		frame->can_id = (arb & CAN_EFF_MASK) | CAN_EFF_FLAG;
- 	else
- 		frame->can_id = (arb >> 18) & CAN_SFF_MASK;
- 
--	if (arb & (IF_ARB_TRANSMIT << 16)) {
-+	if (arb & IF_ARB_TRANSMIT) {
- 		frame->can_id |= CAN_RTR_FLAG;
- 	} else {
- 		int i, dreg = C_CAN_IFACE(DATA1_REG, iface);
-@@ -413,7 +413,7 @@ static void c_can_setup_receive_object(struct net_device *dev, int iface,
- 	priv->write_reg(priv, C_CAN_IFACE(MASK1_REG, iface), mask);
- 	priv->write_reg(priv, C_CAN_IFACE(MASK2_REG, iface), mask >> 16);
- 
--	id |= IF_ARB_MSGVAL << 16;
-+	id |= IF_ARB_MSGVAL;
- 	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface), id);
- 	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface), id >> 16);
- 
+ 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
+-		if (IS_ERR(priv->raminit_ctrlreg) || (int)priv->instance < 0)
++		if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
+ 			dev_info(&pdev->dev, "control memory is not used for raminit\n");
+ 		else
+ 			priv->raminit = c_can_hw_raminit;
 -- 
 1.9.0.279.gdc9e3eb
-
