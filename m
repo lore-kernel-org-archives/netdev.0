@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 05/26] can: c_can: Handle state change correctly
-Date: Fri, 25 Apr 2014 00:00:08 +0200
-Message-ID: <1398376829-6771-6-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 06/26] can: c_can: Fix berr reporting
+Date: Fri, 25 Apr 2014 00:00:09 +0200
+Message-ID: <1398376829-6771-7-git-send-email-mkl@pengutronix.de>
 References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
@@ -14,76 +14,78 @@ List-Id: netdev.vger.kernel.org
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
-If the allocation of an error skb fails, the state change handling
-returns w/o doing any work. That leaves the interface in a wreckaged
-state as the internal status is wrong.
+Reading the LEC type with
 
-Split the interface handling and the skb handling.
+  return (mode & ENABLED) && (status & LEC_MASK);
+
+is not guaranteed to return (status & LEC_MASK) if the enabled bit in
+mode is set. It's guaranteed to return 0 or !=0.
+
+Remove the inline function and call unconditionally into the
+berr_handling code and return early when the reporting is disabled.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 25 ++++++++++++++++++++-----
- 1 file changed, 20 insertions(+), 5 deletions(-)
+ drivers/net/can/c_can/c_can.c | 16 ++++++----------
+ 1 file changed, 6 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index 6038761..246bcf9 100644
+index 246bcf9..9ef45b0 100644
 --- a/drivers/net/can/c_can/c_can.c
 +++ b/drivers/net/can/c_can/c_can.c
-@@ -914,6 +914,26 @@ static int c_can_handle_state_change(struct net_device *dev,
- 	struct sk_buff *skb;
- 	struct can_berr_counter bec;
+@@ -171,6 +171,7 @@ enum c_can_lec_type {
+ 	LEC_BIT0_ERROR,
+ 	LEC_CRC_ERROR,
+ 	LEC_UNUSED,
++	LEC_MASK = LEC_UNUSED,
+ };
  
-+	switch (error_type) {
-+	case C_CAN_ERROR_WARNING:
-+		/* error warning state */
-+		priv->can.can_stats.error_warning++;
-+		priv->can.state = CAN_STATE_ERROR_WARNING;
-+		break;
-+	case C_CAN_ERROR_PASSIVE:
-+		/* error passive state */
-+		priv->can.can_stats.error_passive++;
-+		priv->can.state = CAN_STATE_ERROR_PASSIVE;
-+		break;
-+	case C_CAN_BUS_OFF:
-+		/* bus-off state */
-+		priv->can.state = CAN_STATE_BUS_OFF;
-+		can_bus_off(dev);
-+		break;
-+	default:
-+		break;
-+	}
+ /*
+@@ -897,12 +898,6 @@ static int c_can_do_rx_poll(struct net_device *dev, int quota)
+ 	return pkts;
+ }
+ 
+-static inline int c_can_has_and_handle_berr(struct c_can_priv *priv)
+-{
+-	return (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING) &&
+-		(priv->current_status & LEC_UNUSED);
+-}
+-
+ static int c_can_handle_state_change(struct net_device *dev,
+ 				enum c_can_bus_error_types error_type)
+ {
+@@ -998,6 +993,9 @@ static int c_can_handle_bus_err(struct net_device *dev,
+ 	if (lec_type == LEC_UNUSED || lec_type == LEC_NO_ERROR)
+ 		return 0;
+ 
++	if (!(priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING))
++		return 0;
 +
  	/* propagate the error condition to the CAN stack */
  	skb = alloc_can_err_skb(dev, &cf);
  	if (unlikely(!skb))
-@@ -927,8 +947,6 @@ static int c_can_handle_state_change(struct net_device *dev,
- 	switch (error_type) {
- 	case C_CAN_ERROR_WARNING:
- 		/* error warning state */
--		priv->can.can_stats.error_warning++;
--		priv->can.state = CAN_STATE_ERROR_WARNING;
- 		cf->can_id |= CAN_ERR_CRTL;
- 		cf->data[1] = (bec.txerr > bec.rxerr) ?
- 			CAN_ERR_CRTL_TX_WARNING :
-@@ -939,8 +957,6 @@ static int c_can_handle_state_change(struct net_device *dev,
- 		break;
- 	case C_CAN_ERROR_PASSIVE:
- 		/* error passive state */
--		priv->can.can_stats.error_passive++;
--		priv->can.state = CAN_STATE_ERROR_PASSIVE;
- 		cf->can_id |= CAN_ERR_CRTL;
- 		if (rx_err_passive)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
-@@ -952,7 +968,6 @@ static int c_can_handle_state_change(struct net_device *dev,
- 		break;
- 	case C_CAN_BUS_OFF:
- 		/* bus-off state */
--		priv->can.state = CAN_STATE_BUS_OFF;
- 		cf->can_id |= CAN_ERR_BUSOFF;
- 		can_bus_off(dev);
- 		break;
+@@ -1057,7 +1055,6 @@ static int c_can_handle_bus_err(struct net_device *dev,
+ static int c_can_poll(struct napi_struct *napi, int quota)
+ {
+ 	u16 irqstatus;
+-	int lec_type = 0;
+ 	int work_done = 0;
+ 	struct net_device *dev = napi->dev;
+ 	struct c_can_priv *priv = netdev_priv(dev);
+@@ -1116,9 +1113,8 @@ static int c_can_poll(struct napi_struct *napi, int quota)
+ 		priv->last_status = priv->current_status;
+ 
+ 		/* handle lec errors on the bus */
+-		lec_type = c_can_has_and_handle_berr(priv);
+-		if (lec_type)
+-			work_done += c_can_handle_bus_err(dev, lec_type);
++		work_done += c_can_handle_bus_err(dev,
++					priv->current_status & LEC_MASK);
+ 	} else if ((irqstatus >= C_CAN_MSG_OBJ_RX_FIRST) &&
+ 			(irqstatus <= C_CAN_MSG_OBJ_RX_LAST)) {
+ 		/* handle events corresponding to receive message objects */
 -- 
 1.9.0.279.gdc9e3eb
 
