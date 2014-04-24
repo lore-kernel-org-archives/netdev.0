@@ -1,116 +1,92 @@
-From: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC v3 10/10] openvswitch: add
- support for datapath hardware offload
-Date: Thu, 24 Apr 2014 08:58:32 -0700
-Message-ID: <535934A8.3080601@intel.com>
-References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
- <1397736938-11838-1-git-send-email-jiri@resnulli.us>
- <5359259B.3020402@gmail.com> <20140424154614.GB2864@minipsycho.orion>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
+Date: Thu, 24 Apr 2014 17:02:00 +0100
+Message-ID: <1398355320.7767.175.camel@deadeye.wl.decadent.org.uk>
+References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
+	 <20140423153018.GA13717@breakpoint.cc>
+	 <1398268542.7767.145.camel@deadeye.wl.decadent.org.uk>
+	 <20140423162712.GB13717@breakpoint.cc>
+	 <20140424151748.GH1960@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org,
- edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org,
- f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
- vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140424154614.GB2864-RDzucLLXGGI88b5SBfVpbw@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-HB1/9zdSEgBWZTo8fPUi"
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60716 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756860AbaDXQCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:02:17 -0400
+In-Reply-To: <20140424151748.GH1960@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/24/2014 8:46 AM, Jiri Pirko wrote:
-> Thu, Apr 24, 2014 at 04:54:19PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
->> On 04/17/2014 05:15 AM, Jiri Pirko wrote:
->>> Benefit from the possibility to work with flows in switch devices and
->>> use the swdev api to offload flow datapath.
->>>
->>> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
->>> ---
->>
->>
->> [...]
->>
->>>
->>> @@ -840,13 +841,15 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
->>>   		flow->flow.key = masked_key;
->>>   		flow->flow.unmasked_key = key;
->>>   		rcu_assign_pointer(flow->sf_acts, acts);
->>> +		acts = NULL;
->>>
->>>   		/* Put flow in bucket. */
->>>   		error = ovs_flow_tbl_insert(&dp->table, flow, &mask);
->>> -		if (error) {
->>> -			acts = NULL;
->>> +		if (error)
->>>   			goto err_flow_free;
->>> -		}
->>> +		error = ovs_hw_flow_insert(dp, flow, flow->sf_acts);
->>> +		if (error)
->>> +			goto err_flow_tbl_remove;
->>>
->>>   		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
->>>   	} else {
->>
->> Hi Jiri,
->>
->> If I read this correctly it looks like you do a insert into software
->> flow tables and then an insert into the hardware flow tables. Into
->> all lowerdevs. Let me know if I got this wrong.
->
-> It should be sufficient to use one-port-per-switch to insert this. I
-> just insert it to all and if 2 ports of the same switch are used the
-> switch should see that the flow is already there and bail out. This is
-> rough so far. Needs some polishing.
-> 		
->
 
-OK that seems fine.
+--=-HB1/9zdSEgBWZTo8fPUi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
->>
->> This might break on some rules (an insert tag for example) and also
->> underutilize the switch resources by pushing rules into the switch that
->> we really only need in software tables or maybe only on some set of
->> ports.
->
-> I thought that I would introduce a flag that would say "push this flow
-> to hw".
->
+On Thu, 2014-04-24 at 17:17 +0200, Hannes Frederic Sowa wrote:
+> On Wed, Apr 23, 2014 at 06:27:12PM +0200, Florian Westphal wrote:
+> > Ben Hutchings <ben@decadent.org.uk> wrote:
+> > > Userspace can't assume it now because access is controlled by a sysct=
+l.
+> > >=20
+> > > I think it is for distributions to choose whether to enable this feat=
+ure
+> > > in ping and the kernel.
+> >=20
+> > I am not (yet) buying this argument.
+> >=20
+> > Saying 'you need to change sysctl foo for this to work' in a program ma=
+npage
+> > is a lot different than 'you need to recompile the kernel'.
+>=20
+> Maybe we can make the Kconfig option depend on CONFIG_EMBEDDED so that we=
+ can
+> be sure people don't have man-pages on the device. ;)
+>=20
+> Seriously, I think doing authorization check based on gids in a sysctl is
+> wrong.
 
-Great this would align with how the FDB interface works. I think this
-is a good model although I would prefer a bitfield so I can push it
-to hardware, or sw, or both.
+It is quite weird but perhaps made sense in the context of some embedded
+systems.
 
->>
->> I think we need to allow applications direct access to the flow table
->> via netlink so I can write my policy in user space and not require
->> OVS. If OVS wants to support a mode where it does this automagically
->> it can support it in userspace and the kernel side does not need to
->> change.
->
-> The idea was to use the existing ovs api for this so it would be smooth
-> to userspace. For non-ovs usage there is certainly possible to introduce
-> new iface which would just call same ndos.
->
+> Switching over to capabilities seems to make this interface much
+> more useable to me. But we would need to make sure, that we don't suddenl=
+y
+> allow people to use those sockets where it was restricted previously.
 
-If we get a bitfield to push to just hardware and just software then
-using the OVS interface is probably ok. We also need someway to expose
-capabilities.
+Standard ping could already be implemented as setcap (CAP_NET_RAW).  You
+want a capability just for ping?
 
-Anyways not a bad start. We can clean it up when the hardware support
-is ready.
+Ben.
 
-.John
+--=20
+Ben Hutchings
+Beware of programmers who carry screwdrivers. - Leonard Brandwein
+
+--=-HB1/9zdSEgBWZTo8fPUi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIVAwUAU1k1eOe/yOyVhhEJAQpRBxAAuOD5Nu3Cn6GRdA7KlkTb10RtIdd79IbB
+ixh3VWUoyLHV5YbGOipmrCsG9V5KFhSqYYh5rPSE7K01pyxjsN/0M0cVxKzOoXBk
+iJhH/IlFpNDamc1PLeXnQAFBRh8KVTcBIAoUlEqJaYPfI59mF+e1MPoqsl/78lDN
+KhYJVgoqCu8bOvlGMqX1xOOrz+w5ZyVu+xRO25687w6NCI8g4xIDWQogcyl8/QGZ
+mf5h2KwLHg5jhXC8aevFWSt25krJrxD9+6SOxxJNFUWNDdlAmaufoC6KNw8KBbUD
+36aXsnRLSm0gEYHQLgBpUR435tLHLenLSXzYpIyVm09QZcrfwFBeEcytQfTXAkOK
+HbWyIt7+BEM1Fa5YG5SFZAKUhfwTRfJya+jJBKaEOKFWn2vXnzLgInfhTzNUmQ1X
+yZHwnE7xd7WzxyZDsUdMrnbsLVruJq+icR16HSC9Rr2KsvN3WYFliIgHQ0xw34Sm
+Y9I+9/9TEdWroKnY4W+tOtzieox1Q8Tabhnn4hntDFf/Bh+TEqJL9faiI0Nyayqp
+0NiYvMWu6/rBbXC3looOcsiuYY8JyihGH5erTek1CBNg9fVaeEwd25sbfBBOFnvz
+LRr2DQi1FxWS2rbnGqn7DgKqeFomltu+oEpO8OTuXjdOAWDloiQwbokebteeMBGT
+h7P3qBCv9M4=
+=Loea
+-----END PGP SIGNATURE-----
+
+--=-HB1/9zdSEgBWZTo8fPUi--
