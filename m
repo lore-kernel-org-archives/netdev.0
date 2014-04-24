@@ -1,123 +1,74 @@
 From: David Gibson <david@gibson.dropbear.id.au>
-Subject: Re: [PATCH 2/2] rtnetlink: Only supply IFLA_VF_PORTS information
- when RTEXT_FILTER_VF is set
-Date: Thu, 24 Apr 2014 10:13:14 +1000
-Message-ID: <20140424001314.GD31647@voom.fritz.box>
-References: <1398237665-26980-1-git-send-email-david@gibson.dropbear.id.au>
- <1398237665-26980-3-git-send-email-david@gibson.dropbear.id.au>
- <20140423091715.GD2846@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jCrbxBqMcLqd4mOl"
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, neepatel@cisco.com,
-	benve@cisco.com, davem@davemloft.net, ben@decadent.org.uk,
-	govindarajulu90@gmail.com, gregory.v.rose@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+Subject: [PATCH 1/2] rtnetlink: Warn when interface's information won't fit in our packet
+Date: Thu, 24 Apr 2014 10:22:35 +1000
+Message-ID: <1398298956-13084-2-git-send-email-david@gibson.dropbear.id.au>
+References: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
+Cc: ssujith@cisco.com, neepatel@cisco.com, benve@cisco.com,
+	davem@davemloft.net, ben@decadent.org.uk,
+	govindarajulu90@gmail.com, gregory.v.rose@intel.com,
+	David Gibson <david@gibson.dropbear.id.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:54938 "EHLO ozlabs.org"
+Received: from ozlabs.org ([103.22.144.67]:33643 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017AbaDXAQX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 20:16:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20140423091715.GD2846@minipsycho.orion>
+	id S1751194AbaDXAWg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 20:22:36 -0400
+In-Reply-To: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Without IFLA_EXT_MASK specified, the information reported for a single
+interface in response to RTM_GETLINK is expected to fit within a netlink
+packet of NLMSG_GOODSIZE.
 
---jCrbxBqMcLqd4mOl
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+If it doesn't, however, things will go badly wrong,  When listing all
+interfaces, netlink_dump() will incorrectly treat -EMSGSIZE on the first
+message in a packet as the end of the listing and omit information for
+that interface and all subsequent ones.  This can cause getifaddrs(3) to
+enter an infinite loop.
 
-On Wed, Apr 23, 2014 at 11:17:15AM +0200, Jiri Pirko wrote:
-> Wed, Apr 23, 2014 at 09:21:05AM CEST, david@gibson.dropbear.id.au wrote:
-> >Since 115c9b81928360d769a76c632bae62d15206a94a (rtnetlink: Fix problem w=
-ith
-> >buffer allocation), RTM_NEWLINK messages only contain the IFLA_VFINFO_LI=
-ST
-> >attribute if they were solicited by a GETLINK message containing an
-> >IFLA_EXT_MASK attribute with the RTEXT_FILTER_VF flag.
-> >
-> >That was done because some user programs broke when they received more d=
-ata
-> >than expected - because IFLA_VFINFO_LIST contains information for each VF
-> >it can become large if there are many VFs.
-> >
-> >However, the IFLA_VF_PORTS attribute, supplied for devices which impleme=
-nt
-> >ndo_get_vf_port (currently the 'enic' driver only), has the same problem.
-> >It supplies per-VF information and can therefore become large, but it is
-> >not currently conditional on the IFLA_EXT_MASK value.
-> >
-> >Worse, it interacts badly with the existing EXT_MASK handling.  When
-> >IFLA_EXT_MASK is not supplied, the buffer for netlink replies is fixed at
-> >NLMSG_GOODSIZE.  If the information for IFLA_VF_PORTS exceeds this, then
-> >rtnl_fill_ifinfo() returns -EMSGSIZE on the first message in a packet.
-> >netlink_dump() will misinterpret this as having finished the listing and
-> >omit data for this interface and all subsequent ones.  That can cause
-> >getifaddrs(3) to enter an infinite loop.
-> >
-> >This patch addresses the problem by only supplying IFLA_VF_PORTS when
-> >IFLA_EXT_MASK is supplied with the RTEXT_FILTER_VF flag set.
-> >
-> >Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
-> >---
-> > net/core/rtnetlink.c | 16 ++++++++++------
-> > 1 file changed, 10 insertions(+), 6 deletions(-)
-> >
-> >diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> >index 5331db2..32a1287 100644
-> >--- a/net/core/rtnetlink.c
-> >+++ b/net/core/rtnetlink.c
-> >@@ -774,7 +774,8 @@ static inline int rtnl_vfinfo_size(const struct net_=
-device *dev,
-> > 		return 0;
-> > }
-> >=20
-> >-static size_t rtnl_port_size(const struct net_device *dev)
-> >+static size_t rtnl_port_size(const struct net_device *dev,
-> >+			     u32 ext_filter_mask)
-> > {
-> > 	size_t port_size =3D nla_total_size(4)		/* PORT_VF */
-> > 		+ nla_total_size(PORT_PROFILE_MAX)	/* PORT_PROFILE */
-> >@@ -790,7 +791,8 @@ static size_t rtnl_port_size(const struct net_device=
- *dev)
-> > 	size_t port_self_size =3D nla_total_size(sizeof(struct nlattr))
-> > 		+ port_size;
-> >=20
-> >-	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
-> >+	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent
-> >+	    || !(ext_filter_mask & RTEXT_FILTER_VF))
->=20
-> 	Do not start line with ||
+This patch won't fix the problem, but it will WARN_ON() making it easier to
+track down what's going wrong.
 
-Ah, sorry, I'm getting my project codingstyles mixed up.  Will fix.
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ net/core/rtnetlink.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
---=20
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/~dgibson
-
---jCrbxBqMcLqd4mOl
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJTWFcZAAoJEGw4ysog2bOSjvgP/1Y4GbonBPR3etIwCMI3GVE5
-OG5XyjKfGC+vNfqZVkiv1gpJf2IiiJABioreokaiSsF83haTF2LP/ghhI8Od0KuR
-kjFppjstEGaFMUbOR9BnwfrZKjgiUFyBUDEoYPNcassPG0JQ1p4GXICSklSdZC5a
-CVziXBXb0DnJui+asElhdeUREBunTLFWOWe+2moRVz8qhOGbK7xHJzy8Th6H7HT5
-Hd1dnaD4vt+NJUEJAjMvkVFsna3jQ1stHsMi+ZykcmKfLHngJhciBqla4REUo5Mo
-JJts/F/lygl55HSBs+cKQ5GnbJb+mLmmoU7K4D2z82ZEpYHJb77SvED8+MxqOSz8
-8ZCCNHJiF3N3YCoCVmHo5cf+1L559d0nyy8R8ciBUScn8QPgiFlX5Pg2UyDoxuY0
-thkeXkfutUTpEc1uzIwEsg0mvyhUecw8EHOME2TGjbdHwPOz9Sesj9qCJeBfvWk1
-9ZZIjUtIl+XnxiRrpA1QYoQiPi6uOGLrX5oCXlQBYfmVx/238opvty2nUDZ6Ubty
-vnsJmKeQHRo5bClas4Wrgs+e+/7n69fxZa+xzz0SAcZBWYRq7bLvX037SwniHqF7
-BmV8zBL570u7g7e89oGryZB6URfp+tb8NF3Jd2i3/DFRgr3G417eVSSZl2aAETqw
-/s0LNbWbZ72K9StTKqtB
-=nVLo
------END PGP SIGNATURE-----
-
---jCrbxBqMcLqd4mOl--
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d4ff417..b5e384a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1198,6 +1198,7 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct hlist_head *head;
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	u32 ext_filter_mask = 0;
++	int err;
+ 
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
+@@ -1218,11 +1219,17 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 		hlist_for_each_entry_rcu(dev, head, index_hlist) {
+ 			if (idx < s_idx)
+ 				goto cont;
+-			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+-					     NETLINK_CB(cb->skb).portid,
+-					     cb->nlh->nlmsg_seq, 0,
+-					     NLM_F_MULTI,
+-					     ext_filter_mask) <= 0)
++			err = rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
++					       NETLINK_CB(cb->skb).portid,
++					       cb->nlh->nlmsg_seq, 0,
++					       NLM_F_MULTI,
++					       ext_filter_mask);
++			/* If we ran out of room on the first message,
++			 * we're in trouble
++			 */
++			WARN_ON((err == -EMSGSIZE) && (skb->len == 0));
++
++			if (err <= 0)
+ 				goto out;
+ 
+ 			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+-- 
+1.9.0
