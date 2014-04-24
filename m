@@ -1,87 +1,106 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH net-next v2 5/5] net: filter: optimize BPF migration for
- ARG1/CTX handling
-Date: Thu, 24 Apr 2014 08:43:39 -0700
-Message-ID: <CAMEtUuzdXjq+pC1ahoEOQX7h7zGrG9PKxGSPoZ0qC0fwnuqc-w@mail.gmail.com>
-References: <1398321927-8845-1-git-send-email-dborkman@redhat.com>
-	<1398321927-8845-6-git-send-email-dborkman@redhat.com>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: Re: [patch net-next RFC v3 10/10] openvswitch: add
+ support for datapath hardware offload
+Date: Thu, 24 Apr 2014 17:46:14 +0200
+Message-ID: <20140424154614.GB2864@minipsycho.orion>
+References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
+ <1397736938-11838-1-git-send-email-jiri@resnulli.us>
+ <5359259B.3020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:51234 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758220AbaDXPnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:43:41 -0400
-Received: by mail-wg0-f52.google.com with SMTP id b13so1242247wgh.35
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 08:43:39 -0700 (PDT)
-In-Reply-To: <1398321927-8845-6-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+ jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
+ buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
+ linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
+ vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+ ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <5359259B.3020402-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 23, 2014 at 11:45 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> Currently, at initial setup in __sk_run_filter() we initialize the
-> BPF stack's frame-pointer and CTX register. However, instead of the
-> CTX register, we initialize context to ARG1, and during user filter
-> migration we emit *always* an instruction that copies the content
-> from ARG1 over to CTX. ARG1 is needed in BPF_CALL instructions to
-> setup ctx; for user BPF filter ARG2 has A, and ARG3 X for call
-> emission. However, we nevertheless copy CTX over to ARG1 in these
-> cases for user migrated filters. We can spare us this extra interpreter
-> instruction and assign it during initial setup time.
+Thu, Apr 24, 2014 at 04:54:19PM CEST, john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>On 04/17/2014 05:15 AM, Jiri Pirko wrote:
+>>Benefit from the possibility to work with flows in switch devices and
+>>use the swdev api to offload flow datapath.
+>>
+>>Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+>>---
 >
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Alexei Starovoitov <ast@plumgrid.com>
+>
+>[...]
+>
+>>
+>>@@ -840,13 +841,15 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+>>  		flow->flow.key = masked_key;
+>>  		flow->flow.unmasked_key = key;
+>>  		rcu_assign_pointer(flow->sf_acts, acts);
+>>+		acts = NULL;
+>>
+>>  		/* Put flow in bucket. */
+>>  		error = ovs_flow_tbl_insert(&dp->table, flow, &mask);
+>>-		if (error) {
+>>-			acts = NULL;
+>>+		if (error)
+>>  			goto err_flow_free;
+>>-		}
+>>+		error = ovs_hw_flow_insert(dp, flow, flow->sf_acts);
+>>+		if (error)
+>>+			goto err_flow_tbl_remove;
+>>
+>>  		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+>>  	} else {
+>
+>Hi Jiri,
+>
+>If I read this correctly it looks like you do a insert into software
+>flow tables and then an insert into the hardware flow tables. Into
+>all lowerdevs. Let me know if I got this wrong.
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+It should be sufficient to use one-port-per-switch to insert this. I
+just insert it to all and if 2 ports of the same switch are used the
+switch should see that the flow is already there and bail out. This is
+rough so far. Needs some polishing.
+		
 
-> opinion on this particular patch, just wanted to have clarified what we
-> have with ABI here as there's no particular freeze from the code we have
+>
+>This might break on some rules (an insert tag for example) and also
+>underutilize the switch resources by pushing rules into the switch that
+>we really only need in software tables or maybe only on some set of
+>ports.
 
-yes. Of course, we do not have a freeze on ABI.
-I was arguing about merits of not changing it for this particular case.
-Especially when the difference is a single line of code.
-If we want to add another register to ISA, that would be a fine reason
-to change it.
+I thought that I would introduce a flag that would say "push this flow
+to hw".
 
-Thanks!
+>
+>I think we need to allow applications direct access to the flow table
+>via netlink so I can write my policy in user space and not require
+>OVS. If OVS wants to support a mode where it does this automagically
+>it can support it in userspace and the kernel side does not need to
+>change.
 
-> ---
->  net/core/filter.c | 12 ++++--------
->  1 file changed, 4 insertions(+), 8 deletions(-)
+The idea was to use the existing ovs api for this so it would be smooth
+to userspace. For non-ovs usage there is certainly possible to introduce
+new iface which would just call same ndos.
+
 >
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index eada3d5..9744365 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -257,7 +257,10 @@ unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
->  #define CONT_JMP ({ insn++; goto select_insn; })
+>Thanks,
+>John
 >
->         FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
-> -       ARG1 = (u64) (unsigned long) ctx;
-> +       CTX = (u64) (unsigned long) ctx;
-> +
-> +       /* Direct users expect arg1 to be filled already with ctx. */
-> +       ARG1 = CTX;
 >
->         /* Register for user BPF programs need to be reset first. */
->         regs[BPF_REG_A] = 0;
-> @@ -896,13 +899,6 @@ do_pass:
->         new_insn = new_prog;
->         fp = prog;
->
-> -       if (new_insn) {
-> -               new_insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
-> -               new_insn->a_reg = BPF_REG_CTX;
-> -               new_insn->x_reg = BPF_REG_ARG1;
-> -       }
-> -       new_insn++;
-> -
->         for (i = 0; i < len; fp++, i++) {
->                 struct sock_filter_int tmp_insns[6] = { };
->                 struct sock_filter_int *insn = tmp_insns;
-> --
-> 1.7.11.7
->
+>-- 
+>John Fastabend         Intel Corporation
