@@ -1,79 +1,39 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Thu, 24 Apr 2014 23:01:15 +0300
-Message-ID: <CAJZOPZKUWsgcNRNhVDM3EGpvVT834pfqkEZ_Z3NmCQJXkNuApg@mail.gmail.com>
-References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com>
-	<alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz>
-	<530F0C4F.9030200@mellanox.com>
-	<alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz>
-	<CAG4TOxMw4siOqtjXrgUDaw8yWqYgSG4d8PqGuJ62AZBrC2O2AA@mail.gmail.com>
-	<531F1550.3080401@mellanox.com>
-	<alpine.LNX.2.00.1404241900020.3265@pobox.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 3/5] net: filter: get rid of sock_fprog_kern
+Date: Thu, 24 Apr 2014 16:02:37 -0400 (EDT)
+Message-ID: <20140424.160237.1682834218902091375.davem@davemloft.net>
+References: <1398321927-8845-1-git-send-email-dborkman@redhat.com>
+	<1398321927-8845-4-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1404241900020.3265@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33913 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751177AbaDXUCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 16:02:39 -0400
+In-Reply-To: <1398321927-8845-4-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2014 at 8:03 PM, Jiri Kosina <jkosina@suse.cz> wrote:
->
-> On Tue, 11 Mar 2014, Or Gerlitz wrote:
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 24 Apr 2014 08:45:25 +0200
 
+> It is actually cleaner to just get rid of sock_fprog_kern structure.
+> It's not really useful as we can just use sock_fprog structure as
+> we do elsewhere in the kernel, this could throw some sparse false
+> positives though, but getting rid of the structure duplication is
+> probably the better way to go.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 
-[...]
->
-> > So sounds like a plan that makes sense?
->
-> Hi everybody, seems like this fell through cracks,
+But this is the whole point of sock_fprog_kern.
 
+It's so that we can always have the correct type for the pointers, and
+we can show cleanly (without lots of ugly casts) to sparse that whether
+we expect a pointer to be a user or a kernel one.
 
-Hi Jiri,
-
-I sent you private note on Mar 19th saying "are you on track with this
-for 3.15? the merge window is coming soon and you have 99% of what you
-need -- lets get there" which seems to be the piece that fell between
-the cracks.
-
->
-> probably because it wasn't clearly stated *who* will be preparing patch(es) that'd be implementing the ideas above. My understanding was that it'd be Mellanox, given that they basically own the driver,
-
-
-
-to be precise partially own the mlx4 HW driver (Roland is the
-mlx4_core/ib author and maintainer, we are asking for few years to get
-co-maintainer hat there, no success so far), the problem you have
-described can happen with any HW driver, but as stated earlier, the
-suggested plan will fix ipoib and mlx4 and following that more hw
-drivers can be enhanced to support that too.
-
-
->
-> have the best testing coverage compared to very very limited
-> testing coverage I can do, and will be pushing it upstream anyway.
->
-> I believe all the above can be easily created on top of the original patch I sent.
-
-
-
-Indeed, so will take a look next week and let you know if it works for me
-
-
->
->
-> So ... was there a misunderstanding on who is going to do it? :)
->
+I really don't like this change, sorry.
