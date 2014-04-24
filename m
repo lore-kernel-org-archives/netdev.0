@@ -1,41 +1,65 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
-Date: Thu, 24 Apr 2014 10:10:08 +0800
-Message-ID: <53587280.4020101@gmail.com>
-References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu>	 <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk>	 <53577036.2040307@gmail.com> <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 23 Apr 2014 19:24:38 -0700
+Message-ID: <1398306278.29638.42.camel@jtkirshe-mobl>
+References: <20140424114726.07876050b5b805463a085191@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, joe@perches.com, julia.lawall@lip6.fr,
-	dingtianhong@huawei.com, linux-kernel@vger.kernel.org,
-	jasowang@redhat.com, mst@redhat.com,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>, zhuyj <zyjzyj2000@gmail.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-WS67KpToDaxuXvbutGr2"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jakub Kicinski <kubakici@wp.pl>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20140424114726.07876050b5b805463a085191@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/23/2014 07:41 PM, Ben Hutchings wrote:
-> On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
->> On 04/23/2014 01:53 AM, Ben Hutchings wrote:
-> [...]
->>> For what it's worth, I would recommend against applying this.  I don't
->>> think even Red Hat has backported the VLAN changes, and they have been
->>> quite aggressive about backporting features to RHEL 6.
->> If we do not merge these patches, maybe RHEL 6 can not make tap driver
->> support vlan well.
-> RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
-Hi, Ben
 
-It is well known that extraction vlan tag is not implemented in kernel 
-2.6.32.y.  Kernel 2.6.32.y depends on nic hardware to extract vlan tag.
-So if the patches are not applied, tap driver can not support vlan well.
+--=-WS67KpToDaxuXvbutGr2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Best Regards!
-Zhu Yanjun
-> Ben.
->
+On Thu, 2014-04-24 at 11:47 +1000, Stephen Rothwell wrote:
+> Hi all,
+>=20
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/intel/igb/e1000_mac.c between commit c5ffe7e1f745
+> ("e1000e/igb/ixgbe/i40e: fix message terminations") from the net tree
+> and
+> commit c75c4edfc38d ("igb: Cleanups for messaging") from the net-next
+> tree.
+>=20
+> I fixed it up (the former was a superset of the latter) and can carry
+> the
+> fix as necessary (no action is required).
+
+Huh, I thought the commit c75c4edfc38d ("igb: Cleanups for messaging")
+in Dave's net-next already took into account the changes in net.  I will
+take a look at your fix Stephen, thanks for letting us know.
+
+--=-WS67KpToDaxuXvbutGr2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAABCgAGBQJTWHXmAAoJEOVv75VaS+3OOesP/2phQ9lMZIO9AJRv14E92Q2w
+mD3xlGl0Q3vvQBYMgp5y2j9WovzuS0bxvFwrDxDnVShHIgtZik/M9J5sVvFCNLzq
+EOYU54f6fAxbXewykmkIOmvKMB8JllMop3RYZC9cQsmkKNWNxLTz3wTqEElbA8G/
+gJE+jjkqerly9wWjqnzC0K5oMzdzje1Cn6+dOoib7FOG1DXcZsH5kBEhYgcidz1f
+eBQo0ojqOukZsZJAo1f0Y0zjjC6RELBdHEqDD8j8RXzA7dhWU5lTBO6jTqklvJys
+4POppOjPqiIQa6e91cl1MMRkJKmJefazvWpzBlVP3gpxfOD2I0Use0BqrdkJ+vp1
+2KIlI/BhiSRfVCRrWLoUJdeWIZdh1/vSiZSR7vmFliR2Xkh53HUalfmfXmX9+y/5
+GYUquTFOBiLa5otU0VCs9BLbweCuujUSth4Sba5b7bvZOF6MjHH4gMpoRsuwIOpj
+ZzoYdwopp7IkMq6VatxNCD1c02RN4/KcrxV2MZwVQypyvO1lxW7lpssPbTJLd0Uq
+X3Nfry0Zn2qst8Dz7jJRTnu4UZGZsaIxDiFa20rSTL7aBJPCIJhAqtoE+GinUWdW
+xw4V3cELvBbgQw/cg2B6s0snBryCA4eg3vCqASx3Hzx6ZmNWDbszXG/LhxwZp2QV
+fgL3PYFE2+JyUlSsIa6R
+=AxYl
+-----END PGP SIGNATURE-----
+
+--=-WS67KpToDaxuXvbutGr2--
