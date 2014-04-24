@@ -1,181 +1,105 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [RFC][PATCH net-next] net: Support for dual-stack ping sockets.
-Date: Fri, 25 Apr 2014 01:02:56 +0900
-Message-ID: <1398355376-7741-1-git-send-email-lorenzo@google.com>
-Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:42294 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758127AbaDXQDL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:03:11 -0400
-Received: by mail-pb0-f44.google.com with SMTP id jt11so386206pbb.31
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 09:03:10 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel J Walsh <dwalsh@redhat.com>
+Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
+Date: Thu, 24 Apr 2014 12:03:57 -0400
+Message-ID: <535935ED.8050707@redhat.com>
+References: <20140422.161904.1187535812839850973.davem@davemloft.net> <cover.1398215388.git.rgb@redhat.com> <26389161.vp9iWSVLPX@x2> <1398225475.750.7.camel@localhost> <5357C2D2.5060700@redhat.com> <1398264152.2596.25.camel@flatline.rdu.redhat.com> <5357DE12.7040905@redhat.com> <1398267458.2562.0.camel@flatline.rdu.redhat.com> <5357E1B4.2030705@redhat.com> <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com> <535926B8.7060304@redhat.com> <1398351780.750.10.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	linux-audit@redhat.com, SE-Linux <selinux@tycho.nsa.gov>,
+	jamal@mojatatu.com, Steve Grubb <sgrubb@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Paris <eparis@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1398351780.750.10.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This mostly looks fine, except that to make the protocol field in
-the IPv4 header be ICMP (1) instead of ICMPv6 (58), it hacks
-sk->sk_protocol to IPPROTO_ICMP. It's done with the socket
-locked, so it will at least not race with other calls to
-sendmsg on the same socket, but it feels hacky and I don't know
-what else might break.
+Yes that would be the long term fix.  But it would involve journal
+labelling individual data records.  IE Records from audit.log would be
+audit_log_t, while messages from syslog would be var_log_t,  Or some
+other kind of crazyness.
 
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- include/net/ping.h |  2 ++
- net/ipv4/ping.c    | 37 ++++++++++++++++++++++++++++---------
- net/ipv6/ping.c    | 23 ++++++++++++++++++-----
- 3 files changed, 48 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/ping.h b/include/net/ping.h
-index 026479b..0e0f3ac 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -79,6 +79,8 @@ int  ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		  size_t len, int noblock, int flags, int *addr_len);
- int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- 			 void *user_icmph, size_t icmph_len);
-+int  ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		     size_t len);
- int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		     size_t len);
- int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 8a912b8..657092b2f 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -278,6 +278,7 @@ int ping_init_sock(struct sock *sk)
- 
- out_release_group:
- 	put_group_info(group_info);
-+
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(ping_init_sock);
-@@ -682,8 +683,8 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- }
- EXPORT_SYMBOL_GPL(ping_common_sendmsg);
- 
--static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
--			   size_t len)
-+int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
-+		    size_t len)
- {
- 	struct net *net = sock_net(sk);
- 	struct flowi4 fl4;
-@@ -697,6 +698,7 @@ static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
- 	__be32 saddr, daddr, faddr;
- 	u8  tos;
- 	int err;
-+	u8 protocol;
- 
- 	pr_debug("ping_v4_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
- 
-@@ -777,7 +779,7 @@ static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
- 		ipc.oif = inet->uc_index;
- 
- 	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
--			   RT_SCOPE_UNIVERSE, sk->sk_protocol,
-+			   RT_SCOPE_UNIVERSE, IPPROTO_ICMP,
- 			   inet_sk_flowi_flags(sk), faddr, saddr, 0, 0,
- 			   sock_i_uid(sk));
- 
-@@ -814,12 +816,23 @@ back_from_confirm:
- 	pfh.wcheck = 0;
- 	pfh.family = AF_INET;
- 
-+	/* Hack for dual-stack sockets.
-+	 * The protocol field in the IPv4 header is determined by
-+	 * sk->sk_protocol, but on a dual-stack socket, sk->sk_protocol is
-+	 * IPPROTO_ICMPV6. Fix it up here and set it back to the previous
-+	 * value before releasing the lock.
-+	 */
-+	protocol = sk->sk_protocol;
-+	sk->sk_protocol = IPPROTO_ICMP;
-+
- 	err = ip_append_data(sk, &fl4, ping_getfrag, &pfh, len,
- 			0, &ipc, &rt, msg->msg_flags);
- 	if (err)
- 		ip_flush_pending_frames(sk);
- 	else
- 		err = ping_v4_push_pending_frames(sk, &pfh, &fl4);
-+
-+	protocol = sk->sk_protocol;
- 	release_sock(sk);
- 
- out:
-@@ -901,18 +914,24 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	} else if (family == AF_INET6) {
- 		struct ipv6_pinfo *np = inet6_sk(sk);
- 		struct ipv6hdr *ip6 = ipv6_hdr(skb);
-+		int is_ipv4 = (skb->protocol == htons(ETH_P_IP));
- 		DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
- 
- 		if (sin6) {
- 			sin6->sin6_family = AF_INET6;
- 			sin6->sin6_port = 0;
--			sin6->sin6_addr = ip6->saddr;
- 			sin6->sin6_flowinfo = 0;
--			if (np->sndflow)
--				sin6->sin6_flowinfo = ip6_flowinfo(ip6);
--			sin6->sin6_scope_id =
--				ipv6_iface_scope_id(&sin6->sin6_addr,
--						    IP6CB(skb)->iif);
-+			if (is_ipv4) {
-+				ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
-+					       &sin6->sin6_addr);
-+			} else {
-+				sin6->sin6_addr = ip6->saddr;
-+				if (np->sndflow)
-+					sin6->sin6_flowinfo = ip6_flowinfo(ip6);
-+				sin6->sin6_scope_id =
-+					ipv6_iface_scope_id(&sin6->sin6_addr,
-+							    IP6CB(skb)->iif);
-+			}
- 			*addr_len = sizeof(*sin6);
- 		}
- 
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index 96730c6..7011b3d 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -97,11 +97,6 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 
- 	pr_debug("ping_v6_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
- 
--	err = ping_common_sendmsg(AF_INET6, msg, len, &user_icmph,
--				  sizeof(user_icmph));
--	if (err)
--		return err;
--
- 	if (sin6) {
- 		if (addr_len < sizeof(struct sockaddr_in6))
- 			return -EINVAL;
-@@ -114,6 +109,24 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		daddr = &sk->sk_v6_daddr;
- 	}
- 
-+	if (ipv6_addr_v4mapped(daddr)) {
-+		struct sockaddr_in sin;
-+
-+		sin.sin_family = AF_INET;
-+		sin.sin_port = sin6 ? sin6->sin6_port : inet->inet_dport;
-+		sin.sin_addr.s_addr = daddr->s6_addr32[3];
-+		msg->msg_name = &sin;
-+		msg->msg_namelen = sizeof(sin);
-+		if (__ipv6_only_sock(sk))
-+			return -ENETUNREACH;
-+		return ping_v4_sendmsg(iocb, sk, msg, len);
-+	}
-+
-+	err = ping_common_sendmsg(AF_INET6, msg, len, &user_icmph,
-+				  sizeof(user_icmph));
-+	if (err)
-+		return err;
-+
- 	if (ipv6_addr_v4mapped(daddr))
- 		return -EINVAL;
- 
--- 
-1.9.1.423.g4596e3a
+On 04/24/2014 11:03 AM, Eric Paris wrote:
+> On Thu, 2014-04-24 at 10:59 -0400, Daniel J Walsh wrote:
+>> I don't disagree.  I would think the real solution to this would be to
+>> not allow sysadm_t to get to SystemHigh, where all of the logging data
+>> will be stored.
+> make journalctl a userspace object manager and do selinux checks on if
+> it can see individual records?  so secadm_t running journalctl would see
+> them and sysadm running journalctl wouldn't see them?
+>
+> Sounds elegant.  Who is going to code it?  *NOT IT!*
+>
+>> On 04/24/2014 09:22 AM, Eric Paris wrote:
+>>> They would be equivalent if and only if journald had CAP_AUDIT_READ.
+>>>
+>>> I suggest you take CAP_AUDIT_READ away from journald on systems which
+>>> need the secadm/sysadmin split (which is a ridiculously stupid split
+>>> anyway, but who am I to complain?)
+>>>
+>>> On Wed, Apr 23, 2014 at 11:52 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
+>>>> Meaning looking at the journal would be equivalent to looking at
+>>>> /var/log/audit/audit.log.
+>>>>
+>>>>
+>>>> On 04/23/2014 11:37 AM, Eric Paris wrote:
+>>>>> On Wed, 2014-04-23 at 11:36 -0400, Daniel J Walsh wrote:
+>>>>>> I guess the problem would be that the sysadm_t would be able to look at
+>>>>>> the journal which would now contain the audit content.
+>>>>> right.  so include it in the sysadm_secadm bool
+>>>>>
+>>>>>> On 04/23/2014 10:42 AM, Eric Paris wrote:
+>>>>>>> On Wed, 2014-04-23 at 09:40 -0400, Daniel J Walsh wrote:
+>>>>>>>> Here are the capabilities we currently give to sysadm_t with
+>>>>>>>> sysadm_secadm    1.0.0    Disabled
+>>>>>>>>
+>>>>>>>>    allow sysadm_t sysadm_t : capability { chown dac_override
+>>>>>>>> dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
+>>>>>>>> net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
+>>>>>>>> sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
+>>>>>>>> sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
+>>>>>>>>    allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
+>>>>>>>>
+>>>>>>>>    allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
+>>>>>>>>
+>>>>>>>> cap_audit_write might be a problem?
+>>>>>>> cap_audit_write is fine.
+>>>>>>>
+>>>>>>> syslogd_t (aka journal) is going to need the new permission
+>>>>>>> cap_audit_read.  Also, as steve pointed out, someone may be likely to
+>>>>>>> want to be able to disable that permission easily.
+>>>>>>>
+>>>>>>> -Eric
+>>>>>>>
+>>>>> _______________________________________________
+>>>>> Selinux mailing list
+>>>>> Selinux@tycho.nsa.gov
+>>>>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
+>>>>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
+>>>>>
+>>>>>
+>>>> --
+>>>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>>>> the body of a message to majordomo@vger.kernel.org
+>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>> Please read the FAQ at  http://www.tux.org/lkml/
+>>> _______________________________________________
+>>> Selinux mailing list
+>>> Selinux@tycho.nsa.gov
+>>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
+>>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
+>>>
+>>>
+>
+> _______________________________________________
+> Selinux mailing list
+> Selinux@tycho.nsa.gov
+> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
+> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
+>
+>
