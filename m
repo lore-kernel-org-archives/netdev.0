@@ -1,123 +1,62 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2014-04-25
-Date: Fri, 25 Apr 2014 00:21:38 +0200
-Message-ID: <53598E72.30504@pengutronix.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH V1 net-next 1/1] hyperv: Enable sendbuf mechanism on the
+ send path
+Date: Fri, 25 Apr 2014 01:30:59 +0300
+Message-ID: <20140424223059.GE26890@mwanda>
+References: <1398288285-16268-1-git-send-email-kys@microsoft.com>
+ <CAJUuVQ7V+Se0auKdaiqPZr8i2WcNqWhHUwz8r85DKKCjnjtrvQ@mail.gmail.com>
+ <cdb70820bcd0467586ce6893753c7065@BY2PR03MB299.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="3WJwwKqvxARgEeaLvgucdxgS8TDtr4AJG"
-Cc: David Miller <davem@davemloft.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>, Andev <debiandev@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ LKML <linux-kernel@vger.kernel.org>, "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: KY Srinivasan <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <cdb70820bcd0467586ce6893753c7065@BY2PR03MB299.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---3WJwwKqvxARgEeaLvgucdxgS8TDtr4AJG
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Thu, Apr 24, 2014 at 10:06:24PM +0000, KY Srinivasan wrote:
+> > From: Andev [mailto:debiandev@gmail.com]
+> > Your use of goto exit/cleanup in some functions and returning directly on
+> > errors in others could use a cleanup. Please consider doing that while you are
+> > touching those files.
+> 
+> Will do. The most recent changes I made to netvsc.c, I think was
+> consistent with the existing code; going forward we will certainly
+> move towards a more consistent coding style.
 
-Hello David,
+It scares me when you talk about being consistent with the existing
+code...  Just do it the correct way.
 
-this is a pull request of 10 patches for net-next/master.
+1) Don't do the "return ret;" if you know ret is zero.
 
-It consists of three patches by Alexander Shiyan, which improve the
-mcp251x driver. Stefano Babic's patch move the SPI driver into a sub
-folder. The three patches by Olivier Sobrie add support for the Kvaser
-Leaf v2 and usb mini PCIe hardware to the existing driver. Alexander
-Stein contributes eg20t support to the c_can pci driver. Together with
-the patches on the net-tree, we'll be able to remove the pch_can driver
-soon. Kurt Van Dijck's two patches clean up the sysfs attributes of the
-softing driver.
+2) Replace:
+	ret = vmbus_sendpacket(...);
 
-Marc
+	return ret;
+   with
+  	return vmbus_sendpacket(...);
 
----
+3) Don't do "goto cleanup;" when "return ret;" will suffice.  The
+   do-nothing goto is misleading because you assume it will cleanup
+   somthing.  Some people used to misread CodingStyle to think that all
+   functions should only have one return but I have updated it so it is
+   more clear.
 
-The following changes since commit 6afc0d7a85770abd282ebed41f0f35cde390d8=
-61:
-
-  bcm63xx_enet: Use ARRAY_SIZE instead of open coding it (2014-04-24 13:3=
-8:57 -0400)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-fo=
-r-3.16-20140425
-
-for you to fetch changes up to 0f8dced5ef49159698a98f744e809a3fff32b827:
-
-  can: softing: remove unused sysfs attributes (2014-04-25 00:09:03 +0200=
-)
-
-----------------------------------------------------------------
-linux-can-next-for-3.16-20140425
-
-----------------------------------------------------------------
-Alexander Shiyan (3):
-      can: mcp251x: Check return value of spi_setup()
-      can: mcp251x: Improve mcp251x_hw_reset()
-      can: mcp251x: Improve mcp251x_hw_probe()
-
-Alexander Stein (1):
-      can: c_can: Add support for eg20t (pch_can)
-
-Kurt Van Dijck (2):
-      can: softing: drop 'channel' sysfs attribute
-      can: softing: remove unused sysfs attributes
-
-Olivier Sobrie (3):
-      can: kvaser_usb: add retries/timeout to kvaser_usb_wait_msg()
-      can: kvaser_usb: add support for Kvaser Leaf v2 and usb mini PCIe
-      can: usb: Kconfig: Improve help for CAN_KVASER_USB
-
-Stefano Babic (1):
-      can: move SPI drivers into a separate directory
-
- drivers/net/can/Kconfig                |  8 +--
- drivers/net/can/Makefile               |  2 +-
- drivers/net/can/c_can/c_can_pci.c      | 51 ++++++++++++++++++-
- drivers/net/can/softing/softing_main.c | 20 ++------
- drivers/net/can/spi/Kconfig            | 10 ++++
- drivers/net/can/spi/Makefile           |  8 +++
- drivers/net/can/{ =3D> spi}/mcp251x.c    | 93 ++++++++++++++++----------=
---------
- drivers/net/can/usb/Kconfig            |  4 +-
- drivers/net/can/usb/kvaser_usb.c       | 53 +++++++++++--------
- 9 files changed, 154 insertions(+), 95 deletions(-)
- create mode 100644 drivers/net/can/spi/Kconfig
- create mode 100644 drivers/net/can/spi/Makefile
- rename drivers/net/can/{ =3D> spi}/mcp251x.c (96%)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-
-
-
-
-
-
-
-
---3WJwwKqvxARgEeaLvgucdxgS8TDtr4AJG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlNZjnIACgkQjTAFq1RaXHMHhQCggWNku/Rkzi5ONtxKubxCPjMu
-hG8An1wUkQTMMMOOwu5H0SFA7dDhgrHa
-=XWxF
------END PGP SIGNATURE-----
-
---3WJwwKqvxARgEeaLvgucdxgS8TDtr4AJG--
+regards,
+dan carpenter
