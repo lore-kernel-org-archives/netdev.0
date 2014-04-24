@@ -1,36 +1,25 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next v4 3/3] net: ipv6: Use ip6_datagram_send_common
- in ping.
-Date: Fri, 25 Apr 2014 01:06:04 +0900
-Message-ID: <CAKD1Yr0+1ox+Sq0Ze9oPkzE_2SvqH6wY7AgGRFFm9Ta15NRnKw@mail.gmail.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
- <1398235078-27088-1-git-send-email-lorenzo@google.com> <1398235078-27088-3-git-send-email-lorenzo@google.com>
- <53579FD8.2090309@enst-bretagne.fr> <CAKD1Yr1bYu1Rtqi6cfSTsnq14dj+esOd=MsPaUs-CbqkFY5H8Q@mail.gmail.com>
- <20140424150657.GG1960@order.stressinduktion.org> <CAKD1Yr0FWRmmC1BkrADnrSRvbD3_J7fO8SR8gqgEz8exfqD01w@mail.gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 0/3] bnx2x: SRIOV bug fixes
+Date: Thu, 24 Apr 2014 19:29:51 +0300
+Message-ID: <1398356994-30759-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Lorenzo Colitti <lorenzo@google.com>,
-	Florent Fourcot <florent.fourcot@enst-bretagne.fr>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <Ariel.Elior@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:44629 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757450AbaDXQGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:06:24 -0400
-Received: by mail-ie0-f173.google.com with SMTP id rl12so2588921iec.4
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 09:06:24 -0700 (PDT)
-In-Reply-To: <CAKD1Yr0FWRmmC1BkrADnrSRvbD3_J7fO8SR8gqgEz8exfqD01w@mail.gmail.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34450 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752895AbaDXQ37 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:29:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 25, 2014 at 12:35 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
-> I suppose that since ping_v4_push_pending_frames gets called with the
-> socket locked, we might be able to get away with setting
-> sk->sk_protocol just before ping_v4_push_pending_frames and restoring
-> it afterwards. But that feels hacky and I don't know what else it
-> could break.
+Hi Dave,
 
-FWIW, here's what it looks like: http://patchwork.ozlabs.org/patch/342428/
+This series contains 3 SRIOV bug fixes, 2 of which are regressions starting
+with commit 2dc33bbc "bnx2x: Remove the sriov VFOP mechanism".
+
+Please consider applying these patches to `net'.
+
+Thanks,
+Yuval Mintz
