@@ -1,44 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv6: fib: fix fib dump restart
-Date: Thu, 24 Apr 2014 07:18:04 -0700
-Message-ID: <1398349084.29914.65.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53591645.7010609@fb.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for /proc/net/ipv6_route
+Date: Thu, 24 Apr 2014 16:20:30 +0200
+Message-ID: <20140424142030.GD1960@order.stressinduktion.org>
+References: <535918BC.5030708@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org
 To: Chris Mason <clm@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:63047 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753239AbaDXOSH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:18:07 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so1968373pad.35
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 07:18:06 -0700 (PDT)
-In-Reply-To: <53591645.7010609@fb.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:36913 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755932AbaDXOUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:20:32 -0400
+Content-Disposition: inline
+In-Reply-To: <535918BC.5030708@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-24 at 09:48 -0400, Chris Mason wrote:
-> From: Kumar Sundararajan <kumar@fb.com>
-> 
-> When the ipv6 fib changes during a table dump, the walk is
-> restarted and the number of nodes dumped are skipped. But the existing
-> code doesn't advance to the next node after a node is skipped. This can
-> cause the dump to loop or produce lots of duplicates when the fib
-> is modified during the dump.
-> 
-> This change advances the walk to the next node if the current node is
-> skipped after a restart.
-> 
-> Signed-off-by: Chris Mason <clm@fb.com>
-> ---
->  net/ipv6/ip6_fib.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+Hi!
 
-Hi Chris
+On Thu, Apr 24, 2014 at 09:59:24AM -0400, Chris Mason wrote:
+> The ipv6 code to dump routes in /proc/net/ipv6_route can hold
+> a read lock on the table for a very long time.  This ends up blocking
+> writers and triggering softlockups.
+>
+> This patch is a simple work around to limit the number of entries
+> we'll walk while processing /proc/net/ipv6_route.  It intentionally
+> slows down proc file reading to make sure we don't lock out the
+> real ipv6 traffic.
 
-Who wrote the patch exactly ?
+I guess most time is spent in formatting and printing the rt6_info details
+to the procfs file. Have you tried excluding !(rt6_info->rt6i_flags &
+RTF_CACHE) routes?
 
-If Kumar did, you need to put the
-"Signed-off-by: Kumar Sundararajan <kumar@fb.com>" before your own
+Maybe this is a viable alternative. A patch could also check for
+RTF_DYNAMIC and RTF_MODIFIED so we would still show redirected and
+mtu-caching nodes.
+
+> This patch is also horrible, and doesn't actually fix the entire
+> problem.  We still have rcu_read_lock held the whole time we cat
+> /proc/net/ipv6_route.  On an unpatched machine, I've clocked the
+> time required to cat /proc/net/ipv6_route at 14 minutes.
+> 
+> java cats this proc file on startup to search for local routes, and the
+> resulting contention on the table lock makes our boxes fall over.
+
+Urks, does plain openjdk do that or is this something in your application?
+
+> 
+> So, I'm sending the partial fix to get discussion started.
+
+I am planing to submit patches which reduce the caching of DST_HOST
+entries in the ipv6 fib next month which will result in a much smaller
+fib to walk by then.
+
+Greetings,
+
+  Hannes
