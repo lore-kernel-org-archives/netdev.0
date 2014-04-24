@@ -1,99 +1,54 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 24/26] can: sja1000_isa: add locking for indirect register access mode
-Date: Fri, 25 Apr 2014 00:00:27 +0200
-Message-ID: <1398376829-6771-25-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 23/26] can: c_can_pci: enable PCI bus master only for MSI
+Date: Fri, 25 Apr 2014 00:00:26 +0200
+Message-ID: <1398376829-6771-24-git-send-email-mkl@pengutronix.de>
 References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+	kernel@pengutronix.de, Wolfgang Grandegger <wg@grandegger.com>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46159 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932582AbaDXWAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 18:00:45 -0400
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Wolfgang Grandegger <wg@grandegger.com>
 
-When accessing the SJA1000 controller registers in the indirect access mode,
-writing the register number and reading/writing the data has to be an atomic
-attempt.
+Coverity complains that c_can_pci_probe() calls pci_enable_msi() without
+checking the result:
 
-As the sja1000_isa driver is an old style driver with a fixed number of
-instances the locking variable depends on the same index like all the other
-configuration elements given on the module command line.
+CID 712278 (#1 of 1): Unchecked return value (CHECKED_RETURN) 3. check_return:
+Calling pci_enable_msi_block without checking return value (as is done
+elsewhere 88 out of 105 times).
+ 88        pci_enable_msi(pdev);
 
-As a positive side effect dev->dev_id is populated by the instance index,
-which was missing in 3e66d0138c05d9 ("can: populate netdev::dev_id for udev
-discrimination").
+This is CID 712278.
 
-Reported-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Signed-off-by: Wolfgang Grandegger <wg@grandegger.com>
+Reported-by: Bjorn Helgaas <bhelgaas@google.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/sja1000/sja1000_isa.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/can/c_can/c_can_pci.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
-index df136a2..014695d 100644
---- a/drivers/net/can/sja1000/sja1000_isa.c
-+++ b/drivers/net/can/sja1000/sja1000_isa.c
-@@ -46,6 +46,7 @@ static int clk[MAXDEV];
- static unsigned char cdr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
- static unsigned char ocr[MAXDEV] = {[0 ... (MAXDEV - 1)] = 0xff};
- static int indirect[MAXDEV] = {[0 ... (MAXDEV - 1)] = -1};
-+static spinlock_t indirect_lock[MAXDEV];  /* lock for indirect access mode */
+diff --git a/drivers/net/can/c_can/c_can_pci.c b/drivers/net/can/c_can/c_can_pci.c
+index 1b7ff40..fe5f630 100644
+--- a/drivers/net/can/c_can/c_can_pci.c
++++ b/drivers/net/can/c_can/c_can_pci.c
+@@ -84,8 +84,11 @@ static int c_can_pci_probe(struct pci_dev *pdev,
+ 		goto out_disable_device;
+ 	}
  
- module_param_array(port, ulong, NULL, S_IRUGO);
- MODULE_PARM_DESC(port, "I/O port number");
-@@ -101,19 +102,26 @@ static void sja1000_isa_port_write_reg(const struct sja1000_priv *priv,
- static u8 sja1000_isa_port_read_reg_indirect(const struct sja1000_priv *priv,
- 					     int reg)
- {
--	unsigned long base = (unsigned long)priv->reg_base;
-+	unsigned long flags, base = (unsigned long)priv->reg_base;
-+	u8 readval;
+-	pci_set_master(pdev);
+-	pci_enable_msi(pdev);
++	ret = pci_enable_msi(pdev);
++	if (!ret) {
++		dev_info(&pdev->dev, "MSI enabled\n");
++		pci_set_master(pdev);
++	}
  
-+	spin_lock_irqsave(&indirect_lock[priv->dev->dev_id], flags);
- 	outb(reg, base);
--	return inb(base + 1);
-+	readval = inb(base + 1);
-+	spin_unlock_irqrestore(&indirect_lock[priv->dev->dev_id], flags);
-+
-+	return readval;
- }
- 
- static void sja1000_isa_port_write_reg_indirect(const struct sja1000_priv *priv,
- 						int reg, u8 val)
- {
--	unsigned long base = (unsigned long)priv->reg_base;
-+	unsigned long flags, base = (unsigned long)priv->reg_base;
- 
-+	spin_lock_irqsave(&indirect_lock[priv->dev->dev_id], flags);
- 	outb(reg, base);
- 	outb(val, base + 1);
-+	spin_unlock_irqrestore(&indirect_lock[priv->dev->dev_id], flags);
- }
- 
- static int sja1000_isa_probe(struct platform_device *pdev)
-@@ -169,6 +177,7 @@ static int sja1000_isa_probe(struct platform_device *pdev)
- 		if (iosize == SJA1000_IOSIZE_INDIRECT) {
- 			priv->read_reg = sja1000_isa_port_read_reg_indirect;
- 			priv->write_reg = sja1000_isa_port_write_reg_indirect;
-+			spin_lock_init(&indirect_lock[idx]);
- 		} else {
- 			priv->read_reg = sja1000_isa_port_read_reg;
- 			priv->write_reg = sja1000_isa_port_write_reg;
-@@ -198,6 +207,7 @@ static int sja1000_isa_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-+	dev->dev_id = idx;
- 
- 	err = register_sja1000dev(dev);
- 	if (err) {
+ 	addr = pci_iomap(pdev, 0, pci_resource_len(pdev, 0));
+ 	if (!addr) {
 -- 
 1.9.0.279.gdc9e3eb
+
