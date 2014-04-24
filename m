@@ -1,54 +1,45 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
-Date: Thu, 24 Apr 2014 07:24:47 +0200
-Message-ID: <20140424052447.GC17409@1wt.eu>
-References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu> <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk> <53577036.2040307@gmail.com> <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk> <53587280.4020101@gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change
+ network namespaces.
+Date: Thu, 24 Apr 2014 07:47:34 +0200
+Message-ID: <20140424054734.GA16057@unicorn.suse.cz>
+References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com>
+ <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5357280C.1000404@huawei.com>
+ <53576A6F.2020207@6wind.com>
+ <53586207.7060407@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
-	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: zhuyj <zyjzyj2000@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	kaber@trash.net, davem@davemloft.net, netdev@vger.kernel.org
+To: chenweilong <chenweilong@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:44953 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751200AbaDXFrh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 01:47:37 -0400
 Content-Disposition: inline
-In-Reply-To: <53587280.4020101@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <53586207.7060407@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2014 at 10:10:08AM +0800, zhuyj wrote:
-> On 04/23/2014 07:41 PM, Ben Hutchings wrote:
-> >On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
-> >>On 04/23/2014 01:53 AM, Ben Hutchings wrote:
-> >[...]
-> >>>For what it's worth, I would recommend against applying this.  I don't
-> >>>think even Red Hat has backported the VLAN changes, and they have been
-> >>>quite aggressive about backporting features to RHEL 6.
-> >>If we do not merge these patches, maybe RHEL 6 can not make tap driver
-> >>support vlan well.
-> >RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
-> Hi, Ben
-> 
-> It is well known that extraction vlan tag is not implemented in kernel 
-> 2.6.32.y.  Kernel 2.6.32.y depends on nic hardware to extract vlan tag.
-> So if the patches are not applied, tap driver can not support vlan well.
+On Thu, Apr 24, 2014 at 08:59:51AM +0800, chenweilong wrote:
+> On 2014/4/23 15:23, Nicolas Dichtel wrote:
+> > Le 23/04/2014 04:40, chenweilong a =E9crit :
+> >> And, 2) is not safe, if someone forgets to move eth1, eth1.5 will =
+not work, making
+> >> things complex.
+> > We have to fix this case, because it is a valid use case to have et=
+h1.5 in net0
+> > and eth1 in another ns.
+> >=20
+> eth1.5 can receive and send packets in net0, the problem is you can't=
+ add a new eth1.5
+> in old ns, report 'error: File exists'.
 
-What Ben is saying is that RHEL doesn't use 2.6.32.y, but did their own
-fork of 2.6.32 so even if we merged your patch, they wouldn't pick it
-from this tree anyway. However they could possibly take your patch if
-some customers requested the feature even if it's not in 2.6.32.y.
+And this is correct, as far as I can tell. If it was possible, which of
+the two interfaces would receive VLAN tagged packets with VID 5 coming
+to eth1?
 
-Clearly, the fact that nobody complained about this in 4.5 years of
-2.6.32 means that there's no particular reason any user would suddenly
-miss it now. 2.6.32.y is mostly used to update existing deployments but
-rarely for new deployments. That's why the usefulness of your backport
-in this kernel for its users is likely limited, and at the same time
-the risk of causing a regression is far from being null for existing
-users (eg: if some worked around the issue a different way, their
-workaround would likely not work anymore).
-
-Best regards,
-Willy
+                                                         Michal Kubecek
