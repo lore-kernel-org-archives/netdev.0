@@ -1,105 +1,90 @@
-From: Daniel J Walsh <dwalsh@redhat.com>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Thu, 24 Apr 2014 12:03:57 -0400
-Message-ID: <535935ED.8050707@redhat.com>
-References: <20140422.161904.1187535812839850973.davem@davemloft.net> <cover.1398215388.git.rgb@redhat.com> <26389161.vp9iWSVLPX@x2> <1398225475.750.7.camel@localhost> <5357C2D2.5060700@redhat.com> <1398264152.2596.25.camel@flatline.rdu.redhat.com> <5357DE12.7040905@redhat.com> <1398267458.2562.0.camel@flatline.rdu.redhat.com> <5357E1B4.2030705@redhat.com> <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com> <535926B8.7060304@redhat.com> <1398351780.750.10.camel@localhost>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when creating
+ bridge device
+Date: Thu, 24 Apr 2014 18:04:12 +0200
+Message-ID: <CAG-2HqUhT+vbZfugfTYGzWt_qu45sKMaWXQ0uNg8SPzYNmG_5A@mail.gmail.com>
+References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
+ <CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
+ <1398341177.4171.11.camel@ubuntu-vm-makita> <1398341787.4171.16.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	linux-audit@redhat.com, SE-Linux <selinux@tycho.nsa.gov>,
-	jamal@mojatatu.com, Steve Grubb <sgrubb@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Paris <eparis@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398351780.750.10.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	bridge <bridge@lists.linux-foundation.org>,
+	"C. R. Oldham" <cr@saltstack.com>
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:37190 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757542AbaDXQEd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:04:33 -0400
+Received: by mail-yh0-f46.google.com with SMTP id c41so1181412yho.33
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 09:04:33 -0700 (PDT)
+In-Reply-To: <1398341787.4171.16.camel@ubuntu-vm-makita>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yes that would be the long term fix.  But it would involve journal
-labelling individual data records.  IE Records from audit.log would be
-audit_log_t, while messages from syslog would be var_log_t,  Or some
-other kind of crazyness.
+On Thu, Apr 24, 2014 at 2:16 PM, Toshiaki Makita
+<makita.toshiaki@lab.ntt.co.jp> wrote:
+> When bridge device is created with IFLA_ADDRESS, we are not calling
+> br_stp_change_bridge_id(), which leads to incorrect local fdb
+> management and bridge id calculation, and prevents us from receiving
+> frames on the bridge device.
+>
+> Reported-by: Tom Gundersen <teg@jklm.no>
 
+Thanks. That looks correct to me (not able to test at the moment
+though). Would this be appropriate for stable if it goes in?
 
-On 04/24/2014 11:03 AM, Eric Paris wrote:
-> On Thu, 2014-04-24 at 10:59 -0400, Daniel J Walsh wrote:
->> I don't disagree.  I would think the real solution to this would be to
->> not allow sysadm_t to get to SystemHigh, where all of the logging data
->> will be stored.
-> make journalctl a userspace object manager and do selinux checks on if
-> it can see individual records?  so secadm_t running journalctl would see
-> them and sysadm running journalctl wouldn't see them?
+Cheers,
+
+Tom
+
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+>  net/bridge/br_netlink.c | 20 ++++++++++++++++++++
+>  1 file changed, 20 insertions(+)
 >
-> Sounds elegant.  Who is going to code it?  *NOT IT!*
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index e74b6d53..a8b664e 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -445,6 +445,25 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+>         return 0;
+>  }
 >
->> On 04/24/2014 09:22 AM, Eric Paris wrote:
->>> They would be equivalent if and only if journald had CAP_AUDIT_READ.
->>>
->>> I suggest you take CAP_AUDIT_READ away from journald on systems which
->>> need the secadm/sysadmin split (which is a ridiculously stupid split
->>> anyway, but who am I to complain?)
->>>
->>> On Wed, Apr 23, 2014 at 11:52 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
->>>> Meaning looking at the journal would be equivalent to looking at
->>>> /var/log/audit/audit.log.
->>>>
->>>>
->>>> On 04/23/2014 11:37 AM, Eric Paris wrote:
->>>>> On Wed, 2014-04-23 at 11:36 -0400, Daniel J Walsh wrote:
->>>>>> I guess the problem would be that the sysadm_t would be able to look at
->>>>>> the journal which would now contain the audit content.
->>>>> right.  so include it in the sysadm_secadm bool
->>>>>
->>>>>> On 04/23/2014 10:42 AM, Eric Paris wrote:
->>>>>>> On Wed, 2014-04-23 at 09:40 -0400, Daniel J Walsh wrote:
->>>>>>>> Here are the capabilities we currently give to sysadm_t with
->>>>>>>> sysadm_secadm    1.0.0    Disabled
->>>>>>>>
->>>>>>>>    allow sysadm_t sysadm_t : capability { chown dac_override
->>>>>>>> dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
->>>>>>>> net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
->>>>>>>> sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
->>>>>>>> sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
->>>>>>>>    allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
->>>>>>>>
->>>>>>>>    allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
->>>>>>>>
->>>>>>>> cap_audit_write might be a problem?
->>>>>>> cap_audit_write is fine.
->>>>>>>
->>>>>>> syslogd_t (aka journal) is going to need the new permission
->>>>>>> cap_audit_read.  Also, as steve pointed out, someone may be likely to
->>>>>>> want to be able to disable that permission easily.
->>>>>>>
->>>>>>> -Eric
->>>>>>>
->>>>> _______________________________________________
->>>>> Selinux mailing list
->>>>> Selinux@tycho.nsa.gov
->>>>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
->>>>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
->>>>>
->>>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>> Please read the FAQ at  http://www.tux.org/lkml/
->>> _______________________________________________
->>> Selinux mailing list
->>> Selinux@tycho.nsa.gov
->>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
->>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
->>>
->>>
+> +static int br_dev_newlink(struct net *src_net, struct net_device *dev,
+> +                         struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +       int err;
+> +       struct net_bridge *br = netdev_priv(dev);
+> +
+> +       if (tb[IFLA_ADDRESS]) {
+> +               spin_lock_bh(&br->lock);
+> +               br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
+> +               spin_unlock_bh(&br->lock);
+> +       }
+> +
+> +       err = register_netdevice(dev);
+> +       if (err)
+> +               return err;
+> +
+> +       return 0;
+> +}
+> +
+>  static size_t br_get_link_af_size(const struct net_device *dev)
+>  {
+>         struct net_port_vlans *pv;
+> @@ -473,6 +492,7 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
+>         .priv_size      = sizeof(struct net_bridge),
+>         .setup          = br_dev_setup,
+>         .validate       = br_validate,
+> +       .newlink        = br_dev_newlink,
+>         .dellink        = br_dev_delete,
+>  };
 >
-> _______________________________________________
-> Selinux mailing list
-> Selinux@tycho.nsa.gov
-> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
-> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
+> --
+> 1.8.1.2
 >
 >
