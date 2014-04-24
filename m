@@ -1,31 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smc91x: improve definition of debug macros
-Date: Thu, 24 Apr 2014 13:08:10 -0400 (EDT)
-Message-ID: <20140424.130810.1854514715764795522.davem@davemloft.net>
-References: <1398222282-8926-1-git-send-email-zlim.lnx@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nico@fluxnic.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, joe@perches.com
-To: zlim.lnx@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398222282-8926-1-git-send-email-zlim.lnx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net-next 00/14] at86rf230 cleanup
+Date: Thu, 24 Apr 2014 19:09:04 +0200
+Message-ID: <1398359358-11085-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f53.google.com ([74.125.83.53]:56455 "EHLO
+	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758523AbaDXRJg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 13:09:36 -0400
+Received: by mail-ee0-f53.google.com with SMTP id b57so2071453eek.26
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 10:09:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Date: Tue, 22 Apr 2014 20:04:42 -0700
+Hi,
 
-> Redefine some macros that were conditioned upon SMC_DEBUG level.
-> 
-> By allowing compiler to verify parameters used by these macros
-> unconditionally, we can flag compilation failures.
-> 
-> Compiler will still optimize out the unused code path depending on
-> SMC_DEBUG, so this is a net gain.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+this is the first patch series to cleanup the at86rf230 driver. Later I want
+to implement regmap and a asynchron spi handling for transmit and receiving
+frames.
 
-Applied, thanks.
+- Alex
+
+Alexander Aring (14):
+  at86rf230: use irq_get_trigger_type
+  devicetree: add at86rf230 bindings
+  at86rf230: remove irq_type in request_irq
+  at86rf230: use devm_request_irq
+  at86rf230: use devm_gpio_request_one
+  at86rf230: add missing MODULE_DEVICE_TABLE
+  at86rf230: make of_device_id const
+  at86rf230: add at86rf230_device_id table
+  at86rf230: remove #ifdef CONFIG_OF
+  at86rf230: remove unnecessary assign
+  at86rf230: reset irq line before irq request
+  at86rf230: remove unnecessary spi_set_drvdata
+  at86rf230: remove unnecessary state read
+  at86rf230: remove function for setting irq polarity
+
+ .../bindings/net/ieee802154/at86rf230.txt          |  23 ++++
+ drivers/net/ieee802154/at86rf230.c                 | 133 +++++++--------------
+ include/linux/spi/at86rf230.h                      |  14 ---
+ 3 files changed, 65 insertions(+), 105 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/ieee802154/at86rf230.txt
+
+-- 
+1.9.2
