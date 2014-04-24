@@ -1,82 +1,63 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Thu, 24 Apr 2014 09:22:27 -0400
-Message-ID: <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com>
-References: <20140422.161904.1187535812839850973.davem@davemloft.net>
-	<cover.1398215388.git.rgb@redhat.com>
-	<26389161.vp9iWSVLPX@x2>
-	<1398225475.750.7.camel@localhost>
-	<5357C2D2.5060700@redhat.com>
-	<1398264152.2596.25.camel@flatline.rdu.redhat.com>
-	<5357DE12.7040905@redhat.com>
-	<1398267458.2562.0.camel@flatline.rdu.redhat.com>
-	<5357E1B4.2030705@redhat.com>
+From: Chris Mason <clm@fb.com>
+Subject: [PATCH] ipv6: fib: fix fib dump restart
+Date: Thu, 24 Apr 2014 09:48:53 -0400
+Message-ID: <53591645.7010609@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Paris <eparis@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	linux-audit@redhat.com, SE-Linux <selinux@tycho.nsa.gov>,
-	jamal@mojatatu.com, Steve Grubb <sgrubb@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Daniel J Walsh <dwalsh@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5357E1B4.2030705@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:18117 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753955AbaDXNsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 09:48:11 -0400
+Received: from pps.filterd (m0044010 [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s3ODirMn001053
+	for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 06:48:10 -0700
+Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
+	by mx0a-00082601.pphosted.com with ESMTP id 1keau34gj1-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 06:48:10 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-They would be equivalent if and only if journald had CAP_AUDIT_READ.
 
-I suggest you take CAP_AUDIT_READ away from journald on systems which
-need the secadm/sysadmin split (which is a ridiculously stupid split
-anyway, but who am I to complain?)
+From: Kumar Sundararajan <kumar@fb.com>
 
-On Wed, Apr 23, 2014 at 11:52 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
-> Meaning looking at the journal would be equivalent to looking at
-> /var/log/audit/audit.log.
->
->
-> On 04/23/2014 11:37 AM, Eric Paris wrote:
->> On Wed, 2014-04-23 at 11:36 -0400, Daniel J Walsh wrote:
->>> I guess the problem would be that the sysadm_t would be able to look at
->>> the journal which would now contain the audit content.
->> right.  so include it in the sysadm_secadm bool
->>
->>> On 04/23/2014 10:42 AM, Eric Paris wrote:
->>>> On Wed, 2014-04-23 at 09:40 -0400, Daniel J Walsh wrote:
->>>>> Here are the capabilities we currently give to sysadm_t with
->>>>> sysadm_secadm    1.0.0    Disabled
->>>>>
->>>>>    allow sysadm_t sysadm_t : capability { chown dac_override
->>>>> dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
->>>>> net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
->>>>> sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
->>>>> sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
->>>>>    allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
->>>>>
->>>>>    allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
->>>>>
->>>>> cap_audit_write might be a problem?
->>>> cap_audit_write is fine.
->>>>
->>>> syslogd_t (aka journal) is going to need the new permission
->>>> cap_audit_read.  Also, as steve pointed out, someone may be likely to
->>>> want to be able to disable that permission easily.
->>>>
->>>> -Eric
->>>>
->>
->> _______________________________________________
->> Selinux mailing list
->> Selinux@tycho.nsa.gov
->> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
->> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
->>
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+When the ipv6 fib changes during a table dump, the walk is
+restarted and the number of nodes dumped are skipped. But the existing
+code doesn't advance to the next node after a node is skipped. This can
+cause the dump to loop or produce lots of duplicates when the fib
+is modified during the dump.
+
+This change advances the walk to the next node if the current node is
+skipped after a restart.
+
+Signed-off-by: Chris Mason <clm@fb.com>
+---
+ net/ipv6/ip6_fib.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 34e0ded..87891f5 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1459,7 +1459,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w)
+ 
+ 				if (w->skip) {
+ 					w->skip--;
+-					continue;
++					goto skip;
+ 				}
+ 
+ 				err = w->func(w);
+@@ -1469,6 +1469,7 @@ static int fib6_walk_continue(struct fib6_walker_t *w)
+ 				w->count++;
+ 				continue;
+ 			}
++skip:
+ 			w->state = FWS_U;
+ 		case FWS_U:
+ 			if (fn == w->root)
+-- 
+1.8.1
