@@ -1,49 +1,88 @@
-From: Adam Lee <adam.lee@canonical.com>
-Subject: [PATCH 2/2] rtlwifi: rtl8723be: disable MSI interrupts mode
-Date: Thu, 24 Apr 2014 11:08:44 +0800
-Message-ID: <1398308924-15312-2-git-send-email-adam.lee@canonical.com>
-References: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
-Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:51166 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357AbaDXDI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 23:08:57 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ma3so1471818pbc.13
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 20:08:56 -0700 (PDT)
-In-Reply-To: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+Subject: Re: [PATCH] mrf24j40: seperate mrf24j40 h/w
+	init and add checkings
+Date: Thu, 24 Apr 2014 08:49:44 +0530
+Message-ID: <535882D0.8000600@cdac.in>
+References: <1398258716-18319-1-git-send-email-varkab@cdac.in>
+	<5357C565.8080009@signal11.us> <20140423140007.GA24286@omega>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20140423140007.GA24286@omega>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-94010fa0dd07e8b904e7c6b6589f15573008ab15 introduced MSI interrupts mode
-support, which seemed safe enough with RTL8188EE and RTL8723BE as
-RealTek's testing results, but some users reported their RTL8188EE
-modules could not connect to any wireless network after the MSI mode was
-enabled by Ubuntu 14.04.
+Hi Alan,
 
-So, let's fallback to pin-based mode until rtlwifi's MSI support get
-good compatibility.
+My view is same as Alex view. If spi_sync() is not able to write and get 
+the data we will get
+an error number return.
 
-BugLink: https://bugs.launchpad.net/bugs/1310512
-Signed-off-by: Adam Lee <adam.lee@canonical.com>
----
- drivers/net/wireless/rtlwifi/rtl8723be/sw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The driver is allocating so many kernel resources even if you get the 
+errno return also.
+So this patch will return from driver probe() if spi_sync() returns err.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-index b4577eb..a072136 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/sw.c
-@@ -92,7 +92,7 @@ int rtl8723be_init_sw_vars(struct ieee80211_hw *hw)
- 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
- 
- 	rtl8723be_bt_reg_init(hw);
--	rtlpci->msi_support = true;
-+	rtlpci->msi_support = false;
- 	rtlpriv->btcoexist.btc_ops = rtl_btc_get_ops_pointer();
- 
- 	rtlpriv->dm.dm_initialgain_enable = 1;
--- 
-2.0.0.rc0
+Thanks and Regards,
+Varka Bhadram
+
+On 04/23/2014 07:30 PM, Alexander Aring wrote:
+> Hi Alan,
+>
+> On Wed, Apr 23, 2014 at 09:51:33AM -0400, Alan Ott wrote:
+>> On 04/23/2014 09:11 AM, Varka Bhadram wrote:
+>>> I followed the process that you mailed earlier, thnks for that.
+>>>
+>>> I am expecting the mail from Alan about the changes.
+>> Hi Varka,
+>>
+>> Is there a specific problem you're seeing? Typically in the kernel we expect
+>> the SPI controller to succeed for a couple reasons:
+>> 1. It's part of the basic, core functionality of a system. Checking for
+>> errors on SPI transfers is analogous to making sure RAM you wrote actually
+>> got written.
+>> 2. Most of the time an SPI failure is not something we can detect anyway.
+>> (disconnect one of the lines and see what you get).
+>> 3. The code to check for it just adds a lot of bloat without much measurable
+>> benefit.
+>>
+>> I've read the above in the comments in other drivers, but I can't remember
+>> exactly where right now. There are plenty of examples in the kernel of SPI
+>> being done this way, as it seems to be accepted practice in the kernel.
+>>
+>> If there is a specific issue that you're seeing, then let's talk about it,
+>> otherwise I'm going to NAK this change.
+>>
+> if somebody hasn't a right spi configuration the probe function should
+> fail. Assumed that spi_sync will return a errno then.
+>
+> - Alex
+
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+This e-mail is for the sole use of the intended recipient(s) and may
+contain confidential and privileged information. If you are not the
+intended recipient, please contact the sender by reply e-mail and destroy
+all copies and the original message. Any unauthorized review, use,
+disclosure, dissemination, forwarding, printing or copying of this email
+is strictly prohibited and appropriate legal action will be taken.
+-------------------------------------------------------------------------------------------------------------------------------
+
+
+------------------------------------------------------------------------------
+Start Your Social Network Today - Download eXo Platform
+Build your Enterprise Intranet with eXo Platform Software
+Java Based Open Source Intranet - Social, Extensible, Cloud Ready
+Get Started Now And Turn Your Intranet Into A Collaboration Platform
+http://p.sf.net/sfu/ExoPlatform
