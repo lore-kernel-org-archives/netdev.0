@@ -1,51 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 07/13] igb: Cleanups to fix line length warnings
-Date: Thu, 24 Apr 2014 12:40:03 -0400 (EDT)
-Message-ID: <20140424.124003.1781449604554546212.davem@davemloft.net>
-References: <1398335460-4283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1398335460-4283-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] 6lowpan: nuke
+ net_ieee802154_lowpan() accessor when 6lowpan is disabled
+Date: Thu, 24 Apr 2014 18:44:48 +0200
+Message-ID: <20140424164445.GA4675@omega>
+References: <1398193438-23805-1-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: carolyn.wyborny@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60675 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753483AbaDXQkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:40:05 -0400
-In-Reply-To: <1398335460-4283-8-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: backports-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: "Luis R. Rodriguez" <mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1398193438-23805-1-git-send-email-mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 24 Apr 2014 03:30:54 -0700
+Hi,
 
-> From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On Tue, Apr 22, 2014 at 12:03:58PM -0700, Luis R. Rodriguez wrote:
+> From: "Luis R. Rodriguez" <mcgrof-IBi9RG/b67k@public.gmane.org>
 > 
-> This patch fixes WARNING:LONG_LINE found with checkpatch check.
+> Johannes noted this is not needed, all of the fragment
+> accessors don't need CONFIG_NET_NS. This goes test compiled with
+> CONFIG_BT_6LOWPAN=y and a disabled CONFIG_NET_NS.
 > 
-> Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_ethtool.c | 13 ++++++++-----
->  drivers/net/ethernet/intel/igb/igb_main.c    |  8 +++++---
->  2 files changed, 13 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> index 561df67..6aed00f 100644
-> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-> @@ -1129,8 +1129,10 @@ static struct igb_reg_test reg_test_82576[] = {
->  	{ E1000_RDBAH(4),  0x40, 12, PATTERN_TEST, 0xFFFFFFFF, 0xFFFFFFFF },
->  	{ E1000_RDLEN(4),  0x40, 12, PATTERN_TEST, 0x000FFFF0, 0x000FFFFF },
->  	/* Enable all RX queues before testing. */
-> -	{ E1000_RXDCTL(0), 0x100, 4,  WRITE_NO_TEST, 0, E1000_RXDCTL_QUEUE_ENABLE },
-> -	{ E1000_RXDCTL(4), 0x40, 12,  WRITE_NO_TEST, 0, E1000_RXDCTL_QUEUE_ENABLE },
-> +	{ E1000_RXDCTL(0), 0x100, 4, WRITE_NO_TEST, 0,
-> +						E1000_RXDCTL_QUEUE_ENABLE },
 
-The second line should start at the same column as E1000_RXDCTL(0) on the first
-line, rather than tabbed all the way to outer-space.
+a little note about this here. There exists two 6LoWPAN standard. One
+for bluetooth low energy and one for IEEE 802.15.4.
+
+The actual namespace is only for IEEE 802.15.4, because we need
+fragmentation there. 6LoWPAN fragmentation for bluetooth low energy is
+already handled by the MAC-Layer. So this has nothing to do with
+CONFIG_BT_6LOWPAN.
+
+- Alex
+
+------------------------------------------------------------------------------
+Start Your Social Network Today - Download eXo Platform
+Build your Enterprise Intranet with eXo Platform Software
+Java Based Open Source Intranet - Social, Extensible, Cloud Ready
+Get Started Now And Turn Your Intranet Into A Collaboration Platform
+http://p.sf.net/sfu/ExoPlatform
