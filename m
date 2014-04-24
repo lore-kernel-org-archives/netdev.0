@@ -1,45 +1,72 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next] IPVS Updates for v3.16
-Date: Thu, 24 Apr 2014 09:50:37 +0900
-Message-ID: <20140424005037.GB5064@verge.net.au>
-References: <1398039407-12060-1-git-send-email-horms@verge.net.au>
- <20140423121715.GA12169@localhost>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: Re: [PATCH v3 1/4] MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
+Date: Wed, 23 Apr 2014 17:51:38 -0700
+Message-ID: <CAKh23F=Ukhufm3XMmSmaTU3AvmeoDDMeFwodgU-B_XH09sdbOQ@mail.gmail.com>
+References: <1397702368-4846-1-git-send-email-isubramanian@apm.com>
+	<1397702368-4846-2-git-send-email-isubramanian@apm.com>
+	<1397704685.14062.14.camel@joe-AO725>
+	<CABxcv=mj+phHmyg2U2jW51mLTwBN9Au791m-GtqU5BXDPy7Gtg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140423121715.GA12169@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	patches <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+To: Javier Martinez Canillas <javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CABxcv=mj+phHmyg2U2jW51mLTwBN9Au791m-GtqU5BXDPy7Gtg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 23, 2014 at 02:17:15PM +0200, Pablo Neira Ayuso wrote:
-> Hi Simon,
-> 
-> On Mon, Apr 21, 2014 at 09:16:46AM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > please consider the following updates for IPVS for v3.16.
-> > 
-> > It consists of a format string fix from Masanari Iida.
-> > 
-> > 
-> > The following changes since commit 6125c94e6972fca79214809a43eb60e27feff3ee:
-> > 
-> >   netfilter: nft_ct: split nft_ct_init() into two functions for get/set (2014-03-30 13:31:44 +0200)
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.16
-> 
-> I'm going to manually apply this small patch.
-> 
-> There was a small cleanup for nfnetlink that has reached David's tree
-> in a bigger batch that I already applied in my tree, so I needed to
-> REbase to avoid problems. You'll also have to rebase as well. Sorry.
+Hi Javier,
 
-Thanks, that is perfectly fine by me.
+On Sun, Apr 20, 2014 at 5:56 PM, Javier Martinez Canillas
+<javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org> wrote:
+> Hello Lyappan,
+>
+> On Thu, Apr 17, 2014 at 5:18 AM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+>> On Wed, 2014-04-16 at 19:39 -0700, Iyappan Subramanian wrote:
+>>> This patch adds a MAINTAINERS entry for APM X-Gene SoC
+>>> ethernet driver.
+>> []
+>>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> []
+>>> @@ -686,6 +686,14 @@ S:       Maintained
+>>>  F:   drivers/net/appletalk/
+>>>  F:   net/appletalk/
+>>>
+>>> +APPLIED MICRO (APM) X-GENE SOC ETHERNET DRIVER
+>>> +M:   Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+>>> +M:   Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+>>> +M:   Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+>>> +S:   Maintained
+>>> +F:   drivers/net/ethernet/apm/xgene
+>>
+>> Please add a terminating slash to show this is a directory.
+>>
+>> F:      drivers/net/ethernet/apm/xgene/
+>>
+>
+> Also if you are maintaining this driver as a part of your daily work
+> (i.e: actually being paid for it by your company) the status should be
+> "Supported" instead.
+>
+> If you are doing it on your own time but still using your company
+> email address then "Maintained" is correct.
+
+Thanks.  I will change this to Supported.
+
+>
+> Best regards,
+> Javier
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
