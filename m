@@ -1,37 +1,29 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net-next] Ethtool: Add Altera Triple Speed Ethernet Support
-Date: Thu, 24 Apr 2014 17:07:25 -0500
-Message-ID: <1398377246-7083-1-git-send-email-vbridgers2013@gmail.com>
-Cc: vbridgers2013@gmail.com
-To: netdev@vger.kernel.org, ben@decadent.org.uk, bwh@kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Fri, 25 Apr 2014 00:18:00 +0200
+Message-ID: <53598D98.8040808@redhat.com>
+References: <1398229980.29914.6.camel@edumazet-glaptop2.roam.corp.google.com> <20140423.125126.244770898759207308.davem@davemloft.net> <1398273284.29914.11.camel@edumazet-glaptop2.roam.corp.google.com> <20140424.132440.403498011074484705.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, ast@plumgrid.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:65515 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756465AbaDXWLt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 18:11:49 -0400
-Received: by mail-pa0-f50.google.com with SMTP id rd3so2405114pab.37
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 15:11:48 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:41454 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753954AbaDXWSG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 18:18:06 -0400
+In-Reply-To: <20140424.132440.403498011074484705.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds Altera Triple Speed Ethernet support to dump registers
-from Ethtool. 
+On 04/24/2014 07:24 PM, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 23 Apr 2014 10:14:44 -0700
+>
+>> This net-next push request had nothing to do with this bpf patch, sorry
+>> for the confusion.
+>
+> I just did the merge, sorry for taking so long.
 
-If you find this patch acceptable, please consider this for inclusion. 
-
-Thank you,
-
-Vince
-
-Vince Bridgers (1):
-  Ethtool: Add Altera Triple Speed Ethernet Register Dump Routine
-
- Makefile.am |    2 +-
- ethtool.c   |    1 +
- internal.h  |    5 +++
- tse.c       |  111 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 118 insertions(+), 1 deletion(-)
- create mode 100644 tse.c
-
--- 
-1.7.9.5
+Great, thanks Dave!
