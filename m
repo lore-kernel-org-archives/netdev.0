@@ -1,70 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: Add Keystone NetCP ethernet driver
-Date: Thu, 24 Apr 2014 12:47:44 -0400 (EDT)
-Message-ID: <20140424.124744.1296959126932595844.davem@davemloft.net>
-References: <1398201675-17379-1-git-send-email-santosh.shilimkar@ti.com>
-	<1398201675-17379-3-git-send-email-santosh.shilimkar@ti.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 07/13] igb: Cleanups to fix line length warnings
+Date: Thu, 24 Apr 2014 17:02:13 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264FB055F4@ORSMSX102.amr.corp.intel.com>
+References: <1398335460-4283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1398335460-4283-8-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20140424.124003.1781449604554546212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	sandeep_n@ti.com, robh+dt@kernel.org, grant.likely@linaro.org
-To: santosh.shilimkar@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398201675-17379-3-git-send-email-santosh.shilimkar@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:1796 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754038AbaDXRDA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 13:03:00 -0400
+In-Reply-To: <20140424.124003.1781449604554546212.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Date: Tue, 22 Apr 2014 17:21:15 -0400
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of David Miller
+> Sent: Thursday, April 24, 2014 9:40 AM
+> To: Kirsher, Jeffrey T
+> Cc: Wyborny, Carolyn; netdev@vger.kernel.org; gospo@redhat.com;
+> sassmann@redhat.com
+> Subject: Re: [net-next 07/13] igb: Cleanups to fix line length warnings
+> 
+[..]
+> >  	/* Enable all RX queues before testing. */
+> > -	{ E1000_RXDCTL(0), 0x100, 4,  WRITE_NO_TEST, 0,
+> E1000_RXDCTL_QUEUE_ENABLE },
+> > -	{ E1000_RXDCTL(4), 0x40, 12,  WRITE_NO_TEST, 0,
+> E1000_RXDCTL_QUEUE_ENABLE },
+> > +	{ E1000_RXDCTL(0), 0x100, 4, WRITE_NO_TEST, 0,
+> > +
+> 	E1000_RXDCTL_QUEUE_ENABLE },
+> 
+> The second line should start at the same column as E1000_RXDCTL(0) on the
+> first line, rather than tabbed all the way to outer-space.
 
-> +struct netcp_tx_pipe {
-> +	struct netcp_device	*netcp_device;
-> +	void	*dma_queue;
+Ok, will fix.
 
-Indent *dma_queue the same as the other struct members.
-
-> +	unsigned		dma_queue_id;
-
-Use explicit "unsigned int".
-
-> +	unsigned		dma_chan_id;
-
-Likewise.
-
-> +struct netcp_addr {
-> +	struct netcp_intf	*netcp;
-> +	unsigned char		addr[MAX_ADDR_LEN];
-
-If this is just an ethernet driver, ETH_ALEN is more appropriate here.
-
-> +	unsigned		tx_compl_qid;
-
-Explicit "unsigned int" please.  I'm not going to point out all of the other
-instances, audit your entire submission for this problem please.
-
-> +static inline u32 *netcp_push_psdata(struct netcp_packet *p_info,
-> +				     unsigned bytes)
-> +{
-> +	u32		*buf;
-> +	unsigned	 words;
-
-Do not use tabs between the type and the variable name in local variable
-declarations.
-
-Please audit for and fix this in your entire submission.
-
-> +static inline u32 hwval_to_host(bool big_endian, u32 hwval)
-> +{
-> +	if (big_endian)
-> +		return be32_to_cpu(hwval);
-> +	else
-> +		return le32_to_cpu(hwval);
-> +}
-
-You're much better off having a set of methods, one for big endian and
-one for little endian, that just straight line codes the appropriate endian
-accesses.
-
-These conditionals peppered all over the place are just ugly.
+Carolyn Wyborny 
+Linux Development 
+Networking Division 
+Intel Corporation 
