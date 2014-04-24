@@ -1,92 +1,181 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
-Date: Thu, 24 Apr 2014 17:02:00 +0100
-Message-ID: <1398355320.7767.175.camel@deadeye.wl.decadent.org.uk>
-References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
-	 <20140423153018.GA13717@breakpoint.cc>
-	 <1398268542.7767.145.camel@deadeye.wl.decadent.org.uk>
-	 <20140423162712.GB13717@breakpoint.cc>
-	 <20140424151748.GH1960@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-HB1/9zdSEgBWZTo8fPUi"
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [RFC][PATCH net-next] net: Support for dual-stack ping sockets.
+Date: Fri, 25 Apr 2014 01:02:56 +0900
+Message-ID: <1398355376-7741-1-git-send-email-lorenzo@google.com>
+Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:60716 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756860AbaDXQCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:02:17 -0400
-In-Reply-To: <20140424151748.GH1960@order.stressinduktion.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:42294 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758127AbaDXQDL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:03:11 -0400
+Received: by mail-pb0-f44.google.com with SMTP id jt11so386206pbb.31
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 09:03:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This mostly looks fine, except that to make the protocol field in
+the IPv4 header be ICMP (1) instead of ICMPv6 (58), it hacks
+sk->sk_protocol to IPPROTO_ICMP. It's done with the socket
+locked, so it will at least not race with other calls to
+sendmsg on the same socket, but it feels hacky and I don't know
+what else might break.
 
---=-HB1/9zdSEgBWZTo8fPUi
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ include/net/ping.h |  2 ++
+ net/ipv4/ping.c    | 37 ++++++++++++++++++++++++++++---------
+ net/ipv6/ping.c    | 23 ++++++++++++++++++-----
+ 3 files changed, 48 insertions(+), 14 deletions(-)
 
-On Thu, 2014-04-24 at 17:17 +0200, Hannes Frederic Sowa wrote:
-> On Wed, Apr 23, 2014 at 06:27:12PM +0200, Florian Westphal wrote:
-> > Ben Hutchings <ben@decadent.org.uk> wrote:
-> > > Userspace can't assume it now because access is controlled by a sysct=
-l.
-> > >=20
-> > > I think it is for distributions to choose whether to enable this feat=
-ure
-> > > in ping and the kernel.
-> >=20
-> > I am not (yet) buying this argument.
-> >=20
-> > Saying 'you need to change sysctl foo for this to work' in a program ma=
-npage
-> > is a lot different than 'you need to recompile the kernel'.
->=20
-> Maybe we can make the Kconfig option depend on CONFIG_EMBEDDED so that we=
- can
-> be sure people don't have man-pages on the device. ;)
->=20
-> Seriously, I think doing authorization check based on gids in a sysctl is
-> wrong.
-
-It is quite weird but perhaps made sense in the context of some embedded
-systems.
-
-> Switching over to capabilities seems to make this interface much
-> more useable to me. But we would need to make sure, that we don't suddenl=
-y
-> allow people to use those sockets where it was restricted previously.
-
-Standard ping could already be implemented as setcap (CAP_NET_RAW).  You
-want a capability just for ping?
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
-
---=-HB1/9zdSEgBWZTo8fPUi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIVAwUAU1k1eOe/yOyVhhEJAQpRBxAAuOD5Nu3Cn6GRdA7KlkTb10RtIdd79IbB
-ixh3VWUoyLHV5YbGOipmrCsG9V5KFhSqYYh5rPSE7K01pyxjsN/0M0cVxKzOoXBk
-iJhH/IlFpNDamc1PLeXnQAFBRh8KVTcBIAoUlEqJaYPfI59mF+e1MPoqsl/78lDN
-KhYJVgoqCu8bOvlGMqX1xOOrz+w5ZyVu+xRO25687w6NCI8g4xIDWQogcyl8/QGZ
-mf5h2KwLHg5jhXC8aevFWSt25krJrxD9+6SOxxJNFUWNDdlAmaufoC6KNw8KBbUD
-36aXsnRLSm0gEYHQLgBpUR435tLHLenLSXzYpIyVm09QZcrfwFBeEcytQfTXAkOK
-HbWyIt7+BEM1Fa5YG5SFZAKUhfwTRfJya+jJBKaEOKFWn2vXnzLgInfhTzNUmQ1X
-yZHwnE7xd7WzxyZDsUdMrnbsLVruJq+icR16HSC9Rr2KsvN3WYFliIgHQ0xw34Sm
-Y9I+9/9TEdWroKnY4W+tOtzieox1Q8Tabhnn4hntDFf/Bh+TEqJL9faiI0Nyayqp
-0NiYvMWu6/rBbXC3looOcsiuYY8JyihGH5erTek1CBNg9fVaeEwd25sbfBBOFnvz
-LRr2DQi1FxWS2rbnGqn7DgKqeFomltu+oEpO8OTuXjdOAWDloiQwbokebteeMBGT
-h7P3qBCv9M4=
-=Loea
------END PGP SIGNATURE-----
-
---=-HB1/9zdSEgBWZTo8fPUi--
+diff --git a/include/net/ping.h b/include/net/ping.h
+index 026479b..0e0f3ac 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -79,6 +79,8 @@ int  ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		  size_t len, int noblock, int flags, int *addr_len);
+ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ 			 void *user_icmph, size_t icmph_len);
++int  ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
++		     size_t len);
+ int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		     size_t len);
+ int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 8a912b8..657092b2f 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -278,6 +278,7 @@ int ping_init_sock(struct sock *sk)
+ 
+ out_release_group:
+ 	put_group_info(group_info);
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(ping_init_sock);
+@@ -682,8 +683,8 @@ int ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ }
+ EXPORT_SYMBOL_GPL(ping_common_sendmsg);
+ 
+-static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+-			   size_t len)
++int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
++		    size_t len)
+ {
+ 	struct net *net = sock_net(sk);
+ 	struct flowi4 fl4;
+@@ -697,6 +698,7 @@ static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
+ 	__be32 saddr, daddr, faddr;
+ 	u8  tos;
+ 	int err;
++	u8 protocol;
+ 
+ 	pr_debug("ping_v4_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
+ 
+@@ -777,7 +779,7 @@ static int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
+ 		ipc.oif = inet->uc_index;
+ 
+ 	flowi4_init_output(&fl4, ipc.oif, sk->sk_mark, tos,
+-			   RT_SCOPE_UNIVERSE, sk->sk_protocol,
++			   RT_SCOPE_UNIVERSE, IPPROTO_ICMP,
+ 			   inet_sk_flowi_flags(sk), faddr, saddr, 0, 0,
+ 			   sock_i_uid(sk));
+ 
+@@ -814,12 +816,23 @@ back_from_confirm:
+ 	pfh.wcheck = 0;
+ 	pfh.family = AF_INET;
+ 
++	/* Hack for dual-stack sockets.
++	 * The protocol field in the IPv4 header is determined by
++	 * sk->sk_protocol, but on a dual-stack socket, sk->sk_protocol is
++	 * IPPROTO_ICMPV6. Fix it up here and set it back to the previous
++	 * value before releasing the lock.
++	 */
++	protocol = sk->sk_protocol;
++	sk->sk_protocol = IPPROTO_ICMP;
++
+ 	err = ip_append_data(sk, &fl4, ping_getfrag, &pfh, len,
+ 			0, &ipc, &rt, msg->msg_flags);
+ 	if (err)
+ 		ip_flush_pending_frames(sk);
+ 	else
+ 		err = ping_v4_push_pending_frames(sk, &pfh, &fl4);
++
++	protocol = sk->sk_protocol;
+ 	release_sock(sk);
+ 
+ out:
+@@ -901,18 +914,24 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	} else if (family == AF_INET6) {
+ 		struct ipv6_pinfo *np = inet6_sk(sk);
+ 		struct ipv6hdr *ip6 = ipv6_hdr(skb);
++		int is_ipv4 = (skb->protocol == htons(ETH_P_IP));
+ 		DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
+ 
+ 		if (sin6) {
+ 			sin6->sin6_family = AF_INET6;
+ 			sin6->sin6_port = 0;
+-			sin6->sin6_addr = ip6->saddr;
+ 			sin6->sin6_flowinfo = 0;
+-			if (np->sndflow)
+-				sin6->sin6_flowinfo = ip6_flowinfo(ip6);
+-			sin6->sin6_scope_id =
+-				ipv6_iface_scope_id(&sin6->sin6_addr,
+-						    IP6CB(skb)->iif);
++			if (is_ipv4) {
++				ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr,
++					       &sin6->sin6_addr);
++			} else {
++				sin6->sin6_addr = ip6->saddr;
++				if (np->sndflow)
++					sin6->sin6_flowinfo = ip6_flowinfo(ip6);
++				sin6->sin6_scope_id =
++					ipv6_iface_scope_id(&sin6->sin6_addr,
++							    IP6CB(skb)->iif);
++			}
+ 			*addr_len = sizeof(*sin6);
+ 		}
+ 
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index 96730c6..7011b3d 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -97,11 +97,6 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	pr_debug("ping_v6_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
+ 
+-	err = ping_common_sendmsg(AF_INET6, msg, len, &user_icmph,
+-				  sizeof(user_icmph));
+-	if (err)
+-		return err;
+-
+ 	if (sin6) {
+ 		if (addr_len < sizeof(struct sockaddr_in6))
+ 			return -EINVAL;
+@@ -114,6 +109,24 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		daddr = &sk->sk_v6_daddr;
+ 	}
+ 
++	if (ipv6_addr_v4mapped(daddr)) {
++		struct sockaddr_in sin;
++
++		sin.sin_family = AF_INET;
++		sin.sin_port = sin6 ? sin6->sin6_port : inet->inet_dport;
++		sin.sin_addr.s_addr = daddr->s6_addr32[3];
++		msg->msg_name = &sin;
++		msg->msg_namelen = sizeof(sin);
++		if (__ipv6_only_sock(sk))
++			return -ENETUNREACH;
++		return ping_v4_sendmsg(iocb, sk, msg, len);
++	}
++
++	err = ping_common_sendmsg(AF_INET6, msg, len, &user_icmph,
++				  sizeof(user_icmph));
++	if (err)
++		return err;
++
+ 	if (ipv6_addr_v4mapped(daddr))
+ 		return -EINVAL;
+ 
+-- 
+1.9.1.423.g4596e3a
