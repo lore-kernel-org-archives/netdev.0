@@ -1,47 +1,45 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: xfrm: Can "struct netlbl_audit" be killed?
-Date: Thu, 24 Apr 2014 20:51:35 +0900
-Message-ID: <201404242051.DBE04650.SOMVHtQFFOLFOJ@I-love.SAKURA.ne.jp>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] Revert "rtlwifi: rtl8188ee: enable MSI interrupts
+ mode"
+Date: Thu, 24 Apr 2014 16:04:38 +0400
+Message-ID: <5358FDD6.9070508@cogentembedded.com>
+References: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: paul@paul-moore.com, casey@schaufler-ca.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Adam Lee <adam.lee@canonical.com>, linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:36493 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506AbaDXLvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 07:51:48 -0400
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:39705 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755368AbaDXMEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:04:40 -0400
+Received: by mail-lb0-f182.google.com with SMTP id l4so1896027lbv.41
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 05:04:38 -0700 (PDT)
+In-Reply-To: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Casey and Paul.
+Hello.
 
-At the ipsec-next tree,
+On 24-04-2014 7:08, Adam Lee wrote:
 
-  /* Audit Information */
-  struct xfrm_audit {
-  	u32     secid;
-  	kuid_t  loginuid;
-  	unsigned int sessionid;
-  };
+> This reverts commit 2a54eb5e1476426ee639bbfbe179b52342a0d82c.
 
-has just been killed
-( https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec-next.git/commit/?id=f1370cc4a01e61007ab3020c761cef6b88ae3729 and
-  https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec-next.git/commit/?id=2e71029e2c32ecd59a2e8f351517bfbbad42ac11 )
-because these arguments are always calculated from current thread's security
-context.
+> 94010fa0dd07e8b904e7c6b6589f15573008ab15 introduced MSI interrupts mode
 
-Looking at other security_secid_to_secctx() users, I noticed that
-a similar struct in the netlabel code.
+    Please also specify that commit's summary line in parens.
 
-  /* NetLabel audit information */
-  struct netlbl_audit {
-  	u32 secid;
-  	kuid_t loginuid;
-  	unsigned int sessionid;
-  };
+> support, which seemed safe enough with RTL8188EE and RTL8723BE as
+> RealTek's testing results, but some users reported their RTL8188EE
+> modules could not connect to any wireless network after the MSI mode was
+> enabled by Ubuntu 14.04.
 
-Do you know whether we can kill "struct netlbl_audit" as well?
-(In other words, is "bool" sufficient for representing "struct netlbl_audit" ?)
+> So, let's fallback to pin-based mode until rtlwifi's MSI support get
+> good compatibility.
 
-Regards.
+> BugLink: https://bugs.launchpad.net/bugs/1310512
+> Signed-off-by: Adam Lee <adam.lee@canonical.com>
+
+WBR, Sergei
