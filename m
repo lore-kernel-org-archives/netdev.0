@@ -1,103 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Wed, 23 Apr 2014 19:55:09 -0700
-Message-ID: <1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com>
-	 <20140422.235745.1219194947074686642.davem@davemloft.net>
-	 <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com>
-	 <20140423.125043.100674358164503915.davem@davemloft.net>
-	 <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com>
-	 <1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com>
+From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+Subject: [PATCH] net/phy:  tune get_phy_c45_ids to support more c45 phy
+Date: Thu, 24 Apr 2014 10:17:36 +0800
+Message-ID: <1398305856-9761-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain
+Cc: <scottwood@freescale.com>,
+	Shengzhou Liu <Shengzhou.Liu@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:61528 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751478AbaDXCzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 22:55:11 -0400
-Received: by mail-pb0-f42.google.com with SMTP id un15so1462637pbc.1
-        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 19:55:10 -0700 (PDT)
-In-Reply-To: <CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com>
+Received: from mail-bl2lp0211.outbound.protection.outlook.com ([207.46.163.211]:40943
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752316AbaDXDBh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Apr 2014 23:01:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-23 at 15:19 -0700, Alexei Starovoitov wrote:
+As some C45 10G PHYs(e.g. Cortina CS4315/CS4340 PHY) have
+zero Devices In package, current driver can't get correct
+devices_in_package value by non-zero Devices In package.
+so let's probe more with zero Devices In package to support
+more C45 PHYs which have zero Devices In package.
 
-> yes, x86 jit is smart to deal around this problem in an efficient way.
-> sparc/arm jits copy pasted the idea correctly.
+Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+---
+Tested with CS4315 on T2080RDB, this patch have no impact on previous XAUI phy with verification. 
 
-Well... not really smart, but sufficient enough (even if I am sure we
-probably have some bugs)
+ drivers/net/phy/phy_device.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-> but s390 jit seems to have a bug, since it's not clearing A
-> when 1st insn is BPF_S_LDX_B_MSH
-
-Sure, JIT is hard and quite risky (You forgot to CC Heiko & Martin, they
-probably can send the needed patch)
-
-Its not yet enabled by default for this reason.
-
-I am worried that all recent bpf changes raised the bar so high that
-nobody but you can really understand what is going on, unless spending
-a _lot_ of time on it.
-
-net/core/filter.c was about 880 lines in previous release, its now 1800+
-lines.
-
-netdev became a list discussing compiler technology, 
-assembly code and ABI level stuff lately.
-
-Say I want to check why we have this code, potentially modifying
-arbitrary kernel memory :
-
-        BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
-                atomic_add((u32) X, (atomic_t *)(unsigned long)
-                           (A + insn->off));
-                CONT;
-        BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
-                atomic64_add((u64) X, (atomic64_t *)(unsigned long)
-                             (A + insn->off));
-                CONT;
-
-
-
-No comments on this scary code, and I couldn't find why it is there.
-
-$ git grep -n2 BPF_XADD
-include/linux/filter.h-19-/* ld/ldx fields */
-include/linux/filter.h-20-#define BPF_DW                0x18    /* double word */
-include/linux/filter.h:21:#define BPF_XADD      0xc0    /* exclusive add */
-include/linux/filter.h-22-
-include/linux/filter.h-23-/* alu/jmp fields */
---
-net/core/filter.c-222-          DL(BPF_STX, BPF_MEM, BPF_W),
-net/core/filter.c-223-          DL(BPF_STX, BPF_MEM, BPF_DW),
-net/core/filter.c:224:          DL(BPF_STX, BPF_XADD, BPF_W),
-net/core/filter.c:225:          DL(BPF_STX, BPF_XADD, BPF_DW),
-net/core/filter.c-226-          DL(BPF_ST, BPF_MEM, BPF_B),
-net/core/filter.c-227-          DL(BPF_ST, BPF_MEM, BPF_H),
---
-net/core/filter.c-479-  LDST(BPF_DW, u64)
-net/core/filter.c-480-#undef LDST
-net/core/filter.c:481:  BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
-net/core/filter.c-482-          atomic_add((u32) X, (atomic_t *)(unsigned long)
-net/core/filter.c-483-                     (A + insn->off));
-net/core/filter.c-484-          CONT;
-net/core/filter.c:485:  BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
-net/core/filter.c-486-          atomic64_add((u64) X, (atomic64_t *)(unsigned long)
-net/core/filter.c-487-                       (A + insn->off));
-
-This looks like premature inclusion, at very minimum.
-
-Sure, I probably can find answer reading past months netdev/lkml traffic ?
-
-Sorry if this looks like ranting, but I would rather complain before thousand
-of other lines of code are merged.
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index cfb5110..8fd777e 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -244,12 +244,29 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
+ 			return -EIO;
+ 		c45_ids->devices_in_package |= (phy_reg & 0xffff);
+ 
+-		/* If mostly Fs, there is no device there,
+-		 * let's get out of here.
++		/* If mostly Fs, let's continue to probe more
++		 * as some 10G PHYs have zero Devices In package
++		 * e.g. Cortina CS4315/CS4340 PHY.
+ 		 */
+ 		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
+-			*phy_id = 0xffffffff;
+-			return 0;
++			reg_addr = MII_ADDR_C45 | 0 << 16 | 6;
++			phy_reg = mdiobus_read(bus, addr, reg_addr);
++			if (phy_reg < 0)
++				return -EIO;
++			c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
++			reg_addr = MII_ADDR_C45 | 0 << 16 | 5;
++			phy_reg = mdiobus_read(bus, addr, reg_addr);
++			if (phy_reg < 0)
++				return -EIO;
++			c45_ids->devices_in_package |= (phy_reg & 0xffff);
++			/* If mostly Fs, there is no device there,
++			 * let's get out of here.
++			 */
++			if ((c45_ids->devices_in_package & 0x1fffffff) ==
++							0x1fffffff) {
++				*phy_id = 0xffffffff;
++				return 0;
++			}
+ 		}
+ 	}
+ 
+-- 
+1.8.0
