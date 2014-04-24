@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cadence: Fix architecture dependencies
-Date: Thu, 24 Apr 2014 13:23:57 -0400 (EDT)
-Message-ID: <20140424.132357.215175378607987937.davem@davemloft.net>
-References: <20140423104012.68f60014@endymion.delvare>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Thu, 24 Apr 2014 13:24:40 -0400 (EDT)
+Message-ID: <20140424.132440.403498011074484705.davem@davemloft.net>
+References: <1398229980.29914.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140423.125126.244770898759207308.davem@davemloft.net>
+	<1398273284.29914.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com, monstr@monstr.eu,
-	broonie@kernel.org
-To: jdelvare@suse.de
+Cc: ast@plumgrid.com, dborkman@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32840 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32852 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757354AbaDXRX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 13:23:59 -0400
-In-Reply-To: <20140423104012.68f60014@endymion.delvare>
+	with ESMTP id S1753581AbaDXRYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 13:24:41 -0400
+In-Reply-To: <1398273284.29914.11.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Wed, 23 Apr 2014 10:40:12 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 23 Apr 2014 10:14:44 -0700
 
-> I was told that the Cadence macb driver is also useful on Microblaze.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> This net-next push request had nothing to do with this bpf patch, sorry
+> for the confusion.
 
-Applied, thanks.
+I just did the merge, sorry for taking so long.
