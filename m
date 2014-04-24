@@ -1,69 +1,80 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: [1/2,v3] ipv4: Cache dst in tunnels
-Date: Thu, 24 Apr 2014 15:16:47 +0300
-Message-ID: <20140424151647.2a917ff1@vostro>
-References: <alpine.DEB.2.02.1401021140190.32659@tomh.mtv.corp.google.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when
+ creating bridge device
+Date: Thu, 24 Apr 2014 21:16:27 +0900
+Message-ID: <1398341787.4171.16.camel@ubuntu-vm-makita>
+References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
+	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
+	<1398341177.4171.11.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:43280 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753185AbaDXMPC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:15:02 -0400
-Received: by mail-la0-f49.google.com with SMTP id ec20so1597014lab.22
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 05:15:01 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1401021140190.32659@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
+	bridge <bridge@lists.linux-foundation.org>,
+	"C. R. Oldham" <cr@saltstack.com>
+To: "David S. Miller" <davem@davemloft.net>, Stephen Hemminger
+	<stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1398341177.4171.11.camel@ubuntu-vm-makita>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Jan 2014 11:48:26 -0800 (PST)
-Tom Herbert <therbert@google.com> wrote:
+When bridge device is created with IFLA_ADDRESS, we are not calling
+br_stp_change_bridge_id(), which leads to incorrect local fdb
+management and bridge id calculation, and prevents us from receiving
+frames on the bridge device.
 
-> Avoid doing a route lookup on every packet being tunneled.
-> 
-> In ip_tunnel.c cache the route returned from ip_route_output if
-> the tunnel is "connected" so that all the rouitng parameters are
-> taken from tunnel parms for a packet. Specifically, not NBMA tunnel
-> and tos is from tunnel parms (not inner packet).
+Reported-by: Tom Gundersen <teg@jklm.no>
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_netlink.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
-Sorry for late reply. The 'connected' check you do is not sufficient.
-It breaks NBMA mode gre. See below.
-
-> @@ -528,10 +574,11 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
-> net_device *dev, struct flowi4 fl4;
->  	u8     tos, ttl;
->  	__be16 df;
-> -	struct rtable *rt;		/* Route to the other host
-> */
-> +	struct rtable *rt = NULL;	/* Route to the other host
-> */ unsigned int max_headroom;	/* The extra header space needed
-> */ __be32 dst;
->  	int err;
-> +	bool connected = true;
->  
->  	inner_iph = (const struct iphdr
-> *)skb_inner_network_header(skb); 
-> @@ -581,27 +628,39 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
-> net_device *dev, #endif
->  		else
->  			goto tx_error;
-> +
-> +		connected = false;
->  	}
-
-The assumption in these two hunks is wrong. Even if tnl_params->daddr is
-set, it might be an NBMA mode tunnel.
-
-This happens (at least) when ipgre_header() is used and it pushes the
-modified iphdr to skb. In that case ipgre_xmit just pulls it, and gives
-that as the tnl_params argument.
-
-I don't remember fully if tnl_params->daddr can be zero in
-ip_tunnel_xmit. It *might* be a leftover dead-code path.
-
-Any ideas how to fix this in a proper manner?
-
-Thanks. Timo.
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index e74b6d53..a8b664e 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -445,6 +445,25 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
+ }
+ 
++static int br_dev_newlink(struct net *src_net, struct net_device *dev,
++			  struct nlattr *tb[], struct nlattr *data[])
++{
++	int err;
++	struct net_bridge *br = netdev_priv(dev);
++
++	if (tb[IFLA_ADDRESS]) {
++		spin_lock_bh(&br->lock);
++		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
++		spin_unlock_bh(&br->lock);
++	}
++
++	err = register_netdevice(dev);
++	if (err)
++		return err;
++
++	return 0;
++}
++
+ static size_t br_get_link_af_size(const struct net_device *dev)
+ {
+ 	struct net_port_vlans *pv;
+@@ -473,6 +492,7 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
+ 	.priv_size	= sizeof(struct net_bridge),
+ 	.setup		= br_dev_setup,
+ 	.validate	= br_validate,
++	.newlink	= br_dev_newlink,
+ 	.dellink	= br_dev_delete,
+ };
+ 
+-- 
+1.8.1.2
