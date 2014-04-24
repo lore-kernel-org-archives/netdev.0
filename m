@@ -1,64 +1,78 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH v8 2/3] net: hisilicon: new hip04 MDIO driver
-Date: Thu, 24 Apr 2014 14:28:09 +0200
-Message-ID: <201404241428.10248.arnd@arndb.de>
-References: <1397869980-21187-1-git-send-email-zhangfei.gao@linaro.org> <201404221630.07865.arnd@arndb.de> <53568398.2030800@linaro.org>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
+ namespaces.
+Date: Thu, 24 Apr 2014 20:41:17 +0800
+Message-ID: <5359066D.2010206@huawei.com>
+References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com> <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com> <5357280C.1000404@huawei.com> <53576A6F.2020207@6wind.com> <53586207.7060407@huawei.com> <20140424054734.GA16057@unicorn.suse.cz> <5358F649.6090206@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, xuwei5-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: zhangfei <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <53568398.2030800-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.dichtel@6wind.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	<kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:39287 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753368AbaDXMlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:41:52 -0400
+In-Reply-To: <5358F649.6090206@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 April 2014, zhangfei wrote:
-> On 04/22/2014 10:30 PM, Arnd Bergmann wrote:
-> > On Tuesday 22 April 2014, zhangfei wrote:
-> >> On 04/22/2014 04:22 PM, Arnd Bergmann wrote:
+On 2014/4/24 19:32, chenweilong wrote:
+> On 2014/4/24 13:47, Michal Kubecek wrote:
+>> On Thu, Apr 24, 2014 at 08:59:51AM +0800, chenweilong wrote:
+>>> On 2014/4/23 15:23, Nicolas Dichtel wrote:
+>>>> Le 23/04/2014 04:40, chenweilong a =E9crit :
+>>>>> And, 2) is not safe, if someone forgets to move eth1, eth1.5 will=
+ not work, making
+>>>>> things complex.
+>>>> We have to fix this case, because it is a valid use case to have e=
+th1.5 in net0
+>>>> and eth1 in another ns.
+>>>>
+>>> eth1.5 can receive and send packets in net0, the problem is you can=
+'t add a new eth1.5
+>>> in old ns, report 'error: File exists'.
+>>
+>> And this is correct, as far as I can tell. If it was possible, which=
+ of
+>> the two interfaces would receive VLAN tagged packets with VID 5 comi=
+ng
+>> to eth1?
+>>
+>>                                                          Michal Kube=
+cek
+>>
+>>
+>>
+> If eth1 and eth1.5 can work in different ns,
+> my fist test(move eth1 first,and then eth1.5) should be success,
+> but it failed, if eth1 was moved to other ns, all related vlans were =
+unregisted.
+> Strangely, if I move eth1.5 to net0, then move eth1 to net0, and then
+> move eth1 to net1, eth1.5 is still there!
+> It is a bug?
+=46ind at last it's a behavior of SUSE's udevd , not the kernel.
+When move eth1 to net0, udevd call /sbin/ifdown to down eth1
+and then ifdown eth1.5, and then ifdown-802.1q eth1.5 and then
+vconfig rem eth1.5!
 
-> > But it means that the hip04_mdio driver potentially won't work if connected
-> > to something other than a Marvell PHY.
-> >
-> > I noticed that the marvell_of_reg_init() does this at init time:
-> >
-> > saved_page = phy_read(phydev, MII_MARVELL_PHY_PAGE);
-> > ... /* perform init */
-> > if (page_changed)
-> >       phy_write(phydev, MII_MARVELL_PHY_PAGE, saved_page);
-> >
-> > Is this a bug? Maybe it should always set page 0 when leaving
-> > this function.
-> >
-> It is correct behavior return to the original page.
-> 
-> First get_phy_id, then match driver according to the id, then operation 
-> in the specific driver have the chance to run, including 
-> marvell_of_reg_init etc.
-> 
-> Just unlucky the default value of PHY_PAGE after power on is not 0.
-
-Ok, so it's actually not possible to detect this case prior to having
-to work around it.
-
-How about adding a DT property as a flag to tell the driver whether
-to set the page to zero or not? That would let the driver work
-with different types of PHY implementations, or skip the code if
-there is firmware that can already set it up to page zero.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks everybody!
+>=20
+> I agree with you there should be one interface tagged with VID 5 in t=
+he system.
+> But I think the network namespaces are independent, vlan port and its=
+ VID interfaces
+> spread in different ns break the rule.
+>=20
+> Thanks,
+>=20
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
