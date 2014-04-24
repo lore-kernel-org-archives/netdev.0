@@ -1,137 +1,90 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 02/26] can: c_can: Fix startup logic
-Date: Fri, 25 Apr 2014 00:00:05 +0200
-Message-ID: <1398376829-6771-3-git-send-email-mkl@pengutronix.de>
-References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
+Subject: pull-request: can 2014-04-24
+Date: Fri, 25 Apr 2014 00:00:03 +0200
+Message-ID: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
+Hello David,
 
-c_can_start() enables interrupts way too early. The first enabling
-happens when setting the control mode in c_can_chip_config() and then
-again at the end of the function.
+this is a pull request for net/master, for the v3.15 release cycle, consisting
+of 26 patches.
 
-But that happens before napi_enable() and that means that an interrupt
-which comes in will disable interrupts again and call napi_schedule,
-which ignores the request and the later napi_enable() is not making
-thinks work either. So the interface is up with all device interrupts
-disabled.
+Thomas Gleixner contributes 21 patches for the c_can driver, which address
+several shortcomings in the driver like hardware initialisation, concurrency,
+message ordering and poor performance. Two patches Oliver Hartkopp, one adds a
+missing lock to the sja1000_isa driver, the other one fixes the return value in
+the generic bit time configuration function. And finally a patch by Alexander
+Stein, that fixes the slcan driver to use the correct spinlock variant.
 
-Move the device interrupt after napi_enable() and add it to the other
-callsites of c_can_start() in c_can_set_mode() and c_can_power_up()
+regards,
+Marc
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 35 +++++++++++++++++------------------
- 1 file changed, 17 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index a5c8dcf..b1629a4 100644
---- a/drivers/net/can/c_can/c_can.c
-+++ b/drivers/net/can/c_can/c_can.c
-@@ -612,30 +612,22 @@ static int c_can_chip_config(struct net_device *dev)
- 	struct c_can_priv *priv = netdev_priv(dev);
- 
- 	/* enable automatic retransmission */
--	priv->write_reg(priv, C_CAN_CTRL_REG,
--			CONTROL_ENABLE_AR);
-+	priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_ENABLE_AR);
- 
- 	if ((priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) &&
- 	    (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)) {
- 		/* loopback + silent mode : useful for hot self-test */
--		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
--				CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
--		priv->write_reg(priv, C_CAN_TEST_REG,
--				TEST_LBACK | TEST_SILENT);
-+		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
-+		priv->write_reg(priv, C_CAN_TEST_REG, TEST_LBACK | TEST_SILENT);
- 	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
- 		/* loopback mode : useful for self-test function */
--		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
--				CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
-+		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
- 		priv->write_reg(priv, C_CAN_TEST_REG, TEST_LBACK);
- 	} else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
- 		/* silent mode : bus-monitoring mode */
--		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
--				CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
-+		priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
- 		priv->write_reg(priv, C_CAN_TEST_REG, TEST_SILENT);
--	} else
--		/* normal mode*/
--		priv->write_reg(priv, C_CAN_CTRL_REG,
--				CONTROL_EIE | CONTROL_SIE | CONTROL_IE);
-+	}
- 
- 	/* configure message objects */
- 	c_can_configure_msg_objects(dev);
-@@ -662,9 +654,6 @@ static int c_can_start(struct net_device *dev)
- 	/* reset tx helper pointers */
- 	priv->tx_next = priv->tx_echo = 0;
- 
--	/* enable status change, error and module interrupts */
--	c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
--
- 	return 0;
- }
- 
-@@ -681,6 +670,7 @@ static void c_can_stop(struct net_device *dev)
- 
- static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
- {
-+	struct c_can_priv *priv = netdev_priv(dev);
- 	int err;
- 
- 	switch (mode) {
-@@ -689,6 +679,8 @@ static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
- 		if (err)
- 			return err;
- 		netif_wake_queue(dev);
-+		/* enable status change, error and module interrupts */
-+		c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
- 		break;
- 	default:
- 		return -EOPNOTSUPP;
-@@ -1184,6 +1176,8 @@ static int c_can_open(struct net_device *dev)
- 	can_led_event(dev, CAN_LED_EVENT_OPEN);
- 
- 	napi_enable(&priv->napi);
-+	/* enable status change, error and module interrupts */
-+	c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
- 	netif_start_queue(dev);
- 
- 	return 0;
-@@ -1281,6 +1275,7 @@ int c_can_power_up(struct net_device *dev)
- 	u32 val;
- 	unsigned long time_out;
- 	struct c_can_priv *priv = netdev_priv(dev);
-+	int ret;
- 
- 	if (!(dev->flags & IFF_UP))
- 		return 0;
-@@ -1307,7 +1302,11 @@ int c_can_power_up(struct net_device *dev)
- 	if (time_after(jiffies, time_out))
- 		return -ETIMEDOUT;
- 
--	return c_can_start(dev);
-+	ret = c_can_start(dev);
-+	if (!ret)
-+		c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
-+
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(c_can_power_up);
- #endif
--- 
-1.9.0.279.gdc9e3eb
+The following changes since commit a64d90fd962c2956da7505f98a302408450365e2:
+
+  netfilter: Fix warning in nfnetlink_receive(). (2014-04-24 13:51:29 -0400)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.15-20140424
+
+for you to fetch changes up to 367525c8c20a34560afe1d0c7cca52a44ccd62e9:
+
+  can: slcan: Fix spinlock variant (2014-04-24 22:32:41 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-3.15-20140424
+
+----------------------------------------------------------------
+Alexander Stein (1):
+      can: slcan: Fix spinlock variant
+
+Oliver Hartkopp (2):
+      can: sja1000_isa: add locking for indirect register access mode
+      can: fix return value from can_get_bittiming()
+
+Thomas Gleixner (21):
+      can: c_can_pci: Set the type of the IP core
+      can: c_can: Fix startup logic
+      can: c_can: Make bus off interrupt disable logic work
+      can: c_can: Do not access skb after net_receive_skb()
+      can: c_can: Handle state change correctly
+      can: c_can: Fix berr reporting
+      can: c_can: Always update error stats
+      can: c_can: Simplify buffer reenabling
+      can: c_can: Avoid status register update for D_CAN
+      can: c_can: Get rid of pointless interrupts
+      can: c_can: Disable rx split as workaround
+      can: c_can: Work around C_CAN RX wreckage
+      can: c_can: Cleanup irq enable/disable
+      can: c_can: Cleanup c_can_read_msg_object()
+      can: c_can: Cleanup setup of receive buffers
+      can: c_can: Cleanup c_can_inval_msg_object()
+      can: c_can: Cleanup c_can_msg_obj_put/get()
+      can: c_can: Cleanup c_can_write_msg_object()
+      can: c_can: Use proper u32 variables in c_can_write_msg_object()
+      can: c_can: Remove tx locking
+      can: c_can: Speed up tx buffer invalidation
+
+Wolfgang Grandegger (1):
+      can: c_can_pci: enable PCI bus master only for MSI
+
+Wolfram Sang (1):
+      can: c_can: use proper type for 'instance'
+
+ drivers/net/can/c_can/Kconfig          |   7 +
+ drivers/net/can/c_can/c_can.c          | 660 +++++++++++++++------------------
+ drivers/net/can/c_can/c_can.h          |  23 +-
+ drivers/net/can/c_can/c_can_pci.c      |   9 +-
+ drivers/net/can/c_can/c_can_platform.c |   2 +-
+ drivers/net/can/dev.c                  |   2 +-
+ drivers/net/can/sja1000/sja1000_isa.c  |  16 +-
+ drivers/net/can/slcan.c                |   6 +-
+ 8 files changed, 343 insertions(+), 382 deletions(-)
 
