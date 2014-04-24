@@ -1,71 +1,59 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: pull-request: can 2014-04-24
-Date: Fri, 25 Apr 2014 00:04:17 +0200
-Message-ID: <53598A61.6010904@pengutronix.de>
+Subject: [PATCH 09/26] can: c_can: Avoid status register update for D_CAN
+Date: Fri, 25 Apr 2014 00:00:12 +0200
+Message-ID: <1398376829-6771-10-git-send-email-mkl@pengutronix.de>
 References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="V9q4VPhXsi05rdpGF6jLKPpNeuwAi4Adu"
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---V9q4VPhXsi05rdpGF6jLKPpNeuwAi4Adu
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Thomas Gleixner <tglx@linutronix.de>
 
-On 04/25/2014 12:00 AM, Marc Kleine-Budde wrote:
-> Hello David,
->=20
-> this is a pull request for net/master, for the v3.15 release cycle, con=
-sisting
-> of 26 patches.
->=20
-> Thomas Gleixner contributes 21 patches for the c_can driver, which addr=
-ess
-> several shortcomings in the driver like hardware initialisation, concur=
-rency,
-> message ordering and poor performance. Two patches Oliver Hartkopp, one=
- adds a
-> missing lock to the sja1000_isa driver, the other one fixes the return =
-value in
-> the generic bit time configuration function. And finally a patch by Ale=
-xander
-> Stein, that fixes the slcan driver to use the correct spinlock variant.=
+On D_CAN the RXOK, TXOK and LEC bits are cleared/set on read of the
+status register. No need to update them.
 
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
+ drivers/net/can/c_can/c_can.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
-To make it 26 patches, I forgot to mention, Wolfgang Grandegger patch
-for the c_can_pci driver, which enables the bus master only for MSI and
-a patch by Wolfram Sang, which converts the 'instance' in the c_can
-driver to the proper type.
+diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+index 2aae073..b381f7b 100644
+--- a/drivers/net/can/c_can/c_can.c
++++ b/drivers/net/can/c_can/c_can.c
+@@ -1041,7 +1041,8 @@ static int c_can_handle_bus_err(struct net_device *dev,
+ 	}
+ 
+ 	/* set a `lec` value so that we can check for updates later */
+-	priv->write_reg(priv, C_CAN_STS_REG, LEC_UNUSED);
++	if (priv->type != BOSCH_D_CAN)
++		priv->write_reg(priv, C_CAN_STS_REG, LEC_UNUSED);
+ 
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += cf->can_dlc;
+@@ -1066,11 +1067,13 @@ static int c_can_poll(struct napi_struct *napi, int quota)
+ 					C_CAN_STS_REG);
+ 
+ 		/* handle Tx/Rx events */
+-		if (priv->current_status & STATUS_TXOK)
++		if (priv->current_status & STATUS_TXOK &&
++		    priv->type != BOSCH_D_CAN)
+ 			priv->write_reg(priv, C_CAN_STS_REG,
+ 					priv->current_status & ~STATUS_TXOK);
+ 
+-		if (priv->current_status & STATUS_RXOK)
++		if (priv->current_status & STATUS_RXOK &&
++		    priv->type != BOSCH_D_CAN)
+ 			priv->write_reg(priv, C_CAN_STS_REG,
+ 					priv->current_status & ~STATUS_RXOK);
+ 
+-- 
+1.9.0.279.gdc9e3eb
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---V9q4VPhXsi05rdpGF6jLKPpNeuwAi4Adu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlNZimQACgkQjTAFq1RaXHNdlwCfYSolm8OxHI1zMcyYLzVO54bE
-zUwAoIiRnwyMcDIsC6JheGUde+R5oJjg
-=Kylq
------END PGP SIGNATURE-----
-
---V9q4VPhXsi05rdpGF6jLKPpNeuwAi4Adu--
