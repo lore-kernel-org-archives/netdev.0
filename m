@@ -1,70 +1,100 @@
-From: Vivek Goyal <vgoyal@redhat.com>
-Subject: Re: [PATCH 2/2] net: Implement SO_PASSCGROUP to enable passing
- cgroup path
-Date: Thu, 24 Apr 2014 17:04:29 -0400
-Message-ID: <20140424210429.GD19091@redhat.com>
-References: <20140423164537.GD24651@redhat.com>
- <20140423.132955.671992126955940387.davem@davemloft.net>
- <20140424203427.GC19091@redhat.com>
- <20140424.164820.1543648508330465096.davem@davemloft.net>
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Subject: Re: [PATCH 2/2] net: Add Keystone NetCP ethernet driver
+Date: Thu, 24 Apr 2014 17:04:48 -0400
+Message-ID: <53597C70.1040501@ti.com>
+References: <1398201675-17379-1-git-send-email-santosh.shilimkar@ti.com>	<1398201675-17379-3-git-send-email-santosh.shilimkar@ti.com> <20140424.124744.1296959126932595844.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: luto@amacapital.net, tj@kernel.org, dwalsh@redhat.com,
-	linux-kernel@vger.kernel.org, lpoetter@redhat.com,
-	ssorce@redhat.com, cgroups@vger.kernel.org, kay@redhat.com,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"Nair, Sandeep" <sandeep_n@ti.com>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140424.164820.1543648508330465096.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:36920 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753208AbaDXVFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 17:05:15 -0400
+In-Reply-To: <20140424.124744.1296959126932595844.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2014 at 04:48:20PM -0400, David Miller wrote:
-> From: Vivek Goyal <vgoyal@redhat.com>
-> Date: Thu, 24 Apr 2014 16:34:27 -0400
+On Thursday 24 April 2014 12:47 PM, David Miller wrote:
+> From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+> Date: Tue, 22 Apr 2014 17:21:15 -0400
 > 
-> > By open() time you mean at socket() time or at connect() time?
+>> +struct netcp_tx_pipe {
+>> +	struct netcp_device	*netcp_device;
+>> +	void	*dma_queue;
 > 
-> I mean at all of the places at which init_peercred() occurs.
+> Indent *dma_queue the same as the other struct members.
+>
+sure 
+>> +	unsigned		dma_queue_id;
+> 
+> Use explicit "unsigned int".
+> 
+>> +	unsigned		dma_chan_id;
+> 
+> Likewise.
+>
+ok
+ 
+>> +struct netcp_addr {
+>> +	struct netcp_intf	*netcp;
+>> +	unsigned char		addr[MAX_ADDR_LEN];
+> 
+> If this is just an ethernet driver, ETH_ALEN is more appropriate here.
+> 
+Yep. Will use ETH_ALEN
 
-init_peercred() is only used for stream sockets and not for datagram
-sockets. Hence the confusion that what are cgroup semantics for datagram
-sockets.
-
+>> +	unsigned		tx_compl_qid;
 > 
-> > You also mentioned that you want SO_PEERCGROUP and SO_PASSCGROUP as
-> > pairs like SO_PEERCRED and SO_PASSCRED.  But to me, SO_PEERCRED and
-> > SO_PASSCRED are not *exact* pairs and are little different in their
-> > semantics.  SO_PEERCRED gives us client creds at connect() time
-> > while SO_PASSCRED client's real creds at sendmsg() time. SO_PASSCRED
-> > does not store client's credential's at connect() time for datagram
-> > sockets.
-> 
-> Then you haven't been following the discussion.
-> 
-> The client's credentials at sendmsg()/write() time are "DO NOT CARE".
-> 
-> You cannot even guarentee the semantics in the logging example if
-> you ask for these "client identity at sendmsg() time" semantics.
-> 
-> What if the event occured when the client was in cgroup1, and the
-> log message goes out after it has been moved into cgroup2?
+> Explicit "unsigned int" please.  I'm not going to point out all of the other
+> instances, audit your entire submission for this problem please.
+>
+Thats true... Will fix all instances of those. 
 
-Does it really matter. If a task is changing cgroup while it is doing
-other operations, I don't think one can guarantee which cgroup kernel
-will effectively uses for a particular operation. It will depend on
-what was cgroup when kernel actually made task_cgroup() call. 
-
+ 
+>> +static inline u32 *netcp_push_psdata(struct netcp_packet *p_info,
+>> +				     unsigned bytes)
+>> +{
+>> +	u32		*buf;
+>> +	unsigned	 words;
 > 
-> That is just proof that this whole idea is fundamentally flawed.
+> Do not use tabs between the type and the variable name in local variable
+> declarations.
+> 
+ok
 
-I don't think anybody is looking for such strong semantics. For example,
-same issue will exist if receiver gets the message and looks up
-/proc/pid/cgroup to associate message with a cgroup. By then task might
-have changed cgroup.
+> Please audit for and fix this in your entire submission.
+>
+Will Do.
+ 
+>> +static inline u32 hwval_to_host(bool big_endian, u32 hwval)
+>> +{
+>> +	if (big_endian)
+>> +		return be32_to_cpu(hwval);
+>> +	else
+>> +		return le32_to_cpu(hwval);
+>> +}
+> 
+> You're much better off having a set of methods, one for big endian and
+> one for little endian, that just straight line codes the appropriate endian
+> accesses.
+>
+good idea.
+ 
+> These conditionals peppered all over the place are just ugly.
+> 
+Agree. Will try to fit into some logical functions.
 
-So I really don't think changing cgroup is a problem w.r.t API.
+Thanks for the review David !!
 
-Thanks
-Vivek
+regards,
+Santosh
