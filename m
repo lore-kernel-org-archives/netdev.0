@@ -1,116 +1,166 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 2/5] net: filter: misc/various cleanups
-Date: Thu, 24 Apr 2014 08:45:24 +0200
-Message-ID: <1398321927-8845-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 3/5] net: filter: get rid of sock_fprog_kern
+Date: Thu, 24 Apr 2014 08:45:25 +0200
+Message-ID: <1398321927-8845-4-git-send-email-dborkman@redhat.com>
 References: <1398321927-8845-1-git-send-email-dborkman@redhat.com>
 Cc: ast@plumgrid.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12574 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35538 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751560AbaDXGpk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2014 02:45:40 -0400
+	id S1751560AbaDXGpr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 02:45:47 -0400
 In-Reply-To: <1398321927-8845-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This contains only some minor misc cleanpus. We can spare us the
-extra variable declaration in __skb_get_pay_offset(), we can mark
-some unexpected conditions in the fast-path as unlikely(), the
-cast in __get_random_u32() is rather unnecessary and in
-__sk_migrate_realloc() we can remove the memcpy() and do a direct
-assignment of the structs. Latter was suggested by Fengguang Wu
-found with coccinelle.
+It is actually cleaner to just get rid of sock_fprog_kern structure.
+It's not really useful as we can just use sock_fprog structure as
+we do elsewhere in the kernel, this could throw some sparse false
+positives though, but getting rid of the structure duplication is
+probably the better way to go.
 
-Suggested-by: Fengguang Wu <fengguang.wu@intel.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Acked-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- net/core/filter.c | 21 ++++++++++-----------
- 1 file changed, 10 insertions(+), 11 deletions(-)
+ include/linux/filter.h | 13 +++++--------
+ net/core/filter.c      | 24 ++++++++++++------------
+ net/core/sock_diag.c   |  4 ++--
+ 3 files changed, 19 insertions(+), 22 deletions(-)
 
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index b042d1d..e58b687 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -67,11 +67,6 @@ struct compat_sock_fprog {
+ };
+ #endif
+ 
+-struct sock_fprog_kern {
+-	u16			len;
+-	struct sock_filter	*filter;
+-};
+-
+ struct sk_buff;
+ struct sock;
+ struct seccomp_data;
+@@ -80,7 +75,7 @@ struct sk_filter {
+ 	atomic_t		refcnt;
+ 	u32			jited:1,	/* Is our filter JIT'ed? */
+ 				len:31;		/* Number of filter blocks */
+-	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
++	struct sock_fprog	*orig_prog;	/* Original BPF program */
+ 	struct rcu_head		rcu;
+ 	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+ 					    const struct sock_filter_int *filter);
+@@ -97,8 +92,10 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
+ 		   offsetof(struct sk_filter, insns[proglen]));
+ }
+ 
+-#define sk_filter_proglen(fprog)			\
+-		(fprog->len * sizeof(fprog->filter[0]))
++static inline unsigned int sk_filter_prog_size(const struct sock_fprog *fprog)
++{
++	return fprog->len * sizeof(fprog->filter[0]);
++}
+ 
+ #define SK_RUN_FILTER(filter, ctx)			\
+ 		(*filter->bpf_func)(ctx, filter->insnsi)
 diff --git a/net/core/filter.c b/net/core/filter.c
-index a1784e9..2fd2293 100644
+index 2fd2293..e5e7717 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -57,9 +57,9 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
- 		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
- 	else if (k >= SKF_LL_OFF)
- 		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
--
- 	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
- 		return ptr;
-+
- 	return NULL;
- }
- 
-@@ -68,6 +68,7 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
+@@ -1396,17 +1396,17 @@ EXPORT_SYMBOL(sk_chk_filter);
+ static int sk_store_orig_filter(struct sk_filter *fp,
+ 				const struct sock_fprog *fprog)
  {
- 	if (k >= 0)
- 		return skb_header_pointer(skb, k, size, buffer);
-+
- 	return bpf_internal_load_pointer_neg_helper(skb, k, size);
- }
+-	unsigned int fsize = sk_filter_proglen(fprog);
+-	struct sock_fprog_kern *fkprog;
++	unsigned int fsize = sk_filter_prog_size(fprog);
++	struct sock_fprog *op;
  
-@@ -596,9 +597,7 @@ static unsigned int pkt_type_offset(void)
+-	fp->orig_prog = kmalloc(sizeof(*fkprog), GFP_KERNEL);
++	fp->orig_prog = kmalloc(sizeof(*op), GFP_KERNEL);
+ 	if (!fp->orig_prog)
+ 		return -ENOMEM;
  
- static u64 __skb_get_pay_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+-	fkprog = fp->orig_prog;
+-	fkprog->len = fprog->len;
+-	fkprog->filter = kmemdup(fp->insns, fsize, GFP_KERNEL);
+-	if (!fkprog->filter) {
++	op = fp->orig_prog;
++	op->len = fprog->len;
++	op->filter = kmemdup(fp->insns, fsize, GFP_KERNEL);
++	if (!op->filter) {
+ 		kfree(fp->orig_prog);
+ 		return -ENOMEM;
+ 	}
+@@ -1416,7 +1416,7 @@ static int sk_store_orig_filter(struct sk_filter *fp,
+ 
+ static void sk_release_orig_filter(struct sk_filter *fp)
  {
--	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
--
--	return __skb_get_poff(skb);
-+	return __skb_get_poff((struct sk_buff *)(long) ctx);
- }
+-	struct sock_fprog_kern *fprog = fp->orig_prog;
++	struct sock_fprog *fprog = fp->orig_prog;
  
- static u64 __skb_get_nlattr(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
-@@ -609,10 +608,10 @@ static u64 __skb_get_nlattr(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	if (skb_is_nonlinear(skb))
- 		return 0;
- 
--	if (skb->len < sizeof(struct nlattr))
-+	if (unlikely(skb->len < sizeof(struct nlattr)))
- 		return 0;
- 
--	if (A > skb->len - sizeof(struct nlattr))
-+	if (unlikely(A > skb->len - sizeof(struct nlattr)))
- 		return 0;
- 
- 	nla = nla_find((struct nlattr *) &skb->data[A], skb->len - A, X);
-@@ -630,14 +629,14 @@ static u64 __skb_get_nlattr_nest(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	if (skb_is_nonlinear(skb))
- 		return 0;
- 
--	if (skb->len < sizeof(struct nlattr))
-+	if (unlikely(skb->len < sizeof(struct nlattr)))
- 		return 0;
- 
--	if (A > skb->len - sizeof(struct nlattr))
-+	if (unlikely(A > skb->len - sizeof(struct nlattr)))
- 		return 0;
- 
- 	nla = (struct nlattr *) &skb->data[A];
--	if (nla->nla_len > skb->len - A)
-+	if (unlikely(nla->nla_len > skb->len - A))
- 		return 0;
- 
- 	nla = nla_find_nested(nla, X);
-@@ -655,7 +654,7 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- /* note that this only generates 32-bit random numbers */
- static u64 __get_random_u32(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+ 	if (fprog) {
+ 		kfree(fprog->filter);
+@@ -1599,7 +1599,7 @@ static struct sk_filter *__sk_prepare_filter(struct sk_filter *fp,
+ int sk_unattached_filter_create(struct sk_filter **pfp,
+ 				struct sock_fprog *fprog)
  {
--	return (u64)prandom_u32();
-+	return prandom_u32();
- }
+-	unsigned int fsize = sk_filter_proglen(fprog);
++	unsigned int fsize = sk_filter_prog_size(fprog);
+ 	struct sk_filter *fp;
  
- static bool convert_bpf_extensions(struct sock_filter *fp,
-@@ -1472,7 +1471,7 @@ static struct sk_filter *__sk_migrate_realloc(struct sk_filter *fp,
+ 	/* Make sure new filter is there and in the right amounts. */
+@@ -1651,7 +1651,7 @@ EXPORT_SYMBOL_GPL(sk_unattached_filter_destroy);
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ {
+ 	struct sk_filter *fp, *old_fp;
+-	unsigned int fsize = sk_filter_proglen(fprog);
++	unsigned int fsize = sk_filter_prog_size(fprog);
+ 	unsigned int sk_fsize = sk_filter_size(fprog->len);
+ 	int err;
  
- 	fp_new = sock_kmalloc(sk, len, GFP_KERNEL);
- 	if (fp_new) {
--		memcpy(fp_new, fp, sizeof(struct sk_filter));
-+		*fp_new = *fp;
- 		/* As we're kepping orig_prog in fp_new along,
- 		 * we need to make sure we're not evicting it
- 		 * from the old fp.
+@@ -1799,7 +1799,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+ int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
+ 		  unsigned int len)
+ {
+-	struct sock_fprog_kern *fprog;
++	struct sock_fprog *fprog;
+ 	struct sk_filter *filter;
+ 	int ret = 0;
+ 
+@@ -1824,7 +1824,7 @@ int sk_get_filter(struct sock *sk, struct sock_filter __user *ubuf,
+ 		goto out;
+ 
+ 	ret = -EFAULT;
+-	if (copy_to_user(ubuf, fprog->filter, sk_filter_proglen(fprog)))
++	if (copy_to_user(ubuf, fprog->filter, sk_filter_prog_size(fprog)))
+ 		goto out;
+ 
+ 	/* Instead of bytes, the API requests to return the number
+diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
+index d7af188..6669077 100644
+--- a/net/core/sock_diag.c
++++ b/net/core/sock_diag.c
+@@ -52,7 +52,7 @@ EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
+ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+ 			     struct sk_buff *skb, int attrtype)
+ {
+-	struct sock_fprog_kern *fprog;
++	struct sock_fprog *fprog;
+ 	struct sk_filter *filter;
+ 	struct nlattr *attr;
+ 	unsigned int flen;
+@@ -69,7 +69,7 @@ int sock_diag_put_filterinfo(struct user_namespace *user_ns, struct sock *sk,
+ 		goto out;
+ 
+ 	fprog = filter->orig_prog;
+-	flen = sk_filter_proglen(fprog);
++	flen = sk_filter_prog_size(fprog);
+ 
+ 	attr = nla_reserve(skb, attrtype, flen);
+ 	if (attr == NULL) {
 -- 
 1.7.11.7
