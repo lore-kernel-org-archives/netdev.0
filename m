@@ -1,56 +1,62 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: Remove useless secid field from xfrm_audit.
-Date: Thu, 24 Apr 2014 12:55:05 +0200
-Message-ID: <20140424105505.GU32371@secunet.com>
-References: <201404190100.IJG17653.VOSHJMtFQFOLOF@I-love.SAKURA.ne.jp>
- <20140422120256.GT32371@secunet.com>
- <201404222148.JCD13571.QLFFJMtHOSFVOO@I-love.SAKURA.ne.jp>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
+ namespaces.
+Date: Thu, 24 Apr 2014 19:32:25 +0800
+Message-ID: <5358F649.6090206@huawei.com>
+References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com> <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com> <5357280C.1000404@huawei.com> <53576A6F.2020207@6wind.com> <53586207.7060407@huawei.com> <20140424054734.GA16057@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <jmlatten@linux.vnet.ibm.com>, <herbert@gondor.apana.org.au>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <nicolas.dichtel@6wind.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	<kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:53631 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753953AbaDXKzM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2014 06:55:12 -0400
-Content-Disposition: inline
-In-Reply-To: <201404222148.JCD13571.QLFFJMtHOSFVOO@I-love.SAKURA.ne.jp>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:7444 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756473AbaDXLeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 07:34:02 -0400
+In-Reply-To: <20140424054734.GA16057@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 22, 2014 at 09:48:30PM +0900, Tetsuo Handa wrote:
-> 
-> Wow. I raced with your commit. I was making V2 patch because it seemed
-> to me that
-> 
->   struct xfrm_audit {
->   	u32     secid;
->   	kuid_t  loginuid;
->   	unsigned int sessionid;
->   };
-> 
-> can be packed as "bool" and replace "kuid_t auid, unsigned int ses, u32 secid"
-> arguments with single bool argument.
-> 
-> I subtracted your commit from my V2 patch. Would you check below one?
-> ----------
-> >From 225dcb015abbad724cb4b6bda837e0132eb7b2dc Mon Sep 17 00:00:00 2001
-> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-> Date: Tue, 22 Apr 2014 21:34:34 +0900
-> Subject: [PATCH] xfrm: Remove useless xfrm_audit struct.
-> 
-> Commit f1370cc4 "xfrm: Remove useless secid field from xfrm_audit." changed
-> "struct xfrm_audit" to have either
-> { audit_get_loginuid(current) / audit_get_sessionid(current) } or
-> { INVALID_UID / -1 } pair.
-> 
-> This means that we can represent "struct xfrm_audit" as "bool".
-> This patch replaces "struct xfrm_audit" argument with "bool".
-> 
-> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+On 2014/4/24 13:47, Michal Kubecek wrote:
+> On Thu, Apr 24, 2014 at 08:59:51AM +0800, chenweilong wrote:
+>> On 2014/4/23 15:23, Nicolas Dichtel wrote:
+>>> Le 23/04/2014 04:40, chenweilong a =E9crit :
+>>>> And, 2) is not safe, if someone forgets to move eth1, eth1.5 will =
+not work, making
+>>>> things complex.
+>>> We have to fix this case, because it is a valid use case to have et=
+h1.5 in net0
+>>> and eth1 in another ns.
+>>>
+>> eth1.5 can receive and send packets in net0, the problem is you can'=
+t add a new eth1.5
+>> in old ns, report 'error: File exists'.
+>=20
+> And this is correct, as far as I can tell. If it was possible, which =
+of
+> the two interfaces would receive VLAN tagged packets with VID 5 comin=
+g
+> to eth1?
+>=20
+>                                                          Michal Kubec=
+ek
+>=20
+>=20
+>=20
+If eth1 and eth1.5 can work in different ns,
+my fist test(move eth1 first,and then eth1.5) should be success,
+but it failed, if eth1 was moved to other ns, all related vlans were un=
+registed.
+Strangely, if I move eth1.5 to net0, then move eth1 to net0, and then
+move eth1 to net1, eth1.5 is still there!
+It is a bug?
 
-Looks good, also applied.
+I agree with you there should be one interface tagged with VID 5 in the=
+ system.
+But I think the network namespaces are independent, vlan port and its V=
+ID interfaces
+spread in different ns break the rule.
 
-Thanks a lot!
+Thanks,
