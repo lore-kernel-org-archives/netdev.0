@@ -1,7 +1,7 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 15/26] can: c_can: Cleanup setup of receive buffers
-Date: Fri, 25 Apr 2014 00:00:18 +0200
-Message-ID: <1398376829-6771-16-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 13/26] can: c_can: Cleanup irq enable/disable
+Date: Fri, 25 Apr 2014 00:00:16 +0200
+Message-ID: <1398376829-6771-14-git-send-email-mkl@pengutronix.de>
 References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
 	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>,
@@ -18,87 +18,117 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/c_can/c_can.c | 38 +++++++++++++++++---------------------
- 1 file changed, 17 insertions(+), 21 deletions(-)
+ drivers/net/can/c_can/c_can.c | 37 ++++++++++++-------------------------
+ 1 file changed, 12 insertions(+), 25 deletions(-)
 
 diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
-index d0daef8..e4eaa84 100644
+index 5d43c5a..562faef 100644
 --- a/drivers/net/can/c_can/c_can.c
 +++ b/drivers/net/can/c_can/c_can.c
-@@ -125,6 +125,10 @@
- /* For the high buffers we clear the interrupt bit and newdat */
- #define IF_COMM_RCV_HIGH	(IF_COMM_RCV_LOW | IF_COMM_CLR_NEWDAT)
+@@ -60,6 +60,8 @@
+ #define CONTROL_IE		BIT(1)
+ #define CONTROL_INIT		BIT(0)
  
++#define CONTROL_IRQMSK		(CONTROL_EIE | CONTROL_IE | CONTROL_SIE)
 +
-+/* Receive setup of message objects */
-+#define IF_COMM_RCV_SETUP	(IF_COMM_MASK | IF_COMM_ARB | IF_COMM_CONTROL)
-+
- /* IFx arbitration */
- #define IF_ARB_MSGVAL		BIT(15)
- #define IF_ARB_MSGXTD		BIT(14)
-@@ -142,6 +146,9 @@
- #define IF_MCONT_EOB		BIT(7)
- #define IF_MCONT_DLC_MASK	0xf
+ /* test register */
+ #define TEST_RX			BIT(7)
+ #define TEST_TX1		BIT(6)
+@@ -146,13 +148,6 @@
+ #define IF_RX			0
+ #define IF_TX			1
  
-+#define IF_MCONT_RCV		(IF_MCONT_RXIE | IF_MCONT_UMASK)
-+#define IF_MCONT_RCV_EOB	(IF_MCONT_RCV | IF_MCONT_EOB)
-+
- /*
-  * Use IF1 for RX and IF2 for TX
-  */
-@@ -424,30 +431,20 @@ static int c_can_read_msg_object(struct net_device *dev, int iface, u32 ctrl)
+-/* status interrupt */
+-#define STATUS_INTERRUPT	0x8000
+-
+-/* global interrupt masks */
+-#define ENABLE_ALL_INTERRUPTS	1
+-#define DISABLE_ALL_INTERRUPTS	0
+-
+ /* minimum timeout for checking BUSY status */
+ #define MIN_TIMEOUT_VALUE	6
+ 
+@@ -246,18 +241,14 @@ static u32 c_can_read_reg32(struct c_can_priv *priv, enum reg index)
+ 	return val;
  }
  
- static void c_can_setup_receive_object(struct net_device *dev, int iface,
--					int objno, unsigned int mask,
--					unsigned int id, unsigned int mcont)
-+				       u32 obj, u32 mask, u32 id, u32 mcont)
+-static void c_can_enable_all_interrupts(struct c_can_priv *priv,
+-						int enable)
++static void c_can_irq_control(struct c_can_priv *priv, bool enable)
+ {
+-	unsigned int cntrl_save = priv->read_reg(priv,
+-						C_CAN_CTRL_REG);
++	u32 ctrl = priv->read_reg(priv,	C_CAN_CTRL_REG) & ~CONTROL_IRQMSK;
+ 
+ 	if (enable)
+-		cntrl_save |= (CONTROL_SIE | CONTROL_EIE | CONTROL_IE);
+-	else
+-		cntrl_save &= ~(CONTROL_EIE | CONTROL_IE | CONTROL_SIE);
++		ctrl |= CONTROL_IRQMSK;
+ 
+-	priv->write_reg(priv, C_CAN_CTRL_REG, cntrl_save);
++	priv->write_reg(priv, C_CAN_CTRL_REG, ctrl);
+ }
+ 
+ static inline int c_can_msg_obj_is_busy(struct c_can_priv *priv, int iface)
+@@ -664,10 +655,7 @@ static void c_can_stop(struct net_device *dev)
  {
  	struct c_can_priv *priv = netdev_priv(dev);
  
--	priv->write_reg(priv, C_CAN_IFACE(MASK1_REG, iface),
--			IFX_WRITE_LOW_16BIT(mask));
+-	/* disable all interrupts */
+-	c_can_enable_all_interrupts(priv, DISABLE_ALL_INTERRUPTS);
 -
--	/* According to C_CAN documentation, the reserved bit
--	 * in IFx_MASK2 register is fixed 1
--	 */
--	priv->write_reg(priv, C_CAN_IFACE(MASK2_REG, iface),
--			IFX_WRITE_HIGH_16BIT(mask) | BIT(13));
-+	mask |= BIT(29);
-+	priv->write_reg(priv, C_CAN_IFACE(MASK1_REG, iface), mask);
-+	priv->write_reg(priv, C_CAN_IFACE(MASK2_REG, iface), mask >> 16);
- 
--	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface),
--			IFX_WRITE_LOW_16BIT(id));
--	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface),
--			(IF_ARB_MSGVAL | IFX_WRITE_HIGH_16BIT(id)));
-+	id |= IF_ARB_MSGVAL << 16;
-+	priv->write_reg(priv, C_CAN_IFACE(ARB1_REG, iface), id);
-+	priv->write_reg(priv, C_CAN_IFACE(ARB2_REG, iface), id >> 16);
- 
- 	priv->write_reg(priv, C_CAN_IFACE(MSGCTRL_REG, iface), mcont);
--	c_can_object_put(dev, iface, objno, IF_COMM_ALL & ~IF_COMM_TXRQST);
--
--	netdev_dbg(dev, "obj no:%d, msgval:0x%08x\n", objno,
--			c_can_read_reg32(priv, C_CAN_MSGVAL1_REG));
-+	c_can_object_put(dev, iface, obj, IF_COMM_RCV_SETUP);
+-	/* set the state as STOPPED */
++	c_can_irq_control(priv, false);
+ 	priv->can.state = CAN_STATE_STOPPED;
  }
  
- static void c_can_inval_msg_object(struct net_device *dev, int iface, int objno)
-@@ -581,11 +578,10 @@ static void c_can_configure_msg_objects(struct net_device *dev)
+@@ -682,8 +670,7 @@ static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
+ 		if (err)
+ 			return err;
+ 		netif_wake_queue(dev);
+-		/* enable status change, error and module interrupts */
+-		c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
++		c_can_irq_control(priv, true);
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -1144,7 +1131,7 @@ end:
+ 		napi_complete(napi);
+ 		/* enable all IRQs if we are not in bus off state */
+ 		if (priv->can.state != CAN_STATE_BUS_OFF)
+-			c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
++			c_can_irq_control(priv, true);
+ 	}
  
- 	/* setup receive message objects */
- 	for (i = C_CAN_MSG_OBJ_RX_FIRST; i < C_CAN_MSG_OBJ_RX_LAST; i++)
--		c_can_setup_receive_object(dev, IF_RX, i, 0, 0,
--					   IF_MCONT_RXIE | IF_MCONT_UMASK);
-+		c_can_setup_receive_object(dev, IF_RX, i, 0, 0, IF_MCONT_RCV);
+ 	return work_done;
+@@ -1159,7 +1146,7 @@ static irqreturn_t c_can_isr(int irq, void *dev_id)
+ 		return IRQ_NONE;
  
- 	c_can_setup_receive_object(dev, IF_RX, C_CAN_MSG_OBJ_RX_LAST, 0, 0,
--			IF_MCONT_EOB | IF_MCONT_RXIE | IF_MCONT_UMASK);
-+				   IF_MCONT_RCV_EOB);
+ 	/* disable all interrupts and schedule the NAPI */
+-	c_can_enable_all_interrupts(priv, DISABLE_ALL_INTERRUPTS);
++	c_can_irq_control(priv, false);
+ 	napi_schedule(&priv->napi);
+ 
+ 	return IRQ_HANDLED;
+@@ -1197,7 +1184,7 @@ static int c_can_open(struct net_device *dev)
+ 
+ 	napi_enable(&priv->napi);
+ 	/* enable status change, error and module interrupts */
+-	c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
++	c_can_irq_control(priv, true);
+ 	netif_start_queue(dev);
+ 
+ 	return 0;
+@@ -1324,7 +1311,7 @@ int c_can_power_up(struct net_device *dev)
+ 
+ 	ret = c_can_start(dev);
+ 	if (!ret)
+-		c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
++		c_can_irq_control(priv, true);
+ 
+ 	return ret;
  }
- 
- /*
 -- 
 1.9.0.279.gdc9e3eb
 
