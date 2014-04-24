@@ -1,103 +1,77 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
-Date: Thu, 24 Apr 2014 11:03:00 -0400
-Message-ID: <1398351780.750.10.camel@localhost>
-References: <20140422.161904.1187535812839850973.davem@davemloft.net>
-	 <cover.1398215388.git.rgb@redhat.com> <26389161.vp9iWSVLPX@x2>
-	 <1398225475.750.7.camel@localhost> <5357C2D2.5060700@redhat.com>
-	 <1398264152.2596.25.camel@flatline.rdu.redhat.com>
-	 <5357DE12.7040905@redhat.com>
-	 <1398267458.2562.0.camel@flatline.rdu.redhat.com>
-	 <5357E1B4.2030705@redhat.com>
-	 <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com>
-	 <535926B8.7060304@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next v4 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
+Date: Thu, 24 Apr 2014 17:06:57 +0200
+Message-ID: <20140424150657.GG1960@order.stressinduktion.org>
+References: <1398154415-24486-1-git-send-email-lorenzo@google.com> <1398235078-27088-1-git-send-email-lorenzo@google.com> <1398235078-27088-3-git-send-email-lorenzo@google.com> <53579FD8.2090309@enst-bretagne.fr> <CAKD1Yr1bYu1Rtqi6cfSTsnq14dj+esOd=MsPaUs-CbqkFY5H8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	linux-audit@redhat.com, SE-Linux <selinux@tycho.nsa.gov>,
-	jamal@mojatatu.com, Steve Grubb <sgrubb@redhat.com>,
-	David Miller <davem@davemloft.net>
-To: Daniel J Walsh <dwalsh@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <535926B8.7060304@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:37046 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754178AbaDXPG6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:06:58 -0400
+Content-Disposition: inline
+In-Reply-To: <CAKD1Yr1bYu1Rtqi6cfSTsnq14dj+esOd=MsPaUs-CbqkFY5H8Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-24 at 10:59 -0400, Daniel J Walsh wrote:
-> I don't disagree.  I would think the real solution to this would be to
-> not allow sysadm_t to get to SystemHigh, where all of the logging data
-> will be stored.
-
-make journalctl a userspace object manager and do selinux checks on if
-it can see individual records?  so secadm_t running journalctl would see
-them and sysadm running journalctl wouldn't see them?
-
-Sounds elegant.  Who is going to code it?  *NOT IT!*
-
-> 
-> On 04/24/2014 09:22 AM, Eric Paris wrote:
-> > They would be equivalent if and only if journald had CAP_AUDIT_READ.
+On Wed, Apr 23, 2014 at 09:22:23PM +0900, Lorenzo Colitti wrote:
+> On Wed, Apr 23, 2014 at 8:11 PM, Florent Fourcot
+> <florent.fourcot@enst-bretagne.fr> wrote:
+> > Le 22/04/2014 17:14, Lorenzo Colitti a =C3=A9crit :> +
+> >> +             if (sin6->sin6_family !=3D AF_INET6)
+> >> +                     return -EAFNOSUPPORT;
+> >> +
 > >
-> > I suggest you take CAP_AUDIT_READ away from journald on systems which
-> > need the secadm/sysadmin split (which is a ridiculously stupid split
-> > anyway, but who am I to complain?)
-> >
-> > On Wed, Apr 23, 2014 at 11:52 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
-> >> Meaning looking at the journal would be equivalent to looking at
-> >> /var/log/audit/audit.log.
-> >>
-> >>
-> >> On 04/23/2014 11:37 AM, Eric Paris wrote:
-> >>> On Wed, 2014-04-23 at 11:36 -0400, Daniel J Walsh wrote:
-> >>>> I guess the problem would be that the sysadm_t would be able to look at
-> >>>> the journal which would now contain the audit content.
-> >>> right.  so include it in the sysadm_secadm bool
-> >>>
-> >>>> On 04/23/2014 10:42 AM, Eric Paris wrote:
-> >>>>> On Wed, 2014-04-23 at 09:40 -0400, Daniel J Walsh wrote:
-> >>>>>> Here are the capabilities we currently give to sysadm_t with
-> >>>>>> sysadm_secadm    1.0.0    Disabled
-> >>>>>>
-> >>>>>>    allow sysadm_t sysadm_t : capability { chown dac_override
-> >>>>>> dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
-> >>>>>> net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
-> >>>>>> sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
-> >>>>>> sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
-> >>>>>>    allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
-> >>>>>>
-> >>>>>>    allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
-> >>>>>>
-> >>>>>> cap_audit_write might be a problem?
-> >>>>> cap_audit_write is fine.
-> >>>>>
-> >>>>> syslogd_t (aka journal) is going to need the new permission
-> >>>>> cap_audit_read.  Also, as steve pointed out, someone may be likely to
-> >>>>> want to be able to disable that permission easily.
-> >>>>>
-> >>>>> -Eric
-> >>>>>
-> >>> _______________________________________________
-> >>> Selinux mailing list
-> >>> Selinux@tycho.nsa.gov
-> >>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
-> >>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
-> >>>
-> >>>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> Please read the FAQ at  http://www.tux.org/lkml/
-> > _______________________________________________
-> > Selinux mailing list
-> > Selinux@tycho.nsa.gov
-> > To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
-> > To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
-> >
-> >
-> 
+> > It has before returned -EINVAL, it changes the return to the user s=
+pace.
+> > You made it consistent with other protocols, but perhaps should you=
+ add
+> > a notice in the commit changelog?
+>=20
+> Actually I'm not sure what the correct value is. When you setsockopt
+> IPV6_V6ONLY and then send to a mapped address, the error you get
+> depends on what you're trying to do - ip6_datagram_connect returns
+> EAFNOSUPPORT, but udpv6_sendmsg, dccp_v6_connect and tcp_v6_connect
+> return ENETUNREACH. I think EINVAL is wrong. EAFNOSUPPORT is probably
+> best because the code doesn't support dual-stack ping sockets, but it
+> could.
+>=20
+> There are probably very few users of this code at the moment, since
+> the code was only released in 3.12, and support hasn't made it into
+> iputils yet. And even there, ping just probably prints the error
+> message and exits. So I don't think it's a big deal to change the
+> return code.
 
+Sure, but we don't know about other applications. Wouldn't it be just e=
+asier
+and leave this as is for now and finally let ipv6 ping sockets also han=
+dle
+ipv4? I looked at it some time ago and it didn't look complicated.
 
+> >> -             if (sk->sk_bound_dev_if &&
+> >> -                 sk->sk_bound_dev_if !=3D u->sin6_scope_id) {
+> >> -                     return -EINVAL;
+> >> -             }
+> >
+> > What about this check now ?
+>=20
+> I think that was incorrect. It would return EINVAL even if you did
+> something as simple as:
+>=20
+> - Open an IPv6 ping socket.
+> - Bind it to eth0 with SO_BINDTODEVICE
+> - Send a ping to 2001:: without specifying a scope id.
+
+Agree with that.
+
+Bye,
+
+  Hannes
