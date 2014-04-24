@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 14/14] at86rf230: remove
-	function for setting irq polarity
-Date: Thu, 24 Apr 2014 19:09:18 +0200
-Message-ID: <1398359358-11085-15-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 09/14] at86rf230: remove
+	#ifdef CONFIG_OF
+Date: Thu, 24 Apr 2014 19:09:13 +0200
+Message-ID: <1398359358-11085-10-git-send-email-alex.aring@gmail.com>
 References: <1398359358-11085-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,38 +21,33 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The function is small enough, we don't need a extra function for this.
+This is already handled by the of_match_ptr macro.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 2 --
+ 1 file changed, 2 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 1331152..4517b14 100644
+index cf376c4..b324bb3 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -961,11 +961,6 @@ static irqreturn_t at86rf230_isr_level(int irq, void *data)
- 	return at86rf230_isr(irq, data);
+@@ -1215,7 +1215,6 @@ static int at86rf230_remove(struct spi_device *spi)
+ 	return 0;
  }
  
--static int at86rf230_irq_polarity(struct at86rf230_local *lp, int pol)
--{
--	return at86rf230_write_subreg(lp, SR_IRQ_POLARITY, pol);
--}
--
- static int at86rf230_hw_init(struct at86rf230_local *lp)
- {
- 	int rc, irq_pol, irq_type;
-@@ -983,7 +978,7 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
- 	else
- 		irq_pol = IRQ_ACTIVE_HIGH;
+-#if IS_ENABLED(CONFIG_OF)
+ static const struct of_device_id at86rf230_of_match[] = {
+ 	{ .compatible = "atmel,at86rf230", },
+ 	{ .compatible = "atmel,at86rf231", },
+@@ -1224,7 +1223,6 @@ static const struct of_device_id at86rf230_of_match[] = {
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, at86rf230_of_match);
+-#endif
  
--	rc = at86rf230_irq_polarity(lp, irq_pol);
-+	rc = at86rf230_write_subreg(lp, SR_IRQ_POLARITY, irq_pol);
- 	if (rc)
- 		return rc;
- 
+ static const struct spi_device_id at86rf230_device_id[] = {
+ 	{ .name = "at86rf230", },
 -- 
 1.9.2
 
