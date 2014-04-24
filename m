@@ -1,102 +1,194 @@
-From: Chris Mason <clm@fb.com>
-Subject: [PATCH RFC] ipv6_fib limit spinlock hold times for /proc/net/ipv6_route
-Date: Thu, 24 Apr 2014 09:59:24 -0400
-Message-ID: <535918BC.5030708@fb.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 1/2] mactap: Fix checksum errors for non-gso packets in
+ bridge mode
+Date: Thu, 24 Apr 2014 10:05:20 -0400
+Message-ID: <53591A20.6080009@redhat.com>
+References: <1398271901-32534-1-git-send-email-vyasevic@redhat.com> <1398271901-32534-2-git-send-email-vyasevic@redhat.com> <20140423192022.GA28446@redhat.com> <53581700.9010205@redhat.com> <20140423201050.GC28446@redhat.com> <535822DE.5020704@redhat.com> <20140424072611.GA31483@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, daniel.lezcano@free.fr,
+	nightnord@gmail.com, kaber@trash.net, eric.dumazet@gmail.com,
+	jasowang@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:21083 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753681AbaDXN6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 09:58:40 -0400
-Received: from pps.filterd (m0004003 [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s3ODtwBC024797
-	for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 06:58:39 -0700
-Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
-	by mx0b-00082601.pphosted.com with ESMTP id 1kesr3smch-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 06:58:39 -0700
+Received: from mx1.redhat.com ([209.132.183.28]:60419 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753787AbaDXOFa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 10:05:30 -0400
+In-Reply-To: <20140424072611.GA31483@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/24/2014 03:26 AM, Michael S. Tsirkin wrote:
+> On Wed, Apr 23, 2014 at 04:30:22PM -0400, Vlad Yasevich wrote:
+>> On 04/23/2014 04:10 PM, Michael S. Tsirkin wrote:
+>>> On Wed, Apr 23, 2014 at 03:39:44PM -0400, Vlad Yasevich wrote:
+>>>> On 04/23/2014 03:20 PM, Michael S. Tsirkin wrote:
+>>>>> On Wed, Apr 23, 2014 at 12:51:40PM -0400, Vlad Yasevich wrote:
+>>>>>> The following is a problematic configuration:
+>>>>>>
+>>>>>>  VM1: virtio-net device connected to macvtap0@eth0
+>>>>>>  VM2: e1000 device connect to macvtap1@eth0
+>>>>>>
+>>>>>> The problem is is that virtio-net supports checksum offloading
+>>>>>> and thus sends the packets to the host with CHECKSUM_PARTIAL set.
+>>>>>> On the other hand, e1000 does not support any acceleration.
+>>>>>>
+>>>>>> For small TCP packets (and this includes the 3-way handshake),
+>>>>>> e1000 ends up receiving packets that only have a partial checksum
+>>>>>> set.  This causes TCP to fail checksum validation and to drop
+>>>>>> packets.  As a result tcp connections can not be established.
+>>>>>>
+>>>>>> Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+>>>>>> 	macvtap: Perform GSO on forwarding path.
+>>>>>> fixes this issue for large packets wthat will end up undergoing GSO.
+>>>>>> This commit adds a check for the non-GSO case and attempts to
+>>>>>> compute the checksum for partially checksummed packets in the
+>>>>>> non-GSO case.
+>>>>>>
+>>>>>> CC: Daniel Lezcano <daniel.lezcano@free.fr>
+>>>>>> CC: Patrick McHardy <kaber@trash.net>
+>>>>>> CC: Andrian Nord <nightnord@gmail.com>
+>>>>>> CC: Eric Dumazet <eric.dumazet@gmail.com>
+>>>>>> CC: Michael S. Tsirkin <mst@redhat.com>
+>>>>>> CC: Jason Wang <jasowang@redhat.com>
+>>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>>>>> ---
+>>>>>>  drivers/net/macvtap.c | 7 +++++++
+>>>>>>  1 file changed, 7 insertions(+)
+>>>>>>
+>>>>>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>>>>>> index ff111a8..ba91084 100644
+>>>>>> --- a/drivers/net/macvtap.c
+>>>>>> +++ b/drivers/net/macvtap.c
+>>>>>> @@ -322,6 +322,13 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+>>>>>>  			segs = nskb;
+>>>>>>  		}
+>>>>>>  	} else {
+>>>>>> +		/* If we receive a partial checksum and the tap side
+>>>>>> +		 * doesn't support checksum offload, compute the checksum.
+>>>>>> +		 */
+>>>>>> +		if (skb->ip_summed == CHECKSUM_PARTIAL &&
+>>>>>> +		    !(features & NETIF_F_ALL_CSUM) &&
+>>>>>> +		    skb_checksum_help(skb))
+>>>>>> +			goto drop;
+>>>>>
+>>>>> Hmm confused by NETIF_F_ALL_CSUM here.
+>>>>>
+>>>>> features come from here:
+>>>>>                 feature_mask = NETIF_F_HW_CSUM;
+>>>>>
+>>>>>                 if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+>>>>>                         if (arg & TUN_F_TSO_ECN)
+>>>>>                                 feature_mask |= NETIF_F_TSO_ECN;
+>>>>>                         if (arg & TUN_F_TSO4)
+>>>>>                                 feature_mask |= NETIF_F_TSO;
+>>>>>                         if (arg & TUN_F_TSO6)
+>>>>>                                 feature_mask |= NETIF_F_TSO6;
+>>>>>                 }
+>>>>>
+>>>>>                 if (arg & TUN_F_UFO)
+>>>>>                         feature_mask |= NETIF_F_UFO;
+>>>>>
+>>>>>
+>>>>> okay so why not just check that NETIF_F_HW_CSUM is set?
+>>>>
+>>>> We can do that, but it doesn't make much difference.
+>>>
+>>> Seems cleaner to test a single bit otherwise one is left
+>>> wondering what happens if only one bit matches.
+>>
+>> I can certainly do a single test, but if we ever change it,
+>> this will be another palace that would have to change.
+> 
+> Hmm change what exactly? Add support for selectively
+> disabling checksum for specific protocols?
 
-The ipv6 code to dump routes in /proc/net/ipv6_route can hold
-a read lock on the table for a very long time.  This ends up blocking
-writers and triggering softlockups.
+Yes.  Right now, we kind-of lump them all together, but there
+are some protocols that are not accounted for in HW_CSUM.
 
-This patch is a simple work around to limit the number of entries
-we'll walk while processing /proc/net/ipv6_route.  It intentionally
-slows down proc file reading to make sure we don't lock out the
-real ipv6 traffic.
+For instance, I am looking to add SCTP checksum offload.  It
+would be very useful if the host has SCTP-capable nic.
 
-This patch is also horrible, and doesn't actually fix the entire
-problem.  We still have rcu_read_lock held the whole time we cat
-/proc/net/ipv6_route.  On an unpatched machine, I've clocked the
-time required to cat /proc/net/ipv6_route at 14 minutes.
+> 
+>> The above is also what dev_start_hard_xmit() does.
+> 
+> Yes and I was wondering about that too, but check it out: that one
+> calls: netif_skb_dev_features which in turn calls harmonize_features.
+> And there we have:
+>         if (skb->ip_summed != CHECKSUM_NONE &&
+>             !can_checksum_protocol(features, skb_network_protocol(skb, &tmp))) {
+>                 features &= ~NETIF_F_ALL_CSUM;
+>         } else if (illegal_highdma(dev, skb)) {
+>                 features &= ~NETIF_F_SG;
+>         }       
+> 
+> So NETIF_F_HW_CSUM is tested because it's cleared by a per-protocol
+> handling here which is not there in your patch.
+> 
+> Your patch is still correct - the reason harmonize_features is not
+> necessary is because tap either sets HW_CSUM or nothing,
+> can_checksum_protocol is always true or always false. But since we rely
+> on this anyway, isn't it better to make this explicit?
+> 
+> Alternatively let's clarify the comment here:
+> 
+>>>>>> +		/* If we receive a partial checksum and the tap side
+>>>>>> +		 * doesn't support checksum offload, compute the checksum.
+> 
+> Add:
+> 
+>        +                 * Note: it doesn't matter which checksum feature to
+>        +                 * check, we either support them all or none.
+> 
+>>>>>> +		 */
+> 
+> Fine?
 
-java cats this proc file on startup to search for local routes, and the
-resulting contention on the table lock makes our boxes fall over.
+Looks good to me.  I'll update and re-submit.
 
-So, I'm sending the partial fix to get discussion started.
+Thanks
+-vlad
 
-Signed-off-by: Chris Mason <clm@fb.com>
-
----
- net/ipv6/ip6_fib.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 87891f5..19b0f78 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1814,6 +1814,7 @@ struct ipv6_route_iter {
- 	loff_t skip;
- 	struct fib6_table *tbl;
- 	__u32 sernum;
-+	int max_walk;
- };
- 
- static int ipv6_route_seq_show(struct seq_file *seq, void *v)
-@@ -1853,8 +1854,11 @@ static int ipv6_route_yield(struct fib6_walker_t *w)
- 		iter->skip--;
- 		if (!iter->skip && iter->w.leaf)
- 			return 1;
-+		iter->max_walk--;
- 	} while (iter->w.leaf);
- 
-+	if (iter->max_walk <= 0)
-+		return -EAGAIN;
- 	return 0;
- }
- 
-@@ -1867,6 +1871,7 @@ static void ipv6_route_seq_setup_walk(struct ipv6_route_iter *iter)
- 	iter->w.node = iter->w.root;
- 	iter->w.args = iter;
- 	iter->sernum = iter->w.root->fn_sernum;
-+	iter->max_walk = 128;
- 	INIT_LIST_HEAD(&iter->w.lh);
- 	fib6_walker_link(&iter->w);
- }
-@@ -1921,7 +1926,9 @@ static void *ipv6_route_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 
- iter_table:
- 	ipv6_route_check_sernum(iter);
-+iter_again:
- 	read_lock(&iter->tbl->tb6_lock);
-+	iter->max_walk = 128;
- 	r = fib6_walk_continue(&iter->w);
- 	read_unlock(&iter->tbl->tb6_lock);
- 	if (r > 0) {
-@@ -1929,6 +1936,8 @@ iter_table:
- 			++*pos;
- 		return iter->w.leaf;
- 	} else if (r < 0) {
-+		if (r == -EAGAIN)
-+			goto iter_again;
- 		fib6_walker_unlink(&iter->w);
- 		return NULL;
- 	}
--- 
-1.8.1
+> 
+>>>
+>>>>>
+>>>>> Also does it matter whether specific offloads are enabled?
+>>>>>
+>>>>
+>>>> No it doesn't matter at all.  The packet is not a GSO packet
+>>>> so no other acceleration is used.
+>>>
+>>> Hmm how do we know it's not a gso packet?
+>>> All I see is need_gso test which means it needs segmentation.
+>>
+>> Part of netif_needs_gso() is a test for skb_is_gso().  So it
+>> it's gso and doesn't need segmentation (meaning the guest can
+>> receive large packets), then partial checksum is OK.
+> 
+> That is correct- thanks for the clarification.
+> 
+> 
+>>>
+>>>
+>>>> Also, other offloads are dependent on checksum.
+>>>>
+>>>> -vlad
+>>>
+>>> Right so what if checksum is on, but segmentation is off?
+>>> Not the case with e1000 today but can be with other userspace.
+>>>
+>>
+>> In this case, the skb will be in need to segmentation and will take
+>> a different branch.
+>>
+>> -vlad
+>>>
+>>>>>
+>>>>>>  		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+>>>>>>  	}
+>>>>>>  
+>>>>>> -- 
+>>>>>> 1.9.0
