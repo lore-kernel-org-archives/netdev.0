@@ -1,40 +1,69 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] rtlwifi: rtl8723be: disable MSI interrupts mode
-Date: Thu, 24 Apr 2014 16:10:23 +0400
-Message-ID: <5358FF2F.5030505@cogentembedded.com>
-References: <1398308924-15312-1-git-send-email-adam.lee@canonical.com> <1398308924-15312-2-git-send-email-adam.lee@canonical.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [1/2,v3] ipv4: Cache dst in tunnels
+Date: Thu, 24 Apr 2014 15:16:47 +0300
+Message-ID: <20140424151647.2a917ff1@vostro>
+References: <alpine.DEB.2.02.1401021140190.32659@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Adam Lee <adam.lee@canonical.com>, linux-wireless@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:48947 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753483AbaDXMKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:10:25 -0400
-Received: by mail-lb0-f175.google.com with SMTP id w7so1884794lbi.6
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 05:10:24 -0700 (PDT)
-In-Reply-To: <1398308924-15312-2-git-send-email-adam.lee@canonical.com>
+Received: from mail-la0-f49.google.com ([209.85.215.49]:43280 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753185AbaDXMPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:15:02 -0400
+Received: by mail-la0-f49.google.com with SMTP id ec20so1597014lab.22
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 05:15:01 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1401021140190.32659@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 24-04-2014 7:08, Adam Lee wrote:
+On Thu, 2 Jan 2014 11:48:26 -0800 (PST)
+Tom Herbert <therbert@google.com> wrote:
 
-> 94010fa0dd07e8b904e7c6b6589f15573008ab15 introduced MSI interrupts mode
+> Avoid doing a route lookup on every packet being tunneled.
+> 
+> In ip_tunnel.c cache the route returned from ip_route_output if
+> the tunnel is "connected" so that all the rouitng parameters are
+> taken from tunnel parms for a packet. Specifically, not NBMA tunnel
+> and tos is from tunnel parms (not inner packet).
 
-    Please also specify that commit's summary line in parens.
+Sorry for late reply. The 'connected' check you do is not sufficient.
+It breaks NBMA mode gre. See below.
 
-> support, which seemed safe enough with RTL8188EE and RTL8723BE as
-> RealTek's testing results, but some users reported their RTL8188EE
-> modules could not connect to any wireless network after the MSI mode was
-> enabled by Ubuntu 14.04.
+> @@ -528,10 +574,11 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
+> net_device *dev, struct flowi4 fl4;
+>  	u8     tos, ttl;
+>  	__be16 df;
+> -	struct rtable *rt;		/* Route to the other host
+> */
+> +	struct rtable *rt = NULL;	/* Route to the other host
+> */ unsigned int max_headroom;	/* The extra header space needed
+> */ __be32 dst;
+>  	int err;
+> +	bool connected = true;
+>  
+>  	inner_iph = (const struct iphdr
+> *)skb_inner_network_header(skb); 
+> @@ -581,27 +628,39 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
+> net_device *dev, #endif
+>  		else
+>  			goto tx_error;
+> +
+> +		connected = false;
+>  	}
 
-> So, let's fallback to pin-based mode until rtlwifi's MSI support get
-> good compatibility.
+The assumption in these two hunks is wrong. Even if tnl_params->daddr is
+set, it might be an NBMA mode tunnel.
 
-> BugLink: https://bugs.launchpad.net/bugs/1310512
-> Signed-off-by: Adam Lee <adam.lee@canonical.com>
+This happens (at least) when ipgre_header() is used and it pushes the
+modified iphdr to skb. In that case ipgre_xmit just pulls it, and gives
+that as the tnl_params argument.
 
-WBR, Sergei
+I don't remember fully if tnl_params->daddr can be zero in
+ip_tunnel_xmit. It *might* be a leftover dead-code path.
+
+Any ideas how to fix this in a proper manner?
+
+Thanks. Timo.
