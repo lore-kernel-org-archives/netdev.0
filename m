@@ -1,46 +1,88 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 3/3] bnx2x: Fix failure to configure VF multicast filters
-Date: Thu, 24 Apr 2014 19:29:54 +0300
-Message-ID: <1398356994-30759-4-git-send-email-Yuval.Mintz@qlogic.com>
-References: <1398356994-30759-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: Re: [PATCH v3 13/14] MIPS: net: Add BPF JIT
+Date: Thu, 24 Apr 2014 17:31:14 +0100
+Message-ID: <20140424163114.GD36716@pburton-linux.le.imgtec.org>
+References: <1396957635-27071-14-git-send-email-markos.chandras@imgtec.com>
+ <1398351013-29490-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Ariel.Elior@qlogic.com>,
-	Narender Kumar <narender.kumar@qlogic.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:22032 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753906AbaDXQaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:30:18 -0400
-In-Reply-To: <1398356994-30759-1-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="eqp4TxRxnD4KrmFZ"
+Cc: <linux-mips@linux-mips.org>,
+        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <1398351013-29490-1-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-From: Narender Kumar <narender.kumar@qlogic.com>
+--eqp4TxRxnD4KrmFZ
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
 
-Commit 2dc33bbc "bnx2x: Remove the sriov VFOP mechanism" caused a regression,
-preventing VFs from configuring multicast filters.
+On Thu, Apr 24, 2014 at 03:50:13PM +0100, Markos Chandras wrote:
+> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+> new file mode 100644
+> index 0000000..864e5b7
+> --- /dev/null
+> +++ b/arch/mips/net/bpf_jit.c
 
-Signed-off-by: Naredner Kumar <narender.kumar@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 1 +
- 1 file changed, 1 insertion(+)
+... cut ...
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index eefe8f5..81cc2d9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -612,6 +612,7 @@ int bnx2x_vf_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		}
- 
- 		/* add new mcasts */
-+		mcast.mcast_list_len = mc_num;
- 		rc = bnx2x_config_mcast(bp, &mcast, BNX2X_MCAST_CMD_ADD);
- 		if (rc)
- 			BNX2X_ERR("Faled to add multicasts\n");
--- 
-1.8.1.4
+> +			off = offsetof(struct sk_buff, protocol);
+> +			emit_half_load(r_A, r_skb, off, ctx);
+> +#ifdef CONFIG_CPU_LITTLE_ENDIAN
+> +			/* This needs little endian fixup */
+> +			if (cpu_has_mips_r1) {
+
+Doesn't cpu_has_mips_r1 cover everything >= r1? ie. everything will now
+take this path, including systems >= r2. Don't you want the inverse
+(!cpu_has_mips_r2) instead?
+
+Paul
+
+> +				/* Get first byte */
+> +				emit_andi(r_tmp_imm, r_A, 0xff, ctx);
+> +				/* Shift it */
+> +				emit_sll(r_tmp, r_tmp_imm, 8, ctx);
+> +				/* Get second byte */
+> +				emit_srl(r_tmp_imm, r_A, 8, ctx);
+> +				emit_andi(r_tmp_imm, r_tmp_imm, 0xff, ctx);
+> +				/* Put everyting together in r_A */
+> +				emit_or(r_A, r_tmp, r_tmp_imm, ctx);
+> +			} else {
+> +				/* R2 and later have the wsbh instruction */
+> +				emit_wsbh(r_A, r_A, ctx);
+> +			}
+
+--eqp4TxRxnD4KrmFZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTWTxSAAoJEIIg2fppPBxlOZIP/Aii/Fp2twZI8SU0RUIQUyXH
+Bd2EuTpe70yxV0F9wripDVnhaP6deBSCLZoQ3Hz10eUEX6DKGQzAJVrGhJtOOJXz
+/uOsohH0aK+269Dv4VdfNwjD4ZJbS9EzgoJQbbdahao6qBIAyUXDYOm9c6HQZhdn
+AIByrZDdZ6Q/56Hg4RTKQQAV+inzzMZRlbsjYBv/kA9z7guO8dKQdOdX92v5qpQe
+Eg1Zj2JqkLf7X6x8HHO4/Habt1Jb1+TXZtyPsX+rusFSRm6jGuwbJAJRGhQRXtOs
+eOC5XF+0qGzlMd8Kv/83YsrcP/o09z+aW65g8+n4kTLpGjLeDg+Q5hOG+VZ3SaUM
+C+KdZ0ABxtPKInOYWceoOSdwr7eeirBKqsNJQV1Fiz+l7vYc/8fPCropdCbLNG/L
+CJlfF8I9xamHpHdIMx/vsQmopu9nP2DllZuMVJeD9PTX7W4WHwQNT7udQ9Elg1Ul
+Bv+BtzPwI646bd+y+LdWICIS+zPTW/s6VVGtNqjSV9Rki0vAtA/6JKZJvtZvbImy
+XQUzz0bErKIUHDgLbATHQfatJpjCo8TF8m3KZLZy7NHpcIoji01GTCO+oiW5aOXf
+Ojc4rrsL8FtNvcBvK5T62gZ1wCbS1ZUzvn3NWMGnua2SoQkAlzRSRAyvszxxxJip
+1+0q2mXsTTToq6SP59NQ
+=EjuO
+-----END PGP SIGNATURE-----
+
+--eqp4TxRxnD4KrmFZ--
