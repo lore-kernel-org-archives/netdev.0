@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 06/14] at86rf230: add missing
-	MODULE_DEVICE_TABLE
-Date: Thu, 24 Apr 2014 19:09:10 +0200
-Message-ID: <1398359358-11085-7-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 07/14] at86rf230: make
+	of_device_id const
+Date: Thu, 24 Apr 2014 19:09:11 +0200
+Message-ID: <1398359358-11085-8-git-send-email-alex.aring@gmail.com>
 References: <1398359358-11085-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,23 +22,23 @@ Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gm
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reported-by: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ieee802154/at86rf230.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index d52700f..46d992a 100644
+index 46d992a..41c3384 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1223,6 +1223,7 @@ static struct of_device_id at86rf230_of_match[] = {
- 	{ .compatible = "atmel,at86rf212", },
- 	{ },
- };
-+MODULE_DEVICE_TABLE(of, at86rf230_of_match);
- #endif
+@@ -1216,7 +1216,7 @@ static int at86rf230_remove(struct spi_device *spi)
+ }
  
- static struct spi_driver at86rf230_driver = {
+ #if IS_ENABLED(CONFIG_OF)
+-static struct of_device_id at86rf230_of_match[] = {
++static const struct of_device_id at86rf230_of_match[] = {
+ 	{ .compatible = "atmel,at86rf230", },
+ 	{ .compatible = "atmel,at86rf231", },
+ 	{ .compatible = "atmel,at86rf233", },
 -- 
 1.9.2
 
