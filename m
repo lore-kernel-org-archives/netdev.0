@@ -1,44 +1,63 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] igb: Cleanups to fix pointer location error
-Date: Thu, 24 Apr 2014 03:30:48 -0700
-Message-ID: <1398335460-4283-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1398335460-4283-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 24 Apr 2014 03:30:47 -0700
+Message-ID: <1398335460-4283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:43751 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:11394 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753975AbaDXKbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2014 06:31:06 -0400
-In-Reply-To: <1398335460-4283-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752988AbaDXKbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 06:31:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This series contains updates to igb only.
 
-This patch fixes ERROR:POINTER_LOCATION from checkpatch file check.
+Carolyn provides a number of cleanups to fix checkpatch warnings/errors
+and two minor issues found by coccicheck.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The following are changes since commit 573be693ce72753c71cb957c2d38fd9cc6d9f568:
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 49976bf..a83fcad 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -525,7 +525,7 @@ out:
- static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- {
- 	struct e1000_mac_info *mac = &hw->mac;
--	struct e1000_dev_spec_82575 * dev_spec = &hw->dev_spec._82575;
-+	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
- 	s32 ret_val;
- 	u32 ctrl_ext = 0;
- 	u32 link_mode = 0;
+Carolyn Wyborny (13):
+  igb: Cleanups to fix pointer location error
+  igb: Cleanups to fix for trailing statement
+  igb: Cleanups to change comment style on license headers
+  igb: Cleanups to fix assignment in if error
+  igb: Cleanups to fix missing break in switch statements
+  igb: Cleanups to remove return parentheses
+  igb: Cleanups to fix line length warnings
+  igb: Cleanups to fix msleep warnings
+  igb: Cleanups to fix static initialization
+  igb: Cleanups to replace deprecated DEFINE_PCI_DEVICE_TABLE
+  igb: Cleanups to remove unneeded extern declaration
+  igb: Replace 1/0 return values with true/false
+  igb: Change memcpy to struct assignment
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 69 ++++++++++----------
+ drivers/net/ethernet/intel/igb/e1000_82575.h   | 50 +++++++--------
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 71 +++++++++------------
+ drivers/net/ethernet/intel/igb/e1000_hw.h      | 46 ++++++--------
+ drivers/net/ethernet/intel/igb/e1000_i210.c    | 48 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_i210.h    | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mac.c     | 49 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mac.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mbx.c     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mbx.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     | 46 ++++++--------
+ drivers/net/ethernet/intel/igb/e1000_nvm.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_phy.c     | 49 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_phy.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_regs.h    | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/igb.h           | 48 +++++++-------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   | 88 ++++++++++++++------------
+ drivers/net/ethernet/intel/igb/igb_hwmon.c     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/igb_main.c      | 87 +++++++++++++------------
+ 19 files changed, 486 insertions(+), 541 deletions(-)
+
 -- 
 1.9.0
