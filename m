@@ -1,47 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for
- /proc/net/ipv6_route
-Date: Thu, 24 Apr 2014 07:20:49 -0700
-Message-ID: <1398349249.29914.67.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <535918BC.5030708@fb.com>
+From: <erik.hugne@ericsson.com>
+Subject: [PATCH net-next v2 0/2] tipc: add support for link state subscriptions
+Date: Thu, 24 Apr 2014 16:26:45 +0200
+Message-ID: <1398349607-16012-1-git-send-email-erik.hugne@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chris Mason <clm@fb.com>
+Content-Type: text/plain
+Cc: <ying.xue@windriver.com>, <paul.gortmaker@windriver.com>,
+	<richard.alpe@ericsson.com>, Erik Hugne <erik.hugne@ericsson.com>
+To: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+	<jon.maloy@ericsson.com>, <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:40020 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753344AbaDXOUu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:20:50 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hz1so1970335pad.21
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 07:20:50 -0700 (PDT)
-In-Reply-To: <535918BC.5030708@fb.com>
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:42994 "EHLO
+	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756018AbaDXOZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:25:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-24 at 09:59 -0400, Chris Mason wrote:
-> The ipv6 code to dump routes in /proc/net/ipv6_route can hold
-> a read lock on the table for a very long time.  This ends up blocking
-> writers and triggering softlockups.
-> 
-> This patch is a simple work around to limit the number of entries
-> we'll walk while processing /proc/net/ipv6_route.  It intentionally
-> slows down proc file reading to make sure we don't lock out the
-> real ipv6 traffic.
-> 
-> This patch is also horrible, and doesn't actually fix the entire
-> problem.  We still have rcu_read_lock held the whole time we cat
-> /proc/net/ipv6_route.  On an unpatched machine, I've clocked the
-> time required to cat /proc/net/ipv6_route at 14 minutes.
-> 
-> java cats this proc file on startup to search for local routes, and the
-> resulting contention on the table lock makes our boxes fall over.
-> 
-> So, I'm sending the partial fix to get discussion started.
-> 
-> Signed-off-by: Chris Mason <clm@fb.com>
-> 
-> ---
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-It might be time to convert this to RCU and/or a better data structure.
+Low level topology information like TIPC link up/down is useful for
+applications like teamd to make smarter failover decisions in a
+HA cluster environment. Fetching logical link names through an ioctl
+may hurt the eyes of some. Suggestions for a more elegant way of doing
+this would be appreciated in that case. :)
+
+v2: 
+   -Properly based on net-next
+   -Off-list comments from Billie Alsup:
+    -Add a string length parameter to tipc_node_get_linkname
+    -Use TIPC_MAX_LINK_NAME definition instead of hardcoded
+     value in tipc_sioc_ln_req linkname
+
+Erik Hugne (2):
+  tipc: add support for link state subscriptions
+  tipc: add ioctl to fetch link names
+
+ include/uapi/linux/tipc.h        | 23 +++++++++++++++++++++++
+ include/uapi/linux/tipc_config.h | 10 +---------
+ net/tipc/node.c                  | 33 ++++++++++++++++++++++++++++++++-
+ net/tipc/node.h                  |  1 +
+ net/tipc/socket.c                | 29 ++++++++++++++++++++++++++---
+ 5 files changed, 83 insertions(+), 13 deletions(-)
+
+-- 
+1.8.3.2
