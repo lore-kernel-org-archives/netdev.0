@@ -1,45 +1,77 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] Revert "rtlwifi: rtl8188ee: enable MSI interrupts
- mode"
-Date: Thu, 24 Apr 2014 16:04:38 +0400
-Message-ID: <5358FDD6.9070508@cogentembedded.com>
-References: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [BUG?] bridge_id not getting set for bridges created
+	with
+Date: Thu, 24 Apr 2014 21:06:17 +0900
+Message-ID: <1398341177.4171.11.camel@ubuntu-vm-makita>
+References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
+	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Adam Lee <adam.lee@canonical.com>, linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:39705 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755368AbaDXMEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 08:04:40 -0400
-Received: by mail-lb0-f182.google.com with SMTP id l4so1896027lbv.41
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 05:04:38 -0700 (PDT)
-In-Reply-To: <1398308924-15312-1-git-send-email-adam.lee@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, bridge <bridge@lists.linux-foundation.org>,
+	"C. R. Oldham" <cr@saltstack.com>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, 2014-04-21 at 22:56 +0200, Tom Gundersen wrote:
+> On Mon, Apr 21, 2014 at 9:33 PM, Tom Gundersen <teg@jklm.no> wrote:
+> > Hi,
+> >
+> > If IFLA_ADDRESS is set when creating a bridge over netlink, e.g.
+> >
+> > # ip link add test-bridge address b6:83:a2:b3:2f:0e type bride
+> >
+> > the bridge id is not set:
+> >
+> > # brctl show
+> > bridge name    bridge id        STP enabled    interfaces
+> > bridge1        8000.000000000000    no
+> 
+> My example was incomplete. To see the bug one should of course first
+> add an interface to the bridge:
+> 
+> # brctl addif bridge1 eth0
+> 
+> 
+> and observe that the bridge id remains unset:
+> 
+> # brctl show
+> bridge name    bridge id        STP enabled    interfaces
+> bridge1        8000.000000000000    no            eth0
+> 
+> 
+> 
+> If bridge1 had been created without specifying the mac address the
+> result is as expected:
+> 
+> # brctl show
+> bridge name    bridge id        STP enabled    interfaces
+> bridge1        8000.28d244547cdb    no            eth0
+> 
 
-On 24-04-2014 7:08, Adam Lee wrote:
+Hi.
 
-> This reverts commit 2a54eb5e1476426ee639bbfbe179b52342a0d82c.
+This seems to be a bug.
+What's worse is that local fdb entry won't be created and we will not be
+able to receive frames on the bridge device...
 
-> 94010fa0dd07e8b904e7c6b6589f15573008ab15 introduced MSI interrupts mode
+rtnl_create_link() doesn't call ndo_set_mac_address but populates
+dev->dev_addr by itself. I'm not sure if it is safe to call
+ndo_set_mac_address in this function (maybe affects other drivers).  I
+think this can be handled in bridge codes (br_link_ops->newlink).
 
-    Please also specify that commit's summary line in parens.
+I'm submitting a patch to fix this.
 
-> support, which seemed safe enough with RTL8188EE and RTL8723BE as
-> RealTek's testing results, but some users reported their RTL8188EE
-> modules could not connect to any wireless network after the MSI mode was
-> enabled by Ubuntu 14.04.
-
-> So, let's fallback to pin-based mode until rtlwifi's MSI support get
-> good compatibility.
-
-> BugLink: https://bugs.launchpad.net/bugs/1310512
-> Signed-off-by: Adam Lee <adam.lee@canonical.com>
-
-WBR, Sergei
+Thanks,
+Toshiaki Makita
