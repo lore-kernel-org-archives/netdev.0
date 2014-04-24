@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 11/14] at86rf230: reset irq
-	line before irq request
-Date: Thu, 24 Apr 2014 19:09:15 +0200
-Message-ID: <1398359358-11085-12-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 10/14] at86rf230: remove
+	unnecessary assign
+Date: Thu, 24 Apr 2014 19:09:14 +0200
+Message-ID: <1398359358-11085-11-git-send-email-alex.aring@gmail.com>
 References: <1398359358-11085-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,36 +21,27 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch resets the irq line before we are requesting the irq. This
-avoids pending interrupts before requesting.
-
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 960444b..994c334 100644
+index b324bb3..960444b 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1172,13 +1172,13 @@ static int at86rf230_probe(struct spi_device *spi)
- 	if (rc)
- 		goto err_hw_init;
+@@ -693,10 +693,7 @@ at86rf230_xmit(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	if (rc < 0)
+ 		goto err_rx;
  
--	rc = devm_request_irq(&spi->dev, spi->irq, irq_handler, IRQF_SHARED,
--			      dev_name(&spi->dev), lp);
-+	/* Read irq status register to reset irq line */
-+	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
- 	if (rc)
- 		goto err_hw_init;
- 
--	/* Read irq status register to reset irq line */
--	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
-+	rc = devm_request_irq(&spi->dev, spi->irq, irq_handler, IRQF_SHARED,
-+			      dev_name(&spi->dev), lp);
- 	if (rc)
- 		goto err_hw_init;
- 
+-	rc = at86rf230_start(dev);
+-
+-	return rc;
+-
++	return at86rf230_start(dev);
+ err_rx:
+ 	at86rf230_start(dev);
+ err:
 -- 
 1.9.2
 
