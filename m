@@ -1,95 +1,167 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net 1/3] bnx2x: Memory leak during VF removal
-Date: Thu, 24 Apr 2014 19:29:52 +0300
-Message-ID: <1398356994-30759-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net 2/3] bnx2x: Fix vlan credit issues for VFs
+Date: Thu, 24 Apr 2014 19:29:53 +0300
+Message-ID: <1398356994-30759-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1398356994-30759-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <Ariel.Elior@qlogic.com>, Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54427 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753906AbaDXQaM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:30:12 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:12817 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753900AbaDXQaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 12:30:13 -0400
 In-Reply-To: <1398356994-30759-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When removing a VF interface, the driver fails to release that VF's mailbox
-and bulletin board allocated memory.
+Starting with commit 2dc33bbc "bnx2x: Remove the sriov VFOP mechanism",
+the bnx2x started enforcing vlan credits for all vlan configurations.
+This exposed 2 issues:
+  - Vlan credits are not returned once a VF is removed; this causes a leak
+    of credits, and eventually will lead to VFs with no vlan credits.
+  - A vlan credit must be set aside for the Hypervisor to use, and should
+    not be visible to the VF.
+
+Although linux VFs at the moment do not support vlan configuration [from the
+VF side] which causes them to be resilient to this sort of issue, Windows VF
+over linux hypervisors might fail to load as the vlan credits become depleted.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  2 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 13 +++++++++----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 44 +++++++++++++++++------
  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  2 ++
- 3 files changed, 13 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  2 +-
+ 3 files changed, 37 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index a78edac..b260913 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -13233,6 +13233,8 @@ static void __bnx2x_remove(struct pci_dev *pdev,
- 				iounmap(bp->doorbells);
- 
- 			bnx2x_release_firmware(bp);
-+		} else {
-+			bnx2x_vf_pci_dealloc(bp);
- 		}
- 		bnx2x_free_mem_bp(bp);
- 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 5c523b3..046c9cc 100644
+index 046c9cc..eefe8f5 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -2896,6 +2896,14 @@ void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
- 	return bp->regview + PXP_VF_ADDR_DB_START;
+@@ -427,7 +427,9 @@ static int bnx2x_vf_mac_vlan_config(struct bnx2x *bp,
+ 	if (filter->add && filter->type == BNX2X_VF_FILTER_VLAN &&
+ 	    (atomic_read(&bnx2x_vfq(vf, qid, vlan_count)) >=
+ 	     vf_vlan_rules_cnt(vf))) {
+-		BNX2X_ERR("No credits for vlan\n");
++		BNX2X_ERR("No credits for vlan [%d >= %d]\n",
++			  atomic_read(&bnx2x_vfq(vf, qid, vlan_count)),
++			  vf_vlan_rules_cnt(vf));
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -837,6 +839,29 @@ int bnx2x_vf_flr_clnup_epilog(struct bnx2x *bp, u8 abs_vfid)
+ 	return 0;
  }
  
-+void bnx2x_vf_pci_dealloc(struct bnx2x *bp)
++static void bnx2x_iov_re_set_vlan_filters(struct bnx2x *bp,
++					  struct bnx2x_virtf *vf,
++					  int new)
 +{
-+	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->vf2pf_mbox_mapping,
-+		       sizeof(struct bnx2x_vf_mbx_msg));
-+	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->pf2vf_bulletin_mapping,
-+		       sizeof(union pf_vf_bulletin));
++	int num = vf_vlan_rules_cnt(vf);
++	int diff = new - num;
++	bool rc = true;
++
++	DP(BNX2X_MSG_IOV, "vf[%d] - %d vlan filter credits [previously %d]\n",
++	   vf->abs_vfid, new, num);
++
++	if (diff > 0)
++		rc = bp->vlans_pool.get(&bp->vlans_pool, diff);
++	else if (diff < 0)
++		rc = bp->vlans_pool.put(&bp->vlans_pool, -diff);
++
++	if (rc)
++		vf_vlan_rules_cnt(vf) = new;
++	else
++		DP(BNX2X_MSG_IOV, "vf[%d] - Failed to configure vlan filter credits change\n",
++		   vf->abs_vfid);
 +}
 +
- int bnx2x_vf_pci_alloc(struct bnx2x *bp)
- {
- 	mutex_init(&bp->vf2pf_mutex);
-@@ -2915,10 +2923,7 @@ int bnx2x_vf_pci_alloc(struct bnx2x *bp)
- 	return 0;
+ /* must be called after the number of PF queues and the number of VFs are
+  * both known
+  */
+@@ -854,9 +879,11 @@ bnx2x_iov_static_resc(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ 	resc->num_mac_filters = 1;
  
- alloc_mem_err:
--	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->vf2pf_mbox_mapping,
--		       sizeof(struct bnx2x_vf_mbx_msg));
--	BNX2X_PCI_FREE(bp->vf2pf_mbox, bp->pf2vf_bulletin_mapping,
--		       sizeof(union pf_vf_bulletin));
-+	bnx2x_vf_pci_dealloc(bp);
- 	return -ENOMEM;
+ 	/* divvy up vlan rules */
++	bnx2x_iov_re_set_vlan_filters(bp, vf, 0);
+ 	vlan_count = bp->vlans_pool.check(&bp->vlans_pool);
+ 	vlan_count = 1 << ilog2(vlan_count);
+-	resc->num_vlan_filters = vlan_count / BNX2X_NR_VIRTFN(bp);
++	bnx2x_iov_re_set_vlan_filters(bp, vf,
++				      vlan_count / BNX2X_NR_VIRTFN(bp));
+ 
+ 	/* no real limitation */
+ 	resc->num_mc_filters = 0;
+@@ -1478,10 +1505,6 @@ int bnx2x_iov_nic_init(struct bnx2x *bp)
+ 		bnx2x_iov_static_resc(bp, vf);
+ 
+ 		/* queues are initialized during VF-ACQUIRE */
+-
+-		/* reserve the vf vlan credit */
+-		bp->vlans_pool.get(&bp->vlans_pool, vf_vlan_rules_cnt(vf));
+-
+ 		vf->filter_state = 0;
+ 		vf->sp_cl_id = bnx2x_fp(bp, 0, cl_id);
+ 
+@@ -1912,11 +1935,12 @@ int bnx2x_vf_chk_avail_resc(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	u8 rxq_cnt = vf_rxq_count(vf) ? : bnx2x_vf_max_queue_cnt(bp, vf);
+ 	u8 txq_cnt = vf_txq_count(vf) ? : bnx2x_vf_max_queue_cnt(bp, vf);
+ 
++	/* Save a vlan filter for the Hypervisor */
+ 	return ((req_resc->num_rxqs <= rxq_cnt) &&
+ 		(req_resc->num_txqs <= txq_cnt) &&
+ 		(req_resc->num_sbs <= vf_sb_count(vf))   &&
+ 		(req_resc->num_mac_filters <= vf_mac_rules_cnt(vf)) &&
+-		(req_resc->num_vlan_filters <= vf_vlan_rules_cnt(vf)));
++		(req_resc->num_vlan_filters <= vf_vlan_rules_visible_cnt(vf)));
  }
  
+ /* CORE VF API */
+@@ -1972,14 +1996,14 @@ int bnx2x_vf_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	vf_txq_count(vf) = resc->num_txqs ? : bnx2x_vf_max_queue_cnt(bp, vf);
+ 	if (resc->num_mac_filters)
+ 		vf_mac_rules_cnt(vf) = resc->num_mac_filters;
+-	if (resc->num_vlan_filters)
+-		vf_vlan_rules_cnt(vf) = resc->num_vlan_filters;
++	/* Add an additional vlan filter credit for the hypervisor */
++	bnx2x_iov_re_set_vlan_filters(bp, vf, resc->num_vlan_filters + 1);
+ 
+ 	DP(BNX2X_MSG_IOV,
+ 	   "Fulfilling vf request: sb count %d, tx_count %d, rx_count %d, mac_rules_count %d, vlan_rules_count %d\n",
+ 	   vf_sb_count(vf), vf_rxq_count(vf),
+ 	   vf_txq_count(vf), vf_mac_rules_cnt(vf),
+-	   vf_vlan_rules_cnt(vf));
++	   vf_vlan_rules_visible_cnt(vf));
+ 
+ 	/* Initialize the queues */
+ 	if (!vf->vfqs) {
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 8bf7645..bb16c4b 100644
+index bb16c4b..6929adb 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -502,6 +502,7 @@ static inline int bnx2x_vf_ustorm_prods_offset(struct bnx2x *bp,
- enum sample_bulletin_result bnx2x_sample_bulletin(struct bnx2x *bp);
- void bnx2x_timer_sriov(struct bnx2x *bp);
- void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp);
-+void bnx2x_vf_pci_dealloc(struct bnx2x *bp);
- int bnx2x_vf_pci_alloc(struct bnx2x *bp);
- int bnx2x_enable_sriov(struct bnx2x *bp);
- void bnx2x_disable_sriov(struct bnx2x *bp);
-@@ -568,6 +569,7 @@ static inline void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
- 	return NULL;
- }
+@@ -159,6 +159,8 @@ struct bnx2x_virtf {
+ #define vf_mac_rules_cnt(vf)		((vf)->alloc_resc.num_mac_filters)
+ #define vf_vlan_rules_cnt(vf)		((vf)->alloc_resc.num_vlan_filters)
+ #define vf_mc_rules_cnt(vf)		((vf)->alloc_resc.num_mc_filters)
++	/* Hide a single vlan filter credit for the hypervisor */
++#define vf_vlan_rules_visible_cnt(vf)	(vf_vlan_rules_cnt(vf) - 1)
  
-+static inline void bnx2x_vf_pci_dealloc(struct bnx2 *bp) {return 0; }
- static inline int bnx2x_vf_pci_alloc(struct bnx2x *bp) {return 0; }
- static inline void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp) {}
- static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {return 0; }
+ 	u8 sb_count;	/* actual number of SBs */
+ 	u8 igu_base_id;	/* base igu status block id */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index 0622884..0c067e8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -1163,7 +1163,7 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 			bnx2x_vf_max_queue_cnt(bp, vf);
+ 		resc->num_sbs = vf_sb_count(vf);
+ 		resc->num_mac_filters = vf_mac_rules_cnt(vf);
+-		resc->num_vlan_filters = vf_vlan_rules_cnt(vf);
++		resc->num_vlan_filters = vf_vlan_rules_visible_cnt(vf);
+ 		resc->num_mc_filters = 0;
+ 
+ 		if (status == PFVF_STATUS_SUCCESS) {
 -- 
 1.8.1.4
