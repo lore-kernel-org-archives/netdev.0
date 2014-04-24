@@ -1,78 +1,59 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
- namespaces.
-Date: Thu, 24 Apr 2014 08:59:51 +0800
-Message-ID: <53586207.7060407@huawei.com>
-References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com> <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com> <5357280C.1000404@huawei.com> <53576A6F.2020207@6wind.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Thu, 24 Apr 2014 11:47:26 +1000
+Message-ID: <20140424114726.07876050b5b805463a085191@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <nicolas.dichtel@6wind.com>, Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:14572 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751544AbaDXBAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 21:00:22 -0400
-In-Reply-To: <53576A6F.2020207@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__24_Apr_2014_11_47_26_+1000_Fv4_xzF7KW41M1Jh"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jakub Kicinski <kubakici@wp.pl>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/4/23 15:23, Nicolas Dichtel wrote:
-> Le 23/04/2014 04:40, chenweilong a =C3=A9crit :
->> On 2014/4/22 22:26, Eric Dumazet wrote:
->>> On Tue, 2014-04-22 at 20:43 +0800, Chen Weilong wrote:
->>>> From: Weilong Chen <chenweilong@huawei.com>
->>>>
->>>> Like bonding, vlan as netdevice doesn't cross netns boundaries.
->>>>
->>>> Vlan port and vlan itself live in same netns.
->>>
->>> Please explain why you believe it should be like that.
->>>
->>> bonding and vlan have quite different purpose, so your changelog is
->>> quite obscure.
->>>
->>> We had a discussion like this one with macvlan, and prior patch was
->>> rejected.
->>>
->>>
->>>
->>>
->> This idea comes from the different result of two changing namespace =
-orders.
->> Test on eth1 and its vlan eth1.5, move them form default ns to a new=
- ns called net0.
->> 1.move eth1 first,and then eth1.5;
->> 2.move eth1.5 first, and then eth1;
->> As a network manager, I will be happy they both work, I don't care a=
-bout the orders.
->> But, 1) doesn't work, if eth1 was moved to other ns, all related vla=
-ns were unregisted.
->> you need to create a new eth1.5 in net0.
->> And, 2) is not safe, if someone forgets to move eth1, eth1.5 will no=
-t work, making
->> things complex.
-> We have to fix this case, because it is a valid use case to have eth1=
-=2E5 in net0
-> and eth1 in another ns.
->=20
-eth1.5 can receive and send packets in net0, the problem is you can't a=
-dd a new eth1.5
-in old ns, report 'error: File exists'.
+--Signature=_Thu__24_Apr_2014_11_47_26_+1000_Fv4_xzF7KW41M1Jh
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->>
->> So what's the better order ?
->> I prefer 1), when a vlan dev is setup, it has a namespace, and belon=
-gs to it,
->> When somebody moves it, it should say 'hey boy, don't move me,I like=
- here :0'
->>
->> Thanks,
->> Weilong
-> --=20
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
+Hi all,
+
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/intel/igb/e1000_mac.c between commit c5ffe7e1f745
+("e1000e/igb/ixgbe/i40e: fix message terminations") from the net tree and
+commit c75c4edfc38d ("igb: Cleanups for messaging") from the net-next
+tree.
+
+I fixed it up (the former was a superset of the latter) and can carry the
+fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Thu__24_Apr_2014_11_47_26_+1000_Fv4_xzF7KW41M1Jh
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTWG0zAAoJEMDTa8Ir7ZwVvLkP/1Ry/p/p9Gcy+juyMgEyQNIZ
+5Y3TcJiuDrxqHki09tnGsPiMtxjKOU3cUWe8FGF0O/vk30/Du+n1up8rjpMrPGvS
+dhXrxw4dp9YocNCO5Y1DlnfkcdY0NtYplWNU6XKh+VGMOH3YpKUl4zKPSyQXslt5
+eU20ajz73KdLqdd/++Aj7qXcNVb1imr0Bg3pUrLE8sLMQlsGxYZhrL6pqx1+VrW1
+Br1g1L+lTrMbDz6tvJBjDJ7iFujZLlB9kv7tS66XqesAHxDCqSXpeYO79YYZOoaI
+8Jw6gSk1DVRkxKwG6dm4VrMbihJcsYyYgX6lG1BAhqrBy0PaML2A4okt6+tSdbPE
+6uQSU+HgaABOmSVvqyoBdE76CkQ9C/Is6jw2/ZlgQVGmJmkDwLkC2k26VSQP7lBh
+Te1q8lvQXpvC5cASYMdJr5APwhAU72ztlEyY7ps/c8PGyiha+zbaGgWnrtOmkjEm
+geO2RJG5YJDxpcNBgRInNV7BU8F0e9X3H+8sViu49PE9TunIcFX5IBdRA6Q40yx+
+e4hC7o1z3HOmQSH1YRAnUr5kkiVJ0W6C5sFkfPYvUjg02WUlrPyC4gPsbBI5/nN5
+MiiW3Vv4wL4AnFqfNkZiiseFiqe8X+dPMH5Ew6adm2MXzc7XOWrhQ9MUKKGdPpZn
+nOWk+ODLOFUPJV3MJps0
+=ygbA
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__24_Apr_2014_11_47_26_+1000_Fv4_xzF7KW41M1Jh--
