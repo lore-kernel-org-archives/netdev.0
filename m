@@ -1,46 +1,31 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: xfrm: Can "struct netlbl_audit" be killed?
-Date: Thu, 24 Apr 2014 23:29:08 +0900
-Message-ID: <201404242329.FBF00065.OOQtHFMOLFSVFJ@I-love.SAKURA.ne.jp>
-References: <201404242051.DBE04650.SOMVHtQFFOLFOJ@I-love.SAKURA.ne.jp>
-	<29756536.Fj8RHVl2TT@sifl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for
+ /proc/net/ipv6_route
+Date: Thu, 24 Apr 2014 07:30:32 -0700
+Message-ID: <1398349832.29914.69.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <535918BC.5030708@fb.com>
+	 <20140424142030.GD1960@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: casey@schaufler-ca.com, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-To: paul@paul-moore.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Mason <clm@fb.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:40738 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757400AbaDXO3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:29:19 -0400
-In-Reply-To: <29756536.Fj8RHVl2TT@sifl>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:58381 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756018AbaDXOad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 10:30:33 -0400
+Received: by mail-pb0-f51.google.com with SMTP id uo5so2014609pbc.24
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 07:30:33 -0700 (PDT)
+In-Reply-To: <20140424142030.GD1960@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Paul Moore wrote:
-> On Thursday, April 24, 2014 08:51:35 PM Tetsuo Handa wrote:
-> > Hello, Casey and Paul.
-> > 
-> > At the ipsec-next tree,
-> > 
-> >   /* Audit Information */
-> >   struct xfrm_audit {
-> >   	u32     secid;
-> >   	kuid_t  loginuid;
-> >   	unsigned int sessionid;
-> >   };
-> > 
-> > has just been killed
-> > (
-> > https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec-next.git/commit
-> > /?id=f1370cc4a01e61007ab3020c761cef6b88ae3729 and
-> > https://git.kernel.org/cgit/linux/kernel/git/klassert/ipsec-next.git/commit
-> > /?id=2e71029e2c32ecd59a2e8f351517bfbbad42ac11 ) because these arguments are
-> > always calculated from current thread's security context.
-> 
-> Before we go to far, is it always true for AF_KEY that "current" is set to the 
-> sending process?  If the answer is no, I think we have a problem.
+On Thu, 2014-04-24 at 16:20 +0200, Hannes Frederic Sowa wrote:
 
-Speak of "struct xfrm_audit", I think the answer is yes, or commit ab5f5e8b
-"[XFRM]: xfrm audit calls" is wrong.
+> I am planing to submit patches which reduce the caching of DST_HOST
+> entries in the ipv6 fib next month which will result in a much smaller
+> fib to walk by then.
+
+Or, if caching is still needed, we might use a separate hash table for
+this, as it is more scalable.
