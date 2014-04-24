@@ -1,62 +1,80 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH V1 net-next 1/1] hyperv: Enable sendbuf mechanism on the
- send path
-Date: Fri, 25 Apr 2014 01:30:59 +0300
-Message-ID: <20140424223059.GE26890@mwanda>
-References: <1398288285-16268-1-git-send-email-kys@microsoft.com>
- <CAJUuVQ7V+Se0auKdaiqPZr8i2WcNqWhHUwz8r85DKKCjnjtrvQ@mail.gmail.com>
- <cdb70820bcd0467586ce6893753c7065@BY2PR03MB299.namprd03.prod.outlook.com>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH] pci: Use designated initialization in PCI_VDEVICE
+Date: Thu, 24 Apr 2014 23:15:35 +0000
+Message-ID: <512BF6D5-D529-4605-B1AB-A6DB7D153E14@intel.com>
+References: <1396303119-16766-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <5339E746.4030503@cogentembedded.com> <20140424212246.GG29593@google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>, Andev <debiandev@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- LKML <linux-kernel@vger.kernel.org>, "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: KY Srinivasan <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <cdb70820bcd0467586ce6893753c7065@BY2PR03MB299.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20140424212246.GG29593@google.com>
+Content-Language: en-US
+Content-ID: <89A1BF9C9D1FAE4B857B7BC06D63E969@intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 24, 2014 at 10:06:24PM +0000, KY Srinivasan wrote:
-> > From: Andev [mailto:debiandev@gmail.com]
-> > Your use of goto exit/cleanup in some functions and returning directly on
-> > errors in others could use a cleanup. Please consider doing that while you are
-> > touching those files.
-> 
-> Will do. The most recent changes I made to netvsc.c, I think was
-> consistent with the existing code; going forward we will certainly
-> move towards a more consistent coding style.
+Bjorn, Sergei,
 
-It scares me when you talk about being consistent with the existing
-code...  Just do it the correct way.
+On Apr 24, 2014, at 2:22 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
 
-1) Don't do the "return ret;" if you know ret is zero.
+> On Tue, Apr 01, 2014 at 02:08:06AM +0400, Sergei Shtylyov wrote:
+>> Hello.
+>> 
+>> On 04/01/2014 01:58 AM, Jeff Kirsher wrote:
+>> 
+>>> From: Mark Rustad <mark.d.rustad@intel.com>
+>> 
+>>> By using designated initialization in PCI_VDEVICE, like other
+>>> similar macros, many "missing initializer" warnings that appear
+>>> when compiling with W=2 can be silenced.
+>> 
+>>> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+>>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>>> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>>> Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>> ---
+>>> include/linux/pci.h | 10 +++++-----
+>>> 1 file changed, 5 insertions(+), 5 deletions(-)
+>> 
+>>> diff --git a/include/linux/pci.h b/include/linux/pci.h
+>>> index fb57c89..49455f9 100644
+>>> --- a/include/linux/pci.h
+>>> +++ b/include/linux/pci.h
+>> [...]
+>>> @@ -689,9 +689,9 @@ struct pci_driver {
+>>>  * private data.
+>>>  */
+>>> 
+>>> -#define PCI_VDEVICE(vendor, device)		\
+>>> -	PCI_VENDOR_ID_##vendor, (device),	\
+>>> -	PCI_ANY_ID, PCI_ANY_ID, 0, 0
+>>> +#define PCI_VDEVICE(vend, dev) \
+>>> +	.vendor = PCI_VENDOR_ID_##vend, .device = (dev), \
+>>> +	.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID, 0, 0
+>> 
+>>   Initializing the fields to 0 is pointless, as 0 is what should be
+>> put into them anyway by the compiler. Also, it doesn't look right
+>> when you mix designated and anonymous initializers.
 
-2) Replace:
-	ret = vmbus_sendpacket(...);
+The zeros can't be dropped because the macro needs to initialize the same number of fields as the previous macro. Callers of this macro do use undesignated initialization and will rely on how that aligns. This macro does that.
 
-	return ret;
-   with
-  	return vmbus_sendpacket(...);
+> I'm certainly willing to apply this, but I can't reproduce the benefit.  I
+> tried "make W=2 drivers/net/ethernet/intel/e1000e/netdev.o" and didn't see
+> any change before and after this patch (I'm using Ubuntu gcc 4.6.3 if it
+> matters).
 
-3) Don't do "goto cleanup;" when "return ret;" will suffice.  The
-   do-nothing goto is misleading because you assume it will cleanup
-   somthing.  Some people used to misread CodingStyle to think that all
-   functions should only have one return but I have updated it so it is
-   more clear.
+The ixgbe driver throws a lot of warnings because it does not provide the final field after the macro call, allowing it default to zero. I think I saw a few other instances around the kernel, but the largest number are in ixgbe.
 
-regards,
-dan carpenter
+> What am I missing?  And do we need the zeroes?
+
+If you build ixgbe with W=2, I think you'll see the noise. And the zeros are needed for the reason given above. The zeros could also be moved to designated initialization, but the C standard is pretty clear on how it works, and many callers of the macro will be using undesignated initialization for the final field anyway. That is, with the new macro, many initializations will effectively have a mixed form. If that really bothers you, then I guess you should drop the patch. I was just trying to silence a bunch of noise in a simple, direct way. Adding the missing field in all of those places would also silence the message, but it seemed reasonable to have require that.
+
+-- 
+Mark Rustad, Networking Division, Intel Corporation
