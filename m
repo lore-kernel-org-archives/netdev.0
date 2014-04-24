@@ -1,72 +1,78 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: Re: [PATCH v3 1/4] MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
-Date: Wed, 23 Apr 2014 17:51:38 -0700
-Message-ID: <CAKh23F=Ukhufm3XMmSmaTU3AvmeoDDMeFwodgU-B_XH09sdbOQ@mail.gmail.com>
-References: <1397702368-4846-1-git-send-email-isubramanian@apm.com>
-	<1397702368-4846-2-git-send-email-isubramanian@apm.com>
-	<1397704685.14062.14.camel@joe-AO725>
-	<CABxcv=mj+phHmyg2U2jW51mLTwBN9Au791m-GtqU5BXDPy7Gtg@mail.gmail.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [patch net-next] vlan: Don't allow vlan devices to change network
+ namespaces.
+Date: Thu, 24 Apr 2014 08:59:51 +0800
+Message-ID: <53586207.7060407@huawei.com>
+References: <1398170586-6668-1-git-send-email-chenweilong@huawei.com> <1398176819.29946.49.camel@edumazet-glaptop2.roam.corp.google.com> <5357280C.1000404@huawei.com> <53576A6F.2020207@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	patches <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-To: Javier Martinez Canillas <javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABxcv=mj+phHmyg2U2jW51mLTwBN9Au791m-GtqU5BXDPy7Gtg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <nicolas.dichtel@6wind.com>, Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:14572 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544AbaDXBAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 21:00:22 -0400
+In-Reply-To: <53576A6F.2020207@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Javier,
-
-On Sun, Apr 20, 2014 at 5:56 PM, Javier Martinez Canillas
-<javier-0uQlZySMnqxg9hUCZPvPmw@public.gmane.org> wrote:
-> Hello Lyappan,
->
-> On Thu, Apr 17, 2014 at 5:18 AM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
->> On Wed, 2014-04-16 at 19:39 -0700, Iyappan Subramanian wrote:
->>> This patch adds a MAINTAINERS entry for APM X-Gene SoC
->>> ethernet driver.
->> []
->>> diff --git a/MAINTAINERS b/MAINTAINERS
->> []
->>> @@ -686,6 +686,14 @@ S:       Maintained
->>>  F:   drivers/net/appletalk/
->>>  F:   net/appletalk/
+On 2014/4/23 15:23, Nicolas Dichtel wrote:
+> Le 23/04/2014 04:40, chenweilong a =C3=A9crit :
+>> On 2014/4/22 22:26, Eric Dumazet wrote:
+>>> On Tue, 2014-04-22 at 20:43 +0800, Chen Weilong wrote:
+>>>> From: Weilong Chen <chenweilong@huawei.com>
+>>>>
+>>>> Like bonding, vlan as netdevice doesn't cross netns boundaries.
+>>>>
+>>>> Vlan port and vlan itself live in same netns.
 >>>
->>> +APPLIED MICRO (APM) X-GENE SOC ETHERNET DRIVER
->>> +M:   Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
->>> +M:   Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
->>> +M:   Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
->>> +S:   Maintained
->>> +F:   drivers/net/ethernet/apm/xgene
->>
->> Please add a terminating slash to show this is a directory.
->>
->> F:      drivers/net/ethernet/apm/xgene/
->>
->
-> Also if you are maintaining this driver as a part of your daily work
-> (i.e: actually being paid for it by your company) the status should be
-> "Supported" instead.
->
-> If you are doing it on your own time but still using your company
-> email address then "Maintained" is correct.
+>>> Please explain why you believe it should be like that.
+>>>
+>>> bonding and vlan have quite different purpose, so your changelog is
+>>> quite obscure.
+>>>
+>>> We had a discussion like this one with macvlan, and prior patch was
+>>> rejected.
+>>>
+>>>
+>>>
+>>>
+>> This idea comes from the different result of two changing namespace =
+orders.
+>> Test on eth1 and its vlan eth1.5, move them form default ns to a new=
+ ns called net0.
+>> 1.move eth1 first,and then eth1.5;
+>> 2.move eth1.5 first, and then eth1;
+>> As a network manager, I will be happy they both work, I don't care a=
+bout the orders.
+>> But, 1) doesn't work, if eth1 was moved to other ns, all related vla=
+ns were unregisted.
+>> you need to create a new eth1.5 in net0.
+>> And, 2) is not safe, if someone forgets to move eth1, eth1.5 will no=
+t work, making
+>> things complex.
+> We have to fix this case, because it is a valid use case to have eth1=
+=2E5 in net0
+> and eth1 in another ns.
+>=20
+eth1.5 can receive and send packets in net0, the problem is you can't a=
+dd a new eth1.5
+in old ns, report 'error: File exists'.
 
-Thanks.  I will change this to Supported.
-
->
-> Best regards,
-> Javier
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> So what's the better order ?
+>> I prefer 1), when a vlan dev is setup, it has a namespace, and belon=
+gs to it,
+>> When somebody moves it, it should say 'hey boy, don't move me,I like=
+ here :0'
+>>
+>> Thanks,
+>> Weilong
+> --=20
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
