@@ -1,31 +1,30 @@
-From: "Rustad, Mark D" <mark.d.rustad@intel.com>
-Subject: Re: [PATCH] pci: Use designated initialization in PCI_VDEVICE
-Date: Thu, 24 Apr 2014 23:43:27 +0000
-Message-ID: <8514B09D-4F10-4B14-940D-9237425C32BB@intel.com>
-References: <1396303119-16766-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <5339E746.4030503@cogentembedded.com> <20140424212246.GG29593@google.com>
- <512BF6D5-D529-4605-B1AB-A6DB7D153E14@intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH 00/12] RCU'ify the net:sched classifier chains
+Date: Thu, 24 Apr 2014 16:51:00 -0700
+Message-ID: <CAM_iQpXaoPjbtCGbWBWbUbSSW2H57mmGD3sqzw5pgWyEuHdtKw@mail.gmail.com>
+References: <20140110092041.7193.5952.stgit@nitbit.x32>
+	<CAM_iQpU6WWB72zBdU4mh-sB+8B8Vz2gPvH7Hxhjhkr+vMjwdpw@mail.gmail.com>
+	<52D1D4BD.9080906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <512BF6D5-D529-4605-B1AB-A6DB7D153E14@intel.com>
-Content-Language: en-US
-Content-ID: <A6D2CD93074DA441B8F8A818AFFDEBCC@intel.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f176.google.com ([209.85.128.176]:57472 "EHLO
+	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753846AbaDXXvB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 19:51:01 -0400
+Received: by mail-ve0-f176.google.com with SMTP id db11so3742044veb.7
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 16:51:00 -0700 (PDT)
+In-Reply-To: <52D1D4BD.9080906@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Apr 24, 2014, at 4:15 PM, Rustad, Mark D <mark.d.rustad@intel.com> wrote:
+Hi, John
 
-<snip>
-> Adding the missing field in all of those places would also silence the message, but it seemed reasonable to have require that.
+Do you have any plan to update this patchset and resend them?
 
-I meant "it seemed reasonable to *not* have to require that". Hopefully that helps it make some sense.
-
--- 
-Mark Rustad, Networking Division, Intel Corporation
+Thanks.
