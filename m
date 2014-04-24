@@ -1,77 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next v4 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
-Date: Thu, 24 Apr 2014 17:06:57 +0200
-Message-ID: <20140424150657.GG1960@order.stressinduktion.org>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com> <1398235078-27088-1-git-send-email-lorenzo@google.com> <1398235078-27088-3-git-send-email-lorenzo@google.com> <53579FD8.2090309@enst-bretagne.fr> <CAKD1Yr1bYu1Rtqi6cfSTsnq14dj+esOd=MsPaUs-CbqkFY5H8Q@mail.gmail.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net-next v4 1/3] net: ipv6: Unduplicate
+ {raw,udp}v6_sendmsg code
+Date: Fri, 25 Apr 2014 00:13:57 +0900
+Message-ID: <CAKD1Yr2DSkF59hdGyD=RiDNSseHT8u7Cf-0oYcJU=2uDgV_+Dw@mail.gmail.com>
+References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
+ <1398235078-27088-1-git-send-email-lorenzo@google.com> <20140424150019.GE1960@order.stressinduktion.org>
+ <20140424150206.GF1960@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>,
+Content-Type: text/plain; charset=UTF-8
+To: Lorenzo Colitti <lorenzo@google.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
 	David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
-To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37046 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754178AbaDXPG6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:06:58 -0400
-Content-Disposition: inline
-In-Reply-To: <CAKD1Yr1bYu1Rtqi6cfSTsnq14dj+esOd=MsPaUs-CbqkFY5H8Q@mail.gmail.com>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:60211 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757598AbaDXPOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 11:14:17 -0400
+Received: by mail-ig0-f171.google.com with SMTP id c1so1005297igq.10
+        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 08:14:17 -0700 (PDT)
+In-Reply-To: <20140424150206.GF1960@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 23, 2014 at 09:22:23PM +0900, Lorenzo Colitti wrote:
-> On Wed, Apr 23, 2014 at 8:11 PM, Florent Fourcot
-> <florent.fourcot@enst-bretagne.fr> wrote:
-> > Le 22/04/2014 17:14, Lorenzo Colitti a =C3=A9crit :> +
-> >> +             if (sin6->sin6_family !=3D AF_INET6)
-> >> +                     return -EAFNOSUPPORT;
-> >> +
+On Fri, Apr 25, 2014 at 12:02 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> > I am afraid we could jump to do_append_data without having dontfrag
+> > initialized. The jump happens before we call to ip6_datagram_send_common.
 > >
-> > It has before returned -EINVAL, it changes the return to the user s=
-pace.
-> > You made it consistent with other protocols, but perhaps should you=
- add
-> > a notice in the commit changelog?
->=20
-> Actually I'm not sure what the correct value is. When you setsockopt
-> IPV6_V6ONLY and then send to a mapped address, the error you get
-> depends on what you're trying to do - ip6_datagram_connect returns
-> EAFNOSUPPORT, but udpv6_sendmsg, dccp_v6_connect and tcp_v6_connect
-> return ENETUNREACH. I think EINVAL is wrong. EAFNOSUPPORT is probably
-> best because the code doesn't support dual-stack ping sockets, but it
-> could.
->=20
-> There are probably very few users of this code at the moment, since
-> the code was only released in 3.12, and support hasn't made it into
-> iputils yet. And even there, ping just probably prints the error
-> message and exits. So I don't think it's a big deal to change the
-> return code.
+> > So the initialization of dontfrag to -1 needs to be added to the caller.
+>
+> Also see e36d3ff91130002 (udp6: respect IPV6_DONTFRAG sockopt in case there
+> are pending frames) which was a bug we had some time ago.
 
-Sure, but we don't know about other applications. Wouldn't it be just e=
-asier
-and leave this as is for now and finally let ipv6 ping sockets also han=
-dle
-ipv4? I looked at it some time ago and it didn't look complicated.
+Hmm. So I'm the second person to trip over that goto. It doesn't help
+that the compiler didn't notice that it could have been used
+uninitialized.
 
-> >> -             if (sk->sk_bound_dev_if &&
-> >> -                 sk->sk_bound_dev_if !=3D u->sin6_scope_id) {
-> >> -                     return -EINVAL;
-> >> -             }
-> >
-> > What about this check now ?
->=20
-> I think that was incorrect. It would return EINVAL even if you did
-> something as simple as:
->=20
-> - Open an IPv6 ping socket.
-> - Bind it to eth0 with SO_BINDTODEVICE
-> - Send a ping to 2001:: without specifying a scope id.
-
-Agree with that.
-
-Bye,
-
-  Hannes
+I wonder, is it better to just initialize dontfrag to np->dontfrag
+instead of -1 in the caller? ip6_datagram_send_ctl seems to just
+overwrite dontfrag with whatever comes from userspace, so nobody ever
+checks that it's < 0.
