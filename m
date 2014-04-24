@@ -1,109 +1,242 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [PATCH 2/2] rtnetlink: Only supply IFLA_VF_PORTS information when RTEXT_FILTER_VF is set
-Date: Thu, 24 Apr 2014 10:22:36 +1000
-Message-ID: <1398298956-13084-3-git-send-email-david@gibson.dropbear.id.au>
-References: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
-Cc: ssujith@cisco.com, neepatel@cisco.com, benve@cisco.com,
-	davem@davemloft.net, ben@decadent.org.uk,
-	govindarajulu90@gmail.com, gregory.v.rose@intel.com,
-	David Gibson <david@gibson.dropbear.id.au>
-To: netdev@vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH v3 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
+Date: Wed, 23 Apr 2014 17:46:01 -0700
+Message-ID: <CAKh23FkZoWJk9L3VhvWmGqQfyjvSg=QJ9sRKzw4tr88DwQQ3zg@mail.gmail.com>
+References: <1397702368-4846-1-git-send-email-isubramanian@apm.com>
+	<1397702368-4846-5-git-send-email-isubramanian@apm.com>
+	<1397704613.14062.13.camel@joe-AO725>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"jcm@redhat.com" <jcm@redhat.com>, patches <patches@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:34466 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751272AbaDXAWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Apr 2014 20:22:36 -0400
-In-Reply-To: <1398298956-13084-1-git-send-email-david@gibson.dropbear.id.au>
+Received: from exprod5og107.obsmtp.com ([64.18.0.184]:46236 "HELO
+	exprod5og107.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751269AbaDXAqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Apr 2014 20:46:05 -0400
+Received: by mail-la0-f49.google.com with SMTP id ec20so1122200lab.36
+        for <netdev@vger.kernel.org>; Wed, 23 Apr 2014 17:46:01 -0700 (PDT)
+In-Reply-To: <1397704613.14062.13.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since 115c9b81928360d769a76c632bae62d15206a94a (rtnetlink: Fix problem with
-buffer allocation), RTM_NEWLINK messages only contain the IFLA_VFINFO_LIST
-attribute if they were solicited by a GETLINK message containing an
-IFLA_EXT_MASK attribute with the RTEXT_FILTER_VF flag.
+On Wed, Apr 16, 2014 at 8:16 PM, Joe Perches <joe@perches.com> wrote:
+> On Wed, 2014-04-16 at 19:39 -0700, Iyappan Subramanian wrote:
+>> This patch adds network driver for APM X-Gene SoC ethernet.
+> []
+>> diff --git a/drivers/net/ethernet/apm/xgene/Kconfig b/drivers/net/ethernet/apm/xgene/Kconfig
+> []
+>> @@ -0,0 +1,10 @@
+>> +config NET_XGENE
+>> +     tristate "APM X-Gene SoC Ethernet Driver"
+>> +     select PHYLIB
+>> +     default y
+>
+> default y?
+>
+> Shouldn't this need a depends on too?
 
-That was done because some user programs broke when they received more data
-than expected - because IFLA_VFINFO_LIST contains information for each VF
-it can become large if there are many VFs.
+I will remove the "default" entry.
 
-However, the IFLA_VF_PORTS attribute, supplied for devices which implement
-ndo_get_vf_port (currently the 'enic' driver only), has the same problem.
-It supplies per-VF information and can therefore become large, but it is
-not currently conditional on the IFLA_EXT_MASK value.
+>
+>> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+>
+>> +static void xgene_enet_ring_set_type(u32 *ring_cfg, u8 is_bufpool)
+>> +{
+>
+> bool is_bufpool?
+>
 
-Worse, it interacts badly with the existing EXT_MASK handling.  When
-IFLA_EXT_MASK is not supplied, the buffer for netlink replies is fixed at
-NLMSG_GOODSIZE.  If the information for IFLA_VF_PORTS exceeds this, then
-rtnl_fill_ifinfo() returns -EMSGSIZE on the first message in a packet.
-netlink_dump() will misinterpret this as having finished the listing and
-omit data for this interface and all subsequent ones.  That can cause
-getifaddrs(3) to enter an infinite loop.
+Great suggestion.  I will replace with bool and try to use bool where
+ever possible.
 
-This patch addresses the problem by only supplying IFLA_VF_PORTS when
-IFLA_EXT_MASK is supplied with the RTEXT_FILTER_VF flag set.
+>> +static void xgene_enet_set_ring_id(struct xgene_enet_desc_ring *ring)
+>> +{
+>> +     u32 ring_id_val;
+>> +     u32 ring_id_buf;
+>> +     u8 is_bufpool = IS_FP(ring->id);
+>
+> bool?
+>
+>> +
+>> +     ring_id_val = ring->id & GENMASK(9, 0);
+>> +     ring_id_val |= (1 << 31) & GENMASK(31, 31);
+>
+> Setting a single bit and masking with the same
+> bit looks silly.
 
-Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
----
- net/core/rtnetlink.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+I will use BIT macro in these circumstances.
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b5e384a..a32479a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -774,7 +774,8 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
- 		return 0;
- }
- 
--static size_t rtnl_port_size(const struct net_device *dev)
-+static size_t rtnl_port_size(const struct net_device *dev,
-+			     u32 ext_filter_mask)
- {
- 	size_t port_size = nla_total_size(4)		/* PORT_VF */
- 		+ nla_total_size(PORT_PROFILE_MAX)	/* PORT_PROFILE */
-@@ -790,7 +791,8 @@ static size_t rtnl_port_size(const struct net_device *dev)
- 	size_t port_self_size = nla_total_size(sizeof(struct nlattr))
- 		+ port_size;
- 
--	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
-+	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent ||
-+	    !(ext_filter_mask & RTEXT_FILTER_VF))
- 		return 0;
- 	if (dev_num_vf(dev->dev.parent))
- 		return port_self_size + vf_ports_size +
-@@ -826,7 +828,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(ext_filter_mask
- 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
- 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
--	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
-+	       + rtnl_port_size(dev, ext_filter_mask) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
- 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
- 	       + rtnl_link_get_af_size(dev) /* IFLA_AF_SPEC */
- 	       + nla_total_size(MAX_PHYS_PORT_ID_LEN); /* IFLA_PHYS_PORT_ID */
-@@ -888,11 +890,13 @@ static int rtnl_port_self_fill(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
- }
- 
--static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
-+static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev,
-+			  u32 ext_filter_mask)
- {
- 	int err;
- 
--	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
-+	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent ||
-+	    !(ext_filter_mask & RTEXT_FILTER_VF))
- 		return 0;
- 
- 	err = rtnl_port_self_fill(skb, dev);
-@@ -1079,7 +1083,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 		nla_nest_end(skb, vfinfo);
- 	}
- 
--	if (rtnl_port_fill(skb, dev))
-+	if (rtnl_port_fill(skb, dev, ext_filter_mask))
- 		goto nla_put_failure;
- 
- 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
--- 
-1.9.0
+>
+>> +
+>> +     ring_id_buf = (ring->num << 9) & GENMASK(18, 9);
+>> +     ring_id_buf |= ((u32) is_bufpool << 20) & GENMASK(20, 20);
+>
+> And here.
+>
+>> +     ring_id_buf |= (1U << 21) & GENMASK(21, 21);
+>
+> This too.
+>
+> []
+>
+>> +static void xgene_enet_rd_mcx_stats(struct xgene_enet_pdata *pdata,
+>> +                                 u32 rd_addr, u32 *rd_data)
+>> +{
+> []
+>> +     if (!ret)
+>> +             netdev_err(pdata->ndev, "MCX stats read failed, addr: %04x",
+>> +                        rd_addr);
+>
+> Missing newline
+
+I will add newline to the print statements.
+
+>
+>> +/* Start Statistics related functions */
+>> +static void xgene_gmac_get_rx_stats(struct xgene_enet_pdata *pdata,
+>> +                                 struct xgene_enet_rx_stats *rx_stat)
+>> +{
+>> +     xgene_enet_rd_mcx_stats(pdata, RBYT_ADDR, &rx_stat->rx_byte_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RPKT_ADDR, &rx_stat->rx_packet_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RDRP_ADDR, &rx_stat->rx_drop_pkt_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RFCS_ADDR, &rx_stat->rx_fcs_err_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RFLR_ADDR,
+>> +                             &rx_stat->rx_frm_len_err_pkt_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RALN_ADDR,
+>> +                             &rx_stat->rx_alignment_err_pkt_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, ROVR_ADDR,
+>> +                             &rx_stat->rx_oversize_pkt_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, RUND_ADDR,
+>> +                             &rx_stat->rx_undersize_pkt_count);
+>> +
+>> +     rx_stat->rx_byte_count &= RX_BYTE_CNTR_MASK;
+>> +     rx_stat->rx_packet_count &= RX_PKT_CNTR_MASK;
+>> +     rx_stat->rx_drop_pkt_count &= RX_DROPPED_PKT_CNTR_MASK;
+>> +     rx_stat->rx_fcs_err_count &= RX_FCS_ERROR_CNTR_MASK;
+>> +     rx_stat->rx_frm_len_err_pkt_count &= RX_LEN_ERR_CNTR_MASK;
+>> +     rx_stat->rx_alignment_err_pkt_count &= RX_ALIGN_ERR_CNTR_MASK;
+>> +     rx_stat->rx_oversize_pkt_count &= RX_OVRSIZE_PKT_CNTR_MASK;
+>> +     rx_stat->rx_undersize_pkt_count &= RX_UNDRSIZE_PKT_CNTR_MASK;
+>> +}
+>> +
+>> +static void xgene_gmac_get_tx_stats(struct xgene_enet_pdata *pdata,
+>> +                                 struct xgene_enet_tx_stats *tx_stats)
+>> +{
+>> +     xgene_enet_rd_mcx_stats(pdata, TBYT_ADDR, &tx_stats->tx_byte_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, TPKT_ADDR, &tx_stats->tx_pkt_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, TDRP_ADDR, &tx_stats->tx_drop_frm_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, TFCS_ADDR,
+>> +                             &tx_stats->tx_fcs_err_frm_count);
+>> +     xgene_enet_rd_mcx_stats(pdata, TUND_ADDR,
+>> +                             &tx_stats->tx_undersize_frm_count);
+>> +
+>> +     tx_stats->tx_byte_count &= TX_BYTE_CNTR_MASK;
+>> +     tx_stats->tx_pkt_count &= TX_PKT_CNTR_MASK;
+>> +     tx_stats->tx_drop_frm_count &= TX_DROP_FRAME_CNTR_MASK;
+>> +     tx_stats->tx_fcs_err_frm_count &= TX_FCS_ERROR_CNTR_MASK;
+>> +     tx_stats->tx_undersize_frm_count &= TX_UNDSIZE_FRAME_CNTR_MASK;
+>> +}
+>
+> Pity about the masks
+>
+>
+>> +#define RX_BYTE_CNTR_MASK            0x7fffffff
+>> +#define RX_PKT_CNTR_MASK             0x7fffffff
+>> +#define RX_FCS_ERROR_CNTR_MASK               0x0000ffff
+>> +#define RX_ALIGN_ERR_CNTR_MASK               0x0000ffff
+>> +#define RX_LEN_ERR_CNTR_MASK         0x0000ffff
+>> +#define RX_UNDRSIZE_PKT_CNTR_MASK    0x0000ffff
+>> +#define RX_OVRSIZE_PKT_CNTR_MASK     0x0000ffff
+>> +#define RX_DROPPED_PKT_CNTR_MASK     0x0000ffff
+>> +#define TX_BYTE_CNTR_MASK            0x7fffffff
+>> +#define TX_PKT_CNTR_MASK             0x7fffffff
+>> +#define TX_DROP_FRAME_CNTR_MASK              0x0000ffff
+>> +#define TX_FCS_ERROR_CNTR_MASK               0x00000fff
+>> +#define TX_UNDSIZE_FRAME_CNTR_MASK   0x00000fff
+>
+> Any of these going to possibly overrun their
+> counter size between polls?
+
+No.  These counters are not expected to overrun between polls and I
+will remove them.
+
+>
+> []
+>> +static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+>> +                     struct net_device *ndev, u32 ring_num,
+>> +                     enum xgene_enet_ring_cfgsize cfgsize, u32 ring_id)
+>> +{
+>> +     struct xgene_enet_desc_ring *ring;
+>> +     struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>> +     struct device *dev = &pdata->pdev->dev;
+>> +     u32 size;
+>> +
+>> +     ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
+>> +                         GFP_KERNEL);
+>> +     if (!ring) {
+>> +             netdev_err(ndev, "Could not allocate ring\n");
+>
+> Unnecessary OOM.  alloc errors get a generic OOM and dump_stack()
+
+I will remove the print message.
+
+>
+>
+>> +static struct net_device_stats *xgene_enet_stats(struct net_device *ndev)
+>> +{
+>> +     struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>> +     struct net_device_stats *nst = &pdata->nstats;
+>> +     struct xgene_enet_detailed_stats detailed_stats;
+>> +     struct xgene_enet_rx_stats *rx_stats;
+>> +     struct xgene_enet_tx_stats *tx_stats;
+>> +     u32 pkt_bytes, crc_bytes = 4;
+>> +
+>> +     memset(&detailed_stats, 0, sizeof(struct xgene_enet_detailed_stats));
+>> +
+>> +     rx_stats = &detailed_stats.rx_stats;
+>> +     tx_stats = &detailed_stats.tx_stats;
+>> +
+>> +     local_irq_disable();
+>> +     xgene_gmac_get_detailed_stats(pdata, &detailed_stats);
+>> +
+>> +     pkt_bytes = rx_stats->rx_byte_count;
+>> +     pkt_bytes -= rx_stats->rx_packet_count * crc_bytes;
+>> +     nst->rx_packets += rx_stats->rx_packet_count;
+>> +     nst->rx_bytes += pkt_bytes;
+>> +
+>> +     pkt_bytes = tx_stats->tx_byte_count;
+>> +     pkt_bytes -= tx_stats->tx_pkt_count * crc_bytes;
+>> +     nst->tx_packets += tx_stats->tx_pkt_count;
+>> +     nst->tx_bytes += pkt_bytes;
+>> +
+>> +     nst->rx_dropped += rx_stats->rx_drop_pkt_count;
+>> +     nst->tx_dropped += tx_stats->tx_drop_frm_count;
+>> +
+>> +     nst->rx_crc_errors += rx_stats->rx_fcs_err_count;
+>> +     nst->rx_length_errors += rx_stats->rx_frm_len_err_pkt_count;
+>> +     nst->rx_frame_errors += rx_stats->rx_alignment_err_pkt_count;
+>> +     nst->rx_over_errors += rx_stats->rx_oversize_pkt_count;
+>> +
+>> +     nst->rx_errors += rx_stats->rx_fcs_err_count
+>> +         + rx_stats->rx_frm_len_err_pkt_count
+>> +         + rx_stats->rx_oversize_pkt_count
+>> +         + rx_stats->rx_undersize_pkt_count;
+>> +
+>> +     nst->tx_errors += tx_stats->tx_fcs_err_frm_count +
+>> +         tx_stats->tx_undersize_frm_count;
+>> +
+>> +     local_irq_enable();
+>> +
+>> +     return nst;
+>> +}
+>
+>
