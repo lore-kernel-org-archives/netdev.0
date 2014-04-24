@@ -1,87 +1,86 @@
-From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch net-next RFC v3 10/10] openvswitch: add
- support for datapath hardware offload
-Date: Thu, 24 Apr 2014 07:54:19 -0700
-Message-ID: <5359259B.3020402@gmail.com>
-References: <1397736876-11771-1-git-send-email-jiri@resnulli.us>
- <1397736938-11838-1-git-send-email-jiri@resnulli.us>
+From: Daniel J Walsh <dwalsh@redhat.com>
+Subject: Re: [PATCH 0/6][v2] audit: implement multicast socket for journald
+Date: Thu, 24 Apr 2014 10:59:04 -0400
+Message-ID: <535926B8.7060304@redhat.com>
+References: <20140422.161904.1187535812839850973.davem@davemloft.net> <cover.1398215388.git.rgb@redhat.com> <26389161.vp9iWSVLPX@x2> <1398225475.750.7.camel@localhost> <5357C2D2.5060700@redhat.com> <1398264152.2596.25.camel@flatline.rdu.redhat.com> <5357DE12.7040905@redhat.com> <1398267458.2562.0.camel@flatline.rdu.redhat.com> <5357E1B4.2030705@redhat.com> <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: ryazanov.s.a-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jasowang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
- Neil.Jerram-QnUH15yq9NYqDJ6do+/SaQ@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
- dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
- jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org,
- buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org, roopa-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org, jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org,
- linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, aviadr-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org,
- vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sfeldma-qUQiAmfTcIp+XZJcv9eMoEEOCMrvLtNR@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
- ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1397736938-11838-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Eric Paris <eparis@redhat.com>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	linux-audit@redhat.com, SE-Linux <selinux@tycho.nsa.gov>,
+	jamal@mojatatu.com, Steve Grubb <sgrubb@redhat.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Paris <eparis@parisplace.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CACLa4psQyoaZTE7R0qiog_biMKXyeGtLc1AQUuEPtemMYcDCSQ@mail.gmail.com>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/17/2014 05:15 AM, Jiri Pirko wrote:
-> Benefit from the possibility to work with flows in switch devices and
-> use the swdev api to offload flow datapath.
+I don't disagree.  I would think the real solution to this would be to
+not allow sysadm_t to get to SystemHigh, where all of the logging data
+will be stored.
+
+On 04/24/2014 09:22 AM, Eric Paris wrote:
+> They would be equivalent if and only if journald had CAP_AUDIT_READ.
 >
-> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-> ---
-
-
-[...]
-
+> I suggest you take CAP_AUDIT_READ away from journald on systems which
+> need the secadm/sysadmin split (which is a ridiculously stupid split
+> anyway, but who am I to complain?)
 >
-> @@ -840,13 +841,15 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
->   		flow->flow.key = masked_key;
->   		flow->flow.unmasked_key = key;
->   		rcu_assign_pointer(flow->sf_acts, acts);
-> +		acts = NULL;
+> On Wed, Apr 23, 2014 at 11:52 AM, Daniel J Walsh <dwalsh@redhat.com> wrote:
+>> Meaning looking at the journal would be equivalent to looking at
+>> /var/log/audit/audit.log.
+>>
+>>
+>> On 04/23/2014 11:37 AM, Eric Paris wrote:
+>>> On Wed, 2014-04-23 at 11:36 -0400, Daniel J Walsh wrote:
+>>>> I guess the problem would be that the sysadm_t would be able to look at
+>>>> the journal which would now contain the audit content.
+>>> right.  so include it in the sysadm_secadm bool
+>>>
+>>>> On 04/23/2014 10:42 AM, Eric Paris wrote:
+>>>>> On Wed, 2014-04-23 at 09:40 -0400, Daniel J Walsh wrote:
+>>>>>> Here are the capabilities we currently give to sysadm_t with
+>>>>>> sysadm_secadm    1.0.0    Disabled
+>>>>>>
+>>>>>>    allow sysadm_t sysadm_t : capability { chown dac_override
+>>>>>> dac_read_search fowner fsetid kill setgid setuid setpcap linux_immutable
+>>>>>> net_bind_service net_broadcast net_admin net_raw ipc_lock ipc_owner
+>>>>>> sys_rawio sys_chroot sys_ptrace sys_pacct sys_admin sys_boot sys_nice
+>>>>>> sys_resource sys_time sys_tty_config mknod lease audit_write setfcap } ;
+>>>>>>    allow sysadm_t sysadm_t : capability { setgid setuid sys_chroot }
+>>>>>>
+>>>>>>    allow sysadm_t sysadm_t : capability2 { syslog block_suspend } ;
+>>>>>>
+>>>>>> cap_audit_write might be a problem?
+>>>>> cap_audit_write is fine.
+>>>>>
+>>>>> syslogd_t (aka journal) is going to need the new permission
+>>>>> cap_audit_read.  Also, as steve pointed out, someone may be likely to
+>>>>> want to be able to disable that permission easily.
+>>>>>
+>>>>> -Eric
+>>>>>
+>>> _______________________________________________
+>>> Selinux mailing list
+>>> Selinux@tycho.nsa.gov
+>>> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
+>>> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
+>>>
+>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+> _______________________________________________
+> Selinux mailing list
+> Selinux@tycho.nsa.gov
+> To unsubscribe, send email to Selinux-leave@tycho.nsa.gov.
+> To get help, send an email containing "help" to Selinux-request@tycho.nsa.gov.
 >
->   		/* Put flow in bucket. */
->   		error = ovs_flow_tbl_insert(&dp->table, flow, &mask);
-> -		if (error) {
-> -			acts = NULL;
-> +		if (error)
->   			goto err_flow_free;
-> -		}
-> +		error = ovs_hw_flow_insert(dp, flow, flow->sf_acts);
-> +		if (error)
-> +			goto err_flow_tbl_remove;
 >
->   		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
->   	} else {
 
-Hi Jiri,
-
-If I read this correctly it looks like you do a insert into software
-flow tables and then an insert into the hardware flow tables. Into
-all lowerdevs. Let me know if I got this wrong.
-
-This might break on some rules (an insert tag for example) and also
-underutilize the switch resources by pushing rules into the switch that
-we really only need in software tables or maybe only on some set of
-ports.
-
-I think we need to allow applications direct access to the flow table
-via netlink so I can write my policy in user space and not require
-OVS. If OVS wants to support a mode where it does this automagically
-it can support it in userspace and the kernel side does not need to
-change.
-
-Thanks,
-John
-
-
--- 
-John Fastabend         Intel Corporation
