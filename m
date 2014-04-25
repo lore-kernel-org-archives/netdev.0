@@ -1,53 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: guard against coalescing packets from buggy
- network drivers
-Date: Fri, 25 Apr 2014 09:49:35 -0700
-Message-ID: <1398444575.29914.93.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <535A78ED.3020309@secomea.com>
-	 <1398440595.29914.77.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <535A86F3.5010602@secomea.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 1/3] net: ipv6: Unduplicate
+ {raw,udp}v6_sendmsg code
+Date: Fri, 25 Apr 2014 12:51:55 -0400 (EDT)
+Message-ID: <20140425.125155.861435686727308330.davem@davemloft.net>
+References: <1398424172-17530-1-git-send-email-lorenzo@google.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F6FF01A@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Svenning =?ISO-8859-1?Q?S=F8rensen?= <sss@secomea.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <535A86F3.5010602@secomea.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lorenzo@google.com, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
+	eric.dumazet@gmail.com
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44845 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbaDYQv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 12:51:57 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6FF01A@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-04-25 at 18:01 +0200, Svenning S=C3=B8rensen wrote:
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Fri, 25 Apr 2014 11:24:21 +0000
 
-> You are right, of course, there are more effective ways to catch bugg=
-y=20
-> drivers.
-> But they will probably also be much more expensive.
-> This one is very cheap, being in a relatively cold path, especially=20
-> compared to the memcpy in the same path.
+> From: Lorenzo Colitti
+>> rawv6_sendmsg and udpv6_sendmsg have ~100 lines of almost
+>> identical code. Move this into a new ipv6_datagram_send_common
+>> helper function.
+>> 
+>> Tested: black-box tested using user-mode Linux.
+>> 
+>> - Basic UDP sends using sendto work.
+>> - Mark routing and oif routing using SO_BINDTODEVICE work.
+> ...
+>> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+>> index d640925..f1a247a 100644
+>> --- a/include/net/ipv6.h
+>> +++ b/include/net/ipv6.h
+>> @@ -785,6 +785,13 @@ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
+>>  int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
+>>  int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *addr,
+>>  				 int addr_len);
+>> +int ip6_datagram_send_common(struct sock *sk, struct msghdr *msg,
+>> +			     struct sockaddr_in6 *sin6, int addr_len,
+>> +			     struct flowi6 *fl6, struct dst_entry **dstp,
+>> +			     struct ipv6_txoptions **optp,
+>> +			     struct ipv6_txoptions *opt_space,
+>> +			     int *hlimit, int *tclass, int *dontfrag,
+>> +			     int *connected);
+> 
+> That is a lot of parameters! and udp send is probably an important path.
 
-It seems you missed the recent tipc thread then.
+The more I read this series the more I dislike it.
 
-They are many ways this code path can be abused, your patch only takes
-care of one case.
+All of these pointers being passed in, were local variables in the
+original code.
 
-In tipc case, they added skb to shinfo->frag_list without changing
-skb->data_len.
-
-So skb_tailroom(to) was not returning 0 as it should.
-
-The invariant should be more strict.
-
-BUG_ON(to->data + to->len !=3D skb_tail_pointer(to));
-
-I still think a BUG() to catch this is better.
-
-There is no guarantee the developer/user will catch a WARN(),
-the bug could sit there a long time.
-
-I have no pity for serious bugs like that.
-
-Since you spot buggy drivers, please provide their fixes or at least
-name them so that we can take care of them.
-
-Thanks
+This consolidation makes the code much worse, not better.
