@@ -1,58 +1,160 @@
-From: Alexander Gordeev <agordeev@redhat.com>
-Subject: Re: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact() instead
- of pci_enable_msix()
-Date: Fri, 25 Apr 2014 11:00:30 +0200
-Message-ID: <20140425090029.GA2500@dhcp-26-207.brq.redhat.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
+ instead of pci_enable_msix()
+Date: Fri, 25 Apr 2014 09:02:02 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2@avmb2.qlogic.org>
 References: <cover.1398412015.git.agordeev@redhat.com>
  <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
  <262CB373A6D1F14F9B81E82F74F77D5A46F9EE54@avmb2.qlogic.org>
+ <20140425090029.GA2500@dhcp-26-207.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed;
+	boundary="_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_"
 Cc: linux-kernel <linux-kernel@vger.kernel.org>,
 	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
 	netdev <netdev@vger.kernel.org>,
 	linux-pci <linux-pci@vger.kernel.org>
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <262CB373A6D1F14F9B81E82F74F77D5A46F9EE54@avmb2.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Alexander Gordeev <agordeev@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20140425090029.GA2500@dhcp-26-207.brq.redhat.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 25, 2014 at 08:48:14AM +0000, Shahed Shaikh wrote:
-> > diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > index dbf7539..26f022b 100644
-> > --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > @@ -690,8 +690,8 @@ int qlcnic_setup_tss_rss_intr(struct qlcnic_adapter
-> > *adapter)
-> >  		adapter->msix_entries[vector].entry = vector;
-> > 
-> >  restore:
-> > -	err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
-> > -	if (err > 0) {
-> > +	err = pci_enable_msix_exact(pdev, adapter->msix_entries,
-> > num_msix);
-> > +	if (err == -ENOSPC) {
-> >  		if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
-> >  			return -ENOSPC;
-> 
-> I think, it would be good if we return "err" instead of "-ENOSPC" .
->   
->                 if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
-> -                       return -ENOSPC;
-> +                       return err;
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-At this point "err" could only be -ENOSPC. I am not sure why returning
-"err" is better, but I'll repost if you insist.
+> -----Original Message-----
+> From: Alexander Gordeev [mailto:agordeev@redhat.com]
+> Sent: Friday, April 25, 2014 2:31 PM
+> To: Shahed Shaikh
+> Cc: linux-kernel; Dept-HSG Linux NIC Dev; netdev; linux-pci
+> Subject: Re: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
+> instead of pci_enable_msix()
+>=20
+> On Fri, Apr 25, 2014 at 08:48:14AM +0000, Shahed Shaikh wrote:
+> > > diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> > > b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> > > index dbf7539..26f022b 100644
+> > > --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> > > +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> > > @@ -690,8 +690,8 @@ int qlcnic_setup_tss_rss_intr(struct
+> > > qlcnic_adapter
+> > > *adapter)
+> > >  		adapter->msix_entries[vector].entry =3D vector;
+> > >
+> > >  restore:
+> > > -	err =3D pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+> > > -	if (err > 0) {
+> > > +	err =3D pci_enable_msix_exact(pdev, adapter->msix_entries,
+> > > num_msix);
+> > > +	if (err =3D=3D -ENOSPC) {
+> > >  		if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
+> > >  			return -ENOSPC;
+> >
+> > I think, it would be good if we return "err" instead of "-ENOSPC" .
+> >
+> >                 if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
+> > -                       return -ENOSPC;
+> > +                       return err;
+>=20
+> At this point "err" could only be -ENOSPC. I am not sure why returning "e=
+rr" is
+> better, but I'll repost if you insist.
 
-> 
-> Thanks,
-> Shahed
-> 
+Agree. But it will make code look cleaner.
 
--- 
-Regards,
-Alexander Gordeev
-agordeev@redhat.com
+Thanks,
+Shahed
+
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
+
+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
+cwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A5V8B
+AAAAOgAAAHMAaQBwADoAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4A
+YwBvAG0AAAAAAB8AGgwBAAAAHAAAAFMAaABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAAAfAB8MAQAA
+ADIAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAA
+HwAeDAEAAAAKAAAAUwBNAFQAUAAAAAAAAgEZDAEAAABwAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIA
+AACAUwBoAGEAaABlAGQAIABTAGgAYQBpAGsAaAAAAFMATQBUAFAAAABzAGgAYQBoAGUAZAAuAHMA
+aABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0BAAAAMgAAAHMAaABhAGgAZQBk
+AC4AcwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAPg/AQAAABwAAABTAGgA
+YQBoAGUAZAAgAFMAaABhAGkAawBoAAAAHwAjQAEAAAAyAAAAcwBoAGEAaABlAGQALgBzAGgAYQBp
+AGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAAAAAAAAIB
++T8BAAAAcAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFMAaABhAGgAZQBkACAAUwBoAGEAaQBr
+AGgAAABTAE0AVABQAAAAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4A
+YwBvAG0AAAAfAAldAQAAADIAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBp
+AGMALgBjAG8AbQAAAAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAACAAAAAAAAAB8A
+GgABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA/T/kBAAAAgEL
+MAEAAAAQAAAA+oyYLrG+u0CuDx+RW++ofAMAFwABAAAAQAA5AAChqQVlYM8BQAAIMIeXKAZlYM8B
+CwApAAAAAAALACMAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAAB4AAABhAGMAYwBlAHAAdABs
+AGEAbgBnAHUAYQBnAGUAAAAAAAEAAAAMAAAAZQBuAC0AVQBTAAAACwAAgAggBgAAAAAAwAAAAAAA
+AEYAAAAABoUAAAAAAAAfADcAAQAAALQAAABSAEUAOgAgAFsAUABBAFQAQwBIACAAbgBlAHQALQBu
+AGUAeAB0ACAAMgAvADIAXQAgAHEAbABjAG4AaQBjADoAIABVAHMAZQAgAHAAYwBpAF8AZQBuAGEA
+YgBsAGUAXwBtAHMAaQB4AF8AZQB4AGEAYwB0ACgAKQAgAGkAbgBzAHQAZQBhAGQAIABvAGYAIABw
+AGMAaQBfAGUAbgBhAGIAbABlAF8AbQBzAGkAeAAoACkAAAAfAD0AAQAAAAoAAABSAEUAOgAgAAAA
+AAADADYAAAAAAAMALgAAAAAAHwBCEAEAAABmAAAAPAAyADAAMQA0ADAANAAyADUAMAA5ADAAMAAy
+ADkALgBHAEEAMgA1ADAAMABAAGQAaABjAHAALQAyADYALQAyADAANwAuAGIAcgBxAC4AcgBlAGQA
+aABhAHQALgBjAG8AbQA+AAAAAAACAXEAAQAAACUAAAABAc9gXRgBFke9Um4UQ5jAnOoETbbZmyID
+jkCAAHquAP//il9wAAAAHwBwAAEAAACsAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQA
+IAAyAC8AMgBdACAAcQBsAGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4AYQBiAGwAZQBf
+AG0AcwBpAHgAXwBlAHgAYQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAgAHAAYwBpAF8A
+ZQBuAGEAYgBsAGUAXwBtAHMAaQB4ACgAKQAAAB8ANRABAAAAeAAAADwAMgA2ADIAQwBCADMANwAz
+AEEANgBEADEARgAxADQARgA5AEIAOAAxAEUAOAAyAEYANwA0AEYANwA3AEQANQBBADQANgBGADkA
+RQBFAEEAMgBAAGEAdgBtAGIAMgAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA0AEA
+ADwAYwBvAHYAZQByAC4AMQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUA
+ZQB2AEAAcgBlAGQAaABhAHQALgBjAG8AbQA+ACAAPAAwAGEAMABkADUAZgA1AGMAMwAzAGQAOAA2
+AGUAMwA3ADcANwBjADIAMgBjADMAYwAxAGIAYgBkADgAMQAwADMANQA2ADYAMABkADUANwBjAC4A
+MQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABh
+AHQALgBjAG8AbQA+ACAAPAAyADYAMgBDAEIAMwA3ADMAQQA2AEQAMQBGADEANABGADkAQgA4ADEA
+RQA4ADIARgA3ADQARgA3ADcARAA1AEEANAA2AEYAOQBFAEUANQA0AEAAYQB2AG0AYgAyAC4AcQBs
+AG8AZwBpAGMALgBvAHIAZwA+ACAAPAAyADAAMQA0ADAANAAyADUAMAA5ADAAMAAyADkALgBHAEEA
+MgA1ADAAMABAAGQAaABjAHAALQAyADYALQAyADAANwAuAGIAcgBxAC4AcgBlAGQAaABhAHQALgBj
+AG8AbQA+AAAAAwDeP59OAAALAACACCAGAAAAAADAAAAAAAAARgAAAAADhQAAAAAAAAMAAIAIIAYA
+AAAAAMAAAAAAAABGAAAAAAGFAAAAAAAAAwCAEP////9AAAcwR9ZIBWVgzwELAAIAAQAAAAMAJgAA
+AAAACwArAAAAAAACAUcAAQAAAC8AAABjPVVTO2E9IDtwPVFMb2dpYztsPUFWTUIyLTE0MDQyNTA5
+MDIwMlotMTY1NzEzAAACARAwAQAAAEYAAAAAAAAArzyCpH4RikG4uh7fmKWNYAcAWoRvvvW+/063
+9oZ+uI4ZfAAaa2g25QAArrMo5QJN4EiIC4rd8TVo8wBLdv2FqQAAAAAfAPo/AQAAABwAAABTAGgA
+YQBoAGUAZAAgAFMAaABhAGkAawBoAAAAAwAJWQEAAAADAACACCAGAAAAAADAAAAAAAAARgAAAAAQ
+hQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAA6FAAAAAAAAAwAAgAggBgAAAAAAwAAAAAAA
+AEYAAAAAGIUAAAAAAAALAACACCAGAAAAAADAAAAAAAAARgAAAACChQAAAAAAAB8AAIAIIAYAAAAA
+AMAAAAAAAABGAAAAANiFAAABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwANNP0/AAAfAACA
+hgMCAAAAAADAAAAAAAAARgEAAAAgAAAAeAAtAG0AcwAtAGgAYQBzAC0AYQB0AHQAYQBjAGgAAAAB
+AAAAAgAAAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAiAAAAeAAtAG8AcgBpAGcAaQBuAGEA
+dABpAG4AZwAtAGkAcAAAAAAAAQAAABgAAABbADEAMAAuADEALgA0AC4AMQAwAF0AAAC8dw==
+
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_--
