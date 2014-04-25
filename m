@@ -1,50 +1,62 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: Re: [PATCH v3 13/14] MIPS: net: Add BPF JIT
-Date: Fri, 25 Apr 2014 13:06:54 +0100
-Message-ID: <20140425120654.GA30753@mchandras-linux.le.imgtec.org>
-References: <1396957635-27071-14-git-send-email-markos.chandras@imgtec.com>
- <1398351013-29490-1-git-send-email-markos.chandras@imgtec.com>
- <20140424163114.GD36716@pburton-linux.le.imgtec.org>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH] cxgb4: Update Kconfig to include Chelsio T5 adapter
+Date: Fri, 25 Apr 2014 18:00:12 +0530
+Message-ID: <1398429012-9067-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Cc: <linux-mips@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Paul Burton <paul.burton@imgtec.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <leedom@chelsio.com>, <dm@chelsio.com>,
+	<kumaras@chelsio.com>, <nirranjan@chelsio.com>,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.89.28.115]:59461 "EHLO
-	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751362AbaDYMGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 08:06:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20140424163114.GD36716@pburton-linux.le.imgtec.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:17361 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752441AbaDYMbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 08:31:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 24, 2014 at 05:31:14PM +0100, Paul Burton wrote:
-> On Thu, Apr 24, 2014 at 03:50:13PM +0100, Markos Chandras wrote:
-> > diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-> > new file mode 100644
-> > index 0000000..864e5b7
-> > --- /dev/null
-> > +++ b/arch/mips/net/bpf_jit.c
-> 
-> ... cut ...
-> 
-> > +			off = offsetof(struct sk_buff, protocol);
-> > +			emit_half_load(r_A, r_skb, off, ctx);
-> > +#ifdef CONFIG_CPU_LITTLE_ENDIAN
-> > +			/* This needs little endian fixup */
-> > +			if (cpu_has_mips_r1) {
-> 
-> Doesn't cpu_has_mips_r1 cover everything >= r1? ie. everything will now
-> take this path, including systems >= r2. Don't you want the inverse
-> (!cpu_has_mips_r2) instead?
-> 
-> Paul
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/Kconfig | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-Hi Paul,
-
-Yes you are right. I will fix it and submit a new version.
-
+diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
+index d40c994..570222c 100644
+--- a/drivers/net/ethernet/chelsio/Kconfig
++++ b/drivers/net/ethernet/chelsio/Kconfig
+@@ -67,13 +67,13 @@ config CHELSIO_T3
+ 	  will be called cxgb3.
+ 
+ config CHELSIO_T4
+-	tristate "Chelsio Communications T4 Ethernet support"
++	tristate "Chelsio Communications T4/T5 Ethernet support"
+ 	depends on PCI
+ 	select FW_LOADER
+ 	select MDIO
+ 	---help---
+-	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+-	  adapters.
++	  This driver supports Chelsio T4 and T5 based gigabit, 10Gb Ethernet
++	  adapter and T5 based 40Gb Ethernet adapter.
+ 
+ 	  For general information about Chelsio and our products, visit
+ 	  our website at <http://www.chelsio.com>.
+@@ -87,11 +87,12 @@ config CHELSIO_T4
+ 	  will be called cxgb4.
+ 
+ config CHELSIO_T4VF
+-	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
++	tristate "Chelsio Communications T4/T5 Virtual Function Ethernet support"
+ 	depends on PCI
+ 	---help---
+-	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+-	  adapters with PCI-E SR-IOV Virtual Functions.
++	  This driver supports Chelsio T4 and T5 based gigabit, 10Gb Ethernet
++	  adapters and T5 based 40Gb Ethernet adapters with PCI-E SR-IOV Virtual
++	  Functions.
+ 
+ 	  For general information about Chelsio and our products, visit
+ 	  our website at <http://www.chelsio.com>.
 -- 
-markos
+1.8.4
