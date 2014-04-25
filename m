@@ -1,191 +1,136 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 2/6] qlcnic: Add hwmon interface to export board temperature.
-Date: Fri, 25 Apr 2014 17:43:57 -0400
-Message-ID: <1398462241-15478-3-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 4/6] qlcnic: Add driver logs in error path.
+Date: Fri, 25 Apr 2014 17:43:59 -0400
+Message-ID: <1398462241-15478-5-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1398462241-15478-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <shahed.shaikh@qlogic.com>,
 	<Dept-HSGLinuxNICDev@qlogic.com>,
-	Harish Patil <harish.patil@qlogic.com>
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:15863 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751400AbaDYWWA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 18:22:00 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:18640 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751974AbaDYWWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 18:22:05 -0400
 In-Reply-To: <1398462241-15478-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harish Patil <harish.patil@qlogic.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-Signed-off-by: Harish Patil <harish.patil@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/Kconfig               | 11 ++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       | 15 ++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c  |  4 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 66 +++++++++++++++++++++++
- 4 files changed, 95 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c   |  3 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c |  2 ++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c       | 13 +++++++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c      |  5 +++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c     |  2 ++
+ 5 files changed, 21 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index c14bd31..25b19dd 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -66,6 +66,17 @@ config QLCNIC_VXLAN
- 	  Say Y here if you want to enable hardware offload support for
- 	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
- 
-+config QLCNIC_HWMON
-+	bool "QLOGIC QLCNIC 82XX and 83XX family HWMON support"
-+	depends on QLCNIC && HWMON
-+	default y
-+	---help---
-+	  This configuration parameter can be used to read the
-+	  board temperature in Converged Ethernet devices
-+	  supported by qlcnic.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index b7cffb4..4ea15ba 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -879,6 +879,9 @@ int qlcnic_83xx_alloc_mbx_args(struct qlcnic_cmd_args *mbx,
+ 			return 0;
+ 		}
+ 	}
 +
-+	  This data is available via the hwmon sysfs interface.
-+
- config QLGE
- 	tristate "QLogic QLGE 10Gb Ethernet Driver Support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 7b52a88..381da04 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -537,6 +537,7 @@ struct qlcnic_hardware_context {
- 	u8 phys_port_id[ETH_ALEN];
- 	u8 lb_mode;
- 	u16 vxlan_port;
-+	struct device *hwmon_dev;
- };
- 
- struct qlcnic_adapter_stats {
-@@ -2361,4 +2362,18 @@ static inline u32 qlcnic_get_vnic_func_count(struct qlcnic_adapter *adapter)
- 	else
- 		return QLC_DEFAULT_VNIC_COUNT;
++	dev_err(&adapter->pdev->dev, "%s: Invalid mailbox command opcode 0x%x\n",
++		__func__, type);
+ 	return -EINVAL;
  }
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index ba20c72..34d2737 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -2181,6 +2181,8 @@ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
+ 		max_sds_rings = QLCNIC_MAX_SDS_RINGS;
+ 		max_tx_rings = QLCNIC_MAX_TX_RINGS;
+ 	} else {
++		dev_err(&adapter->pdev->dev, "%s: Invalid opmode %d\n",
++			__func__, ret);
+ 		return -EIO;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index c1e11f5..304e247 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -1027,8 +1027,11 @@ int qlcnic_config_port_mirroring(struct qlcnic_adapter *adapter, u8 id,
+ 	u32 arg1;
+ 
+ 	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC ||
+-	    !(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE))
++	    !(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE)) {
++		dev_err(&adapter->pdev->dev, "%s: Not a management function\n",
++			__func__);
+ 		return err;
++	}
+ 
+ 	arg1 = id | (enable_mirroring ? BIT_4 : 0);
+ 	arg1 |= pci_func << 8;
+@@ -1318,8 +1321,12 @@ int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
+ 	u32 arg1, arg2 = 0;
+ 	u8 pci_func;
+ 
+-	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC)
++	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC) {
++		dev_err(&adapter->pdev->dev, "%s: Not a management function\n",
++			__func__);
+ 		return err;
++	}
 +
-+#ifdef CONFIG_QLCNIC_HWMON
-+void qlcnic_register_hwmon_dev(struct qlcnic_adapter *);
-+void qlcnic_unregister_hwmon_dev(struct qlcnic_adapter *);
-+#else
-+static inline void qlcnic_register_hwmon_dev(struct qlcnic_adapter *adapter)
-+{
-+	return;
-+}
-+static inline void qlcnic_unregister_hwmon_dev(struct qlcnic_adapter *adapter)
-+{
-+	return;
-+}
-+#endif
- #endif				/* __QLCNIC_H_ */
+ 	pci_func = esw_cfg->pci_func;
+ 	index = qlcnic_is_valid_nic_func(adapter, pci_func);
+ 	if (index < 0)
+@@ -1363,6 +1370,8 @@ int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
+ 			arg1 &= ~(0x0ffff << 16);
+ 			break;
+ 	default:
++		dev_err(&adapter->pdev->dev, "%s: Invalid opmode 0x%x\n",
++			__func__, esw_cfg->op_mode);
+ 		return err;
+ 	}
+ 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index dbf7539..d853e31 100644
+index e96ecca..42f4dfe 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2593,7 +2593,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		qlcnic_alloc_lb_filters_mem(adapter);
+@@ -1014,6 +1014,8 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
  
- 	qlcnic_add_sysfs(adapter);
--
-+	qlcnic_register_hwmon_dev(adapter);
- 	return 0;
+ 		if (pfn >= ahw->max_vnic_func) {
+ 			ret = QL_STATUS_INVALID_PARAM;
++			dev_err(&adapter->pdev->dev, "%s: Invalid function 0x%x, max 0x%x\n",
++				__func__, pfn, ahw->max_vnic_func);
+ 			goto err_eswitch;
+ 		}
  
- err_out_disable_mbx_intr:
-@@ -2700,6 +2700,8 @@ static void qlcnic_remove(struct pci_dev *pdev)
- 
- 	qlcnic_remove_sysfs(adapter);
- 
-+	qlcnic_unregister_hwmon_dev(adapter);
-+
- 	qlcnic_cleanup_pci_map(adapter->ahw);
- 
- 	qlcnic_release_firmware(adapter);
+@@ -2531,8 +2533,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 				dev_err(&pdev->dev, "Adapter initialization failed. Please reboot\n");
+ 				goto err_out_free_hw;
+ 			default:
+-				dev_err(&pdev->dev, "Adapter initialization failed. A reboot may be required to recover from this failure\n");
+-				dev_err(&pdev->dev, "If reboot does not help to recover from this failure, try a flash update of the adapter\n");
++				dev_err(&pdev->dev, "Adapter initialization failed. Driver will load in maintenance mode to recover the adapter using the application\n");
+ 				goto err_out_maintenance_mode;
+ 			}
+ 		}
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index cd346e2..eee5fc9 100644
+index eee5fc9..f5786d5 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -19,6 +19,10 @@
- #include <linux/sysfs.h>
- #include <linux/aer.h>
- #include <linux/log2.h>
-+#ifdef CONFIG_QLCNIC_HWMON
-+#include <linux/hwmon.h>
-+#include <linux/hwmon-sysfs.h>
-+#endif
+@@ -362,6 +362,8 @@ int qlcnic_is_valid_nic_func(struct qlcnic_adapter *adapter, u8 pci_func)
+ 		if (adapter->npars[i].pci_func == pci_func)
+ 			return i;
+ 	}
++
++	dev_err(&adapter->pdev->dev, "%s: Invalid nic function\n", __func__);
+ 	return -EINVAL;
+ }
  
- #define QLC_STATUS_UNSUPPORTED_CMD	-2
- 
-@@ -1243,6 +1247,68 @@ static struct bin_attribute bin_attr_flash = {
- 	.write = qlcnic_83xx_sysfs_flash_write_handler,
- };
- 
-+#ifdef CONFIG_QLCNIC_HWMON
-+
-+static ssize_t qlcnic_hwmon_show_temp(struct device *dev,
-+				      struct device_attribute *dev_attr,
-+				      char *buf)
-+{
-+	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
-+	unsigned int temperature = 0, value = 0;
-+
-+	if (qlcnic_83xx_check(adapter))
-+		value = QLCRDX(adapter->ahw, QLC_83XX_ASIC_TEMP);
-+	else if (qlcnic_82xx_check(adapter))
-+		value = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
-+
-+	temperature = qlcnic_get_temp_val(value);
-+	/* display millidegree celcius */
-+	temperature *= 1000;
-+	return sprintf(buf, "%u\n", temperature);
-+}
-+
-+/* hwmon-sysfs attributes */
-+static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO,
-+			  qlcnic_hwmon_show_temp, NULL, 1);
-+
-+static struct attribute *qlcnic_hwmon_attrs[] = {
-+	&sensor_dev_attr_temp1_input.dev_attr.attr,
-+	NULL
-+};
-+
-+ATTRIBUTE_GROUPS(qlcnic_hwmon);
-+
-+void qlcnic_register_hwmon_dev(struct qlcnic_adapter *adapter)
-+{
-+	struct device *dev = &adapter->pdev->dev;
-+	struct device *hwmon_dev;
-+
-+	/* Skip hwmon registration for a VF device */
-+	if (qlcnic_sriov_vf_check(adapter)) {
-+		adapter->ahw->hwmon_dev = NULL;
-+		return;
-+	}
-+	hwmon_dev = hwmon_device_register_with_groups(dev, qlcnic_driver_name,
-+						      adapter,
-+						      qlcnic_hwmon_groups);
-+	if (IS_ERR(hwmon_dev)) {
-+		dev_err(dev, "Cannot register with hwmon, err=%ld\n",
-+			PTR_ERR(hwmon_dev));
-+		hwmon_dev = NULL;
-+	}
-+	adapter->ahw->hwmon_dev = hwmon_dev;
-+}
-+
-+void qlcnic_unregister_hwmon_dev(struct qlcnic_adapter *adapter)
-+{
-+	struct device *hwmon_dev = adapter->ahw->hwmon_dev;
-+	if (hwmon_dev) {
-+		hwmon_device_unregister(hwmon_dev);
-+		adapter->ahw->hwmon_dev = NULL;
-+	}
-+}
-+#endif
-+
- void qlcnic_create_sysfs_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
 -- 
 1.8.1.4
