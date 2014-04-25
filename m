@@ -1,52 +1,43 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when
- creating bridge device
-Date: Fri, 25 Apr 2014 17:18:45 +0900
-Message-ID: <1398413925.3920.15.camel@ubuntu-vm-makita>
-References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
-	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
-	<1398341177.4171.11.camel@ubuntu-vm-makita>
-	<1398341787.4171.16.camel@ubuntu-vm-makita>
-	<CAG-2HqUhT+vbZfugfTYGzWt_qu45sKMaWXQ0uNg8SPzYNmG_5A@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: filter: initialize A and X registers
+Date: Fri, 25 Apr 2014 10:23:39 +0200
+Message-ID: <535A1B8B.7030504@redhat.com>
+References: <1398223137-5463-1-git-send-email-ast@plumgrid.com> <20140422.235745.1219194947074686642.davem@davemloft.net> <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com> <20140423.125043.100674358164503915.davem@davemloft.net> <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com> <1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com> <CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com> <1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com> <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	bridge <bridge@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, "C. R. Oldham" <cr@saltstack.com>
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAG-2HqUhT+vbZfugfTYGzWt_qu45sKMaWXQ0uNg8SPzYNmG_5A@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35057 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751811AbaDYIXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2014 04:23:51 -0400
+In-Reply-To: <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-24 at 18:04 +0200, Tom Gundersen wrote:
-> On Thu, Apr 24, 2014 at 2:16 PM, Toshiaki Makita
-> <makita.toshiaki@lab.ntt.co.jp> wrote:
-> > When bridge device is created with IFLA_ADDRESS, we are not calling
-> > br_stp_change_bridge_id(), which leads to incorrect local fdb
-> > management and bridge id calculation, and prevents us from receiving
-> > frames on the bridge device.
-> >
-> > Reported-by: Tom Gundersen <teg@jklm.no>
-> 
-> Thanks. That looks correct to me (not able to test at the moment
-> though). Would this be appropriate for stable if it goes in?
+On 04/24/2014 05:22 AM, Alexei Starovoitov wrote:
+...
+>> net/core/filter.c was about 880 lines in previous release, its now 1800+
+>> lines.
+>
+> but the whole sk_encode/decode functions are obsolete.
+> Now we can remove some code too.
 
-This can apply 3.14 as is.
-For 3.12 or earlier tree, this needs modification to insert the fdb
-entry (or backport fdb fix patchset (684bd2e1)).
-And for 3.2, another patch needs to be backported before this because
-br_fdb_change_mac_address() doesn't exist.
+Indeed, these can eventually be removed; naturally, a bigger portion
+of these changes go into the conversion functions into the new layout.
+The interpreter part itself is conceptually the same, seccomp as you
+might have noticed actually got a lot easier thanks to the BPF
+changes, and the new instruction layout is much easier to handle for
+JITs (i.e. the BPF extensions), which is ongoing work. Clearly, there
+are successive integration steps required. As such, also the
+documentation will get further improved for all that in the next days.
 
 Thanks,
-Toshiaki Makita
+
+Daniel
