@@ -1,168 +1,129 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
- instead of pci_enable_msix()
-Date: Fri, 25 Apr 2014 08:48:14 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F9EE54@avmb2.qlogic.org>
-References: <cover.1398412015.git.agordeev@redhat.com>
- <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] Virtio_net: Set dev->needed_headroom to put
+ the header in
+Date: Fri, 25 Apr 2014 16:51:25 +0800
+Message-ID: <535A220D.7040101@redhat.com>
+References: <60A73B7A161A82449A7DB7B382BFD1553702849A@SZXEMA504-MBS.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_"
-Cc: Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Alexander Gordeev <agordeev@redhat.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Qinchuanyu <qinchuanyu@huawei.com>,
+	Liuyongan <liuyongan@huawei.com>
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47320 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751342AbaDYIwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2014 04:52:25 -0400
+In-Reply-To: <60A73B7A161A82449A7DB7B382BFD1553702849A@SZXEMA504-MBS.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-> -----Original Message-----
-> From: Alexander Gordeev [mailto:agordeev@redhat.com]
-> Sent: Friday, April 25, 2014 1:36 PM
-> To: linux-kernel
-> Cc: Alexander Gordeev; Shahed Shaikh; Dept-HSG Linux NIC Dev; netdev;
-> linux-pci
-> Subject: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact() instead
-> of pci_enable_msix()
->=20
-> As result of deprecation of MSI-X/MSI enablement functions
-> pci_enable_msix() and pci_enable_msi_block() all drivers using these two
-> interfaces need to be updated to use the new pci_enable_msi_range()  or
-> pci_enable_msi_exact() and pci_enable_msix_range() or
-> pci_enable_msix_exact() interfaces.
->=20
-> Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> Cc: Dept-HSGLinuxNICDev@qlogic.com
-> Cc: netdev@vger.kernel.org
-> Cc: linux-pci@vger.kernel.org
->=20
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+On 04/25/2014 11:11 AM, Zhangjie (HZ) wrote:
+>
+> This patch is a small supplement for Patch =93virtio-net: put virtio-=
+net
+> header inline with data=94.
+>
+> This patch set dev->needed_headroom for virtio-net device to put
+> virtio-net header in.
+>
+> Currently, TCP packages have enough room, but UDP packages do not.
+>
+> For UDP packages, sk_buff is alloced in fun __ip_append_data. The siz=
+e
+> equals =93alloclen + hh_len + 15=94, and =93hh_len =3D
+> LL_RESERVED_SPACE(rt->dst.dev);=94.
+>
+> The Macro is defined as follows:
+>
+> #define LL_RESERVED_SPACE(dev) \
+>
+> ((((dev)->hard_header_len+(dev)->needed_headroom)&~(HH_DATA_MOD - 1))
+> + HH_DATA_MOD)
+>
+> By default, for UDP packages, after skb is allocated, only 16 bytes
+> reserved. And 2 bytes remained after mac header is set. Not enough to
+> put virtio-net header in.
+>
+> If we set dev->needed_headroom to 12 or 10 (according to
+> mergeable_rx_bufs is on or off ), more room can be reserved.
+>
+> Then there is enough room for UDP packages to put the header in.
+>
+> Here is the patch. J
+>
+> ------------
+>
+> From a0192e935855002bb122a373a526fe884173c652 Mon Sep 17 00:00:00 200=
+1
+>
+> From: ZhangJie <zhangjie14@huawei.com>
+>
+> Date: Fri, 25 Apr 2014 11:06:27 +0800
+>
+> Subject: [PATCH] set needed_headroom
+>
 > ---
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> index dbf7539..26f022b 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> @@ -690,8 +690,8 @@ int qlcnic_setup_tss_rss_intr(struct qlcnic_adapter
-> *adapter)
->  		adapter->msix_entries[vector].entry =3D vector;
->=20
->  restore:
-> -	err =3D pci_enable_msix(pdev, adapter->msix_entries, num_msix);
-> -	if (err > 0) {
-> +	err =3D pci_enable_msix_exact(pdev, adapter->msix_entries,
-> num_msix);
-> +	if (err =3D=3D -ENOSPC) {
->  		if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
->  			return -ENOSPC;
+>
+> drivers/net/virtio_net.c | 7 +++++++
+>
+> 1 file changed, 7 insertions(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>
+> index 7b68746..c95d196 100644
+>
+> --- a/drivers/net/virtio_net.c
+>
+> +++ b/drivers/net/virtio_net.c
+>
+> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device
+> *vdev)
+>
+> if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>
+> vi->has_cvq =3D true;
+>
+> + if (vi->any_header_sg) {
+>
+> + if (vi->mergeable_rx_bufs)
+>
+> + dev->needed_headroom =3D sizeof(struct virtio_net_hdr_mrg_rxbuf);
+>
+> + else
+>
+> + dev->needed_headroom =3D sizeof(struct virtio_net_hdr);
+>
+> + }
+>
+> +
+>
+> /* Use single tx/rx queue pair as default */
+>
+> vi->curr_queue_pairs =3D 1;
+>
+> vi->max_queue_pairs =3D max_queue_pairs;
+>
+> --=20
+>
+> 1.7.10.msysgit.1
+>
+> --Best Wishes!
+>
+> //Zhang Jie
+>
 
-I think, it would be good if we return "err" instead of "-ENOSPC" .
- =20
-                if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
--                       return -ENOSPC;
-+                       return err;
+Hi:
 
-Thanks,
-Shahed
+Please submit a formal patch that obeys the rule of
+Documentation/SubmittingPatches. Then you verify this by checking
+whether or not it was captured by patchwork:
+http://patchwork.ozlabs.org/project/netdev/list/.
 
+=46or this patch, it's better to put your test method and result in the
+commit log also.
 
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
-
-eJ8+IqV9AQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADg0REVGNEI1
-NTQ4NTAxNDg5NjlCRjY1REJENzhFNUFFAF0HAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HBAAZAAgA
-MAAOAAUATQEBIIADAA4AAADeBwQAGQAIADAADgAFAE0BAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
-YWlsLk5vdGUAMQgBBIABAFoAAABSRTogW1BBVENIIG5ldC1uZXh0IDIvMl0gcWxjbmljOiBVc2Ug
-cGNpX2VuYWJsZV9tc2l4X2V4YWN0KCkgaW5zdGVhZCBvZiBwY2lfZW5hYmxlX21zaXgoKQDXHgED
-kAYANBEAAEAAAAACAX8AAQAAADwAAAA8MjYyQ0IzNzNBNkQxRjE0RjlCODFFODJGNzRGNzdENUE0
-NkY5RUU1NEBhdm1iMi5xbG9naWMub3JnPgALAB8OAQAAAAIBCRABAAAABgUAAAIFAAAOCgAATFpG
-dU8ODYxhAApmYmlkBAAAY2PAcGcxMjUyAP4DQ/B0ZXh0AfcCpAPjAgAEY2gKwHNldDAg7wdtAoMA
-UBFNMgqABrQCgJZ9CoAIyDsJYjE5DsC/CcMWcgoyFnECgBViKgmwcwnwBJBhdAWyDlADYHOibwGA
-IEV4EcFuGDBdBlJ2BJAXtgIQcgDAdH0IUG4aMRAgBcAFoBtkZJogA1IgECIXslx2CJDkd2sLgGQ1
-HVME8AdADRdwMApxF/Jia21rBnMBkAAgIEJNX0LgRUdJTn0K/AHxC/FQID4gLSHCTwUQZ88LgAdA
-BdAHkHNhGDAhw7RcbAuAZQqAIaBGA2FoOiBBHnB4AHAEgSCGRwWwAQBldiBbAMDbAxAYkDoi4CUE
-QAlxEdDkdC4FoG1dI2cGYAIwRyQwI/AN0GF5LCRAcB8FEAMgDqAogAHQMTQggDE6MzYgUE0jZwpU
-JdAgI3F1eC1rzQSRZQlQI3ZDYyQ/JUA2OwYAEdBoHFEtkWlrEmgtcERlBTAtSFOYRyBMKuIHsElD
-LnF7LWEYUHQBAC1gI2cq1HDGYwCgJ0d1YmoFkCfxQFtQQVRDSC/yLQcYUBBAKPAvMl0gcaxsYwMA
-LDFVEgAgMWFOXwnwAaAecF9tAJB4xzTwJIAycCgpIAuAH2D8ZWELMCN2GTA0vjYQI2fNI2dBBCAJ
-cHN1JbA3Mu8BACiwBZAYgGkCIDcyBeDQSS1YLzthIDUEB4DzAjAccHVuMnA68Q4AI3YtN38gJJE0
-vV8CYG9j6ms+wmwDIGQFEBoxBCA+dQCQGcAcwC3ANJF0d+5vI2cLgBuhZgDQB5EYUJMcURiQIGIZ
-4HVwKFD/HEJD4UFgQgEtwC/xB+A/Pe8YcBnBNhE3MHI9Tz+1Nca/Pv81kUamRz81L0LZLjiPoywT
-LZsgPHMtoy5QQVUuMUA0AG8iQGMm4j7/K5suhi8TL3EvsVEZK5swBKRAdhgwci4rNC4FsN5nK5sx
-B1W/Tg9TIjAYUIRkLRkwZi1ieSxPvSVBPCX/UaojOkDWLzAB/i8SEC3AK1FfkFEkYDE0Is9gpTVg
-C3Em4CB8RxBHEOkpcCsrXjoxHHADEAeRPRmUZCkhNjIbgT0CKCveKWRCAQAecGTULTh/IaCfDeAB
-ICGxIkAFQGEvXv/3YA9hHCNnYmg/aU9qX0J3AwEAL1BkYmY3NTMgOS4uMjYBMDIyxmIpgB6gNjQ0
-XZpoH+9s323vI2dicCtrz3MvdD8JI2dAQCGwNjkwLL44YmB6BHnBQuEz9V8SAXlEQF90BBBGkHwh
-QuFycigfYHJ1MnB7NjaQYfcFMASQI2cqfcVmSAMwDJPnAaBJQH3ULT41dHyhCJCcc1saMDJwBbBd
-LoFi8HkgPSCB5DBoXlg50fkYkWU6XZiAMwSQBcCCwP893kRQJUAogICPgZIogCrwOm01YykwaIWU
-BpAgKOuF8iGgMDYgXAAAdVeFr39MLodfiGkjZ4kvjBaKtj0BgsAtRU5PU1BDt4trf+iKsiGOt0Dg
-dnwE40GBBCAmJiCVDHxSliP/f0+AFQlwe9AEoZLlMGYjZfc74EHAC4BrKIBn8UIwOgDfHGBEEVxg
-BHCKoncZ4Jml2iKMkSI2NjcyIpLlniD/TeZ/0Z+2oKyUz5Xflu+X+f9yAKWfoKOZryODdfCof6a6
-+4yRmo1UGaEfUJAGLZSanAMVQq3QAAAfAEIAAQAAABwAAABTAGgAYQBoAGUAZAAgAFMAaABhAGkA
-awBoAAAAHwBlAAEAAAAyAAAAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBj
-AC4AYwBvAG0AAAAAAB8AZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAcAAAAAAAAACBKx+k
-vqMQGZ1uAN0BD1QCAAAAgFMAaABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAABTAE0AVABQAAAAcwBo
-AGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAJdAQAAADIA
-AABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDl
-XwEAAAA6AAAAcwBpAHAAOgBzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMA
-LgBjAG8AbQAAAAAAHwAaDAEAAAAcAAAAUwBoAGEAaABlAGQAIABTAGgAYQBpAGsAaAAAAB8AHwwB
-AAAAMgAAAHMAaABhAGgAZQBkAC4AcwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAA
-AAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAAAHAAAAAAAAAAgSsfpL6jEBmdbgDdAQ9U
-AgAAAIBTAGgAYQBoAGUAZAAgAFMAaABhAGkAawBoAAAAUwBNAFQAUAAAAHMAaABhAGgAZQBkAC4A
-cwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwABXQEAAAAyAAAAcwBoAGEAaABl
-AGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A+D8BAAAAHAAAAFMA
-aABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAAAfACNAAQAAADIAAABzAGgAYQBoAGUAZAAuAHMAaABh
-AGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEAAAAKAAAAUwBNAFQAUAAAAAAA
-AgH5PwEAAABwAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAUwBoAGEAaABlAGQAIABTAGgAYQBp
-AGsAaAAAAFMATQBUAFAAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMA
-LgBjAG8AbQAAAB8ACV0BAAAAMgAAAHMAaABhAGgAZQBkAC4AcwBoAGEAaQBrAGgAQABxAGwAbwBn
-AGkAYwAuAGMAbwBtAAAAAAAfADFAAQAAAAIAAAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAA
-HwAaAAEAAAASAAAASQBQAE0ALgBOAG8AdABlAAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAAC
-AQswAQAAABAAAACE3vS1VIUBSJab9l29eOWuAwAXAAEAAABAADkAANsiGGNgzwFAAAgw58l2GGNg
-zwELACkAAAAAAAsAIwAAAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAHgAAAGEAYwBjAGUAcAB0
-AGwAYQBuAGcAdQBhAGcAZQAAAAAAAQAAAAwAAABlAG4ALQBVAFMAAAALAACACCAGAAAAAADAAAAA
-AAAARgAAAAAGhQAAAAAAAB8ANwABAAAAtAAAAFIARQA6ACAAWwBQAEEAVABDAEgAIABuAGUAdAAt
-AG4AZQB4AHQAIAAyAC8AMgBdACAAcQBsAGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4A
-YQBiAGwAZQBfAG0AcwBpAHgAXwBlAHgAYQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAg
-AHAAYwBpAF8AZQBuAGEAYgBsAGUAXwBtAHMAaQB4ACgAKQAAAB8APQABAAAACgAAAFIARQA6ACAA
-AAAAAAMANgAAAAAAAwAuAAAAAAAfAEIQAQAAAJwAAAA8ADAAYQAwAGQANQBmADUAYwAzADMAZAA4
-ADYAZQAzADcANwA3AGMAMgAyAGMAMwBjADEAYgBiAGQAOAAxADAAMwA1ADYANgAwAGQANQA3AGMA
-LgAxADMAOQA4ADQAMQAyADAAMQA1AC4AZwBpAHQALgBhAGcAbwByAGQAZQBlAHYAQAByAGUAZABo
-AGEAdAAuAGMAbwBtAD4AAAACAXEAAQAAABsAAAABAc9gXRgBFke9Um4UQ5jAnOoETbbZmyIDjkAA
-HwBwAAEAAACsAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQAIAAyAC8AMgBdACAAcQBs
-AGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4AYQBiAGwAZQBfAG0AcwBpAHgAXwBlAHgA
-YQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAgAHAAYwBpAF8AZQBuAGEAYgBsAGUAXwBt
-AHMAaQB4ACgAKQAAAB8ANRABAAAAeAAAADwAMgA2ADIAQwBCADMANwAzAEEANgBEADEARgAxADQA
-RgA5AEIAOAAxAEUAOAAyAEYANwA0AEYANwA3AEQANQBBADQANgBGADkARQBFADUANABAAGEAdgBt
-AGIAMgAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA8gAAADwAYwBvAHYAZQByAC4A
-MQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABh
-AHQALgBjAG8AbQA+ACAAPAAwAGEAMABkADUAZgA1AGMAMwAzAGQAOAA2AGUAMwA3ADcANwBjADIA
-MgBjADMAYwAxAGIAYgBkADgAMQAwADMANQA2ADYAMABkADUANwBjAC4AMQAzADkAOAA0ADEAMgAw
-ADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABhAHQALgBjAG8AbQA+AAAA
-AAADAN4/n04AAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAOFAAAAAAAAAwAAgAggBgAAAAAAwAAA
-AAAAAEYAAAAAAYUAAAAAAAADAIAQ/////0AABzCn3EoXY2DPAQsAAgABAAAAAwAmAAAAAAALACsA
-AAAAAAIBRwABAAAALwAAAGM9VVM7YT0gO3A9UUxvZ2ljO2w9QVZNQjItMTQwNDI1MDg0ODE0Wi0x
-NjU3MDkAAAIBEDABAAAARgAAAAAAAACvPIKkfhGKQbi6Ht+YpY1gBwBahG++9b7/Trf2hn64jhl8
-ABpraDblAACusyjlAk3gSIgLit3xNWjzAEt2/YWoAAAAAB8A+j8BAAAAHAAAAFMAaABhAGgAZQBk
-ACAAUwBoAGEAaQBrAGgAAAADAAlZAQAAAAMAAIAIIAYAAAAAAMAAAAAAAABGAAAAABCFAAAAAAAA
-CwAAgAggBgAAAAAAwAAAAAAAAEYAAAAADoUAAAAAAAADAACACCAGAAAAAADAAAAAAAAARgAAAAAY
-hQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAIKFAAAAAAAAQAAAgAggBgAAAAAAwAAAAAAA
-AEYAAAAAv4UAAPC3KfRiYM8BHwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA2IUAAAEAAAASAAAASQBQ
-AE0ALgBOAG8AdABlAAAAAAADAA00/T8AAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACAAAAB4AC0A
-bQBzAC0AaABhAHMALQBhAHQAdABhAGMAaAAAAAEAAAACAAAAAAAAAB8AAICGAwIAAAAAAMAAAAAA
-AABGAQAAACIAAAB4AC0AbwByAGkAZwBpAG4AYQB0AGkAbgBnAC0AaQBwAAAAAAABAAAAGAAAAFsA
-MQAwAC4AMQAuADQALgAxADAAXQAAAAaW
-
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_--
+Thanks
