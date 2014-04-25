@@ -1,39 +1,35 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: deadlock in ipv6?
-Date: Fri, 25 Apr 2014 09:33:25 +0200
-Message-ID: <20140425073325.GA7050@order.stressinduktion.org>
-References: <535A0950.9090302@linaro.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v2 2/5] net: filter: misc/various cleanups
+Date: Fri, 25 Apr 2014 09:52:14 +0200
+Message-ID: <535A142E.9060609@redhat.com>
+References: <1398321927-8845-1-git-send-email-dborkman@redhat.com> <1398321927-8845-3-git-send-email-dborkman@redhat.com> <20140424.160050.2258325688773881218.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: John Stultz <john.stultz@linaro.org>,
-	"naresh.kamboju@linaro.org Kamboju" <naresh.kamboju@linaro.org>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Mark Brown <broonie@linaro.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Ingo Molnar <mingo@kernel.org>
-To: Alex Shi <alex.shi@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <535A0950.9090302@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31369 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751286AbaDYHwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2014 03:52:25 -0400
+In-Reply-To: <20140424.160050.2258325688773881218.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 25, 2014 at 03:05:52PM +0800, Alex Shi wrote:
-> [   18.624755]        CPU0
-> 
-> [   18.627349]        ----
-> 
-> [   18.629943]   lock(&addrconf_stats->syncp.seq);
-> 
-> [   18.634735]   <Interrupt>
-> 
-> [   18.637512]     lock(&addrconf_stats->syncp.seq);
-> 
+On 04/24/2014 10:00 PM, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Thu, 24 Apr 2014 08:45:24 +0200
+>
+>> +	return __skb_get_poff((struct sk_buff *)(long) ctx);
+>
+> Please use "unsigned long" when casting pointers to/from integers.
 
-Stable kernel should already carry a fix for this, 43a43b6040165f7
-("ipv6: some ipv6 statistic counters failed to disable bh"). Could you give it
-a try?
+I'll fix it up, thanks.
 
-Bye,
+There's ongoing work to improve the documentation file to address
+your concerns.
 
-  Hannes
+Thanks,
+
+Daniel
