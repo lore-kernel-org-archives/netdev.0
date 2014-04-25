@@ -1,60 +1,88 @@
 From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
-Date: Fri, 25 Apr 2014 16:09:36 +0800
-Message-ID: <535A1840.2010109@gmail.com>
-References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu> <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk> <53577036.2040307@gmail.com> <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk> <53587280.4020101@gmail.com> <20140424052447.GC17409@1wt.eu>
+Subject: Re: performance decrease ?
+Date: Fri, 25 Apr 2014 16:18:31 +0800
+Message-ID: <535A1A57.50007@gmail.com>
+References: <CAGZFCEEYy9qULvzSr9JyBJtA6h+_NvL3gqxLF4dSy1yMupM2xQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
-	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
-	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
-	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
-	"Tao, Yue" <Yue.Tao@windriver.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140424052447.GC17409@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
+To: ratheesh kannoth <ratheesh.ksz@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Netfilter mailing list <netfilter@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAGZFCEEYy9qULvzSr9JyBJtA6h+_NvL3gqxLF4dSy1yMupM2xQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 04/24/2014 01:24 PM, Willy Tarreau wrote:
-> On Thu, Apr 24, 2014 at 10:10:08AM +0800, zhuyj wrote:
->> On 04/23/2014 07:41 PM, Ben Hutchings wrote:
->>> On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
->>>> On 04/23/2014 01:53 AM, Ben Hutchings wrote:
->>> [...]
->>>>> For what it's worth, I would recommend against applying this.  I don't
->>>>> think even Red Hat has backported the VLAN changes, and they have been
->>>>> quite aggressive about backporting features to RHEL 6.
->>>> If we do not merge these patches, maybe RHEL 6 can not make tap driver
->>>> support vlan well.
->>> RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
->> Hi, Ben
->>
->> It is well known that extraction vlan tag is not implemented in kernel
->> 2.6.32.y.  Kernel 2.6.32.y depends on nic hardware to extract vlan tag.
->> So if the patches are not applied, tap driver can not support vlan well.
-> What Ben is saying is that RHEL doesn't use 2.6.32.y, but did their own
-> fork of 2.6.32 so even if we merged your patch, they wouldn't pick it
-> from this tree anyway. However they could possibly take your patch if
-> some customers requested the feature even if it's not in 2.6.32.y.
-OK. as your wish.
+On 04/24/2014 06:15 PM, ratheesh kannoth wrote:
+> I did an experiment  and this experiment gave me an unexpected result
+> ( for me). I would like to get any clue or hint on this.
+> [ ubuntu  kernel version  3.11 ]
+>
+> i wrote an userpace program to create two tap devices( tap77 and tap88
+> ) and will epoll on these fds. if a packet is received on  tap77 fd,
+> it will be read() and write to tap88 fd  and vice versa. Basically
+> this program will send pkts from tap88 to tap77 and vice versa.  when
+> i sent 10  icmp packets (using ping ); i got  rtt min/avg/max/mdev
+> =.825/1.006/2.052/.310 ms.
+>
+>
+> I modified  tun_net_xmit() function in tun.c and created another
+> driver and ran the above test.
+>
+>     tun_net_xmit() {
+>
+>            skb_orphan(skb);
+>
+>           if( skb->dev == tap77_dev ) skb->dev= tap88_dev
+>           else if (skb->dev == tap88_dev ) skb->dev = tap77_dev;
+>
+>           skb_reset_mac_header(skb);
+>           skb_reset_network_header(skb);
+>           skb_reset_transport_header(skb);
+>
+>           netif_rx_ni(skb);
+netif_rx_ni(skb); will insert the skb into a queue. We can not make sure 
+when this skb is handled. So use this function is not accurate to 
+performance.
 
 Best Regards!
 Zhu Yanjun
->
-> Clearly, the fact that nobody complained about this in 4.5 years of
-> 2.6.32 means that there's no particular reason any user would suddenly
-> miss it now. 2.6.32.y is mostly used to update existing deployments but
-> rarely for new deployments. That's why the usefulness of your backport
-> in this kernel for its users is likely limited, and at the same time
-> the risk of causing a regression is far from being null for existing
-> users (eg: if some worked around the issue a different way, their
-> workaround would likely not work anymore).
->
-> Best regards,
-> Willy
+>   }
 >
 >
+> i got rtt min/avg/max/mdev = .778/1.023/2.662/.549.
+>
+>
+> With the modified driver,  Although we avoided   2 packet copies and 2
+> system call, it did not result in  performance
+> improvement ( it did decrease by a small delta ).
+>
+> Thanks,
+> Ratheesh
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+------------------------------------------------------------------------------
+Start Your Social Network Today - Download eXo Platform
+Build your Enterprise Intranet with eXo Platform Software
+Java Based Open Source Intranet - Social, Extensible, Cloud Ready
+Get Started Now And Turn Your Intranet Into A Collaboration Platform
+http://p.sf.net/sfu/ExoPlatform
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
