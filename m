@@ -1,50 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/5] iwlegacy: Convert /n to \n
-Date: Thu, 24 Apr 2014 18:51:00 -0700
-Message-ID: <80376e433ad62c5792b72ef5a338df1771bc9975.1398390579.git.joe@perches.com>
-References: <cover.1398390579.git.joe@perches.com>
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1398390579.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] tipc: fix a possible memory leak
+Date: Fri, 25 Apr 2014 10:44:15 +0800
+Message-ID: <1398393855-24772-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <jon.maloy@ericsson.com>,
+	<Paul.Gortmaker@windriver.com>, <erik.hugne@ericsson.com>,
+	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:53352 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbaDYCok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 22:44:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use a newline character appropriately.
+The commit a8b9b96e959f3c035af20b1bd2ba67b0b7269b19 ("tipc: fix race
+in disc create/delete") leads to the following static checker warning:
 
-Signed-off-by: Joe Perches <joe@perches.com>
+	net/tipc/discover.c:352 tipc_disc_create()
+		warn: possible memory leak of 'req'
+
+The risk of memory leak really exists in practice. Especially when
+it's failed to allocate memory for "req->buf", tipc_disc_create()
+doesn't free its allocated memory, instead just directly returns
+with ENOMEM error code. In this situation, memory leak, of course,
+happens.
+
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- drivers/net/wireless/iwlegacy/3945.c     | 2 +-
- drivers/net/wireless/iwlegacy/4965-mac.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/tipc/discover.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/iwlegacy/3945.c b/drivers/net/wireless/iwlegacy/3945.c
-index d37a6fd..b598e28 100644
---- a/drivers/net/wireless/iwlegacy/3945.c
-+++ b/drivers/net/wireless/iwlegacy/3945.c
-@@ -573,7 +573,7 @@ il3945_hdl_rx(struct il_priv *il, struct il_rx_buf *rxb)
- 		rx_status.flag |= RX_FLAG_SHORTPRE;
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index ada42e4..bd35c4a 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -348,8 +348,10 @@ int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest)
+ 		return -ENOMEM;
  
- 	if ((unlikely(rx_stats->phy_count > 20))) {
--		D_DROP("dsp size out of range [0,20]: %d/n",
-+		D_DROP("dsp size out of range [0,20]: %d\n",
- 		       rx_stats->phy_count);
- 		return;
- 	}
-diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
-index 888ad5c..c159c05 100644
---- a/drivers/net/wireless/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/iwlegacy/4965-mac.c
-@@ -670,7 +670,7 @@ il4965_hdl_rx(struct il_priv *il, struct il_rx_buf *rxb)
- 	}
+ 	req->buf = tipc_buf_acquire(INT_H_SIZE);
+-	if (!req->buf)
++	if (!req->buf) {
++		kfree(req);
+ 		return -ENOMEM;
++	}
  
- 	if ((unlikely(phy_res->cfg_phy_cnt > 20))) {
--		D_DROP("dsp size out of range [0,20]: %d/n",
-+		D_DROP("dsp size out of range [0,20]: %d\n",
- 		       phy_res->cfg_phy_cnt);
- 		return;
- 	}
+ 	tipc_disc_init_msg(req->buf, DSC_REQ_MSG, b_ptr);
+ 	memcpy(&req->dest, dest, sizeof(*dest));
 -- 
-1.8.1.2.459.gbcd45b4.dirty
+1.7.9.5
