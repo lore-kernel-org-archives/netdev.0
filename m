@@ -1,74 +1,168 @@
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
-Subject: [PATCH V2] sctp: reset flowi4_oif parameter on route lookup
-Date: Fri, 25 Apr 2014 16:55:41 +0800
-Message-ID: <1398416141-18916-1-git-send-email-xufeng.zhang@windriver.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
+ instead of pci_enable_msix()
+Date: Fri, 25 Apr 2014 08:48:14 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F9EE54@avmb2.qlogic.org>
+References: <cover.1398412015.git.agordeev@redhat.com>
+ <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<davem@davemloft.net>, <ja@ssi.bg>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_"
+Cc: Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Alexander Gordeev <agordeev@redhat.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
+Content-Language: en-US
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is
-in output route lookups.) introduces another regression which
-is very similar to the problem of commit e6b45241c (ipv4: reset
-flowi parameters on route connect) wants to fix:
-Before we call ip_route_output_key() in sctp_v4_get_dst() to
-get a dst that matches a bind address as the source address,
-we have already called this function previously and the flowi
-parameters have been initialized including flowi4_oif, so when
-we call this function again, the process in __ip_route_output_key()
-will be different because of the setting of flowi4_oif, and we'll
-get a networking device which corresponds to the inputted flowi4_oif
-as the output device, this is wrong because we'll never hit this
-place if the previously returned source address of dst match one
-of the bound addresses.
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-To reproduce this problem, a vlan setting is enough:
-  # ifconfig eth0 up
-  # route del default
-  # vconfig add eth0 2
-  # vconfig add eth0 3
-  # ifconfig eth0.2 10.0.1.14 netmask 255.255.255.0
-  # route add default gw 10.0.1.254 dev eth0.2
-  # ifconfig eth0.3 10.0.0.14 netmask 255.255.255.0
-  # ip rule add from 10.0.0.14 table 4
-  # ip route add table 4 default via 10.0.0.254 src 10.0.0.14 dev eth0.3
-  # sctp_darn -H 10.0.0.14 -P 36422 -h 10.1.4.134 -p 36422 -s -I
-You'll detect that all the flow are routed to eth0.2(10.0.1.254).
+> -----Original Message-----
+> From: Alexander Gordeev [mailto:agordeev@redhat.com]
+> Sent: Friday, April 25, 2014 1:36 PM
+> To: linux-kernel
+> Cc: Alexander Gordeev; Shahed Shaikh; Dept-HSG Linux NIC Dev; netdev;
+> linux-pci
+> Subject: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact() instead
+> of pci_enable_msix()
+>=20
+> As result of deprecation of MSI-X/MSI enablement functions
+> pci_enable_msix() and pci_enable_msi_block() all drivers using these two
+> interfaces need to be updated to use the new pci_enable_msi_range()  or
+> pci_enable_msi_exact() and pci_enable_msix_range() or
+> pci_enable_msix_exact() interfaces.
+>=20
+> Cc: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> Cc: Dept-HSGLinuxNICDev@qlogic.com
+> Cc: netdev@vger.kernel.org
+> Cc: linux-pci@vger.kernel.org
+>=20
+> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> ---
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index dbf7539..26f022b 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -690,8 +690,8 @@ int qlcnic_setup_tss_rss_intr(struct qlcnic_adapter
+> *adapter)
+>  		adapter->msix_entries[vector].entry =3D vector;
+>=20
+>  restore:
+> -	err =3D pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+> -	if (err > 0) {
+> +	err =3D pci_enable_msix_exact(pdev, adapter->msix_entries,
+> num_msix);
+> +	if (err =3D=3D -ENOSPC) {
+>  		if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
+>  			return -ENOSPC;
 
-Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
-Changelog:
+I think, it would be good if we return "err" instead of "-ENOSPC" .
+ =20
+                if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
+-                       return -ENOSPC;
++                       return err;
 
-v1->v2:
- Suggested by Julian Anastasov, reset flowi parameters by flowi4_update_output().
+Thanks,
+Shahed
 
- net/sctp/protocol.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index c09757f..44cbb54 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -491,8 +491,13 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 			continue;
- 		if ((laddr->state == SCTP_ADDR_SRC) &&
- 		    (AF_INET == laddr->a.sa.sa_family)) {
--			fl4->saddr = laddr->a.v4.sin_addr.s_addr;
- 			fl4->fl4_sport = laddr->a.v4.sin_port;
-+			flowi4_update_output(fl4,
-+					     asoc->base.sk->sk_bound_dev_if,
-+					     RT_CONN_FLAGS(asoc->base.sk),
-+					     daddr->v4.sin_addr.s_addr,
-+					     laddr->a.v4.sin_addr.s_addr);
-+
- 			rt = ip_route_output_key(sock_net(sk), fl4);
- 			if (!IS_ERR(rt)) {
- 				dst = &rt->dst;
--- 
-1.7.0.2
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
+
+eJ8+IqV9AQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADg0REVGNEI1
+NTQ4NTAxNDg5NjlCRjY1REJENzhFNUFFAF0HAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HBAAZAAgA
+MAAOAAUATQEBIIADAA4AAADeBwQAGQAIADAADgAFAE0BAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
+YWlsLk5vdGUAMQgBBIABAFoAAABSRTogW1BBVENIIG5ldC1uZXh0IDIvMl0gcWxjbmljOiBVc2Ug
+cGNpX2VuYWJsZV9tc2l4X2V4YWN0KCkgaW5zdGVhZCBvZiBwY2lfZW5hYmxlX21zaXgoKQDXHgED
+kAYANBEAAEAAAAACAX8AAQAAADwAAAA8MjYyQ0IzNzNBNkQxRjE0RjlCODFFODJGNzRGNzdENUE0
+NkY5RUU1NEBhdm1iMi5xbG9naWMub3JnPgALAB8OAQAAAAIBCRABAAAABgUAAAIFAAAOCgAATFpG
+dU8ODYxhAApmYmlkBAAAY2PAcGcxMjUyAP4DQ/B0ZXh0AfcCpAPjAgAEY2gKwHNldDAg7wdtAoMA
+UBFNMgqABrQCgJZ9CoAIyDsJYjE5DsC/CcMWcgoyFnECgBViKgmwcwnwBJBhdAWyDlADYHOibwGA
+IEV4EcFuGDBdBlJ2BJAXtgIQcgDAdH0IUG4aMRAgBcAFoBtkZJogA1IgECIXslx2CJDkd2sLgGQ1
+HVME8AdADRdwMApxF/Jia21rBnMBkAAgIEJNX0LgRUdJTn0K/AHxC/FQID4gLSHCTwUQZ88LgAdA
+BdAHkHNhGDAhw7RcbAuAZQqAIaBGA2FoOiBBHnB4AHAEgSCGRwWwAQBldiBbAMDbAxAYkDoi4CUE
+QAlxEdDkdC4FoG1dI2cGYAIwRyQwI/AN0GF5LCRAcB8FEAMgDqAogAHQMTQggDE6MzYgUE0jZwpU
+JdAgI3F1eC1rzQSRZQlQI3ZDYyQ/JUA2OwYAEdBoHFEtkWlrEmgtcERlBTAtSFOYRyBMKuIHsElD
+LnF7LWEYUHQBAC1gI2cq1HDGYwCgJ0d1YmoFkCfxQFtQQVRDSC/yLQcYUBBAKPAvMl0gcaxsYwMA
+LDFVEgAgMWFOXwnwAaAecF9tAJB4xzTwJIAycCgpIAuAH2D8ZWELMCN2GTA0vjYQI2fNI2dBBCAJ
+cHN1JbA3Mu8BACiwBZAYgGkCIDcyBeDQSS1YLzthIDUEB4DzAjAccHVuMnA68Q4AI3YtN38gJJE0
+vV8CYG9j6ms+wmwDIGQFEBoxBCA+dQCQGcAcwC3ANJF0d+5vI2cLgBuhZgDQB5EYUJMcURiQIGIZ
+4HVwKFD/HEJD4UFgQgEtwC/xB+A/Pe8YcBnBNhE3MHI9Tz+1Nca/Pv81kUamRz81L0LZLjiPoywT
+LZsgPHMtoy5QQVUuMUA0AG8iQGMm4j7/K5suhi8TL3EvsVEZK5swBKRAdhgwci4rNC4FsN5nK5sx
+B1W/Tg9TIjAYUIRkLRkwZi1ieSxPvSVBPCX/UaojOkDWLzAB/i8SEC3AK1FfkFEkYDE0Is9gpTVg
+C3Em4CB8RxBHEOkpcCsrXjoxHHADEAeRPRmUZCkhNjIbgT0CKCveKWRCAQAecGTULTh/IaCfDeAB
+ICGxIkAFQGEvXv/3YA9hHCNnYmg/aU9qX0J3AwEAL1BkYmY3NTMgOS4uMjYBMDIyxmIpgB6gNjQ0
+XZpoH+9s323vI2dicCtrz3MvdD8JI2dAQCGwNjkwLL44YmB6BHnBQuEz9V8SAXlEQF90BBBGkHwh
+QuFycigfYHJ1MnB7NjaQYfcFMASQI2cqfcVmSAMwDJPnAaBJQH3ULT41dHyhCJCcc1saMDJwBbBd
+LoFi8HkgPSCB5DBoXlg50fkYkWU6XZiAMwSQBcCCwP893kRQJUAogICPgZIogCrwOm01YykwaIWU
+BpAgKOuF8iGgMDYgXAAAdVeFr39MLodfiGkjZ4kvjBaKtj0BgsAtRU5PU1BDt4trf+iKsiGOt0Dg
+dnwE40GBBCAmJiCVDHxSliP/f0+AFQlwe9AEoZLlMGYjZfc74EHAC4BrKIBn8UIwOgDfHGBEEVxg
+BHCKoncZ4Jml2iKMkSI2NjcyIpLlniD/TeZ/0Z+2oKyUz5Xflu+X+f9yAKWfoKOZryODdfCof6a6
++4yRmo1UGaEfUJAGLZSanAMVQq3QAAAfAEIAAQAAABwAAABTAGgAYQBoAGUAZAAgAFMAaABhAGkA
+awBoAAAAHwBlAAEAAAAyAAAAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBj
+AC4AYwBvAG0AAAAAAB8AZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAcAAAAAAAAACBKx+k
+vqMQGZ1uAN0BD1QCAAAAgFMAaABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAABTAE0AVABQAAAAcwBo
+AGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAJdAQAAADIA
+AABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDl
+XwEAAAA6AAAAcwBpAHAAOgBzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMA
+LgBjAG8AbQAAAAAAHwAaDAEAAAAcAAAAUwBoAGEAaABlAGQAIABTAGgAYQBpAGsAaAAAAB8AHwwB
+AAAAMgAAAHMAaABhAGgAZQBkAC4AcwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAA
+AAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAAAHAAAAAAAAAAgSsfpL6jEBmdbgDdAQ9U
+AgAAAIBTAGgAYQBoAGUAZAAgAFMAaABhAGkAawBoAAAAUwBNAFQAUAAAAHMAaABhAGgAZQBkAC4A
+cwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwABXQEAAAAyAAAAcwBoAGEAaABl
+AGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A+D8BAAAAHAAAAFMA
+aABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAAAfACNAAQAAADIAAABzAGgAYQBoAGUAZAAuAHMAaABh
+AGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEAAAAKAAAAUwBNAFQAUAAAAAAA
+AgH5PwEAAABwAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAUwBoAGEAaABlAGQAIABTAGgAYQBp
+AGsAaAAAAFMATQBUAFAAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMA
+LgBjAG8AbQAAAB8ACV0BAAAAMgAAAHMAaABhAGgAZQBkAC4AcwBoAGEAaQBrAGgAQABxAGwAbwBn
+AGkAYwAuAGMAbwBtAAAAAAAfADFAAQAAAAIAAAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAA
+HwAaAAEAAAASAAAASQBQAE0ALgBOAG8AdABlAAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAAC
+AQswAQAAABAAAACE3vS1VIUBSJab9l29eOWuAwAXAAEAAABAADkAANsiGGNgzwFAAAgw58l2GGNg
+zwELACkAAAAAAAsAIwAAAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAHgAAAGEAYwBjAGUAcAB0
+AGwAYQBuAGcAdQBhAGcAZQAAAAAAAQAAAAwAAABlAG4ALQBVAFMAAAALAACACCAGAAAAAADAAAAA
+AAAARgAAAAAGhQAAAAAAAB8ANwABAAAAtAAAAFIARQA6ACAAWwBQAEEAVABDAEgAIABuAGUAdAAt
+AG4AZQB4AHQAIAAyAC8AMgBdACAAcQBsAGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4A
+YQBiAGwAZQBfAG0AcwBpAHgAXwBlAHgAYQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAg
+AHAAYwBpAF8AZQBuAGEAYgBsAGUAXwBtAHMAaQB4ACgAKQAAAB8APQABAAAACgAAAFIARQA6ACAA
+AAAAAAMANgAAAAAAAwAuAAAAAAAfAEIQAQAAAJwAAAA8ADAAYQAwAGQANQBmADUAYwAzADMAZAA4
+ADYAZQAzADcANwA3AGMAMgAyAGMAMwBjADEAYgBiAGQAOAAxADAAMwA1ADYANgAwAGQANQA3AGMA
+LgAxADMAOQA4ADQAMQAyADAAMQA1AC4AZwBpAHQALgBhAGcAbwByAGQAZQBlAHYAQAByAGUAZABo
+AGEAdAAuAGMAbwBtAD4AAAACAXEAAQAAABsAAAABAc9gXRgBFke9Um4UQ5jAnOoETbbZmyIDjkAA
+HwBwAAEAAACsAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQAIAAyAC8AMgBdACAAcQBs
+AGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4AYQBiAGwAZQBfAG0AcwBpAHgAXwBlAHgA
+YQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAgAHAAYwBpAF8AZQBuAGEAYgBsAGUAXwBt
+AHMAaQB4ACgAKQAAAB8ANRABAAAAeAAAADwAMgA2ADIAQwBCADMANwAzAEEANgBEADEARgAxADQA
+RgA5AEIAOAAxAEUAOAAyAEYANwA0AEYANwA3AEQANQBBADQANgBGADkARQBFADUANABAAGEAdgBt
+AGIAMgAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA8gAAADwAYwBvAHYAZQByAC4A
+MQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABh
+AHQALgBjAG8AbQA+ACAAPAAwAGEAMABkADUAZgA1AGMAMwAzAGQAOAA2AGUAMwA3ADcANwBjADIA
+MgBjADMAYwAxAGIAYgBkADgAMQAwADMANQA2ADYAMABkADUANwBjAC4AMQAzADkAOAA0ADEAMgAw
+ADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABhAHQALgBjAG8AbQA+AAAA
+AAADAN4/n04AAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAOFAAAAAAAAAwAAgAggBgAAAAAAwAAA
+AAAAAEYAAAAAAYUAAAAAAAADAIAQ/////0AABzCn3EoXY2DPAQsAAgABAAAAAwAmAAAAAAALACsA
+AAAAAAIBRwABAAAALwAAAGM9VVM7YT0gO3A9UUxvZ2ljO2w9QVZNQjItMTQwNDI1MDg0ODE0Wi0x
+NjU3MDkAAAIBEDABAAAARgAAAAAAAACvPIKkfhGKQbi6Ht+YpY1gBwBahG++9b7/Trf2hn64jhl8
+ABpraDblAACusyjlAk3gSIgLit3xNWjzAEt2/YWoAAAAAB8A+j8BAAAAHAAAAFMAaABhAGgAZQBk
+ACAAUwBoAGEAaQBrAGgAAAADAAlZAQAAAAMAAIAIIAYAAAAAAMAAAAAAAABGAAAAABCFAAAAAAAA
+CwAAgAggBgAAAAAAwAAAAAAAAEYAAAAADoUAAAAAAAADAACACCAGAAAAAADAAAAAAAAARgAAAAAY
+hQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAIKFAAAAAAAAQAAAgAggBgAAAAAAwAAAAAAA
+AEYAAAAAv4UAAPC3KfRiYM8BHwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA2IUAAAEAAAASAAAASQBQ
+AE0ALgBOAG8AdABlAAAAAAADAA00/T8AAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACAAAAB4AC0A
+bQBzAC0AaABhAHMALQBhAHQAdABhAGMAaAAAAAEAAAACAAAAAAAAAB8AAICGAwIAAAAAAMAAAAAA
+AABGAQAAACIAAAB4AC0AbwByAGkAZwBpAG4AYQB0AGkAbgBnAC0AaQBwAAAAAAABAAAAGAAAAFsA
+MQAwAC4AMQAuADQALgAxADAAXQAAAAaW
+
+--_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EE54avmb2qlogicorg_--
