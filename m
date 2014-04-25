@@ -1,60 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 1/3] net: ipv6: Unduplicate
- {raw,udp}v6_sendmsg code
-Date: Fri, 25 Apr 2014 12:51:55 -0400 (EDT)
-Message-ID: <20140425.125155.861435686727308330.davem@davemloft.net>
-References: <1398424172-17530-1-git-send-email-lorenzo@google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F6FF01A@AcuExch.aculab.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable 4/7] net: qmi_wwan: add Olivetti Olicard 500
+Date: Fri, 25 Apr 2014 19:00:31 +0200
+Message-ID: <1398445234-26620-5-git-send-email-bjorn@mork.no>
+References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lorenzo@google.com, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
-	eric.dumazet@gmail.com
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44845 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbaDYQv5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 12:51:57 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F6FF01A@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1398445234-26620-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Fri, 25 Apr 2014 11:24:21 +0000
+Device interface layout:
+0: ff/ff/ff - serial
+1: ff/ff/ff - serial AT+PPP
+2: 08/06/50 - storage
+3: ff/ff/ff - serial
+4: ff/ff/ff - QMI/wwan
 
-> From: Lorenzo Colitti
->> rawv6_sendmsg and udpv6_sendmsg have ~100 lines of almost
->> identical code. Move this into a new ipv6_datagram_send_common
->> helper function.
->> 
->> Tested: black-box tested using user-mode Linux.
->> 
->> - Basic UDP sends using sendto work.
->> - Mark routing and oif routing using SO_BINDTODEVICE work.
-> ...
->> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
->> index d640925..f1a247a 100644
->> --- a/include/net/ipv6.h
->> +++ b/include/net/ipv6.h
->> @@ -785,6 +785,13 @@ int compat_ipv6_getsockopt(struct sock *sk, int level, int optname,
->>  int ip6_datagram_connect(struct sock *sk, struct sockaddr *addr, int addr_len);
->>  int ip6_datagram_connect_v6_only(struct sock *sk, struct sockaddr *addr,
->>  				 int addr_len);
->> +int ip6_datagram_send_common(struct sock *sk, struct msghdr *msg,
->> +			     struct sockaddr_in6 *sin6, int addr_len,
->> +			     struct flowi6 *fl6, struct dst_entry **dstp,
->> +			     struct ipv6_txoptions **optp,
->> +			     struct ipv6_txoptions *opt_space,
->> +			     int *hlimit, int *tclass, int *dontfrag,
->> +			     int *connected);
-> 
-> That is a lot of parameters! and udp send is probably an important path.
+Reported-by: Julio Araujo <julio.araujo-SbDtOvCqMCPQ4tFLR8X5nw@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-The more I read this series the more I dislike it.
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 336b5375b00b..127b745d2e15 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -743,6 +743,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1201, 2)},	/* Telit LE920 */
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc005, 6)},    /* Olivetti Olicard 200 */
++	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
+=20
+--=20
+2.0.0.rc0
 
-All of these pointers being passed in, were local variables in the
-original code.
-
-This consolidation makes the code much worse, not better.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
