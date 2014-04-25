@@ -1,106 +1,244 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/13] igb: Cleanups to fix missing break in switch statements
-Date: Thu, 24 Apr 2014 18:02:55 -0700
-Message-ID: <1398387783-30414-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/13] igb: Cleanups to fix msleep warnings
+Date: Thu, 24 Apr 2014 18:02:58 -0700
+Message-ID: <1398387783-30414-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58814 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:58818 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750815AbaDYBDS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2014 21:03:18 -0400
+	id S1751113AbaDYBDU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 21:03:20 -0400
 In-Reply-To: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch fixes WARNING:MISSING_BREAK found with checkpatch check.
+This patch fixes WARNING:MSLEEP found by checkpatch check.
 
 Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_i210.c  | 1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 4 ++++
- drivers/net/ethernet/intel/igb/igb_main.c    | 4 ++++
- 3 files changed, 9 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 16 ++++++++--------
+ drivers/net/ethernet/intel/igb/e1000_mac.c   |  2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c   |  2 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 16 ++++++++--------
+ drivers/net/ethernet/intel/igb/igb_main.c    |  6 +++---
+ 5 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index 71a2a17..2231598 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -432,6 +432,7 @@ static s32 igb_read_invm_i210(struct e1000_hw *hw, u16 offset,
- 			*data = ID_LED_RESERVED_FFFF;
- 			ret_val = E1000_SUCCESS;
- 		}
-+		break;
- 	case NVM_SUB_DEV_ID:
- 		*data = hw->subsystem_device_id;
- 		break;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 1c0181f..2e36c67 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -1212,7 +1212,7 @@ static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
+ 	while (timeout) {
+ 		if (rd32(E1000_EEMNGCTL) & mask)
+ 			break;
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 		timeout--;
+ 	}
+ 	if (!timeout)
+@@ -1312,7 +1312,7 @@ void igb_power_up_serdes_link_82575(struct e1000_hw *hw)
+ 
+ 	/* flush the write to verify completion */
+ 	wrfl();
+-	msleep(1);
++	usleep_range(1000, 2000);
+ }
+ 
+ /**
+@@ -1407,7 +1407,7 @@ void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
+ 
+ 		/* flush the write to verify completion */
+ 		wrfl();
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 	}
+ }
+ 
+@@ -1442,7 +1442,7 @@ static s32 igb_reset_hw_82575(struct e1000_hw *hw)
+ 	wr32(E1000_TCTL, E1000_TCTL_PSP);
+ 	wrfl();
+ 
+-	msleep(10);
++	usleep_range(10000, 20000);
+ 
+ 	ctrl = rd32(E1000_CTRL);
+ 
+@@ -1920,7 +1920,7 @@ void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
+ 	}
+ 	/* Poll all queues to verify they have shut down */
+ 	for (ms_wait = 0; ms_wait < 10; ms_wait++) {
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 		rx_enabled = 0;
+ 		for (i = 0; i < 4; i++)
+ 			rx_enabled |= rd32(E1000_RXDCTL(i));
+@@ -1948,7 +1948,7 @@ void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
+ 	wr32(E1000_RCTL, temp_rctl);
+ 	wr32(E1000_RCTL, temp_rctl | E1000_RCTL_EN);
+ 	wrfl();
+-	msleep(2);
++	usleep_range(2000, 3000);
+ 
+ 	/* Enable RX queues that were previously enabled and restore our
+ 	 * previous state
+@@ -2236,7 +2236,7 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
+ 	wr32(E1000_TCTL, E1000_TCTL_PSP);
+ 	wrfl();
+ 
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	/* Determine whether or not a global dev reset is requested */
+ 	if (global_device_reset &&
+@@ -2254,7 +2254,7 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
+ 
+ 	/* Add delay to insure DEV_RST has time to complete */
+ 	if (global_device_reset)
+-		msleep(5);
++		usleep_range(5000, 6000);
+ 
+ 	ret_val = igb_get_auto_rd_done(hw);
+ 	if (ret_val) {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
+index 41fe59c..2a88595 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_mac.c
++++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
+@@ -1261,7 +1261,7 @@ s32 igb_get_auto_rd_done(struct e1000_hw *hw)
+ 	while (i < AUTO_READ_DONE_TIMEOUT) {
+ 		if (rd32(E1000_EECD) & E1000_EECD_AUTO_RD)
+ 			break;
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 		i++;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index 6321107..424f16c 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -2240,7 +2240,7 @@ void igb_power_down_phy_copper(struct e1000_hw *hw)
+ 		hw->phy.ops.write_reg(hw, GS40G_COPPER_SPEC, power_reg);
+ 	}
+ 	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
+-	msleep(1);
++	usleep_range(1000, 2000);
+ }
+ 
+ /**
 diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 794d66b..561df67 100644
+index b83694b..f1c01be 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2412,9 +2412,11 @@ static int igb_get_rss_hash_opts(struct igb_adapter *adapter,
- 	switch (cmd->flow_type) {
- 	case TCP_V4_FLOW:
- 		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
- 	case UDP_V4_FLOW:
- 		if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV4_UDP)
- 			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
- 	case SCTP_V4_FLOW:
- 	case AH_ESP_V4_FLOW:
- 	case AH_V4_FLOW:
-@@ -2424,9 +2426,11 @@ static int igb_get_rss_hash_opts(struct igb_adapter *adapter,
- 		break;
- 	case TCP_V6_FLOW:
- 		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
- 	case UDP_V6_FLOW:
- 		if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV6_UDP)
- 			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
- 	case SCTP_V6_FLOW:
- 	case AH_ESP_V6_FLOW:
- 	case AH_V6_FLOW:
+@@ -283,7 +283,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	}
+ 
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+ 		hw->mac.autoneg = 1;
+@@ -396,7 +396,7 @@ static int igb_set_pauseparam(struct net_device *netdev,
+ 	adapter->fc_autoneg = pause->autoneg;
+ 
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+ 	if (adapter->fc_autoneg == AUTONEG_ENABLE) {
+ 		hw->fc.requested_mode = e1000_fc_default;
+@@ -883,7 +883,7 @@ static int igb_set_ringparam(struct net_device *netdev,
+ 	}
+ 
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+ 	if (!netif_running(adapter->netdev)) {
+ 		for (i = 0; i < adapter->num_tx_queues; i++)
+@@ -1413,7 +1413,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
+ 	/* Disable all the interrupts */
+ 	wr32(E1000_IMC, ~0);
+ 	wrfl();
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	/* Define all writable bits for ICS */
+ 	switch (hw->mac.type) {
+@@ -1460,7 +1460,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
+ 			wr32(E1000_IMC, mask);
+ 			wr32(E1000_ICS, mask);
+ 			wrfl();
+-			msleep(10);
++			usleep_range(10000, 11000);
+ 
+ 			if (adapter->test_icr & mask) {
+ 				*data = 3;
+@@ -1482,7 +1482,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
+ 		wr32(E1000_IMS, mask);
+ 		wr32(E1000_ICS, mask);
+ 		wrfl();
+-		msleep(10);
++		usleep_range(10000, 11000);
+ 
+ 		if (!(adapter->test_icr & mask)) {
+ 			*data = 4;
+@@ -1504,7 +1504,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
+ 			wr32(E1000_IMC, ~mask);
+ 			wr32(E1000_ICS, ~mask);
+ 			wrfl();
+-			msleep(10);
++			usleep_range(10000, 11000);
+ 
+ 			if (adapter->test_icr & mask) {
+ 				*data = 5;
+@@ -1516,7 +1516,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
+ 	/* Disable all the interrupts */
+ 	wr32(E1000_IMC, ~0);
+ 	wrfl();
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	/* Unhook test interrupt handler */
+ 	if (adapter->flags & IGB_FLAG_HAS_MSIX)
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 6469f97..9762239 100644
+index 93cac38..4025d7c 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -726,12 +726,14 @@ static void igb_cache_ring_register(struct igb_adapter *adapter)
- 				adapter->rx_ring[i]->reg_idx = rbase_offset +
- 							       Q_IDX_82576(i);
- 		}
-+		/* Fall through */
- 	case e1000_82575:
- 	case e1000_82580:
- 	case e1000_i350:
- 	case e1000_i354:
- 	case e1000_i210:
- 	case e1000_i211:
-+		/* Fall through */
- 	default:
- 		for (; i < adapter->num_rx_queues; i++)
- 			adapter->rx_ring[i]->reg_idx = rbase_offset + i;
-@@ -7958,11 +7960,13 @@ static void igb_vmm_control(struct igb_adapter *adapter)
- 		reg = rd32(E1000_DTXCTL);
- 		reg |= E1000_DTXCTL_VLAN_ADDED;
- 		wr32(E1000_DTXCTL, reg);
-+		/* Fall through */
- 	case e1000_82580:
- 		/* enable replication vlan tag stripping */
- 		reg = rd32(E1000_RPLOLR);
- 		reg |= E1000_RPLOLR_STRVLAN;
- 		wr32(E1000_RPLOLR, reg);
-+		/* Fall through */
- 	case e1000_i350:
- 		/* none of the above registers are supported by i350 */
- 		break;
+@@ -1784,7 +1784,7 @@ void igb_down(struct igb_adapter *adapter)
+ 	wr32(E1000_TCTL, tctl);
+ 	/* flush both disables and wait for them to finish */
+ 	wrfl();
+-	msleep(10);
++	usleep_range(10000, 11000);
+ 
+ 	igb_irq_disable(adapter);
+ 
+@@ -1824,7 +1824,7 @@ void igb_reinit_locked(struct igb_adapter *adapter)
+ {
+ 	WARN_ON(in_interrupt());
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 	igb_down(adapter);
+ 	igb_up(adapter);
+ 	clear_bit(__IGB_RESETTING, &adapter->state);
+@@ -5142,7 +5142,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
+ 		max_frame = ETH_FRAME_LEN + ETH_FCS_LEN;
+ 
+ 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
+-		msleep(1);
++		usleep_range(1000, 2000);
+ 
+ 	/* igb_down has a dependency on max_frame_size */
+ 	adapter->max_frame_size = max_frame;
 -- 
 1.9.0
