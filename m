@@ -1,63 +1,63 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH net-next 1/1]  hyperv: Properly handle checksum offload
-Date: Fri, 25 Apr 2014 11:45:14 -0700
-Message-ID: <1398451514-25593-1-git-send-email-kys@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Karl Heiss <kheiss@gmail.com>
+Subject: [PATCH v4 net] net: sctp: Don't transition to PF state when transport has exhausted 'Path.Max.Retrans'.
+Date: Fri, 25 Apr 2014 14:26:30 -0400
+Message-ID: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
+Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
+	vyasevich@gmail.com, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:52187 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751403AbaDYS0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 14:26:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do checksum offload only if the client of the driver wants checksum to be
-offloaded. Also Windows hosts support ip header checksum offload as well -
-take advantage of that.
+Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
+Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
 
-This patch fixes a bug that is exposed in gateway scenarios.
+   Additional (PMR - PFMR) consecutive timeouts on a PF destination
+   confirm the path failure, upon which the destination transitions to the
+   Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
+   ULP about this state transition, and (ii) transmit heartbeats to the
+   Inactive destination at a lower frequency as described in Section 8.3 of
+   [RFC4960].
 
+This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
+bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-Cc: stable@kernel.org
+Signed-off-by: Karl Heiss <kheiss@gmail.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+Changes in v2:
+  - Flesh out commit message
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 939e3af..706b341 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -467,6 +467,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	if (skb_is_gso(skb))
- 		goto do_lso;
+Changes in v3:
+  - Compare transport state instead of pathmaxrxt
+
+Changes in v4:
+  - Simplify transport state comparison
+
+ net/sctp/sm_sideeffect.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 5d6883f..f900f8e 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -496,11 +496,10 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
  
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		goto do_send;
-+
- 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
- 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
- 			    TCPIP_CHKSUM_PKTINFO);
-@@ -474,6 +477,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	csum_info = (struct ndis_tcp_ip_checksum_info *)((void *)ppi +
- 			ppi->ppi_offset);
+ 	/* If the transport error count is greater than the pf_retrans
+ 	 * threshold, and less than pathmaxrtx, and if the current state
+-	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
+-	 * Failed, see SCTP Quick Failover Draft, section 5.1
++	 * is SCTP_ACTIVE, then mark this transport as Partially Failed, 
++	 * see SCTP Quick Failover Draft, section 5.1
+ 	 */
+-	if ((transport->state != SCTP_PF) &&
+-	   (transport->state != SCTP_UNCONFIRMED) &&
++	if ((transport->state == SCTP_ACTIVE) &&
+ 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
+ 	   (transport->error_count > asoc->pf_retrans)) {
  
-+	ip_hdr(skb)->check = 0;
-+	csum_info->transmit.ip_header_checksum = 1;
-+
- 	if (net_trans_info & (INFO_IPV4 << 16))
- 		csum_info->transmit.is_ipv4 = 1;
- 	else
 -- 
-1.7.4.1
+1.7.1
