@@ -1,82 +1,109 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net v2] bridge: Handle IFLA_ADDRESS correctly when
- creating bridge device
-Date: Fri, 25 Apr 2014 17:01:18 +0900
-Message-ID: <1398412878.3920.7.camel@ubuntu-vm-makita>
-References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
-	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
-	<1398341177.4171.11.camel@ubuntu-vm-makita>
-	<1398341787.4171.16.camel@ubuntu-vm-makita>
-	<20140424113827.6d27ec5b@nehalam.linuxnetplumber.net>
-	<1398412451.3920.3.camel@ubuntu-vm-makita>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: [PATCH v2 1/2] arc_emac: fix probe error path
+Date: Fri, 25 Apr 2014 10:03:29 +0200
+Message-ID: <1712306.TSJMmGq3uZ@phil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
-	bridge <bridge@lists.linux-foundation.org>,
-	"C. R. Oldham" <cr@saltstack.com>
-To: "David S. Miller" <davem@davemloft.net>, Stephen Hemminger
-	<stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1398412451.3920.3.camel@ubuntu-vm-makita>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	netdev@vger.kernel.org, Max Schwarz <max.schwarz@online.de>,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When bridge device is created with IFLA_ADDRESS, we are not calling
-br_stp_change_bridge_id(), which leads to incorrect local fdb
-management and bridge id calculation, and prevents us from receiving
-frames on the bridge device.
+The probe function at the moment only frees the netdev but does not disconnect
+the phy or removes the mdio bus it registered.
 
-Reported-by: Tom Gundersen <teg@jklm.no>
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
 ---
+changes since v1:
+- fix duplicate netif_api_del found by Max Schwarz
 
-v1->v2:
-- Remove variable "err" and directly return register_netdevice().
+ drivers/net/ethernet/arc/emac_main.c | 23 ++++++++++++++---------
+ 1 file changed, 14 insertions(+), 9 deletions(-)
 
- net/bridge/br_netlink.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
-
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index e74b6d53..e8844d9 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -445,6 +445,20 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index 9f45782..9747dda 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -683,7 +683,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	priv->regs = devm_ioremap_resource(&pdev->dev, &res_regs);
+ 	if (IS_ERR(priv->regs)) {
+ 		err = PTR_ERR(priv->regs);
+-		goto out;
++		goto out_netdev;
+ 	}
+ 	dev_dbg(&pdev->dev, "Registers base address is 0x%p\n", priv->regs);
+ 
+@@ -693,7 +693,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	if (!(id == 0x0005fd02 || id == 0x0007fd02)) {
+ 		dev_err(&pdev->dev, "ARC EMAC not detected, id=0x%x\n", id);
+ 		err = -ENODEV;
+-		goto out;
++		goto out_netdev;
+ 	}
+ 	dev_info(&pdev->dev, "ARC EMAC detected with id: 0x%x\n", id);
+ 
+@@ -708,7 +708,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 			       ndev->name, ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "could not allocate IRQ\n");
+-		goto out;
++		goto out_netdev;
+ 	}
+ 
+ 	/* Get MAC address from device tree */
+@@ -729,7 +729,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	if (!priv->rxbd) {
+ 		dev_err(&pdev->dev, "failed to allocate data buffers\n");
+ 		err = -ENOMEM;
+-		goto out;
++		goto out_netdev;
+ 	}
+ 
+ 	priv->txbd = priv->rxbd + RX_BD_NUM;
+@@ -741,7 +741,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	err = arc_mdio_probe(pdev, priv);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to probe MII bus\n");
+-		goto out;
++		goto out_netdev;
+ 	}
+ 
+ 	priv->phy_dev = of_phy_connect(ndev, phy_node, arc_emac_adjust_link, 0,
+@@ -749,7 +749,7 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 	if (!priv->phy_dev) {
+ 		dev_err(&pdev->dev, "of_phy_connect() failed\n");
+ 		err = -ENODEV;
+-		goto out;
++		goto out_mdio;
+ 	}
+ 
+ 	dev_info(&pdev->dev, "connected to %s phy with id 0x%x\n",
+@@ -759,14 +759,19 @@ static int arc_emac_probe(struct platform_device *pdev)
+ 
+ 	err = register_netdev(ndev);
+ 	if (err) {
+-		netif_napi_del(&priv->napi);
+ 		dev_err(&pdev->dev, "failed to register network device\n");
+-		goto out;
++		goto out_netif_api;
+ 	}
+ 
  	return 0;
+ 
+-out:
++out_netif_api:
++	netif_napi_del(&priv->napi);
++	phy_disconnect(priv->phy_dev);
++	priv->phy_dev = NULL;
++out_mdio:
++	arc_mdio_remove(priv);
++out_netdev:
+ 	free_netdev(ndev);
+ 	return err;
  }
- 
-+static int br_dev_newlink(struct net *src_net, struct net_device *dev,
-+			  struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct net_bridge *br = netdev_priv(dev);
-+
-+	if (tb[IFLA_ADDRESS]) {
-+		spin_lock_bh(&br->lock);
-+		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
-+		spin_unlock_bh(&br->lock);
-+	}
-+
-+	return register_netdevice(dev);
-+}
-+
- static size_t br_get_link_af_size(const struct net_device *dev)
- {
- 	struct net_port_vlans *pv;
-@@ -473,6 +487,7 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.priv_size	= sizeof(struct net_bridge),
- 	.setup		= br_dev_setup,
- 	.validate	= br_validate,
-+	.newlink	= br_dev_newlink,
- 	.dellink	= br_dev_delete,
- };
- 
 -- 
-1.8.1.2
+1.9.0
