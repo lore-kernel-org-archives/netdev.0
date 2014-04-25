@@ -1,73 +1,62 @@
-From: Chris Mason <clm@fb.com>
-Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for /proc/net/ipv6_route
-Date: Fri, 25 Apr 2014 16:27:21 -0400
-Message-ID: <535AC529.4030107@fb.com>
-References: <535918BC.5030708@fb.com> <20140425.160929.1031376209639331549.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] sched, cls: check if we could overwrite actions when
+ changing a filter
+Date: Fri, 25 Apr 2014 13:41:17 -0700
+Message-ID: <CAM_iQpV9g3PR0zPsM_4yHDrGKb+BAFk8=_SO8-x+R_gT9WzwUA@mail.gmail.com>
+References: <1397605563-29756-1-git-send-email-xiyou.wangcong@gmail.com>
+	<534E77D0.8000307@mojatatu.com>
+	<CAM_iQpXRVZ8_keaL-8OkmRVguA29bnTPS2ZHZ0j2SSeB6A=1jQ@mail.gmail.com>
+	<534FBFF0.3020606@mojatatu.com>
+	<CAM_iQpVqQbXcm0gGxe_JMURPtGYH+iOi8UGgvis5je6g9zbiKQ@mail.gmail.com>
+	<53513619.5060202@mojatatu.com>
+	<CAM_iQpX13QBbGnsKfD1oL6t331-=wRWFU_0ktdtgngpfE1Z6nA@mail.gmail.com>
+	<535259C3.10404@mojatatu.com>
+	<CAM_iQpVM-djLiz9Z9Bhz9zac88m8b6t1S-SRUkRxYhOaW_xJvQ@mail.gmail.com>
+	<5357A453.6030901@mojatatu.com>
+	<CAM_iQpXkihRZN8Uf=KtaFexF1JP66Fztr+q3_tT4sMgOLMxGGQ@mail.gmail.com>
+	<535A83CA.4030201@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:52077 "EHLO
-	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753289AbaDYU0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 16:26:41 -0400
-In-Reply-To: <20140425.160929.1031376209639331549.davem@davemloft.net>
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:39756 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754823AbaDYUlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 16:41:17 -0400
+Received: by mail-oa0-f53.google.com with SMTP id j17so4675410oag.26
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 13:41:17 -0700 (PDT)
+In-Reply-To: <535A83CA.4030201@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2014 04:09 PM, David Miller wrote:
-> From: Chris Mason <clm@fb.com>
-> Date: Thu, 24 Apr 2014 09:59:24 -0400
->
->> The ipv6 code to dump routes in /proc/net/ipv6_route can hold
->> a read lock on the table for a very long time.  This ends up blocking
->> writers and triggering softlockups.
+On Fri, Apr 25, 2014 at 8:48 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 04/24/14 17:12, Cong Wang wrote:
 >>
->> This patch is a simple work around to limit the number of entries
->> we'll walk while processing /proc/net/ipv6_route.  It intentionally
->> slows down proc file reading to make sure we don't lock out the
->> real ipv6 traffic.
+>> On Wed, Apr 23, 2014 at 4:30 AM, Jamal Hadi Salim <jhs@mojatatu.com>
+>> wrote:
+>>>
+>>>
+>>> I dont see what you are seeing. However, some quick tests will prove it.
+>>> Example go from 1->3 actions and backwards 3->1 actions.
+>>> I.e create a policy with (handwave) 3 actions and replace it with
+>>> another that has only one action. Do this while you are sending a
+>>> ping exercising this policy.
+>>> I can see how yours with 1->0 and 0->1 will work.
 >>
->> This patch is also horrible, and doesn't actually fix the entire
->> problem.  We still have rcu_read_lock held the whole time we cat
->> /proc/net/ipv6_route.  On an unpatched machine, I've clocked the
->> time required to cat /proc/net/ipv6_route at 14 minutes.
+>>
+>> See below (with this patch applied):
+>>
 >
-> There is another way to more effectively mitigate this.
->
-> Take the rtnl mutex over the traversals.
->
-> The tables cannot change if you hold it.
->
-> Then you can use rcu_dereference_rtnl() in the table traversals and
-> get rid of the RCU locking entirely.
+> Ok, thanks Cong. Since you are using this in your system already,
+> I am assuming it is tested with running traffic at the same time.
 
-Ah ok, so the rtnl mutex can replace rcu_read_lock().  Will it end up 
-blocking any traffic? (sorry, filesystem guys are a little slow)
+Yes I did.
 
 >
-> Now you're only left with the read locking over the individual trees.
-> And as in your patch we can drop it temporarily after a limit is hit.
-
-That would be wonderful because I can use some cond_resched() variant, 
-and get rid of the max_walk counter completely.
-
->
-> But yes, longer term we need to convert the ipv6 route trees over to
-> RCU or similar.
-
-Instead of the ->skip counter, can we get a cursor into the tree and 
-just resume walking at the first entry after that cursor?  It would have 
-to be a key that we copy out instead of a pointer so we can drop the 
-rcu_read_lock()
-
->
-> Even better would be to align the ipv6 routing with how ipv4 works
-> since the routing-cache removal.
+> Please resubmit the patch with my signed off as well..
 >
 
-I'll shop task that around here.
-
--chris
+OK, and will rebase it on net-next since it is not an urgent issue.
