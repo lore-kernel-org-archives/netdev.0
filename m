@@ -1,44 +1,123 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 6/6] qlcnic: Update version to 5.3.58
-Date: Fri, 25 Apr 2014 17:44:01 -0400
-Message-ID: <1398462241-15478-7-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1398462241-15478-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shahed.shaikh@qlogic.com>,
-	<Dept-HSGLinuxNICDev@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: <davem@davemloft.net>
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH iproute2 v2] iproute2: show counter of carrier on<->off transitions
+Date: Fri, 25 Apr 2014 16:43:16 -0700
+Message-ID: <37c039131127d3511cd594157f727f9ce5f91c24.1398469237.git.decot@googlers.com>
+References: <cover.1398469237.git.decot@googlers.com>
+Cc: stephen@networkplumber.org, David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:62042 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752007AbaDYWWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 18:22:07 -0400
-In-Reply-To: <1398462241-15478-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:63846 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbaDYXsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 19:48:40 -0400
+Received: by mail-qa0-f73.google.com with SMTP id hw13so711336qab.4
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 16:48:39 -0700 (PDT)
+In-Reply-To: <cover.1398469237.git.decot@googlers.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+This patch allows to display the current counter of carrier on<->off
+transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
+carrier on/off changes"):
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+  ip -s -s link show dev eth0
+  32: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+    link/ether ................. brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    125552461  258881   0       0       0       10150
+    RX errors: length  crc     frame   fifo    missed
+               0        0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    40426119   224444   0       0       0       0
+    TX errors: aborted fifo    window  heartbeat transns
+               0        0       0       0        3
+
+Tested:
+  - kernel with patch "net-sysfs: expose number of carrier on/off
+    changes": see "transns" column above
+  - kernel wthout the patch: "transns" not displayed (as expected)
+
+Signed-off-by: David Decotigny <decot@googlers.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ ip/ipaddress.c | 32 ++++++++++++++++++++++++--------
+ 1 file changed, 24 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 381da04..09fe9c2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -39,8 +39,8 @@
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 8169150..061c3b0 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -313,7 +313,8 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	}
+ }
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 3
--#define _QLCNIC_LINUX_SUBVERSION 57
--#define QLCNIC_LINUX_VERSIONID  "5.3.57"
-+#define _QLCNIC_LINUX_SUBVERSION 58
-+#define QLCNIC_LINUX_VERSIONID  "5.3.58"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+-static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
++static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
++                               const struct rtattr *carrier_changes) {
+ 	fprintf(fp, "%s", _SL_);
+ 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
+ 		s->rx_compressed ? "compressed" : "", _SL_);
+@@ -352,16 +353,23 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
+ 			(uint64_t)s->tx_compressed);
+ 	if (show_stats > 1) {
+ 		fprintf(fp, "%s", _SL_);
+-		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
+-		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-7"PRIu64"",
++		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
++                if (carrier_changes)
++			fprintf(fp, " transns");
++		fprintf(fp, _SL_);
++		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-8"PRIu64"",
+ 			(uint64_t)s->tx_aborted_errors,
+ 			(uint64_t)s->tx_fifo_errors,
+ 			(uint64_t)s->tx_window_errors,
+ 			(uint64_t)s->tx_heartbeat_errors);
++		if (carrier_changes)
++			fprintf(fp, " %-7u",
++				*(uint32_t*)RTA_DATA(carrier_changes));
+ 	}
+ }
+ 
+-static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
++static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
++			     const struct rtattr *carrier_changes)
+ {
+ 	fprintf(fp, "%s", _SL_);
+ 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
+@@ -394,13 +402,19 @@ static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
+ 		fprintf(fp, " %-7u", s->tx_compressed);
+ 	if (show_stats > 1) {
+ 		fprintf(fp, "%s", _SL_);
+-		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
+-		fprintf(fp, "               %-7u  %-7u %-7u %-7u",
++		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
++                if (carrier_changes)
++			fprintf(fp, " transns");
++		fprintf(fp, _SL_);
++		fprintf(fp, "               %-7u  %-7u %-7u %-8u",
+ 			s->tx_aborted_errors,
+ 			s->tx_fifo_errors,
+ 			s->tx_window_errors,
+ 			s->tx_heartbeat_errors
+ 			);
++		if (carrier_changes)
++			fprintf(fp, " %-7u",
++				*(uint32_t*)RTA_DATA(carrier_changes));
+ 	}
+ }
+ 
+@@ -522,9 +536,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 
+ 	if (do_link && show_stats) {
+ 		if (tb[IFLA_STATS64])
+-			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]));
++			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
++					   tb[IFLA_CARRIER_CHANGES]);
+ 		else if (tb[IFLA_STATS])
+-			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
++			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]),
++					 tb[IFLA_CARRIER_CHANGES]);
+ 	}
+ 
+ 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
 -- 
-1.8.1.4
+1.9.1.423.g4596e3a
