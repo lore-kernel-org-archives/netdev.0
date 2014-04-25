@@ -1,78 +1,54 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v4 net] net: sctp: Don't transition to PF state when transport
- has exhausted 'Path.Max.Retrans'.
-Date: Fri, 25 Apr 2014 15:58:40 -0400
-Message-ID: <535ABE70.6020200@gmail.com>
-References: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for
+ /proc/net/ipv6_route
+Date: Fri, 25 Apr 2014 16:09:29 -0400 (EDT)
+Message-ID: <20140425.160929.1031376209639331549.davem@davemloft.net>
+References: <535918BC.5030708@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
-	nhorman@tuxdriver.com
-To: Karl Heiss <kheiss@gmail.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: clm@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:43159 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752700AbaDYT6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 15:58:44 -0400
-In-Reply-To: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46261 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753255AbaDYUJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 16:09:30 -0400
+In-Reply-To: <535918BC.5030708@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2014 02:26 PM, Karl Heiss wrote:
-> Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
-> Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
-> 
->    Additional (PMR - PFMR) consecutive timeouts on a PF destination
->    confirm the path failure, upon which the destination transitions to the
->    Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
->    ULP about this state transition, and (ii) transmit heartbeats to the
->    Inactive destination at a lower frequency as described in Section 8.3 of
->    [RFC4960].
-> 
-> This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
-> bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
-> 
-> Signed-off-by: Karl Heiss <kheiss@gmail.com>
+From: Chris Mason <clm@fb.com>
+Date: Thu, 24 Apr 2014 09:59:24 -0400
 
-Hi Karl
+> The ipv6 code to dump routes in /proc/net/ipv6_route can hold
+> a read lock on the table for a very long time.  This ends up blocking
+> writers and triggering softlockups.
+> 
+> This patch is a simple work around to limit the number of entries
+> we'll walk while processing /proc/net/ipv6_route.  It intentionally
+> slows down proc file reading to make sure we don't lock out the
+> real ipv6 traffic.
+> 
+> This patch is also horrible, and doesn't actually fix the entire
+> problem.  We still have rcu_read_lock held the whole time we cat
+> /proc/net/ipv6_route.  On an unpatched machine, I've clocked the
+> time required to cat /proc/net/ipv6_route at 14 minutes.
 
-Looks good.  Thanks.
+There is another way to more effectively mitigate this.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Take the rtnl mutex over the traversals.
 
--vlad
+The tables cannot change if you hold it.
 
-> ---
-> Changes in v2:
->   - Flesh out commit message
-> 
-> Changes in v3:
->   - Compare transport state instead of pathmaxrxt
-> 
-> Changes in v4:
->   - Simplify transport state comparison
-> 
->  net/sctp/sm_sideeffect.c |    7 +++----
->  1 files changed, 3 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index 5d6883f..f900f8e 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -496,11 +496,10 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
->  
->  	/* If the transport error count is greater than the pf_retrans
->  	 * threshold, and less than pathmaxrtx, and if the current state
-> -	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
-> -	 * Failed, see SCTP Quick Failover Draft, section 5.1
-> +	 * is SCTP_ACTIVE, then mark this transport as Partially Failed, 
-> +	 * see SCTP Quick Failover Draft, section 5.1
->  	 */
-> -	if ((transport->state != SCTP_PF) &&
-> -	   (transport->state != SCTP_UNCONFIRMED) &&
-> +	if ((transport->state == SCTP_ACTIVE) &&
->  	   (asoc->pf_retrans < transport->pathmaxrxt) &&
->  	   (transport->error_count > asoc->pf_retrans)) {
->  
-> 
+Then you can use rcu_dereference_rtnl() in the table traversals and
+get rid of the RCU locking entirely.
+
+Now you're only left with the read locking over the individual trees.
+And as in your patch we can drop it temporarily after a limit is hit.
+
+But yes, longer term we need to convert the ipv6 route trees over to
+RCU or similar.
+
+Even better would be to align the ipv6 routing with how ipv4 works
+since the routing-cache removal.
