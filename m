@@ -1,88 +1,52 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: performance decrease ?
-Date: Fri, 25 Apr 2014 16:18:31 +0800
-Message-ID: <535A1A57.50007@gmail.com>
-References: <CAGZFCEEYy9qULvzSr9JyBJtA6h+_NvL3gqxLF4dSy1yMupM2xQ@mail.gmail.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when
+ creating bridge device
+Date: Fri, 25 Apr 2014 17:18:45 +0900
+Message-ID: <1398413925.3920.15.camel@ubuntu-vm-makita>
+References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
+	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
+	<1398341177.4171.11.camel@ubuntu-vm-makita>
+	<1398341787.4171.16.camel@ubuntu-vm-makita>
+	<CAG-2HqUhT+vbZfugfTYGzWt_qu45sKMaWXQ0uNg8SPzYNmG_5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: ratheesh kannoth <ratheesh.ksz@gmail.com>,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	netdev <netdev@vger.kernel.org>,
-	Netfilter mailing list <netfilter@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAGZFCEEYy9qULvzSr9JyBJtA6h+_NvL3gqxLF4dSy1yMupM2xQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+	bridge <bridge@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, "C. R. Oldham" <cr@saltstack.com>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAG-2HqUhT+vbZfugfTYGzWt_qu45sKMaWXQ0uNg8SPzYNmG_5A@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 04/24/2014 06:15 PM, ratheesh kannoth wrote:
-> I did an experiment  and this experiment gave me an unexpected result
-> ( for me). I would like to get any clue or hint on this.
-> [ ubuntu  kernel version  3.11 ]
->
-> i wrote an userpace program to create two tap devices( tap77 and tap88
-> ) and will epoll on these fds. if a packet is received on  tap77 fd,
-> it will be read() and write to tap88 fd  and vice versa. Basically
-> this program will send pkts from tap88 to tap77 and vice versa.  when
-> i sent 10  icmp packets (using ping ); i got  rtt min/avg/max/mdev
-> =.825/1.006/2.052/.310 ms.
->
->
-> I modified  tun_net_xmit() function in tun.c and created another
-> driver and ran the above test.
->
->     tun_net_xmit() {
->
->            skb_orphan(skb);
->
->           if( skb->dev == tap77_dev ) skb->dev= tap88_dev
->           else if (skb->dev == tap88_dev ) skb->dev = tap77_dev;
->
->           skb_reset_mac_header(skb);
->           skb_reset_network_header(skb);
->           skb_reset_transport_header(skb);
->
->           netif_rx_ni(skb);
-netif_rx_ni(skb); will insert the skb into a queue. We can not make sure 
-when this skb is handled. So use this function is not accurate to 
-performance.
+On Thu, 2014-04-24 at 18:04 +0200, Tom Gundersen wrote:
+> On Thu, Apr 24, 2014 at 2:16 PM, Toshiaki Makita
+> <makita.toshiaki@lab.ntt.co.jp> wrote:
+> > When bridge device is created with IFLA_ADDRESS, we are not calling
+> > br_stp_change_bridge_id(), which leads to incorrect local fdb
+> > management and bridge id calculation, and prevents us from receiving
+> > frames on the bridge device.
+> >
+> > Reported-by: Tom Gundersen <teg@jklm.no>
+> 
+> Thanks. That looks correct to me (not able to test at the moment
+> though). Would this be appropriate for stable if it goes in?
 
-Best Regards!
-Zhu Yanjun
->   }
->
->
-> i got rtt min/avg/max/mdev = .778/1.023/2.662/.549.
->
->
-> With the modified driver,  Although we avoided   2 packet copies and 2
-> system call, it did not result in  performance
-> improvement ( it did decrease by a small delta ).
->
-> Thanks,
-> Ratheesh
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+This can apply 3.14 as is.
+For 3.12 or earlier tree, this needs modification to insert the fdb
+entry (or backport fdb fix patchset (684bd2e1)).
+And for 3.2, another patch needs to be backported before this because
+br_fdb_change_mac_address() doesn't exist.
 
-
-------------------------------------------------------------------------------
-Start Your Social Network Today - Download eXo Platform
-Build your Enterprise Intranet with eXo Platform Software
-Java Based Open Source Intranet - Social, Extensible, Cloud Ready
-Get Started Now And Turn Your Intranet Into A Collaboration Platform
-http://p.sf.net/sfu/ExoPlatform
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks,
+Toshiaki Makita
