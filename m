@@ -1,77 +1,78 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2.56] datapath: Add basic MPLS support to
-	kernel
-Date: Fri, 25 Apr 2014 12:57:20 -0700
-Message-ID: <CAEP_g=8y=jXukP=a2xyk4XMTrBLYWPQOgbTO_h8LE_mVMB9tFQ@mail.gmail.com>
-References: <20140424232441.GA6282@verge.net.au>
- <20140425080639.DDFA371E74@kuma.localdomain>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v4 net] net: sctp: Don't transition to PF state when transport
+ has exhausted 'Path.Max.Retrans'.
+Date: Fri, 25 Apr 2014 15:58:40 -0400
+Message-ID: <535ABE70.6020200@gmail.com>
+References: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, ravi kerur <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: YAMAMOTO Takashi <yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140425080639.DDFA371E74-0CV7wKnmZOB82hYKe6nXyg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
+	nhorman@tuxdriver.com
+To: Karl Heiss <kheiss@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f54.google.com ([209.85.192.54]:43159 "EHLO
+	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752700AbaDYT6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 15:58:44 -0400
+In-Reply-To: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 25, 2014 at 1:06 AM, YAMAMOTO Takashi
-<yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org> wrote:
->> On Thu, Apr 24, 2014 at 05:57:29PM +0900, YAMAMOTO Takashi wrote:
->>> hi,
->>>
->>> > + * Due to the sample action there may be multiple possible eth types.
->>> > + * In order to correctly validate actions all possible types are tracked
->>> > + * and verified. This is done using struct eth_types.
->>>
->>> is there any real-world use cases of these actions inside a sample?
->>> otherwise, how about just rejecting such combinations?
->>> it doesn't seem to worth the code complexity to me.
->>> (sorry if it has been already discussed.  it's the first time for me
->>> to seriously read this long-lived patch.)
->>
->> Good point, the code is rather complex.
->>
->> My understanding is that it comes into effect in the case
->> of sflow or ipfix being configured on the bridge. I tend
->> to think these are real-world use-cases, though that thinking
->> is by no means fixed.
->>
->> My reading of the code is that in the case of sflow and ipfix a single
->> sample rule appears at the beginning of the flow. And that it may be
->> possible to replace the code that you are referring to with something
->> simpler to handle these cases.
->
-> it seems that they put only a userland action inside a sample.
-> it's what i expected from its name "sample".
+On 04/25/2014 02:26 PM, Karl Heiss wrote:
+> Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
+> Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
+> 
+>    Additional (PMR - PFMR) consecutive timeouts on a PF destination
+>    confirm the path failure, upon which the destination transitions to the
+>    Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
+>    ULP about this state transition, and (ii) transmit heartbeats to the
+>    Inactive destination at a lower frequency as described in Section 8.3 of
+>    [RFC4960].
+> 
+> This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
+> bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
+> 
+> Signed-off-by: Karl Heiss <kheiss@gmail.com>
 
-Yes, that's the only current use case. In theory, this could be used
-more generally although nothing has come up yet.
+Hi Karl
 
-In retrospect, I regret the design of the sample action - not the part
-that allows it to handle different actions but the fact that the
-results can affect things outside of the sample action list. I think
-that if we had made it more like a subroutine then that would have
-retained all of the functionality but none of the complexity here.
-Perhaps if we can find a clean way to restructure it without breaking
-compatibility then that would simplify the validation here.
+Looks good.  Thanks.
 
->>
->> My understanding is that the code you are referring to also comes into
->> effect when a sample action (a Nicira extension) is used directly in a
->> rule.  I am less sure that this is a real-world case but the complex logic
->> you are referring to should to handle this use-case.
->
-> probably nicira folks can clarify?
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-It's the same set of use cases, just extending it to OpenFlow to
-enable building sampling into different situations.
+-vlad
+
+> ---
+> Changes in v2:
+>   - Flesh out commit message
+> 
+> Changes in v3:
+>   - Compare transport state instead of pathmaxrxt
+> 
+> Changes in v4:
+>   - Simplify transport state comparison
+> 
+>  net/sctp/sm_sideeffect.c |    7 +++----
+>  1 files changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 5d6883f..f900f8e 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -496,11 +496,10 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
+>  
+>  	/* If the transport error count is greater than the pf_retrans
+>  	 * threshold, and less than pathmaxrtx, and if the current state
+> -	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
+> -	 * Failed, see SCTP Quick Failover Draft, section 5.1
+> +	 * is SCTP_ACTIVE, then mark this transport as Partially Failed, 
+> +	 * see SCTP Quick Failover Draft, section 5.1
+>  	 */
+> -	if ((transport->state != SCTP_PF) &&
+> -	   (transport->state != SCTP_UNCONFIRMED) &&
+> +	if ((transport->state == SCTP_ACTIVE) &&
+>  	   (asoc->pf_retrans < transport->pathmaxrxt) &&
+>  	   (transport->error_count > asoc->pf_retrans)) {
+>  
+> 
