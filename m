@@ -1,45 +1,70 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable 1/7] net: qmi_wwan: add Sierra Wireless EM7355
-Date: Fri, 25 Apr 2014 19:00:28 +0200
-Message-ID: <1398445234-26620-2-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable 7/7] net: qmi_wwan: add a number of Dell devices
+Date: Fri, 25 Apr 2014 19:00:34 +0200
+Message-ID: <1398445234-26620-8-git-send-email-bjorn@mork.no>
 References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1398445234-26620-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:34298 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752500AbaDYRAq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2014 13:00:46 -0400
+In-Reply-To: <1398445234-26620-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom Lenovo Windows driver.
+Dan writes:
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+"The Dell drivers use the same configuration for PIDs:
+
+81A2: Dell Wireless 5806 Gobi(TM) 4G LTE Mobile Broadband Card
+81A3: Dell Wireless 5570 HSPA+ (42Mbps) Mobile Broadband Card
+81A4: Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card
+81A8: Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card
+81A9: Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card
+
+These devices are all clearly Sierra devices, but are also definitely
+Gobi-based.  The A8 might be the MC7700/7710 and A9 is likely a MC7750.
+
+=46rom DellGobi5kSetup.exe from the Dell drivers:
+
+usbif0: serial/firmware loader?
+usbif2: nmea
+usbif3: modem/ppp
+usbif8: net/QMI"
+
+Reported-by: AceLan Kao <acelan.kao@canonical.com>
+Reported-by: Dan Williams <dcbw@redhat.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/qmi_wwan.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/usb/qmi_wwan.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
 diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index e3458e3c44f1..f4c9290aa117 100644
+index ac1ad189f0c1..83208d4fdc59 100644
 --- a/drivers/net/usb/qmi_wwan.c
 +++ b/drivers/net/usb/qmi_wwan.c
-@@ -731,6 +731,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
- mode */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
-I mode */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
-+	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 */
- 	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
- 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+@@ -763,6 +763,11 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
+ 	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
++	{QMI_FIXED_INTF(0x413c, 0x81a2, 8)},	/* Dell Wireless 5806 Gobi(TM) 4=
+G LTE Mobile Broadband Card */
++	{QMI_FIXED_INTF(0x413c, 0x81a3, 8)},	/* Dell Wireless 5570 HSPA+ (42M=
+bps) Mobile Broadband Card */
++	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42=
+Mbps) Mobile Broadband Card */
++	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4=
+G LTE Mobile Broadband Card */
++	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) =
+4G LTE Mobile Broadband Card */
+=20
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
 --=20
 2.0.0.rc0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
