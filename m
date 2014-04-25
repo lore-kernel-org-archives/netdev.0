@@ -1,62 +1,60 @@
-From: yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org (YAMAMOTO Takashi)
-Subject: Re: [PATCH v2.56] datapath: Add basic MPLS support to
- kernel
-Date: Fri, 25 Apr 2014 17:06:39 +0900 (JST)
-Message-ID: <20140425080639.DDFA371E74@kuma.localdomain>
-References: <20140424232441.GA6282@verge.net.au>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: in kernel 2.6.x, tun/tap nic supports vlan packets
+Date: Fri, 25 Apr 2014 16:09:36 +0800
+Message-ID: <535A1840.2010109@gmail.com>
+References: <534F4C1E.1000006@gmail.com> <20140417050228.GC8243@1wt.eu> <1398189237.7767.77.camel@deadeye.wl.decadent.org.uk> <53577036.2040307@gmail.com> <1398253309.7767.136.camel@deadeye.wl.decadent.org.uk> <53587280.4020101@gmail.com> <20140424052447.GC17409@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: Your message of "Fri, 25 Apr 2014 08:24:43 +0900"
- <20140424232441.GA6282-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	joe@perches.com, julia.lawall@lip6.fr, dingtianhong@huawei.com,
+	linux-kernel@vger.kernel.org, jasowang@redhat.com, mst@redhat.com,
+	"Yang, Zhangle (Eric)" <Zhangle.Yang@windriver.com>,
+	"Wu, Kuaikuai" <Kuaikuai.Wu@windriver.com>,
+	"Tao, Yue" <Yue.Tao@windriver.com>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140424052447.GC17409@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> On Thu, Apr 24, 2014 at 05:57:29PM +0900, YAMAMOTO Takashi wrote:
->> hi,
->> 
->> > + * Due to the sample action there may be multiple possible eth types.
->> > + * In order to correctly validate actions all possible types are tracked
->> > + * and verified. This is done using struct eth_types.
->> 
->> is there any real-world use cases of these actions inside a sample?
->> otherwise, how about just rejecting such combinations?
->> it doesn't seem to worth the code complexity to me.
->> (sorry if it has been already discussed.  it's the first time for me
->> to seriously read this long-lived patch.)
-> 
-> Good point, the code is rather complex.
-> 
-> My understanding is that it comes into effect in the case
-> of sflow or ipfix being configured on the bridge. I tend
-> to think these are real-world use-cases, though that thinking
-> is by no means fixed.
-> 
-> My reading of the code is that in the case of sflow and ipfix a single
-> sample rule appears at the beginning of the flow. And that it may be
-> possible to replace the code that you are referring to with something
-> simpler to handle these cases.
+On 04/24/2014 01:24 PM, Willy Tarreau wrote:
+> On Thu, Apr 24, 2014 at 10:10:08AM +0800, zhuyj wrote:
+>> On 04/23/2014 07:41 PM, Ben Hutchings wrote:
+>>> On Wed, 2014-04-23 at 15:48 +0800, zhuyj wrote:
+>>>> On 04/23/2014 01:53 AM, Ben Hutchings wrote:
+>>> [...]
+>>>>> For what it's worth, I would recommend against applying this.  I don't
+>>>>> think even Red Hat has backported the VLAN changes, and they have been
+>>>>> quite aggressive about backporting features to RHEL 6.
+>>>> If we do not merge these patches, maybe RHEL 6 can not make tap driver
+>>>> support vlan well.
+>>> RHEL 6 isn't based on 2.6.32.y, they do all their own backporting.
+>> Hi, Ben
+>>
+>> It is well known that extraction vlan tag is not implemented in kernel
+>> 2.6.32.y.  Kernel 2.6.32.y depends on nic hardware to extract vlan tag.
+>> So if the patches are not applied, tap driver can not support vlan well.
+> What Ben is saying is that RHEL doesn't use 2.6.32.y, but did their own
+> fork of 2.6.32 so even if we merged your patch, they wouldn't pick it
+> from this tree anyway. However they could possibly take your patch if
+> some customers requested the feature even if it's not in 2.6.32.y.
+OK. as your wish.
 
-it seems that they put only a userland action inside a sample.
-it's what i expected from its name "sample".
-
-> 
-> My understanding is that the code you are referring to also comes into
-> effect when a sample action (a Nicira extension) is used directly in a
-> rule.  I am less sure that this is a real-world case but the complex logic
-> you are referring to should to handle this use-case.
-
-probably nicira folks can clarify?
-
-YAMAMOTO Takashi
+Best Regards!
+Zhu Yanjun
+>
+> Clearly, the fact that nobody complained about this in 4.5 years of
+> 2.6.32 means that there's no particular reason any user would suddenly
+> miss it now. 2.6.32.y is mostly used to update existing deployments but
+> rarely for new deployments. That's why the usefulness of your backport
+> in this kernel for its users is likely limited, and at the same time
+> the risk of causing a regression is far from being null for existing
+> users (eg: if some worked around the issue a different way, their
+> workaround would likely not work anymore).
+>
+> Best regards,
+> Willy
+>
+>
