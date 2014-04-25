@@ -1,54 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] ipv6_fib limit spinlock hold times for
- /proc/net/ipv6_route
-Date: Fri, 25 Apr 2014 16:09:29 -0400 (EDT)
-Message-ID: <20140425.160929.1031376209639331549.davem@davemloft.net>
-References: <535918BC.5030708@fb.com>
+From: Stratos Karafotis <stratosk@semaphore.gr>
+Subject: [PATCH v5 7/8] irda: sh_sir: Use cpufreq_for_each_valid_entry macro
+ for iteration
+Date: Fri, 25 Apr 2014 23:16:49 +0300
+Message-ID: <535AC2B1.4020905@semaphore.gr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: clm@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46261 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753255AbaDYUJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 16:09:30 -0400
-In-Reply-To: <535918BC.5030708@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Viresh Kumar <viresh.kumar@linaro.org>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>
+To: Samuel Ortiz <samuel@sortiz.org>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Chris Mason <clm@fb.com>
-Date: Thu, 24 Apr 2014 09:59:24 -0400
+The cpufreq core supports the cpufreq_for_each_valid_entry macro
+helper for iteration over the cpufreq_frequency_table, so use it.
 
-> The ipv6 code to dump routes in /proc/net/ipv6_route can hold
-> a read lock on the table for a very long time.  This ends up blocking
-> writers and triggering softlockups.
-> 
-> This patch is a simple work around to limit the number of entries
-> we'll walk while processing /proc/net/ipv6_route.  It intentionally
-> slows down proc file reading to make sure we don't lock out the
-> real ipv6 traffic.
-> 
-> This patch is also horrible, and doesn't actually fix the entire
-> problem.  We still have rcu_read_lock held the whole time we cat
-> /proc/net/ipv6_route.  On an unpatched machine, I've clocked the
-> time required to cat /proc/net/ipv6_route at 14 minutes.
+It should have no functional changes.
 
-There is another way to more effectively mitigate this.
+Signed-off-by: Stratos Karafotis <stratosk@semaphore.gr>
+---
 
-Take the rtnl mutex over the traversals.
+Please note that I was no able to compile test this patch due to 
+lack of cross compiler.
 
-The tables cannot change if you hold it.
+ drivers/net/irda/sh_sir.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
 
-Then you can use rcu_dereference_rtnl() in the table traversals and
-get rid of the RCU locking entirely.
-
-Now you're only left with the read locking over the individual trees.
-And as in your patch we can drop it temporarily after a limit is hit.
-
-But yes, longer term we need to convert the ipv6 route trees over to
-RCU or similar.
-
-Even better would be to align the ipv6 routing with how ipv4 works
-since the routing-cache removal.
+diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
+index cadf52e..e3fe9a2 100644
+--- a/drivers/net/irda/sh_sir.c
++++ b/drivers/net/irda/sh_sir.c
+@@ -217,21 +217,17 @@ crc_init_out:
+ static u32 sh_sir_find_sclk(struct clk *irda_clk)
+ {
+ 	struct cpufreq_frequency_table *freq_table = irda_clk->freq_table;
++	struct cpufreq_frequency_table *pos;
+ 	struct clk *pclk = clk_get(NULL, "peripheral_clk");
+ 	u32 limit, min = 0xffffffff, tmp;
+-	int i, index = 0;
++	int index = 0;
+ 
+ 	limit = clk_get_rate(pclk);
+ 	clk_put(pclk);
+ 
+ 	/* IrDA can not set over peripheral_clk */
+-	for (i = 0;
+-	     freq_table[i].frequency != CPUFREQ_TABLE_END;
+-	     i++) {
+-		u32 freq = freq_table[i].frequency;
+-
+-		if (freq == CPUFREQ_ENTRY_INVALID)
+-			continue;
++	cpufreq_for_each_valid_entry(pos, freq_table) {
++		u32 freq = pos->frequency;
+ 
+ 		/* IrDA should not over peripheral_clk */
+ 		if (freq > limit)
+@@ -240,7 +236,7 @@ static u32 sh_sir_find_sclk(struct clk *irda_clk)
+ 		tmp = freq % SCLK_BASE;
+ 		if (tmp < min) {
+ 			min = tmp;
+-			index = i;
++			index = pos - freq_table;
+ 		}
+ 	}
+ 
+-- 
+1.9.0
