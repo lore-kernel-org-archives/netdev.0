@@ -1,60 +1,38 @@
-From: Karl Heiss <kheiss@gmail.com>
-Subject: [PATCH v3 net] net: sctp: Don't transition to PF state when transport has exhausted 'Path.Max.Retrans'.
-Date: Fri, 25 Apr 2014 13:06:10 -0400
-Message-ID: <1398445570-11429-1-git-send-email-kheiss@gmail.com>
-Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net phy: Check for aneg completion before setting
+ state to PHY_RUNNING
+Date: Fri, 25 Apr 2014 13:08:45 -0400 (EDT)
+Message-ID: <20140425.130845.1535177441530671772.davem@davemloft.net>
+References: <53587C7F.2000808@gmail.com>
+	<CAGVrzcbrm3KO_=NSJz=KOAcPWvVUMm5kPM7nryJBag6BotKgoQ@mail.gmail.com>
+	<CAHPKR9Ltie2shuJqdSKbQcVSKwMt-Q8XTfAJRn6gXxVs5fHRwA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: kumaran.4353@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:60007 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259AbaDYRGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 13:06:17 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:45041 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbaDYRIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 13:08:47 -0400
+In-Reply-To: <CAHPKR9Ltie2shuJqdSKbQcVSKwMt-Q8XTfAJRn6gXxVs5fHRwA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
-Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Date: Fri, 25 Apr 2014 11:23:03 +0530
 
-   Additional (PMR - PFMR) consecutive timeouts on a PF destination
-   confirm the path failure, upon which the destination transitions to the
-   Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
-   ULP about this state transition, and (ii) transmit heartbeats to the
-   Inactive destination at a lower frequency as described in Section 8.3 of
-   [RFC4960].
+> Here I have a doubt.
+>  * Linux network initialization and phy_state_machine runs in separate threads.
+>  * And driver doesn't bother about state of phydev.
+> Is it correct?
+> Doesn't driver need to confirm phydev is ready(PHY_RUNNING) before
+> returning to kernel?
 
-This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
-bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
+The one comment I will make about things here is that the phylib layer
+really should not call netif_carrier_on() until the PHY really is
+confirmed to be in a state where it will successfully pass traffic.
 
-Signed-off-by: Karl Heiss <kheiss@gmail.com>
----
-Changes in v2:
-  - Flesh out commit message
-
-Changes in v3:
-  - Compare transport state instead of pathmaxrxt
-
- net/sctp/sm_sideeffect.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 5d6883f..7805623 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -496,11 +496,12 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
- 
- 	/* If the transport error count is greater than the pf_retrans
- 	 * threshold, and less than pathmaxrtx, and if the current state
--	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
--	 * Failed, see SCTP Quick Failover Draft, section 5.1
-+	 * is not SCTP_UNCONFIRMED or SCTP_INACTIVE, then mark this transport
-+	 * as Partially Failed, see SCTP Quick Failover Draft, section 5.1
- 	 */
- 	if ((transport->state != SCTP_PF) &&
- 	   (transport->state != SCTP_UNCONFIRMED) &&
-+	   (transport->state != SCTP_INACTIVE) &&
- 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
- 	   (transport->error_count > asoc->pf_retrans)) {
- 
--- 
-1.7.1
+If it is doing so before auto-negotiation completes and succeeds,
+that would be a bug.
