@@ -1,75 +1,54 @@
-From: =?UTF-8?B?U3Zlbm5pbmcgU8O4cmVuc2Vu?= <sss@secomea.com>
-Subject: Re: [PATCH] net: guard against coalescing packets from buggy network
- drivers
-Date: Fri, 25 Apr 2014 21:32:27 +0200
-Message-ID: <535AB84B.20207@secomea.com>
-References: <535A78ED.3020309@secomea.com>	 <1398440595.29914.77.camel@edumazet-glaptop2.roam.corp.google.com>	 <535A86F3.5010602@secomea.com> <1398444575.29914.93.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/phy: tune get_phy_c45_ids to support more c45 phy
+Date: Fri, 25 Apr 2014 15:50:57 -0400 (EDT)
+Message-ID: <20140425.155057.855268491985585038.davem@davemloft.net>
+References: <1398305856-9761-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398444575.29914.93.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, scottwood@freescale.com
+To: Shengzhou.Liu@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46180 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750812AbaDYTu7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 15:50:59 -0400
+In-Reply-To: <1398305856-9761-1-git-send-email-Shengzhou.Liu@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+Date: Thu, 24 Apr 2014 10:17:36 +0800
 
-On 25-04-2014 18:49, Eric Dumazet wrote:
-> On Fri, 2014-04-25 at 18:01 +0200, Svenning S=C3=B8rensen wrote:
->
->> You are right, of course, there are more effective ways to catch bug=
-gy
->> drivers.
->> But they will probably also be much more expensive.
->> This one is very cheap, being in a relatively cold path, especially
->> compared to the memcpy in the same path.
-> It seems you missed the recent tipc thread then.
-Yes, I'm not subscribed to the mailing list at the moment - too much=20
-traffic and too little time..
+>  		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
+> -			*phy_id = 0xffffffff;
+> -			return 0;
+> +			reg_addr = MII_ADDR_C45 | 0 << 16 | 6;
+> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
+> +			if (phy_reg < 0)
+> +				return -EIO;
+> +			c45_ids->devices_in_package = (phy_reg & 0xffff) << 16;
+> +			reg_addr = MII_ADDR_C45 | 0 << 16 | 5;
+> +			phy_reg = mdiobus_read(bus, addr, reg_addr);
+> +			if (phy_reg < 0)
+> +				return -EIO;
+> +			c45_ids->devices_in_package |= (phy_reg & 0xffff);
+> +			/* If mostly Fs, there is no device there,
+> +			 * let's get out of here.
+> +			 */
 
->
-> They are many ways this code path can be abused, your patch only take=
-s
-> care of one case.
->
-> In tipc case, they added skb to shinfo->frag_list without changing
-> skb->data_len.
->
-> So skb_tailroom(to) was not returning 0 as it should.
->
-> The invariant should be more strict.
->
-> BUG_ON(to->data + to->len !=3D skb_tail_pointer(to));
->
-> I still think a BUG() to catch this is better.
->
-> There is no guarantee the developer/user will catch a WARN(),
-> the bug could sit there a long time.
->
-> I have no pity for serious bugs like that.
-Neither do I.
-Either BUG or WARN would have worked for me and would have saved me a=20
-lot of time in chasing this bug in a monster size (almost 800 files!)=20
-third party driver for this unfamiliar chip on newly developed embedded=
-=20
-hardware (so I couldn't be sure it wasn't a hardware bug) with nothing=20
-else than a serial port and a few MB flash to store log files on.
+If ->devices_in_package is zero, we will not get to this code path, so
+this comment makes no sense at all to me.
 
+You need to explain the situation more accurately, and clearly.  I have
+no idea what exactly the devices report in this situation, nor how your
+code is trying to cope with that situation.
 
->
-> Since you spot buggy drivers, please provide their fixes or at least
-> name them so that we can take care of them.
->
-> Thanks
->
->
-Strange, I was almost certain that I saw at least one with the same bug=
-,=20
-but I can't seem to find it any longer.
-Maybe I looked too quick, or maybe it's been fixed by the git pull I've=
-=20
-made in the meantime.
-I'll take a closer look if I get some spare time some day..
+Please work slowly, and carefully, to write clear and accurate
+comments as well as a commit message which describes (in detail) the
+situation here.
+
+Someone in the future will end up having to read this change and
+try to understand it as well, so it's not just for me.
+
+Thanks.
