@@ -1,40 +1,45 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable 0/7] qmi_wwan: adding a few new devices
-Date: Fri, 25 Apr 2014 19:00:27 +0200
-Message-ID: <1398445234-26620-1-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable 1/7] net: qmi_wwan: add Sierra Wireless EM7355
+Date: Fri, 25 Apr 2014 19:00:28 +0200
+Message-ID: <1398445234-26620-2-git-send-email-bjorn@mork.no>
+References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34292 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752057AbaDYRAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2014 13:00:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1398445234-26620-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Adding some new and some old QMI devices.  A similar series for
-usb-serial support will be posted as well.
+=46rom Lenovo Windows driver.
 
-These new device ID patches should also go to all maintained stable ker=
-nels
-where they apply. I believe that should be stable-3.10 and newer.
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/qmi_wwan.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-
-Bj=C3=B8rn Mork (7):
-  net: qmi_wwan: add Sierra Wireless EM7355
-  net: qmi_wwan: add Sierra Wireless MC73xx
-  net: qmi_wwan: add Sierra Wireless MC7305/MC7355
-  net: qmi_wwan: add Olivetti Olicard 500
-  net: qmi_wwan: add Alcatel L800MA
-  net: qmi_wwan: add a number of CMOTech devices
-  net: qmi_wwan: add a number of Dell devices
-
- drivers/net/usb/qmi_wwan.c | 28 ++++++++++++++++++++++++++++
- 1 file changed, 28 insertions(+)
-
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index e3458e3c44f1..f4c9290aa117 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -731,6 +731,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
+ mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
+I mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
++	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 */
+ 	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
+ 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
+catel One Touch L100V LTE) */
+ 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
 --=20
 2.0.0.rc0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
