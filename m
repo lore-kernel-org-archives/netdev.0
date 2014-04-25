@@ -1,48 +1,186 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next v4 1/3] net: ipv6: Unduplicate
- {raw,udp}v6_sendmsg code
-Date: Fri, 25 Apr 2014 20:09:49 +0900
-Message-ID: <CAKD1Yr0MoyjBwUVG+Bjf5D-k0-JkvzOL3mDaNtjF4rUeWJ21Ew@mail.gmail.com>
-References: <1398154415-24486-1-git-send-email-lorenzo@google.com>
- <1398235078-27088-1-git-send-email-lorenzo@google.com> <20140424150019.GE1960@order.stressinduktion.org>
- <20140424150206.GF1960@order.stressinduktion.org> <CAKD1Yr2DSkF59hdGyD=RiDNSseHT8u7Cf-0oYcJU=2uDgV_+Dw@mail.gmail.com>
- <20140424154305.GI1960@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Lorenzo Colitti <lorenzo@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v5 3/3] net: ipv6: Use ip6_datagram_send_common in ping.
+Date: Fri, 25 Apr 2014 20:09:32 +0900
+Message-ID: <1398424172-17530-3-git-send-email-lorenzo@google.com>
+References: <1398424172-17530-1-git-send-email-lorenzo@google.com>
+Cc: yoshfuji@linux-ipv6.org, hannes@stressinduktion.org,
+	davem@davemloft.net, eric.dumazet@gmail.com,
+	Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:36566 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbaDYLKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 07:10:10 -0400
-Received: by mail-ie0-f175.google.com with SMTP id to1so3649623ieb.34
-        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 04:10:09 -0700 (PDT)
-In-Reply-To: <20140424154305.GI1960@order.stressinduktion.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:38559 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753144AbaDYLJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 07:09:48 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y13so2102411pdi.14
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 04:09:48 -0700 (PDT)
+In-Reply-To: <1398424172-17530-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 25, 2014 at 12:43 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
->> I wonder, is it better to just initialize dontfrag to np->dontfrag
->> instead of -1 in the caller? ip6_datagram_send_ctl seems to just
->> overwrite dontfrag with whatever comes from userspace, so nobody ever
->> checks that it's < 0.
->
-> Yes, that is what I had in mind. So we must not reset dontfrag to -1 in
-> datagram_common_send and leave the check just after do_append_data as is.
+This replaces the ad-hoc code used by ping6_sendmsg with the
+implementation now used by UDP, raw and L2TP sockets. This also
+adds the ability to set options via ancillary data, proper
+flowlabel validation, etc. etc.
 
-Thinking about it some more, it seems that that might be confusing as
-well. Someone might trip up over it again - it's already happened
-twice.
+Tested: Black-box tested using user-mode Linux.
 
-Instead, I've moved the initialization back into
-ip6_datagram_send_common, so the variables are now obviously
-uninitialized in the callers, and in udpv6_sendmsg I explicitly set
-hlimit and tclass to -1, and dontfrag to np->dontfrag, before the goto
-do_append data. That way, if the goto is taken, it's immediately
-obvious that the variables are being set, and if it's not, it's clear
-that they are uninitialized and being set in ip6_datagram_send_common.
+- IPv6 pings using both connect()/send() and sendto() still work.
+- Fragmented IPv6 pings still work.
+- Specifying a flowlabel still works.
+- Attempting to send a flowlabel that is not first set via
+  IPV6_FLOWLABEL_MGR now correctly returns EINVAL.
+
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ net/ipv6/ping.c | 95 +++++++++++++++++++--------------------------------------
+ 1 file changed, 31 insertions(+), 64 deletions(-)
+
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index bda7429..96730c6 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -81,16 +81,17 @@ static int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
+ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		    size_t len)
+ {
++	DECLARE_SOCKADDR(struct sockaddr_in6 *, sin6, msg->msg_name);
+ 	struct inet_sock *inet = inet_sk(sk);
+-	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct ipv6_txoptions *opt, opt_space;
+ 	struct icmp6hdr user_icmph;
+-	int addr_type;
++	int addr_len = msg->msg_namelen;
+ 	struct in6_addr *daddr;
+-	int iif = 0;
+ 	struct flowi6 fl6;
+ 	int err;
+-	int hlimit;
+-	struct dst_entry *dst;
++	int hlimit, tclass, dontfrag;
++	int connected;
++	struct dst_entry *dst = NULL;
+ 	struct rt6_info *rt;
+ 	struct pingfakehdr pfh;
+ 
+@@ -101,63 +102,38 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	if (err)
+ 		return err;
+ 
+-	if (msg->msg_name) {
+-		DECLARE_SOCKADDR(struct sockaddr_in6 *, u, msg->msg_name);
+-		if (msg->msg_namelen < sizeof(struct sockaddr_in6) ||
+-		    u->sin6_family != AF_INET6) {
++	if (sin6) {
++		if (addr_len < sizeof(struct sockaddr_in6))
+ 			return -EINVAL;
+-		}
+-		if (sk->sk_bound_dev_if &&
+-		    sk->sk_bound_dev_if != u->sin6_scope_id) {
+-			return -EINVAL;
+-		}
+-		daddr = &(u->sin6_addr);
+-		iif = u->sin6_scope_id;
++
++		if (sin6->sin6_family != AF_INET6)
++			return -EAFNOSUPPORT;
++
++		daddr = &sin6->sin6_addr;
+ 	} else {
+-		if (sk->sk_state != TCP_ESTABLISHED)
+-			return -EDESTADDRREQ;
+ 		daddr = &sk->sk_v6_daddr;
+ 	}
+ 
+-	if (!iif)
+-		iif = sk->sk_bound_dev_if;
+-
+-	addr_type = ipv6_addr_type(daddr);
+-	if (__ipv6_addr_needs_scope_id(addr_type) && !iif)
+-		return -EINVAL;
+-	if (addr_type & IPV6_ADDR_MAPPED)
++	if (ipv6_addr_v4mapped(daddr))
+ 		return -EINVAL;
+ 
+-	/* TODO: use ip6_datagram_send_ctl to get options from cmsg */
+-
+ 	memset(&fl6, 0, sizeof(fl6));
+-
+ 	fl6.flowi6_proto = IPPROTO_ICMPV6;
+-	fl6.saddr = np->saddr;
+-	fl6.daddr = *daddr;
+-	fl6.flowi6_mark = sk->sk_mark;
+ 	fl6.fl6_icmp_type = user_icmph.icmp6_type;
+ 	fl6.fl6_icmp_code = user_icmph.icmp6_code;
+-	security_sk_classify_flow(sk, flowi6_to_flowi(&fl6));
+ 
+-	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+-		fl6.flowi6_oif = np->mcast_oif;
+-	else if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = np->ucast_oif;
+-
+-	dst = ip6_sk_dst_lookup_flow(sk, &fl6,  daddr);
+-	if (IS_ERR(dst))
+-		return PTR_ERR(dst);
+-	rt = (struct rt6_info *) dst;
+-
+-	np = inet6_sk(sk);
+-	if (!np)
+-		return -EBADF;
++	err = ip6_datagram_send_common(sk, msg, sin6, addr_len, &fl6, &dst,
++				       &opt, &opt_space, &hlimit, &tclass,
++				       &dontfrag, &connected);
++	if (err)
++		goto out;
+ 
+-	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+-		fl6.flowi6_oif = np->mcast_oif;
+-	else if (!fl6.flowi6_oif)
+-		fl6.flowi6_oif = np->ucast_oif;
++	/* TODO: Move this check into ip6_datagram_sendmsg. */
++	if (__ipv6_addr_needs_scope_id(__ipv6_addr_type(daddr)) &&
++	    !fl6.flowi6_oif) {
++		err = -EINVAL;
++		goto out;
++	}
+ 
+ 	pfh.icmph.type = user_icmph.icmp6_type;
+ 	pfh.icmph.code = user_icmph.icmp6_code;
+@@ -168,18 +144,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	pfh.wcheck = 0;
+ 	pfh.family = AF_INET6;
+ 
+-	if (ipv6_addr_is_multicast(&fl6.daddr))
+-		hlimit = np->mcast_hops;
+-	else
+-		hlimit = np->hop_limit;
+-	if (hlimit < 0)
+-		hlimit = ip6_dst_hoplimit(dst);
+-
++	rt = (struct rt6_info *) dst;
+ 	lock_sock(sk);
+-	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
+-			      0, hlimit,
+-			      np->tclass, NULL, &fl6, rt,
+-			      MSG_DONTWAIT, np->dontfrag);
++	err = ip6_append_data(sk, ping_getfrag, &pfh, len, 0, hlimit, tclass,
++			      opt, &fl6, rt, msg->msg_flags, dontfrag);
+ 
+ 	if (err) {
+ 		ICMP6_INC_STATS(sock_net(sk), rt->rt6i_idev,
+@@ -192,10 +160,9 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	}
+ 	release_sock(sk);
+ 
+-	if (err)
+-		return err;
+-
+-	return len;
++out:
++	dst_release(dst);
++	return err ? err : len;
+ }
+ 
+ #ifdef CONFIG_PROC_FS
+-- 
+1.9.1.423.g4596e3a
