@@ -1,64 +1,71 @@
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
-Subject: [PATCH] sctp: reset flowi4_oif parameter on route lookup
-Date: Fri, 25 Apr 2014 15:29:38 +0800
-Message-ID: <1398410978-15954-1-git-send-email-xufeng.zhang@windriver.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: Porting ethernet over spi driver (powerline device)
+Date: Fri, 25 Apr 2014 09:24:57 +0200
+Message-ID: <535A0DC9.8060102@i2se.com>
+References: <5350ED9E.6080103@lategoodbye.de>	 <1398133328.3624.186.camel@deadeye.wl.decadent.org.uk>	 <53563E3C.3030108@i2se.com> <1398180075.3624.191.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <stable@vger.kernel.org>
-To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
-	<davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Wahren <info@lategoodbye.de>, netdev@vger.kernel.org,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.130]:50845 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbaDYHZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 03:25:04 -0400
+In-Reply-To: <1398180075.3624.191.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is
-in output route lookups.) introduces another regression which
-is very similar to the problem of commit e6b45241c (ipv4: reset
-flowi parameters on route connect) wants to fix:
-Before we call ip_route_output_key() in sctp_v4_get_dst() to
-get a dst that matches a bind address as the source address,
-we have already called this function previously and the flowi
-parameters have been initialized including flowi4_oif, so when
-we call this function again, the process in ip_route_output_slow()
-will be different because of the setting of flowi4_oif, and we'll
-get a networking device which corresponds to the inputted flowi4_oif
-as the output device, this is wrong because we'll never hit this
-place if the previously returned source address of dst match one
-of the bound addresses.
+Am 22.04.2014 17:21, schrieb Ben Hutchings:
+> On Tue, 2014-04-22 at 12:02 +0200, Stefan Wahren wrote:
+>> Am 22.04.2014 04:22, schrieb Ben Hutchings:
+> [..]
+>>> Most of the interesting new features are related to multiqueue and
+>>> protocol offloads that I wouldn't expect to exist in an SPI-attached
+>>> Ethernet controller.  
+>> You are right.
+>>
+>> Btw, is simple power management (suspend, resume) a must-have feature?
+> If you're intending to get the driver in-tree, I don't think those are
+> an absolute requirement but I would certainly recommend implementing
+> them.
+>
+> Ben.
+>
 
-To reproduce this problem, a vlan setting is enough:
-  # ifconfig eth0 up
-  # route del default
-  # vconfig add eth0 2
-  # vconfig add eth0 3
-  # ifconfig eth0.2 10.0.1.14 netmask 255.255.255.0
-  # route add default gw 10.0.1.254 dev eth0.2
-  # ifconfig eth0.3 10.0.0.14 netmask 255.255.255.0
-  # ip rule add from 10.0.0.14 table 4
-  # ip route add table 4 default via 10.0.0.254 src 10.0.0.14 dev eth0.3
-  # sctp_darn -H 10.0.0.14 -P 36422 -h 10.1.4.134 -p 36422 -s -I
-You'll detect that all the flow are routed to eth0.2(10.0.1.254).
+Yes, that's my intension. The QCA7000 isn't a typical ethernet over spi
+device, it's a serial-to-powerline bridge. Acting like a ethernet over
+spi device simplifies the implementation. This leads to an important
+question.
 
-Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
----
- net/sctp/protocol.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Should the QCA7000 be handled strict as an ethernet device or a little
+bit more distinguished as a powerline device?
 
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index c09757f..f8a5968 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -493,6 +493,10 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 		    (AF_INET == laddr->a.sa.sa_family)) {
- 			fl4->saddr = laddr->a.v4.sin_addr.s_addr;
- 			fl4->fl4_sport = laddr->a.v4.sin_port;
-+			/* Reset flowi4_oif so that it won't be incorrectly used
-+			 * as input parameter to routing lookups.
-+			 */
-+			fl4->flowi4_oif = 0;
- 			rt = ip_route_output_key(sock_net(sk), fl4);
- 			if (!IS_ERR(rt)) {
- 				dst = &rt->dst;
--- 
-1.7.0.2
+I think that would have influence on the following aspects:
+
+* Interface naming scheme in user space
+
+Currently the interface has the interface pattern qca%d instead of
+eth%d. I think this won't be acceptable for in-tree. But the interface
+pattern pwl%d for powerline could also be possible.
+
+* Node name in devicetree sources
+
+Currently the node is named as qca7000, but from my understanding it's
+should be ethernet or powerline.
+
+* Driver directory in kernel sources
+
+In my development i store the sources under drivers/net/ethernet. But
+for in-tree i see the following candidates:
+
+drivers/net/ethernet/qca/
+drivers/net/ethernet/qualcomm/
+drivers/net/powerline/qca/
+
+Any suggestions?
+
+Kind regards
+Stefan Wahren
