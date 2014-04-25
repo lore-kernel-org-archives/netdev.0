@@ -1,37 +1,46 @@
-From: xiao jin <jin.xiao@intel.com>
-Subject: [PATCH] inetpeer_gc_worker: trivial cleanup
-Date: Fri, 25 Apr 2014 08:53:29 +0800
-Message-ID: <1398387209-12322-1-git-send-email-jin.xiao@intel.com>
-Cc: david.a.cohen@linux.intel.com, xiao jin <jin.xiao@intel.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, trivial@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 02/13] igb: Cleanups to fix for trailing statement
+Date: Thu, 24 Apr 2014 18:02:52 -0700
+Message-ID: <1398387783-30414-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:58806 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750815AbaDYBDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 21:03:16 -0400
+In-Reply-To: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do not initialize list twice.
-list_replace_init() already takes care of initializing list.
-We don't need to initialize it with LIST_HEAD() beforehand.
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Signed-off-by: xiao jin <jin.xiao@intel.com>
-Reviewed-by: David Cohen <david.a.cohen@linux.intel.com>
+This patch fixes WARNING:TRAILING_STATEMENT from checkpatch file check.
+
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/ipv4/inetpeer.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index 48f4244..c98cf14 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -120,7 +120,7 @@ int inet_peer_maxttl __read_mostly = 10 * 60 * HZ;	/* usual time to live: 10 min
- static void inetpeer_gc_worker(struct work_struct *work)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index a83fcad..beeebab 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -1179,8 +1179,8 @@ static void igb_release_swfw_sync_82575(struct e1000_hw *hw, u16 mask)
  {
- 	struct inet_peer *p, *n, *c;
--	LIST_HEAD(list);
-+	struct list_head list;
+ 	u32 swfw_sync;
  
- 	spin_lock_bh(&gc_lock);
- 	list_replace_init(&gc_list, &list);
+-	while (igb_get_hw_semaphore(hw) != 0);
+-	/* Empty */
++	while (igb_get_hw_semaphore(hw) != 0)
++		; /* Empty */
+ 
+ 	swfw_sync = rd32(E1000_SW_FW_SYNC);
+ 	swfw_sync &= ~mask;
 -- 
-1.7.9.5
+1.9.0
