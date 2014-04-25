@@ -1,123 +1,63 @@
-From: David Decotigny <decot@googlers.com>
-Subject: [PATCH iproute2 v2] iproute2: show counter of carrier on<->off transitions
-Date: Fri, 25 Apr 2014 16:43:16 -0700
-Message-ID: <37c039131127d3511cd594157f727f9ce5f91c24.1398469237.git.decot@googlers.com>
-References: <cover.1398469237.git.decot@googlers.com>
-Cc: stephen@networkplumber.org, David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:63846 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751297AbaDYXsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 19:48:40 -0400
-Received: by mail-qa0-f73.google.com with SMTP id hw13so711336qab.4
-        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 16:48:39 -0700 (PDT)
-In-Reply-To: <cover.1398469237.git.decot@googlers.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC] sh_eth: use RNC mode for R8A7790
+Date: Sat, 26 Apr 2014 03:54:08 +0400
+Message-ID: <535AF5A0.6010206@cogentembedded.com>
+References: <1396025185-7911-1-git-send-email-ben.dooks@codethink.co.uk>	<5335DDC7.8040400@cogentembedded.com>	<534BD8F9.5080105@codethink.co.uk>	<CAMuHMdX_7eX1F7PkO4WAkUdeNgPjkY_LozGZFeAROEN=K0Jp2w@mail.gmail.com> <CAMuHMdUwDxb5K+Q335isLE-+HLwbwGSksp0KYmGoaXGYQmSiug@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	magnus.damm@opensource.se,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdUwDxb5K+Q335isLE-+HLwbwGSksp0KYmGoaXGYQmSiug@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows to display the current counter of carrier on<->off
-transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
-carrier on/off changes"):
+Hello.
 
-  ip -s -s link show dev eth0
-  32: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
-    link/ether ................. brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast
-    125552461  258881   0       0       0       10150
-    RX errors: length  crc     frame   fifo    missed
-               0        0       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    40426119   224444   0       0       0       0
-    TX errors: aborted fifo    window  heartbeat transns
-               0        0       0       0        3
+On 04/14/2014 08:48 PM, Geert Uytterhoeven wrote:
 
-Tested:
-  - kernel with patch "net-sysfs: expose number of carrier on/off
-    changes": see "transns" column above
-  - kernel wthout the patch: "transns" not displayed (as expected)
+>>>>> The current behaviour of the sh_eth driver is not to use the RNC bit
+>>>>> for the receive ring. This means that every packet recieved is not only
+>>>>> generating an IRQ but it also stops the receive ring DMA as well until
+>>>>> the driver re-enables it after unloading the packet.
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- ip/ipaddress.c | 32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
+>>>>> This means that a number of the following errors are generated due to
+>>>>> the receive packet FIFO overflowing due to nowhere to put packets:
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 8169150..061c3b0 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -313,7 +313,8 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	}
- }
- 
--static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
-+static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
-+                               const struct rtattr *carrier_changes) {
- 	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
- 		s->rx_compressed ? "compressed" : "", _SL_);
-@@ -352,16 +353,23 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
- 			(uint64_t)s->tx_compressed);
- 	if (show_stats > 1) {
- 		fprintf(fp, "%s", _SL_);
--		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
--		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-7"PRIu64"",
-+		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
-+                if (carrier_changes)
-+			fprintf(fp, " transns");
-+		fprintf(fp, _SL_);
-+		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-8"PRIu64"",
- 			(uint64_t)s->tx_aborted_errors,
- 			(uint64_t)s->tx_fifo_errors,
- 			(uint64_t)s->tx_window_errors,
- 			(uint64_t)s->tx_heartbeat_errors);
-+		if (carrier_changes)
-+			fprintf(fp, " %-7u",
-+				*(uint32_t*)RTA_DATA(carrier_changes));
- 	}
- }
- 
--static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
-+static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
-+			     const struct rtattr *carrier_changes)
- {
- 	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
-@@ -394,13 +402,19 @@ static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
- 		fprintf(fp, " %-7u", s->tx_compressed);
- 	if (show_stats > 1) {
- 		fprintf(fp, "%s", _SL_);
--		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
--		fprintf(fp, "               %-7u  %-7u %-7u %-7u",
-+		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
-+                if (carrier_changes)
-+			fprintf(fp, " transns");
-+		fprintf(fp, _SL_);
-+		fprintf(fp, "               %-7u  %-7u %-7u %-8u",
- 			s->tx_aborted_errors,
- 			s->tx_fifo_errors,
- 			s->tx_window_errors,
- 			s->tx_heartbeat_errors
- 			);
-+		if (carrier_changes)
-+			fprintf(fp, " %-7u",
-+				*(uint32_t*)RTA_DATA(carrier_changes));
- 	}
- }
- 
-@@ -522,9 +536,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 
- 	if (do_link && show_stats) {
- 		if (tb[IFLA_STATS64])
--			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]));
-+			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
-+					   tb[IFLA_CARRIER_CHANGES]);
- 		else if (tb[IFLA_STATS])
--			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
-+			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]),
-+					 tb[IFLA_CARRIER_CHANGES]);
- 	}
- 
- 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
--- 
-1.9.1.423.g4596e3a
+>>>>>      net eth0: Receive FIFO Overflow
+
+>>>>> Setting the RMCR_RNC configuration has so far been tested with an NFS
+>>>>> root filesystem and the driver has not failed yet. It is not yet known
+>>>>> why this is not set for R8A779x operation
+
+>>>>      The reason is simple: it's not set on almost all 100 Mbs devices
+>>>> except SH7757 (and most recently added R7S72100), so this was a matter
+>>>> of copy-paste. I've had setting this bit on at least R-Car devices on my
+>>>> aganda for some time but couldn't get to it yet.
+
+>>>>> (Feedback on this issue or other testing is welcome)
+
+>>>>      OK, I'll try it with netperf UDP test known to generate handful of
+>>>> the aforementioned errors, when I have time.
+
+>>> Has anyone had time to look at this?
+
+>> I gave it a try on Koelsch (it does apply to r8a7791, too, right?), and didn't
+>> see any good or ill effects. Just using NFS root and generating some I/O,
+>> so nothing fancy.
+
+> FWIW, I still have "renesas,no-ether-link" in the ethernet node in DT.
+
+    You shouldn't need it anymore if you're using recent devel branch of the 
+renesas.git repo: it already has the necessary PHY driver and device tree 
+changes to avoid the issue which specifying that prop fixed.
+
+> Gr{oetje,eeting}s,
+
+WBR, Sergei
+
