@@ -1,70 +1,60 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable 7/7] net: qmi_wwan: add a number of Dell devices
-Date: Fri, 25 Apr 2014 19:00:34 +0200
-Message-ID: <1398445234-26620-8-git-send-email-bjorn@mork.no>
-References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+From: Karl Heiss <kheiss@gmail.com>
+Subject: [PATCH v3 net] net: sctp: Don't transition to PF state when transport has exhausted 'Path.Max.Retrans'.
+Date: Fri, 25 Apr 2014 13:06:10 -0400
+Message-ID: <1398445570-11429-1-git-send-email-kheiss@gmail.com>
+Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
+	vyasevich@gmail.com, nhorman@tuxdriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:34298 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752500AbaDYRAq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2014 13:00:46 -0400
-In-Reply-To: <1398445234-26620-1-git-send-email-bjorn@mork.no>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:60007 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbaDYRGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 13:06:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan writes:
+Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
+Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
 
-"The Dell drivers use the same configuration for PIDs:
+   Additional (PMR - PFMR) consecutive timeouts on a PF destination
+   confirm the path failure, upon which the destination transitions to the
+   Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
+   ULP about this state transition, and (ii) transmit heartbeats to the
+   Inactive destination at a lower frequency as described in Section 8.3 of
+   [RFC4960].
 
-81A2: Dell Wireless 5806 Gobi(TM) 4G LTE Mobile Broadband Card
-81A3: Dell Wireless 5570 HSPA+ (42Mbps) Mobile Broadband Card
-81A4: Dell Wireless 5570e HSPA+ (42Mbps) Mobile Broadband Card
-81A8: Dell Wireless 5808 Gobi(TM) 4G LTE Mobile Broadband Card
-81A9: Dell Wireless 5808e Gobi(TM) 4G LTE Mobile Broadband Card
+This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
+bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
 
-These devices are all clearly Sierra devices, but are also definitely
-Gobi-based.  The A8 might be the MC7700/7710 and A9 is likely a MC7750.
-
-=46rom DellGobi5kSetup.exe from the Dell drivers:
-
-usbif0: serial/firmware loader?
-usbif2: nmea
-usbif3: modem/ppp
-usbif8: net/QMI"
-
-Reported-by: AceLan Kao <acelan.kao@canonical.com>
-Reported-by: Dan Williams <dcbw@redhat.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Karl Heiss <kheiss@gmail.com>
 ---
- drivers/net/usb/qmi_wwan.c | 5 +++++
- 1 file changed, 5 insertions(+)
+Changes in v2:
+  - Flesh out commit message
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index ac1ad189f0c1..83208d4fdc59 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -763,6 +763,11 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x0b3c, 0xc00b, 4)},	/* Olivetti Olicard 500 */
- 	{QMI_FIXED_INTF(0x1e2d, 0x0060, 4)},	/* Cinterion PLxx */
- 	{QMI_FIXED_INTF(0x1e2d, 0x0053, 4)},	/* Cinterion PHxx,PXxx */
-+	{QMI_FIXED_INTF(0x413c, 0x81a2, 8)},	/* Dell Wireless 5806 Gobi(TM) 4=
-G LTE Mobile Broadband Card */
-+	{QMI_FIXED_INTF(0x413c, 0x81a3, 8)},	/* Dell Wireless 5570 HSPA+ (42M=
-bps) Mobile Broadband Card */
-+	{QMI_FIXED_INTF(0x413c, 0x81a4, 8)},	/* Dell Wireless 5570e HSPA+ (42=
-Mbps) Mobile Broadband Card */
-+	{QMI_FIXED_INTF(0x413c, 0x81a8, 8)},	/* Dell Wireless 5808 Gobi(TM) 4=
-G LTE Mobile Broadband Card */
-+	{QMI_FIXED_INTF(0x413c, 0x81a9, 8)},	/* Dell Wireless 5808e Gobi(TM) =
-4G LTE Mobile Broadband Card */
-=20
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
---=20
-2.0.0.rc0
+Changes in v3:
+  - Compare transport state instead of pathmaxrxt
+
+ net/sctp/sm_sideeffect.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 5d6883f..7805623 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -496,11 +496,12 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
+ 
+ 	/* If the transport error count is greater than the pf_retrans
+ 	 * threshold, and less than pathmaxrtx, and if the current state
+-	 * is not SCTP_UNCONFIRMED, then mark this transport as Partially
+-	 * Failed, see SCTP Quick Failover Draft, section 5.1
++	 * is not SCTP_UNCONFIRMED or SCTP_INACTIVE, then mark this transport
++	 * as Partially Failed, see SCTP Quick Failover Draft, section 5.1
+ 	 */
+ 	if ((transport->state != SCTP_PF) &&
+ 	   (transport->state != SCTP_UNCONFIRMED) &&
++	   (transport->state != SCTP_INACTIVE) &&
+ 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
+ 	   (transport->error_count > asoc->pf_retrans)) {
+ 
+-- 
+1.7.1
