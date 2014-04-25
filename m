@@ -1,66 +1,87 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: Handle IFLA_ADDRESS correctly when
- creating bridge device
-Date: Fri, 25 Apr 2014 16:54:11 +0900
-Message-ID: <1398412451.3920.3.camel@ubuntu-vm-makita>
-References: <CAG-2HqVnWXu2dW=Su6DDxDzgg3cLSvTMu5Sf=Eq+YUv4P1d4NQ@mail.gmail.com>
-	<CAG-2HqU2f+4i3ttLSeitwr15=cVyin9VT+UrQvKC9pMV04fW7Q@mail.gmail.com>
-	<1398341177.4171.11.camel@ubuntu-vm-makita>
-	<1398341787.4171.16.camel@ubuntu-vm-makita>
-	<20140424113827.6d27ec5b@nehalam.linuxnetplumber.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] sctp: reset flowi4_oif parameter on route lookup
+Date: Fri, 25 Apr 2014 10:57:03 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1404251050490.1969@ja.home.ssi.bg>
+References: <1398410978-15954-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
-	bridge <bridge@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, "C. R. Oldham" <cr@saltstack.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140424113827.6d27ec5b@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:36317 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752105AbaDYH6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Apr 2014 03:58:17 -0400
+In-Reply-To: <1398410978-15954-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-04-24 at 11:38 -0700, Stephen Hemminger wrote:
-> On Thu, 24 Apr 2014 21:16:27 +0900
-> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+
+	Hello,
+
+On Fri, 25 Apr 2014, Xufeng Zhang wrote:
+
+> commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is
+> in output route lookups.) introduces another regression which
+> is very similar to the problem of commit e6b45241c (ipv4: reset
+> flowi parameters on route connect) wants to fix:
+> Before we call ip_route_output_key() in sctp_v4_get_dst() to
+> get a dst that matches a bind address as the source address,
+> we have already called this function previously and the flowi
+> parameters have been initialized including flowi4_oif, so when
+> we call this function again, the process in ip_route_output_slow()
+> will be different because of the setting of flowi4_oif, and we'll
+> get a networking device which corresponds to the inputted flowi4_oif
+> as the output device, this is wrong because we'll never hit this
+> place if the previously returned source address of dst match one
+> of the bound addresses.
 > 
-> > +static int br_dev_newlink(struct net *src_net, struct net_device *dev,
-> > +			  struct nlattr *tb[], struct nlattr *data[])
-> > +{
-> > +	int err;
-> > +	struct net_bridge *br = netdev_priv(dev);
-> > +
-> > +	if (tb[IFLA_ADDRESS]) {
-> > +		spin_lock_bh(&br->lock);
-> > +		br_stp_change_bridge_id(br, nla_data(tb[IFLA_ADDRESS]));
-> > +		spin_unlock_bh(&br->lock);
-> > +	}
-> > +
-> > +	err = register_netdevice(dev);
-> > +	if (err)
-> > +		return err;
-> > +
-> > +	return 0;
-> > +}
+> To reproduce this problem, a vlan setting is enough:
+>   # ifconfig eth0 up
+>   # route del default
+>   # vconfig add eth0 2
+>   # vconfig add eth0 3
+>   # ifconfig eth0.2 10.0.1.14 netmask 255.255.255.0
+>   # route add default gw 10.0.1.254 dev eth0.2
+>   # ifconfig eth0.3 10.0.0.14 netmask 255.255.255.0
+>   # ip rule add from 10.0.0.14 table 4
+>   # ip route add table 4 default via 10.0.0.254 src 10.0.0.14 dev eth0.3
+>   # sctp_darn -H 10.0.0.14 -P 36422 -h 10.1.4.134 -p 36422 -s -I
+> You'll detect that all the flow are routed to eth0.2(10.0.1.254).
 > 
-> Looks good.
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> ---
+>  net/sctp/protocol.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
 > 
-> Why not just do simpler tail call??
->     return register_netdevice(dev);
+> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+> index c09757f..f8a5968 100644
+> --- a/net/sctp/protocol.c
+> +++ b/net/sctp/protocol.c
+> @@ -493,6 +493,10 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>  		    (AF_INET == laddr->a.sa.sa_family)) {
+>  			fl4->saddr = laddr->a.v4.sin_addr.s_addr;
+>  			fl4->fl4_sport = laddr->a.v4.sin_port;
+> +			/* Reset flowi4_oif so that it won't be incorrectly used
+> +			 * as input parameter to routing lookups.
+> +			 */
+> +			fl4->flowi4_oif = 0;
 
-Yes, It's simpler.
-I mimicked team_newlink()'s style, so we can also make it simpler
-later :)
+	May be something like this is more correct:
 
-I'll send v2.
+			flowi4_update_output(fl4,
+					     asoc->base.sk->sk_bound_dev_if,
+					     RT_CONN_FLAGS(asoc->base.sk),
+					     daddr->v4.sin_addr.s_addr,
+					     laddr->a.v4.sin_addr.s_addr);
 
-Thanks,
-Toshiaki Makita
+>  			rt = ip_route_output_key(sock_net(sk), fl4);
+>  			if (!IS_ERR(rt)) {
+>  				dst = &rt->dst;
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
