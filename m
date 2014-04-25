@@ -1,45 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 4/4] MAINTAINERS: add Broadcom SYSTEMPORT driver entry
-Date: Thu, 24 Apr 2014 18:09:00 -0700
-Message-ID: <1398388140-8003-5-git-send-email-f.fainelli@gmail.com>
-References: <1398388140-8003-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:64824 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbaDYBJ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Apr 2014 21:09:27 -0400
-Received: by mail-pb0-f48.google.com with SMTP id md12so2567845pbc.7
-        for <netdev@vger.kernel.org>; Thu, 24 Apr 2014 18:09:27 -0700 (PDT)
-In-Reply-To: <1398388140-8003-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 0/5] treewide: Convert logging message misuses of /n to \n
+Date: Thu, 24 Apr 2014 18:50:58 -0700
+Message-ID: <cover.1398390579.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org,
+	alsa-devel@alsa-project.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add an entry in the MAINTAINERS file listing myself as the maintainer
-for the Broadcom SYSTEMPORT Ethernet MAC controller driver.
+Joe Perches (5):
+  qlge: Convert /n to \n
+  iwlegacy: Convert /n to \n
+  staging: rtl<foo>: Convert /n to \n
+  appledisplay: Convert /n to \n
+  sound: tlv320aic31xx: Convert /n to \n
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- MAINTAINERS | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c  | 2 +-
+ drivers/net/wireless/iwlegacy/3945.c          | 2 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c      | 2 +-
+ drivers/staging/rtl8188eu/hal/usb_ops_linux.c | 2 +-
+ drivers/staging/rtl8188eu/os_dep/usb_intf.c   | 2 +-
+ drivers/staging/rtl8723au/hal/usb_ops_linux.c | 4 ++--
+ drivers/staging/rtl8723au/os_dep/usb_intf.c   | 2 +-
+ drivers/usb/misc/appledisplay.c               | 2 +-
+ sound/soc/codecs/tlv320aic31xx.c              | 2 +-
+ 9 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 1241a73cc230..7bb7eadd078c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1967,6 +1967,12 @@ S:	Maintained
- F:	drivers/bcma/
- F:	include/linux/bcma/
- 
-+BROADCOM SYSTEMPORT ETHERNET DRIVER
-+M:	Florian Fainelli <f.fainelli@gmail.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	drivers/net/ethernet/broadcom/bcmsysport.*
-+
- BROCADE BFA FC SCSI DRIVER
- M:	Anil Gurumurthy <anil.gurumurthy@qlogic.com>
- M:	Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>
 -- 
-1.9.1
+1.8.1.2.459.gbcd45b4.dirty
