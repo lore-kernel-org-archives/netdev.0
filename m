@@ -1,244 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/13] igb: Cleanups to fix msleep warnings
-Date: Thu, 24 Apr 2014 18:02:58 -0700
-Message-ID: <1398387783-30414-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/13][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 24 Apr 2014 18:02:50 -0700
+Message-ID: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58818 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:58806 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751113AbaDYBDU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Apr 2014 21:03:20 -0400
-In-Reply-To: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1750852AbaDYBDQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Apr 2014 21:03:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This series contains updates to igb only.
 
-This patch fixes WARNING:MSLEEP found by checkpatch check.
+Carolyn provides a number of cleanups to fix checkpatch warnings/errors
+and two minor issues found by coccicheck.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/igb/e1000_82575.c | 16 ++++++++--------
- drivers/net/ethernet/intel/igb/e1000_mac.c   |  2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.c   |  2 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 16 ++++++++--------
- drivers/net/ethernet/intel/igb/igb_main.c    |  6 +++---
- 5 files changed, 21 insertions(+), 21 deletions(-)
+v2: update patch indentation for patch 07 of the series based on feedback
+    from David Miller.
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 1c0181f..2e36c67 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1212,7 +1212,7 @@ static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
- 	while (timeout) {
- 		if (rd32(E1000_EEMNGCTL) & mask)
- 			break;
--		msleep(1);
-+		usleep_range(1000, 2000);
- 		timeout--;
- 	}
- 	if (!timeout)
-@@ -1312,7 +1312,7 @@ void igb_power_up_serdes_link_82575(struct e1000_hw *hw)
- 
- 	/* flush the write to verify completion */
- 	wrfl();
--	msleep(1);
-+	usleep_range(1000, 2000);
- }
- 
- /**
-@@ -1407,7 +1407,7 @@ void igb_shutdown_serdes_link_82575(struct e1000_hw *hw)
- 
- 		/* flush the write to verify completion */
- 		wrfl();
--		msleep(1);
-+		usleep_range(1000, 2000);
- 	}
- }
- 
-@@ -1442,7 +1442,7 @@ static s32 igb_reset_hw_82575(struct e1000_hw *hw)
- 	wr32(E1000_TCTL, E1000_TCTL_PSP);
- 	wrfl();
- 
--	msleep(10);
-+	usleep_range(10000, 20000);
- 
- 	ctrl = rd32(E1000_CTRL);
- 
-@@ -1920,7 +1920,7 @@ void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
- 	}
- 	/* Poll all queues to verify they have shut down */
- 	for (ms_wait = 0; ms_wait < 10; ms_wait++) {
--		msleep(1);
-+		usleep_range(1000, 2000);
- 		rx_enabled = 0;
- 		for (i = 0; i < 4; i++)
- 			rx_enabled |= rd32(E1000_RXDCTL(i));
-@@ -1948,7 +1948,7 @@ void igb_rx_fifo_flush_82575(struct e1000_hw *hw)
- 	wr32(E1000_RCTL, temp_rctl);
- 	wr32(E1000_RCTL, temp_rctl | E1000_RCTL_EN);
- 	wrfl();
--	msleep(2);
-+	usleep_range(2000, 3000);
- 
- 	/* Enable RX queues that were previously enabled and restore our
- 	 * previous state
-@@ -2236,7 +2236,7 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
- 	wr32(E1000_TCTL, E1000_TCTL_PSP);
- 	wrfl();
- 
--	msleep(10);
-+	usleep_range(10000, 11000);
- 
- 	/* Determine whether or not a global dev reset is requested */
- 	if (global_device_reset &&
-@@ -2254,7 +2254,7 @@ static s32 igb_reset_hw_82580(struct e1000_hw *hw)
- 
- 	/* Add delay to insure DEV_RST has time to complete */
- 	if (global_device_reset)
--		msleep(5);
-+		usleep_range(5000, 6000);
- 
- 	ret_val = igb_get_auto_rd_done(hw);
- 	if (ret_val) {
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 41fe59c..2a88595 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -1261,7 +1261,7 @@ s32 igb_get_auto_rd_done(struct e1000_hw *hw)
- 	while (i < AUTO_READ_DONE_TIMEOUT) {
- 		if (rd32(E1000_EECD) & E1000_EECD_AUTO_RD)
- 			break;
--		msleep(1);
-+		usleep_range(1000, 2000);
- 		i++;
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 6321107..424f16c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -2240,7 +2240,7 @@ void igb_power_down_phy_copper(struct e1000_hw *hw)
- 		hw->phy.ops.write_reg(hw, GS40G_COPPER_SPEC, power_reg);
- 	}
- 	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
--	msleep(1);
-+	usleep_range(1000, 2000);
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index b83694b..f1c01be 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -283,7 +283,7 @@ static int igb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- 	}
- 
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
--		msleep(1);
-+		usleep_range(1000, 2000);
- 
- 	if (ecmd->autoneg == AUTONEG_ENABLE) {
- 		hw->mac.autoneg = 1;
-@@ -396,7 +396,7 @@ static int igb_set_pauseparam(struct net_device *netdev,
- 	adapter->fc_autoneg = pause->autoneg;
- 
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
--		msleep(1);
-+		usleep_range(1000, 2000);
- 
- 	if (adapter->fc_autoneg == AUTONEG_ENABLE) {
- 		hw->fc.requested_mode = e1000_fc_default;
-@@ -883,7 +883,7 @@ static int igb_set_ringparam(struct net_device *netdev,
- 	}
- 
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
--		msleep(1);
-+		usleep_range(1000, 2000);
- 
- 	if (!netif_running(adapter->netdev)) {
- 		for (i = 0; i < adapter->num_tx_queues; i++)
-@@ -1413,7 +1413,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	/* Disable all the interrupts */
- 	wr32(E1000_IMC, ~0);
- 	wrfl();
--	msleep(10);
-+	usleep_range(10000, 11000);
- 
- 	/* Define all writable bits for ICS */
- 	switch (hw->mac.type) {
-@@ -1460,7 +1460,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 			wr32(E1000_IMC, mask);
- 			wr32(E1000_ICS, mask);
- 			wrfl();
--			msleep(10);
-+			usleep_range(10000, 11000);
- 
- 			if (adapter->test_icr & mask) {
- 				*data = 3;
-@@ -1482,7 +1482,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 		wr32(E1000_IMS, mask);
- 		wr32(E1000_ICS, mask);
- 		wrfl();
--		msleep(10);
-+		usleep_range(10000, 11000);
- 
- 		if (!(adapter->test_icr & mask)) {
- 			*data = 4;
-@@ -1504,7 +1504,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 			wr32(E1000_IMC, ~mask);
- 			wr32(E1000_ICS, ~mask);
- 			wrfl();
--			msleep(10);
-+			usleep_range(10000, 11000);
- 
- 			if (adapter->test_icr & mask) {
- 				*data = 5;
-@@ -1516,7 +1516,7 @@ static int igb_intr_test(struct igb_adapter *adapter, u64 *data)
- 	/* Disable all the interrupts */
- 	wr32(E1000_IMC, ~0);
- 	wrfl();
--	msleep(10);
-+	usleep_range(10000, 11000);
- 
- 	/* Unhook test interrupt handler */
- 	if (adapter->flags & IGB_FLAG_HAS_MSIX)
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 93cac38..4025d7c 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1784,7 +1784,7 @@ void igb_down(struct igb_adapter *adapter)
- 	wr32(E1000_TCTL, tctl);
- 	/* flush both disables and wait for them to finish */
- 	wrfl();
--	msleep(10);
-+	usleep_range(10000, 11000);
- 
- 	igb_irq_disable(adapter);
- 
-@@ -1824,7 +1824,7 @@ void igb_reinit_locked(struct igb_adapter *adapter)
- {
- 	WARN_ON(in_interrupt());
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
--		msleep(1);
-+		usleep_range(1000, 2000);
- 	igb_down(adapter);
- 	igb_up(adapter);
- 	clear_bit(__IGB_RESETTING, &adapter->state);
-@@ -5142,7 +5142,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- 		max_frame = ETH_FRAME_LEN + ETH_FCS_LEN;
- 
- 	while (test_and_set_bit(__IGB_RESETTING, &adapter->state))
--		msleep(1);
-+		usleep_range(1000, 2000);
- 
- 	/* igb_down has a dependency on max_frame_size */
- 	adapter->max_frame_size = max_frame;
+The following are changes since commit d42f157b3498a042d9930506d4b55ded5dcb35c0:
+  Altera TSE: Remove unnecessary cast of void pointers
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Carolyn Wyborny (13):
+  igb: Cleanups to fix pointer location error
+  igb: Cleanups to fix for trailing statement
+  igb: Cleanups to change comment style on license headers
+  igb: Cleanups to fix assignment in if error
+  igb: Cleanups to fix missing break in switch statements
+  igb: Cleanups to remove return parentheses
+  igb: Cleanups to fix line length warnings
+  igb: Cleanups to fix msleep warnings
+  igb: Cleanups to fix static initialization
+  igb: Cleanups to replace deprecated DEFINE_PCI_DEVICE_TABLE
+  igb: Cleanups to remove unneeded extern declaration
+  igb: Replace 1/0 return values with true/false
+  igb: Change memcpy to struct assignment
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 69 ++++++++++----------
+ drivers/net/ethernet/intel/igb/e1000_82575.h   | 50 +++++++--------
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 71 +++++++++------------
+ drivers/net/ethernet/intel/igb/e1000_hw.h      | 46 ++++++--------
+ drivers/net/ethernet/intel/igb/e1000_i210.c    | 48 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_i210.h    | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mac.c     | 49 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mac.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mbx.c     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_mbx.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     | 46 ++++++--------
+ drivers/net/ethernet/intel/igb/e1000_nvm.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_phy.c     | 49 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_phy.h     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/e1000_regs.h    | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/igb.h           | 48 +++++++-------
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   | 88 ++++++++++++++------------
+ drivers/net/ethernet/intel/igb/igb_hwmon.c     | 47 +++++++-------
+ drivers/net/ethernet/intel/igb/igb_main.c      | 87 +++++++++++++------------
+ 19 files changed, 486 insertions(+), 541 deletions(-)
+
 -- 
 1.9.0
