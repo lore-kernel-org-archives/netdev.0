@@ -1,84 +1,63 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v3 net] net: sctp: Don't transition to PF state when transport
- has exhausted 'Path.Max.Retrans'.
-Date: Fri, 25 Apr 2014 13:34:11 -0400
-Message-ID: <535A9C93.9090106@gmail.com>
-References: <1398445570-11429-1-git-send-email-kheiss@gmail.com> <CAGugRbVRL0Dz0Vc_X0Qu-FjMRPr7OhZtrb+rW-qktt1ji_i44A@mail.gmail.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next 1/1]  hyperv: Properly handle checksum offload
+Date: Fri, 25 Apr 2014 11:45:14 -0700
+Message-ID: <1398451514-25593-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, davem <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Karl Heiss <kheiss@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:62901 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752435AbaDYReP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 13:34:15 -0400
-In-Reply-To: <CAGugRbVRL0Dz0Vc_X0Qu-FjMRPr7OhZtrb+rW-qktt1ji_i44A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stable@kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 04/25/2014 01:21 PM, Karl Heiss wrote:
-> On Fri, Apr 25, 2014 at 1:06 PM, Karl Heiss <kheiss@gmail.com> wrote:
->> Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
->> Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
->>
->>    Additional (PMR - PFMR) consecutive timeouts on a PF destination
->>    confirm the path failure, upon which the destination transitions to the
->>    Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
->>    ULP about this state transition, and (ii) transmit heartbeats to the
->>    Inactive destination at a lower frequency as described in Section 8.3 of
->>    [RFC4960].
->>
->> This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
->> bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
->>
->> Signed-off-by: Karl Heiss <kheiss@gmail.com>
->> ---
->> Changes in v2:
->>   - Flesh out commit message
->>
->> Changes in v3:
->>   - Compare transport state instead of pathmaxrxt
->>
->>  net/sctp/sm_sideeffect.c |    5 +++--
->>  1 files changed, 3 insertions(+), 2 deletions(-)
->>
->> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->> index 5d6883f..7805623 100644
->> --- a/net/sctp/sm_sideeffect.c
->> +++ b/net/sctp/sm_sideeffect.c
->> @@ -496,11 +496,12 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
->>
->>         /* If the transport error count is greater than the pf_retrans
->>          * threshold, and less than pathmaxrtx, and if the current state
->> -        * is not SCTP_UNCONFIRMED, then mark this transport as Partially
->> -        * Failed, see SCTP Quick Failover Draft, section 5.1
->> +        * is not SCTP_UNCONFIRMED or SCTP_INACTIVE, then mark this transport
->> +        * as Partially Failed, see SCTP Quick Failover Draft, section 5.1
->>          */
->>         if ((transport->state != SCTP_PF) &&
->>            (transport->state != SCTP_UNCONFIRMED) &&
->> +          (transport->state != SCTP_INACTIVE) &&
-> 
-> On second thought, would this not make more sense to be:
-> 
->          if ((transport->state == SCTP_ACTIVE) &&
-> 
-> Since the only valid transition into PF is from ACTIVE?
+Do checksum offload only if the client of the driver wants checksum to be
+offloaded. Also Windows hosts support ip header checksum offload as well -
+take advantage of that.
 
-Hmm..  we that UNKNOWN state, but it doesn't look like it survives
-past the handshake...
+This patch fixes a bug that is exposed in gateway scenarios.
 
-So, yes, this would simplify things.
 
--vlad
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: stable@kernel.org
+---
+ drivers/net/hyperv/netvsc_drv.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-> 
->>            (asoc->pf_retrans < transport->pathmaxrxt) &&
->>            (transport->error_count > asoc->pf_retrans)) {
->>
->> --
->> 1.7.1
->>
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 939e3af..706b341 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -467,6 +467,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	if (skb_is_gso(skb))
+ 		goto do_lso;
+ 
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		goto do_send;
++
+ 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
+ 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
+ 			    TCPIP_CHKSUM_PKTINFO);
+@@ -474,6 +477,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	csum_info = (struct ndis_tcp_ip_checksum_info *)((void *)ppi +
+ 			ppi->ppi_offset);
+ 
++	ip_hdr(skb)->check = 0;
++	csum_info->transmit.ip_header_checksum = 1;
++
+ 	if (net_trans_info & (INFO_IPV4 << 16))
+ 		csum_info->transmit.is_ipv4 = 1;
+ 	else
+-- 
+1.7.4.1
