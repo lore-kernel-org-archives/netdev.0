@@ -1,43 +1,66 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] net: filter: initialize A and X registers
-Date: Fri, 25 Apr 2014 10:23:39 +0200
-Message-ID: <535A1B8B.7030504@redhat.com>
-References: <1398223137-5463-1-git-send-email-ast@plumgrid.com> <20140422.235745.1219194947074686642.davem@davemloft.net> <CAMEtUux=mOyZkfxMWi3eA01TvmJrfJpeBpGcHvheptcckA=dzQ@mail.gmail.com> <20140423.125043.100674358164503915.davem@davemloft.net> <CAMEtUuwaEb5OgZHCYL-pJRrvLRWBqA1sXhg3diO3=K7ephyBpA@mail.gmail.com> <1398289142.29914.23.camel@edumazet-glaptop2.roam.corp.google.com> <CAMEtUuy-n4=YxejsCF0gg2VX1csfW5p8SfwggH2Tzi6XvE_htw@mail.gmail.com> <1398308109.29914.61.camel@edumazet-glaptop2.roam.corp.google.com> <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: Re: [PATCH] sctp: reset flowi4_oif parameter on route lookup
+Date: Fri, 25 Apr 2014 16:49:20 +0800
+Message-ID: <535A2190.6020801@windriver.com>
+References: <1398410978-15954-1-git-send-email-xufeng.zhang@windriver.com> <alpine.LFD.2.11.1404251050490.1969@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35057 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751811AbaDYIXv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Apr 2014 04:23:51 -0400
-In-Reply-To: <CAMEtUuy-GoRouDJMHRLEpiAxG2mXnPiwiZY6j9eGTnuRvzmh-A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>, <linux-sctp@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<stable@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1404251050490.1969@ja.home.ssi.bg>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/24/2014 05:22 AM, Alexei Starovoitov wrote:
-...
->> net/core/filter.c was about 880 lines in previous release, its now 1800+
->> lines.
+On 04/25/2014 03:57 PM, Julian Anastasov wrote:
+> 	Hello,
 >
-> but the whole sk_encode/decode functions are obsolete.
-> Now we can remove some code too.
+> On Fri, 25 Apr 2014, Xufeng Zhang wrote:
+>
+>    
+>>
+>> diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+>> index c09757f..f8a5968 100644
+>> --- a/net/sctp/protocol.c
+>> +++ b/net/sctp/protocol.c
+>> @@ -493,6 +493,10 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>>   		    (AF_INET == laddr->a.sa.sa_family)) {
+>>   			fl4->saddr = laddr->a.v4.sin_addr.s_addr;
+>>   			fl4->fl4_sport = laddr->a.v4.sin_port;
+>> +			/* Reset flowi4_oif so that it won't be incorrectly used
+>> +			 * as input parameter to routing lookups.
+>> +			 */
+>> +			fl4->flowi4_oif = 0;
+>>      
+> 	May be something like this is more correct:
+>
+> 			flowi4_update_output(fl4,
+> 					     asoc->base.sk->sk_bound_dev_if,
+> 					     RT_CONN_FLAGS(asoc->base.sk),
+> 					     daddr->v4.sin_addr.s_addr,
+> 					     laddr->a.v4.sin_addr.s_addr);
+>    
 
-Indeed, these can eventually be removed; naturally, a bigger portion
-of these changes go into the conversion functions into the new layout.
-The interpreter part itself is conceptually the same, seccomp as you
-might have noticed actually got a lot easier thanks to the BPF
-changes, and the new instruction layout is much easier to handle for
-JITs (i.e. the BPF extensions), which is ongoing work. Clearly, there
-are successive integration steps required. As such, also the
-documentation will get further improved for all that in the next days.
+Thanks! you are right, I should use the available API.
+I'll send V2 later.
+
 
 Thanks,
+Xufeng
 
-Daniel
+
+>    
+>>   			rt = ip_route_output_key(sock_net(sk), fl4);
+>>   			if (!IS_ERR(rt)) {
+>>   				dst =&rt->dst;
+>>      
+> Regards
+>
+> --
+> Julian Anastasov<ja@ssi.bg>
+>
+>    
