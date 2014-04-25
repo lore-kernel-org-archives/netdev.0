@@ -1,160 +1,162 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
- instead of pci_enable_msix()
-Date: Fri, 25 Apr 2014 09:02:02 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2@avmb2.qlogic.org>
-References: <cover.1398412015.git.agordeev@redhat.com>
- <0a0d5f5c33d86e3777c22c3c1bbd81035660d57c.1398412015.git.agordeev@redhat.com>
- <262CB373A6D1F14F9B81E82F74F77D5A46F9EE54@avmb2.qlogic.org>
- <20140425090029.GA2500@dhcp-26-207.brq.redhat.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH net-next RESEND 1/2] FDDI: Reformat <linux/if_fddi.h> for
+ 8-character tabs
+Date: Fri, 25 Apr 2014 10:35:07 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1404250157020.11598@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_"
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Alexander Gordeev <agordeev@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20140425090029.GA2500@dhcp-26-207.brq.redhat.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eddie.linux-mips.org ([78.24.191.182]:55708 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752571AbaDYJfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 05:35:09 -0400
+Received: from localhost.localdomain ([127.0.0.1]:46317 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6827439AbaDYJfHdJpJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 11:35:07 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Some of our FDDI support code has been apparently written with an 
+assumption that tabs are 4-character wide.  In preparation to the next
+change this update reformats <linux/if_fddi.h> so that it stays within 79 
+columns and otherwise renders correctly with 8-character tabs.  No 
+functional change.
 
-> -----Original Message-----
-> From: Alexander Gordeev [mailto:agordeev@redhat.com]
-> Sent: Friday, April 25, 2014 2:31 PM
-> To: Shahed Shaikh
-> Cc: linux-kernel; Dept-HSG Linux NIC Dev; netdev; linux-pci
-> Subject: Re: [PATCH net-next 2/2] qlcnic: Use pci_enable_msix_exact()
-> instead of pci_enable_msix()
->=20
-> On Fri, Apr 25, 2014 at 08:48:14AM +0000, Shahed Shaikh wrote:
-> > > diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > > b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > > index dbf7539..26f022b 100644
-> > > --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > > +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-> > > @@ -690,8 +690,8 @@ int qlcnic_setup_tss_rss_intr(struct
-> > > qlcnic_adapter
-> > > *adapter)
-> > >  		adapter->msix_entries[vector].entry =3D vector;
-> > >
-> > >  restore:
-> > > -	err =3D pci_enable_msix(pdev, adapter->msix_entries, num_msix);
-> > > -	if (err > 0) {
-> > > +	err =3D pci_enable_msix_exact(pdev, adapter->msix_entries,
-> > > num_msix);
-> > > +	if (err =3D=3D -ENOSPC) {
-> > >  		if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
-> > >  			return -ENOSPC;
-> >
-> > I think, it would be good if we return "err" instead of "-ENOSPC" .
-> >
-> >                 if (!adapter->drv_tss_rings && !adapter->drv_rss_rings)
-> > -                       return -ENOSPC;
-> > +                       return err;
->=20
-> At this point "err" could only be -ENOSPC. I am not sure why returning "e=
-rr" is
-> better, but I'll repost if you insist.
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+Dave,
 
-Agree. But it will make code look cleaner.
+ Resending per your earlier request.
 
-Thanks,
-Shahed
+ Thanks,
 
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
+  Maciej
 
-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
-cwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A5V8B
-AAAAOgAAAHMAaQBwADoAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4A
-YwBvAG0AAAAAAB8AGgwBAAAAHAAAAFMAaABhAGgAZQBkACAAUwBoAGEAaQBrAGgAAAAfAB8MAQAA
-ADIAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAA
-HwAeDAEAAAAKAAAAUwBNAFQAUAAAAAAAAgEZDAEAAABwAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIA
-AACAUwBoAGEAaABlAGQAIABTAGgAYQBpAGsAaAAAAFMATQBUAFAAAABzAGgAYQBoAGUAZAAuAHMA
-aABhAGkAawBoAEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0BAAAAMgAAAHMAaABhAGgAZQBk
-AC4AcwBoAGEAaQBrAGgAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAPg/AQAAABwAAABTAGgA
-YQBoAGUAZAAgAFMAaABhAGkAawBoAAAAHwAjQAEAAAAyAAAAcwBoAGEAaABlAGQALgBzAGgAYQBp
-AGsAaABAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAAAAAAAAIB
-+T8BAAAAcAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFMAaABhAGgAZQBkACAAUwBoAGEAaQBr
-AGgAAABTAE0AVABQAAAAcwBoAGEAaABlAGQALgBzAGgAYQBpAGsAaABAAHEAbABvAGcAaQBjAC4A
-YwBvAG0AAAAfAAldAQAAADIAAABzAGgAYQBoAGUAZAAuAHMAaABhAGkAawBoAEAAcQBsAG8AZwBp
-AGMALgBjAG8AbQAAAAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAACAAAAAAAAAB8A
-GgABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA/T/kBAAAAgEL
-MAEAAAAQAAAA+oyYLrG+u0CuDx+RW++ofAMAFwABAAAAQAA5AAChqQVlYM8BQAAIMIeXKAZlYM8B
-CwApAAAAAAALACMAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAAB4AAABhAGMAYwBlAHAAdABs
-AGEAbgBnAHUAYQBnAGUAAAAAAAEAAAAMAAAAZQBuAC0AVQBTAAAACwAAgAggBgAAAAAAwAAAAAAA
-AEYAAAAABoUAAAAAAAAfADcAAQAAALQAAABSAEUAOgAgAFsAUABBAFQAQwBIACAAbgBlAHQALQBu
-AGUAeAB0ACAAMgAvADIAXQAgAHEAbABjAG4AaQBjADoAIABVAHMAZQAgAHAAYwBpAF8AZQBuAGEA
-YgBsAGUAXwBtAHMAaQB4AF8AZQB4AGEAYwB0ACgAKQAgAGkAbgBzAHQAZQBhAGQAIABvAGYAIABw
-AGMAaQBfAGUAbgBhAGIAbABlAF8AbQBzAGkAeAAoACkAAAAfAD0AAQAAAAoAAABSAEUAOgAgAAAA
-AAADADYAAAAAAAMALgAAAAAAHwBCEAEAAABmAAAAPAAyADAAMQA0ADAANAAyADUAMAA5ADAAMAAy
-ADkALgBHAEEAMgA1ADAAMABAAGQAaABjAHAALQAyADYALQAyADAANwAuAGIAcgBxAC4AcgBlAGQA
-aABhAHQALgBjAG8AbQA+AAAAAAACAXEAAQAAACUAAAABAc9gXRgBFke9Um4UQ5jAnOoETbbZmyID
-jkCAAHquAP//il9wAAAAHwBwAAEAAACsAAAAWwBQAEEAVABDAEgAIABuAGUAdAAtAG4AZQB4AHQA
-IAAyAC8AMgBdACAAcQBsAGMAbgBpAGMAOgAgAFUAcwBlACAAcABjAGkAXwBlAG4AYQBiAGwAZQBf
-AG0AcwBpAHgAXwBlAHgAYQBjAHQAKAApACAAaQBuAHMAdABlAGEAZAAgAG8AZgAgAHAAYwBpAF8A
-ZQBuAGEAYgBsAGUAXwBtAHMAaQB4ACgAKQAAAB8ANRABAAAAeAAAADwAMgA2ADIAQwBCADMANwAz
-AEEANgBEADEARgAxADQARgA5AEIAOAAxAEUAOAAyAEYANwA0AEYANwA3AEQANQBBADQANgBGADkA
-RQBFAEEAMgBAAGEAdgBtAGIAMgAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAA0AEA
-ADwAYwBvAHYAZQByAC4AMQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUA
-ZQB2AEAAcgBlAGQAaABhAHQALgBjAG8AbQA+ACAAPAAwAGEAMABkADUAZgA1AGMAMwAzAGQAOAA2
-AGUAMwA3ADcANwBjADIAMgBjADMAYwAxAGIAYgBkADgAMQAwADMANQA2ADYAMABkADUANwBjAC4A
-MQAzADkAOAA0ADEAMgAwADEANQAuAGcAaQB0AC4AYQBnAG8AcgBkAGUAZQB2AEAAcgBlAGQAaABh
-AHQALgBjAG8AbQA+ACAAPAAyADYAMgBDAEIAMwA3ADMAQQA2AEQAMQBGADEANABGADkAQgA4ADEA
-RQA4ADIARgA3ADQARgA3ADcARAA1AEEANAA2AEYAOQBFAEUANQA0AEAAYQB2AG0AYgAyAC4AcQBs
-AG8AZwBpAGMALgBvAHIAZwA+ACAAPAAyADAAMQA0ADAANAAyADUAMAA5ADAAMAAyADkALgBHAEEA
-MgA1ADAAMABAAGQAaABjAHAALQAyADYALQAyADAANwAuAGIAcgBxAC4AcgBlAGQAaABhAHQALgBj
-AG8AbQA+AAAAAwDeP59OAAALAACACCAGAAAAAADAAAAAAAAARgAAAAADhQAAAAAAAAMAAIAIIAYA
-AAAAAMAAAAAAAABGAAAAAAGFAAAAAAAAAwCAEP////9AAAcwR9ZIBWVgzwELAAIAAQAAAAMAJgAA
-AAAACwArAAAAAAACAUcAAQAAAC8AAABjPVVTO2E9IDtwPVFMb2dpYztsPUFWTUIyLTE0MDQyNTA5
-MDIwMlotMTY1NzEzAAACARAwAQAAAEYAAAAAAAAArzyCpH4RikG4uh7fmKWNYAcAWoRvvvW+/063
-9oZ+uI4ZfAAaa2g25QAArrMo5QJN4EiIC4rd8TVo8wBLdv2FqQAAAAAfAPo/AQAAABwAAABTAGgA
-YQBoAGUAZAAgAFMAaABhAGkAawBoAAAAAwAJWQEAAAADAACACCAGAAAAAADAAAAAAAAARgAAAAAQ
-hQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAA6FAAAAAAAAAwAAgAggBgAAAAAAwAAAAAAA
-AEYAAAAAGIUAAAAAAAALAACACCAGAAAAAADAAAAAAAAARgAAAACChQAAAAAAAB8AAIAIIAYAAAAA
-AMAAAAAAAABGAAAAANiFAAABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwANNP0/AAAfAACA
-hgMCAAAAAADAAAAAAAAARgEAAAAgAAAAeAAtAG0AcwAtAGgAYQBzAC0AYQB0AHQAYQBjAGgAAAAB
-AAAAAgAAAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAiAAAAeAAtAG8AcgBpAGcAaQBuAGEA
-dABpAG4AZwAtAGkAcAAAAAAAAQAAABgAAABbADEAMAAuADEALgA0AC4AMQAwAF0AAAC8dw==
-
---_000_262CB373A6D1F14F9B81E82F74F77D5A46F9EEA2avmb2qlogicorg_--
+linux-if_fddi-format.patch
+Index: linux/include/uapi/linux/if_fddi.h
+===================================================================
+--- linux.orig/include/uapi/linux/if_fddi.h
++++ linux/include/uapi/linux/if_fddi.h
+@@ -30,74 +30,76 @@
+  *  Define max and min legal sizes.  The frame sizes do not include
+  *  4 byte FCS/CRC (frame check sequence).
+  */
+-#define FDDI_K_ALEN			6		/* Octets in one FDDI address */
+-#define FDDI_K_8022_HLEN	16		/* Total octets in 802.2 header */
+-#define FDDI_K_SNAP_HLEN	21		/* Total octets in 802.2 SNAP header */
+-#define FDDI_K_8022_ZLEN	16		/* Min octets in 802.2 frame sans FCS */
+-#define FDDI_K_SNAP_ZLEN	21		/* Min octets in 802.2 SNAP frame sans FCS */
++#define FDDI_K_ALEN		6	/* Octets in one FDDI address */
++#define FDDI_K_8022_HLEN	16	/* Total octets in 802.2 header */
++#define FDDI_K_SNAP_HLEN	21	/* Total octets in 802.2 SNAP header */
++#define FDDI_K_8022_ZLEN	16	/* Min octets in 802.2 frame sans
++					   FCS */
++#define FDDI_K_SNAP_ZLEN	21	/* Min octets in 802.2 SNAP frame sans
++					   FCS */
+ #define FDDI_K_8022_DLEN	4475	/* Max octets in 802.2 payload */
+ #define FDDI_K_SNAP_DLEN	4470	/* Max octets in 802.2 SNAP payload */
+-#define FDDI_K_LLC_ZLEN		13		/* Min octets in LLC frame sans FCS */
++#define FDDI_K_LLC_ZLEN		13	/* Min octets in LLC frame sans FCS */
+ #define FDDI_K_LLC_LEN		4491	/* Max octets in LLC frame sans FCS */
++#define FDDI_K_OUI_LEN		3	/* Octets in OUI in 802.2 SNAP
++					   header */
+ 
+ /* Define FDDI Frame Control (FC) Byte values */
+-#define FDDI_FC_K_VOID					0x00	
+-#define FDDI_FC_K_NON_RESTRICTED_TOKEN	0x80	
+-#define FDDI_FC_K_RESTRICTED_TOKEN		0xC0	
+-#define FDDI_FC_K_SMT_MIN				0x41
+-#define FDDI_FC_K_SMT_MAX		   		0x4F
+-#define FDDI_FC_K_MAC_MIN				0xC1
+-#define FDDI_FC_K_MAC_MAX		  		0xCF	
+-#define FDDI_FC_K_ASYNC_LLC_MIN			0x50
+-#define FDDI_FC_K_ASYNC_LLC_DEF			0x54
+-#define FDDI_FC_K_ASYNC_LLC_MAX			0x5F
+-#define FDDI_FC_K_SYNC_LLC_MIN			0xD0
+-#define FDDI_FC_K_SYNC_LLC_MAX			0xD7
+-#define FDDI_FC_K_IMPLEMENTOR_MIN		0x60
+-#define FDDI_FC_K_IMPLEMENTOR_MAX  		0x6F
+-#define FDDI_FC_K_RESERVED_MIN			0x70
+-#define FDDI_FC_K_RESERVED_MAX			0x7F
++#define FDDI_FC_K_VOID			0x00
++#define FDDI_FC_K_NON_RESTRICTED_TOKEN	0x80
++#define FDDI_FC_K_RESTRICTED_TOKEN	0xC0
++#define FDDI_FC_K_SMT_MIN		0x41
++#define FDDI_FC_K_SMT_MAX		0x4F
++#define FDDI_FC_K_MAC_MIN		0xC1
++#define FDDI_FC_K_MAC_MAX		0xCF
++#define FDDI_FC_K_ASYNC_LLC_MIN		0x50
++#define FDDI_FC_K_ASYNC_LLC_DEF		0x54
++#define FDDI_FC_K_ASYNC_LLC_MAX		0x5F
++#define FDDI_FC_K_SYNC_LLC_MIN		0xD0
++#define FDDI_FC_K_SYNC_LLC_MAX		0xD7
++#define FDDI_FC_K_IMPLEMENTOR_MIN	0x60
++#define FDDI_FC_K_IMPLEMENTOR_MAX	0x6F
++#define FDDI_FC_K_RESERVED_MIN		0x70
++#define FDDI_FC_K_RESERVED_MAX		0x7F
+ 
+ /* Define LLC and SNAP constants */
+-#define FDDI_EXTENDED_SAP	0xAA
++#define FDDI_EXTENDED_SAP		0xAA
+ #define FDDI_UI_CMD			0x03
+ 
+ /* Define 802.2 Type 1 header */
+ struct fddi_8022_1_hdr {
+-	__u8	dsap;					/* destination service access point */
+-	__u8	ssap;					/* source service access point */
+-	__u8	ctrl;					/* control byte #1 */
++	__u8	dsap;			/* destination service access point */
++	__u8	ssap;			/* source service access point */
++	__u8	ctrl;			/* control byte #1 */
+ } __attribute__((packed));
+ 
+ /* Define 802.2 Type 2 header */
+ struct fddi_8022_2_hdr {
+-	__u8	dsap;					/* destination service access point */
+-	__u8	ssap;					/* source service access point */
+-	__u8	ctrl_1;					/* control byte #1 */
+-	__u8	ctrl_2;					/* control byte #2 */
++	__u8	dsap;			/* destination service access point */
++	__u8	ssap;			/* source service access point */
++	__u8	ctrl_1;			/* control byte #1 */
++	__u8	ctrl_2;			/* control byte #2 */
+ } __attribute__((packed));
+ 
+ /* Define 802.2 SNAP header */
+-#define FDDI_K_OUI_LEN	3
+ struct fddi_snap_hdr {
+-	__u8	dsap;					/* always 0xAA */
+-	__u8	ssap;					/* always 0xAA */
+-	__u8	ctrl;					/* always 0x03 */
++	__u8	dsap;			/* always 0xAA */
++	__u8	ssap;			/* always 0xAA */
++	__u8	ctrl;			/* always 0x03 */
+ 	__u8	oui[FDDI_K_OUI_LEN];	/* organizational universal id */
+-	__be16	ethertype;				/* packet type ID field */
++	__be16	ethertype;		/* packet type ID field */
+ } __attribute__((packed));
+ 
+ /* Define FDDI LLC frame header */
+ struct fddihdr {
+-	__u8	fc;						/* frame control */
+-	__u8	daddr[FDDI_K_ALEN];		/* destination address */
+-	__u8	saddr[FDDI_K_ALEN];		/* source address */
+-	union
+-		{
+-		struct fddi_8022_1_hdr		llc_8022_1;
+-		struct fddi_8022_2_hdr		llc_8022_2;
+-		struct fddi_snap_hdr		llc_snap;
+-		} hdr;
++	__u8	fc;			/* frame control */
++	__u8	daddr[FDDI_K_ALEN];	/* destination address */
++	__u8	saddr[FDDI_K_ALEN];	/* source address */
++	union {
++		struct fddi_8022_1_hdr	llc_8022_1;
++		struct fddi_8022_2_hdr	llc_8022_2;
++		struct fddi_snap_hdr	llc_snap;
++	} hdr;
+ } __attribute__((packed));
+ 
+ 
