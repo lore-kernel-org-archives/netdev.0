@@ -1,52 +1,61 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH V2] sctp: reset flowi4_oif parameter on route lookup
-Date: Fri, 25 Apr 2014 09:45:03 -0400
-Message-ID: <535A66DF.7080207@gmail.com>
-References: <1398416141-18916-1-git-send-email-xufeng.zhang@windriver.com>
+From: =?UTF-8?B?U3Zlbm5pbmcgU8O4cmVuc2Vu?= <sss@secomea.com>
+Subject: [PATCH] net: guard against coalescing packets from buggy network
+ drivers
+Date: Fri, 25 Apr 2014 17:02:05 +0200
+Message-ID: <535A78ED.3020309@secomea.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net, ja@ssi.bg
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398416141-18916-1-git-send-email-xufeng.zhang@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/25/2014 04:55 AM, Xufeng Zhang wrote:
-> commit 813b3b5db83 (ipv4: Use caller's on-stack flowi as-is
-> in output route lookups.) introduces another regression which
-> is very similar to the problem of commit e6b45241c (ipv4: reset
-> flowi parameters on route connect) wants to fix:
-> Before we call ip_route_output_key() in sctp_v4_get_dst() to
-> get a dst that matches a bind address as the source address,
-> we have already called this function previously and the flowi
-> parameters have been initialized including flowi4_oif, so when
-> we call this function again, the process in __ip_route_output_key()
-> will be different because of the setting of flowi4_oif, and we'll
-> get a networking device which corresponds to the inputted flowi4_oif
-> as the output device, this is wrong because we'll never hit this
-> place if the previously returned source address of dst match one
-> of the bound addresses.
-> 
-> To reproduce this problem, a vlan setting is enough:
->   # ifconfig eth0 up
->   # route del default
->   # vconfig add eth0 2
->   # vconfig add eth0 3
->   # ifconfig eth0.2 10.0.1.14 netmask 255.255.255.0
->   # route add default gw 10.0.1.254 dev eth0.2
->   # ifconfig eth0.3 10.0.0.14 netmask 255.255.255.0
->   # ip rule add from 10.0.0.14 table 4
->   # ip route add table 4 default via 10.0.0.254 src 10.0.0.14 dev eth0.3
->   # sctp_darn -H 10.0.0.14 -P 36422 -h 10.1.4.134 -p 36422 -s -I
-> You'll detect that all the flow are routed to eth0.2(10.0.1.254).
-> 
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+This patch adds a guard against coalescing packets received by buggy network
+drivers that don't initialize skb->tail properly.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Coalescing such packets will corrupt data in a way that makes it hard to
+track down the real cause of the problem. Observed symptoms are a flood of
+WARNs by tcp_recvmsg at random times, leaving no clear indication as to why
+the packet buffers were corrupted. See for example this thread:
+https://groups.google.com/forum/#!topic/linux.kernel/A8ZI9aXooSU
 
--vlad
+Obviously the correct thing to do is fixing the drivers in question (eg. by
+using skb_put() instead of just setting skb->len) - this patch will 
+hopefully
+help to track them down with less effort than I had to put into it :)
+
+NB: in my case it was an out-of-tree Bluegiga WiFi driver; a quick look 
+indicates
+that there are in-tree drivers (for hardware that I don't own) with the 
+same bug.
+
+
+Signed-off-by: Svenning Soerensen <sss@secomea.com>
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1b62343..188a60a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3833,6 +3833,19 @@ bool skb_try_coalesce(struct sk_buff *to, struct 
+sk_buff *from,
+          return false;
+
+      if (len <= skb_tailroom(to)) {
++        /* Guard against buggy network drivers that don't initialize
++         * skb properly: if they manipulate skb->len directly without
++         * setting skb->tail, the skb_put below may return a pointer to
++         * live data (such as TCP headers) that (without this guard)
++         * would get overwritten by coalescing.
++         * The correct thing to do is fixing the network drivers - but
++         * this guard should give us a chance to spot them before they
++         * cause real hard-to-debug problems :)
++         */
++        if (WARN_ONCE(skb_tail_pointer(to) < to->data,
++                  "skb inconsistency: tail below data\n"))
++            return false;
++
+          BUG_ON(skb_copy_bits(from, 0, skb_put(to, len), len));
+          *delta_truesize = 0;
+          return true;
