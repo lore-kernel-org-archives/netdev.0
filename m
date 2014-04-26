@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inetpeer_gc_worker: trivial cleanup
-Date: Sat, 26 Apr 2014 12:53:02 -0400 (EDT)
-Message-ID: <20140426.125302.2231088219056320790.davem@davemloft.net>
-References: <1398387209-12322-1-git-send-email-jin.xiao@intel.com>
+Subject: Re: [net-next v2 00/13][pull request] Intel Wired LAN Driver
+ Updates
+Date: Sat, 26 Apr 2014 12:55:14 -0400 (EDT)
+Message-ID: <20140426.125514.1892645715280538428.davem@davemloft.net>
+References: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, trivial@kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, david.a.cohen@linux.intel.com
-To: jin.xiao@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398387209-12322-1-git-send-email-jin.xiao@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52670 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968AbaDZQzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 12:55:16 -0400
+In-Reply-To: <1398387783-30414-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiao jin <jin.xiao@intel.com>
-Date: Fri, 25 Apr 2014 08:53:29 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 24 Apr 2014 18:02:50 -0700
 
-> Do not initialize list twice.
-> list_replace_init() already takes care of initializing list.
-> We don't need to initialize it with LIST_HEAD() beforehand.
+> This series contains updates to igb only.
 > 
-> Signed-off-by: xiao jin <jin.xiao@intel.com>
-> Reviewed-by: David Cohen <david.a.cohen@linux.intel.com>
+> Carolyn provides a number of cleanups to fix checkpatch warnings/errors
+> and two minor issues found by coccicheck.
+> 
+> v2: update patch indentation for patch 07 of the series based on feedback
+>     from David Miller.
 
-Also applied, thank you.
+Pulled, thank you Jeff.
