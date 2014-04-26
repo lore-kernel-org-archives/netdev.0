@@ -1,38 +1,42 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 0/9 v2] net: Checksum offload changes
-Date: Sat, 26 Apr 2014 14:24:23 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404261404550.27669@tomh.mtv.corp.google.com>
+Subject: [PATCH 2/9 v2] x86_64: csum_add for x86_64
+Date: Sat, 26 Apr 2014 14:24:48 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404261359490.26798@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f202.google.com ([209.85.192.202]:32802 "EHLO
-	mail-pd0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243AbaDZVYZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:24:25 -0400
-Received: by mail-pd0-f202.google.com with SMTP id w10so6836pde.3
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:24:24 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:62489 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752156AbaDZVYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:24:49 -0400
+Received: by mail-pa0-f73.google.com with SMTP id lj1so471742pab.0
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:24:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am working on overhauling RX checksum offload. Goals of this effort
-are:
+Add csum_add function for x86_64.
 
-- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-- Preserve CHECKSUM_COMPLETE through encapsulation layers
-- Don't do skb_checksum more than once per packet
-- Unify GRO and non-GRO csum verification as much as possible
-- Unify the checksum functions (checksum_init)
-- Simply code
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ arch/x86/include/asm/checksum_64.h | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-What is in this first patch set:
-
-- Create a common "checksum_init" function which is called from
-  TCPv{4,6} and UDPv{4,6}
-- Add some support for RFC6936, UDP/IPv6 zero checksums
-- Allow bad device checksum complete to be trusted.
-- Add architecture support for csum_add and provided implementations
-  for x86_64 and Sparc 32 and 64 bit (please test the latter)
-
-Please review carefully and test if possible, mucking with basic
-checksum functions is always a little precarious :-)
+diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
+index e6fd8a0..3581761 100644
+--- a/arch/x86/include/asm/checksum_64.h
++++ b/arch/x86/include/asm/checksum_64.h
+@@ -188,4 +188,11 @@ static inline unsigned add32_with_carry(unsigned a, unsigned b)
+ 	return a;
+ }
+ 
++#define HAVE_ARCH_CSUM_ADD
++static inline __wsum csum_add(__wsum csum, __wsum addend)
++{
++	return (__force __wsum)add32_with_carry((__force unsigned)csum,
++						(__force unsigned)addend);
++}
++
+ #endif /* _ASM_X86_CHECKSUM_64_H */
+-- 
+1.9.1.423.g4596e3a
