@@ -1,40 +1,33 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] sched, act: allow to clear all actions as well
-Date: Sat, 26 Apr 2014 07:40:47 -0400
-Message-ID: <535B9B3F.9040506@mojatatu.com>
-References: <1398459330-15598-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: [RFC net-next 0/4] Support UID range routing.
+Date: Sat, 26 Apr 2014 22:44:49 +0930
+Message-ID: <535BB149.3090901@davidnewall.com>
+References: <1398487705-13430-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+Cc: hannes@stressinduktion.org, davem@davemloft.net, jpa@google.com
+To: Lorenzo Colitti <lorenzo@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:58366 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010AbaDZLlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 07:41:17 -0400
-Received: by mail-ie0-f179.google.com with SMTP id lx4so4693982iec.24
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 04:41:17 -0700 (PDT)
-In-Reply-To: <1398459330-15598-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from hawking.rebel.net.au ([203.20.69.83]:39465 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122AbaDZNOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 09:14:54 -0400
+In-Reply-To: <1398487705-13430-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/14 16:55, Cong Wang wrote:
-> From: Cong Wang <cwang@twopensource.com>
->
-> When we change the list of action on a given filter, currently we don't
-> change it to empty. This is a bug, we should allow to change to whatever
-> users given.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
+Hi Lorenzo,
 
+> In some environments it is useful to route packets differently
+> based on the user ID.
 
-Thanks Cong.
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+I don't understand what your patch will do because, as I understand the 
+word, "routing" means forwarding a packet one hop closer to the 
+destination, so I expect you must reach the destination before you could 
+know the UID.  I'm probably missing something quite obvious. Could you 
+illustrate a use-case?
 
-cheers,
-jamal
+Thanks,
+
+David
