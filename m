@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] Altera Triple Speed Ethernet (TSE) Driver
-Date: Sat, 26 Apr 2014 12:27:55 -0400 (EDT)
-Message-ID: <20140426.122755.879078420691802138.davem@davemloft.net>
-References: <1398376691-15265-1-git-send-email-vbridgers2013@gmail.com>
+Subject: Re: pull-request: can 2014-04-24
+Date: Sat, 26 Apr 2014 12:31:55 -0400 (EDT)
+Message-ID: <20140426.123155.1657644162899113586.davem@davemloft.net>
+References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vbridgers2013@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52409 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751581AbaDZQ14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 12:27:56 -0400
-In-Reply-To: <1398376691-15265-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1398376829-6771-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Date: Thu, 24 Apr 2014 16:58:07 -0500
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 25 Apr 2014 00:00:03 +0200
 
-> This series of patches addresses a handful of issues found in testing
-> and reported by users of the Altera Triple Speed Ethernet soft IP.
+> this is a pull request for net/master, for the v3.15 release cycle, consisting
+> of 26 patches.
 > 
-> The patches address the following issues (in summary)
-> 
-> 1) The SGDMA soft IP was found to incorrectly process receive packets
->    when the target physical address of the receive buffer was on
->    a boundary that's not 32-bit aligned. One of the patches addresses
->    this issue.
-> 2) The pause quanta was not being set by the driver, one patch of this
->    series sets the pause quanta to the IEEE defined default value
->    since the hardware reset value is 0.
-> 3) An issue in a error recovery path of the probe routine caused a 
->    kernel panic in the event a phy was probed and could not be found.
->    A patch addresses this issue. 
-> 4) A change was made to the driver name for Ethtool support, and 
->    comments added to support an addition to Ethtool to support
->    the Altera Triple Speed Ethernet controller.
+> Thomas Gleixner contributes 21 patches for the c_can driver, which address
+> several shortcomings in the driver like hardware initialisation, concurrency,
+> message ordering and poor performance. Two patches Oliver Hartkopp, one adds a
+> missing lock to the sja1000_isa driver, the other one fixes the return value in
+> the generic bit time configuration function. And finally a patch by Alexander
+> Stein, that fixes the slcan driver to use the correct spinlock variant.
 
-Since these are bug fixes I've applied them to 'net' instead of 'net-next'.
-
-Please always submit your changes against the correct tree, thank you.
+Pulled, thanks.
