@@ -1,94 +1,46 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 9/9 v2] net: Add sysctl to trust checksum_complete
-Date: Sat, 26 Apr 2014 14:26:35 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404261402390.27405@tomh.mtv.corp.google.com>
+Subject: [PATCH 3/9 v2] net: Change x86_64 add32_with_carry to allow memory
+ operand
+Date: Sat, 26 Apr 2014 14:25:00 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404261400070.26867@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: eric.dumazet@gmail.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:53100 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751842AbaDZV0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:26:36 -0400
-Received: by mail-qa0-f74.google.com with SMTP id w8so812781qac.5
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:26:35 -0700 (PDT)
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:41455 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752156AbaDZVbH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:31:07 -0400
+Received: by mail-ie0-f201.google.com with SMTP id rd18so1159986iec.2
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:31:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently if a device provides CHECKSUM_COMPLETE but the checksum
-is calculated to be invalid we recompute the checksum and try
-again in software. On the other hand, if device returns
-CHECKSUM_UNNECESSARY we implicitly trust it and don't verify what it
-did. This seems backwards!
+>From Eric Dumazet:
 
-Add a sysctl to trust the device and report an invalid checksum when
-CHECKSUM_COMPLETE shows it is incorrect. sysctl defaults to enabled.
+Note add32_with_carry(a, b) is suboptimal, as it forces
+a and b in registers.
+
+b could be a memory or a register operand.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h     | 7 ++++++-
- net/core/dev.c             | 3 +++
- net/core/sysctl_net_core.c | 7 +++++++
- 3 files changed, 16 insertions(+), 1 deletion(-)
+ arch/x86/include/asm/checksum_64.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 3b14acc..f3c6018 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2763,6 +2763,8 @@ static inline __sum16 __skb_checksum_validate_unnecessary(struct sk_buff *skb,
- 	return 1;
+diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
+index 3581761..cd00e17 100644
+--- a/arch/x86/include/asm/checksum_64.h
++++ b/arch/x86/include/asm/checksum_64.h
+@@ -184,7 +184,7 @@ static inline unsigned add32_with_carry(unsigned a, unsigned b)
+ 	asm("addl %2,%0\n\t"
+ 	    "adcl $0,%0"
+ 	    : "=r" (a)
+-	    : "0" (a), "r" (b));
++	    : "0" (a), "rm" (b));
+ 	return a;
  }
  
-+extern int sysctl_trust_dev_checksum;
-+
- /*
-  * Validate (init) checksum based on checksum complete.
-  *
-@@ -2775,9 +2777,12 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
- 						       __wsum psum)
- {
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		if (!csum_fold(csum_add(psum, skb->csum))) {
-+		__sum16 csum = csum_fold(csum_add(psum, skb->csum));
-+		if (!csum) {
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			return 0;
-+		} else if (sysctl_trust_dev_checksum) {
-+			return csum;
- 		}
- 	}
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 11d70e3..4f7980a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2918,6 +2918,9 @@ int netdev_tstamp_prequeue __read_mostly = 1;
- int netdev_budget __read_mostly = 300;
- int weight_p __read_mostly = 64;            /* old backlog weight */
- 
-+int sysctl_trust_dev_checksum = 1;
-+EXPORT_SYMBOL(sysctl_trust_dev_checksum);
-+
- /* Called with irq disabled */
- static inline void ____napi_schedule(struct softnet_data *sd,
- 				     struct napi_struct *napi)
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index cf9cd13..246b9e3 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -263,6 +263,13 @@ static struct ctl_table net_core_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "trust_dev_checksum",
-+		.data		= &sysctl_trust_dev_checksum,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- #ifdef CONFIG_BPF_JIT
- 	{
- 		.procname	= "bpf_jit_enable",
 -- 
 1.9.1.423.g4596e3a
