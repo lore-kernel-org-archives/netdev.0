@@ -1,216 +1,110 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [RFC net-next 2/4] net: core: Add a UID range to fib rules.
-Date: Sat, 26 Apr 2014 13:48:23 +0900
-Message-ID: <1398487705-13430-3-git-send-email-lorenzo@google.com>
+Subject: [RFC net-next 4/4] net: core: Add a RTA_UID attribute to routes.
+Date: Sat, 26 Apr 2014 13:48:25 +0900
+Message-ID: <1398487705-13430-5-git-send-email-lorenzo@google.com>
 References: <1398487705-13430-1-git-send-email-lorenzo@google.com>
 Cc: hannes@stressinduktion.org, davem@davemloft.net, jpa@google.com,
 	Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:56919 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238AbaDZEsw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 00:48:52 -0400
-Received: by mail-pd0-f173.google.com with SMTP id p10so3480784pdj.4
-        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 21:48:51 -0700 (PDT)
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:43889 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751246AbaDZEs6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 00:48:58 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rr13so3902165pbb.14
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 21:48:58 -0700 (PDT)
 In-Reply-To: <1398487705-13430-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is so that userspace can do per-UID route lookups.
+
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/net/fib_rules.h        |  6 ++++-
- include/net/flow.h             |  5 ++++
- include/uapi/linux/fib_rules.h |  2 ++
- net/core/fib_rules.c           | 53 ++++++++++++++++++++++++++++++++++++++++--
- 4 files changed, 63 insertions(+), 3 deletions(-)
+ include/uapi/linux/rtnetlink.h | 1 +
+ net/ipv4/fib_frontend.c        | 1 +
+ net/ipv4/route.c               | 5 +++++
+ net/ipv6/route.c               | 7 +++++++
+ 4 files changed, 14 insertions(+)
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index e584de1..cb4470d 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -28,6 +28,8 @@ struct fib_rule {
- 	int			suppress_prefixlen;
- 	char			iifname[IFNAMSIZ];
- 	char			oifname[IFNAMSIZ];
-+	kuid_t			uid_start;
-+	kuid_t			uid_end;
- 	struct rcu_head		rcu;
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index eb0f1a5..01757b7 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -297,6 +297,7 @@ enum rtattr_type_t {
+ 	RTA_TABLE,
+ 	RTA_MARK,
+ 	RTA_MFC_STATS,
++	RTA_UID,
+ 	__RTA_MAX
  };
  
-@@ -88,7 +90,9 @@ struct fib_rules_ops {
- 	[FRA_TABLE]     = { .type = NLA_U32 }, \
- 	[FRA_SUPPRESS_PREFIXLEN] = { .type = NLA_U32 }, \
- 	[FRA_SUPPRESS_IFGROUP] = { .type = NLA_U32 }, \
--	[FRA_GOTO]	= { .type = NLA_U32 }
-+	[FRA_GOTO]	= { .type = NLA_U32 }, \
-+	[FRA_UID_START]	= { .type = NLA_U32 }, \
-+	[FRA_UID_END]	= { .type = NLA_U32 }
- 
- static inline void fib_rule_get(struct fib_rule *rule)
- {
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 84044af..9828829 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -10,6 +10,7 @@
- #include <linux/socket.h>
- #include <linux/in6.h>
- #include <linux/atomic.h>
-+#include <linux/uidgid.h>
- 
- /*
-  * ifindex generation is per-net namespace, and loopback is
-@@ -30,6 +31,7 @@ struct flowi_common {
- #define FLOWI_FLAG_ANYSRC		0x01
- #define FLOWI_FLAG_KNOWN_NH		0x02
- 	__u32	flowic_secid;
-+	kuid_t	flowic_uid;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 255aa99..dca307c 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -531,6 +531,7 @@ const struct nla_policy rtm_ipv4_policy[RTA_MAX + 1] = {
+ 	[RTA_METRICS]		= { .type = NLA_NESTED },
+ 	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
+ 	[RTA_FLOW]		= { .type = NLA_U32 },
++	[RTA_UID]		= { .type = NLA_U32 },
  };
  
- union flowi_uli {
-@@ -66,6 +68,7 @@ struct flowi4 {
- #define flowi4_proto		__fl_common.flowic_proto
- #define flowi4_flags		__fl_common.flowic_flags
- #define flowi4_secid		__fl_common.flowic_secid
-+#define flowi4_uid		__fl_common.flowic_uid
+ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 58017b1..57daf60 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2385,6 +2385,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	int err;
+ 	int mark;
+ 	struct sk_buff *skb;
++	kuid_t uid;
  
- 	/* (saddr,daddr) must be grouped, same order as in IP header */
- 	__be32			saddr;
-@@ -122,6 +125,7 @@ struct flowi6 {
- #define flowi6_proto		__fl_common.flowic_proto
- #define flowi6_flags		__fl_common.flowic_flags
- #define flowi6_secid		__fl_common.flowic_secid
-+#define flowi6_uid		__fl_common.flowic_uid
- 	struct in6_addr		daddr;
- 	struct in6_addr		saddr;
- 	__be32			flowlabel;
-@@ -185,6 +189,7 @@ struct flowi {
- #define flowi_proto	u.__fl_common.flowic_proto
- #define flowi_flags	u.__fl_common.flowic_flags
- #define flowi_secid	u.__fl_common.flowic_secid
-+#define flowi_uid	u.__fl_common.flowic_uid
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
- 
- static inline struct flowi *flowi4_to_flowi(struct flowi4 *fl4)
-diff --git a/include/uapi/linux/fib_rules.h b/include/uapi/linux/fib_rules.h
-index 2b82d7e..743e300 100644
---- a/include/uapi/linux/fib_rules.h
-+++ b/include/uapi/linux/fib_rules.h
-@@ -49,6 +49,8 @@ enum {
- 	FRA_TABLE,	/* Extended table id */
- 	FRA_FWMASK,	/* mask for netfilter mark */
- 	FRA_OIFNAME,
-+	FRA_UID_START,	/* UID range */
-+	FRA_UID_END,
- 	__FRA_MAX
- };
- 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 185c341..5cbcdfd 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -31,6 +31,8 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
- 	r->pref = pref;
- 	r->table = table;
- 	r->flags = flags;
-+	r->uid_start = INVALID_UID;
-+	r->uid_end = INVALID_UID;
- 	r->fr_net = hold_net(ops->fro_net);
- 
- 	r->suppress_prefixlen = -1;
-@@ -182,6 +184,23 @@ void fib_rules_unregister(struct fib_rules_ops *ops)
- }
- EXPORT_SYMBOL_GPL(fib_rules_unregister);
- 
-+static inline kuid_t fib_nl_uid(struct nlattr *nla)
-+{
-+	return make_kuid(current_user_ns(), nla_get_u32(nla));
-+}
-+
-+static int nla_put_uid(struct sk_buff *skb, int idx, kuid_t uid)
-+{
-+	return nla_put_u32(skb, idx, from_kuid_munged(current_user_ns(), uid));
-+}
-+
-+static int fib_uid_range_match(struct flowi *fl, struct fib_rule *rule)
-+{
-+	return (!uid_valid(rule->uid_start) && !uid_valid(rule->uid_end)) ||
-+	       (uid_gte(fl->flowi_uid, rule->uid_start) &&
-+		uid_lte(fl->flowi_uid, rule->uid_end));
-+}
-+
- static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
- 			  struct flowi *fl, int flags)
- {
-@@ -196,6 +215,9 @@ static int fib_rule_match(struct fib_rule *rule, struct fib_rules_ops *ops,
- 	if ((rule->mark ^ fl->flowi_mark) & rule->mark_mask)
- 		goto out;
- 
-+	if (!fib_uid_range_match(fl, rule))
-+		goto out;
-+
- 	ret = ops->match(rule, fl, flags);
- out:
- 	return (rule->flags & FIB_RULE_INVERT) ? !ret : ret;
-@@ -378,6 +400,19 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 	} else if (rule->action == FR_ACT_GOTO)
- 		goto errout_free;
- 
-+	/* UID start and end must either both be valid or both unspecified. */
-+	rule->uid_start = rule->uid_end = INVALID_UID;
-+	if (tb[FRA_UID_START] || tb[FRA_UID_END]) {
-+		if (tb[FRA_UID_START] && tb[FRA_UID_END]) {
-+			rule->uid_start = fib_nl_uid(tb[FRA_UID_START]);
-+			rule->uid_end = fib_nl_uid(tb[FRA_UID_END]);
-+		}
-+		if (!uid_valid(rule->uid_start) ||
-+		    !uid_valid(rule->uid_end) ||
-+		    !uid_lte(rule->uid_start, rule->uid_end))
-+		goto errout_free;
-+	}
-+
- 	err = ops->configure(rule, skb, frh, tb);
+ 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_ipv4_policy);
  	if (err < 0)
- 		goto errout_free;
-@@ -484,6 +519,14 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh)
- 		    (rule->mark_mask != nla_get_u32(tb[FRA_FWMASK])))
- 			continue;
+@@ -2412,6 +2413,9 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	dst = tb[RTA_DST] ? nla_get_be32(tb[RTA_DST]) : 0;
+ 	iif = tb[RTA_IIF] ? nla_get_u32(tb[RTA_IIF]) : 0;
+ 	mark = tb[RTA_MARK] ? nla_get_u32(tb[RTA_MARK]) : 0;
++	uid = tb[RTA_UID] ?
++		make_kuid(current_user_ns(), nla_get_u32(tb[RTA_UID])) :
++		current_uid();
  
-+		if (tb[FRA_UID_START] &&
-+		    !uid_eq(rule->uid_start, fib_nl_uid(tb[FRA_UID_START])))
-+			continue;
+ 	memset(&fl4, 0, sizeof(fl4));
+ 	fl4.daddr = dst;
+@@ -2419,6 +2423,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	fl4.flowi4_tos = rtm->rtm_tos;
+ 	fl4.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0;
+ 	fl4.flowi4_mark = mark;
++	fl4.flowi4_uid = uid;
+ 
+ 	if (iif) {
+ 		struct net_device *dev;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4011617..75a5d41 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2321,6 +2321,7 @@ static const struct nla_policy rtm_ipv6_policy[RTA_MAX+1] = {
+ 	[RTA_PRIORITY]          = { .type = NLA_U32 },
+ 	[RTA_METRICS]           = { .type = NLA_NESTED },
+ 	[RTA_MULTIPATH]		= { .len = sizeof(struct rtnexthop) },
++	[RTA_UID]		= { .type = NLA_U32 },
+ };
+ 
+ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+@@ -2707,6 +2708,12 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh)
+ 	if (tb[RTA_OIF])
+ 		oif = nla_get_u32(tb[RTA_OIF]);
+ 
++	if (tb[RTA_UID])
++		fl6.flowi6_uid = make_kuid(current_user_ns(),
++					   nla_get_u32(tb[RTA_UID]));
++	else
++		fl6.flowi6_uid = current_uid();
 +
-+		if (tb[FRA_UID_END] &&
-+		    !uid_eq(rule->uid_end, fib_nl_uid(tb[FRA_UID_END])))
-+			continue;
-+
- 		if (!ops->compare(rule, frh, tb))
- 			continue;
- 
-@@ -542,7 +585,9 @@ static inline size_t fib_rule_nlmsg_size(struct fib_rules_ops *ops,
- 			 + nla_total_size(4) /* FRA_SUPPRESS_PREFIXLEN */
- 			 + nla_total_size(4) /* FRA_SUPPRESS_IFGROUP */
- 			 + nla_total_size(4) /* FRA_FWMARK */
--			 + nla_total_size(4); /* FRA_FWMASK */
-+			 + nla_total_size(4) /* FRA_FWMASK */
-+			 + nla_total_size(4) /* FRA_UID_START */
-+			 + nla_total_size(4); /* FRA_UID_END */
- 
- 	if (ops->nlmsg_payload)
- 		payload += ops->nlmsg_payload(rule);
-@@ -598,7 +643,11 @@ static int fib_nl_fill_rule(struct sk_buff *skb, struct fib_rule *rule,
- 	    ((rule->mark_mask || rule->mark) &&
- 	     nla_put_u32(skb, FRA_FWMASK, rule->mark_mask)) ||
- 	    (rule->target &&
--	     nla_put_u32(skb, FRA_GOTO, rule->target)))
-+	     nla_put_u32(skb, FRA_GOTO, rule->target)) ||
-+	    (uid_valid(rule->uid_start) &&
-+	     nla_put_uid(skb, FRA_UID_START, rule->uid_start)) ||
-+	    (uid_valid(rule->uid_end) &&
-+	     nla_put_uid(skb, FRA_UID_END, rule->uid_end)))
- 		goto nla_put_failure;
- 
- 	if (rule->suppress_ifgroup != -1) {
+ 	if (iif) {
+ 		struct net_device *dev;
+ 		int flags = 0;
 -- 
 1.9.1.423.g4596e3a
