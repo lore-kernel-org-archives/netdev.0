@@ -1,56 +1,64 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH V1 net-next 1/1] hyperv: Properly handle checksum offload
-Date: Fri, 25 Apr 2014 20:55:23 -0700
-Message-ID: <1398484523-27596-1-git-send-email-kys@microsoft.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [RFC][PATCH] IP: Make ping sockets optional
+Date: Sat, 26 Apr 2014 12:02:28 +0900
+Message-ID: <CAKD1Yr162yVuLcQ5B42a8ovvFj+BV4LBic29+qjAA7YDA0pN=w@mail.gmail.com>
+References: <1398266428.7767.140.camel@deadeye.wl.decadent.org.uk>
+ <20140423153018.GA13717@breakpoint.cc> <1398268542.7767.145.camel@deadeye.wl.decadent.org.uk>
+ <20140423162712.GB13717@breakpoint.cc> <20140424151748.GH1960@order.stressinduktion.org>
+ <1398355320.7767.175.camel@deadeye.wl.decadent.org.uk> <20140424163712.GJ1960@order.stressinduktion.org>
+ <CAKD1Yr0X5vqhdmFkwfgd0WJ0Jw7GGm8=iHNPeyfNKoODN4=1Mw@mail.gmail.com> <20140425211809.GC7050@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: stable@kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Lorenzo Colitti <lorenzo@google.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Florian Westphal <fw@strlen.de>,
+	netdev <netdev@vger.kernel.org>,
+	Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:48762 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbaDZDCu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Apr 2014 23:02:50 -0400
+Received: by mail-ig0-f176.google.com with SMTP id uy17so2911222igb.15
+        for <netdev@vger.kernel.org>; Fri, 25 Apr 2014 20:02:50 -0700 (PDT)
+In-Reply-To: <20140425211809.GC7050@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Do checksum offload only if the client of the driver wants checksum to be
-offloaded.
+On Sat, Apr 26, 2014 at 6:18 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+>> One of the original discussion threads I posted above has a link to a
+>> lengthy discussion on why the original designers of this code thought
+>> capabilities were not a good idea from a security standpoint.
+>
+> Hmm, maybe I have overlooked it but I have not found any references to
+> capabilities.
 
-In this version of the patch, I have addressed comments from
-Stephen Hemminger <stephen@networkplumber.org> and
-Eric Dumazet <eric.dumazet@gmail.com>.
+I thought I had linked to that, but perhaps I hadn't. This was
+proposed for the first time in 2010:
+http://thread.gmane.org/gmane.linux.kernel/1079723 . The discussion on
+capabilities is linked a few messages down,
+http://www.openwall.com/lists/oss-security/2010/11/08/3 .
 
-This patch fixes a bug that is exposed in gateway scenarios.
+> Ok, I see. There seem to be more users of this on Android. I guess ping
+> sockets are available to every application writer or will it be set
+> dynamically because of application permissions? Sorry, I am not that common
+> with android.
 
+Android sets ping_group_range to "allow everything". Access to general
+network connectivity is restricted by Android application permissions,
+so if an application has that, it can send pings.
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-Cc: stable@kernel.org
----
- drivers/net/hyperv/netvsc_drv.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+> Ack, that's why my first hunch was to introduce a new capability just for ping
+> sockets. I assume this wouldn't work for android?
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 939e3af..7ca9daa 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -467,6 +467,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	if (skb_is_gso(skb))
- 		goto do_lso;
- 
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		goto do_send;
-+
- 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
- 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
- 			    TCPIP_CHKSUM_PKTINFO);
--- 
-1.7.4.1
+Android userspace would need to be changed to use it (to give it to
+everything that has network access permissions). I don't know if
+there's a way to do that today.
+
+Also, if you introduced a new capability for this, I think the 10KB
+extra code would still be there. Because ping sockets don't allow you
+to send/receive arbitrary ICMP messages, they only allow ping packets.
+So "a new capability to allow ping" would have to be similarly
+restricted, which means a lot of the code would still have to be
+there.
