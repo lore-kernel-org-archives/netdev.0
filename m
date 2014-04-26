@@ -1,132 +1,125 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 5/9 v2] net: Generalize checksum_init functions
-Date: Sat, 26 Apr 2014 14:25:30 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404261400430.26913@tomh.mtv.corp.google.com>
+Subject: [PATCH 6/9 v2] net: Call skb_checksum_init in IPv4
+Date: Sat, 26 Apr 2014 14:25:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404261401050.26921@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f201.google.com ([209.85.220.201]:60809 "EHLO
-	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105AbaDZVZd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:25:33 -0400
-Received: by mail-vc0-f201.google.com with SMTP id ij19so248819vcb.2
-        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:25:31 -0700 (PDT)
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:35865 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752474AbaDZVZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 17:25:45 -0400
+Received: by mail-qa0-f74.google.com with SMTP id w8so811259qac.3
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 14:25:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create a general __skb_checksum_validate function (actually a
-macro) to subsume the various checksum_init functions. This
-function can either init the checksum, or do the full validation
-(logically checksum_init+skb_check_complete)-- a flag specifies
-if full vaidation is performed. Also, there is a flag to the function
-to indicate that zero checksums are allowed (to support optional
-UDP checksums).
-
-Added several stub functions for calling __skb_checksum_validate.
+Call skb_checksum_init instead of private functions.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/skbuff.h | 87 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 87 insertions(+)
+ include/net/ip.h    |  6 ++++++
+ net/ipv4/tcp_ipv4.c | 25 ++-----------------------
+ net/ipv4/udp.c      | 19 ++-----------------
+ 3 files changed, 10 insertions(+), 40 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 08074a8..3b14acc 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2741,6 +2741,93 @@ static inline __sum16 skb_checksum_complete(struct sk_buff *skb)
- 	       0 : __skb_checksum_complete(skb);
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3ec2b0f..1988cef 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -342,6 +342,12 @@ static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *d
+ 		__ip_select_ident(iph, dst, more);
  }
  
-+/*
-+ * Try to validate checksum based on unnecessary or zero checksum
-+ * received.
-+ *
-+ * Return values:
-+ * 0: checksum unnecessary validated, no further checks needed
-+ * 1: checksum complete needed
-+ */
-+static inline __sum16 __skb_checksum_validate_unnecessary(struct sk_buff *skb,
-+							  bool zero_okay,
-+							  __sum16 check)
++static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
 +{
-+	if (skb_csum_unnecessary(skb)) {
-+		return 0;
-+	} else if (zero_okay && !check) {
-+		skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		return 0;
-+	}
-+
-+	return 1;
++	return csum_tcpudp_nofold(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
++				  skb->len, proto, 0);
 +}
 +
-+/*
-+ * Validate (init) checksum based on checksum complete.
-+ *
-+ * Return values:
-+ * 0: checksum is validated or try to in skb_checksum_complete
-+ * non-zero: value of invalid computed checksum
-+ */
-+static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
-+						       bool complete,
-+						       __wsum psum)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		if (!csum_fold(csum_add(psum, skb->csum))) {
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+			return 0;
-+		}
-+	}
+ /*
+  *	Map a multicast IP onto multicast MAC for type ethernet.
+  */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 438f3b9..ad166dc 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1744,28 +1744,6 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
+ 	return sk;
+ }
+ 
+-static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
+-{
+-	const struct iphdr *iph = ip_hdr(skb);
+-
+-	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v4_check(skb->len, iph->saddr,
+-				  iph->daddr, skb->csum)) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			return 0;
+-		}
+-	}
+-
+-	skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-				       skb->len, IPPROTO_TCP, 0);
+-
+-	if (skb->len <= 76) {
+-		return __skb_checksum_complete(skb);
+-	}
+-	return 0;
+-}
+-
+-
+ /* The socket must have it's spinlock held when we get
+  * here.
+  *
+@@ -1960,7 +1938,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	 * Packet length and doff are validated by header prediction,
+ 	 * provided case of th->doff==0 is eliminated.
+ 	 * So, we defer the checks. */
+-	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
 +
-+	skb->csum = psum;
-+
-+	if (complete || skb->len <= 76)
-+		return __skb_checksum_complete(skb);
-+
-+	return 0;
-+}
-+
-+static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
-+{
-+	return 0;
-+}
-+
-+/*
-+ * Perform checksum validate (init). Note that this is a macro since we only
-+ * want to calculate the pseudo header which is an input function if necessary.
-+ * First we try to validate without any computation (checksum unnecessary) and
-+ * then calculate based on checksum complete calling the function to compute
-+ * pseudo header.
-+ */
-+#define __skb_checksum_validate(skb, proto, complete,			\
-+				zero_okay, check, compute_pseudo)	\
-+({									\
-+	__sum16 __ret = __skb_checksum_validate_unnecessary(skb,	\
-+				zero_okay, check);			\
-+	if (__ret)							\
-+		__ret = __skb_checksum_validate_complete(skb,		\
-+				complete, compute_pseudo(skb, proto));	\
-+	__ret;								\
-+})
-+
-+#define skb_checksum_init(skb, proto, compute_pseudo)			\
-+	__skb_checksum_validate(skb, proto, false, false, 0, compute_pseudo)
-+
-+#define skb_checksum_init_zero_check(skb, proto, check, compute_pseudo)	\
-+	__skb_checksum_validate(skb, proto, false, true, check, compute_pseudo)
-+
-+#define skb_checksum_validate(skb, proto, compute_pseudo)		\
-+	__skb_checksum_validate(skb, proto, true, false, 0, compute_pseudo)
-+
-+#define skb_checksum_validate_zero_check(skb, proto, check,		\
-+					 compute_pseudo)		\
-+	__skb_checksum_validate_(skb, proto, true, true, check, compute_pseudo)
-+
-+#define skb_checksum_simple_validate(skb)				\
-+	__skb_checksum_validate(skb, 0, true, false, 0, null_compute_pseudo)
-+
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- void nf_conntrack_destroy(struct nf_conntrack *nfct);
- static inline void nf_conntrack_put(struct nf_conntrack *nfct)
++	if (skb_checksum_init(skb, IPPROTO_TCP, inet_compute_pseudo))
+ 		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4468e1a..f2d05d7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1672,7 +1672,6 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 				 int proto)
+ {
+-	const struct iphdr *iph;
+ 	int err;
+ 
+ 	UDP_SKB_CB(skb)->partial_cov = 0;
+@@ -1684,22 +1683,8 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 			return err;
+ 	}
+ 
+-	iph = ip_hdr(skb);
+-	if (uh->check == 0) {
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	} else if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
+-				      proto, skb->csum))
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	}
+-	if (!skb_csum_unnecessary(skb))
+-		skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-					       skb->len, proto, 0);
+-	/* Probably, we should checksum udp header (it should be in cache
+-	 * in any case) and data in tiny packets (< rx copybreak).
+-	 */
+-
+-	return 0;
++	return skb_checksum_init_zero_check(skb, proto, uh->check,
++					    inet_compute_pseudo);
+ }
+ 
+ /*
 -- 
 1.9.1.423.g4596e3a
