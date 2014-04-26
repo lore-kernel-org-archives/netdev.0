@@ -1,42 +1,40 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC net-next 1/4] net: ipv6: Introduce flowi6_init_output.
-Date: Sat, 26 Apr 2014 08:56:09 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1404260850030.1554@ja.home.ssi.bg>
-References: <1398487705-13430-1-git-send-email-lorenzo@google.com> <1398487705-13430-2-git-send-email-lorenzo@google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next] sched, act: allow to clear all actions as well
+Date: Sat, 26 Apr 2014 07:40:47 -0400
+Message-ID: <535B9B3F.9040506@mojatatu.com>
+References: <1398459330-15598-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	davem@davemloft.net, jpa@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33096 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750718AbaDZF4l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Apr 2014 01:56:41 -0400
-In-Reply-To: <1398487705-13430-2-git-send-email-lorenzo@google.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:58366 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752010AbaDZLlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Apr 2014 07:41:17 -0400
+Received: by mail-ie0-f179.google.com with SMTP id lx4so4693982iec.24
+        for <netdev@vger.kernel.org>; Sat, 26 Apr 2014 04:41:17 -0700 (PDT)
+In-Reply-To: <1398459330-15598-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/25/14 16:55, Cong Wang wrote:
+> From: Cong Wang <cwang@twopensource.com>
+>
+> When we change the list of action on a given filter, currently we don't
+> change it to empty. This is a bug, we should allow to change to whatever
+> users given.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-	Hello,
 
-On Sat, 26 Apr 2014, Lorenzo Colitti wrote:
+Thanks Cong.
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> +static inline void flowi6_init_output(struct flowi6 *fl6, int oif,
-> +				      __u32 mark, __u8 proto, __u8 flags,
-> +				      __be32 flowlabel,
-> +				      struct in6_addr daddr,
-> +				      struct in6_addr saddr,
-> +				      __be16 dport, __be16 sport)
-> +{
-> +	fl6->flowi6_oif = oif;
-> +	fl6->flowi6_iif = 0;
-
-	Make sure LOOPBACK_IFINDEX is provided in
-flowi6_iif instead of 0, recent commit fixed such
-FIB rule lookups.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+cheers,
+jamal
