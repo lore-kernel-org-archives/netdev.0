@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2014-04-25
-Date: Sat, 26 Apr 2014 12:33:09 -0400 (EDT)
-Message-ID: <20140426.123309.1445855723743499773.davem@davemloft.net>
-References: <53598E72.30504@pengutronix.de>
+Subject: Re: [PATCH] cleanup_net: trivial cleanup
+Date: Sat, 26 Apr 2014 12:52:06 -0400 (EDT)
+Message-ID: <20140426.125206.1284988815126862472.davem@davemloft.net>
+References: <1398387054-11172-1-git-send-email-jin.xiao@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53598E72.30504@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Cc: trivial@kernel.org, ebiederm@xmission.com, dhowells@redhat.com,
+	viro@zeniv.linux.org.uk, serge.hallyn@canonical.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	david.a.cohen@linux.intel.com
+To: jin.xiao@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1398387054-11172-1-git-send-email-jin.xiao@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 25 Apr 2014 00:21:38 +0200
+From: xiao jin <jin.xiao@intel.com>
+Date: Fri, 25 Apr 2014 08:50:54 +0800
 
-> this is a pull request of 10 patches for net-next/master.
+> Do not initialize net_kill_list twice.
+> list_replace_init() already takes care of initializing net_kill_list.
+> We don't need to initialize it with LIST_HEAD() beforehand.
 > 
-> It consists of three patches by Alexander Shiyan, which improve the
-> mcp251x driver. Stefano Babic's patch move the SPI driver into a sub
-> folder. The three patches by Olivier Sobrie add support for the Kvaser
-> Leaf v2 and usb mini PCIe hardware to the existing driver. Alexander
-> Stein contributes eg20t support to the c_can pci driver. Together with
-> the patches on the net-tree, we'll be able to remove the pch_can driver
-> soon. Kurt Van Dijck's two patches clean up the sysfs attributes of the
-> softing driver.
+> Signed-off-by: xiao jin <jin.xiao@intel.com>
+> Reviewed-by: David Cohen <david.a.cohen@linux.intel.com>
 
-Pulled, thank you.
+Applied, thank you.
