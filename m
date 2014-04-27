@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] i40evf: Use pci_enable_msix_range()
- instead of pci_enable_msix()
-Date: Sun, 27 Apr 2014 19:30:27 -0400 (EDT)
-Message-ID: <20140427.193027.1833767089712636627.davem@davemloft.net>
-References: <cover.1398412015.git.agordeev@redhat.com>
-	<110dd7806f49f62272bd960ae8101c9da81a3f01.1398412015.git.agordeev@redhat.com>
+Subject: Re: [PATCH net v2] bridge: Handle IFLA_ADDRESS correctly
+ when creating bridge device
+Date: Sun, 27 Apr 2014 19:54:12 -0400 (EDT)
+Message-ID: <20140427.195412.646574309300796885.davem@davemloft.net>
+References: <20140424113827.6d27ec5b@nehalam.linuxnetplumber.net>
+	<1398412451.3920.3.camel@ubuntu-vm-makita>
+	<1398412878.3920.7.camel@ubuntu-vm-makita>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mitch.a.williams@intel.com,
-	jesse.brandeburg@intel.com, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org, jeffrey.t.kirsher@intel.com
-To: agordeev@redhat.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <110dd7806f49f62272bd960ae8101c9da81a3f01.1398412015.git.agordeev@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org, teg@jklm.no,
+	bridge@lists.linux-foundation.org, cr@saltstack.com
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1398412878.3920.7.camel@ubuntu-vm-makita>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexander Gordeev <agordeev@redhat.com>
-Date: Fri, 25 Apr 2014 10:06:24 +0200
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Fri, 25 Apr 2014 17:01:18 +0900
 
-> As result of deprecation of MSI-X/MSI enablement functions
-> pci_enable_msix() and pci_enable_msi_block() all drivers
-> using these two interfaces need to be updated to use the
-> new pci_enable_msi_range()  or pci_enable_msi_exact()
-> and pci_enable_msix_range() or pci_enable_msix_exact()
-> interfaces.
+> When bridge device is created with IFLA_ADDRESS, we are not calling
+> br_stp_change_bridge_id(), which leads to incorrect local fdb
+> management and bridge id calculation, and prevents us from receiving
+> frames on the bridge device.
 > 
-> Signed-off-by: Alexander Gordeev <agordeev@redhat.com>
+> Reported-by: Tom Gundersen <teg@jklm.no>
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-Jeff, I assume you will take this in via your tree.
-
-Thanks.
+Applied and queued up for -stable.
