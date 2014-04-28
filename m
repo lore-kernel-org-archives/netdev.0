@@ -1,127 +1,54 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: remove ptp_tx_work timestamp work item
-Date: Mon, 28 Apr 2014 06:52:24 -0700
-Message-ID: <1398693158-2815-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40e: Use port VLAN in MAC/VLAN filter configuration
+Date: Mon, 28 Apr 2014 06:52:27 -0700
+Message-ID: <1398693158-2815-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:59462 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbaD1Nwm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 09:52:42 -0400
+	id S1752836AbaD1Nwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 09:52:44 -0400
 In-Reply-To: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch removes the unnecessary ptp_tx_work item. It conflicts with
-the interrupt-based handler, and will cause spurious warning messages to
-be displayed in the kernel log. Since the hardware can properly trigger
-an interrupt, we do not need to poll for an available timestamp in a
-work queue any more.
+The function to set the VF MAC address was not taking the port VLAN
+filter into account when setting/clearing/resetting the VF's host
+administered MAC address.  Be sure to use the port VLAN for VF MAC
+filtering configurations.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Change-ID: I12595331981c79529738f041dcdbdb667ef8f5e6
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |  2 --
- drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 36 -----------------------------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |  3 ---
- 3 files changed, 41 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index beb7b43..a46571c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -329,9 +329,7 @@ struct i40e_pf {
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info ptp_caps;
- 	struct sk_buff *ptp_tx_skb;
--	struct work_struct ptp_tx_work;
- 	struct hwtstamp_config tstamp_config;
--	unsigned long ptp_tx_start;
- 	unsigned long last_rx_ptp_check;
- 	spinlock_t tmreg_lock; /* Used to protect the device time registers. */
- 	u64 ptp_base_adj;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index e61e637..1fedc7a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -217,40 +217,6 @@ static int i40e_ptp_settime(struct ptp_clock_info *ptp,
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 982eef0..82e7abf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2049,10 +2049,11 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ 	}
  
- /**
-- * i40e_ptp_tx_work
-- * @work: pointer to work struct
-- *
-- * This work function polls the PRTTSYN_STAT_0.TXTIME bit to determine when a
-- * Tx timestamp event has occurred, in order to pass the Tx timestamp value up
-- * the stack in the skb.
-- */
--static void i40e_ptp_tx_work(struct work_struct *work)
--{
--	struct i40e_pf *pf = container_of(work, struct i40e_pf,
--					  ptp_tx_work);
--	struct i40e_hw *hw = &pf->hw;
--	u32 prttsyn_stat_0;
--
--	if (!pf->ptp_tx_skb)
--		return;
--
--	if (time_is_before_jiffies(pf->ptp_tx_start +
--				   I40E_PTP_TX_TIMEOUT)) {
--		dev_kfree_skb_any(pf->ptp_tx_skb);
--		pf->ptp_tx_skb = NULL;
--		pf->tx_hwtstamp_timeouts++;
--		dev_warn(&pf->pdev->dev, "clearing Tx timestamp hang\n");
--		return;
--	}
--
--	prttsyn_stat_0 = rd32(hw, I40E_PRTTSYN_STAT_0);
--	if (prttsyn_stat_0 & I40E_PRTTSYN_STAT_0_TXTIME_MASK)
--		i40e_ptp_tx_hwtstamp(pf);
--	else
--		schedule_work(&pf->ptp_tx_work);
--}
--
--/**
-  * i40e_ptp_enable - Enable/disable ancillary features of the PHC subsystem
-  * @ptp: The PTP clock structure
-  * @rq: The requested feature to change
-@@ -608,7 +574,6 @@ void i40e_ptp_init(struct i40e_pf *pf)
- 		u32 regval;
+ 	/* delete the temporary mac address */
+-	i40e_del_filter(vsi, vf->default_lan_addr.addr, 0, true, false);
++	i40e_del_filter(vsi, vf->default_lan_addr.addr, vf->port_vlan_id,
++			true, false);
  
- 		spin_lock_init(&pf->tmreg_lock);
--		INIT_WORK(&pf->ptp_tx_work, i40e_ptp_tx_work);
- 
- 		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
- 			 netdev->name);
-@@ -647,7 +612,6 @@ void i40e_ptp_stop(struct i40e_pf *pf)
- 	pf->ptp_tx = false;
- 	pf->ptp_rx = false;
- 
--	cancel_work_sync(&pf->ptp_tx_work);
- 	if (pf->ptp_tx_skb) {
- 		dev_kfree_skb_any(pf->ptp_tx_skb);
- 		pf->ptp_tx_skb = NULL;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 9478ddc..ece7ae9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1825,9 +1825,6 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	*cd_type_cmd_tso_mss |= (u64)I40E_TX_CTX_DESC_TSYN <<
- 				I40E_TXD_CTX_QW1_CMD_SHIFT;
- 
--	pf->ptp_tx_start = jiffies;
--	schedule_work(&pf->ptp_tx_work);
--
- 	return 1;
- }
- 
+ 	/* add the new mac address */
+-	f = i40e_add_filter(vsi, mac, 0, true, false);
++	f = i40e_add_filter(vsi, mac, vf->port_vlan_id, true, false);
+ 	if (!f) {
+ 		dev_err(&pf->pdev->dev,
+ 			"Unable to add VF ucast filter\n");
 -- 
 1.9.0
