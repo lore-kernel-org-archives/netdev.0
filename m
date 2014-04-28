@@ -1,54 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC net-next 1/4] net: ipv6: Introduce flowi6_init_output.
-Date: Mon, 28 Apr 2014 10:07:27 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1404280949410.1587@ja.home.ssi.bg>
-References: <1398487705-13430-1-git-send-email-lorenzo@google.com> <1398487705-13430-2-git-send-email-lorenzo@google.com> <alpine.LFD.2.11.1404260850030.1554@ja.home.ssi.bg> <CAKD1Yr1EYAWEoQyAZWOKb0-YwkYP1tq8S+ywkk0=q9Hz+SfDtA@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 5/6] ARM: AM43xx: clk: Change the cpts ref clock source
+ to dpll_core_m5 clk
+Date: Mon, 28 Apr 2014 09:10:36 +0200
+Message-ID: <20140428071034.GB4380@netboy>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+ <1398658225-25873-6-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, JP Abgrall <jpa@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33356 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753178AbaD1HHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 03:07:38 -0400
-In-Reply-To: <CAKD1Yr1EYAWEoQyAZWOKb0-YwkYP1tq8S+ywkk0=q9Hz+SfDtA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-omap@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, dborkman@redhat.com, ast@plumgrid.com,
+	tklauser@distanz.ch, mpa@pengutronix.de, bhutchings@solarflare.com,
+	zonque@gmail.com, balbi@ti.com, mugunthanvnm@ti.com,
+	t-kristo@ti.com, mturquette@linaro.org, linux@arm.linux.org.uk,
+	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
+	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
+	tony@atomide.com, bcousson@baylibre.com
+To: George Cherian <george.cherian@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1398658225-25873-6-git-send-email-george.cherian@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Sun, 27 Apr 2014, Lorenzo Colitti wrote:
-
-> On Sat, Apr 26, 2014 at 2:56 PM, Julian Anastasov <ja@ssi.bg> wrote:
-> >> +     fl6->flowi6_oif = oif;
-> >> +     fl6->flowi6_iif = 0;
-> >
-> >         Make sure LOOPBACK_IFINDEX is provided in
-> > flowi6_iif instead of 0, recent commit fixed such
-> > FIB rule lookups.
+On Mon, Apr 28, 2014 at 09:40:24AM +0530, George Cherian wrote:
+> cpsw_cpts_rft_clk has got the choice of 3 clocksources
+>  -dpll_core_m4_ck
+>  -dpll_core_m5_ck
+>  -dpll_disp_m2_ck
 > 
-> I'm assuming that was for IPv4? All the IPv6 code in current net-next
-> still seems to set flowi6_iif to zero. It's later set to
-> LOOPBACK_IFINDEX in ip6_route_output.
+> By default dpll_core_m4_ck is selected, witn this as clock
+> source the CPTS doesnot work properly. It gives clockcheck errors
+> while running PTP.
+> 
+>  clockcheck: clock jumped backward or running slower than expected!
 
-	I see, it seems more IPv6 places need a fix.
+It is strange that I have never seen this error, since I have often
+tested linuxptp on a beagle bone white.
 
-> You could argue that if this patch is accepted, then setting
-> flowi6_iif to LOOPBACK_IFINDEX belongs there for consistency with
-> IPv4. That seems reasonable, but I'd prefer not doing that in this
-> patch because 1) this patch is semantically a no-op and I'd like to
-> keep it that way, 2) it would be a bigger change, because even with
-> this patch, there are still codepaths that initialize their own flowi6
-> and memset them to zero.
+Can you please explain why this clock doesn't work correctly?
 
-	OK. I'll try a patch to fix the remaining flowi6_iif
-places...
+> By selecting dpll_core_m5_ck as the clocksource fixes this issue.
+> In AM335x dpll_core_m5_ck is the default clocksource.
 
-Regards
+The choice of clock source in the CPTS driver originally came from
+TI. It would be nice to know why that was the wrong choice.
 
---
-Julian Anastasov <ja@ssi.bg>
+Thanks,
+Richard
