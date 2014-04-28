@@ -1,35 +1,73 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 9/9 v2] net: Add sysctl to trust checksum_complete
-Date: Sun, 27 Apr 2014 21:07:24 -0700
-Message-ID: <CA+mtBx9w6-id5NDuP31yMrhO9Ho8TM2O5oGfneXiT_f+G+Xvag@mail.gmail.com>
-References: <alpine.DEB.2.02.1404261402390.27405@tomh.mtv.corp.google.com>
-	<20140426193135.7390d306@samsung-9>
-	<CA+mtBx-hAJDvXigrw1w3S1OBhmG4iiZvBBKNtCXZMt+8ZzFduw@mail.gmail.com>
-	<20140427.233204.1660487737838648405.davem@davemloft.net>
+From: George Cherian <george.cherian@ti.com>
+Subject: [PATCH 1/6] drivers: net: cpts: Remove hardcoded clock name for CPTS
+Date: Mon, 28 Apr 2014 09:40:20 +0530
+Message-ID: <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:58040 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751872AbaD1EHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 00:07:25 -0400
-Received: by mail-ie0-f180.google.com with SMTP id at1so2677112iec.39
-        for <netdev@vger.kernel.org>; Sun, 27 Apr 2014 21:07:25 -0700 (PDT)
-In-Reply-To: <20140427.233204.1660487737838648405.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <richardcochran@gmail.com>,
+	<jeffrey.t.kirsher@intel.com>, <dborkman@redhat.com>,
+	<ast@plumgrid.com>, <tklauser@distanz.ch>, <mpa@pengutronix.de>,
+	<bhutchings@solarflare.com>, <zonque@gmail.com>, <balbi@ti.com>,
+	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <t-kristo@ti.com>,
+	<mturquette@linaro.org>, <linux@arm.linux.org.uk>,
+	<galak@codeaurora.org>, <ijc+devicetree@hellion.org.uk>,
+	<mark.rutland@arm.com>, <pawel.moll@arm.com>, <robh+dt@kernel.org>,
+	<tony@atomide.com>, <bcousson@baylibre.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> If we do anything, we should do it consistently and not just for one
-> specific checksum delivery type.
->
-> So if we add a sysctl, it should revalidate the checksum in software
-> for all checksum offload variants, and such a sysctl should be off by
-> default.
+CPTS refclk name is hardcoded, which makes it fail in case of DRA7x
+Remove the hardcoded clock name for CPTS refclk and get the same from DT.
 
-Okay, but I would want to add a new checksum type to distinguish
-checksum_complete that was done in software as opposed to one received
-from a device. I was planning on doing this in a later patch set. I
-suppose you can disregard this patch for now.
+Signed-off-by: George Cherian <george.cherian@ti.com>
+---
+ drivers/net/ethernet/ti/cpts.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 2435139..0b6f6f7 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -236,13 +236,11 @@ static void cpts_overflow_check(struct work_struct *work)
+ 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+ }
+ 
+-#define CPTS_REF_CLOCK_NAME "cpsw_cpts_rft_clk"
+-
+-static void cpts_clk_init(struct cpts *cpts)
++static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+ {
+-	cpts->refclk = clk_get(NULL, CPTS_REF_CLOCK_NAME);
++	cpts->refclk = devm_clk_get(dev, "cpts");
+ 	if (IS_ERR(cpts->refclk)) {
+-		pr_err("Failed to clk_get %s\n", CPTS_REF_CLOCK_NAME);
++		pr_err("Failed to get cpts refclk\n");
+ 		cpts->refclk = NULL;
+ 		return;
+ 	}
+@@ -252,7 +250,6 @@ static void cpts_clk_init(struct cpts *cpts)
+ static void cpts_clk_release(struct cpts *cpts)
+ {
+ 	clk_disable(cpts->refclk);
+-	clk_put(cpts->refclk);
+ }
+ 
+ static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
+@@ -390,7 +387,7 @@ int cpts_register(struct device *dev, struct cpts *cpts,
+ 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
+ 		list_add(&cpts->pool_data[i].list, &cpts->pool);
+ 
+-	cpts_clk_init(cpts);
++	cpts_clk_init(dev, cpts);
+ 	cpts_write32(cpts, CPTS_EN, control);
+ 	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 
+-- 
+1.8.3.1
+
