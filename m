@@ -1,39 +1,69 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [RFC net-next 0/4] Support UID range routing.
-Date: Mon, 28 Apr 2014 23:38:34 +0900
-Message-ID: <CAKD1Yr0J3JXu9__LH6uKGsPYq+0jxiP1qhS2NTwT9gHitZ16_Q@mail.gmail.com>
-References: <1398487705-13430-1-git-send-email-lorenzo@google.com> <535BB149.3090901@davidnewall.com>
+From: George Cherian <george.cherian@ti.com>
+Subject: Re: [PATCH 1/6] drivers: net: cpts: Remove hardcoded clock name for
+ CPTS
+Date: Mon, 28 Apr 2014 20:15:35 +0530
+Message-ID: <535E698F.7060104@ti.com>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+ <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+ <20140428143115.GC30292@saruman.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, JP Abgrall <jpa@google.com>
-To: David Newall <davidn@davidnewall.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:51003 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932076AbaD1Oiz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 10:38:55 -0400
-Received: by mail-ig0-f172.google.com with SMTP id hn18so4815359igb.17
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2014 07:38:54 -0700 (PDT)
-In-Reply-To: <535BB149.3090901@davidnewall.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: mark.rutland@arm.com, mugunthanvnm@ti.com, tony@atomide.com,
+ ast@plumgrid.com, mturquette@linaro.org, jeffrey.t.kirsher@intel.com,
+ tklauser@distanz.ch, devicetree@vger.kernel.org, pawel.moll@arm.com,
+ ijc+devicetree@hellion.org.uk, richardcochran@gmail.com, robh+dt@kernel.org,
+ bhutchings@solarflare.com, linux@arm.linux.org.uk, linux-omap@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, zonque@gmail.com, t-kristo@ti.com,
+ dborkman@redhat.com, bcousson@baylibre.com, galak@codeaurora.org,
+ mpa@pengutronix.de, davem@davemloft.net
+To: <balbi@ti.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20140428143115.GC30292@saruman.home>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 26, 2014 at 10:14 PM, David Newall <davidn@davidnewall.com> wrote:
-> I don't understand what your patch will do because, as I understand the
-> word, "routing" means forwarding a packet one hop closer to the destination,
-> so I expect you must reach the destination before you could know the UID.
-> I'm probably missing something quite obvious. Could you illustrate a
-> use-case?
+On 4/28/2014 8:01 PM, Felipe Balbi wrote:
+> On Mon, Apr 28, 2014 at 09:40:20AM +0530, George Cherian wrote:
+>> CPTS refclk name is hardcoded, which makes it fail in case of DRA7x
+>> Remove the hardcoded clock name for CPTS refclk and get the same from DT.
+>>
+>> Signed-off-by: George Cherian <george.cherian@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/cpts.c | 11 ++++-------
+>>   1 file changed, 4 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+>> index 2435139..0b6f6f7 100644
+>> --- a/drivers/net/ethernet/ti/cpts.c
+>> +++ b/drivers/net/ethernet/ti/cpts.c
+>> @@ -236,13 +236,11 @@ static void cpts_overflow_check(struct work_struct *work)
+>>   	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+>>   }
+>>   
+>> -#define CPTS_REF_CLOCK_NAME "cpsw_cpts_rft_clk"
+>> -
+>> -static void cpts_clk_init(struct cpts *cpts)
+>> +static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+>>   {
+>> -	cpts->refclk = clk_get(NULL, CPTS_REF_CLOCK_NAME);
+>> +	cpts->refclk = devm_clk_get(dev, "cpts");
+>>   	if (IS_ERR(cpts->refclk)) {
+>> -		pr_err("Failed to clk_get %s\n", CPTS_REF_CLOCK_NAME);
+>> +		pr_err("Failed to get cpts refclk\n");
+> now you have a dev pointer as argument, how about converting this to
+> dev_err() ?
+Yep will do.. in next version.
 
-This is useful for originated packets only, not forwarded packets.
 
-It can be used if a host has more than one way to reach a destination
-(multiple physical interfaces, multiple GRE tunnels, multiple real or
-virtual routers on link, etc.) and wants to decide which to use based
-on the user ID of the sending application.
-
-The user ID could identify a service (e.g., mail vs. web), different
-users/customers on the a shared server / machine, different users /
-applications on a mobile device, etc.
+-- 
+-George
