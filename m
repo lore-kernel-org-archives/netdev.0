@@ -1,90 +1,57 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: Set dev->needed_headroom for virtio-net
- device when it has the feature VIRTIO_F_ANY_LAYOUT
-Date: Mon, 28 Apr 2014 09:48:48 -0400
-Message-ID: <535E5C40.9090102@gmail.com>
-References: <535E5235.4000903@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com, qinchuanyu@huawei.com,
-	liuyongan@huawei.com
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] i40e: Retain MAC filters when changing port VLAN
+Date: Mon, 28 Apr 2014 06:52:25 -0700
+Message-ID: <1398693158-2815-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f41.google.com ([209.85.192.41]:54479 "EHLO
-	mail-qg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756153AbaD1Nsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 09:48:51 -0400
-Received: by mail-qg0-f41.google.com with SMTP id j107so6263379qga.28
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2014 06:48:51 -0700 (PDT)
-In-Reply-To: <535E5235.4000903@huawei.com>
+Received: from mga03.intel.com ([143.182.124.21]:60866 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752663AbaD1Nwm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 09:52:42 -0400
+In-Reply-To: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/28/2014 09:05 AM, Zhangjie (HZ) wrote:
-> This is a small supplement for commit
-> e7428e95a06fb516fac1308bd0e176e27c0b9287("virtio-net: put virtio-net header
-> inline with data"). TCP packages have enough room to put virtio-net header
-> in, but UDP packages do not. By setting dev->needed_headroom for virtio-net
-> device, UDP packages could have enough room.
-> 
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size
-> is "alloclen + hh_len + 15", and "hh_len =
-> LL_RESERVED_SPACE(rt->dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not
-> enough to put virtio-net header in. If we set dev->needed_headroom
-> to 12 or 10 (according to mergeable_rx_bufs is on or off ), more room
-> can be reserved. Then there is enough room for UDP packages to put
-> the header in.
-> 
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old   |         |   new   |         |
-> +-------+---------+---------+---------+---------+
-> |  UDP  | Gbit/s  |   PPs   | Gbit/s  |   PPs   |
-> |  64   |  0.573  | 692232  |  0.614  | 742420  |
-> |  256  |   1.6   | 686860  |  1.71   | 733331  |
-> |  512  |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> +-------+---------+---------+---------+---------+
-> 
-> 
-> Signed-off-by: ZhangJie <zhangjie14@huawei.com>
-> ---
->  drivers/net/virtio_net.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8a852b5..e18acc3 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->      if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->          vi->has_cvq = true;
-> 
-> +        if (vi->any_header_sg) {
-> +                if (vi->mergeable_rx_bufs)
-> +                        dev->needed_headroom = sizeof(struct
-> virtio_net_hdr_mrg_rxbuf);
-> +                else
-> +                        dev->needed_headroom = sizeof(struct
-> virtio_net_hdr);
-> +        }
-> +
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Looks like your mailer corrupted the patch.  You can see what it
-looks like here:
-  http://patchwork.ozlabs.org/patch/343388/
+We were already taking care to retain the MAC filter list when deleting a
+port VLAN.  Take some additional care to retain the MAC filter list when
+changing a port VLAN.
 
--vlad
+Change-ID: Iacf9599ea24ecb4dca8e419aacaf4b58ca361a9c
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
->      /* Use single tx/rx queue pair as default */
->      vi->curr_queue_pairs = 1;
->      vi->max_queue_pairs = max_queue_pairs;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index b27b2f5..982eef0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2128,11 +2128,15 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 
+ 	/* Check for condition where there was already a port VLAN ID
+ 	 * filter set and now it is being deleted by setting it to zero.
++	 * Additionally check for the condition where there was a port
++	 * VLAN but now there is a new and different port VLAN being set.
+ 	 * Before deleting all the old VLAN filters we must add new ones
+ 	 * with -1 (I40E_VLAN_ANY) or otherwise we're left with all our
+ 	 * MAC addresses deleted.
+ 	 */
+-	if (!(vlan_id || qos) && vsi->info.pvid)
++	if ((!(vlan_id || qos) ||
++	    (vlan_id | qos) != le16_to_cpu(vsi->info.pvid)) &&
++	    vsi->info.pvid)
+ 		ret = i40e_vsi_add_vlan(vsi, I40E_VLAN_ANY);
+ 
+ 	if (vsi->info.pvid) {
+-- 
+1.9.0
