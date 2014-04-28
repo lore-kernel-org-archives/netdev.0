@@ -1,51 +1,72 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 5/6] ARM: AM43xx: clk: Change the cpts ref clock source
- to dpll_core_m5 clk
-Date: Mon, 28 Apr 2014 09:10:36 +0200
-Message-ID: <20140428071034.GB4380@netboy>
-References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
- <1398658225-25873-6-git-send-email-george.cherian@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-omap@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, dborkman@redhat.com, ast@plumgrid.com,
-	tklauser@distanz.ch, mpa@pengutronix.de, bhutchings@solarflare.com,
-	zonque@gmail.com, balbi@ti.com, mugunthanvnm@ti.com,
-	t-kristo@ti.com, mturquette@linaro.org, linux@arm.linux.org.uk,
-	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
-	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
-	tony@atomide.com, bcousson@baylibre.com
-To: George Cherian <george.cherian@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1398658225-25873-6-git-send-email-george.cherian@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH net] net: ipv6: more places need LOOPBACK_IFINDEX for flowi6_iif
+Date: Mon, 28 Apr 2014 10:51:56 +0300
+Message-ID: <1398671516-8842-1-git-send-email-ja@ssi.bg>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:33363 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751808AbaD1HwZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 03:52:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 28, 2014 at 09:40:24AM +0530, George Cherian wrote:
-> cpsw_cpts_rft_clk has got the choice of 3 clocksources
->  -dpll_core_m4_ck
->  -dpll_core_m5_ck
->  -dpll_disp_m2_ck
-> 
-> By default dpll_core_m4_ck is selected, witn this as clock
-> source the CPTS doesnot work properly. It gives clockcheck errors
-> while running PTP.
-> 
->  clockcheck: clock jumped backward or running slower than expected!
+To properly match iif in ip rules we have to provide
+LOOPBACK_IFINDEX in flowi6_iif, not 0. Some ip6mr_fib_lookup
+and fib6_rule_lookup callers need such fix.
 
-It is strange that I have never seen this error, since I have often
-tested linuxptp on a beagle bone white.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/ipv6/ip6mr.c                   | 2 +-
+ net/ipv6/netfilter/ip6t_rpfilter.c | 1 +
+ net/ipv6/route.c                   | 2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
 
-Can you please explain why this clock doesn't work correctly?
-
-> By selecting dpll_core_m5_ck as the clocksource fixes this issue.
-> In AM335x dpll_core_m5_ck is the default clocksource.
-
-The choice of clock source in the CPTS driver originally came from
-TI. It would be nice to know why that was the wrong choice.
-
-Thanks,
-Richard
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 8659067..8250474 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1633,7 +1633,7 @@ struct sock *mroute6_socket(struct net *net, struct sk_buff *skb)
+ {
+ 	struct mr6_table *mrt;
+ 	struct flowi6 fl6 = {
+-		.flowi6_iif	= skb->skb_iif,
++		.flowi6_iif	= skb->skb_iif ? : LOOPBACK_IFINDEX,
+ 		.flowi6_oif	= skb->dev->ifindex,
+ 		.flowi6_mark	= skb->mark,
+ 	};
+diff --git a/net/ipv6/netfilter/ip6t_rpfilter.c b/net/ipv6/netfilter/ip6t_rpfilter.c
+index e0983f3..790e0c6 100644
+--- a/net/ipv6/netfilter/ip6t_rpfilter.c
++++ b/net/ipv6/netfilter/ip6t_rpfilter.c
+@@ -33,6 +33,7 @@ static bool rpfilter_lookup_reverse6(const struct sk_buff *skb,
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	bool ret = false;
+ 	struct flowi6 fl6 = {
++		.flowi6_iif = LOOPBACK_IFINDEX,
+ 		.flowlabel = (* (__be32 *) iph) & IPV6_FLOWINFO_MASK,
+ 		.flowi6_proto = iph->nexthdr,
+ 		.daddr = iph->saddr,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4011617..004fffb 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1273,6 +1273,7 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
+ 	struct flowi6 fl6;
+ 
+ 	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_iif = LOOPBACK_IFINDEX;
+ 	fl6.flowi6_oif = oif;
+ 	fl6.flowi6_mark = mark;
+ 	fl6.daddr = iph->daddr;
+@@ -1294,6 +1295,7 @@ void ip6_redirect_no_header(struct sk_buff *skb, struct net *net, int oif,
+ 	struct flowi6 fl6;
+ 
+ 	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_iif = LOOPBACK_IFINDEX;
+ 	fl6.flowi6_oif = oif;
+ 	fl6.flowi6_mark = mark;
+ 	fl6.daddr = msg->dest;
+-- 
+1.9.0
