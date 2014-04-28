@@ -1,38 +1,86 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/6] drivers: net: cpts: Remove hardcoded clock name for
- CPTS
-Date: Mon, 28 Apr 2014 08:55:29 +0200
-Message-ID: <20140428065529.GA4380@netboy>
-References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
- <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.56] datapath: Add basic MPLS support to
+ kernel
+Date: Mon, 28 Apr 2014 16:00:12 +0900
+Message-ID: <20140428070012.GB21494@verge.net.au>
+References: <20140424232441.GA6282@verge.net.au>
+ <20140425080639.DDFA371E74@kuma.localdomain>
+ <CAEP_g=8y=jXukP=a2xyk4XMTrBLYWPQOgbTO_h8LE_mVMB9tFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org,
-	tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org, mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org,
-	t-kristo-l0cyMroinI0@public.gmane.org, mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org,
-	galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-	mark.rutland-5wv7dgnIgG8@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org, bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
-To: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, YAMAMOTO Takashi <yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>,
+ ravi kerur <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1398658225-25873-2-git-send-email-george.cherian-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CAEP_g=8y=jXukP=a2xyk4XMTrBLYWPQOgbTO_h8LE_mVMB9tFQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 28, 2014 at 09:40:20AM +0530, George Cherian wrote:
-> CPTS refclk name is hardcoded, which makes it fail in case of DRA7x
-> Remove the hardcoded clock name for CPTS refclk and get the same from DT.
+On Fri, Apr 25, 2014 at 12:57:20PM -0700, Jesse Gross wrote:
+> On Fri, Apr 25, 2014 at 1:06 AM, YAMAMOTO Takashi
+> <yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org> wrote:
+> >> On Thu, Apr 24, 2014 at 05:57:29PM +0900, YAMAMOTO Takashi wrote:
+> >>> hi,
+> >>>
+> >>> > + * Due to the sample action there may be multiple possible eth types.
+> >>> > + * In order to correctly validate actions all possible types are tracked
+> >>> > + * and verified. This is done using struct eth_types.
+> >>>
+> >>> is there any real-world use cases of these actions inside a sample?
+> >>> otherwise, how about just rejecting such combinations?
+> >>> it doesn't seem to worth the code complexity to me.
+> >>> (sorry if it has been already discussed.  it's the first time for me
+> >>> to seriously read this long-lived patch.)
+> >>
+> >> Good point, the code is rather complex.
+> >>
+> >> My understanding is that it comes into effect in the case
+> >> of sflow or ipfix being configured on the bridge. I tend
+> >> to think these are real-world use-cases, though that thinking
+> >> is by no means fixed.
+> >>
+> >> My reading of the code is that in the case of sflow and ipfix a single
+> >> sample rule appears at the beginning of the flow. And that it may be
+> >> possible to replace the code that you are referring to with something
+> >> simpler to handle these cases.
+> >
+> > it seems that they put only a userland action inside a sample.
+> > it's what i expected from its name "sample".
+> 
+> Yes, that's the only current use case. In theory, this could be used
+> more generally although nothing has come up yet.
+> 
+> In retrospect, I regret the design of the sample action - not the part
+> that allows it to handle different actions but the fact that the
+> results can affect things outside of the sample action list. I think
+> that if we had made it more like a subroutine then that would have
+> retained all of the functionality but none of the complexity here.
+> Perhaps if we can find a clean way to restructure it without breaking
+> compatibility then that would simplify the validation here.
 
-Patch ordering - doesn't this patch depend on patch #2?
+I have not thought deeply about this but it seems to me that it should be
+easy enough to provide compatibility for a new user-space to work with both
+new and old datapaths.  But it is not clear to me how to achieve the
+reverse: allowing a new datapath to work with both new and old user-spaces.
+I assume that we care about such compatibility.
 
-Thanks,
-Richard
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> My understanding is that the code you are referring to also comes into
+> >> effect when a sample action (a Nicira extension) is used directly in a
+> >> rule.  I am less sure that this is a real-world case but the complex logic
+> >> you are referring to should to handle this use-case.
+> >
+> > probably nicira folks can clarify?
+> 
+> It's the same set of use cases, just extending it to OpenFlow to
+> enable building sampling into different situations.
