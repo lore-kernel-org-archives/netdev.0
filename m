@@ -1,46 +1,74 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: problem forwarding IP fragments with DF bit set (caused by
- ipv4: fix path MTU discovery with connection tracking)
-Date: Mon, 28 Apr 2014 19:59:40 +0200
-Message-ID: <1398707980.10880.6.camel@sakura.staff.proxad.net>
-References: <1398703056.12635.41.camel@sakura.staff.proxad.net>
-Reply-To: mbizon@freebox.fr
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, davem@davemloft.net,
-	netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH RFC 0/2] add Qualcomm QCA7000 ethernet driver
+Date: Mon, 28 Apr 2014 19:54:55 +0200
+Message-ID: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.org,
+	mark.rutland@arm.org, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:56837 "EHLO ns.iliad.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932272AbaD1TjS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 15:39:18 -0400
-In-Reply-To: <1398703056.12635.41.camel@sakura.staff.proxad.net>
+Received: from mout.kundenserver.de ([212.227.126.187]:57072 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755149AbaD1TnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 15:43:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch series adds support for the Qualcomm QCA7000 Homeplug GreenPHY.
+The QCA7000 is serial-to-powerline bridge with two interfaces: UART and SPI.
+These patches handles only the last one, with an Ethernet over SPI protocol
+driver.
 
-On Mon, 2014-04-28 at 18:37 +0200, Maxime Bizon wrote:
-> 
-> conntrack causes the packets to be re-assembled, but since the
-> resulting skb now has IP_DF set, it fails the (DF + MTU) test in
-> ip_forward.c and causes ICMP frag_needed to be sent. 
+This driver based on the Qualcomm code [1], but contains a lot of changes
+since last year:
 
-hum isn't it just a matter of doing this ?
+* devictree support
+* DebugFS support
+* ethtool support
+* better error handling
+* performance improvements
+* code cleanup
 
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -493,6 +493,8 @@ found:
-            skb->len + ihl > qp->q.max_size)
-                qp->q.max_size = skb->len + ihl;
- 
-+       skb->local_df = 1;
-+
-        if (qp->q.last_in == (INET_FRAG_FIRST_IN | INET_FRAG_LAST_IN) &&
-            qp->q.meat == qp->q.len) {
-                unsigned long orefdst = skb->_skb_refdst;
+For more details look at our git repository [2].
 
+The code has been tested only on Freescale i.MX28 boards, but should work
+on other platforms.
+
+Any comments about the code are welcome.
+
+[1] - https://github.com/IoE/qca7000
+[2] - https://github.com/I2SE/qca7000/tree/linux-mainline
+
+Stefan Wahren (2):
+  Documentation: add Device tree bindings for QCA7000
+  net: qualcomm: new Ethernet over SPI driver for QCA7000
+
+ .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/qualcomm/Kconfig              |   30 +
+ drivers/net/ethernet/qualcomm/Makefile             |    6 +
+ drivers/net/ethernet/qualcomm/qca_7k.c             |  149 +++
+ drivers/net/ethernet/qualcomm/qca_7k.h             |   72 ++
+ drivers/net/ethernet/qualcomm/qca_debug.c          |  231 +++++
+ drivers/net/ethernet/qualcomm/qca_debug.h          |   32 +
+ drivers/net/ethernet/qualcomm/qca_framing.c        |  155 +++
+ drivers/net/ethernet/qualcomm/qca_framing.h        |  134 +++
+ drivers/net/ethernet/qualcomm/qca_spi.c            | 1030 ++++++++++++++++++++
+ drivers/net/ethernet/qualcomm/qca_spi.h            |  108 ++
+ 13 files changed, 2000 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+ create mode 100644 drivers/net/ethernet/qualcomm/Kconfig
+ create mode 100644 drivers/net/ethernet/qualcomm/Makefile
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.h
 
 -- 
-Maxime
+1.7.10.4
