@@ -1,33 +1,47 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] net: bonding: Fix format string mismatch in bond_sysfs.c
-Date: Tue, 29 Apr 2014 00:41:21 +0900
-Message-ID: <1398699681-27339-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net, linux-kernel@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Unix-domain sockets hanging on 3.14.x (was Re: possible 3.14.1 lockd problem (?) causing nfsd hangs)
+Date: Mon, 28 Apr 2014 17:46:48 +0200
+Message-ID: <20140428154648.GA31788@order.stressinduktion.org>
+References: <87oazpp2m7.fsf@spindle.srvr.nix> <87ppk1sbzp.fsf@spindle.srvr.nix>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: NFS list <linux-nfs@vger.kernel.org>,
+	Linux-Netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Nix <nix@esperi.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87ppk1sbzp.fsf@spindle.srvr.nix>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fix format string mismatch in bonding_show_min_links().
+On Mon, Apr 28, 2014 at 04:35:38PM +0100, Nix wrote:
+> /proc/$pid/stack of the two communicating ssh daemons was instructive:
+> 
+> [<ffffffff814e3512>] unix_wait_for_peer+0x9f/0xbc
+> [<ffffffff814e5d48>] unix_dgram_sendmsg+0x41b/0x534
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/net/bonding/bond_sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This one is a dgram socket...
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 431892f..cb95ee4 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -534,7 +534,7 @@ static ssize_t bonding_show_min_links(struct device *d,
- {
- 	struct bonding *bond = to_bond(d);
- 
--	return sprintf(buf, "%d\n", bond->params.min_links);
-+	return sprintf(buf, "%u\n", bond->params.min_links);
- }
- 
- static ssize_t bonding_store_min_links(struct device *d,
--- 
-2.0.0.rc1
+> [<ffffffff8146618f>] sock_sendmsg+0x84/0x9e
+> [<ffffffff81467f3d>] SyS_sendto+0x10e/0x13f
+> [<ffffffff815770e2>] system_call_fastpath+0x16/0x1b
+> [<ffffffffffffffff>] 0xffffffffffffffff
+> spindle:/var/log.real/by-facility# cat /proc/5941/stack
+> [<ffffffff814e493a>] unix_stream_recvmsg+0x289/0x6d5
+
+...and that's a stream receiver.
+
+> [<ffffffff814673e0>] sock_aio_read.part.12+0xf0/0xff
+> [<ffffffff8146740b>] sock_aio_read+0x1c/0x28
+> [<ffffffff811388fd>] do_sync_read+0x59/0x78
+> [<ffffffff81138d8b>] vfs_read+0xa2/0x13f
+> [<ffffffff81139699>] SyS_read+0x47/0x8b
+> [<ffffffff81577259>] tracesys+0xd0/0xd5
+> [<ffffffffffffffff>] 0xffffffffffffffff
+
+Are you sure those are the communicating tasks?
+
+Bye,
+
+  Hannes
