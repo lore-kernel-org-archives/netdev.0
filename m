@@ -1,54 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40e: Use port VLAN in MAC/VLAN filter configuration
-Date: Mon, 28 Apr 2014 06:52:27 -0700
-Message-ID: <1398693158-2815-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40e/i40evf: add driver version string to driver version command
+Date: Mon, 28 Apr 2014 06:52:28 -0700
+Message-ID: <1398693158-2815-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:59462 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:60866 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752836AbaD1Nwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753026AbaD1Nwo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 28 Apr 2014 09:52:44 -0400
 In-Reply-To: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The function to set the VF MAC address was not taking the port VLAN
-filter into account when setting/clearing/resetting the VF's host
-administered MAC address.  Be sure to use the port VLAN for VF MAC
-filtering configurations.
+The driver version string was added to this struct to be passed
+down through the firmware to low-level NC-SI functions. We tell
+the firmware about the length of the ASCII string not counting
+any terminating null.
 
-Change-ID: I12595331981c79529738f041dcdbdb667ef8f5e6
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: I09ac98ff9b869e8661c55fc6a5c98808fc280c91
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Acked-by: Anjali Singhai <anjali.singhai@intel.com>
+Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 10 +++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c   |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h   |  1 +
+ drivers/net/ethernet/intel/i40evf/i40e_type.h |  1 +
+ 4 files changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 982eef0..82e7abf 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2049,10 +2049,11 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index f8dfb4b..fde5aef 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1300,6 +1300,7 @@ i40e_status i40e_aq_send_driver_version(struct i40e_hw *hw,
+ 	struct i40e_aqc_driver_version *cmd =
+ 		(struct i40e_aqc_driver_version *)&desc.params.raw;
+ 	i40e_status status;
++	int len;
  
- 	/* delete the temporary mac address */
--	i40e_del_filter(vsi, vf->default_lan_addr.addr, 0, true, false);
-+	i40e_del_filter(vsi, vf->default_lan_addr.addr, vf->port_vlan_id,
-+			true, false);
+ 	if (dv == NULL)
+ 		return I40E_ERR_PARAM;
+@@ -1311,7 +1312,14 @@ i40e_status i40e_aq_send_driver_version(struct i40e_hw *hw,
+ 	cmd->driver_minor_ver = dv->minor_version;
+ 	cmd->driver_build_ver = dv->build_version;
+ 	cmd->driver_subbuild_ver = dv->subbuild_version;
+-	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	len = 0;
++	while (len < sizeof(dv->driver_string) &&
++	       (dv->driver_string[len] < 0x80) &&
++	       dv->driver_string[len])
++		len++;
++	status = i40e_asq_send_command(hw, &desc, dv->driver_string,
++				       len, cmd_details);
  
- 	/* add the new mac address */
--	f = i40e_add_filter(vsi, mac, 0, true, false);
-+	f = i40e_add_filter(vsi, mac, vf->port_vlan_id, true, false);
- 	if (!f) {
- 		dev_err(&pf->pdev->dev,
- 			"Unable to add VF ucast filter\n");
+ 	return status;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 4fe15d5..6f00de4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8394,6 +8394,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	dv.minor_version = DRV_VERSION_MINOR;
+ 	dv.build_version = DRV_VERSION_BUILD;
+ 	dv.subbuild_version = 0;
++	strncpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
+ 	i40e_aq_send_driver_version(&pf->hw, &dv, NULL);
+ 
+ 	/* since everything's happy, start the service_task timer */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 71a968f..668acc7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -409,6 +409,7 @@ struct i40e_driver_version {
+ 	u8 minor_version;
+ 	u8 build_version;
+ 	u8 subbuild_version;
++	u8 driver_string[32];
+ };
+ 
+ /* RX Descriptors */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 4673b33..449a3be 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -415,6 +415,7 @@ struct i40e_driver_version {
+ 	u8 minor_version;
+ 	u8 build_version;
+ 	u8 subbuild_version;
++	u8 driver_string[32];
+ };
+ 
+ /* RX Descriptors */
 -- 
 1.9.0
