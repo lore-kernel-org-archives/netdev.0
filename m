@@ -1,59 +1,91 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] tools: bpf_dbg: register misuse
-Date: Mon, 28 Apr 2014 10:49:08 +0200
-Message-ID: <535E1604.2090404@redhat.com>
-References: <CA+Z8YJKFhGQ5QPjMS6PHZnDpGJ7osrCJGDw+AMAPMckKiB8EDQ@mail.gmail.com> <CAADnVQLC305rLy6CObSgUBfwRoAMKLqc8kwO1181_oNEB1XMRw@mail.gmail.com> <CA+Z8YJL3zEz1n1ayhSWQRRSxiL__97RciQOWhLGT2VjjdqT0Lg@mail.gmail.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: RE: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV VF
+ minimum and maximum Tx rate through ip tool.
+Date: Mon, 28 Apr 2014 09:10:13 +0000
+Message-ID: <290BEC245535C3449143D5D84900EEF78CE1CC79@avmb3.qlogic.org>
+References: <1397450220-8269-1-git-send-email-sucheta.chakraborty@qlogic.com>
+ <20140422154051.26e584ce@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brendan Hickey <bhickey@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"Ariel Elior" <Ariel.Elior@qlogic.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"mkubecek@suse.cz" <mkubecek@suse.cz>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19530 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752357AbaD1ItN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 04:49:13 -0400
-In-Reply-To: <CA+Z8YJL3zEz1n1ayhSWQRRSxiL__97RciQOWhLGT2VjjdqT0Lg@mail.gmail.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:46298 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752895AbaD1JKm convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 05:10:42 -0400
+In-Reply-To: <20140422154051.26e584ce@nehalam.linuxnetplumber.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/25/2014 11:23 PM, Brendan Hickey wrote:
-> From: Brendan Hickey <bhickey@google.com>
-> Date: Fri, 25 Apr 2014 17:22:52 -0400
-> Subject: [PATCH] bpf_dbg: Fix erroneous register use for AND
->
-> The AND instruction is erroneously using the X register instead of the K
-> register.
->
-> Signed-off-by: Brendan Hickey <bhickey@google.com>
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Wednesday, April 23, 2014 4:11 AM
+> To: Sucheta Chakraborty
+> Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk;
+> gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel
+> Elior; amirv@mellanox.com; mkubecek@suse.cz
+> Subject: Re: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV
+> VF minimum and maximum Tx rate through ip tool.
+> 
+> On Mon, 14 Apr 2014 00:37:00 -0400
+> Sucheta Chakraborty <sucheta.chakraborty@qlogic.com> wrote:
+> 
+> > o "min_tx_rate" option has been added for minimum Tx rate. Hence, for
+> >   consistent naming, "max_tx_rate" option has been introduced for
+> maximum
+> >   Tx rate.
+> >
+> > o Change in v2: "rate" can be used along with "max_tx_rate".
+> >   When both are specified, "max_tx_rate" should override.
+> >
+> > o Change in v3:
+> >   * IFLA_VF_RATE: When IFLA_VF_RATE is used, and user has given only
+> one of
+> >     min_tx_rate or max_tx_rate, reading of previous rate limits is
+> done in
+> >     userspace instead of in kernel space before ndo_set_vf_rate.
+> >
+> >   * IFLA_VF_TX_RATE: When IFLA_VF_TX_RATE is used, min_tx_rate is
+> always read
+> >     in kernel space. This takes care of below scenarios:
+> >     (1) when old tool sends "rate" but kernel is new (expects min and
+> max)
+> >     (2) when new tool sends only "rate" but kernel is old (expects
+> > only "rate")
+> >
+> > Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+> 
+> I like the concept fine, but the general policy of ip route commands is
+> that the output format should match the input (except for statistics).
+> 
+> This (and ther earlier tx_rate patch are printing values in a different
+> format than the input
+> 
+> i.e don't print:
+> 	max tx rate 110 (Mbps)
+> instead print:
+> 	max_tx_rate 110Mbps
+> 
+> 
+With this change display would be as below:
 
-Sorry for the late reply as I'm on vacations currently.
+vf 0 MAC 3e:a0:ca:bd:ae:5a, tx rate 300 (Mbps), max_tx_rate 300Mbps,
+    min_tx_rate 200Mbps
 
-Patch looks good to me, but it looks like it got whitespace
-corrupted by your email client. Please submit this against
-'net' in subject line. Otherwise when this is fixed, feel
-free to add my ack:
+I did not change tx rate option to maintain backward compatibility.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Is the output valid?
 
-Thanks, Brendan!
-
-> ---
->   tools/net/bpf_dbg.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
-> index 65dc757..5e54848 100644
-> --- a/tools/net/bpf_dbg.c
-> +++ b/tools/net/bpf_dbg.c
-> @@ -823,7 +823,7 @@ do_div:
->                  r->A &= r->X;
->                  break;
->          case BPF_ALU_AND | BPF_K:
-> -               r->A &= r->X;
-> +               r->A &= K;
->                  break;
->          case BPF_ALU_OR | BPF_X:
->                  r->A |= r->X;
->
+Thanks,
+Sucheta.
