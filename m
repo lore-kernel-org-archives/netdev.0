@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] slip: fix spinlock variant
-Date: Sun, 27 Apr 2014 23:35:56 -0400 (EDT)
-Message-ID: <20140427.233556.452938883341708431.davem@davemloft.net>
-References: <534D31EF.6050107@hartkopp.net>
-	<534D3748.6060602@pengutronix.de>
-	<535C0688.604@hartkopp.net>
+Subject: Re: [PATCH 2/2] ipv6: Set flow label to skb_hash on transmit
+Date: Sun, 27 Apr 2014 23:39:13 -0400 (EDT)
+Message-ID: <20140427.233913.1970424291703869574.davem@davemloft.net>
+References: <alpine.DEB.2.02.1404261553180.15772@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nautsch2@gmail.com, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, alexander.stein@systec-electronic.com
-To: socketcan@hartkopp.net
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <535C0688.604@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36334 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752461AbaD1DjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2014 23:39:15 -0400
+In-Reply-To: <alpine.DEB.2.02.1404261553180.15772@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Sat, 26 Apr 2014 21:18:32 +0200
-
-> With commit cc9fa74e2a ("slip/slcan: added locking in wakeup function") a
-> formerly missing locking was added to slip.c and slcan.c by Andre Naujoks.
-> 
-> Alexander Stein contributed the fix 367525c8c2 ("can: slcan: Fix spinlock
-> variant") as the kernel lock debugging advised to use spin_lock_bh() instead
-> of just using spin_lock().
-> 
-> This fix has to be applied to the same code section in slip.c for the same
-> reason too.
-> 
-> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-
-Applied and queued up for -stable, thanks.
+RnJvbTogVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+DQpEYXRlOiBTYXQsIDI2IEFw
+ciAyMDE0IDE2OjAwOjMwIC0wNzAwIChQRFQpDQoNCj4gLQlpcDZfZmxvd19oZHIoaXB2NmgsIElO
+RVRfRUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpLCBmbDYtPmZsb3dsYWJlbCk7DQo+ICsJaXA2
+X2Zsb3dfaGRyKGlwdjZoLCBJTkVUX0VDTl9lbmNhcHN1bGF0ZSgwLCBkc2ZpZWxkLA0KPiArCQkg
+ICAgIGlwNl9tYWtlX2Zsb3dsYWJlbChuZXQsIHNrYiwgZmw2LT5mbG93bGFiZWwpKSk7DQoNClRo
+aXMgZG9lc24ndCBjb21waWxlIG9uIHRoZSBwbGFuZXQgb24gd2hpY2ggSSBsaXZlLg0KDQpuZXQv
+aXB2Ni9pcDZfdHVubmVsLmM6IEluIGZ1bmN0aW9uIKFpcDZfdG5sX3htaXQyojoNCm5ldC9pcHY2
+L2lwNl90dW5uZWwuYzoxMDQ5Ojg6IGVycm9yOiB0b28gbWFueSBhcmd1bWVudHMgdG8gZnVuY3Rp
+b24goUlORVRfRUNOX2VuY2Fwc3VsYXRlog0KICAgICAgICBpcDZfbWFrZV9mbG93bGFiZWwobmV0
+LCBza2IsIGZsNi0+Zmxvd2xhYmVsKSkpOw0KICAgICAgICBeDQpJbiBmaWxlIGluY2x1ZGVkIGZy
+b20gaW5jbHVkZS9uZXQvaXBfdHVubmVscy5oOjExOjAsDQogICAgICAgICAgICAgICAgIGZyb20g
+bmV0L2lwdjYvaXA2X3R1bm5lbC5jOjUwOg0KaW5jbHVkZS9uZXQvaW5ldF9lY24uaDo0MzoyMDog
+bm90ZTogZGVjbGFyZWQgaGVyZQ0KIHN0YXRpYyBpbmxpbmUgX191OCBJTkVUX0VDTl9lbmNhcHN1
+bGF0ZShfX3U4IG91dGVyLCBfX3U4IGlubmVyKQ0KICAgICAgICAgICAgICAgICAgICBeDQpuZXQv
+aXB2Ni9pcDZfdHVubmVsLmM6MTA0OTo4OiBlcnJvcjogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVu
+Y3Rpb24goWlwNl9mbG93X2hkcqINCiAgICAgICAgaXA2X21ha2VfZmxvd2xhYmVsKG5ldCwgc2ti
+LCBmbDYtPmZsb3dsYWJlbCkpKTsNCiAgICAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGlu
+Y2x1ZGUvbmV0L2luZXRwZWVyLmg6MTU6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRl
+L25ldC9yb3V0ZS5oOjI4LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbmV0L2lwLmg6
+MzEsDQogICAgICAgICAgICAgICAgIGZyb20gbmV0L2lwdjYvaXA2X3R1bm5lbC5jOjQ5Og0KaW5j
+bHVkZS9uZXQvaXB2Ni5oOjY4NDoyMDogbm90ZTogZGVjbGFyZWQgaGVyZQ0KIHN0YXRpYyBpbmxp
+bmUgdm9pZCBpcDZfZmxvd19oZHIoc3RydWN0IGlwdjZoZHIgKmhkciwgdW5zaWduZWQgaW50IHRj
+bGFzcywNCiAgICAgICAgICAgICAgICAgICAgXg0KbWFrZVsxXTogKioqIFtuZXQvaXB2Ni9pcDZf
+dHVubmVsLm9dIEVycm9yIDENCm1ha2U6ICoqKiBbbmV0L2lwdjYvaXA2X3R1bm5lbC5vXSBFcnJv
+ciAyDQo=
