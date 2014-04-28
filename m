@@ -1,62 +1,51 @@
-From: George Cherian <george.cherian@ti.com>
-Subject: [PATCH 4/6] drivers: net: cpsw: Enable Annexe F Time sync
-Date: Mon, 28 Apr 2014 09:40:23 +0530
-Message-ID: <1398658225-25873-5-git-send-email-george.cherian@ti.com>
+From: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH 6/6] ARM: dts: am4372: Add clock names for cpsw and cpts
+Date: Mon, 28 Apr 2014 09:40:25 +0530
+Message-ID: <1398658225-25873-7-git-send-email-george.cherian@ti.com>
 References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, <richardcochran@gmail.com>,
-	<jeffrey.t.kirsher@intel.com>, <dborkman@redhat.com>,
-	<ast@plumgrid.com>, <tklauser@distanz.ch>, <mpa@pengutronix.de>,
-	<bhutchings@solarflare.com>, <zonque@gmail.com>, <balbi@ti.com>,
-	<mugunthanvnm@ti.com>, <george.cherian@ti.com>, <t-kristo@ti.com>,
-	<mturquette@linaro.org>, <linux@arm.linux.org.uk>,
-	<galak@codeaurora.org>, <ijc+devicetree@hellion.org.uk>,
-	<mark.rutland@arm.com>, <pawel.moll@arm.com>, <robh+dt@kernel.org>,
-	<tony@atomide.com>, <bcousson@baylibre.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>, <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	<bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <balbi-l0cyMroinI0@public.gmane.org>,
+	<mugunthanvnm-l0cyMroinI0@public.gmane.org>, <george.cherian-l0cyMroinI0@public.gmane.org>, <t-kristo-l0cyMroinI0@public.gmane.org>,
+	<mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1398658225-25873-1-git-send-email-george.cherian-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable the Annex F Time Sync explicitly for DRA7x and AM4372.
-With this enabled the L2 PTP is working.
+Add CPSW fck and CPTS clock and clock names for AM4372
 
-while at that rename TS_BIT8 to TS_TTL_NONZERO
-
-Signed-off-by: George Cherian <george.cherian@ti.com>
+Signed-off-by: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ arch/arm/boot/dts/am4372.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 085ffb5..af1423b 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -248,7 +248,8 @@ struct cpsw_ss_regs {
- #define TS_131              (1<<11) /* Time Sync Dest IP Addr 131 enable */
- #define TS_130              (1<<10) /* Time Sync Dest IP Addr 130 enable */
- #define TS_129              (1<<9)  /* Time Sync Dest IP Addr 129 enable */
--#define TS_BIT8             (1<<8)  /* ts_ttl_nonzero? */
-+#define TS_TTL_NONZERO      (1<<8)  /* Time Sync Time To Live Non-zero enable */
-+#define TS_ANNEX_F_EN       (1<<6)  /* Time Sync Annex F enable */
- #define TS_ANNEX_D_EN       (1<<4)  /* Time Sync Annex D enable */
- #define TS_LTYPE2_EN        (1<<3)  /* Time Sync LTYPE 2 enable */
- #define TS_LTYPE1_EN        (1<<2)  /* Time Sync LTYPE 1 enable */
-@@ -256,8 +257,9 @@ struct cpsw_ss_regs {
- #define TS_RX_EN            (1<<0)  /* Time Sync Receive Enable */
- 
- #define CTRL_TS_BITS \
--	(TS_320 | TS_319 | TS_132 | TS_131 | TS_130 | TS_129 | TS_BIT8 | \
--	 TS_ANNEX_D_EN | TS_LTYPE1_EN)
-+	(TS_320 | TS_319 | TS_132 | TS_131 | TS_130 | TS_129 |\
-+	 TS_TTL_NONZERO | TS_ANNEX_F_EN | TS_ANNEX_D_EN |\
-+	 TS_LTYPE1_EN)
- 
- #define CTRL_ALL_TS_MASK (CTRL_TS_BITS | TS_TX_EN | TS_RX_EN)
- #define CTRL_TX_TS_BITS  (CTRL_TS_BITS | TS_TX_EN)
+diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
+index 36d523a..c2779f6 100644
+--- a/arch/arm/boot/dts/am4372.dtsi
++++ b/arch/arm/boot/dts/am4372.dtsi
+@@ -489,6 +489,8 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+ 			ti,hwmods = "cpgmac0";
++			clocks = <&cpsw_125mhz_gclk>, <&cpsw_cpts_rft_clk>;
++			clock-names = "fck", "cpts";
+ 			status = "disabled";
+ 			cpdma_channels = <8>;
+ 			ale_entries = <1024>;
 -- 
 1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
