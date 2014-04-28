@@ -1,44 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv6: Set flow label to skb_hash on transmit
-Date: Sun, 27 Apr 2014 23:39:13 -0400 (EDT)
-Message-ID: <20140427.233913.1970424291703869574.davem@davemloft.net>
-References: <alpine.DEB.2.02.1404261553180.15772@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH v4 net] net: sctp: Don't transition to PF state when
+ transport has exhausted 'Path.Max.Retrans'.
+Date: Sun, 27 Apr 2014 23:41:50 -0400 (EDT)
+Message-ID: <20140427.234150.128600841189069583.davem@davemloft.net>
+References: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	vyasevich@gmail.com, nhorman@tuxdriver.com
+To: kheiss@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36334 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36346 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752461AbaD1DjP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2014 23:39:15 -0400
-In-Reply-To: <alpine.DEB.2.02.1404261553180.15772@tomh.mtv.corp.google.com>
+	with ESMTP id S1751386AbaD1Dlw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2014 23:41:52 -0400
+In-Reply-To: <1398450390-23630-1-git-send-email-kheiss@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVG9tIEhlcmJlcnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+DQpEYXRlOiBTYXQsIDI2IEFw
-ciAyMDE0IDE2OjAwOjMwIC0wNzAwIChQRFQpDQoNCj4gLQlpcDZfZmxvd19oZHIoaXB2NmgsIElO
-RVRfRUNOX2VuY2Fwc3VsYXRlKDAsIGRzZmllbGQpLCBmbDYtPmZsb3dsYWJlbCk7DQo+ICsJaXA2
-X2Zsb3dfaGRyKGlwdjZoLCBJTkVUX0VDTl9lbmNhcHN1bGF0ZSgwLCBkc2ZpZWxkLA0KPiArCQkg
-ICAgIGlwNl9tYWtlX2Zsb3dsYWJlbChuZXQsIHNrYiwgZmw2LT5mbG93bGFiZWwpKSk7DQoNClRo
-aXMgZG9lc24ndCBjb21waWxlIG9uIHRoZSBwbGFuZXQgb24gd2hpY2ggSSBsaXZlLg0KDQpuZXQv
-aXB2Ni9pcDZfdHVubmVsLmM6IEluIGZ1bmN0aW9uIKFpcDZfdG5sX3htaXQyojoNCm5ldC9pcHY2
-L2lwNl90dW5uZWwuYzoxMDQ5Ojg6IGVycm9yOiB0b28gbWFueSBhcmd1bWVudHMgdG8gZnVuY3Rp
-b24goUlORVRfRUNOX2VuY2Fwc3VsYXRlog0KICAgICAgICBpcDZfbWFrZV9mbG93bGFiZWwobmV0
-LCBza2IsIGZsNi0+Zmxvd2xhYmVsKSkpOw0KICAgICAgICBeDQpJbiBmaWxlIGluY2x1ZGVkIGZy
-b20gaW5jbHVkZS9uZXQvaXBfdHVubmVscy5oOjExOjAsDQogICAgICAgICAgICAgICAgIGZyb20g
-bmV0L2lwdjYvaXA2X3R1bm5lbC5jOjUwOg0KaW5jbHVkZS9uZXQvaW5ldF9lY24uaDo0MzoyMDog
-bm90ZTogZGVjbGFyZWQgaGVyZQ0KIHN0YXRpYyBpbmxpbmUgX191OCBJTkVUX0VDTl9lbmNhcHN1
-bGF0ZShfX3U4IG91dGVyLCBfX3U4IGlubmVyKQ0KICAgICAgICAgICAgICAgICAgICBeDQpuZXQv
-aXB2Ni9pcDZfdHVubmVsLmM6MTA0OTo4OiBlcnJvcjogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVu
-Y3Rpb24goWlwNl9mbG93X2hkcqINCiAgICAgICAgaXA2X21ha2VfZmxvd2xhYmVsKG5ldCwgc2ti
-LCBmbDYtPmZsb3dsYWJlbCkpKTsNCiAgICAgICAgXg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGlu
-Y2x1ZGUvbmV0L2luZXRwZWVyLmg6MTU6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRl
-L25ldC9yb3V0ZS5oOjI4LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbmV0L2lwLmg6
-MzEsDQogICAgICAgICAgICAgICAgIGZyb20gbmV0L2lwdjYvaXA2X3R1bm5lbC5jOjQ5Og0KaW5j
-bHVkZS9uZXQvaXB2Ni5oOjY4NDoyMDogbm90ZTogZGVjbGFyZWQgaGVyZQ0KIHN0YXRpYyBpbmxp
-bmUgdm9pZCBpcDZfZmxvd19oZHIoc3RydWN0IGlwdjZoZHIgKmhkciwgdW5zaWduZWQgaW50IHRj
-bGFzcywNCiAgICAgICAgICAgICAgICAgICAgXg0KbWFrZVsxXTogKioqIFtuZXQvaXB2Ni9pcDZf
-dHVubmVsLm9dIEVycm9yIDENCm1ha2U6ICoqKiBbbmV0L2lwdjYvaXA2X3R1bm5lbC5vXSBFcnJv
-ciAyDQo=
+From: Karl Heiss <kheiss@gmail.com>
+Date: Fri, 25 Apr 2014 14:26:30 -0400
+
+> Don't transition to the PF state on every strike after 'Path.Max.Retrans'.
+> Per draft-ietf-tsvwg-sctp-failover-03 Section 5.1.6:
+> 
+>    Additional (PMR - PFMR) consecutive timeouts on a PF destination
+>    confirm the path failure, upon which the destination transitions to the
+>    Inactive state.  As described in [RFC4960], the sender (i) SHOULD notify
+>    ULP about this state transition, and (ii) transmit heartbeats to the
+>    Inactive destination at a lower frequency as described in Section 8.3 of
+>    [RFC4960].
+> 
+> This also prevents sending SCTP_ADDR_UNREACHABLE to the user as the state
+> bounces between SCTP_INACTIVE and SCTP_PF for each subsequent strike.
+> 
+> Signed-off-by: Karl Heiss <kheiss@gmail.com>
+
+Applied and queued up for -stable, thanks.
