@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable 0/7] qmi_wwan: adding a few new devices
-Date: Sun, 27 Apr 2014 22:06:23 -0400 (EDT)
-Message-ID: <20140427.220623.1906378088101483113.davem@davemloft.net>
-References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 28 Apr 2014 12:53:54 +1000
+Message-ID: <20140428125354.ad04d9e14a89f7f34913d79e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35921 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486AbaD1CG2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2014 22:06:28 -0400
-In-Reply-To: <1398445234-26620-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__28_Apr_2014_12_53_54_+1000_xToPOnTx0Fm0T/3q"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tobias Klauser <tklauser@distanz.ch>,
+	Vince Bridgers <vbridger@altera.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri, 25 Apr 2014 19:00:27 +0200
+--Signature=_Mon__28_Apr_2014_12_53_54_+1000_xToPOnTx0Fm0T/3q
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Adding some new and some old QMI devices.  A similar series for
-> usb-serial support will be posted as well.
->=20
-> These new device ID patches should also go to all maintained stable k=
-ernels
-> where they apply. I believe that should be stable-3.10 and newer.
+Hi all,
 
-Applied and queued up for -stable, thanks.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/altera/altera_sgdma.c between commit 37c0ffaad214
+("Altera TSE: Work around unaligned DMA receive packet issue with Altera
+SGDMA") from the net tree and commit d42f157b3498 ("Altera TSE: Remove
+unnecessary cast of void pointers") from the net-next tree.
+
+I fixed it up (the former removes the code updated by the latter, so I
+did that) and can carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Mon__28_Apr_2014_12_53_54_+1000_xToPOnTx0Fm0T/3q
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTXcLJAAoJEMDTa8Ir7ZwV0a8P/0U5uVyGtLx3J//bX0jNnEpR
+x9WzUoWwQWa81XEUbtyyBJtHW5rrZdoY3wPViuAK4PPQS/SpMvXkxhZJoQbZAS5q
+qC326P84icGq9+8nW/v/NjOzApPEl+6j2dIna7KQyWkHlX0NTZzLpIFiMDElx1T0
+YKPy0VzTWNsADOSrBGjmY1ZBoyhRpObq4ge7dHUJZ9nRphgGfpu2rwDIm6T+Qlt7
+2G/SGGBka1h/THJLM+q054R3skqEd3B//pvLKK8ZoqnsikpX1/pQqJjQCMgwrgAg
+Oe2Jdxr+meVbh+yoxfcx/AIuPXR8qPTuEE6cu0n8IQC3H5PZUPrBqdTqWlq82cXJ
+8jAc4hhzmxMIA3Vtm3+vy7zeV4Yf3PDJPBU/RWHtKFlxSWZAHb5ulfITKo9F7XRn
+YKLgBlTJDbtSPieiyAI7Uhk8drmY71fSLbAIwQ24KSwP+0wcDPb51V52Dw9GV7T0
++4tUaexBhxppm5eFwzKK4QSEtZMiUpIGY0fo0xhX9pzVPc3fh147/XDw+5ym/aZb
+n96E5MbAyV/bbZCDoEpsWAQdXdUMzQDhmPE9vGslUMcIpsec+gj5CevEXhIrVKnH
+8/QQi6frQ6YJEB/yK787ynYNIgOkzqOM0B+tV67bXiNKDZXnRRomh9g25kRstJvp
+YslEjEvxgOQupEdqadOu
+=chkW
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__28_Apr_2014_12_53_54_+1000_xToPOnTx0Fm0T/3q--
