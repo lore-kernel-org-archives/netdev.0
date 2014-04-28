@@ -1,49 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RESEND 2/2] FDDI: DEC FDDIcontroller 700
- TURBOchannel card support
-Date: Mon, 28 Apr 2014 12:52:44 -0400 (EDT)
-Message-ID: <20140428.125244.18665502106315120.davem@davemloft.net>
-References: <alpine.LFD.2.11.1404250159220.11598@eddie.linux-mips.org>
-        <20140427.191346.2115795102984045600.davem@davemloft.net>
-        <alpine.LFD.2.11.1404280048540.11598@eddie.linux-mips.org>
+Subject: Re: [PATCH V1 net-next 1/1] hyperv: Properly handle checksum offload
+Date: Mon, 28 Apr 2014 13:23:47 -0400 (EDT)
+Message-ID: <20140428.132347.778081265367223580.davem@davemloft.net>
+References: <1398484523-27596-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
-To: macro@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <alpine.LFD.2.11.1404280048540.11598@eddie.linux-mips.org>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
+ stable@kernel.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1398484523-27596-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Date: Mon, 28 Apr 2014 12:37:08 +0100 (BST)
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Fri, 25 Apr 2014 20:55:23 -0700
 
->  That however I would like to keep -- I find it particularly valuable and 
-> a great advantage of this piece of hardware to be able to tap into all the 
-> SMT traffic crossing this adapter, both incoming and outgoing, for 
-> educational and diagnostic purposes.  Without this capability a second 
-> FDDI station is required to be able to see both traffic streams, and also 
-> it has to be exactly the next downstream neighbour or some traffic will 
-> undoubtedly be stripped from the ring by intermediate stations.
-> 
->  Therefore I would like to retain this capability.  If you're unhappy with 
-> tapping in directly, then I think sending them back down the usual receive 
-> path would do, although at some performance hit.  So I'd prefer to avoid 
-> it if possible -- can you propose an alternative by any chance?
-> 
->  Thanks for your review, please let me know how to proceed with the issues 
-> that remain open.  I'll send updated code once we've settled, I think 
-> there's little point in publishing an update before then.
+> @@ -467,6 +467,9 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+>  	if (skb_is_gso(skb))
+>  		goto do_lso;
+>  
+> +	if (skb->ip_summed != CHECKSUM_PARTIAL)
+> +		goto do_send;
+> +
 
-We're not exporting all of these internals for the unique desires of
-one single driver.
+There are many possible values of ip_summed, why would you go to do_send if
+for example it was set to CHECKSUM_COMPLETE?
+
+I think you are just rushing this change, take your time and implement the
+fix properly.
+
+For example, if you only expect two possible values here (CHECKSUM_PARTIAL
+and something else), design your test so that it only allows those two
+values and therefore you'll be documenting this invariant.
