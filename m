@@ -1,79 +1,48 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: [PATCH net-next] virtio-net: Set dev->needed_headroom for virtio-net
- device when it has the feature VIRTIO_F_ANY_LAYOUT
-Date: Mon, 28 Apr 2014 21:05:57 +0800
-Message-ID: <535E5235.4000903@huawei.com>
+From: Alex Shi <alex.shi@linaro.org>
+Subject: Re: deadlock in ipv6?
+Date: Mon, 28 Apr 2014 21:25:55 +0800
+Message-ID: <535E56E3.6070004@linaro.org>
+References: <535A0950.9090302@linaro.org> <20140425073325.GA7050@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <jasowang@redhat.com>, <mst@redhat.com>, <qinchuanyu@huawei.com>,
-	<liuyongan@huawei.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:34598 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755346AbaD1NGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 09:06:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: John Stultz <john.stultz@linaro.org>,
+	"naresh.kamboju@linaro.org Kamboju" <naresh.kamboju@linaro.org>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Mark Brown <broonie@linaro.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140425073325.GA7050@order.stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a small supplement for commit
-e7428e95a06fb516fac1308bd0e176e27c0b9287("virtio-net: put virtio-net header
-inline with data"). TCP packages have enough room to put virtio-net header
-in, but UDP packages do not. By setting dev->needed_headroom for virtio-net
-device, UDP packages could have enough room.
+On 04/25/2014 03:33 PM, Hannes Frederic Sowa wrote:
+> On Fri, Apr 25, 2014 at 03:05:52PM +0800, Alex Shi wrote:
+>> [   18.624755]        CPU0
+>>
+>> [   18.627349]        ----
+>>
+>> [   18.629943]   lock(&addrconf_stats->syncp.seq);
+>>
+>> [   18.634735]   <Interrupt>
+>>
+>> [   18.637512]     lock(&addrconf_stats->syncp.seq);
+>>
+> 
+> Stable kernel should already carry a fix for this, 43a43b6040165f7
+> ("ipv6: some ipv6 statistic counters failed to disable bh"). Could you give it
+> a try?
+> 
 
-For UDP packages, sk_buff is alloced in fun __ip_append_data. The size
-is "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt->dst.dev);".
-The Macro is defined as follows:
-#define LL_RESERVED_SPACE(dev) \
-      ((((dev)->hard_header_len+(dev)->needed_headroom)\
-      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-By default, for UDP packages, after skb is allocated, only 16 bytes
-reserved. And 2 bytes remained after mac header is set. That is not
-enough to put virtio-net header in. If we set dev->needed_headroom
-to 12 or 10 (according to mergeable_rx_bufs is on or off ), more room
-can be reserved. Then there is enough room for UDP packages to put
-the header in.
+It seems a right fix. Thanks a lot for notification!
 
-test result list as below:
-guest and host: suse11sp3, netperf, intel 2.4GHz
-+-------+---------+---------+---------+---------+
-|       |   old   |         |   new   |         |
-+-------+---------+---------+---------+---------+
-|  UDP  | Gbit/s  |   PPs   | Gbit/s  |   PPs   |
-|  64   |  0.573  | 692232  |  0.614  | 742420  |
-|  256  |   1.6   | 686860  |  1.71   | 733331  |
-|  512  |  2.92   | 674576  |  3.07   | 710446  |
-| 1024  |  4.99   | 598977  |  5.17   | 620821  |
-| 1460  |  5.68   | 483757  |  7.16   | 610519  |
-+-------+---------+---------+---------+---------+
+> Bye,
+> 
+>   Hannes
+> 
 
 
-Signed-off-by: ZhangJie <zhangjie14@huawei.com>
----
-  drivers/net/virtio_net.c |    7 +++++++
-  1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 8a852b5..e18acc3 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
-  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
-  		vi->has_cvq = true;
-
-+        if (vi->any_header_sg) {
-+                if (vi->mergeable_rx_bufs)
-+                        dev->needed_headroom = sizeof(struct 
-virtio_net_hdr_mrg_rxbuf);
-+                else
-+                        dev->needed_headroom = sizeof(struct 
-virtio_net_hdr);
-+        }
-+
-  	/* Use single tx/rx queue pair as default */
-  	vi->curr_queue_pairs = 1;
-  	vi->max_queue_pairs = max_queue_pairs;
 -- 
-1.7.1
+Thanks
+    Alex
