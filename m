@@ -1,94 +1,94 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: Set dev->needed_headroom for
- virtio-net device when it has the feature VIRTIO_F_ANY_LAYOUT
-Date: Mon, 28 Apr 2014 16:31:16 +0300
-Message-ID: <20140428133116.GA15572@redhat.com>
-References: <535E5235.4000903@huawei.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH 1/6] drivers: net: cpts: Remove hardcoded clock name for
+ CPTS
+Date: Mon, 28 Apr 2014 09:31:15 -0500
+Message-ID: <20140428143115.GC30292@saruman.home>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+ <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, qinchuanyu@huawei.com,
-	liuyongan@huawei.com
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22837 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751716AbaD1OUk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 10:20:40 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="B4IIlcmfBL/1gGOG"
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	<davem@davemloft.net>, <richardcochran@gmail.com>,
+	<jeffrey.t.kirsher@intel.com>, <dborkman@redhat.com>,
+	<ast@plumgrid.com>, <tklauser@distanz.ch>, <mpa@pengutronix.de>,
+	<bhutchings@solarflare.com>, <zonque@gmail.com>, <balbi@ti.com>,
+	<mugunthanvnm@ti.com>, <t-kristo@ti.com>, <mturquette@linaro.org>,
+	<linux@arm.linux.org.uk>, <galak@codeaurora.org>,
+	<ijc+devicetree@hellion.org.uk>, <mark.rutland@arm.com>,
+	<pawel.moll@arm.com>, <robh+dt@kernel.org>, <tony@atomide.com>,
+	<bcousson@baylibre.com>
+To: George Cherian <george.cherian@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <535E5235.4000903@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 28, 2014 at 09:05:57PM +0800, Zhangjie (HZ) wrote:
-> This is a small supplement for commit
-> e7428e95a06fb516fac1308bd0e176e27c0b9287("virtio-net: put virtio-net header
-> inline with data"). TCP packages have enough room to put virtio-net header
-> in, but UDP packages do not. By setting dev->needed_headroom for virtio-net
-> device, UDP packages could have enough room.
-> 
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size
-> is "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt->dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not
-> enough to put virtio-net header in. If we set dev->needed_headroom
-> to 12 or 10 (according to mergeable_rx_bufs is on or off ), more room
-> can be reserved. Then there is enough room for UDP packages to put
-> the header in.
-> 
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old   |         |   new   |         |
-> +-------+---------+---------+---------+---------+
-> |  UDP  | Gbit/s  |   PPs   | Gbit/s  |   PPs   |
-> |  64   |  0.573  | 692232  |  0.614  | 742420  |
-> |  256  |   1.6   | 686860  |  1.71   | 733331  |
-> |  512  |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> +-------+---------+---------+---------+---------+
-> 
-> 
-> Signed-off-by: ZhangJie <zhangjie14@huawei.com>
+--B4IIlcmfBL/1gGOG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks, results look nice.
-
-However - please check Documentation/email-clients.txt
-and set up your client to send well-formed patches,
-then pls repost.
-
-You also want to Cc all relevant people and lists: use
-the get_maintainer.pl script to get the list.
-Also, you need to Cc Dave Miller if you want him to apply your patch.
-
+On Mon, Apr 28, 2014 at 09:40:20AM +0530, George Cherian wrote:
+> CPTS refclk name is hardcoded, which makes it fail in case of DRA7x
+> Remove the hardcoded clock name for CPTS refclk and get the same from DT.
+>=20
+> Signed-off-by: George Cherian <george.cherian@ti.com>
 > ---
->  drivers/net/virtio_net.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8a852b5..e18acc3 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
-> 
-> +        if (vi->any_header_sg) {
-> +                if (vi->mergeable_rx_bufs)
-> +                        dev->needed_headroom = sizeof(struct
-> virtio_net_hdr_mrg_rxbuf);
-> +                else
-> +                        dev->needed_headroom = sizeof(struct
-> virtio_net_hdr);
-> +        }
-> +
->  	/* Use single tx/rx queue pair as default */
->  	vi->curr_queue_pairs = 1;
->  	vi->max_queue_pairs = max_queue_pairs;
-> -- 
-> 1.7.1
-> 
+>  drivers/net/ethernet/ti/cpts.c | 11 ++++-------
+>  1 file changed, 4 insertions(+), 7 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpt=
+s.c
+> index 2435139..0b6f6f7 100644
+> --- a/drivers/net/ethernet/ti/cpts.c
+> +++ b/drivers/net/ethernet/ti/cpts.c
+> @@ -236,13 +236,11 @@ static void cpts_overflow_check(struct work_struct =
+*work)
+>  	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
+>  }
+> =20
+> -#define CPTS_REF_CLOCK_NAME "cpsw_cpts_rft_clk"
+> -
+> -static void cpts_clk_init(struct cpts *cpts)
+> +static void cpts_clk_init(struct device *dev, struct cpts *cpts)
+>  {
+> -	cpts->refclk =3D clk_get(NULL, CPTS_REF_CLOCK_NAME);
+> +	cpts->refclk =3D devm_clk_get(dev, "cpts");
+>  	if (IS_ERR(cpts->refclk)) {
+> -		pr_err("Failed to clk_get %s\n", CPTS_REF_CLOCK_NAME);
+> +		pr_err("Failed to get cpts refclk\n");
+
+now you have a dev pointer as argument, how about converting this to
+dev_err() ?
+
+--=20
+balbi
+
+--B4IIlcmfBL/1gGOG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTXmYzAAoJEIaOsuA1yqREXIMP/1Bc/quLxm2iQcjkrvVGV0bG
+8ysMIL84mDbhgbPzyDSj8KUK/wd714H0Lzc3hUbVemWRt3TlqYv/fjrwT6iEct9+
+gKXY+FSHHQ71aMCGAeJq8lazpfgasexWVg6CVaAMHSIAdujQd3HwmXfswskV6aXz
+47BGrfcUBfrmu25Ex2+HPLF6snIqi5lQg9TiejkQdtJKcE2LcVNMuinwExJ19B7b
+8OrXwXhN6Y8zm7aOaP6dNd/yAsn2XTEWUy9nioUV0/t/bpcX7sIMdhkeoCoM/C75
+hxTiMnfCHjhxdCznqsCQRsd3CwzGjX6vHg3tV5aFwHkp7vxbRUJnRIIUp7Q4wYWQ
+So1WfQcsOjkiZcctjG7PdjnUDP15EXWDcSzgWJJLTLLKW63fWVzF5bZUGtlTQGyy
+ERc6jBnfIDF0rD8pa1EEXXzKdJsimb9MhTWRYhieHWz+nNRIiOhhkRowURyl+D+r
+8sm74qhtxxlzURtOHDfYRQX+/TMinKUDT+XEaItJ7sr6wBIYRSnnwzBDd5KEpBhc
+O0QKckywGfxlCArB357BNPxuOuuOFZ5IVfJ4at6mDtJ4GbVB/pd93EVHPPA/Ceur
+GiJUQDY7Cl83cQQZI9sSi/m9jVlYvNsmA4HlQZVI9/6IdFaC2N//py3fgMidqiIT
+IaiVJR78G14uCHOOBCeO
+=3dw5
+-----END PGP SIGNATURE-----
+
+--B4IIlcmfBL/1gGOG--
