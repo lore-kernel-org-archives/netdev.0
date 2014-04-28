@@ -1,51 +1,47 @@
-From: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH 6/6] ARM: dts: am4372: Add clock names for cpsw and cpts
-Date: Mon, 28 Apr 2014 09:40:25 +0530
-Message-ID: <1398658225-25873-7-git-send-email-george.cherian@ti.com>
-References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 9/9 v2] net: Add sysctl to trust checksum_complete
+Date: Mon, 28 Apr 2014 00:15:52 -0400 (EDT)
+Message-ID: <20140428.001552.1083601553706782584.davem@davemloft.net>
+References: <CA+mtBx-hAJDvXigrw1w3S1OBhmG4iiZvBBKNtCXZMt+8ZzFduw@mail.gmail.com>
+	<20140427.233204.1660487737838648405.davem@davemloft.net>
+	<CA+mtBx9w6-id5NDuP31yMrhO9Ho8TM2O5oGfneXiT_f+G+Xvag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	<ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>, <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	<bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <balbi-l0cyMroinI0@public.gmane.org>,
-	<mugunthanvnm-l0cyMroinI0@public.gmane.org>, <george.cherian-l0cyMroinI0@public.gmane.org>, <t-kristo-l0cyMroinI0@public.gmane.org>,
-	<mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1398658225-25873-1-git-send-email-george.cherian-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36497 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754128AbaD1EPz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 00:15:55 -0400
+In-Reply-To: <CA+mtBx9w6-id5NDuP31yMrhO9Ho8TM2O5oGfneXiT_f+G+Xvag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add CPSW fck and CPTS clock and clock names for AM4372
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 27 Apr 2014 21:07:24 -0700
 
-Signed-off-by: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
----
- arch/arm/boot/dts/am4372.dtsi | 2 ++
- 1 file changed, 2 insertions(+)
+>> If we do anything, we should do it consistently and not just for one
+>> specific checksum delivery type.
+>>
+>> So if we add a sysctl, it should revalidate the checksum in software
+>> for all checksum offload variants, and such a sysctl should be off by
+>> default.
+> 
+> Okay, but I would want to add a new checksum type to distinguish
+> checksum_complete that was done in software as opposed to one received
+> from a device.
 
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index 36d523a..c2779f6 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -489,6 +489,8 @@
- 			#address-cells = <1>;
- 			#size-cells = <1>;
- 			ti,hwmods = "cpgmac0";
-+			clocks = <&cpsw_125mhz_gclk>, <&cpsw_cpts_rft_clk>;
-+			clock-names = "fck", "cpts";
- 			status = "disabled";
- 			cpdma_channels = <8>;
- 			ale_entries = <1024>;
--- 
-1.8.3.1
+I don't think it's wise to keep CHECKSUM_COMPLETE once you've software
+verified it.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If anything, you should at that point treat it as we would have treated
+it were it marked CHECKSUM_NONE.
+
+Therefore I see no reason for a new checksum type.
+
+Please repost your series if you want me to consider it with this patch
+removed, rather than just saying "apply the series without patch X".
+
+Thanks.
