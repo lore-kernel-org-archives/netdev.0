@@ -1,47 +1,44 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Unix-domain sockets hanging on 3.14.x (was Re: possible 3.14.1 lockd problem (?) causing nfsd hangs)
-Date: Mon, 28 Apr 2014 17:46:48 +0200
-Message-ID: <20140428154648.GA31788@order.stressinduktion.org>
-References: <87oazpp2m7.fsf@spindle.srvr.nix> <87ppk1sbzp.fsf@spindle.srvr.nix>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 5/6] ARM: AM43xx: clk: Change the cpts ref clock source
+ to dpll_core_m5 clk
+Date: Mon, 28 Apr 2014 18:18:56 +0200
+Message-ID: <20140428161856.GB4266@netboy>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
+ <1398658225-25873-6-git-send-email-george.cherian@ti.com>
+ <20140428071034.GB4380@netboy>
+ <535E4FDC.70306@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: NFS list <linux-nfs@vger.kernel.org>,
-	Linux-Netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Nix <nix@esperi.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	linux-omap@vger.kernel.org, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, dborkman@redhat.com, ast@plumgrid.com,
+	tklauser@distanz.ch, mpa@pengutronix.de, bhutchings@solarflare.com,
+	zonque@gmail.com, balbi@ti.com, mugunthanvnm@ti.com,
+	t-kristo@ti.com, mturquette@linaro.org, linux@arm.linux.org.uk,
+	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
+	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
+	tony@atomide.com, bcousson@baylibre.com
+To: George Cherian <george.cherian@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87ppk1sbzp.fsf@spindle.srvr.nix>
+In-Reply-To: <535E4FDC.70306@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 28, 2014 at 04:35:38PM +0100, Nix wrote:
-> /proc/$pid/stack of the two communicating ssh daemons was instructive:
-> 
-> [<ffffffff814e3512>] unix_wait_for_peer+0x9f/0xbc
-> [<ffffffff814e5d48>] unix_dgram_sendmsg+0x41b/0x534
+On Mon, Apr 28, 2014 at 06:25:56PM +0530, George Cherian wrote:
+> In beagle bone white (AM335x)  CPTS has a choice of 2 clocksource
+> -dpll_core_m5_ck
+> -dpll_core_m4_ck
+> and by default  dpll_core_m5_ck is used. Where as in AM437x the
+> default clocksource used is dpll_core_m4_ck .
 
-This one is a dgram socket...
+Is your patch changing the default clock for am335x?
 
-> [<ffffffff8146618f>] sock_sendmsg+0x84/0x9e
-> [<ffffffff81467f3d>] SyS_sendto+0x10e/0x13f
-> [<ffffffff815770e2>] system_call_fastpath+0x16/0x1b
-> [<ffffffffffffffff>] 0xffffffffffffffff
-> spindle:/var/log.real/by-facility# cat /proc/5941/stack
-> [<ffffffff814e493a>] unix_stream_recvmsg+0x289/0x6d5
+If yes, it shouldn't.
+If no, then the patch description should say so.
 
-...and that's a stream receiver.
+Thanks,
+Richard
 
-> [<ffffffff814673e0>] sock_aio_read.part.12+0xf0/0xff
-> [<ffffffff8146740b>] sock_aio_read+0x1c/0x28
-> [<ffffffff811388fd>] do_sync_read+0x59/0x78
-> [<ffffffff81138d8b>] vfs_read+0xa2/0x13f
-> [<ffffffff81139699>] SyS_read+0x47/0x8b
-> [<ffffffff81577259>] tracesys+0xd0/0xd5
-> [<ffffffffffffffff>] 0xffffffffffffffff
-
-Are you sure those are the communicating tasks?
-
-Bye,
-
-  Hannes
+ 
