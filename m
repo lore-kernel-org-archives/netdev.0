@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ptp: validate the requested frequency
- adjustment.
-Date: Mon, 28 Apr 2014 13:29:17 -0400 (EDT)
-Message-ID: <20140428.132917.2207057296687531685.davem@davemloft.net>
-References: <ab098280c43e23292c28cabaa4cda13d8f21ca29.1398603530.git.richardcochran@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/2] net: dsa: add ds_to_priv
+Date: Mon, 28 Apr 2014 11:14:27 -0700
+Message-ID: <1398708868-15084-2-git-send-email-f.fainelli@gmail.com>
+References: <1398708868-15084-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, buytenh@wantstofly.org,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44902 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755676AbaD1TSN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 15:18:13 -0400
-In-Reply-To: <ab098280c43e23292c28cabaa4cda13d8f21ca29.1398603530.git.richardcochran@gmail.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:47244 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753819AbaD1TVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 15:21:48 -0400
+Received: by mail-pd0-f177.google.com with SMTP id v10so1772142pde.22
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2014 12:21:48 -0700 (PDT)
+In-Reply-To: <1398708868-15084-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sun, 27 Apr 2014 15:01:27 +0200
+DSA drivers have a trick which consists in allocating "priv_size" more
+bytes to account for the DSA driver private context. Add a helper
+function to access that private context instead of open-coding it in
+drivers with (void *)(ds + 1).
 
-> PTP Hardware Clock drivers specify a maximum frequency adjustment that
-> their clocks can accommodate. Normally, user space programs will want to
-> respect the advertised limits. However, no kernel or driver code checks
-> that the dialed frequency offset is within the bounds, and out of range
-> values can lead to surprising results.
-> 
-> This patch fixes the issue by rejecting bad values.
-> 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/net/dsa.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Applied.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 7828ebf99ee1..6efce384451e 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -181,6 +181,11 @@ struct dsa_switch_driver {
+ void register_switch_driver(struct dsa_switch_driver *type);
+ void unregister_switch_driver(struct dsa_switch_driver *type);
+ 
++static inline void *ds_to_priv(struct dsa_switch *ds)
++{
++	return (void *)(ds + 1);
++}
++
+ /*
+  * The original DSA tag format and some other tag formats have no
+  * ethertype, which means that we need to add a little hack to the
+-- 
+1.9.1
