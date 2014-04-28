@@ -1,59 +1,368 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40e: Redistribute queue vectors after DCB reconfiguration
-Date: Mon, 28 Apr 2014 06:52:29 -0700
-Message-ID: <1398693158-2815-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] i40evf: support ethtool RSS options
+Date: Mon, 28 Apr 2014 06:52:26 -0700
+Message-ID: <1398693158-2815-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <Neerav.Parikh@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:7567 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338AbaD1Nwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 09:52:45 -0400
+	id S1752665AbaD1Nwn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 09:52:43 -0400
 In-Reply-To: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <Neerav.Parikh@intel.com>
+From: Mitch A Williams <mitch.a.williams@intel.com>
 
-The queue vectors are originally distributed among the total
-number of queues that are configured for a given VSI. The number
-of queues that are configured for a VSI depends on the number of
-TCs that are enabled for the VSI at VSI setup/creation time.
+Add support for getting and setting RSS hashing options, RSS LUT
+entries, and getting the number of device channels from ethtool. Because
+the LUT is so small for the VFs, we just read and write the device
+registers directly instead of maintaining a shadow copy.
 
-But, the total number of queues that are configured for a VSI may
-change based on change in the total number of TCs enabled as a
-result of change in DCB configuration based on DCBX.
-
-Hence, it is required for the queue vectors to be redistributed
-when the total queues that are configured for a given VSI changes.
-
-Without redistributing the vectors the queues that are configured
-for the newly enabled TCs may not be able to do any Tx/Rx.
-
-Change-ID: I4e780903db019e6199c7ce43627cef22c916acfe
-Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 316 +++++++++++++++++++++
+ 1 file changed, 316 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 6f00de4..78308e0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4027,6 +4027,8 @@ static void i40e_dcb_reconfigure(struct i40e_pf *pf)
- 				 pf->vsi[v]->seid);
- 			/* Will try to configure as many components */
- 		} else {
-+			/* Re-configure VSI vectors based on updated TC map */
-+			i40e_vsi_map_rings_to_vectors(pf->vsi[v]);
- 			if (pf->vsi[v]->netdev)
- 				i40e_dcbnl_set_all(pf->vsi[v]);
- 		}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 8b0db1c..a46be01 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -365,6 +365,316 @@ static int i40evf_set_coalesce(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++/**
++ * i40e_get_rss_hash_opts - Get RSS hash Input Set for each flow type
++ * @adapter: board private structure
++ * @cmd: ethtool rxnfc command
++ *
++ * Returns Success if the flow is supported, else Invalid Input.
++ **/
++static int i40evf_get_rss_hash_opts(struct i40evf_adapter *adapter,
++				    struct ethtool_rxnfc *cmd)
++{
++	struct i40e_hw *hw = &adapter->hw;
++	u64 hena = (u64)rd32(hw, I40E_VFQF_HENA(0)) |
++		   ((u64)rd32(hw, I40E_VFQF_HENA(1)) << 32);
++
++	/* We always hash on IP src and dest addresses */
++	cmd->data = RXH_IP_SRC | RXH_IP_DST;
++
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++		if (hena & ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP))
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		break;
++	case UDP_V4_FLOW:
++		if (hena & ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP))
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		break;
++
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		break;
++
++	case TCP_V6_FLOW:
++		if (hena & ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP))
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		break;
++	case UDP_V6_FLOW:
++		if (hena & ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP))
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		break;
++
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		break;
++	default:
++		cmd->data = 0;
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++/**
++ * i40evf_get_rxnfc - command to get RX flow classification rules
++ * @netdev: network interface device structure
++ * @cmd: ethtool rxnfc command
++ *
++ * Returns Success if the command is supported.
++ **/
++static int i40evf_get_rxnfc(struct net_device *netdev,
++			    struct ethtool_rxnfc *cmd,
++			    u32 *rule_locs)
++{
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXRINGS:
++		cmd->data = adapter->vsi_res->num_queue_pairs;
++		ret = 0;
++		break;
++	case ETHTOOL_GRXFH:
++		ret = i40evf_get_rss_hash_opts(adapter, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++/**
++ * i40evf_set_rss_hash_opt - Enable/Disable flow types for RSS hash
++ * @adapter: board private structure
++ * @cmd: ethtool rxnfc command
++ *
++ * Returns Success if the flow input set is supported.
++ **/
++static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
++				   struct ethtool_rxnfc *nfc)
++{
++	struct i40e_hw *hw = &adapter->hw;
++
++	u64 hena = (u64)rd32(hw, I40E_VFQF_HENA(0)) |
++		   ((u64)rd32(hw, I40E_VFQF_HENA(1)) << 32);
++
++	/* RSS does not support anything other than hashing
++	 * to queues on src and dst IPs and ports
++	 */
++	if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
++			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	/* We need at least the IP SRC and DEST fields for hashing */
++	if (!(nfc->data & RXH_IP_SRC) ||
++	    !(nfc->data & RXH_IP_DST))
++		return -EINVAL;
++
++	switch (nfc->flow_type) {
++	case TCP_V4_FLOW:
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			hena &= ~((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP);
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_TCP);
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case TCP_V6_FLOW:
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			hena &= ~((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP);
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP);
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case UDP_V4_FLOW:
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			hena &= ~(((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
++				  ((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4));
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			hena |= (((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_UDP) |
++				 ((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4));
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case UDP_V6_FLOW:
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			hena &= ~(((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
++				  ((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6));
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			hena |= (((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) |
++				 ((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6));
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case SCTP_V4_FLOW:
++		if ((nfc->data & RXH_L4_B_0_1) ||
++		    (nfc->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER);
++		break;
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case SCTP_V6_FLOW:
++		if ((nfc->data & RXH_L4_B_0_1) ||
++		    (nfc->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER);
++		break;
++	case IPV4_FLOW:
++		hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
++			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4);
++		break;
++	case IPV6_FLOW:
++		hena |= ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
++			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	wr32(hw, I40E_VFQF_HENA(0), (u32)hena);
++	wr32(hw, I40E_VFQF_HENA(1), (u32)(hena >> 32));
++	i40e_flush(hw);
++
++	return 0;
++}
++
++/**
++ * i40evf_set_rxnfc - command to set RX flow classification rules
++ * @netdev: network interface device structure
++ * @cmd: ethtool rxnfc command
++ *
++ * Returns Success if the command is supported.
++ **/
++static int i40evf_set_rxnfc(struct net_device *netdev,
++			    struct ethtool_rxnfc *cmd)
++{
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		ret = i40evf_set_rss_hash_opt(adapter, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++/**
++ * i40evf_get_channels: get the number of channels supported by the device
++ * @netdev: network interface device structure
++ * @ch: channel information structure
++ *
++ * For the purposes of our device, we only use combined channels, i.e. a tx/rx
++ * queue pair. Report one extra channel to match our "other" MSI-X vector.
++ **/
++static void i40evf_get_channels(struct net_device *netdev,
++				struct ethtool_channels *ch)
++{
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++
++	/* Report maximum channels */
++	ch->max_combined = adapter->vsi_res->num_queue_pairs;
++
++	ch->max_other = NONQ_VECS;
++	ch->other_count = NONQ_VECS;
++
++	ch->combined_count = adapter->vsi_res->num_queue_pairs;
++}
++
++/**
++ * i40evf_get_rxfh_indir_size - get the rx flow hash indirection table size
++ * @netdev: network interface device structure
++ *
++ * Returns the table size.
++ **/
++static u32 i40evf_get_rxfh_indir_size(struct net_device *netdev)
++{
++	return (I40E_VFQF_HLUT_MAX_INDEX + 1) * 4;
++}
++
++/**
++ * i40evf_get_rxfh_indir - get the rx flow hash indirection table
++ * @netdev: network interface device structure
++ * @indir: indirection table
++ *
++ * Reads the indirection table directly from the hardware. Always returns 0.
++ **/
++static int i40evf_get_rxfh_indir(struct net_device *netdev, u32 *indir)
++{
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++	struct i40e_hw *hw = &adapter->hw;
++	u32 hlut_val;
++	int i, j;
++
++	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX; i++) {
++		hlut_val = rd32(hw, I40E_VFQF_HLUT(i));
++		indir[j++] = hlut_val & 0xff;
++		indir[j++] = (hlut_val >> 8) & 0xff;
++		indir[j++] = (hlut_val >> 16) & 0xff;
++		indir[j++] = (hlut_val >> 24) & 0xff;
++	}
++	return 0;
++}
++
++/**
++ * i40evf_set_rxfh_indir - set the rx flow hash indirection table
++ * @netdev: network interface device structure
++ * @indir: indirection table
++ *
++ * Returns -EINVAL if the table specifies an inavlid queue id, otherwise
++ * returns 0 after programming the table.
++ **/
++static int i40evf_set_rxfh_indir(struct net_device *netdev, const u32 *indir)
++{
++	struct i40evf_adapter *adapter = netdev_priv(netdev);
++	struct i40e_hw *hw = &adapter->hw;
++	u32 hlut_val;
++	int i, j;
++
++	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX + 1; i++) {
++		hlut_val = indir[j++];
++		hlut_val |= indir[j++] << 8;
++		hlut_val |= indir[j++] << 16;
++		hlut_val |= indir[j++] << 24;
++		wr32(hw, I40E_VFQF_HLUT(i), hlut_val);
++	}
++
++	return 0;
++}
++
+ static struct ethtool_ops i40evf_ethtool_ops = {
+ 	.get_settings		= i40evf_get_settings,
+ 	.get_drvinfo		= i40evf_get_drvinfo,
+@@ -378,6 +688,12 @@ static struct ethtool_ops i40evf_ethtool_ops = {
+ 	.set_msglevel		= i40evf_set_msglevel,
+ 	.get_coalesce		= i40evf_get_coalesce,
+ 	.set_coalesce		= i40evf_set_coalesce,
++	.get_rxnfc		= i40evf_get_rxnfc,
++	.set_rxnfc		= i40evf_set_rxnfc,
++	.get_rxfh_indir_size	= i40evf_get_rxfh_indir_size,
++	.get_rxfh_indir		= i40evf_get_rxfh_indir,
++	.set_rxfh_indir		= i40evf_set_rxfh_indir,
++	.get_channels		= i40evf_get_channels,
+ };
+ 
+ /**
 -- 
 1.9.0
