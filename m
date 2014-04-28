@@ -1,48 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] i40e: Change variable type to avoid typecheck failure
-Date: Mon, 28 Apr 2014 06:52:33 -0700
-Message-ID: <1398693158-2815-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e: remove ptp_tx_work timestamp work item
+Date: Mon, 28 Apr 2014 06:52:24 -0700
+Message-ID: <1398693158-2815-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:59462 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752239AbaD1Nwr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 09:52:47 -0400
+	id S1752338AbaD1Nwm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Apr 2014 09:52:42 -0400
 In-Reply-To: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kevin Scott <kevin.c.scott@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Change the variable type to avoid compiler warning about int to u16
-possible data truncation.
+This patch removes the unnecessary ptp_tx_work item. It conflicts with
+the interrupt-based handler, and will cause spurious warning messages to
+be displayed in the kernel log. Since the hardware can properly trigger
+an interrupt, we do not need to poll for an available timestamp in a
+work queue any more.
 
-Change-ID: I5eb3b578c86513c9625ca32d2f0b57cc01d7dc98
-Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  2 --
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 36 -----------------------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c |  3 ---
+ 3 files changed, 41 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index fde5aef..e19df8f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1300,7 +1300,7 @@ i40e_status i40e_aq_send_driver_version(struct i40e_hw *hw,
- 	struct i40e_aqc_driver_version *cmd =
- 		(struct i40e_aqc_driver_version *)&desc.params.raw;
- 	i40e_status status;
--	int len;
-+	u16 len;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index beb7b43..a46571c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -329,9 +329,7 @@ struct i40e_pf {
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+ 	struct sk_buff *ptp_tx_skb;
+-	struct work_struct ptp_tx_work;
+ 	struct hwtstamp_config tstamp_config;
+-	unsigned long ptp_tx_start;
+ 	unsigned long last_rx_ptp_check;
+ 	spinlock_t tmreg_lock; /* Used to protect the device time registers. */
+ 	u64 ptp_base_adj;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index e61e637..1fedc7a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -217,40 +217,6 @@ static int i40e_ptp_settime(struct ptp_clock_info *ptp,
+ }
  
- 	if (dv == NULL)
- 		return I40E_ERR_PARAM;
+ /**
+- * i40e_ptp_tx_work
+- * @work: pointer to work struct
+- *
+- * This work function polls the PRTTSYN_STAT_0.TXTIME bit to determine when a
+- * Tx timestamp event has occurred, in order to pass the Tx timestamp value up
+- * the stack in the skb.
+- */
+-static void i40e_ptp_tx_work(struct work_struct *work)
+-{
+-	struct i40e_pf *pf = container_of(work, struct i40e_pf,
+-					  ptp_tx_work);
+-	struct i40e_hw *hw = &pf->hw;
+-	u32 prttsyn_stat_0;
+-
+-	if (!pf->ptp_tx_skb)
+-		return;
+-
+-	if (time_is_before_jiffies(pf->ptp_tx_start +
+-				   I40E_PTP_TX_TIMEOUT)) {
+-		dev_kfree_skb_any(pf->ptp_tx_skb);
+-		pf->ptp_tx_skb = NULL;
+-		pf->tx_hwtstamp_timeouts++;
+-		dev_warn(&pf->pdev->dev, "clearing Tx timestamp hang\n");
+-		return;
+-	}
+-
+-	prttsyn_stat_0 = rd32(hw, I40E_PRTTSYN_STAT_0);
+-	if (prttsyn_stat_0 & I40E_PRTTSYN_STAT_0_TXTIME_MASK)
+-		i40e_ptp_tx_hwtstamp(pf);
+-	else
+-		schedule_work(&pf->ptp_tx_work);
+-}
+-
+-/**
+  * i40e_ptp_enable - Enable/disable ancillary features of the PHC subsystem
+  * @ptp: The PTP clock structure
+  * @rq: The requested feature to change
+@@ -608,7 +574,6 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		u32 regval;
+ 
+ 		spin_lock_init(&pf->tmreg_lock);
+-		INIT_WORK(&pf->ptp_tx_work, i40e_ptp_tx_work);
+ 
+ 		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
+ 			 netdev->name);
+@@ -647,7 +612,6 @@ void i40e_ptp_stop(struct i40e_pf *pf)
+ 	pf->ptp_tx = false;
+ 	pf->ptp_rx = false;
+ 
+-	cancel_work_sync(&pf->ptp_tx_work);
+ 	if (pf->ptp_tx_skb) {
+ 		dev_kfree_skb_any(pf->ptp_tx_skb);
+ 		pf->ptp_tx_skb = NULL;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 9478ddc..ece7ae9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1825,9 +1825,6 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	*cd_type_cmd_tso_mss |= (u64)I40E_TX_CTX_DESC_TSYN <<
+ 				I40E_TXD_CTX_QW1_CMD_SHIFT;
+ 
+-	pf->ptp_tx_start = jiffies;
+-	schedule_work(&pf->ptp_tx_work);
+-
+ 	return 1;
+ }
+ 
 -- 
 1.9.0
