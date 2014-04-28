@@ -1,63 +1,79 @@
-From: George Cherian <george.cherian@ti.com>
-Subject: Re: [PATCH 5/6] ARM: AM43xx: clk: Change the cpts ref clock source
- to dpll_core_m5 clk
-Date: Mon, 28 Apr 2014 18:25:56 +0530
-Message-ID: <535E4FDC.70306@ti.com>
-References: <1398658225-25873-1-git-send-email-george.cherian@ti.com> <1398658225-25873-6-git-send-email-george.cherian@ti.com> <20140428071034.GB4380@netboy>
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Subject: [PATCH net-next] virtio-net: Set dev->needed_headroom for virtio-net
+ device when it has the feature VIRTIO_F_ANY_LAYOUT
+Date: Mon, 28 Apr 2014 21:05:57 +0800
+Message-ID: <535E5235.4000903@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<devicetree@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-	<dborkman@redhat.com>, <ast@plumgrid.com>, <tklauser@distanz.ch>,
-	<mpa@pengutronix.de>, <bhutchings@solarflare.com>,
-	<zonque@gmail.com>, <balbi@ti.com>, <mugunthanvnm@ti.com>,
-	<t-kristo@ti.com>, <mturquette@linaro.org>,
-	<linux@arm.linux.org.uk>, <galak@codeaurora.org>,
-	<ijc+devicetree@hellion.org.uk>, <mark.rutland@arm.com>,
-	<pawel.moll@arm.com>, <robh+dt@kernel.org>, <tony@atomide.com>,
-	<bcousson@baylibre.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140428071034.GB4380@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <jasowang@redhat.com>, <mst@redhat.com>, <qinchuanyu@huawei.com>,
+	<liuyongan@huawei.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:34598 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755346AbaD1NGP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 09:06:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 4/28/2014 12:40 PM, Richard Cochran wrote:
-> On Mon, Apr 28, 2014 at 09:40:24AM +0530, George Cherian wrote:
->> cpsw_cpts_rft_clk has got the choice of 3 clocksources
->>   -dpll_core_m4_ck
->>   -dpll_core_m5_ck
->>   -dpll_disp_m2_ck
->>
->> By default dpll_core_m4_ck is selected, witn this as clock
->> source the CPTS doesnot work properly. It gives clockcheck errors
->> while running PTP.
->>
->>   clockcheck: clock jumped backward or running slower than expected!
-> It is strange that I have never seen this error, since I have often
-> tested linuxptp on a beagle bone white.
-In beagle bone white (AM335x)  CPTS has a choice of 2 clocksource
--dpll_core_m5_ck
--dpll_core_m4_ck
-and by default  dpll_core_m5_ck is used. Where as in AM437x the default 
-clocksource used is dpll_core_m4_ck .
+This is a small supplement for commit
+e7428e95a06fb516fac1308bd0e176e27c0b9287("virtio-net: put virtio-net header
+inline with data"). TCP packages have enough room to put virtio-net header
+in, but UDP packages do not. By setting dev->needed_headroom for virtio-net
+device, UDP packages could have enough room.
 
-You can change the clocksource in beagle bone white by writing  1 to 
-0x44e00520 (By default its 0).
->
-> Can you please explain why this clock doesn't work correctly?
->
->> By selecting dpll_core_m5_ck as the clocksource fixes this issue.
->> In AM335x dpll_core_m5_ck is the default clocksource.
-> The choice of clock source in the CPTS driver originally came from
-> TI. It would be nice to know why that was the wrong choice.
->
-> Thanks,
-> Richard
+For UDP packages, sk_buff is alloced in fun __ip_append_data. The size
+is "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt->dst.dev);".
+The Macro is defined as follows:
+#define LL_RESERVED_SPACE(dev) \
+      ((((dev)->hard_header_len+(dev)->needed_headroom)\
+      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+By default, for UDP packages, after skb is allocated, only 16 bytes
+reserved. And 2 bytes remained after mac header is set. That is not
+enough to put virtio-net header in. If we set dev->needed_headroom
+to 12 or 10 (according to mergeable_rx_bufs is on or off ), more room
+can be reserved. Then there is enough room for UDP packages to put
+the header in.
+
+test result list as below:
+guest and host: suse11sp3, netperf, intel 2.4GHz
++-------+---------+---------+---------+---------+
+|       |   old   |         |   new   |         |
++-------+---------+---------+---------+---------+
+|  UDP  | Gbit/s  |   PPs   | Gbit/s  |   PPs   |
+|  64   |  0.573  | 692232  |  0.614  | 742420  |
+|  256  |   1.6   | 686860  |  1.71   | 733331  |
+|  512  |  2.92   | 674576  |  3.07   | 710446  |
+| 1024  |  4.99   | 598977  |  5.17   | 620821  |
+| 1460  |  5.68   | 483757  |  7.16   | 610519  |
++-------+---------+---------+---------+---------+
 
 
+Signed-off-by: ZhangJie <zhangjie14@huawei.com>
+---
+  drivers/net/virtio_net.c |    7 +++++++
+  1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 8a852b5..e18acc3 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+  		vi->has_cvq = true;
+
++        if (vi->any_header_sg) {
++                if (vi->mergeable_rx_bufs)
++                        dev->needed_headroom = sizeof(struct 
+virtio_net_hdr_mrg_rxbuf);
++                else
++                        dev->needed_headroom = sizeof(struct 
+virtio_net_hdr);
++        }
++
+  	/* Use single tx/rx queue pair as default */
+  	vi->curr_queue_pairs = 1;
+  	vi->max_queue_pairs = max_queue_pairs;
 -- 
--George
+1.7.1
