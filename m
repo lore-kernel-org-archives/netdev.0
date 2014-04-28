@@ -1,7 +1,7 @@
 From: George Cherian <george.cherian@ti.com>
-Subject: [PATCH 1/6] drivers: net: cpts: Remove hardcoded clock name for CPTS
-Date: Mon, 28 Apr 2014 09:40:20 +0530
-Message-ID: <1398658225-25873-2-git-send-email-george.cherian@ti.com>
+Subject: [PATCH 3/6] drivers: net: cpsw: Enable CPTS for DRA7xx and AM4372
+Date: Mon, 28 Apr 2014 09:40:22 +0530
+Message-ID: <1398658225-25873-4-git-send-email-george.cherian@ti.com>
 References: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -22,52 +22,46 @@ In-Reply-To: <1398658225-25873-1-git-send-email-george.cherian@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CPTS refclk name is hardcoded, which makes it fail in case of DRA7x
-Remove the hardcoded clock name for CPTS refclk and get the same from DT.
+Enable cpts hardware time stamping for Dra7xx and AM4372.
+This enables PTPv2 for DRA7xx and AM4372.
 
 Signed-off-by: George Cherian <george.cherian@ti.com>
 ---
- drivers/net/ethernet/ti/cpts.c | 11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-index 2435139..0b6f6f7 100644
---- a/drivers/net/ethernet/ti/cpts.c
-+++ b/drivers/net/ethernet/ti/cpts.c
-@@ -236,13 +236,11 @@ static void cpts_overflow_check(struct work_struct *work)
- 	schedule_delayed_work(&cpts->overflow_work, CPTS_OVERFLOW_PERIOD);
- }
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 36aa109..085ffb5 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1398,7 +1398,8 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 	struct hwtstamp_config cfg;
  
--#define CPTS_REF_CLOCK_NAME "cpsw_cpts_rft_clk"
--
--static void cpts_clk_init(struct cpts *cpts)
-+static void cpts_clk_init(struct device *dev, struct cpts *cpts)
- {
--	cpts->refclk = clk_get(NULL, CPTS_REF_CLOCK_NAME);
-+	cpts->refclk = devm_clk_get(dev, "cpts");
- 	if (IS_ERR(cpts->refclk)) {
--		pr_err("Failed to clk_get %s\n", CPTS_REF_CLOCK_NAME);
-+		pr_err("Failed to get cpts refclk\n");
- 		cpts->refclk = NULL;
- 		return;
- 	}
-@@ -252,7 +250,6 @@ static void cpts_clk_init(struct cpts *cpts)
- static void cpts_clk_release(struct cpts *cpts)
- {
- 	clk_disable(cpts->refclk);
--	clk_put(cpts->refclk);
- }
+ 	if (priv->version != CPSW_VERSION_1 &&
+-	    priv->version != CPSW_VERSION_2)
++	    priv->version != CPSW_VERSION_2 &&
++	    priv->version != CPSW_VERSION_3)
+ 		return -EOPNOTSUPP;
  
- static int cpts_match(struct sk_buff *skb, unsigned int ptp_class,
-@@ -390,7 +387,7 @@ int cpts_register(struct device *dev, struct cpts *cpts,
- 	for (i = 0; i < CPTS_MAX_EVENTS; i++)
- 		list_add(&cpts->pool_data[i].list, &cpts->pool);
+ 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
+@@ -1443,6 +1444,7 @@ static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
+ 		cpsw_hwtstamp_v1(priv);
+ 		break;
+ 	case CPSW_VERSION_2:
++	case CPSW_VERSION_3:
+ 		cpsw_hwtstamp_v2(priv);
+ 		break;
+ 	default:
+@@ -1459,7 +1461,8 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
+ 	struct hwtstamp_config cfg;
  
--	cpts_clk_init(cpts);
-+	cpts_clk_init(dev, cpts);
- 	cpts_write32(cpts, CPTS_EN, control);
- 	cpts_write32(cpts, TS_PEND_EN, int_enable);
+ 	if (priv->version != CPSW_VERSION_1 &&
+-	    priv->version != CPSW_VERSION_2)
++	    priv->version != CPSW_VERSION_2 &&
++	    priv->version != CPSW_VERSION_3)
+ 		return -EOPNOTSUPP;
  
+ 	cfg.flags = 0;
 -- 
 1.8.3.1
 
