@@ -1,96 +1,30 @@
-From: yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org (YAMAMOTO Takashi)
-Subject: Re: [PATCH v2.56] datapath: Add basic MPLS support
-	to	kernel
-Date: Mon, 28 Apr 2014 11:04:14 +0900 (JST)
-Message-ID: <20140428020414.F1F7971E58@kuma.localdomain>
-References: <CAEP_g=8y=jXukP=a2xyk4XMTrBLYWPQOgbTO_h8LE_mVMB9tFQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net,stable 0/7] qmi_wwan: adding a few new devices
+Date: Sun, 27 Apr 2014 22:06:23 -0400 (EDT)
+Message-ID: <20140427.220623.1906378088101483113.davem@davemloft.net>
+References: <1398445234-26620-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: Your message of "Fri, 25 Apr 2014 12:57:20 -0700"
- <CAEP_g=8y=jXukP=a2xyk4XMTrBLYWPQOgbTO_h8LE_mVMB9tFQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35921 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752486AbaD1CG2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Apr 2014 22:06:28 -0400
+In-Reply-To: <1398445234-26620-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Fri, Apr 25, 2014 at 1:06 AM, YAMAMOTO Takashi
-> <yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org> wrote:
->>> On Thu, Apr 24, 2014 at 05:57:29PM +0900, YAMAMOTO Takashi wrote:
->>>> hi,
->>>>
->>>> > + * Due to the sample action there may be multiple possible eth types.
->>>> > + * In order to correctly validate actions all possible types are tracked
->>>> > + * and verified. This is done using struct eth_types.
->>>>
->>>> is there any real-world use cases of these actions inside a sample?
->>>> otherwise, how about just rejecting such combinations?
->>>> it doesn't seem to worth the code complexity to me.
->>>> (sorry if it has been already discussed.  it's the first time for me
->>>> to seriously read this long-lived patch.)
->>>
->>> Good point, the code is rather complex.
->>>
->>> My understanding is that it comes into effect in the case
->>> of sflow or ipfix being configured on the bridge. I tend
->>> to think these are real-world use-cases, though that thinking
->>> is by no means fixed.
->>>
->>> My reading of the code is that in the case of sflow and ipfix a single
->>> sample rule appears at the beginning of the flow. And that it may be
->>> possible to replace the code that you are referring to with something
->>> simpler to handle these cases.
->>
->> it seems that they put only a userland action inside a sample.
->> it's what i expected from its name "sample".
-> 
-> Yes, that's the only current use case. In theory, this could be used
-> more generally although nothing has come up yet.
-> 
-> In retrospect, I regret the design of the sample action - not the part
-> that allows it to handle different actions but the fact that the
-> results can affect things outside of the sample action list. I think
-> that if we had made it more like a subroutine then that would have
-> retained all of the functionality but none of the complexity here.
-> Perhaps if we can find a clean way to restructure it without breaking
-> compatibility then that would simplify the validation here.
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri, 25 Apr 2014 19:00:27 +0200
 
-how about
+> Adding some new and some old QMI devices.  A similar series for
+> usb-serial support will be posted as well.
+>=20
+> These new device ID patches should also go to all maintained stable k=
+ernels
+> where they apply. I believe that should be stable-3.10 and newer.
 
-a. just disallow packet-modifying actions in a sample
-
-or
-
-b. unconditionally restore the packet at the end of sample
-
-or, if you prefer to retain compatibility more,
-c. disallow push/pop actions in a sample
-
-given the known use cases, i guess a. is good enough.
-
-YAMAMOTO Takashi
-
-> 
->>>
->>> My understanding is that the code you are referring to also comes into
->>> effect when a sample action (a Nicira extension) is used directly in a
->>> rule.  I am less sure that this is a real-world case but the complex logic
->>> you are referring to should to handle this use-case.
->>
->> probably nicira folks can clarify?
-> 
-> It's the same set of use cases, just extending it to OpenFlow to
-> enable building sampling into different situations.
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> http://openvswitch.org/mailman/listinfo/dev
+Applied and queued up for -stable, thanks.
