@@ -1,44 +1,53 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next] vxlan: Advertise SCTP checksum offloads
-Date: Mon, 28 Apr 2014 12:52:15 -0700
-Message-ID: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC 1/2] Documentation: add Device tree bindings for QCA7000
+Date: Mon, 28 Apr 2014 21:57:23 +0200
+Message-ID: <4257797.n2vaSiS5NN@wuerfel>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.org,
+	mark.rutland@arm.org, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7535 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751460AbaD1Twh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Apr 2014 15:52:37 -0400
+Received: from mout.kundenserver.de ([212.227.17.13]:54920 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754708AbaD1T5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 15:57:32 -0400
+In-Reply-To: <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Monday 28 April 2014 19:54:56 Stefan Wahren wrote:
+> This patch adds the Device tree bindings for the Ethernet over SPI
+> protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
+> 
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> ---
+>  .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 ++++++++++++++++++++
+>  1 file changed, 51 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> new file mode 100644
+> index 0000000..132c10f
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> @@ -0,0 +1,51 @@
+> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
+> +
+> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+> +as a child of a spi master in the device tree.
+> +
+> +Required properties:
+> +- compatible : Should be "qca,qca7000"
+> +- reg : Should specify the SPI chip select
+> +- intr-gpios : Should specify the GPIO for SPI interrupt
+> +- spi-cpha : Must be set
+> +- spi-cpol: Must be set
 
-Some HW can offload encapsulated SCTP checksums.  Advertise the capability
-for such cases.
+Why specify the interrupt as a GPIO line, rather than an 'interrupts' property?
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Acked-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/vxlan.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1dfee9a..988208f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2293,6 +2293,7 @@ static void vxlan_setup(struct net_device *dev)
- 	dev->features	|= NETIF_F_SG | NETIF_F_HW_CSUM;
- 	dev->features   |= NETIF_F_RXCSUM;
- 	dev->features   |= NETIF_F_GSO_SOFTWARE;
-+	dev->features   |= NETIF_F_SCTP_CSUM;
- 
- 	dev->vlan_features = dev->features;
- 	dev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG_TX;
--- 
-1.9.0
+	Arnd
