@@ -1,79 +1,119 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net when
- VIRTIO_F_ANY_LAYOUT is true
-Date: Tue, 29 Apr 2014 18:43:22 +0800
-Message-ID: <535F824A.5060804@huawei.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next 03/15] i40evf: support ethtool RSS options
+Date: Tue, 29 Apr 2014 13:35:29 +0100
+Message-ID: <1398774929.3881.7.camel@deadeye.wl.decadent.org.uk>
+References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1398693158-2815-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <linville@tuxdriver.com>,
-	<jeffrey.t.kirsher@intel.com>, <rusty@rustcorp.com.au>,
-	<mst@redhat.com>, <jasowang@redhat.com>, <qinchuanyu@huawei.com>,
-	<liuyongan@huawei.com>, <zhangjie14@huawei.com>,
-	<zhaoshenglong@huawei.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-iw46H4DTNEj6BWicf8xW"
+Cc: davem@davemloft.net, Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [119.145.14.64] ([119.145.14.64]:44890 "EHLO
-	szxga01-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S932384AbaD2KoX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 06:44:23 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49436 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933248AbaD2Mfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 08:35:45 -0400
+In-Reply-To: <1398693158-2815-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
-("virtio-net: put virtio-net header inline with data"). TCP packages have
-enough room to put virtio-net header in, but UDP packages do not. By
-setting dev->needed_headroom for virtio-net device, UDP packages could have
-enough room.
 
-For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
-"alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
-The Macro is defined as follows:
-#define LL_RESERVED_SPACE(dev) \
-     ((((dev)->hard_header_len+(dev)->needed_headroom)\
-     &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-By default, for UDP packages, after skb is allocated, only 16 bytes
-reserved. And 2 bytes remained after mac header is set. That is not enough
-to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
-(according to mergeable_rx_bufs is on or off ), more room can be reserved.
-Then there is enough room for UDP packages to put the header in.
+--=-iw46H4DTNEj6BWicf8xW
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-test result list as below:
-guest and host: suse11sp3, netperf, intel 2.4GHz
-+-------+---------+---------+---------+---------+
-|       |   old             |   new             |
-+-------+---------+---------+---------+---------+
-| UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
-| 64    |  0.57   | 692232  |  0.61   | 742420  |
-| 256   |  1.60   | 686860  |  1.71   | 733331  |
-| 512   |  2.92   | 674576  |  3.07   | 710446  |
-| 1024  |  4.99   | 598977  |  5.17   | 620821  |
-| 1460  |  5.68   | 483757  |  7.16   | 610519  |
-| 4096  |  6.98   | 637468  |  7.21   | 658471  |
-+-------+---------+---------+---------+---------+
+On Mon, 2014-04-28 at 06:52 -0700, Jeff Kirsher wrote:
+[...]
+> +/**
+> + * i40evf_set_rss_hash_opt - Enable/Disable flow types for RSS hash
+> + * @adapter: board private structure
+> + * @cmd: ethtool rxnfc command
+> + *
+> + * Returns Success if the flow input set is supported.
+> + **/
+> +static int i40evf_set_rss_hash_opt(struct i40evf_adapter *adapter,
+> +				   struct ethtool_rxnfc *nfc)
+> +{
+[...]
+> +	case AH_ESP_V4_FLOW:
+> +	case AH_V4_FLOW:
+> +	case ESP_V4_FLOW:
+> +	case SCTP_V4_FLOW:
+> +		if ((nfc->data & RXH_L4_B_0_1) ||
+> +		    (nfc->data & RXH_L4_B_2_3))
+> +			return -EINVAL;
+> +		hena |=3D ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER);
+> +		break;
+> +	case AH_ESP_V6_FLOW:
+> +	case AH_V6_FLOW:
+> +	case ESP_V6_FLOW:
+> +	case SCTP_V6_FLOW:
+> +		if ((nfc->data & RXH_L4_B_0_1) ||
+> +		    (nfc->data & RXH_L4_B_2_3))
+> +			return -EINVAL;
+> +		hena |=3D ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER);
+> +		break;
 
-Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
----
- drivers/net/virtio_net.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+I'm not sure why these cases operate on 'hena' as
+I40E_FILTER_PCTYPE_NONF_IPV{4,6}_OTHER are presumably always set in the
+register.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 8a852b5..b852bb3 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
+> +	case IPV4_FLOW:
+> +		hena |=3D ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) |
+> +			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4);
+> +		break;
+> +	case IPV6_FLOW:
+> +		hena |=3D ((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) |
+> +			((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV6);
+> +		break;
 
-+	if (vi->any_header_sg) {
-+		if (vi->mergeable_rx_bufs)
-+			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+		else
-+			dev->needed_headroom = sizeof(struct virtio_net_hdr);
-+	}
-+
- 	/* Use single tx/rx queue pair as default */
- 	vi->curr_queue_pairs = 1;
- 	vi->max_queue_pairs = max_queue_pairs;
--- 
-1.9.0.msysgit.0
+These cases aren't validating that the user didn't ask for ports to be
+included in the hash.  They also interact oddly with UDP flow hashing
+configuration.  It seems to me that the I40E_FILTER_PCTYPE_FRAG_IPV{4,6}
+bits ought to be controllable through one flow type only.
+
+[...]
+> +static int i40evf_get_rxfh_indir(struct net_device *netdev, u32 *indir)
+> +{
+> +	struct i40evf_adapter *adapter =3D netdev_priv(netdev);
+> +	struct i40e_hw *hw =3D &adapter->hw;
+> +	u32 hlut_val;
+> +	int i, j;
+> +
+> +	for (i =3D 0, j =3D 0; i < I40E_VFQF_HLUT_MAX_INDEX; i++) {
+[...]
+
+Off by 1?
+
+Ben.
+
+--=20
+Ben Hutchings
+Q.  Which is the greater problem in the world today, ignorance or apathy?
+A.  I don't know and I couldn't care less.
+
+--=-iw46H4DTNEj6BWicf8xW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU1+clue/yOyVhhEJAQoCCA//T92MoptK6YYX7pSi2V/qr4Wkl5EyN08h
+k9Z87iD0vLV1eU9M6TAXRGoC9XaWOB24mKSQirOfNxM+tRYNxmEYxGsTjBLo7YcR
+r53zln4XQzheSkYUe/HWb0LHpUFfo15VNd5y6ARIAHIduNzTjZ0wcg14dOTo2aiw
+VxIIYPAw2m4kKi2n3BeUhF4J6O7eP5TwQ3HW0sZojEkMDXnrF9WcI3h1Z5DTbW98
+8G2iIOyDG383wNQGUtiHw1ijrsbELV9+1v88ZLx1UBetZYqw73r19EAn3yqwMuZv
+EXqIfuVzyZrSlQnSJDOOpcDjxZFQOa9PPubQN11HeInmexihtSarSkD/56+Hd5OG
+aEKFK7Tasku+z9fJiVouw9BQmdKUeSH78vBy+hgoO7KDtAr+YX0rXbYmuNpUQsxU
+8PaC9rsE1jR/jlVcZAKqGZmSFS74ithvBA66kg1URcQHmB+5z9TRDbuJjUoBAvcs
+Xp/02W+LjZtemUTfd7hU8Dj+GUasA6+lw8ieCWCtNHcGUXEDYJubdukPlX6Uv3Xm
+jvfb69pG3IQTY6Ayh2wnHqjtw1EeAzI2cc4FrWBNhqKd/HYGJ9ZfYM4aGdM9PQh5
+wd5kHhpH+l6GWd4m9D/BCflj+aP0WTVfumfwByGqWs3SJ/0jIkX0SQZppboEoZvX
+pcV59xw5/5s=
+=iT/P
+-----END PGP SIGNATURE-----
+
+--=-iw46H4DTNEj6BWicf8xW--
