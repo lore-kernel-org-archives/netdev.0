@@ -1,77 +1,48 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH net-next 5/7] net:fec: add support for dumping transmit
-	ring on timeout
-Date: Tue, 29 Apr 2014 15:32:44 +0100
-Message-ID: <20140429143243.GA26756@n2100.arm.linux.org.uk>
-References: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com> <1398773350-7293-5-git-send-email-Frank.Li@freescale.com> <063D6719AE5E284EB5DD2968C1650D6D0F7014F0@AcuExch.aculab.com> <CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6D0F701524@AcuExch.aculab.com> <20140429141527.GZ26756@n2100.arm.linux.org.uk> <CAHrpEqTc6=yS4ApLO7AbZyVq26kGxq+WBcyFjgjbiPySq7055Q@mail.gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: problem forwarding IP fragments with DF bit set (caused by ipv4:
+ fix path MTU discovery with connection tracking)
+Date: Tue, 29 Apr 2014 15:33:27 +0100
+Message-ID: <20140429143324.GB12781@macbook.localnet>
+References: <1398703056.12635.41.camel@sakura.staff.proxad.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@aculab.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"B38611@freescale.com" <B38611@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Frank Li <lznuaa@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>, davem@davemloft.net,
+	netdev <netdev@vger.kernel.org>
+To: Maxime Bizon <mbizon@freebox.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57475 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757609AbaD2Odr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 10:33:47 -0400
+Received: from stinky.trash.net ([213.144.137.162]:50237 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757534AbaD2Odp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 10:33:45 -0400
 Content-Disposition: inline
-In-Reply-To: <CAHrpEqTc6=yS4ApLO7AbZyVq26kGxq+WBcyFjgjbiPySq7055Q@mail.gmail.com>
+In-Reply-To: <1398703056.12635.41.camel@sakura.staff.proxad.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2014 at 09:22:13AM -0500, Frank Li wrote:
-> On Tue, Apr 29, 2014 at 9:15 AM, Russell King - ARM Linux
-> <linux@arm.linux.org.uk> wrote:
-> > On Tue, Apr 29, 2014 at 02:01:54PM +0000, David Laight wrote:
-> >> From: Frank ...
-> >> > > You probably want the read and write indexes as well.
-> >> >
-> >> >                      bdp == fep->cur_tx ? 'S' : ' ',
-> >> >                      bdp == fep->dirty_tx ? 'H' : ' ',
-> >> >
-> >> > Above code already print read and write index. 'S', 'H'
-> >>
-> >> Gah I must be asleep!
-> >> Something made be think that was to do with the ring ownership bit!
-> >
-> > Err, what's going on... this is my patch.  If it's been submitted by
-> > others, why wasn't its submission at least Cc'd to me?
+On Mon, Apr 28, 2014 at 06:37:36PM +0200, Maxime Bizon wrote:
 > 
-> I added " --to rmk+kernel@arm.linux.org.uk" when I send patch.
-> I don't know what's wrong.
+> Hello Patrick & Eric,
+> 
+> After upgrading a router with a kernel that has patch 5f2d04f1f9 (ipv4:
+> fix path MTU discovery with connection tracking), some packets are not
+> forwarded anymore.
+> 
+> (note: kernel is 3.11.10, and conntrack is enabled)
+> 
+> Offending packets are IP fragments with DF bit set, MTU is the same on
+> both interfaces involved in forwarding. All received fragments are
+> (obviously) below MTU. The resulting packet after re-assembly is however
+> above MTU.
+> 
+> conntrack causes the packets to be re-assembled, but since the resulting
+> skb now has IP_DF set, it fails the (DF + MTU) test in ip_forward.c and
+> causes ICMP frag_needed to be sent.
 
-Yes... I guess you don't know what went wrong because you'll never know
-if it failed to be delivered, because you sent them with an envelope
-address of "b20596@shlinux1.ap.freescale.net" which doesn't actually
-exist.  Therefore, DSNs can't be returned to you.
+That is the correct behaviour.
 
-> I ask you if need someone help send to david millar before.
+> Without the patch, the packet was (re-)fragmented in the output path
+> (but as the patch says, breaking PMTUD because original fragment size is
+> not considered).
 
-You did, but I didn't agree to it.  I did point out that they need a
-certain amount of rework first:
-
-  I know they need to re-worked to convert unsigned -> unsigned int before
-  David sees them, otherwise it'd be an instant review failure.  Doing the
-  conversion is the easy bit, doing it without hitting the 80 column limit
-  is much harder...
-
-Some of them need a little more work in addition to that before being
-sent to David.
-
-I've also subsequently received in private email one issue which indicates
-a problem with the patch set - as yet I've not been able to look at it,
-but it sounds like the RX ring is full, but NAPI is in hard-irq mode,
-and the hardware won't deliver an IRQ without free space in the RX ring.
-
-Since people have got wind that I've been looking at this driver, everyone
-has started sending their various FEC issues directly to me...
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+Yes. The sending host should receive the ICMP frag needed and adjust it's
+size accordingly.
