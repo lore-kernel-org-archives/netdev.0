@@ -1,55 +1,68 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net 0/2] Fix macvtap checksum errors in bridge mode
-Date: Tue, 29 Apr 2014 10:09:49 -0400
-Message-ID: <1398780591-10644-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 net 2/2] Revert "macvlan : fix checksums error when we are in bridge mode"
+Date: Tue, 29 Apr 2014 10:09:51 -0400
+Message-ID: <1398780591-10644-3-git-send-email-vyasevic@redhat.com>
+References: <1398780591-10644-1-git-send-email-vyasevic@redhat.com>
 Cc: daniel.lezcano@free.fr, nightnord@gmail.com, kaber@trash.net,
 	eric.dumazet@gmail.com, mst@redhat.com, jasowang@redhat.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45428 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17399 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933360AbaD2OKA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 10:10:00 -0400
+	id S1752687AbaD2OLE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 10:11:04 -0400
+In-Reply-To: <1398780591-10644-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following is a problematic configuration:
+This reverts commit 12a2856b604476c27d85a5f9a57ae1661fc46019.
+The commit above doesn't appear to be necessary any more as the
+checksums appear to be correctly computed/validated.
 
- VM1: virtio-net device connected to macvtap0@eth0
- VM2: e1000 device connect to macvtap1@eth0
+Additionally the above commit breaks kvm configurations where
+one VM is using a device that support checksum offload (virtio) and
+the other VM does not.
+In this case, packets leaving virtio device will have CHECKSUM_PARTIAL
+set.  The packets is forwarded to a macvtap that has offload features
+turned off.  Since we use CHECKSUM_UNNECESSARY, the host does does not
+update the checksum and thus a bad checksum is passed up to
+the guest.
 
-The problem is is that virtio-net supports checksum offloading
-and thus sends the packets to the host with CHECKSUM_PARTIAL set.
-On the other hand, e1000 does not support any acceleration.
-
-For small TCP packets (and this includes the 3-way handshake),
-e1000 end up receiving packets that only have a partial checksum
-set.  This causes TCP to fail checksum validation and to drop
-packets.  As a result tcp connections can not be established.
-
-The following 2 patches resolve this issue. The first patch adds
-a check to the non-gso code path to see if the checksum needs to
-be computed.  The second patch reverts an old commit that set
-ip_summed to CHECKSUM_UNNECESSARY.  Proper checksum update is
-necessary under certain circumstances.
-
-I wend through the old thread
-  http://comments.gmane.org/gmane.linux.kernel.containers.lxc.general/1459
-and tried the reproducers listed there, but could not cause
-invalid checksum to trigger with this series.
-Daniel and Andrian, if you have the time please try this patch
-set to see if you still see the old checksum issues.
-
-v1->v2: Updated comment from MST.
-
-Vlad Yasevich (2):
-  mactap: Fix checksum errors for non-gso packets in bridge mode
-  Revert "macvlan : fix checksums error when we are in bridge mode"
-
+CC: Daniel Lezcano <daniel.lezcano@free.fr>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Andrian Nord <nightnord@gmail.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Michael S. Tsirkin <mst@redhat.com>
+CC: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
  drivers/net/macvlan.c | 3 ---
- drivers/net/macvtap.c | 9 +++++++++
- 2 files changed, 9 insertions(+), 3 deletions(-)
+ 1 file changed, 3 deletions(-)
 
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 1831fb7..33b6cf8 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -263,11 +263,9 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	const struct macvlan_dev *vlan = netdev_priv(dev);
+ 	const struct macvlan_port *port = vlan->port;
+ 	const struct macvlan_dev *dest;
+-	__u8 ip_summed = skb->ip_summed;
+ 
+ 	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+ 		const struct ethhdr *eth = (void *)skb->data;
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
+ 		/* send to other bridge ports directly */
+ 		if (is_multicast_ether_addr(eth->h_dest)) {
+@@ -285,7 +283,6 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	}
+ 
+ xmit_world:
+-	skb->ip_summed = ip_summed;
+ 	skb->dev = vlan->lowerdev;
+ 	return dev_queue_xmit(skb);
+ }
 -- 
 1.9.0
