@@ -1,107 +1,104 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCH v2 net-next 3/7] bridge: Add functionality to sync static fdb entries to hw
-Date: Tue, 29 Apr 2014 17:20:24 -0400
-Message-ID: <1398806428-640-4-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH v2 net-next 7/7] bridge: Automatically manage promisc mode when vlan filtering is on.
+Date: Tue, 29 Apr 2014 17:20:28 -0400
+Message-ID: <1398806428-640-8-git-send-email-vyasevic@redhat.com>
 References: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
 	jhs@mojatatu.com, john.r.fastabend@intel.com, mst@redhat.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11105 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9004 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755851AbaD2VUw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 17:20:52 -0400
+	id S1755994AbaD2VUz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 17:20:55 -0400
 In-Reply-To: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add code that allows static fdb entires to be synced to the
-hw list for a specified port.  This will be used later to
-program ports that can function in non-promiscous mode.
+If the user doesn't enable vlan filtering, we have to place all
+bridge ports in promsic mode so that we retain the capability of
+of receiving tagged frames.
+When vlan filtering is enabled, the each port will be provided with
+necessary vlan configuration and would be able to receive tagged
+traffic without promiscouse mode set, thus allowing us to automatically
+turn promiscuity on or off depending on the configuration.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_fdb.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_private.h |  2 ++
- 2 files changed, 58 insertions(+)
+ net/bridge/br_if.c      | 12 ++++++++----
+ net/bridge/br_private.h |  9 +++++++++
+ net/bridge/br_vlan.c    |  1 +
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..9759b61 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -874,3 +874,59 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- out:
- 	return err;
- }
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index d227ad6..ca1953c 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -126,6 +126,13 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
+ void br_manage_promisc(struct net_bridge *br)
+ {
+ 	struct net_bridge_port *p;
++	int set_all = false;
 +
-+int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p)
-+{
-+	struct net_bridge_fdb_entry *fdb, *tmp = NULL;
-+	int i;
-+	int err = 0;
-+
-+	ASSERT_RTNL();
-+
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry(fdb, &br->hash[i], hlist) {
-+			/* We only care for static entries */
-+			if (!fdb->is_static)
-+				continue;
-+
-+			err = dev_uc_add(p->dev, fdb->addr.addr);
-+			if (err)
-+				goto rollback;
-+		}
-+	}
-+	return 0;
-+
-+rollback:
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry(tmp, &br->hash[i], hlist) {
-+			/* If we reached the fdb that failed, we can stop */
-+			if (tmp == fdb)
-+				break;
-+
-+			/* We only care for static entries */
-+			if (!tmp->is_static)
-+				continue;
-+
-+			dev_uc_del(p->dev, tmp->addr.addr);
-+		}
-+	}
-+	return err;
-+}
-+
-+void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
-+{
-+	struct net_bridge_fdb_entry *fdb;
-+	int i;
-+
-+	ASSERT_RTNL();
-+
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry_rcu(fdb, &br->hash[i], hlist) {
-+			/* We only care for static entries */
-+			if (!fdb->is_static)
-+				continue;
-+
-+			dev_uc_del(p->dev, fdb->addr.addr);
-+		}
-+	}
-+}
++	/* If vlan filtering is disabled or bridge interface is placed
++	 * into promiscouse mode, place all ports in promiscuous mode.
++	 */
++	if ((br->dev->flags & IFF_PROMISC) || !br_vlan_enabled(br))
++		set_all = true;
+ 
+ 	/* Algorithm is simple.  If all the port require static
+ 	 * configuration, we know everything and can simply write
+@@ -135,10 +142,7 @@ void br_manage_promisc(struct net_bridge *br)
+ 	 * to this one automatic port and still make non-promisc.
+ 	 */
+ 	list_for_each_entry(p, &br->port_list, list) {
+-		if (br->dev->flags & IFF_PROMISC) {
+-			/* PROMISC flag has been turned on for the bridge
+-			 * itself.  Turn on promisc on all ports.
+-			 */
++		if (set_all) {
+ 			br_port_set_promisc(p);
+ 		} else {
+ 			if (br->auto_cnt == 0 ||
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index db714a1..2023671 100644
+index f2d93d7..df0bb49 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -399,6 +399,8 @@ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
- 	       const unsigned char *addr, u16 nlh_flags);
- int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 		struct net_device *dev, int idx);
-+int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
-+void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
+@@ -643,6 +643,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ 	return v->pvid ?: VLAN_N_VID;
+ }
  
- /* br_forward.c */
- void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
++static inline int br_vlan_enabled(struct net_bridge *br)
++{
++	return br->vlan_enabled;
++}
+ #else
+ static inline bool br_allowed_ingress(struct net_bridge *br,
+ 				      struct net_port_vlans *v,
+@@ -723,6 +727,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ {
+ 	return VLAN_N_VID;	/* Returns invalid vid */
+ }
++
++static inline int br_vlan_enabled(struct net_bridge *br);
++{
++	return 0;
++}
+ #endif
+ 
+ /* br_netfilter.c */
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 4a37161..24c5cc5 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -332,6 +332,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+ 		goto unlock;
+ 
+ 	br->vlan_enabled = val;
++	br_manage_promisc(br);
+ 
+ unlock:
+ 	rtnl_unlock();
 -- 
 1.9.0
