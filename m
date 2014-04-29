@@ -1,47 +1,70 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 1/8 v3] net: Allow csum_add to be provided in arch
-Date: Tue, 29 Apr 2014 09:17:44 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404290858490.8886@tomh.mtv.corp.google.com>
+Subject: [PATCH 4/8 v3] sparc: csum_add for Sparc
+Date: Tue, 29 Apr 2014 09:18:24 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404290900210.9313@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f73.google.com ([209.85.213.73]:34907 "EHLO
-	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933447AbaD2QRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:17:45 -0400
-Received: by mail-yh0-f73.google.com with SMTP id b6so60719yha.2
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:17:44 -0700 (PDT)
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:62838 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757871AbaD2QS1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:18:27 -0400
+Received: by mail-oa0-f74.google.com with SMTP id i7so88673oag.3
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:18:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-csum_add is really nothing more then add-with-carry which
-can be implemented efficiently in some architectures.
-Allow architecture to define this protected by HAVE_ARCH_CSUM_ADD.
+>From David Miller, add arch support for csum_add for 32 and 64 bit
+versions.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/checksum.h | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/sparc/include/asm/checksum_32.h | 12 ++++++++++++
+ arch/sparc/include/asm/checksum_64.h | 12 ++++++++++++
+ 2 files changed, 24 insertions(+)
 
-diff --git a/include/net/checksum.h b/include/net/checksum.h
-index a28f4e0..87cb190 100644
---- a/include/net/checksum.h
-+++ b/include/net/checksum.h
-@@ -57,12 +57,14 @@ static __inline__ __wsum csum_and_copy_to_user
+diff --git a/arch/sparc/include/asm/checksum_32.h b/arch/sparc/include/asm/checksum_32.h
+index bdbda14..04471dc 100644
+--- a/arch/sparc/include/asm/checksum_32.h
++++ b/arch/sparc/include/asm/checksum_32.h
+@@ -238,4 +238,16 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
+ 	return csum_fold(csum_partial(buff, len, 0));
  }
- #endif
  
-+#ifndef HAVE_ARCH_CSUM_ADD
- static inline __wsum csum_add(__wsum csum, __wsum addend)
- {
- 	u32 res = (__force u32)csum;
- 	res += (__force u32)addend;
- 	return (__force __wsum)(res + (res < (__force u32)addend));
++#define HAVE_ARCH_CSUM_ADD
++static inline __wsum csum_add(__wsum csum, __wsum addend)
++{
++	__asm__ __volatile__(
++		"addcc   %0, %1, %0\n"
++		"addx    %0, %%g0, %0"
++		: "=r" (csum)
++		: "r" (addend), "0" (csum));
++
++	return csum;
++}
++
+ #endif /* !(__SPARC_CHECKSUM_H) */
+diff --git a/arch/sparc/include/asm/checksum_64.h b/arch/sparc/include/asm/checksum_64.h
+index 019b961..2ff81ae 100644
+--- a/arch/sparc/include/asm/checksum_64.h
++++ b/arch/sparc/include/asm/checksum_64.h
+@@ -164,4 +164,16 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
+ 	return csum_fold(csum_partial(buff, len, 0));
  }
-+#endif
  
- static inline __wsum csum_sub(__wsum csum, __wsum addend)
- {
++#define HAVE_ARCH_CSUM_ADD
++static inline __wsum csum_add(__wsum csum, __wsum addend)
++{
++	__asm__ __volatile__(
++		"addcc   %0, %1, %0\n"
++		"addx    %0, %%g0, %0"
++		: "=r" (csum)
++		: "r" (addend), "0" (csum));
++
++	return csum;
++}
++
+ #endif /* !(__SPARC64_CHECKSUM_H) */
 -- 
 1.9.1.423.g4596e3a
