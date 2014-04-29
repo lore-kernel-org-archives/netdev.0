@@ -1,53 +1,139 @@
-From: <dinguyen@altera.com>
-Subject: [PATCH net-next] net: stmmac: set phy to use polling by default
-Date: Tue, 29 Apr 2014 12:56:21 -0500
-Message-ID: <1398794181-17852-1-git-send-email-dinguyen@altera.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
+Date: Tue, 29 Apr 2014 14:00:53 -0400
+Message-ID: <535FE8D5.90600@gmail.com>
+References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com> <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com> <535FDCE0.80803@gmail.com> <alpine.LFD.2.11.1404291028470.14497@fvl-a0.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <vbridger@altera.com>,
-	Dinh Nguyen <dinguyen@altera.com>
-To: <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Joseph Gasparakis <jgaspara@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0144.outbound.protection.outlook.com ([65.55.169.144]:18084
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933160AbaD2R7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 13:59:13 -0400
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:45677 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933160AbaD2SA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 14:00:58 -0400
+Received: by mail-qc0-f169.google.com with SMTP id m20so650750qcx.14
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 11:00:58 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1404291028470.14497@fvl-a0.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dinh Nguyen <dinguyen@altera.com>
+On 04/29/2014 01:34 PM, Joseph Gasparakis wrote:
+>=20
+>=20
+> On Tue, 29 Apr 2014, Vlad Yasevich wrote:
+>=20
+>> On 04/29/2014 12:10 PM, Rose, Gregory V wrote:
+>>>
+>>>> -----Original Message-----
+>>>> From: Ben Hutchings [mailto:ben@decadent.org.uk]
+>>>> Sent: Tuesday, April 29, 2014 5:39 AM
+>>>> To: Kirsher, Jeffrey T
+>>>> Cc: davem@davemloft.net; Rose, Gregory V; netdev@vger.kernel.org;
+>>>> gospo@redhat.com; sassmann@redhat.com
+>>>> Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
+>>>>
+>>>> On Mon, 2014-04-28 at 12:52 -0700, Jeff Kirsher wrote:
+>>>>> From: Greg Rose <gregory.v.rose@intel.com>
+>>>>>
+>>>>> Some HW can offload encapsulated SCTP checksums.  Advertise the
+>>>>> capability for such cases.
+>>>>
+>>>> Don't we need a software fallback on the output path before doing =
+this?
+>>>
+>>> I believe that the vxlan driver will compare offload features with =
+the lower device hw_enc_feature flags and if the HW doesn't have the of=
+fload then it won't be advertised to the sctp driver.  In that case the=
+ sctp driver will do its own checksumming.  At least that is the behavi=
+or I saw.
+>>>
+>>
+>> I've been looking at this and can't see vxlan doing any feature
+>> comparisons/disabling...
+>>
+>> At the time SCTP tries to do checksum, it will see hw offload
+>> support and set checksum as partial.  That will be propagated
+>> all the way to vxlan which will set encapsulation and pass it on.
+>> At next dev_hard_start_xmit(), we'll look at hw_enc_features,
+>> but it won't matter since SCTP packets are never GSO.
+>>
+>> So, we'll use the non-gso code path and still send with partial
+>> checksum set.  Now, if the driver supports encapsulated SCTP,
+>> then it will work.  If it doesn't, the udp checksum will be computed=
+,
+>> but not the sctp one.
+>>
+>> -vlad
+>=20
+> That is exactly the way it works, dev_hard_start_xmit() is where=20
+> the (inner) unchecksummed packets will get checksummed if the Tx'ing=20
+> interface does not support inner SCTP checksumming.
 
-mii_irq[] array is never initialized anywhere in the driver, thus mii_irq[]
-will always equate to zero. So, for the case where the PHY does not have an
-irq, we should use PHY_POLL for that situation.
+No, it will not.  dev_hard_start_xmit() calls skb_checksum_help()
+which only knows how to calculate TCP/UDP checksums.  It doesn't know
+how to compute CRC32c for SCTP protocol.
 
-Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-Tested-by: Vince Bridgers <vbridger@altera.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+-vlad
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index a468eb1..a5b1e1b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -205,10 +205,13 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	if (new_bus == NULL)
- 		return -ENOMEM;
- 
--	if (mdio_bus_data->irqs)
-+	if (mdio_bus_data->irqs) {
- 		irqlist = mdio_bus_data->irqs;
--	else
-+	} else {
-+		for (addr = 0; addr < PHY_MAX_ADDR; addr++)
-+			priv->mii_irq[addr] = PHY_POLL;
- 		irqlist = priv->mii_irq;
-+	}
- 
- #ifdef CONFIG_OF
- 	if (priv->device->of_node)
--- 
-1.7.9.5
+>=20
+> In effect by "falsely" advertising vxlan being capable to "offload" a=
+=20
+> protocol, we just postpone the software csum calculation until the la=
+st=20
+> minute, which is dev_hard_start_xmit().
+>=20
+> Joseph
+>=20
+>>
+>>> I'm adding Joseph Gasparakis.  He might have a better answer.
+>>>
+>>> - Greg
+>>>
+>>>>
+>>>> Ben.
+>>>>
+>>>>> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+>>>>> Acked-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+>>>>> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+>>>>> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+>>>>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>>>>> ---
+>>>>>  drivers/net/vxlan.c | 1 +
+>>>>>  1 file changed, 1 insertion(+)
+>>>>>
+>>>>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c index
+>>>>> 1dfee9a..988208f 100644
+>>>>> --- a/drivers/net/vxlan.c
+>>>>> +++ b/drivers/net/vxlan.c
+>>>>> @@ -2293,6 +2293,7 @@ static void vxlan_setup(struct net_device *=
+dev)
+>>>>>  	dev->features	|=3D NETIF_F_SG | NETIF_F_HW_CSUM;
+>>>>>  	dev->features   |=3D NETIF_F_RXCSUM;
+>>>>>  	dev->features   |=3D NETIF_F_GSO_SOFTWARE;
+>>>>> +	dev->features   |=3D NETIF_F_SCTP_CSUM;
+>>>>>
+>>>>>  	dev->vlan_features =3D dev->features;
+>>>>>  	dev->features |=3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_ST=
+AG_TX;
+>>>>
+>>>> --
+>>>> Ben Hutchings
+>>>> Q.  Which is the greater problem in the world today, ignorance or =
+apathy?
+>>>> A.  I don't know and I couldn't care less.
+>>> N???????????????r??????y?????????b???X??????=C7=A7v???^???)=DE=BA{.=
+n???+?????????z???^???)?????????w*=1Fjg?????????=1E???????????????=DD=A2=
+j/?????????z???=DE=96??????2???=DE=99?????????&???)=DF=A1???a??????=7F?=
+?????=1E???G?????????h???=0F???j:+v?????????w???=D9=A5
+>>>
+>>
+>>
