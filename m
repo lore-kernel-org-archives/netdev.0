@@ -1,107 +1,63 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 7/8 v3] net: Call skb_checksum_init in IPv6
-Date: Tue, 29 Apr 2014 09:19:08 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404290901430.9717@tomh.mtv.corp.google.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next] vxlan: Advertise SCTP checksum offloads
+Date: Tue, 29 Apr 2014 16:10:10 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com>
+References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:41564 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758160AbaD2QTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:19:10 -0400
-Received: by mail-qc0-f202.google.com with SMTP id x13so60708qcv.1
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:19:09 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:50043 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756224AbaD2QTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 12:19:16 -0400
+In-Reply-To: <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call skb_checksum_init instead of private functions.
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/net/ip6_checksum.h |  7 +++++++
- net/ipv6/ip6_checksum.c    | 11 +----------
- net/ipv6/tcp_ipv6.c        | 21 +--------------------
- 3 files changed, 9 insertions(+), 30 deletions(-)
-
-diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
-index 9e3c540..8ac5c21 100644
---- a/include/net/ip6_checksum.h
-+++ b/include/net/ip6_checksum.h
-@@ -41,6 +41,13 @@ __sum16 csum_ipv6_magic(const struct in6_addr *saddr,
- 			__wsum csum);
- #endif
- 
-+static inline __wsum ip6_compute_pseudo(struct sk_buff *skb, int proto)
-+{
-+	return ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
-+					    &ipv6_hdr(skb)->daddr,
-+					    skb->len, proto, 0));
-+}
-+
- static __inline__ __sum16 tcp_v6_check(int len,
- 				   const struct in6_addr *saddr,
- 				   const struct in6_addr *daddr,
-diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index ee7a97f..c69fe37 100644
---- a/net/ipv6/ip6_checksum.c
-+++ b/net/ipv6/ip6_checksum.c
-@@ -84,16 +84,7 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
- 			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
- 		return 1;
- 	}
--	if (skb->ip_summed == CHECKSUM_COMPLETE &&
--	    !csum_ipv6_magic(&ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr,
--			     skb->len, proto, skb->csum))
--		skb->ip_summed = CHECKSUM_UNNECESSARY;
- 
--	if (!skb_csum_unnecessary(skb))
--		skb->csum = ~csum_unfold(csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
--							 &ipv6_hdr(skb)->daddr,
--							 skb->len, proto, 0));
--
--	return 0;
-+	return skb_checksum_init(skb, IPPROTO_UDP, ip6_compute_pseudo);
- }
- EXPORT_SYMBOL(udp6_csum_init);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index e289830..7fa6743 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1294,25 +1294,6 @@ out:
- 	return NULL;
- }
- 
--static __sum16 tcp_v6_checksum_init(struct sk_buff *skb)
--{
--	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		if (!tcp_v6_check(skb->len, &ipv6_hdr(skb)->saddr,
--				  &ipv6_hdr(skb)->daddr, skb->csum)) {
--			skb->ip_summed = CHECKSUM_UNNECESSARY;
--			return 0;
--		}
--	}
--
--	skb->csum = ~csum_unfold(tcp_v6_check(skb->len,
--					      &ipv6_hdr(skb)->saddr,
--					      &ipv6_hdr(skb)->daddr, 0));
--
--	if (skb->len <= 76)
--		return __skb_checksum_complete(skb);
--	return 0;
--}
--
- /* The socket must have it's spinlock held when we get
-  * here.
-  *
-@@ -1486,7 +1467,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 	if (!pskb_may_pull(skb, th->doff*4))
- 		goto discard_it;
- 
--	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
-+	if (skb_checksum_init(skb, IPPROTO_TCP, ip6_compute_pseudo))
- 		goto csum_error;
- 
- 	th = tcp_hdr(skb);
--- 
-1.9.1.423.g4596e3a
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEJlbiBIdXRjaGluZ3MgW21h
+aWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAyOSwgMjAx
+NCA1OjM5IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
+dC5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gZ29zcG9A
+cmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0
+XSB2eGxhbjogQWR2ZXJ0aXNlIFNDVFAgY2hlY2tzdW0gb2ZmbG9hZHMNCj4gDQo+IE9uIE1vbiwg
+MjAxNC0wNC0yOCBhdCAxMjo1MiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPiA+IEZyb206
+IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+DQo+ID4gU29tZSBIVyBj
+YW4gb2ZmbG9hZCBlbmNhcHN1bGF0ZWQgU0NUUCBjaGVja3N1bXMuICBBZHZlcnRpc2UgdGhlDQo+
+ID4gY2FwYWJpbGl0eSBmb3Igc3VjaCBjYXNlcy4NCj4gDQo+IERvbid0IHdlIG5lZWQgYSBzb2Z0
+d2FyZSBmYWxsYmFjayBvbiB0aGUgb3V0cHV0IHBhdGggYmVmb3JlIGRvaW5nIHRoaXM/DQoNCkkg
+YmVsaWV2ZSB0aGF0IHRoZSB2eGxhbiBkcml2ZXIgd2lsbCBjb21wYXJlIG9mZmxvYWQgZmVhdHVy
+ZXMgd2l0aCB0aGUgbG93ZXIgZGV2aWNlIGh3X2VuY19mZWF0dXJlIGZsYWdzIGFuZCBpZiB0aGUg
+SFcgZG9lc24ndCBoYXZlIHRoZSBvZmZsb2FkIHRoZW4gaXQgd29uJ3QgYmUgYWR2ZXJ0aXNlZCB0
+byB0aGUgc2N0cCBkcml2ZXIuICBJbiB0aGF0IGNhc2UgdGhlIHNjdHAgZHJpdmVyIHdpbGwgZG8g
+aXRzIG93biBjaGVja3N1bW1pbmcuICBBdCBsZWFzdCB0aGF0IGlzIHRoZSBiZWhhdmlvciBJIHNh
+dy4NCg0KSSdtIGFkZGluZyBKb3NlcGggR2FzcGFyYWtpcy4gIEhlIG1pZ2h0IGhhdmUgYSBiZXR0
+ZXIgYW5zd2VyLg0KDQotIEdyZWcNCg0KPiANCj4gQmVuLg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5
+OiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4NCj4gPiBBY2tlZC1ieTogSm9z
+ZXBoIEdhc3BhcmFraXMgPGpvc2VwaC5nYXNwYXJha2lzQGludGVsLmNvbT4NCj4gPiBBY2tlZC1i
+eTogU2hhbm5vbiBOZWxzb24gPHNoYW5ub24ubmVsc29uQGludGVsLmNvbT4NCj4gPiBUZXN0ZWQt
+Ynk6IEplZmYgUGllcGVyIDxqZWZmcmV5LmUucGllcGVyQGludGVsLmNvbT4NCj4gPiBTaWduZWQt
+b2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAt
+LS0NCj4gPiAgZHJpdmVycy9uZXQvdnhsYW4uYyB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwg
+MSBpbnNlcnRpb24oKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92eGxhbi5j
+IGIvZHJpdmVycy9uZXQvdnhsYW4uYyBpbmRleA0KPiA+IDFkZmVlOWEuLjk4ODIwOGYgMTAwNjQ0
+DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdnhsYW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L3Z4
+bGFuLmMNCj4gPiBAQCAtMjI5Myw2ICsyMjkzLDcgQEAgc3RhdGljIHZvaWQgdnhsYW5fc2V0dXAo
+c3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4gPiAgCWRldi0+ZmVhdHVyZXMJfD0gTkVUSUZfRl9T
+RyB8IE5FVElGX0ZfSFdfQ1NVTTsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX1JY
+Q1NVTTsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX0dTT19TT0ZUV0FSRTsNCj4g
+PiArCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX1NDVFBfQ1NVTTsNCj4gPg0KPiA+ICAJZGV2
+LT52bGFuX2ZlYXR1cmVzID0gZGV2LT5mZWF0dXJlczsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgfD0g
+TkVUSUZfRl9IV19WTEFOX0NUQUdfVFggfCBORVRJRl9GX0hXX1ZMQU5fU1RBR19UWDsNCj4gDQo+
+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gUS4gIFdoaWNoIGlzIHRoZSBncmVhdGVyIHByb2JsZW0g
+aW4gdGhlIHdvcmxkIHRvZGF5LCBpZ25vcmFuY2Ugb3IgYXBhdGh5Pw0KPiBBLiAgSSBkb24ndCBr
+bm93IGFuZCBJIGNvdWxkbid0IGNhcmUgbGVzcy4NCg==
