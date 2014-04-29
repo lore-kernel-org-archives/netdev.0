@@ -1,73 +1,88 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt instead
- of an error
-Date: Tue, 29 Apr 2014 23:37:26 +0200
-Message-ID: <53601B96.3000608@gmail.com>
-References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	netdev@vger.kernel.org
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH RFC 1/2] Documentation: add Device tree bindings for
+ QCA7000
+Date: Tue, 29 Apr 2014 15:36:38 -0700
+Message-ID: <20140429223638.GB2382@flaeskesteg>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com>
+ <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.org" <pawel.moll@arm.org>,
+	"mark.rutland@arm.org" <mark.rutland@arm.org>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Stefan Wahren <stefan.wahren@i2se.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:53982 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932130AbaD2Vhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 17:37:31 -0400
-Received: by mail-ee0-f42.google.com with SMTP id d17so729592eek.15
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 14:37:30 -0700 (PDT)
-In-Reply-To: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:64188 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965473AbaD2WhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 18:37:02 -0400
+Content-Disposition: inline
+In-Reply-To: <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2014 09:49 PM, Ezequiel Garcia wrote:
-> The following commit:
+On Mon, Apr 28, 2014 at 06:54:56PM +0100, Stefan Wahren wrote:
+> This patch adds the Device tree bindings for the Ethernet over SPI
+> protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
 > 
-> commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
-> Author: Rob Herring <robh@kernel.org>
-> Date:   Wed Apr 23 17:57:41 2014 -0500
-> 
->     of/irq: do irq resolution in platform_get_irq
-> 
-> changed platform_get_irq() which now returns ENODEV and EPROBE_DEFER,
-> in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
-> returns ENODEV, but we currently check only for ENXIO.
-> 
-> Fix this by looking for a positive integer, which is the proper way of
-> validating a virtual interrupt number.
-> 
-> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
 > ---
->  drivers/net/ethernet/marvell/mvmdio.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 ++++++++++++++++++++
+>  1 file changed, 51 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
 > 
-> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-> index b161a52..eb2cabf 100644
-> --- a/drivers/net/ethernet/marvell/mvmdio.c
-> +++ b/drivers/net/ethernet/marvell/mvmdio.c
-> @@ -232,7 +232,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
->  		clk_prepare_enable(dev->clk);
->  
->  	dev->err_interrupt = platform_get_irq(pdev, 0);
-> -	if (dev->err_interrupt != -ENXIO) {
-> +	if (dev->err_interrupt > 0) {
+> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> new file mode 100644
+> index 0000000..132c10f
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> @@ -0,0 +1,51 @@
+> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
+> +
+> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+> +as a child of a spi master in the device tree.
+> +
+> +Required properties:
+> +- compatible : Should be "qca,qca7000"
+> +- reg : Should specify the SPI chip select
+> +- intr-gpios : Should specify the GPIO for SPI interrupt
 
-Ezequiel,
+As Arnd mentioned, this should be described as an interrupt if it's an
+interrupt from the point of view of the QCA7000.
 
-I cannot find where Rob's mentioned patch set adds -ENODEV, but isn't
-the semantic for -EPROBE_DEFER: there *should* be an irq, but it is
-not yet available. That basically means, we should also defer on that
-error otherwise we would ignore that we have actually been given an irq
-to work with, right?
+> +- spi-cpha : Must be set
+> +- spi-cpol: Must be set
+> +
+> +Optional properties:
+> +- spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
+> +  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
+> +  the property will set the SPI frequency to 8000000 Hertz.
+> +- local-mac-address: 6 bytes, mac address
+> +- qca,legacy-mode : Should specify the data transfer mode of the QCA7000
+> +  (0 = burst mode, 1 = legacy mode). Missing the property will use the
+> +  burst mode.
 
-Sebastian
+This sounds like it could be a boolean property (one with no value, like
+cpi-cpha). When is this necessary?
 
->  		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
->  					orion_mdio_err_irq,
->  					IRQF_SHARED, pdev->name, dev);
-> 
+> +- linux,burst-length : Number of data bytes per burst. Numbers smaller than 1
+> +  or greater than 5000 are invalid. Missing the property will set the
+> +  burst length to 5000 bytes. This property has only an effect in burst mode.
+
+When is this needed?
+
+> +- linux,pluggable-connection : Should be set to skip signature check while
+> +  probing. This property is useful if the SPI master and QCA7000 are not on the
+> +  same board.
+
+This does not sounds like it belongs in the DT, as it's strongly tied to the
+implementation of the driver. Why is this necessary?
+
+Cheers,
+Mark.
