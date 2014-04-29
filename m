@@ -1,7 +1,7 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH net-next 2/7] net:fec: reorder ethtool ops to match order in struct declaration
-Date: Tue, 29 Apr 2014 20:09:05 +0800
-Message-ID: <1398773350-7293-2-git-send-email-Frank.Li@freescale.com>
+Subject: [PATCH net-next 6/7] net:fec: use netif_tx_disable() rather than netif_stop_queue()
+Date: Tue, 29 Apr 2014 20:09:09 +0800
+Message-ID: <1398773350-7293-6-git-send-email-Frank.Li@freescale.com>
 References: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,55 +10,53 @@ Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
 To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
 	<davem@davemloft.net>, <rmk+kernel@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0186.outbound.protection.outlook.com ([207.46.163.186]:14309
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-bl2lp0211.outbound.protection.outlook.com ([207.46.163.211]:33969
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756960AbaD2NU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 09:20:28 -0400
+	id S1755931AbaD2NUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 09:20:41 -0400
 In-Reply-To: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Russell King <rmk+kernel@arm.linux.org.uk>
 
-This allows us to merge two separate preprocessor conditionals together.
+We use netif_stop_queue() in several places where we want to ensure that
+the start_xmit function is not running.  netif_stop_queue() is not
+sufficient to achieve that - it merely sets a flag to indicate that the
+transmit queue(s) should not be run.
+
+netif_tx_disable() gives this guarantee, since it takes the transmit
+queue lock while marking the queue stopped.  This will wait for the
+transmit function to complete before returning.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index b151eaf..875c0ca 100644
+index 7d506ae..1c84f3a 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1639,21 +1639,19 @@ static int fec_enet_nway_reset(struct net_device *dev)
- }
+@@ -522,7 +522,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	if (netif_running(ndev)) {
+ 		netif_device_detach(ndev);
+ 		napi_disable(&fep->napi);
+-		netif_stop_queue(ndev);
++		netif_tx_disable(ndev);
+ 		netif_tx_lock_bh(ndev);
+ 	}
  
- static const struct ethtool_ops fec_enet_ethtool_ops = {
--#if !defined(CONFIG_M5272)
--	.get_pauseparam		= fec_enet_get_pauseparam,
--	.set_pauseparam		= fec_enet_set_pauseparam,
--#endif
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
--	.get_link		= ethtool_op_get_link,
--	.get_ts_info		= fec_enet_get_ts_info,
- 	.nway_reset		= fec_enet_nway_reset,
-+	.get_link		= ethtool_op_get_link,
- #ifndef CONFIG_M5272
--	.get_ethtool_stats	= fec_enet_get_ethtool_stats,
-+	.get_pauseparam		= fec_enet_get_pauseparam,
-+	.set_pauseparam		= fec_enet_set_pauseparam,
- 	.get_strings		= fec_enet_get_strings,
-+	.get_ethtool_stats	= fec_enet_get_ethtool_stats,
- 	.get_sset_count		= fec_enet_get_sset_count,
- #endif
-+	.get_ts_info		= fec_enet_get_ts_info,
- };
+@@ -1821,7 +1821,7 @@ fec_enet_close(struct net_device *ndev)
+ 	/* Don't know what to do yet. */
+ 	napi_disable(&fep->napi);
+ 	fep->opened = 0;
+-	netif_stop_queue(ndev);
++	netif_tx_disable(ndev);
+ 	fec_stop(ndev);
  
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 	phy_stop(fep->phy_dev);
 -- 
 1.7.8
