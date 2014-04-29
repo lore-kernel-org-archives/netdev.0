@@ -1,43 +1,72 @@
-From: Alexey Charkov <alchark@gmail.com>
-Subject: Re: [PATCH] net: via-rhine: fix compiler warning
-Date: Tue, 29 Apr 2014 22:09:01 +0400
-Message-ID: <CABjd4Yxj12O7pi2kiqjO+YYU_D=Gdx98yNz6XE4tCX=sL2eYxg@mail.gmail.com>
-References: <1398792971-10379-1-git-send-email-mq@suse.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH RFC 2/2] net: qualcomm: new Ethernet over SPI driver for QCA7000
+Date: Tue, 29 Apr 2014 20:14:05 +0200
+Message-ID: <4693879.NBTVQb29rJ@wuerfel>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <4860368.6Apskanc4s@wuerfel> <535FCB24.2010507@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roger Luethi <rl@hellgate.ch>, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Jan Moskyto Matejka <mq@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398792971-10379-1-git-send-email-mq@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:55838 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755711AbaD2SOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 14:14:18 -0400
+In-Reply-To: <535FCB24.2010507@i2se.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-04-29 21:36 GMT+04:00 Jan Moskyto Matejka <mq@suse.cz>:
-> Fixed different size cast warning:
->
->         drivers/net/ethernet/via/via-rhine.c: In function =E2=80=98rh=
-ine_init_one_platform=E2=80=99:
->         drivers/net/ethernet/via/via-rhine.c:1132:13: warning: cast f=
-rom pointer to integer of different size [-Wpointer-to-int-cast]
->           revision =3D (u32)match->data;
->                      ^
->
-> That code was added in commit 2d283862dc62daead9db0dc89cd0d0351e91f76=
-5
-> ("net: via-rhine: add OF bus binding").
->
-> Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
+On Tuesday 29 April 2014 17:54:12 Stefan Wahren wrote:
+> > As far as I know it's also not mandatory.
+> >
+> > If the hardware interfaces require calling sleeping functions, it
+> > may not actually be possible, but if you can use it, it normally
+> > provides better performance.
+> 
+> As i understood NAPI is good for high load on 1000 MBit ethernet, but
+> the QCA7000 has
+> in best case only a 10 MBit powerline connection. Additionally these
+> packets must be transfered
+> over a half duplex SPI. So i think the current driver implementation
+> isn't a bottle neck.
 
-Jan, thanks a lot for catching this. Have to admit that I didn't
-compile it on 64bit.
+Ok, makes sense. What is the slowest speed you might see then?
+You already have a relatively small queue of at most 10 frames,
+but if this goes below 10 Mbit, that can still be noticeable
+bufferbloat. 
 
-Acked-by: Alexey Charkov <alchark@gmail.com>
+Try adding calls to netdev_sent_queue, netdev_completed_queue and
+netdev_reset_queue to let the network stack know how much data
+is currently queued up for the tx thread.
 
-Looks like the same would apply to e.g. drivers/clk/samsung/clk.c and
-maybe some others... Also, a number of drivers cast OF data from (void
-*) to (int) or (unsigned int) - isn't this also problematic on 64bit?
+On a related note, there is one part I don't understand:
 
-Thanks a lot,
-Alexey
++netdev_tx_t
++qcaspi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++       u32 frame_len;
++       u8 *ptmp;
++       struct qcaspi *qca = netdev_priv(dev);
++       u32 new_tail;
++       struct sk_buff *tskb;
++       u8 pad_len = 0;
++
++       if (skb->len < QCAFRM_ETHMINLEN)
++               pad_len = QCAFRM_ETHMINLEN - skb->len;
++
++       if (qca->txq.skb[qca->txq.tail]) {
++               netdev_warn(qca->net_dev, "queue was unexpectedly full!\n");
++               netif_stop_queue(qca->net_dev);
++               qca->stats.queue_full++;
++               return NETDEV_TX_BUSY;
++       }
+
+You print a 'netdev_warn' message here when the queue is full, expecting
+this to be rare. If the device is so slow, why doesn't this happen
+all the time?
+
+	Arnd
