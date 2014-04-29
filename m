@@ -1,78 +1,58 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH] net: sxgbe: Added set function for interrupt on complete
-Date: Tue, 29 Apr 2014 13:15:27 +0900
-Message-ID: <001d01cf6361$a675f6c0$f361e440$%an@samsung.com>
+From: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 5/6] ARM: AM43xx: clk: Change the cpts ref clock source
+ to dpll_core_m5 clk
+Date: Tue, 29 Apr 2014 09:58:36 +0530
+Message-ID: <535F2A74.9060908@ti.com>
+References: <1398658225-25873-1-git-send-email-george.cherian@ti.com> <1398658225-25873-6-git-send-email-george.cherian@ti.com> <20140428071034.GB4380@netboy> <535E4FDC.70306@ti.com> <20140428161856.GB4266@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ks.giri@samsung.com, vipul.pandya@samsung.com
-To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-Content-language: ko
-Sender: linux-samsung-soc-owner@vger.kernel.org
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>,
+	<mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	<zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <balbi-l0cyMroinI0@public.gmane.org>, <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+	<t-kristo-l0cyMroinI0@public.gmane.org>, <mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<pawel.moll-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	<bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140428161856.GB4266@netboy>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi Richard,
 
-This patch adds set_rx_int_on_com function for interrupt when
-dma is completed.
+On 4/28/2014 9:48 PM, Richard Cochran wrote:
+> On Mon, Apr 28, 2014 at 06:25:56PM +0530, George Cherian wrote:
+>> In beagle bone white (AM335x)  CPTS has a choice of 2 clocksource
+>> -dpll_core_m5_ck
+>> -dpll_core_m4_ck
+>> and by default  dpll_core_m5_ck is used. Where as in AM437x the
+>> default clocksource used is dpll_core_m4_ck .
+> Is your patch changing the default clock for am335x?
+No
+>
+> If yes, it shouldn't.
+> If no, then the patch description should say so.
+I am modifying the file
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c |    7 +++++++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h |    3 +++
- drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c |    1 +
- 3 files changed, 11 insertions(+)
+drivers/clk/ti/clk-43xx.c for am33xx its drivers/clk/ti/clk-33xx.c
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c
-index d71691b..2686bb5 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.c
-@@ -233,6 +233,12 @@ static void sxgbe_set_rx_owner(struct sxgbe_rx_norm_desc *p)
- 	p->rdes23.rx_rd_des23.own_bit = 1;
- }
- 
-+/* Set Interrupt on completion bit */
-+static void sxgbe_set_rx_int_on_com(struct sxgbe_rx_norm_desc *p)
-+{
-+	p->rdes23.rx_rd_des23.int_on_com = 1;
-+}
-+
- /* Get the receive frame size */
- static int sxgbe_get_rx_frame_len(struct sxgbe_rx_norm_desc *p)
- {
-@@ -498,6 +504,7 @@ static const struct sxgbe_desc_ops desc_ops = {
- 	.init_rx_desc			= sxgbe_init_rx_desc,
- 	.get_rx_owner			= sxgbe_get_rx_owner,
- 	.set_rx_owner			= sxgbe_set_rx_owner,
-+	.set_rx_int_on_com		= sxgbe_set_rx_int_on_com,
- 	.get_rx_frame_len		= sxgbe_get_rx_frame_len,
- 	.get_rx_fd_status		= sxgbe_get_rx_fd_status,
- 	.get_rx_ld_status		= sxgbe_get_rx_ld_status,
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-index 0226300..1860932 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_desc.h
-@@ -258,6 +258,9 @@ struct sxgbe_desc_ops {
- 	/* Set own bit */
- 	void (*set_rx_owner)(struct sxgbe_rx_norm_desc *p);
- 
-+	/* Set Interrupt on completion bit */
-+	void (*set_rx_int_on_com)(struct sxgbe_rx_norm_desc *p);
-+
- 	/* Get the receive frame size */
- 	int (*get_rx_frame_len)(struct sxgbe_rx_norm_desc *p);
- 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-index fd5c428..82a9a98 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
-@@ -1456,6 +1456,7 @@ static void sxgbe_rx_refill(struct sxgbe_priv_data *priv)
- 		/* Added memory barrier for RX descriptor modification */
- 		wmb();
- 		priv->hw->desc->set_rx_owner(p);
-+		priv->hw->desc->set_rx_int_on_com(p);
- 		/* Added memory barrier for RX descriptor modification */
- 		wmb();
- 	}
+> Thanks,
+> Richard
+>
+>   
+
+
 -- 
-1.7.10.4
+-George
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
