@@ -1,42 +1,55 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 5/7] net:fec: add support for dumping transmit
- ring on timeout
-Date: Tue, 29 Apr 2014 14:01:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F701524@AcuExch.aculab.com>
-References: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com>
-	<1398773350-7293-5-git-send-email-Frank.Li@freescale.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F7014F0@AcuExch.aculab.com>
- <CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Frank Li <Frank.Li@freescale.com>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"B38611@freescale.com" <B38611@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Frank Li' <lznuaa@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v2 net 0/2] Fix macvtap checksum errors in bridge mode
+Date: Tue, 29 Apr 2014 10:09:49 -0400
+Message-ID: <1398780591-10644-1-git-send-email-vyasevic@redhat.com>
+Cc: daniel.lezcano@free.fr, nightnord@gmail.com, kaber@trash.net,
+	eric.dumazet@gmail.com, mst@redhat.com, jasowang@redhat.com,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50787 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757454AbaD2ODs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 10:03:48 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 31846-03 for <netdev@vger.kernel.org>;
- Tue, 29 Apr 2014 15:03:47 +0100 (BST)
-In-Reply-To: <CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:45428 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933360AbaD2OKA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 10:10:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRnJhbmsgLi4uDQo+ID4gWW91IHByb2JhYmx5IHdhbnQgdGhlIHJlYWQgYW5kIHdyaXRl
-IGluZGV4ZXMgYXMgd2VsbC4NCj4gDQo+ICAgICAgICAgICAgICAgICAgICAgIGJkcCA9PSBmZXAt
-PmN1cl90eCA/ICdTJyA6ICcgJywNCj4gICAgICAgICAgICAgICAgICAgICAgYmRwID09IGZlcC0+
-ZGlydHlfdHggPyAnSCcgOiAnICcsDQo+IA0KPiBBYm92ZSBjb2RlIGFscmVhZHkgcHJpbnQgcmVh
-ZCBhbmQgd3JpdGUgaW5kZXguICdTJywgJ0gnDQoNCkdhaCBJIG11c3QgYmUgYXNsZWVwIQ0KU29t
-ZXRoaW5nIG1hZGUgYmUgdGhpbmsgdGhhdCB3YXMgdG8gZG8gd2l0aCB0aGUgcmluZyBvd25lcnNo
-aXAgYml0IQ0KDQoJRGF2aWQNCg0K
+The following is a problematic configuration:
+
+ VM1: virtio-net device connected to macvtap0@eth0
+ VM2: e1000 device connect to macvtap1@eth0
+
+The problem is is that virtio-net supports checksum offloading
+and thus sends the packets to the host with CHECKSUM_PARTIAL set.
+On the other hand, e1000 does not support any acceleration.
+
+For small TCP packets (and this includes the 3-way handshake),
+e1000 end up receiving packets that only have a partial checksum
+set.  This causes TCP to fail checksum validation and to drop
+packets.  As a result tcp connections can not be established.
+
+The following 2 patches resolve this issue. The first patch adds
+a check to the non-gso code path to see if the checksum needs to
+be computed.  The second patch reverts an old commit that set
+ip_summed to CHECKSUM_UNNECESSARY.  Proper checksum update is
+necessary under certain circumstances.
+
+I wend through the old thread
+  http://comments.gmane.org/gmane.linux.kernel.containers.lxc.general/1459
+and tried the reproducers listed there, but could not cause
+invalid checksum to trigger with this series.
+Daniel and Andrian, if you have the time please try this patch
+set to see if you still see the old checksum issues.
+
+v1->v2: Updated comment from MST.
+
+Vlad Yasevich (2):
+  mactap: Fix checksum errors for non-gso packets in bridge mode
+  Revert "macvlan : fix checksums error when we are in bridge mode"
+
+ drivers/net/macvlan.c | 3 ---
+ drivers/net/macvtap.c | 9 +++++++++
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+-- 
+1.9.0
