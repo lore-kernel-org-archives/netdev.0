@@ -1,53 +1,92 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next] tipc: fix memory leak of publications
-Date: Tue, 29 Apr 2014 11:12:18 +0800
-Message-ID: <1398741138-30523-1-git-send-email-ying.xue@windriver.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH] net: sxgbe: sw reset moved to probe function
+Date: Tue, 29 Apr 2014 13:15:15 +0900
+Message-ID: <001b01cf6361$9f4b6650$dde232f0$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <huzhijiang@gmail.com>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:40351 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567AbaD2DMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Apr 2014 23:12:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ks.giri@samsung.com, vipul.pandya@samsung.com
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-language: ko
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 1bb8dce57f4d15233688c68990852a10eb1cd79f ("tipc: fix memory
-leak during module removal") introduced a memory leak issue: when
-name table is stopped, it's forgotten that publication instances are
-freed properly. Additionally the useless "continue" statement in
-tipc_nametbl_stop() is removed as well.
 
-Reported-by: Jason <huzhijiang@gmail.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Acked-by: Erik Hugne <erik.hugne@ericsson.com>
+This patch moves sw reset to probe function because
+sw reset is needed early stage before open function.
+
+Signed-off-by: Byungho An <bh74.an@samsung.net>
 ---
- net/tipc/name_table.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c  |   13 -------------
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c |   22 ++++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 9bcf4b5..9d7d37d 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -969,6 +969,7 @@ static void tipc_purge_publications(struct name_seq *seq)
- 	list_for_each_entry_safe(publ, safe, &info->zone_list, zone_list) {
- 		tipc_nametbl_remove_publ(publ->type, publ->lower, publ->node,
- 					 publ->ref, publ->key);
-+		kfree(publ);
- 	}
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+index 4d989ff..bb9b5b8 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+@@ -23,21 +23,8 @@
+ /* DMA core initialization */
+ static int sxgbe_dma_init(void __iomem *ioaddr, int fix_burst, int burst_map)
+ {
+-	int retry_count = 10;
+ 	u32 reg_val;
+ 
+-	/* reset the DMA */
+-	writel(SXGBE_DMA_SOFT_RESET, ioaddr + SXGBE_DMA_MODE_REG);
+-	while (retry_count--) {
+-		if (!(readl(ioaddr + SXGBE_DMA_MODE_REG) &
+-		      SXGBE_DMA_SOFT_RESET))
+-			break;
+-		mdelay(10);
+-	}
+-
+-	if (retry_count < 0)
+-		return -EBUSY;
+-
+ 	reg_val = readl(ioaddr + SXGBE_DMA_SYSBUS_MODE_REG);
+ 
+ 	/* if fix_burst = 0, Set UNDEF = 1 of DMA_Sys_Mode Register.
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 27e8c82..6ad7b3a 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -2070,6 +2070,24 @@ static int sxgbe_hw_init(struct sxgbe_priv_data * const priv)
+ 	return 0;
  }
  
-@@ -990,7 +991,6 @@ void tipc_nametbl_stop(void)
- 		hlist_for_each_entry_safe(seq, safe, seq_head, ns_list) {
- 			tipc_purge_publications(seq);
- 		}
--		continue;
- 	}
- 	kfree(table.types);
- 	table.types = NULL;
++static int sxgbe_sw_reset(void __iomem *addr)
++{
++	int retry_count = 10;
++
++	writel(SXGBE_DMA_SOFT_RESET, addr + SXGBE_DMA_MODE_REG);
++	while (retry_count--) {
++		if (!(readl(addr + SXGBE_DMA_MODE_REG) &
++		      SXGBE_DMA_SOFT_RESET))
++			break;
++		mdelay(10);
++	}
++
++	if (retry_count < 0)
++		return -EBUSY;
++
++	return 0;
++}
++
+ /**
+  * sxgbe_drv_probe
+  * @device: device pointer
+@@ -2102,6 +2120,10 @@ struct sxgbe_priv_data *sxgbe_drv_probe(struct device *device,
+ 	priv->plat = plat_dat;
+ 	priv->ioaddr = addr;
+ 
++	ret = sxgbe_sw_reset(priv->ioaddr);
++	if (ret)
++		goto error_free_netdev;
++
+ 	/* Verify driver arguments */
+ 	sxgbe_verify_args();
+ 
 -- 
-1.7.9.5
+1.7.10.4
