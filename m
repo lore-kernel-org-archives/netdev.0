@@ -1,39 +1,70 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net] net: ipv6: more places need LOOPBACK_IFINDEX for
- flowi6_iif
-Date: Tue, 29 Apr 2014 07:50:35 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1404290747350.1508@ja.home.ssi.bg>
-References: <1398671516-8842-1-git-send-email-ja@ssi.bg> <CAHA+R7PXpweyfVMuGazCvHFXTRX-SGGjuXcU1tM-yy+oX1f=ng@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: increment retransmit counters in tlp and fast open
+Date: Mon, 28 Apr 2014 22:00:29 -0700
+Message-ID: <1398747629.29914.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33015 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753712AbaD2Evf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 00:51:35 -0400
-In-Reply-To: <CAHA+R7PXpweyfVMuGazCvHFXTRX-SGGjuXcU1tM-yy+oX1f=ng@mail.gmail.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:44569 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932152AbaD2FAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 01:00:30 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hz1so6635982pad.35
+        for <netdev@vger.kernel.org>; Mon, 28 Apr 2014 22:00:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-	Hello,
+Both TLP and Fast Open call __tcp_retransmit_skb() instead of
+tcp_retransmit_skb() to avoid changing tp->retrans_out.
 
-On Mon, 28 Apr 2014, Cong Wang wrote:
+This has the side effect of missing SNMP counters increments as well
+as tcp_info tcpi_total_retrans updates.
 
-> On Mon, Apr 28, 2014 at 12:51 AM, Julian Anastasov <ja@ssi.bg> wrote:
-> > To properly match iif in ip rules we have to provide
-> > LOOPBACK_IFINDEX in flowi6_iif, not 0. Some ip6mr_fib_lookup
-> > and fib6_rule_lookup callers need such fix.
-> >
-> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> 
-> Maybe ip6_mr_input() and pim6_rcv() too?
+Fix this by moving the stats increments of into __tcp_retransmit_skb()
 
-	They are ok, flowi6_iif contains the input device.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_output.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 025e25093984..12d6016bdd9a 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2441,8 +2441,14 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+ 	}
+ 
+-	if (likely(!err))
++	if (likely(!err)) {
+ 		TCP_SKB_CB(skb)->sacked |= TCPCB_EVER_RETRANS;
++		/* Update global TCP statistics. */
++		TCP_INC_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS);
++		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
++			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
++		tp->total_retrans++;
++	}
+ 	return err;
+ }
+ 
+@@ -2452,12 +2458,6 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	int err = __tcp_retransmit_skb(sk, skb);
+ 
+ 	if (err == 0) {
+-		/* Update global TCP statistics. */
+-		TCP_INC_STATS(sock_net(sk), TCP_MIB_RETRANSSEGS);
+-		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_SYN)
+-			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
+-		tp->total_retrans++;
+-
+ #if FASTRETRANS_DEBUG > 0
+ 		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS) {
+ 			net_dbg_ratelimited("retrans_out leaked\n");
