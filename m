@@ -1,50 +1,152 @@
-From: Tobias Klauser <tobias.klauser@gmail.com>
-Subject: Re: [PATCH net v2] Altera TSE: Fix DMA secriptor length initialization
-Date: Tue, 29 Apr 2014 09:05:21 +0200
-Message-ID: <CAP6CguWyFAu7Ge2JXTqqH8qyXGgzgv-TnKszu3joz29_QgfPJw@mail.gmail.com>
-References: <1398720181-19450-1-git-send-email-tklauser@distanz.ch>
-	<CAOwfj2OsHQjiAE_Nznt-3yoiTx9BESrQ8QdNb6xLqH3=qBJwdg@mail.gmail.com>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [PATCH 02/26] can: c_can: Fix startup logic
+Date: Tue, 29 Apr 2014 09:29:52 +0200
+Message-ID: <CAGm1_ks-Kw2AtNCNpng6Tp2v3wS=HK7DGWTD0iFcMVMhASSO5A@mail.gmail.com>
+References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de> <1398376829-6771-3-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	nios2-dev <nios2-dev@lists.rocketboards.org>
-To: Vince Bridgers <vbridgers2013@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:39735 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755828AbaD2HFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 03:05:22 -0400
-Received: by mail-wg0-f50.google.com with SMTP id k14so2858653wgh.21
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 00:05:21 -0700 (PDT)
-In-Reply-To: <CAOwfj2OsHQjiAE_Nznt-3yoiTx9BESrQ8QdNb6xLqH3=qBJwdg@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:56582 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932678AbaD2HaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 03:30:13 -0400
+In-Reply-To: <1398376829-6771-3-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 29 April 2014 00:37, Vince Bridgers <vbridgers2013@gmail.com> wrote:
-> On Mon, Apr 28, 2014 at 4:23 PM, Tobias Klauser
-> <tobias.klauser@gmail.com> wrote:
->> sgdma_descrip is a function name as well as the name of a struct. In
->> sgdma_initialize(), we should initialize the descriptor length field
->> with the actual length of a descriptor not with the size of the
->> function. In order to prevent such things from happening in the future,
->> rename the function to sgdma_setup_descrip().
->>
->> Found by sparse which yields the following warning:
->>
->> drivers/net/ethernet/altera/altera_sgdma.c:74:30: warning: expression using sizeof on a function
->>
->> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
->> ---
->> v2: patchd rebase against current net tree
->>
+On Fri, Apr 25, 2014 at 12:00 AM, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+> From: Thomas Gleixner <tglx@linutronix.de>
 >
-> Thanks for the patch Tobias. Was the misspelling in the subject line
-> an oversight (secriptor -> descriptor) ?
+> c_can_start() enables interrupts way too early. The first enabling
+> happens when setting the control mode in c_can_chip_config() and then
+> again at the end of the function.
+>
+> But that happens before napi_enable() and that means that an interrupt
+> which comes in will disable interrupts again and call napi_schedule,
+> which ignores the request and the later napi_enable() is not making
+> thinks work either. So the interface is up with all device interrupts
+> disabled.
+>
+> Move the device interrupt after napi_enable() and add it to the other
+> callsites of c_can_start() in c_can_set_mode() and c_can_power_up()
+>
+> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 
-Yes, this was an oversight, sorry. Thanks for pointing out.
+Tested-by: Yegor Yefremov <yegorslists@googlemail.com>
 
-Dave, shall I send an updated patch with the correct subject line or can
-you fix it up before applying?
-
-Thanks
-Tobias
+> ---
+>  drivers/net/can/c_can/c_can.c | 35 +++++++++++++++++------------------
+>  1 file changed, 17 insertions(+), 18 deletions(-)
+>
+> diff --git a/drivers/net/can/c_can/c_can.c b/drivers/net/can/c_can/c_can.c
+> index a5c8dcf..b1629a4 100644
+> --- a/drivers/net/can/c_can/c_can.c
+> +++ b/drivers/net/can/c_can/c_can.c
+> @@ -612,30 +612,22 @@ static int c_can_chip_config(struct net_device *dev)
+>         struct c_can_priv *priv = netdev_priv(dev);
+>
+>         /* enable automatic retransmission */
+> -       priv->write_reg(priv, C_CAN_CTRL_REG,
+> -                       CONTROL_ENABLE_AR);
+> +       priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_ENABLE_AR);
+>
+>         if ((priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) &&
+>             (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK)) {
+>                 /* loopback + silent mode : useful for hot self-test */
+> -               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
+> -                               CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
+> -               priv->write_reg(priv, C_CAN_TEST_REG,
+> -                               TEST_LBACK | TEST_SILENT);
+> +               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
+> +               priv->write_reg(priv, C_CAN_TEST_REG, TEST_LBACK | TEST_SILENT);
+>         } else if (priv->can.ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+>                 /* loopback mode : useful for self-test function */
+> -               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
+> -                               CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
+> +               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
+>                 priv->write_reg(priv, C_CAN_TEST_REG, TEST_LBACK);
+>         } else if (priv->can.ctrlmode & CAN_CTRLMODE_LISTENONLY) {
+>                 /* silent mode : bus-monitoring mode */
+> -               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_EIE |
+> -                               CONTROL_SIE | CONTROL_IE | CONTROL_TEST);
+> +               priv->write_reg(priv, C_CAN_CTRL_REG, CONTROL_TEST);
+>                 priv->write_reg(priv, C_CAN_TEST_REG, TEST_SILENT);
+> -       } else
+> -               /* normal mode*/
+> -               priv->write_reg(priv, C_CAN_CTRL_REG,
+> -                               CONTROL_EIE | CONTROL_SIE | CONTROL_IE);
+> +       }
+>
+>         /* configure message objects */
+>         c_can_configure_msg_objects(dev);
+> @@ -662,9 +654,6 @@ static int c_can_start(struct net_device *dev)
+>         /* reset tx helper pointers */
+>         priv->tx_next = priv->tx_echo = 0;
+>
+> -       /* enable status change, error and module interrupts */
+> -       c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
+> -
+>         return 0;
+>  }
+>
+> @@ -681,6 +670,7 @@ static void c_can_stop(struct net_device *dev)
+>
+>  static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
+>  {
+> +       struct c_can_priv *priv = netdev_priv(dev);
+>         int err;
+>
+>         switch (mode) {
+> @@ -689,6 +679,8 @@ static int c_can_set_mode(struct net_device *dev, enum can_mode mode)
+>                 if (err)
+>                         return err;
+>                 netif_wake_queue(dev);
+> +               /* enable status change, error and module interrupts */
+> +               c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
+>                 break;
+>         default:
+>                 return -EOPNOTSUPP;
+> @@ -1184,6 +1176,8 @@ static int c_can_open(struct net_device *dev)
+>         can_led_event(dev, CAN_LED_EVENT_OPEN);
+>
+>         napi_enable(&priv->napi);
+> +       /* enable status change, error and module interrupts */
+> +       c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
+>         netif_start_queue(dev);
+>
+>         return 0;
+> @@ -1281,6 +1275,7 @@ int c_can_power_up(struct net_device *dev)
+>         u32 val;
+>         unsigned long time_out;
+>         struct c_can_priv *priv = netdev_priv(dev);
+> +       int ret;
+>
+>         if (!(dev->flags & IFF_UP))
+>                 return 0;
+> @@ -1307,7 +1302,11 @@ int c_can_power_up(struct net_device *dev)
+>         if (time_after(jiffies, time_out))
+>                 return -ETIMEDOUT;
+>
+> -       return c_can_start(dev);
+> +       ret = c_can_start(dev);
+> +       if (!ret)
+> +               c_can_enable_all_interrupts(priv, ENABLE_ALL_INTERRUPTS);
+> +
+> +       return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(c_can_power_up);
+>  #endif
+> --
+> 1.9.0.279.gdc9e3eb
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-can" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
