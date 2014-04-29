@@ -1,88 +1,84 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH RFC 1/2] Documentation: add Device tree bindings for
- QCA7000
-Date: Tue, 29 Apr 2014 15:36:38 -0700
-Message-ID: <20140429223638.GB2382@flaeskesteg>
-References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com>
- <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 03/15] i40evf: support ethtool RSS options
+Date: Tue, 29 Apr 2014 23:51:45 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D655B4433@FMSMSX113.amr.corp.intel.com>
+References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1398693158-2815-4-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1398774929.3881.7.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"pawel.moll@arm.org" <pawel.moll@arm.org>,
-	"mark.rutland@arm.org" <mark.rutland@arm.org>,
-	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
-	"galak@codeaurora.org" <galak@codeaurora.org>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Stefan Wahren <stefan.wahren@i2se.com>
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:64188 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965473AbaD2WhC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 18:37:02 -0400
-Content-Disposition: inline
-In-Reply-To: <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com>
+Received: from mga09.intel.com ([134.134.136.24]:43395 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751576AbaD2XwI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 19:52:08 -0400
+In-Reply-To: <1398774929.3881.7.camel@deadeye.wl.decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 28, 2014 at 06:54:56PM +0100, Stefan Wahren wrote:
-> This patch adds the Device tree bindings for the Ethernet over SPI
-> protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
-> 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
-> ---
->  .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 ++++++++++++++++++++
->  1 file changed, 51 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
-> new file mode 100644
-> index 0000000..132c10f
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
-> @@ -0,0 +1,51 @@
-> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
-> +
-> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
-> +as a child of a spi master in the device tree.
-> +
-> +Required properties:
-> +- compatible : Should be "qca,qca7000"
-> +- reg : Should specify the SPI chip select
-> +- intr-gpios : Should specify the GPIO for SPI interrupt
-
-As Arnd mentioned, this should be described as an interrupt if it's an
-interrupt from the point of view of the QCA7000.
-
-> +- spi-cpha : Must be set
-> +- spi-cpol: Must be set
-> +
-> +Optional properties:
-> +- spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
-> +  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
-> +  the property will set the SPI frequency to 8000000 Hertz.
-> +- local-mac-address: 6 bytes, mac address
-> +- qca,legacy-mode : Should specify the data transfer mode of the QCA7000
-> +  (0 = burst mode, 1 = legacy mode). Missing the property will use the
-> +  burst mode.
-
-This sounds like it could be a boolean property (one with no value, like
-cpi-cpha). When is this necessary?
-
-> +- linux,burst-length : Number of data bytes per burst. Numbers smaller than 1
-> +  or greater than 5000 are invalid. Missing the property will set the
-> +  burst length to 5000 bytes. This property has only an effect in burst mode.
-
-When is this needed?
-
-> +- linux,pluggable-connection : Should be set to skip signature check while
-> +  probing. This property is useful if the SPI master and QCA7000 are not on the
-> +  same board.
-
-This does not sounds like it belongs in the DT, as it's strongly tied to the
-implementation of the driver. Why is this necessary?
-
-Cheers,
-Mark.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
+bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFR1ZXNkYXksIEFwcmlsIDI5LCAy
+MDE0IDU6MzUgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2ZW1s
+b2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdv
+c3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQt
+bmV4dCAwMy8xNV0gaTQwZXZmOiBzdXBwb3J0IGV0aHRvb2wgUlNTIG9wdGlvbnMNCj4gDQo+IE9u
+IE1vbiwgMjAxNC0wNC0yOCBhdCAwNjo1MiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPiBb
+Li4uXQ0KPiA+ICsvKioNCj4gPiArICogaTQwZXZmX3NldF9yc3NfaGFzaF9vcHQgLSBFbmFibGUv
+RGlzYWJsZSBmbG93IHR5cGVzIGZvciBSU1MgaGFzaA0KPiA+ICsgKiBAYWRhcHRlcjogYm9hcmQg
+cHJpdmF0ZSBzdHJ1Y3R1cmUNCj4gPiArICogQGNtZDogZXRodG9vbCByeG5mYyBjb21tYW5kDQo+
+ID4gKyAqDQo+ID4gKyAqIFJldHVybnMgU3VjY2VzcyBpZiB0aGUgZmxvdyBpbnB1dCBzZXQgaXMg
+c3VwcG9ydGVkLg0KPiA+ICsgKiovDQo+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX3NldF9yc3NfaGFz
+aF9vcHQoc3RydWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVyLA0KPiA+ICsJCQkJICAgc3RydWN0
+IGV0aHRvb2xfcnhuZmMgKm5mYykNCj4gPiArew0KPiBbLi4uXQ0KPiA+ICsJY2FzZSBBSF9FU1Bf
+VjRfRkxPVzoNCj4gPiArCWNhc2UgQUhfVjRfRkxPVzoNCj4gPiArCWNhc2UgRVNQX1Y0X0ZMT1c6
+DQo+ID4gKwljYXNlIFNDVFBfVjRfRkxPVzoNCj4gPiArCQlpZiAoKG5mYy0+ZGF0YSAmIFJYSF9M
+NF9CXzBfMSkgfHwNCj4gPiArCQkgICAgKG5mYy0+ZGF0YSAmIFJYSF9MNF9CXzJfMykpDQo+ID4g
+KwkJCXJldHVybiAtRUlOVkFMOw0KPiA+ICsJCWhlbmEgfD0gKCh1NjQpMSA8PCBJNDBFX0ZJTFRF
+Ul9QQ1RZUEVfTk9ORl9JUFY0X09USEVSKTsNCj4gPiArCQlicmVhazsNCj4gPiArCWNhc2UgQUhf
+RVNQX1Y2X0ZMT1c6DQo+ID4gKwljYXNlIEFIX1Y2X0ZMT1c6DQo+ID4gKwljYXNlIEVTUF9WNl9G
+TE9XOg0KPiA+ICsJY2FzZSBTQ1RQX1Y2X0ZMT1c6DQo+ID4gKwkJaWYgKChuZmMtPmRhdGEgJiBS
+WEhfTDRfQl8wXzEpIHx8DQo+ID4gKwkJICAgIChuZmMtPmRhdGEgJiBSWEhfTDRfQl8yXzMpKQ0K
+PiA+ICsJCQlyZXR1cm4gLUVJTlZBTDsNCj4gPiArCQloZW5hIHw9ICgodTY0KTEgPDwgSTQwRV9G
+SUxURVJfUENUWVBFX05PTkZfSVBWNl9PVEhFUik7DQo+ID4gKwkJYnJlYWs7DQo+IA0KPiBJJ20g
+bm90IHN1cmUgd2h5IHRoZXNlIGNhc2VzIG9wZXJhdGUgb24gJ2hlbmEnIGFzDQo+IEk0MEVfRklM
+VEVSX1BDVFlQRV9OT05GX0lQVns0LDZ9X09USEVSIGFyZSBwcmVzdW1hYmx5IGFsd2F5cyBzZXQg
+aW4gdGhlDQo+IHJlZ2lzdGVyLg0KPiANCj4gPiArCWNhc2UgSVBWNF9GTE9XOg0KPiA+ICsJCWhl
+bmEgfD0gKCh1NjQpMSA8PCBJNDBFX0ZJTFRFUl9QQ1RZUEVfTk9ORl9JUFY0X09USEVSKSB8DQo+
+ID4gKwkJCSgodTY0KTEgPDwgSTQwRV9GSUxURVJfUENUWVBFX0ZSQUdfSVBWNCk7DQo+ID4gKwkJ
+YnJlYWs7DQo+ID4gKwljYXNlIElQVjZfRkxPVzoNCj4gPiArCQloZW5hIHw9ICgodTY0KTEgPDwg
+STQwRV9GSUxURVJfUENUWVBFX05PTkZfSVBWNl9PVEhFUikgfA0KPiA+ICsJCQkoKHU2NCkxIDw8
+IEk0MEVfRklMVEVSX1BDVFlQRV9GUkFHX0lQVjYpOw0KPiA+ICsJCWJyZWFrOw0KPiANCj4gVGhl
+c2UgY2FzZXMgYXJlbid0IHZhbGlkYXRpbmcgdGhhdCB0aGUgdXNlciBkaWRuJ3QgYXNrIGZvciBw
+b3J0cyB0byBiZQ0KPiBpbmNsdWRlZCBpbiB0aGUgaGFzaC4gIFRoZXkgYWxzbyBpbnRlcmFjdCBv
+ZGRseSB3aXRoIFVEUCBmbG93IGhhc2hpbmcNCj4gY29uZmlndXJhdGlvbi4gIEl0IHNlZW1zIHRv
+IG1lIHRoYXQgdGhlIEk0MEVfRklMVEVSX1BDVFlQRV9GUkFHX0lQVns0LDZ9DQo+IGJpdHMgb3Vn
+aHQgdG8gYmUgY29udHJvbGxhYmxlIHRocm91Z2ggb25lIGZsb3cgdHlwZSBvbmx5Lg0KDQpUaGlz
+IGZ1bmN0aW9uIGlzIG15IGJlc3QgZWZmb3J0IHRvIHJlY29uY2lsZSBob3cgdGhlIGhhcmR3YXJl
+IHdvcmtzIHdpdGggaG93IHRoZSBBUEkgd29ya3MuDQoNCkluIGdlbmVyYWwsIHlvdSBjYW5ub3Qg
+Y29udHJvbCB3aGljaCBmaWVsZCBpcyBoYXNoZWQgb3ZlciBmb3IgYW55IGdpdmVuIHRyYWZmaWMg
+dHlwZS4gWW91IGp1c3QgZW5hYmxlIG9yIGRpc2FibGUgdGhlIHRyYWZmaWMgdHlwZS4NCg0KSG93
+ZXZlciwgaWYgeW91IGRpc2FibGUgYSBzcGVjaWZpYyBMNCBwcm90b2NvbCwgdGhlIHBhY2tldCB3
+aWxsIHN0aWxsIG1hdGNoIG9uIHRoZSB1bmRlcmx5aW5nIEwzIHByb3RvY29sLCBhcyBsb25nIGFz
+IHlvdSBsZWF2ZSB0aGUgSVAtc3BlY2lmaWMgYml0cyB0dXJuZWQgb24uDQoNClRoYXQgc2FpZCwg
+eW91IGFyZSBjb3JyZWN0LCBhbmQgSSBkb24ndCBuZWVkIHRvIHNldCB0aGUgSVAtc3BlY2lmaWMg
+Yml0cyBiZWNhdXNlIHRoZXkncmUgYWx3YXlzIHR1cm5lZCBvbi4NCg0KPiANCj4gWy4uLl0NCj4g
+PiArc3RhdGljIGludCBpNDBldmZfZ2V0X3J4ZmhfaW5kaXIoc3RydWN0IG5ldF9kZXZpY2UgKm5l
+dGRldiwgdTMyICppbmRpcikNCj4gPiArew0KPiA+ICsJc3RydWN0IGk0MGV2Zl9hZGFwdGVyICph
+ZGFwdGVyID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiArCXN0cnVjdCBpNDBlX2h3ICpodyA9
+ICZhZGFwdGVyLT5odzsNCj4gPiArCXUzMiBobHV0X3ZhbDsNCj4gPiArCWludCBpLCBqOw0KPiA+
+ICsNCj4gPiArCWZvciAoaSA9IDAsIGogPSAwOyBpIDwgSTQwRV9WRlFGX0hMVVRfTUFYX0lOREVY
+OyBpKyspIHsNCj4gWy4uLl0NCj4gDQo+IE9mZiBieSAxPw0KDQpHb29kIGNhdGNoLCB3ZSBhbGwg
+bWlzc2VkIGl0Lg0KDQpJIHRoaW5rIERhdmUncyBhbHJlYWR5IHB1bGxlZCB0aGlzLCBhbmQgc2lu
+Y2UgaXQncyBub25mYXRhbCwgSSdsbCBqdXN0IGZpeCB0aGVzZSBpbiBhIGZvbGxvdy1vbiBwYXRj
+aC4NCg0KVGhhbmtzIGZvciB5b3VyIHJldmlldy4NCg0KLU1pdGNoDQoNCj4gDQo+IEJlbi4NCj4g
+DQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gUS4gIFdoaWNoIGlzIHRoZSBncmVhdGVyIHByb2Js
+ZW0gaW4gdGhlIHdvcmxkIHRvZGF5LCBpZ25vcmFuY2Ugb3IgYXBhdGh5Pw0KPiBBLiAgSSBkb24n
+dCBrbm93IGFuZCBJIGNvdWxkbid0IGNhcmUgbGVzcy4NCg==
