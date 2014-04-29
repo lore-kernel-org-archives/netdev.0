@@ -1,57 +1,30 @@
-From: Jan Moskyto Matejka <mq@suse.cz>
-Subject: [PATCH] net: via-rhine: fix compiler warning
-Date: Tue, 29 Apr 2014 19:36:11 +0200
-Message-ID: <1398792971-10379-1-git-send-email-mq@suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] Altera TSE: Fix DMA secriptor length
+ initialization
+Date: Tue, 29 Apr 2014 13:52:40 -0400 (EDT)
+Message-ID: <20140429.135240.600907684606269128.davem@davemloft.net>
+References: <1398720181-19450-1-git-send-email-tklauser@distanz.ch>
+	<CAOwfj2OsHQjiAE_Nznt-3yoiTx9BESrQ8QdNb6xLqH3=qBJwdg@mail.gmail.com>
+	<CAP6CguWyFAu7Ge2JXTqqH8qyXGgzgv-TnKszu3joz29_QgfPJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Moskyto Matejka <mq@suse.cz>
-To: Alexey Charkov <alchark@gmail.com>, Roger Luethi <rl@hellgate.ch>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vbridgers2013@gmail.com, netdev@vger.kernel.org,
+	nios2-dev@lists.rocketboards.org
+To: tobias.klauser@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56464 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932491AbaD2Rwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 13:52:44 -0400
+In-Reply-To: <CAP6CguWyFAu7Ge2JXTqqH8qyXGgzgv-TnKszu3joz29_QgfPJw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ixed different size cast warning:
+From: Tobias Klauser <tobias.klauser@gmail.com>
+Date: Tue, 29 Apr 2014 09:05:21 +0200
 
-	drivers/net/ethernet/via/via-rhine.c: In function =E2=80=98rhine_init_=
-one_platform=E2=80=99:
-	drivers/net/ethernet/via/via-rhine.c:1132:13: warning: cast from point=
-er to integer of different size [-Wpointer-to-int-cast]
-	  revision =3D (u32)match->data;
-		     ^
+> Dave, shall I send an updated patch with the correct subject line or can
+> you fix it up before applying?
 
-That code was added in commit 2d283862dc62daead9db0dc89cd0d0351e91f765
-("net: via-rhine: add OF bus binding").
-
-Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
----
- drivers/net/ethernet/via/via-rhine.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/etherne=
-t/via/via-rhine.c
-index 4fa9201..76d18e0 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -288,7 +288,7 @@ MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
-  * (for quirks etc.)
-  */
- static struct of_device_id rhine_of_tbl[] =3D {
--	{ .compatible =3D "via,vt8500-rhine", .data =3D (void *)0x84 },
-+	{ .compatible =3D "via,vt8500-rhine", .data =3D (u32 []) { 0x84 } },
- 	{ }	/* terminate list */
- };
- MODULE_DEVICE_TABLE(of, rhine_of_tbl);
-@@ -1129,7 +1129,7 @@ static int rhine_init_one_platform(struct platfor=
-m_device *pdev)
- 	if (!irq)
- 		return -EINVAL;
-=20
--	revision =3D (u32)match->data;
-+	revision =3D *((u32 *) match->data);
- 	if (!revision)
- 		return -EINVAL;
-=20
---=20
-1.8.4.5
+I can take care of it, thanks.
