@@ -1,30 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] Altera TSE: Fix DMA secriptor length
- initialization
-Date: Tue, 29 Apr 2014 13:52:40 -0400 (EDT)
-Message-ID: <20140429.135240.600907684606269128.davem@davemloft.net>
-References: <1398720181-19450-1-git-send-email-tklauser@distanz.ch>
-	<CAOwfj2OsHQjiAE_Nznt-3yoiTx9BESrQ8QdNb6xLqH3=qBJwdg@mail.gmail.com>
-	<CAP6CguWyFAu7Ge2JXTqqH8qyXGgzgv-TnKszu3joz29_QgfPJw@mail.gmail.com>
+From: Esteban Lopez <elopez@softel.net.mx>
+Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
+Date: Tue, 29 Apr 2014 17:49:54 +0000 (UTC)
+Message-ID: <loom.20140429T194743-326@post.gmane.org>
+References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se> <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com> <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se> <51535D16.4080207@katalix.com> <loom.20131021T165114-650@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vbridgers2013@gmail.com, netdev@vger.kernel.org,
-	nios2-dev@lists.rocketboards.org
-To: tobias.klauser@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56464 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932491AbaD2Rwo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 13:52:44 -0400
-In-Reply-To: <CAP6CguWyFAu7Ge2JXTqqH8qyXGgzgv-TnKszu3joz29_QgfPJw@mail.gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:59182 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932491AbaD2RzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 13:55:08 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1WfCFD-0000Ry-LW
+	for netdev@vger.kernel.org; Tue, 29 Apr 2014 19:55:04 +0200
+Received: from dsl-187-195-7-78-dyn.prod-infinitum.com.mx ([dsl-187-195-7-78-dyn.prod-infinitum.com.mx])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 19:55:03 +0200
+Received: from elopez by dsl-187-195-7-78-dyn.prod-infinitum.com.mx with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 19:55:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tobias.klauser@gmail.com>
-Date: Tue, 29 Apr 2014 09:05:21 +0200
+Hi 
 
-> Dave, shall I send an updated patch with the correct subject line or can
-> you fix it up before applying?
+I'm trying to create a l2tpv3 tunnel between linux box (kernel 2.6.38) and 
+Cisco.
 
-I can take care of it, thanks.
+I compiled the James's patch but when I try to use "encap ip" I receive this 
+error:
+
+RTNETLINK answers: Protocol not supported
+
+I test the same in with kernel 3.2.0 but I have the same output.
+
+Anybody know if I have a kernel's opction missed?
+
+Thank you in advance!
