@@ -1,43 +1,53 @@
-From: Esteban Lopez <elopez@softel.net.mx>
-Subject: Re: unmanaged L2TPv3 ethernet pseudowire Cisco <=> Linux
-Date: Tue, 29 Apr 2014 17:49:54 +0000 (UTC)
-Message-ID: <loom.20140429T194743-326@post.gmane.org>
-References: <Pine.LNX.4.61.1303241153000.20041@envy.nxs.se> <CAEwTi7Rbo3dBqhyDJXYvrkMWfrX9xwUr5VovFoW7BfPAZp4XFw@mail.gmail.com> <Pine.LNX.4.61.1303272104470.20041@envy.nxs.se> <51535D16.4080207@katalix.com> <loom.20131021T165114-650@post.gmane.org>
+From: <dinguyen@altera.com>
+Subject: [PATCH net-next] net: stmmac: set phy to use polling by default
+Date: Tue, 29 Apr 2014 12:56:21 -0500
+Message-ID: <1398794181-17852-1-git-send-email-dinguyen@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <dinh.linux@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <vbridger@altera.com>,
+	Dinh Nguyen <dinguyen@altera.com>
+To: <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:59182 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491AbaD2RzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 13:55:08 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1WfCFD-0000Ry-LW
-	for netdev@vger.kernel.org; Tue, 29 Apr 2014 19:55:04 +0200
-Received: from dsl-187-195-7-78-dyn.prod-infinitum.com.mx ([dsl-187-195-7-78-dyn.prod-infinitum.com.mx])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 19:55:03 +0200
-Received: from elopez by dsl-187-195-7-78-dyn.prod-infinitum.com.mx with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 19:55:03 +0200
+Received: from mail-bl2on0144.outbound.protection.outlook.com ([65.55.169.144]:18084
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933160AbaD2R7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 13:59:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi 
+From: Dinh Nguyen <dinguyen@altera.com>
 
-I'm trying to create a l2tpv3 tunnel between linux box (kernel 2.6.38) and 
-Cisco.
+mii_irq[] array is never initialized anywhere in the driver, thus mii_irq[]
+will always equate to zero. So, for the case where the PHY does not have an
+irq, we should use PHY_POLL for that situation.
 
-I compiled the James's patch but when I try to use "encap ip" I receive this 
-error:
+Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
+Tested-by: Vince Bridgers <vbridger@altera.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-RTNETLINK answers: Protocol not supported
-
-I test the same in with kernel 3.2.0 but I have the same output.
-
-Anybody know if I have a kernel's opction missed?
-
-Thank you in advance!
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index a468eb1..a5b1e1b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -205,10 +205,13 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	if (new_bus == NULL)
+ 		return -ENOMEM;
+ 
+-	if (mdio_bus_data->irqs)
++	if (mdio_bus_data->irqs) {
+ 		irqlist = mdio_bus_data->irqs;
+-	else
++	} else {
++		for (addr = 0; addr < PHY_MAX_ADDR; addr++)
++			priv->mii_irq[addr] = PHY_POLL;
+ 		irqlist = priv->mii_irq;
++	}
+ 
+ #ifdef CONFIG_OF
+ 	if (priv->device->of_node)
+-- 
+1.7.9.5
