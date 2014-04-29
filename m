@@ -1,63 +1,133 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next] vxlan: Advertise SCTP checksum offloads
-Date: Tue, 29 Apr 2014 16:10:10 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com>
-References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 8/8 v3] net: Implmement RFC 6936 (zero csums for UDP/IPv6)
+Date: Tue, 29 Apr 2014 09:19:18 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404290902180.9964@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50043 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756224AbaD2QTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 12:19:16 -0400
-In-Reply-To: <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:62783 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756224AbaD2QTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:19:24 -0400
+Received: by mail-pa0-f73.google.com with SMTP id kq14so69115pab.4
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:19:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEJlbiBIdXRjaGluZ3MgW21h
-aWx0bzpiZW5AZGVjYWRlbnQub3JnLnVrXQ0KPiBTZW50OiBUdWVzZGF5LCBBcHJpbCAyOSwgMjAx
-NCA1OjM5IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gQ2M6IGRhdmVtQGRhdmVtbG9m
-dC5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsNCj4gZ29zcG9A
-cmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVkaGF0LmNvbQ0KPiBTdWJqZWN0OiBSZTogW25ldC1uZXh0
-XSB2eGxhbjogQWR2ZXJ0aXNlIFNDVFAgY2hlY2tzdW0gb2ZmbG9hZHMNCj4gDQo+IE9uIE1vbiwg
-MjAxNC0wNC0yOCBhdCAxMjo1MiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPiA+IEZyb206
-IEdyZWcgUm9zZSA8Z3JlZ29yeS52LnJvc2VAaW50ZWwuY29tPg0KPiA+DQo+ID4gU29tZSBIVyBj
-YW4gb2ZmbG9hZCBlbmNhcHN1bGF0ZWQgU0NUUCBjaGVja3N1bXMuICBBZHZlcnRpc2UgdGhlDQo+
-ID4gY2FwYWJpbGl0eSBmb3Igc3VjaCBjYXNlcy4NCj4gDQo+IERvbid0IHdlIG5lZWQgYSBzb2Z0
-d2FyZSBmYWxsYmFjayBvbiB0aGUgb3V0cHV0IHBhdGggYmVmb3JlIGRvaW5nIHRoaXM/DQoNCkkg
-YmVsaWV2ZSB0aGF0IHRoZSB2eGxhbiBkcml2ZXIgd2lsbCBjb21wYXJlIG9mZmxvYWQgZmVhdHVy
-ZXMgd2l0aCB0aGUgbG93ZXIgZGV2aWNlIGh3X2VuY19mZWF0dXJlIGZsYWdzIGFuZCBpZiB0aGUg
-SFcgZG9lc24ndCBoYXZlIHRoZSBvZmZsb2FkIHRoZW4gaXQgd29uJ3QgYmUgYWR2ZXJ0aXNlZCB0
-byB0aGUgc2N0cCBkcml2ZXIuICBJbiB0aGF0IGNhc2UgdGhlIHNjdHAgZHJpdmVyIHdpbGwgZG8g
-aXRzIG93biBjaGVja3N1bW1pbmcuICBBdCBsZWFzdCB0aGF0IGlzIHRoZSBiZWhhdmlvciBJIHNh
-dy4NCg0KSSdtIGFkZGluZyBKb3NlcGggR2FzcGFyYWtpcy4gIEhlIG1pZ2h0IGhhdmUgYSBiZXR0
-ZXIgYW5zd2VyLg0KDQotIEdyZWcNCg0KPiANCj4gQmVuLg0KPiANCj4gPiBTaWduZWQtb2ZmLWJ5
-OiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4NCj4gPiBBY2tlZC1ieTogSm9z
-ZXBoIEdhc3BhcmFraXMgPGpvc2VwaC5nYXNwYXJha2lzQGludGVsLmNvbT4NCj4gPiBBY2tlZC1i
-eTogU2hhbm5vbiBOZWxzb24gPHNoYW5ub24ubmVsc29uQGludGVsLmNvbT4NCj4gPiBUZXN0ZWQt
-Ynk6IEplZmYgUGllcGVyIDxqZWZmcmV5LmUucGllcGVyQGludGVsLmNvbT4NCj4gPiBTaWduZWQt
-b2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAt
-LS0NCj4gPiAgZHJpdmVycy9uZXQvdnhsYW4uYyB8IDEgKw0KPiA+ICAxIGZpbGUgY2hhbmdlZCwg
-MSBpbnNlcnRpb24oKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92eGxhbi5j
-IGIvZHJpdmVycy9uZXQvdnhsYW4uYyBpbmRleA0KPiA+IDFkZmVlOWEuLjk4ODIwOGYgMTAwNjQ0
-DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvdnhsYW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L3Z4
-bGFuLmMNCj4gPiBAQCAtMjI5Myw2ICsyMjkzLDcgQEAgc3RhdGljIHZvaWQgdnhsYW5fc2V0dXAo
-c3RydWN0IG5ldF9kZXZpY2UgKmRldikNCj4gPiAgCWRldi0+ZmVhdHVyZXMJfD0gTkVUSUZfRl9T
-RyB8IE5FVElGX0ZfSFdfQ1NVTTsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX1JY
-Q1NVTTsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX0dTT19TT0ZUV0FSRTsNCj4g
-PiArCWRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX1NDVFBfQ1NVTTsNCj4gPg0KPiA+ICAJZGV2
-LT52bGFuX2ZlYXR1cmVzID0gZGV2LT5mZWF0dXJlczsNCj4gPiAgCWRldi0+ZmVhdHVyZXMgfD0g
-TkVUSUZfRl9IV19WTEFOX0NUQUdfVFggfCBORVRJRl9GX0hXX1ZMQU5fU1RBR19UWDsNCj4gDQo+
-IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gUS4gIFdoaWNoIGlzIHRoZSBncmVhdGVyIHByb2JsZW0g
-aW4gdGhlIHdvcmxkIHRvZGF5LCBpZ25vcmFuY2Ugb3IgYXBhdGh5Pw0KPiBBLiAgSSBkb24ndCBr
-bm93IGFuZCBJIGNvdWxkbid0IGNhcmUgbGVzcy4NCg==
+RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
+are received with a zero UDP checksum value must be dropped. RFC 6936
+allows zero checksums to support tunnels over UDP.
+
+When sk_no_check is set we allow on a socket we allow a zero IPv6
+UDP checksum. This is for both sending zero checksum and accepting
+a zero checksum on receive.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/ipv6/ip6_checksum.c | 18 +++++++-----------
+ net/ipv6/udp.c          | 33 +++++++++++++++++++++++++++++++--
+ 2 files changed, 38 insertions(+), 13 deletions(-)
+
+diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+index c69fe37..da26224 100644
+--- a/net/ipv6/ip6_checksum.c
++++ b/net/ipv6/ip6_checksum.c
+@@ -75,16 +75,12 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+ 			return err;
+ 	}
+ 
+-	if (uh->check == 0) {
+-		/* RFC 2460 section 8.1 says that we SHOULD log
+-		   this error. Well, it is reasonable.
+-		 */
+-		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
+-			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
+-			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
+-		return 1;
+-	}
+-
+-	return skb_checksum_init(skb, IPPROTO_UDP, ip6_compute_pseudo);
++	/* To support RFC 6936 (allow zero checksum in UDP/IPV6 for tunnels)
++	 * we accept a checksum of zero here. When we find the socket
++	 * for the UDP packet we'll check if that socket allows zero checksum
++	 * for IPv6 (set by socket option).
++	 */
++	return skb_checksum_init_zero_check(skb, proto, uh->check,
++					   ip6_compute_pseudo);
+ }
+ EXPORT_SYMBOL(udp6_csum_init);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1e586d9..8037412 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -760,6 +760,17 @@ static void flush_stack(struct sock **stack, unsigned int count,
+ 	if (unlikely(skb1))
+ 		kfree_skb(skb1);
+ }
++
++static void udp6_csum_zero_error(struct sk_buff *skb)
++{
++	/* RFC 2460 section 8.1 says that we SHOULD log
++	 * this error. Well, it is reasonable.
++	 */
++	LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
++		       &ipv6_hdr(skb)->saddr, ntohs(udp_hdr(skb)->source),
++		       &ipv6_hdr(skb)->daddr, ntohs(udp_hdr(skb)->dest));
++}
++
+ /*
+  * Note: called only from the BH handler context,
+  * so we don't need to lock the hashes.
+@@ -779,7 +790,12 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	while (sk) {
+-		stack[count++] = sk;
++		/* If zero checksum and sk_no_check is not on for
++		 * the socket then skip it.
++		 */
++		if (uh->check || sk->sk_no_check)
++			stack[count++] = sk;
++
+ 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+ 				       uh->source, saddr, dif);
+ 		if (unlikely(count == ARRAY_SIZE(stack))) {
+@@ -867,6 +883,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	if (sk != NULL) {
+ 		int ret;
+ 
++		if (!uh->check && !sk->sk_no_check) {
++			udp6_csum_zero_error(skb);
++			goto csum_error;
++		}
++
+ 		ret = udpv6_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+@@ -879,6 +900,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		return 0;
+ 	}
+ 
++	if (!uh->check) {
++		udp6_csum_zero_error(skb);
++		goto csum_error;
++	}
++
+ 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto discard;
+ 
+@@ -1006,7 +1032,10 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 
+ 	if (is_udplite)
+ 		csum = udplite_csum_outgoing(sk, skb);
+-	else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
++	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {   /* UDP csum disabled */
++		skb->ip_summed = CHECKSUM_NONE;
++		goto send;
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
+ 		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr,
+ 				     up->len);
+ 		goto send;
+-- 
+1.9.1.423.g4596e3a
