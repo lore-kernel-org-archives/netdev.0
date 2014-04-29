@@ -1,133 +1,134 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 8/8 v3] net: Implmement RFC 6936 (zero csums for UDP/IPv6)
-Date: Tue, 29 Apr 2014 09:19:18 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404290902180.9964@tomh.mtv.corp.google.com>
+Subject: [PATCH 5/8 v3] net: Generalize checksum_init functions
+Date: Tue, 29 Apr 2014 09:18:47 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404290900390.9354@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org, ben@decadent.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f73.google.com ([209.85.220.73]:62783 "EHLO
-	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756224AbaD2QTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:19:24 -0400
-Received: by mail-pa0-f73.google.com with SMTP id kq14so69115pab.4
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:19:20 -0700 (PDT)
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:49989 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379AbaD2QYK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:24:10 -0400
+Received: by mail-qa0-f74.google.com with SMTP id j15so25043qaq.3
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:24:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
-are received with a zero UDP checksum value must be dropped. RFC 6936
-allows zero checksums to support tunnels over UDP.
+Create a general __skb_checksum_validate function (actually a
+macro) to subsume the various checksum_init functions. This
+function can either init the checksum, or do the full validation
+(logically checksum_init+skb_check_complete)-- a flag specifies
+if full vaidation is performed. Also, there is a flag to the function
+to indicate that zero checksums are allowed (to support optional
+UDP checksums).
 
-When sk_no_check is set we allow on a socket we allow a zero IPv6
-UDP checksum. This is for both sending zero checksum and accepting
-a zero checksum on receive.
+Added several stub functions for calling __skb_checksum_validate.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv6/ip6_checksum.c | 18 +++++++-----------
- net/ipv6/udp.c          | 33 +++++++++++++++++++++++++++++++--
- 2 files changed, 38 insertions(+), 13 deletions(-)
+ include/linux/skbuff.h | 89 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 89 insertions(+)
 
-diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index c69fe37..da26224 100644
---- a/net/ipv6/ip6_checksum.c
-+++ b/net/ipv6/ip6_checksum.c
-@@ -75,16 +75,12 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
- 			return err;
- 	}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 08074a8..27da125 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2741,6 +2741,95 @@ static inline __sum16 skb_checksum_complete(struct sk_buff *skb)
+ 	       0 : __skb_checksum_complete(skb);
+ }
  
--	if (uh->check == 0) {
--		/* RFC 2460 section 8.1 says that we SHOULD log
--		   this error. Well, it is reasonable.
--		 */
--		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
--			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
--			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
--		return 1;
--	}
--
--	return skb_checksum_init(skb, IPPROTO_UDP, ip6_compute_pseudo);
-+	/* To support RFC 6936 (allow zero checksum in UDP/IPV6 for tunnels)
-+	 * we accept a checksum of zero here. When we find the socket
-+	 * for the UDP packet we'll check if that socket allows zero checksum
-+	 * for IPv6 (set by socket option).
-+	 */
-+	return skb_checksum_init_zero_check(skb, proto, uh->check,
-+					   ip6_compute_pseudo);
- }
- EXPORT_SYMBOL(udp6_csum_init);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1e586d9..8037412 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -760,6 +760,17 @@ static void flush_stack(struct sock **stack, unsigned int count,
- 	if (unlikely(skb1))
- 		kfree_skb(skb1);
- }
-+
-+static void udp6_csum_zero_error(struct sk_buff *skb)
++/* Try to validate checksum based on unnecessary or zero checksum
++ * received.
++ *
++ * Returns true if the checksum has been validated, false otherwise
++ * (checksum complete is needed).
++ */
++static inline bool __skb_checksum_validate_unnecessary(struct sk_buff *skb,
++						       bool zero_okay,
++						       __sum16 check)
 +{
-+	/* RFC 2460 section 8.1 says that we SHOULD log
-+	 * this error. Well, it is reasonable.
-+	 */
-+	LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
-+		       &ipv6_hdr(skb)->saddr, ntohs(udp_hdr(skb)->source),
-+		       &ipv6_hdr(skb)->daddr, ntohs(udp_hdr(skb)->dest));
-+}
-+
- /*
-  * Note: called only from the BH handler context,
-  * so we don't need to lock the hashes.
-@@ -779,7 +790,12 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	dif = inet6_iif(skb);
- 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
- 	while (sk) {
--		stack[count++] = sk;
-+		/* If zero checksum and sk_no_check is not on for
-+		 * the socket then skip it.
-+		 */
-+		if (uh->check || sk->sk_no_check)
-+			stack[count++] = sk;
-+
- 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
- 				       uh->source, saddr, dif);
- 		if (unlikely(count == ARRAY_SIZE(stack))) {
-@@ -867,6 +883,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (sk != NULL) {
- 		int ret;
- 
-+		if (!uh->check && !sk->sk_no_check) {
-+			udp6_csum_zero_error(skb);
-+			goto csum_error;
-+		}
-+
- 		ret = udpv6_queue_rcv_skb(sk, skb);
- 		sock_put(sk);
- 
-@@ -879,6 +900,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		return 0;
- 	}
- 
-+	if (!uh->check) {
-+		udp6_csum_zero_error(skb);
-+		goto csum_error;
++	if (skb_csum_unnecessary(skb)) {
++		return true;
++	} else if (zero_okay && !check) {
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		return true;
 +	}
 +
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard;
- 
-@@ -1006,7 +1032,10 @@ static int udp_v6_push_pending_frames(struct sock *sk)
- 
- 	if (is_udplite)
- 		csum = udplite_csum_outgoing(sk, skb);
--	else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
-+	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {   /* UDP csum disabled */
-+		skb->ip_summed = CHECKSUM_NONE;
-+		goto send;
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
- 		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr,
- 				     up->len);
- 		goto send;
++	return false;
++}
++
++/* Validate (init) checksum based on checksum complete.
++ *
++ * Return values:
++ *   0: checksum is validated or try to in skb_checksum_complete. In the latter
++ *	case the ip_summed will not be CHECKSUM_UNNECESSARY and the pseudo
++ *	checksum is stored in skb->csum for use in __skb_checksum_complete
++ *   non-zero: value of invalid checksum
++ *
++ */
++static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
++						       bool complete,
++						       __wsum psum)
++{
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		if (!csum_fold(csum_add(psum, skb->csum))) {
++			skb->ip_summed = CHECKSUM_UNNECESSARY;
++			return 0;
++		}
++	}
++
++	skb->csum = psum;
++
++	if (complete || skb->len <= 76)
++		return __skb_checksum_complete(skb);
++
++	return 0;
++}
++
++static inline __wsum null_compute_pseudo(struct sk_buff *skb, int proto)
++{
++	return 0;
++}
++
++/* Perform checksum validate (init). Note that this is a macro since we only
++ * want to calculate the pseudo header which is an input function if necessary.
++ * First we try to validate without any computation (checksum unnecessary) and
++ * then calculate based on checksum complete calling the function to compute
++ * pseudo header.
++ *
++ * Return values:
++ *   0: checksum is validated or try to in skb_checksum_complete
++ *   non-zero: value of invalid checksum
++ */
++#define __skb_checksum_validate(skb, proto, complete,			\
++				zero_okay, check, compute_pseudo)	\
++({									\
++	__sum16 __ret = 0;						\
++	if (!__skb_checksum_validate_unnecessary(skb, zero_okay, check))\
++		__ret = __skb_checksum_validate_complete(skb,		\
++				complete, compute_pseudo(skb, proto));	\
++	__ret;								\
++})
++
++#define skb_checksum_init(skb, proto, compute_pseudo)			\
++	__skb_checksum_validate(skb, proto, false, false, 0, compute_pseudo)
++
++#define skb_checksum_init_zero_check(skb, proto, check, compute_pseudo)	\
++	__skb_checksum_validate(skb, proto, false, true, check, compute_pseudo)
++
++#define skb_checksum_validate(skb, proto, compute_pseudo)		\
++	__skb_checksum_validate(skb, proto, true, false, 0, compute_pseudo)
++
++#define skb_checksum_validate_zero_check(skb, proto, check,		\
++					 compute_pseudo)		\
++	__skb_checksum_validate_(skb, proto, true, true, check, compute_pseudo)
++
++#define skb_checksum_simple_validate(skb)				\
++	__skb_checksum_validate(skb, 0, true, false, 0, null_compute_pseudo)
++
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ void nf_conntrack_destroy(struct nf_conntrack *nfct);
+ static inline void nf_conntrack_put(struct nf_conntrack *nfct)
 -- 
 1.9.1.423.g4596e3a
