@@ -1,115 +1,45 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
-Date: Tue, 29 Apr 2014 13:09:52 -0400
-Message-ID: <535FDCE0.80803@gmail.com>
-References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com> <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH 8/8 v3] net: Implmement RFC 6936 (zero csums for UDP/IPv6)
+Date: Tue, 29 Apr 2014 19:16:09 +0200
+Message-ID: <20140429171554.GA6456@omega>
+References: <alpine.DEB.2.02.1404290902180.9964@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:46640 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932491AbaD2RJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 13:09:55 -0400
-Received: by mail-qc0-f181.google.com with SMTP id x3so560018qcv.26
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 10:09:55 -0700 (PDT)
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:45128 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757795AbaD2RQR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 13:16:17 -0400
+Received: by mail-ee0-f44.google.com with SMTP id c41so535074eek.17
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 10:16:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1404290902180.9964@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2014 12:10 PM, Rose, Gregory V wrote:
->=20
->> -----Original Message-----
->> From: Ben Hutchings [mailto:ben@decadent.org.uk]
->> Sent: Tuesday, April 29, 2014 5:39 AM
->> To: Kirsher, Jeffrey T
->> Cc: davem@davemloft.net; Rose, Gregory V; netdev@vger.kernel.org;
->> gospo@redhat.com; sassmann@redhat.com
->> Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
->>
->> On Mon, 2014-04-28 at 12:52 -0700, Jeff Kirsher wrote:
->>> From: Greg Rose <gregory.v.rose@intel.com>
->>>
->>> Some HW can offload encapsulated SCTP checksums.  Advertise the
->>> capability for such cases.
->>
->> Don't we need a software fallback on the output path before doing th=
-is?
->=20
-> I believe that the vxlan driver will compare offload features with th=
-e lower device hw_enc_feature flags and if the HW doesn't have the offl=
-oad then it won't be advertised to the sctp driver.  In that case the s=
-ctp driver will do its own checksumming.  At least that is the behavior=
- I saw.
->=20
+Hello Tom Herbert,
 
-I've been looking at this and can't see vxlan doing any feature
-comparisons/disabling...
+On Tue, Apr 29, 2014 at 09:19:18AM -0700, Tom Herbert wrote:
+> RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
+> are received with a zero UDP checksum value must be dropped. RFC 6936
+> allows zero checksums to support tunnels over UDP.
+> 
+> When sk_no_check is set we allow on a socket we allow a zero IPv6
+> UDP checksum. This is for both sending zero checksum and accepting
+> a zero checksum on receive.
+> 
 
-At the time SCTP tries to do checksum, it will see hw offload
-support and set checksum as partial.  That will be propagated
-all the way to vxlan which will set encapsulation and pass it on.
-At next dev_hard_start_xmit(), we'll look at hw_enc_features,
-but it won't matter since SCTP packets are never GSO.
+I only want to mention that this is a interesting feature which we "maybe"
+also can use for the 6LoWPAN IPHC format [0]. This is another possible use
+case for this. We doesn't support this at the moment, maybe in the near
+future...
 
-So, we'll use the non-gso code path and still send with partial
-checksum set.  Now, if the driver supports encapsulated SCTP,
-then it will work.  If it doesn't, the udp checksum will be computed,
-but not the sctp one.
+It's to save some payload in the UDP header because we could drop the
+checksum there, integrity check is already handeld by the MAC layer.
 
--vlad
+Cheers
+Alex
 
-> I'm adding Joseph Gasparakis.  He might have a better answer.
->=20
-> - Greg
->=20
->>
->> Ben.
->>
->>> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
->>> Acked-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
->>> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
->>> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
->>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->>> ---
->>>  drivers/net/vxlan.c | 1 +
->>>  1 file changed, 1 insertion(+)
->>>
->>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c index
->>> 1dfee9a..988208f 100644
->>> --- a/drivers/net/vxlan.c
->>> +++ b/drivers/net/vxlan.c
->>> @@ -2293,6 +2293,7 @@ static void vxlan_setup(struct net_device *de=
-v)
->>>  	dev->features	|=3D NETIF_F_SG | NETIF_F_HW_CSUM;
->>>  	dev->features   |=3D NETIF_F_RXCSUM;
->>>  	dev->features   |=3D NETIF_F_GSO_SOFTWARE;
->>> +	dev->features   |=3D NETIF_F_SCTP_CSUM;
->>>
->>>  	dev->vlan_features =3D dev->features;
->>>  	dev->features |=3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_STAG=
-_TX;
->>
->> --
->> Ben Hutchings
->> Q.  Which is the greater problem in the world today, ignorance or ap=
-athy?
->> A.  I don't know and I couldn't care less.
-> N=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDr=EF=BF=BD=EF=BF=BDy=EF=
-=BF=BD=EF=BF=BD=EF=BF=BDb=EF=BF=BDX=EF=BF=BD=EF=BF=BD=C7=A7v=EF=BF=BD^=EF=
-=BF=BD)=DE=BA{.n=EF=BF=BD+=EF=BF=BD=EF=BF=BD=EF=BF=BDz=EF=BF=BD^=EF=BF=BD=
-)=EF=BF=BD=EF=BF=BD=EF=BF=BDw*=1Fjg=EF=BF=BD=EF=BF=BD=EF=BF=BD=1E=EF=BF=
-=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=DD=A2j/=EF=BF=BD=EF=BF=BD=EF=BF=
-=BDz=EF=BF=BD=DE=96=EF=BF=BD=EF=BF=BD2=EF=BF=BD=DE=99=EF=BF=BD=EF=BF=BD=
-=EF=BF=BD&=EF=BF=BD)=DF=A1=EF=BF=BDa=EF=BF=BD=EF=BF=BD=7F=EF=BF=BD=EF=BF=
-=BD=1E=EF=BF=BDG=EF=BF=BD=EF=BF=BD=EF=BF=BDh=EF=BF=BD=0F=EF=BF=BDj:+v=EF=
-=BF=BD=EF=BF=BD=EF=BF=BDw=EF=BF=BD=D9=A5
->=20
+[0] http://tools.ietf.org/html/rfc6282#section-4.3.2
