@@ -1,234 +1,79 @@
-From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-Subject: [PATCH v3 1/2] Add support for ksz9031 PAD skew configuration over devicetree.
-Date: Tue, 29 Apr 2014 11:33:24 +0200
-Message-ID: <1398764005-23855-2-git-send-email-hchaumette@adeneo-embedded.com>
-References: <1398764005-23855-1-git-send-email-hchaumette@adeneo-embedded.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rdunlap@infradead.org, xobs@kosagi.com, davem@davemloft.net,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org
-To: f.fainelli@gmail.com
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Subject: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net when
+ VIRTIO_F_ANY_LAYOUT is true
+Date: Tue, 29 Apr 2014 18:43:22 +0800
+Message-ID: <535F824A.5060804@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <linville@tuxdriver.com>,
+	<jeffrey.t.kirsher@intel.com>, <rusty@rustcorp.com.au>,
+	<mst@redhat.com>, <jasowang@redhat.com>, <qinchuanyu@huawei.com>,
+	<liuyongan@huawei.com>, <zhangjie14@huawei.com>,
+	<zhaoshenglong@huawei.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.adetelgroup.com ([94.247.26.71]:45134 "EHLO
-	hbg-pa71.hmc-pa.adm" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757134AbaD2JeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 05:34:10 -0400
-In-Reply-To: <1398764005-23855-1-git-send-email-hchaumette@adeneo-embedded.com>
+Received: from [119.145.14.64] ([119.145.14.64]:44890 "EHLO
+	szxga01-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S932384AbaD2KoX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 06:44:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for ksz9031 PAD skew configuration over devicetree.
+This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
+("virtio-net: put virtio-net header inline with data"). TCP packages have
+enough room to put virtio-net header in, but UDP packages do not. By
+setting dev->needed_headroom for virtio-net device, UDP packages could have
+enough room.
 
-Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
+"alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
+The Macro is defined as follows:
+#define LL_RESERVED_SPACE(dev) \
+     ((((dev)->hard_header_len+(dev)->needed_headroom)\
+     &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+By default, for UDP packages, after skb is allocated, only 16 bytes
+reserved. And 2 bytes remained after mac header is set. That is not enough
+to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
+(according to mergeable_rx_bufs is on or off ), more room can be reserved.
+Then there is enough room for UDP packages to put the header in.
+
+test result list as below:
+guest and host: suse11sp3, netperf, intel 2.4GHz
++-------+---------+---------+---------+---------+
+|       |   old             |   new             |
++-------+---------+---------+---------+---------+
+| UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
+| 64    |  0.57   | 692232  |  0.61   | 742420  |
+| 256   |  1.60   | 686860  |  1.71   | 733331  |
+| 512   |  2.92   | 674576  |  3.07   | 710446  |
+| 1024  |  4.99   | 598977  |  5.17   | 620821  |
+| 1460  |  5.68   | 483757  |  7.16   | 610519  |
+| 4096  |  6.98   | 637468  |  7.21   | 658471  |
++-------+---------+---------+---------+---------+
+
+Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
 ---
- drivers/net/phy/micrel.c | 167 +++++++++++++----------------------------------
- 1 file changed, 44 insertions(+), 123 deletions(-)
+ drivers/net/virtio_net.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index df56b26..c936b72 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -271,156 +271,77 @@ static int ksz9031_extended_read(struct phy_device *phydev,
- 	return phy_read(phydev, MII_KSZ9031RN_MMD_REGDATA_REG);
- }
- 
--/* Two 5-bit fields register */
--static int ksz9031_load_clk_skew_values(struct phy_device *phydev,
--					struct device_node *of_node,
--					char *field1, char *field2)
-+static int ksz9031_of_load_skew_values(struct phy_device *phydev,
-+				       struct device_node *of_node,
-+				       u16 reg, size_t field_sz,
-+				       char *field[], u8 numfields)
- {
--	int val1 = -1;
--	int val2 = -2;
--	int newval;
-+	int val[4] = {-1, -2, -3, -4};
- 	int matches = 0;
-+	u16 mask;
-+	u16 maxval;
-+	u16 newval;
-+	int i;
- 
--	if (!of_property_read_u32(of_node, field1, &val1))
--		matches++;
--
--	if (!of_property_read_u32(of_node, field2, &val2))
--		matches++;
-+	for (i = 0; i < numfields; i++)
-+		if (!of_property_read_u32(of_node, field[i], val + i))
-+			matches++;
- 
- 	if (!matches)
- 		return 0;
- 
--	if (matches < 2)
--		newval = ksz9031_extended_read(phydev, OP_DATA, 2,
--				MII_KSZ9031RN_CLK_PAD_SKEW);
--	else
--		newval = 0;
--
--	if (val1 != -1)
--		newval = (newval & 0xffe0) |
--			 ((val1 / KSZ9031_PS_TO_REG) & 0x1f);
--
--	if (val2 != -2)
--		newval = (newval & 0xfc1f) |
--			 (((val2 / KSZ9031_PS_TO_REG) & 0x1f) << 5);
--
--	return ksz9031_extended_write(phydev, OP_DATA, 2,
--			MII_KSZ9031RN_CLK_PAD_SKEW, newval);
--}
--
--/* Four 4-bit fields register */
--static int ksz9031_load_data_skew_values(struct phy_device *phydev,
--					 struct device_node *of_node, u16 reg,
--					 char *field1, char *field2,
--					 char *field3, char *field4)
--{
--	int val1 = -1;
--	int val2 = -2;
--	int val3 = -3;
--	int val4 = -4;
--	int newval;
--	int matches = 0;
--
--	if (!of_property_read_u32(of_node, field1, &val1))
--		matches++;
--
--	if (!of_property_read_u32(of_node, field2, &val2))
--		matches++;
--
--	if (!of_property_read_u32(of_node, field3, &val3))
--		matches++;
--
--	if (!of_property_read_u32(of_node, field4, &val4))
--		matches++;
--
--	if (!matches)
--		return 0;
--
--	if (matches < 4)
-+	if (matches < numfields)
- 		newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
- 	else
- 		newval = 0;
- 
--	if (val1 != -1)
--		newval = (newval & 0xfff0) |
--			 (((val1 / KSZ9031_PS_TO_REG) & 0xf) << 0);
--
--	if (val2 != -2)
--		newval = (newval & 0xff0f) |
--			 (((val2 / KSZ9031_PS_TO_REG) & 0xf) << 4);
--
--	if (val3 != -3)
--		newval = (newval & 0xf0ff) |
--			 (((val3 / KSZ9031_PS_TO_REG) & 0xf) << 8);
--
--	if (val4 != -4)
--		newval = (newval & 0x0fff) |
--			 (((val4 / KSZ9031_PS_TO_REG) & 0xf) << 12);
-+	maxval = (field_sz == 4) ? 0xf : 0x1f;
-+	for (i = 0; i < numfields; i++)
-+		if (val[i] != -(i + 1)) {
-+			mask = 0xffff;
-+			mask ^= maxval << (field_sz * i);
-+			newval = (newval & mask) |
-+				(((val[i] / KSZ9031_PS_TO_REG) & maxval)
-+					<< (field_sz * i));
-+		}
- 
- 	return ksz9031_extended_write(phydev, OP_DATA, 2, reg, newval);
- }
- 
--/* Two 4-bit fields register */
--static int ksz9031_load_ctrl_skew_values(struct phy_device *phydev,
--					 struct device_node *of_node,
--					 char *field1, char *field2)
--{
--	int val1 = -1;
--	int val2 = -2;
--	int newval;
--	int matches = 0;
--
--	if (!of_property_read_u32(of_node, field1, &val1))
--		matches++;
--
--	if (!of_property_read_u32(of_node, field2, &val2))
--		matches++;
--
--	if (!matches)
--		return 0;
--
--	if (matches < 2)
--		newval = ksz9031_extended_read(phydev, OP_DATA, 2,
--				MII_KSZ9031RN_CONTROL_PAD_SKEW);
--	else
--		newval = 0;
--
--	if (val1 != -1)
--		newval = (newval & 0xfff0) |
--			 (((val1 / KSZ9031_PS_TO_REG) & 0xf) << 0);
--
--	if (val2 != -2)
--		newval = (newval & 0xff0f) |
--			 (((val2 / KSZ9031_PS_TO_REG) & 0xf) << 4);
--
--	return ksz9031_extended_write(phydev, OP_DATA, 2,
--			MII_KSZ9031RN_CONTROL_PAD_SKEW, newval);
--}
--
- static int ksz9031_config_init(struct phy_device *phydev)
- {
- 	struct device *dev = &phydev->dev;
- 	struct device_node *of_node = dev->of_node;
-+	char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
-+	char *rx_data_skews[4] = {
-+		"rxd0-skew-ps", "rxd1-skew-ps",
-+		"rxd2-skew-ps", "rxd3-skew-ps"
-+	};
-+	char *tx_data_skews[4] = {
-+		"txd0-skew-ps", "txd1-skew-ps",
-+		"txd2-skew-ps", "txd3-skew-ps"
-+	};
-+	char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
- 
- 	if (!of_node && dev->parent->of_node)
- 		of_node = dev->parent->of_node;
- 
- 	if (of_node) {
--		ksz9031_load_clk_skew_values(phydev, of_node,
--				"rxc-skew-ps", "txc-skew-ps");
-+		ksz9031_of_load_skew_values(phydev, of_node,
-+				MII_KSZ9031RN_CLK_PAD_SKEW, 5,
-+				clk_skews, 2);
- 
--		ksz9031_load_data_skew_values(phydev, of_node,
--				MII_KSZ9031RN_RX_DATA_PAD_SKEW,
--				"rxd0-skew-ps", "rxd1-skew-ps",
--				"rxd2-skew-ps", "rxd3-skew-ps");
-+		ksz9031_of_load_skew_values(phydev, of_node,
-+				MII_KSZ9031RN_CONTROL_PAD_SKEW, 4,
-+				control_skews, 2);
- 
--		ksz9031_load_data_skew_values(phydev, of_node,
--				MII_KSZ9031RN_TX_DATA_PAD_SKEW,
--				"txd0-skew-ps", "txd1-skew-ps",
--				"txd2-skew-ps", "txd3-skew-ps");
-+		ksz9031_of_load_skew_values(phydev, of_node,
-+				MII_KSZ9031RN_RX_DATA_PAD_SKEW, 4,
-+				rx_data_skews, 4);
- 
--		ksz9031_load_ctrl_skew_values(phydev, of_node,
--				"txen-skew-ps", "rxdv-skew-ps");
-+		ksz9031_of_load_skew_values(phydev, of_node,
-+				MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
-+				tx_data_skews, 4);
- 	}
- 	return 0;
- }
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 8a852b5..b852bb3 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+ 		vi->has_cvq = true;
+
++	if (vi->any_header_sg) {
++		if (vi->mergeable_rx_bufs)
++			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
++		else
++			dev->needed_headroom = sizeof(struct virtio_net_hdr);
++	}
++
+ 	/* Use single tx/rx queue pair as default */
+ 	vi->curr_queue_pairs = 1;
+ 	vi->max_queue_pairs = max_queue_pairs;
 -- 
-1.9.2
+1.9.0.msysgit.0
