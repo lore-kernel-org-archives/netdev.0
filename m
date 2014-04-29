@@ -1,127 +1,57 @@
-From: Joseph Gasparakis <jgaspara@intel.com>
-Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
-Date: Tue, 29 Apr 2014 10:34:04 -0700 (PDT)
-Message-ID: <alpine.LFD.2.11.1404291028470.14497@fvl-a0.jf.intel.com>
-References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com> <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com> <535FDCE0.80803@gmail.com>
+From: Jan Moskyto Matejka <mq@suse.cz>
+Subject: [PATCH] net: via-rhine: fix compiler warning
+Date: Tue, 29 Apr 2014 19:36:11 +0200
+Message-ID: <1398792971-10379-1-git-send-email-mq@suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Gasparakis, Joseph" <joseph.gasparakis@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3846 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932759AbaD2Rcj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 13:32:39 -0400
-In-Reply-To: <535FDCE0.80803@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Moskyto Matejka <mq@suse.cz>
+To: Alexey Charkov <alchark@gmail.com>, Roger Luethi <rl@hellgate.ch>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+=46ixed different size cast warning:
 
+	drivers/net/ethernet/via/via-rhine.c: In function =E2=80=98rhine_init_=
+one_platform=E2=80=99:
+	drivers/net/ethernet/via/via-rhine.c:1132:13: warning: cast from point=
+er to integer of different size [-Wpointer-to-int-cast]
+	  revision =3D (u32)match->data;
+		     ^
 
-On Tue, 29 Apr 2014, Vlad Yasevich wrote:
+That code was added in commit 2d283862dc62daead9db0dc89cd0d0351e91f765
+("net: via-rhine: add OF bus binding").
 
-> On 04/29/2014 12:10 PM, Rose, Gregory V wrote:
-> >=20
-> >> -----Original Message-----
-> >> From: Ben Hutchings [mailto:ben@decadent.org.uk]
-> >> Sent: Tuesday, April 29, 2014 5:39 AM
-> >> To: Kirsher, Jeffrey T
-> >> Cc: davem@davemloft.net; Rose, Gregory V; netdev@vger.kernel.org;
-> >> gospo@redhat.com; sassmann@redhat.com
-> >> Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
-> >>
-> >> On Mon, 2014-04-28 at 12:52 -0700, Jeff Kirsher wrote:
-> >>> From: Greg Rose <gregory.v.rose@intel.com>
-> >>>
-> >>> Some HW can offload encapsulated SCTP checksums.  Advertise the
-> >>> capability for such cases.
-> >>
-> >> Don't we need a software fallback on the output path before doing =
-this?
-> >=20
-> > I believe that the vxlan driver will compare offload features with =
-the lower device hw_enc_feature flags and if the HW doesn't have the of=
-fload then it won't be advertised to the sctp driver.  In that case the=
- sctp driver will do its own checksumming.  At least that is the behavi=
-or I saw.
-> >=20
->=20
-> I've been looking at this and can't see vxlan doing any feature
-> comparisons/disabling...
->=20
-> At the time SCTP tries to do checksum, it will see hw offload
-> support and set checksum as partial.  That will be propagated
-> all the way to vxlan which will set encapsulation and pass it on.
-> At next dev_hard_start_xmit(), we'll look at hw_enc_features,
-> but it won't matter since SCTP packets are never GSO.
->=20
-> So, we'll use the non-gso code path and still send with partial
-> checksum set.  Now, if the driver supports encapsulated SCTP,
-> then it will work.  If it doesn't, the udp checksum will be computed,
-> but not the sctp one.
->=20
-> -vlad
+Signed-off-by: Jan Moskyto Matejka <mq@suse.cz>
+---
+ drivers/net/ethernet/via/via-rhine.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-That is exactly the way it works, dev_hard_start_xmit() is where=20
-the (inner) unchecksummed packets will get checksummed if the Tx'ing=20
-interface does not support inner SCTP checksumming.
-
-In effect by "falsely" advertising vxlan being capable to "offload" a=20
-protocol, we just postpone the software csum calculation until the last=
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/etherne=
+t/via/via-rhine.c
+index 4fa9201..76d18e0 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -288,7 +288,7 @@ MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
+  * (for quirks etc.)
+  */
+ static struct of_device_id rhine_of_tbl[] =3D {
+-	{ .compatible =3D "via,vt8500-rhine", .data =3D (void *)0x84 },
++	{ .compatible =3D "via,vt8500-rhine", .data =3D (u32 []) { 0x84 } },
+ 	{ }	/* terminate list */
+ };
+ MODULE_DEVICE_TABLE(of, rhine_of_tbl);
+@@ -1129,7 +1129,7 @@ static int rhine_init_one_platform(struct platfor=
+m_device *pdev)
+ 	if (!irq)
+ 		return -EINVAL;
 =20
-minute, which is dev_hard_start_xmit().
-
-Joseph
-
->=20
-> > I'm adding Joseph Gasparakis.  He might have a better answer.
-> >=20
-> > - Greg
-> >=20
-> >>
-> >> Ben.
-> >>
-> >>> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-> >>> Acked-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >>> Acked-by: Shannon Nelson <shannon.nelson@intel.com>
-> >>> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> >>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> >>> ---
-> >>>  drivers/net/vxlan.c | 1 +
-> >>>  1 file changed, 1 insertion(+)
-> >>>
-> >>> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c index
-> >>> 1dfee9a..988208f 100644
-> >>> --- a/drivers/net/vxlan.c
-> >>> +++ b/drivers/net/vxlan.c
-> >>> @@ -2293,6 +2293,7 @@ static void vxlan_setup(struct net_device *=
-dev)
-> >>>  	dev->features	|=3D NETIF_F_SG | NETIF_F_HW_CSUM;
-> >>>  	dev->features   |=3D NETIF_F_RXCSUM;
-> >>>  	dev->features   |=3D NETIF_F_GSO_SOFTWARE;
-> >>> +	dev->features   |=3D NETIF_F_SCTP_CSUM;
-> >>>
-> >>>  	dev->vlan_features =3D dev->features;
-> >>>  	dev->features |=3D NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_ST=
-AG_TX;
-> >>
-> >> --
-> >> Ben Hutchings
-> >> Q.  Which is the greater problem in the world today, ignorance or =
-apathy?
-> >> A.  I don't know and I couldn't care less.
-> > N???????????????r??????y?????????b???X??????=C7=A7v???^???)=DE=BA{.=
-n???+?????????z???^???)?????????w*=1Fjg?????????=1E???????????????=DD=A2=
-j/?????????z???=DE=96??????2???=DE=99?????????&???)=DF=A1???a??????=7F?=
-?????=1E???G?????????h???=0F???j:+v?????????w???=D9=A5
-> >=20
->=20
->=20
+-	revision =3D (u32)match->data;
++	revision =3D *((u32 *) match->data);
+ 	if (!revision)
+ 		return -EINVAL;
+=20
+--=20
+1.8.4.5
