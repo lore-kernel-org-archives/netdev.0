@@ -1,37 +1,64 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH net] tcp: increment retransmit counters in tlp and fast open
-Date: Mon, 28 Apr 2014 22:51:15 -0700
-Message-ID: <CAB_+Fg7f22Xbhf1hy8+Jj5e_BuBto0_25f=xxTWjBcYLCJzS8g@mail.gmail.com>
-References: <1398747629.29914.143.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH RFC 1/2] Documentation: add Device tree bindings for QCA7000
+Date: Tue, 29 Apr 2014 08:30:47 +0200
+Message-ID: <535F4717.6030907@i2se.com>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com> <4257797.n2vaSiS5NN@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:38218 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755127AbaD2FvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 01:51:16 -0400
-Received: by mail-oa0-f44.google.com with SMTP id n16so8335841oag.17
-        for <netdev@vger.kernel.org>; Mon, 28 Apr 2014 22:51:16 -0700 (PDT)
-In-Reply-To: <1398747629.29914.143.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:65206 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754763AbaD2GbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 02:31:22 -0400
+In-Reply-To: <4257797.n2vaSiS5NN@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 28, 2014 at 10:00 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+Hi Arnd,
+
+Am 28.04.2014 21:57, schrieb Arnd Bergmann:
+> On Monday 28 April 2014 19:54:56 Stefan Wahren wrote:
+>> This patch adds the Device tree bindings for the Ethernet over SPI
+>> protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
+>>
+>> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+>> ---
+>>  .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 ++++++++++++++++++++
+>>  1 file changed, 51 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>> new file mode 100644
+>> index 0000000..132c10f
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>> @@ -0,0 +1,51 @@
+>> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
+>> +
+>> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+>> +as a child of a spi master in the device tree.
+>> +
+>> +Required properties:
+>> +- compatible : Should be "qca,qca7000"
+>> +- reg : Should specify the SPI chip select
+>> +- intr-gpios : Should specify the GPIO for SPI interrupt
+>> +- spi-cpha : Must be set
+>> +- spi-cpol: Must be set
+> Why specify the interrupt as a GPIO line, rather than an 'interrupts' property?
 >
-> Both TLP and Fast Open call __tcp_retransmit_skb() instead of
-> tcp_retransmit_skb() to avoid changing tp->retrans_out.
+> 	Arnd
 >
-> This has the side effect of missing SNMP counters increments as well
-> as tcp_info tcpi_total_retrans updates.
->
-> Fix this by moving the stats increments of into __tcp_retransmit_skb()
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-Acked-by: Nandita Dukkipati <nanditad@google.com>
+
+i thought the extra interrupt line must be defined as a GPIO. I will fix
+that.
+
+Is the rest of the bindings ok?
+
+Kind regards,
+Stefan
