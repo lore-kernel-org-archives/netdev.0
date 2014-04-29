@@ -1,70 +1,125 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 4/8 v3] sparc: csum_add for Sparc
-Date: Tue, 29 Apr 2014 09:18:24 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1404290900210.9313@tomh.mtv.corp.google.com>
+Subject: [PATCH 6/8 v3] net: Call skb_checksum_init in IPv4
+Date: Tue, 29 Apr 2014 09:18:58 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1404290901080.9516@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:62838 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757871AbaD2QS1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:18:27 -0400
-Received: by mail-oa0-f74.google.com with SMTP id i7so88673oag.3
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:18:26 -0700 (PDT)
+Received: from mail-ie0-f201.google.com ([209.85.223.201]:54973 "EHLO
+	mail-ie0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756224AbaD2QTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 12:19:00 -0400
+Received: by mail-ie0-f201.google.com with SMTP id rd18so90178iec.0
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 09:19:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From David Miller, add arch support for csum_add for 32 and 64 bit
-versions.
+Call skb_checksum_init instead of private functions.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- arch/sparc/include/asm/checksum_32.h | 12 ++++++++++++
- arch/sparc/include/asm/checksum_64.h | 12 ++++++++++++
- 2 files changed, 24 insertions(+)
+ include/net/ip.h    |  6 ++++++
+ net/ipv4/tcp_ipv4.c | 25 ++-----------------------
+ net/ipv4/udp.c      | 19 ++-----------------
+ 3 files changed, 10 insertions(+), 40 deletions(-)
 
-diff --git a/arch/sparc/include/asm/checksum_32.h b/arch/sparc/include/asm/checksum_32.h
-index bdbda14..04471dc 100644
---- a/arch/sparc/include/asm/checksum_32.h
-+++ b/arch/sparc/include/asm/checksum_32.h
-@@ -238,4 +238,16 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
- 	return csum_fold(csum_partial(buff, len, 0));
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3ec2b0f..1988cef 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -342,6 +342,12 @@ static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *d
+ 		__ip_select_ident(iph, dst, more);
  }
  
-+#define HAVE_ARCH_CSUM_ADD
-+static inline __wsum csum_add(__wsum csum, __wsum addend)
++static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
 +{
-+	__asm__ __volatile__(
-+		"addcc   %0, %1, %0\n"
-+		"addx    %0, %%g0, %0"
-+		: "=r" (csum)
-+		: "r" (addend), "0" (csum));
-+
-+	return csum;
++	return csum_tcpudp_nofold(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
++				  skb->len, proto, 0);
 +}
 +
- #endif /* !(__SPARC_CHECKSUM_H) */
-diff --git a/arch/sparc/include/asm/checksum_64.h b/arch/sparc/include/asm/checksum_64.h
-index 019b961..2ff81ae 100644
---- a/arch/sparc/include/asm/checksum_64.h
-+++ b/arch/sparc/include/asm/checksum_64.h
-@@ -164,4 +164,16 @@ static inline __sum16 ip_compute_csum(const void *buff, int len)
- 	return csum_fold(csum_partial(buff, len, 0));
+ /*
+  *	Map a multicast IP onto multicast MAC for type ethernet.
+  */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 438f3b9..ad166dc 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1744,28 +1744,6 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
+ 	return sk;
  }
  
-+#define HAVE_ARCH_CSUM_ADD
-+static inline __wsum csum_add(__wsum csum, __wsum addend)
-+{
-+	__asm__ __volatile__(
-+		"addcc   %0, %1, %0\n"
-+		"addx    %0, %%g0, %0"
-+		: "=r" (csum)
-+		: "r" (addend), "0" (csum));
+-static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
+-{
+-	const struct iphdr *iph = ip_hdr(skb);
+-
+-	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v4_check(skb->len, iph->saddr,
+-				  iph->daddr, skb->csum)) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			return 0;
+-		}
+-	}
+-
+-	skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-				       skb->len, IPPROTO_TCP, 0);
+-
+-	if (skb->len <= 76) {
+-		return __skb_checksum_complete(skb);
+-	}
+-	return 0;
+-}
+-
+-
+ /* The socket must have it's spinlock held when we get
+  * here.
+  *
+@@ -1960,7 +1938,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	 * Packet length and doff are validated by header prediction,
+ 	 * provided case of th->doff==0 is eliminated.
+ 	 * So, we defer the checks. */
+-	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
 +
-+	return csum;
-+}
-+
- #endif /* !(__SPARC64_CHECKSUM_H) */
++	if (skb_checksum_init(skb, IPPROTO_TCP, inet_compute_pseudo))
+ 		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4468e1a..f2d05d7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1672,7 +1672,6 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 				 int proto)
+ {
+-	const struct iphdr *iph;
+ 	int err;
+ 
+ 	UDP_SKB_CB(skb)->partial_cov = 0;
+@@ -1684,22 +1683,8 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 			return err;
+ 	}
+ 
+-	iph = ip_hdr(skb);
+-	if (uh->check == 0) {
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	} else if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
+-				      proto, skb->csum))
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	}
+-	if (!skb_csum_unnecessary(skb))
+-		skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-					       skb->len, proto, 0);
+-	/* Probably, we should checksum udp header (it should be in cache
+-	 * in any case) and data in tiny packets (< rx copybreak).
+-	 */
+-
+-	return 0;
++	return skb_checksum_init_zero_check(skb, proto, uh->check,
++					    inet_compute_pseudo);
+ }
+ 
+ /*
 -- 
 1.9.1.423.g4596e3a
