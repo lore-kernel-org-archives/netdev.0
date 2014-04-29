@@ -1,55 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/5] netfilter: Fix format string mismatch in
- mangle_content_len()
-Date: Tue, 29 Apr 2014 15:21:21 +0100
-Message-ID: <20140429142119.GA12499@macbook.localnet>
-References: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH net-next 5/7] net:fec: add support for dumping transmit
+ ring on timeout
+Date: Tue, 29 Apr 2014 09:22:13 -0500
+Message-ID: <CAHrpEqTc6=yS4ApLO7AbZyVq26kGxq+WBcyFjgjbiPySq7055Q@mail.gmail.com>
+References: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com>
+	<1398773350-7293-5-git-send-email-Frank.Li@freescale.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F7014F0@AcuExch.aculab.com>
+	<CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F701524@AcuExch.aculab.com>
+	<20140429141527.GZ26756@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, pablo@netfilter.org,
-	kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Masanari Iida <standby24x7@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"B38611@freescale.com" <B38611@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50092 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933392AbaD2OVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 10:21:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1396280619-31152-1-git-send-email-standby24x7@gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:36747 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757781AbaD2OWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Apr 2014 10:22:15 -0400
+Received: by mail-we0-f174.google.com with SMTP id k48so286158wev.5
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 07:22:14 -0700 (PDT)
+In-Reply-To: <20140429141527.GZ26756@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 01, 2014 at 12:43:36AM +0900, Masanari Iida wrote:
-> Fix format string mismatch in mangle_connect_len()
+On Tue, Apr 29, 2014 at 9:15 AM, Russell King - ARM Linux
+<linux@arm.linux.org.uk> wrote:
+> On Tue, Apr 29, 2014 at 02:01:54PM +0000, David Laight wrote:
+>> From: Frank ...
+>> > > You probably want the read and write indexes as well.
+>> >
+>> >                      bdp == fep->cur_tx ? 'S' : ' ',
+>> >                      bdp == fep->dirty_tx ? 'H' : ' ',
+>> >
+>> > Above code already print read and write index. 'S', 'H'
+>>
+>> Gah I must be asleep!
+>> Something made be think that was to do with the ring ownership bit!
+>
+> Err, what's going on... this is my patch.  If it's been submitted by
+> others, why wasn't its submission at least Cc'd to me?
 
-All these patches seem like pointless noise to me. In none of these
-cases can the value legitimately be negative. If anything, you should
-fix the types to be unsigned.
+I added " --to rmk+kernel@arm.linux.org.uk" when I send patch.
+I don't know what's wrong.
+I kept your name.
 
-> 
-> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
-> ---
->  net/netfilter/nf_nat_sip.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
-> index b4d691d..5f98845 100644
-> --- a/net/netfilter/nf_nat_sip.c
-> +++ b/net/netfilter/nf_nat_sip.c
-> @@ -434,7 +434,7 @@ static int mangle_content_len(struct sk_buff *skb, unsigned int protoff,
->  			      &matchoff, &matchlen) <= 0)
->  		return 0;
->  
-> -	buflen = sprintf(buffer, "%u", c_len);
-> +	buflen = sprintf(buffer, "%d", c_len);
->  	return mangle_packet(skb, protoff, dataoff, dptr, datalen,
->  			     matchoff, matchlen, buffer, buflen);
->  }
-> -- 
-> 1.9.1.352.gd393d14
-> 
+I ask you if need someone help send to david millar before.
+
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+> improving, and getting towards what was expected from it.
