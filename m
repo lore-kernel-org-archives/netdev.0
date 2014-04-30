@@ -1,58 +1,67 @@
-From: Liu Yu <allanliuyu@gmail.com>
-Subject: [PATCH]  tcp_cubic: fix the range of delayed_ack
-Date: Wed, 30 Apr 2014 17:34:09 +0800
-Message-ID: <5360C391.2040202@gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: via-rhine: fix compiler warning
+Date: Wed, 30 Apr 2014 09:35:28 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
+References: <1398792971-10379-1-git-send-email-mq@suse.cz>
+	<063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
+ <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com, ncardwell@google.com,
-	shemminger@vyatta.com, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:33857 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932922AbaD3JcZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 05:32:25 -0400
-Received: by mail-ig0-f171.google.com with SMTP id c1so1626857igq.4
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 02:32:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jan Moskyto Matejka <mq@suse.cz>, Roger Luethi <rl@hellgate.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Alexey Charkov' <alchark@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-From: Liu Yu <allanyuliu@tencent.com>
-
-commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
-divide error) try to prevent divide error, but there is still a little
-chance that delayed_ack can reach zero. In case the param cnt get
-negative value, then ratio+cnt would overflow and may happen to be zero.
-As a result, min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
-
-In some old kernels, such as 2.6.32, there is a bug that would
-pass negative param, which then ultimately leads to this divide error.
-
-commit 5b35e1e6e9c (tcp: fix tcp_trim_head() to adjust segment count
-with skb MSS) fixed the negative param issue. However, 
-it's safe that we fix the range of delayed_ack as well,
-to make sure we do not hit a divide by zero.
-
-CC: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Liu Yu <allanyuliu@tencent.com>
----
- net/ipv4/tcp_cubic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 8bf2245..b4f1b29 100644
---- a/net/ipv4/tcp_cubic.c
-+++ b/net/ipv4/tcp_cubic.c
-@@ -409,7 +409,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
- 		ratio -= ca->delayed_ack >> ACK_RATIO_SHIFT;
- 		ratio += cnt;
- 
--		ca->delayed_ack = min(ratio, ACK_RATIO_LIMIT);
-+		ca->delayed_ack = clamp(ratio, 1U, ACK_RATIO_LIMIT);
- 	}
- 
- 	/* Some calls are for duplicates without timetamps */
--- 
-1.7.1
+RnJvbTogQWxleGV5IENoYXJrb3YgW21haWx0bzphbGNoYXJrQGdtYWlsLmNvbV0NCiANCj4gMjAx
+NC0wNC0zMCAxMjo0OSBHTVQrMDQ6MDAgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFi
+LmNvbT46DQo+ID4gRnJvbTogSmFuIE1vc2t5dG8gTWF0ZWprYQ0KPiA+PiBGaXhlZCBkaWZmZXJl
+bnQgc2l6ZSBjYXN0IHdhcm5pbmc6DQo+ID4+DQo+ID4+ICAgICAgIGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L3ZpYS92aWEtcmhpbmUuYzogSW4gZnVuY3Rpb24gcmhpbmVfaW5pdF9vbmVfcGxhdGZvcm06
+DQo+ID4+ICAgICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtcmhpbmUuYzoxMTMyOjEz
+OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZlcmVudA0KPiA+
+PiBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQo+ID4+ICAgICAgICAgcmV2aXNpb24gPSAo
+dTMyKW1hdGNoLT5kYXRhOw0KPiA+PiAgICAgICAgICAgICAgICAgICAgXg0KPiA+Pg0KPiA+PiBU
+aGF0IGNvZGUgd2FzIGFkZGVkIGluIGNvbW1pdCAyZDI4Mzg2MmRjNjJkYWVhZDlkYjBkYzg5Y2Qw
+ZDAzNTFlOTFmNzY1DQo+ID4+ICgibmV0OiB2aWEtcmhpbmU6IGFkZCBPRiBidXMgYmluZGluZyIp
+Lg0KPiA+IC4uLg0KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3Zp
+YS1yaGluZS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3ZpYS1yaGluZS5jDQo+ID4+IGlu
+ZGV4IDRmYTkyMDEuLjc2ZDE4ZTAgMTAwNjQ0DQo+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L3ZpYS92aWEtcmhpbmUuYw0KPiA+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC92aWEv
+dmlhLXJoaW5lLmMNCj4gPj4gQEAgLTI4OCw3ICsyODgsNyBAQCBNT0RVTEVfREVWSUNFX1RBQkxF
+KHBjaSwgcmhpbmVfcGNpX3RibCk7DQo+ID4+ICAgKiAoZm9yIHF1aXJrcyBldGMuKQ0KPiA+PiAg
+ICovDQo+ID4+ICBzdGF0aWMgc3RydWN0IG9mX2RldmljZV9pZCByaGluZV9vZl90YmxbXSA9IHsN
+Cj4gPj4gLSAgICAgeyAuY29tcGF0aWJsZSA9ICJ2aWEsdnQ4NTAwLXJoaW5lIiwgLmRhdGEgPSAo
+dm9pZCAqKTB4ODQgfSwNCj4gPj4gKyAgICAgeyAuY29tcGF0aWJsZSA9ICJ2aWEsdnQ4NTAwLXJo
+aW5lIiwgLmRhdGEgPSAodTMyIFtdKSB7IDB4ODQgfSB9LA0KPiA+PiAgICAgICB7IH0gICAgIC8q
+IHRlcm1pbmF0ZSBsaXN0ICovDQo+ID4+ICB9Ow0KPiA+PiAgTU9EVUxFX0RFVklDRV9UQUJMRShv
+ZiwgcmhpbmVfb2ZfdGJsKTsNCj4gPj4gQEAgLTExMjksNyArMTEyOSw3IEBAIHN0YXRpYyBpbnQg
+cmhpbmVfaW5pdF9vbmVfcGxhdGZvcm0oc3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCj4g
+Pj4gICAgICAgaWYgKCFpcnEpDQo+ID4+ICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7DQo+
+ID4+DQo+ID4+IC0gICAgIHJldmlzaW9uID0gKHUzMiltYXRjaC0+ZGF0YTsNCj4gPj4gKyAgICAg
+cmV2aXNpb24gPSAqKCh1MzIgKikgbWF0Y2gtPmRhdGEpOw0KPiA+PiAgICAgICBpZiAoIXJldmlz
+aW9uKQ0KPiA+PiAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPiA+DQo+ID4gQm90aCB0
+aG9zZSBjYXN0cyBsb29rIGhvcnJpZC4NCj4gPiBJJ20gbm90IGVudGlyZWx5IGNvbnZpbmNlZCB0
+aGF0IHRoZSBmaXJzdCBpcyB2YWxpZCBDIC0gSXQgd291bGQgaGF2ZSB0byBiZQ0KPiA+IHNvbWV0
+aGluZyBzcGVjaWZpYyB0byBDOTkgaW5pdGlhbGlzZXJzLg0KPiA+IENhc3RzIGxpa2UgKih1MzIg
+Kilmb28gYXJlIGFsc28gbGlrZWx5IHRvIGJlIGJ1Z3MgKGVzcC4gb24gQkUgc3lzdGVtcykNCj4g
+PiBzbyB0aGVtc2VsdmVzIHN0YXJ0IHJpbmdpbmcgYWxhcm0gYmVsbHMuDQo+ID4NCj4gPiBTbyB3
+aHkgbm90IGp1c3Q6DQo+ID4gICAgICAgICByZXZpc2lvbiA9ICh1bnNpZ25lZCBsb25nKW1hdGNo
+LT5kYXRhOw0KPiA+IGFuZCBhZGQgYSBjb21tZW50IHRoYXQgdGhlIDB4ODQgaXMgdGhlIHJldmlz
+aW9uIC0gI2RlZmluZSA/Pw0KPiANCj4gVGhlcmUgaXMgbm8gcGFydGljdWxhciByZWFzb24gd2h5
+IGl0IHNob3VsZCBiZSB1MzIgbm93IC0gdGhpcyBpcyBhDQo+IGxlZnRvdmVyIGZyb20gdGhlIHBy
+ZXZpb3VzIGl0ZXJhdGlvbiBvZiBjb2RlIHdoZXJlIHJldmlzaW9uIHdhcyBhDQo+IHNlcGFyYXRl
+IHByb3BlcnR5IGluIERUIChzaXplZCB1MzIpLiBJdCBhY3R1YWxseSBtaXJyb3JzIHRoZQ0KPiBy
+ZXNwZWN0aXZlIGZpZWxkIGluIHN0cnVjdCBwY2lfZGV2LCB3aGljaCBpcyB1OCAtIGRvbid0IHNl
+ZSBhbnkgaXNzdWUNCj4gZGVmaW5pbmcgaXQgYXMgdW5zaWduZWQgbG9uZyAoYW5kIGFsc28gY2hh
+bmdpbmcgdGhlIGRlZmluaXRpb24gaW4NCj4gc3RydWN0IHJoaW5lX3ByaXZhdGUpLg0KDQpJJ2Qg
+Z3Vlc3MgdGhhdCB0aGUgZmllbGQgaW4gJ3N0cnVjdCByaGluZV9wcml2YXRlJyBvbmx5IG5lZWRz
+IHRvDQpiZSBsYXJnZSBlbm91Z2ggZm9yIHRoZSBkb21haW4gb2YgdGhlIHZhbHVlcyB0aGF0IGFy
+ZSBhY3R1YWxseQ0Kc2F2ZWQgaW4gaXQuDQpJZiB0aGVzZSBhcmUgdmVyc2lvbnMgKG9mIHNvbWV0
+aGluZykgdGhlbiBhIGZpeGVkIHNpemUgdHlwZQ0KKG9yIGp1c3QgaW50KSBpcyBwcm9iYWJseSBt
+b3JlIGFwcHJvcHJpYXRlLg0KDQoJRGF2aWQNCg0K
