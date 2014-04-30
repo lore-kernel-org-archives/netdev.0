@@ -1,122 +1,48 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 1/3] bridge: preserve random init MAC address
-Date: Wed, 30 Apr 2014 15:11:48 -0400
-Message-ID: <53614AF4.7010107@gmail.com>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
-	<1394680527-28970-2-git-send-email-mcgrof@do-not-panic.com>
-	<20140318201056.7b876394@nehalam.linuxnetplumber.net>
-	<20140320020540.GF28801@wotan.suse.de>
-	<CAB=NE6WKyQbh9Eih05szW6708fVTNPgTe62SU5tC2dQkqwJApg@mail.gmail.com>
+From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
+Subject: RE: Request for stable inclusion
+Date: Wed, 30 Apr 2014 19:40:03 +0000
+Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370ECAF9@ORSMSX101.amr.corp.intel.com>
+References: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org, xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAB=NE6WKyQbh9Eih05szW6708fVTNPgTe62SU5tC2dQkqwJApg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/22/2014 03:41 PM, Luis R. Rodriguez wrote:
-> On Wed, Mar 19, 2014 at 7:05 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
->> On Tue, Mar 18, 2014 at 08:10:56PM -0700, Stephen Hemminger wrote:
->>> On Wed, 12 Mar 2014 20:15:25 -0700
->>> "Luis R. Rodriguez" <mcgrof@do-not-panic.com> wrote:
->>>
->>>> As it is now if you add create a bridge it gets started
->>>> with a random MAC address and if you then add a net_device
->>>> as a slave but later kick it out you end up with a zero
->>>> MAC address. Instead preserve the original random MAC
->>>> address and use it.
->>>
->>> What is supposed to happen is that the recalculate chooses
->>> the lowest MAC address of the slaves. If there are no slaves
->>> it might as well just calculate a new random value. There is
->>> not great merit in preserving the original defunct address.
->>>
->>> Or something like this
->>> --- a/net/bridge/br_stp_if.c  2014-02-12 08:21:56.733857356 -0800
->>> +++ b/net/bridge/br_stp_if.c  2014-03-18 20:09:09.334388826 -0700
->>> @@ -235,6 +235,9 @@ bool br_stp_recalculate_bridge_id(struct
->>>                       addr = p->dev->dev_addr;
->>>
->>>       }
->>> +
->>> +     if (addr == br_mac_zero)
->>> +             return false;  /* keep original address */
->>>
->>>       if (ether_addr_equal(br->bridge_id.addr, addr))
->>>               return false;   /* no change */
->>>
->>> that just keeps the old value.
->>
->> The old value could be a port which got root blocked, I think
->> it can be confusing to see that happen. Either way feel free to
->> make the call, I'll provide more details below on perhaps one reason
->> to keep the original MAC address.
+> -----Original Message-----
+> From: Thomas Gleixner [mailto:tglx@linutronix.de]
+> Sent: Wednesday, April 30, 2014 12:04 PM
+> To: stable@vger.kernel.org
+> Cc: Kirsher, Jeffrey T; Ertman, DavidX M; netdev@vger.kernel.org
+> Subject: Request for stable inclusion
 > 
-> Stephen, I'd like to respin this series to address all pending
-> feedback, I'd still like your feedback / call / judgement on this
-> part. I'm fine either way, just wanted to ensure I highlight the
-> reasoning of why I kept the original random MAC address. Please keep
-> in mind that at this point I'm convinced bridging is the *wrong*
-> solution to networking with guests but it is being used in a lot of
-> current topologies, this would just help with smoothing out corner
-> cases.
+> Hi,
 > 
-
-Hi Luis
-
-I took at this series again, I think it might make to generate
-a new random address instead of storing the original.
-There is not much point in storing the original since it's been
-gone, and most likely not advertised anywhere anyway.
-
-As for virtualization configuration you described, a lot of times
-there is a single port in the down state that remains.  At least
-that's how libvirt manages it's bridged networks.
-
-Thanks
--vlad
-
->>> The bridge is in a meaningless state when there are no ports,
->>
->> Some virtualization topologies may want a backend with no link (or
->> perhaps one which is dynamic, with the option to have none) to the
->> internet but just a bridge so guests sharing the bridge can talk to
->> each other. In this case bridging can be used only to link the
->> batch of guests.
->>
->> In this case the bridge simply acts as a switch, but also can be used as the
->> interface for DHCP, for example. In such a case the guests will be doing
->> ARP to get to the DHCP server. There's a flurry of ways one can try to get
->> all this meshed together including enablign an ARP proxy but I'm looking
->> at ways to optimize this further -- but I'd like to address the current
->> usage cases first.
->>
->>> and when the first port is added back it will be used as the
->>> new bridge id.
->>
->> Sure. Let me know how you think we should proceed with this patch based
->> on the above.
+> commit b20a774495671f037e7160ea2ce8789af6b61533
+> Author: David Ertman <davidx.m.ertman@intel.com>
+> Date:   Tue Mar 25 04:27:55 2014 +0000
 > 
-> Thanks in advance.
+>     e1000e: Fix no connectivity when driver loaded with cable out
 > 
->   Luis
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> fixes an issue which affects quite some of the newer Laptops and also
+> Desktops (e.g. AOI-PCs) which are based on mobile chipsets.
 > 
+> I don't know how far this reaches back, but at least the 3.13 and 3.14
+> kernels need this fix. Jeff, David, can you tell?
+> 
+> Please consider for inclusion.
+> 
+> Thanks,
+> 
+> 	tglx
+
+The commit that caused the issue went into net-next on June 21, 2013.  So at least 3.11 and forward, and probably 3.10.
+
+Dave Ertman
