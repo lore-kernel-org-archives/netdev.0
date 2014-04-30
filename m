@@ -1,86 +1,51 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH 2/3] bridge: trigger a bridge calculation upon port
-	changes
-Date: Thu, 1 May 2014 00:59:20 +0200
-Message-ID: <20140430225920.GJ11838@wotan.suse.de>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com> <1394680527-28970-3-git-send-email-mcgrof@do-not-panic.com> <CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com> <20140315013940.GA28801@wotan.suse.de> <CAHA+R7MRVyjAN7w_qPxSxkrjo939bNEc3Ej+O3yH-oWj4gGJxw@mail.gmail.com> <20140318212243.GD28471@garbanzo.do-not-panic.com> <20140422194313.GQ27882@wotan.suse.de> <53615752.5040106@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 01/15] net: qdisc: use rcu prefix and silence sparse
+ warnings
+Date: Wed, 30 Apr 2014 16:29:17 -0700
+Message-ID: <1398900557.29914.187.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140430163250.9021.21199.stgit@nitbit.x32>
+	  <20140430163504.9021.12828.stgit@nitbit.x32>
+	 <1398877228.29914.177.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5361785B.6000604@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	Cong Wang <cwang@twopensource.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kvm@vger.kernel.org, xen-devel@lists.xenproject.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	bridge@lists.linux-foundation.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <53615752.5040106@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:53641 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752272AbaD3X3T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 19:29:19 -0400
+Received: by mail-pd0-f181.google.com with SMTP id w10so1082540pde.12
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 16:29:18 -0700 (PDT)
+In-Reply-To: <5361785B.6000604@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 30, 2014 at 04:04:34PM -0400, Vlad Yasevich wrote:
-> On 04/22/2014 03:43 PM, Luis R. Rodriguez wrote:
-> > diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> > index 54d207d..dcd9378 100644
-> > --- a/net/bridge/br_if.c
-> > +++ b/net/bridge/br_if.c
-> > @@ -315,6 +315,8 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
-> >  	features &= ~NETIF_F_ONE_FOR_ALL;
-> >  
-> >  	list_for_each_entry(p, &br->port_list, list) {
-> > +		if (p->flags & BR_ROOT_BLOCK)
-> > +			continue;
-> >  		features = netdev_increment_features(features,
-> >  						     p->dev->features, mask);
-> >  	}
-> >
-> Hi Luis
+On Wed, 2014-04-30 at 15:25 -0700, John Fastabend wrote:
+
+> It looks like it except for qdisc_watchdog() which needs an
+> rcu_read_lock() if I'm not mistaken/
 > 
-> The hunk above isn't right.  Just because you set ROOT_BLOCK on the port
-> doesn't mean that you should ignore it's device features.  If the device
-> you just added happens to disable or enable some device offload feature,
-> you should take that into account.
+> static enum hrtimer_restart qdisc_watchdog(struct hrtimer *timer)
+> {
+> 	struct qdisc_watchdog *wd = container_of(timer, struct 		
+> 						 qdisc_watchdog,
+> 						 timer);
+> 
+> 	rcu_read_lock();
+> 	qdisc_unthrottled(wd->qdisc);
+> 	__netif_schedule(qdisc_root(wd->qdisc));
+> 	rcu_read_unlock();
+> 
+> 	return HRTIMER_NORESTART;
+> }
+> 
 
-OK thanks, how about this part:
+Normally, HRTIMER handlers are run under softirq.
 
-On 04/22/2014 03:43 PM, Luis R. Rodriguez wrote:
-> On Tue, Mar 18, 2014 at 02:22:43PM -0700, Luis R. Rodriguez wrote:
-> On Tue, Mar 18, 2014 at 01:46:49PM -0700, Cong Wang wrote:
->> On Fri, Mar 14, 2014 at 6:39 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
->>> On Thu, Mar 13, 2014 at 11:26:25AM -0700, Cong Wang wrote:
->>>> On Wed, Mar 12, 2014 at 8:15 PM, Luis R. Rodriguez
->>>> <mcgrof@do-not-panic.com> wrote:
->>>>>                         spin_unlock_bh(&p->br->lock);
->>>>> +                       if (changed)
->>>>> +                               call_netdevice_notifiers(NETDEV_CHANGEADDR,
->>>>> +                                                        p->br->dev);
->>>>> +                       netdev_update_features(p->br->dev);
->>>>
->>>> I think this is supposed to be in netdev event handler of br->dev
->>>> instead of here.
->>>
->>> Do you mean netdev_update_features() ? I mimic'd what was being done on
->>> br_del_if() given that root blocking is doing something similar. If
->>> we need to change something for the above then I suppose it means we need
->>> to change br_del_if() too. Let me know if you see any reason for something
->>> else.
->>>
->>
->> Yeah, for me it looks like it's better to call netdev_update_features()
->> in the event handler of br->dev, rather than where calling
->> call_netdevice_notifiers(..., br->dev);.
->
-> I still don't see why, in fact trying to verify this I am wondering now
-> if instead we should actually fix br_features_recompute() to take into
-> consideration BR_ROOT_BLOCK as below. Notice how netdev_update_features()
-> is called above even if the MAC address did not change, just as is done
-> on br_del_if(). There is an NETDEV_FEAT_CHANGE event so would it be more
-> appropriate we just call
->
-> call_netdevice_notifiers(NETDEV_FEAT_CHANGE, p->br->dev)
->
-> for both the above then and also br_del_if()?
+Anyway you could simply use following on your builds
 
-  Luis
+CONFIG_PROVE_RCU=y
