@@ -1,49 +1,85 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] qlcnic: clarify hwmon Kconfig dependency
-Date: Wed, 30 Apr 2014 11:15:14 +0200
-Message-ID: <4879713.xMSSnUPZKf@wuerfel>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net
+ when VIRTIO_F_ANY_LAYOUT is true
+Date: Wed, 30 Apr 2014 13:19:50 +0300
+Message-ID: <20140430101950.GA22654@redhat.com>
+References: <535F824A.5060804@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-HSGLinuxNICDev@qlogic.com,
-	Harish Patil <harish.patil@qlogic.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:51363 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758684AbaD3J1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 05:27:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, linville@tuxdriver.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
+	jasowang@redhat.com, qinchuanyu@huawei.com, liuyongan@huawei.com,
+	zhaoshenglong@huawei.com
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <535F824A.5060804@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 1f0f467b670e "qlcnic: Add hwmon interface to export board
-temperature" introduced a randconfig build error in the case
-when the hwmon framework is built as a module and the qlcnic
-driver itself is built-in:
+On Tue, Apr 29, 2014 at 06:43:22PM +0800, Zhangjie (HZ) wrote:
+> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
+> ("virtio-net: put virtio-net header inline with data"). TCP packages have
+> enough room to put virtio-net header in, but UDP packages do not. By
+> setting dev->needed_headroom for virtio-net device, UDP packages could have
+> enough room.
+> 
+> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
+> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
+> The Macro is defined as follows:
+> #define LL_RESERVED_SPACE(dev) \
+>      ((((dev)->hard_header_len+(dev)->needed_headroom)\
+>      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+> By default, for UDP packages, after skb is allocated, only 16 bytes
+> reserved. And 2 bytes remained after mac header is set. That is not enough
+> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
+> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
+> Then there is enough room for UDP packages to put the header in.
+> 
+> test result list as below:
+> guest and host: suse11sp3, netperf, intel 2.4GHz
+> +-------+---------+---------+---------+---------+
+> |       |   old             |   new             |
+> +-------+---------+---------+---------+---------+
+> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
+> | 64    |  0.57   | 692232  |  0.61   | 742420  |
+> | 256   |  1.60   | 686860  |  1.71   | 733331  |
+> | 512   |  2.92   | 674576  |  3.07   | 710446  |
+> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
+> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
+> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
+> +-------+---------+---------+---------+---------+
+> 
+> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
 
-drivers/built-in.o: In function `qlcnic_register_hwmon_dev':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c:1301: undefined reference to `hwmon_device_register_with_groups'
-drivers/built-in.o: In function `qlcnic_unregister_hwmon_dev':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c:1309: undefined reference to `hwmon_device_unregister'
+Thanks for your patience!
 
-This changes the Kconfig logic to enforce that the qlcnic hwmon
-support can only be enabled if it is possible to successfully
-build it.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Harish Patil <harish.patil@qlogic.com>
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index 0482adb..9493824 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -69,6 +69,7 @@ config QLCNIC_VXLAN
- config QLCNIC_HWMON
- 	bool "QLOGIC QLCNIC 82XX and 83XX family HWMON support"
- 	depends on QLCNIC && HWMON
-+	depends on QLCNIC=m || HWMON=y
- 	default y
- 	---help---
- 	  This configuration parameter can be used to read the
+> ---
+>  drivers/net/virtio_net.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8a852b5..b852bb3 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+> 
+> +	if (vi->any_header_sg) {
+> +		if (vi->mergeable_rx_bufs)
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +		else
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
+> +	}
+> +
+>  	/* Use single tx/rx queue pair as default */
+>  	vi->curr_queue_pairs = 1;
+>  	vi->max_queue_pairs = max_queue_pairs;
+> -- 
+> 1.9.0.msysgit.0
+> 
