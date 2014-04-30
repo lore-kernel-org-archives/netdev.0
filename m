@@ -1,223 +1,86 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [RFC PATCH v2 net-next 2/7] bridge: Keep track of
- ports capable of automatic discovery.
-Date: Wed, 30 Apr 2014 09:47:37 -0400
-Message-ID: <5360FEF9.60802@gmail.com>
-References: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
-	<1398806428-640-3-git-send-email-vyasevic@redhat.com>
-	<20140430101842.GA22962@redhat.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Wed, 30 Apr 2014 15:59:37 +0200
+Message-ID: <536101C9.9090601@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: "Michael S. Tsirkin" <mst@redhat.com>, Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140430101842.GA22962@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	=?UTF-8?B?T25kxZllaiBCw61sa2E=?= <neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	=?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1v?= =?UTF-8?B?bnQ=?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	Chris Friesen <chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 04/30/2014 06:18 AM, Michael S. Tsirkin wrote:
-> On Tue, Apr 29, 2014 at 05:20:23PM -0400, Vlad Yasevich wrote:
->> By default, ports on the bridge are capable of automatic
->> discovery of nodes located behind the port.  This is accomplished
->> via flooding of unknown traffic (BR_FLOOD) and learning the
->> mac addresses from these packets (BR_LEARNING).
->> If the above functionality is diabled by turning off these
->> flags, the port requires static configuration in the form
->> of static FDB entries to function properly.
->>
->> This patch adds functionality to keep track of all ports
->> capable of automatic discovery.  This will later be used
->> to control promiscuity settings.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>  net/bridge/br_if.c       | 27 +++++++++++++++++++++++++++
->>  net/bridge/br_netlink.c  |  3 +++
->>  net/bridge/br_private.h  |  6 ++++++
->>  net/bridge/br_sysfs_if.c |  6 +++++-
->>  4 files changed, 41 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index 5262b86..7e60c4c 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -85,6 +85,18 @@ void br_port_carrier_check(struct net_bridge_port *p)
->>  	spin_unlock_bh(&br->lock);
->>  }
->>  
->> +static void nbp_update_port_count(struct net_bridge *br)
->> +{
->> +	struct net_bridge_port *p;
->> +	u32 cnt = 0;
->> +
->> +	list_for_each_entry(p, &br->port_list, list) {
->> +		if (br_is_auto_port(p))
->> +			cnt++;
->> +	}
->> +	br->auto_cnt = cnt;
->> +}
->> +
->>  static void release_nbp(struct kobject *kobj)
->>  {
->>  	struct net_bridge_port *p
->> @@ -146,6 +158,8 @@ static void del_nbp(struct net_bridge_port *p)
->>  
->>  	list_del_rcu(&p->list);
->>  
->> +	nbp_update_port_count(br);
->> +
->>  	dev->priv_flags &= ~IFF_BRIDGE_PORT;
->>  
->>  	netdev_rx_handler_unregister(dev);
->> @@ -384,6 +398,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->>  
->>  	list_add_rcu(&p->list, &br->port_list);
->>  
->> +	nbp_update_port_count(br);
->> +
->>  	netdev_update_features(br->dev);
->>  
->>  	if (br->dev->needed_headroom < dev->needed_headroom)
->> @@ -455,3 +471,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->>  
->>  	return 0;
->>  }
->> +
->> +void br_port_flags_change(struct net_bridge_port *p, unsigned long old_flags)
->> +{
->> +	struct net_bridge *br = p->br;
->> +	unsigned long mask = old_flags ^ p->flags;
->> +
->> +	if (!(mask & BR_AUTO_MASK))
->> +		return;
->> +
->> +	nbp_update_port_count(br);
->> +}
->> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
->> index e74b6d53..01382b9 100644
->> --- a/net/bridge/br_netlink.c
->> +++ b/net/bridge/br_netlink.c
->> @@ -328,6 +328,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
->>  static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->>  {
->>  	int err;
->> +	unsigned long old_flags = p->flags;
->>  
->>  	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
->>  	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
->> @@ -353,6 +354,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->>  		if (err)
->>  			return err;
->>  	}
->> +
->> +	br_port_flags_change(p, old_flags ^ p->flags);
->>  	return 0;
->>  }
->>  
->> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
->> index 06811d7..db714a1 100644
->> --- a/net/bridge/br_private.h
->> +++ b/net/bridge/br_private.h
->> @@ -174,6 +174,7 @@ struct net_bridge_port
->>  #define BR_ADMIN_COST		0x00000010
->>  #define BR_LEARNING		0x00000020
->>  #define BR_FLOOD		0x00000040
->> +#define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
->>  
->>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
->>  	struct bridge_mcast_query	ip4_query;
->> @@ -198,6 +199,8 @@ struct net_bridge_port
->>  #endif
->>  };
->>  
->> +#define br_is_auto_port(p) (((p)->flags & BR_AUTO_MASK) == BR_AUTO_MASK)
->> +
-> 
-> I think you
-> really want ((p)->flags & BR_AUTO_MASK) instead without
->  == BR_AUTO_MASK.
-> 
-> For example if learning is off but flood is on, things work
-> (slowly) automatically without configuring static entries.
-> 
-> OTOH if flood is off but learning is on, a bunch of packets
-> might get dropped but eventually you might learn the
-> mac and then networking will start working.
-> 
+Arnaldo,
 
-Yes, you are completely correct.  I flipped the meaning of the
-macro, but forgot to account correctly for it.
+I raised this issue somewhat more than a year ago, here:
+http://thread.gmane.org/gmane.linux.man/3477
+but got no reply from you. (Chris Friesen in that thread agreed 
+that there is a problem though.)
 
-static == not flooding && not learning.
-auto != static.
+Here, a slightly revised version of that mail, since I've just bumper 
+into a related problem in a different context...
 
-The reason I count "auto" ports is so I only have to keep 1 counter
-around.  If I counted static, I'd also have to count all ports as well.
-Not much of a difference, but it's one less counter.
+As part of his attempt to better document the recvmmsg() syscall that
+you added in commit a2e2725541fad72416326798c2d7fa4dafb7d337, Elie de
+Brauwer alerted to me to some strangeness in the timeout behavior of
+the syscall. I suspect there's a bug that needs fixing, as detailed
+below.
 
-Fill fix.
-Thanks
--vlad
+AFAICT, the timeout argument was added to this syscall as a result of
+the discussion here:
+http://markmail.org/message/m5l2ap4hiiimut6k#query:+page:1+mid:m5l2ap4hiiimut6k+state:results
+(20-21 May 2009, "[RFC 1/2] net: Introduce recvmmsg...")
 
-> 
->>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
->>  
->>  static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
->> @@ -290,6 +293,7 @@ struct net_bridge
->>  	struct timer_list		topology_change_timer;
->>  	struct timer_list		gc_timer;
->>  	struct kobject			*ifobj;
->> +	u32				auto_cnt;
->>  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->>  	u8				vlan_enabled;
->>  	struct net_port_vlans __rcu	*vlan_info;
->> @@ -415,6 +419,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev);
->>  int br_min_mtu(const struct net_bridge *br);
->>  netdev_features_t br_features_recompute(struct net_bridge *br,
->>  					netdev_features_t features);
->> +void br_port_flags_change(struct net_bridge_port *port,
->> +			  unsigned long old_flags);
->>  
->>  /* br_input.c */
->>  int br_handle_frame_finish(struct sk_buff *skb);
->> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
->> index 112a25e..58c26e3 100644
->> --- a/net/bridge/br_sysfs_if.c
->> +++ b/net/bridge/br_sysfs_if.c
->> @@ -49,7 +49,10 @@ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
->>  static int store_flag(struct net_bridge_port *p, unsigned long v,
->>  		     unsigned long mask)
->>  {
->> -	unsigned long flags = p->flags;
->> +	unsigned long flags;
->> +	unsigned long old_flags;
->> +
->> +	old_flags = flags = p->flags;
->>  
->>  	if (v)
->>  		flags |= mask;
->> @@ -58,6 +61,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
->>  
->>  	if (flags != p->flags) {
->>  		p->flags = flags;
->> +		br_port_flags_change(p, old_flags ^ flags);
->>  		br_ifinfo_notify(RTM_NEWLINK, p);
->>  	}
->>  	return 0;
->> -- 
->> 1.9.0
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+If I understand correctly, the *intended* purpose of the timeout
+argument is to set a limit on how long to wait for additional
+datagrams after the arrival of an initial datagram. However, the
+syscall behaves in quite a different way. Instead, it potentially
+blocks forever, regardless of the timeout. The way the timeout seems
+to work is as follows:
+
+1. The timeout, T, is armed on receipt of first diagram, starting at time X.
+2. After each further datagram is received, a check is made if we have
+reached time X+T. If we have reached that time, then the syscall
+returns.
+
+Since the timeout is only checked after the arrival of each datagram,
+we can have scenarios like the following:
+
+0. Assume a timeout of 10 seconds, and that vlen is 5.
+1. First datagram arrives at time X.
+2. Second datagram arrives at time X+2 secs
+3. No more datagrams arrive.
+
+In this case, the call blocks forever. Is that intended behavior?
+(Basically, if up to vlen-1 datagrams arrive before X+T, but then no 
+more datagrams arrive, the call will remain blocked forever.) If it's
+intended behavior, could you elaborate the use case, since it would be
+good to add that to the man page. If not, a fix seems to be needed,
+since otherwise, it's hard to see how the recvmmsg() timeout argument
+can sanely be used.
+
+Thanks,
+
+Michael
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
