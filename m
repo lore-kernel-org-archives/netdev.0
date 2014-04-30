@@ -1,36 +1,92 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [RFC net-next 0/4] Support UID range routing.
-Date: Wed, 30 Apr 2014 17:04:14 +0900
-Message-ID: <CAKD1Yr23gyvm6nTRp96puuHVmKfhfvga07yz=nguueWtKD9a5A@mail.gmail.com>
-References: <1398487705-13430-1-git-send-email-lorenzo@google.com>
- <535BB149.3090901@davidnewall.com> <CAKD1Yr0J3JXu9__LH6uKGsPYq+0jxiP1qhS2NTwT9gHitZ16_Q@mail.gmail.com>
- <CAKD1Yr2J-UgU+Ycu4pf3L51-1tN1fnxQxDo8fLj+9yb4jQuGZg@mail.gmail.com> <5360ABD3.2020506@davidnewall.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH RFC 2/2] net: qualcomm: new Ethernet over SPI driver for
+ QCA7000
+Date: Wed, 30 Apr 2014 10:09:43 +0200
+Message-ID: <5360AFC7.6020107@i2se.com>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <4860368.6Apskanc4s@wuerfel> <535FCB24.2010507@i2se.com> <4693879.NBTVQb29rJ@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Miller <davem@davemloft.net>, JP Abgrall <jpa@google.com>
-To: David Newall <davidn@davidnewall.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:62809 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426AbaD3IEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 04:04:39 -0400
-Received: by mail-ie0-f170.google.com with SMTP id rd18so1538937iec.29
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 01:04:38 -0700 (PDT)
-In-Reply-To: <5360ABD3.2020506@davidnewall.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:64175 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751983AbaD3IJr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 04:09:47 -0400
+In-Reply-To: <4693879.NBTVQb29rJ@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 30, 2014 at 4:52 PM, David Newall <davidn@davidnewall.com> wrote:
-> The original address *is* the real address.  NAT breaks IP's design and is a very mixed blessing.  NAT isn't needed nor used with IPv6, and being in IPv4's twilight years, an argument predicated on NAT is not very convincing.
+Hi,
 
-Right. NAT is what the code does today. This change allows getting rid of it.
+Am 29.04.2014 20:14, schrieb Arnd Bergmann:
+> On Tuesday 29 April 2014 17:54:12 Stefan Wahren wrote:
+>>> As far as I know it's also not mandatory.
+>>>
+>>> If the hardware interfaces require calling sleeping functions, it
+>>> may not actually be possible, but if you can use it, it normally
+>>> provides better performance.
+>> As i understood NAPI is good for high load on 1000 MBit ethernet, but
+>> the QCA7000 has
+>> in best case only a 10 MBit powerline connection. Additionally these
+>> packets must be transfered
+>> over a half duplex SPI. So i think the current driver implementation
+>> isn't a bottle neck.
+> Ok, makes sense. What is the slowest speed you might see then?
 
-> I feel that describing the patch as routing is misleading, as it performs only outbound link selection.  It fosters an expectation of bi-directionality, and that is not the case.  It will often result in asymmetric routes.
+a typical Homeplug GreenPHY connection has nearly 8 MBit within one
+network. The more powerline
+networks exits, the slowier the connection becomes. This comes from the
+time sharing on the
+physical layer. Unfortunately i don't have the equipment to test many
+parallel networks and give
+you some precise numbers.
 
-The patch adds the capability to take into account the user ID when
-doing a routing lookup. The routing lookup affects outbound interface,
-but it also affects source address selection, MTU and advertised TCP
-MSS, and a variety of other parameters that are configurable on a
-per-route basis (e.g., congestion window).
+> You already have a relatively small queue of at most 10 frames,
+> but if this goes below 10 Mbit, that can still be noticeable
+> bufferbloat. 
+>
+> Try adding calls to netdev_sent_queue, netdev_completed_queue and
+> netdev_reset_queue to let the network stack know how much data
+> is currently queued up for the tx thread.
+
+Okay, i'll try that. Thanks for the hints.
+
+>
+> On a related note, there is one part I don't understand:
+>
+> +netdev_tx_t
+> +qcaspi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +       u32 frame_len;
+> +       u8 *ptmp;
+> +       struct qcaspi *qca = netdev_priv(dev);
+> +       u32 new_tail;
+> +       struct sk_buff *tskb;
+> +       u8 pad_len = 0;
+> +
+> +       if (skb->len < QCAFRM_ETHMINLEN)
+> +               pad_len = QCAFRM_ETHMINLEN - skb->len;
+> +
+> +       if (qca->txq.skb[qca->txq.tail]) {
+> +               netdev_warn(qca->net_dev, "queue was unexpectedly full!\n");
+> +               netif_stop_queue(qca->net_dev);
+> +               qca->stats.queue_full++;
+> +               return NETDEV_TX_BUSY;
+> +       }
+>
+> You print a 'netdev_warn' message here when the queue is full, expecting
+> this to be rare. If the device is so slow, why doesn't this happen
+> all the time?
+>
+> 	Arnd
+
+Until now, i never experienced that the queue runs full. But i will do
+some tests
+to reproduce this.
+
+Stefan
