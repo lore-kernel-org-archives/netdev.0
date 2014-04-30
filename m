@@ -1,56 +1,48 @@
-From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v3 0/4] introduce devm_mdiobus_alloc/free and clean up
-	davinci mdio
-Date: Wed, 30 Apr 2014 10:25:12 -0400
-Message-ID: <536107C8.9060002@ti.com>
-References: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH]  tcp_cubic: fix the range of delayed_ack
+Date: Wed, 30 Apr 2014 07:18:18 -0700
+Message-ID: <1398867498.29914.151.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <5360C391.2040202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
-        Florian Fainelli
-	<f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1398860616-6612-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ncardwell@google.com, shemminger@vyatta.com,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Liu Yu <allanliuyu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:55040 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759041AbaD3O0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 10:26:15 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so1769688pdj.31
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 07:26:13 -0700 (PDT)
+In-Reply-To: <5360C391.2040202@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 30 April 2014 08:23 AM, Grygorii Strashko wrote:
-> Introduce a resource managed devm_mdiobus_alloc[_size]()/devm_mdiobus_free()
-> to automatically clean up MDIO bus alocations made by MDIO drivers,
-> thus leading to simplified MDIO drivers code.
+On Wed, 2014-04-30 at 17:34 +0800, Liu Yu wrote:
+> From: Liu Yu <allanyuliu@tencent.com>
 > 
-> Clean up Davinci MDIO driver and use new devm API.
+> commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
+> divide error) try to prevent divide error, but there is still a little
+> chance that delayed_ack can reach zero. In case the param cnt get
+> negative value, then ratio+cnt would overflow and may happen to be zero.
+> As a result, min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
 > 
-> Changes in v3:
-> - added devm_mdiobus_alloc_size() and
->   devm_mdiobus_alloc() converted to be just a simple wrapper now.
+> In some old kernels, such as 2.6.32, there is a bug that would
+> pass negative param, which then ultimately leads to this divide error.
 > 
-> Changes in v2:
-> - minor comments taken into account
-> - additional patches added for cleaning up Davinci MDIO driver
+> commit 5b35e1e6e9c (tcp: fix tcp_trim_head() to adjust segment count
+> with skb MSS) fixed the negative param issue. However, 
+> it's safe that we fix the range of delayed_ack as well,
+> to make sure we do not hit a divide by zero.
 > 
-> Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Grygorii Strashko (4):
->   mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
->   net: davinci_mdio: use devm_* api
->   net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
->   net: davinci_mdio: simplify IO memory mapping
-> 
-Thanks for the updates. The series looks good to me.
-Feel free to my ack if you need one...
-Acked-by: Santosh Shilimkar<santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Liu Yu <allanyuliu@tencent.com>
+> ---
+>  net/ipv4/tcp_cubic.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
