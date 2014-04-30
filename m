@@ -1,84 +1,295 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
-Date: Wed, 30 Apr 2014 12:45:06 +0200
-Message-ID: <395225650.20140430124506@eikelenboom.it>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net] gianfar: Avoid unnecessary reg accesses in adjust_link()
+Date: Wed, 30 Apr 2014 14:27:21 +0300
+Message-ID: <1398857241-20137-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:56913 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932252AbaD3KpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 06:45:13 -0400
+Received: from mail-bl2lp0205.outbound.protection.outlook.com ([207.46.163.205]:52898
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932486AbaD3L2u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 07:28:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Zoltan,
+For phy devices that don't issue interrupts upon link
+state changes, phylib polls the link state resulting in
+repeated calls to adjust_link(), even if the link state
+didn't change.  As a result, some mac registers are
+repeatedly read and written with the same values, which
+is not ok.
 
-Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
-seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
-I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
-Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
+To fix this, adjust_link() has been refactored to check
+first whether the link state has changed and to take action
+only if needed, updating mac registers and local state
+variables.  The 'new_state' local flag, set if one of the
+link params changed (link, speed or duplex), has been
+rendered useless and removed by this refactoring.
 
-Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 223 ++++++++++++++++---------------
+ 1 file changed, 113 insertions(+), 110 deletions(-)
 
-So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
-I don't see this with clients that upload large files from external sources.
-Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
-
-I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
-
-Since these commits break bisectabillity:
-    - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
-    - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
-i stopped bisecting at this point.
-
-The upside is .. it's 100% reproduceable :-)
-
-On a sidenote:
-    Although DaveM seems to prefer patches, it would probably be nice to have larger patchsets like this one in a git tree somewhere,
-    for more easy isolated applying to stable kernels, that would improve testing and bisecting things.
-    For example the kernel xen.git tree makes it very easy to pull the devel branches to current stable .. 
-    and even test those *isolated* and *before* the merge window, that greatly reduces the effort of testing and if anything is wrong .. in bisecting things.
-
-    Another point would be: what *correctness* testing is actually done on the xen-net* patches ?
-    As i suspect this is again about fragmented packets .. that doesn't seem to be included in any test case while it actually seems to be a case which is hard to get right...
-
---
-Sander
-
-The bisection log:
-git bisect start
-# bad: [cd6362befe4cc7bf589a5236d2a780af2d47bcc9] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
-git bisect bad cd6362befe4cc7bf589a5236d2a780af2d47bcc9
-# good: [df69491b7d1550137507a7eb5f2fc5dce0c1e534] Merge branch 'xen-netback'
-git bisect good df69491b7d1550137507a7eb5f2fc5dce0c1e534
-# good: [c12e69c6aaf785fd307d05cb6f36ca0e7577ead7] Merge tag 'staging-3.15-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging
-git bisect good c12e69c6aaf785fd307d05cb6f36ca0e7577ead7
-# bad: [49c0ca17ee8dd3530f688052d4eb2ae6d3e55119] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next into for-davem
-git bisect bad 49c0ca17ee8dd3530f688052d4eb2ae6d3e55119
-# good: [370c5acef0326db3e8c10d42b941289c9c887a4a] Merge branch 'for-upstream' of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next
-git bisect good 370c5acef0326db3e8c10d42b941289c9c887a4a
-# good: [ec5709403e6893acb4f7ca40514ebd29c3116836] net/mlx4_en: Use union for BlueFlame WQE
-git bisect good ec5709403e6893acb4f7ca40514ebd29c3116836
-# bad: [69bfb110fd58185df99a7dbe92a14c0d7ada764f] i40e: cleanup strings
-git bisect bad 69bfb110fd58185df99a7dbe92a14c0d7ada764f
-# bad: [aeb12c5ef7cb08d879af22fc0a56cab9e70689ea] gianfar: Separate out the Tx interrupt handling (Tx NAPI)
-git bisect bad aeb12c5ef7cb08d879af22fc0a56cab9e70689ea
-# bad: [389400428953bb002b173fa07d16d7a6f120843f] Merge tag 'rxrpc-devel-20140304' of git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs
-git bisect bad 389400428953bb002b173fa07d16d7a6f120843f
-# good: [5a8a1ab74dce1b50fe27745df477c502aec987eb] be2net: do external loopback test only when it is requested
-git bisect good 5a8a1ab74dce1b50fe27745df477c502aec987eb
-# skip: [1bb332af4cd889e4b64dacbf4a793ceb3a70445d] xen-netback: Add stat counters for zerocopy
-git bisect skip 1bb332af4cd889e4b64dacbf4a793ceb3a70445d
-# skip: [e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d] Merge branch '6lowpan'
-git bisect skip e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d
-# good: [31c70d5956fc3d1abf83e9ab5e1d8237dea59498] l2tp: keep original skb ownership
-git bisect good 31c70d5956fc3d1abf83e9ab5e1d8237dea59498
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 9125d9a..e2d4247 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -121,6 +121,7 @@ static irqreturn_t gfar_error(int irq, void *dev_id);
+ static irqreturn_t gfar_transmit(int irq, void *dev_id);
+ static irqreturn_t gfar_interrupt(int irq, void *dev_id);
+ static void adjust_link(struct net_device *dev);
++static noinline void gfar_update_link_state(struct gfar_private *priv);
+ static int init_phy(struct net_device *dev);
+ static int gfar_probe(struct platform_device *ofdev);
+ static int gfar_remove(struct platform_device *ofdev);
+@@ -3076,41 +3077,6 @@ static irqreturn_t gfar_interrupt(int irq, void *grp_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
+-{
+-	struct phy_device *phydev = priv->phydev;
+-	u32 val = 0;
+-
+-	if (!phydev->duplex)
+-		return val;
+-
+-	if (!priv->pause_aneg_en) {
+-		if (priv->tx_pause_en)
+-			val |= MACCFG1_TX_FLOW;
+-		if (priv->rx_pause_en)
+-			val |= MACCFG1_RX_FLOW;
+-	} else {
+-		u16 lcl_adv, rmt_adv;
+-		u8 flowctrl;
+-		/* get link partner capabilities */
+-		rmt_adv = 0;
+-		if (phydev->pause)
+-			rmt_adv = LPA_PAUSE_CAP;
+-		if (phydev->asym_pause)
+-			rmt_adv |= LPA_PAUSE_ASYM;
+-
+-		lcl_adv = mii_advertise_flowctrl(phydev->advertising);
+-
+-		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
+-		if (flowctrl & FLOW_CTRL_TX)
+-			val |= MACCFG1_TX_FLOW;
+-		if (flowctrl & FLOW_CTRL_RX)
+-			val |= MACCFG1_RX_FLOW;
+-	}
+-
+-	return val;
+-}
+-
+ /* Called every time the controller might need to be made
+  * aware of new link state.  The PHY code conveys this
+  * information through variables in the phydev structure, and this
+@@ -3120,83 +3086,12 @@ static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
+ static void adjust_link(struct net_device *dev)
+ {
+ 	struct gfar_private *priv = netdev_priv(dev);
+-	struct gfar __iomem *regs = priv->gfargrp[0].regs;
+ 	struct phy_device *phydev = priv->phydev;
+-	int new_state = 0;
+ 
+-	if (test_bit(GFAR_RESETTING, &priv->state))
+-		return;
+-
+-	if (phydev->link) {
+-		u32 tempval1 = gfar_read(&regs->maccfg1);
+-		u32 tempval = gfar_read(&regs->maccfg2);
+-		u32 ecntrl = gfar_read(&regs->ecntrl);
+-
+-		/* Now we make sure that we can be in full duplex mode.
+-		 * If not, we operate in half-duplex mode.
+-		 */
+-		if (phydev->duplex != priv->oldduplex) {
+-			new_state = 1;
+-			if (!(phydev->duplex))
+-				tempval &= ~(MACCFG2_FULL_DUPLEX);
+-			else
+-				tempval |= MACCFG2_FULL_DUPLEX;
+-
+-			priv->oldduplex = phydev->duplex;
+-		}
+-
+-		if (phydev->speed != priv->oldspeed) {
+-			new_state = 1;
+-			switch (phydev->speed) {
+-			case 1000:
+-				tempval =
+-				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
+-
+-				ecntrl &= ~(ECNTRL_R100);
+-				break;
+-			case 100:
+-			case 10:
+-				tempval =
+-				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
+-
+-				/* Reduced mode distinguishes
+-				 * between 10 and 100
+-				 */
+-				if (phydev->speed == SPEED_100)
+-					ecntrl |= ECNTRL_R100;
+-				else
+-					ecntrl &= ~(ECNTRL_R100);
+-				break;
+-			default:
+-				netif_warn(priv, link, dev,
+-					   "Ack!  Speed (%d) is not 10/100/1000!\n",
+-					   phydev->speed);
+-				break;
+-			}
+-
+-			priv->oldspeed = phydev->speed;
+-		}
+-
+-		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
+-		tempval1 |= gfar_get_flowctrl_cfg(priv);
+-
+-		gfar_write(&regs->maccfg1, tempval1);
+-		gfar_write(&regs->maccfg2, tempval);
+-		gfar_write(&regs->ecntrl, ecntrl);
+-
+-		if (!priv->oldlink) {
+-			new_state = 1;
+-			priv->oldlink = 1;
+-		}
+-	} else if (priv->oldlink) {
+-		new_state = 1;
+-		priv->oldlink = 0;
+-		priv->oldspeed = 0;
+-		priv->oldduplex = -1;
+-	}
+-
+-	if (new_state && netif_msg_link(priv))
+-		phy_print_status(phydev);
++	if (unlikely(phydev->link != priv->oldlink ||
++		     phydev->duplex != priv->oldduplex ||
++		     phydev->speed != priv->oldspeed))
++		gfar_update_link_state(priv);
+ }
+ 
+ /* Update the hash table based on the current list of multicast
+@@ -3442,6 +3337,114 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
+ 	return IRQ_HANDLED;
+ }
+ 
++static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
++{
++	struct phy_device *phydev = priv->phydev;
++	u32 val = 0;
++
++	if (!phydev->duplex)
++		return val;
++
++	if (!priv->pause_aneg_en) {
++		if (priv->tx_pause_en)
++			val |= MACCFG1_TX_FLOW;
++		if (priv->rx_pause_en)
++			val |= MACCFG1_RX_FLOW;
++	} else {
++		u16 lcl_adv, rmt_adv;
++		u8 flowctrl;
++		/* get link partner capabilities */
++		rmt_adv = 0;
++		if (phydev->pause)
++			rmt_adv = LPA_PAUSE_CAP;
++		if (phydev->asym_pause)
++			rmt_adv |= LPA_PAUSE_ASYM;
++
++		lcl_adv = mii_advertise_flowctrl(phydev->advertising);
++
++		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
++		if (flowctrl & FLOW_CTRL_TX)
++			val |= MACCFG1_TX_FLOW;
++		if (flowctrl & FLOW_CTRL_RX)
++			val |= MACCFG1_RX_FLOW;
++	}
++
++	return val;
++}
++
++static noinline void gfar_update_link_state(struct gfar_private *priv)
++{
++	struct gfar __iomem *regs = priv->gfargrp[0].regs;
++	struct phy_device *phydev = priv->phydev;
++
++	if (unlikely(test_bit(GFAR_RESETTING, &priv->state)))
++		return;
++
++	if (phydev->link) {
++		u32 tempval1 = gfar_read(&regs->maccfg1);
++		u32 tempval = gfar_read(&regs->maccfg2);
++		u32 ecntrl = gfar_read(&regs->ecntrl);
++
++		if (phydev->duplex != priv->oldduplex) {
++			if (!(phydev->duplex))
++				tempval &= ~(MACCFG2_FULL_DUPLEX);
++			else
++				tempval |= MACCFG2_FULL_DUPLEX;
++
++			priv->oldduplex = phydev->duplex;
++		}
++
++		if (phydev->speed != priv->oldspeed) {
++			switch (phydev->speed) {
++			case 1000:
++				tempval =
++				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
++
++				ecntrl &= ~(ECNTRL_R100);
++				break;
++			case 100:
++			case 10:
++				tempval =
++				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
++
++				/* Reduced mode distinguishes
++				 * between 10 and 100
++				 */
++				if (phydev->speed == SPEED_100)
++					ecntrl |= ECNTRL_R100;
++				else
++					ecntrl &= ~(ECNTRL_R100);
++				break;
++			default:
++				netif_warn(priv, link, priv->ndev,
++					   "Ack!  Speed (%d) is not 10/100/1000!\n",
++					   phydev->speed);
++				break;
++			}
++
++			priv->oldspeed = phydev->speed;
++		}
++
++		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
++		tempval1 |= gfar_get_flowctrl_cfg(priv);
++
++		gfar_write(&regs->maccfg1, tempval1);
++		gfar_write(&regs->maccfg2, tempval);
++		gfar_write(&regs->ecntrl, ecntrl);
++
++		if (!priv->oldlink)
++			priv->oldlink = 1;
++
++	} else if (priv->oldlink) {
++		priv->oldlink = 0;
++		priv->oldspeed = 0;
++		priv->oldduplex = -1;
++	}
++
++	if (netif_msg_link(priv))
++		phy_print_status(phydev);
++}
++
+ static struct of_device_id gfar_match[] =
+ {
+ 	{
+-- 
+1.7.11.7
