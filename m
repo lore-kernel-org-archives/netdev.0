@@ -1,98 +1,223 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt instead
- of an error
-Date: Wed, 30 Apr 2014 15:27:17 +0200
-Message-ID: <5360FA35.7070209@gmail.com>
-References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com> <53601B96.3000608@gmail.com> <20140430114209.GA1907@arch.cereza>
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] bridge: Keep track of
+ ports capable of automatic discovery.
+Date: Wed, 30 Apr 2014 09:47:37 -0400
+Message-ID: <5360FEF9.60802@gmail.com>
+References: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
+	<1398806428-640-3-git-send-email-vyasevic@redhat.com>
+	<20140430101842.GA22962@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:61131 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758989AbaD3N1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 09:27:21 -0400
-Received: by mail-ee0-f43.google.com with SMTP id e51so1370521eek.16
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 06:27:20 -0700 (PDT)
-In-Reply-To: <20140430114209.GA1907@arch.cereza>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com
+To: "Michael S. Tsirkin" <mst@redhat.com>, Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140430101842.GA22962@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 04/30/2014 01:42 PM, Ezequiel Garcia wrote:
-> On Apr 29, Sebastian Hesselbarth wrote:
->> On 04/29/2014 09:49 PM, Ezequiel Garcia wrote:
->>> The following commit:
->>>
->>> commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
->>> Author: Rob Herring <robh@kernel.org>
->>> Date:   Wed Apr 23 17:57:41 2014 -0500
->>>
->>>      of/irq: do irq resolution in platform_get_irq
->>>
->>> changed platform_get_irq() which now returns ENODEV and EPROBE_DEFER,
->>> in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
->>> returns ENODEV, but we currently check only for ENXIO.
->>>
->>> Fix this by looking for a positive integer, which is the proper way of
->>> validating a virtual interrupt number.
->>>
->>> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
->>> ---
->>>   drivers/net/ethernet/marvell/mvmdio.c | 2 +-
->>>   1 file changed, 1 insertion(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
->>> index b161a52..eb2cabf 100644
->>> --- a/drivers/net/ethernet/marvell/mvmdio.c
->>> +++ b/drivers/net/ethernet/marvell/mvmdio.c
->>> @@ -232,7 +232,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
->>>   		clk_prepare_enable(dev->clk);
->>>
->>>   	dev->err_interrupt = platform_get_irq(pdev, 0);
->>> -	if (dev->err_interrupt != -ENXIO) {
->>> +	if (dev->err_interrupt > 0) {
+On 04/30/2014 06:18 AM, Michael S. Tsirkin wrote:
+> On Tue, Apr 29, 2014 at 05:20:23PM -0400, Vlad Yasevich wrote:
+>> By default, ports on the bridge are capable of automatic
+>> discovery of nodes located behind the port.  This is accomplished
+>> via flooding of unknown traffic (BR_FLOOD) and learning the
+>> mac addresses from these packets (BR_LEARNING).
+>> If the above functionality is diabled by turning off these
+>> flags, the port requires static configuration in the form
+>> of static FDB entries to function properly.
 >>
->> Ezequiel,
+>> This patch adds functionality to keep track of all ports
+>> capable of automatic discovery.  This will later be used
+>> to control promiscuity settings.
 >>
->> I cannot find where Rob's mentioned patch set adds -ENODEV, but isn't
->
-> Well, I don't think it's not mentioned in the patch. The path is:
->
-> platform_get_irq -> of_irq_get -> of_irq_parse_one -> EINVAL.
->
-> So it's EINVAL, not ENODEV. But the lesson is to avoid checking for
-> a particular error (except EPROBE_DEFER which is special) because
-> it's a fragile practice.
-
-Ok, thanks for the clarification.
-
->> the semantic for -EPROBE_DEFER: there *should* be an irq, but it is
->> not yet available. That basically means, we should also defer on that
->> error otherwise we would ignore that we have actually been given an irq
->> to work with, right?
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>  net/bridge/br_if.c       | 27 +++++++++++++++++++++++++++
+>>  net/bridge/br_netlink.c  |  3 +++
+>>  net/bridge/br_private.h  |  6 ++++++
+>>  net/bridge/br_sysfs_if.c |  6 +++++-
+>>  4 files changed, 41 insertions(+), 1 deletion(-)
 >>
->
-> Yes, I agree. Did another patch for that, but haven't send it yet.
-> AFAICS, mvebu platforms will never hit the deferred case as the irqchip
-> is the first driver registered (as per drivers/Makefile).
->
-> Not that we should count on that :)
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index 5262b86..7e60c4c 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -85,6 +85,18 @@ void br_port_carrier_check(struct net_bridge_port *p)
+>>  	spin_unlock_bh(&br->lock);
+>>  }
+>>  
+>> +static void nbp_update_port_count(struct net_bridge *br)
+>> +{
+>> +	struct net_bridge_port *p;
+>> +	u32 cnt = 0;
+>> +
+>> +	list_for_each_entry(p, &br->port_list, list) {
+>> +		if (br_is_auto_port(p))
+>> +			cnt++;
+>> +	}
+>> +	br->auto_cnt = cnt;
+>> +}
+>> +
+>>  static void release_nbp(struct kobject *kobj)
+>>  {
+>>  	struct net_bridge_port *p
+>> @@ -146,6 +158,8 @@ static void del_nbp(struct net_bridge_port *p)
+>>  
+>>  	list_del_rcu(&p->list);
+>>  
+>> +	nbp_update_port_count(br);
+>> +
+>>  	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+>>  
+>>  	netdev_rx_handler_unregister(dev);
+>> @@ -384,6 +398,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+>>  
+>>  	list_add_rcu(&p->list, &br->port_list);
+>>  
+>> +	nbp_update_port_count(br);
+>> +
+>>  	netdev_update_features(br->dev);
+>>  
+>>  	if (br->dev->needed_headroom < dev->needed_headroom)
+>> @@ -455,3 +471,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+>>  
+>>  	return 0;
+>>  }
+>> +
+>> +void br_port_flags_change(struct net_bridge_port *p, unsigned long old_flags)
+>> +{
+>> +	struct net_bridge *br = p->br;
+>> +	unsigned long mask = old_flags ^ p->flags;
+>> +
+>> +	if (!(mask & BR_AUTO_MASK))
+>> +		return;
+>> +
+>> +	nbp_update_port_count(br);
+>> +}
+>> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+>> index e74b6d53..01382b9 100644
+>> --- a/net/bridge/br_netlink.c
+>> +++ b/net/bridge/br_netlink.c
+>> @@ -328,6 +328,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+>>  static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>>  {
+>>  	int err;
+>> +	unsigned long old_flags = p->flags;
+>>  
+>>  	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+>>  	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+>> @@ -353,6 +354,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>>  		if (err)
+>>  			return err;
+>>  	}
+>> +
+>> +	br_port_flags_change(p, old_flags ^ p->flags);
+>>  	return 0;
+>>  }
+>>  
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 06811d7..db714a1 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -174,6 +174,7 @@ struct net_bridge_port
+>>  #define BR_ADMIN_COST		0x00000010
+>>  #define BR_LEARNING		0x00000020
+>>  #define BR_FLOOD		0x00000040
+>> +#define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
+>>  
+>>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+>>  	struct bridge_mcast_query	ip4_query;
+>> @@ -198,6 +199,8 @@ struct net_bridge_port
+>>  #endif
+>>  };
+>>  
+>> +#define br_is_auto_port(p) (((p)->flags & BR_AUTO_MASK) == BR_AUTO_MASK)
+>> +
+> 
+> I think you
+> really want ((p)->flags & BR_AUTO_MASK) instead without
+>  == BR_AUTO_MASK.
+> 
+> For example if learning is off but flood is on, things work
+> (slowly) automatically without configuring static entries.
+> 
+> OTOH if flood is off but learning is on, a bunch of packets
+> might get dropped but eventually you might learn the
+> mac and then networking will start working.
+> 
 
-It doesn't hit it _now_ because of the above. I read about proper
-platform_device for early devices here and there over and over
-again, so I guess some day it may become an issue.
+Yes, you are completely correct.  I flipped the meaning of the
+macro, but forgot to account correctly for it.
 
-As we know about the potential -EPROBE_DEFER now, I suggest to
-deal with it now, too.
+static == not flooding && not learning.
+auto != static.
 
-Can you resend this as v2 with the other patch you mentioned
-squashed in?
+The reason I count "auto" ports is so I only have to keep 1 counter
+around.  If I counted static, I'd also have to count all ports as well.
+Not much of a difference, but it's one less counter.
 
-Sebastian
+Fill fix.
+Thanks
+-vlad
+
+> 
+>>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+>>  
+>>  static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
+>> @@ -290,6 +293,7 @@ struct net_bridge
+>>  	struct timer_list		topology_change_timer;
+>>  	struct timer_list		gc_timer;
+>>  	struct kobject			*ifobj;
+>> +	u32				auto_cnt;
+>>  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+>>  	u8				vlan_enabled;
+>>  	struct net_port_vlans __rcu	*vlan_info;
+>> @@ -415,6 +419,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev);
+>>  int br_min_mtu(const struct net_bridge *br);
+>>  netdev_features_t br_features_recompute(struct net_bridge *br,
+>>  					netdev_features_t features);
+>> +void br_port_flags_change(struct net_bridge_port *port,
+>> +			  unsigned long old_flags);
+>>  
+>>  /* br_input.c */
+>>  int br_handle_frame_finish(struct sk_buff *skb);
+>> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+>> index 112a25e..58c26e3 100644
+>> --- a/net/bridge/br_sysfs_if.c
+>> +++ b/net/bridge/br_sysfs_if.c
+>> @@ -49,7 +49,10 @@ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
+>>  static int store_flag(struct net_bridge_port *p, unsigned long v,
+>>  		     unsigned long mask)
+>>  {
+>> -	unsigned long flags = p->flags;
+>> +	unsigned long flags;
+>> +	unsigned long old_flags;
+>> +
+>> +	old_flags = flags = p->flags;
+>>  
+>>  	if (v)
+>>  		flags |= mask;
+>> @@ -58,6 +61,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
+>>  
+>>  	if (flags != p->flags) {
+>>  		p->flags = flags;
+>> +		br_port_flags_change(p, old_flags ^ flags);
+>>  		br_ifinfo_notify(RTM_NEWLINK, p);
+>>  	}
+>>  	return 0;
+>> -- 
+>> 1.9.0
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
