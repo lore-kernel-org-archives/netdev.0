@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gianfar: Avoid unnecessary reg accesses in
- adjust_link()
-Date: Wed, 30 Apr 2014 16:16:51 -0400 (EDT)
-Message-ID: <20140430.161651.1135923239405605.davem@davemloft.net>
-References: <1398857241-20137-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: [PATCH V2 net 1/1] hyperv: Properly handle checksum offload
+Date: Wed, 30 Apr 2014 16:17:16 -0400 (EDT)
+Message-ID: <20140430.161716.924697588530649976.davem@davemloft.net>
+References: <1398884305-21618-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: claudiu.manoil@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43663 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422770AbaD3UQw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:16:52 -0400
-In-Reply-To: <1398857241-20137-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1398884305-21618-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Wed, 30 Apr 2014 14:27:21 +0300
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Wed, 30 Apr 2014 11:58:25 -0700
 
-> For phy devices that don't issue interrupts upon link
-> state changes, phylib polls the link state resulting in
-> repeated calls to adjust_link(), even if the link state
-> didn't change.  As a result, some mac registers are
-> repeatedly read and written with the same values, which
-> is not ok.
+> Do checksum offload only if the client of the driver wants checksum to be
+> offloaded.
 > 
-> To fix this, adjust_link() has been refactored to check
-> first whether the link state has changed and to take action
-> only if needed, updating mac registers and local state
-> variables.  The 'new_state' local flag, set if one of the
-> link params changed (link, speed or duplex), has been
-> rendered useless and removed by this refactoring.
+> In V1 version of this patch, I  addressed comments from
+> Stephen Hemminger <stephen@networkplumber.org> and
+> Eric Dumazet <eric.dumazet@gmail.com>.
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> In this version of the patch I have addressed comments from
+> David Miller.
+> 
+> This patch fixes a bug that is exposed in gateway scenarios.
+> 
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Applied.
+Applied and queued up for -stable, t hanks.
