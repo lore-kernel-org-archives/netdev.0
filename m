@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] Altera TSE: Fix DMA secriptor length
- initialization
-Date: Wed, 30 Apr 2014 16:14:33 -0400 (EDT)
-Message-ID: <20140430.161433.1833281012752521346.davem@davemloft.net>
-References: <1398720181-19450-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH] cxgb4: Decode PCIe Gen3 link speed
+Date: Wed, 30 Apr 2014 16:14:47 -0400 (EDT)
+Message-ID: <20140430.161447.730381919775816604.davem@davemloft.net>
+References: <1398731780-29236-1-git-send-email-roland@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vbridgers2013@gmail.com, netdev@vger.kernel.org,
-	nios2-dev@lists.rocketboards.org
-To: tobias.klauser@gmail.com
+Cc: dm@chelsio.com, netdev@vger.kernel.org, roland@purestorage.com
+To: roland@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43616 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43619 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965044AbaD3UOf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:14:35 -0400
-In-Reply-To: <1398720181-19450-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S965044AbaD3UOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:14:49 -0400
+In-Reply-To: <1398731780-29236-1-git-send-email-roland@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tobias.klauser@gmail.com>
-Date: Mon, 28 Apr 2014 23:23:01 +0200
+From: Roland Dreier <roland@kernel.org>
+Date: Mon, 28 Apr 2014 17:36:20 -0700
 
-> sgdma_descrip is a function name as well as the name of a struct. In
-> sgdma_initialize(), we should initialize the descriptor length field
-> with the actual length of a descriptor not with the size of the
-> function. In order to prevent such things from happening in the future,
-> rename the function to sgdma_setup_descrip().
+> From: Roland Dreier <roland@purestorage.com>
 > 
-> Found by sparse which yields the following warning:
+> Add handling for " 8 GT/s" in print_port_info().
 > 
-> drivers/net/ethernet/altera/altera_sgdma.c:74:30: warning: expression using sizeof on a function
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Signed-off-by: Roland Dreier <roland@purestorage.com>
 
 Applied.
