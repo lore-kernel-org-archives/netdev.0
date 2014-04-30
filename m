@@ -1,41 +1,38 @@
-From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [PATCH V7 net-next 7/7] xen-net{back,front}: Document multi-queue
- feature in netif.h
-Date: Wed, 30 Apr 2014 17:47:48 +0100
-Message-ID: <53612934.9090504@citrix.com>
-References: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com> <1398778035-26233-8-git-send-email-andrew.bennieston@citrix.com> <20140430145109.GD19082@zion.uk.xensource.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH 01/15] net: qdisc: use rcu prefix and silence sparse
+ warnings
+Date: Wed, 30 Apr 2014 10:00:28 -0700
+Message-ID: <1398877228.29914.177.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140430163250.9021.21199.stgit@nitbit.x32>
+	 <20140430163504.9021.12828.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
-	<ian.campbell@citrix.com>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:8407 "EHLO SMTP02.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422664AbaD3Qru (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 12:47:50 -0400
-In-Reply-To: <20140430145109.GD19082@zion.uk.xensource.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:40677 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752425AbaD3RAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 13:00:39 -0400
+Received: by mail-pd0-f176.google.com with SMTP id y10so1938858pdj.35
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 10:00:35 -0700 (PDT)
+In-Reply-To: <20140430163504.9021.12828.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/04/14 15:51, Wei Liu wrote:
-> On Tue, Apr 29, 2014 at 02:27:15PM +0100, Andrew J. Bennieston wrote:
->> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
->>
->> Document the multi-queue feature in terms of XenStore keys to be written
->> by the backend and by the frontend.
->>
->> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
->
-> I presume you will use V3 posted on xen-devel.
->
-> Wei.
->
-Indeed. I didn't want to have to immediately post a V8 of this, 
-containing only the header doc. changes, but the intention is to use 
-exactly the same text as the patch submitted to xen-devel.
+On Wed, 2014-04-30 at 09:35 -0700, John Fastabend wrote:
 
-Andrew
+>  static inline struct Qdisc *qdisc_root(const struct Qdisc *qdisc)
+>  {
+> -	return qdisc->dev_queue->qdisc;
+> +	struct Qdisc *q = rcu_dereference(qdisc->dev_queue->qdisc);
+> +
+> +	return q;
+>  }
+>  
+
+Hmm... I am pretty sure this can be called without rcu_read_lock()
+
+rcu_dereference_rtnl() would be more appropriate here I think.
