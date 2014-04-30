@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sxgbe: Added rxqueue enable function
-Date: Wed, 30 Apr 2014 16:14:58 -0400 (EDT)
-Message-ID: <20140430.161458.93040520093124917.davem@davemloft.net>
-References: <001c01cf6361$a0df9ae0$e29ed0a0$%an@samsung.com>
+Subject: Re: [PATCH net] tcp: increment retransmit counters in tlp and fast
+ open
+Date: Wed, 30 Apr 2014 16:15:11 -0400 (EDT)
+Message-ID: <20140430.161511.665163855966614835.davem@davemloft.net>
+References: <1398747629.29914.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	ks.giri@samsung.com, vipul.pandya@samsung.com
-To: bh74.an@samsung.com
+Cc: netdev@vger.kernel.org, nanditad@google.com, ycheng@google.com,
+	ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43628 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43634 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965044AbaD3UPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:15:00 -0400
-In-Reply-To: <001c01cf6361$a0df9ae0$e29ed0a0$%an@samsung.com>
+	with ESMTP id S1946025AbaD3UPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:15:12 -0400
+In-Reply-To: <1398747629.29914.143.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
-Date: Tue, 29 Apr 2014 13:15:17 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 28 Apr 2014 22:00:29 -0700
 
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> This patch adds rxqueue enable function according to number of rxqueue
-> and adds rxqueue disable function for removing.
+> Both TLP and Fast Open call __tcp_retransmit_skb() instead of
+> tcp_retransmit_skb() to avoid changing tp->retrans_out.
 > 
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
+> This has the side effect of missing SNMP counters increments as well
+> as tcp_info tcpi_total_retrans updates.
+> 
+> Fix this by moving the stats increments of into __tcp_retransmit_skb()
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
