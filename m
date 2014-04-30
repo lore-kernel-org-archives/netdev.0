@@ -1,108 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
- guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Wed, 30 Apr 2014 08:24:06 -0700
-Message-ID: <1398871446.29914.163.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <395225650.20140430124506@eikelenboom.it>
+From: =?UTF-8?q?St=C3=A9phane=20Graber?= <stgraber-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] net: Allow tc changes in user namespaces
+Date: Wed, 30 Apr 2014 11:25:43 -0400
+Message-ID: <1398871543-8435-1-git-send-email-stgraber@ubuntu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:63180 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933552AbaD3PYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 11:24:15 -0400
-Received: by mail-pa0-f47.google.com with SMTP id fa1so2139982pad.6
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 08:24:10 -0700 (PDT)
-In-Reply-To: <395225650.20140430124506@eikelenboom.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-04-30 at 12:45 +0200, Sander Eikelenboom wrote:
-> Hi Zoltan,
-> 
-> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
-> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
-> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
-> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
-> 
-> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
-> 
-> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
-> I don't see this with clients that upload large files from external sources.
-> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
-> 
-> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
-> 
-> Since these commits break bisectabillity:
->     - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
->     - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
-> i stopped bisecting at this point.
-> 
-> The upside is .. it's 100% reproduceable :-)
-> 
-> On a sidenote:
->     Although DaveM seems to prefer patches, it would probably be nice to have larger patchsets like this one in a git tree somewhere,
->     for more easy isolated applying to stable kernels, that would improve testing and bisecting things.
->     For example the kernel xen.git tree makes it very easy to pull the devel branches to current stable .. 
->     and even test those *isolated* and *before* the merge window, that greatly reduces the effort of testing and if anything is wrong .. in bisecting things.
-> 
->     Another point would be: what *correctness* testing is actually done on the xen-net* patches ?
->     As i suspect this is again about fragmented packets .. that doesn't seem to be included in any test case while it actually seems to be a case which is hard to get right...
-> 
-> --
-> Sander
-> 
-> The bisection log:
-> git bisect start
-> # bad: [cd6362befe4cc7bf589a5236d2a780af2d47bcc9] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
-> git bisect bad cd6362befe4cc7bf589a5236d2a780af2d47bcc9
-> # good: [df69491b7d1550137507a7eb5f2fc5dce0c1e534] Merge branch 'xen-netback'
-> git bisect good df69491b7d1550137507a7eb5f2fc5dce0c1e534
-> # good: [c12e69c6aaf785fd307d05cb6f36ca0e7577ead7] Merge tag 'staging-3.15-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging
-> git bisect good c12e69c6aaf785fd307d05cb6f36ca0e7577ead7
-> # bad: [49c0ca17ee8dd3530f688052d4eb2ae6d3e55119] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next into for-davem
-> git bisect bad 49c0ca17ee8dd3530f688052d4eb2ae6d3e55119
-> # good: [370c5acef0326db3e8c10d42b941289c9c887a4a] Merge branch 'for-upstream' of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next
-> git bisect good 370c5acef0326db3e8c10d42b941289c9c887a4a
-> # good: [ec5709403e6893acb4f7ca40514ebd29c3116836] net/mlx4_en: Use union for BlueFlame WQE
-> git bisect good ec5709403e6893acb4f7ca40514ebd29c3116836
-> # bad: [69bfb110fd58185df99a7dbe92a14c0d7ada764f] i40e: cleanup strings
-> git bisect bad 69bfb110fd58185df99a7dbe92a14c0d7ada764f
-> # bad: [aeb12c5ef7cb08d879af22fc0a56cab9e70689ea] gianfar: Separate out the Tx interrupt handling (Tx NAPI)
-> git bisect bad aeb12c5ef7cb08d879af22fc0a56cab9e70689ea
-> # bad: [389400428953bb002b173fa07d16d7a6f120843f] Merge tag 'rxrpc-devel-20140304' of git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs
-> git bisect bad 389400428953bb002b173fa07d16d7a6f120843f
-> # good: [5a8a1ab74dce1b50fe27745df477c502aec987eb] be2net: do external loopback test only when it is requested
-> git bisect good 5a8a1ab74dce1b50fe27745df477c502aec987eb
-> # skip: [1bb332af4cd889e4b64dacbf4a793ceb3a70445d] xen-netback: Add stat counters for zerocopy
-> git bisect skip 1bb332af4cd889e4b64dacbf4a793ceb3a70445d
-> # skip: [e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d] Merge branch '6lowpan'
-> git bisect skip e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d
-> # good: [31c70d5956fc3d1abf83e9ab5e1d8237dea59498] l2tp: keep original skb ownership
-> git bisect good 31c70d5956fc3d1abf83e9ab5e1d8237dea59498
-> 
-
-This looks like skb->data_len is not properly set 
-
-(Small note : 
-alloc_page(GFP_ATOMIC|__GFP_COLD) should be a plain
-alloc_page(GFP_ATOMIC) : We prefer a page that has been used recently to
-avoid cache misses if possible.
-)
-
-This probably confuses skb_try_coalesce()
-
-My guess is xenvif_get_requests() forgets to init nskb->len /
-nskb->data_len for the skb that is attached to frag_list
-
-So the "skb->data_len += nskb->len;" at line 1353 is probably a nop.
+VGhpcyBzd2l0Y2hlcyBhIGZldyByZW1haW5pbmcgY2FwYWJsZShDQVBfTkVUX0FETUlOKSB0byBu
+c19jYXBhYmxlIHNvCnRoYXQgcm9vdCBpbiBhIHVzZXIgbmFtZXNwYWNlIG1heSBzZXQgdGMgcnVs
+ZXMgaW5zaWRlIHRoYXQgbmFtZXNwYWNlLgoKU2lnbmVkLW9mZi1ieTogU3TDqXBoYW5lIEdyYWJl
+ciA8c3RncmFiZXJAdWJ1bnR1LmNvbT4KQWNrZWQtYnk6IFNlcmdlIEUuIEhhbGx5biA8c2VyZ2Uu
+aGFsbHluQHVidW50dS5jb20+CkNjOiAiRXJpYyBXLiBCaWVkZXJtYW4iIDxlYmllZGVybUB4bWlz
+c2lvbi5jb20+CkNjOiBKYW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPgpDYzogIkRh
+dmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+CgotLS0KIG5ldC9zY2hlZC9jbHNf
+YXBpLmMgfCAzICsrLQogbmV0L3NjaGVkL3NjaF9hcGkuYyB8IDggKysrKystLS0KIDIgZmlsZXMg
+Y2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25l
+dC9zY2hlZC9jbHNfYXBpLmMgYi9uZXQvc2NoZWQvY2xzX2FwaS5jCmluZGV4IDhlMTE4YWYuLjRj
+MzVmNGEgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9jbHNfYXBpLmMKKysrIGIvbmV0L3NjaGVkL2Ns
+c19hcGkuYwpAQCAtMTM4LDcgKzEzOCw4IEBAIHN0YXRpYyBpbnQgdGNfY3RsX3RmaWx0ZXIoc3Ry
+dWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCWludCBlcnI7CiAJaW50IHRw
+X2NyZWF0ZWQgPSAwOwogCi0JaWYgKChuLT5ubG1zZ190eXBlICE9IFJUTV9HRVRURklMVEVSKSAm
+JiAhY2FwYWJsZShDQVBfTkVUX0FETUlOKSkKKwlpZiAoKG4tPm5sbXNnX3R5cGUgIT0gUlRNX0dF
+VFRGSUxURVIpICYmCisJICAgICFuc19jYXBhYmxlKG5ldC0+dXNlcl9ucywgQ0FQX05FVF9BRE1J
+TikpCiAJCXJldHVybiAtRVBFUk07CiAKIHJlcGxheToKZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9z
+Y2hfYXBpLmMgYi9uZXQvc2NoZWQvc2NoX2FwaS5jCmluZGV4IGNkODE1MDUuLmZjOTBiZGUgMTAw
+NjQ0Ci0tLSBhL25ldC9zY2hlZC9zY2hfYXBpLmMKKysrIGIvbmV0L3NjaGVkL3NjaF9hcGkuYwpA
+QCAtMTA3OSw3ICsxMDc5LDggQEAgc3RhdGljIGludCB0Y19nZXRfcWRpc2Moc3RydWN0IHNrX2J1
+ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCXN0cnVjdCBRZGlzYyAqcCA9IE5VTEw7CiAJ
+aW50IGVycjsKIAotCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUUURJU0MpICYmICFjYXBh
+YmxlKENBUF9ORVRfQURNSU4pKQorCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUUURJU0Mp
+ICYmCisJICAgICFuc19jYXBhYmxlKG5ldC0+dXNlcl9ucywgQ0FQX05FVF9BRE1JTikpCiAJCXJl
+dHVybiAtRVBFUk07CiAKIAllcnIgPSBubG1zZ19wYXJzZShuLCBzaXplb2YoKnRjbSksIHRjYSwg
+VENBX01BWCwgTlVMTCk7CkBAIC0xMTQ2LDcgKzExNDcsNyBAQCBzdGF0aWMgaW50IHRjX21vZGlm
+eV9xZGlzYyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgbmxtc2doZHIgKm4pCiAJc3RydWN0
+IFFkaXNjICpxLCAqcDsKIAlpbnQgZXJyOwogCi0JaWYgKCFjYXBhYmxlKENBUF9ORVRfQURNSU4p
+KQorCWlmICghbnNfY2FwYWJsZShuZXQtPnVzZXJfbnMsIENBUF9ORVRfQURNSU4pKQogCQlyZXR1
+cm4gLUVQRVJNOwogCiByZXBsYXk6CkBAIC0xNDg2LDcgKzE0ODcsOCBAQCBzdGF0aWMgaW50IHRj
+X2N0bF90Y2xhc3Moc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCXUz
+MiBxaWQ7CiAJaW50IGVycjsKIAotCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUVENMQVNT
+KSAmJiAhY2FwYWJsZShDQVBfTkVUX0FETUlOKSkKKwlpZiAoKG4tPm5sbXNnX3R5cGUgIT0gUlRN
+X0dFVFRDTEFTUykgJiYKKwkgICAgIW5zX2NhcGFibGUobmV0LT51c2VyX25zLCBDQVBfTkVUX0FE
+TUlOKSkKIAkJcmV0dXJuIC1FUEVSTTsKIAogCWVyciA9IG5sbXNnX3BhcnNlKG4sIHNpemVvZigq
+dGNtKSwgdGNhLCBUQ0FfTUFYLCBOVUxMKTsKLS0gCjEuOS4xCgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250
+YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3Vu
+ZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
