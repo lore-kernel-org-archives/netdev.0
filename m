@@ -1,50 +1,60 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH V7 net-next 5/7] xen-netfront: Factor queue-specific
- data into queue struct.
-Date: Wed, 30 Apr 2014 15:59:18 +0100
-Message-ID: <53610FC6.8000409@citrix.com>
-References: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com>	<1398778035-26233-6-git-send-email-andrew.bennieston@citrix.com> <20140430145119.GE19082@zion.uk.xensource.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH V2 net-next 1/1] hyperv: Properly handle checksum offload
+Date: Wed, 30 Apr 2014 09:05:21 -0700
+Message-ID: <1398873921-20955-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>,
-	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
-	<paul.durrant@citrix.com>, <david.vrabel@citrix.com>,
-	<zoltan.kiss@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<davem@davemloft.net>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53615 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759086AbaD3O7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 10:59:33 -0400
-In-Reply-To: <20140430145119.GE19082@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stable@kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 30/04/14 15:51, Wei Liu wrote:
-> On Tue, Apr 29, 2014 at 02:27:13PM +0100, Andrew J. Bennieston wrote:
->> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
->>
->> In preparation for multi-queue support in xen-netfront, move the
->> queue-specific data from struct netfront_info to struct netfront_queue,
->> and update the rest of the code to use this.
->>
->> Also adds loops over queues where appropriate, even though only one is
->> configured at this point, and uses alloc_etherdev_mq() and the
->> corresponding multi-queue netif wake/start/stop functions in preparation
->> for multiple active queues.
->>
->> Finally, implements a trivial queue selection function suitable for
->> ndo_select_queue, which simply returns 0, selecting the first (and
->> only) queue.
->>
->> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
->> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
-> 
-> Not an official netfront maintainer but FWIW this looks correct to me.
+Do checksum offload only if the client of the driver wants checksum to be
+offloaded.
 
-FYI, the frontend (including netfront) driver maintainers are the
-general Xen maintainers; so myself, Boris and Konrad.
+In V1 version of this patch, I  addressed comments from
+Stephen Hemminger <stephen@networkplumber.org> and
+Eric Dumazet <eric.dumazet@gmail.com>.
 
-David
+In this version of the patch I have addressed comments from
+David Miller.
+
+This patch fixes a bug that is exposed in gateway scenarios.
+
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: stable@kernel.org
+---
+ drivers/net/hyperv/netvsc_drv.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 939e3af..64c7816 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -467,6 +467,10 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	if (skb_is_gso(skb))
+ 		goto do_lso;
+ 
++	if ((skb->ip_summed == CHECKSUM_NONE) ||
++	    (skb->ip_summed == CHECKSUM_UNNECESSARY))
++		goto do_send;
++
+ 	rndis_msg_size += NDIS_CSUM_PPI_SIZE;
+ 	ppi = init_ppi_data(rndis_msg, NDIS_CSUM_PPI_SIZE,
+ 			    TCPIP_CHKSUM_PKTINFO);
+-- 
+1.7.4.1
