@@ -1,67 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: via-rhine: fix compiler warning
-Date: Wed, 30 Apr 2014 09:35:28 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
-References: <1398792971-10379-1-git-send-email-mq@suse.cz>
-	<063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
- <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net
+ when VIRTIO_F_ANY_LAYOUT is true
+Date: Wed, 30 Apr 2014 17:38:07 +0800
+Message-ID: <5360C47F.9090609@redhat.com>
+References: <535F824A.5060804@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jan Moskyto Matejka <mq@suse.cz>, Roger Luethi <rl@hellgate.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Alexey Charkov' <alchark@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, linville@tuxdriver.com,
+	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au, mst@redhat.com,
+	qinchuanyu@huawei.com, liuyongan@huawei.com,
+	zhaoshenglong@huawei.com
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4602 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751983AbaD3Jia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 05:38:30 -0400
+In-Reply-To: <535F824A.5060804@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGV5IENoYXJrb3YgW21haWx0bzphbGNoYXJrQGdtYWlsLmNvbV0NCiANCj4gMjAx
-NC0wNC0zMCAxMjo0OSBHTVQrMDQ6MDAgRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFi
-LmNvbT46DQo+ID4gRnJvbTogSmFuIE1vc2t5dG8gTWF0ZWprYQ0KPiA+PiBGaXhlZCBkaWZmZXJl
-bnQgc2l6ZSBjYXN0IHdhcm5pbmc6DQo+ID4+DQo+ID4+ICAgICAgIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L3ZpYS92aWEtcmhpbmUuYzogSW4gZnVuY3Rpb24gcmhpbmVfaW5pdF9vbmVfcGxhdGZvcm06
-DQo+ID4+ICAgICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtcmhpbmUuYzoxMTMyOjEz
-OiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBpbnRlZ2VyIG9mIGRpZmZlcmVudA0KPiA+
-PiBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQo+ID4+ICAgICAgICAgcmV2aXNpb24gPSAo
-dTMyKW1hdGNoLT5kYXRhOw0KPiA+PiAgICAgICAgICAgICAgICAgICAgXg0KPiA+Pg0KPiA+PiBU
-aGF0IGNvZGUgd2FzIGFkZGVkIGluIGNvbW1pdCAyZDI4Mzg2MmRjNjJkYWVhZDlkYjBkYzg5Y2Qw
-ZDAzNTFlOTFmNzY1DQo+ID4+ICgibmV0OiB2aWEtcmhpbmU6IGFkZCBPRiBidXMgYmluZGluZyIp
-Lg0KPiA+IC4uLg0KPiA+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3Zp
-YS1yaGluZS5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3ZpYS1yaGluZS5jDQo+ID4+IGlu
-ZGV4IDRmYTkyMDEuLjc2ZDE4ZTAgMTAwNjQ0DQo+ID4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L3ZpYS92aWEtcmhpbmUuYw0KPiA+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC92aWEv
-dmlhLXJoaW5lLmMNCj4gPj4gQEAgLTI4OCw3ICsyODgsNyBAQCBNT0RVTEVfREVWSUNFX1RBQkxF
-KHBjaSwgcmhpbmVfcGNpX3RibCk7DQo+ID4+ICAgKiAoZm9yIHF1aXJrcyBldGMuKQ0KPiA+PiAg
-ICovDQo+ID4+ICBzdGF0aWMgc3RydWN0IG9mX2RldmljZV9pZCByaGluZV9vZl90YmxbXSA9IHsN
-Cj4gPj4gLSAgICAgeyAuY29tcGF0aWJsZSA9ICJ2aWEsdnQ4NTAwLXJoaW5lIiwgLmRhdGEgPSAo
-dm9pZCAqKTB4ODQgfSwNCj4gPj4gKyAgICAgeyAuY29tcGF0aWJsZSA9ICJ2aWEsdnQ4NTAwLXJo
-aW5lIiwgLmRhdGEgPSAodTMyIFtdKSB7IDB4ODQgfSB9LA0KPiA+PiAgICAgICB7IH0gICAgIC8q
-IHRlcm1pbmF0ZSBsaXN0ICovDQo+ID4+ICB9Ow0KPiA+PiAgTU9EVUxFX0RFVklDRV9UQUJMRShv
-ZiwgcmhpbmVfb2ZfdGJsKTsNCj4gPj4gQEAgLTExMjksNyArMTEyOSw3IEBAIHN0YXRpYyBpbnQg
-cmhpbmVfaW5pdF9vbmVfcGxhdGZvcm0oc3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCj4g
-Pj4gICAgICAgaWYgKCFpcnEpDQo+ID4+ICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7DQo+
-ID4+DQo+ID4+IC0gICAgIHJldmlzaW9uID0gKHUzMiltYXRjaC0+ZGF0YTsNCj4gPj4gKyAgICAg
-cmV2aXNpb24gPSAqKCh1MzIgKikgbWF0Y2gtPmRhdGEpOw0KPiA+PiAgICAgICBpZiAoIXJldmlz
-aW9uKQ0KPiA+PiAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPiA+DQo+ID4gQm90aCB0
-aG9zZSBjYXN0cyBsb29rIGhvcnJpZC4NCj4gPiBJJ20gbm90IGVudGlyZWx5IGNvbnZpbmNlZCB0
-aGF0IHRoZSBmaXJzdCBpcyB2YWxpZCBDIC0gSXQgd291bGQgaGF2ZSB0byBiZQ0KPiA+IHNvbWV0
-aGluZyBzcGVjaWZpYyB0byBDOTkgaW5pdGlhbGlzZXJzLg0KPiA+IENhc3RzIGxpa2UgKih1MzIg
-Kilmb28gYXJlIGFsc28gbGlrZWx5IHRvIGJlIGJ1Z3MgKGVzcC4gb24gQkUgc3lzdGVtcykNCj4g
-PiBzbyB0aGVtc2VsdmVzIHN0YXJ0IHJpbmdpbmcgYWxhcm0gYmVsbHMuDQo+ID4NCj4gPiBTbyB3
-aHkgbm90IGp1c3Q6DQo+ID4gICAgICAgICByZXZpc2lvbiA9ICh1bnNpZ25lZCBsb25nKW1hdGNo
-LT5kYXRhOw0KPiA+IGFuZCBhZGQgYSBjb21tZW50IHRoYXQgdGhlIDB4ODQgaXMgdGhlIHJldmlz
-aW9uIC0gI2RlZmluZSA/Pw0KPiANCj4gVGhlcmUgaXMgbm8gcGFydGljdWxhciByZWFzb24gd2h5
-IGl0IHNob3VsZCBiZSB1MzIgbm93IC0gdGhpcyBpcyBhDQo+IGxlZnRvdmVyIGZyb20gdGhlIHBy
-ZXZpb3VzIGl0ZXJhdGlvbiBvZiBjb2RlIHdoZXJlIHJldmlzaW9uIHdhcyBhDQo+IHNlcGFyYXRl
-IHByb3BlcnR5IGluIERUIChzaXplZCB1MzIpLiBJdCBhY3R1YWxseSBtaXJyb3JzIHRoZQ0KPiBy
-ZXNwZWN0aXZlIGZpZWxkIGluIHN0cnVjdCBwY2lfZGV2LCB3aGljaCBpcyB1OCAtIGRvbid0IHNl
-ZSBhbnkgaXNzdWUNCj4gZGVmaW5pbmcgaXQgYXMgdW5zaWduZWQgbG9uZyAoYW5kIGFsc28gY2hh
-bmdpbmcgdGhlIGRlZmluaXRpb24gaW4NCj4gc3RydWN0IHJoaW5lX3ByaXZhdGUpLg0KDQpJJ2Qg
-Z3Vlc3MgdGhhdCB0aGUgZmllbGQgaW4gJ3N0cnVjdCByaGluZV9wcml2YXRlJyBvbmx5IG5lZWRz
-IHRvDQpiZSBsYXJnZSBlbm91Z2ggZm9yIHRoZSBkb21haW4gb2YgdGhlIHZhbHVlcyB0aGF0IGFy
-ZSBhY3R1YWxseQ0Kc2F2ZWQgaW4gaXQuDQpJZiB0aGVzZSBhcmUgdmVyc2lvbnMgKG9mIHNvbWV0
-aGluZykgdGhlbiBhIGZpeGVkIHNpemUgdHlwZQ0KKG9yIGp1c3QgaW50KSBpcyBwcm9iYWJseSBt
-b3JlIGFwcHJvcHJpYXRlLg0KDQoJRGF2aWQNCg0K
+On 04/29/2014 06:43 PM, Zhangjie (HZ) wrote:
+> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
+> ("virtio-net: put virtio-net header inline with data"). TCP packages have
+> enough room to put virtio-net header in, but UDP packages do not. By
+> setting dev->needed_headroom for virtio-net device, UDP packages could have
+> enough room.
+>
+> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
+> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
+> The Macro is defined as follows:
+> #define LL_RESERVED_SPACE(dev) \
+>      ((((dev)->hard_header_len+(dev)->needed_headroom)\
+>      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+> By default, for UDP packages, after skb is allocated, only 16 bytes
+> reserved. And 2 bytes remained after mac header is set. That is not enough
+> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
+> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
+> Then there is enough room for UDP packages to put the header in.
+>
+> test result list as below:
+> guest and host: suse11sp3, netperf, intel 2.4GHz
+> +-------+---------+---------+---------+---------+
+> |       |   old             |   new             |
+> +-------+---------+---------+---------+---------+
+> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
+> | 64    |  0.57   | 692232  |  0.61   | 742420  |
+> | 256   |  1.60   | 686860  |  1.71   | 733331  |
+> | 512   |  2.92   | 674576  |  3.07   | 710446  |
+> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
+> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
+> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
+> +-------+---------+---------+---------+---------+
+>
+> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
+> ---
+>  drivers/net/virtio_net.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8a852b5..b852bb3 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>
+> +	if (vi->any_header_sg) {
+> +		if (vi->mergeable_rx_bufs)
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +		else
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
+> +	}
+> +
+>  	/* Use single tx/rx queue pair as default */
+>  	vi->curr_queue_pairs = 1;
+>  	vi->max_queue_pairs = max_queue_pairs;
+
+Acked-by: Jason Wang <jasowang@redhat.com>
