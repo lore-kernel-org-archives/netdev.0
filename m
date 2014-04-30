@@ -1,100 +1,97 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Question regarding bond delete notifications
-Date: Wed, 30 Apr 2014 08:31:36 +0200
-Message-ID: <20140430063136.GA2917@minipsycho.orion>
-References: <535CA0BB.1010504@cumulusnetworks.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net when VIRTIO_F_ANY_LAYOUT is true
+Date: Wed, 30 Apr 2014 11:14:10 +0930
+Message-ID: <87iopr4mmt.fsf@rustcorp.com.au>
+References: <535F824A.5060804@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-	David Miller <davem@davemloft.net>, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain
+Cc: davem@davemloft.net, linville@tuxdriver.com,
+	jeffrey.t.kirsher@intel.com, mst@redhat.com, jasowang@redhat.com,
+	qinchuanyu@huawei.com, liuyongan@huawei.com, zhangjie14@huawei.com,
+	zhaoshenglong@huawei.com
+To: "Zhangjie \(HZ\)" <zhangjie14@huawei.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:41371 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532AbaD3Gbm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 02:31:42 -0400
-Received: by mail-la0-f52.google.com with SMTP id mc6so886066lab.39
-        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 23:31:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <535CA0BB.1010504@cumulusnetworks.com>
+Received: from ozlabs.org ([103.22.144.67]:47966 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754273AbaD3HLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 03:11:22 -0400
+In-Reply-To: <535F824A.5060804@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Apr 27, 2014 at 08:16:27AM CEST, roopa@cumulusnetworks.com wrote:
->Hello,
+"Zhangjie (HZ)" <zhangjie14@huawei.com> writes:
+> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
+> ("virtio-net: put virtio-net header inline with data"). TCP packages have
+> enough room to put virtio-net header in, but UDP packages do not. By
+> setting dev->needed_headroom for virtio-net device, UDP packages could have
+> enough room.
 >
->I am seeing a problem with the order of rtnl link notifications
->during bond deletes.
->If i delete a bond without deleting its slaves, kernel sends a
->RTM_DELLINK during unregister_netdevice
->(in rollback_registered_many) and then calls bond_uninit (ndo_uninit).
->bond_uninit inturn cleans up the slaves and generates a few
->RTM_NEWLINK rtnl notifications for NETDEV_CHANGEADDR and
->NETDEV_FEAT_CHANGE for the bond device.
->
->This is confusing to userspace listening for rtnl LINK Notifications.
->For example, libnl gets confused with RTM_NEWLINK arriving after
->RTM_DELLINK.
->The RTM_NEWLINK makes libnl believe that this is a new bond link. But
->kernel has already deleted the bond device.
->
->It seems like the kernel should  generate RTM_DELLINK notification
->after ndo_uninit. something like below.
->But am not sure if this change is safe for other netdevices.
->
->Is this a known problem ?. Any suggestions ?
->
->Thanks,
->Roopa
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index b1b0c8d..85cb73a 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -5568,33 +5568,33 @@ static void rollback_registered_many(struct
->list_head *head)
->    list_for_each_entry(dev, head, unreg_list) {
->        /* Shutdown queueing discipline. */
->        dev_shutdown(dev);
->
->
->        /* Notify protocols, that we are about to destroy
->           this device. They should clean all the things.
->        */
->        call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
->
->-       if (!dev->rtnl_link_ops ||
->-           dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
->-           rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
->-
->        /*
->         *  Flush the unicast and multicast chains
->         */
->        dev_uc_flush(dev);
->        dev_mc_flush(dev);
->
->        if (dev->netdev_ops->ndo_uninit)
->            dev->netdev_ops->ndo_uninit(dev);
->
->+       if (!dev->rtnl_link_ops ||
->+           dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
->+           rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
->+
->        /* Notifier chain MUST detach us all upper devices. */
->        WARN_ON(netdev_has_any_upper_dev(dev));
->
->        /* Remove entries from kobject tree */
->        netdev_unregister_kobject(dev);
-> #ifdef CONFIG_XPS
->        /* Remove XPS queueing entries */
->        netif_reset_xps_queues_gt(dev, 0);
-> #endif
->    }
->
+> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
+> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
+> The Macro is defined as follows:
+> #define LL_RESERVED_SPACE(dev) \
+>      ((((dev)->hard_header_len+(dev)->needed_headroom)\
+>      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+> By default, for UDP packages, after skb is allocated, only 16 bytes
+> reserved. And 2 bytes remained after mac header is set. That is not enough
+> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
+> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
+> Then there is enough room for UDP packages to put the header in.
+
+Seems like a no-brainer.  Good find!
+
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+
+Thanks,
+Rusty.
 
 
-Now I cannot think about why this might troubles. But my feeling it this
-might be problematic, just a feeling.
 
-Your change seems logical though.
+>
+> test result list as below:
+> guest and host: suse11sp3, netperf, intel 2.4GHz
+> +-------+---------+---------+---------+---------+
+> |       |   old             |   new             |
+> +-------+---------+---------+---------+---------+
+> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
+> | 64    |  0.57   | 692232  |  0.61   | 742420  |
+> | 256   |  1.60   | 686860  |  1.71   | 733331  |
+> | 512   |  2.92   | 674576  |  3.07   | 710446  |
+> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
+> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
+> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
+> +-------+---------+---------+---------+---------+
+>
+> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
+> ---
+>  drivers/net/virtio_net.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 8a852b5..b852bb3 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>
+> +	if (vi->any_header_sg) {
+> +		if (vi->mergeable_rx_bufs)
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +		else
+> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
+> +	}
+> +
+>  	/* Use single tx/rx queue pair as default */
+>  	vi->curr_queue_pairs = 1;
+>  	vi->max_queue_pairs = max_queue_pairs;
+> -- 
+> 1.9.0.msysgit.0
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
