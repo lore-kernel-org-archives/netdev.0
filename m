@@ -1,10 +1,9 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V7 net-next 1/7] xen-netback: Move grant_copy_op array
- back into struct xenvif.
-Date: Wed, 30 Apr 2014 15:50:04 +0100
-Message-ID: <20140430145004.GB19082@zion.uk.xensource.com>
+Subject: Re: [PATCH V7 net-next] xen-net{back,front}: Multiple transmit and
+ receive queues
+Date: Wed, 30 Apr 2014 15:50:19 +0100
+Message-ID: <20140430145019.GC19082@zion.uk.xensource.com>
 References: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com>
- <1398778035-26233-2-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
@@ -13,29 +12,27 @@ Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
 	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>
 To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:37647 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933685AbaD3OuF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 10:50:05 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:21009 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422648AbaD3OuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 10:50:21 -0400
 Content-Disposition: inline
-In-Reply-To: <1398778035-26233-2-git-send-email-andrew.bennieston@citrix.com>
+In-Reply-To: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2014 at 02:27:09PM +0100, Andrew J. Bennieston wrote:
-> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+On Tue, Apr 29, 2014 at 02:27:08PM +0100, Andrew J. Bennieston wrote:
+[...]
 > 
-> This array was allocated separately in commit ac3d5ac2 due to it being
-> very large, and a struct xenvif is allocated as the netdev_priv part of
-> a struct net_device, i.e. via kmalloc() but falling back to vmalloc() if
-> the initial alloc. fails.
-> 
-> In preparation for the multi-queue patches, where this array becomes
-> part of struct xenvif_queue and is always allocated through vzalloc(),
-> move this back into the struct xenvif.
-> 
-> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> V7:
+> - Rebase on latest net-next, which includes the netback grant mapping
+>   patch series from Zoltan Kiss
+> - Reduce QUEUE_NAME_SIZE by 1 to avoid double-counting the trailing '\0'
+> - Simplify the queue hashing by using (hash % num_queues) instead of
+>   multiply & shift.
+> - Add ratelimited warning for invalid queue selection.
+> - Fix error handling to correctly tear down already setup queues.
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+I presume this is a fix to the bug discoverd by Sander?
 
-Minor nit: should include the actual title of ac3d5ac2 in the commit log
+Wei.
