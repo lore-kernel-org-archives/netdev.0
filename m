@@ -1,55 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp_cubic: fix the range of delayed_ack
-Date: Wed, 30 Apr 2014 10:53:42 -0400
-Message-ID: <CADVnQympVcHaFjKrHOpEjDvaXZ0ieonEmxcD1Tqxew4dM4FJDg@mail.gmail.com>
-References: <5360C391.2040202@gmail.com>
-	<1398867498.29914.151.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V7 net-next 5/7] xen-netfront: Factor queue-specific
+ data into queue struct.
+Date: Wed, 30 Apr 2014 15:59:18 +0100
+Message-ID: <53610FC6.8000409@citrix.com>
+References: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com>	<1398778035-26233-6-git-send-email-andrew.bennieston@citrix.com> <20140430145119.GE19082@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Liu Yu <allanliuyu@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<paul.durrant@citrix.com>, <david.vrabel@citrix.com>,
+	<zoltan.kiss@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<davem@davemloft.net>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:50708 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758768AbaD3Oxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 10:53:44 -0400
-Received: by mail-wg0-f43.google.com with SMTP id l18so1791654wgh.2
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 07:53:43 -0700 (PDT)
-In-Reply-To: <1398867498.29914.151.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp.citrix.com ([66.165.176.89]:53615 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759086AbaD3O7d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 10:59:33 -0400
+In-Reply-To: <20140430145119.GE19082@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 30, 2014 at 10:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-04-30 at 17:34 +0800, Liu Yu wrote:
->> From: Liu Yu <allanyuliu@tencent.com>
+On 30/04/14 15:51, Wei Liu wrote:
+> On Tue, Apr 29, 2014 at 02:27:13PM +0100, Andrew J. Bennieston wrote:
+>> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 >>
->> commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
->> divide error) try to prevent divide error, but there is still a little
->> chance that delayed_ack can reach zero. In case the param cnt get
->> negative value, then ratio+cnt would overflow and may happen to be zero.
->> As a result, min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
+>> In preparation for multi-queue support in xen-netfront, move the
+>> queue-specific data from struct netfront_info to struct netfront_queue,
+>> and update the rest of the code to use this.
 >>
->> In some old kernels, such as 2.6.32, there is a bug that would
->> pass negative param, which then ultimately leads to this divide error.
+>> Also adds loops over queues where appropriate, even though only one is
+>> configured at this point, and uses alloc_etherdev_mq() and the
+>> corresponding multi-queue netif wake/start/stop functions in preparation
+>> for multiple active queues.
 >>
->> commit 5b35e1e6e9c (tcp: fix tcp_trim_head() to adjust segment count
->> with skb MSS) fixed the negative param issue. However,
->> it's safe that we fix the range of delayed_ack as well,
->> to make sure we do not hit a divide by zero.
+>> Finally, implements a trivial queue selection function suitable for
+>> ndo_select_queue, which simply returns 0, selecting the first (and
+>> only) queue.
 >>
->> CC: Stephen Hemminger <shemminger@vyatta.com>
->> Signed-off-by: Liu Yu <allanyuliu@tencent.com>
->> ---
->>  net/ipv4/tcp_cubic.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+>> Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+> 
+> Not an official netfront maintainer but FWIW this looks correct to me.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+FYI, the frontend (including netfront) driver maintainers are the
+general Xen maintainers; so myself, Boris and Konrad.
 
-Indeed, thanks!
-
-neal
+David
