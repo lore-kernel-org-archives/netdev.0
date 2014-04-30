@@ -1,84 +1,76 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next 03/15] i40evf: support ethtool RSS options
-Date: Tue, 29 Apr 2014 23:51:45 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D655B4433@FMSMSX113.amr.corp.intel.com>
-References: <1398693158-2815-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1398693158-2815-4-git-send-email-jeffrey.t.kirsher@intel.com>
- <1398774929.3881.7.camel@deadeye.wl.decadent.org.uk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2 net 1/2] mactap: Fix checksum errors for non-gso packets
+ in bridge mode
+Date: Wed, 30 Apr 2014 10:46:40 +0800
+Message-ID: <53606410.7080105@redhat.com>
+References: <1398780591-10644-1-git-send-email-vyasevic@redhat.com> <1398780591-10644-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: daniel.lezcano@free.fr, nightnord@gmail.com, kaber@trash.net,
+	eric.dumazet@gmail.com, mst@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:43395 "EHLO mga09.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3496 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576AbaD2XwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Apr 2014 19:52:08 -0400
-In-Reply-To: <1398774929.3881.7.camel@deadeye.wl.decadent.org.uk>
-Content-Language: en-US
+	id S1753054AbaD3Cqs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Apr 2014 22:46:48 -0400
+In-Reply-To: <1398780591-10644-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJlbkBkZWNhZGVudC5vcmcudWtdDQo+IFNlbnQ6IFR1ZXNkYXksIEFwcmlsIDI5LCAy
-MDE0IDU6MzUgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPiBDYzogZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldDsgV2lsbGlhbXMsIE1pdGNoIEE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGdv
-c3BvQHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQt
-bmV4dCAwMy8xNV0gaTQwZXZmOiBzdXBwb3J0IGV0aHRvb2wgUlNTIG9wdGlvbnMNCj4gDQo+IE9u
-IE1vbiwgMjAxNC0wNC0yOCBhdCAwNjo1MiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPiBb
-Li4uXQ0KPiA+ICsvKioNCj4gPiArICogaTQwZXZmX3NldF9yc3NfaGFzaF9vcHQgLSBFbmFibGUv
-RGlzYWJsZSBmbG93IHR5cGVzIGZvciBSU1MgaGFzaA0KPiA+ICsgKiBAYWRhcHRlcjogYm9hcmQg
-cHJpdmF0ZSBzdHJ1Y3R1cmUNCj4gPiArICogQGNtZDogZXRodG9vbCByeG5mYyBjb21tYW5kDQo+
-ID4gKyAqDQo+ID4gKyAqIFJldHVybnMgU3VjY2VzcyBpZiB0aGUgZmxvdyBpbnB1dCBzZXQgaXMg
-c3VwcG9ydGVkLg0KPiA+ICsgKiovDQo+ID4gK3N0YXRpYyBpbnQgaTQwZXZmX3NldF9yc3NfaGFz
-aF9vcHQoc3RydWN0IGk0MGV2Zl9hZGFwdGVyICphZGFwdGVyLA0KPiA+ICsJCQkJICAgc3RydWN0
-IGV0aHRvb2xfcnhuZmMgKm5mYykNCj4gPiArew0KPiBbLi4uXQ0KPiA+ICsJY2FzZSBBSF9FU1Bf
-VjRfRkxPVzoNCj4gPiArCWNhc2UgQUhfVjRfRkxPVzoNCj4gPiArCWNhc2UgRVNQX1Y0X0ZMT1c6
-DQo+ID4gKwljYXNlIFNDVFBfVjRfRkxPVzoNCj4gPiArCQlpZiAoKG5mYy0+ZGF0YSAmIFJYSF9M
-NF9CXzBfMSkgfHwNCj4gPiArCQkgICAgKG5mYy0+ZGF0YSAmIFJYSF9MNF9CXzJfMykpDQo+ID4g
-KwkJCXJldHVybiAtRUlOVkFMOw0KPiA+ICsJCWhlbmEgfD0gKCh1NjQpMSA8PCBJNDBFX0ZJTFRF
-Ul9QQ1RZUEVfTk9ORl9JUFY0X09USEVSKTsNCj4gPiArCQlicmVhazsNCj4gPiArCWNhc2UgQUhf
-RVNQX1Y2X0ZMT1c6DQo+ID4gKwljYXNlIEFIX1Y2X0ZMT1c6DQo+ID4gKwljYXNlIEVTUF9WNl9G
-TE9XOg0KPiA+ICsJY2FzZSBTQ1RQX1Y2X0ZMT1c6DQo+ID4gKwkJaWYgKChuZmMtPmRhdGEgJiBS
-WEhfTDRfQl8wXzEpIHx8DQo+ID4gKwkJICAgIChuZmMtPmRhdGEgJiBSWEhfTDRfQl8yXzMpKQ0K
-PiA+ICsJCQlyZXR1cm4gLUVJTlZBTDsNCj4gPiArCQloZW5hIHw9ICgodTY0KTEgPDwgSTQwRV9G
-SUxURVJfUENUWVBFX05PTkZfSVBWNl9PVEhFUik7DQo+ID4gKwkJYnJlYWs7DQo+IA0KPiBJJ20g
-bm90IHN1cmUgd2h5IHRoZXNlIGNhc2VzIG9wZXJhdGUgb24gJ2hlbmEnIGFzDQo+IEk0MEVfRklM
-VEVSX1BDVFlQRV9OT05GX0lQVns0LDZ9X09USEVSIGFyZSBwcmVzdW1hYmx5IGFsd2F5cyBzZXQg
-aW4gdGhlDQo+IHJlZ2lzdGVyLg0KPiANCj4gPiArCWNhc2UgSVBWNF9GTE9XOg0KPiA+ICsJCWhl
-bmEgfD0gKCh1NjQpMSA8PCBJNDBFX0ZJTFRFUl9QQ1RZUEVfTk9ORl9JUFY0X09USEVSKSB8DQo+
-ID4gKwkJCSgodTY0KTEgPDwgSTQwRV9GSUxURVJfUENUWVBFX0ZSQUdfSVBWNCk7DQo+ID4gKwkJ
-YnJlYWs7DQo+ID4gKwljYXNlIElQVjZfRkxPVzoNCj4gPiArCQloZW5hIHw9ICgodTY0KTEgPDwg
-STQwRV9GSUxURVJfUENUWVBFX05PTkZfSVBWNl9PVEhFUikgfA0KPiA+ICsJCQkoKHU2NCkxIDw8
-IEk0MEVfRklMVEVSX1BDVFlQRV9GUkFHX0lQVjYpOw0KPiA+ICsJCWJyZWFrOw0KPiANCj4gVGhl
-c2UgY2FzZXMgYXJlbid0IHZhbGlkYXRpbmcgdGhhdCB0aGUgdXNlciBkaWRuJ3QgYXNrIGZvciBw
-b3J0cyB0byBiZQ0KPiBpbmNsdWRlZCBpbiB0aGUgaGFzaC4gIFRoZXkgYWxzbyBpbnRlcmFjdCBv
-ZGRseSB3aXRoIFVEUCBmbG93IGhhc2hpbmcNCj4gY29uZmlndXJhdGlvbi4gIEl0IHNlZW1zIHRv
-IG1lIHRoYXQgdGhlIEk0MEVfRklMVEVSX1BDVFlQRV9GUkFHX0lQVns0LDZ9DQo+IGJpdHMgb3Vn
-aHQgdG8gYmUgY29udHJvbGxhYmxlIHRocm91Z2ggb25lIGZsb3cgdHlwZSBvbmx5Lg0KDQpUaGlz
-IGZ1bmN0aW9uIGlzIG15IGJlc3QgZWZmb3J0IHRvIHJlY29uY2lsZSBob3cgdGhlIGhhcmR3YXJl
-IHdvcmtzIHdpdGggaG93IHRoZSBBUEkgd29ya3MuDQoNCkluIGdlbmVyYWwsIHlvdSBjYW5ub3Qg
-Y29udHJvbCB3aGljaCBmaWVsZCBpcyBoYXNoZWQgb3ZlciBmb3IgYW55IGdpdmVuIHRyYWZmaWMg
-dHlwZS4gWW91IGp1c3QgZW5hYmxlIG9yIGRpc2FibGUgdGhlIHRyYWZmaWMgdHlwZS4NCg0KSG93
-ZXZlciwgaWYgeW91IGRpc2FibGUgYSBzcGVjaWZpYyBMNCBwcm90b2NvbCwgdGhlIHBhY2tldCB3
-aWxsIHN0aWxsIG1hdGNoIG9uIHRoZSB1bmRlcmx5aW5nIEwzIHByb3RvY29sLCBhcyBsb25nIGFz
-IHlvdSBsZWF2ZSB0aGUgSVAtc3BlY2lmaWMgYml0cyB0dXJuZWQgb24uDQoNClRoYXQgc2FpZCwg
-eW91IGFyZSBjb3JyZWN0LCBhbmQgSSBkb24ndCBuZWVkIHRvIHNldCB0aGUgSVAtc3BlY2lmaWMg
-Yml0cyBiZWNhdXNlIHRoZXkncmUgYWx3YXlzIHR1cm5lZCBvbi4NCg0KPiANCj4gWy4uLl0NCj4g
-PiArc3RhdGljIGludCBpNDBldmZfZ2V0X3J4ZmhfaW5kaXIoc3RydWN0IG5ldF9kZXZpY2UgKm5l
-dGRldiwgdTMyICppbmRpcikNCj4gPiArew0KPiA+ICsJc3RydWN0IGk0MGV2Zl9hZGFwdGVyICph
-ZGFwdGVyID0gbmV0ZGV2X3ByaXYobmV0ZGV2KTsNCj4gPiArCXN0cnVjdCBpNDBlX2h3ICpodyA9
-ICZhZGFwdGVyLT5odzsNCj4gPiArCXUzMiBobHV0X3ZhbDsNCj4gPiArCWludCBpLCBqOw0KPiA+
-ICsNCj4gPiArCWZvciAoaSA9IDAsIGogPSAwOyBpIDwgSTQwRV9WRlFGX0hMVVRfTUFYX0lOREVY
-OyBpKyspIHsNCj4gWy4uLl0NCj4gDQo+IE9mZiBieSAxPw0KDQpHb29kIGNhdGNoLCB3ZSBhbGwg
-bWlzc2VkIGl0Lg0KDQpJIHRoaW5rIERhdmUncyBhbHJlYWR5IHB1bGxlZCB0aGlzLCBhbmQgc2lu
-Y2UgaXQncyBub25mYXRhbCwgSSdsbCBqdXN0IGZpeCB0aGVzZSBpbiBhIGZvbGxvdy1vbiBwYXRj
-aC4NCg0KVGhhbmtzIGZvciB5b3VyIHJldmlldy4NCg0KLU1pdGNoDQoNCj4gDQo+IEJlbi4NCj4g
-DQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MNCj4gUS4gIFdoaWNoIGlzIHRoZSBncmVhdGVyIHByb2Js
-ZW0gaW4gdGhlIHdvcmxkIHRvZGF5LCBpZ25vcmFuY2Ugb3IgYXBhdGh5Pw0KPiBBLiAgSSBkb24n
-dCBrbm93IGFuZCBJIGNvdWxkbid0IGNhcmUgbGVzcy4NCg==
+On 04/29/2014 10:09 PM, Vlad Yasevich wrote:
+> The following is a problematic configuration:
+>
+>  VM1: virtio-net device connected to macvtap0@eth0
+>  VM2: e1000 device connect to macvtap1@eth0
+>
+> The problem is is that virtio-net supports checksum offloading
+> and thus sends the packets to the host with CHECKSUM_PARTIAL set.
+> On the other hand, e1000 does not support any acceleration.
+>
+> For small TCP packets (and this includes the 3-way handshake),
+> e1000 ends up receiving packets that only have a partial checksum
+> set.  This causes TCP to fail checksum validation and to drop
+> packets.  As a result tcp connections can not be established.
+>
+> Commit 3e4f8b787370978733ca6cae452720a4f0c296b8
+> 	macvtap: Perform GSO on forwarding path.
+> fixes this issue for large packets wthat will end up undergoing GSO.
+> This commit adds a check for the non-GSO case and attempts to
+> compute the checksum for partially checksummed packets in the
+> non-GSO case.
+>
+> CC: Daniel Lezcano <daniel.lezcano@free.fr>
+> CC: Patrick McHardy <kaber@trash.net>
+> CC: Andrian Nord <nightnord@gmail.com>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Michael S. Tsirkin <mst@redhat.com>
+> CC: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+>
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index ff111a8..3381c4f 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -322,6 +322,15 @@ static rx_handler_result_t macvtap_handle_frame(struct sk_buff **pskb)
+>  			segs = nskb;
+>  		}
+>  	} else {
+> +		/* If we receive a partial checksum and the tap side
+> +		 * doesn't support checksum offload, compute the checksum.
+> +		 * Note: it doesn't matter which checksum feature to
+> +		 *        check, we either support them all or none.
+> +		 */
+> +		if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> +		    !(features & NETIF_F_ALL_CSUM) &&
+> +		    skb_checksum_help(skb))
+> +			goto drop;
+>  		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+>  	}
+>  
+
+Acked-by: Jason Wang <jasowang@redhat.com>
