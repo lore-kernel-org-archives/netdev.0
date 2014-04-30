@@ -1,10 +1,10 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH V7 net-next 4/7] xen-netback: Correctly clean up after
- queue initialisation error.
-Date: Wed, 30 Apr 2014 15:49:54 +0100
-Message-ID: <20140430144954.GA19082@zion.uk.xensource.com>
+Subject: Re: [PATCH V7 net-next 1/7] xen-netback: Move grant_copy_op array
+ back into struct xenvif.
+Date: Wed, 30 Apr 2014 15:50:04 +0100
+Message-ID: <20140430145004.GB19082@zion.uk.xensource.com>
 References: <1398778035-26233-1-git-send-email-andrew.bennieston@citrix.com>
- <1398778035-26233-5-git-send-email-andrew.bennieston@citrix.com>
+ <1398778035-26233-2-git-send-email-andrew.bennieston@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
@@ -13,25 +13,29 @@ Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
 	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>
 To: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:39381 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:37647 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933685AbaD3Otz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 10:49:55 -0400
+	id S933685AbaD3OuF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 10:50:05 -0400
 Content-Disposition: inline
-In-Reply-To: <1398778035-26233-5-git-send-email-andrew.bennieston@citrix.com>
+In-Reply-To: <1398778035-26233-2-git-send-email-andrew.bennieston@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2014 at 02:27:12PM +0100, Andrew J. Bennieston wrote:
+On Tue, Apr 29, 2014 at 02:27:09PM +0100, Andrew J. Bennieston wrote:
 > From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 > 
-> Multiple queues were introduced in the previous patch, but if the
-> initialisation of a queue failed, earlier queues would not be cleaned
-> up. This patch adds cleanup logic for this scenario, making use of code
-> from the regular teardown sequence.
+> This array was allocated separately in commit ac3d5ac2 due to it being
+> very large, and a struct xenvif is allocated as the netdev_priv part of
+> a struct net_device, i.e. via kmalloc() but falling back to vmalloc() if
+> the initial alloc. fails.
 > 
+> In preparation for the multi-queue patches, where this array becomes
+> part of struct xenvif_queue and is always allocated through vzalloc(),
+> move this back into the struct xenvif.
+> 
+> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
 
-Shouldn't this patch be folded into that "previous patch" which
-introduced this problem? I see you did this for netfront patch already.
+Acked-by: Wei Liu <wei.liu2@citrix.com>
 
-Wei.
+Minor nit: should include the actual title of ac3d5ac2 in the commit log
