@@ -1,37 +1,56 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: tcp: how to prevent connection abort due to failed keepalive?
-Date: Wed, 30 Apr 2014 16:22:15 +0200
-Message-ID: <20140430142214.GB5108@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v3 0/4] introduce devm_mdiobus_alloc/free and clean up
+	davinci mdio
+Date: Wed, 30 Apr 2014 10:25:12 -0400
+Message-ID: <536107C8.9060002@ti.com>
+References: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Anders Franzen <anders.franzen@ericsson.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:56179 "EHLO
-	sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbaD3OWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 10:22:17 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        Florian Fainelli
+	<f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1398860616-6612-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Is there a way to disable connection termination due to failed TCP keepalives?
-I was hoping that it would be possible to use TCP_KEEPCNT == 0 for this purpose,
-but this gave back an -EINVAL.
-
-There's nothing in the RFC that claims that closing the connection if the peer
-fails to respond to _all_ probes, just that:
-
-(RFC1122 section 4.2.3.6)
-	It is extremely important to remember that ACK segments that
-	contain no data are not reliably transmitted by TCP.
-	Consequently, if a keep-alive mechanism is implemented it
-	MUST NOT interpret failure to respond to any specific probe
-	as a dead connection.
-
-So, if we have a connection with TCP_KEEPCNT set to 1, and the peer fails to
-respond to this "specific probe". I think the RFC is pretty clear that the
-connection shall not be considered dead. In this case, Linux send a TCP RST
-and aborts the connection.
-
-//E
+On Wednesday 30 April 2014 08:23 AM, Grygorii Strashko wrote:
+> Introduce a resource managed devm_mdiobus_alloc[_size]()/devm_mdiobus_free()
+> to automatically clean up MDIO bus alocations made by MDIO drivers,
+> thus leading to simplified MDIO drivers code.
+> 
+> Clean up Davinci MDIO driver and use new devm API.
+> 
+> Changes in v3:
+> - added devm_mdiobus_alloc_size() and
+>   devm_mdiobus_alloc() converted to be just a simple wrapper now.
+> 
+> Changes in v2:
+> - minor comments taken into account
+> - additional patches added for cleaning up Davinci MDIO driver
+> 
+> Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> Grygorii Strashko (4):
+>   mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
+>   net: davinci_mdio: use devm_* api
+>   net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
+>   net: davinci_mdio: simplify IO memory mapping
+> 
+Thanks for the updates. The series looks good to me.
+Feel free to my ack if you need one...
+Acked-by: Santosh Shilimkar<santosh.shilimkar-l0cyMroinI0@public.gmane.org>
