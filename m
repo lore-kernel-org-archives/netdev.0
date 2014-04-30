@@ -1,41 +1,65 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] net: Allow tc changes in user namespaces
-Date: Wed, 30 Apr 2014 08:48:35 -0700
-Message-ID: <1398872915.29914.164.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398871543-8435-1-git-send-email-stgraber@ubuntu.com>
+From: Harish Patil <harish.patil@qlogic.com>
+Subject: Re: [PATCH] qlcnic: clarify hwmon Kconfig dependency
+Date: Wed, 30 Apr 2014 15:51:27 +0000
+Message-ID: <036FA1BC4A80D448AB7D9C3AAFBBCAF5B68382@AVMB1.qlogic.org>
+References: <4879713.xMSSnUPZKf@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: =?ISO-8859-1?Q?St=E9phane?= Graber <stgraber-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1398871543-8435-1-git-send-email-stgraber-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
+To: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:62395 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758938AbaD3Pve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 11:51:34 -0400
+In-Reply-To: <4879713.xMSSnUPZKf@wuerfel>
+Content-Language: en-US
+Content-ID: <EDD11FCB3031F54C852DEE23DB2E572F@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE0LTA0LTMwIGF0IDExOjI1IC0wNDAwLCBTdMOpcGhhbmUgR3JhYmVyIHdyb3Rl
-Ogo+IFRoaXMgc3dpdGNoZXMgYSBmZXcgcmVtYWluaW5nIGNhcGFibGUoQ0FQX05FVF9BRE1JTikg
-dG8gbnNfY2FwYWJsZSBzbwo+IHRoYXQgcm9vdCBpbiBhIHVzZXIgbmFtZXNwYWNlIG1heSBzZXQg
-dGMgcnVsZXMgaW5zaWRlIHRoYXQgbmFtZXNwYWNlLgo+IAo+IFNpZ25lZC1vZmYtYnk6IFN0w6lw
-aGFuZSBHcmFiZXIgPHN0Z3JhYmVyQHVidW50dS5jb20+Cj4gQWNrZWQtYnk6IFNlcmdlIEUuIEhh
-bGx5biA8c2VyZ2UuaGFsbHluQHVidW50dS5jb20+Cj4gQ2M6ICJFcmljIFcuIEJpZWRlcm1hbiIg
-PGViaWVkZXJtQHhtaXNzaW9uLmNvbT4KPiBDYzogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0
-YXR1LmNvbT4KPiBDYzogIkRhdmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+Cj4g
-Cj4gLS0tCj4gIG5ldC9zY2hlZC9jbHNfYXBpLmMgfCAzICsrLQo+ICBuZXQvc2NoZWQvc2NoX2Fw
-aS5jIHwgOCArKysrKy0tLQo+ICAyIGZpbGVzIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgNCBk
-ZWxldGlvbnMoLSkKCkFja2VkLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+
-CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KQ29udGFp
-bmVycyBtYWlsaW5nIGxpc3QKQ29udGFpbmVyc0BsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpo
-dHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9jb250YWlu
-ZXJz
+DQoNCj5jb21taXQgMWYwZjQ2N2I2NzBlICJxbGNuaWM6IEFkZCBod21vbiBpbnRlcmZhY2UgdG8g
+ZXhwb3J0IGJvYXJkDQo+dGVtcGVyYXR1cmUiIGludHJvZHVjZWQgYSByYW5kY29uZmlnIGJ1aWxk
+IGVycm9yIGluIHRoZSBjYXNlDQo+d2hlbiB0aGUgaHdtb24gZnJhbWV3b3JrIGlzIGJ1aWx0IGFz
+IGEgbW9kdWxlIGFuZCB0aGUgcWxjbmljDQo+ZHJpdmVyIGl0c2VsZiBpcyBidWlsdC1pbjoNCj4N
+Cj5kcml2ZXJzL2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBxbGNuaWNfcmVnaXN0ZXJfaHdtb25f
+ZGV2JzoNCj5kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19zeXNmcy5j
+OjEzMDE6IHVuZGVmaW5lZA0KPnJlZmVyZW5jZSB0byBgaHdtb25fZGV2aWNlX3JlZ2lzdGVyX3dp
+dGhfZ3JvdXBzJw0KPmRyaXZlcnMvYnVpbHQtaW4ubzogSW4gZnVuY3Rpb24gYHFsY25pY191bnJl
+Z2lzdGVyX2h3bW9uX2Rldic6DQo+ZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9x
+bGNuaWNfc3lzZnMuYzoxMzA5OiB1bmRlZmluZWQNCj5yZWZlcmVuY2UgdG8gYGh3bW9uX2Rldmlj
+ZV91bnJlZ2lzdGVyJw0KPg0KPlRoaXMgY2hhbmdlcyB0aGUgS2NvbmZpZyBsb2dpYyB0byBlbmZv
+cmNlIHRoYXQgdGhlIHFsY25pYyBod21vbg0KPnN1cHBvcnQgY2FuIG9ubHkgYmUgZW5hYmxlZCBp
+ZiBpdCBpcyBwb3NzaWJsZSB0byBzdWNjZXNzZnVsbHkNCj5idWlsZCBpdC4NCj4NCj5TaWduZWQt
+b2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KPkNjOiBIYXJpc2ggUGF0aWwg
+PGhhcmlzaC5wYXRpbEBxbG9naWMuY29tPg0KPg0KPmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KPmIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL0tj
+b25maWcNCj5pbmRleCAwNDgyYWRiLi45NDkzODI0IDEwMDY0NA0KPi0tLSBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L3Fsb2dpYy9LY29uZmlnDQo+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxv
+Z2ljL0tjb25maWcNCj5AQCAtNjksNiArNjksNyBAQCBjb25maWcgUUxDTklDX1ZYTEFODQo+IGNv
+bmZpZyBRTENOSUNfSFdNT04NCj4gICAgICAgYm9vbCAiUUxPR0lDIFFMQ05JQyA4MlhYIGFuZCA4
+M1hYIGZhbWlseSBIV01PTiBzdXBwb3J0Ig0KPiAgICAgICBkZXBlbmRzIG9uIFFMQ05JQyAmJiBI
+V01PTg0KPisgICAgICBkZXBlbmRzIG9uIFFMQ05JQz1tIHx8IEhXTU9OPXkNCj4gICAgICAgZGVm
+YXVsdCB5DQo+ICAgICAgIC0tLWhlbHAtLS0NCj4gICAgICAgICBUaGlzIGNvbmZpZ3VyYXRpb24g
+cGFyYW1ldGVyIGNhbiBiZSB1c2VkIHRvIHJlYWQgdGhlDQo+DQo+DQpDYW4gd2UgbWFrZSBpdCBp
+bnRvIGFuIG9uZSBsaW5lIGV4cHJlc3Npb24gYXMgZG9uZSBpbiBmZXcgb3RoZXIgY2FzZXM6DQoN
+CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvSw0KaW5kZXggYjgxODQzMi4uZDQ5Y2JhMSAxMDA2NDQN
+Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9LY29uZmlnDQorKysgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KQEAgLTY4LDcgKzY4LDcgQEAgY29uZmlnIFFM
+Q05JQ19WWExBTg0KDQogY29uZmlnIFFMQ05JQ19IV01PTg0KICAgICAgICBib29sICJRTE9HSUMg
+UUxDTklDIDgyWFggYW5kIDgzWFggZmFtaWx5IEhXTU9OIHN1cHBvcnQiDQotICAgICAgIGRlcGVu
+ZHMgb24gUUxDTklDICYmIEhXTU9ODQorICAgICAgIGRlcGVuZHMgb24gUUxDTklDICYmIEhXTU9O
+ICYmICEoUUxDTklDPXkgJiYgSFdNT049bSkNCiAgICAgICAgZGVmYXVsdCB5DQogICAgICAgIC0t
+LWhlbHAtLS0NCiAgICAgICAgICBUaGlzIGNvbmZpZ3VyYXRpb24gcGFyYW1ldGVyIGNhbiBiZSB1
+c2VkIHRvIHJlYWQgdGhlDQoNCg0KDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+DQoNClRoaXMgbWVzc2FnZSBhbmQgYW55IGF0dGFjaGVkIGRvY3VtZW50cyBjb250YWluIGluZm9y
+bWF0aW9uIGZyb20gUUxvZ2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3aG9sbHktb3duZWQgc3Vic2lk
+aWFyaWVzIHRoYXQgbWF5IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVu
+ZGVkIHJlY2lwaWVudCwgeW91IG1heSBub3QgcmVhZCwgY29weSwgZGlzdHJpYnV0ZSwgb3IgdXNl
+IHRoaXMgaW5mb3JtYXRpb24uIElmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgdHJhbnNtaXNzaW9u
+IGluIGVycm9yLCBwbGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1tZWRpYXRlbHkgYnkgcmVwbHkg
+ZS1tYWlsIGFuZCB0aGVuIGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
