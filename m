@@ -1,97 +1,116 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net when VIRTIO_F_ANY_LAYOUT is true
-Date: Wed, 30 Apr 2014 11:14:10 +0930
-Message-ID: <87iopr4mmt.fsf@rustcorp.com.au>
-References: <535F824A.5060804@huawei.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH RFC 1/2] Documentation: add Device tree bindings for QCA7000
+Date: Wed, 30 Apr 2014 09:30:18 +0200
+Message-ID: <5360A68A.1080408@i2se.com>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <1398707697-43785-2-git-send-email-stefan.wahren@i2se.com> <20140429223638.GB2382@flaeskesteg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, linville@tuxdriver.com,
-	jeffrey.t.kirsher@intel.com, mst@redhat.com, jasowang@redhat.com,
-	qinchuanyu@huawei.com, liuyongan@huawei.com, zhangjie14@huawei.com,
-	zhaoshenglong@huawei.com
-To: "Zhangjie \(HZ\)" <zhangjie14@huawei.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"pawel.moll@arm.org" <pawel.moll@arm.org>,
+	"mark.rutland@arm.org" <mark.rutland@arm.org>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:47966 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754273AbaD3HLW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 03:11:22 -0400
-In-Reply-To: <535F824A.5060804@huawei.com>
+Received: from mout.kundenserver.de ([212.227.17.13]:55940 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750861AbaD3Has (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 03:30:48 -0400
+In-Reply-To: <20140429223638.GB2382@flaeskesteg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Zhangjie (HZ)" <zhangjie14@huawei.com> writes:
-> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
-> ("virtio-net: put virtio-net header inline with data"). TCP packages have
-> enough room to put virtio-net header in, but UDP packages do not. By
-> setting dev->needed_headroom for virtio-net device, UDP packages could have
-> enough room.
->
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
-> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not enough
-> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
-> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
-> Then there is enough room for UDP packages to put the header in.
+Hi,
 
-Seems like a no-brainer.  Good find!
+Am 30.04.2014 00:36, schrieb Mark Rutland:
+> On Mon, Apr 28, 2014 at 06:54:56PM +0100, Stefan Wahren wrote:
+>> This patch adds the Device tree bindings for the Ethernet over SPI
+>> protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
+>>
+>> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+>> ---
+>>  .../devicetree/bindings/net/qca-qca7000-spi.txt    |   51 ++++++++++++++++++++
+>>  1 file changed, 51 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>> new file mode 100644
+>> index 0000000..132c10f
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+>> @@ -0,0 +1,51 @@
+>> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
+>> +
+>> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+>> +as a child of a spi master in the device tree.
+>> +
+>> +Required properties:
+>> +- compatible : Should be "qca,qca7000"
+>> +- reg : Should specify the SPI chip select
+>> +- intr-gpios : Should specify the GPIO for SPI interrupt
+> As Arnd mentioned, this should be described as an interrupt if it's an
+> interrupt from the point of view of the QCA7000.
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+yes, i will fix that. I think i've an idea how to handle the case a
+interrupt appear
+before the device comes up without fetching the GPIO value.
 
-Thanks,
-Rusty.
+>> +- spi-cpha : Must be set
+>> +- spi-cpol: Must be set
+>> +
+>> +Optional properties:
+>> +- spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
+>> +  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
+>> +  the property will set the SPI frequency to 8000000 Hertz.
+>> +- local-mac-address: 6 bytes, mac address
+>> +- qca,legacy-mode : Should specify the data transfer mode of the QCA7000
+>> +  (0 = burst mode, 1 = legacy mode). Missing the property will use the
+>> +  burst mode.
+> This sounds like it could be a boolean property (one with no value, like
+> cpi-cpha). When is this necessary?
 
+You're right. I could make it a boolean property.
 
+The SPI interface of the QCA7000 supports 2 different transfer modes:
+* legacy mode (spi chip select toogle after each word, cs gaps)
+* burst mode (spi chip select toogle after complete data, no cs gaps)
 
+This mode must be configured on the QCA7000 and the driver must also
+know the setting. The
+burst mode is preferred because of better performance. I think this
+parameter is for spi host
+controller, which doesn't support burst mode.
+
+>> +- linux,burst-length : Number of data bytes per burst. Numbers smaller than 1
+>> +  or greater than 5000 are invalid. Missing the property will set the
+>> +  burst length to 5000 bytes. This property has only an effect in burst mode.
+> When is this needed?
+
+This parameter makes only sense in case of burst mode and specify the
+maximum length of a
+spi burst. I think this parameter has an influence on the latency of the
+system. Higher values
+means higher performance but worse system latency. I think that make
+sense on embedded system.
+
+>> +- linux,pluggable-connection : Should be set to skip signature check while
+>> +  probing. This property is useful if the SPI master and QCA7000 are not on the
+>> +  same board.
+> This does not sounds like it belongs in the DT, as it's strongly tied to the
+> implementation of the driver. Why is this necessary?
 >
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old             |   new             |
-> +-------+---------+---------+---------+---------+
-> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
-> | 64    |  0.57   | 692232  |  0.61   | 742420  |
-> | 256   |  1.60   | 686860  |  1.71   | 733331  |
-> | 512   |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
-> +-------+---------+---------+---------+---------+
->
-> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
-> ---
->  drivers/net/virtio_net.c | 7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8a852b5..b852bb3 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
->
-> +	if (vi->any_header_sg) {
-> +		if (vi->mergeable_rx_bufs)
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +		else
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
-> +	}
-> +
->  	/* Use single tx/rx queue pair as default */
->  	vi->curr_queue_pairs = 1;
->  	vi->max_queue_pairs = max_queue_pairs;
-> -- 
-> 1.9.0.msysgit.0
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> Cheers,
+> Mark.
+
+I introduce this parameter to handle a scenario where spi host
+controller and QCA7000 are
+not on the same board and connected via cable. So in this case the
+driver skips a device probe
+and wait until the QCA7000 becomes ready.
+
+Stefan
