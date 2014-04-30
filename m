@@ -1,295 +1,57 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net] gianfar: Avoid unnecessary reg accesses in adjust_link()
-Date: Wed, 30 Apr 2014 14:27:21 +0300
-Message-ID: <1398857241-20137-1-git-send-email-claudiu.manoil@freescale.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v3 0/4] introduce devm_mdiobus_alloc/free and clean up davinci
+	mdio
+Date: Wed, 30 Apr 2014 15:23:32 +0300
+Message-ID: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0205.outbound.protection.outlook.com ([207.46.163.205]:52898
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932486AbaD3L2u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 07:28:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
+        "David S. Miller"
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-For phy devices that don't issue interrupts upon link
-state changes, phylib polls the link state resulting in
-repeated calls to adjust_link(), even if the link state
-didn't change.  As a result, some mac registers are
-repeatedly read and written with the same values, which
-is not ok.
+Introduce a resource managed devm_mdiobus_alloc[_size]()/devm_mdiobus_free()
+to automatically clean up MDIO bus alocations made by MDIO drivers,
+thus leading to simplified MDIO drivers code.
 
-To fix this, adjust_link() has been refactored to check
-first whether the link state has changed and to take action
-only if needed, updating mac registers and local state
-variables.  The 'new_state' local flag, set if one of the
-link params changed (link, speed or duplex), has been
-rendered useless and removed by this refactoring.
+Clean up Davinci MDIO driver and use new devm API.
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 223 ++++++++++++++++---------------
- 1 file changed, 113 insertions(+), 110 deletions(-)
+Changes in v3:
+- added devm_mdiobus_alloc_size() and
+  devm_mdiobus_alloc() converted to be just a simple wrapper now.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 9125d9a..e2d4247 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -121,6 +121,7 @@ static irqreturn_t gfar_error(int irq, void *dev_id);
- static irqreturn_t gfar_transmit(int irq, void *dev_id);
- static irqreturn_t gfar_interrupt(int irq, void *dev_id);
- static void adjust_link(struct net_device *dev);
-+static noinline void gfar_update_link_state(struct gfar_private *priv);
- static int init_phy(struct net_device *dev);
- static int gfar_probe(struct platform_device *ofdev);
- static int gfar_remove(struct platform_device *ofdev);
-@@ -3076,41 +3077,6 @@ static irqreturn_t gfar_interrupt(int irq, void *grp_id)
- 	return IRQ_HANDLED;
- }
- 
--static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
--{
--	struct phy_device *phydev = priv->phydev;
--	u32 val = 0;
--
--	if (!phydev->duplex)
--		return val;
--
--	if (!priv->pause_aneg_en) {
--		if (priv->tx_pause_en)
--			val |= MACCFG1_TX_FLOW;
--		if (priv->rx_pause_en)
--			val |= MACCFG1_RX_FLOW;
--	} else {
--		u16 lcl_adv, rmt_adv;
--		u8 flowctrl;
--		/* get link partner capabilities */
--		rmt_adv = 0;
--		if (phydev->pause)
--			rmt_adv = LPA_PAUSE_CAP;
--		if (phydev->asym_pause)
--			rmt_adv |= LPA_PAUSE_ASYM;
--
--		lcl_adv = mii_advertise_flowctrl(phydev->advertising);
--
--		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
--		if (flowctrl & FLOW_CTRL_TX)
--			val |= MACCFG1_TX_FLOW;
--		if (flowctrl & FLOW_CTRL_RX)
--			val |= MACCFG1_RX_FLOW;
--	}
--
--	return val;
--}
--
- /* Called every time the controller might need to be made
-  * aware of new link state.  The PHY code conveys this
-  * information through variables in the phydev structure, and this
-@@ -3120,83 +3086,12 @@ static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
- static void adjust_link(struct net_device *dev)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
--	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 	struct phy_device *phydev = priv->phydev;
--	int new_state = 0;
- 
--	if (test_bit(GFAR_RESETTING, &priv->state))
--		return;
--
--	if (phydev->link) {
--		u32 tempval1 = gfar_read(&regs->maccfg1);
--		u32 tempval = gfar_read(&regs->maccfg2);
--		u32 ecntrl = gfar_read(&regs->ecntrl);
--
--		/* Now we make sure that we can be in full duplex mode.
--		 * If not, we operate in half-duplex mode.
--		 */
--		if (phydev->duplex != priv->oldduplex) {
--			new_state = 1;
--			if (!(phydev->duplex))
--				tempval &= ~(MACCFG2_FULL_DUPLEX);
--			else
--				tempval |= MACCFG2_FULL_DUPLEX;
--
--			priv->oldduplex = phydev->duplex;
--		}
--
--		if (phydev->speed != priv->oldspeed) {
--			new_state = 1;
--			switch (phydev->speed) {
--			case 1000:
--				tempval =
--				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
--
--				ecntrl &= ~(ECNTRL_R100);
--				break;
--			case 100:
--			case 10:
--				tempval =
--				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
--
--				/* Reduced mode distinguishes
--				 * between 10 and 100
--				 */
--				if (phydev->speed == SPEED_100)
--					ecntrl |= ECNTRL_R100;
--				else
--					ecntrl &= ~(ECNTRL_R100);
--				break;
--			default:
--				netif_warn(priv, link, dev,
--					   "Ack!  Speed (%d) is not 10/100/1000!\n",
--					   phydev->speed);
--				break;
--			}
--
--			priv->oldspeed = phydev->speed;
--		}
--
--		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
--		tempval1 |= gfar_get_flowctrl_cfg(priv);
--
--		gfar_write(&regs->maccfg1, tempval1);
--		gfar_write(&regs->maccfg2, tempval);
--		gfar_write(&regs->ecntrl, ecntrl);
--
--		if (!priv->oldlink) {
--			new_state = 1;
--			priv->oldlink = 1;
--		}
--	} else if (priv->oldlink) {
--		new_state = 1;
--		priv->oldlink = 0;
--		priv->oldspeed = 0;
--		priv->oldduplex = -1;
--	}
--
--	if (new_state && netif_msg_link(priv))
--		phy_print_status(phydev);
-+	if (unlikely(phydev->link != priv->oldlink ||
-+		     phydev->duplex != priv->oldduplex ||
-+		     phydev->speed != priv->oldspeed))
-+		gfar_update_link_state(priv);
- }
- 
- /* Update the hash table based on the current list of multicast
-@@ -3442,6 +3337,114 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
- 	return IRQ_HANDLED;
- }
- 
-+static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
-+{
-+	struct phy_device *phydev = priv->phydev;
-+	u32 val = 0;
-+
-+	if (!phydev->duplex)
-+		return val;
-+
-+	if (!priv->pause_aneg_en) {
-+		if (priv->tx_pause_en)
-+			val |= MACCFG1_TX_FLOW;
-+		if (priv->rx_pause_en)
-+			val |= MACCFG1_RX_FLOW;
-+	} else {
-+		u16 lcl_adv, rmt_adv;
-+		u8 flowctrl;
-+		/* get link partner capabilities */
-+		rmt_adv = 0;
-+		if (phydev->pause)
-+			rmt_adv = LPA_PAUSE_CAP;
-+		if (phydev->asym_pause)
-+			rmt_adv |= LPA_PAUSE_ASYM;
-+
-+		lcl_adv = mii_advertise_flowctrl(phydev->advertising);
-+
-+		flowctrl = mii_resolve_flowctrl_fdx(lcl_adv, rmt_adv);
-+		if (flowctrl & FLOW_CTRL_TX)
-+			val |= MACCFG1_TX_FLOW;
-+		if (flowctrl & FLOW_CTRL_RX)
-+			val |= MACCFG1_RX_FLOW;
-+	}
-+
-+	return val;
-+}
-+
-+static noinline void gfar_update_link_state(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	struct phy_device *phydev = priv->phydev;
-+
-+	if (unlikely(test_bit(GFAR_RESETTING, &priv->state)))
-+		return;
-+
-+	if (phydev->link) {
-+		u32 tempval1 = gfar_read(&regs->maccfg1);
-+		u32 tempval = gfar_read(&regs->maccfg2);
-+		u32 ecntrl = gfar_read(&regs->ecntrl);
-+
-+		if (phydev->duplex != priv->oldduplex) {
-+			if (!(phydev->duplex))
-+				tempval &= ~(MACCFG2_FULL_DUPLEX);
-+			else
-+				tempval |= MACCFG2_FULL_DUPLEX;
-+
-+			priv->oldduplex = phydev->duplex;
-+		}
-+
-+		if (phydev->speed != priv->oldspeed) {
-+			switch (phydev->speed) {
-+			case 1000:
-+				tempval =
-+				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
-+
-+				ecntrl &= ~(ECNTRL_R100);
-+				break;
-+			case 100:
-+			case 10:
-+				tempval =
-+				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
-+
-+				/* Reduced mode distinguishes
-+				 * between 10 and 100
-+				 */
-+				if (phydev->speed == SPEED_100)
-+					ecntrl |= ECNTRL_R100;
-+				else
-+					ecntrl &= ~(ECNTRL_R100);
-+				break;
-+			default:
-+				netif_warn(priv, link, priv->ndev,
-+					   "Ack!  Speed (%d) is not 10/100/1000!\n",
-+					   phydev->speed);
-+				break;
-+			}
-+
-+			priv->oldspeed = phydev->speed;
-+		}
-+
-+		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
-+		tempval1 |= gfar_get_flowctrl_cfg(priv);
-+
-+		gfar_write(&regs->maccfg1, tempval1);
-+		gfar_write(&regs->maccfg2, tempval);
-+		gfar_write(&regs->ecntrl, ecntrl);
-+
-+		if (!priv->oldlink)
-+			priv->oldlink = 1;
-+
-+	} else if (priv->oldlink) {
-+		priv->oldlink = 0;
-+		priv->oldspeed = 0;
-+		priv->oldduplex = -1;
-+	}
-+
-+	if (netif_msg_link(priv))
-+		phy_print_status(phydev);
-+}
-+
- static struct of_device_id gfar_match[] =
- {
- 	{
+Changes in v2:
+- minor comments taken into account
+- additional patches added for cleaning up Davinci MDIO driver
+
+Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+Grygorii Strashko (4):
+  mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free
+  net: davinci_mdio: use devm_* api
+  net: davinci_mdio: drop pinctrl_pm_select_default_state from probe
+  net: davinci_mdio: simplify IO memory mapping
+
+ Documentation/driver-model/devres.txt  |    5 +++
+ drivers/net/ethernet/ti/davinci_mdio.c |   48 ++++-------------------
+ drivers/net/phy/mdio_bus.c             |   67 ++++++++++++++++++++++++++++++++
+ include/linux/phy.h                    |    7 ++++
+ 4 files changed, 87 insertions(+), 40 deletions(-)
+
 -- 
-1.7.11.7
+1.7.9.5
