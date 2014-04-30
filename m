@@ -1,85 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net
- when VIRTIO_F_ANY_LAYOUT is true
-Date: Wed, 30 Apr 2014 13:19:50 +0300
-Message-ID: <20140430101950.GA22654@redhat.com>
-References: <535F824A.5060804@huawei.com>
+From: Liu Yu <allanliuyu@gmail.com>
+Subject: [PATCH]  tcp_cubic: fix the range of delayed_ack
+Date: Wed, 30 Apr 2014 17:34:09 +0800
+Message-ID: <5360C391.2040202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, linville@tuxdriver.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au,
-	jasowang@redhat.com, qinchuanyu@huawei.com, liuyongan@huawei.com,
-	zhaoshenglong@huawei.com
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <535F824A.5060804@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Apr 29, 2014 at 06:43:22PM +0800, Zhangjie (HZ) wrote:
-> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
-> ("virtio-net: put virtio-net header inline with data"). TCP packages have
-> enough room to put virtio-net header in, but UDP packages do not. By
-> setting dev->needed_headroom for virtio-net device, UDP packages could have
-> enough room.
-> 
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
-> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not enough
-> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
-> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
-> Then there is enough room for UDP packages to put the header in.
-> 
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old             |   new             |
-> +-------+---------+---------+---------+---------+
-> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
-> | 64    |  0.57   | 692232  |  0.61   | 742420  |
-> | 256   |  1.60   | 686860  |  1.71   | 733331  |
-> | 512   |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
-> +-------+---------+---------+---------+---------+
-> 
-> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
-
-Thanks for your patience!
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com, ncardwell@google.com,
+	shemminger@vyatta.com, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:33857 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932922AbaD3JcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 05:32:25 -0400
+Received: by mail-ig0-f171.google.com with SMTP id c1so1626857igq.4
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 02:32:24 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-> ---
->  drivers/net/virtio_net.c | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8a852b5..b852bb3 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
-> 
-> +	if (vi->any_header_sg) {
-> +		if (vi->mergeable_rx_bufs)
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +		else
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
-> +	}
-> +
->  	/* Use single tx/rx queue pair as default */
->  	vi->curr_queue_pairs = 1;
->  	vi->max_queue_pairs = max_queue_pairs;
-> -- 
-> 1.9.0.msysgit.0
-> 
+From: Liu Yu <allanyuliu@tencent.com>
+
+commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
+divide error) try to prevent divide error, but there is still a little
+chance that delayed_ack can reach zero. In case the param cnt get
+negative value, then ratio+cnt would overflow and may happen to be zero.
+As a result, min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
+
+In some old kernels, such as 2.6.32, there is a bug that would
+pass negative param, which then ultimately leads to this divide error.
+
+commit 5b35e1e6e9c (tcp: fix tcp_trim_head() to adjust segment count
+with skb MSS) fixed the negative param issue. However, 
+it's safe that we fix the range of delayed_ack as well,
+to make sure we do not hit a divide by zero.
+
+CC: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Liu Yu <allanyuliu@tencent.com>
+---
+ net/ipv4/tcp_cubic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+index 8bf2245..b4f1b29 100644
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -409,7 +409,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
+ 		ratio -= ca->delayed_ack >> ACK_RATIO_SHIFT;
+ 		ratio += cnt;
+ 
+-		ca->delayed_ack = min(ratio, ACK_RATIO_LIMIT);
++		ca->delayed_ack = clamp(ratio, 1U, ACK_RATIO_LIMIT);
+ 	}
+ 
+ 	/* Some calls are for duplicates without timetamps */
+-- 
+1.7.1
