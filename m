@@ -1,104 +1,98 @@
-From: Alexey Charkov <alchark@gmail.com>
-Subject: [PATCH] net: via-rhine: Fix compiler warning re: pointer casting on 64bit
-Date: Wed, 30 Apr 2014 16:06:29 +0400
-Message-ID: <1398859589-22346-1-git-send-email-alchark@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Charkov <alchark@gmail.com>
-To: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>,
-	Jan Moskyto Matejka <mq@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt instead
+ of an error
+Date: Wed, 30 Apr 2014 15:27:17 +0200
+Message-ID: <5360FA35.7070209@gmail.com>
+References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com> <53601B96.3000608@gmail.com> <20140430114209.GA1907@arch.cereza>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:61131 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758989AbaD3N1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 09:27:21 -0400
+Received: by mail-ee0-f43.google.com with SMTP id e51so1370521eek.16
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 06:27:20 -0700 (PDT)
+In-Reply-To: <20140430114209.GA1907@arch.cereza>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ixed different size cast warning:
+On 04/30/2014 01:42 PM, Ezequiel Garcia wrote:
+> On Apr 29, Sebastian Hesselbarth wrote:
+>> On 04/29/2014 09:49 PM, Ezequiel Garcia wrote:
+>>> The following commit:
+>>>
+>>> commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
+>>> Author: Rob Herring <robh@kernel.org>
+>>> Date:   Wed Apr 23 17:57:41 2014 -0500
+>>>
+>>>      of/irq: do irq resolution in platform_get_irq
+>>>
+>>> changed platform_get_irq() which now returns ENODEV and EPROBE_DEFER,
+>>> in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
+>>> returns ENODEV, but we currently check only for ENXIO.
+>>>
+>>> Fix this by looking for a positive integer, which is the proper way of
+>>> validating a virtual interrupt number.
+>>>
+>>> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+>>> ---
+>>>   drivers/net/ethernet/marvell/mvmdio.c | 2 +-
+>>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+>>> index b161a52..eb2cabf 100644
+>>> --- a/drivers/net/ethernet/marvell/mvmdio.c
+>>> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+>>> @@ -232,7 +232,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
+>>>   		clk_prepare_enable(dev->clk);
+>>>
+>>>   	dev->err_interrupt = platform_get_irq(pdev, 0);
+>>> -	if (dev->err_interrupt != -ENXIO) {
+>>> +	if (dev->err_interrupt > 0) {
+>>
+>> Ezequiel,
+>>
+>> I cannot find where Rob's mentioned patch set adds -ENODEV, but isn't
+>
+> Well, I don't think it's not mentioned in the patch. The path is:
+>
+> platform_get_irq -> of_irq_get -> of_irq_parse_one -> EINVAL.
+>
+> So it's EINVAL, not ENODEV. But the lesson is to avoid checking for
+> a particular error (except EPROBE_DEFER which is special) because
+> it's a fragile practice.
 
-        drivers/net/ethernet/via/via-rhine.c: In function =E2=80=98rhin=
-e_init_one_platform=E2=80=99:
-        drivers/net/ethernet/via/via-rhine.c:1132:13: warning: cast fro=
-m pointer to integer of different size [-Wpointer-to-int-cast]
-          revision =3D (u32)match->data;
-                     ^
+Ok, thanks for the clarification.
 
-That code was added in commit 2d283862dc62daead9db0dc89cd0d0351e91f765
-("net: via-rhine: add OF bus binding").
+>> the semantic for -EPROBE_DEFER: there *should* be an irq, but it is
+>> not yet available. That basically means, we should also defer on that
+>> error otherwise we would ignore that we have actually been given an irq
+>> to work with, right?
+>>
+>
+> Yes, I agree. Did another patch for that, but haven't send it yet.
+> AFAICS, mvebu platforms will never hit the deferred case as the irqchip
+> is the first driver registered (as per drivers/Makefile).
+>
+> Not that we should count on that :)
 
-This patch removes the cast altogether, and instead stores an actual
-pointer to u8 in match->data. All instances of 'revision' are also
-unified to u8 instead of an assortment of different integer types,
-in line with the definition of 'revision' in struct pci_dev.
+It doesn't hit it _now_ because of the above. I read about proper
+platform_device for early devices here and there over and over
+again, so I guess some day it may become an issue.
 
-Tested in platform configuration on a VIA WM8950 APC Rock board.
+As we know about the potential -EPROBE_DEFER now, I suggest to
+deal with it now, too.
 
-Reported-by: Jan Moskyto Matejka <mq@suse.cz>
-Signed-off-by: Alexey Charkov <alchark@gmail.com>
----
- drivers/net/ethernet/via/via-rhine.c | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+Can you resend this as v2 with the other patch you mentioned
+squashed in?
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/etherne=
-t/via/via-rhine.c
-index 4fa9201..80cdc91 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -287,8 +287,9 @@ MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
-  * The .data field is currently only used to store chip revision
-  * (for quirks etc.)
-  */
-+static u8 vt8500_revision =3D 0x84;
- static struct of_device_id rhine_of_tbl[] =3D {
--	{ .compatible =3D "via,vt8500-rhine", .data =3D (void *)0x84 },
-+	{ .compatible =3D "via,vt8500-rhine", .data =3D &vt8500_revision },
- 	{ }	/* terminate list */
- };
- MODULE_DEVICE_TABLE(of, rhine_of_tbl);
-@@ -459,7 +460,7 @@ struct rhine_private {
- 	unsigned char *tx_bufs;
- 	dma_addr_t tx_bufs_dma;
-=20
--	int revision;
-+	u8 revision;
- 	int irq;
- 	long pioaddr;
- 	struct net_device *dev;
-@@ -882,7 +883,7 @@ static const struct net_device_ops rhine_netdev_ops=
- =3D {
- #endif
- };
-=20
--static int rhine_init_one_common(struct device *hwdev, int revision,
-+static int rhine_init_one_common(struct device *hwdev, u8 revision,
- 				 long pioaddr, void __iomem *ioaddr, int irq)
- {
- 	struct net_device *dev;
-@@ -1111,7 +1112,7 @@ err_out:
- static int rhine_init_one_platform(struct platform_device *pdev)
- {
- 	const struct of_device_id *match;
--	u32 revision;
-+	const u8 *revision;
- 	int irq;
- 	struct resource *res;
- 	void __iomem *ioaddr;
-@@ -1129,11 +1130,11 @@ static int rhine_init_one_platform(struct platf=
-orm_device *pdev)
- 	if (!irq)
- 		return -EINVAL;
-=20
--	revision =3D (u32)match->data;
-+	revision =3D match->data;
- 	if (!revision)
- 		return -EINVAL;
-=20
--	return rhine_init_one_common(&pdev->dev, revision,
-+	return rhine_init_one_common(&pdev->dev, *revision,
- 				     (long)ioaddr, ioaddr, irq);
- }
-=20
---=20
-1.9.1
+Sebastian
