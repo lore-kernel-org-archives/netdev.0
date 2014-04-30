@@ -1,201 +1,84 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v2 net-next 2/7] bridge: Keep track of
- ports capable of automatic discovery.
-Date: Wed, 30 Apr 2014 13:18:42 +0300
-Message-ID: <20140430101842.GA22962@redhat.com>
-References: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
-	<1398806428-640-3-git-send-email-vyasevic@redhat.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
+Date: Wed, 30 Apr 2014 12:45:06 +0200
+Message-ID: <395225650.20140430124506@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1398806428-640-3-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:56913 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932252AbaD3KpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 06:45:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2014 at 05:20:23PM -0400, Vlad Yasevich wrote:
-> By default, ports on the bridge are capable of automatic
-> discovery of nodes located behind the port.  This is accomplished
-> via flooding of unknown traffic (BR_FLOOD) and learning the
-> mac addresses from these packets (BR_LEARNING).
-> If the above functionality is diabled by turning off these
-> flags, the port requires static configuration in the form
-> of static FDB entries to function properly.
-> 
-> This patch adds functionality to keep track of all ports
-> capable of automatic discovery.  This will later be used
-> to control promiscuity settings.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  net/bridge/br_if.c       | 27 +++++++++++++++++++++++++++
->  net/bridge/br_netlink.c  |  3 +++
->  net/bridge/br_private.h  |  6 ++++++
->  net/bridge/br_sysfs_if.c |  6 +++++-
->  4 files changed, 41 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 5262b86..7e60c4c 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -85,6 +85,18 @@ void br_port_carrier_check(struct net_bridge_port *p)
->  	spin_unlock_bh(&br->lock);
->  }
->  
-> +static void nbp_update_port_count(struct net_bridge *br)
-> +{
-> +	struct net_bridge_port *p;
-> +	u32 cnt = 0;
-> +
-> +	list_for_each_entry(p, &br->port_list, list) {
-> +		if (br_is_auto_port(p))
-> +			cnt++;
-> +	}
-> +	br->auto_cnt = cnt;
-> +}
-> +
->  static void release_nbp(struct kobject *kobj)
->  {
->  	struct net_bridge_port *p
-> @@ -146,6 +158,8 @@ static void del_nbp(struct net_bridge_port *p)
->  
->  	list_del_rcu(&p->list);
->  
-> +	nbp_update_port_count(br);
-> +
->  	dev->priv_flags &= ~IFF_BRIDGE_PORT;
->  
->  	netdev_rx_handler_unregister(dev);
-> @@ -384,6 +398,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
->  
->  	list_add_rcu(&p->list, &br->port_list);
->  
-> +	nbp_update_port_count(br);
-> +
->  	netdev_update_features(br->dev);
->  
->  	if (br->dev->needed_headroom < dev->needed_headroom)
-> @@ -455,3 +471,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
->  
->  	return 0;
->  }
-> +
-> +void br_port_flags_change(struct net_bridge_port *p, unsigned long old_flags)
-> +{
-> +	struct net_bridge *br = p->br;
-> +	unsigned long mask = old_flags ^ p->flags;
-> +
-> +	if (!(mask & BR_AUTO_MASK))
-> +		return;
-> +
-> +	nbp_update_port_count(br);
-> +}
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index e74b6d53..01382b9 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -328,6 +328,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
->  static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  {
->  	int err;
-> +	unsigned long old_flags = p->flags;
->  
->  	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
->  	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
-> @@ -353,6 +354,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
->  		if (err)
->  			return err;
->  	}
-> +
-> +	br_port_flags_change(p, old_flags ^ p->flags);
->  	return 0;
->  }
->  
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 06811d7..db714a1 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -174,6 +174,7 @@ struct net_bridge_port
->  #define BR_ADMIN_COST		0x00000010
->  #define BR_LEARNING		0x00000020
->  #define BR_FLOOD		0x00000040
-> +#define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
->  
->  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
->  	struct bridge_mcast_query	ip4_query;
-> @@ -198,6 +199,8 @@ struct net_bridge_port
->  #endif
->  };
->  
-> +#define br_is_auto_port(p) (((p)->flags & BR_AUTO_MASK) == BR_AUTO_MASK)
-> +
+Hi Zoltan,
 
-I think you
-really want ((p)->flags & BR_AUTO_MASK) instead without
- == BR_AUTO_MASK.
+Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
+seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
+I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
+Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
 
-For example if learning is off but flood is on, things work
-(slowly) automatically without configuring static entries.
+Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
 
-OTOH if flood is off but learning is on, a bunch of packets
-might get dropped but eventually you might learn the
-mac and then networking will start working.
+So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
+I don't see this with clients that upload large files from external sources.
+Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
 
+I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
 
->  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
->  
->  static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
-> @@ -290,6 +293,7 @@ struct net_bridge
->  	struct timer_list		topology_change_timer;
->  	struct timer_list		gc_timer;
->  	struct kobject			*ifobj;
-> +	u32				auto_cnt;
->  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
->  	u8				vlan_enabled;
->  	struct net_port_vlans __rcu	*vlan_info;
-> @@ -415,6 +419,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev);
->  int br_min_mtu(const struct net_bridge *br);
->  netdev_features_t br_features_recompute(struct net_bridge *br,
->  					netdev_features_t features);
-> +void br_port_flags_change(struct net_bridge_port *port,
-> +			  unsigned long old_flags);
->  
->  /* br_input.c */
->  int br_handle_frame_finish(struct sk_buff *skb);
-> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-> index 112a25e..58c26e3 100644
-> --- a/net/bridge/br_sysfs_if.c
-> +++ b/net/bridge/br_sysfs_if.c
-> @@ -49,7 +49,10 @@ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
->  static int store_flag(struct net_bridge_port *p, unsigned long v,
->  		     unsigned long mask)
->  {
-> -	unsigned long flags = p->flags;
-> +	unsigned long flags;
-> +	unsigned long old_flags;
-> +
-> +	old_flags = flags = p->flags;
->  
->  	if (v)
->  		flags |= mask;
-> @@ -58,6 +61,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
->  
->  	if (flags != p->flags) {
->  		p->flags = flags;
-> +		br_port_flags_change(p, old_flags ^ flags);
->  		br_ifinfo_notify(RTM_NEWLINK, p);
->  	}
->  	return 0;
-> -- 
-> 1.9.0
+Since these commits break bisectabillity:
+    - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
+    - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
+i stopped bisecting at this point.
+
+The upside is .. it's 100% reproduceable :-)
+
+On a sidenote:
+    Although DaveM seems to prefer patches, it would probably be nice to have larger patchsets like this one in a git tree somewhere,
+    for more easy isolated applying to stable kernels, that would improve testing and bisecting things.
+    For example the kernel xen.git tree makes it very easy to pull the devel branches to current stable .. 
+    and even test those *isolated* and *before* the merge window, that greatly reduces the effort of testing and if anything is wrong .. in bisecting things.
+
+    Another point would be: what *correctness* testing is actually done on the xen-net* patches ?
+    As i suspect this is again about fragmented packets .. that doesn't seem to be included in any test case while it actually seems to be a case which is hard to get right...
+
+--
+Sander
+
+The bisection log:
+git bisect start
+# bad: [cd6362befe4cc7bf589a5236d2a780af2d47bcc9] Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next
+git bisect bad cd6362befe4cc7bf589a5236d2a780af2d47bcc9
+# good: [df69491b7d1550137507a7eb5f2fc5dce0c1e534] Merge branch 'xen-netback'
+git bisect good df69491b7d1550137507a7eb5f2fc5dce0c1e534
+# good: [c12e69c6aaf785fd307d05cb6f36ca0e7577ead7] Merge tag 'staging-3.15-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging
+git bisect good c12e69c6aaf785fd307d05cb6f36ca0e7577ead7
+# bad: [49c0ca17ee8dd3530f688052d4eb2ae6d3e55119] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next into for-davem
+git bisect bad 49c0ca17ee8dd3530f688052d4eb2ae6d3e55119
+# good: [370c5acef0326db3e8c10d42b941289c9c887a4a] Merge branch 'for-upstream' of git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next
+git bisect good 370c5acef0326db3e8c10d42b941289c9c887a4a
+# good: [ec5709403e6893acb4f7ca40514ebd29c3116836] net/mlx4_en: Use union for BlueFlame WQE
+git bisect good ec5709403e6893acb4f7ca40514ebd29c3116836
+# bad: [69bfb110fd58185df99a7dbe92a14c0d7ada764f] i40e: cleanup strings
+git bisect bad 69bfb110fd58185df99a7dbe92a14c0d7ada764f
+# bad: [aeb12c5ef7cb08d879af22fc0a56cab9e70689ea] gianfar: Separate out the Tx interrupt handling (Tx NAPI)
+git bisect bad aeb12c5ef7cb08d879af22fc0a56cab9e70689ea
+# bad: [389400428953bb002b173fa07d16d7a6f120843f] Merge tag 'rxrpc-devel-20140304' of git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs
+git bisect bad 389400428953bb002b173fa07d16d7a6f120843f
+# good: [5a8a1ab74dce1b50fe27745df477c502aec987eb] be2net: do external loopback test only when it is requested
+git bisect good 5a8a1ab74dce1b50fe27745df477c502aec987eb
+# skip: [1bb332af4cd889e4b64dacbf4a793ceb3a70445d] xen-netback: Add stat counters for zerocopy
+git bisect skip 1bb332af4cd889e4b64dacbf4a793ceb3a70445d
+# skip: [e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d] Merge branch '6lowpan'
+git bisect skip e86800f9201d35b6b2aac1583a9bf9e3a0b0c70d
+# good: [31c70d5956fc3d1abf83e9ab5e1d8237dea59498] l2tp: keep original skb ownership
+git bisect good 31c70d5956fc3d1abf83e9ab5e1d8237dea59498
