@@ -1,47 +1,33 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt
- instead of an error
-Date: Wed, 30 Apr 2014 13:03:51 -0300
-Message-ID: <20140430160351.GA17162@arch.cereza>
-References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <53601B96.3000608@gmail.com>
- <20140430114209.GA1907@arch.cereza>
- <5360FA35.7070209@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V1 net-next 1/1] hyperv: Enable sendbuf mechanism on
+ the send path
+Date: Wed, 30 Apr 2014 12:06:49 -0400 (EDT)
+Message-ID: <20140430.120649.2287464187870126146.davem@davemloft.net>
+References: <1398288285-16268-1-git-send-email-kys@microsoft.com>
+ <7a7fd7286bc44121839ec68c8d1458b2@BY2PR03MB299.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:48007 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933829AbaD3QEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 12:04:34 -0400
-Content-Disposition: inline
-In-Reply-To: <5360FA35.7070209@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <7a7fd7286bc44121839ec68c8d1458b2@BY2PR03MB299.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Apr 30, Sebastian Hesselbarth wrote:
->=20
-> As we know about the potential -EPROBE_DEFER now, I suggest to
-> deal with it now, too.
->=20
-> Can you resend this as v2 with the other patch you mentioned
-> squashed in?
->=20
+From: KY Srinivasan <kys@microsoft.com>
+Date: Wed, 30 Apr 2014 14:17:04 +0000
 
-Sure. I did that first, but then wasn't sure about squashing both chang=
-es.
+> Please let me know if there is some other issue you want addressed in this patch.
 
-Thanks for helping out,
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+If the patch isn't in patchwork, I'm not going to apply it and you need to
+simply resubmit it.
