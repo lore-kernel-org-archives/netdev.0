@@ -1,48 +1,80 @@
-From: "Ertman, DavidX M" <davidx.m.ertman@intel.com>
-Subject: RE: Request for stable inclusion
-Date: Wed, 30 Apr 2014 19:40:03 +0000
-Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9370ECAF9@ORSMSX101.amr.corp.intel.com>
-References: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v2 for v3.15] net: mvmdio: Check for a valid interrupt
+ instead of an error
+Date: Wed, 30 Apr 2014 21:40:57 +0200
+Message-ID: <536151C9.4090802@gmail.com>
+References: <1398875331-18925-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:34229 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964977AbaD3TlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 15:41:03 -0400
+Received: by mail-ee0-f46.google.com with SMTP id t10so1692673eei.5
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 12:41:01 -0700 (PDT)
+In-Reply-To: <1398875331-18925-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Thomas Gleixner [mailto:tglx@linutronix.de]
-> Sent: Wednesday, April 30, 2014 12:04 PM
-> To: stable@vger.kernel.org
-> Cc: Kirsher, Jeffrey T; Ertman, DavidX M; netdev@vger.kernel.org
-> Subject: Request for stable inclusion
+On 04/30/2014 06:28 PM, Ezequiel Garcia wrote:
+> The following commit:
 > 
-> Hi,
+> commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
+> Author: Rob Herring <robh@kernel.org>
+> Date:   Wed Apr 23 17:57:41 2014 -0500
 > 
-> commit b20a774495671f037e7160ea2ce8789af6b61533
-> Author: David Ertman <davidx.m.ertman@intel.com>
-> Date:   Tue Mar 25 04:27:55 2014 +0000
+>     of/irq: do irq resolution in platform_get_irq
 > 
->     e1000e: Fix no connectivity when driver loaded with cable out
+> changed platform_get_irq() which now returns EINVAL and EPROBE_DEFER,
+> in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
+> returns EINVAL, but we currently check only for ENXIO.
 > 
-> fixes an issue which affects quite some of the newer Laptops and also
-> Desktops (e.g. AOI-PCs) which are based on mobile chipsets.
+> Fix this by looking for a positive integer, which is the proper way of
+> validating a virtual interrupt number.
 > 
-> I don't know how far this reaches back, but at least the 3.13 and 3.14
-> kernels need this fix. Jeff, David, can you tell?
+> While at it, add a proper handling for the deferral probe case.
 > 
-> Please consider for inclusion.
-> 
-> Thanks,
-> 
-> 	tglx
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 
-The commit that caused the issue went into net-next on June 21, 2013.  So at least 3.11 and forward, and probably 3.10.
+Reviewed-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
-Dave Ertman
+Thanks!
+
+> ---
+> Changes from v1: Handle the deferral probe as well.
+> 
+>  drivers/net/ethernet/marvell/mvmdio.c | 5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+> index b161a52..9d5ced2 100644
+> --- a/drivers/net/ethernet/marvell/mvmdio.c
+> +++ b/drivers/net/ethernet/marvell/mvmdio.c
+> @@ -232,7 +232,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
+>  		clk_prepare_enable(dev->clk);
+>  
+>  	dev->err_interrupt = platform_get_irq(pdev, 0);
+> -	if (dev->err_interrupt != -ENXIO) {
+> +	if (dev->err_interrupt > 0) {
+>  		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
+>  					orion_mdio_err_irq,
+>  					IRQF_SHARED, pdev->name, dev);
+> @@ -241,6 +241,9 @@ static int orion_mdio_probe(struct platform_device *pdev)
+>  
+>  		writel(MVMDIO_ERR_INT_SMI_DONE,
+>  			dev->regs + MVMDIO_ERR_INT_MASK);
+> +
+> +	} else if (dev->err_interrupt == -EPROBE_DEFER) {
+> +		return -EPROBE_DEFER;
+>  	}
+>  
+>  	mutex_init(&dev->lock);
+> 
