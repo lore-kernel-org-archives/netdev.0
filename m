@@ -1,65 +1,47 @@
-From: Harish Patil <harish.patil@qlogic.com>
-Subject: Re: [PATCH] qlcnic: clarify hwmon Kconfig dependency
-Date: Wed, 30 Apr 2014 15:51:27 +0000
-Message-ID: <036FA1BC4A80D448AB7D9C3AAFBBCAF5B68382@AVMB1.qlogic.org>
-References: <4879713.xMSSnUPZKf@wuerfel>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt
+ instead of an error
+Date: Wed, 30 Apr 2014 13:03:51 -0300
+Message-ID: <20140430160351.GA17162@arch.cereza>
+References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <53601B96.3000608@gmail.com>
+ <20140430114209.GA1907@arch.cereza>
+ <5360FA35.7070209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>
-To: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:62395 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758938AbaD3Pve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 11:51:34 -0400
-In-Reply-To: <4879713.xMSSnUPZKf@wuerfel>
-Content-Language: en-US
-Content-ID: <EDD11FCB3031F54C852DEE23DB2E572F@qlogic.com>
+Received: from top.free-electrons.com ([176.31.233.9]:48007 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933829AbaD3QEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 12:04:34 -0400
+Content-Disposition: inline
+In-Reply-To: <5360FA35.7070209@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj5jb21taXQgMWYwZjQ2N2I2NzBlICJxbGNuaWM6IEFkZCBod21vbiBpbnRlcmZhY2UgdG8g
-ZXhwb3J0IGJvYXJkDQo+dGVtcGVyYXR1cmUiIGludHJvZHVjZWQgYSByYW5kY29uZmlnIGJ1aWxk
-IGVycm9yIGluIHRoZSBjYXNlDQo+d2hlbiB0aGUgaHdtb24gZnJhbWV3b3JrIGlzIGJ1aWx0IGFz
-IGEgbW9kdWxlIGFuZCB0aGUgcWxjbmljDQo+ZHJpdmVyIGl0c2VsZiBpcyBidWlsdC1pbjoNCj4N
-Cj5kcml2ZXJzL2J1aWx0LWluLm86IEluIGZ1bmN0aW9uIGBxbGNuaWNfcmVnaXN0ZXJfaHdtb25f
-ZGV2JzoNCj5kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25pY19zeXNmcy5j
-OjEzMDE6IHVuZGVmaW5lZA0KPnJlZmVyZW5jZSB0byBgaHdtb25fZGV2aWNlX3JlZ2lzdGVyX3dp
-dGhfZ3JvdXBzJw0KPmRyaXZlcnMvYnVpbHQtaW4ubzogSW4gZnVuY3Rpb24gYHFsY25pY191bnJl
-Z2lzdGVyX2h3bW9uX2Rldic6DQo+ZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9x
-bGNuaWNfc3lzZnMuYzoxMzA5OiB1bmRlZmluZWQNCj5yZWZlcmVuY2UgdG8gYGh3bW9uX2Rldmlj
-ZV91bnJlZ2lzdGVyJw0KPg0KPlRoaXMgY2hhbmdlcyB0aGUgS2NvbmZpZyBsb2dpYyB0byBlbmZv
-cmNlIHRoYXQgdGhlIHFsY25pYyBod21vbg0KPnN1cHBvcnQgY2FuIG9ubHkgYmUgZW5hYmxlZCBp
-ZiBpdCBpcyBwb3NzaWJsZSB0byBzdWNjZXNzZnVsbHkNCj5idWlsZCBpdC4NCj4NCj5TaWduZWQt
-b2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KPkNjOiBIYXJpc2ggUGF0aWwg
-PGhhcmlzaC5wYXRpbEBxbG9naWMuY29tPg0KPg0KPmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KPmIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL0tj
-b25maWcNCj5pbmRleCAwNDgyYWRiLi45NDkzODI0IDEwMDY0NA0KPi0tLSBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L3Fsb2dpYy9LY29uZmlnDQo+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxv
-Z2ljL0tjb25maWcNCj5AQCAtNjksNiArNjksNyBAQCBjb25maWcgUUxDTklDX1ZYTEFODQo+IGNv
-bmZpZyBRTENOSUNfSFdNT04NCj4gICAgICAgYm9vbCAiUUxPR0lDIFFMQ05JQyA4MlhYIGFuZCA4
-M1hYIGZhbWlseSBIV01PTiBzdXBwb3J0Ig0KPiAgICAgICBkZXBlbmRzIG9uIFFMQ05JQyAmJiBI
-V01PTg0KPisgICAgICBkZXBlbmRzIG9uIFFMQ05JQz1tIHx8IEhXTU9OPXkNCj4gICAgICAgZGVm
-YXVsdCB5DQo+ICAgICAgIC0tLWhlbHAtLS0NCj4gICAgICAgICBUaGlzIGNvbmZpZ3VyYXRpb24g
-cGFyYW1ldGVyIGNhbiBiZSB1c2VkIHRvIHJlYWQgdGhlDQo+DQo+DQpDYW4gd2UgbWFrZSBpdCBp
-bnRvIGFuIG9uZSBsaW5lIGV4cHJlc3Npb24gYXMgZG9uZSBpbiBmZXcgb3RoZXIgY2FzZXM6DQoN
-CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KYi9kcml2
-ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvSw0KaW5kZXggYjgxODQzMi4uZDQ5Y2JhMSAxMDA2NDQN
-Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9LY29uZmlnDQorKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9xbG9naWMvS2NvbmZpZw0KQEAgLTY4LDcgKzY4LDcgQEAgY29uZmlnIFFM
-Q05JQ19WWExBTg0KDQogY29uZmlnIFFMQ05JQ19IV01PTg0KICAgICAgICBib29sICJRTE9HSUMg
-UUxDTklDIDgyWFggYW5kIDgzWFggZmFtaWx5IEhXTU9OIHN1cHBvcnQiDQotICAgICAgIGRlcGVu
-ZHMgb24gUUxDTklDICYmIEhXTU9ODQorICAgICAgIGRlcGVuZHMgb24gUUxDTklDICYmIEhXTU9O
-ICYmICEoUUxDTklDPXkgJiYgSFdNT049bSkNCiAgICAgICAgZGVmYXVsdCB5DQogICAgICAgIC0t
-LWhlbHAtLS0NCiAgICAgICAgICBUaGlzIGNvbmZpZ3VyYXRpb24gcGFyYW1ldGVyIGNhbiBiZSB1
-c2VkIHRvIHJlYWQgdGhlDQoNCg0KDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-DQoNClRoaXMgbWVzc2FnZSBhbmQgYW55IGF0dGFjaGVkIGRvY3VtZW50cyBjb250YWluIGluZm9y
-bWF0aW9uIGZyb20gUUxvZ2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3aG9sbHktb3duZWQgc3Vic2lk
-aWFyaWVzIHRoYXQgbWF5IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVu
-ZGVkIHJlY2lwaWVudCwgeW91IG1heSBub3QgcmVhZCwgY29weSwgZGlzdHJpYnV0ZSwgb3IgdXNl
-IHRoaXMgaW5mb3JtYXRpb24uIElmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgdHJhbnNtaXNzaW9u
-IGluIGVycm9yLCBwbGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1tZWRpYXRlbHkgYnkgcmVwbHkg
-ZS1tYWlsIGFuZCB0aGVuIGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
+On Apr 30, Sebastian Hesselbarth wrote:
+>=20
+> As we know about the potential -EPROBE_DEFER now, I suggest to
+> deal with it now, too.
+>=20
+> Can you resend this as v2 with the other patch you mentioned
+> squashed in?
+>=20
+
+Sure. I did that first, but then wasn't sure about squashing both chang=
+es.
+
+Thanks for helping out,
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
