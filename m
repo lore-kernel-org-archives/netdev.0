@@ -1,49 +1,77 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: via-rhine: fix compiler warning
-Date: Wed, 30 Apr 2014 08:49:39 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
+From: Alexey Charkov <alchark@gmail.com>
+Subject: Re: [PATCH] net: via-rhine: fix compiler warning
+Date: Wed, 30 Apr 2014 13:22:51 +0400
+Message-ID: <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
 References: <1398792971-10379-1-git-send-email-mq@suse.cz>
+	<063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Jan Moskyto Matejka' <mq@suse.cz>,
-	Alexey Charkov <alchark@gmail.com>,
-	Roger Luethi <rl@hellgate.ch>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Jan Moskyto Matejka <mq@suse.cz>, Roger Luethi <rl@hellgate.ch>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398792971-10379-1-git-send-email-mq@suse.cz>
-Content-Language: en-US
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSmFuIE1vc2t5dG8gTWF0ZWprYQ0KPiBGaXhlZCBkaWZmZXJlbnQgc2l6ZSBjYXN0IHdh
-cm5pbmc6DQo+IA0KPiAJZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3ZpYS1yaGluZS5jOiBJbiBm
-dW5jdGlvbiByaGluZV9pbml0X29uZV9wbGF0Zm9ybToNCj4gCWRyaXZlcnMvbmV0L2V0aGVybmV0
-L3ZpYS92aWEtcmhpbmUuYzoxMTMyOjEzOiB3YXJuaW5nOiBjYXN0IGZyb20gcG9pbnRlciB0byBp
-bnRlZ2VyIG9mIGRpZmZlcmVudA0KPiBzaXplIFstV3BvaW50ZXItdG8taW50LWNhc3RdDQo+IAkg
-IHJldmlzaW9uID0gKHUzMiltYXRjaC0+ZGF0YTsNCj4gCQkgICAgIF4NCj4gDQo+IFRoYXQgY29k
-ZSB3YXMgYWRkZWQgaW4gY29tbWl0IDJkMjgzODYyZGM2MmRhZWFkOWRiMGRjODljZDBkMDM1MWU5
-MWY3NjUNCj4gKCJuZXQ6IHZpYS1yaGluZTogYWRkIE9GIGJ1cyBiaW5kaW5nIikuDQouLi4NCj4g
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtcmhpbmUuYyBiL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtcmhpbmUuYw0KPiBpbmRleCA0ZmE5MjAxLi43NmQxOGUw
-IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC92aWEvdmlhLXJoaW5lLmMNCj4g
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3ZpYS1yaGluZS5jDQo+IEBAIC0yODgsNyAr
-Mjg4LDcgQEAgTU9EVUxFX0RFVklDRV9UQUJMRShwY2ksIHJoaW5lX3BjaV90YmwpOw0KPiAgICog
-KGZvciBxdWlya3MgZXRjLikNCj4gICAqLw0KPiAgc3RhdGljIHN0cnVjdCBvZl9kZXZpY2VfaWQg
-cmhpbmVfb2ZfdGJsW10gPSB7DQo+IC0JeyAuY29tcGF0aWJsZSA9ICJ2aWEsdnQ4NTAwLXJoaW5l
-IiwgLmRhdGEgPSAodm9pZCAqKTB4ODQgfSwNCj4gKwl7IC5jb21wYXRpYmxlID0gInZpYSx2dDg1
-MDAtcmhpbmUiLCAuZGF0YSA9ICh1MzIgW10pIHsgMHg4NCB9IH0sDQo+ICAJeyB9CS8qIHRlcm1p
-bmF0ZSBsaXN0ICovDQo+ICB9Ow0KPiAgTU9EVUxFX0RFVklDRV9UQUJMRShvZiwgcmhpbmVfb2Zf
-dGJsKTsNCj4gQEAgLTExMjksNyArMTEyOSw3IEBAIHN0YXRpYyBpbnQgcmhpbmVfaW5pdF9vbmVf
-cGxhdGZvcm0oc3RydWN0IHBsYXRmb3JtX2RldmljZSAqcGRldikNCj4gIAlpZiAoIWlycSkNCj4g
-IAkJcmV0dXJuIC1FSU5WQUw7DQo+IA0KPiAtCXJldmlzaW9uID0gKHUzMiltYXRjaC0+ZGF0YTsN
-Cj4gKwlyZXZpc2lvbiA9ICooKHUzMiAqKSBtYXRjaC0+ZGF0YSk7DQo+ICAJaWYgKCFyZXZpc2lv
-bikNCj4gIAkJcmV0dXJuIC1FSU5WQUw7DQoNCkJvdGggdGhvc2UgY2FzdHMgbG9vayBob3JyaWQu
-DQpJJ20gbm90IGVudGlyZWx5IGNvbnZpbmNlZCB0aGF0IHRoZSBmaXJzdCBpcyB2YWxpZCBDIC0g
-SXQgd291bGQgaGF2ZSB0byBiZQ0Kc29tZXRoaW5nIHNwZWNpZmljIHRvIEM5OSBpbml0aWFsaXNl
-cnMuDQpDYXN0cyBsaWtlICoodTMyICopZm9vIGFyZSBhbHNvIGxpa2VseSB0byBiZSBidWdzIChl
-c3AuIG9uIEJFIHN5c3RlbXMpDQpzbyB0aGVtc2VsdmVzIHN0YXJ0IHJpbmdpbmcgYWxhcm0gYmVs
-bHMuDQoNClNvIHdoeSBub3QganVzdDoNCglyZXZpc2lvbiA9ICh1bnNpZ25lZCBsb25nKW1hdGNo
-LT5kYXRhOw0KYW5kIGFkZCBhIGNvbW1lbnQgdGhhdCB0aGUgMHg4NCBpcyB0aGUgcmV2aXNpb24g
-LSAjZGVmaW5lID8/DQoNCglEYXZpZA0KDQoNCg==
+2014-04-30 12:49 GMT+04:00 David Laight <David.Laight@aculab.com>:
+> From: Jan Moskyto Matejka
+>> Fixed different size cast warning:
+>>
+>>       drivers/net/ethernet/via/via-rhine.c: In function rhine_init_one_platform:
+>>       drivers/net/ethernet/via/via-rhine.c:1132:13: warning: cast from pointer to integer of different
+>> size [-Wpointer-to-int-cast]
+>>         revision = (u32)match->data;
+>>                    ^
+>>
+>> That code was added in commit 2d283862dc62daead9db0dc89cd0d0351e91f765
+>> ("net: via-rhine: add OF bus binding").
+> ...
+>> diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+>> index 4fa9201..76d18e0 100644
+>> --- a/drivers/net/ethernet/via/via-rhine.c
+>> +++ b/drivers/net/ethernet/via/via-rhine.c
+>> @@ -288,7 +288,7 @@ MODULE_DEVICE_TABLE(pci, rhine_pci_tbl);
+>>   * (for quirks etc.)
+>>   */
+>>  static struct of_device_id rhine_of_tbl[] = {
+>> -     { .compatible = "via,vt8500-rhine", .data = (void *)0x84 },
+>> +     { .compatible = "via,vt8500-rhine", .data = (u32 []) { 0x84 } },
+>>       { }     /* terminate list */
+>>  };
+>>  MODULE_DEVICE_TABLE(of, rhine_of_tbl);
+>> @@ -1129,7 +1129,7 @@ static int rhine_init_one_platform(struct platform_device *pdev)
+>>       if (!irq)
+>>               return -EINVAL;
+>>
+>> -     revision = (u32)match->data;
+>> +     revision = *((u32 *) match->data);
+>>       if (!revision)
+>>               return -EINVAL;
+>
+> Both those casts look horrid.
+> I'm not entirely convinced that the first is valid C - It would have to be
+> something specific to C99 initialisers.
+> Casts like *(u32 *)foo are also likely to be bugs (esp. on BE systems)
+> so themselves start ringing alarm bells.
+>
+> So why not just:
+>         revision = (unsigned long)match->data;
+> and add a comment that the 0x84 is the revision - #define ??
+
+There is no particular reason why it should be u32 now - this is a
+leftover from the previous iteration of code where revision was a
+separate property in DT (sized u32). It actually mirrors the
+respective field in struct pci_dev, which is u8 - don't see any issue
+defining it as unsigned long (and also changing the definition in
+struct rhine_private).
+
+The comment that it's the revision is right above the match table (cut
+off in the patch) :)
+
+Jan, would you prefer to adjust your patch, or shall I send another
+one to change rp->revision and friends to unsigned long?
+
+Thanks a lot,
+Alexey
