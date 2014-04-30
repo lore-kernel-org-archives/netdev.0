@@ -1,48 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH]  tcp_cubic: fix the range of delayed_ack
-Date: Wed, 30 Apr 2014 07:18:18 -0700
-Message-ID: <1398867498.29914.151.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <5360C391.2040202@gmail.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: problem forwarding IP fragments with DF bit set (caused by
+ ipv4: fix path MTU discovery with connection tracking)
+Date: Wed, 30 Apr 2014 16:34:51 +0200
+Message-ID: <1398868491.5474.10.camel@sakura.staff.proxad.net>
+References: <1398703056.12635.41.camel@sakura.staff.proxad.net>
+	 <20140429143324.GB12781@macbook.localnet>
+	 <1398782535.4033.11.camel@sakura.staff.proxad.net>
+	 <20140429144513.GA12969@macbook.localnet>
+	 <1398785021.4033.19.camel@sakura.staff.proxad.net>
+	 <1398785841.29914.146.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, shemminger@vyatta.com,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Liu Yu <allanliuyu@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>, davem@davemloft.net,
+	netdev <netdev@vger.kernel.org>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:55040 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759041AbaD3O0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 10:26:15 -0400
-Received: by mail-pd0-f172.google.com with SMTP id g10so1769688pdj.31
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 07:26:13 -0700 (PDT)
-In-Reply-To: <5360C391.2040202@gmail.com>
+Received: from ns.iliad.fr ([212.27.33.1]:57762 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422652AbaD3Oex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Apr 2014 10:34:53 -0400
+In-Reply-To: <1398785841.29914.146.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-04-30 at 17:34 +0800, Liu Yu wrote:
-> From: Liu Yu <allanyuliu@tencent.com>
-> 
-> commit b9f47a3aaeab (tcp_cubic: limit delayed_ack ratio to prevent
-> divide error) try to prevent divide error, but there is still a little
-> chance that delayed_ack can reach zero. In case the param cnt get
-> negative value, then ratio+cnt would overflow and may happen to be zero.
-> As a result, min(ratio, ACK_RATIO_LIMIT) will calculate to be zero.
-> 
-> In some old kernels, such as 2.6.32, there is a bug that would
-> pass negative param, which then ultimately leads to this divide error.
-> 
-> commit 5b35e1e6e9c (tcp: fix tcp_trim_head() to adjust segment count
-> with skb MSS) fixed the negative param issue. However, 
-> it's safe that we fix the range of delayed_ack as well,
-> to make sure we do not hit a divide by zero.
-> 
-> CC: Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: Liu Yu <allanyuliu@tencent.com>
-> ---
->  net/ipv4/tcp_cubic.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Tue, 2014-04-29 at 08:37 -0700, Eric Dumazet wrote:
 
-Thanks !
+> Hmm... maybe its finally time to rename local_df to ignore_df, as
+> Maze suggested some time ago ...
+
+It would have indeed helped me to understand the purpose of this flag at
+first glance.
+
+About the patch I sent, I'm not well equipped to test mainline kernels
+wrt the bug I reported (it does not boot on my embedded device), so I'd
+prefer someone else to cook the patch and actually test it.
+
+Thanks,
+
+-- 
+Maxime
