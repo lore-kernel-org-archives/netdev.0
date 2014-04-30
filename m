@@ -1,170 +1,93 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH] net: filter: add insn for loading internal transport header offset
-Date: Wed, 30 Apr 2014 11:29:51 -0700
-Message-ID: <1398882591-30422-1-git-send-email-chema@google.com>
-Cc: Chema Gonzalez <chema@google.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f201.google.com ([209.85.128.201]:60165 "EHLO
-	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758931AbaD3S34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 14:29:56 -0400
-Received: by mail-ve0-f201.google.com with SMTP id jy13so310168veb.2
-        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 11:29:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH 2/3] bridge: trigger a bridge calculation upon
+	port changes
+Date: Wed, 30 Apr 2014 11:38:44 -0700
+Message-ID: <CAB=NE6U3o62mbDbL7Uaoe1r44xAXqW+iYM6y9jxP+UvM4kvYHw@mail.gmail.com>
+References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
+	<1394680527-28970-3-git-send-email-mcgrof@do-not-panic.com>
+	<CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com>
+	<20140315013940.GA28801@wotan.suse.de>
+	<CAHA+R7MRVyjAN7w_qPxSxkrjo939bNEc3Ej+O3yH-oWj4gGJxw@mail.gmail.com>
+	<20140318212243.GD28471@garbanzo.do-not-panic.com>
+	<20140422194313.GQ27882@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: kvm@vger.kernel.org, Cong Wang <cwang@twopensource.com>,
+	bridge@lists.linux-foundation.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>, xen-devel@lists.xenproject.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140422194313.GQ27882@wotan.suse.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Patch adds an ANC_TRA_OFFSET insn that loads the internal transport
-header of a packet ("internal" meaning after decapsulation by the
-flow dissector).
+On Tue, Apr 22, 2014 at 12:43 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+> On Tue, Mar 18, 2014 at 02:22:43PM -0700, Luis R. Rodriguez wrote:
+>> On Tue, Mar 18, 2014 at 01:46:49PM -0700, Cong Wang wrote:
+>> > On Fri, Mar 14, 2014 at 6:39 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
+>> > > On Thu, Mar 13, 2014 at 11:26:25AM -0700, Cong Wang wrote:
+>> > >> On Wed, Mar 12, 2014 at 8:15 PM, Luis R. Rodriguez
+>> > >> <mcgrof@do-not-panic.com> wrote:
+>> > >> >                         spin_unlock_bh(&p->br->lock);
+>> > >> > +                       if (changed)
+>> > >> > +                               call_netdevice_notifiers(NETDEV_CHANGEADDR,
+>> > >> > +                                                        p->br->dev);
+>> > >> > +                       netdev_update_features(p->br->dev);
+>> > >>
+>> > >> I think this is supposed to be in netdev event handler of br->dev
+>> > >> instead of here.
+>> > >
+>> > > Do you mean netdev_update_features() ? I mimic'd what was being done on
+>> > > br_del_if() given that root blocking is doing something similar. If
+>> > > we need to change something for the above then I suppose it means we need
+>> > > to change br_del_if() too. Let me know if you see any reason for something
+>> > > else.
+>> > >
+>> >
+>> > Yeah, for me it looks like it's better to call netdev_update_features()
+>> > in the event handler of br->dev, rather than where calling
+>> > call_netdevice_notifiers(..., br->dev);.
+>>
+>> I still don't see why, in fact trying to verify this I am wondering now
+>> if instead we should actually fix br_features_recompute() to take into
+>> consideration BR_ROOT_BLOCK as below. Notice how netdev_update_features()
+>> is called above even if the MAC address did not change, just as is done
+>> on br_del_if(). There is an NETDEV_FEAT_CHANGE event so would it be more
+>> appropriate we just call
+>>
+>> call_netdevice_notifiers(NETDEV_FEAT_CHANGE, p->br->dev)
+>>
+>> for both the above then and also br_del_if()? How about the below
+>> change?
+>>
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index 54d207d..dcd9378 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -315,6 +315,8 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
+>>       features &= ~NETIF_F_ONE_FOR_ALL;
+>>
+>>       list_for_each_entry(p, &br->port_list, list) {
+>> +             if (p->flags & BR_ROOT_BLOCK)
+>> +                     continue;
+>>               features = netdev_increment_features(features,
+>>                                                    p->dev->features, mask);
+>>       }
+>
+> Cong, can you provide feedback on this? I tried to grow confidence on the
+> hunk above but its not clear but the other points still hold and I'd love
+> your feedback on those.
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- include/linux/filter.h      |  1 +
- include/uapi/linux/filter.h |  3 ++-
- net/core/filter.c           | 17 +++++++++++++++++
- tools/net/bpf_exp.l         |  1 +
- tools/net/bpf_exp.y         | 11 ++++++++++-
- 5 files changed, 31 insertions(+), 2 deletions(-)
+Re-poke.
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 759abf7..b76ae2b 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -224,6 +224,7 @@ enum {
- 	BPF_S_ANC_VLAN_TAG_PRESENT,
- 	BPF_S_ANC_PAY_OFFSET,
- 	BPF_S_ANC_RANDOM,
-+	BPF_S_ANC_TRA_OFFSET,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 253b4d4..9f1b8f1 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -131,7 +131,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_VLAN_TAG_PRESENT 48
- #define SKF_AD_PAY_OFFSET	52
- #define SKF_AD_RANDOM	56
--#define SKF_AD_MAX	60
-+#define SKF_AD_TRA_OFFSET	60
-+#define SKF_AD_MAX	64
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7c4db3d..e31846a 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -601,6 +601,17 @@ static u64 __skb_get_pay_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	return __skb_get_poff(skb);
- }
- 
-+static u64 __skb_get_tra_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
-+{
-+	struct flow_keys keys;
-+	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
-+
-+	if (!skb_flow_dissect(skb, &keys))
-+		return 0;
-+
-+	return keys.thoff;
-+}
-+
- static u64 __skb_get_nlattr(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
-@@ -788,6 +799,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
- 	case SKF_AD_OFF + SKF_AD_CPU:
- 	case SKF_AD_OFF + SKF_AD_RANDOM:
-+	case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
- 		/* arg1 = ctx */
- 		insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
- 		insn->a_reg = ARG1_REG;
-@@ -824,6 +836,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 		case SKF_AD_OFF + SKF_AD_RANDOM:
- 			insn->imm = __get_random_u32 - __bpf_call_base;
- 			break;
-+		case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
-+			insn->imm = __skb_get_tra_offset - __bpf_call_base;
-+			break;
- 		}
- 		break;
- 
-@@ -1375,6 +1390,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(VLAN_TAG_PRESENT);
- 			ANCILLARY(PAY_OFFSET);
- 			ANCILLARY(RANDOM);
-+			ANCILLARY(TRA_OFFSET);
- 			}
- 
- 			/* ancillary operation unknown or unsupported */
-@@ -1760,6 +1776,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_TRA_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-index 833a966..4e72934 100644
---- a/tools/net/bpf_exp.l
-+++ b/tools/net/bpf_exp.l
-@@ -93,6 +93,7 @@ extern void yyerror(const char *str);
- "#"?("vlan_tci") { return K_VLANT; }
- "#"?("vlan_pr")	{ return K_VLANP; }
- "#"?("rand")	{ return K_RAND; }
-+"#"?("toff")	{ return K_TOFF; }
- 
- ":"		{ return ':'; }
- ","		{ return ','; }
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-index e6306c5..ced6949 100644
---- a/tools/net/bpf_exp.y
-+++ b/tools/net/bpf_exp.y
-@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
- %token OP_LDXI
- 
- %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
--%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF
- 
- %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
- 
-@@ -167,6 +167,9 @@ ldb
- 	| OP_LDB K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LDB K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	;
- 
- ldh
-@@ -218,6 +221,9 @@ ldh
- 	| OP_LDH K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LDH K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	;
- 
- ldi
-@@ -274,6 +280,9 @@ ld
- 	| OP_LD K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LD K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	| OP_LD 'M' '[' number ']' {
- 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
- 	| OP_LD '[' 'x' '+' number ']' {
--- 
-1.9.1.423.g4596e3a
+  Luis
