@@ -1,33 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: stmmac: set phy to use polling by default
-Date: Wed, 30 Apr 2014 13:32:39 -0400 (EDT)
-Message-ID: <20140430.133239.2011056068435013845.davem@davemloft.net>
-References: <1398794181-17852-1-git-send-email-dinguyen@altera.com>
+Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for
+ virtio-net when VIRTIO_F_ANY_LAYOUT is true
+Date: Wed, 30 Apr 2014 13:32:28 -0400 (EDT)
+Message-ID: <20140430.133228.1835236768036652448.davem@davemloft.net>
+References: <535F824A.5060804@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, dinh.linux@gmail.com,
-	netdev@vger.kernel.org, vbridger@altera.com
-To: dinguyen@altera.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42212 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759256AbaD3Rck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 13:32:40 -0400
-In-Reply-To: <1398794181-17852-1-git-send-email-dinguyen@altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linville@tuxdriver.com, jeffrey.t.kirsher@intel.com,
+	rusty@rustcorp.com.au, mst@redhat.com, jasowang@redhat.com,
+	qinchuanyu@huawei.com, liuyongan@huawei.com,
+	zhaoshenglong@huawei.com
+To: zhangjie14@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <535F824A.5060804@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <dinguyen@altera.com>
-Date: Tue, 29 Apr 2014 12:56:21 -0500
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Date: Tue, 29 Apr 2014 18:43:22 +0800
 
-> From: Dinh Nguyen <dinguyen@altera.com>
+> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
+> ("virtio-net: put virtio-net header inline with data"). TCP packages have
+> enough room to put virtio-net header in, but UDP packages do not. By
+> setting dev->needed_headroom for virtio-net device, UDP packages could have
+> enough room.
 > 
-> mii_irq[] array is never initialized anywhere in the driver, thus mii_irq[]
-> will always equate to zero. So, for the case where the PHY does not have an
-> irq, we should use PHY_POLL for that situation.
+> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
+> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
+> The Macro is defined as follows:
+> #define LL_RESERVED_SPACE(dev) \
+>      ((((dev)->hard_header_len+(dev)->needed_headroom)\
+>      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
+> By default, for UDP packages, after skb is allocated, only 16 bytes
+> reserved. And 2 bytes remained after mac header is set. That is not enough
+> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
+> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
+> Then there is enough room for UDP packages to put the header in.
 > 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-> Tested-by: Vince Bridgers <vbridger@altera.com>
+> test result list as below:
+> guest and host: suse11sp3, netperf, intel 2.4GHz
+> +-------+---------+---------+---------+---------+
+> |       |   old             |   new             |
+> +-------+---------+---------+---------+---------+
+> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
+> | 64    |  0.57   | 692232  |  0.61   | 742420  |
+> | 256   |  1.60   | 686860  |  1.71   | 733331  |
+> | 512   |  2.92   | 674576  |  3.07   | 710446  |
+> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
+> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
+> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
+> +-------+---------+---------+---------+---------+
+> 
+> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
 
 Applied.
