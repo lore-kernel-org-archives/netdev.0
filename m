@@ -1,47 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: via-rhine: fix compiler warning
-Date: Wed, 30 Apr 2014 09:57:40 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
+From: Jan Moskyto Matejka <mq@suse.cz>
+Subject: Re: [PATCH] net: via-rhine: fix compiler warning
+Date: Wed, 30 Apr 2014 12:08:42 +0200
+Message-ID: <20140430100841.GD24832@moskyto.dyndns.org>
 References: <1398792971-10379-1-git-send-email-mq@suse.cz>
  <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
  <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
  <20140430095015.GC24832@moskyto.dyndns.org>
+ <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Roger Luethi <rl@hellgate.ch>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bajzpZikUji1w+G9"
+Cc: Alexey Charkov <alchark@gmail.com>, Roger Luethi <rl@hellgate.ch>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Jan Moskyto Matejka' <mq@suse.cz>,
-	Alexey Charkov <alchark@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140430095015.GC24832@moskyto.dyndns.org>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSmFuIE1vc2t5dG8gTWF0ZWprYQ0KPiA+ID4gU28gd2h5IG5vdCBqdXN0Og0KPiA+ID4g
-ICAgICAgICByZXZpc2lvbiA9ICh1bnNpZ25lZCBsb25nKW1hdGNoLT5kYXRhOw0KPiA+ID4gYW5k
-IGFkZCBhIGNvbW1lbnQgdGhhdCB0aGUgMHg4NCBpcyB0aGUgcmV2aXNpb24gLSAjZGVmaW5lID8/
-DQo+ID4NCj4gPiBUaGVyZSBpcyBubyBwYXJ0aWN1bGFyIHJlYXNvbiB3aHkgaXQgc2hvdWxkIGJl
-IHUzMiBub3cgLSB0aGlzIGlzIGENCj4gPiBsZWZ0b3ZlciBmcm9tIHRoZSBwcmV2aW91cyBpdGVy
-YXRpb24gb2YgY29kZSB3aGVyZSByZXZpc2lvbiB3YXMgYQ0KPiA+IHNlcGFyYXRlIHByb3BlcnR5
-IGluIERUIChzaXplZCB1MzIpLiBJdCBhY3R1YWxseSBtaXJyb3JzIHRoZQ0KPiA+IHJlc3BlY3Rp
-dmUgZmllbGQgaW4gc3RydWN0IHBjaV9kZXYsIHdoaWNoIGlzIHU4IC0gZG9uJ3Qgc2VlIGFueSBp
-c3N1ZQ0KPiA+IGRlZmluaW5nIGl0IGFzIHVuc2lnbmVkIGxvbmcgKGFuZCBhbHNvIGNoYW5naW5n
-IHRoZSBkZWZpbml0aW9uIGluDQo+ID4gc3RydWN0IHJoaW5lX3ByaXZhdGUpLg0KPiA+DQo+ID4g
-VGhlIGNvbW1lbnQgdGhhdCBpdCdzIHRoZSByZXZpc2lvbiBpcyByaWdodCBhYm92ZSB0aGUgbWF0
-Y2ggdGFibGUgKGN1dA0KPiA+IG9mZiBpbiB0aGUgcGF0Y2gpIDopDQo+ID4NCj4gPiBKYW4sIHdv
-dWxkIHlvdSBwcmVmZXIgdG8gYWRqdXN0IHlvdXIgcGF0Y2gsIG9yIHNoYWxsIEkgc2VuZCBhbm90
-aGVyDQo+ID4gb25lIHRvIGNoYW5nZSBycC0+cmV2aXNpb24gYW5kIGZyaWVuZHMgdG8gdW5zaWdu
-ZWQgbG9uZz8NCj4gDQo+IEkgcHJlZmVyIHlvdSB0byBtYWtlIGFub3RoZXIgcGF0Y2gsIHlvdSBv
-YnZpb3VzbHkga25vdyBtb3JlIGFib3V0IHRoaXMNCj4gZHJpdmVyLiBBbHNvIHRoYW5rcyBmb3Ig
-c3VnZ2VzdGluZyAodm9pZCopLT4odW5zaWduZWQgbG9uZyksIEkgZGlkbid0DQo+IGtub3cgdGhh
-dCB0aGVzZSB0d28gYXJlIGRlZmluZWQgdG8gaGF2ZSB0aGUgc2FtZSBzaXplIChpbiBrZXJuZWwg
-Y29kZSkuDQoNClRoZSBrZXJuZWwgYXNzdW1lcyB0aGF0IHRocm91Z2hvdXQgLSB0aGUgZG91Ymxl
-IGNhc3QgaXMgY29tbW9uLg0KVGhlIEM5OSB0eXBlIGlzIHVpbnRwdHJfdCAtIGJ1dCBJIGRvbid0
-IHRoaW5rIHRoYXQgaXMgZGVmaW5lZCBpbiBrZXJuZWwuDQpUaGUgb25seSBwbGFjZSBJIGtub3cg
-d2hlcmUgc2l6ZW9mIChsb25nKSAhPSBzaXplb2YgKHZvaWQgKikgaXMgNjRiaXQNCndpbmRvd3Mu
-IFNvIGFueW9uZSB0cnlpbmcgdG8gY29tcGlsZSBhIGxpbnV4IGRyaXZlciB0byBydW4gaW4gdGhl
-DQp3aW5kb3dzIGtlcm5lbCBtaWdodCBoYXZlIGlzc3VlcyAobmV2ZXIgbWluZCB0aGUgR1BMIG9u
-ZXMpLg0KDQoJRGF2aWQNCg0K
+
+--bajzpZikUji1w+G9
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+> > Also thanks for suggesting (void*)->(unsigned long), I didn't
+> > know that these two are defined to have the same size (in kernel code).
+>=20
+> The kernel assumes that throughout - the double cast is common.
+> The C99 type is uintptr_t - but I don't think that is defined in kernel.
+> The only place I know where sizeof (long) !=3D sizeof (void *) is 64bit
+> windows. So anyone trying to compile a linux driver to run in the
+> windows kernel might have issues (never mind the GPL ones).
+
+My colleague here has just explained me the same. :)
+
+Being a linux-kernel newbie, I'm learning every day. Kernel programming
+is more different from userspace than I ever thought. Thank you for your
+patience.
+--=20
+Jan Mat=C4=9Bjka <mq@suse.cz>
+SUSE Labs
+
+--bajzpZikUji1w+G9
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTYMupAAoJEDFERKcRJ1appn8P/0WMBqWuH3E8xphGaKct9UzD
+mNsob4bwdr1VAu3pfzahKr9F7c2RTGp1LwitcUzlC8k7y0AmZW2shpXkYNYTPnag
+XzMSUq9WNyMAdP+3aRP0CWPk5HtIM9tJF6x/Uy8KYTXo8940RBXMQ+GgbsVZ+0JE
+zs1DbJfvXaAqtIUvBNvhzi9JkQj5dQzjIpsW89sI9ClLqYdszDIoXYBwb3/LNGjf
+5B99rTfQ0aLm+wwqCuUQC7yxTYVJR7wABj3JCgsi49aOTC7gva0L0fKo+UdjFduM
+ek++KibJBJ4sPUhEpcSgrql0LTaEpFsa+G3uyqCsdMzFg8DdPbiLKI8EXREUokbv
+0zCI4LDlwuMyVy2PIqTzRdXuFvpNXAw5sqBFgcWaW2M6m1i/v31b7Ij6z/R5/kTP
+za1kyMKEZJ2wmjF++grn78fUD2q4XVCPqWLT99guDxQaT3L+iAbc5Hx1DlwWUHks
+73Zya5K6lfqmrVaISposL1FCllXKd5c+mvZugeblyCy7Mefy9XbalKLqnT+NmmN7
+uvqOoETWaz3/RNstRzqzvsLFV4r2iE1cCePMtoriCSpjCo83DoZChdYygtN7jsJZ
+LI8R+/e7DoKO/WpEG0TaFAFFG6nN1wkXolqNEZOiwJx2n8YmlTh+K5htbs1aQO+z
+VHJdWcd0BGcAwJXi0DYk
+=gNuT
+-----END PGP SIGNATURE-----
+
+--bajzpZikUji1w+G9--
