@@ -1,36 +1,47 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH RFC 2/2] net: qualcomm: new Ethernet over SPI driver for QCA7000
-Date: Wed, 30 Apr 2014 11:32:05 +0200
-Message-ID: <6454465.sI3RdtNGTO@wuerfel>
-References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <4693879.NBTVQb29rJ@wuerfel> <5360AFC7.6020107@i2se.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: via-rhine: fix compiler warning
+Date: Wed, 30 Apr 2014 09:57:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
+References: <1398792971-10379-1-git-send-email-mq@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
+ <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
+ <20140430095015.GC24832@moskyto.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:59116 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753450AbaD3JzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 05:55:20 -0400
-In-Reply-To: <5360AFC7.6020107@i2se.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Roger Luethi <rl@hellgate.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'Jan Moskyto Matejka' <mq@suse.cz>,
+	Alexey Charkov <alchark@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140430095015.GC24832@moskyto.dyndns.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 30 April 2014 10:09:43 Stefan Wahren wrote:
-> >
-> > You print a 'netdev_warn' message here when the queue is full, expecting
-> > this to be rare. If the device is so slow, why doesn't this happen
-> > all the time?
-> > 
-> Until now, i never experienced that the queue runs full. But i will do
-> some tests to reproduce this.
-
-You could try making the queue shorter to see if you get into this case.
-However, when using netdev_sent_queue(), it might become harder to trigger,
-so better try this first.
-
-	Arnd
+RnJvbTogSmFuIE1vc2t5dG8gTWF0ZWprYQ0KPiA+ID4gU28gd2h5IG5vdCBqdXN0Og0KPiA+ID4g
+ICAgICAgICByZXZpc2lvbiA9ICh1bnNpZ25lZCBsb25nKW1hdGNoLT5kYXRhOw0KPiA+ID4gYW5k
+IGFkZCBhIGNvbW1lbnQgdGhhdCB0aGUgMHg4NCBpcyB0aGUgcmV2aXNpb24gLSAjZGVmaW5lID8/
+DQo+ID4NCj4gPiBUaGVyZSBpcyBubyBwYXJ0aWN1bGFyIHJlYXNvbiB3aHkgaXQgc2hvdWxkIGJl
+IHUzMiBub3cgLSB0aGlzIGlzIGENCj4gPiBsZWZ0b3ZlciBmcm9tIHRoZSBwcmV2aW91cyBpdGVy
+YXRpb24gb2YgY29kZSB3aGVyZSByZXZpc2lvbiB3YXMgYQ0KPiA+IHNlcGFyYXRlIHByb3BlcnR5
+IGluIERUIChzaXplZCB1MzIpLiBJdCBhY3R1YWxseSBtaXJyb3JzIHRoZQ0KPiA+IHJlc3BlY3Rp
+dmUgZmllbGQgaW4gc3RydWN0IHBjaV9kZXYsIHdoaWNoIGlzIHU4IC0gZG9uJ3Qgc2VlIGFueSBp
+c3N1ZQ0KPiA+IGRlZmluaW5nIGl0IGFzIHVuc2lnbmVkIGxvbmcgKGFuZCBhbHNvIGNoYW5naW5n
+IHRoZSBkZWZpbml0aW9uIGluDQo+ID4gc3RydWN0IHJoaW5lX3ByaXZhdGUpLg0KPiA+DQo+ID4g
+VGhlIGNvbW1lbnQgdGhhdCBpdCdzIHRoZSByZXZpc2lvbiBpcyByaWdodCBhYm92ZSB0aGUgbWF0
+Y2ggdGFibGUgKGN1dA0KPiA+IG9mZiBpbiB0aGUgcGF0Y2gpIDopDQo+ID4NCj4gPiBKYW4sIHdv
+dWxkIHlvdSBwcmVmZXIgdG8gYWRqdXN0IHlvdXIgcGF0Y2gsIG9yIHNoYWxsIEkgc2VuZCBhbm90
+aGVyDQo+ID4gb25lIHRvIGNoYW5nZSBycC0+cmV2aXNpb24gYW5kIGZyaWVuZHMgdG8gdW5zaWdu
+ZWQgbG9uZz8NCj4gDQo+IEkgcHJlZmVyIHlvdSB0byBtYWtlIGFub3RoZXIgcGF0Y2gsIHlvdSBv
+YnZpb3VzbHkga25vdyBtb3JlIGFib3V0IHRoaXMNCj4gZHJpdmVyLiBBbHNvIHRoYW5rcyBmb3Ig
+c3VnZ2VzdGluZyAodm9pZCopLT4odW5zaWduZWQgbG9uZyksIEkgZGlkbid0DQo+IGtub3cgdGhh
+dCB0aGVzZSB0d28gYXJlIGRlZmluZWQgdG8gaGF2ZSB0aGUgc2FtZSBzaXplIChpbiBrZXJuZWwg
+Y29kZSkuDQoNClRoZSBrZXJuZWwgYXNzdW1lcyB0aGF0IHRocm91Z2hvdXQgLSB0aGUgZG91Ymxl
+IGNhc3QgaXMgY29tbW9uLg0KVGhlIEM5OSB0eXBlIGlzIHVpbnRwdHJfdCAtIGJ1dCBJIGRvbid0
+IHRoaW5rIHRoYXQgaXMgZGVmaW5lZCBpbiBrZXJuZWwuDQpUaGUgb25seSBwbGFjZSBJIGtub3cg
+d2hlcmUgc2l6ZW9mIChsb25nKSAhPSBzaXplb2YgKHZvaWQgKikgaXMgNjRiaXQNCndpbmRvd3Mu
+IFNvIGFueW9uZSB0cnlpbmcgdG8gY29tcGlsZSBhIGxpbnV4IGRyaXZlciB0byBydW4gaW4gdGhl
+DQp3aW5kb3dzIGtlcm5lbCBtaWdodCBoYXZlIGlzc3VlcyAobmV2ZXIgbWluZCB0aGUgR1BMIG9u
+ZXMpLg0KDQoJRGF2aWQNCg0K
