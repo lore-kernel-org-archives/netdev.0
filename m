@@ -1,58 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for
- virtio-net when VIRTIO_F_ANY_LAYOUT is true
-Date: Wed, 30 Apr 2014 13:32:28 -0400 (EDT)
-Message-ID: <20140430.133228.1835236768036652448.davem@davemloft.net>
-References: <535F824A.5060804@huawei.com>
+Subject: Re: [PATCH V2 net-next 1/1] hyperv: Properly handle checksum offload
+Date: Wed, 30 Apr 2014 13:34:10 -0400 (EDT)
+Message-ID: <20140430.133410.981284387859397046.davem@davemloft.net>
+References: <1398873921-20955-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linville@tuxdriver.com, jeffrey.t.kirsher@intel.com,
-	rusty@rustcorp.com.au, mst@redhat.com, jasowang@redhat.com,
-	qinchuanyu@huawei.com, liuyongan@huawei.com,
-	zhaoshenglong@huawei.com
-To: zhangjie14@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <535F824A.5060804@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org,
+ stable@kernel.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1398873921-20955-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Date: Tue, 29 Apr 2014 18:43:22 +0800
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Wed, 30 Apr 2014 09:05:21 -0700
 
-> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
-> ("virtio-net: put virtio-net header inline with data"). TCP packages have
-> enough room to put virtio-net header in, but UDP packages do not. By
-> setting dev->needed_headroom for virtio-net device, UDP packages could have
-> enough room.
+> Do checksum offload only if the client of the driver wants checksum to be
+> offloaded.
 > 
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
-> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not enough
-> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
-> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
-> Then there is enough room for UDP packages to put the header in.
+> In V1 version of this patch, I  addressed comments from
+> Stephen Hemminger <stephen@networkplumber.org> and
+> Eric Dumazet <eric.dumazet@gmail.com>.
 > 
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old             |   new             |
-> +-------+---------+---------+---------+---------+
-> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
-> | 64    |  0.57   | 692232  |  0.61   | 742420  |
-> | 256   |  1.60   | 686860  |  1.71   | 733331  |
-> | 512   |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
-> +-------+---------+---------+---------+---------+
+> In this version of the patch I have addressed comments from
+> David Miller.
 > 
-> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
+> This patch fixes a bug that is exposed in gateway scenarios.
+> 
+> 
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Applied.
+It does not make any sense to submit a patch for net-next and
+also ask for it to be included in -stable.
+
+First of all, -stable submissions are handled by me directly for
+networking.  Therefore you should not CC: stable on such patches,
+instead you ask me politly to include it in my stable submission
+queue.
+
+Second of all, if a patch is destined for stable, it should be
+submitted for 'net' not 'net-next'.
