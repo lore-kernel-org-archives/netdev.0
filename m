@@ -1,69 +1,201 @@
-From: Jan Moskyto Matejka <mq@suse.cz>
-Subject: Re: [PATCH] net: via-rhine: fix compiler warning
-Date: Wed, 30 Apr 2014 12:08:42 +0200
-Message-ID: <20140430100841.GD24832@moskyto.dyndns.org>
-References: <1398792971-10379-1-git-send-email-mq@suse.cz>
- <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
- <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
- <20140430095015.GC24832@moskyto.dyndns.org>
- <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v2 net-next 2/7] bridge: Keep track of
+ ports capable of automatic discovery.
+Date: Wed, 30 Apr 2014 13:18:42 +0300
+Message-ID: <20140430101842.GA22962@redhat.com>
+References: <1398806428-640-1-git-send-email-vyasevic@redhat.com>
+	<1398806428-640-3-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="bajzpZikUji1w+G9"
-Cc: Alexey Charkov <alchark@gmail.com>, Roger Luethi <rl@hellgate.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F702D55@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1398806428-640-3-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, Apr 29, 2014 at 05:20:23PM -0400, Vlad Yasevich wrote:
+> By default, ports on the bridge are capable of automatic
+> discovery of nodes located behind the port.  This is accomplished
+> via flooding of unknown traffic (BR_FLOOD) and learning the
+> mac addresses from these packets (BR_LEARNING).
+> If the above functionality is diabled by turning off these
+> flags, the port requires static configuration in the form
+> of static FDB entries to function properly.
+> 
+> This patch adds functionality to keep track of all ports
+> capable of automatic discovery.  This will later be used
+> to control promiscuity settings.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  net/bridge/br_if.c       | 27 +++++++++++++++++++++++++++
+>  net/bridge/br_netlink.c  |  3 +++
+>  net/bridge/br_private.h  |  6 ++++++
+>  net/bridge/br_sysfs_if.c |  6 +++++-
+>  4 files changed, 41 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index 5262b86..7e60c4c 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -85,6 +85,18 @@ void br_port_carrier_check(struct net_bridge_port *p)
+>  	spin_unlock_bh(&br->lock);
+>  }
+>  
+> +static void nbp_update_port_count(struct net_bridge *br)
+> +{
+> +	struct net_bridge_port *p;
+> +	u32 cnt = 0;
+> +
+> +	list_for_each_entry(p, &br->port_list, list) {
+> +		if (br_is_auto_port(p))
+> +			cnt++;
+> +	}
+> +	br->auto_cnt = cnt;
+> +}
+> +
+>  static void release_nbp(struct kobject *kobj)
+>  {
+>  	struct net_bridge_port *p
+> @@ -146,6 +158,8 @@ static void del_nbp(struct net_bridge_port *p)
+>  
+>  	list_del_rcu(&p->list);
+>  
+> +	nbp_update_port_count(br);
+> +
+>  	dev->priv_flags &= ~IFF_BRIDGE_PORT;
+>  
+>  	netdev_rx_handler_unregister(dev);
+> @@ -384,6 +398,8 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+>  
+>  	list_add_rcu(&p->list, &br->port_list);
+>  
+> +	nbp_update_port_count(br);
+> +
+>  	netdev_update_features(br->dev);
+>  
+>  	if (br->dev->needed_headroom < dev->needed_headroom)
+> @@ -455,3 +471,14 @@ int br_del_if(struct net_bridge *br, struct net_device *dev)
+>  
+>  	return 0;
+>  }
+> +
+> +void br_port_flags_change(struct net_bridge_port *p, unsigned long old_flags)
+> +{
+> +	struct net_bridge *br = p->br;
+> +	unsigned long mask = old_flags ^ p->flags;
+> +
+> +	if (!(mask & BR_AUTO_MASK))
+> +		return;
+> +
+> +	nbp_update_port_count(br);
+> +}
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index e74b6d53..01382b9 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -328,6 +328,7 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
+>  static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  {
+>  	int err;
+> +	unsigned long old_flags = p->flags;
+>  
+>  	br_set_port_flag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
+>  	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+> @@ -353,6 +354,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
+>  		if (err)
+>  			return err;
+>  	}
+> +
+> +	br_port_flags_change(p, old_flags ^ p->flags);
+>  	return 0;
+>  }
+>  
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 06811d7..db714a1 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -174,6 +174,7 @@ struct net_bridge_port
+>  #define BR_ADMIN_COST		0x00000010
+>  #define BR_LEARNING		0x00000020
+>  #define BR_FLOOD		0x00000040
+> +#define BR_AUTO_MASK (BR_FLOOD | BR_LEARNING)
+>  
+>  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+>  	struct bridge_mcast_query	ip4_query;
+> @@ -198,6 +199,8 @@ struct net_bridge_port
+>  #endif
+>  };
+>  
+> +#define br_is_auto_port(p) (((p)->flags & BR_AUTO_MASK) == BR_AUTO_MASK)
+> +
 
---bajzpZikUji1w+G9
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I think you
+really want ((p)->flags & BR_AUTO_MASK) instead without
+ == BR_AUTO_MASK.
 
-> > Also thanks for suggesting (void*)->(unsigned long), I didn't
-> > know that these two are defined to have the same size (in kernel code).
->=20
-> The kernel assumes that throughout - the double cast is common.
-> The C99 type is uintptr_t - but I don't think that is defined in kernel.
-> The only place I know where sizeof (long) !=3D sizeof (void *) is 64bit
-> windows. So anyone trying to compile a linux driver to run in the
-> windows kernel might have issues (never mind the GPL ones).
+For example if learning is off but flood is on, things work
+(slowly) automatically without configuring static entries.
 
-My colleague here has just explained me the same. :)
+OTOH if flood is off but learning is on, a bunch of packets
+might get dropped but eventually you might learn the
+mac and then networking will start working.
 
-Being a linux-kernel newbie, I'm learning every day. Kernel programming
-is more different from userspace than I ever thought. Thank you for your
-patience.
---=20
-Jan Mat=C4=9Bjka <mq@suse.cz>
-SUSE Labs
 
---bajzpZikUji1w+G9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJTYMupAAoJEDFERKcRJ1appn8P/0WMBqWuH3E8xphGaKct9UzD
-mNsob4bwdr1VAu3pfzahKr9F7c2RTGp1LwitcUzlC8k7y0AmZW2shpXkYNYTPnag
-XzMSUq9WNyMAdP+3aRP0CWPk5HtIM9tJF6x/Uy8KYTXo8940RBXMQ+GgbsVZ+0JE
-zs1DbJfvXaAqtIUvBNvhzi9JkQj5dQzjIpsW89sI9ClLqYdszDIoXYBwb3/LNGjf
-5B99rTfQ0aLm+wwqCuUQC7yxTYVJR7wABj3JCgsi49aOTC7gva0L0fKo+UdjFduM
-ek++KibJBJ4sPUhEpcSgrql0LTaEpFsa+G3uyqCsdMzFg8DdPbiLKI8EXREUokbv
-0zCI4LDlwuMyVy2PIqTzRdXuFvpNXAw5sqBFgcWaW2M6m1i/v31b7Ij6z/R5/kTP
-za1kyMKEZJ2wmjF++grn78fUD2q4XVCPqWLT99guDxQaT3L+iAbc5Hx1DlwWUHks
-73Zya5K6lfqmrVaISposL1FCllXKd5c+mvZugeblyCy7Mefy9XbalKLqnT+NmmN7
-uvqOoETWaz3/RNstRzqzvsLFV4r2iE1cCePMtoriCSpjCo83DoZChdYygtN7jsJZ
-LI8R+/e7DoKO/WpEG0TaFAFFG6nN1wkXolqNEZOiwJx2n8YmlTh+K5htbs1aQO+z
-VHJdWcd0BGcAwJXi0DYk
-=gNuT
------END PGP SIGNATURE-----
-
---bajzpZikUji1w+G9--
+>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+>  
+>  static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
+> @@ -290,6 +293,7 @@ struct net_bridge
+>  	struct timer_list		topology_change_timer;
+>  	struct timer_list		gc_timer;
+>  	struct kobject			*ifobj;
+> +	u32				auto_cnt;
+>  #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+>  	u8				vlan_enabled;
+>  	struct net_port_vlans __rcu	*vlan_info;
+> @@ -415,6 +419,8 @@ int br_del_if(struct net_bridge *br, struct net_device *dev);
+>  int br_min_mtu(const struct net_bridge *br);
+>  netdev_features_t br_features_recompute(struct net_bridge *br,
+>  					netdev_features_t features);
+> +void br_port_flags_change(struct net_bridge_port *port,
+> +			  unsigned long old_flags);
+>  
+>  /* br_input.c */
+>  int br_handle_frame_finish(struct sk_buff *skb);
+> diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+> index 112a25e..58c26e3 100644
+> --- a/net/bridge/br_sysfs_if.c
+> +++ b/net/bridge/br_sysfs_if.c
+> @@ -49,7 +49,10 @@ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
+>  static int store_flag(struct net_bridge_port *p, unsigned long v,
+>  		     unsigned long mask)
+>  {
+> -	unsigned long flags = p->flags;
+> +	unsigned long flags;
+> +	unsigned long old_flags;
+> +
+> +	old_flags = flags = p->flags;
+>  
+>  	if (v)
+>  		flags |= mask;
+> @@ -58,6 +61,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
+>  
+>  	if (flags != p->flags) {
+>  		p->flags = flags;
+> +		br_port_flags_change(p, old_flags ^ flags);
+>  		br_ifinfo_notify(RTM_NEWLINK, p);
+>  	}
+>  	return 0;
+> -- 
+> 1.9.0
