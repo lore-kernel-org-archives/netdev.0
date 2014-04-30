@@ -1,43 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net 1/1] hyperv: Properly handle checksum offload
-Date: Wed, 30 Apr 2014 16:17:16 -0400 (EDT)
-Message-ID: <20140430.161716.924697588530649976.davem@davemloft.net>
-References: <1398884305-21618-1-git-send-email-kys@microsoft.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: RE: Request for stable inclusion
+Date: Wed, 30 Apr 2014 22:37:28 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1404302237070.6261@ionos.tec.linutronix.de>
+References: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>  <2B0E3F215D1AB84DA946C8BEE234CCC9370ECAF9@ORSMSX101.amr.corp.intel.com> <1398887800.29914.183.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1398884305-21618-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Ertman, DavidX M" <davidx.m.ertman@intel.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:55725 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759431AbaD3UhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 16:37:19 -0400
+In-Reply-To: <1398887800.29914.183.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Wed, 30 Apr 2014 11:58:25 -0700
+On Wed, 30 Apr 2014, Eric Dumazet wrote:
 
-> Do checksum offload only if the client of the driver wants checksum to be
-> offloaded.
+> On Wed, 2014-04-30 at 19:40 +0000, Ertman, DavidX M wrote:
 > 
-> In V1 version of this patch, I  addressed comments from
-> Stephen Hemminger <stephen@networkplumber.org> and
-> Eric Dumazet <eric.dumazet@gmail.com>.
+> > The commit that caused the issue went into net-next on June 21, 2013.  So at least 3.11 and forward, and probably 3.10.
 > 
-> In this version of the patch I have addressed comments from
-> David Miller.
+> There is a way to know exactly the cut point :
 > 
-> This patch fixes a bug that is exposed in gateway scenarios.
-> 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> $ git describe --contains da1e2046e5
+> v3.12-rc1~132^2~445^2~6
 
-Applied and queued up for -stable, t hanks.
+So 3.12+ is affected.
