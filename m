@@ -1,63 +1,65 @@
-From: =?UTF-8?q?St=C3=A9phane=20Graber?= <stgraber-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net: Allow tc changes in user namespaces
-Date: Wed, 30 Apr 2014 11:25:43 -0400
-Message-ID: <1398871543-8435-1-git-send-email-stgraber@ubuntu.com>
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: Re: [PATCH RFC 2/2] net: qualcomm: new Ethernet over SPI driver for
+ QCA7000
+Date: Wed, 30 Apr 2014 17:36:18 +0200
+Message-ID: <53611872.2070001@i2se.com>
+References: <1398707697-43785-1-git-send-email-stefan.wahren@i2se.com> <4860368.6Apskanc4s@wuerfel> <535FCB24.2010507@i2se.com> <4693879.NBTVQb29rJ@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	Serge Hallyn <serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.13]:61288 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759366AbaD3Pgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 11:36:33 -0400
+In-Reply-To: <4693879.NBTVQb29rJ@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyBzd2l0Y2hlcyBhIGZldyByZW1haW5pbmcgY2FwYWJsZShDQVBfTkVUX0FETUlOKSB0byBu
-c19jYXBhYmxlIHNvCnRoYXQgcm9vdCBpbiBhIHVzZXIgbmFtZXNwYWNlIG1heSBzZXQgdGMgcnVs
-ZXMgaW5zaWRlIHRoYXQgbmFtZXNwYWNlLgoKU2lnbmVkLW9mZi1ieTogU3TDqXBoYW5lIEdyYWJl
-ciA8c3RncmFiZXJAdWJ1bnR1LmNvbT4KQWNrZWQtYnk6IFNlcmdlIEUuIEhhbGx5biA8c2VyZ2Uu
-aGFsbHluQHVidW50dS5jb20+CkNjOiAiRXJpYyBXLiBCaWVkZXJtYW4iIDxlYmllZGVybUB4bWlz
-c2lvbi5jb20+CkNjOiBKYW1hbCBIYWRpIFNhbGltIDxqaHNAbW9qYXRhdHUuY29tPgpDYzogIkRh
-dmlkIFMuIE1pbGxlciIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+CgotLS0KIG5ldC9zY2hlZC9jbHNf
-YXBpLmMgfCAzICsrLQogbmV0L3NjaGVkL3NjaF9hcGkuYyB8IDggKysrKystLS0KIDIgZmlsZXMg
-Y2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL25l
-dC9zY2hlZC9jbHNfYXBpLmMgYi9uZXQvc2NoZWQvY2xzX2FwaS5jCmluZGV4IDhlMTE4YWYuLjRj
-MzVmNGEgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9jbHNfYXBpLmMKKysrIGIvbmV0L3NjaGVkL2Ns
-c19hcGkuYwpAQCAtMTM4LDcgKzEzOCw4IEBAIHN0YXRpYyBpbnQgdGNfY3RsX3RmaWx0ZXIoc3Ry
-dWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCWludCBlcnI7CiAJaW50IHRw
-X2NyZWF0ZWQgPSAwOwogCi0JaWYgKChuLT5ubG1zZ190eXBlICE9IFJUTV9HRVRURklMVEVSKSAm
-JiAhY2FwYWJsZShDQVBfTkVUX0FETUlOKSkKKwlpZiAoKG4tPm5sbXNnX3R5cGUgIT0gUlRNX0dF
-VFRGSUxURVIpICYmCisJICAgICFuc19jYXBhYmxlKG5ldC0+dXNlcl9ucywgQ0FQX05FVF9BRE1J
-TikpCiAJCXJldHVybiAtRVBFUk07CiAKIHJlcGxheToKZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9z
-Y2hfYXBpLmMgYi9uZXQvc2NoZWQvc2NoX2FwaS5jCmluZGV4IGNkODE1MDUuLmZjOTBiZGUgMTAw
-NjQ0Ci0tLSBhL25ldC9zY2hlZC9zY2hfYXBpLmMKKysrIGIvbmV0L3NjaGVkL3NjaF9hcGkuYwpA
-QCAtMTA3OSw3ICsxMDc5LDggQEAgc3RhdGljIGludCB0Y19nZXRfcWRpc2Moc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCXN0cnVjdCBRZGlzYyAqcCA9IE5VTEw7CiAJ
-aW50IGVycjsKIAotCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUUURJU0MpICYmICFjYXBh
-YmxlKENBUF9ORVRfQURNSU4pKQorCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUUURJU0Mp
-ICYmCisJICAgICFuc19jYXBhYmxlKG5ldC0+dXNlcl9ucywgQ0FQX05FVF9BRE1JTikpCiAJCXJl
-dHVybiAtRVBFUk07CiAKIAllcnIgPSBubG1zZ19wYXJzZShuLCBzaXplb2YoKnRjbSksIHRjYSwg
-VENBX01BWCwgTlVMTCk7CkBAIC0xMTQ2LDcgKzExNDcsNyBAQCBzdGF0aWMgaW50IHRjX21vZGlm
-eV9xZGlzYyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgbmxtc2doZHIgKm4pCiAJc3RydWN0
-IFFkaXNjICpxLCAqcDsKIAlpbnQgZXJyOwogCi0JaWYgKCFjYXBhYmxlKENBUF9ORVRfQURNSU4p
-KQorCWlmICghbnNfY2FwYWJsZShuZXQtPnVzZXJfbnMsIENBUF9ORVRfQURNSU4pKQogCQlyZXR1
-cm4gLUVQRVJNOwogCiByZXBsYXk6CkBAIC0xNDg2LDcgKzE0ODcsOCBAQCBzdGF0aWMgaW50IHRj
-X2N0bF90Y2xhc3Moc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCXUz
-MiBxaWQ7CiAJaW50IGVycjsKIAotCWlmICgobi0+bmxtc2dfdHlwZSAhPSBSVE1fR0VUVENMQVNT
-KSAmJiAhY2FwYWJsZShDQVBfTkVUX0FETUlOKSkKKwlpZiAoKG4tPm5sbXNnX3R5cGUgIT0gUlRN
-X0dFVFRDTEFTUykgJiYKKwkgICAgIW5zX2NhcGFibGUobmV0LT51c2VyX25zLCBDQVBfTkVUX0FE
-TUlOKSkKIAkJcmV0dXJuIC1FUEVSTTsKIAogCWVyciA9IG5sbXNnX3BhcnNlKG4sIHNpemVvZigq
-dGNtKSwgdGNhLCBUQ0FfTUFYLCBOVUxMKTsKLS0gCjEuOS4xCgpfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpDb250YWluZXJzIG1haWxpbmcgbGlzdApDb250
-YWluZXJzQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3Vu
-ZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2NvbnRhaW5lcnM=
+Hi Arnd,
+
+Am 29.04.2014 20:14, schrieb Arnd Bergmann:
+> On a related note, there is one part I don't understand:
+>
+> +netdev_tx_t
+> +qcaspi_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +       u32 frame_len;
+> +       u8 *ptmp;
+> +       struct qcaspi *qca = netdev_priv(dev);
+> +       u32 new_tail;
+> +       struct sk_buff *tskb;
+> +       u8 pad_len = 0;
+> +
+> +       if (skb->len < QCAFRM_ETHMINLEN)
+> +               pad_len = QCAFRM_ETHMINLEN - skb->len;
+> +
+> +       if (qca->txq.skb[qca->txq.tail]) {
+> +               netdev_warn(qca->net_dev, "queue was unexpectedly full!\n");
+> +               netif_stop_queue(qca->net_dev);
+> +               qca->stats.queue_full++;
+> +               return NETDEV_TX_BUSY;
+> +       }
+>
+> You print a 'netdev_warn' message here when the queue is full, expecting
+> this to be rare. If the device is so slow, why doesn't this happen
+> all the time?
+>
+> 	Arnd
+
+i think i've found it. A little bit later in the function the "expected"
+queue full condition is handled.
+After the new skb is added to the buffer, the new tail is checked. In
+the case the tx queue is now full, netif_stop_queue is called. I've
+forgot to increment the queue_full counter for that case.
+
+After the skb has been transmitted to the QCA7000 over spi, the function
+netif_wake_queue is called. If i'm right, the message "queue was
+unexpectedly full" should never appear under normal condition.
+
+Stefan
