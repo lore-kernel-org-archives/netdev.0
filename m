@@ -1,110 +1,64 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH v3 2/4] net: davinci_mdio: use devm_* api
-Date: Wed, 30 Apr 2014 15:23:34 +0300
-Message-ID: <1398860616-6612-3-git-send-email-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH v3 4/4] net: davinci_mdio: simplify IO memory mapping
+Date: Wed, 30 Apr 2014 15:23:36 +0300
+Message-ID: <1398860616-6612-5-git-send-email-grygorii.strashko@ti.com>
 References: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
-        <linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
-        "David S. Miller"
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jonathan Cameron <jic23-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-In-Reply-To: <1398860616-6612-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
-List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
-List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
-	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
-Sender: <davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
-Errors-To: davinci-linux-open-source-bounces+gld-davinci-linux-open-source=gmane.org-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+Content-Type: text/plain
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	Jonathan Cameron <jic23@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	<santosh.shilimkar@ti.com>, Sekhar Nori <nsekhar@ti.com>,
+	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	<sergei.shtylyov@cogentembedded.com>, <prabhakar.csengg@gmail.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use devm_* API for memory allocation and to get device's clock
-to simplify driver's code.
+Simplify IO memory mapping by using devm_ioremap_resource()
+which will do all errors handling and reporting for us.
 
-Cc: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Acked-and-tested-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Acked-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c |   24 +++++-------------------
- 1 file changed, 5 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c |   21 +++------------------
+ 1 file changed, 3 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 0cca9de..4b202a2 100644
+index 4757198..34e97ec 100644
 --- a/drivers/net/ethernet/ti/davinci_mdio.c
 +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -321,15 +321,14 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	struct phy_device *phy;
- 	int ret, addr;
+@@ -363,24 +363,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	spin_lock_init(&data->lock);
  
--	data = kzalloc(sizeof(*data), GFP_KERNEL);
-+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
- 	if (!data)
- 		return -ENOMEM;
- 
--	data->bus = mdiobus_alloc();
-+	data->bus = devm_mdiobus_alloc(dev);
- 	if (!data->bus) {
- 		dev_err(dev, "failed to alloc mii bus\n");
--		ret = -ENOMEM;
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res) {
+-		dev_err(dev, "could not find register map resource\n");
+-		ret = -ENOENT;
 -		goto bail_out;
-+		return -ENOMEM;
- 	}
- 
- 	if (dev->of_node) {
-@@ -354,7 +353,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 
- 	pm_runtime_enable(&pdev->dev);
- 	pm_runtime_get_sync(&pdev->dev);
--	data->clk = clk_get(&pdev->dev, "fck");
-+	data->clk = devm_clk_get(dev, "fck");
- 	if (IS_ERR(data->clk)) {
- 		dev_err(dev, "failed to get device clock\n");
- 		ret = PTR_ERR(data->clk);
-@@ -406,16 +405,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	return 0;
- 
- bail_out:
--	if (data->bus)
--		mdiobus_free(data->bus);
--
--	if (data->clk)
--		clk_put(data->clk);
- 	pm_runtime_put_sync(&pdev->dev);
- 	pm_runtime_disable(&pdev->dev);
- 
--	kfree(data);
--
- 	return ret;
- }
- 
-@@ -423,18 +415,12 @@ static int davinci_mdio_remove(struct platform_device *pdev)
- {
- 	struct davinci_mdio_data *data = platform_get_drvdata(pdev);
- 
--	if (data->bus) {
-+	if (data->bus)
- 		mdiobus_unregister(data->bus);
--		mdiobus_free(data->bus);
 -	}
- 
--	if (data->clk)
--		clk_put(data->clk);
- 	pm_runtime_put_sync(&pdev->dev);
- 	pm_runtime_disable(&pdev->dev);
- 
--	kfree(data);
 -
- 	return 0;
- }
+-	res = devm_request_mem_region(dev, res->start, resource_size(res),
+-					    dev_name(dev));
+-	if (!res) {
+-		dev_err(dev, "could not allocate register map resource\n");
+-		ret = -ENXIO;
+-		goto bail_out;
+-	}
+-
+-	data->regs = devm_ioremap_nocache(dev, res->start, resource_size(res));
+-	if (!data->regs) {
+-		dev_err(dev, "could not map mdio registers\n");
+-		ret = -ENOMEM;
++	data->regs = devm_ioremap_resource(dev, res);
++	if (IS_ERR(data->regs)) {
++		ret = PTR_ERR(data->regs);
+ 		goto bail_out;
+ 	}
  
 -- 
 1.7.9.5
