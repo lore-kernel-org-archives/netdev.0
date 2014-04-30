@@ -1,82 +1,74 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: Set needed_headroom for virtio-net
- when VIRTIO_F_ANY_LAYOUT is true
-Date: Wed, 30 Apr 2014 17:38:07 +0800
-Message-ID: <5360C47F.9090609@redhat.com>
-References: <535F824A.5060804@huawei.com>
+From: Jan Moskyto Matejka <mq@suse.cz>
+Subject: Re: [PATCH] net: via-rhine: fix compiler warning
+Date: Wed, 30 Apr 2014 11:50:15 +0200
+Message-ID: <20140430095015.GC24832@moskyto.dyndns.org>
+References: <1398792971-10379-1-git-send-email-mq@suse.cz>
+ <063D6719AE5E284EB5DD2968C1650D6D0F702C5F@AcuExch.aculab.com>
+ <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com,
-	jeffrey.t.kirsher@intel.com, rusty@rustcorp.com.au, mst@redhat.com,
-	qinchuanyu@huawei.com, liuyongan@huawei.com,
-	zhaoshenglong@huawei.com
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4602 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751983AbaD3Jia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Apr 2014 05:38:30 -0400
-In-Reply-To: <535F824A.5060804@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="c3bfwLpm8qysLVxt"
+Cc: David Laight <David.Laight@aculab.com>,
+	Roger Luethi <rl@hellgate.ch>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexey Charkov <alchark@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CABjd4YzRTPcy1nbhywuNLb0pz4gPVjhzegZJTc_g+_SVc1XJvw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/29/2014 06:43 PM, Zhangjie (HZ) wrote:
-> This is a small supplement for commit e7428e95a06fb516fac1308bd0e176e27c0b9287
-> ("virtio-net: put virtio-net header inline with data"). TCP packages have
-> enough room to put virtio-net header in, but UDP packages do not. By
-> setting dev->needed_headroom for virtio-net device, UDP packages could have
-> enough room.
->
-> For UDP packages, sk_buff is alloced in fun __ip_append_data. The size is
-> "alloclen + hh_len + 15", and "hh_len = LL_RESERVED_SPACE(rt-dst.dev);".
-> The Macro is defined as follows:
-> #define LL_RESERVED_SPACE(dev) \
->      ((((dev)->hard_header_len+(dev)->needed_headroom)\
->      &~(HH_DATA_MOD - 1)) + HH_DATA_MOD)
-> By default, for UDP packages, after skb is allocated, only 16 bytes
-> reserved. And 2 bytes remained after mac header is set. That is not enough
-> to put virtio-net header in. If we set dev->needed_headroom to 12 or 10
-> (according to mergeable_rx_bufs is on or off ), more room can be reserved.
-> Then there is enough room for UDP packages to put the header in.
->
-> test result list as below:
-> guest and host: suse11sp3, netperf, intel 2.4GHz
-> +-------+---------+---------+---------+---------+
-> |       |   old             |   new             |
-> +-------+---------+---------+---------+---------+
-> | UDP   |  Gbit/s | pps     |  Gbit/s | pps     |
-> | 64    |  0.57   | 692232  |  0.61   | 742420  |
-> | 256   |  1.60   | 686860  |  1.71   | 733331  |
-> | 512   |  2.92   | 674576  |  3.07   | 710446  |
-> | 1024  |  4.99   | 598977  |  5.17   | 620821  |
-> | 1460  |  5.68   | 483757  |  7.16   | 610519  |
-> | 4096  |  6.98   | 637468  |  7.21   | 658471  |
-> +-------+---------+---------+---------+---------+
->
-> Signed-off-by: Zhang Jie <zhangjie14@huawei.com>
-> ---
->  drivers/net/virtio_net.c | 7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8a852b5..b852bb3 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1724,6 +1724,13 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
->
-> +	if (vi->any_header_sg) {
-> +		if (vi->mergeable_rx_bufs)
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +		else
-> +			dev->needed_headroom = sizeof(struct virtio_net_hdr);
-> +	}
-> +
->  	/* Use single tx/rx queue pair as default */
->  	vi->curr_queue_pairs = 1;
->  	vi->max_queue_pairs = max_queue_pairs;
 
-Acked-by: Jason Wang <jasowang@redhat.com>
+--c3bfwLpm8qysLVxt
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+> > So why not just:
+> >         revision =3D (unsigned long)match->data;
+> > and add a comment that the 0x84 is the revision - #define ??
+>=20
+> There is no particular reason why it should be u32 now - this is a
+> leftover from the previous iteration of code where revision was a
+> separate property in DT (sized u32). It actually mirrors the
+> respective field in struct pci_dev, which is u8 - don't see any issue
+> defining it as unsigned long (and also changing the definition in
+> struct rhine_private).
+>=20
+> The comment that it's the revision is right above the match table (cut
+> off in the patch) :)
+>=20
+> Jan, would you prefer to adjust your patch, or shall I send another
+> one to change rp->revision and friends to unsigned long?
+
+I prefer you to make another patch, you obviously know more about this
+driver. Also thanks for suggesting (void*)->(unsigned long), I didn't
+know that these two are defined to have the same size (in kernel code).
+--=20
+Jan Mat=C4=9Bjka <mq@suse.cz>
+SUSE Labs
+
+--c3bfwLpm8qysLVxt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJTYMdWAAoJEDFERKcRJ1ap67oP/jJyRjpSmZCBMJQ0PCTuqKHB
+X+g4xQDJ3Jz1Q9ixUrDWPchyGOTpJZ2D/XT0ATLFMhfZKblWBFd9hQ0hNIsqrRMs
+sSBgK0elQX4hwmQzUCl2K3Ta6KMUQSY9WDLVINjmPl4SfWtKNH58DWpFMetJhUF7
+F0NQ2G7BQGw/s/5dHwiKZCqTSL64anhQGW2hgQbncsy7ZiiUh7viUrMNnGXMaWX7
+wa9fWTf+oN96RhXMvcF3KGC5gvzfSM/uxCyK88pueCZfW38ZRs/f8EMxnL0PrcCE
+XxJLf6S6cIwC6YyNd4aR95eUq37Iy6R7tZNExCNyxAoDuKwygBZt2zGrQHwENZiA
+brOoFZAnyHRXs4rkdZuTX6qru148C3tgvRwh9coH9X0Xa+GZmtXItOdb9f01Ufs+
+4sGF+KFg9/f4C6+ZuNHidIe5Vm2l1Q9FpeftfpKCCIROkqj18pGjAWaXgKuni+rl
+4/9VEO7Bc0k8yF5XKw92YU3XgnmNkhj12obgFDJP199+pN4tcTIQ93oljssNHBt/
+AuY4lvfZEhTTqIl6k1HCn3GJABKZwFrQVfSgOjeZpm2zfeDdxKyNRxC3GCLD5vPv
+FZQQMkOZXhfgCOkIKIj/pMSjLbANIEQQ7ARhVVqsboxrKh5FMGgA7hJD1JT846nD
+VNarXuBXP7zzRYQTtLj9
+=OOOO
+-----END PGP SIGNATURE-----
+
+--c3bfwLpm8qysLVxt--
