@@ -1,63 +1,69 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH for v3.15] net: mvmdio: Check for a valid interrupt
- instead of an error
-Date: Wed, 30 Apr 2014 13:21:01 -0300
-Message-ID: <20140430162101.GA18300@arch.cereza>
-References: <1398800999-9814-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <53601B96.3000608@gmail.com>
- <20140430114209.GA1907@arch.cereza>
- <5360FA35.7070209@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
+Subject: [PATCH v2 for v3.15] net: mvmdio: Check for a valid interrupt instead of an error
+Date: Wed, 30 Apr 2014 13:28:51 -0300
+Message-ID: <1398875331-18925-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:48087 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:48129 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759165AbaD3QVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 12:21:35 -0400
-Content-Disposition: inline
-In-Reply-To: <5360FA35.7070209@gmail.com>
+	with ESMTP id S1945910AbaD3Q3b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 12:29:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Apr 30, Sebastian Hesselbarth wrote:
-> >
-> >Yes, I agree. Did another patch for that, but haven't send it yet.
-> >AFAICS, mvebu platforms will never hit the deferred case as the irqc=
-hip
-> >is the first driver registered (as per drivers/Makefile).
-> >
-> >Not that we should count on that :)
->=20
-> It doesn't hit it _now_ because of the above. I read about proper
-> platform_device for early devices here and there over and over
-> again, so I guess some day it may become an issue.
->=20
-> As we know about the potential -EPROBE_DEFER now, I suggest to
-> deal with it now, too.
->=20
-> Can you resend this as v2 with the other patch you mentioned
-> squashed in?
->=20
+The following commit:
 
-Oh! I've just remembered why I didn't send the EPROBE_DEFER patch in th=
-e first
-place. The mvneta driver connects to the phy at open()-time, in a funct=
-ion
-called "mvneta_mdio_probe()". This name confused me to think the mdio w=
-as
-really probed at open()-time.
+commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
+Author: Rob Herring <robh@kernel.org>
+Date:   Wed Apr 23 17:57:41 2014 -0500
 
-I guess it was very late at night when I came to such conclusion :)
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+    of/irq: do irq resolution in platform_get_irq
+
+changed platform_get_irq() which now returns EINVAL and EPROBE_DEFER,
+in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
+returns EINVAL, but we currently check only for ENXIO.
+
+Fix this by looking for a positive integer, which is the proper way of
+validating a virtual interrupt number.
+
+While at it, add a proper handling for the deferral probe case.
+
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
+Changes from v1: Handle the deferral probe as well.
+
+ drivers/net/ethernet/marvell/mvmdio.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index b161a52..9d5ced2 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -232,7 +232,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 		clk_prepare_enable(dev->clk);
+ 
+ 	dev->err_interrupt = platform_get_irq(pdev, 0);
+-	if (dev->err_interrupt != -ENXIO) {
++	if (dev->err_interrupt > 0) {
+ 		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
+ 					orion_mdio_err_irq,
+ 					IRQF_SHARED, pdev->name, dev);
+@@ -241,6 +241,9 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 
+ 		writel(MVMDIO_ERR_INT_SMI_DONE,
+ 			dev->regs + MVMDIO_ERR_INT_MASK);
++
++	} else if (dev->err_interrupt == -EPROBE_DEFER) {
++		return -EPROBE_DEFER;
+ 	}
+ 
+ 	mutex_init(&dev->lock);
+-- 
+1.9.1
