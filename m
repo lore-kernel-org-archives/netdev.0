@@ -1,57 +1,100 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next 5/7] net:fec: add support for dumping transmit
- ring on timeout
-Date: Wed, 30 Apr 2014 14:22:02 +0800
-Message-ID: <20140430062200.GB16727@dragon>
-References: <1398773350-7293-5-git-send-email-Frank.Li@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F7014F0@AcuExch.aculab.com>
- <CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F701524@AcuExch.aculab.com>
- <20140429141527.GZ26756@n2100.arm.linux.org.uk>
- <CAHrpEqTc6=yS4ApLO7AbZyVq26kGxq+WBcyFjgjbiPySq7055Q@mail.gmail.com>
- <20140429143243.GA26756@n2100.arm.linux.org.uk>
- <CAHrpEqQL7LviXA4_NLNwSBoW84W_vbnzWkc9At5QBqUkqu63yw@mail.gmail.com>
- <20140429150403.GC26756@n2100.arm.linux.org.uk>
- <CAHrpEqSw3iwJj1nHuCJ7LcoL2EUxYqMb-eA1QZN0_WvR-Y_mWA@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: Question regarding bond delete notifications
+Date: Wed, 30 Apr 2014 08:31:36 +0200
+Message-ID: <20140430063136.GA2917@minipsycho.orion>
+References: <535CA0BB.1010504@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Frank Li <Frank.Li@freescale.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "B38611@freescale.com" <B38611@freescale.com>,
- David Laight <David.Laight@aculab.com>,
- Russell King - ARM Linux <linux@arm.linux.org.uk>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Frank Li <lznuaa@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
+	David Miller <davem@davemloft.net>, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:41371 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751532AbaD3Gbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 02:31:42 -0400
+Received: by mail-la0-f52.google.com with SMTP id mc6so886066lab.39
+        for <netdev@vger.kernel.org>; Tue, 29 Apr 2014 23:31:39 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAHrpEqSw3iwJj1nHuCJ7LcoL2EUxYqMb-eA1QZN0_WvR-Y_mWA@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <535CA0BB.1010504@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 29, 2014 at 10:11:18AM -0500, Frank Li wrote:
-> On Tue, Apr 29, 2014 at 10:04 AM, Russell King - ARM Linux
-> <linux@arm.linux.org.uk> wrote:
-> > I'd just like to see what you're doing.  Note that your submission also
-> > didn't get through the linux-arm-kernel list either, so I didn't get it
-> > via that path either.
-> 
-> We have not sent out to public mail list yet.
-> But there are really big change.
-> We need support 3 ring queues for tx and rx.
+Sun, Apr 27, 2014 at 08:16:27AM CEST, roopa@cumulusnetworks.com wrote:
+>Hello,
+>
+>I am seeing a problem with the order of rtnl link notifications
+>during bond deletes.
+>If i delete a bond without deleting its slaves, kernel sends a
+>RTM_DELLINK during unregister_netdevice
+>(in rollback_registered_many) and then calls bond_uninit (ndo_uninit).
+>bond_uninit inturn cleans up the slaves and generates a few
+>RTM_NEWLINK rtnl notifications for NETDEV_CHANGEADDR and
+>NETDEV_FEAT_CHANGE for the bond device.
+>
+>This is confusing to userspace listening for rtnl LINK Notifications.
+>For example, libnl gets confused with RTM_NEWLINK arriving after
+>RTM_DELLINK.
+>The RTM_NEWLINK makes libnl believe that this is a new bond link. But
+>kernel has already deleted the bond device.
+>
+>It seems like the kernel should  generate RTM_DELLINK notification
+>after ndo_uninit. something like below.
+>But am not sure if this change is safe for other netdevices.
+>
+>Is this a known problem ?. Any suggestions ?
+>
+>Thanks,
+>Roopa
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index b1b0c8d..85cb73a 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -5568,33 +5568,33 @@ static void rollback_registered_many(struct
+>list_head *head)
+>    list_for_each_entry(dev, head, unreg_list) {
+>        /* Shutdown queueing discipline. */
+>        dev_shutdown(dev);
+>
+>
+>        /* Notify protocols, that we are about to destroy
+>           this device. They should clean all the things.
+>        */
+>        call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+>
+>-       if (!dev->rtnl_link_ops ||
+>-           dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
+>-           rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
+>-
+>        /*
+>         *  Flush the unicast and multicast chains
+>         */
+>        dev_uc_flush(dev);
+>        dev_mc_flush(dev);
+>
+>        if (dev->netdev_ops->ndo_uninit)
+>            dev->netdev_ops->ndo_uninit(dev);
+>
+>+       if (!dev->rtnl_link_ops ||
+>+           dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
+>+           rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
+>+
+>        /* Notifier chain MUST detach us all upper devices. */
+>        WARN_ON(netdev_has_any_upper_dev(dev));
+>
+>        /* Remove entries from kobject tree */
+>        netdev_unregister_kobject(dev);
+> #ifdef CONFIG_XPS
+>        /* Remove XPS queueing entries */
+>        netif_reset_xps_queues_gt(dev, 0);
+> #endif
+>    }
+>
 
-Frank,
 
-I guess Russell was saying that these 7 patches did not reach
-linux-arm-kernel list for some reason.
+Now I cannot think about why this might troubles. But my feeling it this
+might be problematic, just a feeling.
 
-Shawn
+Your change seems logical though.
