@@ -1,124 +1,363 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
- guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Thu, 1 May 2014 16:46:01 +0100
-Message-ID: <53626C39.3030304@citrix.com>
-References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v4 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
+Date: Thu, 1 May 2014 17:53:31 +0200
+Message-ID: <20140501155331.GA6523@electric-eye.fr.zoreil.com>
+References: <20140501062047.GA1156@newterm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:58360 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752547AbaEAPsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 11:48:04 -0400
-In-Reply-To: <1810270947.20140501155911@eikelenboom.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Darek Marcinkiewicz <reksio@newterm.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140501062047.GA1156@newterm.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/05/14 14:59, Sander Eikelenboom wrote:
->
-> Thursday, May 1, 2014, 3:37:41 PM, you wrote:
->
->> On 30/04/14 23:25, Sander Eikelenboom wrote:
->>>
->>> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
->>>
->>>> On 30/04/14 11:45, Sander Eikelenboom wrote:
->>>>> Hi Zoltan,
->>>>>
->>>>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
->>>>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
->>>>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
->>>>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
->>>>>
->>>>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>>
->>>>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
->>>>> I don't see this with clients that upload large files from external sources.
->>>>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
->>>>>
->>>>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
->>>>>
->>>>> Since these commits break bisectabillity:
->>>>>        - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
->>>>>        - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
->>>>> i stopped bisecting at this point.
->>>>>
->>>>> The upside is .. it's 100% reproduceable :-)
->>>> That's good :) Can you take tcpdump captures along the way (sending
->>>> guest, dom0, receiving guest), and try to work out which packets are
->>>> different, and where? Although taking captures in Dom0 might change your
->>>> result, as it triggers the pages to be copied and unmapped before they
->>>> reach their target.
->>>
->>>> Thanks,
->>>> Zoli
->>>
->>>
->>> Hrrmm that sounds like a lot of data and a lot of work ..
->> If you could make captures in the sending and receiving guest with
->> tcpdump (take care of increasing snaplen so the whole packet is there,
->> and filter to the SSH connection itself), and upload it somewhere for
->> me, that would be enough for start. I will try to work out where the
->> corruption happens.
->> Also, do you have timestamps for the above mentioned log entries? I
->> guess they appear on the receiving side.
->> And some info about the componenets on the server, so I can work out
->> where is that _ssl.c:1415, and which part of the packet it actually
->> looks for.
->
-> They appear on the sending side (duplicity) .. the receiving side (apache +
-> mod_dav + ssl | gnu_tls) gives a "Could not get next bucket brigade (URI:"
-I will try to repro this case in house. What versions of these 
-components you used?
+Darek Marcinkiewicz <reksio@newterm.pl> :
+[changes]
 
-Zoli
+(you may add those after the "---" above the diffstat)
 
->
->
->>>
->>> how ever .. could it be just a type and would the following make sense ?
->>>
->>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->>> index 7666540..abeea10 100644
->>> --- a/drivers/net/xen-netback/netback.c
->>> +++ b/drivers/net/xen-netback/netback.c
->>> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
->>>
->>>           xenvif_fill_frags(vif, nskb);
->>>           /* Subtract frags size, we will correct it later */
->>> -       skb->truesize -= skb->data_len;
->>> +       skb->truesize -= nskb->data_len;
->>>           skb->len += nskb->len;
->>>           skb->data_len += nskb->len;
->
->> Nope, that's correct there: after that skb->truesize will be the size of
->> the struct plus the linear buffer itself. The code is just about the
->> ditch the original fragments plus the skb on the frag_list. When the new
->> pages are created, it will update it again.
->
-> Well i just went a head and tried this .. and the uploading does seem to work fine with this change
-> .. (that obviously doesn't say anything about correctness)
->
->> Also, this code path runs only if the guest sends more slots we can
->> handle (so we put the extra one to the frag_list until we can get rid of
->> it). On Linux it can only happen with 3.2 or older guest kernels, and
->> only occasionally. As you said, this is 100% reproducible, so I would
->> doubt the problem is with this part of the code.
->
-> Well this assumption seems to be incorrect:
->          - both dom0 and guest kernels are 3.15-rc3's.
->          - but we do end up in this code path
->
->> Zoli
->
->
+[...]
+> diff --git a/drivers/net/ethernet/ec_bh.c b/drivers/net/ethernet/ec_bh.c
+> new file mode 100644
+> index 0000000..2ed2cee
+> --- /dev/null
+> +++ b/drivers/net/ethernet/ec_bh.c
+[...]
+> +#define TX_HEADER_SIZE		16
+
+sizeof() ?
+
+> +#define MAX_TX_BODY_SIZE	1518
+
+s/1518/ETH_FRAME_LEN + ETH_FCS_LEN/ ?
+
+> +#define MAX_TX_PKT_SIZE		(MAX_TX_BODY_SIZE + TX_HEADER_SIZE)
+> +
+> +#define FIFO_SIZE		64
+> +
+> +static long polling_frequency = TIMER_INTERVAL_NSEC;
+> +
+> +struct bh_priv {
+
+Nit: it would be nice to avoid "_bh_" as it is already used in a set of
+common kernel functions.
+
+[...]
+> +	u8 *tx_put;
+> +	u8 *tx_get;
+
+It's part u8 and part tx_header.
+
+You may consider using a struct that adds an extra 'u8 data[0]' at
+the end of the struct tx_header.
+
+skb_copy_and_csum_dev in the xmit path rings a bell but the DMA FIFO
+zone handling could imho save some pointer arithmetic and turn a bit
+more literate.
+
+[...]
+> +static void ec_bh_print_status(struct bh_priv *priv)
+> +{
+> +	dev_info(PRIV_TO_DEV(priv),
+> +		 "Frame error counter:%d\n",
+
+- Excess new line. The message always fits within the (less than) 80 columns
+  limit. There are several occurences of it in the driver.
+
+- You may add a local variable to save the numerous PRIV_TO_DEV(priv).
+
+- A space between the ":" and the "%" should help reading.
+
+[...]
+> +static void ec_bh_send_packet(struct bh_priv *priv)
+> +{
+> +	struct tx_header *header = (struct tx_header *)priv->tx_get;
+> +	u32 addr = priv->tx_get - priv->tx;
+> +	u32 len = le16_to_cpu(header->len) + sizeof(*header);
+
+Please reorder so as to get an inverted xmas tree. You should do it
+wherever it can be done in the driver.
+
+> +
+> +	iowrite32((((len + 8) / 8) << 24) | addr,
+> +			priv->fifo_io + FIFO_TX_REG);
+
+	iowrite32(addr | (((len + 8) / 8) << 24), priv->fifo_io + FIFO_TX_REG);
+
+[...]
+> +static void ec_bh_process_tx(struct bh_priv *priv)
+> +{
+> +	int sent;
+> +	struct tx_header *header;
+> +	u8 *pkt_end, *next_pkt;
+> +
+> +	if (!priv->tx_in_flight)
+> +		return;
+> +
+> +	header = (struct tx_header *)priv->tx_get;
+
+You may merge it with the variable declaration.
+
+> +	sent = le32_to_cpu(header->sent) & TX_HDR_SENT;
+> +	if (!sent)
+> +		return;
+> +
+> +	pkt_end = priv->tx_get;
+> +	pkt_end += (sizeof(*header) + le16_to_cpu(header->len) + 7) / 8 * 8;
+
+ALIGN() ?
+
+[...]
+> +	if (netif_queue_stopped(priv->net_dev) &&
+> +		(priv->tx_put > priv->tx_get
+> +			|| priv->tx_put + MAX_TX_PKT_SIZE < priv->tx_get)) {
+
+|| should be a the end of the preceding line
+
+[...]
+> +static void ec_bh_process_rx(struct bh_priv *priv)
+> +{
+> +	struct rx_desc *desc = priv->rx_desc;
+> +
+> +	while (ec_bh_pkt_received(desc)) {
+> +		int pkt_size = (le16_to_cpu(desc->header.len) & RXHDR_LEN_MASK)
+> +			       - sizeof(struct rx_header)
+> +			       - 4;
+
+The operator should be at the end of the preceding line.
+
+> +		u8 *data = desc->data;
+> +		struct sk_buff *skb;
+> +
+> +		skb = netdev_alloc_skb_ip_align(priv->net_dev, pkt_size);
+> +		dev_dbg(PRIV_TO_DEV(priv),
+
+You may use local variable instead of repeating (capitalized) macro.
+
+[...]
+> +static enum hrtimer_restart ec_bh_timer_fun(struct hrtimer *timer)
+> +{
+> +	struct bh_priv *priv = container_of(timer,
+> +					struct bh_priv,
+> +					hrtimer);
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +
+> +	ec_bh_process_rx(priv);
+
+The Rx part should not race with anything. You should thus push the
+locked section into ec_bh_process_tx (then narrow it).
+
+> +	ec_bh_process_tx(priv);
+> +
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	if (atomic_read(&priv->shutting_down))
+> +		return HRTIMER_NORESTART;
+
+You can use 'netif_running' and remove 'shutting_down'.
+
+[...]
+> +static netdev_tx_t ec_bh_start_xmit(struct sk_buff *skb,
+> +				    struct net_device *net_dev)
+> +{
+> +	unsigned long flags;
+> +	unsigned len;
+> +	struct bh_priv *priv = netdev_priv(net_dev);
+> +	struct tx_header *header = (struct tx_header *)priv->tx_put;
+> +	u8 *tx = priv->tx_put + sizeof(struct tx_header);
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +
+> +	dev_dbg(PRIV_TO_DEV(priv), "Starting xmit\n");
+> +
+> +	/* Drop packets that are too large or have no chance
+> +	 * to be a ethercat packets (cause they are too small)
+> +	 */
+> +	if (unlikely(skb->len > priv->tx_len
+> +			|| skb->len < 13)) {
+> +		net_dev->stats.tx_dropped++;
+> +		dev_info(PRIV_TO_DEV(priv), "Dropping packet\n");
+> +		goto out_unlock;
+> +	}
+> +
+> +	skb_copy_and_csum_dev(skb, tx);
+> +	len = skb->len;
+
+Up to this point the lock is not required (ec_bh_process_tx does not
+modifiy tx_put).
+
+Bonus: 'out_unlock' turns into 'out' and you can narrow the locked
+section at the end of the function.
+
+> +
+> +	memset(header, 0, sizeof(*header));
+> +	header->len = cpu_to_le16(len);
+> +	header->port = TX_HDR_PORT_0;
+> +	mmiowb();
+> +
+> +	if (!priv->tx_in_flight) {
+> +		ec_bh_send_packet(priv);
+> +		priv->tx_in_flight = 1;
+> +	}
+> +
+> +	priv->tx_put += (TX_HEADER_SIZE + len + 7) / 8 * 8;
+> +	if (priv->tx_put + MAX_TX_PKT_SIZE > priv->tx + priv->tx_len)
+> +		priv->tx_put = priv->tx;
+> +
+> +	if (priv->tx_put <= priv->tx_get
+> +			&& priv->tx_put + MAX_TX_PKT_SIZE > priv->tx_get) {
+> +		dev_info(PRIV_TO_DEV(priv), "Stopping netif queue\n");
+> +		ec_bh_print_status(priv);
+> +		netif_stop_queue(net_dev);
+> +	}
+> +
+> +	priv->net_dev->stats.tx_bytes += len;
+> +	priv->net_dev->stats.tx_packets++;
+
+ec_bh_process_tx does not care about Tx error. Can it do better or is
+it unable to ?
+
+> +out_unlock:
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	dev_kfree_skb(skb);
+> +
+> +	return NETDEV_TX_OK;
+> +}
+> +
+> +void *ec_bh_alloc_dma_mem(struct bh_priv *priv,
+
+static
+
+[...]
+> +	*buf = pci_alloc_consistent(priv->dev,
+> +				    *buf_len,
+> +				    phys_buf);
+
+Go for dma_alloc_coherent(..., GFP_KERNEL) once you've removed the
+spinlock in the open method.
+
+[...]
+> +static int ec_bh_open(struct net_device *net_dev)
+> +{
+> +	int err = 0, i;
+> +	unsigned long flags;
+> +	struct rx_desc *desc;
+> +	struct bh_priv *priv = netdev_priv(net_dev);
+> +
+> +	dev_info(PRIV_TO_DEV(priv), "Opening device\n");
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+
+What is ec_bh_open supposed to be racing with ?
+
+> +
+> +	ec_bh_reset(priv);
+> +
+> +	priv->rx = ec_bh_alloc_dma_mem(priv, priv->rx_dma_chan,
+> +				       &priv->rx_buf, &priv->rx_phys,
+> +				       &priv->rx_buf_phys, &priv->rx_len,
+> +				       &priv->rx_buf_len);
+
+Yuck.
+
+The Tx part duplicates this call. You want to introduce an extra struct
+that both Tx and Rx would use in bh_priv.
+
+[...]
+> +	memset(priv->rx, 0, priv->rx_len);
+> +	memset(priv->tx, 0, priv->tx_len);
+
+Useless.
+
+> +
+> +	iowrite8(0, priv->mii_io + MII_MAC_FILT_FLAG);
+> +
+> +	priv->rx_dcount = min_t(int, FIFO_SIZE,
+> +				priv->rx_len / (sizeof(struct rx_desc)));
+> +	desc = (struct rx_desc *)(priv->rx);
+> +	for (i = 0; i < priv->rx_dcount; i++) {
+> +		u32 next;
+> +
+> +		if (i != priv->rx_dcount - 1)
+> +			next = (u8 *)(desc + 1) - priv->rx;
+> +		else
+> +			next = 0;
+> +		next |= RXHDR_NEXT_VALID;
+> +		desc->header.next = cpu_to_le32(next);
+> +		desc->header.recv = 0;
+> +		ec_bh_add_rx_desc(priv, desc);
+> +
+> +		desc += 1;
+> +	}
+> +
+> +	netif_start_queue(net_dev);
+> +
+> +	hrtimer_init(&priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+> +	priv->hrtimer.function = ec_bh_timer_fun;
+> +	hrtimer_start(&priv->hrtimer,
+> +		      ktime_set(0, TIMER_INTERVAL_NSEC),
+
+Nit: s/TIMER_INTERVAL_NSEC/polling_frequency/ ?
+
+> +		      HRTIMER_MODE_REL);
+> +
+> +	dev_info(PRIV_TO_DEV(priv), "Device open\n");
+> +
+> +	ec_bh_print_status(priv);
+
+(a bit too much debug messages imho)
+
+[...]
+> +static int ec_bh_probe(struct pci_dev *dev, const struct pci_device_id *id)
+> +{
+[...]
+> +	net_dev->mem_start = pci_resource_start(dev, 0);
+> +	net_dev->mem_end = pci_resource_end(dev, 0);
+> +	net_dev->irq = dev->irq;
+
+Legacy net_device fields. Please don't use these.
+
+[...]
+> +	if (ec_bh_setup_offsets(priv)) {
+> +		err = -ENODEV;
+> +		goto err_free_net_dev;
+> +	}
+
+	err = ec_bh_setup_offsets(...)
+	if (err < 0) {
+		...
+> +
+> +	memcpy_fromio(net_dev->dev_addr, priv->mii_io + MII_MAC_ADDR, 6);
+> +
+> +	dev_info(PRIV_TO_DEV(priv),
+
+s/PRIV_TO_DEV(priv)/&dev->dev/ ?
+
+[...]
+> +static void ec_bh_remove(struct pci_dev *dev)
+> +{
+> +	struct net_device *net_dev = pci_get_drvdata(dev);
+> +	struct bh_priv *priv = netdev_priv(net_dev);
+> +	void * __iomem io = priv->io;
+> +	void * __iomem dma_io = priv->dma_io;
+
+The void * are used only once in this function. They don't deserve local
+variables.
+
+[...]
+> +static struct pci_driver pci_driver = {
+> +	.name = "ec_bh",
+> +	.id_table = ids,
+> +	.probe = ec_bh_probe,
+> +	.remove = ec_bh_remove,
+
+Please use tabs before "=" to line things up.
+
+-- 
+Ueimor
