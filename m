@@ -1,99 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v4 3/3] net: filter: misc/various cleanups
-Date: Thu,  1 May 2014 18:34:20 +0200
-Message-ID: <1398962060-13320-4-git-send-email-dborkman@redhat.com>
-References: <1398962060-13320-1-git-send-email-dborkman@redhat.com>
-Cc: ast@plumgrid.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Magnos A. Hammes" <magnos@taghos.com.br>
+Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
+Date: Thu, 01 May 2014 13:36:36 -0300
+Message-ID: <53627814.7090106@taghos.com.br>
+References: <5361C29C.5060808@taghos.com.br> <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21413 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751916AbaEAQef (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 12:34:35 -0400
-In-Reply-To: <1398962060-13320-1-git-send-email-dborkman@redhat.com>
+Received: from gproxy2-pub.mail.unifiedlayer.com ([69.89.18.3]:53598 "HELO
+	gproxy2-pub.mail.unifiedlayer.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751159AbaEAQgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:36:53 -0400
+In-Reply-To: <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This contains only some minor misc cleanpus. We can spare us the
-extra variable declaration in __skb_get_pay_offset(), the cast in
-__get_random_u32() is rather unnecessary and in __sk_migrate_realloc()
-we can remove the memcpy() and do a direct assignment of the structs.
-Latter was suggested by Fengguang Wu found with coccinelle. Also,
-remaining pointer casts of long should be unsigned long instead.
+On 01-05-2014 02:39, Michael Chan wrote:
+> On Thu, 2014-05-01 at 00:42 -0300, Magnos A. Hammes wrote:
+>> Hello,
+>>
+>>
+>> I have a Dell server with the following Broadcom gigabit network
+>> adapter that uses the bnx2 driver:
+>>
+>>          01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II
+>>          BCM5716 Gigabit Ethernet (rev 20)
+>>
+>> I was using kernel 3.2.57 and 3.13.3, but in both of them I faced some
+>> trouble to make the ethernet adapter work, whatever version of this
+>> two kernels that I try to boot I get the same error:
+>>
+>>          Can't load firmware file "bnx2/bnx2-mips-09-6.2.1b.fw"
+>>          Direct firmware load failed with error -2
+>>
+> We no longer put the firmware in the kernel tree, so you need to
+> download the firmware from the linux-firmware git tree:
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
+>
+>
+>
 
-Suggested-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
----
- net/core/filter.c | 15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+Ok, I cloned that git tree and used the firmwares available there, but 
+it didn't work with this firmware: bnx2/bnx2-mips-09-6.2.1b.fw sha1sum 
+8f11b39a60a4e1dd3774a10218c913f1cb761353
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index c93ca8d..36cfceb 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -78,9 +78,9 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
- 		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
- 	else if (k >= SKF_LL_OFF)
- 		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
--
- 	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
- 		return ptr;
-+
- 	return NULL;
- }
- 
-@@ -89,6 +89,7 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
- {
- 	if (k >= 0)
- 		return skb_header_pointer(skb, k, size, buffer);
-+
- 	return bpf_internal_load_pointer_neg_helper(skb, k, size);
- }
- 
-@@ -598,14 +599,12 @@ static unsigned int pkt_type_offset(void)
- 
- static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
--	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
--
--	return __skb_get_poff(skb);
-+	return __skb_get_poff((struct sk_buff *)(unsigned long) ctx);
- }
- 
- static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
--	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
-+	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
- 	struct nlattr *nla;
- 
- 	if (skb_is_nonlinear(skb))
-@@ -626,7 +625,7 @@ static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- 
- static u64 __skb_get_nlattr_nest(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
--	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
-+	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
- 	struct nlattr *nla;
- 
- 	if (skb_is_nonlinear(skb))
-@@ -657,7 +656,7 @@ static u64 __get_raw_cpu_id(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- /* note that this only generates 32-bit random numbers */
- static u64 __get_random_u32(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
--	return (u64)prandom_u32();
-+	return prandom_u32();
- }
- 
- static bool convert_bpf_extensions(struct sock_filter *fp,
-@@ -1475,7 +1474,7 @@ static struct sk_filter *__sk_migrate_realloc(struct sk_filter *fp,
- 
- 	fp_new = sock_kmalloc(sk, len, GFP_KERNEL);
- 	if (fp_new) {
--		memcpy(fp_new, fp, sizeof(struct sk_filter));
-+		*fp_new = *fp;
- 		/* As we're kepping orig_prog in fp_new along,
- 		 * we need to make sure we're not evicting it
- 		 * from the old fp.
--- 
-1.7.11.7
+It only works when I change the source code of 
+"drivers/net/ethernet/broadcom/bnx2.c" and compile the kernel again, 
+making him load this firmware "bnx2/bnx2-mips-09-6.2.1a.fw" instead of 
+"bnx2/bnx2-mips-09-6.2.1b.fw".
+
+Magnos A. Hammes
