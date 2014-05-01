@@ -1,55 +1,64 @@
-From: Alexey Charkov <alchark@gmail.com>
-Subject: Re: [PATCH] net: via-rhine: Fix compiler warning re: pointer casting
- on 64bit
-Date: Thu, 1 May 2014 15:33:55 +0400
-Message-ID: <CABjd4YxFRhVjJr4kbcwFfYy=G0tmHo-3K2TYsHz2mB7bDr4mpQ@mail.gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
-	<1398859589-22346-1-git-send-email-alchark@gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D0F703980@AcuExch.aculab.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Fwd: [Bug 75221] New: CONFIG_PROC_SYSCTL is required for networking
+Date: Thu, 01 May 2014 13:38:25 +0200
+Message-ID: <53623231.6020907@redhat.com>
+References: <bug-75221-65011@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Roger Luethi <rl@hellgate.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jan Moskyto Matejka <mq@suse.cz>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F703980@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50039 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751889AbaEALia (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 07:38:30 -0400
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s41BcUxX014540
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 1 May 2014 07:38:30 -0400
+Received: from [10.36.6.67] (vpn1-6-67.ams2.redhat.com [10.36.6.67])
+	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s41BcQgH002662
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 1 May 2014 07:38:27 -0400
+In-Reply-To: <bug-75221-65011@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-05-01 13:30 GMT+04:00 David Laight <David.Laight@aculab.com>:
-> From: Alexey Charkov [mailto:alchark@gmail.com]
-> ...
->> This patch removes the cast altogether, and instead stores an actual
->> pointer to u8 in match->data. All instances of 'revision' are also
->> unified to u8 instead of an assortment of different integer types,
->> in line with the definition of 'revision' in struct pci_dev.
-> ...
->> +static u8 vt8500_revision = 0x84;
->>  static struct of_device_id rhine_of_tbl[] = {
->> -     { .compatible = "via,vt8500-rhine", .data = (void *)0x84 },
->> +     { .compatible = "via,vt8500-rhine", .data = &vt8500_revision },
->>       { }     /* terminate list */
->
-> Actually the above looks strange.
-> Why does the vt8500 have a revision number of 0x84 ?
-> Surely it should be 0x85, or even 0x8500 (or decimal 85000).
+-------- Original Message --------
+Subject: [Bug 75221] New: CONFIG_PROC_SYSCTL is required for networking
+Date: Thu, 01 May 2014 10:17:24 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: dborkman@redhat.com
 
-David, vt8500 is the SoC version (the first one I know where it
-appeared, might have been used earlier though), not the version of the
-Rhine core itself (no clue what that is).
+https://bugzilla.kernel.org/show_bug.cgi?id=75221
 
-Here's the source for 0x84 (see line 1031):
+             Bug ID: 75221
+            Summary: CONFIG_PROC_SYSCTL is required for networking
+            Product: Networking
+            Version: 2.5
+     Kernel Version: 3.14.2
+           Hardware: All
+                 OS: Linux
+               Tree: Mainline
+             Status: NEW
+           Severity: normal
+           Priority: P1
+          Component: Other
+           Assignee: shemminger@linux-foundation.org
+           Reporter: stefan@konink.de
+         Regression: No
 
-https://github.com/wondermedia/wm8850/blob/master/ANDROID_3.0.8/arch/arm/common/pci_wmt.c
+I am in the proces of building an embedded kernel which I wanted to limit in
+both functionality and memory. For this reason I disabled CONFIG_PROC_SYSCTL. I
+have figured out the hard way that this functionality implements the successful
+randomisation of source ports, it might be responsible for the initialisation
+of net.ipv4.ip_local_port_range.
 
-Vendor kernel uses an emulated (shadow-only) PCI bus to bind some
-obscure PCI driver (not upstream) to the integrated Rhine core, and
-that emulated PCI bus has Rhine listed with revision 0x84 on it.
+Effectively, booting a kernel with ip=dhcp works. Ping-pong (ICMP) to and from
+an address works. DNS queries (UDP/53) don't because the source port remains 0,
+a connection to a typical webserver also seems to result in a no reply
+situation.
 
-Anyway, I've now submitted a new patch instead of this one where I got
-rid of the 0x84 altogether - see https://lkml.org/lkml/2014/4/30/500
-
-Best,
-Alexey
+-- 
+You are receiving this mail because:
+You are watching the assignee of the bug.
