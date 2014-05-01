@@ -1,113 +1,76 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 2/3] bridge: trigger a bridge calculation upon
-	port changes
-Date: Wed, 30 Apr 2014 20:12:03 -0400
-Message-ID: <53619153.8020404@gmail.com>
-References: <1394680527-28970-1-git-send-email-mcgrof@do-not-panic.com>
-	<1394680527-28970-3-git-send-email-mcgrof@do-not-panic.com>
-	<CAHA+R7Pf6rM5h1uGiqrru5LkN9C7Nm7V42cucHSOV1s7_+F7Gw@mail.gmail.com>
-	<20140315013940.GA28801@wotan.suse.de>
-	<CAHA+R7MRVyjAN7w_qPxSxkrjo939bNEc3Ej+O3yH-oWj4gGJxw@mail.gmail.com>
-	<20140318212243.GD28471@garbanzo.do-not-panic.com>
-	<20140422194313.GQ27882@wotan.suse.de> <53615752.5040106@gmail.com>
-	<20140430225920.GJ11838@wotan.suse.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net phy: Check for aneg completion before setting state
+ to PHY_RUNNING
+Date: Wed, 30 Apr 2014 19:11:08 -0700
+Message-ID: <CAGVrzcaVEWTm+wJa-G4O8ZTXGLA2WjCj2sfJAzfmKa+AhGrpoQ@mail.gmail.com>
+References: <53587C7F.2000808@gmail.com> <CAGVrzcbrm3KO_=NSJz=KOAcPWvVUMm5kPM7nryJBag6BotKgoQ@mail.gmail.com>
+ <CAHPKR9Ltie2shuJqdSKbQcVSKwMt-Q8XTfAJRn6gXxVs5fHRwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, Cong Wang <cwang@twopensource.com>,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>, xen-devel@lists.xenproject.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140430225920.GJ11838@wotan.suse.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:60401 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbaEACLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Apr 2014 22:11:48 -0400
+Received: by mail-qc0-f180.google.com with SMTP id i17so2093344qcy.39
+        for <netdev@vger.kernel.org>; Wed, 30 Apr 2014 19:11:48 -0700 (PDT)
+In-Reply-To: <CAHPKR9Ltie2shuJqdSKbQcVSKwMt-Q8XTfAJRn6gXxVs5fHRwA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2014 06:59 PM, Luis R. Rodriguez wrote:
-> On Wed, Apr 30, 2014 at 04:04:34PM -0400, Vlad Yasevich wrote:
->> On 04/22/2014 03:43 PM, Luis R. Rodriguez wrote:
->>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->>> index 54d207d..dcd9378 100644
->>> --- a/net/bridge/br_if.c
->>> +++ b/net/bridge/br_if.c
->>> @@ -315,6 +315,8 @@ netdev_features_t br_features_recompute(struct net_bridge *br,
->>>  	features &= ~NETIF_F_ONE_FOR_ALL;
->>>  
->>>  	list_for_each_entry(p, &br->port_list, list) {
->>> +		if (p->flags & BR_ROOT_BLOCK)
->>> +			continue;
->>>  		features = netdev_increment_features(features,
->>>  						     p->dev->features, mask);
->>>  	}
->>>
->> Hi Luis
+2014-04-24 22:53 GMT-07:00 Balakumaran Kannan <kumaran.4353@gmail.com>:
+> On Fri, Apr 25, 2014 at 12:23 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> 2014-04-23 19:52 GMT-07:00 Balakumaran Kannan <kumaran.4353@gmail.com>:
+>>> phy_state_machine should check whether auto-negotiatin is completed
+>>> before changing phydev->state from PHY_NOLINK to PHY_RUNNING. If
+>>> auto-negotiation is not completed phydev->state should be set to
+>>> PHY_AN.
 >>
->> The hunk above isn't right.  Just because you set ROOT_BLOCK on the port
->> doesn't mean that you should ignore it's device features.  If the device
->> you just added happens to disable or enable some device offload feature,
->> you should take that into account.
-> 
-> OK thanks, how about this part:
-> 
-> On 04/22/2014 03:43 PM, Luis R. Rodriguez wrote:
->> On Tue, Mar 18, 2014 at 02:22:43PM -0700, Luis R. Rodriguez wrote:
->> On Tue, Mar 18, 2014 at 01:46:49PM -0700, Cong Wang wrote:
->>> On Fri, Mar 14, 2014 at 6:39 PM, Luis R. Rodriguez <mcgrof@suse.com> wrote:
->>>> On Thu, Mar 13, 2014 at 11:26:25AM -0700, Cong Wang wrote:
->>>>> On Wed, Mar 12, 2014 at 8:15 PM, Luis R. Rodriguez
->>>>> <mcgrof@do-not-panic.com> wrote:
->>>>>>                         spin_unlock_bh(&p->br->lock);
->>>>>> +                       if (changed)
->>>>>> +                               call_netdevice_notifiers(NETDEV_CHANGEADDR,
->>>>>> +                                                        p->br->dev);
->>>>>> +                       netdev_update_features(p->br->dev);
->>>>>
+>> I need some time to review this. Just out of curiosity, is this fixing
+>> a bug you have encountered or was this found by state machine
+>> inspection?
+>
+> Actually I encountered a problem that Linux-3.4 sends Neighbor Solicitation (NS)
+> before hardware completes auto-negotiation. The driver being used for
+> my hardware
+> is smsc911x.
+>
+> While investigation on this, I came to know that state of phydev
+> follows this sequence
+> PHY_READY --> PHY_UP (in phy_start)
+> PHY_UP --> PHY_AN (in phy_start_aneg called by phy_state_machine)
+> PHY_AN --> PHY_NOLINK (in phy_state_machine. Link is down)
+> PHY_NOLINK --> PHY_RUNNING (in phy_state_machine. Link becomes ready)
+>
+> So I felt that the sequence of PHY_AN --> PHY_RUNNING while link is up and
+> PHY_NOLINK --> PHY_RUNNING are different. In the earlier case aneg completion
+> is taken into account but not in later.
 
-This is actually just a part of it.  You also need to handle the sysfs
-changing the flag.
+I see, we should indeed go back to PHY_AN
 
-Look at the first 2 patches in this series:
-http://www.spinics.net/lists/netdev/msg280863.html
+>
+> But this patch doesn't fix my problem. I made the smsc driver's open function to
+> poll on phy_aneg_done until auto-negotiation completes.
+>
+> Here I have a doubt.
+>  * Linux network initialization and phy_state_machine runs in separate threads.
+>  * And driver doesn't bother about state of phydev.
+> Is it correct?
 
-You might need that functionality.
+That is correct, once your driver calls phy_start(), the PHY state
+machine executes in the background within the context of a separate
+workqueue.
 
--vlad
+> Doesn't driver need to confirm phydev is ready(PHY_RUNNING) before
+> returning to kernel?
 
+phy_start() really starts the PHY state machine, but does not block
+until the PHY is in the PHY_RUNNING state, which is something that
+might never happen if e.g: the cable is disconnected.
 
->>>>> I think this is supposed to be in netdev event handler of br->dev
->>>>> instead of here.
->>>>
->>>> Do you mean netdev_update_features() ? I mimic'd what was being done on
->>>> br_del_if() given that root blocking is doing something similar. If
->>>> we need to change something for the above then I suppose it means we need
->>>> to change br_del_if() too. Let me know if you see any reason for something
->>>> else.
->>>>
->>>
->>> Yeah, for me it looks like it's better to call netdev_update_features()
->>> in the event handler of br->dev, rather than where calling
->>> call_netdevice_notifiers(..., br->dev);.
->>
->> I still don't see why, in fact trying to verify this I am wondering now
->> if instead we should actually fix br_features_recompute() to take into
->> consideration BR_ROOT_BLOCK as below. Notice how netdev_update_features()
->> is called above even if the MAC address did not change, just as is done
->> on br_del_if(). There is an NETDEV_FEAT_CHANGE event so would it be more
->> appropriate we just call
->>
->> call_netdevice_notifiers(NETDEV_FEAT_CHANGE, p->br->dev)
->>
->> for both the above then and also br_del_if()?
-> 
->   Luis
-> 
+What really tells the network stack whether the link is ready, is when
+the PHY state machine calls netif_carrier_on().
+-- 
+Florian
