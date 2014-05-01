@@ -1,60 +1,35 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net PATCH v2] net: sched: lock imbalance in hhf qdisc
-Date: Thu, 01 May 2014 09:23:06 -0700
-Message-ID: <20140501162300.17183.83124.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, vtlam@google.com
-To: eric.dumazet@gmail.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v4 0/3] BPF cleanups
+Date: Thu,  1 May 2014 18:34:17 +0200
+Message-ID: <1398962060-13320-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:41343 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbaEAQXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:23:20 -0400
-Received: by mail-oa0-f41.google.com with SMTP id m1so1299792oag.0
-        for <netdev@vger.kernel.org>; Thu, 01 May 2014 09:23:20 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:53305 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751503AbaEAQeX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 12:34:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hhf_change() takes the sch_tree_lock and releases it but misses the
-error cases. Fix the missed case here.
+v3->v4:
+ - Sorry, noticed and fixed a typo in patch 3, rest as is
+v2->v3:
+ - Included Dave's feedback for unsigned long type in patch 3
+ - Patch 1 and patch 2 unchanged since v1, dropped other
+   two for now
+v1->v2:
+ - Only changed patch 5 as to suggestion from Alexei
+ - Rest is the same
 
-To reproduce try a command like this,
+Daniel Borkmann (3):
+  net: filter: simplify label names from jump-table
+  net: filter: make register namings more comprehensible
+  net: filter: misc/various cleanups
 
-# tc qdisc change dev p3p2 root hhf quantum 40960 non_hh_weight 300000
+ include/linux/filter.h |  47 ++++-
+ net/core/filter.c      | 538 +++++++++++++++++++++++++------------------------
+ 2 files changed, 309 insertions(+), 276 deletions(-)
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/sch_hhf.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-index edee03d..6e957c3 100644
---- a/net/sched/sch_hhf.c
-+++ b/net/sched/sch_hhf.c
-@@ -553,11 +553,6 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
- 	if (err < 0)
- 		return err;
- 
--	sch_tree_lock(sch);
--
--	if (tb[TCA_HHF_BACKLOG_LIMIT])
--		sch->limit = nla_get_u32(tb[TCA_HHF_BACKLOG_LIMIT]);
--
- 	if (tb[TCA_HHF_QUANTUM])
- 		new_quantum = nla_get_u32(tb[TCA_HHF_QUANTUM]);
- 
-@@ -567,6 +562,12 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
- 	non_hh_quantum = (u64)new_quantum * new_hhf_non_hh_weight;
- 	if (non_hh_quantum > INT_MAX)
- 		return -EINVAL;
-+
-+	sch_tree_lock(sch);
-+
-+	if (tb[TCA_HHF_BACKLOG_LIMIT])
-+		sch->limit = nla_get_u32(tb[TCA_HHF_BACKLOG_LIMIT]);
-+
- 	q->quantum = new_quantum;
- 	q->hhf_non_hh_weight = new_hhf_non_hh_weight;
- 
+-- 
+1.7.11.7
