@@ -1,43 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
- guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Thu, 01 May 2014 10:46:30 -0700
-Message-ID: <1398966390.29914.203.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <395225650.20140430124506@eikelenboom.it>
-	 <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>
-	 <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>
-	 <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org
-To: Sander Eikelenboom <linux@eikelenboom.it>
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next] unregister_netdevice : move RTM_DELLINK to until after ndo_uninit
+Date: Thu,  1 May 2014 11:40:30 -0700
+Message-ID: <1398969630-4808-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: sfeldma@cumulusnetworks.com, jiri@resnulli.us, tgraf@suug.ch,
+	j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:58816 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbaEARqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 13:46:32 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bj1so3986915pad.1
-        for <netdev@vger.kernel.org>; Thu, 01 May 2014 10:46:32 -0700 (PDT)
-In-Reply-To: <928229683.20140501193936@eikelenboom.it>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:32869 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782AbaEASka (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:40:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-01 at 19:39 +0200, Sander Eikelenboom wrote:
+From: roopa <roopa@cumulusnetworks.com>
 
-> Will run that for both the cases:
->         skb->truesize -= skb->data_len;
->         skb->truesize -= nskb->data_len;
-> 
-> Let's see what that does different and if that gives an insight in what is going 
-> wrong.
+This patch fixes ordering of rtnl notifications during unregister_netdevice
+by moving RTM_DELLINK notification to until after ndo_uninit.
 
+The problem was seen with unregistering bond netdevices.
 
-Playing with skb->truesize only makes TCP stack reacts faster to bloat,
-calling tcp collapse to save memory.
+bond ndo_uninit callback generates a few RTM_NEWLINK notifications for
+NETDEV_CHANGEADDR and NETDEV_FEAT_CHANGE. This is seen mostly when the
+bond is deleted with slaves still enslaved to the bond.
 
-So you might prevent the bug from happening, not really fix root cause.
+During unregister netdevice (rollback_registered_many to be specific)
+bond ndo_uninit is called after RTM_DELLINK notification goes out.
+This results in userspace seeing RTM_DELLINK followed by a couple of
+RTM_NEWLINK's.
+
+In userspace problem was seen with libnl. libnl cache deletes the bond
+when it sees RTM_DELLINK and re-adds the bond with the following
+RTM_NEWLINK. Resulting in a stale bond entry in libnl cache when the kernel
+has already deleted the bond.
+
+This patch has been tested for bond, bridges and vlan devices.
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/core/dev.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11d70e3..fe0b9cd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5606,10 +5606,6 @@ static void rollback_registered_many(struct list_head *head)
+ 		*/
+ 		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
+ 
+-		if (!dev->rtnl_link_ops ||
+-		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
+-			rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
+-
+ 		/*
+ 		 *	Flush the unicast and multicast chains
+ 		 */
+@@ -5619,6 +5615,10 @@ static void rollback_registered_many(struct list_head *head)
+ 		if (dev->netdev_ops->ndo_uninit)
+ 			dev->netdev_ops->ndo_uninit(dev);
+ 
++		if (!dev->rtnl_link_ops ||
++		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
++			rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
++
+ 		/* Notifier chain MUST detach us all upper devices. */
+ 		WARN_ON(netdev_has_any_upper_dev(dev));
+ 
+-- 
+1.7.10.4
