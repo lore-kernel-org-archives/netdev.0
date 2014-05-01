@@ -1,64 +1,75 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Fwd: [Bug 75221] New: CONFIG_PROC_SYSCTL is required for networking
-Date: Thu, 01 May 2014 13:38:25 +0200
-Message-ID: <53623231.6020907@redhat.com>
-References: <bug-75221-65011@https.bugzilla.kernel.org/>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 1/4] net/mlx4_core: Adjust port number in qp_attach wrapper when detaching
+Date: Thu,  1 May 2014 15:51:53 +0300
+Message-ID: <1398948716-6765-2-git-send-email-ogerlitz@mellanox.com>
+References: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, roland@kernel.org,
+	jackm@dev.mellanox.co.il, matanb@mellanox.com, amirv@mellanox.com,
+	Jack Morgenstein <jackm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50039 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751889AbaEALia (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 07:38:30 -0400
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s41BcUxX014540
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 1 May 2014 07:38:30 -0400
-Received: from [10.36.6.67] (vpn1-6-67.ams2.redhat.com [10.36.6.67])
-	by int-mx14.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s41BcQgH002662
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 1 May 2014 07:38:27 -0400
-In-Reply-To: <bug-75221-65011@https.bugzilla.kernel.org/>
+Received: from mailp.voltaire.com ([193.47.165.129]:60870 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751963AbaEAMwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 08:52:14 -0400
+In-Reply-To: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--------- Original Message --------
-Subject: [Bug 75221] New: CONFIG_PROC_SYSCTL is required for networking
-Date: Thu, 01 May 2014 10:17:24 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: dborkman@redhat.com
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-https://bugzilla.kernel.org/show_bug.cgi?id=75221
+When using single ported VFs and the VF is using port 2, we need
+to adjust the port accordingly (change it from 1 to 2).
 
-             Bug ID: 75221
-            Summary: CONFIG_PROC_SYSCTL is required for networking
-            Product: Networking
-            Version: 2.5
-     Kernel Version: 3.14.2
-           Hardware: All
-                 OS: Linux
-               Tree: Mainline
-             Status: NEW
-           Severity: normal
-           Priority: P1
-          Component: Other
-           Assignee: shemminger@linux-foundation.org
-           Reporter: stefan@konink.de
-         Regression: No
+Fixes: 449fc48 ('net/mlx4: Adapt code for N-Port VF')
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   23 ++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
-I am in the proces of building an embedded kernel which I wanted to limit in
-both functionality and memory. For this reason I disabled CONFIG_PROC_SYSCTL. I
-have figured out the hard way that this functionality implements the successful
-randomisation of source ports, it might be responsible for the initialisation
-of net.ipv4.ip_local_port_range.
-
-Effectively, booting a kernel with ip=dhcp works. Ping-pong (ICMP) to and from
-an address works. DNS queries (UDP/53) don't because the source port remains 0,
-a connection to a typical webserver also seems to result in a no reply
-situation.
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 3b5f53e..3f27cba 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3733,6 +3733,25 @@ static int qp_detach(struct mlx4_dev *dev, struct mlx4_qp *qp,
+ 	}
+ }
+ 
++static int mlx4_adjust_port(struct mlx4_dev *dev, int slave,
++			    u8 *gid, enum mlx4_protocol prot)
++{
++	int real_port;
++
++	if (prot != MLX4_PROT_ETH)
++		return 0;
++
++	if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0 ||
++	    (dev->caps.steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED)) {
++		real_port = mlx4_slave_convert_port(dev, slave, gid[5]);
++		if (real_port < 0)
++			return -EINVAL;
++		gid[5] = real_port;
++	}
++
++	return 0;
++}
++
+ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_vhcr *vhcr,
+ 			       struct mlx4_cmd_mailbox *inbox,
+@@ -3768,6 +3787,10 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 		if (err)
+ 			goto ex_detach;
+ 	} else {
++		err = mlx4_adjust_port(dev, slave, gid, prot);
++		if (err)
++			goto ex_put;
++
+ 		err = rem_mcg_res(dev, slave, rqp, gid, prot, type, &reg_id);
+ 		if (err)
+ 			goto ex_put;
 -- 
-You are receiving this mail because:
-You are watching the assignee of the bug.
+1.7.1
