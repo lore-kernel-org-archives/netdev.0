@@ -1,108 +1,101 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 2/4] net/mlx4_core: Fix slave id computation for single port VF
-Date: Thu,  1 May 2014 15:51:54 +0300
-Message-ID: <1398948716-6765-3-git-send-email-ogerlitz@mellanox.com>
-References: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, roland@kernel.org,
-	jackm@dev.mellanox.co.il, matanb@mellanox.com, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
+ guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy" series.
+Date: Thu, 1 May 2014 14:37:41 +0100
+Message-ID: <53624E25.8040404@citrix.com>
+References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:60445 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754684AbaEANRU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 09:17:20 -0400
-In-Reply-To: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:51825 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752719AbaEANhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 09:37:45 -0400
+In-Reply-To: <94755525.20140501002553@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+On 30/04/14 23:25, Sander Eikelenboom wrote:
+>
+> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
+>
+>> On 30/04/14 11:45, Sander Eikelenboom wrote:
+>>> Hi Zoltan,
+>>>
+>>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
+>>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
+>>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
+>>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
+>>>
+>>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>
+>>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
+>>> I don't see this with clients that upload large files from external sources.
+>>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
+>>>
+>>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
+>>>
+>>> Since these commits break bisectabillity:
+>>>       - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
+>>>       - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
+>>> i stopped bisecting at this point.
+>>>
+>>> The upside is .. it's 100% reproduceable :-)
+>> That's good :) Can you take tcpdump captures along the way (sending
+>> guest, dom0, receiving guest), and try to work out which packets are
+>> different, and where? Although taking captures in Dom0 might change your
+>> result, as it triggers the pages to be copied and unmapped before they
+>> reach their target.
+>
+>> Thanks,
+>> Zoli
+>
+>
+> Hrrmm that sounds like a lot of data and a lot of work ..
+If you could make captures in the sending and receiving guest with 
+tcpdump (take care of increasing snaplen so the whole packet is there, 
+and filter to the SSH connection itself), and upload it somewhere for 
+me, that would be enough for start. I will try to work out where the 
+corruption happens.
+Also, do you have timestamps for the above mentioned log entries? I 
+guess they appear on the receiving side.
+And some info about the componenets on the server, so I can work out 
+where is that _ssl.c:1415, and which part of the packet it actually 
+looks for.
 
-The code that deals with computing the slave id based on a given GID
-gave wrong results when the number of single port VFs wasn't the
-same for port 1 vs. port 2 and the relevant VF is single ported on
-port 2. As a result, incoming CM MADs were dispatched to the wrong VF.
-Fixed that and added documentation to clarify the computation steps.
+>
+> how ever .. could it be just a type and would the following make sense ?
+>
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 7666540..abeea10 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
+>
+>          xenvif_fill_frags(vif, nskb);
+>          /* Subtract frags size, we will correct it later */
+> -       skb->truesize -= skb->data_len;
+> +       skb->truesize -= nskb->data_len;
+>          skb->len += nskb->len;
+>          skb->data_len += nskb->len;
 
-Fixes: 449fc48 ('net/mlx4: Adapt code for N-Port VF')
-Signed-off-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/port.c |   35 ++++++++++++++++------------
- 1 files changed, 20 insertions(+), 15 deletions(-)
+Nope, that's correct there: after that skb->truesize will be the size of 
+the struct plus the linear buffer itself. The code is just about the 
+ditch the original fragments plus the skb on the frag_list. When the new 
+pages are created, it will update it again.
+Also, this code path runs only if the guest sends more slots we can 
+handle (so we put the extra one to the frag_list until we can get rid of 
+it). On Linux it can only happen with 3.2 or older guest kernels, and 
+only occasionally. As you said, this is 100% reproducible, so I would 
+doubt the problem is with this part of the code.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index cfcad26..b5b3549 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -1106,6 +1106,9 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
- 	}
- 
- 	if (found_ix >= 0) {
-+		/* Calculate a slave_gid which is the slave number in the gid
-+		 * table and not a globally unique slave number.
-+		 */
- 		if (found_ix < MLX4_ROCE_PF_GIDS)
- 			slave_gid = 0;
- 		else if (found_ix < MLX4_ROCE_PF_GIDS + (vf_gids % num_vfs) *
-@@ -1118,41 +1121,43 @@ int mlx4_get_slave_from_roce_gid(struct mlx4_dev *dev, int port, u8 *gid,
- 			  ((vf_gids % num_vfs) * ((vf_gids / num_vfs + 1)))) /
- 			 (vf_gids / num_vfs)) + vf_gids % num_vfs + 1;
- 
-+		/* Calculate the globally unique slave id */
- 		if (slave_gid) {
- 			struct mlx4_active_ports exclusive_ports;
- 			struct mlx4_active_ports actv_ports;
- 			struct mlx4_slaves_pport slaves_pport_actv;
- 			unsigned max_port_p_one;
--			int num_slaves_before = 1;
-+			int num_vfs_before = 0;
-+			int candidate_slave_gid;
- 
-+			/* Calculate how many VFs are on the previous port, if exists */
- 			for (i = 1; i < port; i++) {
- 				bitmap_zero(exclusive_ports.ports, dev->caps.num_ports);
--				set_bit(i, exclusive_ports.ports);
-+				set_bit(i - 1, exclusive_ports.ports);
- 				slaves_pport_actv =
- 					mlx4_phys_to_slaves_pport_actv(
- 							dev, &exclusive_ports);
--				num_slaves_before += bitmap_weight(
-+				num_vfs_before += bitmap_weight(
- 						slaves_pport_actv.slaves,
- 						dev->num_vfs + 1);
- 			}
- 
--			if (slave_gid < num_slaves_before) {
--				bitmap_zero(exclusive_ports.ports, dev->caps.num_ports);
--				set_bit(port - 1, exclusive_ports.ports);
--				slaves_pport_actv =
--					mlx4_phys_to_slaves_pport_actv(
--							dev, &exclusive_ports);
--				slave_gid += bitmap_weight(
--						slaves_pport_actv.slaves,
--						dev->num_vfs + 1) -
--						num_slaves_before;
--			}
--			actv_ports = mlx4_get_active_ports(dev, slave_gid);
-+			/* candidate_slave_gid isn't necessarily the correct slave, but
-+			 * it has the same number of ports and is assigned to the same
-+			 * ports as the real slave we're looking for. On dual port VF,
-+			 * slave_gid = [single port VFs on port <port>] +
-+			 * [offset of the current slave from the first dual port VF] +
-+			 * 1 (for the PF).
-+			 */
-+			candidate_slave_gid = slave_gid + num_vfs_before;
-+
-+			actv_ports = mlx4_get_active_ports(dev, candidate_slave_gid);
- 			max_port_p_one = find_first_bit(
- 				actv_ports.ports, dev->caps.num_ports) +
- 				bitmap_weight(actv_ports.ports,
- 					      dev->caps.num_ports) + 1;
- 
-+			/* Calculate the real slave number */
- 			for (i = 1; i < max_port_p_one; i++) {
- 				if (i == port)
- 					continue;
--- 
-1.7.1
+Zoli
