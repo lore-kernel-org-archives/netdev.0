@@ -1,73 +1,60 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: HHF support in iproute2?
-Date: Thu, 01 May 2014 09:21:23 -0700
-Message-ID: <53627483.2050507@gmail.com>
-References: <4420ec641916f42ac8bb9becc634a8cf@visp.net.lb> <5362670F.2080400@gmail.com> <CAOaVG153tfEqZvr3EC9Z1-Tc1ZWaQ6tVvswarYxtPzVRuQ88HA@mail.gmail.com>
+Subject: [net PATCH v2] net: sched: lock imbalance in hhf qdisc
+Date: Thu, 01 May 2014 09:23:06 -0700
+Message-ID: <20140501162300.17183.83124.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, edumazet@google.com, vtlam@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:41991 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbaEAQVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:21:34 -0400
-Received: by mail-oa0-f50.google.com with SMTP id i11so3790513oag.23
-        for <netdev@vger.kernel.org>; Thu, 01 May 2014 09:21:34 -0700 (PDT)
-In-Reply-To: <CAOaVG153tfEqZvr3EC9Z1-Tc1ZWaQ6tVvswarYxtPzVRuQ88HA@mail.gmail.com>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:41343 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750993AbaEAQXU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:23:20 -0400
+Received: by mail-oa0-f41.google.com with SMTP id m1so1299792oag.0
+        for <netdev@vger.kernel.org>; Thu, 01 May 2014 09:23:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/01/2014 08:41 AM, Stephen Hemminger wrote:
-> I find/pick up patches from patchwork.
-> If it wasn't there then it didn't get picked up
->
+hhf_change() takes the sch_tree_lock and releases it but misses the
+error cases. Fix the missed case here.
 
-Its in patchwork I just don't see it in the package I pulled from
-git.kernel.org. I looked in the master and net-next-for-3.13 branches.
+To reproduce try a command like this,
 
-The patchwork patch is,
+# tc qdisc change dev p3p2 root hhf quantum 40960 non_hh_weight 300000
 
-http://patchwork.ozlabs.org/patch/308514/
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/sched/sch_hhf.c |   11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
->
-> On Thu, May 1, 2014 at 8:23 AM, John Fastabend <john.fastabend@gmail.com
-> <mailto:john.fastabend@gmail.com>> wrote:
->
->     On 04/11/2014 09:11 PM, Denys Fedoryshchenko wrote:
->
->         Hi
->
->         I just tried recently last iproute2 (git and release) and noticed in
->         iproute-3.14.0 it is still missing HHF support, while i see it is
->         accepted in git
->         (http://marc.info/?l=linux-__netdev&m=138933793006411&w=2
->         <http://marc.info/?l=linux-netdev&m=138933793006411&w=2>)
->         Is there any problem with this scheduling discipline?
->
->         Thanks!
->
->
->     Hi Stephen,
->
->     I can't seem to find this patch either. I checked the repository
->     at git.kernel.org <http://git.kernel.org> and it looks like q_hhf.c
->     is missing.
->
->     Was this intentional? Or am I just missing something. I have the
->     patch applied locally and it seems to work OK.
->
->     Thanks,
->     John
->
->     --
->     John Fastabend         Intel Corporation
->
->
-
-
-
--- 
-John Fastabend         Intel Corporation
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index edee03d..6e957c3 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -553,11 +553,6 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	if (err < 0)
+ 		return err;
+ 
+-	sch_tree_lock(sch);
+-
+-	if (tb[TCA_HHF_BACKLOG_LIMIT])
+-		sch->limit = nla_get_u32(tb[TCA_HHF_BACKLOG_LIMIT]);
+-
+ 	if (tb[TCA_HHF_QUANTUM])
+ 		new_quantum = nla_get_u32(tb[TCA_HHF_QUANTUM]);
+ 
+@@ -567,6 +562,12 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	non_hh_quantum = (u64)new_quantum * new_hhf_non_hh_weight;
+ 	if (non_hh_quantum > INT_MAX)
+ 		return -EINVAL;
++
++	sch_tree_lock(sch);
++
++	if (tb[TCA_HHF_BACKLOG_LIMIT])
++		sch->limit = nla_get_u32(tb[TCA_HHF_BACKLOG_LIMIT]);
++
+ 	q->quantum = new_quantum;
+ 	q->hhf_non_hh_weight = new_hhf_non_hh_weight;
+ 
