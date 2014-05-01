@@ -1,80 +1,124 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
-Date: Thu, 1 May 2014 17:40:53 +0200
-Message-ID: <1046603646.20140501174053@eikelenboom.it>
-References: <395225650.20140430124506@eikelenboom.it> <536250F9.7060405@citrix.com> <1967602892.20140501160513@eikelenboom.it> <53626563.8010404@citrix.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
+ guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy" series.
+Date: Thu, 1 May 2014 16:46:01 +0100
+Message-ID: <53626C39.3030304@citrix.com>
+References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Ian Campbell <Ian.Campbell@citrix.com>,
 	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	<xen-devel@lists.xen.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:41107 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752809AbaEAPk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 11:40:57 -0400
-In-Reply-To: <53626563.8010404@citrix.com>
+Received: from smtp.citrix.com ([66.165.176.89]:58360 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752547AbaEAPsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 11:48:04 -0400
+In-Reply-To: <1810270947.20140501155911@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/05/14 14:59, Sander Eikelenboom wrote:
+>
+> Thursday, May 1, 2014, 3:37:41 PM, you wrote:
+>
+>> On 30/04/14 23:25, Sander Eikelenboom wrote:
+>>>
+>>> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
+>>>
+>>>> On 30/04/14 11:45, Sander Eikelenboom wrote:
+>>>>> Hi Zoltan,
+>>>>>
+>>>>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
+>>>>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
+>>>>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
+>>>>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
+>>>>>
+>>>>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>>
+>>>>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
+>>>>> I don't see this with clients that upload large files from external sources.
+>>>>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
+>>>>>
+>>>>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
+>>>>>
+>>>>> Since these commits break bisectabillity:
+>>>>>        - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
+>>>>>        - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
+>>>>> i stopped bisecting at this point.
+>>>>>
+>>>>> The upside is .. it's 100% reproduceable :-)
+>>>> That's good :) Can you take tcpdump captures along the way (sending
+>>>> guest, dom0, receiving guest), and try to work out which packets are
+>>>> different, and where? Although taking captures in Dom0 might change your
+>>>> result, as it triggers the pages to be copied and unmapped before they
+>>>> reach their target.
+>>>
+>>>> Thanks,
+>>>> Zoli
+>>>
+>>>
+>>> Hrrmm that sounds like a lot of data and a lot of work ..
+>> If you could make captures in the sending and receiving guest with
+>> tcpdump (take care of increasing snaplen so the whole packet is there,
+>> and filter to the SSH connection itself), and upload it somewhere for
+>> me, that would be enough for start. I will try to work out where the
+>> corruption happens.
+>> Also, do you have timestamps for the above mentioned log entries? I
+>> guess they appear on the receiving side.
+>> And some info about the componenets on the server, so I can work out
+>> where is that _ssl.c:1415, and which part of the packet it actually
+>> looks for.
+>
+> They appear on the sending side (duplicity) .. the receiving side (apache +
+> mod_dav + ssl | gnu_tls) gives a "Could not get next bucket brigade (URI:"
+I will try to repro this case in house. What versions of these 
+components you used?
 
-Thursday, May 1, 2014, 5:16:51 PM, you wrote:
+Zoli
 
-> On 01/05/14 15:05, Sander Eikelenboom wrote:
->>
->> Thursday, May 1, 2014, 3:49:45 PM, you wrote:
->>
->>> On 30/04/14 11:45, Sander Eikelenboom wrote:
->>>>       Another point would be: what *correctness* testing is actually done on the xen-net* patches ?
->>> I can speak only about my patches: I have manually tested them for the
->>> usecases where they likely to make a difference, plus they went through
->>> Xenserver's full test suite several times.
->>
->> I think Paul's patches for 3.14 also went through this testsuite fine, however
->> it did have a bug in it. Does this testsuite include a test which causes a
->> diverse pattern of frags (for both tx and rx case) ?
-> Unfortunately these tests doesn't directly try with various skb layouts, 
-> but it depends on the sending application/kernel what kind of packet 
-> they feed in to netback/netfront.
-> I was always thinking we should create a testing facility where we can 
-> generate various different skb's and feed them in at an arbitrary part 
-> of the networking stack. Or does such thing already exist?
-
-Yesterday i tried to get packetdrill (https://code.google.com/p/packetdrill/) to 
-work to see if i could reproduce with one of it's tests, but didn't get the 
-client server stuff working. It seems it has helped with finding and fixing 
-previous kernel networking bugs.
- 
->>
->>
->>>>       As i suspect this is again about fragmented packets .. that doesn't seem to be included in any test case while it actually seems to be a case which is hard to get right...
->>> Beware, there are frags and frag_list which are two entirely different
->>> things with confusing names. In netback case, frags are used to pass
->>> through large packets for a long time. frag_list is used only since my
->>> grant mapping patches, to handle older guests (see comment in
->>> include/xen/interface/io/netif.h for XEN_NETIF_NR_SLOTS_MIN)
->>
->> Ah ok .. it's not about the frags in the packets being handled, but the frag
->> mechanism is supposed to be used internally ?
-> Yes, the skb on the frag_list should contain no linear data but that 
-> extra frag the guest sent to netback. After the grant operations are 
-> done, xenvif_handle_frag_list coalesce the frags and that extra skb into 
-> brand new, PAGE_SIZE frags.
-
->>
->> If so .. there is at least something wrong in the "older guest" detection,
->> because both dom0 and PV guests are running the same 3.15-rc3 kernel.
-> That seems very odd ... Can you check ethtool -S vifX.Y in Dom0? 
-> tx_frag_overflow will count the packets with too many frags
-
-ethtool -S vif9.0
-NIC statistics:
-     rx_gso_checksum_fixup: 0
-     tx_zerocopy_sent: 25621
-     tx_zerocopy_success: 11047
-     tx_zerocopy_fail: 14574
-     tx_frag_overflow: 8
-
-tx_frag_overflow was 0 until the http put of 100mb starts and gives the error.
+>
+>
+>>>
+>>> how ever .. could it be just a type and would the following make sense ?
+>>>
+>>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>>> index 7666540..abeea10 100644
+>>> --- a/drivers/net/xen-netback/netback.c
+>>> +++ b/drivers/net/xen-netback/netback.c
+>>> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
+>>>
+>>>           xenvif_fill_frags(vif, nskb);
+>>>           /* Subtract frags size, we will correct it later */
+>>> -       skb->truesize -= skb->data_len;
+>>> +       skb->truesize -= nskb->data_len;
+>>>           skb->len += nskb->len;
+>>>           skb->data_len += nskb->len;
+>
+>> Nope, that's correct there: after that skb->truesize will be the size of
+>> the struct plus the linear buffer itself. The code is just about the
+>> ditch the original fragments plus the skb on the frag_list. When the new
+>> pages are created, it will update it again.
+>
+> Well i just went a head and tried this .. and the uploading does seem to work fine with this change
+> .. (that obviously doesn't say anything about correctness)
+>
+>> Also, this code path runs only if the guest sends more slots we can
+>> handle (so we put the extra one to the frag_list until we can get rid of
+>> it). On Linux it can only happen with 3.2 or older guest kernels, and
+>> only occasionally. As you said, this is 100% reproducible, so I would
+>> doubt the problem is with this part of the code.
+>
+> Well this assumption seems to be incorrect:
+>          - both dom0 and guest kernels are 3.15-rc3's.
+>          - but we do end up in this code path
+>
+>> Zoli
+>
+>
