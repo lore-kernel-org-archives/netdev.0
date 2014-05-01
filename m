@@ -1,158 +1,57 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
-Date: Thu, 1 May 2014 19:39:36 +0200
-Message-ID: <928229683.20140501193936@eikelenboom.it>
-References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it> <53626C39.3030304@citrix.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next v3 1/3] net: filter: simplify label names from
+ jump-table
+Date: Thu, 01 May 2014 19:39:49 +0200
+Message-ID: <536286E5.1080309@redhat.com>
+References: <1398960996-10469-1-git-send-email-dborkman@redhat.com>  <1398960996-10469-2-git-send-email-dborkman@redhat.com> <1398964810.29914.200.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:41981 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbaEARjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 13:39:42 -0400
-In-Reply-To: <53626C39.3030304@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59546 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751464AbaEARj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 13:39:58 -0400
+In-Reply-To: <1398964810.29914.200.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Thursday, May 1, 2014, 5:46:01 PM, you wrote:
-
-> On 01/05/14 14:59, Sander Eikelenboom wrote:
+On 05/01/2014 07:20 PM, Eric Dumazet wrote:
+> On Thu, 2014-05-01 at 18:16 +0200, Daniel Borkmann wrote:
+>> This patch simplifies label naming for the BPF jump-table.
+>> When we define labels via DL(), we just concatenate/textify
+>> the combination of instruction opcode which consists of the
+>> class, subclass, word size, target register and so on. Each
+>> time we leave BPF_ prefix intact, so that e.g. the preprocessor
+>> generates a label BPF_ALU_BPF_ADD_BPF_X for DL(BPF_ALU, BPF_ADD,
+>> BPF_X) whereas a label name of ALU_ADD_X is much more easy
+>> to grasp. Pure cleanup only.
 >>
->> Thursday, May 1, 2014, 3:37:41 PM, you wrote:
->>
->>> On 30/04/14 23:25, Sander Eikelenboom wrote:
->>>>
->>>> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
->>>>
->>>>> On 30/04/14 11:45, Sander Eikelenboom wrote:
->>>>>> Hi Zoltan,
->>>>>>
->>>>>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
->>>>>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
->>>>>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
->>>>>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
->>>>>>
->>>>>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>>>>
->>>>>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
->>>>>> I don't see this with clients that upload large files from external sources.
->>>>>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
->>>>>>
->>>>>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
->>>>>>
->>>>>> Since these commits break bisectabillity:
->>>>>>        - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
->>>>>>        - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
->>>>>> i stopped bisecting at this point.
->>>>>>
->>>>>> The upside is .. it's 100% reproduceable :-)
->>>>> That's good :) Can you take tcpdump captures along the way (sending
->>>>> guest, dom0, receiving guest), and try to work out which packets are
->>>>> different, and where? Although taking captures in Dom0 might change your
->>>>> result, as it triggers the pages to be copied and unmapped before they
->>>>> reach their target.
->>>>
->>>>> Thanks,
->>>>> Zoli
->>>>
->>>>
->>>> Hrrmm that sounds like a lot of data and a lot of work ..
->>> If you could make captures in the sending and receiving guest with
->>> tcpdump (take care of increasing snaplen so the whole packet is there,
->>> and filter to the SSH connection itself), and upload it somewhere for
->>> me, that would be enough for start. I will try to work out where the
->>> corruption happens.
->>> Also, do you have timestamps for the above mentioned log entries? I
->>> guess they appear on the receiving side.
->>> And some info about the componenets on the server, so I can work out
->>> where is that _ssl.c:1415, and which part of the packet it actually
->>> looks for.
->>
->> They appear on the sending side (duplicity) .. the receiving side (apache +
->> mod_dav + ssl | gnu_tls) gives a "Could not get next bucket brigade (URI:"
-> I will try to repro this case in house. What versions of these 
-> components you used?
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+>> ---
+>
+> This exactly makes harder to use grep and future code reviews.
+>
+> # git grep -n BPF_XADD
+> include/linux/filter.h:21:#define BPF_XADD      0xc0    /* exclusive add */
+> net/core/filter.c:224:          DL(BPF_STX, BPF_XADD, BPF_W),
+> net/core/filter.c:225:          DL(BPF_STX, BPF_XADD, BPF_DW),
+> net/core/filter.c:481:  BPF_STX_BPF_XADD_BPF_W: /* lock xadd *(u32 *)(A + insn->off) += X */
+> net/core/filter.c:485:  BPF_STX_BPF_XADD_BPF_DW: /* lock xadd *(u64 *)(A + insn->off) += X */
+>
+> Compare now with :
+>
+> # git grep -n XADD
+>
+> So I am quite against this patch.
 
-Both guests are debian wheezy.
-
-The webdav server has:
-ii  apache2-mpm-event                2.2.22-13+deb7u1           amd64        Apache HTTP Server - event driven model
-ii  apache2-utils                    2.2.22-13+deb7u1           amd64        uti
-ii  apache2.2-bin                    2.2.22-13+deb7u1           amd64        Apa
-ii  apache2.2-common                 2.2.22-13+deb7u1           amd64        Apa
-ii  libapache2-mod-gnutls            0.5.10-1.1                 amd64        Apa
-
-ii  libssl1.0.0:amd64                1.0.1e-2+deb7u7            amd64        SSL
-ii  openssl                          1.0.1e-2+deb7u7            amd64        Sec
-
-
-The guest with duplicity currently has a duplicity version from unstable 
-recompiled for wheezy. But i previously also tried a downgrade to the standard 
-wheezy version. It uses the webdav backend and a volumesize of 100MB.
-
-Unfortunately it seems duplicity doesn't bail out at first instance, it seems it 
-only reports error after the so the full tcpdumps i got are also 100MB each.
-
-Since the error seems to happen when it's going through 
-"xenvif_handle_frag_list", i have added a bunch of ratelimited printk's.
-
-Will run that for both the cases:
-        skb->truesize -= skb->data_len;
-        skb->truesize -= nskb->data_len;
-
-Let's see what that does different and if that gives an insight in what is going 
-wrong.
-
-
-
-
-> Zoli
-
->>
->>
->>>>
->>>> how ever .. could it be just a type and would the following make sense ?
->>>>
->>>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->>>> index 7666540..abeea10 100644
->>>> --- a/drivers/net/xen-netback/netback.c
->>>> +++ b/drivers/net/xen-netback/netback.c
->>>> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
->>>>
->>>>           xenvif_fill_frags(vif, nskb);
->>>>           /* Subtract frags size, we will correct it later */
->>>> -       skb->truesize -= skb->data_len;
->>>> +       skb->truesize -= nskb->data_len;
->>>>           skb->len += nskb->len;
->>>>           skb->data_len += nskb->len;
->>
->>> Nope, that's correct there: after that skb->truesize will be the size of
->>> the struct plus the linear buffer itself. The code is just about the
->>> ditch the original fragments plus the skb on the frag_list. When the new
->>> pages are created, it will update it again.
->>
->> Well i just went a head and tried this .. and the uploading does seem to work fine with this change
->> .. (that obviously doesn't say anything about correctness)
->>
->>> Also, this code path runs only if the guest sends more slots we can
->>> handle (so we put the extra one to the frag_list until we can get rid of
->>> it). On Linux it can only happen with 3.2 or older guest kernels, and
->>> only occasionally. As you said, this is 100% reproducible, so I would
->>> doubt the problem is with this part of the code.
->>
->> Well this assumption seems to be incorrect:
->>          - both dom0 and guest kernels are 3.15-rc3's.
->>          - but we do end up in this code path
->>
->>> Zoli
->>
->>
+Well, if you review the code itself in filter.c it makes it hard
+to read and review, with this patch, you'll immediately get the
+label name and what it actually does, so I think it's quite convenient
+and way more readable by itself. For grepping, you can always add
+subdirectories you're searching for, besides that I don't think
+that everything in the kernel needs to have unique names only so
+that one can grep for it among the whole tree.
