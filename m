@@ -1,39 +1,158 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
-Date: Thu, 1 May 2014 10:39:35 -0700
-Message-ID: <1398965975.3056.40.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <5361C29C.5060808@taghos.com.br>
-	 <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <53627814.7090106@taghos.com.br>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
+Date: Thu, 1 May 2014 19:39:36 +0200
+Message-ID: <928229683.20140501193936@eikelenboom.it>
+References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it> <53626C39.3030304@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "Magnos A. Hammes" <magnos@taghos.com.br>
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:24995 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751464AbaEARjm (ORCPT
+Received: from vserver.eikelenboom.it ([84.200.39.61]:41981 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751014AbaEARjm (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 13:39:42 -0400
-In-Reply-To: <53627814.7090106@taghos.com.br>
+In-Reply-To: <53626C39.3030304@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-01 at 13:36 -0300, Magnos A. Hammes wrote: 
-> Ok, I cloned that git tree and used the firmwares available there, but 
-> it didn't work with this firmware: bnx2/bnx2-mips-09-6.2.1b.fw sha1sum 
-> 8f11b39a60a4e1dd3774a10218c913f1cb761353
-> 
 
-I have the same sha1 sum on the same firmware file on my system and it
-works for me.
+Thursday, May 1, 2014, 5:46:01 PM, you wrote:
 
-> It only works when I change the source code of 
-> "drivers/net/ethernet/broadcom/bnx2.c" and compile the kernel again, 
-> making him load this firmware "bnx2/bnx2-mips-09-6.2.1a.fw" instead of 
-> "bnx2/bnx2-mips-09-6.2.1b.fw".
+> On 01/05/14 14:59, Sander Eikelenboom wrote:
+>>
+>> Thursday, May 1, 2014, 3:37:41 PM, you wrote:
+>>
+>>> On 30/04/14 23:25, Sander Eikelenboom wrote:
+>>>>
+>>>> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
+>>>>
+>>>>> On 30/04/14 11:45, Sander Eikelenboom wrote:
+>>>>>> Hi Zoltan,
+>>>>>>
+>>>>>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
+>>>>>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
+>>>>>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
+>>>>>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
+>>>>>>
+>>>>>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
+>>>>>>
+>>>>>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
+>>>>>> I don't see this with clients that upload large files from external sources.
+>>>>>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
+>>>>>>
+>>>>>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
+>>>>>>
+>>>>>> Since these commits break bisectabillity:
+>>>>>>        - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
+>>>>>>        - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
+>>>>>> i stopped bisecting at this point.
+>>>>>>
+>>>>>> The upside is .. it's 100% reproduceable :-)
+>>>>> That's good :) Can you take tcpdump captures along the way (sending
+>>>>> guest, dom0, receiving guest), and try to work out which packets are
+>>>>> different, and where? Although taking captures in Dom0 might change your
+>>>>> result, as it triggers the pages to be copied and unmapped before they
+>>>>> reach their target.
+>>>>
+>>>>> Thanks,
+>>>>> Zoli
+>>>>
+>>>>
+>>>> Hrrmm that sounds like a lot of data and a lot of work ..
+>>> If you could make captures in the sending and receiving guest with
+>>> tcpdump (take care of increasing snaplen so the whole packet is there,
+>>> and filter to the SSH connection itself), and upload it somewhere for
+>>> me, that would be enough for start. I will try to work out where the
+>>> corruption happens.
+>>> Also, do you have timestamps for the above mentioned log entries? I
+>>> guess they appear on the receiving side.
+>>> And some info about the componenets on the server, so I can work out
+>>> where is that _ssl.c:1415, and which part of the packet it actually
+>>> looks for.
+>>
+>> They appear on the sending side (duplicity) .. the receiving side (apache +
+>> mod_dav + ssl | gnu_tls) gives a "Could not get next bucket brigade (URI:"
+> I will try to repro this case in house. What versions of these 
+> components you used?
 
-I don't see why it wouldn't work if both firmware files are in the same
-location.  May be you have some udev rules that are preventing it?
-> 
-> 
+Both guests are debian wheezy.
+
+The webdav server has:
+ii  apache2-mpm-event                2.2.22-13+deb7u1           amd64        Apache HTTP Server - event driven model
+ii  apache2-utils                    2.2.22-13+deb7u1           amd64        uti
+ii  apache2.2-bin                    2.2.22-13+deb7u1           amd64        Apa
+ii  apache2.2-common                 2.2.22-13+deb7u1           amd64        Apa
+ii  libapache2-mod-gnutls            0.5.10-1.1                 amd64        Apa
+
+ii  libssl1.0.0:amd64                1.0.1e-2+deb7u7            amd64        SSL
+ii  openssl                          1.0.1e-2+deb7u7            amd64        Sec
+
+
+The guest with duplicity currently has a duplicity version from unstable 
+recompiled for wheezy. But i previously also tried a downgrade to the standard 
+wheezy version. It uses the webdav backend and a volumesize of 100MB.
+
+Unfortunately it seems duplicity doesn't bail out at first instance, it seems it 
+only reports error after the so the full tcpdumps i got are also 100MB each.
+
+Since the error seems to happen when it's going through 
+"xenvif_handle_frag_list", i have added a bunch of ratelimited printk's.
+
+Will run that for both the cases:
+        skb->truesize -= skb->data_len;
+        skb->truesize -= nskb->data_len;
+
+Let's see what that does different and if that gives an insight in what is going 
+wrong.
+
+
+
+
+> Zoli
+
+>>
+>>
+>>>>
+>>>> how ever .. could it be just a type and would the following make sense ?
+>>>>
+>>>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>>>> index 7666540..abeea10 100644
+>>>> --- a/drivers/net/xen-netback/netback.c
+>>>> +++ b/drivers/net/xen-netback/netback.c
+>>>> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
+>>>>
+>>>>           xenvif_fill_frags(vif, nskb);
+>>>>           /* Subtract frags size, we will correct it later */
+>>>> -       skb->truesize -= skb->data_len;
+>>>> +       skb->truesize -= nskb->data_len;
+>>>>           skb->len += nskb->len;
+>>>>           skb->data_len += nskb->len;
+>>
+>>> Nope, that's correct there: after that skb->truesize will be the size of
+>>> the struct plus the linear buffer itself. The code is just about the
+>>> ditch the original fragments plus the skb on the frag_list. When the new
+>>> pages are created, it will update it again.
+>>
+>> Well i just went a head and tried this .. and the uploading does seem to work fine with this change
+>> .. (that obviously doesn't say anything about correctness)
+>>
+>>> Also, this code path runs only if the guest sends more slots we can
+>>> handle (so we put the extra one to the frag_list until we can get rid of
+>>> it). On Linux it can only happen with 3.2 or older guest kernels, and
+>>> only occasionally. As you said, this is 100% reproducible, so I would
+>>> doubt the problem is with this part of the code.
+>>
+>> Well this assumption seems to be incorrect:
+>>          - both dom0 and guest kernels are 3.15-rc3's.
+>>          - but we do end up in this code path
+>>
+>>> Zoli
+>>
+>>
