@@ -1,65 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [net-next] vxlan: Advertise SCTP checksum offloads
-Date: Thu, 01 May 2014 13:09:05 +0200
-Message-ID: <53622B51.5000901@redhat.com>
-References: <1398714735-23920-1-git-send-email-jeffrey.t.kirsher@intel.com> <1398775161.3881.9.camel@deadeye.wl.decadent.org.uk> <C5551D9AAB213A418B7FD5E4A6F30A0784A4DA91@ORSMSX108.amr.corp.intel.com> <535FDCE0.80803@gmail.com> <alpine.LFD.2.11.1404291028470.14497@fvl-a0.jf.intel.com> <535FE8D5.90600@gmail.com> <alpine.LFD.2.03.1404291210400.19571@intel.com> <535FFCA5.2080707@gmail.com> <alpine.LFD.2.03.1404291357500.27339@intel.com>
+From: Alexey Charkov <alchark@gmail.com>
+Subject: Re: [PATCH] net: via-rhine: Fix compiler warning re: pointer casting
+ on 64bit
+Date: Thu, 1 May 2014 15:33:55 +0400
+Message-ID: <CABjd4YxFRhVjJr4kbcwFfYy=G0tmHo-3K2TYsHz2mB7bDr4mpQ@mail.gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
+	<1398859589-22346-1-git-send-email-alchark@gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F703980@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Roger Luethi <rl@hellgate.ch>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15784 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752409AbaEALJW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 07:09:22 -0400
-In-Reply-To: <alpine.LFD.2.03.1404291357500.27339@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jan Moskyto Matejka <mq@suse.cz>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F703980@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/29/2014 10:59 PM, Joseph Gasparakis wrote:
-> On Tue, 29 Apr 2014, Vlad Yasevich wrote:
-...
->>>>>> At the time SCTP tries to do checksum, it will see hw offload
->>>>>> support and set checksum as partial.  That will be propagated
->>>>>> all the way to vxlan which will set encapsulation and pass it on.
->>>>>> At next dev_hard_start_xmit(), we'll look at hw_enc_features,
->>>>>> but it won't matter since SCTP packets are never GSO.
->>>>>>
->>>>>> So, we'll use the non-gso code path and still send with partial
->>>>>> checksum set.  Now, if the driver supports encapsulated SCTP,
->>>>>> then it will work.  If it doesn't, the udp checksum will be computed,
->>>>>> but not the sctp one.
->>>>>
->>>>> That is exactly the way it works, dev_hard_start_xmit() is where
->>>>> the (inner) unchecksummed packets will get checksummed if the Tx'ing
->>>>> interface does not support inner SCTP checksumming.
->>>>
->>>> No, it will not.  dev_hard_start_xmit() calls skb_checksum_help()
->>>> which only knows how to calculate TCP/UDP checksums.  It doesn't know
->>>> how to compute CRC32c for SCTP protocol.
->>>
->>> Interesting, thanks for the clarification! Then how do things work with
->>> non-encapsulated SCTP traffic? Where is the csumming for SCTP take place
->>> if the NIC cannot offload the protocol?
->>
->> In SCTP itself.  Look at sctp_packet_transmit().   There are also
->> fix-ups in netfilter to correct the checksum if the packet has
->> to be rerouted somewhere else.
->>
->> We've tossed around the idea of making skb_checksum have pluggable
->> components.  Daniel started us down that path by adding checksum ops.
->> We just need registration and proper lookup support.
+2014-05-01 13:30 GMT+04:00 David Laight <David.Laight@aculab.com>:
+> From: Alexey Charkov [mailto:alchark@gmail.com]
+> ...
+>> This patch removes the cast altogether, and instead stores an actual
+>> pointer to u8 in match->data. All instances of 'revision' are also
+>> unified to u8 instead of an assortment of different integer types,
+>> in line with the definition of 'revision' in struct pci_dev.
+> ...
+>> +static u8 vt8500_revision = 0x84;
+>>  static struct of_device_id rhine_of_tbl[] = {
+>> -     { .compatible = "via,vt8500-rhine", .data = (void *)0x84 },
+>> +     { .compatible = "via,vt8500-rhine", .data = &vt8500_revision },
+>>       { }     /* terminate list */
+>
+> Actually the above looks strange.
+> Why does the vt8500 have a revision number of 0x84 ?
+> Surely it should be 0x85, or even 0x8500 (or decimal 85000).
 
-Absolutely, Vlad is right here. That's also why we currently have this
-ugly xfrm test in SCTP output path for csumming. I've started something
-a while ago in that direction but got distracted with other things. If
-someone is faster than me, I appreciate it. ;) In case not, I've kept
-it on my todo list so far. Anyway, that would be the right way to go.
+David, vt8500 is the SoC version (the first one I know where it
+appeared, might have been used earlier though), not the version of the
+Rhine core itself (no clue what that is).
+
+Here's the source for 0x84 (see line 1031):
+
+https://github.com/wondermedia/wm8850/blob/master/ANDROID_3.0.8/arch/arm/common/pci_wmt.c
+
+Vendor kernel uses an emulated (shadow-only) PCI bus to bind some
+obscure PCI driver (not upstream) to the integrated Rhine core, and
+that emulated PCI bus has Rhine listed with revision 0x84 on it.
+
+Anyway, I've now submitted a new patch instead of this one where I got
+rid of the 0x84 altogether - see https://lkml.org/lkml/2014/4/30/500
+
+Best,
+Alexey
