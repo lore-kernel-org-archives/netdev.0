@@ -1,72 +1,48 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH net-next] unregister_netdevice : move RTM_DELLINK to until after ndo_uninit
-Date: Thu,  1 May 2014 11:40:30 -0700
-Message-ID: <1398969630-4808-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: sfeldma@cumulusnetworks.com, jiri@resnulli.us, tgraf@suug.ch,
-	j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	roopa@cumulusnetworks.com
+From: Chema Gonzalez <chema@google.com>
+Subject: Re: [PATCH] net: filter: add insn for loading internal transport
+ header offset
+Date: Thu, 1 May 2014 11:44:39 -0700
+Message-ID: <CA+ZOOTPm+--PMjvezym-fxY5cD2Q9EDUMgrAm1JohRVqU0z3pA@mail.gmail.com>
+References: <1398882591-30422-1-git-send-email-chema@google.com>
+	<536227C1.20309@redhat.com>
+	<5362281B.3020802@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:32869 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782AbaEASka (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:40:30 -0400
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:65097 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbaEASok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:44:40 -0400
+Received: by mail-ig0-f177.google.com with SMTP id h3so845748igd.16
+        for <netdev@vger.kernel.org>; Thu, 01 May 2014 11:44:39 -0700 (PDT)
+In-Reply-To: <5362281B.3020802@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roopa <roopa@cumulusnetworks.com>
+On Thu, May 1, 2014 at 3:55 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> [ Chema, please also keep me in cc if possible. ]
+Done.
 
-This patch fixes ordering of rtnl notifications during unregister_netdevice
-by moving RTM_DELLINK notification to until after ndo_uninit.
+>> Looks good to me. For casting pointers as Dave noted recently, please
+>> use 'unsigned long'. This needs to be fixed in other places as well.
+Done.
 
-The problem was seen with unregistering bond netdevices.
+> Ohh, and please in future include net or net-next into your subject line.
+Done.
 
-bond ndo_uninit callback generates a few RTM_NEWLINK notifications for
-NETDEV_CHANGEADDR and NETDEV_FEAT_CHANGE. This is seen mostly when the
-bond is deleted with slaves still enslaved to the bond.
+On Wed, Apr 30, 2014 at 3:21 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> +static u64 __skb_get_tra_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
+>> +{
+>> +       struct flow_keys keys;
+>> +       struct sk_buff *skb = (struct sk_buff *)(long) ctx;
+>
+> I think kernel style recommends to swap above two lines,
+> but that's a nit.
+Done.
 
-During unregister netdevice (rollback_registered_many to be specific)
-bond ndo_uninit is called after RTM_DELLINK notification goes out.
-This results in userspace seeing RTM_DELLINK followed by a couple of
-RTM_NEWLINK's.
-
-In userspace problem was seen with libnl. libnl cache deletes the bond
-when it sees RTM_DELLINK and re-adds the bond with the following
-RTM_NEWLINK. Resulting in a stale bond entry in libnl cache when the kernel
-has already deleted the bond.
-
-This patch has been tested for bond, bridges and vlan devices.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/core/dev.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 11d70e3..fe0b9cd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5606,10 +5606,6 @@ static void rollback_registered_many(struct list_head *head)
- 		*/
- 		call_netdevice_notifiers(NETDEV_UNREGISTER, dev);
- 
--		if (!dev->rtnl_link_ops ||
--		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
--			rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
--
- 		/*
- 		 *	Flush the unicast and multicast chains
- 		 */
-@@ -5619,6 +5615,10 @@ static void rollback_registered_many(struct list_head *head)
- 		if (dev->netdev_ops->ndo_uninit)
- 			dev->netdev_ops->ndo_uninit(dev);
- 
-+		if (!dev->rtnl_link_ops ||
-+		    dev->rtnl_link_state == RTNL_LINK_INITIALIZED)
-+			rtmsg_ifinfo(RTM_DELLINK, dev, ~0U, GFP_KERNEL);
-+
- 		/* Notifier chain MUST detach us all upper devices. */
- 		WARN_ON(netdev_has_any_upper_dev(dev));
- 
--- 
-1.7.10.4
+-Chema
