@@ -1,32 +1,32 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Wake On Lan strange behaviour
-Date: Fri, 2 May 2014 00:59:52 +0200
-Message-ID: <20140501225952.GA21630@electric-eye.fr.zoreil.com>
-References: <CANB0TnTK5iPbjGN638-WXOBRXQv6jhQd6MPdrYmfkghKH8LqEg@mail.gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Connecting to sockets on MNT_READONLY mounts?
+Date: Thu, 1 May 2014 16:00:49 -0700
+Message-ID: <CALCETrXaXsVxaT3TH-CC8DKyDU7k=i9Y5PqBqaSDnH+2rr5E2A@mail.gmail.com>
+References: <CALCETrUXbS4BMWMd0XXgFqyvmpu+WML840_mzbPiov8WmaA=Xw@mail.gmail.com>
+ <20140501223432.GD18016@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dave Flogeras <dflogeras2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39220 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaEAW7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 18:59:55 -0400
-Content-Disposition: inline
-In-Reply-To: <CANB0TnTK5iPbjGN638-WXOBRXQv6jhQd6MPdrYmfkghKH8LqEg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux FS Devel <linux-fsdevel@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Al Viro <viro@zeniv.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140501223432.GD18016@ZenIV.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dave Flogeras <dflogeras2@gmail.com> :
-[...]
-> Before polluting this message with various random information that may
-> or may not be pertinent, I would like to know if this is the right
-> place to post and if so what information is needed.  If not, what list
-> would be a better choice?
+On Thu, May 1, 2014 at 3:34 PM, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> On Thu, May 01, 2014 at 03:20:00PM -0700, Andy Lutomirski wrote:
+>> Is it supposed to work?
+>
+> Why the hell not?  Same as opening a device node on r/o filesystem for
+> write, or doing the same with FIFO.
 
-linux-pm@vger.kernel.org
+You can't bind a socket on a read-only fs, so I thought it was a fair question.
 
-Your favorite lists are available at http://vger.kernel.org/vger-lists.html
+I'll write a patch to add MS_NOIPCCONNECT and MNT_NOIPCCONNECT to
+block connect on unix sockets and open on fifos.  This will be useful
+for sandboxes that want to prevent sandboxed programs from accessing
+undesirable parts of the outside world.
 
--- 
-Ueimor
+--Andy
