@@ -1,57 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 1/3] net: filter: simplify label names from
- jump-table
-Date: Thu, 01 May 2014 11:50:13 -0700
-Message-ID: <1398970213.29914.211.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1398960996-10469-1-git-send-email-dborkman@redhat.com>
-	  <1398960996-10469-2-git-send-email-dborkman@redhat.com>
-	 <1398964810.29914.200.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <536286E5.1080309@redhat.com>
+From: "Magnos A. Hammes" <magnos@taghos.com.br>
+Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
+Date: Thu, 01 May 2014 15:49:54 -0300
+Message-ID: <53629752.6030606@taghos.com.br>
+References: <5361C29C.5060808@taghos.com.br>	 <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>	 <53627814.7090106@taghos.com.br> <1398965975.3056.40.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: netdev@vger.kernel.org,
+	"desenvolvimento@taghos.com.br" <desenvolvimento@taghos.com.br>
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:56170 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751881AbaEASuQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:50:16 -0400
-Received: by mail-pa0-f43.google.com with SMTP id rd3so4073611pab.2
-        for <netdev@vger.kernel.org>; Thu, 01 May 2014 11:50:15 -0700 (PDT)
-In-Reply-To: <536286E5.1080309@redhat.com>
+Received: from gproxy4-pub.mail.unifiedlayer.com ([69.89.23.142]:52252 "HELO
+	gproxy4-pub.mail.unifiedlayer.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751881AbaEASuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:50:17 -0400
+In-Reply-To: <1398965975.3056.40.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-01 at 19:39 +0200, Daniel Borkmann wrote:
+On 01-05-2014 14:39, Michael Chan wrote:
+> On Thu, 2014-05-01 at 13:36 -0300, Magnos A. Hammes wrote:
+>> Ok, I cloned that git tree and used the firmwares available there, but
+>> it didn't work with this firmware: bnx2/bnx2-mips-09-6.2.1b.fw sha1sum
+>> 8f11b39a60a4e1dd3774a10218c913f1cb761353
+>>
+>
+> I have the same sha1 sum on the same firmware file on my system and it
+> works for me.
+>
+>> It only works when I change the source code of
+>> "drivers/net/ethernet/broadcom/bnx2.c" and compile the kernel again,
+>> making him load this firmware "bnx2/bnx2-mips-09-6.2.1a.fw" instead of
+>> "bnx2/bnx2-mips-09-6.2.1b.fw".
+>
+> I don't see why it wouldn't work if both firmware files are in the same
+> location.  May be you have some udev rules that are preventing it?
+>>
+>>
+>
+>
 
-> Well, if you review the code itself in filter.c it makes it hard
-> to read and review, with this patch, you'll immediately get the
-> label name and what it actually does, so I think it's quite convenient
-> and way more readable by itself. For grepping, you can always add
-> subdirectories you're searching for, besides that I don't think
-> that everything in the kernel needs to have unique names only so
-> that one can grep for it among the whole tree.
+Yes, I have some udev rules that run at system boot, but the only thing 
+I do is:
 
+/sbin/udevd --daemon
+/sbin/udevadm trigger --type=subsystems --action=add
+/sbin/udevadm trigger --type=devices --action=add
+/sbin/udevadm settle
 
+Udev runs normally and returns no errors or warnings and dmesg shows 
+nothing weird.
 
-Considering that Alexei claimed :
+So, you think this may be a problem with my udev rules or a udev bug?
 
-+Internal BPF is a general purpose RISC instruction set. Not every register and
-+every instruction are used during translation from original BPF to new format.
-+For example, socket filters are not using 'exclusive add' instruction, but
-+tracing filters may do to maintain counters of events, for example. Register R9
-+is not used by socket filters either, but more complex filters may be running
-+out of registers and would have to resort to spill/fill to stack.
-
-I tried to verify this claim and I could not.
-
-After your patch, it will be really this :
-
-"We, Daniel and Alexei, hereby certify that this code is 100% safe.
-
- If you Eric, or anyone else, want to check, you'll have to grep in
-appropriate places, and use your brain as we did."
-
-I find very worrying all this stuff. This looks like you guys make
-everything possible to make it absolutely unmaintainable.
+I'm using udev version 182.
