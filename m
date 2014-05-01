@@ -2,9 +2,9 @@ From: Zoltan Kiss <zoltan.kiss@citrix.com>
 Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
  guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
  instead of copy" series.
-Date: Thu, 1 May 2014 14:37:41 +0100
-Message-ID: <53624E25.8040404@citrix.com>
-References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>
+Date: Thu, 1 May 2014 14:49:45 +0100
+Message-ID: <536250F9.7060405@citrix.com>
+References: <395225650.20140430124506@eikelenboom.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -13,89 +13,25 @@ Cc: Ian Campbell <Ian.Campbell@citrix.com>,
 	<xen-devel@lists.xen.org>
 To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:51825 "EHLO
+Received: from smtp02.citrix.com ([66.165.176.63]:20811 "EHLO
 	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752719AbaEANhp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 09:37:45 -0400
-In-Reply-To: <94755525.20140501002553@eikelenboom.it>
+	with ESMTP id S1754063AbaEANts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 09:49:48 -0400
+In-Reply-To: <395225650.20140430124506@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/04/14 23:25, Sander Eikelenboom wrote:
->
-> Wednesday, April 30, 2014, 10:53:39 PM, you wrote:
->
->> On 30/04/14 11:45, Sander Eikelenboom wrote:
->>> Hi Zoltan,
->>>
->>> Your series "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy", merged into mainline with merge commit 4caeccb4de76440e433a15009636e77d003eb3d6,
->>> seem to introduce a subtle bug on network traffic between 2 guests on a bridge on the same host.
->>> I have one guest running apache as webdav server with SSL and another guest that is using that is uploading large files to that webdav server.
->>> Small requests (some get's and propfind's) seem to work ok, but when the bulk uploading begins it fails with:
->>>
->>> Attempt 1 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>> Attempt 2 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>> Attempt 3 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>> Attempt 4 failed. SSLError: [Errno 1] _ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac
->>>
->>> So some how large (probably fragmented) packets can get mangled when from guest to guest on the same host.
->>> I don't see this with clients that upload large files from external sources.
->>> Probably if SSL wasn't complaining it would probably be unnoticed for longer and doing some silent corruption.
->>>
->>> I first blamed openssl, since it started around all the latest openssl mayhem and updates, but it turns out it is all xen-netback related again.
->>>
->>> Since these commits break bisectabillity:
->>>       - 1bb332af4cd889e4b64dacbf4a793ceb3a70445d  (note in commit message && kernel panic)
->>>       - 62bad3199a4c20505fc36c169deef20b25e17c5f  (kernel panic)
->>> i stopped bisecting at this point.
->>>
->>> The upside is .. it's 100% reproduceable :-)
->> That's good :) Can you take tcpdump captures along the way (sending
->> guest, dom0, receiving guest), and try to work out which packets are
->> different, and where? Although taking captures in Dom0 might change your
->> result, as it triggers the pages to be copied and unmapped before they
->> reach their target.
->
->> Thanks,
->> Zoli
->
->
-> Hrrmm that sounds like a lot of data and a lot of work ..
-If you could make captures in the sending and receiving guest with 
-tcpdump (take care of increasing snaplen so the whole packet is there, 
-and filter to the SSH connection itself), and upload it somewhere for 
-me, that would be enough for start. I will try to work out where the 
-corruption happens.
-Also, do you have timestamps for the above mentioned log entries? I 
-guess they appear on the receiving side.
-And some info about the componenets on the server, so I can work out 
-where is that _ssl.c:1415, and which part of the packet it actually 
-looks for.
+On 30/04/14 11:45, Sander Eikelenboom wrote:
+>      Another point would be: what *correctness* testing is actually done on the xen-net* patches ?
+I can speak only about my patches: I have manually tested them for the 
+usecases where they likely to make a difference, plus they went through 
+Xenserver's full test suite several times.
+>      As i suspect this is again about fragmented packets .. that doesn't seem to be included in any test case while it actually seems to be a case which is hard to get right...
+Beware, there are frags and frag_list which are two entirely different 
+things with confusing names. In netback case, frags are used to pass 
+through large packets for a long time. frag_list is used only since my 
+grant mapping patches, to handle older guests (see comment in 
+include/xen/interface/io/netif.h for XEN_NETIF_NR_SLOTS_MIN)
 
->
-> how ever .. could it be just a type and would the following make sense ?
->
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index 7666540..abeea10 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -1366,7 +1366,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
->
->          xenvif_fill_frags(vif, nskb);
->          /* Subtract frags size, we will correct it later */
-> -       skb->truesize -= skb->data_len;
-> +       skb->truesize -= nskb->data_len;
->          skb->len += nskb->len;
->          skb->data_len += nskb->len;
-
-Nope, that's correct there: after that skb->truesize will be the size of 
-the struct plus the linear buffer itself. The code is just about the 
-ditch the original fragments plus the skb on the frag_list. When the new 
-pages are created, it will update it again.
-Also, this code path runs only if the guest sends more slots we can 
-handle (so we put the extra one to the frag_list until we can get rid of 
-it). On Linux it can only happen with 3.2 or older guest kernels, and 
-only occasionally. As you said, this is 100% reproducible, so I would 
-doubt the problem is with this part of the code.
 
 Zoli
