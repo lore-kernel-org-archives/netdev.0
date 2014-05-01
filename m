@@ -1,173 +1,57 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH net-next v2] net: filter: add insn for loading internal transport header offset
-Date: Thu,  1 May 2014 11:44:40 -0700
-Message-ID: <1398969880-8007-1-git-send-email-chema@google.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 1/3] net: filter: simplify label names from
+ jump-table
+Date: Thu, 01 May 2014 11:50:13 -0700
+Message-ID: <1398970213.29914.211.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1398960996-10469-1-git-send-email-dborkman@redhat.com>
+	  <1398960996-10469-2-git-send-email-dborkman@redhat.com>
+	 <1398964810.29914.200.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <536286E5.1080309@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@plumgrid.com, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:58699 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505AbaEASon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:44:43 -0400
-Received: by mail-pd0-f201.google.com with SMTP id fp1so553573pdb.0
-        for <netdev@vger.kernel.org>; Thu, 01 May 2014 11:44:42 -0700 (PDT)
-In-Reply-To: <1398882591-30422-1-git-send-email-chema@google.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:56170 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751881AbaEASuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 14:50:16 -0400
+Received: by mail-pa0-f43.google.com with SMTP id rd3so4073611pab.2
+        for <netdev@vger.kernel.org>; Thu, 01 May 2014 11:50:15 -0700 (PDT)
+In-Reply-To: <536286E5.1080309@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch adds an ANC_TRA_OFFSET insn that loads the internal transport
-header of a packet ("internal" meaning after decapsulation by the
-flow dissector).
+On Thu, 2014-05-01 at 19:39 +0200, Daniel Borkmann wrote:
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- include/linux/filter.h      |  1 +
- include/uapi/linux/filter.h |  3 ++-
- net/core/filter.c           | 17 +++++++++++++++++
- tools/net/bpf_exp.l         |  1 +
- tools/net/bpf_exp.y         | 11 ++++++++++-
- 5 files changed, 31 insertions(+), 2 deletions(-)
+> Well, if you review the code itself in filter.c it makes it hard
+> to read and review, with this patch, you'll immediately get the
+> label name and what it actually does, so I think it's quite convenient
+> and way more readable by itself. For grepping, you can always add
+> subdirectories you're searching for, besides that I don't think
+> that everything in the kernel needs to have unique names only so
+> that one can grep for it among the whole tree.
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 759abf7..b76ae2b 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -224,6 +224,7 @@ enum {
- 	BPF_S_ANC_VLAN_TAG_PRESENT,
- 	BPF_S_ANC_PAY_OFFSET,
- 	BPF_S_ANC_RANDOM,
-+	BPF_S_ANC_TRA_OFFSET,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 253b4d4..9f1b8f1 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -131,7 +131,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_VLAN_TAG_PRESENT 48
- #define SKF_AD_PAY_OFFSET	52
- #define SKF_AD_RANDOM	56
--#define SKF_AD_MAX	60
-+#define SKF_AD_TRA_OFFSET	60
-+#define SKF_AD_MAX	64
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7c4db3d..8264c79 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -601,6 +601,17 @@ static u64 __skb_get_pay_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- 	return __skb_get_poff(skb);
- }
- 
-+static u64 __skb_get_tra_offset(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
-+{
-+	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
-+	struct flow_keys keys;
-+
-+	if (!skb_flow_dissect(skb, &keys))
-+		return 0;
-+
-+	return keys.thoff;
-+}
-+
- static u64 __skb_get_nlattr(u64 ctx, u64 A, u64 X, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *)(long) ctx;
-@@ -788,6 +799,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
- 	case SKF_AD_OFF + SKF_AD_CPU:
- 	case SKF_AD_OFF + SKF_AD_RANDOM:
-+	case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
- 		/* arg1 = ctx */
- 		insn->code = BPF_ALU64 | BPF_MOV | BPF_X;
- 		insn->a_reg = ARG1_REG;
-@@ -824,6 +836,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 		case SKF_AD_OFF + SKF_AD_RANDOM:
- 			insn->imm = __get_random_u32 - __bpf_call_base;
- 			break;
-+		case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
-+			insn->imm = __skb_get_tra_offset - __bpf_call_base;
-+			break;
- 		}
- 		break;
- 
-@@ -1375,6 +1390,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(VLAN_TAG_PRESENT);
- 			ANCILLARY(PAY_OFFSET);
- 			ANCILLARY(RANDOM);
-+			ANCILLARY(TRA_OFFSET);
- 			}
- 
- 			/* ancillary operation unknown or unsupported */
-@@ -1760,6 +1776,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_TRA_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-index 833a966..4e72934 100644
---- a/tools/net/bpf_exp.l
-+++ b/tools/net/bpf_exp.l
-@@ -93,6 +93,7 @@ extern void yyerror(const char *str);
- "#"?("vlan_tci") { return K_VLANT; }
- "#"?("vlan_pr")	{ return K_VLANP; }
- "#"?("rand")	{ return K_RAND; }
-+"#"?("toff")	{ return K_TOFF; }
- 
- ":"		{ return ':'; }
- ","		{ return ','; }
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-index e6306c5..ced6949 100644
---- a/tools/net/bpf_exp.y
-+++ b/tools/net/bpf_exp.y
-@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
- %token OP_LDXI
- 
- %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
--%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF
- 
- %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
- 
-@@ -167,6 +167,9 @@ ldb
- 	| OP_LDB K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LDB K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	;
- 
- ldh
-@@ -218,6 +221,9 @@ ldh
- 	| OP_LDH K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LDH K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	;
- 
- ldi
-@@ -274,6 +280,9 @@ ld
- 	| OP_LD K_RAND {
- 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_RANDOM); }
-+	| OP_LD K_TOFF {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
- 	| OP_LD 'M' '[' number ']' {
- 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
- 	| OP_LD '[' 'x' '+' number ']' {
--- 
-1.9.1.423.g4596e3a
+
+
+Considering that Alexei claimed :
+
++Internal BPF is a general purpose RISC instruction set. Not every register and
++every instruction are used during translation from original BPF to new format.
++For example, socket filters are not using 'exclusive add' instruction, but
++tracing filters may do to maintain counters of events, for example. Register R9
++is not used by socket filters either, but more complex filters may be running
++out of registers and would have to resort to spill/fill to stack.
+
+I tried to verify this claim and I could not.
+
+After your patch, it will be really this :
+
+"We, Daniel and Alexei, hereby certify that this code is 100% safe.
+
+ If you Eric, or anyone else, want to check, you'll have to grep in
+appropriate places, and use your brain as we did."
+
+I find very worrying all this stuff. This looks like you guys make
+everything possible to make it absolutely unmaintainable.
