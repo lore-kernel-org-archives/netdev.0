@@ -1,35 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: via-rhine: Fix compiler warning re: pointer
- casting on 64bit
-Date: Thu, 1 May 2014 09:30:58 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F703980@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D0F702D00@AcuExch.aculab.com>
- <1398859589-22346-1-git-send-email-alchark@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: filter: add insn for loading internal transport
+ header offset
+Date: Thu, 01 May 2014 12:53:53 +0200
+Message-ID: <536227C1.20309@redhat.com>
+References: <1398882591-30422-1-git-send-email-chema@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Alexey Charkov' <alchark@gmail.com>,
-	Roger Luethi <rl@hellgate.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jan Moskyto Matejka" <mq@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398859589-22346-1-git-send-email-alchark@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
+To: Chema Gonzalez <chema@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33602 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752408AbaEAKyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 06:54:03 -0400
+In-Reply-To: <1398882591-30422-1-git-send-email-chema@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGV5IENoYXJrb3YgW21haWx0bzphbGNoYXJrQGdtYWlsLmNvbV0NCi4uLg0KPiBU
-aGlzIHBhdGNoIHJlbW92ZXMgdGhlIGNhc3QgYWx0b2dldGhlciwgYW5kIGluc3RlYWQgc3RvcmVz
-IGFuIGFjdHVhbA0KPiBwb2ludGVyIHRvIHU4IGluIG1hdGNoLT5kYXRhLiBBbGwgaW5zdGFuY2Vz
-IG9mICdyZXZpc2lvbicgYXJlIGFsc28NCj4gdW5pZmllZCB0byB1OCBpbnN0ZWFkIG9mIGFuIGFz
-c29ydG1lbnQgb2YgZGlmZmVyZW50IGludGVnZXIgdHlwZXMsDQo+IGluIGxpbmUgd2l0aCB0aGUg
-ZGVmaW5pdGlvbiBvZiAncmV2aXNpb24nIGluIHN0cnVjdCBwY2lfZGV2Lg0KLi4uDQo+ICtzdGF0
-aWMgdTggdnQ4NTAwX3JldmlzaW9uID0gMHg4NDsNCj4gIHN0YXRpYyBzdHJ1Y3Qgb2ZfZGV2aWNl
-X2lkIHJoaW5lX29mX3RibFtdID0gew0KPiAtCXsgLmNvbXBhdGlibGUgPSAidmlhLHZ0ODUwMC1y
-aGluZSIsIC5kYXRhID0gKHZvaWQgKikweDg0IH0sDQo+ICsJeyAuY29tcGF0aWJsZSA9ICJ2aWEs
-dnQ4NTAwLXJoaW5lIiwgLmRhdGEgPSAmdnQ4NTAwX3JldmlzaW9uIH0sDQo+ICAJeyB9CS8qIHRl
-cm1pbmF0ZSBsaXN0ICovDQoNCkFjdHVhbGx5IHRoZSBhYm92ZSBsb29rcyBzdHJhbmdlLg0KV2h5
-IGRvZXMgdGhlIHZ0ODUwMCBoYXZlIGEgcmV2aXNpb24gbnVtYmVyIG9mIDB4ODQgPw0KU3VyZWx5
-IGl0IHNob3VsZCBiZSAweDg1LCBvciBldmVuIDB4ODUwMCAob3IgZGVjaW1hbCA4NTAwMCkuDQoN
-CglEYXZpZA0KDQo=
+[ Chema, please also keep me in cc if possible. ]
+
+On 04/30/2014 08:29 PM, Chema Gonzalez wrote:
+> Patch adds an ANC_TRA_OFFSET insn that loads the internal transport
+> header of a packet ("internal" meaning after decapsulation by the
+> flow dissector).
+>
+> Signed-off-by: Chema Gonzalez <chema@google.com>
+
+Looks good to me. For casting pointers as Dave noted recently, please
+use 'unsigned long'. This needs to be fixed in other places as well.
+
+Other than that, you can add my:
+
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
