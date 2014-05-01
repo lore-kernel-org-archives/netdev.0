@@ -1,55 +1,79 @@
-From: "Magnos A. Hammes" <magnos@taghos.com.br>
-Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
-Date: Thu, 01 May 2014 13:36:36 -0300
-Message-ID: <53627814.7090106@taghos.com.br>
-References: <5361C29C.5060808@taghos.com.br> <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: HHF support in iproute2?
+Date: Thu, 1 May 2014 09:42:39 -0700
+Message-ID: <20140501094239.683e627d@nehalam.linuxnetplumber.net>
+References: <4420ec641916f42ac8bb9becc634a8cf@visp.net.lb>
+	<5362670F.2080400@gmail.com>
+	<CAOaVG153tfEqZvr3EC9Z1-Tc1ZWaQ6tVvswarYxtPzVRuQ88HA@mail.gmail.com>
+	<53627483.2050507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
+Cc: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
+	netdev <netdev@vger.kernel.org>
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gproxy2-pub.mail.unifiedlayer.com ([69.89.18.3]:53598 "HELO
-	gproxy2-pub.mail.unifiedlayer.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751159AbaEAQgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:36:53 -0400
-In-Reply-To: <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:52566 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237AbaEAQmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 12:42:49 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so3433833pdi.2
+        for <netdev@vger.kernel.org>; Thu, 01 May 2014 09:42:49 -0700 (PDT)
+In-Reply-To: <53627483.2050507@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01-05-2014 02:39, Michael Chan wrote:
-> On Thu, 2014-05-01 at 00:42 -0300, Magnos A. Hammes wrote:
->> Hello,
->>
->>
->> I have a Dell server with the following Broadcom gigabit network
->> adapter that uses the bnx2 driver:
->>
->>          01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II
->>          BCM5716 Gigabit Ethernet (rev 20)
->>
->> I was using kernel 3.2.57 and 3.13.3, but in both of them I faced some
->> trouble to make the ethernet adapter work, whatever version of this
->> two kernels that I try to boot I get the same error:
->>
->>          Can't load firmware file "bnx2/bnx2-mips-09-6.2.1b.fw"
->>          Direct firmware load failed with error -2
->>
-> We no longer put the firmware in the kernel tree, so you need to
-> download the firmware from the linux-firmware git tree:
->
-> git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
->
->
->
+On Thu, 01 May 2014 09:21:23 -0700
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-Ok, I cloned that git tree and used the firmwares available there, but 
-it didn't work with this firmware: bnx2/bnx2-mips-09-6.2.1b.fw sha1sum 
-8f11b39a60a4e1dd3774a10218c913f1cb761353
+> On 05/01/2014 08:41 AM, Stephen Hemminger wrote:
+> > I find/pick up patches from patchwork.
+> > If it wasn't there then it didn't get picked up
+> >
+> 
+> Its in patchwork I just don't see it in the package I pulled from
+> git.kernel.org. I looked in the master and net-next-for-3.13 branches.
+> 
+> The patchwork patch is,
+> 
+> http://patchwork.ozlabs.org/patch/308514/
+> 
+> >
+> > On Thu, May 1, 2014 at 8:23 AM, John Fastabend <john.fastabend@gmail.com
+> > <mailto:john.fastabend@gmail.com>> wrote:
+> >
+> >     On 04/11/2014 09:11 PM, Denys Fedoryshchenko wrote:
+> >
+> >         Hi
+> >
+> >         I just tried recently last iproute2 (git and release) and noticed in
+> >         iproute-3.14.0 it is still missing HHF support, while i see it is
+> >         accepted in git
+> >         (http://marc.info/?l=linux-__netdev&m=138933793006411&w=2
+> >         <http://marc.info/?l=linux-netdev&m=138933793006411&w=2>)
+> >         Is there any problem with this scheduling discipline?
+> >
+> >         Thanks!
+> >
+> >
+> >     Hi Stephen,
+> >
+> >     I can't seem to find this patch either. I checked the repository
+> >     at git.kernel.org <http://git.kernel.org> and it looks like q_hhf.c
+> >     is missing.
+> >
+> >     Was this intentional? Or am I just missing something. I have the
+> >     patch applied locally and it seems to work OK.
+> >
+> >     Thanks,
+> >     John
+> >
+> >     --
+> >     John Fastabend         Intel Corporation
+> >
+> >
+> 
+> 
+> 
 
-It only works when I change the source code of 
-"drivers/net/ethernet/broadcom/bnx2.c" and compile the kernel again, 
-making him load this firmware "bnx2/bnx2-mips-09-6.2.1a.fw" instead of 
-"bnx2/bnx2-mips-09-6.2.1b.fw".
-
-Magnos A. Hammes
+Let me investigate net-next-3.13 was merged.
