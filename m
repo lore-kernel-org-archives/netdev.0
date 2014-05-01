@@ -1,48 +1,47 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 3/4] net/mlx4_core: Load the Eth driver first
-Date: Thu,  1 May 2014 15:51:55 +0300
-Message-ID: <1398948716-6765-4-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH net 4/4] net/mlx4_core: Don't issue PCIe speed/width checks for VFs
+Date: Thu,  1 May 2014 15:51:56 +0300
+Message-ID: <1398948716-6765-5-git-send-email-ogerlitz@mellanox.com>
 References: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, matanb@mellanox.com, amirv@mellanox.com,
+	Eyal Perry <eyalpe@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:60832 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:60927 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752099AbaEAMwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 May 2014 08:52:15 -0400
+	id S1752099AbaEAMwV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 08:52:21 -0400
 In-Reply-To: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running in SRIOV mode, VM that is assigned with a non-provisioned
-Ethernet VFs get themselves a random mac when the Eth driver starts. In
-this case, if the IB driver startup code that deals with RoCE runs first,
-it will use a zero mac as the source mac for the Para-Virtual CM MADs
-which is buggy. To handle that, we change the order of loading.
+From: Eyal Perry <eyalpe@mellanox.com>
 
+Carrying out PCI speed/width checks through pcie_get_minimum_link()
+on VFs yield wrong results, so remove them.
+
+Fixes: b912b2f ('net/mlx4_core: Warn if device doesn't have enough PCI bandwidth')
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index cef267e..e98c15a 100644
+index e98c15a..7cf9dad 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -754,10 +754,10 @@ static void mlx4_request_modules(struct mlx4_dev *dev)
- 			has_eth_port = true;
- 	}
+@@ -2440,7 +2440,8 @@ slave_start:
+ 	 * No return code for this call, just warn the user in case of PCI
+ 	 * express device capabilities are under-satisfied by the bus.
+ 	 */
+-	mlx4_check_pcie_caps(dev);
++	if (!mlx4_is_slave(dev))
++		mlx4_check_pcie_caps(dev);
  
--	if (has_ib_port || (dev->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
--		request_module_nowait(IB_DRV_NAME);
- 	if (has_eth_port)
- 		request_module_nowait(EN_DRV_NAME);
-+	if (has_ib_port || (dev->caps.flags & MLX4_DEV_CAP_FLAG_IBOE))
-+		request_module_nowait(IB_DRV_NAME);
- }
- 
- /*
+ 	/* In master functions, the communication channel must be initialized
+ 	 * after obtaining its address from fw */
 -- 
 1.7.1
