@@ -1,31 +1,40 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Subject: Re: [PATCH] arc_emac: write initial MAC address from devicetree to
- hw
-Date: Thu, 1 May 2014 10:28:33 +0530
-Message-ID: <5361D479.5010709@synopsys.com>
-References: <1664530.jeK9vBIgft@typ>
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
+Date: Wed, 30 Apr 2014 22:39:28 -0700
+Message-ID: <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <5361C29C.5060808@taghos.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Heiko Stuebner <heiko@sntech.de>
-To: Max Schwarz <max.schwarz@online.de>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1664530.jeK9vBIgft@typ>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: "Magnos A. Hammes" <magnos@taghos.com.br>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:57258 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741AbaEAFja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 May 2014 01:39:30 -0400
+In-Reply-To: <5361C29C.5060808@taghos.com.br>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 18 April 2014 05:47 AM, Max Schwarz wrote:
-> I recently noticed this problem on the Radxa Rock board. I'm not
-> sure how this has ever worked on other platforms, though. I can
-> only receive broadcast packets without configuring the address.
+On Thu, 2014-05-01 at 00:42 -0300, Magnos A. Hammes wrote:
+> Hello,
 > 
-> Running ifconfig eth0 hw ether XYZ or applying the patch fixes
-> the problem for me.
+> 
+> I have a Dell server with the following Broadcom gigabit network
+> adapter that uses the bnx2 driver:
+> 
+>         01:00.0 Ethernet controller: Broadcom Corporation NetXtreme II
+>         BCM5716 Gigabit Ethernet (rev 20)
+> 
+> I was using kernel 3.2.57 and 3.13.3, but in both of them I faced some
+> trouble to make the ethernet adapter work, whatever version of this
+> two kernels that I try to boot I get the same error:
+> 
+>         Can't load firmware file "bnx2/bnx2-mips-09-6.2.1b.fw"
+>         Direct firmware load failed with error -2
+> 
+We no longer put the firmware in the kernel tree, so you need to
+download the firmware from the linux-firmware git tree:
 
-Our rcS script would always do a ifconfig hw, hence we didn't run into this. We
-have used this driver in one of our FPGA boards for several years.
-
--Vineet
+git://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git
