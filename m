@@ -1,49 +1,62 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: randconfig build error with next-20140502, in
- drivers/net/hyperv/netvsc_drv.c
-Date: Fri, 2 May 2014 14:42:06 +0000
-Message-ID: <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <CA+r1ZhhAdRwEFE3u4E1QQiCSa6Cz5Onhy1iVJHhzB4dUiEOL4g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Xen-devel] [3.15-rc3] Bisected: xen-netback mangles packets
+ between two guests on a bridge since merge of "TX grant mapping with
+ SKBTX_DEV_ZEROCOPY instead of copy" series.
+Date: Fri, 02 May 2014 08:21:13 -0700
+Message-ID: <1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <395225650.20140430124506@eikelenboom.it>
+	 <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>
+	 <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>
+	 <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it>
+	 <198418193.20140501213951@eikelenboom.it> <5363A508.1000602@citrix.com>
+	 <653156457.20140502160632@eikelenboom.it> <5363AFED.5080601@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+r1ZhhAdRwEFE3u4E1QQiCSa6Cz5Onhy1iVJHhzB4dUiEOL4g@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sander Eikelenboom <linux@eikelenboom.it>, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:52670 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbaEBPVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 11:21:21 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so4807384pdj.31
+        for <netdev@vger.kernel.org>; Fri, 02 May 2014 08:21:20 -0700 (PDT)
+In-Reply-To: <5363AFED.5080601@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmltIERhdmlzIFttYWls
-dG86amltLmVwb3N0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBNYXkgMiwgMjAxNCA5OjU2
-IEFNDQo+IFRvOiBTdGVwaGVuIFJvdGh3ZWxsOyBsaW51eC1uZXh0OyBsaW51eC1rZXJuZWw7IEtZ
-IFNyaW5pdmFzYW47IEhhaXlhbmcNCj4gWmhhbmc7IGRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5v
-cmc7IG5ldGRldg0KPiBTdWJqZWN0OiByYW5kY29uZmlnIGJ1aWxkIGVycm9yIHdpdGggbmV4dC0y
-MDE0MDUwMiwgaW4NCj4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiANCj4gQnVp
-bGRpbmcgd2l0aCB0aGUgYXR0YWNoZWQgcmFuZG9tIGNvbmZpZ3VyYXRpb24gZmlsZSwNCj4gDQo+
-IGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmM6IEluIGZ1bmN0aW9uIOKAmG5ldHZzY19y
-ZWN2X2NhbGxiYWNr4oCZOg0KPiBkcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jOjY0ODox
-MTogZXJyb3I6IOKAmHN0cnVjdCBuZXRfZGV2aWNl4oCZIGhhcw0KPiBubyBtZW1iZXINCj4gIG5h
-bWVkIOKAmHJlYWxfbnVtX3J4X3F1ZXVlc+KAmQ0KPiAgICAgICAgIG5ldC0+cmVhbF9udW1fcnhf
-cXVldWVzKTsNCj4gICAgICAgICAgICBeDQo+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSBkcml2ZXJz
-L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jOjI2OjA6DQo+IGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2
-c2NfZHJ2LmM6IEluIGZ1bmN0aW9uIOKAmG5ldHZzY19wcm9iZeKAmToNCj4gZHJpdmVycy9uZXQv
-aHlwZXJ2L25ldHZzY19kcnYuYzo4MzI6MzI6IGVycm9yOiDigJhzdHJ1Y3QgbmV0X2RldmljZeKA
-mSBoYXMNCj4gbm8gbWVtYmVyIG5hbWVkIOKAmHJlYWxfbnVtX3J4X3F1ZXVlc+KAmQ0KPiAgICAg
-bmV0LT5yZWFsX251bV90eF9xdWV1ZXMsIG5ldC0+cmVhbF9udW1fcnhfcXVldWVzKTsNCj4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQo+IGluY2x1ZGUvbGludXgvZGV2aWNlLmg6
-MTA4MDo1ODogbm90ZTogaW4gZGVmaW5pdGlvbiBvZiBtYWNybyDigJhkZXZfaW5mb+KAmQ0KPiAg
-I2RlZmluZSBkZXZfaW5mbyhkZXYsIGZtdCwgYXJnLi4uKSBfZGV2X2luZm8oZGV2LCBmbXQsICMj
-YXJnKQ0KPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgXg0KPiBtYWtlWzNdOiAqKiogW2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2
-Lm9dIEVycm9yIDENCg0KcmVhbF9udW1fcnhfcXVldWVzIGlzIGRlZmluZWQgaW4gImluY2x1ZGUv
-bGludXgvbmV0ZGV2aWNlLmgiOg0KSXQgcmVxdWlyZXMgQ09ORklHX1NZU0ZTIGZsYWcsIHdoaWNo
-IGlzIGVuYWJsZWQgYnkgZGVmYXVsdCwgYnV0IG5vdCBzZXQgaW4gDQp5b3VyIGNvbmZpZyBmaWxl
-Lg0KDQpDb3VsZCB5b3UgdXNlIGRlZmF1bHQgY29uZmlnIGFuZCBhZGQgaHlwZXJ2IGRyaXZlcnMs
-IHRoZW4gdHJ5IGFnYWluPw0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0K
+On Fri, 2014-05-02 at 15:47 +0100, Zoltan Kiss wrote:
+
+> Sorry, I was misleading and wrong. Can you try out this scenario with 
+> the attached patch?
+
+Guys, I already told you skb->truesize 'mismatch' could not explain
+packet corruptions. This comes from an expert in this matter, you can
+trust me.
+
+What could happens here is that TCP stack merges skbs (TCP coalescing)
+
+Problem is that SKBTX_DEV_ZEROCOPY addition did not take care of this.
+
+We have to forbid these merges from happening, because one skb has a
+single destructor_arg.
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1b62343f5837..85995a14aafc 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3838,7 +3839,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 		return true;
+ 	}
+ 
+-	if (skb_has_frag_list(to) || skb_has_frag_list(from))
++	if (skb_has_frag_list(to) ||
++	    skb_has_frag_list(from) ||
++	    (skb_shinfo(to)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
++	    (skb_shinfo(from)->tx_flags & SKBTX_DEV_ZEROCOPY))
+ 		return false;
+ 
+ 	if (skb_headlen(from) != 0) {
