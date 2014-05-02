@@ -1,134 +1,40 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 8/8 v4] net: Implmement RFC 6936 (zero RX csums for
- UDP/IPv6)
-Date: Fri, 2 May 2014 16:29:58 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405021530230.20305@tomh.mtv.corp.google.com>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [patch] RDMA/cxgb4: info leak in c4iw_alloc_ucontext()
+Date: Sat, 3 May 2014 02:56:16 +0300
+Message-ID: <20140502235616.GJ4963@mwanda>
+References: <20140328082428.GH25192@mwanda>
+ <1396002468.3297.63.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:51361 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbaEBXhM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 19:37:12 -0400
-Received: by mail-qc0-f202.google.com with SMTP id x13so786935qcv.1
-        for <netdev@vger.kernel.org>; Fri, 02 May 2014 16:37:11 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+To: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1396002468.3297.63.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RFC 6936 relaxes the requirement of RFC 2460 that UDP/IPv6 packets which
-are received with a zero UDP checksum value must be dropped. RFC 6936
-allows zero checksums to support tunnels over UDP.
+On Fri, Mar 28, 2014 at 11:27:48AM +0100, Yann Droneaud wrote:
+> Unfortunately, it's not the only structure which has this problem. I'm
+> currently preparing a report on this issue for this driver (cxgb4) and
+> another.
+> 
 
-When sk_no_check is set we allow on a socket we allow a zero IPv6
-UDP checksum. This is for both sending zero checksum and accepting
-a zero checksum on receive.
+This information leak is still present in linux-next.  These days we
+count those things as security vulnerabilities with CVEs and everything.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv6/ip6_checksum.c | 18 +++++++-----------
- net/ipv6/udp.c          | 33 +++++++++++++++++++++++++++++++--
- 2 files changed, 38 insertions(+), 13 deletions(-)
+When is it likely to get fixed?
 
-diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-index c69fe37..da26224 100644
---- a/net/ipv6/ip6_checksum.c
-+++ b/net/ipv6/ip6_checksum.c
-@@ -75,16 +75,12 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
- 			return err;
- 	}
- 
--	if (uh->check == 0) {
--		/* RFC 2460 section 8.1 says that we SHOULD log
--		   this error. Well, it is reasonable.
--		 */
--		LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
--			       &ipv6_hdr(skb)->saddr, ntohs(uh->source),
--			       &ipv6_hdr(skb)->daddr, ntohs(uh->dest));
--		return 1;
--	}
--
--	return skb_checksum_init(skb, IPPROTO_UDP, ip6_compute_pseudo);
-+	/* To support RFC 6936 (allow zero checksum in UDP/IPV6 for tunnels)
-+	 * we accept a checksum of zero here. When we find the socket
-+	 * for the UDP packet we'll check if that socket allows zero checksum
-+	 * for IPv6 (set by socket option).
-+	 */
-+	return skb_checksum_init_zero_check(skb, proto, uh->check,
-+					   ip6_compute_pseudo);
- }
- EXPORT_SYMBOL(udp6_csum_init);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index d8d6ca0..4fcd9bc 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -760,6 +760,17 @@ static void flush_stack(struct sock **stack, unsigned int count,
- 	if (unlikely(skb1))
- 		kfree_skb(skb1);
- }
-+
-+static void udp6_csum_zero_error(struct sk_buff *skb)
-+{
-+	/* RFC 2460 section 8.1 says that we SHOULD log
-+	 * this error. Well, it is reasonable.
-+	 */
-+	LIMIT_NETDEBUG(KERN_INFO "IPv6: udp checksum is 0 for [%pI6c]:%u->[%pI6c]:%u\n",
-+		       &ipv6_hdr(skb)->saddr, ntohs(udp_hdr(skb)->source),
-+		       &ipv6_hdr(skb)->daddr, ntohs(udp_hdr(skb)->dest));
-+}
-+
- /*
-  * Note: called only from the BH handler context,
-  * so we don't need to lock the hashes.
-@@ -779,7 +790,12 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	dif = inet6_iif(skb);
- 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
- 	while (sk) {
--		stack[count++] = sk;
-+		/* If zero checksum and sk_no_check is not on for
-+		 * the socket then skip it.
-+		 */
-+		if (uh->check || sk->sk_no_check)
-+			stack[count++] = sk;
-+
- 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
- 				       uh->source, saddr, dif);
- 		if (unlikely(count == ARRAY_SIZE(stack))) {
-@@ -867,6 +883,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (sk != NULL) {
- 		int ret;
- 
-+		if (!uh->check && !sk->sk_no_check) {
-+			udp6_csum_zero_error(skb);
-+			goto csum_error;
-+		}
-+
- 		ret = udpv6_queue_rcv_skb(sk, skb);
- 		sock_put(sk);
- 
-@@ -879,6 +900,11 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		return 0;
- 	}
- 
-+	if (!uh->check) {
-+		udp6_csum_zero_error(skb);
-+		goto csum_error;
-+	}
-+
- 	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
- 		goto discard;
- 
-@@ -1006,7 +1032,10 @@ static int udp_v6_push_pending_frames(struct sock *sk)
- 
- 	if (is_udplite)
- 		csum = udplite_csum_outgoing(sk, skb);
--	else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
-+	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {   /* UDP csum disabled */
-+		skb->ip_summed = CHECKSUM_NONE;
-+		goto send;
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
- 		udp6_hwcsum_outgoing(sk, skb, &fl6->saddr, &fl6->daddr,
- 				     up->len);
- 		goto send;
--- 
-1.9.1.423.g4596e3a
+regards,
+dan carpenter
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
