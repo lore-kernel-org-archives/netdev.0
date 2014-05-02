@@ -1,94 +1,84 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] drivers/net/ethernet/broadcom/bnx2.c
-Date: Fri, 02 May 2014 17:26:14 +0100
-Message-ID: <1399047974.24523.16.camel@deadeye.wl.decadent.org.uk>
-References: <5361C29C.5060808@taghos.com.br>
-	 <1398922768.3056.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <53627814.7090106@taghos.com.br>
-	 <1398965975.3056.40.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <53629752.6030606@taghos.com.br>
-	 <1398972728.3056.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] [3.15-rc3] Bisected: xen-netback mangles packets between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
+Date: Fri, 2 May 2014 18:28:18 +0200
+Message-ID: <35970097.20140502182818@eikelenboom.it>
+References: <395225650.20140430124506@eikelenboom.it>  <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>  <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>  <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it>  <198418193.20140501213951@eikelenboom.it> <5363A508.1000602@citrix.com>  <653156457.20140502160632@eikelenboom.it> <5363AFED.5080601@citrix.com> <1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com> <5363B929.1000502@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-q9pwReUR2z7Kog1N3ZLP"
-Cc: "Magnos A. Hammes" <magnos@taghos.com.br>, netdev@vger.kernel.org,
-	"desenvolvimento@taghos.com.br" <desenvolvimento@taghos.com.br>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	<xen-devel@lists.xen.org>, Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59833 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754952AbaEBQ0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 12:26:21 -0400
-In-Reply-To: <1398972728.3056.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:51849 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753380AbaEBQ2W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 12:28:22 -0400
+In-Reply-To: <5363B929.1000502@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-q9pwReUR2z7Kog1N3ZLP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Friday, May 2, 2014, 5:26:33 PM, you wrote:
 
-On Thu, 2014-05-01 at 12:32 -0700, Michael Chan wrote:
-> On Thu, 2014-05-01 at 15:49 -0300, Magnos A. Hammes wrote:
-> > Yes, I have some udev rules that run at system boot, but the only
-> > thing=20
-> > I do is:
-> >=20
-> > /sbin/udevd --daemon
-> > /sbin/udevadm trigger --type=3Dsubsystems --action=3Dadd
-> > /sbin/udevadm trigger --type=3Ddevices --action=3Dadd
-> > /sbin/udevadm settle
-> >=20
-> > Udev runs normally and returns no errors or warnings and dmesg shows=
-=20
-> > nothing weird.
-> >=20
-> > So, you think this may be a problem with my udev rules or a udev bug?
-> >=20
-> > I'm using udev version 182.
->=20
-> udev is involved in locating and loading the firmware file.
+> On 02/05/14 16:21, Eric Dumazet wrote:
+>> On Fri, 2014-05-02 at 15:47 +0100, Zoltan Kiss wrote:
+>>
+>>> Sorry, I was misleading and wrong. Can you try out this scenario with
+>>> the attached patch?
+>>
+>> Guys, I already told you skb->truesize 'mismatch' could not explain
+>> packet corruptions. This comes from an expert in this matter, you can
+>> trust me.
+>>
+>> What could happens here is that TCP stack merges skbs (TCP coalescing)
+> These packets shouldn't reach Dom0's TCP stack at all, 
+> bridge/openvswitch grabs them before. And in the sending/receiving guest 
+> these skbs don't have this flag.
+> However generally it is possible that a guest talks directly to Dom0, in 
+> which case your proposed fix could be valid.
 
-It is usually not involved now.  The kernel tries to load files directly
-from /lib/firmware.  Only if that fails and if
-CONFIG_FW_LOADER_USER_HELPER is enabled, then it will issue a uevent
-which udev may respond to (I think that may have been removed from udev
-now).
+I just tested Eric's patch alone .. and:
 
-Ben.
+- It lasts longer .. the first upload goes OK (previously it would already bail out on 
+  the first one)
+- We still hit the "xenvif_handle_frag_list" path while uploading, but no "tx_frag_overflow" 
+  occurred.
 
-> On my
-> system, I have /lib/udev/firmware.sh and a
-> generic /lib/udev/rules.d/50-firmware.rules to make request_firmware()
-> work.  Your system may be different.
+- But it bails out on the second upload .. with the message
+  "_ssl.c:1415: error:140943FC:SSL routines:SSL3_READ_BYTES:sslv3 alert bad record mac"
+- We also hit the "xenvif_handle_frag_list" path while uploading and this time we 
+  also hit the "tx_frag_overflow" case.
 
+--
+Sander
 
---=20
-Ben Hutchings
-Lowery's Law:
-             If it jams, force it. If it breaks, it needed replacing anyway=
-.
-
---=-q9pwReUR2z7Kog1N3ZLP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUAU2PHJue/yOyVhhEJAQq90A/+KDl02nXokRYTcCTiNoxbpJP6kYTM1RQ5
-5+GSmb36Zw9neez8vFaJb5pfQ07u22GADcN3ZukuOBISLBF8C0t/oArBH3Qv0hKa
-55OgiU6nT2mltZEMW06CkIE3Jk/4Pu+BSkavoOap6psJFH3Q2O+dSQzDMko6H9uj
-FeTYp92n5kXS2BTFe7+UzUmf8PLuydt8KSU2l2tDvdXYYiNRrR57wPgdRuI/e+mg
-qu77axmZLS1Jz5U6JZm0YPKcu4cLxYE0bBFnobFL1Nc4GrAlZIS0clKA0cqNyNBJ
-pul6HVewqM3KcCehGl2sBz+EttTWNQye5bZVyoxIUXWenh9y5ty2G/53tS5BAXuB
-X4ZltrNTpulP6KGmuIrJcsStko5wrTlr6EcWHkIG9XNRxWsQ2tabmpKdmfzit+EA
-ZH3insoLEMi7RZFT8VUPj9sI3rUxjJLz6bGkkHZ81s73dpyByK6N5EvMmWmXJOUF
-ADV4Mf3DfDqwyY0fj7VWC5BjUGmBLWqKIcew9sgaKXX3mboH2ct8PYJ1fAJ2Ddy1
-4otu3YBlFKgmbTX25WH/FyGx6hFhN/j0JnTCbrYKqzaa3ocT5JF2mOhAmFC4Kec0
-jcdIToCZrvAwFcQzuKogEHbGQwnsyx8RZxMQ1IUoC9LJmWFoeCTiCpqtYuTeopBB
-rhuJvGoSEGY=
-=wzm9
------END PGP SIGNATURE-----
-
---=-q9pwReUR2z7Kog1N3ZLP--
+>>
+>> Problem is that SKBTX_DEV_ZEROCOPY addition did not take care of this.
+>>
+>> We have to forbid these merges from happening, because one skb has a
+>> single destructor_arg.
+>>
+>> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> index 1b62343f5837..85995a14aafc 100644
+>> --- a/net/core/skbuff.c
+>> +++ b/net/core/skbuff.c
+>> @@ -3838,7 +3839,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+>>               return true;
+>>       }
+>>
+>> -     if (skb_has_frag_list(to) || skb_has_frag_list(from))
+>> +     if (skb_has_frag_list(to) ||
+>> +         skb_has_frag_list(from) ||
+>> +         (skb_shinfo(to)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
+>> +         (skb_shinfo(from)->tx_flags & SKBTX_DEV_ZEROCOPY))
+>>               return false;
+>>
+>>       if (skb_headlen(from) != 0) {
+>>
+>>
+>>
+>>
+>>
+>>
