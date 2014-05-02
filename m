@@ -1,31 +1,31 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net 0/2] be2net: Patch fixes
-Date: Fri, 2 May 2014 14:45:55 -0500
-Message-ID: <20140502194555.GA20214@emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net phy: Check for aneg completion before setting
+ state to PHY_RUNNING
+Date: Fri, 02 May 2014 15:51:25 -0400 (EDT)
+Message-ID: <20140502.155125.1401943315194446355.davem@davemloft.net>
+References: <53587C7F.2000808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: kumaran.4353@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:6072 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877AbaEBTp5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 15:45:57 -0400
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:36982 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752584AbaEBTv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 15:51:26 -0400
+In-Reply-To: <53587C7F.2000808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fixes against net tree. Please apply.
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Date: Thu, 24 Apr 2014 08:22:47 +0530
 
-Ajit Khaparde (1):
-  be2net: Reset multicast promiscuous mode when its enabled
+> phy_state_machine should check whether auto-negotiatin is completed
+> before changing phydev->state from PHY_NOLINK to PHY_RUNNING. If
+> auto-negotiation is not completed phydev->state should be set to
+> PHY_AN.
+> 
+> Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
 
-Suresh Reddy (1):
-  be2net: Poll for link status till 5s in ethtool diag test
-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |  8 +++++---
- drivers/net/ethernet/emulex/benet/be_ethtool.c | 15 ++++++++++++++-
- 2 files changed, 19 insertions(+), 4 deletions(-)
-
--- 
-1.8.3.2
+Applied, thanks.
