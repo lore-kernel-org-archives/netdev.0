@@ -1,64 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
-Date: Fri, 02 May 2014 20:18:13 +0400
-Message-ID: <5363C545.90600@cogentembedded.com>
-References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v2] net: filter: add insn for loading internal
+ transport header offset
+Date: Fri, 02 May 2014 17:21:24 +0100
+Message-ID: <1399047684.24523.11.camel@deadeye.wl.decadent.org.uk>
+References: <1398882591-30422-1-git-send-email-chema@google.com>
+	 <1398969880-8007-1-git-send-email-chema@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Zhouyi Zhou <zhouzhouyi@gmail.com>, davem@davemloft.net,
-	steffen.klassert@secunet.com, fan.du@windriver.com,
-	dborkman@redhat.com, minipli@googlemail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-SGaFWvmTNgPlQlu9V2dY"
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Chema Gonzalez <chema@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59806 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752635AbaEBQVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 12:21:45 -0400
+In-Reply-To: <1398969880-8007-1-git-send-email-chema@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 05/02/2014 11:18 AM, Zhouyi Zhou wrote:
+--=-SGaFWvmTNgPlQlu9V2dY
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> As http://www.spinics.net/lists/netdev/msg165015.html
-> pktgen generates shared packet through vlan interface will cause
-> oops because of duplicate entering tc queue.
-
-> Try to solve this problem by means of packet clone instead of sharing.
-
-> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-> ---
->   net/core/pktgen.c |   20 +++++++++++++++++---
->   1 files changed, 17 insertions(+), 3 deletions(-)
-
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index 0304f98..ced07fc 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
+On Thu, 2014-05-01 at 11:44 -0700, Chema Gonzalez wrote:
+> Patch adds an ANC_TRA_OFFSET insn that loads the internal transport
+> header of a packet ("internal" meaning after decapsulation by the
+> flow dissector).
 [...]
-> @@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->   		pkt_dev->last_ok = 0;
->   		goto unlock;
->   	}
-> -	atomic_inc(&(pkt_dev->skb->users));
-> -	ret = (*xmit)(pkt_dev->skb, odev);
-> +
-> +	if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
-> +		nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
-> +		ret = -ENOMEM;
-> +		if (nskb)
-> +			ret = (*xmit)(nskb, odev);
 
-    You can just do:
+This turns the behaviour of the flow dissector into a userland ABI,
+which must then be stable.  Is it ready for that?
 
-			ret = xmit(nskb, odev);
+Ben.
 
-> +		else
-> +			nskb = ERR_PTR(ret);
-> +	} else {
-> +		atomic_inc(&(pkt_dev->skb->users));
-> +		ret = (*xmit)(pkt_dev->skb, odev);
+--=20
+Ben Hutchings
+Lowery's Law:
+             If it jams, force it. If it breaks, it needed replacing anyway=
+.
 
-    Same here.
+--=-SGaFWvmTNgPlQlu9V2dY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-WBR, Sergei
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU2PGEOe/yOyVhhEJAQqfVQ/8D2MnzDf+C8N6VdarpY+H+54DWFQB3SBI
+CLTna4HBO3hLYgqGr9tROT4JTdkldf4zKhP2mzkelSmDpt1g/ZgHa1SMgO/5T0zV
+D8IELT4c5rndq+z0NKR2yPh0n20sYEgYI+Y08cQHLxfreyOy1+Lo/XkMVCuTIoQT
+clgvdP6NwuuYpFQJ2VdqffNxWUqlPD7zteFNy3Q5OLbgxh02qjDdG6gL2Q40cs0C
+T7o4sjMN/6YJBCYNKXp0KPWHd3oh0oLzcp79fErqkuBr67b7RegTQQjxIt0X1FWr
+nDhhuRwO6RRQzHp25GoFkhe51DOcMw2rXv/leqFc7IWQ8UZ/CjDTukY/jaiqSEet
++81pmnVh3pVtXVtOMh/QEjzrdKqAJXNxIK+o1Q5gn4hPyL6BQlwa37zjp2B4nutd
+uZ23x57C+0n0csXdRN03J0GDYXq63ybT5hbPC4qvDlz0Kp7qjP/9K7vZtFU4JuP2
+jGQRFmHqf3loh9Nfl+dDd9GS4o0sj3jMsaVaHa1ZXIRQuhbabVI0KPxUpFTUIWwi
+z/H7vLOMOnPEjSkpTgUicShyfpnqCfh7JgKyJHcCWwxw27c5Pnb9dEOOYwd9cc0f
+chbPM9Yg3w0Feif4bJDNGycGDZDsC+BNYE6x+HD5zp0A4vw3UXXH6Mf8ozesTGXz
+DXSX/4D5Lto=
+=uzHY
+-----END PGP SIGNATURE-----
+
+--=-SGaFWvmTNgPlQlu9V2dY--
