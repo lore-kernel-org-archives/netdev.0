@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/4] introduce devm_mdiobus_alloc/free and clean up
- davinci mdio
-Date: Fri, 02 May 2014 16:17:47 -0400 (EDT)
-Message-ID: <20140502.161747.121619975003852704.davem@davemloft.net>
-References: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
+Subject: Re: [PATCH v2 for v3.15] net: mvmdio: Check for a valid interrupt
+ instead of an error
+Date: Fri, 02 May 2014 16:19:25 -0400 (EDT)
+Message-ID: <20140502.161925.32176445889713799.davem@davemloft.net>
+References: <1398875331-18925-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	rdunlap@infradead.org, jic23@kernel.org, santosh.shilimkar@ti.com,
-	nsekhar@ti.com, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	davinci-linux-open-source@linux.davincidsp.com,
-	sergei.shtylyov@cogentembedded.com, prabhakar.csengg@gmail.com
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sebastian.hesselbarth@gmail.com,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, tawfik@marvell.com,
+	alior@marvell.com
+To: ezequiel.garcia@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37118 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752218AbaEBUT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 16:19:26 -0400
+In-Reply-To: <1398875331-18925-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Wed, 30 Apr 2014 15:23:32 +0300
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Wed, 30 Apr 2014 13:28:51 -0300
 
-> Introduce a resource managed devm_mdiobus_alloc[_size]()/devm_mdiobus_free()
-> to automatically clean up MDIO bus alocations made by MDIO drivers,
-> thus leading to simplified MDIO drivers code.
+> The following commit:
 > 
-> Clean up Davinci MDIO driver and use new devm API.
+> commit 9ec36cafe43bf835f8f29273597a5b0cbc8267ef
+> Author: Rob Herring <robh@kernel.org>
+> Date:   Wed Apr 23 17:57:41 2014 -0500
 > 
-> Changes in v3:
-> - added devm_mdiobus_alloc_size() and
->   devm_mdiobus_alloc() converted to be just a simple wrapper now.
+>     of/irq: do irq resolution in platform_get_irq
 > 
-> Changes in v2:
-> - minor comments taken into account
-> - additional patches added for cleaning up Davinci MDIO driver
+> changed platform_get_irq() which now returns EINVAL and EPROBE_DEFER,
+> in addition to ENXIO. If there's no interrupt for mvmdio, platform_get_irq()
+> returns EINVAL, but we currently check only for ENXIO.
+> 
+> Fix this by looking for a positive integer, which is the proper way of
+> validating a virtual interrupt number.
+> 
+> While at it, add a proper handling for the deferral probe case.
+> 
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 
-Series applied to net-next, thanks.
+Applied, thanks.
