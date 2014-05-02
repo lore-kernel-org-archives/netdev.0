@@ -1,46 +1,44 @@
-From: Brad Johnson <bjohnson@ecessa.com>
-Subject: Re: [PATCH net] vti: get rid of nf mark rule in prerouting
-Date: Fri, 02 May 2014 08:57:48 -0500
-Message-ID: <5363A45C.1000205@ecessa.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [3.15-rc3] Bisected: xen-netback mangles packets
+ between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy" series.
+Date: Fri, 2 May 2014 15:00:40 +0100
+Message-ID: <5363A508.1000602@citrix.com>
+References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it> <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it> <198418193.20140501213951@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sander Eikelenboom <linux@eikelenboom.it>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:39313 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505AbaEBN5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 09:57:54 -0400
-Received: by mail-ie0-f174.google.com with SMTP id ar20so5092906iec.19
-        for <netdev@vger.kernel.org>; Fri, 02 May 2014 06:57:54 -0700 (PDT)
-Received: from [192.168.2.92] (mail.ecessa.com. [173.160.121.97])
-        by mx.google.com with ESMTPSA id g1sm6837896igt.14.2014.05.02.06.57.53
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Fri, 02 May 2014 06:57:53 -0700 (PDT)
+Received: from smtp.citrix.com ([66.165.176.89]:56521 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805AbaEBOAn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2014 10:00:43 -0400
+In-Reply-To: <198418193.20140501213951@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When strongSwan is configured this way with mark values, the SA's and 
-the SP's are configured with the mark. I can get this to work by 
-manually deleting and re-adding the ip xfrm state without the mark after 
-strongSwan connects. But is there any easier way to force the creation 
-of the xfrm state with the "wildcard" mark (i.e. with no mark)?
+>> Let's see what that does different and if that gives an insight in what is going
+>> wrong.
+>
+> The debug patch that i used is attached.
+> Here is some of the output, skb->data_len size sometimes varies slightly as does skb->truesize (is that allowed to become > 64k ?).
+Yes, truesize can be over 64K, as it includes the aligned size of the 
+data itself (64k max), struct skbuff and struct shared_info.
+However my calculation for the truesize might be wrong: I count all the 
+frags as full sized pages (skb->truesize += i * PAGE_SIZE), but the last 
+page is not necessarily used entirely by that frag.
+I had the idea that truesize should include the size of the whole page 
+as we reserved it with alloc_page for this skb, but it might not be true.
+Btw. with you "skb->truesize -= nskb->data_len;" version truesize should 
+end up around 128k, something entirely wrong. Can you try with 
+"skb->truesize -= nskb->data_len;" in that line?
+My repro env is underway in the meantime ...
 
-Thanks,
-Brad Johnson
+Regards,
 
- > -----Original Message-----
- > From: Christophe Gouault [mailto:christophe.gouault@xxxxxxxxx]
- > Sent: Tuesday, October 08, 2013 8:21 AM
- > To: netdev@xxxxxxxxxxxxxxx
- > Cc: David S. Miller; Cong Wang; Saurabh Mohan; Christophe Gouault
- > Subject: [PATCH net] vti: get rid of nf mark rule in prerouting
- >
- > This patch fixes and improves the use of vti interfaces (while 
-lightly changing
- > the way of configuring them).
- >
-
-> SAs have a wildcard mark.
-> SPs have a mark equal to the vti interface o_key.
+Zoli
