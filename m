@@ -1,49 +1,51 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net 1/4] net/mlx4_core: Adjust port number in qp_attach
- wrapper when detaching
-Date: Fri, 2 May 2014 13:43:34 +0300
-Message-ID: <CAJZOPZKd+SePdyxxN=W2M9uLf2_RJWLii9bn-JKvC+F5VzKBJw@mail.gmail.com>
-References: <1398948716-6765-1-git-send-email-ogerlitz@mellanox.com>
-	<1398948716-6765-2-git-send-email-ogerlitz@mellanox.com>
-	<5362A682.60101@cogentembedded.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 02/26] can: c_can: Fix startup logic
+Date: Fri, 02 May 2014 14:37:58 +0200
+Message-ID: <536391A6.2040800@pengutronix.de>
+References: <1398376829-6771-1-git-send-email-mkl@pengutronix.de> <1398376829-6771-3-git-send-email-mkl@pengutronix.de> <CAGm1_ks-Kw2AtNCNpng6Tp2v3wS=HK7DGWTD0iFcMVMhASSO5A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Roland Dreier <roland@kernel.org>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Matan Barak <matanb@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@mellanox.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:48114 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751353AbaEBKne (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 06:43:34 -0400
-Received: by mail-qc0-f173.google.com with SMTP id r5so4546377qcx.18
-        for <netdev@vger.kernel.org>; Fri, 02 May 2014 03:43:34 -0700 (PDT)
-In-Reply-To: <5362A682.60101@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	kernel@pengutronix.de, Thomas Gleixner <tglx@linutronix.de>
+To: Yegor Yefremov <yegorslists@googlemail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <CAGm1_ks-Kw2AtNCNpng6Tp2v3wS=HK7DGWTD0iFcMVMhASSO5A@mail.gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 1, 2014 at 10:54 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 05/01/2014 04:51 PM, Or Gerlitz wrote:
+On 04/29/2014 09:29 AM, Yegor Yefremov wrote:
+> On Fri, Apr 25, 2014 at 12:00 AM, Marc Kleine-Budde <mkl@pengutronix.de> wrote:
+>> From: Thomas Gleixner <tglx@linutronix.de>
+>>
+>> c_can_start() enables interrupts way too early. The first enabling
+>> happens when setting the control mode in c_can_chip_config() and then
+>> again at the end of the function.
+>>
+>> But that happens before napi_enable() and that means that an interrupt
+>> which comes in will disable interrupts again and call napi_schedule,
+>> which ignores the request and the later napi_enable() is not making
+>> thinks work either. So the interface is up with all device interrupts
+>> disabled.
+>>
+>> Move the device interrupt after napi_enable() and add it to the other
+>> callsites of c_can_start() in c_can_set_mode() and c_can_power_up()
+>>
+>> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+>> Tested-by: Alexander Stein <alexander.stein@systec-electronic.com>
+>> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> 
+> Tested-by: Yegor Yefremov <yegorslists@googlemail.com>
 
->> +static int mlx4_adjust_port(struct mlx4_dev *dev, int slave,
->> +                           u8 *gid, enum mlx4_protocol prot)
->> +{
->> +       int real_port;
->> +
->> +       if (prot != MLX4_PROT_ETH)
->> +               return 0;
->> +
->> +       if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0 ||
->> +           (dev->caps.steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED)) {
->
->
->    It looks a bit strange when you enclose in parens the second == but not the first. In fact, they're not at all necessary.
+Thanks, as this branch is already merged by David, it's too late to add
+your Tested-by.
 
-Well... so we'll fix it and resubmit
+Marc
+
+-- 
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
