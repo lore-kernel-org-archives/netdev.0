@@ -1,133 +1,69 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
-Date: Fri, 2 May 2014 22:55:55 +0800
-Message-ID: <CAABZP2wG-DnmvAzSapaC1nEyg0ArET93tbz-x3-a71-pLd4ELA@mail.gmail.com>
-References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
-	<20140502151921.014fbeec@redhat.com>
-	<5363A4E0.2000403@intel.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: randconfig build error with next-20140502, in
+ drivers/net/hyperv/netvsc_drv.c
+Date: Fri, 2 May 2014 14:59:58 +0000
+Message-ID: <f49938e3920d4e5e9088ccd1de92f69b@BY2PR03MB299.namprd03.prod.outlook.com>
+References: <CA+r1ZhhAdRwEFE3u4E1QQiCSa6Cz5Onhy1iVJHhzB4dUiEOL4g@mail.gmail.com>
+ <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	steffen.klassert@secunet.com, fan.du@windriver.com,
-	dborkman@redhat.com, Mathias Krause <minipli@googlemail.com>,
-	tgraf@suug.ch, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5363A4E0.2000403@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Haiyang Zhang <haiyangz@microsoft.com>, Jim Davis <jim.epost@gmail.com>,
+ Stephen Rothwell <sfr@canb.auug.org.au>, linux-next
+ <linux-next@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>, netdev
+ <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for reviewing
-
-On Fri, May 2, 2014 at 10:00 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> On 5/2/2014 6:19 AM, Jesper Dangaard Brouer wrote:
->>
->> On Fri,  2 May 2014 15:18:12 +0800
->> Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
->>
->>> As http://www.spinics.net/lists/netdev/msg165015.html
->>> pktgen generates shared packet through vlan interface will cause
->>> oops because of duplicate entering tc queue.
->>>
->>> Try to solve this problem by means of packet clone instead of sharing.
->>
->>
->> I really don't like adding this stuff to the fast path of pktgen.
-
-
->>
->> Why would you use pktgen on a VLAN?
-
-I use pktgen on a VLAN under a special circumstance.
-
->
->
-> Its a good way to test qdiscs. When you run pktgen over the VLAN
-> you exercise the lower devices qdisc.
->
-> Although I never submitted a patch like this because I figured it
-> was a corner case and we would want to keep the hotpath clean.
->
-
-I think is_vlan_dev(odev) have great chances to be in a cache line
-that seldom got reset. Could we only judge is_vlan_dev(odev) in my
-first if statement?
-
-
-Also I guess if (nskb && !IS_ERR(nskb)) happens in rarely reached
-cases when the interface is not overload.
-
->
->>
->> Why don't you use the "vlan_id" feature available in pktgen, and send
->> in the lower real device?
-
-Could we automatically convert the VLAN device's joining effort to
-real device + vlan_id settings in pkt_dev.
-or could we issue a warning or a suggestion
-when user try to add a VLAN device to the pktgen thread?
-
->>
->>
->>
->>> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
->>> ---
->>>   net/core/pktgen.c |   20 +++++++++++++++++---
->>>   1 files changed, 17 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
->>> index 0304f98..ced07fc 100644
->>> --- a/net/core/pktgen.c
->>> +++ b/net/core/pktgen.c
->>> @@ -3297,6 +3297,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->>>         netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
->>>                 = odev->netdev_ops->ndo_start_xmit;
->>>         struct netdev_queue *txq;
->>> +       struct sk_buff *nskb = NULL;
->>>         u16 queue_map;
->>>         int ret;
->>>
->>> @@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev
->>> *pkt_dev)
->>>                 pkt_dev->last_ok = 0;
->>>                 goto unlock;
->>>         }
->>> -       atomic_inc(&(pkt_dev->skb->users));
->>> -       ret = (*xmit)(pkt_dev->skb, odev);
->>> +
->>> +       if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
->>> +               nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
->>> +               ret = -ENOMEM;
->>> +               if (nskb)
->>> +                       ret = (*xmit)(nskb, odev);
->>> +               else
->>> +                       nskb = ERR_PTR(ret);
->>> +       } else {
->>> +               atomic_inc(&(pkt_dev->skb->users));
->>> +               ret = (*xmit)(pkt_dev->skb, odev);
->>> +       }
->>>
->>>         switch (ret) {
->>>         case NETDEV_TX_OK:
->>> @@ -3372,7 +3383,10 @@ static void pktgen_xmit(struct pktgen_dev
->>> *pkt_dev)
->>>         case NETDEV_TX_LOCKED:
->>>         case NETDEV_TX_BUSY:
->>>                 /* Retry it next time */
->>> -               atomic_dec(&(pkt_dev->skb->users));
->>> +               if (nskb && !IS_ERR(nskb))
->>> +                       kfree_skb(nskb);
->>> +               else
->>> +                       atomic_dec(&(pkt_dev->skb->users));
->>>                 pkt_dev->last_ok = 0;
->>>         }
->>>   unlock:
->>
->>
->>
->>
->
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGFpeWFuZyBaaGFuZw0K
+PiBTZW50OiBGcmlkYXksIE1heSAyLCAyMDE0IDc6NDIgQU0NCj4gVG86IEppbSBEYXZpczsgU3Rl
+cGhlbiBSb3Rod2VsbDsgbGludXgtbmV4dDsgbGludXgta2VybmVsOyBLWSBTcmluaXZhc2FuOw0K
+PiBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOyBuZXRkZXYNCj4gU3ViamVjdDogUkU6IHJh
+bmRjb25maWcgYnVpbGQgZXJyb3Igd2l0aCBuZXh0LTIwMTQwNTAyLCBpbg0KPiBkcml2ZXJzL25l
+dC9oeXBlcnYvbmV0dnNjX2Rydi5jDQo+IA0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBNZXNz
+YWdlLS0tLS0NCj4gPiBGcm9tOiBKaW0gRGF2aXMgW21haWx0bzpqaW0uZXBvc3RAZ21haWwuY29t
+XQ0KPiA+IFNlbnQ6IEZyaWRheSwgTWF5IDIsIDIwMTQgOTo1NiBBTQ0KPiA+IFRvOiBTdGVwaGVu
+IFJvdGh3ZWxsOyBsaW51eC1uZXh0OyBsaW51eC1rZXJuZWw7IEtZIFNyaW5pdmFzYW47IEhhaXlh
+bmcNCj4gPiBaaGFuZzsgZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbmV0ZGV2DQo+ID4g
+U3ViamVjdDogcmFuZGNvbmZpZyBidWlsZCBlcnJvciB3aXRoIG5leHQtMjAxNDA1MDIsIGluDQo+
+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+DQo+ID4gQnVpbGRpbmcgd2l0
+aCB0aGUgYXR0YWNoZWQgcmFuZG9tIGNvbmZpZ3VyYXRpb24gZmlsZSwNCj4gPg0KPiA+IGRyaXZl
+cnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmM6IEluIGZ1bmN0aW9uIOKAmG5ldHZzY19yZWN2X2Nh
+bGxiYWNr4oCZOg0KPiA+IGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmM6NjQ4OjExOiBl
+cnJvcjog4oCYc3RydWN0IG5ldF9kZXZpY2XigJkgaGFzDQo+ID4gbm8gbWVtYmVyICBuYW1lZCDi
+gJhyZWFsX251bV9yeF9xdWV1ZXPigJkNCj4gPiAgICAgICAgIG5ldC0+cmVhbF9udW1fcnhfcXVl
+dWVzKTsNCj4gPiAgICAgICAgICAgIF4NCj4gPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVy
+cy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYzoyNjowOg0KPiA+IGRyaXZlcnMvbmV0L2h5cGVydi9u
+ZXR2c2NfZHJ2LmM6IEluIGZ1bmN0aW9uIOKAmG5ldHZzY19wcm9iZeKAmToNCj4gPiBkcml2ZXJz
+L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jOjgzMjozMjogZXJyb3I6IOKAmHN0cnVjdCBuZXRfZGV2
+aWNl4oCZIGhhcw0KPiA+IG5vIG1lbWJlciBuYW1lZCDigJhyZWFsX251bV9yeF9xdWV1ZXPigJkN
+Cj4gPiAgICAgbmV0LT5yZWFsX251bV90eF9xdWV1ZXMsIG5ldC0+cmVhbF9udW1fcnhfcXVldWVz
+KTsNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4NCj4gPiBpbmNsdWRlL2xp
+bnV4L2RldmljZS5oOjEwODA6NTg6IG5vdGU6IGluIGRlZmluaXRpb24gb2YgbWFjcm8g4oCYZGV2
+X2luZm/igJkNCj4gPiAgI2RlZmluZSBkZXZfaW5mbyhkZXYsIGZtdCwgYXJnLi4uKSBfZGV2X2lu
+Zm8oZGV2LCBmbXQsICMjYXJnKQ0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICBeDQo+ID4gbWFrZVszXTogKioqIFtkcml2ZXJzL25l
+dC9oeXBlcnYvbmV0dnNjX2Rydi5vXSBFcnJvciAxDQo+IA0KPiByZWFsX251bV9yeF9xdWV1ZXMg
+aXMgZGVmaW5lZCBpbiAiaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCI6DQo+IEl0IHJlcXVpcmVz
+IENPTkZJR19TWVNGUyBmbGFnLCB3aGljaCBpcyBlbmFibGVkIGJ5IGRlZmF1bHQsIGJ1dCBub3Qg
+c2V0IGluDQo+IHlvdXIgY29uZmlnIGZpbGUuDQo+IA0KPiBDb3VsZCB5b3UgdXNlIGRlZmF1bHQg
+Y29uZmlnIGFuZCBhZGQgaHlwZXJ2IGRyaXZlcnMsIHRoZW4gdHJ5IGFnYWluPw0KDQpIYWl5YW5n
+LA0KDQpUaGF0IGlzIHRoZSBwb2ludCAtIHRoZSBjb2RlIG11c3QgY29tcGlsZSBjb3JyZWN0bHkg
+Zm9yIGFsbCBwb3NzaWJsZSBjb25maWd1cmF0aW9ucy4NCllvdSB3aWxsIHdhbnQgdG8gcHJvdGVj
+dCB0aGUgZGVwZW5kZW5jaWVzIGFwcHJvcHJpYXRlbHkuDQoNCksuIFkNCj4gDQo+IFRoYW5rcywN
+Cj4gLSBIYWl5YW5nDQo+IA0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXZlbCBtYWlsaW5nIGxpc3QKZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9y
+ZwpodHRwOi8vZHJpdmVyZGV2LmxpbnV4ZHJpdmVycHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5m
+by9kcml2ZXJkZXYtZGV2ZWwK
