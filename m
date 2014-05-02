@@ -1,42 +1,125 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/8 v4] x86_64: csum_add for x86_64
-Date: Fri, 2 May 2014 16:28:15 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405021527190.19510@tomh.mtv.corp.google.com>
+Subject: [PATCH 6/8 v4] net: Call skb_checksum_init in IPv4
+Date: Fri, 2 May 2014 16:29:38 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405021529150.20006@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:34327 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751640AbaEBX2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 19:28:17 -0400
-Received: by mail-pd0-f201.google.com with SMTP id r10so229652pdi.2
-        for <netdev@vger.kernel.org>; Fri, 02 May 2014 16:28:16 -0700 (PDT)
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:54774 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753045AbaEBX3j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 19:29:39 -0400
+Received: by mail-yh0-f74.google.com with SMTP id i57so761512yha.3
+        for <netdev@vger.kernel.org>; Fri, 02 May 2014 16:29:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add csum_add function for x86_64.
+Call skb_checksum_init instead of private functions.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- arch/x86/include/asm/checksum_64.h | 7 +++++++
- 1 file changed, 7 insertions(+)
+ include/net/ip.h    |  6 ++++++
+ net/ipv4/tcp_ipv4.c | 25 ++-----------------------
+ net/ipv4/udp.c      | 19 ++-----------------
+ 3 files changed, 10 insertions(+), 40 deletions(-)
 
-diff --git a/arch/x86/include/asm/checksum_64.h b/arch/x86/include/asm/checksum_64.h
-index e6fd8a0..3581761 100644
---- a/arch/x86/include/asm/checksum_64.h
-+++ b/arch/x86/include/asm/checksum_64.h
-@@ -188,4 +188,11 @@ static inline unsigned add32_with_carry(unsigned a, unsigned b)
- 	return a;
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3ec2b0f..1988cef 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -342,6 +342,12 @@ static inline void ip_select_ident_more(struct sk_buff *skb, struct dst_entry *d
+ 		__ip_select_ident(iph, dst, more);
  }
  
-+#define HAVE_ARCH_CSUM_ADD
-+static inline __wsum csum_add(__wsum csum, __wsum addend)
++static inline __wsum inet_compute_pseudo(struct sk_buff *skb, int proto)
 +{
-+	return (__force __wsum)add32_with_carry((__force unsigned)csum,
-+						(__force unsigned)addend);
++	return csum_tcpudp_nofold(ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
++				  skb->len, proto, 0);
 +}
 +
- #endif /* _ASM_X86_CHECKSUM_64_H */
+ /*
+  *	Map a multicast IP onto multicast MAC for type ethernet.
+  */
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 438f3b9..ad166dc 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1744,28 +1744,6 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
+ 	return sk;
+ }
+ 
+-static __sum16 tcp_v4_checksum_init(struct sk_buff *skb)
+-{
+-	const struct iphdr *iph = ip_hdr(skb);
+-
+-	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!tcp_v4_check(skb->len, iph->saddr,
+-				  iph->daddr, skb->csum)) {
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-			return 0;
+-		}
+-	}
+-
+-	skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-				       skb->len, IPPROTO_TCP, 0);
+-
+-	if (skb->len <= 76) {
+-		return __skb_checksum_complete(skb);
+-	}
+-	return 0;
+-}
+-
+-
+ /* The socket must have it's spinlock held when we get
+  * here.
+  *
+@@ -1960,7 +1938,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	 * Packet length and doff are validated by header prediction,
+ 	 * provided case of th->doff==0 is eliminated.
+ 	 * So, we defer the checks. */
+-	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
++
++	if (skb_checksum_init(skb, IPPROTO_TCP, inet_compute_pseudo))
+ 		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4468e1a..f2d05d7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1672,7 +1672,6 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 				 int proto)
+ {
+-	const struct iphdr *iph;
+ 	int err;
+ 
+ 	UDP_SKB_CB(skb)->partial_cov = 0;
+@@ -1684,22 +1683,8 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
+ 			return err;
+ 	}
+ 
+-	iph = ip_hdr(skb);
+-	if (uh->check == 0) {
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	} else if (skb->ip_summed == CHECKSUM_COMPLETE) {
+-		if (!csum_tcpudp_magic(iph->saddr, iph->daddr, skb->len,
+-				      proto, skb->csum))
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+-	}
+-	if (!skb_csum_unnecessary(skb))
+-		skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr,
+-					       skb->len, proto, 0);
+-	/* Probably, we should checksum udp header (it should be in cache
+-	 * in any case) and data in tiny packets (< rx copybreak).
+-	 */
+-
+-	return 0;
++	return skb_checksum_init_zero_check(skb, proto, uh->check,
++					    inet_compute_pseudo);
+ }
+ 
+ /*
 -- 
 1.9.1.423.g4596e3a
