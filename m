@@ -1,69 +1,96 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] mlx4: Use GFP_NOFS calls during the ipoib TX path when
- creating the QP
-Date: Fri, 2 May 2014 15:03:37 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1405021500380.29834@pobox.suse.cz>
-References: <CAJZOPZKLcFC5Wqv7VS7AyovaeHw3PYSWEz9t9sZ4AMhG+dS1+A@mail.gmail.com> <alpine.LNX.2.00.1402271042240.21399@pobox.suse.cz> <530F0C4F.9030200@mellanox.com> <alpine.LNX.2.00.1402271123410.21399@pobox.suse.cz> <CAG4TOxMw4siOqtjXrgUDaw8yWqYgSG4d8PqGuJ62AZBrC2O2AA@mail.gmail.com>
- <531F1550.3080401@mellanox.com> <alpine.LNX.2.00.1404241900020.3265@pobox.suse.cz> <CAJZOPZKUWsgcNRNhVDM3EGpvVT834pfqkEZ_Z3NmCQJXkNuApg@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
+Date: Fri, 2 May 2014 15:19:21 +0200
+Message-ID: <20140502151921.014fbeec@redhat.com>
+References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sagi Grimberg <sagig@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eli Cohen <eli@dev.mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Shlomo Pongratz <shlomop@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, <davem@davemloft.net>,
+	<steffen.klassert@secunet.com>, <fan.du@windriver.com>,
+	<dborkman@redhat.com>, <minipli@googlemail.com>, <tgraf@suug.ch>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJZOPZKUWsgcNRNhVDM3EGpvVT834pfqkEZ_Z3NmCQJXkNuApg@mail.gmail.com>
+In-Reply-To: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Apr 2014, Or Gerlitz wrote:
+On Fri,  2 May 2014 15:18:12 +0800
+Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
 
-> I sent you private note on Mar 19th saying "are you on track with this
-> for 3.15? the merge window is coming soon and you have 99% of what you
-> need -- lets get there" which seems to be the piece that fell between
-> the cracks.
+> As http://www.spinics.net/lists/netdev/msg165015.html
+> pktgen generates shared packet through vlan interface will cause
+> oops because of duplicate entering tc queue.
+>
+> Try to solve this problem by means of packet clone instead of sharing.
 
-I probably failed to see the implication that you/Mellanox is expecting me 
-to deliver the final patch, sorry for that.
+I really don't like adding this stuff to the fast path of pktgen.
 
-> > probably because it wasn't clearly stated *who* will be preparing 
-> > patch(es) that'd be implementing the ideas above. My understanding was 
-> > that it'd be Mellanox, given that they basically own the driver,
+Why would you use pktgen on a VLAN?
+
+Why don't you use the "vlan_id" feature available in pktgen, and send
+in the lower real device?
+
+
+
+> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+> ---
+>  net/core/pktgen.c |   20 +++++++++++++++++---
+>  1 files changed, 17 insertions(+), 3 deletions(-)
 > 
-> to be precise partially own the mlx4 HW driver (Roland is the
-> mlx4_core/ib author and maintainer, we are asking for few years to get
-> co-maintainer hat there, no success so far)
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index 0304f98..ced07fc 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -3297,6 +3297,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+>  	netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
+>  		= odev->netdev_ops->ndo_start_xmit;
+>  	struct netdev_queue *txq;
+> +	struct sk_buff *nskb = NULL;
+>  	u16 queue_map;
+>  	int ret;
+>  
+> @@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+>  		pkt_dev->last_ok = 0;
+>  		goto unlock;
+>  	}
+> -	atomic_inc(&(pkt_dev->skb->users));
+> -	ret = (*xmit)(pkt_dev->skb, odev);
+> +
+> +	if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
+> +		nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
+> +		ret = -ENOMEM;
+> +		if (nskb)
+> +			ret = (*xmit)(nskb, odev);
+> +		else
+> +			nskb = ERR_PTR(ret);
+> +	} else {
+> +		atomic_inc(&(pkt_dev->skb->users));
+> +		ret = (*xmit)(pkt_dev->skb, odev);
+> +	}
+>  
+>  	switch (ret) {
+>  	case NETDEV_TX_OK:
+> @@ -3372,7 +3383,10 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+>  	case NETDEV_TX_LOCKED:
+>  	case NETDEV_TX_BUSY:
+>  		/* Retry it next time */
+> -		atomic_dec(&(pkt_dev->skb->users));
+> +		if (nskb && !IS_ERR(nskb))
+> +			kfree_skb(nskb);
+> +		else
+> +			atomic_dec(&(pkt_dev->skb->users));
+>  		pkt_dev->last_ok = 0;
+>  	}
+>  unlock:
 
-I am of course completely unfamiliar with internal affairs as this, so 
-it's not really appropriate for me to comment, but if hardware vendor is 
-not able to obtain maintainership of the driver for its own HW, that seems 
-to signal some serious issues.
 
-> , the problem you have described can happen with any HW driver, but as 
-> stated earlier, the suggested plan will fix ipoib and mlx4 and following 
-> that more hw drivers can be enhanced to support that too.
-> 
-> >
-> > have the best testing coverage compared to very very limited
-> > testing coverage I can do, and will be pushing it upstream anyway.
-> >
-> > I believe all the above can be easily created on top of the original patch I sent.
-> 
-> Indeed, so will take a look next week and let you know if it works for me
-
-Excellent, thanks a lot, looking forward to any updates on this.
-
-Thanks again,
 
 -- 
-Jiri Kosina
-SUSE Labs
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
