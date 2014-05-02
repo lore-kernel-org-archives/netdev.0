@@ -1,98 +1,133 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [3.15-rc3] Bisected: xen-netback mangles packets
- between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Fri, 2 May 2014 15:47:09 +0100
-Message-ID: <5363AFED.5080601@citrix.com>
-References: <395225650.20140430124506@eikelenboom.it> <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it> <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it> <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it> <198418193.20140501213951@eikelenboom.it> <5363A508.1000602@citrix.com> <653156457.20140502160632@eikelenboom.it>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
+Date: Fri, 2 May 2014 22:55:55 +0800
+Message-ID: <CAABZP2wG-DnmvAzSapaC1nEyg0ArET93tbz-x3-a71-pLd4ELA@mail.gmail.com>
+References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
+	<20140502151921.014fbeec@redhat.com>
+	<5363A4E0.2000403@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="------------070103090602010402090701"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, Ian Campbell <Ian.Campbell@citrix.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:47166 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991AbaEBOrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 10:47:22 -0400
-In-Reply-To: <653156457.20140502160632@eikelenboom.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	steffen.klassert@secunet.com, fan.du@windriver.com,
+	dborkman@redhat.com, Mathias Krause <minipli@googlemail.com>,
+	tgraf@suug.ch, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5363A4E0.2000403@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---------------070103090602010402090701
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
+Thanks for reviewing
 
-On 02/05/14 15:06, Sander Eikelenboom wrote:
->
-> Friday, May 2, 2014, 4:00:40 PM, you wrote:
->
->>>> Let's see what that does different and if that gives an insight in what is going
->>>> wrong.
+On Fri, May 2, 2014 at 10:00 PM, John Fastabend
+<john.r.fastabend@intel.com> wrote:
+> On 5/2/2014 6:19 AM, Jesper Dangaard Brouer wrote:
+>>
+>> On Fri,  2 May 2014 15:18:12 +0800
+>> Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+>>
+>>> As http://www.spinics.net/lists/netdev/msg165015.html
+>>> pktgen generates shared packet through vlan interface will cause
+>>> oops because of duplicate entering tc queue.
 >>>
->>> The debug patch that i used is attached.
->>> Here is some of the output, skb->data_len size sometimes varies slightly as does skb->truesize (is that allowed to become > 64k ?).
->> Yes, truesize can be over 64K, as it includes the aligned size of the
->> data itself (64k max), struct skbuff and struct shared_info.
->> However my calculation for the truesize might be wrong: I count all the
->> frags as full sized pages (skb->truesize += i * PAGE_SIZE), but the last
->> page is not necessarily used entirely by that frag.
->> I had the idea that truesize should include the size of the whole page
->> as we reserved it with alloc_page for this skb, but it might not be true.
-> Btw. with you "skb->>truesize -= nskb->data_len;" version truesize should
->> end up around 128k, something entirely wrong. Can you try with
-> "skb->>truesize -= nskb->data_len;" in that line?
->> My repro env is underway in the meantime ...
+>>> Try to solve this problem by means of packet clone instead of sharing.
+>>
+>>
+>> I really don't like adding this stuff to the fast path of pktgen.
+
+
+>>
+>> Why would you use pktgen on a VLAN?
+
+I use pktgen on a VLAN under a special circumstance.
+
 >
-> Erhmm i don't get this last part, first you entitle
-> "skb->truesize -= nskb->data_len;" as being "entirely wrong" (which is probably true)
 >
-> Then you want me to try just that ? .. or did you mean something else ?
+> Its a good way to test qdiscs. When you run pktgen over the VLAN
+> you exercise the lower devices qdisc.
+>
+> Although I never submitted a patch like this because I figured it
+> was a corner case and we would want to keep the hotpath clean.
+>
 
-Sorry, I was misleading and wrong. Can you try out this scenario with 
-the attached patch?
-
-Thanks,
-
-Zoli
+I think is_vlan_dev(odev) have great chances to be in a cache line
+that seldom got reset. Could we only judge is_vlan_dev(odev) in my
+first if statement?
 
 
---------------070103090602010402090701
-Content-Type: text/x-patch; name="truesize.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="truesize.patch"
+Also I guess if (nskb && !IS_ERR(nskb)) happens in rarely reached
+cases when the interface is not overload.
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 7666540..c761910 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1365,8 +1365,7 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
- 	vif->tx_frag_overflow++;
- 
- 	xenvif_fill_frags(vif, nskb);
--	/* Subtract frags size, we will correct it later */
--	skb->truesize -= skb->data_len;
-+	skb->truesize += nskb->len;
- 	skb->len += nskb->len;
- 	skb->data_len += nskb->len;
- 
-@@ -1379,7 +1378,6 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
- 		page = alloc_page(GFP_ATOMIC|__GFP_COLD);
- 		if (!page) {
- 			int j;
--			skb->truesize += skb->data_len;
- 			for (j = 0; j < i; j++)
- 				put_page(frags[j].page.p);
- 			return -ENOMEM;
-@@ -1402,7 +1400,6 @@ static int xenvif_handle_frag_list(struct xenvif *vif, struct sk_buff *skb)
- 	       frags,
- 	       i * sizeof(skb_frag_t));
- 	skb_shinfo(skb)->nr_frags = i;
--	skb->truesize += i * PAGE_SIZE;
- 
- 	/* remove traces of mapped pages and frag_list */
- 	skb_frag_list_init(skb);
+>
+>>
+>> Why don't you use the "vlan_id" feature available in pktgen, and send
+>> in the lower real device?
 
---------------070103090602010402090701--
+Could we automatically convert the VLAN device's joining effort to
+real device + vlan_id settings in pkt_dev.
+or could we issue a warning or a suggestion
+when user try to add a VLAN device to the pktgen thread?
+
+>>
+>>
+>>
+>>> Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+>>> ---
+>>>   net/core/pktgen.c |   20 +++++++++++++++++---
+>>>   1 files changed, 17 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+>>> index 0304f98..ced07fc 100644
+>>> --- a/net/core/pktgen.c
+>>> +++ b/net/core/pktgen.c
+>>> @@ -3297,6 +3297,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+>>>         netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
+>>>                 = odev->netdev_ops->ndo_start_xmit;
+>>>         struct netdev_queue *txq;
+>>> +       struct sk_buff *nskb = NULL;
+>>>         u16 queue_map;
+>>>         int ret;
+>>>
+>>> @@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev
+>>> *pkt_dev)
+>>>                 pkt_dev->last_ok = 0;
+>>>                 goto unlock;
+>>>         }
+>>> -       atomic_inc(&(pkt_dev->skb->users));
+>>> -       ret = (*xmit)(pkt_dev->skb, odev);
+>>> +
+>>> +       if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
+>>> +               nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
+>>> +               ret = -ENOMEM;
+>>> +               if (nskb)
+>>> +                       ret = (*xmit)(nskb, odev);
+>>> +               else
+>>> +                       nskb = ERR_PTR(ret);
+>>> +       } else {
+>>> +               atomic_inc(&(pkt_dev->skb->users));
+>>> +               ret = (*xmit)(pkt_dev->skb, odev);
+>>> +       }
+>>>
+>>>         switch (ret) {
+>>>         case NETDEV_TX_OK:
+>>> @@ -3372,7 +3383,10 @@ static void pktgen_xmit(struct pktgen_dev
+>>> *pkt_dev)
+>>>         case NETDEV_TX_LOCKED:
+>>>         case NETDEV_TX_BUSY:
+>>>                 /* Retry it next time */
+>>> -               atomic_dec(&(pkt_dev->skb->users));
+>>> +               if (nskb && !IS_ERR(nskb))
+>>> +                       kfree_skb(nskb);
+>>> +               else
+>>> +                       atomic_dec(&(pkt_dev->skb->users));
+>>>                 pkt_dev->last_ok = 0;
+>>>         }
+>>>   unlock:
+>>
+>>
+>>
+>>
+>
