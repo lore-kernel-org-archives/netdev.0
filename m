@@ -1,38 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: randconfig build error with next-20140502, in
- drivers/net/hyperv/netvsc_drv.c
-Date: Fri, 02 May 2014 15:19:27 -0400 (EDT)
-Message-ID: <20140502.151927.359156056899842119.davem@davemloft.net>
-References: <CA+r1ZhhAdRwEFE3u4E1QQiCSa6Cz5Onhy1iVJHhzB4dUiEOL4g@mail.gmail.com>
- <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Subject: Re: [RFC net-next 0/4] Support UID range routing.
+Date: Fri, 02 May 2014 15:24:41 -0400 (EDT)
+Message-ID: <20140502.152441.695810627123047.davem@davemloft.net>
+References: <20140428.125807.409036177577836732.davem@davemloft.net>
+	<CAKD1Yr1HN4=42JYfe9LYguWukXxNE38vvwLBt-aEeQ-zSisN9Q@mail.gmail.com>
+	<CAKD1Yr0wqj0wG3Ges9NeqMBALO-SxY9KTgZo_sp_8VYKnihKMQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-next@vger.kernel.org, jim.epost@gmail.com, devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: davidn@davidnewall.com, netdev@vger.kernel.org,
+	hannes@stressinduktion.org, jpa@google.com
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36849 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752004AbaEBTYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 15:24:42 -0400
+In-Reply-To: <CAKD1Yr0wqj0wG3Ges9NeqMBALO-SxY9KTgZo_sp_8VYKnihKMQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Fri, 2 May 2014 14:42:06 +0000
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Sat, 3 May 2014 04:15:38 +0900
 
-> real_num_rx_queues is defined in "include/linux/netdevice.h":
-> It requires CONFIG_SYSFS flag, which is enabled by default, but not set in 
-> your config file.
+> On Tue, Apr 29, 2014 at 4:01 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
+>> Basically, what this patch calls "UID" is what the xt_owner module and
+>> xt_LOG iptables modules consider to be the "owner" of a socket, what
+>> nfqueue presents as the user ID, what shows up in
+>> /proc/net/{udp,tcp,raw} in the "uid" column, etc. In most cases this
+>> is the effective UID that made the call to socket() or accept().
+>>
+>> This patch allows using that concept in routing. This can be done
+>> today with "iptables -m owner --uid-owner 12345 -j MARK --set-mark
+>> 0xbeef; ip rule from fwmark 0xbeef lookup 100", but that has the
+>> limitations I set out in my original message (e.g., incorrect source
+>> address).
 > 
-> Could you use default config and add hyperv drivers, then try again?
+> did that help clarify what I'm proposing here? Does this patch still
+> seem misguided to you even though its semantics match existing
+> functionality?
 
-You must fix your driver to compile successfully under all possible
-configuration combinations, not just the ones which are convenient
-for you to support.
+I understand what you're trying to achieve, but it still leaves a very
+bad taste in my mouth.
+
+And I question whether you absolutely cannot get the desired source
+address set with appropriate adjustments to the netfilter config,
+netfilter can mangle the packet any way you desire it to so why can't
+it do so to the source address?
