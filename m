@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [RFC 4/9] net: cdc_ncm: support rx_max/tx_max updates when running
-Date: Fri,  2 May 2014 23:11:51 +0200
-Message-ID: <1399065116-19946-5-git-send-email-bjorn@mork.no>
+Subject: [RFC 9/9] net: cdc_ncm: use sane defaults for rx/tx buffers
+Date: Fri,  2 May 2014 23:11:56 +0200
+Message-ID: <1399065116-19946-10-git-send-email-bjorn@mork.no>
 References: <1399065116-19946-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -16,81 +16,61 @@ In-Reply-To: <1399065116-19946-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.o
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46inish the rx_max/tx_max setup by flushing buffers and
-informing usbnet about the changes.  This way, the settings
-can be modified while the netdev is up and running.
+Lots of devices request much larger buffers than reasonable. This
+cause real problems for users of hosts with limited resources.
+
+Reducing the default buffer size to 16kB for such devices is
+a reasonable trade-off between allowing them to aggregate traffic
+and avoiding memory exhaustion on resource restrained hosts.
 
 Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c | 31 +++++++++++++++++++++++++------
- 1 file changed, 25 insertions(+), 6 deletions(-)
+ drivers/net/usb/cdc_ncm.c   | 12 ++++++++++--
+ include/linux/usb/cdc_ncm.h |  4 ++++
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index ad29cde75f41..466922a8af4d 100644
+index a28c964b35a9..7d315b983e7e 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -82,11 +82,20 @@ static void cdc_ncm_update_rxtx_max(struct usbnet *=
-dev, u32 new_rx, u32 new_tx)
- 			min, max, val);
- 	}
-=20
-+	/* usbnet use these values for sizing rx queues */
-+	dev->rx_urb_size =3D val;
+@@ -480,10 +480,18 @@ static void cdc_ncm_fix_modulus(struct usbnet *de=
+v)
+ static int cdc_ncm_setup(struct usbnet *dev)
+ {
+ 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
++	u32 def_rx, def_tx;
 +
- 	/* inform device about NTB input size changes */
- 	if (val !=3D ctx->rx_max) {
- 		__le32 dwNtbInMaxSize =3D cpu_to_le32(val);
++	/* be conservative when selecting intial buffer size to
++	 * increase the number of hosts this will work for
++	 */
++	def_rx =3D min_t(u32, CDC_NCM_NTB_DEF_SIZE_RX,
++		       le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize));
++	def_tx =3D min_t(u32, CDC_NCM_NTB_DEF_SIZE_TX,
++		       le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize));
 =20
- 		dev_info(&dev->intf->dev, "setting rx_max =3D %u\n", val);
-+
-+		/* need to unlink rx urbs before increasing buffer size */
-+		if (netif_running(dev->net) && dev->rx_urb_size > ctx->rx_max)
-+			usbnet_unlink_rx_urbs(dev);
-+
-+		/* tell device to use new size */
- 		if (usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
- 				     USB_TYPE_CLASS | USB_DIR_OUT
- 				     | USB_RECIP_INTERFACE,
-@@ -110,7 +119,6 @@ static void cdc_ncm_update_rxtx_max(struct usbnet *=
-dev, u32 new_rx, u32 new_tx)
- 	}
- 	if (val !=3D ctx->tx_max)
- 		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
--	ctx->tx_max =3D val;
+ 	/* clamp rx_max and tx_max and inform device */
+-	cdc_ncm_update_rxtx_max(dev, le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize=
+),
+-				le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize));
++		cdc_ncm_update_rxtx_max(dev, def_rx, def_tx);
 =20
- 	/* Adding a pad byte here if necessary simplifies the handling
- 	 * in cdc_ncm_fill_tx_frame, making tx_max always represent
-@@ -119,13 +127,24 @@ static void cdc_ncm_update_rxtx_max(struct usbnet=
- *dev, u32 new_rx, u32 new_tx)
- 	 * We cannot use dev->maxpacket here because this is called from
- 	 * .bind which is called before usbnet sets up dev->maxpacket
- 	 */
--	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
--	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
--		ctx->tx_max++;
-+	if (val !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
-+	    val % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
-+		val++;
-+
-+	/* we might need to flush any pending tx buffers if running */
-+	if (netif_running(dev->net) && val > ctx->tx_max) {
-+		netif_tx_lock_bh(dev->net);
-+		usbnet_start_xmit(NULL, dev->net);
-+		ctx->tx_max =3D val;
-+		netif_tx_unlock_bh(dev->net);
-+	} else {
-+		ctx->tx_max =3D val;
-+	}
+ 	/* sanitize the modulus and remainder values */
+ 	cdc_ncm_fix_modulus(dev);
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 4eeaf6db20c8..1921bdadd9ab 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -52,6 +52,10 @@
+ #define	CDC_NCM_NTB_MAX_SIZE_TX			32768	/* bytes */
+ #define	CDC_NCM_NTB_MAX_SIZE_RX			32768	/* bytes */
 =20
--	/* usbnet use these values for sizing tx/rx queues */
- 	dev->hard_mtu =3D ctx->tx_max;
--	dev->rx_urb_size =3D ctx->rx_max;
++/* Initial NTB length */
++#define	CDC_NCM_NTB_DEF_SIZE_TX			16384	/* bytes */
++#define	CDC_NCM_NTB_DEF_SIZE_RX			16384	/* bytes */
 +
-+	/* max qlen depend on hard_mtu and rx_urb_size */
-+	usbnet_update_max_qlen(dev);
- }
+ /* Minimum value for MaxDatagramSize, ch. 6.2.9 */
+ #define	CDC_NCM_MIN_DATAGRAM_SIZE		1514	/* bytes */
 =20
- /* helpers for NCM and MBIM differences */
 --=20
 2.0.0.rc0
 
