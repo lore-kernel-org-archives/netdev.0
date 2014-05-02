@@ -1,68 +1,68 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: randconfig build error with next-20140502, in
- drivers/net/hyperv/netvsc_drv.c
-Date: Fri, 2 May 2014 15:25:56 +0000
-Message-ID: <9847b18e41ed493daa61a1b5a9c1b7e8@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <CA+r1ZhhAdRwEFE3u4E1QQiCSa6Cz5Onhy1iVJHhzB4dUiEOL4g@mail.gmail.com>
- <91a4eac99889460f91f619385208cbca@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <f49938e3920d4e5e9088ccd1de92f69b@BY2PR03MB299.namprd03.prod.outlook.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [3.15-rc3] Bisected: xen-netback mangles packets
+ between two guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
+ instead of copy" series.
+Date: Fri, 2 May 2014 16:26:33 +0100
+Message-ID: <5363B929.1000502@citrix.com>
+References: <395225650.20140430124506@eikelenboom.it>	 <536162D3.5080307@citrix.com> <94755525.20140501002553@eikelenboom.it>	 <53624E25.8040404@citrix.com> <1810270947.20140501155911@eikelenboom.it>	 <53626C39.3030304@citrix.com> <928229683.20140501193936@eikelenboom.it>	 <198418193.20140501213951@eikelenboom.it> <5363A508.1000602@citrix.com>	 <653156457.20140502160632@eikelenboom.it> <5363AFED.5080601@citrix.com> <1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: KY Srinivasan <kys@microsoft.com>, Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <f49938e3920d4e5e9088ccd1de92f69b@BY2PR03MB299.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sander Eikelenboom <linux@eikelenboom.it>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:41126 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752563AbaEBP0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 May 2014 11:26:36 -0400
+In-Reply-To: <1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogS1kgU3Jpbml2YXNhbg0K
-PiBTZW50OiBGcmlkYXksIE1heSAyLCAyMDE0IDExOjAwIEFNDQo+IFRvOiBIYWl5YW5nIFpoYW5n
-OyBKaW0gRGF2aXM7IFN0ZXBoZW4gUm90aHdlbGw7IGxpbnV4LW5leHQ7IGxpbnV4LWtlcm5lbDsN
-Cj4gZGV2ZWxAbGludXhkcml2ZXJwcm9qZWN0Lm9yZzsgbmV0ZGV2DQo+IFN1YmplY3Q6IFJFOiBy
-YW5kY29uZmlnIGJ1aWxkIGVycm9yIHdpdGggbmV4dC0yMDE0MDUwMiwgaW4NCj4gZHJpdmVycy9u
-ZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiANCj4gDQo+IA0KPiA+IC0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQo+ID4gRnJvbTogSGFpeWFuZyBaaGFuZw0KPiA+IFNlbnQ6IEZyaWRheSwgTWF5
-IDIsIDIwMTQgNzo0MiBBTQ0KPiA+IFRvOiBKaW0gRGF2aXM7IFN0ZXBoZW4gUm90aHdlbGw7IGxp
-bnV4LW5leHQ7IGxpbnV4LWtlcm5lbDsgS1kNCj4gU3Jpbml2YXNhbjsNCj4gPiBkZXZlbEBsaW51
-eGRyaXZlcnByb2plY3Qub3JnOyBuZXRkZXYNCj4gPiBTdWJqZWN0OiBSRTogcmFuZGNvbmZpZyBi
-dWlsZCBlcnJvciB3aXRoIG5leHQtMjAxNDA1MDIsIGluDQo+ID4gZHJpdmVycy9uZXQvaHlwZXJ2
-L25ldHZzY19kcnYuYw0KPiA+DQo+ID4NCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdl
-LS0tLS0NCj4gPiA+IEZyb206IEppbSBEYXZpcyBbbWFpbHRvOmppbS5lcG9zdEBnbWFpbC5jb21d
-DQo+ID4gPiBTZW50OiBGcmlkYXksIE1heSAyLCAyMDE0IDk6NTYgQU0NCj4gPiA+IFRvOiBTdGVw
-aGVuIFJvdGh3ZWxsOyBsaW51eC1uZXh0OyBsaW51eC1rZXJuZWw7IEtZIFNyaW5pdmFzYW47DQo+
-IEhhaXlhbmcNCj4gPiA+IFpoYW5nOyBkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnOyBuZXRk
-ZXYNCj4gPiA+IFN1YmplY3Q6IHJhbmRjb25maWcgYnVpbGQgZXJyb3Igd2l0aCBuZXh0LTIwMTQw
-NTAyLCBpbg0KPiA+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+ID4NCj4g
-PiA+IEJ1aWxkaW5nIHdpdGggdGhlIGF0dGFjaGVkIHJhbmRvbSBjb25maWd1cmF0aW9uIGZpbGUs
-DQo+ID4gPg0KPiA+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYzogSW4gZnVuY3Rp
-b24g4oCYbmV0dnNjX3JlY3ZfY2FsbGJhY2vigJk6DQo+ID4gPiBkcml2ZXJzL25ldC9oeXBlcnYv
-bmV0dnNjX2Rydi5jOjY0ODoxMTogZXJyb3I6IOKAmHN0cnVjdCBuZXRfZGV2aWNl4oCZDQo+IGhh
-cw0KPiA+ID4gbm8gbWVtYmVyICBuYW1lZCDigJhyZWFsX251bV9yeF9xdWV1ZXPigJkNCj4gPiA+
-ICAgICAgICAgbmV0LT5yZWFsX251bV9yeF9xdWV1ZXMpOw0KPiA+ID4gICAgICAgICAgICBeDQo+
-ID4gPiBJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYu
-YzoyNjowOg0KPiA+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYzogSW4gZnVuY3Rp
-b24g4oCYbmV0dnNjX3Byb2Jl4oCZOg0KPiA+ID4gZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19k
-cnYuYzo4MzI6MzI6IGVycm9yOiDigJhzdHJ1Y3QgbmV0X2RldmljZeKAmQ0KPiBoYXMNCj4gPiA+
-IG5vIG1lbWJlciBuYW1lZCDigJhyZWFsX251bV9yeF9xdWV1ZXPigJkNCj4gPiA+ICAgICBuZXQt
-PnJlYWxfbnVtX3R4X3F1ZXVlcywgbmV0LT5yZWFsX251bV9yeF9xdWV1ZXMpOw0KPiA+ID4gICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBeDQo+ID4gPiBpbmNsdWRlL2xpbnV4L2Rldmlj
-ZS5oOjEwODA6NTg6IG5vdGU6IGluIGRlZmluaXRpb24gb2YgbWFjcm8NCj4g4oCYZGV2X2luZm/i
-gJkNCj4gPiA+ICAjZGVmaW5lIGRldl9pbmZvKGRldiwgZm10LCBhcmcuLi4pIF9kZXZfaW5mbyhk
-ZXYsIGZtdCwgIyNhcmcpDQo+ID4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgXg0KPiA+ID4gbWFrZVszXTogKioqIFtkcml2ZXJzL25l
-dC9oeXBlcnYvbmV0dnNjX2Rydi5vXSBFcnJvciAxDQo+ID4NCj4gPiByZWFsX251bV9yeF9xdWV1
-ZXMgaXMgZGVmaW5lZCBpbiAiaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCI6DQo+ID4gSXQgcmVx
-dWlyZXMgQ09ORklHX1NZU0ZTIGZsYWcsIHdoaWNoIGlzIGVuYWJsZWQgYnkgZGVmYXVsdCwgYnV0
-IG5vdA0KPiBzZXQgaW4NCj4gPiB5b3VyIGNvbmZpZyBmaWxlLg0KPiA+DQo+ID4gQ291bGQgeW91
-IHVzZSBkZWZhdWx0IGNvbmZpZyBhbmQgYWRkIGh5cGVydiBkcml2ZXJzLCB0aGVuIHRyeSBhZ2Fp
-bj8NCj4gDQo+IEhhaXlhbmcsDQo+IA0KPiBUaGF0IGlzIHRoZSBwb2ludCAtIHRoZSBjb2RlIG11
-c3QgY29tcGlsZSBjb3JyZWN0bHkgZm9yIGFsbCBwb3NzaWJsZQ0KPiBjb25maWd1cmF0aW9ucy4N
-Cj4gWW91IHdpbGwgd2FudCB0byBwcm90ZWN0IHRoZSBkZXBlbmRlbmNpZXMgYXBwcm9wcmlhdGVs
-eS4NCj4gDQpPSywgSSdsbCBsb29rIGludG8gdGhpcy4NCg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoN
-Cg==
+On 02/05/14 16:21, Eric Dumazet wrote:
+> On Fri, 2014-05-02 at 15:47 +0100, Zoltan Kiss wrote:
+>
+>> Sorry, I was misleading and wrong. Can you try out this scenario with
+>> the attached patch?
+>
+> Guys, I already told you skb->truesize 'mismatch' could not explain
+> packet corruptions. This comes from an expert in this matter, you can
+> trust me.
+>
+> What could happens here is that TCP stack merges skbs (TCP coalescing)
+These packets shouldn't reach Dom0's TCP stack at all, 
+bridge/openvswitch grabs them before. And in the sending/receiving guest 
+these skbs don't have this flag.
+However generally it is possible that a guest talks directly to Dom0, in 
+which case your proposed fix could be valid.
+>
+> Problem is that SKBTX_DEV_ZEROCOPY addition did not take care of this.
+>
+> We have to forbid these merges from happening, because one skb has a
+> single destructor_arg.
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 1b62343f5837..85995a14aafc 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -3838,7 +3839,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+>   		return true;
+>   	}
+>
+> -	if (skb_has_frag_list(to) || skb_has_frag_list(from))
+> +	if (skb_has_frag_list(to) ||
+> +	    skb_has_frag_list(from) ||
+> +	    (skb_shinfo(to)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
+> +	    (skb_shinfo(from)->tx_flags & SKBTX_DEV_ZEROCOPY))
+>   		return false;
+>
+>   	if (skb_headlen(from) != 0) {
+>
+>
+>
+>
+>
+>
