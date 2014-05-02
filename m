@@ -1,57 +1,60 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH] Altera TSE: ALTERA_TSE should depend on HAS_DMA
-Date: Fri,  2 May 2014 06:29:21 +0200
-Message-ID: <1399004962-19530-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Vince Bridgers <vbridgers2013@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from michel.telenet-ops.be ([195.130.137.88]:42332 "EHLO
-	michel.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750747AbaEBE3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 00:29:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: George Cherian <george.cherian-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2 0/6] Add CPTS support for AM437x
+Date: Fri, 2 May 2014 12:01:58 +0530
+Message-ID: <1399012324-20737-1-git-send-email-george.cherian@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>, <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>, <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	<bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <zonque-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <balbi-l0cyMroinI0@public.gmane.org>,
+	<mugunthanvnm-l0cyMroinI0@public.gmane.org>, <george.cherian-l0cyMroinI0@public.gmane.org>, <t-kristo-l0cyMroinI0@public.gmane.org>,
+	<mturquette-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	<galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	<tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>, <bcousson-rdvid1DuHRBWk0Htik3J/w@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If NO_DMA=y:
+The series adds CPTS support for AM4372.
 
-drivers/built-in.o: In function `altera_tse_probe':
-altera_tse_main.c:(.text+0x25ec2e): undefined reference to `dma_set_mask'
-altera_tse_main.c:(.text+0x25ec78): undefined reference to `dma_supported'
-altera_tse_main.c:(.text+0x25ecb6): undefined reference to `dma_supported'
-drivers/built-in.o: In function `sgdma_async_read':
-altera_sgdma.c:(.text+0x25f620): undefined reference to `dma_sync_single_for_cpu'
-drivers/built-in.o: In function `sgdma_uninitialize':
-(.text+0x25f678): undefined reference to `dma_unmap_single'
-drivers/built-in.o: In function `sgdma_uninitialize':
-(.text+0x25f696): undefined reference to `dma_unmap_single'
-drivers/built-in.o: In function `sgdma_initialize':
-(.text+0x25f6f0): undefined reference to `dma_map_single'
-drivers/built-in.o: In function `sgdma_initialize':
-(.text+0x25f702): undefined reference to `dma_mapping_error'
-drivers/built-in.o: In function `sgdma_tx_buffer':
-(.text+0x25f92a): undefined reference to `dma_sync_single_for_cpu'
-drivers/built-in.o: In function `sgdma_rx_status':
-(.text+0x25fa24): undefined reference to `dma_sync_single_for_cpu'
-make[3]: *** [vmlinux] Error 1
+Patch 1 - DT changes w.r.t clock changes for AM33xx.
+Patch 2 - CPTS clock name harcoding in the driver is removed. 
+	  Easier to pass the clock name from dt rather than hardcoding in driver.
+	  Also in prepration for DRA7x CPTS support.
+Patch 3 - Enable the CPTS support for both DRA7x and AM4372 in the driver.
+Patch 4 - Enable the Annexe F for L2 PTP for AM437x and DRA7x.
+Patch 5 - Change the default clocksource to dpll_core_m5 
+Patch 6 - DT changes for AM4372.
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/net/ethernet/altera/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/altera/Kconfig b/drivers/net/ethernet/altera/Kconfig
-index 80c1ab74a4b8..fdddba51473e 100644
---- a/drivers/net/ethernet/altera/Kconfig
-+++ b/drivers/net/ethernet/altera/Kconfig
-@@ -1,5 +1,6 @@
- config ALTERA_TSE
- 	tristate "Altera Triple-Speed Ethernet MAC support"
-+	depends on HAS_DMA
- 	select PHYLIB
- 	---help---
- 	  This driver supports the Altera Triple-Speed (TSE) Ethernet MAC.
+v1 -> v2
+	Patch 1 and 2 Re-ordering.
+	Seperate TS_BITS define for Hw version V2 and V3
+
+George Cherian (6):
+  ARM: dts: am33xx: Add clock names for cpsw and cpts
+  drivers: net: cpts: Remove hardcoded clock name for CPTS
+  drivers: net: cpsw: Enable CPTS for DRA7xx and AM4372
+  drivers: net: cpsw: Enable Annexe F Time sync
+  ARM: AM43xx: clk: Change the cpts ref clock source to dpll_core_m5 clk
+  ARM: dts: am4372: Add clock names for cpsw and cpts
+
+ arch/arm/boot/dts/am33xx.dtsi  |  2 ++
+ arch/arm/boot/dts/am4372.dtsi  |  2 ++
+ drivers/clk/ti/clk-43xx.c      | 16 ++++++++++++
+ drivers/net/ethernet/ti/cpsw.c | 56 +++++++++++++++++++++++++++++++-----------
+ drivers/net/ethernet/ti/cpts.c | 11 +++------
+ 5 files changed, 66 insertions(+), 21 deletions(-)
+
 -- 
-1.7.9.5
+1.8.3.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
