@@ -1,39 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: via-rhine: Drop revision property, use quirks
- instead
-Date: Fri, 02 May 2014 15:56:35 -0400 (EDT)
-Message-ID: <20140502.155635.1691085402453175737.davem@davemloft.net>
-References: <1398859589-22346-1-git-send-email-alchark@gmail.com>
-	<1398882069-28872-1-git-send-email-alchark@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3 0/2] net/phy: micrel: Add DT configuration support
+ and
+Date: Fri, 02 May 2014 15:58:13 -0400 (EDT)
+Message-ID: <20140502.155813.1370156727988237449.davem@davemloft.net>
+References: <1398764005-23855-1-git-send-email-hchaumette@adeneo-embedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: rl@hellgate.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David.Laight@ACULAB.COM, mq@suse.cz
-To: alchark@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37011 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750813AbaEBT4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 15:56:37 -0400
-In-Reply-To: <1398882069-28872-1-git-send-email-alchark@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, xobs-nXMMniAx+RbQT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: hchaumette-HH5893ap9ioXz/+GnIZSFEEOCMrvLtNR@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1398764005-23855-1-git-send-email-hchaumette-HH5893ap9ioXz/+GnIZSFEEOCMrvLtNR@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGV5IENoYXJrb3YgPGFsY2hhcmtAZ21haWwuY29tPg0KRGF0ZTogV2VkLCAzMCBB
-cHIgMjAxNCAyMjoyMTowOSArMDQwMA0KDQo+IFRoaXMgYWRkcyB0d28gbmV3IGZsYWdzIHRvIHF1
-aXJrcyBhbmQgdGh1cyByZW1vdmVzIHRoZSBuZWVkIHRvIGNhcnJ5DQo+IHJldmlzaW9uIGluIHJo
-aW5lX3ByaXZhdGUuIEFzIGEgcmVzdWx0LCB0aGUgaW5pdCBsb2dpYyBpcyBzaW1wbGlmaWVkDQo+
-IGEgYml0Lg0KPiANCj4gVGhpcyBhbHNvIGZpeGVzIGEgY29tcGlsZXIgd2FybmluZyBpbiBPRiBj
-b2RlIG9uIDY0Yml0IGR1ZSB0byBwb2ludGVyDQo+IGNhc3Rpbmc6DQo+IA0KPiAgICAgICAgIGRy
-aXZlcnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtcmhpbmUuYzogSW4gZnVuY3Rpb24goXJoaW5lX2lu
-aXRfb25lX3BsYXRmb3JtojoNCj4gICAgICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC92aWEvdmlh
-LXJoaW5lLmM6MTEzMjoxMzogd2FybmluZzogY2FzdCBmcm9tIHBvaW50ZXIgdG8gaW50ZWdlciBv
-ZiBkaWZmZXJlbnQgc2l6ZSBbLVdwb2ludGVyLXRvLWludC1jYXN0XQ0KPiAgICAgICAgICAgcmV2
-aXNpb24gPSAodTMyKW1hdGNoLT5kYXRhOw0KPiAgICAgICAgICAgICAgICAgICAgICBeDQo+IA0K
-PiBUaGF0IGNvZGUgd2FzIGFkZGVkIGluIGNvbW1pdCAyZDI4Mzg2MmRjNjJkYWVhZDlkYjBkYzg5
-Y2QwZDAzNTFlOTFmNzY1DQo+ICgibmV0OiB2aWEtcmhpbmU6IGFkZCBPRiBidXMgYmluZGluZyIp
-Lg0KPiANCj4gVGVzdGVkIGluIHBsYXRmb3JtIGNvbmZpZ3VyYXRpb24gb24gYSBWSUEgV004OTUw
-IEFQQyBSb2NrIGJvYXJkLg0KPiANCj4gUmVwb3J0ZWQtYnk6IEphbiBNb3NreXRvIE1hdGVqa2Eg
-PG1xQHN1c2UuY3o+DQo+IFNpZ25lZC1vZmYtYnk6IEFsZXhleSBDaGFya292IDxhbGNoYXJrQGdt
-YWlsLmNvbT4NCg0KVGhpcyBsb29rcyBhIGxvdCBiZXR0ZXIsIGFwcGxpZWQsIHRoYW5rcy4NCg==
+From: Hubert Chaumette <hchaumette-HH5893ap9ioXz/+GnIZSFEEOCMrvLtNR@public.gmane.org>
+Date: Tue, 29 Apr 2014 11:33:23 +0200
+
+>  - Adds DT configuration support for ksz9031
+>  - Renames micrel-ksz9021.txt to micrel-ksz90x1.txt and adds ksz9031 binding
+>    documentation
+> 
+> Changes since v2:
+>  - Merged together ksz9031_load_{clk,data,ctrl}_skew_values()
+>  - Added field length and number of fields prameter to account for registers
+>   specificities
+>  - Added binding documentation
+
+These patches do not apply cleanly to net-next, please respin.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
