@@ -1,30 +1,72 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] ip: add nlmon as a device type to help message
-Date: Fri, 02 May 2014 08:45:18 +0200
-Message-ID: <53633EFE.6050105@redhat.com>
-References: <1398998087-4242-1-git-send-email-yamato@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Masatake YAMATO <yamato@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63940 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750841AbaEBGpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 May 2014 02:45:22 -0400
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s426jKoV009682
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 2 May 2014 02:45:21 -0400
-In-Reply-To: <1398998087-4242-1-git-send-email-yamato@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH] netdev: pktgen xmit packet through vlan interface
+Date: Fri,  2 May 2014 15:18:12 +0800
+Message-ID: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
+Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: <davem@davemloft.net>, <steffen.klassert@secunet.com>,
+	<fan.du@windriver.com>, <dborkman@redhat.com>,
+	<minipli@googlemail.com>, <tgraf@suug.ch>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/02/2014 04:34 AM, Masatake YAMATO wrote:
-> Though nlmon device can be added, it was not listed
-> in the output of "ip link help".
->
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+As http://www.spinics.net/lists/netdev/msg165015.html
+pktgen generates shared packet through vlan interface will cause
+oops because of duplicate entering tc queue.
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Try to solve this problem by means of packet clone instead of sharing.
+
+Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+---
+ net/core/pktgen.c |   20 +++++++++++++++++---
+ 1 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 0304f98..ced07fc 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3297,6 +3297,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
+ 		= odev->netdev_ops->ndo_start_xmit;
+ 	struct netdev_queue *txq;
++	struct sk_buff *nskb = NULL;
+ 	u16 queue_map;
+ 	int ret;
+ 
+@@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 		pkt_dev->last_ok = 0;
+ 		goto unlock;
+ 	}
+-	atomic_inc(&(pkt_dev->skb->users));
+-	ret = (*xmit)(pkt_dev->skb, odev);
++
++	if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
++		nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
++		ret = -ENOMEM;
++		if (nskb)
++			ret = (*xmit)(nskb, odev);
++		else
++			nskb = ERR_PTR(ret);
++	} else {
++		atomic_inc(&(pkt_dev->skb->users));
++		ret = (*xmit)(pkt_dev->skb, odev);
++	}
+ 
+ 	switch (ret) {
+ 	case NETDEV_TX_OK:
+@@ -3372,7 +3383,10 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	case NETDEV_TX_LOCKED:
+ 	case NETDEV_TX_BUSY:
+ 		/* Retry it next time */
+-		atomic_dec(&(pkt_dev->skb->users));
++		if (nskb && !IS_ERR(nskb))
++			kfree_skb(nskb);
++		else
++			atomic_dec(&(pkt_dev->skb->users));
+ 		pkt_dev->last_ok = 0;
+ 	}
+ unlock:
+-- 
+1.7.1
