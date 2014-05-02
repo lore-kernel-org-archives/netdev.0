@@ -1,46 +1,37 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: Connecting to sockets on MNT_READONLY mounts?
-Date: Fri, 2 May 2014 01:56:59 +0100
-Message-ID: <20140502005659.GF18016@ZenIV.linux.org.uk>
-References: <CALCETrUXbS4BMWMd0XXgFqyvmpu+WML840_mzbPiov8WmaA=Xw@mail.gmail.com>
- <20140501223432.GD18016@ZenIV.linux.org.uk>
- <CALCETrXaXsVxaT3TH-CC8DKyDU7k=i9Y5PqBqaSDnH+2rr5E2A@mail.gmail.com>
- <20140501235135.GE18016@ZenIV.linux.org.uk>
- <CALCETrXhVKq33-KWLMVxPtCZgHddKsxCOQX9F-LGerXsCrLH5Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrXhVKq33-KWLMVxPtCZgHddKsxCOQX9F-LGerXsCrLH5Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH] ip: add nlmon as a device type to help message
+Date: Fri,  2 May 2014 11:34:47 +0900
+Message-ID: <1398998087-4242-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750798AbaEBCex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 May 2014 22:34:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 01, 2014 at 04:57:13PM -0700, Andy Lutomirski wrote:
+Though nlmon device can be added, it was not listed
+in the output of "ip link help".
 
-> Suppose I bind-mount /usr into a private namespace with
-> nosuid,nodev,ro.  How can you use it to attack anything?  The only
-> thing I've thought of is to open fifos and connect to sockets.  I'm
-> assuming that there's a pid namespace blocking ptrace and such and a
-> network namespace blocking abstract sockets.
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ ip/iplink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-How many FIFOs and sockets are there in your /usr?  Here all I see
-outside of /dev, /run and /tmp (across seven boxen; I can check more, but
-I really doubt it'll catch anything) is the grand total of 4:
-/lib/cryptsetup/passfifo
-/var/lib/oprofile/opd_pipe
-/var/lib/nfs/rpc_pipefs/nfs/clnt0/idmap
-/var/lib/nfs/rpc_pipefs/gssd/clntXX/gssd
-
-None of those in /usr and I don't believe that you seriously propose to
-bind e.g. /lib/cryptsetup into your sandbox.  And while we are at it,
-exposing host /usr is *not* a good idea - if nothing else, it gives
-quite a bit of information about the versions of software installed on
-the host.  Ability to watch atime of /usr/bin/* also might be interesting,
-etc.
-
-Do you, by any chance, plan to expose the host /tmp or /run?  Or
-rpc_pipefs, for that matter...
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 6a62cc0..8e0c22a 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -87,7 +87,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          can | bridge | bond | ipoib | ip6tnl | ipip | sit |\n");
+-		fprintf(stderr, "          vxlan | gre | gretap | ip6gre | ip6gretap | vti }\n");
++		fprintf(stderr, "          vxlan | gre | gretap | ip6gre | ip6gretap | vti | nlmon }\n");
+ 	}
+ 	exit(-1);
+ }
+-- 
+1.9.0
