@@ -1,257 +1,119 @@
-From: Alexey Charkov <alchark@gmail.com>
-Subject: [PATCH] net: via-rhine: Convert #ifdef USE_MMIO to a runtime flag
-Date: Sat,  3 May 2014 16:40:53 +0400
-Message-ID: <1399120853-26967-1-git-send-email-alchark@gmail.com>
-References: <20140502.155635.1691085402453175737.davem@davemloft.net>
-Cc: Alexey Charkov <alchark@gmail.com>
-To: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	fengguang.wu@intel.com
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net,stable v2] net: cdc_mbim: __vlan_find_dev_deep need rcu_read_lock
+Date: Sat,  3 May 2014 16:12:47 +0200
+Message-ID: <1399126367-27827-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Greg Suarez <gsuarez@smithmicro.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:60255 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbaECMm0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 08:42:26 -0400
-In-Reply-To: <20140502.155635.1691085402453175737.davem@davemloft.net>
+Received: from canardo.mork.no ([148.122.252.1]:39699 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751148AbaECONH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 May 2014 10:13:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This introduces another flag in 'quirks' to replace the preprocessor
-define (USE_MMIO) used to indicate whether the device needs a
-separate enable routine to operate in MMIO mode.
+=46ixes this warning introduced by commit 5b8f15f78e6f
+("net: cdc_mbim: handle IPv6 Neigbor Solicitations"):
 
-All of the currently known platform Rhine cores operate in MMIO
-mode by default, and on PCI it is preferred over PIO for performance
-reasons. However, a comment in code suggests that some (?) early
-Rhine cores only work in PIO mode, so they should not be switched
-to MMIO.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+[ INFO: suspicious RCU usage. ]
+3.15.0-rc3 #213 Tainted: G        W  O
+-------------------------------
+net/8021q/vlan_core.c:69 suspicious rcu_dereference_check() usage!
 
-Enabling MMIO on PCI is still triggered by the same Kconfig option
-to avoid breaking user configs needlessly, but this can be changed
-going forward towards automatic runtime detection in case a list of
-PIO-only Rhine revisions can be compiled.
+other info that might help us debug this:
 
-This also fixes a couple of compiler warnings detected by Fengguang
-Wu's test bot (!USE_MMIO case):
+rcu_scheduler_active =3D 1, debug_locks =3D 1
+no locks held by ksoftirqd/0/3.
 
-   drivers/net/ethernet/via/via-rhine.c: In function 'rhine_init_one_pci':
-   drivers/net/ethernet/via/via-rhine.c:1108:1: warning: label 'err_out_unmap' defined but not used [-Wunused-label]
-    err_out_unmap:
-    ^
-   drivers/net/ethernet/via/via-rhine.c:1022:6: warning: unused variable 'i' [-Wunused-variable]
-     int i, rc;
-         ^
-   drivers/net/ethernet/via/via-rhine.c:916:22: warning: 'quirks' may be used uninitialized in this function [-Wmaybe-uninitialized]
-     phy_id = rp->quirks & rqIntPHY ? 1 : 0;
-                         ^
-   drivers/net/ethernet/via/via-rhine.c:1026:6: note: 'quirks' was declared here
-     u32 quirks;
-         ^
+stack backtrace:
+CPU: 0 PID: 3 Comm: ksoftirqd/0 Tainted: G        W  O  3.15.0-rc3 #213
+Hardware name: LENOVO 2776LEG/2776LEG, BIOS 6EET55WW (3.15 ) 12/19/2011
+ 0000000000000001 ffff880232533bf0 ffffffff813a5ee6 0000000000000006
+ ffff880232530090 ffff880232533c20 ffffffff81076b94 0000000000000081
+ 0000000000000000 ffff8802085ac000 ffff88007fc8ea00 ffff880232533c50
+Call Trace:
+ [<ffffffff813a5ee6>] dump_stack+0x4e/0x68
+ [<ffffffff81076b94>] lockdep_rcu_suspicious+0xfa/0x103
+ [<ffffffff813978a6>] __vlan_find_dev_deep+0x54/0x94
+ [<ffffffffa04a1938>] cdc_mbim_rx_fixup+0x379/0x66a [cdc_mbim]
+ [<ffffffff813ab76f>] ? _raw_spin_unlock_irqrestore+0x3a/0x49
+ [<ffffffff81079671>] ? trace_hardirqs_on_caller+0x192/0x1a1
+ [<ffffffffa059bd10>] usbnet_bh+0x59/0x287 [usbnet]
+ [<ffffffff8104067d>] tasklet_action+0xbb/0xcd
+ [<ffffffff81040057>] __do_softirq+0x14c/0x30d
+ [<ffffffff81040237>] run_ksoftirqd+0x1f/0x50
+ [<ffffffff8105f13e>] smpboot_thread_fn+0x172/0x18e
+ [<ffffffff8105efcc>] ? SyS_setgroups+0xdf/0xdf
+ [<ffffffff810594b0>] kthread+0xb5/0xbd
+ [<ffffffff813a84b1>] ? __wait_for_common+0x13b/0x170
+ [<ffffffff810593fb>] ? __kthread_parkme+0x5c/0x5c
+ [<ffffffff813b147c>] ret_from_fork+0x7c/0xb0
+ [<ffffffff810593fb>] ? __kthread_parkme+0x5c/0x5c
 
-Signed-off-by: Alexey Charkov <alchark@gmail.com>
+=46ixes: 5b8f15f78e6f ("net: cdc_mbim: handle IPv6 Neigbor Solicitation=
+s")
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/ethernet/via/via-rhine.c | 102 +++++++++++++++++++----------------
- 1 file changed, 55 insertions(+), 47 deletions(-)
+v2: get a ref to the netdev before releasing the lock.  Thanks to Eric =
+Dumazet
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 13cfcce..981be015 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -120,13 +120,6 @@ static const int multicast_filter_limit = 32;
- static const char version[] =
- 	"v1.10-LK" DRV_VERSION " " DRV_RELDATE " Written by Donald Becker";
- 
--/* This driver was written to use PCI memory space. Some early versions
--   of the Rhine may only work correctly with I/O space accesses. */
--#ifdef CONFIG_VIA_RHINE_MMIO
--#define USE_MMIO
--#else
--#endif
--
- MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
- MODULE_DESCRIPTION("VIA Rhine PCI Fast Ethernet driver");
- MODULE_LICENSE("GPL");
-@@ -266,6 +259,10 @@ enum rhine_quirks {
- 	rqRhineI	= 0x0100,	/* See comment below */
- 	rqIntPHY	= 0x0200,	/* Integrated PHY */
- 	rqMgmt		= 0x0400,	/* Management adapter */
-+	rqNeedEnMMIO	= 0x0800,	/* Whether the core needs to be
-+					 * switched from PIO mode to MMIO
-+					 * (only applies to PCI)
-+					 */
- };
- /*
-  * rqRhineI: VT86C100A (aka Rhine-I) uses different bits to enable
-@@ -353,13 +350,11 @@ enum bcr1_bits {
- 	BCR1_MED1=0x80,		/* for VT6102 */
- };
- 
--#ifdef USE_MMIO
- /* Registers we check that mmio and reg are the same. */
- static const int mmio_verify_registers[] = {
- 	RxConfig, TxConfig, IntrEnable, ConfigA, ConfigB, ConfigC, ConfigD,
- 	0
- };
--#endif
- 
- /* Bits in the interrupt status/mask registers. */
- enum intr_status_bits {
-@@ -664,20 +659,46 @@ static void rhine_chip_reset(struct net_device *dev)
- 		   "failed" : "succeeded");
- }
- 
--#ifdef USE_MMIO
- static void enable_mmio(long pioaddr, u32 quirks)
- {
- 	int n;
--	if (quirks & rqRhineI) {
--		/* More recent docs say that this bit is reserved ... */
--		n = inb(pioaddr + ConfigA) | 0x20;
--		outb(n, pioaddr + ConfigA);
--	} else {
--		n = inb(pioaddr + ConfigD) | 0x80;
--		outb(n, pioaddr + ConfigD);
-+
-+	if (quirks & rqNeedEnMMIO) {
-+		if (quirks & rqRhineI) {
-+			/* More recent docs say that this bit is reserved */
-+			n = inb(pioaddr + ConfigA) | 0x20;
-+			outb(n, pioaddr + ConfigA);
-+		} else {
-+			n = inb(pioaddr + ConfigD) | 0x80;
-+			outb(n, pioaddr + ConfigD);
+Please add this to the stable v3.13 and v3.14 queues as well.  Thanks.
+
+
+ drivers/net/usb/cdc_mbim.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index c9f3281506af..13f7705fd679 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -204,17 +204,23 @@ static void do_neigh_solicit(struct usbnet *dev, =
+u8 *buf, u16 tci)
+ 		return;
+=20
+ 	/* need to send the NA on the VLAN dev, if any */
+-	if (tci)
++	rcu_read_lock();
++	if (tci) {
+ 		netdev =3D __vlan_find_dev_deep(dev->net, htons(ETH_P_8021Q),
+ 					      tci);
+-	else
++		if (!netdev) {
++			rcu_read_unlock();
++			return;
 +		}
- 	}
- }
--#endif
-+
-+static inline int verify_mmio(struct device *hwdev,
-+			      long pioaddr,
-+			      void __iomem *ioaddr,
-+			      u32 quirks)
-+{
-+	if (quirks & rqNeedEnMMIO) {
-+		int i = 0;
-+
-+		/* Check that selected MMIO registers match the PIO ones */
-+		while (mmio_verify_registers[i]) {
-+			int reg = mmio_verify_registers[i++];
-+			unsigned char a = inb(pioaddr+reg);
-+			unsigned char b = readb(ioaddr+reg);
-+
-+			if (a != b) {
-+				dev_err(hwdev,
-+					"MMIO do not match PIO [%02x] (%02x != %02x)\n",
-+					reg, a, b);
-+				return -EIO;
-+			}
-+		}
++	} else {
+ 		netdev =3D dev->net;
+-	if (!netdev)
+-		return;
 +	}
-+	return 0;
-+}
- 
- /*
-  * Loads bytes 0x00-0x05, 0x6E-0x6F, 0x78-0x7B from EEPROM
-@@ -697,14 +718,12 @@ static void rhine_reload_eeprom(long pioaddr, struct net_device *dev)
- 	if (i > 512)
- 		pr_info("%4d cycles used @ %s:%d\n", i, __func__, __LINE__);
- 
--#ifdef USE_MMIO
- 	/*
- 	 * Reloading from EEPROM overwrites ConfigA-D, so we must re-enable
- 	 * MMIO. If reloading EEPROM was done first this could be avoided, but
- 	 * it is not known if that still works with the "win98-reboot" problem.
- 	 */
- 	enable_mmio(pioaddr, rp->quirks);
--#endif
- 
- 	/* Turn off EEPROM-controlled wake-up (magic packet) */
- 	if (rp->quirks & rqWOL)
-@@ -1019,15 +1038,20 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
- 			      const struct pci_device_id *ent)
- {
- 	struct device *hwdev = &pdev->dev;
--	int i, rc;
-+	int rc;
- 	long pioaddr, memaddr;
- 	void __iomem *ioaddr;
- 	int io_size = pdev->revision < VTunknown0 ? 128 : 256;
--	u32 quirks;
--#ifdef USE_MMIO
--	int bar = 1;
-+
-+/* This driver was written to use PCI memory space. Some early versions
-+ * of the Rhine may only work correctly with I/O space accesses.
-+ * TODO: determine for which revisions this is true and assign the flag
-+ *	 in code as opposed to this Kconfig option (???)
-+ */
-+#ifdef CONFIG_VIA_RHINE_MMIO
-+	u32 quirks = rqNeedEnMMIO;
- #else
--	int bar = 0;
-+	u32 quirks = 0;
- #endif
- 
- /* when built into the kernel, we only print version if device is found */
-@@ -1040,9 +1064,9 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
- 		goto err_out;
- 
- 	if (pdev->revision < VTunknown0) {
--		quirks = rqRhineI;
-+		quirks |= rqRhineI;
- 	} else if (pdev->revision >= VT6102) {
--		quirks = rqWOL | rqForceReset;
-+		quirks |= rqWOL | rqForceReset;
- 		if (pdev->revision < VT6105) {
- 			quirks |= rqStatusWBRace;
- 		} else {
-@@ -1071,7 +1095,7 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
- 	if (rc)
- 		goto err_out_pci_disable;
- 
--	ioaddr = pci_iomap(pdev, bar, io_size);
-+	ioaddr = pci_iomap(pdev, (quirks & rqNeedEnMMIO ? 1 : 0), io_size);
- 	if (!ioaddr) {
- 		rc = -EIO;
- 		dev_err(hwdev,
-@@ -1080,25 +1104,11 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
- 		goto err_out_free_res;
- 	}
- 
--#ifdef USE_MMIO
- 	enable_mmio(pioaddr, quirks);
- 
--	/* Check that selected MMIO registers match the PIO ones */
--	i = 0;
--	while (mmio_verify_registers[i]) {
--		int reg = mmio_verify_registers[i++];
--		unsigned char a = inb(pioaddr+reg);
--		unsigned char b = readb(ioaddr+reg);
--
--		if (a != b) {
--			rc = -EIO;
--			dev_err(hwdev,
--				"MMIO do not match PIO [%02x] (%02x != %02x)\n",
--				reg, a, b);
--			goto err_out_unmap;
--		}
--	}
--#endif /* USE_MMIO */
-+	rc = verify_mmio(hwdev, pioaddr, ioaddr, quirks);
-+	if (rc)
-+		goto err_out_unmap;
- 
- 	rc = rhine_init_one_common(&pdev->dev, quirks,
- 				   pioaddr, ioaddr, pdev->irq);
-@@ -2458,9 +2468,7 @@ static int rhine_resume(struct device *device)
- 	if (!netif_running(dev))
- 		return 0;
- 
--#ifdef USE_MMIO
- 	enable_mmio(rp->pioaddr, rp->quirks);
--#endif
- 	rhine_power_init(dev);
- 	free_tbufs(dev);
- 	free_rbufs(dev);
--- 
-1.9.1
++	dev_hold(netdev);
++	rcu_read_unlock();
+=20
+ 	in6_dev =3D in6_dev_get(netdev);
+ 	if (!in6_dev)
+-		return;
++		goto out;
+ 	is_router =3D !!in6_dev->cnf.forwarding;
+ 	in6_dev_put(in6_dev);
+=20
+@@ -224,6 +230,8 @@ static void do_neigh_solicit(struct usbnet *dev, u8=
+ *buf, u16 tci)
+ 				 true /* solicited */,
+ 				 false /* override */,
+ 				 true /* inc_opt */);
++out:
++	dev_put(netdev);
+ }
+=20
+ static bool is_neigh_solicit(u8 *buf, size_t len)
+--=20
+2.0.0.rc0
