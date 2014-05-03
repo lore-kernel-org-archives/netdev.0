@@ -1,93 +1,66 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn: hisax: clean up some indenting
-Date: Sat, 3 May 2014 23:20:12 +0300
-Message-ID: <20140503202012.GC32753@mwanda>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 2/2] net: systemport: pad packets to a minimum
+ of 64 bytes
+Date: Sat, 03 May 2014 21:46:51 +0100
+Message-ID: <1399150011.24523.72.camel@deadeye.wl.decadent.org.uk>
+References: <1399141874-12003-1-git-send-email-f.fainelli@gmail.com>
+	 <1399141874-12003-3-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina@suse.cz>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Le1pH0gZwgh6i/eJzoKF"
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18229 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbaECUVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 16:21:07 -0400
-Content-Disposition: inline
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35169 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750972AbaECUrD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 16:47:03 -0400
+In-Reply-To: <1399141874-12003-3-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The indenting is off the ifdefed code is intended to be a part of the
-body of the if statement.  I have cleaned it up a bit.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+--=-Le1pH0gZwgh6i/eJzoKF
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
-index 414dbf6..aaade90 100644
---- a/drivers/isdn/hisax/hfc4s8s_l1.c
-+++ b/drivers/isdn/hisax/hfc4s8s_l1.c
-@@ -738,12 +738,13 @@ rx_d_frame(struct hfc4s8s_l1 *l1p, int ech)
- 					z1 -= 4;
- 				}
- 
--				while (z1--)
-+				while (z1--) {
- #ifdef HISAX_HFC4S8S_PCIMEM
- 					Read_hfc8(l1p->hw, A_FIFO_DATA0);
- #else
--				fRead_hfc8(l1p->hw);
-+					fRead_hfc8(l1p->hw);
- #endif
-+				}
- 
- 				Write_hfc8(l1p->hw, A_INC_RES_FIFO, 1);
- 				wait_busy(l1p->hw);
-@@ -768,12 +769,13 @@ rx_d_frame(struct hfc4s8s_l1 *l1p, int ech)
- 			z1 -= 4;
- 		}
- 
--		while (z1--)
-+		while (z1--) {
- #ifdef HISAX_HFC4S8S_PCIMEM
- 			*cp++ = Read_hfc8(l1p->hw, A_FIFO_DATA0);
- #else
--		*cp++ = fRead_hfc8(l1p->hw);
-+			*cp++ = fRead_hfc8(l1p->hw);
- #endif
-+		}
- 
- 		Write_hfc8(l1p->hw, A_INC_RES_FIFO, 1);	/* increment f counter */
- 		wait_busy(l1p->hw);
-@@ -875,12 +877,13 @@ rx_b_frame(struct hfc4s8s_btype *bch)
- 			z1 -= 4;
- 		}
- 
--		while (z1--)
-+		while (z1--) {
- #ifdef HISAX_HFC4S8S_PCIMEM
- 			*(bch->rx_ptr++) = Read_hfc8(l1->hw, A_FIFO_DATA0);
- #else
--		*(bch->rx_ptr++) = fRead_hfc8(l1->hw);
-+			*(bch->rx_ptr++) = fRead_hfc8(l1->hw);
- #endif
-+		}
- 
- 		if (hdlc_complete) {
- 			/* increment f counter */
-@@ -1051,12 +1054,13 @@ tx_b_frame(struct hfc4s8s_btype *bch)
- 			cnt -= 4;
- 		}
- 
--		while (cnt--)
-+		while (cnt--) {
- #ifdef HISAX_HFC4S8S_PCIMEM
- 			fWrite_hfc8(l1->hw, A_FIFO_DATA0, *cp++);
- #else
--		fWrite_hfc8(l1->hw, *cp++);
-+			fWrite_hfc8(l1->hw, *cp++);
- #endif
-+		}
- 
- 		if (bch->tx_cnt >= skb->len) {
- 			if (bch->mode == L1_MODE_HDLC) {
+On Sat, 2014-05-03 at 11:31 -0700, Florian Fainelli wrote:
+> The switch fabric which is used behind the Broadcom SYSTEMPORT Ethernet
+> controller will discard any incoming packet that is not 64 bytes or
+> more. Since the UniMAC hardware automatically pads up to the specified
+> length, we can simply ensure we instruct it to transmit >=3D 64 bytes
+> packets.
+[...]
+
+No, you have to pad with zeroes (skb_padto()) otherwise you're leaking
+potentially sensitive data.
+
+Ben.
+
+--=20
+Ben Hutchings
+All the simple programs have been written, and all the good names taken.
+
+--=-Le1pH0gZwgh6i/eJzoKF
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU2VVwOe/yOyVhhEJAQoENg//Q8QFZtn0eXlaHtl0LhYRTbuLhSrZW8IM
+Dy/jwxmu5663NoInsMeo7cf9NK7Qr0hPVeQe4cSqokNm7kIHjsOEGOFZoHlwpaFG
+oNnAG7R7ZqkZYjVmntH94MuMW0DJHR/LpDAmtvEeS4k2KUA33TKC9idrHz62F/f8
+/R+vz2RuDU3XwZ58IeA4Bl3lUvGqWpNnDyKitWBtuSabB8gepZqI6+GHaqmszT8m
+xwt98lAM6C46SAYG1VcDN9ZH3n++qx+BXNvPE8SAkt5Vqjvr0iEF8ESmLhfIhZT6
+WjBuPo+rtmhzUoUz6e2OaYB/H5aLD9XK9WKEA3ASy5Zkos9ciiwEro3Zx7MB18R6
+cvpSuuE9DD0liVMIcrEiX/K8ANjj5V7EYXi6F/J3Le6Q64/YMHGF4Xq/aGKbbOQK
+exwEP4R5tvmQHOYCq1aKBJRqDQ9WuYeavgyHmNLG49PA66Mjwjzy7IWuop3gBJPN
+/MilHjYxkxv27c4z30CzJlkRQp6nyoUHp8hThi0mlqOQ/fCucR4cl0X0Xu8Q0hxj
+ZP1u7jnawUe2lIzp52C9/7dvYZQA2sjuOqVprQd6UUb79xXhtfYkbSMa1M8uOs2Z
+s4f1z5e3Q7N8SmT1+80wAUHBlIJVVCJ84IMwQq3AeMO3auqgI1u/pklHb++xikcG
+psTa18br7Kc=
+=iyQ7
+-----END PGP SIGNATURE-----
+
+--=-Le1pH0gZwgh6i/eJzoKF--
