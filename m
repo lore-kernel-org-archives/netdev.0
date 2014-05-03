@@ -1,66 +1,125 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/2] net: systemport: pad packets to a minimum
- of 64 bytes
-Date: Sat, 03 May 2014 21:46:51 +0100
-Message-ID: <1399150011.24523.72.camel@deadeye.wl.decadent.org.uk>
-References: <1399141874-12003-1-git-send-email-f.fainelli@gmail.com>
-	 <1399141874-12003-3-git-send-email-f.fainelli@gmail.com>
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: Fwd: RFC 7217 on A Method for Generating Semantically Opaque Interface
+ Identifiers with IPv6 Stateless Address Autoconfiguration (SLAAC)
+Date: Sat, 03 May 2014 05:09:32 -0500
+Message-ID: <5364C05C.50504@gont.com.ar>
+References: <20140430210539.E0D4318000D@rfc-editor.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Le1pH0gZwgh6i/eJzoKF"
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35169 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750972AbaECUrD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 16:47:03 -0400
-In-Reply-To: <1399141874-12003-3-git-send-email-f.fainelli@gmail.com>
+Received: from web01.jbserver.net ([37.72.100.182]:56789 "EHLO
+	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972AbaECVCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 17:02:54 -0400
+In-Reply-To: <20140430210539.E0D4318000D@rfc-editor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Folks,
 
---=-Le1pH0gZwgh6i/eJzoKF
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+FYI, RFC 7217 has been published:
+<http://www.rfc-editor.org/rfc/rfc7217.txt>
 
-On Sat, 2014-05-03 at 11:31 -0700, Florian Fainelli wrote:
-> The switch fabric which is used behind the Broadcom SYSTEMPORT Ethernet
-> controller will discard any incoming packet that is not 64 bytes or
-> more. Since the UniMAC hardware automatically pads up to the specified
-> length, we can simply ensure we instruct it to transmit >=3D 64 bytes
-> packets.
-[...]
+It is meant to address the issues discussed in:
+<http://tools.ietf.org/html/draft-ietf-opsec-ipv6-host-scanning> and
+<http://tools.ietf.org/html/draft-ietf-6man-ipv6-address-generation-privacy>
 
-No, you have to pad with zeroes (skb_padto()) otherwise you're leaking
-potentially sensitive data.
+Thanks!
 
-Ben.
+Best regards,
+Fernando
 
---=20
-Ben Hutchings
-All the simple programs have been written, and all the good names taken.
 
---=-Le1pH0gZwgh6i/eJzoKF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIVAwUAU2VVwOe/yOyVhhEJAQoENg//Q8QFZtn0eXlaHtl0LhYRTbuLhSrZW8IM
-Dy/jwxmu5663NoInsMeo7cf9NK7Qr0hPVeQe4cSqokNm7kIHjsOEGOFZoHlwpaFG
-oNnAG7R7ZqkZYjVmntH94MuMW0DJHR/LpDAmtvEeS4k2KUA33TKC9idrHz62F/f8
-/R+vz2RuDU3XwZ58IeA4Bl3lUvGqWpNnDyKitWBtuSabB8gepZqI6+GHaqmszT8m
-xwt98lAM6C46SAYG1VcDN9ZH3n++qx+BXNvPE8SAkt5Vqjvr0iEF8ESmLhfIhZT6
-WjBuPo+rtmhzUoUz6e2OaYB/H5aLD9XK9WKEA3ASy5Zkos9ciiwEro3Zx7MB18R6
-cvpSuuE9DD0liVMIcrEiX/K8ANjj5V7EYXi6F/J3Le6Q64/YMHGF4Xq/aGKbbOQK
-exwEP4R5tvmQHOYCq1aKBJRqDQ9WuYeavgyHmNLG49PA66Mjwjzy7IWuop3gBJPN
-/MilHjYxkxv27c4z30CzJlkRQp6nyoUHp8hThi0mlqOQ/fCucR4cl0X0Xu8Q0hxj
-ZP1u7jnawUe2lIzp52C9/7dvYZQA2sjuOqVprQd6UUb79xXhtfYkbSMa1M8uOs2Z
-s4f1z5e3Q7N8SmT1+80wAUHBlIJVVCJ84IMwQq3AeMO3auqgI1u/pklHb++xikcG
-psTa18br7Kc=
-=iyQ7
------END PGP SIGNATURE-----
+-------- Original Message --------Subject: RFC 7217 on A Method for
+Generating Semantically Opaque Interface Identifiers with IPv6 Stateless
+Address Autoconfiguration (SLAAC)
+Date: Wed, 30 Apr 2014 14:05:39 -0700 (PDT)
+From: rfc-editor@rfc-editor.org
+Reply-To: ietf@ietf.org
+To: ietf-announce@ietf.org, rfc-dist@rfc-editor.org
+CC: drafts-update-ref@iana.org, ipv6@ietf.org, rfc-editor@rfc-editor.org
 
---=-Le1pH0gZwgh6i/eJzoKF--
+A new Request for Comments is now available in online RFC libraries.
+
+
+        RFC 7217
+
+        Title:      A Method for Generating Semantically
+                    Opaque Interface Identifiers with IPv6 Stateless
+                    Address Autoconfiguration (SLAAC)
+        Author:     F. Gont
+        Status:     Standards Track
+        Stream:     IETF
+        Date:       April 2014
+        Mailbox:    fgont@si6networks.com
+        Pages:      19
+        Characters: 48497
+        Updates/Obsoletes/SeeAlso:   None
+
+        I-D Tag:    draft-ietf-6man-stable-privacy-addresses-17.txt
+
+        URL:        http://www.rfc-editor.org/rfc/rfc7217.txt
+
+This document specifies a method for generating IPv6 Interface
+Identifiers to be used with IPv6 Stateless Address Autoconfiguration
+(SLAAC), such that an IPv6 address configured using this method is
+stable within each subnet, but the corresponding Interface Identifier
+changes when the host moves from one network to another.  This method
+is meant to be an alternative to generating Interface Identifiers
+based on hardware addresses (e.g., IEEE LAN Media Access Control
+(MAC) addresses), such that the benefits of stable addresses can be
+achieved without sacrificing the security and privacy of users.  The
+method specified in this document applies to all prefixes a host may
+be employing, including link-local, global, and unique-local prefixes
+(and their corresponding addresses).
+
+This document is a product of the IPv6 Maintenance Working Group of the
+IETF.
+
+This is now a Proposed Standard.
+
+STANDARDS TRACK: This document specifies an Internet standards track
+protocol for the Internet community,and requests discussion and suggestions
+for improvements.  Please refer to the current edition of the Internet
+Official Protocol Standards (STD 1) for the standardization state and
+status of this protocol.  Distribution of this memo is unlimited.
+
+This announcement is sent to the IETF-Announce and rfc-dist lists.
+To subscribe or unsubscribe, see
+  http://www.ietf.org/mailman/listinfo/ietf-announce
+  http://mailman.rfc-editor.org/mailman/listinfo/rfc-dist
+
+For searching the RFC series, see http://www.rfc-editor.org/search
+For downloading RFCs, see http://www.rfc-editor.org/rfc.html
+
+Requests for special distribution should be addressed to either the
+author of the RFC in question, or to rfc-editor@rfc-editor.org.  Unless
+specifically noted otherwise on the RFC itself, all RFCs are for
+unlimited distribution.
+
+
+The RFC Editor Team
+Association Management Solutions, LLC
+
+
+
+
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+
+
+
+
+
+
+
+-- 
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@si6networks.com
+PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
