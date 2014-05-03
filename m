@@ -1,309 +1,257 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v5 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
-Date: Sat, 3 May 2014 13:40:29 +0200
-Message-ID: <20140503114029.GA19315@electric-eye.fr.zoreil.com>
-References: <20140502175242.GB1156@newterm.pl>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="h31gzZEtNLTqOjlF"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Darek Marcinkiewicz <reksio@newterm.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140502175242.GB1156@newterm.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexey Charkov <alchark@gmail.com>
+Subject: [PATCH] net: via-rhine: Convert #ifdef USE_MMIO to a runtime flag
+Date: Sat,  3 May 2014 16:40:53 +0400
+Message-ID: <1399120853-26967-1-git-send-email-alchark@gmail.com>
+References: <20140502.155635.1691085402453175737.davem@davemloft.net>
+Cc: Alexey Charkov <alchark@gmail.com>
+To: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	fengguang.wu@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:60255 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751012AbaECMm0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 08:42:26 -0400
+In-Reply-To: <20140502.155635.1691085402453175737.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This introduces another flag in 'quirks' to replace the preprocessor
+define (USE_MMIO) used to indicate whether the device needs a
+separate enable routine to operate in MMIO mode.
 
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+All of the currently known platform Rhine cores operate in MMIO
+mode by default, and on PCI it is preferred over PIO for performance
+reasons. However, a comment in code suggests that some (?) early
+Rhine cores only work in PIO mode, so they should not be switched
+to MMIO.
 
-Darek Marcinkiewicz <reksio@newterm.pl> :
-[...]
-> This driver adds support for EtherCAT master module located on CCAT
-> FPGA found on Beckhoff CX series industrial PCs. The driver exposes
-> EtherCAT master as an ethernet interface.
-> 
-> EtherCAT is a filedbus protocol defined on top of ethernet and Beckhoff
+Enabling MMIO on PCI is still triggered by the same Kconfig option
+to avoid breaking user configs needlessly, but this can be changed
+going forward towards automatic runtime detection in case a list of
+PIO-only Rhine revisions can be compiled.
 
-s/filedbus/fieldbus/ :o)
+This also fixes a couple of compiler warnings detected by Fengguang
+Wu's test bot (!USE_MMIO case):
 
-> CX5020 PCs come with built-in EtherCAT master module located on a FPGA,
-> which in turn is connected to a PCI bus.
-> 
-> Signed-off-by: Dariusz Marcinkiewicz <reksio@newterm.pl>
+   drivers/net/ethernet/via/via-rhine.c: In function 'rhine_init_one_pci':
+   drivers/net/ethernet/via/via-rhine.c:1108:1: warning: label 'err_out_unmap' defined but not used [-Wunused-label]
+    err_out_unmap:
+    ^
+   drivers/net/ethernet/via/via-rhine.c:1022:6: warning: unused variable 'i' [-Wunused-variable]
+     int i, rc;
+         ^
+   drivers/net/ethernet/via/via-rhine.c:916:22: warning: 'quirks' may be used uninitialized in this function [-Wmaybe-uninitialized]
+     phy_id = rp->quirks & rqIntPHY ? 1 : 0;
+                         ^
+   drivers/net/ethernet/via/via-rhine.c:1026:6: note: 'quirks' was declared here
+     u32 quirks;
+         ^
 
-I have attached four patches. Patch #3 / 4 contains a bugfix. Remaining
-patches are small nits.
-
-The points below are not showstoppers. Your answer will be welcome though.
-
-If the tx_desc_free list can turn empty, I don't see much point for not
-using an array as descriptor ring. It's quite common for linux ethernet
-drivers.
-
-Be it a list or an array, sizing it as the max count of descriptors that
-could fit in the memory window through which packet descriptors _and_
-ethernet data are copied seems overkill. It may be an upper bound though.
-If you are not sure about a sane default value, ethtool API allows to
-change the descriptor ring size.
-
-Given the amount of debug messages, ethtool registers dump support could
-be of some value.
-
-I guess that the ASIC and the host CPU need some external polling to
-communicate (no IRQ, really ?), whence the hrtimer. It should naturally
-fit with NAPI. hrtimer could thus be disabled as soon as some ASIC event
-is detected. It should save some hrtimer work when load increases and
-the usual Tx lock avoidance patterns would kick in (current locking is
-gross).
-
-Did Beckhoff document their FPGA PCI interface ?
-
--- 
-Ueimor
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0001-ec_bhf-inverted-xmas-tree.patch"
-
->From d2a5bfdc7854e9b3cffcab9249299354fa5037d0 Mon Sep 17 00:00:00 2001
-Message-Id: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 3 May 2014 11:15:26 +0200
-Subject: [PATCH 1/4] ec_bhf: inverted xmas tree.
-X-Organisation: Land of Sunshine Inc.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Alexey Charkov <alchark@gmail.com>
 ---
- drivers/net/ethernet/ec_bhf.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c | 102 +++++++++++++++++++----------------
+ 1 file changed, 55 insertions(+), 47 deletions(-)
 
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index 8e78b8d..9e1636b 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -205,8 +205,8 @@ static void ec_bhf_reset(struct ec_bhf_priv *priv)
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 13cfcce..981be015 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -120,13 +120,6 @@ static const int multicast_filter_limit = 32;
+ static const char version[] =
+ 	"v1.10-LK" DRV_VERSION " " DRV_RELDATE " Written by Donald Becker";
  
- static void ec_bhf_send_packet(struct ec_bhf_priv *priv, struct tx_desc *desc)
- {
--	u32 addr = (u8 *)desc - priv->tx_buf.buf;
- 	u32 len = le16_to_cpu(desc->header.len) + sizeof(desc->header);
-+	u32 addr = (u8 *)desc - priv->tx_buf.buf;
+-/* This driver was written to use PCI memory space. Some early versions
+-   of the Rhine may only work correctly with I/O space accesses. */
+-#ifdef CONFIG_VIA_RHINE_MMIO
+-#define USE_MMIO
+-#else
+-#endif
+-
+ MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
+ MODULE_DESCRIPTION("VIA Rhine PCI Fast Ethernet driver");
+ MODULE_LICENSE("GPL");
+@@ -266,6 +259,10 @@ enum rhine_quirks {
+ 	rqRhineI	= 0x0100,	/* See comment below */
+ 	rqIntPHY	= 0x0200,	/* Integrated PHY */
+ 	rqMgmt		= 0x0400,	/* Management adapter */
++	rqNeedEnMMIO	= 0x0800,	/* Whether the core needs to be
++					 * switched from PIO mode to MMIO
++					 * (only applies to PCI)
++					 */
+ };
+ /*
+  * rqRhineI: VT86C100A (aka Rhine-I) uses different bits to enable
+@@ -353,13 +350,11 @@ enum bcr1_bits {
+ 	BCR1_MED1=0x80,		/* for VT6102 */
+ };
  
- 	iowrite32((ALIGN(len, 8) << 24) | addr, priv->fifo_io + FIFO_TX_REG);
+-#ifdef USE_MMIO
+ /* Registers we check that mmio and reg are the same. */
+ static const int mmio_verify_registers[] = {
+ 	RxConfig, TxConfig, IntrEnable, ConfigA, ConfigB, ConfigC, ConfigD,
+ 	0
+ };
+-#endif
  
-@@ -598,11 +598,11 @@ static const struct net_device_ops ec_bhf_netdev_ops = {
- 
- static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
- {
--	int err = 0;
--	void * __iomem io;
--	void * __iomem dma_io;
- 	struct net_device *net_dev;
- 	struct ec_bhf_priv *priv;
-+	void * __iomem dma_io;
-+	void * __iomem io;
-+	int err = 0;
- 
- 	err = pci_enable_device(dev);
- 	if (err)
--- 
-1.9.0
-
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0002-ec_bhf-line-breaks-and-indent.patch"
-
->From b64a35b7f4190a8126bc7b393370c711285f8c30 Mon Sep 17 00:00:00 2001
-Message-Id: <b64a35b7f4190a8126bc7b393370c711285f8c30.1399110121.git.romieu@fr.zoreil.com>
-In-Reply-To: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-References: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 3 May 2014 11:31:55 +0200
-Subject: [PATCH 2/4] ec_bhf: line breaks and indent.
-X-Organisation: Land of Sunshine Inc.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/ec_bhf.c | 36 ++++++++++++++++--------------------
- 1 file changed, 16 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index 9e1636b..d33b691 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -168,23 +168,23 @@ static void ec_bhf_print_status(struct ec_bhf_priv *priv)
- 	struct device *dev = PRIV_TO_DEV(priv);
- 
- 	dev_dbg(dev, "Frame error counter: %d\n",
--		 ioread8(priv->mac_io + MAC_FRAME_ERR_CNT));
-+		ioread8(priv->mac_io + MAC_FRAME_ERR_CNT));
- 	dev_dbg(dev, "RX error counter: %d\n",
--		 ioread8(priv->mac_io + MAC_RX_ERR_CNT));
-+		ioread8(priv->mac_io + MAC_RX_ERR_CNT));
- 	dev_dbg(dev, "CRC error counter: %d\n",
--		 ioread8(priv->mac_io + MAC_CRC_ERR_CNT));
-+		ioread8(priv->mac_io + MAC_CRC_ERR_CNT));
- 	dev_dbg(dev, "TX frame counter: %d\n",
--		 ioread32(priv->mac_io + MAC_TX_FRAME_CNT));
-+		ioread32(priv->mac_io + MAC_TX_FRAME_CNT));
- 	dev_dbg(dev, "RX frame counter: %d\n",
--		 ioread32(priv->mac_io + MAC_RX_FRAME_CNT));
-+		ioread32(priv->mac_io + MAC_RX_FRAME_CNT));
- 	dev_dbg(dev, "TX fifo level: %d\n",
--		 ioread8(priv->mac_io + MAC_TX_FIFO_LVL));
-+		ioread8(priv->mac_io + MAC_TX_FIFO_LVL));
- 	dev_dbg(dev, "Dropped frames: %d\n",
--		 ioread8(priv->mac_io + MAC_DROPPED_FRMS));
-+		ioread8(priv->mac_io + MAC_DROPPED_FRMS));
- 	dev_dbg(dev, "Connected with CCAT slot: %d\n",
--		 ioread8(priv->mac_io + MAC_CONNECTED_CCAT_FLAG));
-+		ioread8(priv->mac_io + MAC_CONNECTED_CCAT_FLAG));
- 	dev_dbg(dev, "Link status: %d\n",
--		 ioread8(priv->mii_io + MII_LINK_STATUS));
-+		ioread8(priv->mii_io + MII_LINK_STATUS));
+ /* Bits in the interrupt status/mask registers. */
+ enum intr_status_bits {
+@@ -664,20 +659,46 @@ static void rhine_chip_reset(struct net_device *dev)
+ 		   "failed" : "succeeded");
  }
  
- static void ec_bhf_reset(struct ec_bhf_priv *priv)
-@@ -224,8 +224,7 @@ static void ec_bhf_process_tx(struct ec_bhf_priv *priv)
- 	if (list_empty(&priv->tx_desc_queue))
- 		goto out;
- 
--	desc = list_first_entry(&priv->tx_desc_queue,
--				struct tx_desc, node);
-+	desc = list_first_entry(&priv->tx_desc_queue, struct tx_desc, node);
- 	sent = le32_to_cpu(desc->header.sent) & TX_HDR_SENT;
- 	if (!sent)
- 		goto out;
-@@ -297,9 +296,8 @@ static void ec_bhf_process_rx(struct ec_bhf_priv *priv)
- 
- static enum hrtimer_restart ec_bhf_timer_fun(struct hrtimer *timer)
+-#ifdef USE_MMIO
+ static void enable_mmio(long pioaddr, u32 quirks)
  {
--	struct ec_bhf_priv *priv = container_of(timer,
--					struct ec_bhf_priv,
--					hrtimer);
-+	struct ec_bhf_priv *priv = container_of(timer, struct ec_bhf_priv,
-+						hrtimer);
- 	ec_bhf_process_rx(priv);
- 	ec_bhf_process_tx(priv);
+ 	int n;
+-	if (quirks & rqRhineI) {
+-		/* More recent docs say that this bit is reserved ... */
+-		n = inb(pioaddr + ConfigA) | 0x20;
+-		outb(n, pioaddr + ConfigA);
+-	} else {
+-		n = inb(pioaddr + ConfigD) | 0x80;
+-		outb(n, pioaddr + ConfigD);
++
++	if (quirks & rqNeedEnMMIO) {
++		if (quirks & rqRhineI) {
++			/* More recent docs say that this bit is reserved */
++			n = inb(pioaddr + ConfigA) | 0x20;
++			outb(n, pioaddr + ConfigA);
++		} else {
++			n = inb(pioaddr + ConfigD) | 0x80;
++			outb(n, pioaddr + ConfigD);
++		}
+ 	}
+ }
+-#endif
++
++static inline int verify_mmio(struct device *hwdev,
++			      long pioaddr,
++			      void __iomem *ioaddr,
++			      u32 quirks)
++{
++	if (quirks & rqNeedEnMMIO) {
++		int i = 0;
++
++		/* Check that selected MMIO registers match the PIO ones */
++		while (mmio_verify_registers[i]) {
++			int reg = mmio_verify_registers[i++];
++			unsigned char a = inb(pioaddr+reg);
++			unsigned char b = readb(ioaddr+reg);
++
++			if (a != b) {
++				dev_err(hwdev,
++					"MMIO do not match PIO [%02x] (%02x != %02x)\n",
++					reg, a, b);
++				return -EIO;
++			}
++		}
++	}
++	return 0;
++}
  
-@@ -429,8 +427,8 @@ static int ec_bhf_alloc_dma_mem(struct ec_bhf_priv *priv,
+ /*
+  * Loads bytes 0x00-0x05, 0x6E-0x6F, 0x78-0x7B from EEPROM
+@@ -697,14 +718,12 @@ static void rhine_reload_eeprom(long pioaddr, struct net_device *dev)
+ 	if (i > 512)
+ 		pr_info("%4d cycles used @ %s:%d\n", i, __func__, __LINE__);
  
- 	dev_info(dev, "Allocating %d bytes for channel %d",
- 		(int)buf->alloc_len, channel);
--	buf->alloc = dma_alloc_coherent(dev, buf->alloc_len,
--					&buf->alloc_phys, GFP_KERNEL);
-+	buf->alloc = dma_alloc_coherent(dev, buf->alloc_len, &buf->alloc_phys,
-+					GFP_KERNEL);
- 	if (buf->alloc == NULL) {
- 		dev_info(dev, "Failed to allocate buffer\n");
- 		return -ENOMEM;
-@@ -529,8 +527,7 @@ static int ec_bhf_open(struct net_device *net_dev)
+-#ifdef USE_MMIO
+ 	/*
+ 	 * Reloading from EEPROM overwrites ConfigA-D, so we must re-enable
+ 	 * MMIO. If reloading EEPROM was done first this could be avoided, but
+ 	 * it is not known if that still works with the "win98-reboot" problem.
+ 	 */
+ 	enable_mmio(pioaddr, rp->quirks);
+-#endif
  
- 	hrtimer_init(&priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
- 	priv->hrtimer.function = ec_bhf_timer_fun;
--	hrtimer_start(&priv->hrtimer,
--		      ktime_set(0, polling_frequency),
-+	hrtimer_start(&priv->hrtimer, ktime_set(0, polling_frequency),
- 		      HRTIMER_MODE_REL);
+ 	/* Turn off EEPROM-controlled wake-up (magic packet) */
+ 	if (rp->quirks & rqWOL)
+@@ -1019,15 +1038,20 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
+ 			      const struct pci_device_id *ent)
+ {
+ 	struct device *hwdev = &pdev->dev;
+-	int i, rc;
++	int rc;
+ 	long pioaddr, memaddr;
+ 	void __iomem *ioaddr;
+ 	int io_size = pdev->revision < VTunknown0 ? 128 : 256;
+-	u32 quirks;
+-#ifdef USE_MMIO
+-	int bar = 1;
++
++/* This driver was written to use PCI memory space. Some early versions
++ * of the Rhine may only work correctly with I/O space accesses.
++ * TODO: determine for which revisions this is true and assign the flag
++ *	 in code as opposed to this Kconfig option (???)
++ */
++#ifdef CONFIG_VIA_RHINE_MMIO
++	u32 quirks = rqNeedEnMMIO;
+ #else
+-	int bar = 0;
++	u32 quirks = 0;
+ #endif
  
- 	dev_info(PRIV_TO_DEV(priv), "Device open\n");
-@@ -627,8 +624,7 @@ static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
+ /* when built into the kernel, we only print version if device is found */
+@@ -1040,9 +1064,9 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
+ 		goto err_out;
  
- 	err = pci_request_regions(dev, "ec_bhf");
- 	if (err) {
--		dev_err(&dev->dev,
--			"Failed to request pci memory regions\n");
-+		dev_err(&dev->dev, "Failed to request pci memory regions\n");
- 		goto err_disable_dev;
+ 	if (pdev->revision < VTunknown0) {
+-		quirks = rqRhineI;
++		quirks |= rqRhineI;
+ 	} else if (pdev->revision >= VT6102) {
+-		quirks = rqWOL | rqForceReset;
++		quirks |= rqWOL | rqForceReset;
+ 		if (pdev->revision < VT6105) {
+ 			quirks |= rqStatusWBRace;
+ 		} else {
+@@ -1071,7 +1095,7 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
+ 	if (rc)
+ 		goto err_out_pci_disable;
+ 
+-	ioaddr = pci_iomap(pdev, bar, io_size);
++	ioaddr = pci_iomap(pdev, (quirks & rqNeedEnMMIO ? 1 : 0), io_size);
+ 	if (!ioaddr) {
+ 		rc = -EIO;
+ 		dev_err(hwdev,
+@@ -1080,25 +1104,11 @@ static int rhine_init_one_pci(struct pci_dev *pdev,
+ 		goto err_out_free_res;
  	}
  
--- 
-1.9.0
-
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0003-ec_bhf-rx_desc-vs-tx_desc-confusion.patch"
-
->From a687c964badc9d01e0d2ae269bc5d6996e508dd1 Mon Sep 17 00:00:00 2001
-Message-Id: <a687c964badc9d01e0d2ae269bc5d6996e508dd1.1399110121.git.romieu@fr.zoreil.com>
-In-Reply-To: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-References: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 3 May 2014 11:36:12 +0200
-Subject: [PATCH 3/4] ec_bhf: rx_desc vs tx_desc confusion.
-X-Organisation: Land of Sunshine Inc.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/ec_bhf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index d33b691..c697b48 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -453,7 +453,7 @@ static void ec_bhf_setup_tx_descs(struct ec_bhf_priv *priv)
- 	INIT_LIST_HEAD(&priv->tx_desc_free);
- 	INIT_LIST_HEAD(&priv->tx_desc_queue);
+-#ifdef USE_MMIO
+ 	enable_mmio(pioaddr, quirks);
  
--	dcount = priv->tx_buf.len / sizeof(struct rx_desc);
-+	dcount = priv->tx_buf.len / sizeof(struct tx_desc);
- 	for (i = 0; i < dcount; i++) {
- 		struct tx_desc *desc = descs + i;
- 		list_add_tail(&desc->node, &priv->tx_desc_free);
--- 
-1.9.0
-
-
---h31gzZEtNLTqOjlF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0004-ec_bhf-use-once-variable-removal.patch"
-
->From d47e13a4a22a5e5ebc32d88397acd702f1ae95d4 Mon Sep 17 00:00:00 2001
-Message-Id: <d47e13a4a22a5e5ebc32d88397acd702f1ae95d4.1399110121.git.romieu@fr.zoreil.com>
-In-Reply-To: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-References: <d2a5bfdc7854e9b3cffcab9249299354fa5037d0.1399110121.git.romieu@fr.zoreil.com>
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 3 May 2014 11:40:37 +0200
-Subject: [PATCH 4/4] ec_bhf: use once variable removal.
-X-Organisation: Land of Sunshine Inc.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/ethernet/ec_bhf.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index c697b48..10dbcc4 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -448,16 +448,13 @@ static int ec_bhf_alloc_dma_mem(struct ec_bhf_priv *priv,
- static void ec_bhf_setup_tx_descs(struct ec_bhf_priv *priv)
- {
- 	struct tx_desc *descs = (struct tx_desc *) priv->tx_buf.buf;
--	int dcount, i;
-+	int i;
- 
- 	INIT_LIST_HEAD(&priv->tx_desc_free);
- 	INIT_LIST_HEAD(&priv->tx_desc_queue);
- 
--	dcount = priv->tx_buf.len / sizeof(struct tx_desc);
--	for (i = 0; i < dcount; i++) {
--		struct tx_desc *desc = descs + i;
--		list_add_tail(&desc->node, &priv->tx_desc_free);
+-	/* Check that selected MMIO registers match the PIO ones */
+-	i = 0;
+-	while (mmio_verify_registers[i]) {
+-		int reg = mmio_verify_registers[i++];
+-		unsigned char a = inb(pioaddr+reg);
+-		unsigned char b = readb(ioaddr+reg);
+-
+-		if (a != b) {
+-			rc = -EIO;
+-			dev_err(hwdev,
+-				"MMIO do not match PIO [%02x] (%02x != %02x)\n",
+-				reg, a, b);
+-			goto err_out_unmap;
+-		}
 -	}
-+	for (i = 0; i < priv->tx_buf.len / sizeof(struct tx_desc); i++)
-+		list_add_tail(&descs[i].node, &priv->tx_desc_free);
- }
+-#endif /* USE_MMIO */
++	rc = verify_mmio(hwdev, pioaddr, ioaddr, quirks);
++	if (rc)
++		goto err_out_unmap;
  
- static void ec_bhf_setup_rx_descs(struct ec_bhf_priv *priv)
+ 	rc = rhine_init_one_common(&pdev->dev, quirks,
+ 				   pioaddr, ioaddr, pdev->irq);
+@@ -2458,9 +2468,7 @@ static int rhine_resume(struct device *device)
+ 	if (!netif_running(dev))
+ 		return 0;
+ 
+-#ifdef USE_MMIO
+ 	enable_mmio(rp->pioaddr, rp->quirks);
+-#endif
+ 	rhine_power_init(dev);
+ 	free_tbufs(dev);
+ 	free_rbufs(dev);
 -- 
-1.9.0
-
-
---h31gzZEtNLTqOjlF--
+1.9.1
