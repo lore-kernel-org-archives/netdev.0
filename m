@@ -1,22 +1,27 @@
 From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 Subject: Found some errors and other oddities, largely by means of a static
  code analysis program
-Date: Sat, 3 May 2014 17:14:17 +0200
-Message-ID: <CAFo99gbyvMvgETakjpHmdjkEPmn1M_Lcio+rbtW0_bce7h1KCg@mail.gmail.com>
+Date: Sat, 3 May 2014 17:17:50 +0200
+Message-ID: <CAFo99gaHyhzmfn_N6Ynek0VxrNSp_2JNbU+U_ysZt=AOW5mwBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: multipart/mixed; boundary=001a11c30814c59e0904f8806699
 To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:62696 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbaECPOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 11:14:18 -0400
-Received: by mail-oa0-f48.google.com with SMTP id i4so5765647oah.7
-        for <netdev@vger.kernel.org>; Sat, 03 May 2014 08:14:17 -0700 (PDT)
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:37201 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648AbaECPRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 11:17:50 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uy5so820032obc.29
+        for <netdev@vger.kernel.org>; Sat, 03 May 2014 08:17:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+--001a11c30814c59e0904f8806699
+Content-Type: text/plain; charset=UTF-8
+
+Hello again
+Sorry!  I failed to include the patch :-)
+
 
 The static code analysis program called cppcheck.
 http://cppcheck.sourceforge.net/
@@ -41,4 +46,53 @@ mistakes.
 
 
 Best regards
+
 Rickard Strandqvist
+
+--001a11c30814c59e0904f8806699
+Content-Type: text/x-patch; charset=UTF-8; name="drivers_isdn_3files.patch"
+Content-Disposition: attachment; filename="drivers_isdn_3files.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hur1yrh60
+
+RnJvbSAwZWYxY2RhMThlMDVhYTZkMGIwZWE3NDVjZTE5NGYzM2Q4ZjAzOTczIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBSaWNrYXJkIFN0cmFuZHF2aXN0IDxyaWNrYXJkX3N0cmFuZHF2
+aXN0QHNwZWN0cnVtZGlnaXRhbC5zZT4KRGF0ZTogV2VkLCAzMCBBcHIgMjAxNCAxNjoyNzozMSAr
+MDIwMApTdWJqZWN0OiBbUEFUQ0hdIEZvdW5kIHNhbWUgZXJyb3JzIHVzaW5nIGEgc3RhdGljIGNv
+ZGUgYW5hbHlzaXMgcHJvZ3JhbQogY2FsbGVkIGNwcGNoZWNrLgoKLS0tCiBkcml2ZXJzL2lzZG4v
+aGlzYXgvbDNkc3MxLmMgIHwgICAgOCArKysrKystLQogZHJpdmVycy9pc2RuL2hpc2F4L2wzbmkx
+LmMgICB8ICAgIDggKysrKysrLS0KIGRyaXZlcnMvaXNkbi9tSVNETi9kc3BfY214LmMgfCAgICAz
+IC0tLQogMyBmaWxlciDDpG5kcmFkZSwgMTIgdGlsbMOkZ2coKyksIDcgYm9ydHRhZ25pbmdhcigt
+KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvaXNkbi9oaXNheC9sM2RzczEuYyBiL2RyaXZlcnMvaXNk
+bi9oaXNheC9sM2RzczEuYwppbmRleCBjZGE3MDA2Li4zZWE2MjU3IDEwMDY0NAotLS0gYS9kcml2
+ZXJzL2lzZG4vaGlzYXgvbDNkc3MxLmMKKysrIGIvZHJpdmVycy9pc2RuL2hpc2F4L2wzZHNzMS5j
+CkBAIC0yMjA4LDggKzIyMDgsMTIgQEAgc3RhdGljIGludCBsM2RzczFfY21kX2dsb2JhbChzdHJ1
+Y3QgUFN0YWNrICpzdCwgaXNkbl9jdHJsICppYykKIAkJCQl7IGZyZWVfaW52b2tlX2lkKHN0LCBp
+ZCk7CiAJCQkJCXJldHVybiAoLTIpOwogCQkJCX0KLQkJCXBjLT5wcm90LmRzczEubGxfaWQgPSBp
+Yy0+cGFybS5kc3MxX2lvLmxsX2lkOyAvKiByZW1lbWJlciBpZCAqLwotCQkJcGMtPnByb3QuZHNz
+MS5wcm9jID0gaWMtPnBhcm0uZHNzMV9pby5wcm9jOyAvKiBhbmQgcHJvY2VkdXJlICovCisKKwkJ
+CWlmIChwYykKKwkJCXsKKwkJCQlwYy0+cHJvdC5kc3MxLmxsX2lkID0gaWMtPnBhcm0uZHNzMV9p
+by5sbF9pZDsgLyogcmVtZW1iZXIgaWQgKi8KKwkJCQlwYy0+cHJvdC5kc3MxLnByb2MgPSBpYy0+
+cGFybS5kc3MxX2lvLnByb2M7IC8qIGFuZCBwcm9jZWR1cmUgKi8KKwkJCX0KIAogCQkJaWYgKCEo
+c2tiID0gbDNfYWxsb2Nfc2tiKGwpKSkKIAkJCXsgZnJlZV9pbnZva2VfaWQoc3QsIGlkKTsKZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvaXNkbi9oaXNheC9sM25pMS5jIGIvZHJpdmVycy9pc2RuL2hpc2F4
+L2wzbmkxLmMKaW5kZXggMGRmNjY5MS4uMzY3YjlkNiAxMDA2NDQKLS0tIGEvZHJpdmVycy9pc2Ru
+L2hpc2F4L2wzbmkxLmMKKysrIGIvZHJpdmVycy9pc2RuL2hpc2F4L2wzbmkxLmMKQEAgLTIwNjQs
+OCArMjA2NCwxMiBAQCBzdGF0aWMgaW50IGwzbmkxX2NtZF9nbG9iYWwoc3RydWN0IFBTdGFjayAq
+c3QsIGlzZG5fY3RybCAqaWMpCiAJCQkJeyBmcmVlX2ludm9rZV9pZChzdCwgaWQpOwogCQkJCQly
+ZXR1cm4gKC0yKTsKIAkJCQl9Ci0JCQlwYy0+cHJvdC5uaTEubGxfaWQgPSBpYy0+cGFybS5uaTFf
+aW8ubGxfaWQ7IC8qIHJlbWVtYmVyIGlkICovCi0JCQlwYy0+cHJvdC5uaTEucHJvYyA9IGljLT5w
+YXJtLm5pMV9pby5wcm9jOyAvKiBhbmQgcHJvY2VkdXJlICovCisKKwkJCWlmIChwYykKKwkJCXsK
+KwkJCQlwYy0+cHJvdC5uaTEubGxfaWQgPSBpYy0+cGFybS5uaTFfaW8ubGxfaWQ7IC8qIHJlbWVt
+YmVyIGlkICovCisJCQkJcGMtPnByb3QubmkxLnByb2MgPSBpYy0+cGFybS5uaTFfaW8ucHJvYzsg
+LyogYW5kIHByb2NlZHVyZSAqLworCQkJfQogCiAJCQlpZiAoIShza2IgPSBsM19hbGxvY19za2Io
+bCkpKQogCQkJeyBmcmVlX2ludm9rZV9pZChzdCwgaWQpOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9p
+c2RuL21JU0ROL2RzcF9jbXguYyBiL2RyaXZlcnMvaXNkbi9tSVNETi9kc3BfY214LmMKaW5kZXgg
+YTRmMDVjNS4uOWU5YmRjMCAxMDA2NDQKLS0tIGEvZHJpdmVycy9pc2RuL21JU0ROL2RzcF9jbXgu
+YworKysgYi9kcml2ZXJzL2lzZG4vbUlTRE4vZHNwX2NteC5jCkBAIC0xNTExLDkgKzE1MTEsNiBA
+QCBkc3BfY214X3NlbmRfbWVtYmVyKHN0cnVjdCBkc3AgKmRzcCwgaW50IGxlbiwgczMyICpjLCBp
+bnQgbWVtYmVycykKIAkJCWRzcC0+dHhfUiA9IHQ7CiAJCQlnb3RvIHNlbmRfcGFja2V0OwogCQl9
+Ci0jaWZkZWYgRFNQX05FVkVSX0RFRklORUQKLQl9Ci0jZW5kaWYKIAkvKiBQUk9DRVNTIERBVEEg
+KHRocmVlIG9yIG1vcmUgbWVtYmVycykgKi8KIAkvKiAtPiBpZiBlY2hvIGlzIE5PVCBlbmFibGVk
+ICovCiAJaWYgKCFkc3AtPmVjaG8uc29mdHdhcmUpIHsKLS0gCjEuNy4xMC40Cgo=
+--001a11c30814c59e0904f8806699--
