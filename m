@@ -1,53 +1,41 @@
-From: Zhouyi Zhou <zhouzhouyi@gmail.com>
-Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
-Date: Sat, 3 May 2014 08:58:31 +0800
-Message-ID: <CAABZP2z4OQ5fHDDAJPU5RAteBFK9wwmCqRSg8Knp635auCj4ZA@mail.gmail.com>
-References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
-	<5363C545.90600@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: filter: add insn for loading internal
+ transport header offset
+Date: Fri, 02 May 2014 22:52:52 -0400 (EDT)
+Message-ID: <20140502.225252.1865694187680020950.davem@davemloft.net>
+References: <1398969880-8007-1-git-send-email-chema@google.com>
+	<20140502.174928.1555908531689473830.davem@davemloft.net>
+	<CA+ZOOTP88BJ-keuR5NznCgbDVPyzugWkdsVYjKkk5yGOBbkddQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, steffen.klassert@secunet.com,
-	fan.du@windriver.com, dborkman@redhat.com,
-	Mathias Krause <minipli@googlemail.com>, tgraf@suug.ch,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5363C545.90600@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, dborkman@redhat.com, ast@plumgrid.com,
+	netdev@vger.kernel.org
+To: chema@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39058 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752465AbaECCw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 May 2014 22:52:56 -0400
+In-Reply-To: <CA+ZOOTP88BJ-keuR5NznCgbDVPyzugWkdsVYjKkk5yGOBbkddQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thank Sergei for reviewing.
+From: Chema Gonzalez <chema@google.com>
+Date: Fri, 2 May 2014 17:53:01 -0700
 
-I think
-On Sat, May 3, 2014 at 12:18 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
+> On Fri, May 2, 2014 at 2:49 PM, David Miller <davem@davemloft.net> wrote:
+>> We can probably add an extension to AF_PACKET which provides the flow
+>> key at the end of the tpacket3_hdr if a certain socket option is set.
+>>
+>> That would provide the transport header as well as a side effect, and
+>> be much more powerful and efficient than this particular BPF
+>> instruction.
+> Once you get the L3 proto and noff/toff, you get everything. The
+> rationale of adding toff/noff is that it's very similar to poff, which
+> we already have.
 
->> +
->> +       if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
->> +               nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
->> +               ret = -ENOMEM;
->> +               if (nskb)
->> +                       ret = (*xmit)(nskb, odev);
-if (is_vlan_dev(odev) && pkt_dev->clone_skb) {
-        nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
-        ret = -ENOMEM;
-        if (nskb)
-             ret = (*xmit)(nskb, odev);
-}
->
-and
-
-case NETDEV_TX_LOCKED:
-case NETDEV_TX_BUSY:
-     /* Retry it next time */
-     atomic_dec(&(pkt_dev->skb->users));
-     if (is_vlan_dev(odev) && pkt_dev->clone_skb && nskb)
-                 kfree_skb(nskb);
-     else
-                 atomic_dec(&(pkt_dev->skb->users));
-
-is better, because is_vlan_dev(odev) is probably in  read most cache line.
-
-Zhouyi
+But you're implementation is calling a function to do all of that work
+already, just to get only the transport header and then throwing away
+all of the other useful bits that function is calculating, so you'll
+end up doing it twice which is wasted work.
