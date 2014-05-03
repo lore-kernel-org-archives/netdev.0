@@ -1,51 +1,31 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 6/7] net: mvneta: Change the number of default rx queues to one
-Date: Sat,  3 May 2014 15:27:01 -0300
-Message-ID: <1399141622-30654-7-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399141622-30654-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: systemport: couple fixes
+Date: Sat,  3 May 2014 11:31:12 -0700
+Message-ID: <1399141874-12003-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:60658 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752410AbaECS2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 14:28:32 -0400
-In-Reply-To: <1399141622-30654-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35551 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752193AbaECSbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 May 2014 14:31:32 -0400
+Received: by mail-pa0-f41.google.com with SMTP id lj1so4494527pab.0
+        for <netdev@vger.kernel.org>; Sat, 03 May 2014 11:31:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver does not support multiple rx queues, and so it's a waste
-of resources to have a default number larger than one (1).
+Hi David,
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+This patch series contains two small fixes for the Broadcom SYSTEMPORT driver.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 0dcce29..ec4f67a 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -441,7 +441,10 @@ struct mvneta_rx_queue {
- 	int next_desc_to_proc;
- };
- 
--static int rxq_number = 8;
-+/* The hardware supports eight (8) rx queues, but we are only allowing
-+ * the first one to be used. Therefore, let's just allocate one queue.
-+ */
-+static int rxq_number = 1;
- static int txq_number = 8;
- 
- static int rxq_def;
+Thank you!
+
+Florian Fainelli (2):
+  net: systemport: only update UMAC_CMD if something changed
+  net: systemport: pad packets to a minimum of 64 bytes
+
+ drivers/net/ethernet/broadcom/bcmsysport.c | 29 +++++++++++++++++++----------
+ 1 file changed, 19 insertions(+), 10 deletions(-)
+
 -- 
 1.9.1
