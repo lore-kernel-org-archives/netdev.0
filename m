@@ -1,54 +1,47 @@
 From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-Subject: [PATCH 3/5] net: macb: Re-enable RX interrupt only when RX is done
-Date: Sun,  4 May 2014 15:43:00 -0700
-Message-ID: <1399243382-12528-4-git-send-email-soren.brinkmann@xilinx.com>
-References: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
+Subject: [PATCH 0/5] net: macb: Fixes
+Date: Sun,  4 May 2014 15:42:57 -0700
+Message-ID: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
 	git@xilinx.com, linux-kernel@vger.kernel.org,
 	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 To: Michal Simek <michal.simek@xilinx.com>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:58864 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752462AbaEDWoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 18:44:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When data is received during the driver processing received data the
-NAPI is re-scheduled. In that case the RX interrupt should not be
-re-enabled.
 
-Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
----
+Hi Nicolas,
 
- drivers/net/ethernet/cadence/macb.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+I think I found the cause of the issue I told you about. Looks like
+driver and HW are racing (a few more details in the commit message).
+On my way finding that, I found a few more minor issues which are fixed
+in the first patches.
+The last one is "fixing" the actual race. I don't know if I overlooked
+anything here, but this seems to work fine on Zynq.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e38fe39d9589..3f4b8ee0b0e7 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -891,16 +891,15 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	if (work_done < budget) {
- 		napi_complete(napi);
- 
--		/*
--		 * We've done what we can to clean the buffers. Make sure we
--		 * get notified when new packets arrive.
--		 */
--		macb_writel(bp, IER, MACB_RX_INT_FLAGS);
--
- 		/* Packets received while interrupts were disabled */
- 		status = macb_readl(bp, RSR);
--		if (unlikely(status))
-+		if (unlikely(status)) {
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				macb_writel(bp, ISR, MACB_BIT(RCOMP));
- 			napi_reschedule(napi);
-+		} else {
-+			macb_writel(bp, IER, MACB_RX_INT_FLAGS);
-+		}
- 	}
- 
- 	/* TODO: Handle errors */
--- 
+	Thanks,
+	S=C3=B6ren
+
+
+Soren Brinkmann (5):
+  net: macb: Pass same size to DMA_UNMAP as used for DMA_MAP
+  net: macb: Clear interrupt flags
+  net: macb: Re-enable RX interrupt only when RX is done
+  net: macb: Remove 'unlikely' optimization
+  net: macb: Fix race between HW and driver
+
+ drivers/net/ethernet/cadence/macb.c | 35 +++++++++++++++++------------=
+------
+ 1 file changed, 17 insertions(+), 18 deletions(-)
+
+--=20
 1.9.2.1.g06c4abd
