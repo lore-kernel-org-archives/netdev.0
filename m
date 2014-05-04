@@ -1,47 +1,75 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net 4/4] net/mlx4_core: Don't issue PCIe speed/width checks for VFs
-Date: Sun,  4 May 2014 17:07:25 +0300
-Message-ID: <1399212445-5070-5-git-send-email-ogerlitz@mellanox.com>
+Subject: [PATCH V1 net 1/4] net/mlx4_core: Adjust port number in qp_attach wrapper when detaching
+Date: Sun,  4 May 2014 17:07:22 +0300
+Message-ID: <1399212445-5070-2-git-send-email-ogerlitz@mellanox.com>
 References: <1399212445-5070-1-git-send-email-ogerlitz@mellanox.com>
 Cc: netdev@vger.kernel.org, roland@kernel.org,
 	jackm@dev.mellanox.co.il, matanb@mellanox.com, amirv@mellanox.com,
-	Eyal Perry <eyalpe@mellanox.com>,
+	Jack Morgenstein <jackm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:41804 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:35088 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753259AbaEDOHo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 May 2014 10:07:44 -0400
+	id S1753014AbaEDOHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2014 10:07:42 -0400
 In-Reply-To: <1399212445-5070-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eyal Perry <eyalpe@mellanox.com>
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-Carrying out PCI speed/width checks through pcie_get_minimum_link()
-on VFs yield wrong results, so remove them.
+When using single ported VFs and the VF is using port 2, we need
+to adjust the port accordingly (change it from 1 to 2).
 
-Fixes: b912b2f ('net/mlx4_core: Warn if device doesn't have enough PCI bandwidth')
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Fixes: 449fc48 ('net/mlx4: Adapt code for N-Port VF')
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Jack Morgenstein <jackm@mellanox.com>
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   23 ++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index e98c15a..7cf9dad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2440,7 +2440,8 @@ slave_start:
- 	 * No return code for this call, just warn the user in case of PCI
- 	 * express device capabilities are under-satisfied by the bus.
- 	 */
--	mlx4_check_pcie_caps(dev);
-+	if (!mlx4_is_slave(dev))
-+		mlx4_check_pcie_caps(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 3b5f53e..1c3fdd4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3733,6 +3733,25 @@ static int qp_detach(struct mlx4_dev *dev, struct mlx4_qp *qp,
+ 	}
+ }
  
- 	/* In master functions, the communication channel must be initialized
- 	 * after obtaining its address from fw */
++static int mlx4_adjust_port(struct mlx4_dev *dev, int slave,
++			    u8 *gid, enum mlx4_protocol prot)
++{
++	int real_port;
++
++	if (prot != MLX4_PROT_ETH)
++		return 0;
++
++	if (dev->caps.steering_mode == MLX4_STEERING_MODE_B0 ||
++	    dev->caps.steering_mode == MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		real_port = mlx4_slave_convert_port(dev, slave, gid[5]);
++		if (real_port < 0)
++			return -EINVAL;
++		gid[5] = real_port;
++	}
++
++	return 0;
++}
++
+ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 			       struct mlx4_vhcr *vhcr,
+ 			       struct mlx4_cmd_mailbox *inbox,
+@@ -3768,6 +3787,10 @@ int mlx4_QP_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
+ 		if (err)
+ 			goto ex_detach;
+ 	} else {
++		err = mlx4_adjust_port(dev, slave, gid, prot);
++		if (err)
++			goto ex_put;
++
+ 		err = rem_mcg_res(dev, slave, rqp, gid, prot, type, &reg_id);
+ 		if (err)
+ 			goto ex_put;
 -- 
 1.7.1
