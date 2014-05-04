@@ -1,176 +1,798 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: nft 2.0, NULL pointer dereference in 3.14.1
-Date: Sun, 04 May 2014 10:25:58 +0300
-Message-ID: <3a97c044d7e99dc4bd3d6b8d36d79a01@visp.net.lb>
-References: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
+From: Darek Marcinkiewicz <reksio@newterm.pl>
+Subject: [PATCH v6 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
+Date: Sun, 4 May 2014 12:14:28 +0200
+Message-ID: <20140504101428.GD1156@newterm.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="=_203ad4547ae138110f1138e5cebe7696"
-To: netdev@vger.kernel.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	Pablo <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:38619 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429AbaEDH0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 03:26:05 -0400
-Received: from hosting.visp.net.lb (localhost [127.0.0.1])
-	by hosting.visp.net.lb (Postfix) with ESMTP id 5017D480AAE
-	for <netdev@vger.kernel.org>; Sun,  4 May 2014 10:25:59 +0300 (EEST)
-In-Reply-To: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
+Received: from smtp.newterm.pl ([79.187.237.18]:55857 "EHLO apollo.newterm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753276AbaEDKPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2014 06:15:03 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=_203ad4547ae138110f1138e5cebe7696
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
 
-Hi
+This driver adds support for EtherCAT master module located on CCAT
+FPGA found on Beckhoff CX series industrial PCs. The driver exposes
+EtherCAT master as an ethernet interface.
 
-I bit more debugging and found that problem is happening at:
+EtherCAT is a fieldbus protocol defined on top of ethernet and Beckhoff
+CX5020 PCs come with built-in EtherCAT master module located on a FPGA,
+which in turn is connected to a PCI bus.
 
-> sock = netlink_lookup(sock_net(ssk), ssk->sk_protocol, portid);
+Signed-off-by: Dariusz Marcinkiewicz <reksio@newterm.pl>
+---
+Changes from v5:
+  * removal of needless locking on tx path
+  * driver makes actual use of tx fifo
+  * driver uses descriptors' array instead of descriptor list
 
-ssk is NULL
+Changes from v4: 
+  * incorporates Francois Romieu comments
+  * fixes typo spotted by Jesper Brouer
 
-After checking, i noticed in nfnetlink.c
-nfnetlink_rcv_batch() function
+Changes from v3:
+  * some clarificatoins around buffer allocations
 
-We have
-nskb->sk = oskb->sk;
-skb = nskb;
+Changes from v2:
+  * removed all checkpatch warnings
+  * driver makes use of device rx fifo
 
-I am matching condition
-ss = rcu_dereference_protected(table[subsys_id].subsys,
-        lockdep_is_held(&table[subsys_id].mutex));
-if (!ss) {
+Changes from v1:
+  * added endianess annotation to descriptors' structures
+  * killed checkpath warnings about string literals being split into multiple
+    lines
 
-And then
-nfnl_unlock(subsys_id);
-kfree_skb(nskb);
-return netlink_ack(skb, nlh, -EOPNOTSUPP);
+ drivers/net/ethernet/Kconfig  |   11 +
+ drivers/net/ethernet/Makefile |    1 +
+ drivers/net/ethernet/ec_bhf.c |  701 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 713 insertions(+)
+ create mode 100644 drivers/net/ethernet/ec_bhf.c
 
-If i am not wrong, nskb same pointer as skb, so we are giving 
-netlink_ack freed pointer?
-Is it "use after free()" ?
-
-If yes, then it seems attached patch fixing my issue. Please let me 
-know, if it is ok and i should submit it.
-
-
-On 2014-04-19 10:36, Denys Fedoryshchenko wrote:
-> Hi
-> 
-> While trying nft got kernel NULL dereference
-> extreme ~ # nft -v
-> nftables v0.2 (Support Edward Snowden)
-> extreme ~ # uname -a
-> Linux extreme 3.14.1-extreme-stable #1 SMP Sat Apr 19 10:23:48 EEST
-> 2014 x86_64 Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz GenuineIntel
-> GNU/Linux
-> 
-> Command i tried (nothing else entered before it):
-> nft add rule filter icmp-chain counter
-> 
-> kernel message:
-> [   44.071555] Netfilter messages via NETLINK v0.30.
-> [   44.072253] BUG: unable to handle kernel NULL pointer dereference
-> at 0000000000000119
-> [   44.072264] IP: [<ffffffff8171db1f>] 
-> netlink_getsockbyportid+0xf/0x70
-> [   44.072272] PGD 7f2b74067 PUD 7f2b73067 PMD 0
-> [   44.072277] Oops: 0000 [#1] SMP
-> [   44.072280] Modules linked in: nfnetlink ftdi_sio usbserial
-> usb_storage x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel
-> kvm iTCO_wdt iTCO_vendor_support mei_me mei lpc_ich mfd_core
-> [   44.072301] CPU: 4 PID: 2573 Comm: nft Not tainted 
-> 3.14.1-extreme-stable #1
-> [   44.072304] Hardware name:                  /DH87MC, BIOS
-> MCH8710H.86A.0154.2014.0123.1542 01/23/2014
-> [   44.072308] task: ffff8807f5195340 ti: ffff8807d4c36000 task.ti:
-> ffff8807d4c36000
-> [   44.072311] RIP: 0010:[<ffffffff8171db1f>]  [<ffffffff8171db1f>]
-> netlink_getsockbyportid+0xf/0x70
-> [   44.072317] RSP: 0018:ffff8807d4c37a90  EFLAGS: 00010202
-> [   44.072319] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 
-> 0000000000000028
-> [   44.072322] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
-> 0000000000000000
-> [   44.072325] RBP: ffff8807d4c37a98 R08: 0000000000000000 R09: 
-> ffff8807f85b0028
-> [   44.072328] R10: 00000000ffffffff R11: 0000000000000000 R12: 
-> ffff8807f5de2900
-> [   44.072331] R13: 0000000000000000 R14: 0000000000000000 R15: 
-> 0000000000000018
-> [   44.072335] FS:  00007fa028b25700(0000) GS:ffff88081ed00000(0000)
-> knlGS:0000000000000000
-> [   44.072338] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   44.072341] CR2: 0000000000000119 CR3: 00000007f370d000 CR4: 
-> 00000000001407e0
-> [   44.072343] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 
-> 0000000000000000
-> [   44.072346] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 
-> 0000000000000400
-> [   44.072349] Stack:
-> [   44.072351]  0000000000000040 ffff8807d4c37ad0 ffffffff8171fd81
-> 0000000000000000
-> [   44.072357]  ffff8807f5de2900 ffff8807f5de2900 00000000ffffffa1
-> ffff8807f85b1600
-> [   44.072363]  ffff8807d4c37b08 ffffffff817206c9 ffff8807f85b1600
-> ffff8807f5de3400
-> [   44.072369] Call Trace:
-> [   44.072373]  [<ffffffff8171fd81>] netlink_unicast+0x91/0x200
-> [   44.072377]  [<ffffffff817206c9>] netlink_ack+0x99/0x110
-> [   44.072381]  [<ffffffffa004b951>] nfnetlink_rcv+0x3c1/0x408 
-> [nfnetlink]
-> [   44.072385]  [<ffffffff8171fde3>] netlink_unicast+0xf3/0x200
-> [   44.072389]  [<ffffffff817201ef>] netlink_sendmsg+0x2ff/0x740
-> [   44.072394]  [<ffffffff81044752>] ? __mmdrop+0x62/0x90
-> [   44.072398]  [<ffffffff816dafdb>] sock_sendmsg+0x8b/0xc0
-> [   44.072403]  [<ffffffff812f1af5>] ? 
-> copy_user_enhanced_fast_string+0x5/0x10
-> [   44.072406]  [<ffffffff816dbb6c>] ? move_addr_to_kernel+0x2c/0x50
-> [   44.072410]  [<ffffffff816db423>] ___sys_sendmsg+0x3c3/0x3d0
-> [   44.072415]  [<ffffffff811301ba>] ? handle_mm_fault+0xa9a/0xc60
-> [   44.072420]  [<ffffffff811362d6>] ? mmap_region+0x166/0x5a0
-> [   44.072424]  [<ffffffff817da84c>] ? __do_page_fault+0x1dc/0x510
-> [   44.072428]  [<ffffffff812b8b2c>] ? apparmor_capable+0x1c/0x60
-> [   44.072435]  [<ffffffff817d6e9a>] ? _raw_spin_unlock_bh+0x1a/0x20
-> [   44.072439]  [<ffffffff816dfc86>] ? release_sock+0x106/0x150
-> [   44.072443]  [<ffffffff816dc212>] __sys_sendmsg+0x42/0x80
-> [   44.072446]  [<ffffffff816dc262>] SyS_sendmsg+0x12/0x20
-> [   44.072450]  [<ffffffff817df616>] system_call_fastpath+0x1a/0x1f
-> [   44.072453] Code: 41 5d 41 5e 5d c3 66 0f 1f 44 00 00 f0 ff 43 4c
-> eb e1 66 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 55 89 f2 48 89 e5
-> 53 48 89 fb <0f> b6 b7 19 01 00 00 48 8b 7f 30 e8 f1 fe ff ff 48 89 c7
-> 48 c7
-> [   44.072963] RIP  [<ffffffff8171db1f>] 
-> netlink_getsockbyportid+0xf/0x70
-> [   44.073253]  RSP <ffff8807d4c37a90>
-> [   44.073524] CR2: 0000000000000119
-> [   44.074757] ---[ end trace f3a9846ab3cb7550 ]---
-> 
-> Please let me know if more information required.
-> Thanks!
-
---=_203ad4547ae138110f1138e5cebe7696
-Content-Transfer-Encoding: base64
-Content-Type: text/x-diff;
- name=use_after_free.patch
-Content-Disposition: attachment;
- filename=use_after_free.patch;
- size=628
-
-LS0tIGxpbnV4LTMuMTQuMi9uZXQvbmV0ZmlsdGVyL25mbmV0bGluay5jCTIwMTQtMDQtMjcgMDM6
-MTk6MjYuMDAwMDAwMDAwICswMzAwCisrKyBsaW51eC0zLjE0LjItbW9kaWZpZWQvbmV0L25ldGZp
-bHRlci9uZm5ldGxpbmsuYwkyMDE0LTA1LTA0IDEwOjE0OjMyLjEwODI5OTc2NiArMDMwMApAQCAt
-MjQ4LDE1ICsyNDgsMTUgQEAgcmVwbGF5OgogI2VuZGlmCiAJCXsKIAkJCW5mbmxfdW5sb2NrKHN1
-YnN5c19pZCk7Ci0JCQlrZnJlZV9za2IobnNrYik7Ci0JCQlyZXR1cm4gbmV0bGlua19hY2soc2ti
-LCBubGgsIC1FT1BOT1RTVVBQKTsKKwkJCW5ldGxpbmtfYWNrKHNrYiwgbmxoLCAtRU9QTk9UU1VQ
-UCk7CisJCQlyZXR1cm4ga2ZyZWVfc2tiKG5za2IpOwogCQl9CiAJfQogCiAJaWYgKCFzcy0+Y29t
-bWl0IHx8ICFzcy0+YWJvcnQpIHsKIAkJbmZubF91bmxvY2soc3Vic3lzX2lkKTsKLQkJa2ZyZWVf
-c2tiKG5za2IpOwotCQlyZXR1cm4gbmV0bGlua19hY2soc2tiLCBubGgsIC1FT1BOT1RTVVBQKTsK
-KwkJbmV0bGlua19hY2soc2tiLCBubGgsIC1FT1BOT1RTVVBQKTsKKwkJcmV0dXJuIGtmcmVlX3Nr
-Yihza2IpOwogCX0KIAogCXdoaWxlIChza2ItPmxlbiA+PSBubG1zZ190b3RhbF9zaXplKDApKSB7
-Cg==
---=_203ad4547ae138110f1138e5cebe7696--
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 39b26fe..a93ea15 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -35,6 +35,17 @@ source "drivers/net/ethernet/calxeda/Kconfig"
+ source "drivers/net/ethernet/chelsio/Kconfig"
+ source "drivers/net/ethernet/cirrus/Kconfig"
+ source "drivers/net/ethernet/cisco/Kconfig"
++
++config CX_ECAT
++	tristate "Beckhoff CX5020 EtherCAT master support"
++	---help---
++	  Driver for EtherCAT master module located on CCAT FPGA
++	  that can be found on Beckhoff CX5020, and possibly other of CX
++	  Beckhoff CX series industrial PCs.
++
++	  To compile this driver as a module, choose M here. The module
++	  will be called ec_bhf.
++
+ source "drivers/net/ethernet/davicom/Kconfig"
+ 
+ config DNET
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 545d0b3..35190e3 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -21,6 +21,7 @@ obj-$(CONFIG_NET_CALXEDA_XGMAC) += calxeda/
+ obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
+ obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
+ obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
++obj-$(CONFIG_CX_ECAT) += ec_bhf.o
+ obj-$(CONFIG_DM9000) += davicom/
+ obj-$(CONFIG_DNET) += dnet.o
+ obj-$(CONFIG_NET_VENDOR_DEC) += dec/
+diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
+new file mode 100644
+index 0000000..feb40cd
+--- /dev/null
++++ b/drivers/net/ethernet/ec_bhf.c
+@@ -0,0 +1,701 @@
++ /*
++ * drivers/net/ethernet/beckhoff/ec_bhf.c
++ *
++ * Copyright (C) 2014 Darek Marcinkiewicz <reksio@newterm.pl>
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/* This is a driver for EtherCAT master module present on CCAT FPGA.
++ * Those can be found on Bechhoff CX50xx industrial PCs.
++ */
++
++#if 0
++#define DEBUG
++#endif
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/pci.h>
++#include <linux/init.h>
++
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ip.h>
++#include <linux/skbuff.h>
++#include <linux/hrtimer.h>
++#include <linux/interrupt.h>
++#include <linux/stat.h>
++
++#define TIMER_INTERVAL_NSEC	20000
++
++#define INFO_BLOCK_SIZE		0x10
++#define INFO_BLOCK_TYPE		0x0
++#define INFO_BLOCK_REV		0x2
++#define INFO_BLOCK_BLK_CNT	0x4
++#define INFO_BLOCK_TX_CHAN	0x4
++#define INFO_BLOCK_RX_CHAN	0x5
++#define INFO_BLOCK_OFFSET	0x8
++
++#define EC_MII_OFFSET		0x4
++#define EC_FIFO_OFFSET		0x8
++#define EC_MAC_OFFSET		0xc
++
++#define MAC_FRAME_ERR_CNT	0x0
++#define MAC_RX_ERR_CNT		0x1
++#define MAC_CRC_ERR_CNT		0x2
++#define MAC_LNK_LST_ERR_CNT	0x3
++#define MAC_TX_FRAME_CNT	0x10
++#define MAC_RX_FRAME_CNT	0x14
++#define MAC_TX_FIFO_LVL		0x20
++#define MAC_DROPPED_FRMS	0x28
++#define MAC_CONNECTED_CCAT_FLAG	0x78
++
++#define MII_MAC_ADDR		0x8
++#define MII_MAC_FILT_FLAG	0xe
++#define MII_LINK_STATUS		0xf
++
++#define FIFO_TX_REG		0x0
++#define FIFO_TX_RESET		0x8
++#define FIFO_RX_REG		0x10
++#define FIFO_RX_ADDR_VALID	(1u << 31)
++#define FIFO_RX_RESET		0x18
++
++#define DMA_CHAN_OFFSET		0x1000
++#define DMA_CHAN_SIZE		0x8
++
++static struct pci_device_id ids[] = {
++	{ PCI_DEVICE(0x15ec, 0x5000), },
++	{ 0, }
++};
++MODULE_DEVICE_TABLE(pci, ids);
++
++struct rx_header {
++#define RXHDR_NEXT_ADDR_MASK	0xffffffu
++#define RXHDR_NEXT_VALID	(1u << 31)
++	__le32 next;
++#define RXHDR_NEXT_RECV_FLAG	0x1
++	__le32 recv;
++#define RXHDR_LEN_MASK		0xfffu
++	__le16 len;
++	__le16 port;
++	__le32 reserved;
++	u8 timestamp[8];
++} __packed;
++
++#define PKT_PAYLOAD_SIZE	0x7e8
++struct rx_desc {
++	struct rx_header header;
++	u8 data[PKT_PAYLOAD_SIZE];
++} __packed;
++
++struct tx_header {
++	__le16 len;
++#define TX_HDR_PORT_0		0x1
++#define TX_HDR_PORT_1		0x2
++	u8 port;
++	u8 ts_enable;
++#define TX_HDR_SENT		0x1
++	__le32 sent;
++	u8 timestamp[8];
++} __packed;
++
++struct tx_desc {
++	struct tx_header header;
++	u8 data[PKT_PAYLOAD_SIZE];
++} __packed;
++
++#define FIFO_SIZE		64
++
++static long polling_frequency = TIMER_INTERVAL_NSEC;
++
++struct bhf_dma {
++	u8 *buf;
++	size_t len;
++	dma_addr_t buf_phys;
++
++	u8 *alloc;
++	size_t alloc_len;
++	dma_addr_t alloc_phys;
++};
++
++struct ec_bhf_priv {
++	struct net_device *net_dev;
++
++	struct pci_dev *dev;
++
++	void * __iomem io;
++	void * __iomem dma_io;
++
++	struct hrtimer hrtimer;
++
++	int tx_dma_chan;
++	int rx_dma_chan;
++	void * __iomem ec_io;
++	void * __iomem fifo_io;
++	void * __iomem mii_io;
++	void * __iomem mac_io;
++
++	struct bhf_dma rx_buf;
++	struct rx_desc *rx_descs;
++	int rx_dnext;
++	int rx_dcount;
++
++	struct bhf_dma tx_buf;
++	struct tx_desc *tx_descs;
++	int tx_dcount;
++	int tx_dnext;
++
++	u64 stat_rx_bytes;
++	u64 stat_tx_bytes;
++};
++
++#define PRIV_TO_DEV(priv) (&(priv)->dev->dev)
++
++#define ETHERCAT_MASTER_ID	0x14
++
++static void ec_bhf_print_status(struct ec_bhf_priv *priv)
++{
++	struct device *dev = PRIV_TO_DEV(priv);
++
++	dev_dbg(dev, "Frame error counter: %d\n",
++		 ioread8(priv->mac_io + MAC_FRAME_ERR_CNT));
++	dev_dbg(dev, "RX error counter: %d\n",
++		 ioread8(priv->mac_io + MAC_RX_ERR_CNT));
++	dev_dbg(dev, "CRC error counter: %d\n",
++		 ioread8(priv->mac_io + MAC_CRC_ERR_CNT));
++	dev_dbg(dev, "TX frame counter: %d\n",
++		 ioread32(priv->mac_io + MAC_TX_FRAME_CNT));
++	dev_dbg(dev, "RX frame counter: %d\n",
++		 ioread32(priv->mac_io + MAC_RX_FRAME_CNT));
++	dev_dbg(dev, "TX fifo level: %d\n",
++		 ioread8(priv->mac_io + MAC_TX_FIFO_LVL));
++	dev_dbg(dev, "Dropped frames: %d\n",
++		 ioread8(priv->mac_io + MAC_DROPPED_FRMS));
++	dev_dbg(dev, "Connected with CCAT slot: %d\n",
++		 ioread8(priv->mac_io + MAC_CONNECTED_CCAT_FLAG));
++	dev_dbg(dev, "Link status: %d\n",
++		 ioread8(priv->mii_io + MII_LINK_STATUS));
++}
++
++static void ec_bhf_reset(struct ec_bhf_priv *priv)
++{
++	iowrite8(0, priv->mac_io + MAC_FRAME_ERR_CNT);
++	iowrite8(0, priv->mac_io + MAC_RX_ERR_CNT);
++	iowrite8(0, priv->mac_io + MAC_CRC_ERR_CNT);
++	iowrite8(0, priv->mac_io + MAC_LNK_LST_ERR_CNT);
++	iowrite32(0, priv->mac_io + MAC_TX_FRAME_CNT);
++	iowrite32(0, priv->mac_io + MAC_RX_FRAME_CNT);
++	iowrite8(0, priv->mac_io + MAC_DROPPED_FRMS);
++
++	iowrite8(0, priv->fifo_io + FIFO_TX_RESET);
++	iowrite8(0, priv->fifo_io + FIFO_RX_RESET);
++
++	iowrite8(0, priv->mac_io + MAC_TX_FIFO_LVL);
++}
++
++static void ec_bhf_send_packet(struct ec_bhf_priv *priv, struct tx_desc *desc)
++{
++	u32 addr = (u8 *)desc - priv->tx_buf.buf;
++	u32 len = le16_to_cpu(desc->header.len) + sizeof(desc->header);
++
++	iowrite32((ALIGN(len, 8) << 24) | addr, priv->fifo_io + FIFO_TX_REG);
++
++	dev_dbg(PRIV_TO_DEV(priv), "Done sending packet\n");
++}
++
++static int ec_bhf_desc_sent(struct tx_desc *desc)
++{
++	return le32_to_cpu(desc->header.sent) & TX_HDR_SENT;
++}
++
++static void ec_bhf_process_tx(struct ec_bhf_priv *priv)
++{
++	if (unlikely(netif_queue_stopped(priv->net_dev))) {
++		struct tx_desc *desc = &priv->tx_descs[priv->tx_dnext];
++		if (ec_bhf_desc_sent(desc))
++			netif_wake_queue(priv->net_dev);
++	}
++}
++
++static int ec_bhf_pkt_received(struct rx_desc *desc)
++{
++	return le32_to_cpu(desc->header.recv) & RXHDR_NEXT_RECV_FLAG;
++}
++
++static void ec_bhf_add_rx_desc(struct ec_bhf_priv *priv, struct rx_desc *desc)
++{
++	iowrite32(FIFO_RX_ADDR_VALID | ((u8 *)(desc) - priv->rx_buf.buf),
++		  priv->fifo_io + FIFO_RX_REG);
++}
++
++static void ec_bhf_process_rx(struct ec_bhf_priv *priv)
++{
++	struct rx_desc *desc = &priv->rx_descs[priv->rx_dnext];
++	struct device *dev = PRIV_TO_DEV(priv);
++
++	while (ec_bhf_pkt_received(desc)) {
++		int pkt_size = (le16_to_cpu(desc->header.len) &
++			       RXHDR_LEN_MASK) - sizeof(struct rx_header) - 4;
++		u8 *data = desc->data;
++		struct sk_buff *skb;
++
++		skb = netdev_alloc_skb_ip_align(priv->net_dev, pkt_size);
++		dev_dbg(dev, "Received packet, size: %d\n", pkt_size);
++
++		if (skb) {
++			memcpy(skb_put(skb, pkt_size), data, pkt_size);
++			skb->protocol = eth_type_trans(skb, priv->net_dev);
++			dev_dbg(dev, "Protocol type: %x\n", skb->protocol);
++
++			netif_rx(skb);
++		} else {
++			dev_err_ratelimited(dev,
++				"Couldn't allocate a skb_buff for a packet of size %u\n",
++				pkt_size);
++		}
++
++		priv->stat_rx_bytes += pkt_size;
++
++		desc->header.recv = 0;
++
++		ec_bhf_add_rx_desc(priv, desc);
++
++		priv->rx_dnext = (priv->rx_dnext + 1) % priv->rx_dcount;
++		desc = &priv->rx_descs[priv->rx_dnext];
++	}
++
++}
++
++static enum hrtimer_restart ec_bhf_timer_fun(struct hrtimer *timer)
++{
++	struct ec_bhf_priv *priv = container_of(timer,
++					struct ec_bhf_priv,
++					hrtimer);
++	ec_bhf_process_rx(priv);
++	ec_bhf_process_tx(priv);
++
++	if (!netif_running(priv->net_dev))
++		return HRTIMER_NORESTART;
++
++	hrtimer_forward_now(timer, ktime_set(0, polling_frequency));
++	return HRTIMER_RESTART;
++}
++
++static int ec_bhf_setup_offsets(struct ec_bhf_priv *priv)
++{
++	struct device *dev = PRIV_TO_DEV(priv);
++	unsigned block_count, i;
++	void * __iomem ec_info;
++
++	dev_info(dev, "Info block:\n");
++	dev_info(dev, "Type of function: %x\n", (unsigned)ioread16(priv->io));
++	dev_info(dev, "Revision of function: %x\n",
++		(unsigned)ioread16(priv->io + INFO_BLOCK_REV));
++
++	block_count = ioread8(priv->io + INFO_BLOCK_BLK_CNT);
++	dev_info(dev, "Number of function blocks: %x\n", block_count);
++
++	for (i = 0; i < block_count; i++) {
++		u16 type = ioread16(priv->io + i * INFO_BLOCK_SIZE +
++				    INFO_BLOCK_TYPE);
++		if (type == ETHERCAT_MASTER_ID)
++			break;
++	}
++	if (i == block_count) {
++		dev_err(dev, "EtherCAT master with DMA block not found\n");
++		return -ENODEV;
++	}
++	dev_info(dev, "EtherCAT master with DMA block found at pos: %d\n", i);
++
++	ec_info = priv->io + i * INFO_BLOCK_SIZE;
++	dev_info(dev, "EtherCAT master revision: %d\n",
++		 ioread16(ec_info + INFO_BLOCK_REV));
++
++	priv->tx_dma_chan = ioread8(ec_info + INFO_BLOCK_TX_CHAN);
++	dev_info(dev, "EtherCAT master tx dma channel: %d\n",
++		 priv->tx_dma_chan);
++
++	priv->rx_dma_chan = ioread8(ec_info + INFO_BLOCK_RX_CHAN);
++	dev_info(dev, "EtherCAT master rx dma channel: %d\n",
++		 priv->rx_dma_chan);
++
++	priv->ec_io = priv->io + ioread32(ec_info + INFO_BLOCK_OFFSET);
++	priv->mii_io = priv->ec_io + ioread32(priv->ec_io + EC_MII_OFFSET);
++	priv->fifo_io = priv->ec_io + ioread32(priv->ec_io + EC_FIFO_OFFSET);
++	priv->mac_io = priv->ec_io + ioread32(priv->ec_io + EC_MAC_OFFSET);
++
++	dev_info(dev,
++		 "EtherCAT block addres: %p, fifo address: %p, mii address: %p, mac address: %p",
++		 priv->ec_io, priv->fifo_io, priv->mii_io, priv->mac_io);
++
++	return 0;
++}
++
++static netdev_tx_t ec_bhf_start_xmit(struct sk_buff *skb,
++				     struct net_device *net_dev)
++{
++	struct ec_bhf_priv *priv = netdev_priv(net_dev);
++	struct tx_desc *desc;
++	unsigned len;
++
++	dev_dbg(PRIV_TO_DEV(priv), "Starting xmit\n");
++
++	desc = &priv->tx_descs[priv->tx_dnext];
++
++	skb_copy_and_csum_dev(skb, desc->data);
++	len = skb->len;
++
++	memset(&desc->header, 0, sizeof(desc->header));
++	desc->header.len = cpu_to_le16(len);
++	desc->header.port = TX_HDR_PORT_0;
++
++	ec_bhf_send_packet(priv, desc);
++
++	priv->tx_dnext = (priv->tx_dnext + 1) % priv->tx_dcount;
++
++	if (!ec_bhf_desc_sent(&priv->tx_descs[priv->tx_dnext])) {
++		dev_info(PRIV_TO_DEV(priv), "Stopping netif queue\n");
++		ec_bhf_print_status(priv);
++
++		netif_stop_queue(net_dev);
++	}
++
++	priv->stat_tx_bytes += len;
++
++	dev_kfree_skb(skb);
++
++	return NETDEV_TX_OK;
++}
++
++static int ec_bhf_alloc_dma_mem(struct ec_bhf_priv *priv,
++				struct bhf_dma *buf,
++				int channel,
++				int size)
++{
++	int offset = channel * DMA_CHAN_SIZE + DMA_CHAN_OFFSET;
++	struct device *dev = PRIV_TO_DEV(priv);
++	u32 mask;
++
++	iowrite32(0xffffffff, priv->dma_io + offset);
++
++	mask = ioread32(priv->dma_io + offset);
++	mask &= 0xfffffffc;
++	dev_info(dev, "Read mask %x for channel %d\n", mask, channel);
++	/* We want to allocate a chunk of memory that is:
++	 * - aligned to the mask we just read
++	 * - is of size 2^mask bytes (at most)
++	 * In order to ensure that we will allocate buffer of
++	 * 2 * 2^mask bytes.
++	 */
++	buf->len = min_t(int, ~mask + 1, size);
++	buf->alloc_len = 2 * buf->len;
++
++	dev_info(dev, "Allocating %d bytes for channel %d",
++		(int)buf->alloc_len, channel);
++	buf->alloc = dma_alloc_coherent(dev, buf->alloc_len,
++					&buf->alloc_phys, GFP_KERNEL);
++	if (buf->alloc == NULL) {
++		dev_info(dev, "Failed to allocate buffer\n");
++		return -ENOMEM;
++	}
++
++	buf->buf_phys = (buf->alloc_phys + buf->len) & mask;
++	buf->buf = buf->alloc + (buf->buf_phys - buf->alloc_phys);
++
++	iowrite32(0, priv->dma_io + offset + 4);
++	iowrite32(buf->buf_phys, priv->dma_io + offset);
++	dev_dbg(dev, "Buffer: %x and read from dev: %x",
++		(unsigned)buf->buf_phys, ioread32(priv->dma_io + offset));
++
++	return 0;
++}
++
++static void ec_bhf_setup_tx_descs(struct ec_bhf_priv *priv)
++{
++	int i = 0;
++
++	priv->tx_dcount = priv->tx_buf.len / sizeof(struct tx_desc);
++	priv->tx_descs = (struct tx_desc *) priv->tx_buf.buf;
++	priv->tx_dnext = 0;
++
++	for (i = 0; i < priv->tx_dcount; i++)
++		priv->tx_descs[i].header.sent = cpu_to_le32(TX_HDR_SENT);
++}
++
++static void ec_bhf_setup_rx_descs(struct ec_bhf_priv *priv)
++{
++	int i;
++
++	priv->rx_dcount = priv->rx_buf.len / sizeof(struct rx_desc);
++	priv->rx_descs = (struct rx_desc *) priv->rx_buf.buf;
++	priv->rx_dnext = 0;
++
++	for (i = 0; i < priv->rx_dcount; i++) {
++		struct rx_desc *desc = &priv->rx_descs[i];
++		u32 next;
++
++		if (i != priv->rx_dcount - 1)
++			next = (u8 *)(desc + 1) - priv->rx_buf.buf;
++		else
++			next = 0;
++		next |= RXHDR_NEXT_VALID;
++		desc->header.next = cpu_to_le32(next);
++		desc->header.recv = 0;
++		ec_bhf_add_rx_desc(priv, desc);
++	}
++}
++
++static int ec_bhf_open(struct net_device *net_dev)
++{
++	struct ec_bhf_priv *priv = netdev_priv(net_dev);
++	struct device *dev = PRIV_TO_DEV(priv);
++	int err = 0;
++
++	dev_info(dev, "Opening device\n");
++
++	ec_bhf_reset(priv);
++
++	err = ec_bhf_alloc_dma_mem(priv, &priv->rx_buf, priv->rx_dma_chan,
++				   FIFO_SIZE * sizeof(struct rx_desc));
++	if (err) {
++		dev_err(dev, "Failed to allocate rx buffer");
++		goto out;
++	}
++	ec_bhf_setup_rx_descs(priv);
++
++	dev_info(dev, "RX buffer allocated, address: %x\n",
++		 (unsigned)priv->rx_buf.buf_phys);
++
++	err = ec_bhf_alloc_dma_mem(priv, &priv->tx_buf, priv->tx_dma_chan,
++				   FIFO_SIZE * sizeof(struct tx_desc));
++	if (err) {
++		dev_err(dev, "Failed to allocate tx buffer");
++		goto error_rx_free;
++	}
++	dev_info(dev, "TX buffer allocated, addres: %x\n",
++		 (unsigned)priv->tx_buf.buf_phys);
++
++	iowrite8(0, priv->mii_io + MII_MAC_FILT_FLAG);
++
++	ec_bhf_setup_tx_descs(priv);
++
++	netif_start_queue(net_dev);
++
++	hrtimer_init(&priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
++	priv->hrtimer.function = ec_bhf_timer_fun;
++	hrtimer_start(&priv->hrtimer,
++		      ktime_set(0, polling_frequency),
++		      HRTIMER_MODE_REL);
++
++	dev_info(PRIV_TO_DEV(priv), "Device open\n");
++
++	ec_bhf_print_status(priv);
++
++	return 0;
++
++error_rx_free:
++	dma_free_coherent(dev, priv->rx_buf.alloc_len, priv->rx_buf.alloc,
++			  priv->rx_buf.alloc_len);
++out:
++	return err;
++}
++
++static int ec_bhf_stop(struct net_device *net_dev)
++{
++	struct ec_bhf_priv *priv = netdev_priv(net_dev);
++	struct device *dev = PRIV_TO_DEV(priv);
++
++	hrtimer_cancel(&priv->hrtimer);
++
++	ec_bhf_reset(priv);
++
++	netif_tx_disable(net_dev);
++
++	dma_free_coherent(dev, priv->tx_buf.alloc_len,
++			  priv->tx_buf.alloc, priv->tx_buf.alloc_phys);
++	dma_free_coherent(dev, priv->rx_buf.alloc_len,
++			  priv->rx_buf.alloc, priv->rx_buf.alloc_phys);
++
++	return 0;
++}
++
++static struct rtnl_link_stats64 *
++ec_bhf_get_stats(struct net_device *net_dev,
++		 struct rtnl_link_stats64 *stats)
++{
++	struct ec_bhf_priv *priv = netdev_priv(net_dev);
++
++	memset(stats, 0, sizeof(*stats));
++
++	stats->rx_errors = ioread8(priv->mac_io + MAC_RX_ERR_CNT) +
++				ioread8(priv->mac_io + MAC_CRC_ERR_CNT) +
++				ioread8(priv->mac_io + MAC_FRAME_ERR_CNT);
++	stats->rx_packets = ioread32(priv->mac_io + MAC_RX_FRAME_CNT);
++	stats->tx_packets = ioread32(priv->mac_io + MAC_TX_FRAME_CNT);
++	stats->rx_dropped = ioread8(priv->mac_io + MAC_DROPPED_FRMS);
++
++	stats->tx_bytes = priv->stat_tx_bytes;
++	stats->rx_bytes = priv->stat_rx_bytes;
++
++	return stats;
++}
++
++static const struct net_device_ops ec_bhf_netdev_ops = {
++	.ndo_start_xmit		= ec_bhf_start_xmit,
++	.ndo_open		= ec_bhf_open,
++	.ndo_stop		= ec_bhf_stop,
++	.ndo_get_stats64	= ec_bhf_get_stats,
++	.ndo_change_mtu		= eth_change_mtu,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_set_mac_address	= eth_mac_addr
++};
++
++static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
++{
++	int err = 0;
++	void * __iomem io;
++	void * __iomem dma_io;
++	struct net_device *net_dev;
++	struct ec_bhf_priv *priv;
++
++	err = pci_enable_device(dev);
++	if (err)
++		return err;
++
++	pci_set_master(dev);
++
++	err = pci_set_dma_mask(dev, DMA_BIT_MASK(32));
++	if (err) {
++		dev_err(&dev->dev,
++			"Required dma mask not supported, failed to initialize device\n");
++		err = -EIO;
++		goto err_disable_dev;
++	}
++
++	err = pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(32));
++	if (err) {
++		dev_err(&dev->dev,
++			"Required dma mask not supported, failed to initialize device\n");
++		goto err_disable_dev;
++	}
++
++	err = pci_request_regions(dev, "ec_bhf");
++	if (err) {
++		dev_err(&dev->dev,
++			"Failed to request pci memory regions\n");
++		goto err_disable_dev;
++	}
++
++	io = pci_iomap(dev, 0, 0);
++	if (!io) {
++		dev_err(&dev->dev, "Failed to map pci card memory bar 0");
++		err = -EIO;
++		goto err_release_regions;
++	}
++
++	dma_io = pci_iomap(dev, 2, 0);
++	if (!dma_io) {
++		dev_err(&dev->dev, "Failed to map pci card memory bar 2");
++		err = -EIO;
++		goto err_unmap;
++	}
++
++	net_dev = alloc_etherdev(sizeof(struct ec_bhf_priv));
++	if (net_dev == 0) {
++		err = -ENOMEM;
++		goto err_unmap_dma_io;
++	}
++
++	pci_set_drvdata(dev, net_dev);
++	SET_NETDEV_DEV(net_dev, &dev->dev);
++
++	net_dev->features = 0;
++	net_dev->flags |= IFF_NOARP;
++
++	net_dev->netdev_ops = &ec_bhf_netdev_ops;
++
++	priv = netdev_priv(net_dev);
++	priv->net_dev = net_dev;
++	priv->io = io;
++	priv->dma_io = dma_io;
++	priv->dev = dev;
++
++	err = ec_bhf_setup_offsets(priv);
++	if (err < 0)
++		goto err_free_net_dev;
++
++	memcpy_fromio(net_dev->dev_addr, priv->mii_io + MII_MAC_ADDR, 6);
++
++	dev_info(&dev->dev, "CX5020 Ethercat master address: %pM\n",
++		 net_dev->dev_addr);
++
++	err = register_netdev(net_dev);
++	if (err < 0)
++		goto err_free_net_dev;
++
++	return 0;
++
++err_free_net_dev:
++	free_netdev(net_dev);
++err_unmap_dma_io:
++	pci_iounmap(dev, dma_io);
++err_unmap:
++	pci_iounmap(dev, io);
++err_release_regions:
++	pci_release_regions(dev);
++err_disable_dev:
++	pci_clear_master(dev);
++	pci_disable_device(dev);
++
++	return err;
++}
++
++static void ec_bhf_remove(struct pci_dev *dev)
++{
++	struct net_device *net_dev = pci_get_drvdata(dev);
++	struct ec_bhf_priv *priv = netdev_priv(net_dev);
++
++	unregister_netdev(net_dev);
++	free_netdev(net_dev);
++
++	pci_iounmap(dev, priv->dma_io);
++	pci_iounmap(dev, priv->io);
++	pci_release_regions(dev);
++	pci_clear_master(dev);
++	pci_disable_device(dev);
++}
++
++static struct pci_driver pci_driver = {
++	.name		= "ec_bhf",
++	.id_table	= ids,
++	.probe		= ec_bhf_probe,
++	.remove		= ec_bhf_remove,
++};
++
++static int __init ec_bhf_init(void)
++{
++	return pci_register_driver(&pci_driver);
++}
++
++static void __exit ec_bhf_exit(void)
++{
++	pci_unregister_driver(&pci_driver);
++}
++
++module_init(ec_bhf_init);
++module_exit(ec_bhf_exit);
++
++module_param(polling_frequency, long, S_IRUGO);
++MODULE_PARM_DESC(polling_frequency, "Polling timer frequency in ns");
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Dariusz Marcinkiewicz <reksio@newterm.pl>");
+-- 
+1.7.10.4
