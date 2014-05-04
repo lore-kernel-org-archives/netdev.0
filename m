@@ -1,61 +1,56 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Subject: Re: [patch] RDMA/cxgb4: info leak in c4iw_alloc_ucontext()
-Date: Sun, 04 May 2014 23:46:30 +0200
-Message-ID: <1399239990.2957.6.camel@localhost.localdomain>
-References: <20140328082428.GH25192@mwanda>
-	 <1396002468.3297.63.camel@localhost.localdomain>
-	 <20140502235616.GJ4963@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Wise <swise@chelsio.com>, Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	roland@purestorage.com, dm@chelsio.com, leedom@chelsio.com,
-	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
-	hariprasad@chelsio.com, Steve Wise <swise@opengridcomputing.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20140502235616.GJ4963@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] net: ipv6: send pkttoobig immediately if orig frag size > mtu
+Date: Mon,  5 May 2014 00:03:34 +0200
+Message-ID: <1399241014-32471-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34891 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753811AbaEDWIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 18:08:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+If conntrack defragments incoming ipv6 frags it stores largest original
+frag size in ip6cb and sets ->local_df.
 
-Le samedi 03 mai 2014 =C3=A0 02:56 +0300, Dan Carpenter a =C3=A9crit :
-> On Fri, Mar 28, 2014 at 11:27:48AM +0100, Yann Droneaud wrote:
-> > Unfortunately, it's not the only structure which has this problem. =
-I'm
-> > currently preparing a report on this issue for this driver (cxgb4) =
-and
-> > another.
-> >=20
->=20
-> This information leak is still present in linux-next.  These days we
-> count those things as security vulnerabilities with CVEs and everythi=
-ng.
->=20
-> When is it likely to get fixed?
->=20
+We must thus first test the largest original frag size vs. mtu, and not
+vice versa.
 
-Thanks for the reminder.
+Without this patch PKTTOOBIG is still generated in ip6_fragment() later
+in the stack, but
 
-The patches were waiting for some times in my patch queue, I failed to
-provide them earlier. BTW, I've taken time during the week end to
-complete them. They should be available on linux-rdma@vger.kernel.org.
-See http://marc.info/?i=3Dcover.1399216475.git.ydroneaud@opteya.com
+1) IPSTATS_MIB_INTOOBIGERRORS won't increment
+2) packet did (needlessly) traverse netfilter postrouting hook.
 
-Regards.
+Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/ipv6/ip6_output.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
---=20
-Yann Droneaud
-OPTEYA
-
-
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 40e7581..31a38bd 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -344,12 +344,16 @@ static unsigned int ip6_dst_mtu_forward(const struct dst_entry *dst)
+ 
+ static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mtu)
+ {
+-	if (skb->len <= mtu || skb->local_df)
++	if (skb->len <= mtu)
+ 		return false;
+ 
++	/* ipv6 conntrack defrag sets max_frag_size + local_df */
+ 	if (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)
+ 		return true;
+ 
++	if (skb->local_df)
++		return false;
++
+ 	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
+ 		return false;
+ 
+-- 
+1.8.1.5
