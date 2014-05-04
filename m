@@ -1,55 +1,109 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v5 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
-Date: Sun, 4 May 2014 20:43:51 +0200
-Message-ID: <20140504184351.GA4471@electric-eye.fr.zoreil.com>
-References: <20140502175242.GB1156@newterm.pl>
- <20140503114029.GA19315@electric-eye.fr.zoreil.com>
- <20140504110413.GE1156@newterm.pl>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch] isdn: hisax: clean up some indenting
+Date: Sun, 04 May 2014 20:59:08 +0200
+Message-ID: <53668DFC.6040106@bfs.de>
+References: <20140503202012.GC32753@mwanda>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Darek Marcinkiewicz <reksio@newterm.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140504110413.GE1156@newterm.pl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Karsten Keil <isdn@linux-pingi.de>, Jiri Kosina <jkosina@suse.cz>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Masanari Iida <standby24x7@gmail.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20140503202012.GC32753@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Darek Marcinkiewicz <reksio@newterm.pl> :
-> On Sat, May 03, 2014 at 01:40:29PM +0200, Francois Romieu wrote:
-[...]
-> Thank you. I am attaching 2 of thse to this repsonse - the other two 
-> are no longer relevant due to the changes I made into the driver.
-> One of the attached patches is slightly modfied by simply having one hunk
-> removed (that hunk was applying to the code that was removed in next rev 
-> of the driver). Not sure how to proceed with those patches, shall I simply
-> sent out these patches to this list as a separate messages?
 
-You should submit a complete series if you want them separated - git
-format-patch does wonders here - or include these directly in your own
-patch as I don't really care for the credit.
 
-[...]
-> I have changed the code to use much modest value - it is set to be of the
-> size of the fifo now. I think that this value is much better, but of course
-> having this configurable would be even better.
+Am 03.05.2014 22:20, schrieb Dan Carpenter:
+> The indenting is off the ifdefed code is intended to be a part of the
+> body of the if statement.  I have cleaned it up a bit.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
+> index 414dbf6..aaade90 100644
+> --- a/drivers/isdn/hisax/hfc4s8s_l1.c
+> +++ b/drivers/isdn/hisax/hfc4s8s_l1.c
+> @@ -738,12 +738,13 @@ rx_d_frame(struct hfc4s8s_l1 *l1p, int ech)
+>  					z1 -= 4;
+>  				}
+>  
+> -				while (z1--)
+> +				while (z1--) {
+>  #ifdef HISAX_HFC4S8S_PCIMEM
+>  					Read_hfc8(l1p->hw, A_FIFO_DATA0);
+>  #else
+> -				fRead_hfc8(l1p->hw);
+> +					fRead_hfc8(l1p->hw);
+>  #endif
+> +				}
+>  
+>  				Write_hfc8(l1p->hw, A_INC_RES_FIFO, 1);
+>  				wait_busy(l1p->hw);
+> @@ -768,12 +769,13 @@ rx_d_frame(struct hfc4s8s_l1 *l1p, int ech)
+>  			z1 -= 4;
+>  		}
+>  
+> -		while (z1--)
+> +		while (z1--) {
+>  #ifdef HISAX_HFC4S8S_PCIMEM
+>  			*cp++ = Read_hfc8(l1p->hw, A_FIFO_DATA0);
+>  #else
+> -		*cp++ = fRead_hfc8(l1p->hw);
+> +			*cp++ = fRead_hfc8(l1p->hw);
+>  #endif
+> +		}
+>  
+>  		Write_hfc8(l1p->hw, A_INC_RES_FIFO, 1);	/* increment f counter */
+>  		wait_busy(l1p->hw);
+> @@ -875,12 +877,13 @@ rx_b_frame(struct hfc4s8s_btype *bch)
+>  			z1 -= 4;
+>  		}
+>  
+> -		while (z1--)
+> +		while (z1--) {
+>  #ifdef HISAX_HFC4S8S_PCIMEM
+>  			*(bch->rx_ptr++) = Read_hfc8(l1->hw, A_FIFO_DATA0);
+>  #else
+> -		*(bch->rx_ptr++) = fRead_hfc8(l1->hw);
+> +			*(bch->rx_ptr++) = fRead_hfc8(l1->hw);
+>  #endif
+> +		}
+>  
+>  		if (hdlc_complete) {
+>  			/* increment f counter */
+> @@ -1051,12 +1054,13 @@ tx_b_frame(struct hfc4s8s_btype *bch)
+>  			cnt -= 4;
+>  		}
+>  
+> -		while (cnt--)
+> +		while (cnt--) {
+>  #ifdef HISAX_HFC4S8S_PCIMEM
+>  			fWrite_hfc8(l1->hw, A_FIFO_DATA0, *cp++);
+>  #else
+> -		fWrite_hfc8(l1->hw, *cp++);
+> +			fWrite_hfc8(l1->hw, *cp++);
+>  #endif
+> +		}
 
-(see ethtool_ops.[gs]et_ringparam)
+This looks wrong. The read above uses Read_hfc8/fRead_hfc8 (easy to confuse but i am not the maintainer ....)
+here we have 2* fWrite_hfc8() ?
+Does this compile with HISAX_HFC4S8S_PCIMEM ??
 
-[...]
-> No, there is really no interrupt, hence the timer. Also on this device I wouldn't 
-> expect any bursts of data. What happens here, during regular operation of the 
-> device, is a periodic exchange of (few) ethernet packets between host cpu and
-> terminals attached to the EtherCAT bus. As for the locking on the tx path,
-> I have removed that completely on receiving path. I simply didn't know 
-> that it is such a big no-no here :)
+re,
+ wh
 
-Ok.
 
-Regarding tx_dnext updates, you may add a short notice in ec_bhf_start_xmit
-and ec_bhf_process_tx explaining that the periodic poller will somehow end
-working with the right value, whence no (smp_)barrier at all.
-
--- 
-Ueimor
+>  
+>  		if (bch->tx_cnt >= skb->len) {
+>  			if (bch->mode == L1_MODE_HDLC) {
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
