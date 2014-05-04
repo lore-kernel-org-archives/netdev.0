@@ -1,51 +1,62 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ipv4: "conntrack zones" support for defrag user check in
- ip_expire
-Date: Sun, 4 May 2014 13:18:50 +0200
-Message-ID: <20140504111850.GA3765@localhost>
-References: <536426BC.7020509@parallels.com>
+Subject: Re: nft 2.0, NULL pointer dereference in 3.14.1
+Date: Sun, 4 May 2014 13:33:57 +0200
+Message-ID: <20140504113357.GA3953@localhost>
+References: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
+ <3a97c044d7e99dc4bd3d6b8d36d79a01@visp.net.lb>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, Florian Westphal <fw@strlen.de>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Vasily Averin <vvs@parallels.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, kaber@trash.net, kadlec@blackhole.kfki.hu
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37880 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753485AbaEDLeH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 4 May 2014 07:34:07 -0400
 Content-Disposition: inline
-In-Reply-To: <536426BC.7020509@parallels.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <3a97c044d7e99dc4bd3d6b8d36d79a01@visp.net.lb>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 03, 2014 at 03:14:04AM +0400, Vasily Averin wrote:
-> Defrag user check in ip_expire was not updated after adding support for
-> "conntrack zones"
-
-I think this bug manifests as a RFC violation, as the router will send
-the icmp time exceeeded message when using conntrack zones. Just would
-like to confirm this, so we can include it in the patch description.
-Thanks.
-
-> Signed-off-by: Vasily Averin <vvs@openvz.org>
-> ---
->  net/ipv4/ip_fragment.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
+On Sun, May 04, 2014 at 10:25:58AM +0300, Denys Fedoryshchenko wrote:
+> Hi
 > 
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> index c10a3ce..ed32313 100644
-> --- a/net/ipv4/ip_fragment.c
-> +++ b/net/ipv4/ip_fragment.c
-> @@ -232,8 +232,9 @@ static void ip_expire(unsigned long arg)
->  		 * "Fragment Reassembly Timeout" message, per RFC792.
->  		 */
->  		if (qp->user == IP_DEFRAG_AF_PACKET ||
-> -		    (qp->user == IP_DEFRAG_CONNTRACK_IN &&
-> -		     skb_rtable(head)->rt_type != RTN_LOCAL))
-> +		    ((qp->user >= IP_DEFRAG_CONNTRACK_IN) &&
-> +		     (qp->user <= __IP_DEFRAG_CONNTRACK_IN_END) &&
-> +		     (skb_rtable(head)->rt_type != RTN_LOCAL)))
->  			goto out_rcu_unlock;
->  
->  
-> -- 
-> 1.7.5.4
+> I bit more debugging and found that problem is happening at:
 > 
+> >sock = netlink_lookup(sock_net(ssk), ssk->sk_protocol, portid);
+> 
+> ssk is NULL
+> 
+> After checking, i noticed in nfnetlink.c
+> nfnetlink_rcv_batch() function
+> 
+> We have
+> nskb->sk = oskb->sk;
+> skb = nskb;
+> 
+> I am matching condition
+> ss = rcu_dereference_protected(table[subsys_id].subsys,
+>        lockdep_is_held(&table[subsys_id].mutex));
+> if (!ss) {
+> 
+> And then
+> nfnl_unlock(subsys_id);
+> kfree_skb(nskb);
+> return netlink_ack(skb, nlh, -EOPNOTSUPP);
+> 
+> If i am not wrong, nskb same pointer as skb, so we are giving
+> netlink_ack freed pointer?
+> Is it "use after free()" ?
+
+Right, this is an embarrasing use after free when no nf_tables support
+has been selected / modules are not available.
+
+> If yes, then it seems attached patch fixing my issue. Please let me
+> know, if it is ok and i should submit it.
+
+I'm going to take this, but please next time use git format-patch and
+include your Signed-off-by tag. If you feel the patch is not complete
+in some aspect or that you may be missing anything, just include the
+RFC tag in the subject.
+
+Thanks Denys!
