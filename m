@@ -1,40 +1,54 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net] bridge: Add port flap detection
-Date: Mon,  5 May 2014 07:29:34 +1000
-Message-ID: <1399238974-6210-1-git-send-email-jmaxwell@redhat.com>
-Cc: stephen@networkplumber.org, davem@davemloft.net,
-	makita.toshiaki@lab.ntt.co.jp, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	pirko@redhat.com, jmaxwell@redhat.com
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH] net: ipv4: ip_forward: fix inverted local_df test
+Date: Sun,  4 May 2014 23:24:31 +0200
+Message-ID: <1399238671-21170-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34847 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752649AbaEDV3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 17:29:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There has been a number incidents recently where customers running KVM have reported that VM hosts on different Hypervisors are unreachable. Based on pcap traces we found that the bridge was broadcasting the ARP request out onto the network. However some NICs have an inbuilt switch which on occasions were broadcasting the VMs ARP request back through the physical NIC on the Hypervisor. This resulted in the bridge flapping ports and incorrectly learning that the VMs mac address was external. As a result the ARP reply was directed back onto the external network and VM never updated it's ARP cache. This patch will detect port flapping and log a message so that this condition can be detected earlier.
+local_df means 'ignore DF bit if set', so if its set we're
+allowed to perform ip fragmentation.
 
-Signed-off-by: Jon Maxwell <jmaxwell@redhat.com>
+This wasn't noticed earlier because the output path also drops such skbs
+(and emits needed icmp error) and because netfilter ip defrag did not
+set local_df until couple of days ago.
+
+Only difference is that DF-packets-larger-than MTU now discarded
+earlier (f.e. we avoid pointless netfilter postrouting trip).
+
+While at it, drop the repeated test ip_exceeds_mtu, checking it once
+is enough...
+
+Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- net/bridge/br_fdb.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/ipv4/ip_forward.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..c08607b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -507,6 +507,13 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 					source->dev->name);
- 		} else {
- 			/* fastpath: update of existing entry */
-+			if (source->port_no != fdb->dst->port_no &&
-+				net_ratelimit())
-+				br_warn(br, "Port flapping detected source entry dev = %s mac = %pM, port_no = %d\n existing entry dev = %s mac = %pM, port_no = %d\n",
-+					source->dev->name,
-+					addr, source->port_no,
-+					fdb->dst->dev->name, addr,
-+					fdb->dst->port_no);
- 			fdb->dst = source;
- 			fdb->updated = jiffies;
- 			if (unlikely(added_by_user))
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 85af3d9..6f111e4 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -42,12 +42,12 @@
+ static bool ip_may_fragment(const struct sk_buff *skb)
+ {
+ 	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
+-	       !skb->local_df;
++		skb->local_df;
+ }
+ 
+ static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
+ {
+-	if (skb->len <= mtu || skb->local_df)
++	if (skb->len <= mtu)
+ 		return false;
+ 
+ 	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
 -- 
-1.8.3.1
+1.8.1.5
