@@ -1,43 +1,61 @@
-From: Darek Marcinkiewicz <reksio@newterm.pl>
-Subject: Re: [PATCH v5 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
-Date: Sun, 4 May 2014 23:41:17 +0200
-Message-ID: <20140504214116.GI1156@newterm.pl>
-References: <20140502175242.GB1156@newterm.pl>
- <20140503114029.GA19315@electric-eye.fr.zoreil.com>
- <20140504110413.GE1156@newterm.pl>
- <20140504184351.GA4471@electric-eye.fr.zoreil.com>
- <20140504194624.GG1156@newterm.pl>
- <20140504211928.GB4471@electric-eye.fr.zoreil.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Subject: Re: [patch] RDMA/cxgb4: info leak in c4iw_alloc_ucontext()
+Date: Sun, 04 May 2014 23:46:30 +0200
+Message-ID: <1399239990.2957.6.camel@localhost.localdomain>
+References: <20140328082428.GH25192@mwanda>
+	 <1396002468.3297.63.camel@localhost.localdomain>
+	 <20140502235616.GJ4963@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140504211928.GB4471@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steve Wise <swise@chelsio.com>, Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	roland@purestorage.com, dm@chelsio.com, leedom@chelsio.com,
+	santosh@chelsio.com, kumaras@chelsio.com, nirranjan@chelsio.com,
+	hariprasad@chelsio.com, Steve Wise <swise@opengridcomputing.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20140502235616.GJ4963@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, May 04, 2014 at 11:19:28PM +0200, Francois Romieu wrote:
-> Darek Marcinkiewicz <reksio@newterm.pl> :
-> > On Sun, May 04, 2014 at 08:43:51PM +0200, Francois Romieu wrote:
-> [...]
-> > > Regarding tx_dnext updates, you may add a short notice in ec_bhf_start_xmit
-> > > and ec_bhf_process_tx explaining that the periodic poller will somehow end
-> > > working with the right value, whence no (smp_)barrier at all.
-> > > 
-> > Hmm, good point. I am not really sure that it is not a race. So, I've added
-> > memory barriers for the case when the tx ring becomes full.
-> 
-> Without memory barrier, the hrtimer poller may be wrong but 1) it will
-> always be pessimistic and 2) it won't last. It would be sloppy though.
-> 
-> Did you have some time to test the latest version ?
-> 
-Yes, I have this code continuously running and it looks good. This is a regular
-application that I have running now, so not all interesting edge cases might have been
-exercised, though.
+Hi,
 
--- 
-DM
+Le samedi 03 mai 2014 =C3=A0 02:56 +0300, Dan Carpenter a =C3=A9crit :
+> On Fri, Mar 28, 2014 at 11:27:48AM +0100, Yann Droneaud wrote:
+> > Unfortunately, it's not the only structure which has this problem. =
+I'm
+> > currently preparing a report on this issue for this driver (cxgb4) =
+and
+> > another.
+> >=20
+>=20
+> This information leak is still present in linux-next.  These days we
+> count those things as security vulnerabilities with CVEs and everythi=
+ng.
+>=20
+> When is it likely to get fixed?
+>=20
+
+Thanks for the reminder.
+
+The patches were waiting for some times in my patch queue, I failed to
+provide them earlier. BTW, I've taken time during the week end to
+complete them. They should be available on linux-rdma@vger.kernel.org.
+See http://marc.info/?i=3Dcover.1399216475.git.ydroneaud@opteya.com
+
+Regards.
+
+--=20
+Yann Droneaud
+OPTEYA
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe kernel-janito=
+rs" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
