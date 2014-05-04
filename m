@@ -1,43 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: "conntrack zones" support for defrag user check
- in ip_expire
-Date: Sun, 04 May 2014 14:28:24 -0400 (EDT)
-Message-ID: <20140504.142824.1212392577822772638.davem@davemloft.net>
-References: <536426BC.7020509@parallels.com>
-	<20140504111850.GA3765@localhost>
-	<20140504125835.GA4452@localhost>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v5 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
+Date: Sun, 4 May 2014 20:43:51 +0200
+Message-ID: <20140504184351.GA4471@electric-eye.fr.zoreil.com>
+References: <20140502175242.GB1156@newterm.pl>
+ <20140503114029.GA19315@electric-eye.fr.zoreil.com>
+ <20140504110413.GE1156@newterm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vvs@parallels.com, kaber@trash.net, fw@strlen.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51416 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbaEDS20 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 14:28:26 -0400
-In-Reply-To: <20140504125835.GA4452@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Darek Marcinkiewicz <reksio@newterm.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140504110413.GE1156@newterm.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 4 May 2014 14:58:35 +0200
+Darek Marcinkiewicz <reksio@newterm.pl> :
+> On Sat, May 03, 2014 at 01:40:29PM +0200, Francois Romieu wrote:
+[...]
+> Thank you. I am attaching 2 of thse to this repsonse - the other two 
+> are no longer relevant due to the changes I made into the driver.
+> One of the attached patches is slightly modfied by simply having one hunk
+> removed (that hunk was applying to the code that was removed in next rev 
+> of the driver). Not sure how to proceed with those patches, shall I simply
+> sent out these patches to this list as a separate messages?
 
-> On Sun, May 04, 2014 at 01:18:50PM +0200, Pablo Neira Ayuso wrote:
->> On Sat, May 03, 2014 at 03:14:04AM +0400, Vasily Averin wrote:
->> > Defrag user check in ip_expire was not updated after adding support for
->> > "conntrack zones"
->> 
->> I think this bug manifests as a RFC violation, as the router will send
->> the icmp time exceeeded message when using conntrack zones. Just would
->> like to confirm this, so we can include it in the patch description.
->> Thanks.
-> 
-> @David: If no objection, I'll pick this patch given that it's a
-> netfilter bug.
-> 
-> I will also append to the patch description the comment above for the
-> record.
+You should submit a complete series if you want them separated - git
+format-patch does wonders here - or include these directly in your own
+patch as I don't really care for the credit.
 
-That's perfectly fine, thanks.
+[...]
+> I have changed the code to use much modest value - it is set to be of the
+> size of the fifo now. I think that this value is much better, but of course
+> having this configurable would be even better.
+
+(see ethtool_ops.[gs]et_ringparam)
+
+[...]
+> No, there is really no interrupt, hence the timer. Also on this device I wouldn't 
+> expect any bursts of data. What happens here, during regular operation of the 
+> device, is a periodic exchange of (few) ethernet packets between host cpu and
+> terminals attached to the EtherCAT bus. As for the locking on the tx path,
+> I have removed that completely on receiving path. I simply didn't know 
+> that it is such a big no-no here :)
+
+Ok.
+
+Regarding tx_dnext updates, you may add a short notice in ec_bhf_start_xmit
+and ec_bhf_process_tx explaining that the periodic poller will somehow end
+working with the right value, whence no (smp_)barrier at all.
+
+-- 
+Ueimor
