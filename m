@@ -1,56 +1,176 @@
-From: Ying Cai <ycai@google.com>
-Subject: [PATCH net v2] ip_tunnel: Set network header properly for IP_ECN_decapsulate()
-Date: Sat, 3 May 2014 22:40:03 -0700
-Message-ID: <CAL1qit8cy1GOfpdu+LxrFuvegSoC_GFvE67gnfFMBW224hhNAQ@mail.gmail.com>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: nft 2.0, NULL pointer dereference in 3.14.1
+Date: Sun, 04 May 2014 10:25:58 +0300
+Message-ID: <3a97c044d7e99dc4bd3d6b8d36d79a01@visp.net.lb>
+References: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>, pshelar@nicira.com
+Content-Type: multipart/mixed;
+ boundary="=_203ad4547ae138110f1138e5cebe7696"
+To: netdev@vger.kernel.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	Pablo <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:41953 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751258AbaEDFkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 01:40:03 -0400
-Received: by mail-oa0-f46.google.com with SMTP id i4so6392408oah.33
-        for <netdev@vger.kernel.org>; Sat, 03 May 2014 22:40:03 -0700 (PDT)
+Received: from hosting.visp.net.lb ([194.146.153.11]:38619 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752429AbaEDH0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 03:26:05 -0400
+Received: from hosting.visp.net.lb (localhost [127.0.0.1])
+	by hosting.visp.net.lb (Postfix) with ESMTP id 5017D480AAE
+	for <netdev@vger.kernel.org>; Sun,  4 May 2014 10:25:59 +0300 (EEST)
+In-Reply-To: <52ee4b86089383eb7ae8d2bed17e6f8b@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ip_tunnel_rcv(), set skb->network_header to inner IP header
-before IP_ECN_decapsulate().
+--=_203ad4547ae138110f1138e5cebe7696
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 
-Without the fix, IP_ECN_decapsulate() takes outer IP header as
-inner IP header, possibly causing error messages or packet drops.
+Hi
 
-Note that this skb_reset_network_header() call was in this spot when
-the original feature for checking consistency of ECN bits through
-tunnels was added in eccc1bb8d4b4 ("tunnel: drop packet if ECN present
-with not-ECT"). It was only removed from this spot in 3d7b46cd20e3
-("ip_tunnel: push generic protocol handling to ip_tunnel module.").
+I bit more debugging and found that problem is happening at:
 
-Fixes: 3d7b46cd20e3 ("ip_tunnel: push generic protocol handling to
-ip_tunnel module.")
-Reported-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Ying Cai <ycai@google.com>
-Acked-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/ip_tunnel.c | 2 ++
- 1 file changed, 2 insertions(+)
+> sock = netlink_lookup(sock_net(ssk), ssk->sk_protocol, portid);
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index fa5b751..b3f8597 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -442,6 +442,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct
-sk_buff *skb,
-  tunnel->i_seqno = ntohl(tpi->seq) + 1;
-  }
+ssk is NULL
 
-+ skb_reset_network_header(skb);
-+
-  err = IP_ECN_decapsulate(iph, skb);
-  if (unlikely(err)) {
-  if (log_ecn_error)
--- 
-1.9.1.423.g4596e3a
+After checking, i noticed in nfnetlink.c
+nfnetlink_rcv_batch() function
+
+We have
+nskb->sk = oskb->sk;
+skb = nskb;
+
+I am matching condition
+ss = rcu_dereference_protected(table[subsys_id].subsys,
+        lockdep_is_held(&table[subsys_id].mutex));
+if (!ss) {
+
+And then
+nfnl_unlock(subsys_id);
+kfree_skb(nskb);
+return netlink_ack(skb, nlh, -EOPNOTSUPP);
+
+If i am not wrong, nskb same pointer as skb, so we are giving 
+netlink_ack freed pointer?
+Is it "use after free()" ?
+
+If yes, then it seems attached patch fixing my issue. Please let me 
+know, if it is ok and i should submit it.
+
+
+On 2014-04-19 10:36, Denys Fedoryshchenko wrote:
+> Hi
+> 
+> While trying nft got kernel NULL dereference
+> extreme ~ # nft -v
+> nftables v0.2 (Support Edward Snowden)
+> extreme ~ # uname -a
+> Linux extreme 3.14.1-extreme-stable #1 SMP Sat Apr 19 10:23:48 EEST
+> 2014 x86_64 Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz GenuineIntel
+> GNU/Linux
+> 
+> Command i tried (nothing else entered before it):
+> nft add rule filter icmp-chain counter
+> 
+> kernel message:
+> [   44.071555] Netfilter messages via NETLINK v0.30.
+> [   44.072253] BUG: unable to handle kernel NULL pointer dereference
+> at 0000000000000119
+> [   44.072264] IP: [<ffffffff8171db1f>] 
+> netlink_getsockbyportid+0xf/0x70
+> [   44.072272] PGD 7f2b74067 PUD 7f2b73067 PMD 0
+> [   44.072277] Oops: 0000 [#1] SMP
+> [   44.072280] Modules linked in: nfnetlink ftdi_sio usbserial
+> usb_storage x86_pkg_temp_thermal intel_powerclamp coretemp kvm_intel
+> kvm iTCO_wdt iTCO_vendor_support mei_me mei lpc_ich mfd_core
+> [   44.072301] CPU: 4 PID: 2573 Comm: nft Not tainted 
+> 3.14.1-extreme-stable #1
+> [   44.072304] Hardware name:                  /DH87MC, BIOS
+> MCH8710H.86A.0154.2014.0123.1542 01/23/2014
+> [   44.072308] task: ffff8807f5195340 ti: ffff8807d4c36000 task.ti:
+> ffff8807d4c36000
+> [   44.072311] RIP: 0010:[<ffffffff8171db1f>]  [<ffffffff8171db1f>]
+> netlink_getsockbyportid+0xf/0x70
+> [   44.072317] RSP: 0018:ffff8807d4c37a90  EFLAGS: 00010202
+> [   44.072319] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 
+> 0000000000000028
+> [   44.072322] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+> 0000000000000000
+> [   44.072325] RBP: ffff8807d4c37a98 R08: 0000000000000000 R09: 
+> ffff8807f85b0028
+> [   44.072328] R10: 00000000ffffffff R11: 0000000000000000 R12: 
+> ffff8807f5de2900
+> [   44.072331] R13: 0000000000000000 R14: 0000000000000000 R15: 
+> 0000000000000018
+> [   44.072335] FS:  00007fa028b25700(0000) GS:ffff88081ed00000(0000)
+> knlGS:0000000000000000
+> [   44.072338] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   44.072341] CR2: 0000000000000119 CR3: 00000007f370d000 CR4: 
+> 00000000001407e0
+> [   44.072343] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 
+> 0000000000000000
+> [   44.072346] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 
+> 0000000000000400
+> [   44.072349] Stack:
+> [   44.072351]  0000000000000040 ffff8807d4c37ad0 ffffffff8171fd81
+> 0000000000000000
+> [   44.072357]  ffff8807f5de2900 ffff8807f5de2900 00000000ffffffa1
+> ffff8807f85b1600
+> [   44.072363]  ffff8807d4c37b08 ffffffff817206c9 ffff8807f85b1600
+> ffff8807f5de3400
+> [   44.072369] Call Trace:
+> [   44.072373]  [<ffffffff8171fd81>] netlink_unicast+0x91/0x200
+> [   44.072377]  [<ffffffff817206c9>] netlink_ack+0x99/0x110
+> [   44.072381]  [<ffffffffa004b951>] nfnetlink_rcv+0x3c1/0x408 
+> [nfnetlink]
+> [   44.072385]  [<ffffffff8171fde3>] netlink_unicast+0xf3/0x200
+> [   44.072389]  [<ffffffff817201ef>] netlink_sendmsg+0x2ff/0x740
+> [   44.072394]  [<ffffffff81044752>] ? __mmdrop+0x62/0x90
+> [   44.072398]  [<ffffffff816dafdb>] sock_sendmsg+0x8b/0xc0
+> [   44.072403]  [<ffffffff812f1af5>] ? 
+> copy_user_enhanced_fast_string+0x5/0x10
+> [   44.072406]  [<ffffffff816dbb6c>] ? move_addr_to_kernel+0x2c/0x50
+> [   44.072410]  [<ffffffff816db423>] ___sys_sendmsg+0x3c3/0x3d0
+> [   44.072415]  [<ffffffff811301ba>] ? handle_mm_fault+0xa9a/0xc60
+> [   44.072420]  [<ffffffff811362d6>] ? mmap_region+0x166/0x5a0
+> [   44.072424]  [<ffffffff817da84c>] ? __do_page_fault+0x1dc/0x510
+> [   44.072428]  [<ffffffff812b8b2c>] ? apparmor_capable+0x1c/0x60
+> [   44.072435]  [<ffffffff817d6e9a>] ? _raw_spin_unlock_bh+0x1a/0x20
+> [   44.072439]  [<ffffffff816dfc86>] ? release_sock+0x106/0x150
+> [   44.072443]  [<ffffffff816dc212>] __sys_sendmsg+0x42/0x80
+> [   44.072446]  [<ffffffff816dc262>] SyS_sendmsg+0x12/0x20
+> [   44.072450]  [<ffffffff817df616>] system_call_fastpath+0x1a/0x1f
+> [   44.072453] Code: 41 5d 41 5e 5d c3 66 0f 1f 44 00 00 f0 ff 43 4c
+> eb e1 66 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 55 89 f2 48 89 e5
+> 53 48 89 fb <0f> b6 b7 19 01 00 00 48 8b 7f 30 e8 f1 fe ff ff 48 89 c7
+> 48 c7
+> [   44.072963] RIP  [<ffffffff8171db1f>] 
+> netlink_getsockbyportid+0xf/0x70
+> [   44.073253]  RSP <ffff8807d4c37a90>
+> [   44.073524] CR2: 0000000000000119
+> [   44.074757] ---[ end trace f3a9846ab3cb7550 ]---
+> 
+> Please let me know if more information required.
+> Thanks!
+
+--=_203ad4547ae138110f1138e5cebe7696
+Content-Transfer-Encoding: base64
+Content-Type: text/x-diff;
+ name=use_after_free.patch
+Content-Disposition: attachment;
+ filename=use_after_free.patch;
+ size=628
+
+LS0tIGxpbnV4LTMuMTQuMi9uZXQvbmV0ZmlsdGVyL25mbmV0bGluay5jCTIwMTQtMDQtMjcgMDM6
+MTk6MjYuMDAwMDAwMDAwICswMzAwCisrKyBsaW51eC0zLjE0LjItbW9kaWZpZWQvbmV0L25ldGZp
+bHRlci9uZm5ldGxpbmsuYwkyMDE0LTA1LTA0IDEwOjE0OjMyLjEwODI5OTc2NiArMDMwMApAQCAt
+MjQ4LDE1ICsyNDgsMTUgQEAgcmVwbGF5OgogI2VuZGlmCiAJCXsKIAkJCW5mbmxfdW5sb2NrKHN1
+YnN5c19pZCk7Ci0JCQlrZnJlZV9za2IobnNrYik7Ci0JCQlyZXR1cm4gbmV0bGlua19hY2soc2ti
+LCBubGgsIC1FT1BOT1RTVVBQKTsKKwkJCW5ldGxpbmtfYWNrKHNrYiwgbmxoLCAtRU9QTk9UU1VQ
+UCk7CisJCQlyZXR1cm4ga2ZyZWVfc2tiKG5za2IpOwogCQl9CiAJfQogCiAJaWYgKCFzcy0+Y29t
+bWl0IHx8ICFzcy0+YWJvcnQpIHsKIAkJbmZubF91bmxvY2soc3Vic3lzX2lkKTsKLQkJa2ZyZWVf
+c2tiKG5za2IpOwotCQlyZXR1cm4gbmV0bGlua19hY2soc2tiLCBubGgsIC1FT1BOT1RTVVBQKTsK
+KwkJbmV0bGlua19hY2soc2tiLCBubGgsIC1FT1BOT1RTVVBQKTsKKwkJcmV0dXJuIGtmcmVlX3Nr
+Yihza2IpOwogCX0KIAogCXdoaWxlIChza2ItPmxlbiA+PSBubG1zZ190b3RhbF9zaXplKDApKSB7
+Cg==
+--=_203ad4547ae138110f1138e5cebe7696--
