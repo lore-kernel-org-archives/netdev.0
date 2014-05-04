@@ -1,54 +1,79 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH] net: ipv4: ip_forward: fix inverted local_df test
-Date: Sun,  4 May 2014 23:24:31 +0200
-Message-ID: <1399238671-21170-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Ji <lijimlee@gmail.com>
+Subject: Re: Question about TLP patch
+Date: Sun, 4 May 2014 14:41:05 -0700
+Message-ID: <CAJdgut8FJZDfp5EZ-jESPGWDd5dmEhKgPunLHORh3xV=AuFS3g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Weiping Pan <panweiping3@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:34847 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752649AbaEDV3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 17:29:53 -0400
+Received: from mail-vc0-f178.google.com ([209.85.220.178]:63357 "EHLO
+	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492AbaEDVlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 17:41:07 -0400
+Received: by mail-vc0-f178.google.com with SMTP id hu19so7935190vcb.9
+        for <netdev@vger.kernel.org>; Sun, 04 May 2014 14:41:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-local_df means 'ignore DF bit if set', so if its set we're
-allowed to perform ip fragmentation.
+Thanks, Weiping.
 
-This wasn't noticed earlier because the output path also drops such skbs
-(and emits needed icmp error) and because netfilter ip defrag did not
-set local_df until couple of days ago.
+As you found, I finally figured it out that it could be for "Recovery
+of any N-degree tail loss". However, I was actually testing with ER
+only (i,e, with TLP off, sysctl tcp_early_retrans =1) and loss pattern
+was "ALSL" ("S" means sacked, not 3-degree tail loss "ALLL"), and
+noticed ER behaves different from RFC5827.
 
-Only difference is that DF-packets-larger-than MTU now discarded
-earlier (f.e. we avoid pointless netfilter postrouting trip).
+I understand that it may bring unnecessarily complexity in code if
+strictly following RFC5827 (early retransmit must be used only when
+"oseg - 1" segments have been SACKed) when TLP disabled. However,
+IMHO, a comment might be good for readers.
 
-While at it, drop the repeated test ip_exceeds_mtu, checking it once
-is enough...
+Thanks,
+Ji Li
 
-Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/ip_forward.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 85af3d9..6f111e4 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -42,12 +42,12 @@
- static bool ip_may_fragment(const struct sk_buff *skb)
- {
- 	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) == 0) ||
--	       !skb->local_df;
-+		skb->local_df;
- }
- 
- static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
- {
--	if (skb->len <= mtu || skb->local_df)
-+	if (skb->len <= mtu)
- 		return false;
- 
- 	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <= mtu)
--- 
-1.8.1.5
+On Sat, May 3, 2014 at 8:05 PM, Weiping Pan <panweiping3@gmail.com> wrote:
+> On 04/24/2014 07:09 AM, Ji wrote:
+>>
+>> When reading the patch of Tail Loss Probe:
+>>
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=6ba8a3b19e764b6a65e4030ab0999be50c291e6c
+>> , I noticed this change:
+>>
+>> @@ -2321,7 +2322,7 @@ static bool tcp_time_to_recover(struct sock *sk, int
+>> flag)
+>> * interval if appropriate.
+>> */
+>> if (tp->do_early_retrans && !tp->retrans_out && tp->sacked_out &&
+>> - (tp->packets_out == (tp->sacked_out + 1) && tp->packets_out < 4) &&
+>> + (tp->packets_out >= (tp->sacked_out + 1) && tp->packets_out < 4) &&
+>> !tcp_may_send_now(sk))
+>> return !tcp_pause_early_retransmit(sk, flag);
+>>
+>> I think the original code is because of RFC5827 Early Retransmit for TCP,
+>> 3.2
+>> "... When conditions (3.a) and (3.b) hold and a TCP connection does
+>>
+>>     support SACK or SCTP is in use, Early Retransmit MUST be used only
+>>
+>>     when "oseg - 1" segments have been SACKed...."
+>>
+>> With that change, it seems that the condition is relaxed. I wonder
+>> why it is so. Could you cast some lights on it?
+>
+> Please refer to
+> http://tools.ietf.org/html/draft-dukkipati-tcpm-tcp-loss-probe-01
+> 4.2. Recovery of any N-degree tail loss
+>
+> thanks
+> Weiping Pan
+>>
+>>
+>> Thanks,
+>> Ji Li
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
