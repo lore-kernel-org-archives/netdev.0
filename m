@@ -1,2413 +1,506 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] mellanox: Logging message cleanups
-Date: Sun,  4 May 2014 20:35:51 -0700
-Message-ID: <e029b6ed75d46cfbada06622df91d4d331eeabde.1399259459.git.joe@perches.com>
-Cc: Amir Vadai <amirv@mellanox.com>, Eli Cohen <eli@mellanox.com>,
-	linux-kernel@vger.kernel.org, linux-rdma@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net: rename local_df to ignore_df
+Date: Sun,  4 May 2014 16:39:18 -0700
+Message-ID: <1399246758-29795-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Florian Westphal <fw@strlen.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:35124 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbaEDXja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 19:39:30 -0400
+Received: by mail-pd0-f171.google.com with SMTP id r10so7499912pdi.30
+        for <netdev@vger.kernel.org>; Sun, 04 May 2014 16:39:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use a more current logging style.
+As suggested by several people, rename local_df to ignore_df,
+since it means "ignore df bit if it is set".
 
-o Coalesce formats
-o Add missing spaces for coalesced formats
-o Align arguments for modified formats
-o Add missing newlines for some logging messages
-o Use DRV_NAME as part of format instead of %s, DRV_NAME to
-  reduce overall text.
-o Use ..., ##__VA_ARGS__ instead of args... in macros
-o Correct a few format typos
-o Use a single line message where appropriate
-
-Signed-off-by: Joe Perches <joe@perches.com>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |  85 ++++---
- drivers/net/ethernet/mellanox/mlx4/en_cq.c         |   3 +-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |   6 +-
- drivers/net/ethernet/mellanox/mlx4/en_main.c       |   7 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   8 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |  17 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   8 +-
- drivers/net/ethernet/mellanox/mlx4/eq.c            |  85 +++----
- drivers/net/ethernet/mellanox/mlx4/fw.c            |  25 +--
- drivers/net/ethernet/mellanox/mlx4/main.c          | 246 +++++++++------------
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |  16 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  17 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |  40 ++--
- drivers/net/ethernet/mellanox/mlx4/mr.c            |  14 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          |  12 +-
- drivers/net/ethernet/mellanox/mlx4/profile.c       |  13 +-
- drivers/net/ethernet/mellanox/mlx4/qp.c            |   7 +-
- drivers/net/ethernet/mellanox/mlx4/reset.c         |  24 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  73 +++---
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   9 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  14 +-
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |  30 +--
- drivers/net/ethernet/mellanox/mlx5/core/mr.c       |   8 +-
- .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |  15 +-
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       |   4 +-
- 26 files changed, 353 insertions(+), 437 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 78099ea..2420103 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -212,8 +212,7 @@ static int mlx4_comm_cmd_poll(struct mlx4_dev *dev, u8 cmd, u16 param,
- 
- 	/* First, verify that the master reports correct status */
- 	if (comm_pending(dev)) {
--		mlx4_warn(dev, "Communication channel is not idle."
--			  "my toggle is %d (cmd:0x%x)\n",
-+		mlx4_warn(dev, "Communication channel is not idle - my toggle is %d (cmd:0x%x)\n",
- 			  priv->cmd.comm_toggle, cmd);
- 		return -EAGAIN;
- 	}
-@@ -422,9 +421,8 @@ static int mlx4_slave_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 					*out_param =
- 						be64_to_cpu(vhcr->out_param);
- 				else {
--					mlx4_err(dev, "response expected while"
--						 "output mailbox is NULL for "
--						 "command 0x%x\n", op);
-+					mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
-+						 op);
- 					vhcr->status = CMD_STAT_BAD_PARAM;
- 				}
- 			}
-@@ -439,16 +437,15 @@ static int mlx4_slave_cmd(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 					*out_param =
- 						be64_to_cpu(vhcr->out_param);
- 				else {
--					mlx4_err(dev, "response expected while"
--						 "output mailbox is NULL for "
--						 "command 0x%x\n", op);
-+					mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
-+						 op);
- 					vhcr->status = CMD_STAT_BAD_PARAM;
- 				}
- 			}
- 			ret = mlx4_status_to_errno(vhcr->status);
- 		} else
--			mlx4_err(dev, "failed execution of VHCR_POST command"
--				 "opcode 0x%x\n", op);
-+			mlx4_err(dev, "failed execution of VHCR_POST command opcode 0x%x\n",
-+				 op);
- 	}
- 
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
-@@ -625,9 +622,8 @@ static int mlx4_ACCESS_MEM(struct mlx4_dev *dev, u64 master_addr,
- 
- 	if ((slave_addr & 0xfff) | (master_addr & 0xfff) |
- 	    (slave & ~0x7f) | (size & 0xff)) {
--		mlx4_err(dev, "Bad access mem params - slave_addr:0x%llx "
--			      "master_addr:0x%llx slave_id:%d size:%d\n",
--			      slave_addr, master_addr, slave, size);
-+		mlx4_err(dev, "Bad access mem params - slave_addr:0x%llx master_addr:0x%llx slave_id:%d size:%d\n",
-+			 slave_addr, master_addr, slave, size);
- 		return -EINVAL;
- 	}
- 
-@@ -788,8 +784,7 @@ static int mlx4_MAD_IFC_wrapper(struct mlx4_dev *dev, int slave,
- 	    ((smp->mgmt_class == IB_MGMT_CLASS_SUBN_DIRECTED_ROUTE) ||
- 	     (smp->mgmt_class == IB_MGMT_CLASS_SUBN_LID_ROUTED &&
- 	      smp->method == IB_MGMT_METHOD_SET))) {
--		mlx4_err(dev, "slave %d is trying to execute a Subnet MGMT MAD, "
--			 "class 0x%x, method 0x%x for attr 0x%x. Rejecting\n",
-+		mlx4_err(dev, "slave %d is trying to execute a Subnet MGMT MAD, class 0x%x, method 0x%x for attr 0x%x - Rejecting\n",
- 			 slave, smp->method, smp->mgmt_class,
- 			 be16_to_cpu(smp->attr_id));
- 		return -EPERM;
-@@ -1409,8 +1404,8 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 				      ALIGN(sizeof(struct mlx4_vhcr_cmd),
- 					    MLX4_ACCESS_MEM_ALIGN), 1);
- 		if (ret) {
--			mlx4_err(dev, "%s:Failed reading vhcr"
--				 "ret: 0x%x\n", __func__, ret);
-+			mlx4_err(dev, "%s: Failed reading vhcr ret: 0x%x\n",
-+				 __func__, ret);
- 			kfree(vhcr);
- 			return ret;
- 		}
-@@ -1461,9 +1456,8 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 
- 	/* Apply permission and bound checks if applicable */
- 	if (cmd->verify && cmd->verify(dev, slave, vhcr, inbox)) {
--		mlx4_warn(dev, "Command:0x%x from slave: %d failed protection "
--			  "checks for resource_id:%d\n", vhcr->op, slave,
--			  vhcr->in_modifier);
-+		mlx4_warn(dev, "Command:0x%x from slave: %d failed protection checks for resource_id:%d\n",
-+			  vhcr->op, slave, vhcr->in_modifier);
- 		vhcr_cmd->status = CMD_STAT_BAD_OP;
- 		goto out_status;
- 	}
-@@ -1502,8 +1496,7 @@ static int mlx4_master_process_vhcr(struct mlx4_dev *dev, int slave,
- 	}
- 
- 	if (err) {
--		mlx4_warn(dev, "vhcr command:0x%x slave:%d failed with"
--			  " error:%d, status %d\n",
-+		mlx4_warn(dev, "vhcr command:0x%x slave:%d failed with error:%d, status %d\n",
- 			  vhcr->op, slave, vhcr->errno, err);
- 		vhcr_cmd->status = mlx4_errno_to_status(err);
- 		goto out_status;
-@@ -1537,8 +1530,8 @@ out_status:
- 				 __func__);
- 		else if (vhcr->e_bit &&
- 			 mlx4_GEN_EQE(dev, slave, &priv->mfunc.master.cmd_eqe))
--				mlx4_warn(dev, "Failed to generate command completion "
--					  "eqe for slave %d\n", slave);
-+				mlx4_warn(dev, "Failed to generate command completion eqe for slave %d\n",
-+					  slave);
- 	}
- 
- out:
-@@ -1577,8 +1570,9 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 
- 	mlx4_dbg(dev, "updating immediately admin params slave %d port %d\n",
- 		 slave, port);
--	mlx4_dbg(dev, "vlan %d QoS %d link down %d\n", vp_admin->default_vlan,
--		 vp_admin->default_qos, vp_admin->link_state);
-+	mlx4_dbg(dev, "vlan %d QoS %d link down %d\n",
-+		 vp_admin->default_vlan, vp_admin->default_qos,
-+		 vp_admin->link_state);
- 
- 	work = kzalloc(sizeof(*work), GFP_KERNEL);
- 	if (!work)
-@@ -1591,7 +1585,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 						   &admin_vlan_ix);
- 			if (err) {
- 				kfree(work);
--				mlx4_warn((&priv->dev),
-+				mlx4_warn(&priv->dev,
- 					  "No vlan resources slave %d, port %d\n",
- 					  slave, port);
- 				return err;
-@@ -1600,7 +1594,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 			admin_vlan_ix = NO_INDX;
- 		}
- 		work->flags |= MLX4_VF_IMMED_VLAN_FLAG_VLAN;
--		mlx4_dbg((&(priv->dev)),
-+		mlx4_dbg(&priv->dev,
- 			 "alloc vlan %d idx  %d slave %d port %d\n",
- 			 (int)(vp_admin->default_vlan),
- 			 admin_vlan_ix, slave, port);
-@@ -1661,12 +1655,12 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 						   vp_admin->default_vlan, &(vp_oper->vlan_idx));
- 			if (err) {
- 				vp_oper->vlan_idx = NO_INDX;
--				mlx4_warn((&priv->dev),
-+				mlx4_warn(&priv->dev,
- 					  "No vlan resorces slave %d, port %d\n",
- 					  slave, port);
- 				return err;
- 			}
--			mlx4_dbg((&(priv->dev)), "alloc vlan %d idx  %d slave %d port %d\n",
-+			mlx4_dbg(&priv->dev, "alloc vlan %d idx  %d slave %d port %d\n",
- 				 (int)(vp_oper->state.default_vlan),
- 				 vp_oper->vlan_idx, slave, port);
- 		}
-@@ -1677,12 +1671,12 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 			if (0 > vp_oper->mac_idx) {
- 				err = vp_oper->mac_idx;
- 				vp_oper->mac_idx = NO_INDX;
--				mlx4_warn((&priv->dev),
-+				mlx4_warn(&priv->dev,
- 					  "No mac resorces slave %d, port %d\n",
- 					  slave, port);
- 				return err;
- 			}
--			mlx4_dbg((&(priv->dev)), "alloc mac %llx idx  %d slave %d port %d\n",
-+			mlx4_dbg(&priv->dev, "alloc mac %llx idx  %d slave %d port %d\n",
- 				 vp_oper->state.mac, vp_oper->mac_idx, slave, port);
- 		}
- 	}
-@@ -1731,8 +1725,8 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 	slave_state[slave].comm_toggle ^= 1;
- 	reply = (u32) slave_state[slave].comm_toggle << 31;
- 	if (toggle != slave_state[slave].comm_toggle) {
--		mlx4_warn(dev, "Incorrect toggle %d from slave %d. *** MASTER"
--			  "STATE COMPROMISIED ***\n", toggle, slave);
-+		mlx4_warn(dev, "Incorrect toggle %d from slave %d. *** MASTER STATE COMPROMISED ***\n",
-+			  toggle, slave);
- 		goto reset_slave;
- 	}
- 	if (cmd == MLX4_COMM_CMD_RESET) {
-@@ -1759,8 +1753,8 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 	/*command from slave in the middle of FLR*/
- 	if (cmd != MLX4_COMM_CMD_RESET &&
- 	    MLX4_COMM_CMD_FLR == slave_state[slave].last_cmd) {
--		mlx4_warn(dev, "slave:%d is Trying to run cmd(0x%x) "
--			  "in the middle of FLR\n", slave, cmd);
-+		mlx4_warn(dev, "slave:%d is Trying to run cmd(0x%x) in the middle of FLR\n",
-+			  slave, cmd);
- 		return;
- 	}
- 
-@@ -1798,8 +1792,8 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 
- 		mutex_lock(&priv->cmd.slave_cmd_mutex);
- 		if (mlx4_master_process_vhcr(dev, slave, NULL)) {
--			mlx4_err(dev, "Failed processing vhcr for slave:%d,"
--				 " resetting slave.\n", slave);
-+			mlx4_err(dev, "Failed processing vhcr for slave:%d, resetting slave\n",
-+				 slave);
- 			mutex_unlock(&priv->cmd.slave_cmd_mutex);
- 			goto reset_slave;
- 		}
-@@ -1816,8 +1810,7 @@ static void mlx4_master_do_cmd(struct mlx4_dev *dev, int slave, u8 cmd,
- 		is_going_down = 1;
- 	spin_unlock_irqrestore(&priv->mfunc.master.slave_state_lock, flags);
- 	if (is_going_down) {
--		mlx4_warn(dev, "Slave is going down aborting command(%d)"
--			  " executing from slave:%d\n",
-+		mlx4_warn(dev, "Slave is going down aborting command(%d) executing from slave:%d\n",
- 			  cmd, slave);
- 		return;
- 	}
-@@ -1880,9 +1873,8 @@ void mlx4_master_comm_channel(struct work_struct *work)
- 			if (toggle != slt) {
- 				if (master->slave_state[slave].comm_toggle
- 				    != slt) {
--					printk(KERN_INFO "slave %d out of sync."
--					       " read toggle %d, state toggle %d. "
--					       "Resynching.\n", slave, slt,
-+					printk(KERN_INFO "slave %d out of sync. read toggle %d, state toggle %d. Resynching.\n",
-+					       slave, slt,
- 					       master->slave_state[slave].comm_toggle);
- 					master->slave_state[slave].comm_toggle =
- 						slt;
-@@ -1896,8 +1888,7 @@ void mlx4_master_comm_channel(struct work_struct *work)
- 	}
- 
- 	if (reported && reported != served)
--		mlx4_warn(dev, "Got command event with bitmask from %d slaves"
--			  " but %d were served\n",
-+		mlx4_warn(dev, "Got command event with bitmask from %d slaves but %d were served\n",
- 			  reported, served);
- 
- 	if (mlx4_ARM_COMM_CHANNEL(dev))
-@@ -1953,7 +1944,7 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 		ioremap(pci_resource_start(dev->pdev, 2) +
- 			MLX4_SLAVE_COMM_BASE, MLX4_COMM_PAGESIZE);
- 	if (!priv->mfunc.comm) {
--		mlx4_err(dev, "Couldn't map communication vector.\n");
-+		mlx4_err(dev, "Couldn't map communication vector\n");
- 		goto err_vhcr;
- 	}
- 
-@@ -2080,7 +2071,7 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
- 		priv->cmd.hcr = ioremap(pci_resource_start(dev->pdev, 0) +
- 					MLX4_HCR_BASE, MLX4_HCR_SIZE);
- 		if (!priv->cmd.hcr) {
--			mlx4_err(dev, "Couldn't map command register.\n");
-+			mlx4_err(dev, "Couldn't map command register\n");
- 			return -ENOMEM;
- 		}
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index c2cd8d3..636963d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -125,8 +125,7 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 						   &cq->vector)) {
- 					cq->vector = (cq->ring + 1 + priv->port)
- 					    % mdev->dev->caps.num_comp_vectors;
--					mlx4_warn(mdev, "Failed Assigning an EQ to "
--						  "%s ,Falling back to legacy EQ's\n",
-+					mlx4_warn(mdev, "Failed assigning an EQ to %s, falling back to legacy EQ's\n",
- 						  name);
- 				}
- 			}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 3e8d336..c373604 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -925,13 +925,13 @@ static int mlx4_en_flow_replace(struct net_device *dev,
- 		qpn = cmd->fs.ring_cookie & (EN_ETHTOOL_QP_ATTACH - 1);
- 	} else {
- 		if (cmd->fs.ring_cookie >= priv->rx_ring_num) {
--			en_warn(priv, "rxnfc: RX ring (%llu) doesn't exist.\n",
-+			en_warn(priv, "rxnfc: RX ring (%llu) doesn't exist\n",
- 				cmd->fs.ring_cookie);
- 			return -EINVAL;
- 		}
- 		qpn = priv->rss_map.qps[cmd->fs.ring_cookie].qpn;
- 		if (!qpn) {
--			en_warn(priv, "rxnfc: RX ring (%llu) is inactive.\n",
-+			en_warn(priv, "rxnfc: RX ring (%llu) is inactive\n",
- 				cmd->fs.ring_cookie);
- 			return -EINVAL;
- 		}
-@@ -956,7 +956,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
- 	}
- 	err = mlx4_flow_attach(priv->mdev->dev, &rule, &reg_id);
- 	if (err) {
--		en_err(priv, "Fail to attach network rule at location %d.\n",
-+		en_err(priv, "Fail to attach network rule at location %d\n",
- 		       cmd->fs.location);
- 		goto out_free_list;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index 0c59d4f..f953c1d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -133,7 +133,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 			MLX4_EN_MAX_TX_RING_P_UP);
- 	if (params->udp_rss && !(mdev->dev->caps.flags
- 					& MLX4_DEV_CAP_FLAG_UDP_RSS)) {
--		mlx4_warn(mdev, "UDP RSS is not supported on this device.\n");
-+		mlx4_warn(mdev, "UDP RSS is not supported on this device\n");
- 		params->udp_rss = 0;
- 	}
- 	for (i = 1; i <= MLX4_MAX_PORTS; i++) {
-@@ -251,8 +251,7 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 
- 	mdev->LSO_support = !!(dev->caps.flags & (1 << 15));
- 	if (!mdev->LSO_support)
--		mlx4_warn(mdev, "LSO not supported, please upgrade to later "
--				"FW version to enable LSO\n");
-+		mlx4_warn(mdev, "LSO not supported, please upgrade to later FW version to enable LSO\n");
- 
- 	if (mlx4_mr_alloc(mdev->dev, mdev->priv_pdn, 0, ~0ull,
- 			 MLX4_PERM_LOCAL_WRITE |  MLX4_PERM_LOCAL_READ,
-@@ -268,7 +267,7 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
- 	/* Build device profile according to supplied module parameters */
- 	err = mlx4_en_get_profile(mdev);
- 	if (err) {
--		mlx4_err(mdev, "Bad module parameters, aborting.\n");
-+		mlx4_err(mdev, "Bad module parameters, aborting\n");
- 		goto err_mr;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 7e4b172..fba3c8e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1576,7 +1576,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 			cq->buf[j].owner_sr_opcode = MLX4_CQE_OWNER_MASK;
- 		err = mlx4_en_set_cq_moder(priv, cq);
- 		if (err) {
--			en_err(priv, "Failed setting cq moderation parameters");
-+			en_err(priv, "Failed setting cq moderation parameters\n");
- 			mlx4_en_deactivate_cq(priv, cq);
- 			goto cq_err;
- 		}
-@@ -1615,7 +1615,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 		}
- 		err = mlx4_en_set_cq_moder(priv, cq);
- 		if (err) {
--			en_err(priv, "Failed setting cq moderation parameters");
-+			en_err(priv, "Failed setting cq moderation parameters\n");
- 			mlx4_en_deactivate_cq(priv, cq);
- 			goto tx_err;
- 		}
-@@ -2594,8 +2594,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 				    prof->tx_pause, prof->tx_ppp,
- 				    prof->rx_pause, prof->rx_ppp);
- 	if (err) {
--		en_err(priv, "Failed setting port general configurations "
--		       "for port %d, with error %d\n", priv->port, err);
-+		en_err(priv, "Failed setting port general configurations for port %d, with error %d\n",
-+		       priv->port, err);
- 		goto out;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index ba049ae..a151245 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -270,13 +270,11 @@ static int mlx4_en_fill_rx_buffers(struct mlx4_en_priv *priv)
- 						    ring->actual_size,
- 						    GFP_KERNEL)) {
- 				if (ring->actual_size < MLX4_EN_MIN_RX_SIZE) {
--					en_err(priv, "Failed to allocate "
--						     "enough rx buffers\n");
-+					en_err(priv, "Failed to allocate enough rx buffers\n");
- 					return -ENOMEM;
- 				} else {
- 					new_size = rounddown_pow_of_two(ring->actual_size);
--					en_warn(priv, "Only %d buffers allocated "
--						      "reducing ring size to %d",
-+					en_warn(priv, "Only %d buffers allocated reducing ring size to %d\n",
- 						ring->actual_size, new_size);
- 					goto reduce_rings;
- 				}
-@@ -685,10 +683,9 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		/* Drop packet on bad receive or bad checksum */
- 		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
- 						MLX4_CQE_OPCODE_ERROR)) {
--			en_err(priv, "CQE completed in error - vendor "
--				  "syndrom:%d syndrom:%d\n",
--				  ((struct mlx4_err_cqe *) cqe)->vendor_err_syndrome,
--				  ((struct mlx4_err_cqe *) cqe)->syndrome);
-+			en_err(priv, "CQE completed in error - vendor syndrom:%d syndrom:%d\n",
-+			       ((struct mlx4_err_cqe *)cqe)->vendor_err_syndrome,
-+			       ((struct mlx4_err_cqe *)cqe)->syndrome);
- 			goto next;
- 		}
- 		if (unlikely(cqe->badfcs_enc & MLX4_CQE_BAD_FCS)) {
-@@ -944,8 +941,8 @@ void mlx4_en_calc_rx_buf(struct net_device *dev)
- 	priv->rx_skb_size = eff_mtu;
- 	priv->log_rx_info = ROUNDUP_LOG2(i * sizeof(struct mlx4_en_rx_alloc));
- 
--	en_dbg(DRV, priv, "Rx buffer scatter-list (effective-mtu:%d "
--		  "num_frags:%d):\n", eff_mtu, priv->num_frags);
-+	en_dbg(DRV, priv, "Rx buffer scatter-list (effective-mtu:%d num_frags:%d):\n",
-+	       eff_mtu, priv->num_frags);
- 	for (i = 0; i < priv->num_frags; i++) {
- 		en_err(priv,
- 		       "  frag:%d - size:%d prefix:%d align:%d stride:%d\n",
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index dd1f6d3..89585c6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -108,9 +108,9 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 
- 	ring->buf = ring->wqres.buf.direct.buf;
- 
--	en_dbg(DRV, priv, "Allocated TX ring (addr:%p) - buf:%p size:%d "
--	       "buf_size:%d dma:%llx\n", ring, ring->buf, ring->size,
--	       ring->buf_size, (unsigned long long) ring->wqres.buf.direct.map);
-+	en_dbg(DRV, priv, "Allocated TX ring (addr:%p) - buf:%p size:%d buf_size:%d dma:%llx\n",
-+	       ring, ring->buf, ring->size, ring->buf_size,
-+	       (unsigned long long) ring->wqres.buf.direct.map);
- 
- 	ring->qpn = qpn;
- 	err = mlx4_qp_alloc(mdev->dev, ring->qpn, &ring->qp);
-@@ -122,7 +122,7 @@ int mlx4_en_create_tx_ring(struct mlx4_en_priv *priv,
- 
- 	err = mlx4_bf_alloc(mdev->dev, &ring->bf, node);
- 	if (err) {
--		en_dbg(DRV, priv, "working without blueflame (%d)", err);
-+		en_dbg(DRV, priv, "working without blueflame (%d)\n", err);
- 		ring->bf.uar = &mdev->priv_uar;
- 		ring->bf.uar->map = mdev->uar_map;
- 		ring->bf_enabled = false;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index d501a2b..6c088bc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -152,14 +152,13 @@ void mlx4_gen_slave_eqe(struct work_struct *work)
- 				if (i != dev->caps.function &&
- 				    master->slave_state[i].active)
- 					if (mlx4_GEN_EQE(dev, i, eqe))
--						mlx4_warn(dev, "Failed to "
--							  " generate event "
--							  "for slave %d\n", i);
-+						mlx4_warn(dev, "Failed to generate event for slave %d\n",
-+							  i);
- 			}
- 		} else {
- 			if (mlx4_GEN_EQE(dev, slave, eqe))
--				mlx4_warn(dev, "Failed to generate event "
--					       "for slave %d\n", slave);
-+				mlx4_warn(dev, "Failed to generate event for slave %d\n",
-+					  slave);
- 		}
- 		++slave_eq->cons;
- 	}
-@@ -177,8 +176,8 @@ static void slave_event(struct mlx4_dev *dev, u8 slave, struct mlx4_eqe *eqe)
- 	s_eqe = &slave_eq->event_eqe[slave_eq->prod & (SLAVE_EVENT_EQ_SIZE - 1)];
- 	if ((!!(s_eqe->owner & 0x80)) ^
- 	    (!!(slave_eq->prod & SLAVE_EVENT_EQ_SIZE))) {
--		mlx4_warn(dev, "Master failed to generate an EQE for slave: %d. "
--			  "No free EQE on slave events queue\n", slave);
-+		mlx4_warn(dev, "Master failed to generate an EQE for slave: %d. No free EQE on slave events queue\n",
-+			  slave);
- 		spin_unlock_irqrestore(&slave_eq->event_lock, flags);
- 		return;
- 	}
-@@ -375,9 +374,9 @@ int set_and_calc_slave_port_state(struct mlx4_dev *dev, int slave,
- 		}
- 		break;
- 	default:
--		pr_err("%s: BUG!!! UNKNOWN state: "
--		       "slave:%d, port:%d\n", __func__, slave, port);
--			goto out;
-+		pr_err("%s: BUG!!! UNKNOWN state: slave:%d, port:%d\n",
-+		       __func__, slave, port);
-+		goto out;
- 	}
- 	ret = mlx4_get_slave_port_state(dev, slave, port);
- 
-@@ -425,8 +424,8 @@ void mlx4_master_handle_slave_flr(struct work_struct *work)
- 	for (i = 0 ; i < dev->num_slaves; i++) {
- 
- 		if (MLX4_COMM_CMD_FLR == slave_state[i].last_cmd) {
--			mlx4_dbg(dev, "mlx4_handle_slave_flr: "
--				 "clean slave: %d\n", i);
-+			mlx4_dbg(dev, "mlx4_handle_slave_flr: clean slave: %d\n",
-+				 i);
- 
- 			mlx4_delete_all_resources_for_slave(dev, i);
- 			/*return the slave to running mode*/
-@@ -438,8 +437,8 @@ void mlx4_master_handle_slave_flr(struct work_struct *work)
- 			err = mlx4_cmd(dev, 0, i, 0, MLX4_CMD_INFORM_FLR_DONE,
- 				       MLX4_CMD_TIME_CLASS_A, MLX4_CMD_WRAPPED);
- 			if (err)
--				mlx4_warn(dev, "Failed to notify FW on "
--					  "FLR done (slave:%d)\n", i);
-+				mlx4_warn(dev, "Failed to notify FW on FLR done (slave:%d)\n",
-+					  i);
- 		}
- 	}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 08074a8..8120004 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -426,7 +426,7 @@ static inline u32 skb_mstamp_us_delta(const struct =
+skb_mstamp *t1,
+  *	@csum_start: Offset from skb->head where checksumming should start
+  *	@csum_offset: Offset from csum_start where checksum should be store=
+d
+  *	@priority: Packet queueing priority
+- *	@local_df: allow local fragmentation
++ *	@ignore_df: allow local fragmentation
+  *	@cloned: Head may be cloned (check refcnt to be sure)
+  *	@ip_summed: Driver fed us an IP checksum
+  *	@nohdr: Payload reference only, must not modify header
+@@ -514,7 +514,7 @@ struct sk_buff {
+ 	};
+ 	__u32			priority;
+ 	kmemcheck_bitfield_begin(flags1);
+-	__u8			local_df:1,
++	__u8			ignore_df:1,
+ 				cloned:1,
+ 				ip_summed:2,
+ 				nohdr:1,
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3ec2b0f..612f3fd 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -281,7 +281,7 @@ static inline bool ip_sk_use_pmtu(const struct sock=
+ *sk)
+ 	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_PROBE;
  }
-@@ -490,9 +489,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 						be32_to_cpu(eqe->event.qp.qpn)
- 						& 0xffffff, &slave);
- 				if (ret && ret != -ENOENT) {
--					mlx4_dbg(dev, "QP event %02x(%02x) on "
--						 "EQ %d at index %u: could "
--						 "not get slave id (%d)\n",
-+					mlx4_dbg(dev, "QP event %02x(%02x) on EQ %d at index %u: could not get slave id (%d)\n",
- 						 eqe->type, eqe->subtype,
- 						 eq->eqn, eq->cons_index, ret);
- 					break;
-@@ -520,23 +517,19 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 						& 0xffffff,
- 						&slave);
- 				if (ret && ret != -ENOENT) {
--					mlx4_warn(dev, "SRQ event %02x(%02x) "
--						  "on EQ %d at index %u: could"
--						  " not get slave id (%d)\n",
-+					mlx4_warn(dev, "SRQ event %02x(%02x) on EQ %d at index %u: could not get slave id (%d)\n",
- 						  eqe->type, eqe->subtype,
- 						  eq->eqn, eq->cons_index, ret);
- 					break;
- 				}
--				mlx4_warn(dev, "%s: slave:%d, srq_no:0x%x,"
--					  " event: %02x(%02x)\n", __func__,
--					  slave,
-+				mlx4_warn(dev, "%s: slave:%d, srq_no:0x%x, event: %02x(%02x)\n",
-+					  __func__, slave,
- 					  be32_to_cpu(eqe->event.srq.srqn),
- 					  eqe->type, eqe->subtype);
- 
- 				if (!ret && slave != dev->caps.function) {
--					mlx4_warn(dev, "%s: sending event "
--						  "%02x(%02x) to slave:%d\n",
--						   __func__, eqe->type,
-+					mlx4_warn(dev, "%s: sending event %02x(%02x) to slave:%d\n",
-+						  __func__, eqe->type,
- 						  eqe->subtype, slave);
- 					mlx4_slave_event(dev, slave, eqe);
- 					break;
-@@ -569,8 +562,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 					if (dev->caps.port_type[port] == MLX4_PORT_TYPE_ETH) {
- 						if (i == mlx4_master_func_num(dev))
- 							continue;
--						mlx4_dbg(dev, "%s: Sending MLX4_PORT_CHANGE_SUBTYPE_DOWN"
--							 " to slave: %d, port:%d\n",
-+						mlx4_dbg(dev, "%s: Sending MLX4_PORT_CHANGE_SUBTYPE_DOWN to slave: %d, port:%d\n",
- 							 __func__, i, port);
- 						s_info = &priv->mfunc.master.vf_oper[slave].vport[port].state;
- 						if (IFLA_VF_LINK_STATE_AUTO == s_info->link_state) {
-@@ -634,11 +626,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 					be32_to_cpu(eqe->event.cq_err.cqn)
- 					& 0xffffff, &slave);
- 				if (ret && ret != -ENOENT) {
--					mlx4_dbg(dev, "CQ event %02x(%02x) on "
--						 "EQ %d at index %u: could "
--						  "not get slave id (%d)\n",
--						  eqe->type, eqe->subtype,
--						  eq->eqn, eq->cons_index, ret);
-+					mlx4_dbg(dev, "CQ event %02x(%02x) on EQ %d at index %u: could not get slave id (%d)\n",
-+						 eqe->type, eqe->subtype,
-+						 eq->eqn, eq->cons_index, ret);
- 					break;
- 				}
- 
-@@ -667,8 +657,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 
- 		case MLX4_EVENT_TYPE_COMM_CHANNEL:
- 			if (!mlx4_is_master(dev)) {
--				mlx4_warn(dev, "Received comm channel event "
--					       "for non master device\n");
-+				mlx4_warn(dev, "Received comm channel event for non master device\n");
- 				break;
- 			}
- 			memcpy(&priv->mfunc.master.comm_arm_bit_vector,
-@@ -681,8 +670,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 		case MLX4_EVENT_TYPE_FLR_EVENT:
- 			flr_slave = be32_to_cpu(eqe->event.flr_event.slave_id);
- 			if (!mlx4_is_master(dev)) {
--				mlx4_warn(dev, "Non-master function received"
--					       "FLR event\n");
-+				mlx4_warn(dev, "Non-master function received FLR event\n");
- 				break;
- 			}
- 
-@@ -711,22 +699,17 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 			if (eqe->subtype == MLX4_FATAL_WARNING_SUBTYPE_WARMING) {
- 				if (mlx4_is_master(dev))
- 					for (i = 0; i < dev->num_slaves; i++) {
--						mlx4_dbg(dev, "%s: Sending "
--							"MLX4_FATAL_WARNING_SUBTYPE_WARMING"
--							" to slave: %d\n", __func__, i);
-+						mlx4_dbg(dev, "%s: Sending MLX4_FATAL_WARNING_SUBTYPE_WARMING to slave: %d\n",
-+							 __func__, i);
- 						if (i == dev->caps.function)
- 							continue;
- 						mlx4_slave_event(dev, i, eqe);
- 					}
--				mlx4_err(dev, "Temperature Threshold was reached! "
--					"Threshold: %d celsius degrees; "
--					"Current Temperature: %d\n",
--					be16_to_cpu(eqe->event.warming.warning_threshold),
--					be16_to_cpu(eqe->event.warming.current_temperature));
-+				mlx4_err(dev, "Temperature Threshold was reached! Threshold: %d celsius degrees; Current Temperature: %d\n",
-+					 be16_to_cpu(eqe->event.warming.warning_threshold),
-+					 be16_to_cpu(eqe->event.warming.current_temperature));
- 			} else
--				mlx4_warn(dev, "Unhandled event FATAL WARNING (%02x), "
--					  "subtype %02x on EQ %d at index %u. owner=%x, "
--					  "nent=0x%x, slave=%x, ownership=%s\n",
-+				mlx4_warn(dev, "Unhandled event FATAL WARNING (%02x), subtype %02x on EQ %d at index %u. owner=%x, nent=0x%x, slave=%x, ownership=%s\n",
- 					  eqe->type, eqe->subtype, eq->eqn,
- 					  eq->cons_index, eqe->owner, eq->nent,
- 					  eqe->slave_id,
-@@ -743,9 +726,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 		case MLX4_EVENT_TYPE_EEC_CATAS_ERROR:
- 		case MLX4_EVENT_TYPE_ECC_DETECT:
- 		default:
--			mlx4_warn(dev, "Unhandled event %02x(%02x) on EQ %d at "
--				  "index %u. owner=%x, nent=0x%x, slave=%x, "
--				  "ownership=%s\n",
-+			mlx4_warn(dev, "Unhandled event %02x(%02x) on EQ %d at index %u. owner=%x, nent=0x%x, slave=%x, ownership=%s\n",
- 				  eqe->type, eqe->subtype, eq->eqn,
- 				  eq->cons_index, eqe->owner, eq->nent,
- 				  eqe->slave_id,
-@@ -1088,7 +1069,7 @@ static int mlx4_map_clr_int(struct mlx4_dev *dev)
- 	priv->clr_base = ioremap(pci_resource_start(dev->pdev, priv->fw.clr_int_bar) +
- 				 priv->fw.clr_int_base, MLX4_CLR_INT_SIZE);
- 	if (!priv->clr_base) {
--		mlx4_err(dev, "Couldn't map interrupt clear register, aborting.\n");
-+		mlx4_err(dev, "Couldn't map interrupt clear register, aborting\n");
- 		return -ENOMEM;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index d16a4d1..0a87169 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -1,3 +1,4 @@
-+
- /*
-  * Copyright (c) 2004, 2005 Topspin Communications.  All rights reserved.
-  * Copyright (c) 2005, 2006, 2007, 2008 Mellanox Technologies. All rights reserved.
-@@ -428,8 +429,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u32 gen_or_port,
- 	} else if (dev->caps.port_type[gen_or_port] == MLX4_PORT_TYPE_IB) {
- 		MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
- 		if (field & QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID) {
--			mlx4_err(dev, "phy_wqe_gid is "
--				 "enforced on this ib port\n");
-+			mlx4_err(dev, "phy_wqe_gid is enforced on this ib port\n");
- 			err = -EPROTONOSUPPORT;
- 			goto out;
- 		}
-@@ -1054,10 +1054,10 @@ int mlx4_map_cmd(struct mlx4_dev *dev, u16 op, struct mlx4_icm *icm, u64 virt)
- 		 */
- 		lg = ffs(mlx4_icm_addr(&iter) | mlx4_icm_size(&iter)) - 1;
- 		if (lg < MLX4_ICM_PAGE_SHIFT) {
--			mlx4_warn(dev, "Got FW area not aligned to %d (%llx/%lx).\n",
--				   MLX4_ICM_PAGE_SIZE,
--				   (unsigned long long) mlx4_icm_addr(&iter),
--				   mlx4_icm_size(&iter));
-+			mlx4_warn(dev, "Got FW area not aligned to %d (%llx/%lx)\n",
-+				  MLX4_ICM_PAGE_SIZE,
-+				  (unsigned long long) mlx4_icm_addr(&iter),
-+				  mlx4_icm_size(&iter));
- 			err = -EINVAL;
- 			goto out;
- 		}
-@@ -1093,14 +1093,14 @@ int mlx4_map_cmd(struct mlx4_dev *dev, u16 op, struct mlx4_icm *icm, u64 virt)
- 
- 	switch (op) {
- 	case MLX4_CMD_MAP_FA:
--		mlx4_dbg(dev, "Mapped %d chunks/%d KB for FW.\n", tc, ts);
-+		mlx4_dbg(dev, "Mapped %d chunks/%d KB for FW\n", tc, ts);
- 		break;
- 	case MLX4_CMD_MAP_ICM_AUX:
--		mlx4_dbg(dev, "Mapped %d chunks/%d KB for ICM aux.\n", tc, ts);
-+		mlx4_dbg(dev, "Mapped %d chunks/%d KB for ICM aux\n", tc, ts);
- 		break;
- 	case MLX4_CMD_MAP_ICM:
--		mlx4_dbg(dev, "Mapped %d chunks/%d KB at %llx for ICM.\n",
--			  tc, ts, (unsigned long long) virt - (ts << 10));
-+		mlx4_dbg(dev, "Mapped %d chunks/%d KB at %llx for ICM\n",
-+			 tc, ts, (unsigned long long) virt - (ts << 10));
- 		break;
- 	}
- 
-@@ -1186,14 +1186,13 @@ int mlx4_QUERY_FW(struct mlx4_dev *dev)
- 	MLX4_GET(cmd_if_rev, outbox, QUERY_FW_CMD_IF_REV_OFFSET);
- 	if (cmd_if_rev < MLX4_COMMAND_INTERFACE_MIN_REV ||
- 	    cmd_if_rev > MLX4_COMMAND_INTERFACE_MAX_REV) {
--		mlx4_err(dev, "Installed FW has unsupported "
--			 "command interface revision %d.\n",
-+		mlx4_err(dev, "Installed FW has unsupported command interface revision %d\n",
- 			 cmd_if_rev);
- 		mlx4_err(dev, "(Installed FW version is %d.%d.%03d)\n",
- 			 (int) (dev->caps.fw_ver >> 32),
- 			 (int) (dev->caps.fw_ver >> 16) & 0xffff,
- 			 (int) dev->caps.fw_ver & 0xffff);
--		mlx4_err(dev, "This driver version supports only revisions %d to %d.\n",
-+		mlx4_err(dev, "This driver version supports only revisions %d to %d\n",
- 			 MLX4_COMMAND_INTERFACE_MIN_REV, MLX4_COMMAND_INTERFACE_MAX_REV);
- 		err = -ENODEV;
- 		goto out;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index cef267e..df2c1fb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -163,8 +163,7 @@ int mlx4_check_port_params(struct mlx4_dev *dev,
- 	for (i = 0; i < dev->caps.num_ports - 1; i++) {
- 		if (port_type[i] != port_type[i + 1]) {
- 			if (!(dev->caps.flags & MLX4_DEV_CAP_FLAG_DPDP)) {
--				mlx4_err(dev, "Only same port types supported "
--					 "on this HCA, aborting.\n");
-+				mlx4_err(dev, "Only same port types supported on this HCA, aborting\n");
- 				return -EINVAL;
- 			}
- 		}
-@@ -172,8 +171,8 @@ int mlx4_check_port_params(struct mlx4_dev *dev,
- 
- 	for (i = 0; i < dev->caps.num_ports; i++) {
- 		if (!(port_type[i] & dev->caps.supported_type[i+1])) {
--			mlx4_err(dev, "Requested port type for port %d is not "
--				      "supported on this HCA\n", i + 1);
-+			mlx4_err(dev, "Requested port type for port %d is not supported on this HCA\n",
-+				 i + 1);
- 			return -EINVAL;
- 		}
- 	}
-@@ -195,26 +194,23 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 
- 	err = mlx4_QUERY_DEV_CAP(dev, dev_cap);
- 	if (err) {
--		mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
-+		mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting\n");
- 		return err;
- 	}
- 
- 	if (dev_cap->min_page_sz > PAGE_SIZE) {
--		mlx4_err(dev, "HCA minimum page size of %d bigger than "
--			 "kernel PAGE_SIZE of %ld, aborting.\n",
-+		mlx4_err(dev, "HCA minimum page size of %d bigger than kernel PAGE_SIZE of %ld, aborting\n",
- 			 dev_cap->min_page_sz, PAGE_SIZE);
- 		return -ENODEV;
- 	}
- 	if (dev_cap->num_ports > MLX4_MAX_PORTS) {
--		mlx4_err(dev, "HCA has %d ports, but we only support %d, "
--			 "aborting.\n",
-+		mlx4_err(dev, "HCA has %d ports, but we only support %d, aborting\n",
- 			 dev_cap->num_ports, MLX4_MAX_PORTS);
- 		return -ENODEV;
- 	}
- 
- 	if (dev_cap->uar_size > pci_resource_len(dev->pdev, 2)) {
--		mlx4_err(dev, "HCA reported UAR size of 0x%x bigger than "
--			 "PCI resource 2 size of 0x%llx, aborting.\n",
-+		mlx4_err(dev, "HCA reported UAR size of 0x%x bigger than PCI resource 2 size of 0x%llx, aborting\n",
- 			 dev_cap->uar_size,
- 			 (unsigned long long) pci_resource_len(dev->pdev, 2));
- 		return -ENODEV;
-@@ -347,14 +343,12 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 
- 		if (dev->caps.log_num_macs > dev_cap->log_max_macs[i]) {
- 			dev->caps.log_num_macs = dev_cap->log_max_macs[i];
--			mlx4_warn(dev, "Requested number of MACs is too much "
--				  "for port %d, reducing to %d.\n",
-+			mlx4_warn(dev, "Requested number of MACs is too much for port %d, reducing to %d\n",
- 				  i, 1 << dev->caps.log_num_macs);
- 		}
- 		if (dev->caps.log_num_vlans > dev_cap->log_max_vlans[i]) {
- 			dev->caps.log_num_vlans = dev_cap->log_max_vlans[i];
--			mlx4_warn(dev, "Requested number of VLANs is too much "
--				  "for port %d, reducing to %d.\n",
-+			mlx4_warn(dev, "Requested number of VLANs is too much for port %d, reducing to %d\n",
- 				  i, 1 << dev->caps.log_num_vlans);
- 		}
- 	}
-@@ -584,7 +578,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	memset(&hca_param, 0, sizeof(hca_param));
- 	err = mlx4_QUERY_HCA(dev, &hca_param);
- 	if (err) {
--		mlx4_err(dev, "QUERY_HCA command failed, aborting.\n");
-+		mlx4_err(dev, "QUERY_HCA command failed, aborting\n");
- 		return err;
- 	}
- 
-@@ -603,19 +597,18 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	dev->caps.max_qp_dest_rdma = 1 << hca_param.log_rd_per_qp;
- 	err = mlx4_dev_cap(dev, &dev_cap);
- 	if (err) {
--		mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
-+		mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting\n");
- 		return err;
- 	}
- 
- 	err = mlx4_QUERY_FW(dev);
- 	if (err)
--		mlx4_err(dev, "QUERY_FW command failed: could not get FW version.\n");
-+		mlx4_err(dev, "QUERY_FW command failed: could not get FW version\n");
- 
- 	page_size = ~dev->caps.page_size_cap + 1;
- 	mlx4_warn(dev, "HCA minimum page size:%d\n", page_size);
- 	if (page_size > PAGE_SIZE) {
--		mlx4_err(dev, "HCA minimum page size of %d bigger than "
--			 "kernel PAGE_SIZE of %ld, aborting.\n",
-+		mlx4_err(dev, "HCA minimum page size of %d bigger than kernel PAGE_SIZE of %ld, aborting\n",
- 			 page_size, PAGE_SIZE);
- 		return -ENODEV;
- 	}
-@@ -633,8 +626,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	memset(&func_cap, 0, sizeof(func_cap));
- 	err = mlx4_QUERY_FUNC_CAP(dev, 0, &func_cap);
- 	if (err) {
--		mlx4_err(dev, "QUERY_FUNC_CAP general command failed, aborting (%d).\n",
--			  err);
-+		mlx4_err(dev, "QUERY_FUNC_CAP general command failed, aborting (%d)\n",
-+			 err);
- 		return err;
- 	}
- 
-@@ -661,8 +654,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	dev->caps.num_amgms             = 0;
- 
- 	if (dev->caps.num_ports > MLX4_MAX_PORTS) {
--		mlx4_err(dev, "HCA has %d ports, but we only support %d, "
--			 "aborting.\n", dev->caps.num_ports, MLX4_MAX_PORTS);
-+		mlx4_err(dev, "HCA has %d ports, but we only support %d, aborting\n",
-+			 dev->caps.num_ports, MLX4_MAX_PORTS);
- 		return -ENODEV;
- 	}
- 
-@@ -680,8 +673,8 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	for (i = 1; i <= dev->caps.num_ports; ++i) {
- 		err = mlx4_QUERY_FUNC_CAP(dev, (u32) i, &func_cap);
- 		if (err) {
--			mlx4_err(dev, "QUERY_FUNC_CAP port command failed for"
--				 " port %d, aborting (%d).\n", i, err);
-+			mlx4_err(dev, "QUERY_FUNC_CAP port command failed for port %d, aborting (%d)\n",
-+				 i, err);
- 			goto err_mem;
- 		}
- 		dev->caps.qp0_tunnel[i - 1] = func_cap.qp0_tunnel_qpn;
-@@ -699,8 +692,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	if (dev->caps.uar_page_size * (dev->caps.num_uars -
- 				       dev->caps.reserved_uars) >
- 				       pci_resource_len(dev->pdev, 2)) {
--		mlx4_err(dev, "HCA reported UAR region size of 0x%x bigger than "
--			 "PCI resource 2 size of 0x%llx, aborting.\n",
-+		mlx4_err(dev, "HCA reported UAR region size of 0x%x bigger than PCI resource 2 size of 0x%llx, aborting\n",
- 			 dev->caps.uar_page_size * dev->caps.num_uars,
- 			 (unsigned long long) pci_resource_len(dev->pdev, 2));
- 		goto err_mem;
-@@ -722,7 +714,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	}
- 
- 	dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
--	mlx4_warn(dev, "Timestamping is not supported in slave mode.\n");
-+	mlx4_warn(dev, "Timestamping is not supported in slave mode\n");
- 
- 	slave_adjust_steering_mode(dev, &dev_cap, &hca_param);
- 
-@@ -784,8 +776,8 @@ int mlx4_change_port_types(struct mlx4_dev *dev,
- 			dev->caps.port_type[port] = port_types[port - 1];
- 			err = mlx4_SET_PORT(dev, port, -1);
- 			if (err) {
--				mlx4_err(dev, "Failed to set port %d, "
--					      "aborting\n", port);
-+				mlx4_err(dev, "Failed to set port %d, aborting\n",
-+					 port);
- 				goto out;
- 			}
- 		}
-@@ -868,9 +860,7 @@ static ssize_t set_port_type(struct device *dev,
- 		}
- 	}
- 	if (err) {
--		mlx4_err(mdev, "Auto sensing is not supported on this HCA. "
--			       "Set only 'eth' or 'ib' for both ports "
--			       "(should be the same)\n");
-+		mlx4_err(mdev, "Auto sensing is not supported on this HCA. Set only 'eth' or 'ib' for both ports (should be the same)\n");
- 		goto out;
- 	}
- 
-@@ -975,8 +965,8 @@ static ssize_t set_port_ib_mtu(struct device *dev,
- 		mlx4_CLOSE_PORT(mdev, port);
- 		err = mlx4_SET_PORT(mdev, port, -1);
- 		if (err) {
--			mlx4_err(mdev, "Failed to set port %d, "
--				      "aborting\n", port);
-+			mlx4_err(mdev, "Failed to set port %d, aborting\n",
-+				 port);
- 			goto err_set_port;
- 		}
- 	}
-@@ -995,19 +985,19 @@ static int mlx4_load_fw(struct mlx4_dev *dev)
- 	priv->fw.fw_icm = mlx4_alloc_icm(dev, priv->fw.fw_pages,
- 					 GFP_HIGHUSER | __GFP_NOWARN, 0);
- 	if (!priv->fw.fw_icm) {
--		mlx4_err(dev, "Couldn't allocate FW area, aborting.\n");
-+		mlx4_err(dev, "Couldn't allocate FW area, aborting\n");
- 		return -ENOMEM;
- 	}
- 
- 	err = mlx4_MAP_FA(dev, priv->fw.fw_icm);
- 	if (err) {
--		mlx4_err(dev, "MAP_FA command failed, aborting.\n");
-+		mlx4_err(dev, "MAP_FA command failed, aborting\n");
- 		goto err_free;
- 	}
- 
- 	err = mlx4_RUN_FW(dev);
- 	if (err) {
--		mlx4_err(dev, "RUN_FW command failed, aborting.\n");
-+		mlx4_err(dev, "RUN_FW command failed, aborting\n");
- 		goto err_unmap_fa;
- 	}
- 
-@@ -1091,30 +1081,30 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 
- 	err = mlx4_SET_ICM_SIZE(dev, icm_size, &aux_pages);
- 	if (err) {
--		mlx4_err(dev, "SET_ICM_SIZE command failed, aborting.\n");
-+		mlx4_err(dev, "SET_ICM_SIZE command failed, aborting\n");
- 		return err;
- 	}
- 
--	mlx4_dbg(dev, "%lld KB of HCA context requires %lld KB aux memory.\n",
-+	mlx4_dbg(dev, "%lld KB of HCA context requires %lld KB aux memory\n",
- 		 (unsigned long long) icm_size >> 10,
- 		 (unsigned long long) aux_pages << 2);
- 
- 	priv->fw.aux_icm = mlx4_alloc_icm(dev, aux_pages,
- 					  GFP_HIGHUSER | __GFP_NOWARN, 0);
- 	if (!priv->fw.aux_icm) {
--		mlx4_err(dev, "Couldn't allocate aux memory, aborting.\n");
-+		mlx4_err(dev, "Couldn't allocate aux memory, aborting\n");
- 		return -ENOMEM;
- 	}
- 
- 	err = mlx4_MAP_ICM_AUX(dev, priv->fw.aux_icm);
- 	if (err) {
--		mlx4_err(dev, "MAP_ICM_AUX command failed, aborting.\n");
-+		mlx4_err(dev, "MAP_ICM_AUX command failed, aborting\n");
- 		goto err_free_aux;
- 	}
- 
- 	err = mlx4_init_cmpt_table(dev, init_hca->cmpt_base, dev_cap->cmpt_entry_sz);
- 	if (err) {
--		mlx4_err(dev, "Failed to map cMPT context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map cMPT context memory, aborting\n");
- 		goto err_unmap_aux;
- 	}
- 
-@@ -1125,7 +1115,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  init_hca->eqc_base, dev_cap->eqc_entry_sz,
- 				  num_eqs, num_eqs, 0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map EQ context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map EQ context memory, aborting\n");
- 		goto err_unmap_cmpt;
- 	}
- 
-@@ -1146,7 +1136,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.num_mtts,
- 				  dev->caps.reserved_mtts, 1, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map MTT context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map MTT context memory, aborting\n");
- 		goto err_unmap_eq;
- 	}
- 
-@@ -1156,7 +1146,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.num_mpts,
- 				  dev->caps.reserved_mrws, 1, 1);
- 	if (err) {
--		mlx4_err(dev, "Failed to map dMPT context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map dMPT context memory, aborting\n");
- 		goto err_unmap_mtt;
- 	}
- 
-@@ -1167,7 +1157,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FW],
- 				  0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map QP context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map QP context memory, aborting\n");
- 		goto err_unmap_dmpt;
- 	}
- 
-@@ -1178,7 +1168,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FW],
- 				  0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map AUXC context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map AUXC context memory, aborting\n");
- 		goto err_unmap_qp;
- 	}
- 
-@@ -1189,7 +1179,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FW],
- 				  0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map ALTC context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map ALTC context memory, aborting\n");
- 		goto err_unmap_auxc;
- 	}
- 
-@@ -1210,7 +1200,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.num_cqs,
- 				  dev->caps.reserved_cqs, 0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map CQ context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map CQ context memory, aborting\n");
- 		goto err_unmap_rdmarc;
- 	}
- 
-@@ -1220,7 +1210,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.num_srqs,
- 				  dev->caps.reserved_srqs, 0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map SRQ context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map SRQ context memory, aborting\n");
- 		goto err_unmap_cq;
- 	}
- 
-@@ -1238,7 +1228,7 @@ static int mlx4_init_icm(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap,
- 				  dev->caps.num_mgms + dev->caps.num_amgms,
- 				  0, 0);
- 	if (err) {
--		mlx4_err(dev, "Failed to map MCG context memory, aborting.\n");
-+		mlx4_err(dev, "Failed to map MCG context memory, aborting\n");
- 		goto err_unmap_srq;
- 	}
- 
-@@ -1315,7 +1305,7 @@ static void mlx4_slave_exit(struct mlx4_dev *dev)
- 
- 	mutex_lock(&priv->cmd.slave_cmd_mutex);
- 	if (mlx4_comm_cmd(dev, MLX4_COMM_CMD_RESET, 0, MLX4_COMM_TIME))
--		mlx4_warn(dev, "Failed to close slave function.\n");
-+		mlx4_warn(dev, "Failed to close slave function\n");
- 	mutex_unlock(&priv->cmd.slave_cmd_mutex);
+=20
+-static inline bool ip_sk_local_df(const struct sock *sk)
++static inline bool ip_sk_ignore_df(const struct sock *sk)
+ {
+ 	return inet_sk(sk)->pmtudisc < IP_PMTUDISC_DO ||
+ 	       inet_sk(sk)->pmtudisc =3D=3D IP_PMTUDISC_OMIT;
+@@ -316,7 +316,7 @@ static inline void ip_select_ident(struct sk_buff *=
+skb, struct dst_entry *dst, s
+ {
+ 	struct iphdr *iph =3D ip_hdr(skb);
+=20
+-	if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
++	if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
+ 		/* This is only to work around buggy Windows95/2000
+ 		 * VJ compression implementations.  If the ID field
+ 		 * does not change, they drop every other packet in
+@@ -332,7 +332,7 @@ static inline void ip_select_ident_more(struct sk_b=
+uff *skb, struct dst_entry *d
+ {
+ 	struct iphdr *iph =3D ip_hdr(skb);
+=20
+-	if ((iph->frag_off & htons(IP_DF)) && !skb->local_df) {
++	if ((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) {
+ 		if (sk && inet_sk(sk)->inet_daddr) {
+ 			iph->id =3D htons(inet_sk(sk)->inet_id);
+ 			inet_sk(sk)->inet_id +=3D 1 + more;
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 6c4f5ea..38e41e4 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -185,7 +185,7 @@ static inline bool ip6_sk_accept_pmtu(const struct =
+sock *sk)
+ 	       inet6_sk(sk)->pmtudisc !=3D IPV6_PMTUDISC_OMIT;
  }
- 
-@@ -1413,7 +1403,7 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
- 	u32 cmd_channel_ver;
- 
- 	if (atomic_read(&pf_loading)) {
--		mlx4_warn(dev, "PF is not ready. Deferring probe\n");
-+		mlx4_warn(dev, "PF is not ready - Deferring probe\n");
- 		return -EPROBE_DEFER;
- 	}
- 
-@@ -1426,8 +1416,7 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
- 	 * NUM_OF_RESET_RETRIES times before leaving.*/
- 	if (ret_from_reset) {
- 		if (MLX4_DELAY_RESET_SLAVE == ret_from_reset) {
--			mlx4_warn(dev, "slave is currently in the "
--				  "middle of FLR. Deferring probe.\n");
-+			mlx4_warn(dev, "slave is currently in the middle of FLR - Deferring probe\n");
- 			mutex_unlock(&priv->cmd.slave_cmd_mutex);
- 			return -EPROBE_DEFER;
- 		} else
-@@ -1441,8 +1430,7 @@ static int mlx4_init_slave(struct mlx4_dev *dev)
- 
- 	if (MLX4_COMM_GET_IF_REV(cmd_channel_ver) !=
- 		MLX4_COMM_GET_IF_REV(slave_read)) {
--		mlx4_err(dev, "slave driver version is not supported"
--			 " by the master\n");
-+		mlx4_err(dev, "slave driver version is not supported by the master\n");
- 		goto err;
- 	}
- 
-@@ -1520,8 +1508,7 @@ static void choose_steering_mode(struct mlx4_dev *dev,
- 
- 			if (dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_UC_STEER ||
- 			    dev->caps.flags & MLX4_DEV_CAP_FLAG_VEP_MC_STEER)
--				mlx4_warn(dev, "Must have both UC_STEER and MC_STEER flags "
--					  "set to use B0 steering. Falling back to A0 steering mode.\n");
-+				mlx4_warn(dev, "Must have both UC_STEER and MC_STEER flags set to use B0 steering - falling back to A0 steering mode\n");
- 		}
- 		dev->oper_log_mgm_entry_size =
- 			mlx4_log_num_mgm_entry_size > 0 ?
-@@ -1529,8 +1516,7 @@ static void choose_steering_mode(struct mlx4_dev *dev,
- 			MLX4_DEFAULT_MGM_LOG_ENTRY_SIZE;
- 		dev->caps.num_qp_per_mgm = mlx4_get_qp_per_mgm(dev);
- 	}
--	mlx4_dbg(dev, "Steering mode is: %s, oper_log_mgm_entry_size = %d, "
--		 "modparam log_num_mgm_entry_size = %d\n",
-+	mlx4_dbg(dev, "Steering mode is: %s, oper_log_mgm_entry_size = %d, modparam log_num_mgm_entry_size = %d\n",
- 		 mlx4_steering_mode_str(dev->caps.steering_mode),
- 		 dev->oper_log_mgm_entry_size,
- 		 mlx4_log_num_mgm_entry_size);
-@@ -1564,15 +1550,15 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 		err = mlx4_QUERY_FW(dev);
- 		if (err) {
- 			if (err == -EACCES)
--				mlx4_info(dev, "non-primary physical function, skipping.\n");
-+				mlx4_info(dev, "non-primary physical function, skipping\n");
- 			else
--				mlx4_err(dev, "QUERY_FW command failed, aborting.\n");
-+				mlx4_err(dev, "QUERY_FW command failed, aborting\n");
- 			return err;
- 		}
- 
- 		err = mlx4_load_fw(dev);
- 		if (err) {
--			mlx4_err(dev, "Failed to start FW, aborting.\n");
-+			mlx4_err(dev, "Failed to start FW, aborting\n");
- 			return err;
- 		}
- 
-@@ -1584,7 +1570,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 
- 		err = mlx4_dev_cap(dev, &dev_cap);
- 		if (err) {
--			mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting.\n");
-+			mlx4_err(dev, "QUERY_DEV_CAP command failed, aborting\n");
- 			goto err_stop_fw;
- 		}
- 
-@@ -1625,7 +1611,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 
- 		err = mlx4_INIT_HCA(dev, &init_hca);
- 		if (err) {
--			mlx4_err(dev, "INIT_HCA command failed, aborting.\n");
-+			mlx4_err(dev, "INIT_HCA command failed, aborting\n");
- 			goto err_free_icm;
- 		}
- 		/*
-@@ -1636,7 +1622,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 			memset(&init_hca, 0, sizeof(init_hca));
- 			err = mlx4_QUERY_HCA(dev, &init_hca);
- 			if (err) {
--				mlx4_err(dev, "QUERY_HCA command failed, disable timestamp.\n");
-+				mlx4_err(dev, "QUERY_HCA command failed, disable timestamp\n");
- 				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
- 			} else {
- 				dev->caps.hca_core_clock =
-@@ -1649,14 +1635,14 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 			if (!dev->caps.hca_core_clock) {
- 				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
- 				mlx4_err(dev,
--					 "HCA frequency is 0. Timestamping is not supported.");
-+					 "HCA frequency is 0 - timestamping is not supported\n");
- 			} else if (map_internal_clock(dev)) {
- 				/*
- 				 * Map internal clock,
- 				 * in case of failure disable timestamping
- 				 */
- 				dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
--				mlx4_err(dev, "Failed to map internal clock. Timestamping is not supported.\n");
-+				mlx4_err(dev, "Failed to map internal clock. Timestamping is not supported\n");
- 			}
- 		}
- 	} else {
-@@ -1683,7 +1669,7 @@ static int mlx4_init_hca(struct mlx4_dev *dev)
- 
- 	err = mlx4_QUERY_ADAPTER(dev, &adapter);
- 	if (err) {
--		mlx4_err(dev, "QUERY_ADAPTER command failed, aborting.\n");
-+		mlx4_err(dev, "QUERY_ADAPTER command failed, aborting\n");
- 		goto unmap_bf;
- 	}
- 
-@@ -1793,79 +1779,69 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 
- 	err = mlx4_init_uar_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "user access region table, aborting.\n");
--		return err;
-+		mlx4_err(dev, "Failed to initialize user access region table, aborting\n");
-+		 return err;
- 	}
- 
- 	err = mlx4_uar_alloc(dev, &priv->driver_uar);
- 	if (err) {
--		mlx4_err(dev, "Failed to allocate driver access region, "
--			 "aborting.\n");
-+		mlx4_err(dev, "Failed to allocate driver access region, aborting\n");
- 		goto err_uar_table_free;
- 	}
- 
- 	priv->kar = ioremap((phys_addr_t) priv->driver_uar.pfn << PAGE_SHIFT, PAGE_SIZE);
- 	if (!priv->kar) {
--		mlx4_err(dev, "Couldn't map kernel access region, "
--			 "aborting.\n");
-+		mlx4_err(dev, "Couldn't map kernel access region, aborting\n");
- 		err = -ENOMEM;
- 		goto err_uar_free;
- 	}
- 
- 	err = mlx4_init_pd_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "protection domain table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize protection domain table, aborting\n");
- 		goto err_kar_unmap;
- 	}
- 
- 	err = mlx4_init_xrcd_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "reliable connection domain table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize reliable connection domain table, aborting\n");
- 		goto err_pd_table_free;
- 	}
- 
- 	err = mlx4_init_mr_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "memory region table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize memory region table, aborting\n");
- 		goto err_xrcd_table_free;
- 	}
- 
- 	if (!mlx4_is_slave(dev)) {
- 		err = mlx4_init_mcg_table(dev);
- 		if (err) {
--			mlx4_err(dev, "Failed to initialize multicast group table, aborting.\n");
-+			mlx4_err(dev, "Failed to initialize multicast group table, aborting\n");
- 			goto err_mr_table_free;
- 		}
- 	}
- 
- 	err = mlx4_init_eq_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "event queue table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize event queue table, aborting\n");
- 		goto err_mcg_table_free;
- 	}
- 
- 	err = mlx4_cmd_use_events(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to switch to event-driven "
--			 "firmware commands, aborting.\n");
-+		mlx4_err(dev, "Failed to switch to event-driven firmware commands, aborting\n");
- 		goto err_eq_table_free;
- 	}
- 
- 	err = mlx4_NOP(dev);
- 	if (err) {
- 		if (dev->flags & MLX4_FLAG_MSI_X) {
--			mlx4_warn(dev, "NOP command failed to generate MSI-X "
--				  "interrupt IRQ %d).\n",
-+			mlx4_warn(dev, "NOP command failed to generate MSI-X interrupt IRQ %d)\n",
- 				  priv->eq_table.eq[dev->caps.num_comp_vectors].irq);
--			mlx4_warn(dev, "Trying again without MSI-X.\n");
-+			mlx4_warn(dev, "Trying again without MSI-X\n");
- 		} else {
--			mlx4_err(dev, "NOP command failed to generate interrupt "
--				 "(IRQ %d), aborting.\n",
-+			mlx4_err(dev, "NOP command failed to generate interrupt (IRQ %d), aborting\n",
- 				 priv->eq_table.eq[dev->caps.num_comp_vectors].irq);
- 			mlx4_err(dev, "BIOS or ACPI interrupt routing problem?\n");
- 		}
-@@ -1877,28 +1853,25 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 
- 	err = mlx4_init_cq_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "completion queue table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize completion queue table, aborting\n");
- 		goto err_cmd_poll;
- 	}
- 
- 	err = mlx4_init_srq_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "shared receive queue table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize shared receive queue table, aborting\n");
- 		goto err_cq_table_free;
- 	}
- 
- 	err = mlx4_init_qp_table(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to initialize "
--			 "queue pair table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize queue pair table, aborting\n");
- 		goto err_srq_table_free;
- 	}
- 
- 	err = mlx4_init_counters_table(dev);
- 	if (err && err != -ENOENT) {
--		mlx4_err(dev, "Failed to initialize counters table, aborting.\n");
-+		mlx4_err(dev, "Failed to initialize counters table, aborting\n");
- 		goto err_qp_table_free;
- 	}
- 
-@@ -1908,9 +1881,8 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 			err = mlx4_get_port_ib_caps(dev, port,
- 						    &ib_port_default_caps);
- 			if (err)
--				mlx4_warn(dev, "failed to get port %d default "
--					  "ib capabilities (%d). Continuing "
--					  "with caps = 0\n", port, err);
-+				mlx4_warn(dev, "failed to get port %d default ib capabilities (%d). Continuing with caps = 0\n",
-+					  port, err);
- 			dev->caps.ib_port_def_cap[port] = ib_port_default_caps;
- 
- 			/* initialize per-slave default ib port capabilities */
-@@ -1920,7 +1892,7 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 					if (i == mlx4_master_func_num(dev))
- 						continue;
- 					priv->mfunc.master.slave_state[i].ib_cap_mask[port] =
--							ib_port_default_caps;
-+						ib_port_default_caps;
- 				}
- 			}
- 
-@@ -1933,7 +1905,7 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 					    dev->caps.pkey_table_len[port] : -1);
- 			if (err) {
- 				mlx4_err(dev, "Failed to set port %d, aborting\n",
--					port);
-+					 port);
- 				goto err_counters_table_free;
- 			}
- 		}
-@@ -2009,7 +1981,7 @@ static void mlx4_enable_msi_x(struct mlx4_dev *dev)
- 			kfree(entries);
- 			goto no_msi;
- 		} else if (nreq < MSIX_LEGACY_SZ +
--				  dev->caps.num_ports * MIN_MSIX_P_PORT) {
-+			   dev->caps.num_ports * MIN_MSIX_P_PORT) {
- 			/*Working in legacy mode , all EQ's shared*/
- 			dev->caps.comp_pool           = 0;
- 			dev->caps.num_comp_vectors = nreq - 1;
-@@ -2209,8 +2181,7 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
--		dev_err(&pdev->dev, "Cannot enable PCI device, "
--			"aborting.\n");
-+		dev_err(&pdev->dev, "Cannot enable PCI device, aborting\n");
- 		return err;
- 	}
- 
-@@ -2257,14 +2228,13 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 	 */
- 	if (!(pci_dev_data & MLX4_PCI_DEV_IS_VF) &&
- 	    !(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
--		dev_err(&pdev->dev, "Missing DCS, aborting."
--			"(driver_data: 0x%x, pci_resource_flags(pdev, 0):0x%lx)\n",
-+		dev_err(&pdev->dev, "Missing DCS, aborting (driver_data: 0x%x, pci_resource_flags(pdev, 0):0x%lx)\n",
- 			pci_dev_data, pci_resource_flags(pdev, 0));
- 		err = -ENODEV;
- 		goto err_disable_pdev;
- 	}
- 	if (!(pci_resource_flags(pdev, 2) & IORESOURCE_MEM)) {
--		dev_err(&pdev->dev, "Missing UAR, aborting.\n");
-+		dev_err(&pdev->dev, "Missing UAR, aborting\n");
- 		err = -ENODEV;
- 		goto err_disable_pdev;
- 	}
-@@ -2279,21 +2249,19 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 
- 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
- 	if (err) {
--		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit PCI DMA mask.\n");
-+		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit PCI DMA mask\n");
- 		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (err) {
--			dev_err(&pdev->dev, "Can't set PCI DMA mask, aborting.\n");
-+			dev_err(&pdev->dev, "Can't set PCI DMA mask, aborting\n");
- 			goto err_release_regions;
- 		}
- 	}
- 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
- 	if (err) {
--		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit "
--			 "consistent PCI DMA mask.\n");
-+		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit consistent PCI DMA mask\n");
- 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (err) {
--			dev_err(&pdev->dev, "Can't set consistent PCI DMA mask, "
--				"aborting.\n");
-+			dev_err(&pdev->dev, "Can't set consistent PCI DMA mask, aborting\n");
- 			goto err_release_regions;
- 		}
- 	}
-@@ -2324,7 +2292,7 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 		if (total_vfs) {
- 			unsigned vfs_offset = 0;
- 			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]) &&
--			     vfs_offset + nvfs[i] < extended_func_num(pdev);
-+				     vfs_offset + nvfs[i] < extended_func_num(pdev);
- 			     vfs_offset += nvfs[i], i++)
- 				;
- 			if (i == sizeof(nvfs)/sizeof(nvfs[0])) {
-@@ -2350,8 +2318,7 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 			if (err < 0)
- 				goto err_free_dev;
- 			else {
--				mlx4_warn(dev, "Multiple PFs not yet supported."
--					  " Skipping PF.\n");
-+				mlx4_warn(dev, "Multiple PFs not yet supported - Skipping PF\n");
- 				err = -EINVAL;
- 				goto err_free_dev;
- 			}
-@@ -2361,8 +2328,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 			mlx4_warn(dev, "Enabling SR-IOV with %d VFs\n",
- 				  total_vfs);
- 			dev->dev_vfs = kzalloc(
--					total_vfs * sizeof(*dev->dev_vfs),
--					GFP_KERNEL);
-+				total_vfs * sizeof(*dev->dev_vfs),
-+				GFP_KERNEL);
- 			if (NULL == dev->dev_vfs) {
- 				mlx4_err(dev, "Failed to allocate memory for VFs\n");
- 				err = 0;
-@@ -2370,14 +2337,14 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 				atomic_inc(&pf_loading);
- 				err = pci_enable_sriov(pdev, total_vfs);
- 				if (err) {
--					mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d).\n",
-+					mlx4_err(dev, "Failed to enable SR-IOV, continuing without SR-IOV (err = %d)\n",
- 						 err);
- 					atomic_dec(&pf_loading);
- 					err = 0;
- 				} else {
- 					mlx4_warn(dev, "Running in master mode\n");
- 					dev->flags |= MLX4_FLAG_SRIOV |
--						      MLX4_FLAG_MASTER;
-+						MLX4_FLAG_MASTER;
- 					dev->num_vfs = total_vfs;
- 					sriov_initialized = 1;
- 				}
-@@ -2394,7 +2361,7 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- 		 */
- 		err = mlx4_reset(dev);
- 		if (err) {
--			mlx4_err(dev, "Failed to reset HCA, aborting.\n");
-+			mlx4_err(dev, "Failed to reset HCA, aborting\n");
- 			goto err_rel_own;
- 		}
- 	}
-@@ -2402,7 +2369,7 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
- slave_start:
- 	err = mlx4_cmd_init(dev);
- 	if (err) {
--		mlx4_err(dev, "Failed to init command interface, aborting.\n");
-+		mlx4_err(dev, "Failed to init command interface, aborting\n");
- 		goto err_sriov;
- 	}
- 
-@@ -2416,8 +2383,7 @@ slave_start:
- 			dev->num_slaves = 0;
- 			err = mlx4_multi_func_init(dev);
- 			if (err) {
--				mlx4_err(dev, "Failed to init slave mfunc"
--					 " interface, aborting.\n");
-+				mlx4_err(dev, "Failed to init slave mfunc interface, aborting\n");
- 				goto err_cmd;
- 			}
- 		}
-@@ -2448,8 +2414,7 @@ slave_start:
- 		unsigned sum = 0;
- 		err = mlx4_multi_func_init(dev);
- 		if (err) {
--			mlx4_err(dev, "Failed to init master mfunc"
--				 "interface, aborting.\n");
-+			mlx4_err(dev, "Failed to init master mfunc interface, aborting\n");
- 			goto err_close;
- 		}
- 		if (sriov_initialized) {
-@@ -2460,10 +2425,7 @@ slave_start:
- 			if (ib_ports &&
- 			    (num_vfs_argc > 1 || probe_vfs_argc > 1)) {
- 				mlx4_err(dev,
--					 "Invalid syntax of num_vfs/probe_vfs "
--					 "with IB port. Single port VFs syntax"
--					 " is only supported when all ports "
--					 "are configured as ethernet\n");
-+					 "Invalid syntax of num_vfs/probe_vfs with IB port - single port VFs syntax is only supported when all ports are configured as ethernet\n");
- 				goto err_close;
- 			}
- 			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]); i++) {
-@@ -2489,8 +2451,7 @@ slave_start:
- 	if ((mlx4_is_mfunc(dev)) &&
- 	    !(dev->flags & MLX4_FLAG_MSI_X)) {
- 		err = -ENOSYS;
--		mlx4_err(dev, "INTx is not supported in multi-function mode."
--			 " aborting.\n");
-+		mlx4_err(dev, "INTx is not supported in multi-function mode, aborting\n");
- 		goto err_free_eq;
- 	}
- 
-@@ -2828,11 +2789,10 @@ static int __init mlx4_verify_params(void)
- 	if (mlx4_log_num_mgm_entry_size != -1 &&
- 	    (mlx4_log_num_mgm_entry_size < MLX4_MIN_MGM_LOG_ENTRY_SIZE ||
- 	     mlx4_log_num_mgm_entry_size > MLX4_MAX_MGM_LOG_ENTRY_SIZE)) {
--		pr_warning("mlx4_core: mlx4_log_num_mgm_entry_size (%d) not "
--			   "in legal range (-1 or %d..%d)\n",
--			   mlx4_log_num_mgm_entry_size,
--			   MLX4_MIN_MGM_LOG_ENTRY_SIZE,
--			   MLX4_MAX_MGM_LOG_ENTRY_SIZE);
-+		pr_warn("mlx4_core: mlx4_log_num_mgm_entry_size (%d) not in legal range (-1 or %d..%d)\n",
-+			mlx4_log_num_mgm_entry_size,
-+			MLX4_MIN_MGM_LOG_ENTRY_SIZE,
-+			MLX4_MAX_MGM_LOG_ENTRY_SIZE);
- 		return -1;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 80ccb4e..7c6eba6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -638,7 +638,7 @@ static int find_entry(struct mlx4_dev *dev, u8 port,
- 
- 		if (!(be32_to_cpu(mgm->members_count) & 0xffffff)) {
- 			if (*index != hash) {
--				mlx4_err(dev, "Found zero MGID in AMGM.\n");
-+				mlx4_err(dev, "Found zero MGID in AMGM\n");
- 				err = -EINVAL;
- 			}
- 			return err;
-@@ -874,7 +874,7 @@ static void mlx4_err_rule(struct mlx4_dev *dev, char *str,
- 	mlx4_err(dev, "%s", buf);
- 
- 	if (len >= BUF_SIZE)
--		mlx4_err(dev, "Network rule error message was truncated, print buffer is too small.\n");
-+		mlx4_err(dev, "Network rule error message was truncated, print buffer is too small\n");
- }
- 
- int mlx4_flow_attach(struct mlx4_dev *dev,
-@@ -905,10 +905,10 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
- 	ret = mlx4_QP_FLOW_STEERING_ATTACH(dev, mailbox, size >> 2, reg_id);
- 	if (ret == -ENOMEM)
- 		mlx4_err_rule(dev,
--			      "mcg table is full. Fail to register network rule.\n",
-+			      "mcg table is full. Fail to register network rule\n",
- 			      rule);
- 	else if (ret)
--		mlx4_err_rule(dev, "Fail to register network rule.\n", rule);
-+		mlx4_err_rule(dev, "Fail to register network rule\n", rule);
- 
- 	mlx4_free_cmd_mailbox(dev, mailbox);
- 
-@@ -994,7 +994,7 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 
- 	members_count = be32_to_cpu(mgm->members_count) & 0xffffff;
- 	if (members_count == dev->caps.num_qp_per_mgm) {
--		mlx4_err(dev, "MGM at index %x is full.\n", index);
-+		mlx4_err(dev, "MGM at index %x is full\n", index);
- 		err = -ENOMEM;
- 		goto out;
- 	}
-@@ -1042,7 +1042,7 @@ out:
- 	}
- 	if (err && link && index != -1) {
- 		if (index < dev->caps.num_mgms)
--			mlx4_warn(dev, "Got AMGM index %d < %d",
-+			mlx4_warn(dev, "Got AMGM index %d < %d\n",
- 				  index, dev->caps.num_mgms);
- 		else
- 			mlx4_bitmap_free(&priv->mcg_table.bitmap,
-@@ -1133,7 +1133,7 @@ int mlx4_qp_detach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 
- 		if (amgm_index) {
- 			if (amgm_index < dev->caps.num_mgms)
--				mlx4_warn(dev, "MGM entry %d had AMGM index %d < %d",
-+				mlx4_warn(dev, "MGM entry %d had AMGM index %d < %d\n",
- 					  index, amgm_index, dev->caps.num_mgms);
- 			else
- 				mlx4_bitmap_free(&priv->mcg_table.bitmap,
-@@ -1153,7 +1153,7 @@ int mlx4_qp_detach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
- 			goto out;
- 
- 		if (index < dev->caps.num_mgms)
--			mlx4_warn(dev, "entry %d had next AMGM index %d < %d",
-+			mlx4_warn(dev, "entry %d had next AMGM index %d < %d\n",
- 				  prev, index, dev->caps.num_mgms);
- 		else
- 			mlx4_bitmap_free(&priv->mcg_table.bitmap,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index f9c4651..52c1e7d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -216,18 +216,19 @@ extern int mlx4_debug_level;
- #define mlx4_debug_level	(0)
- #endif /* CONFIG_MLX4_DEBUG */
- 
--#define mlx4_dbg(mdev, format, arg...)					\
-+#define mlx4_dbg(mdev, format, ...)					\
- do {									\
- 	if (mlx4_debug_level)						\
--		dev_printk(KERN_DEBUG, &mdev->pdev->dev, format, ##arg); \
-+		dev_printk(KERN_DEBUG, &(mdev)->pdev->dev, format,	\
-+			   ##__VA_ARGS__);				\
- } while (0)
- 
--#define mlx4_err(mdev, format, arg...) \
--	dev_err(&mdev->pdev->dev, format, ##arg)
--#define mlx4_info(mdev, format, arg...) \
--	dev_info(&mdev->pdev->dev, format, ##arg)
--#define mlx4_warn(mdev, format, arg...) \
--	dev_warn(&mdev->pdev->dev, format, ##arg)
-+#define mlx4_err(mdev, format, ...)					\
-+	dev_err(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
-+#define mlx4_info(mdev, format, ...)					\
-+	dev_info(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
-+#define mlx4_warn(mdev, format, ...)					\
-+	dev_warn(&(mdev)->pdev->dev, format, ##__VA_ARGS__)
- 
- extern int mlx4_log_num_mgm_entry_size;
- extern int log_mtts_per_seg;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 04d9b6fe..b5db1bf 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -830,26 +830,26 @@ __printf(3, 4)
- int en_print(const char *level, const struct mlx4_en_priv *priv,
- 	     const char *format, ...);
- 
--#define en_dbg(mlevel, priv, format, arg...)			\
--do {								\
--	if (NETIF_MSG_##mlevel & priv->msg_enable)		\
--		en_print(KERN_DEBUG, priv, format, ##arg);	\
-+#define en_dbg(mlevel, priv, format, ...)				\
-+do {									\
-+	if (NETIF_MSG_##mlevel & (priv)->msg_enable)			\
-+		en_print(KERN_DEBUG, priv, format, ##__VA_ARGS__);	\
- } while (0)
--#define en_warn(priv, format, arg...)			\
--	en_print(KERN_WARNING, priv, format, ##arg)
--#define en_err(priv, format, arg...)			\
--	en_print(KERN_ERR, priv, format, ##arg)
--#define en_info(priv, format, arg...)			\
--	en_print(KERN_INFO, priv, format, ## arg)
--
--#define mlx4_err(mdev, format, arg...)			\
--	pr_err("%s %s: " format, DRV_NAME,		\
--	       dev_name(&mdev->pdev->dev), ##arg)
--#define mlx4_info(mdev, format, arg...)			\
--	pr_info("%s %s: " format, DRV_NAME,		\
--		dev_name(&mdev->pdev->dev), ##arg)
--#define mlx4_warn(mdev, format, arg...)			\
--	pr_warning("%s %s: " format, DRV_NAME,		\
--		   dev_name(&mdev->pdev->dev), ##arg)
-+#define en_warn(priv, format, ...)					\
-+	en_print(KERN_WARNING, priv, format, ##__VA_ARGS__)
-+#define en_err(priv, format, ...)					\
-+	en_print(KERN_ERR, priv, format, ##__VA_ARGS__)
-+#define en_info(priv, format, ...)					\
-+	en_print(KERN_INFO, priv, format, ##__VA_ARGS__)
-+
-+#define mlx4_err(mdev, format, ...)					\
-+	pr_err(DRV_NAME " %s: " format,					\
-+	       dev_name(&(mdev)->pdev->dev), ##__VA_ARGS__)
-+#define mlx4_info(mdev, format, ...)					\
-+	pr_info(DRV_NAME " %s: " format,				\
-+		dev_name(&(mdev)->pdev->dev), ##__VA_ARGS__)
-+#define mlx4_warn(mdev, format, ...)					\
-+	pr_warn(DRV_NAME " %s: " format,				\
-+		dev_name(&(mdev)->pdev->dev), ##__VA_ARGS__)
- 
+=20
+-static inline bool ip6_sk_local_df(const struct sock *sk)
++static inline bool ip6_sk_ignore_df(const struct sock *sk)
+ {
+ 	return inet6_sk(sk)->pmtudisc < IPV6_PMTUDISC_DO ||
+ 	       inet6_sk(sk)->pmtudisc =3D=3D IPV6_PMTUDISC_OMIT;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1b62343..3d74530 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -694,7 +694,7 @@ static void __copy_skb_header(struct sk_buff *new, =
+const struct sk_buff *old)
  #endif
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 2483585..64fb3e6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -250,8 +250,8 @@ static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
- 						       MLX4_CMD_TIME_CLASS_A,
- 						       MLX4_CMD_WRAPPED);
- 		if (err)
--			mlx4_warn(dev, "Failed to free mtt range at:"
--				  "%d order:%d\n", offset, order);
-+			mlx4_warn(dev, "Failed to free mtt range at:%d order:%d\n",
-+				  offset, order);
- 		return;
- 	}
- 	 __mlx4_free_mtt_range(dev, offset, order);
-@@ -436,8 +436,8 @@ static int mlx4_mr_free_reserved(struct mlx4_dev *dev, struct mlx4_mr *mr)
- 				     key_to_hw_index(mr->key) &
- 				     (dev->caps.num_mpts - 1));
- 		if (err) {
--			mlx4_warn(dev, "HW2SW_MPT failed (%d),", err);
--			mlx4_warn(dev, "MR has MWs bound to it.\n");
-+			mlx4_warn(dev, "HW2SW_MPT failed (%d), MR has MWs bound to it\n",
-+				  err);
- 			return err;
- 		}
- 
-@@ -773,7 +773,7 @@ int mlx4_init_mr_table(struct mlx4_dev *dev)
- 			mlx4_alloc_mtt_range(dev,
- 					     fls(dev->caps.reserved_mtts - 1));
- 		if (priv->reserved_mtts < 0) {
--			mlx4_warn(dev, "MTT table of order %u is too small.\n",
-+			mlx4_warn(dev, "MTT table of order %u is too small\n",
- 				  mr_table->mtt_buddy.max_order);
- 			err = -ENOMEM;
- 			goto err_reserve_mtts;
-@@ -954,8 +954,8 @@ void mlx4_fmr_unmap(struct mlx4_dev *dev, struct mlx4_fmr *fmr,
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
- 	if (IS_ERR(mailbox)) {
- 		err = PTR_ERR(mailbox);
--		printk(KERN_WARNING "mlx4_ib: mlx4_alloc_cmd_mailbox"
--		       " failed (%d)\n", err);
-+		printk(KERN_WARNING "mlx4_ib: mlx4_alloc_cmd_mailbox failed (%d)\n",
-+		       err);
- 		return;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index cfcad26..1f6d291 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -244,8 +244,8 @@ void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- 	if (validate_index(dev, table, index))
- 		goto out;
- 	if (--table->refs[index]) {
--		mlx4_dbg(dev, "Have more references for index %d,"
--			 "no need to modify mac table\n", index);
-+		mlx4_dbg(dev, "Have more references for index %d, no need to modify mac table\n",
-+			 index);
- 		goto out;
- 	}
- 
-@@ -443,9 +443,8 @@ void __mlx4_unregister_vlan(struct mlx4_dev *dev, u8 port, u16 vlan)
- 	}
- 
- 	if (--table->refs[index]) {
--		mlx4_dbg(dev, "Have %d more references for index %d,"
--			 "no need to modify vlan table\n", table->refs[index],
--			 index);
-+		mlx4_dbg(dev, "Have %d more references for index %d, no need to modify vlan table\n",
-+			 table->refs[index], index);
- 		goto out;
- 	}
- 	table->entries[index] = 0;
-@@ -706,8 +705,7 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
- 					if (!memcmp(gid_entry_mbox->raw, gid_entry_tbl->raw,
- 						    sizeof(gid_entry_tbl->raw))) {
- 						/* found duplicate */
--						mlx4_warn(dev, "requested gid entry for slave:%d "
--							  "is a duplicate of gid at index %d\n",
-+						mlx4_warn(dev, "requested gid entry for slave:%d is a duplicate of gid at index %d\n",
- 							  slave, i);
- 						return -EINVAL;
- 					}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/profile.c b/drivers/net/ethernet/mellanox/mlx4/profile.c
-index 8e0c3cc..14089d9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/profile.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/profile.c
-@@ -164,18 +164,17 @@ u64 mlx4_make_profile(struct mlx4_dev *dev,
- 		}
- 
- 		if (total_size > dev_cap->max_icm_sz) {
--			mlx4_err(dev, "Profile requires 0x%llx bytes; "
--				  "won't fit in 0x%llx bytes of context memory.\n",
--				  (unsigned long long) total_size,
--				  (unsigned long long) dev_cap->max_icm_sz);
-+			mlx4_err(dev, "Profile requires 0x%llx bytes; won't fit in 0x%llx bytes of context memory\n",
-+				 (unsigned long long) total_size,
-+				 (unsigned long long) dev_cap->max_icm_sz);
- 			kfree(profile);
- 			return -ENOMEM;
- 		}
- 
- 		if (profile[i].size)
--			mlx4_dbg(dev, "  profile[%2d] (%6s): 2^%02d entries @ 0x%10llx, "
--				  "size 0x%10llx\n",
--				 i, res_name[profile[i].type], profile[i].log_num,
-+			mlx4_dbg(dev, "  profile[%2d] (%6s): 2^%02d entries @ 0x%10llx, size 0x%10llx\n",
-+				 i, res_name[profile[i].type],
-+				 profile[i].log_num,
- 				 (unsigned long long) profile[i].start,
- 				 (unsigned long long) profile[i].size);
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/qp.c b/drivers/net/ethernet/mellanox/mlx4/qp.c
-index 61d64eb..9bdb6ae 100644
---- a/drivers/net/ethernet/mellanox/mlx4/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/qp.c
-@@ -264,8 +264,8 @@ void mlx4_qp_release_range(struct mlx4_dev *dev, int base_qpn, int cnt)
- 			       MLX4_CMD_FREE_RES,
- 			       MLX4_CMD_TIME_CLASS_A, MLX4_CMD_WRAPPED);
- 		if (err) {
--			mlx4_warn(dev, "Failed to release qp range"
--				  " base:%d cnt:%d\n", base_qpn, cnt);
-+			mlx4_warn(dev, "Failed to release qp range base:%d cnt:%d\n",
-+				  base_qpn, cnt);
- 		}
- 	} else
- 		 __mlx4_qp_release_range(dev, base_qpn, cnt);
-@@ -577,8 +577,7 @@ int mlx4_qp_to_ready(struct mlx4_dev *dev, struct mlx4_mtt *mtt,
- 		err = mlx4_qp_modify(dev, mtt, states[i], states[i + 1],
- 				     context, 0, 0, qp);
- 		if (err) {
--			mlx4_err(dev, "Failed to bring QP to state: "
--				 "%d with error: %d\n",
-+			mlx4_err(dev, "Failed to bring QP to state: %d with error: %d\n",
- 				 states[i + 1], err);
- 			return err;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/reset.c b/drivers/net/ethernet/mellanox/mlx4/reset.c
-index dd1b509..ea1c6d0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/reset.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/reset.c
-@@ -72,8 +72,7 @@ int mlx4_reset(struct mlx4_dev *dev)
- 	hca_header = kmalloc(256, GFP_KERNEL);
- 	if (!hca_header) {
- 		err = -ENOMEM;
--		mlx4_err(dev, "Couldn't allocate memory to save HCA "
--			  "PCI header, aborting.\n");
-+		mlx4_err(dev, "Couldn't allocate memory to save HCA PCI header, aborting\n");
- 		goto out;
- 	}
- 
-@@ -84,8 +83,7 @@ int mlx4_reset(struct mlx4_dev *dev)
- 			continue;
- 		if (pci_read_config_dword(dev->pdev, i * 4, hca_header + i)) {
- 			err = -ENODEV;
--			mlx4_err(dev, "Couldn't save HCA "
--				  "PCI header, aborting.\n");
-+			mlx4_err(dev, "Couldn't save HCA PCI header, aborting\n");
- 			goto out;
- 		}
- 	}
-@@ -94,7 +92,7 @@ int mlx4_reset(struct mlx4_dev *dev)
- 			MLX4_RESET_SIZE);
- 	if (!reset) {
- 		err = -ENOMEM;
--		mlx4_err(dev, "Couldn't map HCA reset register, aborting.\n");
-+		mlx4_err(dev, "Couldn't map HCA reset register, aborting\n");
- 		goto out;
- 	}
- 
-@@ -133,8 +131,7 @@ int mlx4_reset(struct mlx4_dev *dev)
- 
- 	if (vendor == 0xffff) {
- 		err = -ENODEV;
--		mlx4_err(dev, "PCI device did not come back after reset, "
--			  "aborting.\n");
-+		mlx4_err(dev, "PCI device did not come back after reset, aborting\n");
- 		goto out;
- 	}
- 
-@@ -144,16 +141,14 @@ int mlx4_reset(struct mlx4_dev *dev)
- 		if (pcie_capability_write_word(dev->pdev, PCI_EXP_DEVCTL,
- 					       devctl)) {
- 			err = -ENODEV;
--			mlx4_err(dev, "Couldn't restore HCA PCI Express "
--				 "Device Control register, aborting.\n");
-+			mlx4_err(dev, "Couldn't restore HCA PCI Express Device Control register, aborting\n");
- 			goto out;
- 		}
- 		linkctl = hca_header[(pcie_cap + PCI_EXP_LNKCTL) / 4];
- 		if (pcie_capability_write_word(dev->pdev, PCI_EXP_LNKCTL,
- 					       linkctl)) {
- 			err = -ENODEV;
--			mlx4_err(dev, "Couldn't restore HCA PCI Express "
--				 "Link control register, aborting.\n");
-+			mlx4_err(dev, "Couldn't restore HCA PCI Express Link control register, aborting\n");
- 			goto out;
- 		}
- 	}
-@@ -164,8 +159,8 @@ int mlx4_reset(struct mlx4_dev *dev)
- 
- 		if (pci_write_config_dword(dev->pdev, i * 4, hca_header[i])) {
- 			err = -ENODEV;
--			mlx4_err(dev, "Couldn't restore HCA reg %x, "
--				  "aborting.\n", i);
-+			mlx4_err(dev, "Couldn't restore HCA reg %x, aborting\n",
-+				 i);
- 			goto out;
- 		}
- 	}
-@@ -173,8 +168,7 @@ int mlx4_reset(struct mlx4_dev *dev)
- 	if (pci_write_config_dword(dev->pdev, PCI_COMMAND,
- 				   hca_header[PCI_COMMAND / 4])) {
- 		err = -ENODEV;
--		mlx4_err(dev, "Couldn't restore HCA COMMAND, "
--			  "aborting.\n");
-+		mlx4_err(dev, "Couldn't restore HCA COMMAND, aborting\n");
- 		goto out;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 3b5f53e..12fa515 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3857,7 +3857,7 @@ static int add_eth_header(struct mlx4_dev *dev, int slave,
- 		}
- 	}
- 	if (!be_mac) {
--		pr_err("Failed adding eth header to FS rule, Can't find matching MAC for port %d .\n",
-+		pr_err("Failed adding eth header to FS rule, Can't find matching MAC for port %d\n",
- 		       port);
- 		return -EINVAL;
- 	}
-@@ -3900,7 +3900,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 	qpn = be32_to_cpu(ctrl->qpn) & 0xffffff;
- 	err = get_res(dev, slave, qpn, RES_QP, &rqp);
- 	if (err) {
--		pr_err("Steering rule with qpn 0x%x rejected.\n", qpn);
-+		pr_err("Steering rule with qpn 0x%x rejected\n", qpn);
- 		return err;
- 	}
- 	rule_header = (struct _rule_hw *)(ctrl + 1);
-@@ -3918,7 +3918,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 	case MLX4_NET_TRANS_RULE_ID_IPV4:
- 	case MLX4_NET_TRANS_RULE_ID_TCP:
- 	case MLX4_NET_TRANS_RULE_ID_UDP:
--		pr_warn("Can't attach FS rule without L2 headers, adding L2 header.\n");
-+		pr_warn("Can't attach FS rule without L2 headers, adding L2 header\n");
- 		if (add_eth_header(dev, slave, inbox, rlist, header_id)) {
- 			err = -EINVAL;
- 			goto err_put;
-@@ -3927,7 +3927,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 			sizeof(struct mlx4_net_trans_rule_hw_eth) >> 2;
- 		break;
- 	default:
--		pr_err("Corrupted mailbox.\n");
-+		pr_err("Corrupted mailbox\n");
- 		err = -EINVAL;
- 		goto err_put;
- 	}
-@@ -3941,7 +3941,7 @@ int mlx4_QP_FLOW_STEERING_ATTACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	err = add_res_range(dev, slave, vhcr->out_param, 1, RES_FS_RULE, qpn);
- 	if (err) {
--		mlx4_err(dev, "Fail to add flow steering resources.\n ");
-+		mlx4_err(dev, "Fail to add flow steering resources\n");
- 		/* detach rule*/
- 		mlx4_cmd(dev, vhcr->out_param, 0, 0,
- 			 MLX4_QP_FLOW_STEERING_DETACH, MLX4_CMD_TIME_CLASS_A,
-@@ -3979,7 +3979,7 @@ int mlx4_QP_FLOW_STEERING_DETACH_wrapper(struct mlx4_dev *dev, int slave,
- 
- 	err = rem_res_range(dev, slave, vhcr->in_param, 1, RES_FS_RULE, 0);
- 	if (err) {
--		mlx4_err(dev, "Fail to remove flow steering resources.\n ");
-+		mlx4_err(dev, "Fail to remove flow steering resources\n");
- 		goto out;
- 	}
- 
-@@ -4108,8 +4108,8 @@ static void rem_slave_qps(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_QP);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_qps: Could not move all qps to busy"
--			  "for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_qps: Could not move all qps to busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(qp, tmp, qp_list, com.list) {
-@@ -4147,10 +4147,8 @@ static void rem_slave_qps(struct mlx4_dev *dev, int slave)
- 						       MLX4_CMD_TIME_CLASS_A,
- 						       MLX4_CMD_NATIVE);
- 					if (err)
--						mlx4_dbg(dev, "rem_slave_qps: failed"
--							 " to move slave %d qpn %d to"
--							 " reset\n", slave,
--							 qp->local_qpn);
-+						mlx4_dbg(dev, "rem_slave_qps: failed to move slave %d qpn %d to reset\n",
-+							 slave, qp->local_qpn);
- 					atomic_dec(&qp->rcq->ref_count);
- 					atomic_dec(&qp->scq->ref_count);
- 					atomic_dec(&qp->mtt->ref_count);
-@@ -4184,8 +4182,8 @@ static void rem_slave_srqs(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_SRQ);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_srqs: Could not move all srqs to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_srqs: Could not move all srqs - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(srq, tmp, srq_list, com.list) {
-@@ -4215,9 +4213,7 @@ static void rem_slave_srqs(struct mlx4_dev *dev, int slave)
- 						       MLX4_CMD_TIME_CLASS_A,
- 						       MLX4_CMD_NATIVE);
- 					if (err)
--						mlx4_dbg(dev, "rem_slave_srqs: failed"
--							 " to move slave %d srq %d to"
--							 " SW ownership\n",
-+						mlx4_dbg(dev, "rem_slave_srqs: failed to move slave %d srq %d to SW ownership\n",
- 							 slave, srqn);
- 
- 					atomic_dec(&srq->mtt->ref_count);
-@@ -4252,8 +4248,8 @@ static void rem_slave_cqs(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_CQ);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_cqs: Could not move all cqs to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_cqs: Could not move all cqs - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(cq, tmp, cq_list, com.list) {
-@@ -4283,9 +4279,7 @@ static void rem_slave_cqs(struct mlx4_dev *dev, int slave)
- 						       MLX4_CMD_TIME_CLASS_A,
- 						       MLX4_CMD_NATIVE);
- 					if (err)
--						mlx4_dbg(dev, "rem_slave_cqs: failed"
--							 " to move slave %d cq %d to"
--							 " SW ownership\n",
-+						mlx4_dbg(dev, "rem_slave_cqs: failed to move slave %d cq %d to SW ownership\n",
- 							 slave, cqn);
- 					atomic_dec(&cq->mtt->ref_count);
- 					state = RES_CQ_ALLOCATED;
-@@ -4317,8 +4311,8 @@ static void rem_slave_mrs(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_MPT);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_mrs: Could not move all mpts to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_mrs: Could not move all mpts - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(mpt, tmp, mpt_list, com.list) {
-@@ -4353,9 +4347,7 @@ static void rem_slave_mrs(struct mlx4_dev *dev, int slave)
- 						     MLX4_CMD_TIME_CLASS_A,
- 						     MLX4_CMD_NATIVE);
- 					if (err)
--						mlx4_dbg(dev, "rem_slave_mrs: failed"
--							 " to move slave %d mpt %d to"
--							 " SW ownership\n",
-+						mlx4_dbg(dev, "rem_slave_mrs: failed to move slave %d mpt %d to SW ownership\n",
- 							 slave, mptn);
- 					if (mpt->mtt)
- 						atomic_dec(&mpt->mtt->ref_count);
-@@ -4387,8 +4379,8 @@ static void rem_slave_mtts(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_MTT);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_mtts: Could not move all mtts to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_mtts: Could not move all mtts  - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(mtt, tmp, mtt_list, com.list) {
-@@ -4490,8 +4482,8 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_EQ);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_eqs: Could not move all eqs to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_eqs: Could not move all eqs - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(eq, tmp, eq_list, com.list) {
-@@ -4523,9 +4515,8 @@ static void rem_slave_eqs(struct mlx4_dev *dev, int slave)
- 							   MLX4_CMD_TIME_CLASS_A,
- 							   MLX4_CMD_NATIVE);
- 					if (err)
--						mlx4_dbg(dev, "rem_slave_eqs: failed"
--							 " to move slave %d eqs %d to"
--							 " SW ownership\n", slave, eqn);
-+						mlx4_dbg(dev, "rem_slave_eqs: failed to move slave %d eqs %d to SW ownership\n",
-+							 slave, eqn);
- 					mlx4_free_cmd_mailbox(dev, mailbox);
- 					atomic_dec(&eq->mtt->ref_count);
- 					state = RES_EQ_RESERVED;
-@@ -4554,8 +4545,8 @@ static void rem_slave_counters(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_COUNTER);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_counters: Could not move all counters to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_counters: Could not move all counters - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(counter, tmp, counter_list, com.list) {
-@@ -4585,8 +4576,8 @@ static void rem_slave_xrcdns(struct mlx4_dev *dev, int slave)
- 
- 	err = move_all_busy(dev, slave, RES_XRCD);
- 	if (err)
--		mlx4_warn(dev, "rem_slave_xrcdns: Could not move all xrcdns to "
--			  "busy for slave %d\n", slave);
-+		mlx4_warn(dev, "rem_slave_xrcdns: Could not move all xrcdns - too busy for slave %d\n",
-+			  slave);
- 
- 	spin_lock_irq(mlx4_tlock(dev));
- 	list_for_each_entry_safe(xrcd, tmp, xrcdn_list, com.list) {
-@@ -4731,10 +4722,8 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- 				       0, MLX4_CMD_UPDATE_QP,
- 				       MLX4_CMD_TIME_CLASS_C, MLX4_CMD_NATIVE);
- 			if (err) {
--				mlx4_info(dev, "UPDATE_QP failed for slave %d, "
--					  "port %d, qpn %d (%d)\n",
--					  work->slave, port, qp->local_qpn,
--					  err);
-+				mlx4_info(dev, "UPDATE_QP failed for slave %d, port %d, qpn %d (%d)\n",
-+					  work->slave, port, qp->local_qpn, err);
- 				errors++;
- 			}
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 405c4fb..87d1b01 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -620,8 +620,8 @@ static int wait_func(struct mlx5_core_dev *dev, struct mlx5_cmd_work_ent *ent)
- 			       mlx5_command_str(msg_to_opcode(ent->in)),
- 			       msg_to_opcode(ent->in));
- 	}
--	mlx5_core_dbg(dev, "err %d, delivery status %s(%d)\n", err,
--		      deliv_status_to_str(ent->status), ent->status);
-+	mlx5_core_dbg(dev, "err %d, delivery status %s(%d)\n",
-+		      err, deliv_status_to_str(ent->status), ent->status);
- 
- 	return err;
+ 	memcpy(new->cb, old->cb, sizeof(old->cb));
+ 	new->csum		=3D old->csum;
+-	new->local_df		=3D old->local_df;
++	new->ignore_df		=3D old->ignore_df;
+ 	new->pkt_type		=3D old->pkt_type;
+ 	new->ip_summed		=3D old->ip_summed;
+ 	skb_copy_queue_mapping(new, old);
+@@ -3913,7 +3913,7 @@ void skb_scrub_packet(struct sk_buff *skb, bool x=
+net)
+ 	skb->tstamp.tv64 =3D 0;
+ 	skb->pkt_type =3D PACKET_HOST;
+ 	skb->skb_iif =3D 0;
+-	skb->local_df =3D 0;
++	skb->ignore_df =3D 0;
+ 	skb_dst_drop(skb);
+ 	skb->mark =3D 0;
+ 	secpath_reset(skb);
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index be8abe7..8ac422f 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -42,12 +42,12 @@
+ static bool ip_may_fragment(const struct sk_buff *skb)
+ {
+ 	return unlikely((ip_hdr(skb)->frag_off & htons(IP_DF)) =3D=3D 0) ||
+-	       !skb->local_df;
++	       !skb->ignore_df;
  }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 64a61b2..7f39ebc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -208,7 +208,8 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 		 */
- 		rmb();
- 
--		mlx5_core_dbg(eq->dev, "eqn %d, eqe type %s\n", eq->eqn, eqe_type_str(eqe->type));
-+		mlx5_core_dbg(eq->dev, "eqn %d, eqe type %s\n",
-+			      eq->eqn, eqe_type_str(eqe->type));
- 		switch (eqe->type) {
- 		case MLX5_EVENT_TYPE_COMP:
- 			cqn = be32_to_cpu(eqe->data.comp.cqn) & 0xffffff;
-@@ -270,14 +271,16 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 				u16 func_id = be16_to_cpu(eqe->data.req_pages.func_id);
- 				s32 npages = be32_to_cpu(eqe->data.req_pages.num_pages);
- 
--				mlx5_core_dbg(dev, "page request for func 0x%x, napges %d\n", func_id, npages);
-+				mlx5_core_dbg(dev, "page request for func 0x%x, npages %d\n",
-+					      func_id, npages);
- 				mlx5_core_req_pages_handler(dev, func_id, npages);
- 			}
- 			break;
- 
- 
- 		default:
--			mlx5_core_warn(dev, "Unhandled event 0x%x on EQ 0x%x\n", eqe->type, eq->eqn);
-+			mlx5_core_warn(dev, "Unhandled event 0x%x on EQ 0x%x\n",
-+				       eqe->type, eq->eqn);
- 			break;
- 		}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index c3eee5f..ee24f13 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -66,10 +66,10 @@ static int set_dma_caps(struct pci_dev *pdev)
- 
- 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
- 	if (err) {
--		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit PCI DMA mask.\n");
-+		dev_warn(&pdev->dev, "Warning: couldn't set 64-bit PCI DMA mask\n");
- 		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (err) {
--			dev_err(&pdev->dev, "Can't set PCI DMA mask, aborting.\n");
-+			dev_err(&pdev->dev, "Can't set PCI DMA mask, aborting\n");
- 			return err;
- 		}
- 	}
-@@ -77,11 +77,11 @@ static int set_dma_caps(struct pci_dev *pdev)
- 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
- 	if (err) {
- 		dev_warn(&pdev->dev,
--			 "Warning: couldn't set 64-bit consistent PCI DMA mask.\n");
-+			 "Warning: couldn't set 64-bit consistent PCI DMA mask\n");
- 		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (err) {
- 			dev_err(&pdev->dev,
--				"Can't set consistent PCI DMA mask, aborting.\n");
-+				"Can't set consistent PCI DMA mask, aborting\n");
- 			return err;
- 		}
- 	}
-@@ -95,7 +95,7 @@ static int request_bar(struct pci_dev *pdev)
- 	int err = 0;
- 
- 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
--		dev_err(&pdev->dev, "Missing registers BAR, aborting.\n");
-+		dev_err(&pdev->dev, "Missing registers BAR, aborting\n");
- 		return -ENODEV;
- 	}
- 
-@@ -319,13 +319,13 @@ int mlx5_dev_init(struct mlx5_core_dev *dev, struct pci_dev *pdev)
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
--		dev_err(&pdev->dev, "Cannot enable PCI device, aborting.\n");
-+		dev_err(&pdev->dev, "Cannot enable PCI device, aborting\n");
- 		goto err_dbg;
- 	}
- 
- 	err = request_bar(pdev);
- 	if (err) {
--		dev_err(&pdev->dev, "error requesting BARs, aborting.\n");
-+		dev_err(&pdev->dev, "error requesting BARs, aborting\n");
- 		goto err_disable;
- 	}
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-index 68b74e1..f0c9f9a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mlx5_core.h
-@@ -39,24 +39,26 @@
- 
- extern int mlx5_core_debug_mask;
- 
--#define mlx5_core_dbg(dev, format, arg...)				       \
--pr_debug("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,   \
--	 current->pid, ##arg)
-+#define mlx5_core_dbg(dev, format, ...)					\
-+	pr_debug("%s:%s:%d:(pid %d): " format,				\
-+		 (dev)->priv.name, __func__, __LINE__, current->pid,	\
-+		 ##__VA_ARGS__)
- 
--#define mlx5_core_dbg_mask(dev, mask, format, arg...)			       \
--do {									       \
--	if ((mask) & mlx5_core_debug_mask)				       \
--		pr_debug("%s:%s:%d:(pid %d): " format, (dev)->priv.name,       \
--			 __func__, __LINE__, current->pid, ##arg);	       \
-+#define mlx5_core_dbg_mask(dev, mask, format, ...)			\
-+do {									\
-+	if ((mask) & mlx5_core_debug_mask)				\
-+		mlx5_core_dbg(dev, format, ##__VA_ARGS__);		\
- } while (0)
- 
--#define mlx5_core_err(dev, format, arg...) \
--pr_err("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,     \
--	current->pid, ##arg)
-+#define mlx5_core_err(dev, format, ...)					\
-+	pr_err("%s:%s:%d:(pid %d): " format,				\
-+	       (dev)->priv.name, __func__, __LINE__, current->pid,	\
-+	       ##__VA_ARGS__)
- 
--#define mlx5_core_warn(dev, format, arg...) \
--pr_warn("%s:%s:%d:(pid %d): " format, (dev)->priv.name, __func__, __LINE__,    \
--	current->pid, ##arg)
-+#define mlx5_core_warn(dev, format, ...)				\
-+	pr_warn("%s:%s:%d:(pid %d): " format,				\
-+		(dev)->priv.name, __func__, __LINE__, current->pid,	\
-+		##__VA_ARGS__)
- 
- enum {
- 	MLX5_CMD_DATA, /* print command payload only */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mr.c b/drivers/net/ethernet/mellanox/mlx5/core/mr.c
-index 4cc9276..0a11b3f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mr.c
-@@ -73,7 +73,7 @@ int mlx5_core_create_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
- 	}
- 
- 	if (err) {
--		mlx5_core_dbg(dev, "cmd exec faile %d\n", err);
-+		mlx5_core_dbg(dev, "cmd exec failed %d\n", err);
- 		return err;
- 	}
- 
-@@ -191,7 +191,8 @@ int mlx5_core_create_psv(struct mlx5_core_dev *dev, u32 pdn,
- 	}
- 
- 	if (out.hdr.status) {
--		mlx5_core_err(dev, "create_psv bad status %d\n", out.hdr.status);
-+		mlx5_core_err(dev, "create_psv bad status %d\n",
-+			      out.hdr.status);
- 		return mlx5_cmd_status_to_err(&out.hdr);
- 	}
- 
-@@ -220,7 +221,8 @@ int mlx5_core_destroy_psv(struct mlx5_core_dev *dev, int psv_num)
- 	}
- 
- 	if (out.hdr.status) {
--		mlx5_core_err(dev, "destroy_psv bad status %d\n", out.hdr.status);
-+		mlx5_core_err(dev, "destroy_psv bad status %d\n",
-+			      out.hdr.status);
- 		err = mlx5_cmd_status_to_err(&out.hdr);
+=20
+ static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu=
+)
+ {
+-	if (skb->len <=3D mtu || skb->local_df)
++	if (skb->len <=3D mtu || skb->ignore_df)
+ 		return false;
+=20
+ 	if (skb_is_gso(skb) && skb_gso_network_seglen(skb) <=3D mtu)
+@@ -60,7 +60,7 @@ static bool ip_gso_exceeds_dst_mtu(const struct sk_bu=
+ff *skb)
+ {
+ 	unsigned int mtu;
+=20
+-	if (skb->local_df || !skb_is_gso(skb))
++	if (skb->ignore_df || !skb_is_gso(skb))
+ 		return false;
+=20
+ 	mtu =3D ip_dst_mtu_maybe_forward(skb_dst(skb), true);
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 1cbeba5..8f88509 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -370,7 +370,7 @@ packet_routed:
+ 	skb_reset_network_header(skb);
+ 	iph =3D ip_hdr(skb);
+ 	*((__be16 *)iph) =3D htons((4 << 12) | (5 << 8) | (inet->tos & 0xff))=
+;
+-	if (ip_dont_fragment(sk, &rt->dst) && !skb->local_df)
++	if (ip_dont_fragment(sk, &rt->dst) && !skb->ignore_df)
+ 		iph->frag_off =3D htons(IP_DF);
+ 	else
+ 		iph->frag_off =3D 0;
+@@ -456,7 +456,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(=
+struct sk_buff *))
+ 	iph =3D ip_hdr(skb);
+=20
+ 	mtu =3D ip_skb_dst_mtu(skb);
+-	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
++	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->ignore_df) ||
+ 		     (IPCB(skb)->frag_max_size &&
+ 		      IPCB(skb)->frag_max_size > mtu))) {
+ 		IP_INC_STATS(dev_net(dev), IPSTATS_MIB_FRAGFAILS);
+@@ -821,7 +821,7 @@ static int __ip_append_data(struct sock *sk,
+=20
+ 	fragheaderlen =3D sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen =3D ((mtu - fragheaderlen) & ~7) + fragheaderlen;
+-	maxnonfragsize =3D ip_sk_local_df(sk) ? 0xFFFF : mtu;
++	maxnonfragsize =3D ip_sk_ignore_df(sk) ? 0xFFFF : mtu;
+=20
+ 	if (cork->length + length > maxnonfragsize - fragheaderlen) {
+ 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
+@@ -1144,7 +1144,7 @@ ssize_t	ip_append_page(struct sock *sk, struct fl=
+owi4 *fl4, struct page *page,
+=20
+ 	fragheaderlen =3D sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen =3D ((mtu - fragheaderlen) & ~7) + fragheaderlen;
+-	maxnonfragsize =3D ip_sk_local_df(sk) ? 0xFFFF : mtu;
++	maxnonfragsize =3D ip_sk_ignore_df(sk) ? 0xFFFF : mtu;
+=20
+ 	if (cork->length + size > maxnonfragsize - fragheaderlen) {
+ 		ip_local_error(sk, EMSGSIZE, fl4->daddr, inet->inet_dport,
+@@ -1305,10 +1305,10 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+ 	 * to fragment the frame generated here. No matter, what transforms
+ 	 * how transforms change size of the packet, it will come out.
+ 	 */
+-	skb->local_df =3D ip_sk_local_df(sk);
++	skb->ignore_df =3D ip_sk_ignore_df(sk);
+=20
+ 	/* DF bit is set when we want to see DF on outgoing frames.
+-	 * If local_df is set too, we still allow to fragment this frame
++	 * If ignore_df is set too, we still allow to fragment this frame
+ 	 * locally. */
+ 	if (inet->pmtudisc =3D=3D IP_PMTUDISC_DO ||
+ 	    inet->pmtudisc =3D=3D IP_PMTUDISC_PROBE ||
+diff --git a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+index 40e701f..8e8c018 100644
+--- a/net/ipv4/xfrm4_output.c
++++ b/net/ipv4/xfrm4_output.c
+@@ -25,7 +25,7 @@ static int xfrm4_tunnel_check_size(struct sk_buff *sk=
+b)
+ 	if (IPCB(skb)->flags & IPSKB_XFRM_TUNNEL_SIZE)
  		goto out;
+=20
+-	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->local_df)
++	if (!(ip_hdr(skb)->frag_off & htons(IP_DF)) || skb->ignore_df)
+ 		goto out;
+=20
+ 	mtu =3D dst_mtu(skb_dst(skb));
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 40e7581..e270c0b 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -219,7 +219,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, =
+struct flowi6 *fl6,
+ 	skb->mark =3D sk->sk_mark;
+=20
+ 	mtu =3D dst_mtu(dst);
+-	if ((skb->len <=3D mtu) || skb->local_df || skb_is_gso(skb)) {
++	if ((skb->len <=3D mtu) || skb->ignore_df || skb_is_gso(skb)) {
+ 		IP6_UPD_PO_STATS(net, ip6_dst_idev(skb_dst(skb)),
+ 			      IPSTATS_MIB_OUT, skb->len);
+ 		return NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, skb, NULL,
+@@ -344,7 +344,7 @@ static unsigned int ip6_dst_mtu_forward(const struc=
+t dst_entry *dst)
+=20
+ static bool ip6_pkt_too_big(const struct sk_buff *skb, unsigned int mt=
+u)
+ {
+-	if (skb->len <=3D mtu || skb->local_df)
++	if (skb->len <=3D mtu || skb->ignore_df)
+ 		return false;
+=20
+ 	if (IP6CB(skb)->frag_max_size && IP6CB(skb)->frag_max_size > mtu)
+@@ -555,7 +555,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)=
+(struct sk_buff *))
+ 	/* We must not fragment if the socket is set to force MTU discovery
+ 	 * or if the skb it not generated by a local socket.
+ 	 */
+-	if (unlikely(!skb->local_df && skb->len > mtu) ||
++	if (unlikely(!skb->ignore_df && skb->len > mtu) ||
+ 		     (IP6CB(skb)->frag_max_size &&
+ 		      IP6CB(skb)->frag_max_size > mtu)) {
+ 		if (skb->sk && dst_allfrag(skb_dst(skb)))
+@@ -1230,7 +1230,7 @@ int ip6_append_data(struct sock *sk, int getfrag(=
+void *from, char *to,
+ 			      sizeof(struct frag_hdr) : 0) +
+ 			     rt->rt6i_nfheader_len;
+=20
+-		if (ip6_sk_local_df(sk))
++		if (ip6_sk_ignore_df(sk))
+ 			maxnonfragsize =3D sizeof(struct ipv6hdr) + IPV6_MAXPLEN;
+ 		else
+ 			maxnonfragsize =3D mtu;
+@@ -1540,7 +1540,7 @@ int ip6_push_pending_frames(struct sock *sk)
  	}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index d59790a..c2a953e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -311,7 +311,8 @@ retry:
- 	in->num_entries = cpu_to_be32(npages);
- 	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
- 	if (err) {
--		mlx5_core_warn(dev, "func_id 0x%x, npages %d, err %d\n", func_id, npages, err);
-+		mlx5_core_warn(dev, "func_id 0x%x, npages %d, err %d\n",
-+			       func_id, npages, err);
- 		goto out_alloc;
+=20
+ 	/* Allow local fragmentation. */
+-	skb->local_df =3D ip6_sk_local_df(sk);
++	skb->ignore_df =3D ip6_sk_ignore_df(sk);
+=20
+ 	*final_dst =3D fl6->daddr;
+ 	__skb_pull(skb, skb_network_header_len(skb));
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilt=
+er/nf_conntrack_reasm.c
+index 767ab8d..0d5279f 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -451,7 +451,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net=
+_device *dev)
  	}
- 	dev->priv.fw_pages += npages;
-@@ -319,7 +320,8 @@ retry:
- 	if (out.hdr.status) {
- 		err = mlx5_cmd_status_to_err(&out.hdr);
- 		if (err) {
--			mlx5_core_warn(dev, "func_id 0x%x, npages %d, status %d\n", func_id, npages, out.hdr.status);
-+			mlx5_core_warn(dev, "func_id 0x%x, npages %d, status %d\n",
-+				       func_id, npages, out.hdr.status);
- 			goto out_alloc;
- 		}
- 	}
-@@ -378,7 +380,7 @@ static int reclaim_pages(struct mlx5_core_dev *dev, u32 func_id, int npages,
- 	mlx5_core_dbg(dev, "npages %d, outlen %d\n", npages, outlen);
- 	err = mlx5_cmd_exec(dev, &in, sizeof(in), out, outlen);
- 	if (err) {
--		mlx5_core_err(dev, "failed recliaming pages\n");
-+		mlx5_core_err(dev, "failed reclaiming pages\n");
- 		goto out_free;
- 	}
- 	dev->priv.fw_pages -= npages;
-@@ -414,8 +416,8 @@ static void pages_work_handler(struct work_struct *work)
- 		err = give_pages(dev, req->func_id, req->npages, 1);
- 
- 	if (err)
--		mlx5_core_warn(dev, "%s fail %d\n", req->npages < 0 ?
--			       "reclaim" : "give", err);
-+		mlx5_core_warn(dev, "%s fail %d\n",
-+			       req->npages < 0 ? "reclaim" : "give", err);
- 
- 	kfree(req);
+ 	sub_frag_mem_limit(&fq->q, head->truesize);
+=20
+-	head->local_df =3D 1;
++	head->ignore_df =3D 1;
+ 	head->next =3D NULL;
+ 	head->dev =3D dev;
+ 	head->tstamp =3D fq->q.stamp;
+diff --git a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+index 19ef329..f47c8b1 100644
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@ -78,7 +78,7 @@ static int xfrm6_tunnel_check_size(struct sk_buff *sk=
+b)
+ 	if (mtu < IPV6_MIN_MTU)
+ 		mtu =3D IPV6_MIN_MTU;
+=20
+-	if (!skb->local_df && skb->len > mtu) {
++	if (!skb->ignore_df && skb->len > mtu) {
+ 		skb->dev =3D dst->dev;
+=20
+ 		if (xfrm6_local_dontfrag(skb))
+@@ -120,7 +120,7 @@ int xfrm6_prepare_output(struct xfrm_state *x, stru=
+ct sk_buff *skb)
+ #endif
+=20
+ 	skb->protocol =3D htons(ETH_P_IPV6);
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	return x->outer_mode->output2(x, skb);
  }
-@@ -487,7 +489,8 @@ int mlx5_reclaim_startup_pages(struct mlx5_core_dev *dev)
- 					    optimal_reclaimed_pages(),
- 					    &nclaimed);
- 			if (err) {
--				mlx5_core_warn(dev, "failed reclaiming pages (%d)\n", err);
-+				mlx5_core_warn(dev, "failed reclaiming pages (%d)\n",
-+					       err);
- 				return err;
- 			}
- 			if (nclaimed)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index 5105762..8145b46 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -79,7 +79,7 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 
- 	err = mlx5_cmd_exec(dev, in, inlen, &out, sizeof(out));
- 	if (err) {
--		mlx5_core_warn(dev, "ret %d", err);
-+		mlx5_core_warn(dev, "ret %d\n", err);
- 		return err;
+@@ -150,7 +150,7 @@ static int __xfrm6_output(struct sk_buff *skb)
+ 	if (skb->len > mtu && xfrm6_local_dontfrag(skb)) {
+ 		xfrm6_local_rxpmtu(skb, mtu);
+ 		return -EMSGSIZE;
+-	} else if (!skb->local_df && skb->len > mtu && skb->sk) {
++	} else if (!skb->ignore_df && skb->len > mtu && skb->sk) {
+ 		xfrm_local_error(skb, mtu);
+ 		return -EMSGSIZE;
  	}
- 
-@@ -96,7 +96,7 @@ int mlx5_core_create_qp(struct mlx5_core_dev *dev,
- 	err = radix_tree_insert(&table->tree, qp->qpn, qp);
- 	spin_unlock_irq(&table->lock);
- 	if (err) {
--		mlx5_core_warn(dev, "err %d", err);
-+		mlx5_core_warn(dev, "err %d\n", err);
- 		goto err_cmd;
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index a4e37d7..6ea7604 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1128,7 +1128,7 @@ static int l2tp_xmit_core(struct l2tp_session *se=
+ssion, struct sk_buff *skb,
  	}
- 
--- 
-1.8.1.2.459.gbcd45b4.dirty
+=20
+ 	/* Queue the packet to IP for output */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (tunnel->sock->sk_family =3D=3D PF_INET6 && !tunnel->v4mapped)
+ 		error =3D inet6_csk_xmit(tunnel->sock, skb, NULL);
+diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs=
+_xmit.c
+index c47444e..487b55e 100644
+--- a/net/netfilter/ipvs/ip_vs_xmit.c
++++ b/net/netfilter/ipvs/ip_vs_xmit.c
+@@ -562,7 +562,7 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+ 	ip_send_check(iph);
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 0);
+ 	rcu_read_unlock();
+@@ -590,7 +590,7 @@ ip_vs_bypass_xmit_v6(struct sk_buff *skb, struct ip=
+_vs_conn *cp,
+ 		goto tx_error;
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 0);
+ 	rcu_read_unlock();
+@@ -684,7 +684,7 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_co=
+nn *cp,
+ 	   MTU problem. */
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	rc =3D ip_vs_nat_send_or_cont(NFPROTO_IPV4, skb, cp, local);
+ 	rcu_read_unlock();
+@@ -774,7 +774,7 @@ ip_vs_nat_xmit_v6(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+ 	   MTU problem. */
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	rc =3D ip_vs_nat_send_or_cont(NFPROTO_IPV6, skb, cp, local);
+ 	rcu_read_unlock();
+@@ -886,7 +886,7 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+ 	ip_select_ident(skb, &rt->dst, NULL);
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ret =3D ip_vs_tunnel_xmit_prepare(skb, cp);
+ 	if (ret =3D=3D NF_ACCEPT)
+@@ -974,7 +974,7 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip=
+_vs_conn *cp,
+ 	iph->hop_limit		=3D	old_iph->hop_limit;
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ret =3D ip_vs_tunnel_xmit_prepare(skb, cp);
+ 	if (ret =3D=3D NF_ACCEPT)
+@@ -1023,7 +1023,7 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_c=
+onn *cp,
+ 	ip_send_check(ip_hdr(skb));
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ip_vs_send_or_cont(NFPROTO_IPV4, skb, cp, 0);
+ 	rcu_read_unlock();
+@@ -1060,7 +1060,7 @@ ip_vs_dr_xmit_v6(struct sk_buff *skb, struct ip_v=
+s_conn *cp,
+ 	}
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	ip_vs_send_or_cont(NFPROTO_IPV6, skb, cp, 0);
+ 	rcu_read_unlock();
+@@ -1157,7 +1157,7 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs=
+_conn *cp,
+ 	ip_vs_nat_icmp(skb, pp, cp, 0);
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	rc =3D ip_vs_nat_send_or_cont(NFPROTO_IPV4, skb, cp, local);
+ 	rcu_read_unlock();
+@@ -1249,7 +1249,7 @@ ip_vs_icmp_xmit_v6(struct sk_buff *skb, struct ip=
+_vs_conn *cp,
+ 	ip_vs_nat_icmp_v6(skb, pp, cp, 0);
+=20
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	rc =3D ip_vs_nat_send_or_cont(NFPROTO_IPV6, skb, cp, local);
+ 	rcu_read_unlock();
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index ebb6e24..0856f01 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -172,7 +172,7 @@ static int gre_tnl_send(struct vport *vport, struct=
+ sk_buff *skb)
+ 	df =3D OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
+ 		htons(IP_DF) : 0;
+=20
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	return iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
+ 			     OVS_CB(skb)->tun_key->ipv4_dst, IPPROTO_GRE,
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxla=
+n.c
+index 21cceb3..a93efa3 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -170,7 +170,7 @@ static int vxlan_tnl_send(struct vport *vport, stru=
+ct sk_buff *skb)
+ 	df =3D OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
+ 		htons(IP_DF) : 0;
+=20
+-	skb->local_df =3D 1;
++	skb->ignore_df =3D 1;
+=20
+ 	inet_get_local_port_range(net, &port_min, &port_max);
+ 	src_port =3D vxlan_src_port(port_min, port_max, skb);
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 2b1738e..4dc5d9e 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -216,7 +216,7 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct=
+ sctp_transport *transport)
+ 	IP6_ECN_flow_xmit(sk, fl6->flowlabel);
+=20
+ 	if (!(transport->param_flags & SPP_PMTUD_ENABLE))
+-		skb->local_df =3D 1;
++		skb->ignore_df =3D 1;
+=20
+ 	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
+=20
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 0f4d15f..01ab8e0 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -591,7 +591,7 @@ int sctp_packet_transmit(struct sctp_packet *packet=
+)
+=20
+ 	pr_debug("***sctp_transmit_packet*** skb->len:%d\n", nskb->len);
+=20
+-	nskb->local_df =3D packet->ipfragok;
++	nskb->ignore_df =3D packet->ipfragok;
+ 	tp->af_specific->sctp_xmit(nskb, tp);
+=20
+ out:
