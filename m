@@ -1,33 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH v2] net: sched: lock imbalance in hhf qdisc
-Date: Sun, 04 May 2014 19:42:23 -0400 (EDT)
-Message-ID: <20140504.194223.1807538065295254407.davem@davemloft.net>
-References: <20140501162300.17183.83124.stgit@nitbit.x32>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	edumazet@google.com, vtlam@google.com
-To: john.fastabend@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52561 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751695AbaEDXmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 19:42:25 -0400
-In-Reply-To: <20140501162300.17183.83124.stgit@nitbit.x32>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+Subject: [PATCH 2/5] net: macb: Clear interrupt flags
+Date: Sun,  4 May 2014 15:42:59 -0700
+Message-ID: <1399243382-12528-3-git-send-email-soren.brinkmann@xilinx.com>
+References: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
+Cc: =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>,
+	git@xilinx.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
-Date: Thu, 01 May 2014 09:23:06 -0700
+A few interrupt flags were not cleared in the ISR, resulting in a sytem
+trapped in the ISR in cases one of those interrupts occurred. Clear all
+flags to avoid such situations.
 
-> hhf_change() takes the sch_tree_lock and releases it but misses the
-> error cases. Fix the missed case here.
-> 
-> To reproduce try a command like this,
-> 
-> # tc qdisc change dev p3p2 root hhf quantum 40960 non_hh_weight 300000
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+---
 
-Applied and queued up for -stable, thanks.
+ drivers/net/ethernet/cadence/macb.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 18fdcd9d51b3..e38fe39d9589 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -951,6 +951,10 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 		if (unlikely(status & (MACB_TX_ERR_FLAGS))) {
+ 			macb_writel(bp, IDR, MACB_TX_INT_FLAGS);
+ 			schedule_work(&bp->tx_error_task);
++
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_TX_ERR_FLAGS);
++
+ 			break;
+ 		}
+ 
+@@ -968,6 +972,9 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 				bp->hw_stats.gem.rx_overruns++;
+ 			else
+ 				bp->hw_stats.macb.rx_overruns++;
++
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_BIT(ISR_ROVR));
+ 		}
+ 
+ 		if (status & MACB_BIT(HRESP)) {
+@@ -977,6 +984,9 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			 * (work queue?)
+ 			 */
+ 			netdev_err(dev, "DMA bus error: HRESP not OK\n");
++
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_BIT(HRESP));
+ 		}
+ 
+ 		status = macb_readl(bp, ISR);
+-- 
+1.9.2.1.g06c4abd
