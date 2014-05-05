@@ -1,145 +1,110 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 2/4] Documentation: dts: Add bindings for APM X-Gene
- SoC ethernet driver
-Date: Mon, 5 May 2014 14:57:13 -0700
-Message-ID: <CAGVrzcbecJHbZn1UU3yaD3MtSWk8FmgjMxG4zmQONrnVc05uqg@mail.gmail.com>
-References: <1399326447-2329-1-git-send-email-isubramanian@apm.com> <1399326447-2329-3-git-send-email-isubramanian@apm.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: Add default vlan for dual
+ emac case also
+Date: Mon, 5 May 2014 19:50:56 +0530
+Message-ID: <53679E48.4030909@ti.com>
+References: <1397023480-4181-1-git-send-email-mugunthanvnm@ti.com> <20140409.145624.1000792872429500740.davem@davemloft.net> <CAGm1_ktmygGNWqEvO=59ZVFbTprUHLuXAmSM3UXfVrShPJsz_g@mail.gmail.com> <534E1BD2.5050809@ti.com> <CAGm1_ktSCZLa2-vyeP2nygcKwrXgkyoXs94TSx=tY-HrOsZmKQ@mail.gmail.com> <CAGm1_kvHRx61i1fKywAdySOB0vk03E+PDsD23W89UHihoRmM7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	patches-qTEPVZfXA3Y@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1399326447-2329-3-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Yegor Yefremov <yegorslists@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:43429 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932609AbaEEOVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 10:21:00 -0400
+In-Reply-To: <CAGm1_kvHRx61i1fKywAdySOB0vk03E+PDsD23W89UHihoRmM7g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-05-05 14:47 GMT-07:00 Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>:
-> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
+On Friday 02 May 2014 02:28 PM, Yegor Yefremov wrote:
+> On Wed, Apr 16, 2014 at 3:58 PM, Yegor Yefremov
+> <yegorslists@googlemail.com> wrote:
+>> On Wed, Apr 16, 2014 at 7:57 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+>>> On Tuesday 15 April 2014 07:16 PM, Yegor Yefremov wrote:
+>>>> On Wed, Apr 9, 2014 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
+>>>>> From: Mugunthan V N <mugunthanvnm@ti.com>
+>>>>> Date: Wed, 9 Apr 2014 11:34:40 +0530
+>>>>>
+>>>>>> Dual EMAC works with VLAN segregation of the ports, so default vlan needs
+>>>>>> to be added in dual EMAC case else default vlan will be tagged for all
+>>>>>> egress packets and vlan unaware switches/servers will drop packets
+>>>>>> from the EVM.
+>>>> Hi Mugunthan,
+>>>>
+>>>> though this patch fixes drop packets issue, it introduces another
+>>>> issue. Just connect both interfaces to one switch and configure
+>>>> different subnets. As soon as you get a broadcast you have an endless
+>>>> loop and network communication is not possible at all. Before this
+>>>> patch you could operate as if you had really two independent NICs.
+>>>>
+>>>>
+>>> This patch doesn't add any multicast or unicast entry in the ALE table,
+>>> so there is no possible way that a broadcast packet is switched within
+>>> the two external ports, and this patch removes the encapsulation of the
+>>> default vlan id which is used for internal packet switching inside CPSW
+>>> switch from host and any packet received from external port will be
+>>> tagged with port vlan so internal switching will happen with that port
+>>> vlan-id which will be only that physical port and host port. so the
+>>> scenario which you mentioned cannot happen theoretically untill you
+>>> enable bridge between the dual ethernet interface and connect both to
+>>> the same interface.
+>> Have you tried the described setup? My system is Buildroot on
+>> am335x-evmsk with almost empty /etc/network/interfaces
+>>
+>> # Configure Loopback
+>> auto lo
+>> iface lo inet loopback
+>>
+>> No bridges:
+>>
+>> # brctl show
+>> bridge name     bridge id               STP enabled     interfaces
+>>
+>> And following address setup made manually:
+>>
+>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+>> group default
+>>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>     inet 127.0.0.1/8 scope host lo
+>>        valid_lft forever preferred_lft forever
+>> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+>> state UP group default qlen 1000
+>>     link/ether 00:18:31:93:f6:49 brd ff:ff:ff:ff:ff:ff
+>>     inet 192.168.1.234/24 brd 192.168.1.255 scope global eth0
+>>        valid_lft forever preferred_lft forever
+>> 3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
+>> state DOWN group default qlen 1000
+>>     link/ether 56:90:76:5b:b5:f3 brd ff:ff:ff:ff:ff:ff
+>>     inet 192.168.4.234/24 brd 192.168.4.255 scope global eth1
+>>        valid_lft forever preferred_lft forever
+>> 4: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
+>> default qlen 1000
+>>     link/ether de:ad:be:ef:00:00 brd ff:ff:ff:ff:ff:ff
+>>
+>> Routing table:
+>>
+>> # ip route show
+>> 192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.234
+>> 192.168.4.0/24 dev eth1  proto kernel  scope link  src 192.168.4.234
+>>
+>> Same behavior on 3.14.0-rc4-12740-gcc09039-dirty and 3.15.0-rc1-00002-ge0f8779
+>>
+>> As soon as insert the cable into eth1, my switch shows very high
+>> activity and the whole LAN in the company is dead till I remove the
+>> cable. I have no problems with the version before the fix. I don't
+>> really know, what happens inside the driver, but could make the same
+>> setup (best of all in a LAN with many Windows PCs, that send lots of
+>> broadcast) and let me know if you see the same behavior.
+> This bug seems to be in 3.12 too. See this thread
+> (http://e2e.ti.com/support/arm/sitara_arm/f/791/p/338292/1180954.aspx#1180954).
 >
-> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/apm-xgene-enet.txt     |   66 ++++++++++++++++++++
->  1 file changed, 66 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> Thanks.
 >
-> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> new file mode 100644
-> index 0000000..9ad6fe1
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> @@ -0,0 +1,66 @@
-> +APM X-Gene SoC Ethernet nodes
-> +
-> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
-> +APM X-Gene SoC.
-> +
-> +Required properties:
-> +- compatible:          Should be "apm,xgene-enet"
-> +- reg:                 First resource is the ethernet base register set
-> +                       Second resource is the ring base register set
-> +                       Third resource is the ring command register set
-> +- interrupts:          Ethernet main interrupt
-> +- clocks:              Reference to the clock entry.
-> +- local-mac-address:   Ethernet MAC address.
-> +- phy-connection-type: Ethernet MII mode.
+> Yegor
 
-- phy-handle is not listed anywhere, yet, present in the example you give.
+Will check this in this week.
 
-> +
-> +- mdio device tree subnode: When the X-Gene SoC has a phy connected to its local
-> +               mdio, there must be device tree subnode with the following
-> +               required properties:
-
-In that specific case, 'phy-handle' becomes an optional property.
-
-> +
-> +       - compatible: Must be "apm,xgene-mdio".
-> +       - #address-cells: Must be <1>.
-> +       - #size-cells: Must be <0>.
-> +
-> +       For the phy on the mdio bus, there must be a node with the following
-> +       fields:
-> +
-> +       - reg: phy id used to communicate to phy.
-
-Better refer to Documentation/devicetree/bindings/ethernet/phy.txt
-which contains a more exhaustive binding description for Ethernet PHY
-nodes.
-
-> +
-> +Optional properties:
-> +- status               : Should be "ok" or "disabled" for enabled/disabled.
-> +                         Default is "ok".
-> +
-> +Example:
-> +       menetclk: menetclk {
-> +               compatible = "apm,xgene-device-clock";
-> +               clock-output-names = "menetclk";
-> +               status = "ok";
-> +       };
-> +
-> +       menet: ethernet@17020000 {
-> +               compatible = "apm,xgene-enet";
-> +               status = "disabled";
-> +               reg = <0x0 0x17020000 0x0 0xd100>,
-> +                     <0x0 0X17030000 0x0 0X400>,
-> +                     <0x0 0X10000000 0x0 0X200>;
-
-Since you have mutliple values in your 'reg' property, you could also
-provide an optional 'reg-names' which documents what the register
-ranges are about.
-
-> +               interrupts = <0x0 0x3c 0x4>;
-> +               clocks = <&menetclk 0>;
-> +               local-mac-address = [00 01 73 00 00 01];
-> +               phy-connection-type = "rgmii";
-> +               phy-handle = <&menetphy>;
-> +               mdio {
-> +                       compatible = "apm,xgene-mdio";
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +                       menetphy: menetphy@3 {
-
-This PHY node is missing a compatible string as described in
-Documentation/devicetree/bindings/net/ethernet/phy.txt. Your binding
-should also link to that documentation for
-
-> +                               reg = <0x3>;
-> +                       };
-> +
-> +               };
-> +       };
-> +
-> +/* Board-specific peripheral configurations */
-> +
-> +&menet {
-> +        status = "ok";
-> +};
-> --
-> 1.7.9.5
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-
-
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards
+Mugunthan V N
