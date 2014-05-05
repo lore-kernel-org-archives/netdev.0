@@ -1,33 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V1 net 0/4] Batch of fixes for 3.15
-Date: Mon, 05 May 2014 15:50:28 -0400 (EDT)
-Message-ID: <20140505.155028.2090701658184639551.davem@davemloft.net>
-References: <1399212445-5070-1-git-send-email-ogerlitz@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@kernel.org,
-	jackm@dev.mellanox.co.il, matanb@mellanox.com, amirv@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32972 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752145AbaEETub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:50:31 -0400
-In-Reply-To: <1399212445-5070-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v4 3/4] dts: Add bindings for APM X-Gene SoC ethernet driver
+Date: Mon,  5 May 2014 14:47:26 -0700
+Message-ID: <1399326447-2329-4-git-send-email-isubramanian@apm.com>
+References: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Sun,  4 May 2014 17:07:21 +0300
+This patch adds bindings for APM X-Gene SoC ethernet driver.
 
-> This series contains fixes for 3.15-rc, mostly around SRIOV. The patches by Jack,
-> Matan and myself fix few issues related to mlx4 SRIOV support for RoCE and single 
-> port VFs, and the patch from Eyal eliminates checking PCI caps for VFs which is misleading.
-> 
-> Patches done against the net tree, commit 014f1b2 "net: bonding: Fix format string 
-> mismatch in bond_sysfs.c"
-> 
-> We'd be happy to get Eyal's patch queued in your -stable list for 3.14.y
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+---
+ arch/arm64/boot/dts/apm-mustang.dts |    4 ++++
+ arch/arm64/boot/dts/apm-storm.dtsi  |   27 ++++++++++++++++++++++++---
+ 2 files changed, 28 insertions(+), 3 deletions(-)
 
-All applied, and patch #4 queued up for -stable, thanks.
+diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
+index 1247ca1..e2fb1ef 100644
+--- a/arch/arm64/boot/dts/apm-mustang.dts
++++ b/arch/arm64/boot/dts/apm-mustang.dts
+@@ -24,3 +24,7 @@
+ 		reg = < 0x1 0x00000000 0x0 0x80000000 >; /* Updated by bootloader */
+ 	};
+ };
++
++&menet {
++	status = "ok";
++};
+diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+index 93f4b2d..e1e3d5d 100644
+--- a/arch/arm64/boot/dts/apm-storm.dtsi
++++ b/arch/arm64/boot/dts/apm-storm.dtsi
+@@ -167,14 +167,13 @@
+ 				clock-output-names = "ethclk";
+ 			};
+ 
+-			eth8clk: eth8clk {
++			menetclk: menetclk {
+ 				compatible = "apm,xgene-device-clock";
+ 				#clock-cells = <1>;
+ 				clocks = <&ethclk 0>;
+-				clock-names = "eth8clk";
+ 				reg = <0x0 0x1702C000 0x0 0x1000>;
+ 				reg-names = "csr-reg";
+-				clock-output-names = "eth8clk";
++				clock-output-names = "menetclk";
+ 			};
+ 
+ 			sataphy1clk: sataphy1clk@1f21c000 {
+@@ -339,5 +338,27 @@
+ 			phys = <&phy3 0>;
+ 			phy-names = "sata-phy";
+ 		};
++
++		menet: ethernet@17020000 {
++			compatible = "apm,xgene-enet";
++			status = "disabled";
++			reg = <0x0 0x17020000 0x0 0xd100>,
++			      <0x0 0X17030000 0x0 0X400>,
++			      <0x0 0X10000000 0x0 0X200>;
++			interrupts = <0x0 0x3c 0x4>;
++			clocks = <&menetclk 0>;
++			local-mac-address = [00 01 73 00 00 01];
++			phy-connection-type = "rgmii";
++			phy-handle = <&menetphy>;
++			mdio {
++				compatible = "apm,xgene-mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				menetphy: menetphy@3 {
++					reg = <0x3>;
++				};
++
++			};
++		};
+ 	};
+ };
+-- 
+1.7.9.5
