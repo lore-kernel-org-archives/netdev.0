@@ -1,259 +1,121 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 07/24] net, diet: Make ping sockets optional
-Date: Mon,  5 May 2014 15:25:56 -0700
-Message-ID: <1399328773-6531-8-git-send-email-andi@firstfloor.org>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	Andi Kleen <ak@linux.intel.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 1/4] e1000e: Workaround for dropped packets in Gig/100 speeds on 82579
+Date: Mon,  5 May 2014 13:07:37 -0700
+Message-ID: <1399320460-21774-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:48062 "EHLO mga03.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:21818 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756899AbaEEW23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 18:28:29 -0400
-In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+	id S1752466AbaEEUHt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 16:07:49 -0400
+In-Reply-To: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <ak@linux.intel.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-This saves about 6k text/data. ping still works fine using raw
-sockets like it always did.
+This is a workaround for a HW erratum on 82579 devices.
+Erratum is #23 in Intel 6 Series Chipset and Intel C200 Series Chipset
+specification Update June 2013.
 
-   text	   data	    bss	    dec	    hex	filename
- 268128	  11555	   7872	 287555	  46343	net/ipv4/built-in.o-noping
- 273610	  11843	   8176	 293629	  47afd	net/ipv4/built-in.o-ping
+Problem: 82579 parts experience packet loss in Gig and 100 speeds
+when interconnect between PHY and MAC is exiting K1 power saving state.
+This was previously believed to only affect 1Gig speed, but has been observed
+at 100Mbs also.
 
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Workaround: Disable K1 for 82579 devices at Gig and 100 speeds.
+
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/net/ping.h      | 15 +++++++++++----
- include/net/transp_v6.h |  2 --
- net/ipv4/Kconfig        |  5 +++++
- net/ipv4/Makefile       |  3 ++-
- net/ipv4/af_inet.c      |  9 ++++-----
- net/ipv4/icmp.c         |  1 +
- net/ipv4/ping.c         |  3 +++
- net/ipv6/Makefile       |  3 ++-
- net/ipv6/af_inet6.c     |  8 ++++++--
- 9 files changed, 34 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 31 +++++++++++------------------
+ drivers/net/ethernet/intel/e1000e/phy.h     |  1 +
+ 2 files changed, 13 insertions(+), 19 deletions(-)
 
-diff --git a/include/net/ping.h b/include/net/ping.h
-index 026479b..ca6b89d 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -71,7 +71,6 @@ void ping_unhash(struct sock *sk);
- int  ping_init_sock(struct sock *sk);
- void ping_close(struct sock *sk, long timeout);
- int  ping_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len);
--void ping_err(struct sk_buff *skb, int offset, u32 info);
- int  ping_getfrag(void *from, char *to, int offset, int fraglen, int odd,
- 		  struct sk_buff *);
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 9866f26..9b736b8 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -2493,51 +2493,44 @@ release:
+  *  e1000_k1_gig_workaround_lv - K1 Si workaround
+  *  @hw:   pointer to the HW structure
+  *
+- *  Workaround to set the K1 beacon duration for 82579 parts
++ *  Workaround to set the K1 beacon duration for 82579 parts in 10Mbps
++ *  Disable K1 in 1000Mbps and 100Mbps
+  **/
+ static s32 e1000_k1_workaround_lv(struct e1000_hw *hw)
+ {
+ 	s32 ret_val = 0;
+ 	u16 status_reg = 0;
+-	u32 mac_reg;
+-	u16 phy_reg;
  
-@@ -82,7 +81,6 @@ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
- int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		     size_t len);
- int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
--void ping_rcv(struct sk_buff *skb);
+ 	if (hw->mac.type != e1000_pch2lan)
+ 		return 0;
  
- #ifdef CONFIG_PROC_FS
- struct ping_seq_afinfo {
-@@ -100,12 +98,21 @@ void ping_seq_stop(struct seq_file *seq, void *v);
- int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo);
- void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo);
+-	/* Set K1 beacon duration based on 1Gbps speed or otherwise */
++	/* Set K1 beacon duration based on 10Mbs speed */
+ 	ret_val = e1e_rphy(hw, HV_M_STATUS, &status_reg);
+ 	if (ret_val)
+ 		return ret_val;
  
--int __init ping_proc_init(void);
--void ping_proc_exit(void);
- #endif
- 
-+#ifdef CONFIG_IP_PING
-+void ping_rcv(struct sk_buff *skb);
-+void ping_err(struct sk_buff *skb, int offset, u32 info);
- void __init ping_init(void);
- int  __init pingv6_init(void);
- void pingv6_exit(void);
-+#else
-+static inline void ping_init(void) {}
-+static inline int pingv6_init(void) { return 0; }
-+static inline void pingv6_exit(void) { }
-+static inline void ping_err(struct sk_buff *skb, int offset, u32 info) {}
-+static inline void ping_rcv(struct sk_buff *skb) {}
-+#endif
-+
- 
- #endif /* _PING_H */
-diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index b927413..7a0e229 100644
---- a/include/net/transp_v6.h
-+++ b/include/net/transp_v6.h
-@@ -19,8 +19,6 @@ int ipv6_frag_init(void);
- void ipv6_frag_exit(void);
- 
- /* transport protocols */
--int pingv6_init(void);
--void pingv6_exit(void);
- int rawv6_init(void);
- void rawv6_exit(void);
- int udpv6_init(void);
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 05c57f0..6146b1b 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -52,6 +52,11 @@ config IP_ADVANCED_ROUTER
- 
- 	  If unsure, say N here.
- 
-+config IP_PING
-+	bool "IP: ping sockets"
-+	---help---
-+	  Enable ping sockets to enable suid-less ping.
-+
- config IP_FIB_TRIE_STATS
- 	bool "FIB TRIE statistics"
- 	depends on IP_ADVANCED_ROUTER
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index f032688..756855c 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -11,9 +11,10 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
- 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
--	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
-+	     inet_fragment.o ip_tunnel_core.o gre_offload.o
- 
- obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
-+obj-$(CONFIG_IP_PING) += ping.o
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
- obj-$(CONFIG_PROC_FS) += proc.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 8c54870..c275ce5 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1015,7 +1015,7 @@ static struct inet_protosw inetsw_array[] =
- 		.no_check =   UDP_CSUM_DEFAULT,
- 		.flags =      INET_PROTOSW_PERMANENT,
-        },
+ 	if ((status_reg & (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE))
+ 	    == (HV_M_STATUS_LINK_UP | HV_M_STATUS_AUTONEG_COMPLETE)) {
+-		mac_reg = er32(FEXTNVM4);
+-		mac_reg &= ~E1000_FEXTNVM4_BEACON_DURATION_MASK;
 -
-+#ifdef CONFIG_IP_PING
-        {
- 		.type =       SOCK_DGRAM,
- 		.protocol =   IPPROTO_ICMP,
-@@ -1024,6 +1024,7 @@ static struct inet_protosw inetsw_array[] =
- 		.no_check =   UDP_CSUM_DEFAULT,
- 		.flags =      INET_PROTOSW_REUSE,
-        },
-+#endif
+-		ret_val = e1e_rphy(hw, I82579_LPI_CTRL, &phy_reg);
+-		if (ret_val)
+-			return ret_val;
+-
+-		if (status_reg & HV_M_STATUS_SPEED_1000) {
++		if (status_reg &
++		    (HV_M_STATUS_SPEED_1000 | HV_M_STATUS_SPEED_100)) {
+ 			u16 pm_phy_reg;
  
-        {
- 	       .type =       SOCK_RAW,
-@@ -1719,7 +1720,9 @@ static int __init inet_init(void)
- 	if (rc)
- 		goto out_unregister_udp_proto;
- 
-+#ifdef CONFIG_IP_PING
- 	rc = proto_register(&ping_prot, 1);
-+#endif
- 	if (rc)
- 		goto out_unregister_raw_proto;
- 
-@@ -1836,15 +1839,11 @@ static int __init ipv4_proc_init(void)
- 		goto out_tcp;
- 	if (udp4_proc_init())
- 		goto out_udp;
--	if (ping_proc_init())
--		goto out_ping;
- 	if (ip_misc_proc_init())
- 		goto out_misc;
- out:
- 	return rc;
- out_misc:
--	ping_proc_exit();
--out_ping:
- 	udp4_proc_exit();
- out_udp:
- 	tcp4_proc_exit();
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 0134663..df3872b 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -989,6 +989,7 @@ void icmp_err(struct sk_buff *skb, u32 info)
- 		return;
+-			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_8USEC;
+-			phy_reg &= ~I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT;
+-			/* LV 1G Packet drop issue wa  */
++			/* LV 1G/100 Packet drop issue wa  */
+ 			ret_val = e1e_rphy(hw, HV_PM_CTRL, &pm_phy_reg);
+ 			if (ret_val)
+ 				return ret_val;
+-			pm_phy_reg &= ~HV_PM_CTRL_PLL_STOP_IN_K1_GIGA;
++			pm_phy_reg &= ~HV_PM_CTRL_K1_ENABLE;
+ 			ret_val = e1e_wphy(hw, HV_PM_CTRL, pm_phy_reg);
+ 			if (ret_val)
+ 				return ret_val;
+ 		} else {
++			u32 mac_reg;
++
++			mac_reg = er32(FEXTNVM4);
++			mac_reg &= ~E1000_FEXTNVM4_BEACON_DURATION_MASK;
+ 			mac_reg |= E1000_FEXTNVM4_BEACON_DURATION_16USEC;
+-			phy_reg |= I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT;
++			ew32(FEXTNVM4, mac_reg);
+ 		}
+-		ew32(FEXTNVM4, mac_reg);
+-		ret_val = e1e_wphy(hw, I82579_LPI_CTRL, phy_reg);
  	}
  
-+	/* RED-PEN dead code? the if above will eat all. */
- 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED)
- 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_ICMP, 0);
- 	else if (type == ICMP_REDIRECT)
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 8210964..3f79243 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -1206,6 +1206,9 @@ void ping_proc_exit(void)
- 	unregister_pernet_subsys(&ping_v4_net_ops);
- }
+ 	return ret_val;
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.h b/drivers/net/ethernet/intel/e1000e/phy.h
+index 3841bcc..537d278 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.h
++++ b/drivers/net/ethernet/intel/e1000e/phy.h
+@@ -164,6 +164,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw);
+ #define HV_M_STATUS_AUTONEG_COMPLETE	0x1000
+ #define HV_M_STATUS_SPEED_MASK		0x0300
+ #define HV_M_STATUS_SPEED_1000		0x0200
++#define HV_M_STATUS_SPEED_100		0x0100
+ #define HV_M_STATUS_LINK_UP		0x0040
  
-+module_init(ping_proc_init);
-+module_exit(ping_proc_init);
-+
- #endif
- 
- void __init ping_init(void)
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 2fe6836..6ff7cfd 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -7,13 +7,14 @@ obj-$(CONFIG_IPV6) += ipv6.o
- ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		addrlabel.o \
- 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
--		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
-+		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
- 
- ipv6-offload :=	ip6_offload.o tcpv6_offload.o udp_offload.o exthdrs_offload.o
- 
- ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
- ipv6-$(CONFIG_IPV6_MROUTE) += ip6mr.o
-+ipv6-$(CONFIG_IP_PING) += ping.o
- 
- ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
- 	xfrm6_output.o xfrm6_protocol.o
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index d935889..68ac214 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -861,16 +861,18 @@ static int __init inet6_init(void)
- 	if (err)
- 		goto out_unregister_udplite_proto;
- 
-+#ifdef CONFIG_IP_PING
- 	err = proto_register(&pingv6_prot, 1);
- 	if (err)
--		goto out_unregister_ping_proto;
-+		goto out_unregister_raw_proto;
-+#endif
- 
- 	/* We MUST register RAW sockets before we create the ICMP6,
- 	 * IGMP6, or NDISC control sockets.
- 	 */
- 	err = rawv6_init();
- 	if (err)
--		goto out_unregister_raw_proto;
-+		goto out_unregister_ping_proto;
- 
- 	/* Register the family here so that the init calls below will
- 	 * be able to create sockets. (?? is this dangerous ??)
-@@ -1022,8 +1024,10 @@ register_pernet_fail:
- out_sock_register_fail:
- 	rawv6_exit();
- out_unregister_ping_proto:
-+#ifdef CONFIG_IP_PING
- 	proto_unregister(&pingv6_prot);
- out_unregister_raw_proto:
-+#endif
- 	proto_unregister(&rawv6_prot);
- out_unregister_udplite_proto:
- 	proto_unregister(&udplitev6_prot);
+ #define IGP01E1000_PHY_PCS_INIT_REG	0x00B4
 -- 
 1.9.0
