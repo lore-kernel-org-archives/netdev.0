@@ -1,61 +1,112 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bridge: Add port flap detection
-Date: Sun, 4 May 2014 21:06:37 -0700
-Message-ID: <CAADnVQL3OZwZ0q_utwE_JhYYGbKPHwwqwHsBZ9g+0XAS__BpWQ@mail.gmail.com>
-References: <1399238974-6210-1-git-send-email-jmaxwell@redhat.com>
-	<20140504155331.13862a85@nehalam.linuxnetplumber.net>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: RE: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV VF
+ minimum and maximum Tx rate through ip tool.
+Date: Mon, 5 May 2014 06:24:25 +0000
+Message-ID: <290BEC245535C3449143D5D84900EEF78CE1DA45@avmb3.qlogic.org>
+References: <1397450220-8269-1-git-send-email-sucheta.chakraborty@qlogic.com>
+ <20140422154051.26e584ce@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Jon Maxwell <jmaxwell37@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	makita.toshiaki@lab.ntt.co.jp, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	pirko@redhat.com, jmaxwell@redhat.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"Ariel Elior" <Ariel.Elior@qlogic.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"mkubecek@suse.cz" <mkubecek@suse.cz>
 To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140504155331.13862a85@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41491 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754473AbaEEGYo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 02:24:44 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 4, 2014 at 3:53 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Mon,  5 May 2014 07:29:34 +1000
-> Jon Maxwell <jmaxwell37@gmail.com> wrote:
->
->> There has been a number incidents recently where customers running KVM have reported that VM hosts on different Hypervisors are unreachable. Based on pcap traces we found that the bridge was broadcasting the ARP request out onto the network. However some NICs have an inbuilt switch which on occasions were broadcasting the VMs ARP request back through the physical NIC on the Hypervisor. This resulted in the bridge flapping ports and incorrectly learning that the VMs mac address was external. As a result the ARP reply was directed back onto the external network and VM never updated it's ARP cache. This patch will detect port flapping and log a message so that this condition can be detected earlier.
->>
->> Signed-off-by: Jon Maxwell <jmaxwell@redhat.com>
->> ---
->>  net/bridge/br_fdb.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
->> index 9203d5a..c08607b 100644
->> --- a/net/bridge/br_fdb.c
->> +++ b/net/bridge/br_fdb.c
->> @@ -507,6 +507,13 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->>                                       source->dev->name);
->>               } else {
->>                       /* fastpath: update of existing entry */
->> +                     if (source->port_no != fdb->dst->port_no &&
->> +                             net_ratelimit())
->> +                             br_warn(br, "Port flapping detected source entry dev = %s mac = %pM, port_no = %d\n existing entry dev = %s mac = %pM, port_no = %d\n",
->> +                                     source->dev->name,
->> +                                     addr, source->port_no,
->> +                                     fdb->dst->dev->name, addr,
->> +                                     fdb->dst->port_no);
->>                       fdb->dst = source;
->>                       fdb->updated = jiffies;
->>                       if (unlikely(added_by_user))
->
-> Ok, but please shorten the message to a single line without excess wordage.
-> Plus flapping to mean means link going up and down. Maybe use same message
-> as BSD?
+> -----Original Message-----
+> From: Sucheta Chakraborty
+> Sent: Monday, April 28, 2014 2:40 PM
+> To: 'Stephen Hemminger'
+> Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk;
+> gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel
+> Elior; amirv@mellanox.com; mkubecek@suse.cz
+> Subject: RE: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV
+> VF minimum and maximum Tx rate through ip tool.
+> 
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> > Sent: Wednesday, April 23, 2014 4:11 AM
+> > To: Sucheta Chakraborty
+> > Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk;
+> > gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel
+> > Elior; amirv@mellanox.com; mkubecek@suse.cz
+> > Subject: Re: [PATCH 1/1] iproute2: v3: Add support to configure SR-
+> IOV
+> > VF minimum and maximum Tx rate through ip tool.
+> >
+> > On Mon, 14 Apr 2014 00:37:00 -0400
+> > Sucheta Chakraborty <sucheta.chakraborty@qlogic.com> wrote:
+> >
+> > > o "min_tx_rate" option has been added for minimum Tx rate. Hence,
+> for
+> > >   consistent naming, "max_tx_rate" option has been introduced for
+> > maximum
+> > >   Tx rate.
+> > >
+> > > o Change in v2: "rate" can be used along with "max_tx_rate".
+> > >   When both are specified, "max_tx_rate" should override.
+> > >
+> > > o Change in v3:
+> > >   * IFLA_VF_RATE: When IFLA_VF_RATE is used, and user has given
+> only
+> > one of
+> > >     min_tx_rate or max_tx_rate, reading of previous rate limits is
+> > done in
+> > >     userspace instead of in kernel space before ndo_set_vf_rate.
+> > >
+> > >   * IFLA_VF_TX_RATE: When IFLA_VF_TX_RATE is used, min_tx_rate is
+> > always read
+> > >     in kernel space. This takes care of below scenarios:
+> > >     (1) when old tool sends "rate" but kernel is new (expects min
+> > > and
+> > max)
+> > >     (2) when new tool sends only "rate" but kernel is old (expects
+> > > only "rate")
+> > >
+> > > Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+> >
+> > I like the concept fine, but the general policy of ip route commands
+> > is that the output format should match the input (except for
+> statistics).
+> >
+> > This (and ther earlier tx_rate patch are printing values in a
+> > different format than the input
+> >
+> > i.e don't print:
+> > 	max tx rate 110 (Mbps)
+> > instead print:
+> > 	max_tx_rate 110Mbps
+> >
+> >
+> With this change display would be as below:
+> 
+> vf 0 MAC 3e:a0:ca:bd:ae:5a, tx rate 300 (Mbps), max_tx_rate 300Mbps,
+>     min_tx_rate 200Mbps
+> 
+> I did not change tx rate option to maintain backward compatibility.
+> 
+> Is the output valid?
+> 
+> Thanks,
+> Sucheta.
 
-Isn't this normal mac move? Any message will be confusing.
-VMs can spoof their src macs and trigger this warning.
-I don't think it's worth adding it just to debug the learning on the
-external interface.
+Hi Stephen,
+
+Did you get a chance to look at my previous mail? Does the above output looks okay to you?
+
+Thanks,
+Sucheta.
