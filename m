@@ -1,43 +1,39 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 0/2] net: ip: push gso skb forwarding handling down the stack
-Date: Mon,  5 May 2014 15:00:42 +0200
-Message-ID: <1399294844-7231-1-git-send-email-fw@strlen.de>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/10] purge signal handler infrastructure
+Date: Mon, 05 May 2014 17:27:10 -0400 (EDT)
+Message-ID: <20140505.172710.1571847590302532388.davem@davemloft.net>
+References: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
+	erik.hugne@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36395 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932187AbaEENGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 09:06:07 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:33910 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755089AbaEEV1N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 17:27:13 -0400
+In-Reply-To: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Turns out doing the segmentation in forwarding was not a bright idea,
-there are corner-cases where this has unintended side-effects.
+From: Ying Xue <ying.xue@windriver.com>
+Date: Mon, 5 May 2014 08:56:08 +0800
 
-This patch pushes the segmentation downwards.
+> When we delay some actions to be executed in asynchronous contexts,
+> these usually add unnecessary code complexities, and make their
+> behaviours unpredictable and indeterministic. Moreover, as the signal
+> handler infrastructure is first stopped when tipc module is removed,
+> this may cause some potential risks for us. For instance, although
+> signal handler is already stopped, some tipc components still submit
+> signal requests to signal handler infrastructure, which may lead to
+> some resources not to be released or freed correctly.
+> 
+> So the series aims to convert all actions being performed in tasklet
+> context asynchronously with interface provided by signal handler
+> infrastructure to be executed synchronously, thereby deleting the
+> whole infrastructure of signal handler.
 
-After this, netif_skb_dev_features() function can be removed
-again, it was only added to fetch the features of the output device,
-we can just use skb->dev after the pushdown.
-
-Tested with following setup:
-
-host -> kvm_router  -> kvm_host
-  mtu 1500        mtu1280
-
-- 'host' has route to kvm_host with locked mtu of 1500
-- gso/gro enabled on all interfaces
-
-Did tests with all of following combinations:
-- netfilter conntrack off and on on kvm_router
-- virtio-net and e1000 driver on kvm_router
-- tcp and udp bulk xmit from host to kvm_host
-
-for tcp, I added TCPMSS mangling on kvm_host to make it lie about tcp mss.
-
-Also added a dummy '-t mangle -A POSTROUTING -p udp -f'
-rule to make sure no udp fragments are seen in the 'conntrack on'
-and 'virtio-net' case.
-
-Also checked (with ping -M do -s 1400)' that it still sends the wanted
-icmp error message when size exceeds 1280.
+Series applied, thanks.
