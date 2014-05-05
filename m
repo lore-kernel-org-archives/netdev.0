@@ -1,48 +1,122 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 02/24] net, diet: Reduce NAPI hash table for CONFIG_BASE_SMALL
-Date: Mon,  5 May 2014 15:25:51 -0700
-Message-ID: <1399328773-6531-3-git-send-email-andi@firstfloor.org>
+Subject: [PATCH 17/24] net, diet: Make internal control sockets use UDP
+Date: Mon,  5 May 2014 15:26:06 -0700
+Message-ID: <1399328773-6531-18-git-send-email-andi@firstfloor.org>
 References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
 	Andi Kleen <ak@linux.intel.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39433 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933039AbaEEW0T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 18:26:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Andi Kleen <ak@linux.intel.com>
 
-For really small kernels, use only 3 bits for the hash table.
+Make the internal stack socket use UDP. This avoids a dependency
+to the soon optional RAW sockets.
+
+Generally the users only use rudimential socket services, mostly
+for managing the socket buffer. This is the same for UDP and RAW.
+
+Could in fact remove the arguments.
 
 Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- net/core/dev.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ net/ipv4/icmp.c     | 9 ++++++++-
+ net/ipv6/af_inet6.c | 3 +++
+ net/ipv6/icmp.c     | 2 +-
+ net/ipv6/mcast.c    | 2 +-
+ net/ipv6/ndisc.c    | 2 +-
+ net/ipv6/tcp_ipv6.c | 2 +-
+ 6 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d2c8a06..c6cbe69 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -175,7 +175,14 @@ EXPORT_SYMBOL(dev_base_lock);
- static DEFINE_SPINLOCK(napi_hash_lock);
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index df3872b..3e111d8 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -1092,8 +1092,15 @@ static int __net_init icmp_sk_init(struct net *net)
+ 	for_each_possible_cpu(i) {
+ 		struct sock *sk;
  
- static unsigned int napi_gen_id;
--static DEFINE_HASHTABLE(napi_hash, 8);
-+
-+#ifdef CONFIG_BASE_SMALL
-+#define NAPI_HASH_BITS 3
-+#else
-+#define NAPI_HASH_BITS 8
-+#endif
-+
-+static DEFINE_HASHTABLE(napi_hash, NAPI_HASH_BITS);
++		/*
++		 * Use UDP here. We only use rudimentary
++		 * functionality of the socket, and UDP
++		 * provides it for us.
++		 * This avoids a dependency on the optional
++		 * RAW sockets
++		 */
+ 		err = inet_ctl_sock_create(&sk, PF_INET,
+-					   SOCK_RAW, IPPROTO_ICMP, net);
++					   SOCK_DGRAM, 0, net);
+ 		if (err < 0)
+ 			goto fail;
  
- static seqcount_t devnet_rename_seq;
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 9ff80ad..327042a 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -854,6 +854,9 @@ static int __init inet6_init(void)
+ 	if (err)
+ 		goto out;
  
++	/* We MUST register UDP sockets before we create the ICMP6,
++	 * IGMP6, or NDISC control sockets.
++	 */
+ 	err = proto_register(&udpv6_prot, 1);
+ 	if (err)
+ 		goto out_unregister_tcp_proto;
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 7b32652..7effc19 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -844,7 +844,7 @@ static int __net_init icmpv6_sk_init(struct net *net)
+ 
+ 	for_each_possible_cpu(i) {
+ 		err = inet_ctl_sock_create(&sk, PF_INET6,
+-					   SOCK_RAW, IPPROTO_ICMPV6, net);
++					   SOCK_DGRAM, 0, net);
+ 		if (err < 0) {
+ 			pr_err("Failed to initialize the ICMP6 control socket (err %d)\n",
+ 			       err);
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 08b367c..88c0520 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2870,7 +2870,7 @@ static int __net_init igmp6_net_init(struct net *net)
+ 	int err;
+ 
+ 	err = inet_ctl_sock_create(&net->ipv6.igmp_sk, PF_INET6,
+-				   SOCK_RAW, IPPROTO_ICMPV6, net);
++				   SOCK_DGRAM, 0, net);
+ 	if (err < 0) {
+ 		pr_err("Failed to initialize the IGMP6 control socket (err %d)\n",
+ 		       err);
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 09a22f4..7dd16e1 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1689,7 +1689,7 @@ static int __net_init ndisc_net_init(struct net *net)
+ 	int err;
+ 
+ 	err = inet_ctl_sock_create(&sk, PF_INET6,
+-				   SOCK_RAW, IPPROTO_ICMPV6, net);
++				   SOCK_DGRAM, 0, net);
+ 	if (err < 0) {
+ 		ND_PRINTK(0, err,
+ 			  "NDISC: Failed to initialize the control socket (err %d)\n",
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index e289830..b17499d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1989,7 +1989,7 @@ static struct inet_protosw tcpv6_protosw = {
+ static int __net_init tcpv6_net_init(struct net *net)
+ {
+ 	return inet_ctl_sock_create(&net->ipv6.tcp_sk, PF_INET6,
+-				    SOCK_RAW, IPPROTO_TCP, net);
++				    SOCK_DGRAM, 0, net);
+ }
+ 
+ static void __net_exit tcpv6_net_exit(struct net *net)
 -- 
 1.9.0
