@@ -1,173 +1,55 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/2] net: ip: push gso skb forwarding handling down the stack
-Date: Mon,  5 May 2014 15:00:43 +0200
-Message-ID: <1399294844-7231-2-git-send-email-fw@strlen.de>
-References: <1399294844-7231-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 1/3] rtlwifi: make MSI support a module parameter
+Date: Mon, 05 May 2014 09:56:16 -0500
+Message-ID: <5367A690.7010305@lwfinger.net>
+References: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
+To: Adam Lee <adam.lee@canonical.com>, linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36397 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932187AbaEENGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 09:06:12 -0400
-In-Reply-To: <1399294844-7231-1-git-send-email-fw@strlen.de>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:57296 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932448AbaEEO4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 10:56:19 -0400
+In-Reply-To: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Doing the segmentation in the forward path has one major drawback:
+On 05/05/2014 03:33 AM, Adam Lee wrote:
+> This makes MSI support a module parameter, for debugging and workaround
+> convenience.
+>
+> Signed-off-by: Adam Lee <adam.lee@canonical.com>
 
-When using virtio, we may process gso udp packets coming
-from host network stack.  In that case, netfilter POSTROUTING
-will see one packet with udp header followed by multiple ip
-fragments.
+Acked-by: Larry Finger <Larry.Finger@lwfinger.net> (for all 3 patches)
 
-Delay the segmentation and do it after POSTROUTING invocation
-to avoid this.
+I would have made the default for the MSI option to be true, but that is a 
+matter of preference, and only experience would show which default leads to the 
+fewer failures. On my laptop, both rtl8188ee and rtl8723be work either way. I am 
+now working on a driver for the RTL8192EE that also can use MSI - that has only 
+been tested with the option on.
 
-Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv4/ip_forward.c | 50 --------------------------------------------------
- net/ipv4/ip_output.c  | 51 ++++++++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 48 insertions(+), 53 deletions(-)
+Larry
 
-diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index c29ae83..6f111e4 100644
---- a/net/ipv4/ip_forward.c
-+++ b/net/ipv4/ip_forward.c
-@@ -56,53 +56,6 @@ static bool ip_exceeds_mtu(const struct sk_buff *skb, unsigned int mtu)
- 	return true;
- }
- 
--static bool ip_gso_exceeds_dst_mtu(const struct sk_buff *skb)
--{
--	unsigned int mtu;
--
--	if (skb->local_df || !skb_is_gso(skb))
--		return false;
--
--	mtu = ip_dst_mtu_maybe_forward(skb_dst(skb), true);
--
--	/* if seglen > mtu, do software segmentation for IP fragmentation on
--	 * output.  DF bit cannot be set since ip_forward would have sent
--	 * icmp error.
--	 */
--	return skb_gso_network_seglen(skb) > mtu;
--}
--
--/* called if GSO skb needs to be fragmented on forward */
--static int ip_forward_finish_gso(struct sk_buff *skb)
--{
--	struct dst_entry *dst = skb_dst(skb);
--	netdev_features_t features;
--	struct sk_buff *segs;
--	int ret = 0;
--
--	features = netif_skb_dev_features(skb, dst->dev);
--	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
--	if (IS_ERR(segs)) {
--		kfree_skb(skb);
--		return -ENOMEM;
--	}
--
--	consume_skb(skb);
--
--	do {
--		struct sk_buff *nskb = segs->next;
--		int err;
--
--		segs->next = NULL;
--		err = dst_output(segs);
--
--		if (err && ret == 0)
--			ret = err;
--		segs = nskb;
--	} while (segs);
--
--	return ret;
--}
- 
- static int ip_forward_finish(struct sk_buff *skb)
- {
-@@ -114,9 +67,6 @@ static int ip_forward_finish(struct sk_buff *skb)
- 	if (unlikely(opt->optlen))
- 		ip_forward_options(skb);
- 
--	if (ip_gso_exceeds_dst_mtu(skb))
--		return ip_forward_finish_gso(skb);
--
- 	return dst_output(skb);
- }
- 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 1cbeba5..a52f501 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -211,6 +211,48 @@ static inline int ip_finish_output2(struct sk_buff *skb)
- 	return -EINVAL;
- }
- 
-+static int ip_finish_output_gso(struct sk_buff *skb)
-+{
-+	netdev_features_t features;
-+	struct sk_buff *segs;
-+	int ret = 0;
-+
-+	/* common case: locally created skb or seglen is <= mtu */
-+	if (((IPCB(skb)->flags & IPSKB_FORWARDED) == 0) ||
-+	      skb_gso_network_seglen(skb) <= ip_skb_dst_mtu(skb))
-+		return ip_finish_output2(skb);
-+
-+	/* Slowpath -  GSO segment length is exceeding the dst MTU.
-+	 *
-+	 * This can happen in two cases:
-+	 * 1) TCP GRO packet, DF bit not set
-+	 * 2) skb arrived via virtio-net, we thus get TSO/GSO skbs directly
-+	 * from host network stack.
-+	 */
-+	features = netif_skb_features(skb);
-+	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-+	if (IS_ERR(segs)) {
-+		kfree_skb(skb);
-+		return -ENOMEM;
-+	}
-+
-+	consume_skb(skb);
-+
-+	do {
-+		struct sk_buff *nskb = segs->next;
-+		int err;
-+
-+		segs->next = NULL;
-+		err = ip_fragment(segs, ip_finish_output2);
-+
-+		if (err && ret == 0)
-+			ret = err;
-+		segs = nskb;
-+	} while (segs);
-+
-+	return ret;
-+}
-+
- static int ip_finish_output(struct sk_buff *skb)
- {
- #if defined(CONFIG_NETFILTER) && defined(CONFIG_XFRM)
-@@ -220,10 +262,13 @@ static int ip_finish_output(struct sk_buff *skb)
- 		return dst_output(skb);
- 	}
- #endif
--	if (skb->len > ip_skb_dst_mtu(skb) && !skb_is_gso(skb))
-+	if (skb_is_gso(skb))
-+		return ip_finish_output_gso(skb);
-+
-+	if (skb->len > ip_skb_dst_mtu(skb))
- 		return ip_fragment(skb, ip_finish_output2);
--	else
--		return ip_finish_output2(skb);
-+
-+	return ip_finish_output2(skb);
- }
- 
- int ip_mc_output(struct sock *sk, struct sk_buff *skb)
--- 
-1.8.1.5
+> ---
+>   drivers/net/wireless/rtlwifi/wifi.h | 4 ++++
+>   1 file changed, 4 insertions(+)
+>
+> diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+> index 6965afd..eef93d1 100644
+> --- a/drivers/net/wireless/rtlwifi/wifi.h
+> +++ b/drivers/net/wireless/rtlwifi/wifi.h
+> @@ -2030,6 +2030,10 @@ struct rtl_mod_params {
+>
+>   	/* default: 1 = using linked fw power save */
+>   	bool fwctrl_lps;
+> +
+> +	/* default: 0 = not using MSI interrupts mode */
+> +	/* submodules should set their own defalut value */
+> +	bool msi_support;
+>   };
+>
+>   struct rtl_hal_usbint_cfg {
+>
