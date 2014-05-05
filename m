@@ -1,155 +1,92 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] jme: Fix DMA unmap warning
-Date: Mon,  5 May 2014 14:51:47 -0400
-Message-ID: <1399315907-27148-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Guo-Fu Tseng <cooldavid@cooldavid.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39591 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbaEESwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 14:52:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH 5/5] net: macb: Fix race between HW and driver
+Date: Mon, 5 May 2014 14:10:23 -0700
+Message-ID: <433e19f4-93b3-458e-842e-33c511fdee74@CO9EHSMHS005.ehs.local>
+References: <1399243382-12528-6-git-send-email-soren.brinkmann@xilinx.com>
+ <20140505.165653.1184059074645793091.davem@davemloft.net>
+ <7c62baab-5f60-4f04-87f7-6b53fecc4746@CH1EHSMHS038.ehs.local>
+ <20140505.170959.2172440110209805460.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <michal.simek@xilinx.com>, <nicolas.ferre@atmel.com>,
+	<git@xilinx.com>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140505.170959.2172440110209805460.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The jme driver forgot to check the return status from pci_map_page in its tx
-path, causing a dma api warning on unmap.  Easy fix, just do the check and
-augment the tx path to tell the stack that the driver is busy so we re-queue the
-frame.
+On Mon, 2014-05-05 at 05:09PM -0400, David Miller wrote:
+> From: S=C3=B6ren Brinkmann <soren.brinkmann@xilinx.com>
+> Date: Mon, 5 May 2014 14:05:19 -0700
+>=20
+> > On Mon, 2014-05-05 at 04:56PM -0400, David Miller wrote:
+> >> From: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> >> Date: Sun,  4 May 2014 15:43:02 -0700
+> >>=20
+> >> > Under "heavy" RX load, the driver cannot handle the descriptors =
+fast
+> >> > enough. In detail, when a descriptor is consumed, its used flag =
+is
+> >> > cleared and once the RX budget is consumed all descriptors with =
+a
+> >> > cleared used flag are prepared to receive more data. Under load =
+though,
+> >> > the HW may constantly receive more data and use those descriptor=
+s with a
+> >> > cleared used flag before they are actually prepared for next usa=
+ge.
+> >> >=20
+> >> > The head and tail pointers into the RX-ring should always be val=
+id and
+> >> > we can omit clearing and checking of the used flag.
+> >> >=20
+> >> > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+> >>=20
+> >> Isn't the RX_USED bit the only thing that controls what RX entries
+> >> the chip will try to use?
+> >>=20
+> >> I can't see how you can just remove the RX_USED bit handling
+> >> altogether.
+> >>=20
+> >> The problem actually seems to be that in the current code we clear=
+ the
+> >> RX_USED bit before we actually reallocate the buffer and set it up=
+=2E
+> >>=20
+> >> It should be a bug to see the RX_USED bit set in gem_rx_refill(), =
+and
+> >> the only reason why it can happen is exactly because you're cleari=
+ng it
+> >> too early in gem_rx().
+> >=20
+> > I don't follow. The HW uses the descriptor and the driver handles t=
+he
+> > received data. So, in gem_rx_refill we should actually only replace
+> > descriptor which have the RX_USED _set_, not? Currently the test te=
+sts
+> > for the opposite, since SW clears RX_USED in gem_rx. This patch jus=
+t
+> > removes those two parts. The RX_USED is left as is (HW should have =
+set
+> > it). And in gem_rx_refill we simply rely on the head and tail point=
+ers
+> > to refill the used descriptors. I didn't see a reason to do the add=
+itional
+> > checking of the RX_USED bit.
+> > After the refill the RX_USED flags are of course cleared for all
+> > refilled descriptors.
+>=20
+> Aha, that makes sense, I didn't notice that RX_USED is cleared as a s=
+ide
+> effect of gem_rx_refill()'s work.
+>=20
+> I'll apply this series, thanks for explaining.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Guo-Fu Tseng <cooldavid@cooldavid.org>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/ethernet/jme.c | 53 ++++++++++++++++++++++++++++++++++++++++------
- 1 file changed, 47 insertions(+), 6 deletions(-)
+Thanks, but we probably wanna wait for Nicolas to test on his platforms
+using macb?
 
-diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-index b0c6050..6e664d9 100644
---- a/drivers/net/ethernet/jme.c
-+++ b/drivers/net/ethernet/jme.c
-@@ -1988,7 +1988,7 @@ jme_alloc_txdesc(struct jme_adapter *jme,
- 	return idx;
- }
- 
--static void
-+static int
- jme_fill_tx_map(struct pci_dev *pdev,
- 		struct txdesc *txdesc,
- 		struct jme_buffer_info *txbi,
-@@ -2005,6 +2005,9 @@ jme_fill_tx_map(struct pci_dev *pdev,
- 				len,
- 				PCI_DMA_TODEVICE);
- 
-+	if (unlikely(pci_dma_mapping_error(pdev, dmaaddr)))
-+		return -EINVAL;
-+
- 	pci_dma_sync_single_for_device(pdev,
- 				       dmaaddr,
- 				       len,
-@@ -2021,9 +2024,30 @@ jme_fill_tx_map(struct pci_dev *pdev,
- 
- 	txbi->mapping = dmaaddr;
- 	txbi->len = len;
-+	return 0;
- }
- 
--static void
-+static void jme_drop_tx_map(struct jme_adapter *jme, int startidx, int endidx)
-+{
-+	struct jme_ring *txring = &(jme->txring[0]);
-+	struct jme_buffer_info *txbi = txring->bufinf, *ctxbi;
-+	int mask = jme->tx_ring_mask;
-+	int j;
-+
-+	for (j = startidx ; j < endidx ; ++j) {
-+		ctxbi = txbi + ((startidx + j + 2) & (mask));
-+		pci_unmap_page(jme->pdev,
-+				ctxbi->mapping,
-+				ctxbi->len,
-+				PCI_DMA_TODEVICE);
-+
-+				ctxbi->mapping = 0;
-+				ctxbi->len = 0;
-+	}
-+
-+}
-+
-+static int
- jme_map_tx_skb(struct jme_adapter *jme, struct sk_buff *skb, int idx)
- {
- 	struct jme_ring *txring = &(jme->txring[0]);
-@@ -2034,25 +2058,37 @@ jme_map_tx_skb(struct jme_adapter *jme, struct sk_buff *skb, int idx)
- 	int mask = jme->tx_ring_mask;
- 	const struct skb_frag_struct *frag;
- 	u32 len;
-+	int ret = 0;
- 
- 	for (i = 0 ; i < nr_frags ; ++i) {
- 		frag = &skb_shinfo(skb)->frags[i];
- 		ctxdesc = txdesc + ((idx + i + 2) & (mask));
- 		ctxbi = txbi + ((idx + i + 2) & (mask));
- 
--		jme_fill_tx_map(jme->pdev, ctxdesc, ctxbi,
-+		ret = jme_fill_tx_map(jme->pdev, ctxdesc, ctxbi,
- 				skb_frag_page(frag),
- 				frag->page_offset, skb_frag_size(frag), hidma);
-+		if (ret) {
-+			jme_drop_tx_map(jme, idx, idx+i);
-+			goto out;
-+		}
-+
- 	}
- 
- 	len = skb_is_nonlinear(skb) ? skb_headlen(skb) : skb->len;
- 	ctxdesc = txdesc + ((idx + 1) & (mask));
- 	ctxbi = txbi + ((idx + 1) & (mask));
--	jme_fill_tx_map(jme->pdev, ctxdesc, ctxbi, virt_to_page(skb->data),
-+	ret = jme_fill_tx_map(jme->pdev, ctxdesc, ctxbi, virt_to_page(skb->data),
- 			offset_in_page(skb->data), len, hidma);
-+	if (ret)
-+		jme_drop_tx_map(jme, idx, idx+i);
-+
-+out:
-+	return ret;
- 
- }
- 
-+
- static int
- jme_tx_tso(struct sk_buff *skb, __le16 *mss, u8 *flags)
- {
-@@ -2131,6 +2167,7 @@ jme_fill_tx_desc(struct jme_adapter *jme, struct sk_buff *skb, int idx)
- 	struct txdesc *txdesc;
- 	struct jme_buffer_info *txbi;
- 	u8 flags;
-+	int ret = 0;
- 
- 	txdesc = (struct txdesc *)txring->desc + idx;
- 	txbi = txring->bufinf + idx;
-@@ -2155,7 +2192,10 @@ jme_fill_tx_desc(struct jme_adapter *jme, struct sk_buff *skb, int idx)
- 	if (jme_tx_tso(skb, &txdesc->desc1.mss, &flags))
- 		jme_tx_csum(jme, skb, &flags);
- 	jme_tx_vlan(skb, &txdesc->desc1.vlan, &flags);
--	jme_map_tx_skb(jme, skb, idx);
-+	ret = jme_map_tx_skb(jme, skb, idx);
-+	if (ret)
-+		return ret;
-+
- 	txdesc->desc1.flags = flags;
- 	/*
- 	 * Set tx buffer info after telling NIC to send
-@@ -2228,7 +2268,8 @@ jme_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	jme_fill_tx_desc(jme, skb, idx);
-+	if (jme_fill_tx_desc(jme, skb, idx))
-+		return NETDEV_TX_BUSY;
- 
- 	jwrite32(jme, JME_TXCS, jme->reg_txcs |
- 				TXCS_SELECT_QUEUE0 |
--- 
-1.8.3.1
+	S=C3=B6ren
