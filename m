@@ -1,75 +1,60 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: RFC: A reduced Linux network stack for small systems
-Date: Mon,  5 May 2014 15:25:49 -0700
-Message-ID: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] bridge: Add port flap detection
+Date: Mon, 05 May 2014 16:48:07 +0400
+Message-ID: <53678887.1070006@cogentembedded.com>
+References: <1399238974-6210-1-git-send-email-jmaxwell@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, davem@davemloft.net,
+	makita.toshiaki@lab.ntt.co.jp, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	pirko@redhat.com, jmaxwell@redhat.com
+To: Jon Maxwell <jmaxwell37@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399238974-6210-1-git-send-email-jmaxwell@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There has been a lot of interest recently to run Linux on very small systems,
-like Quark systems. These may have only 2-4MB memory. They are also limited
-by flash space.
+Hello.
 
-One problem on these small system is the size of the network stack.
-Currently enabling IPv4 costs about 400k in text, which is prohibitive on
-a 2MB system, and very expensive with 4MB.
+On 05/05/2014 01:29 AM, Jon Maxwell wrote:
 
-There were proposals to instead use LWIP in user space. LWIP with 
-its socket interface comes in at a bit over 100k overhead per application.
+> There has been a number incidents recently where customers running KVM have reported that VM hosts on different Hypervisors are unreachable. Based on pcap traces we found that the bridge was broadcasting the ARP request out onto the network. However some NICs have an inbuilt switch which on occasions were broadcasting the VMs ARP request back through the physical NIC on the Hypervisor. This resulted in the bridge flapping ports and incorrectly learning that the VMs mac address was external. As a result the ARP reply was directed back onto the external network and VM never updated it's ARP cache. This patch will detect port flapping and log a message so that this condition can be detected earlier.
 
-I maintain that the Linux network stack is actually not that bloated,
-it just has a lot of features :-)  The goal of this project was to
-subset it in a sensible way so that the native kernel stack becomes
-competitive with LWIP.
+    Please wrap your changelog at 80 columns or less.
 
-It turns out that the standard stack has a couple of features that
-are not really needed on client systems. Luckily it is also 
-relatively well modularized, so it becomes possible to stub
-out these features at the edge.
+> Signed-off-by: Jon Maxwell <jmaxwell@redhat.com>
 
-With removing these features we still have a powerful TCP/IP stack,
-but one that fits better into small systems.
+    You probably want the same RedHat email in the patch autorhship record, so 
+you need to insert the below line before the changelog:
 
-It would have been prohibitive to ifdef every optional feature.
-This patchkit relies heavily on LTO to effectively remove unused
-code. This allows to disable features only at the module boundaries,
-and rely on the compiler to drop unreferenced code and data.
+From: Jon Maxwell <jmaxwell@redhat.com>
 
-A few features have been also reimplemented in a simpler way.
-And I shrank a number of data structures based on CONFIG_BASE_SMALL.
+> ---
+>   net/bridge/br_fdb.c | 7 +++++++
+>   1 file changed, 7 insertions(+)
+>
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 9203d5a..c08607b 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -507,6 +507,13 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+>   					source->dev->name);
+>   		} else {
+>   			/* fastpath: update of existing entry */
+> +			if (source->port_no != fdb->dst->port_no &&
+> +				net_ratelimit())
+> +				br_warn(br, "Port flapping detected source entry dev = %s mac = %pM, port_no = %d\n existing entry dev = %s mac = %pM, port_no = %d\n",
+> +					source->dev->name,
+> +					addr, source->port_no,
+> +					fdb->dst->dev->name, addr,
 
-With these changes I can get a fully featured network stack down
-to about 170k with LTO. Without LTO there are also benefits,
-but somewhat less.
+    Why print the same MAC address twice?
 
-There are essentially three sensible configurations:
-- Full featured like today.
-- Client only subset, but still works with standard distribution userland.
-Remove some obscure features like fastopen, make all tables smaller, 
-packet socket mmap code, use a simpler routing table, remove
-high speed networking features like RPX, XPS, GRO offload. 
-Disable SNMP, TCP metrics
-- Minimal subset for deeply embedded systems that can use special userland.
-Remove rtnetlink (ioctl only), remove ethtool, raw sockets.
+> +					fdb->dst->port_no);
+>   			fdb->dst = source;
+>   			fdb->updated = jiffies;
+>   			if (unlikely(added_by_user))
 
-Right now I'm using own Kconfigs for every removed features. I realize
-this somewhat increases the compile test matrix. It would be possible
-to hide some of the options and select them using higher level
-configurations like the ones listed above. I haven't done this
-in this version.
-
-At this point I'm mainly interested in review and comments.
-
-Git trees:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat
-Main tree
-
-git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat-3.14
-3.14 based tree.
-
-Thanks to Tom Zanussi for contributions and testing.
-
-Andi Kleen
+WBR, Sergei
