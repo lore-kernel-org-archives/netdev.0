@@ -1,30 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] ipv6: remove unused function
- ipv6_inherit_linklocal()
-Date: Mon, 05 May 2014 15:30:45 -0400 (EDT)
-Message-ID: <20140505.153045.857124489317693183.davem@davemloft.net>
-References: <1399076461-12172-1-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: xiyou.wangcong@gmail.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] ipv4: remove inet_addr_hash_lock in devinet.c
+Date: Mon,  5 May 2014 11:46:50 -0700
+Message-ID: <1399315610-28771-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60888 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbaEETar (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:30:47 -0400
-In-Reply-To: <1399076461-12172-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:39432 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750942AbaEESrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 14:47:05 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so8327169pdj.17
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 11:47:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri,  2 May 2014 17:21:01 -0700
+All the callers hold RTNL lock, so there is no need to use inet_addr_hash_lock
+to protect the hash list.
 
-> It is no longer used after commit e837735ec406a347756e
-> (ip6_tunnel: ensure to always have a link local address).
-> 
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thanks.
+---
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bdbf68b..e497700 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -106,7 +106,6 @@ static const struct nla_policy ifa_ipv4_policy[IFA_MAX+1] = {
+ #define IN4_ADDR_HSIZE		(1U << IN4_ADDR_HSIZE_SHIFT)
+ 
+ static struct hlist_head inet_addr_lst[IN4_ADDR_HSIZE];
+-static DEFINE_SPINLOCK(inet_addr_hash_lock);
+ 
+ static u32 inet_addr_hash(struct net *net, __be32 addr)
+ {
+@@ -119,16 +118,12 @@ static void inet_hash_insert(struct net *net, struct in_ifaddr *ifa)
+ {
+ 	u32 hash = inet_addr_hash(net, ifa->ifa_local);
+ 
+-	spin_lock(&inet_addr_hash_lock);
+ 	hlist_add_head_rcu(&ifa->hash, &inet_addr_lst[hash]);
+-	spin_unlock(&inet_addr_hash_lock);
+ }
+ 
+ static void inet_hash_remove(struct in_ifaddr *ifa)
+ {
+-	spin_lock(&inet_addr_hash_lock);
+ 	hlist_del_init_rcu(&ifa->hash);
+-	spin_unlock(&inet_addr_hash_lock);
+ }
+ 
+ /**
