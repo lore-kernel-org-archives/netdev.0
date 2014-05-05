@@ -1,160 +1,44 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 11/24] net, diet: Move rtnl_lock to separate file
-Date: Mon,  5 May 2014 15:26:00 -0700
-Message-ID: <1399328773-6531-12-git-send-email-andi@firstfloor.org>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	Andi Kleen <ak@linux.intel.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net,stable] net: cdc_ncm: fix buffer overflow
+Date: Mon, 05 May 2014 15:20:37 -0400 (EDT)
+Message-ID: <20140505.152037.455988814617308575.davem@davemloft.net>
+References: <1399066020-22748-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	alexey.orishko@gmail.com, oliver@neukum.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58940 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933111AbaEEW0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 18:26:24 -0400
-In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60778 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752446AbaEETUk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:20:40 -0400
+In-Reply-To: <1399066020-22748-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <ak@linux.intel.com>
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri,  2 May 2014 23:27:00 +0200
 
-rtnl_lock is used in a lot of places independently from rtnetlink.
-Move it to an own file.
+> Commit 4d619f625a60 ("net: cdc_ncm: no point in filling up the NTBs
+> if we send ZLPs") changed the padding logic for devices with the ZLP
+> flag set.  This meant that frames of any size will be sent without
+> additional padding, except for the single byte added if the size is
+> a multiple of the USB packet size. But if the unpadded size is
+> identical to the maximum frame size, and the maximum size is a
+> multiplum of the USB packet size, then this one-byte padding will
+> overflow the buffer.
+>=20
+> Prevent padding if already at maximum frame size, letting usbnet
+> transmit a ZLP instead in this case.
+>=20
+> Fixes: 4d619f625a60 ("net: cdc_ncm: no point in filling up the NTBs i=
+f we send ZLPs")
+> Reported by: Yu-an Shih <yshih@nvidia.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> ---
+> Please add this to the stable v3.13 and v3.14 queues as well.  Thanks=
+=2E
 
-Only ugly part is that the rtnetlink init still needs to access
-the mutex. do this through a private backdoor, to avoid putting
-it into the headers for everyone.
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
----
- net/core/Makefile    |  3 ++-
- net/core/rtnetlink.c | 42 ++----------------------------------------
- net/core/rtnl_lock.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 48 insertions(+), 41 deletions(-)
- create mode 100644 net/core/rtnl_lock.c
-
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 7db2fff..e05bd9c 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -3,7 +3,8 @@
- #
- 
- obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
--	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
-+	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o \
-+	 rtnl_lock.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d4ff417..0e802f0 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -60,46 +60,6 @@ struct rtnl_link {
- 	rtnl_calcit_func 	calcit;
- };
- 
--static DEFINE_MUTEX(rtnl_mutex);
--
--void rtnl_lock(void)
--{
--	mutex_lock(&rtnl_mutex);
--}
--EXPORT_SYMBOL(rtnl_lock);
--
--void __rtnl_unlock(void)
--{
--	mutex_unlock(&rtnl_mutex);
--}
--
--void rtnl_unlock(void)
--{
--	/* This fellow will unlock it for us. */
--	netdev_run_todo();
--}
--EXPORT_SYMBOL(rtnl_unlock);
--
--int rtnl_trylock(void)
--{
--	return mutex_trylock(&rtnl_mutex);
--}
--EXPORT_SYMBOL(rtnl_trylock);
--
--int rtnl_is_locked(void)
--{
--	return mutex_is_locked(&rtnl_mutex);
--}
--EXPORT_SYMBOL(rtnl_is_locked);
--
--#ifdef CONFIG_PROVE_LOCKING
--int lockdep_rtnl_is_held(void)
--{
--	return lockdep_is_held(&rtnl_mutex);
--}
--EXPORT_SYMBOL(lockdep_rtnl_is_held);
--#endif /* #ifdef CONFIG_PROVE_LOCKING */
--
- static struct rtnl_link *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
- 
- static inline int rtm_msgindex(int msgtype)
-@@ -2845,6 +2805,8 @@ static struct notifier_block rtnetlink_dev_notifier = {
- 	.notifier_call	= rtnetlink_event,
- };
- 
-+/* Don't put this into the header, private backdoor. */
-+extern struct mutex rtnl_mutex;
- 
- static int __net_init rtnetlink_net_init(struct net *net)
- {
-diff --git a/net/core/rtnl_lock.c b/net/core/rtnl_lock.c
-new file mode 100644
-index 0000000..f0dfd19
---- /dev/null
-+++ b/net/core/rtnl_lock.c
-@@ -0,0 +1,44 @@
-+#include <linux/rtnetlink.h>
-+#include <linux/mutex.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+
-+DEFINE_MUTEX(rtnl_mutex);
-+
-+void rtnl_lock(void)
-+{
-+	mutex_lock(&rtnl_mutex);
-+}
-+EXPORT_SYMBOL(rtnl_lock);
-+
-+void __rtnl_unlock(void)
-+{
-+	mutex_unlock(&rtnl_mutex);
-+}
-+
-+void rtnl_unlock(void)
-+{
-+	/* This fellow will unlock it for us. */
-+	netdev_run_todo();
-+}
-+EXPORT_SYMBOL(rtnl_unlock);
-+
-+int rtnl_trylock(void)
-+{
-+	return mutex_trylock(&rtnl_mutex);
-+}
-+EXPORT_SYMBOL(rtnl_trylock);
-+
-+int rtnl_is_locked(void)
-+{
-+	return mutex_is_locked(&rtnl_mutex);
-+}
-+EXPORT_SYMBOL(rtnl_is_locked);
-+
-+#ifdef CONFIG_PROVE_LOCKING
-+int lockdep_rtnl_is_held(void)
-+{
-+	return lockdep_is_held(&rtnl_mutex);
-+}
-+EXPORT_SYMBOL(lockdep_rtnl_is_held);
-+#endif /* #ifdef CONFIG_PROVE_LOCKING */
--- 
-1.9.0
+Applied and queued up for -stable, thanks.
