@@ -1,807 +1,211 @@
-From: Darek Marcinkiewicz <reksio@newterm.pl>
-Subject: [PATCH v8 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
-Date: Mon, 5 May 2014 21:10:45 +0200
-Message-ID: <20140505191045.GK1156@newterm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, romieu@fr.zoreil.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 15/24] net, diet: Make igmp and mcast ioctls depend on IP_MULTICAST
+Date: Mon,  5 May 2014 15:26:04 -0700
+Message-ID: <1399328773-6531-16-git-send-email-andi@firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Andi Kleen <ak@linux.intel.com>
 
-This driver adds support for EtherCAT master module located on CCAT
-FPGA found on Beckhoff CX series industrial PCs. The driver exposes
-EtherCAT master as an ethernet interface.
+There was already a CONFIG_IP_MULTICAST, but it didn't control
+the multicasting code (like igmp) in the IP stack, only some
+driver code.  Change this.
 
-EtherCAT is a fieldbus protocol defined on top of ethernet and Beckhoff
-CX5020 PCs come with built-in EtherCAT master module located on a FPGA,
-which in turn is connected to a PCI bus.
+This disables some multi cast filters in TCP/UDP too, but
+that should be ok because we never joing multicast groups
+without this options, so the packets should never arrive up-stack.
 
-Signed-off-by: Dariusz Marcinkiewicz <reksio@newterm.pl>
+Worth ~20k when disabled
+
+   text	   data	    bss	    dec	    hex	filename
+ 420363	  17509	  11624	 449496	  6dbd8	net/built-in.o-with-mcast
+ 399649	  17381	  11624	 428654	  68a6e	net/built-in.o-wo-mcast
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
+ include/linux/igmp.h       | 31 +++++++++++++++++++++++--------
+ net/ipv4/Kconfig           |  8 +++-----
+ net/ipv4/Makefile          |  3 ++-
+ net/ipv4/devinet.c         |  2 ++
+ net/ipv4/ip_sockglue.c     |  4 ++++
+ net/ipv4/sysctl_net_ipv4.c |  2 ++
+ 6 files changed, 36 insertions(+), 14 deletions(-)
 
-Changes from v7:
-  * added 'depends on PCI' to the driver's Kconfig entry
-
-Changes from v6:
-  * added memory barriers to avoid race between timer handler and xmit routine 
-  * includes formatting/indeting changes from Francois Romieu
-
-Changes from v5:
-  * removal of needless locking on tx path
-  * driver makes actual use of tx fifo
-  * driver uses descriptors' array instead of descriptor list
-
-Changes from v4: 
-  * incorporates Francois Romieu comments
-  * fixes typo spotted by Jesper Brouer
-
-Changes from v3:
-  * some clarificatoins around buffer allocations
-
-Changes from v2:
-  * removed all checkpatch warnings
-  * driver makes use of device rx fifo
-
-Changes from v1:
-  * added endianess annotation to descriptors' structures
-  * killed checkpath warnings about string literals being split into multiple
-    lines
-
- drivers/net/ethernet/Kconfig  |   12 +
- drivers/net/ethernet/Makefile |    1 +
- drivers/net/ethernet/ec_bhf.c |  705 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 718 insertions(+)
- create mode 100644 drivers/net/ethernet/ec_bhf.c
-
-diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
-index 39b26fe..d740101 100644
---- a/drivers/net/ethernet/Kconfig
-+++ b/drivers/net/ethernet/Kconfig
-@@ -35,6 +35,18 @@ source "drivers/net/ethernet/calxeda/Kconfig"
- source "drivers/net/ethernet/chelsio/Kconfig"
- source "drivers/net/ethernet/cirrus/Kconfig"
- source "drivers/net/ethernet/cisco/Kconfig"
-+
-+config CX_ECAT
-+	tristate "Beckhoff CX5020 EtherCAT master support"
-+	depends on PCI
-+	---help---
-+	  Driver for EtherCAT master module located on CCAT FPGA
-+	  that can be found on Beckhoff CX5020, and possibly other of CX
-+	  Beckhoff CX series industrial PCs.
-+
-+	  To compile this driver as a module, choose M here. The module
-+	  will be called ec_bhf.
-+
- source "drivers/net/ethernet/davicom/Kconfig"
+diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+index f47550d..1a1a044 100644
+--- a/include/linux/igmp.h
++++ b/include/linux/igmp.h
+@@ -108,11 +108,7 @@ struct ip_mc_list {
+ #define IGMPV3_QQIC(value) IGMPV3_EXP(0x80, 4, 3, value)
+ #define IGMPV3_MRC(value) IGMPV3_EXP(0x80, 4, 3, value)
  
- config DNET
-diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 545d0b3..35190e3 100644
---- a/drivers/net/ethernet/Makefile
-+++ b/drivers/net/ethernet/Makefile
-@@ -21,6 +21,7 @@ obj-$(CONFIG_NET_CALXEDA_XGMAC) += calxeda/
- obj-$(CONFIG_NET_VENDOR_CHELSIO) += chelsio/
- obj-$(CONFIG_NET_VENDOR_CIRRUS) += cirrus/
- obj-$(CONFIG_NET_VENDOR_CISCO) += cisco/
-+obj-$(CONFIG_CX_ECAT) += ec_bhf.o
- obj-$(CONFIG_DM9000) += davicom/
- obj-$(CONFIG_DNET) += dnet.o
- obj-$(CONFIG_NET_VENDOR_DEC) += dec/
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-new file mode 100644
-index 0000000..9763cd6
---- /dev/null
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -0,0 +1,705 @@
-+ /*
-+ * drivers/net/ethernet/beckhoff/ec_bhf.c
-+ *
-+ * Copyright (C) 2014 Darek Marcinkiewicz <reksio@newterm.pl>
-+ *
-+ * This software is licensed under the terms of the GNU General Public
-+ * License version 2, as published by the Free Software Foundation, and
-+ * may be copied, distributed, and modified under those terms.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ */
-+
-+/* This is a driver for EtherCAT master module present on CCAT FPGA.
-+ * Those can be found on Bechhoff CX50xx industrial PCs.
-+ */
-+
-+#if 0
-+#define DEBUG
+-extern int ip_check_mc_rcu(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto);
+ extern int igmp_rcv(struct sk_buff *);
+-extern int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr);
+-extern int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr);
+-extern void ip_mc_drop_socket(struct sock *sk);
+ extern int ip_mc_source(int add, int omode, struct sock *sk,
+ 		struct ip_mreq_source *mreqs, int ifindex);
+ extern int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf,int ifindex);
+@@ -120,14 +116,33 @@ extern int ip_mc_msfget(struct sock *sk, struct ip_msfilter *msf,
+ 		struct ip_msfilter __user *optval, int __user *optlen);
+ extern int ip_mc_gsfget(struct sock *sk, struct group_filter *gsf,
+ 		struct group_filter __user *optval, int __user *optlen);
+-extern int ip_mc_sf_allow(struct sock *sk, __be32 local, __be32 rmt, int dif);
+-extern void ip_mc_init_dev(struct in_device *);
+-extern void ip_mc_destroy_dev(struct in_device *);
+-extern void ip_mc_up(struct in_device *);
+ extern void ip_mc_down(struct in_device *);
+ extern void ip_mc_unmap(struct in_device *);
+ extern void ip_mc_remap(struct in_device *);
+ extern void ip_mc_dec_group(struct in_device *in_dev, __be32 addr);
+ extern void ip_mc_inc_group(struct in_device *in_dev, __be32 addr);
+ 
++#ifdef CONFIG_IP_MULTICAST
++extern int ip_mc_sf_allow(struct sock *sk, __be32 local, __be32 rmt, int dif);
++extern int ip_check_mc_rcu(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto);
++extern void ip_mc_up(struct in_device *);
++extern void ip_mc_destroy_dev(struct in_device *);
++extern void ip_mc_init_dev(struct in_device *);
++extern void ip_mc_drop_socket(struct sock *sk);
++extern int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr);
++extern int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr);
++#else
++static inline int ip_mc_sf_allow(struct sock *sk, __be32 local, __be32 rmt, int dif)
++{ return 0; }
++static inline int ip_check_mc_rcu(struct in_device *dev, __be32 mc_addr, __be32 src_addr, u16 proto)
++{ return 0; }
++static inline void ip_mc_up(struct in_device *d) {}
++static inline void ip_mc_destroy_dev(struct in_device *d) {}
++static inline void ip_mc_init_dev(struct in_device *d) {}
++static inline void ip_mc_drop_socket(struct sock *sk) {}
++static inline int ip_mc_join_group(struct sock *sk, struct ip_mreqn *imr)
++{ return -EINVAL; }
++static inline int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
++{ return -EINVAL; }
 +#endif
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/moduleparam.h>
-+#include <linux/pci.h>
-+#include <linux/init.h>
-+
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/ip.h>
-+#include <linux/skbuff.h>
-+#include <linux/hrtimer.h>
-+#include <linux/interrupt.h>
-+#include <linux/stat.h>
-+
-+#define TIMER_INTERVAL_NSEC	20000
-+
-+#define INFO_BLOCK_SIZE		0x10
-+#define INFO_BLOCK_TYPE		0x0
-+#define INFO_BLOCK_REV		0x2
-+#define INFO_BLOCK_BLK_CNT	0x4
-+#define INFO_BLOCK_TX_CHAN	0x4
-+#define INFO_BLOCK_RX_CHAN	0x5
-+#define INFO_BLOCK_OFFSET	0x8
-+
-+#define EC_MII_OFFSET		0x4
-+#define EC_FIFO_OFFSET		0x8
-+#define EC_MAC_OFFSET		0xc
-+
-+#define MAC_FRAME_ERR_CNT	0x0
-+#define MAC_RX_ERR_CNT		0x1
-+#define MAC_CRC_ERR_CNT		0x2
-+#define MAC_LNK_LST_ERR_CNT	0x3
-+#define MAC_TX_FRAME_CNT	0x10
-+#define MAC_RX_FRAME_CNT	0x14
-+#define MAC_TX_FIFO_LVL		0x20
-+#define MAC_DROPPED_FRMS	0x28
-+#define MAC_CONNECTED_CCAT_FLAG	0x78
-+
-+#define MII_MAC_ADDR		0x8
-+#define MII_MAC_FILT_FLAG	0xe
-+#define MII_LINK_STATUS		0xf
-+
-+#define FIFO_TX_REG		0x0
-+#define FIFO_TX_RESET		0x8
-+#define FIFO_RX_REG		0x10
-+#define FIFO_RX_ADDR_VALID	(1u << 31)
-+#define FIFO_RX_RESET		0x18
-+
-+#define DMA_CHAN_OFFSET		0x1000
-+#define DMA_CHAN_SIZE		0x8
-+
-+static struct pci_device_id ids[] = {
-+	{ PCI_DEVICE(0x15ec, 0x5000), },
-+	{ 0, }
-+};
-+MODULE_DEVICE_TABLE(pci, ids);
-+
-+struct rx_header {
-+#define RXHDR_NEXT_ADDR_MASK	0xffffffu
-+#define RXHDR_NEXT_VALID	(1u << 31)
-+	__le32 next;
-+#define RXHDR_NEXT_RECV_FLAG	0x1
-+	__le32 recv;
-+#define RXHDR_LEN_MASK		0xfffu
-+	__le16 len;
-+	__le16 port;
-+	__le32 reserved;
-+	u8 timestamp[8];
-+} __packed;
-+
-+#define PKT_PAYLOAD_SIZE	0x7e8
-+struct rx_desc {
-+	struct rx_header header;
-+	u8 data[PKT_PAYLOAD_SIZE];
-+} __packed;
-+
-+struct tx_header {
-+	__le16 len;
-+#define TX_HDR_PORT_0		0x1
-+#define TX_HDR_PORT_1		0x2
-+	u8 port;
-+	u8 ts_enable;
-+#define TX_HDR_SENT		0x1
-+	__le32 sent;
-+	u8 timestamp[8];
-+} __packed;
-+
-+struct tx_desc {
-+	struct tx_header header;
-+	u8 data[PKT_PAYLOAD_SIZE];
-+} __packed;
-+
-+#define FIFO_SIZE		64
-+
-+static long polling_frequency = TIMER_INTERVAL_NSEC;
-+
-+struct bhf_dma {
-+	u8 *buf;
-+	size_t len;
-+	dma_addr_t buf_phys;
-+
-+	u8 *alloc;
-+	size_t alloc_len;
-+	dma_addr_t alloc_phys;
-+};
-+
-+struct ec_bhf_priv {
-+	struct net_device *net_dev;
-+
-+	struct pci_dev *dev;
-+
-+	void * __iomem io;
-+	void * __iomem dma_io;
-+
-+	struct hrtimer hrtimer;
-+
-+	int tx_dma_chan;
-+	int rx_dma_chan;
-+	void * __iomem ec_io;
-+	void * __iomem fifo_io;
-+	void * __iomem mii_io;
-+	void * __iomem mac_io;
-+
-+	struct bhf_dma rx_buf;
-+	struct rx_desc *rx_descs;
-+	int rx_dnext;
-+	int rx_dcount;
-+
-+	struct bhf_dma tx_buf;
-+	struct tx_desc *tx_descs;
-+	int tx_dcount;
-+	int tx_dnext;
-+
-+	u64 stat_rx_bytes;
-+	u64 stat_tx_bytes;
-+};
-+
-+#define PRIV_TO_DEV(priv) (&(priv)->dev->dev)
-+
-+#define ETHERCAT_MASTER_ID	0x14
-+
-+static void ec_bhf_print_status(struct ec_bhf_priv *priv)
-+{
-+	struct device *dev = PRIV_TO_DEV(priv);
-+
-+	dev_dbg(dev, "Frame error counter: %d\n",
-+		ioread8(priv->mac_io + MAC_FRAME_ERR_CNT));
-+	dev_dbg(dev, "RX error counter: %d\n",
-+		ioread8(priv->mac_io + MAC_RX_ERR_CNT));
-+	dev_dbg(dev, "CRC error counter: %d\n",
-+		ioread8(priv->mac_io + MAC_CRC_ERR_CNT));
-+	dev_dbg(dev, "TX frame counter: %d\n",
-+		ioread32(priv->mac_io + MAC_TX_FRAME_CNT));
-+	dev_dbg(dev, "RX frame counter: %d\n",
-+		ioread32(priv->mac_io + MAC_RX_FRAME_CNT));
-+	dev_dbg(dev, "TX fifo level: %d\n",
-+		ioread8(priv->mac_io + MAC_TX_FIFO_LVL));
-+	dev_dbg(dev, "Dropped frames: %d\n",
-+		ioread8(priv->mac_io + MAC_DROPPED_FRMS));
-+	dev_dbg(dev, "Connected with CCAT slot: %d\n",
-+		ioread8(priv->mac_io + MAC_CONNECTED_CCAT_FLAG));
-+	dev_dbg(dev, "Link status: %d\n",
-+		ioread8(priv->mii_io + MII_LINK_STATUS));
-+}
-+
-+static void ec_bhf_reset(struct ec_bhf_priv *priv)
-+{
-+	iowrite8(0, priv->mac_io + MAC_FRAME_ERR_CNT);
-+	iowrite8(0, priv->mac_io + MAC_RX_ERR_CNT);
-+	iowrite8(0, priv->mac_io + MAC_CRC_ERR_CNT);
-+	iowrite8(0, priv->mac_io + MAC_LNK_LST_ERR_CNT);
-+	iowrite32(0, priv->mac_io + MAC_TX_FRAME_CNT);
-+	iowrite32(0, priv->mac_io + MAC_RX_FRAME_CNT);
-+	iowrite8(0, priv->mac_io + MAC_DROPPED_FRMS);
-+
-+	iowrite8(0, priv->fifo_io + FIFO_TX_RESET);
-+	iowrite8(0, priv->fifo_io + FIFO_RX_RESET);
-+
-+	iowrite8(0, priv->mac_io + MAC_TX_FIFO_LVL);
-+}
-+
-+static void ec_bhf_send_packet(struct ec_bhf_priv *priv, struct tx_desc *desc)
-+{
-+	u32 len = le16_to_cpu(desc->header.len) + sizeof(desc->header);
-+	u32 addr = (u8 *)desc - priv->tx_buf.buf;
-+
-+	iowrite32((ALIGN(len, 8) << 24) | addr, priv->fifo_io + FIFO_TX_REG);
-+
-+	dev_dbg(PRIV_TO_DEV(priv), "Done sending packet\n");
-+}
-+
-+static int ec_bhf_desc_sent(struct tx_desc *desc)
-+{
-+	return le32_to_cpu(desc->header.sent) & TX_HDR_SENT;
-+}
-+
-+static void ec_bhf_process_tx(struct ec_bhf_priv *priv)
-+{
-+	if (unlikely(netif_queue_stopped(priv->net_dev))) {
-+		/* Make sure that we perceive changes to tx_dnext. */
-+		smp_rmb();
-+
-+		if (ec_bhf_desc_sent(&priv->tx_descs[priv->tx_dnext]))
-+			netif_wake_queue(priv->net_dev);
-+	}
-+}
-+
-+static int ec_bhf_pkt_received(struct rx_desc *desc)
-+{
-+	return le32_to_cpu(desc->header.recv) & RXHDR_NEXT_RECV_FLAG;
-+}
-+
-+static void ec_bhf_add_rx_desc(struct ec_bhf_priv *priv, struct rx_desc *desc)
-+{
-+	iowrite32(FIFO_RX_ADDR_VALID | ((u8 *)(desc) - priv->rx_buf.buf),
-+		  priv->fifo_io + FIFO_RX_REG);
-+}
-+
-+static void ec_bhf_process_rx(struct ec_bhf_priv *priv)
-+{
-+	struct rx_desc *desc = &priv->rx_descs[priv->rx_dnext];
-+	struct device *dev = PRIV_TO_DEV(priv);
-+
-+	while (ec_bhf_pkt_received(desc)) {
-+		int pkt_size = (le16_to_cpu(desc->header.len) &
-+			       RXHDR_LEN_MASK) - sizeof(struct rx_header) - 4;
-+		u8 *data = desc->data;
-+		struct sk_buff *skb;
-+
-+		skb = netdev_alloc_skb_ip_align(priv->net_dev, pkt_size);
-+		dev_dbg(dev, "Received packet, size: %d\n", pkt_size);
-+
-+		if (skb) {
-+			memcpy(skb_put(skb, pkt_size), data, pkt_size);
-+			skb->protocol = eth_type_trans(skb, priv->net_dev);
-+			dev_dbg(dev, "Protocol type: %x\n", skb->protocol);
-+
-+			netif_rx(skb);
-+		} else {
-+			dev_err_ratelimited(dev,
-+				"Couldn't allocate a skb_buff for a packet of size %u\n",
-+				pkt_size);
-+		}
-+
-+		priv->stat_rx_bytes += pkt_size;
-+
-+		desc->header.recv = 0;
-+
-+		ec_bhf_add_rx_desc(priv, desc);
-+
-+		priv->rx_dnext = (priv->rx_dnext + 1) % priv->rx_dcount;
-+		desc = &priv->rx_descs[priv->rx_dnext];
-+	}
-+
-+}
-+
-+static enum hrtimer_restart ec_bhf_timer_fun(struct hrtimer *timer)
-+{
-+	struct ec_bhf_priv *priv = container_of(timer, struct ec_bhf_priv,
-+						hrtimer);
-+	ec_bhf_process_rx(priv);
-+	ec_bhf_process_tx(priv);
-+
-+	if (!netif_running(priv->net_dev))
-+		return HRTIMER_NORESTART;
-+
-+	hrtimer_forward_now(timer, ktime_set(0, polling_frequency));
-+	return HRTIMER_RESTART;
-+}
-+
-+static int ec_bhf_setup_offsets(struct ec_bhf_priv *priv)
-+{
-+	struct device *dev = PRIV_TO_DEV(priv);
-+	unsigned block_count, i;
-+	void * __iomem ec_info;
-+
-+	dev_info(dev, "Info block:\n");
-+	dev_info(dev, "Type of function: %x\n", (unsigned)ioread16(priv->io));
-+	dev_info(dev, "Revision of function: %x\n",
-+		(unsigned)ioread16(priv->io + INFO_BLOCK_REV));
-+
-+	block_count = ioread8(priv->io + INFO_BLOCK_BLK_CNT);
-+	dev_info(dev, "Number of function blocks: %x\n", block_count);
-+
-+	for (i = 0; i < block_count; i++) {
-+		u16 type = ioread16(priv->io + i * INFO_BLOCK_SIZE +
-+				    INFO_BLOCK_TYPE);
-+		if (type == ETHERCAT_MASTER_ID)
-+			break;
-+	}
-+	if (i == block_count) {
-+		dev_err(dev, "EtherCAT master with DMA block not found\n");
-+		return -ENODEV;
-+	}
-+	dev_info(dev, "EtherCAT master with DMA block found at pos: %d\n", i);
-+
-+	ec_info = priv->io + i * INFO_BLOCK_SIZE;
-+	dev_info(dev, "EtherCAT master revision: %d\n",
-+		 ioread16(ec_info + INFO_BLOCK_REV));
-+
-+	priv->tx_dma_chan = ioread8(ec_info + INFO_BLOCK_TX_CHAN);
-+	dev_info(dev, "EtherCAT master tx dma channel: %d\n",
-+		 priv->tx_dma_chan);
-+
-+	priv->rx_dma_chan = ioread8(ec_info + INFO_BLOCK_RX_CHAN);
-+	dev_info(dev, "EtherCAT master rx dma channel: %d\n",
-+		 priv->rx_dma_chan);
-+
-+	priv->ec_io = priv->io + ioread32(ec_info + INFO_BLOCK_OFFSET);
-+	priv->mii_io = priv->ec_io + ioread32(priv->ec_io + EC_MII_OFFSET);
-+	priv->fifo_io = priv->ec_io + ioread32(priv->ec_io + EC_FIFO_OFFSET);
-+	priv->mac_io = priv->ec_io + ioread32(priv->ec_io + EC_MAC_OFFSET);
-+
-+	dev_info(dev,
-+		 "EtherCAT block addres: %p, fifo address: %p, mii address: %p, mac address: %p",
-+		 priv->ec_io, priv->fifo_io, priv->mii_io, priv->mac_io);
-+
-+	return 0;
-+}
-+
-+static netdev_tx_t ec_bhf_start_xmit(struct sk_buff *skb,
-+				     struct net_device *net_dev)
-+{
-+	struct ec_bhf_priv *priv = netdev_priv(net_dev);
-+	struct tx_desc *desc;
-+	unsigned len;
-+
-+	dev_dbg(PRIV_TO_DEV(priv), "Starting xmit\n");
-+
-+	desc = &priv->tx_descs[priv->tx_dnext];
-+
-+	skb_copy_and_csum_dev(skb, desc->data);
-+	len = skb->len;
-+
-+	memset(&desc->header, 0, sizeof(desc->header));
-+	desc->header.len = cpu_to_le16(len);
-+	desc->header.port = TX_HDR_PORT_0;
-+
-+	ec_bhf_send_packet(priv, desc);
-+
-+	priv->tx_dnext = (priv->tx_dnext + 1) % priv->tx_dcount;
-+
-+	if (!ec_bhf_desc_sent(&priv->tx_descs[priv->tx_dnext])) {
-+		/* Make sure that update updates to tx_dnext are perceived
-+		 * by timer routine.
-+		 */
-+		smp_wmb();
-+
-+		netif_stop_queue(net_dev);
-+
-+		dev_info(PRIV_TO_DEV(priv), "Stopping netif queue\n");
-+		ec_bhf_print_status(priv);
-+	}
-+
-+	priv->stat_tx_bytes += len;
-+
-+	dev_kfree_skb(skb);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int ec_bhf_alloc_dma_mem(struct ec_bhf_priv *priv,
-+				struct bhf_dma *buf,
-+				int channel,
-+				int size)
-+{
-+	int offset = channel * DMA_CHAN_SIZE + DMA_CHAN_OFFSET;
-+	struct device *dev = PRIV_TO_DEV(priv);
-+	u32 mask;
-+
-+	iowrite32(0xffffffff, priv->dma_io + offset);
-+
-+	mask = ioread32(priv->dma_io + offset);
-+	mask &= 0xfffffffc;
-+	dev_info(dev, "Read mask %x for channel %d\n", mask, channel);
-+	/* We want to allocate a chunk of memory that is:
-+	 * - aligned to the mask we just read
-+	 * - is of size 2^mask bytes (at most)
-+	 * In order to ensure that we will allocate buffer of
-+	 * 2 * 2^mask bytes.
-+	 */
-+	buf->len = min_t(int, ~mask + 1, size);
-+	buf->alloc_len = 2 * buf->len;
-+
-+	dev_info(dev, "Allocating %d bytes for channel %d",
-+		(int)buf->alloc_len, channel);
-+	buf->alloc = dma_alloc_coherent(dev, buf->alloc_len, &buf->alloc_phys,
-+					GFP_KERNEL);
-+	if (buf->alloc == NULL) {
-+		dev_info(dev, "Failed to allocate buffer\n");
-+		return -ENOMEM;
-+	}
-+
-+	buf->buf_phys = (buf->alloc_phys + buf->len) & mask;
-+	buf->buf = buf->alloc + (buf->buf_phys - buf->alloc_phys);
-+
-+	iowrite32(0, priv->dma_io + offset + 4);
-+	iowrite32(buf->buf_phys, priv->dma_io + offset);
-+	dev_dbg(dev, "Buffer: %x and read from dev: %x",
-+		(unsigned)buf->buf_phys, ioread32(priv->dma_io + offset));
-+
-+	return 0;
-+}
-+
-+static void ec_bhf_setup_tx_descs(struct ec_bhf_priv *priv)
-+{
-+	int i = 0;
-+
-+	priv->tx_dcount = priv->tx_buf.len / sizeof(struct tx_desc);
-+	priv->tx_descs = (struct tx_desc *) priv->tx_buf.buf;
-+	priv->tx_dnext = 0;
-+
-+	for (i = 0; i < priv->tx_dcount; i++)
-+		priv->tx_descs[i].header.sent = cpu_to_le32(TX_HDR_SENT);
-+}
-+
-+static void ec_bhf_setup_rx_descs(struct ec_bhf_priv *priv)
-+{
-+	int i;
-+
-+	priv->rx_dcount = priv->rx_buf.len / sizeof(struct rx_desc);
-+	priv->rx_descs = (struct rx_desc *) priv->rx_buf.buf;
-+	priv->rx_dnext = 0;
-+
-+	for (i = 0; i < priv->rx_dcount; i++) {
-+		struct rx_desc *desc = &priv->rx_descs[i];
-+		u32 next;
-+
-+		if (i != priv->rx_dcount - 1)
-+			next = (u8 *)(desc + 1) - priv->rx_buf.buf;
-+		else
-+			next = 0;
-+		next |= RXHDR_NEXT_VALID;
-+		desc->header.next = cpu_to_le32(next);
-+		desc->header.recv = 0;
-+		ec_bhf_add_rx_desc(priv, desc);
-+	}
-+}
-+
-+static int ec_bhf_open(struct net_device *net_dev)
-+{
-+	struct ec_bhf_priv *priv = netdev_priv(net_dev);
-+	struct device *dev = PRIV_TO_DEV(priv);
-+	int err = 0;
-+
-+	dev_info(dev, "Opening device\n");
-+
-+	ec_bhf_reset(priv);
-+
-+	err = ec_bhf_alloc_dma_mem(priv, &priv->rx_buf, priv->rx_dma_chan,
-+				   FIFO_SIZE * sizeof(struct rx_desc));
-+	if (err) {
-+		dev_err(dev, "Failed to allocate rx buffer");
-+		goto out;
-+	}
-+	ec_bhf_setup_rx_descs(priv);
-+
-+	dev_info(dev, "RX buffer allocated, address: %x\n",
-+		 (unsigned)priv->rx_buf.buf_phys);
-+
-+	err = ec_bhf_alloc_dma_mem(priv, &priv->tx_buf, priv->tx_dma_chan,
-+				   FIFO_SIZE * sizeof(struct tx_desc));
-+	if (err) {
-+		dev_err(dev, "Failed to allocate tx buffer");
-+		goto error_rx_free;
-+	}
-+	dev_info(dev, "TX buffer allocated, addres: %x\n",
-+		 (unsigned)priv->tx_buf.buf_phys);
-+
-+	iowrite8(0, priv->mii_io + MII_MAC_FILT_FLAG);
-+
-+	ec_bhf_setup_tx_descs(priv);
-+
-+	netif_start_queue(net_dev);
-+
-+	hrtimer_init(&priv->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-+	priv->hrtimer.function = ec_bhf_timer_fun;
-+	hrtimer_start(&priv->hrtimer, ktime_set(0, polling_frequency),
-+		      HRTIMER_MODE_REL);
-+
-+	dev_info(PRIV_TO_DEV(priv), "Device open\n");
-+
-+	ec_bhf_print_status(priv);
-+
-+	return 0;
-+
-+error_rx_free:
-+	dma_free_coherent(dev, priv->rx_buf.alloc_len, priv->rx_buf.alloc,
-+			  priv->rx_buf.alloc_len);
-+out:
-+	return err;
-+}
-+
-+static int ec_bhf_stop(struct net_device *net_dev)
-+{
-+	struct ec_bhf_priv *priv = netdev_priv(net_dev);
-+	struct device *dev = PRIV_TO_DEV(priv);
-+
-+	hrtimer_cancel(&priv->hrtimer);
-+
-+	ec_bhf_reset(priv);
-+
-+	netif_tx_disable(net_dev);
-+
-+	dma_free_coherent(dev, priv->tx_buf.alloc_len,
-+			  priv->tx_buf.alloc, priv->tx_buf.alloc_phys);
-+	dma_free_coherent(dev, priv->rx_buf.alloc_len,
-+			  priv->rx_buf.alloc, priv->rx_buf.alloc_phys);
-+
-+	return 0;
-+}
-+
-+static struct rtnl_link_stats64 *
-+ec_bhf_get_stats(struct net_device *net_dev,
-+		 struct rtnl_link_stats64 *stats)
-+{
-+	struct ec_bhf_priv *priv = netdev_priv(net_dev);
-+
-+	memset(stats, 0, sizeof(*stats));
-+
-+	stats->rx_errors = ioread8(priv->mac_io + MAC_RX_ERR_CNT) +
-+				ioread8(priv->mac_io + MAC_CRC_ERR_CNT) +
-+				ioread8(priv->mac_io + MAC_FRAME_ERR_CNT);
-+	stats->rx_packets = ioread32(priv->mac_io + MAC_RX_FRAME_CNT);
-+	stats->tx_packets = ioread32(priv->mac_io + MAC_TX_FRAME_CNT);
-+	stats->rx_dropped = ioread8(priv->mac_io + MAC_DROPPED_FRMS);
-+
-+	stats->tx_bytes = priv->stat_tx_bytes;
-+	stats->rx_bytes = priv->stat_rx_bytes;
-+
-+	return stats;
-+}
-+
-+static const struct net_device_ops ec_bhf_netdev_ops = {
-+	.ndo_start_xmit		= ec_bhf_start_xmit,
-+	.ndo_open		= ec_bhf_open,
-+	.ndo_stop		= ec_bhf_stop,
-+	.ndo_get_stats64	= ec_bhf_get_stats,
-+	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address	= eth_mac_addr
-+};
-+
-+static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
-+{
-+	struct net_device *net_dev;
-+	struct ec_bhf_priv *priv;
-+	void * __iomem dma_io;
-+	void * __iomem io;
-+	int err = 0;
-+
-+	err = pci_enable_device(dev);
-+	if (err)
-+		return err;
-+
-+	pci_set_master(dev);
-+
-+	err = pci_set_dma_mask(dev, DMA_BIT_MASK(32));
-+	if (err) {
-+		dev_err(&dev->dev,
-+			"Required dma mask not supported, failed to initialize device\n");
-+		err = -EIO;
-+		goto err_disable_dev;
-+	}
-+
-+	err = pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(32));
-+	if (err) {
-+		dev_err(&dev->dev,
-+			"Required dma mask not supported, failed to initialize device\n");
-+		goto err_disable_dev;
-+	}
-+
-+	err = pci_request_regions(dev, "ec_bhf");
-+	if (err) {
-+		dev_err(&dev->dev, "Failed to request pci memory regions\n");
-+		goto err_disable_dev;
-+	}
-+
-+	io = pci_iomap(dev, 0, 0);
-+	if (!io) {
-+		dev_err(&dev->dev, "Failed to map pci card memory bar 0");
-+		err = -EIO;
-+		goto err_release_regions;
-+	}
-+
-+	dma_io = pci_iomap(dev, 2, 0);
-+	if (!dma_io) {
-+		dev_err(&dev->dev, "Failed to map pci card memory bar 2");
-+		err = -EIO;
-+		goto err_unmap;
-+	}
-+
-+	net_dev = alloc_etherdev(sizeof(struct ec_bhf_priv));
-+	if (net_dev == 0) {
-+		err = -ENOMEM;
-+		goto err_unmap_dma_io;
-+	}
-+
-+	pci_set_drvdata(dev, net_dev);
-+	SET_NETDEV_DEV(net_dev, &dev->dev);
-+
-+	net_dev->features = 0;
-+	net_dev->flags |= IFF_NOARP;
-+
-+	net_dev->netdev_ops = &ec_bhf_netdev_ops;
-+
-+	priv = netdev_priv(net_dev);
-+	priv->net_dev = net_dev;
-+	priv->io = io;
-+	priv->dma_io = dma_io;
-+	priv->dev = dev;
-+
-+	err = ec_bhf_setup_offsets(priv);
-+	if (err < 0)
-+		goto err_free_net_dev;
-+
-+	memcpy_fromio(net_dev->dev_addr, priv->mii_io + MII_MAC_ADDR, 6);
-+
-+	dev_info(&dev->dev, "CX5020 Ethercat master address: %pM\n",
-+		 net_dev->dev_addr);
-+
-+	err = register_netdev(net_dev);
-+	if (err < 0)
-+		goto err_free_net_dev;
-+
-+	return 0;
-+
-+err_free_net_dev:
-+	free_netdev(net_dev);
-+err_unmap_dma_io:
-+	pci_iounmap(dev, dma_io);
-+err_unmap:
-+	pci_iounmap(dev, io);
-+err_release_regions:
-+	pci_release_regions(dev);
-+err_disable_dev:
-+	pci_clear_master(dev);
-+	pci_disable_device(dev);
-+
-+	return err;
-+}
-+
-+static void ec_bhf_remove(struct pci_dev *dev)
-+{
-+	struct net_device *net_dev = pci_get_drvdata(dev);
-+	struct ec_bhf_priv *priv = netdev_priv(net_dev);
-+
-+	unregister_netdev(net_dev);
-+	free_netdev(net_dev);
-+
-+	pci_iounmap(dev, priv->dma_io);
-+	pci_iounmap(dev, priv->io);
-+	pci_release_regions(dev);
-+	pci_clear_master(dev);
-+	pci_disable_device(dev);
-+}
-+
-+static struct pci_driver pci_driver = {
-+	.name		= "ec_bhf",
-+	.id_table	= ids,
-+	.probe		= ec_bhf_probe,
-+	.remove		= ec_bhf_remove,
-+};
-+
-+static int __init ec_bhf_init(void)
-+{
-+	return pci_register_driver(&pci_driver);
-+}
-+
-+static void __exit ec_bhf_exit(void)
-+{
-+	pci_unregister_driver(&pci_driver);
-+}
-+
-+module_init(ec_bhf_init);
-+module_exit(ec_bhf_exit);
-+
-+module_param(polling_frequency, long, S_IRUGO);
-+MODULE_PARM_DESC(polling_frequency, "Polling timer frequency in ns");
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Dariusz Marcinkiewicz <reksio@newterm.pl>");
+ #endif
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 00a7f76..c1f9899 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -5,11 +5,9 @@ config IP_MULTICAST
+ 	bool "IP: multicasting"
+ 	help
+ 	  This is code for addressing several networked computers at once,
+-	  enlarging your kernel by about 2 KB. You need multicasting if you
+-	  intend to participate in the MBONE, a high bandwidth network on top
+-	  of the Internet which carries audio and video broadcasts. More
+-	  information about the MBONE is on the WWW at
+-	  <http://www.savetz.com/mbone/>. For most people, it's safe to say N.
++	  enlarging your kernel by about 20 KB. This is needed for many
++	  modern networking services on the local network, so you should
++	  probably say Y.
+ 
+ config IP_ADVANCED_ROUTER
+ 	bool "IP: advanced router"
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 784a782..eb129a4 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -9,7 +9,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+ 	     tcp_minisocks.o tcp_cong.o tcp_fastopen.o \
+ 	     datagram.o raw.o udp.o udplite.o \
+-	     arp.o icmp.o devinet.o af_inet.o igmp.o \
++	     arp.o icmp.o devinet.o af_inet.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o \
+ 	     inet_fragment.o ip_tunnel_core.o gre_offload.o
+ 
+@@ -37,6 +37,7 @@ obj-$(CONFIG_INET_TUNNEL) += tunnel4.o
+ obj-$(CONFIG_INET_XFRM_MODE_TRANSPORT) += xfrm4_mode_transport.o
+ obj-$(CONFIG_INET_XFRM_MODE_TUNNEL) += xfrm4_mode_tunnel.o
+ obj-$(CONFIG_IP_PNP) += ipconfig.o
++obj-$(CONFIG_IP_MULTICAST) += igmp.o
+ obj-$(CONFIG_NETFILTER)	+= netfilter.o netfilter/
+ obj-$(CONFIG_INET_DIAG) += inet_diag.o 
+ obj-$(CONFIG_INET_TCP_DIAG) += tcp_diag.o
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bdbf68b..c19266d 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1402,6 +1402,7 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 		/* Send gratuitous ARP to notify of link change */
+ 		inetdev_send_gratuitous_arp(dev, in_dev);
+ 		break;
++#ifdef CONFIG_IP_MULTICAST
+ 	case NETDEV_DOWN:
+ 		ip_mc_down(in_dev);
+ 		break;
+@@ -1411,6 +1412,7 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
+ 	case NETDEV_POST_TYPE_CHANGE:
+ 		ip_mc_remap(in_dev);
+ 		break;
++#endif
+ 	case NETDEV_CHANGEMTU:
+ 		if (inetdev_valid_mtu(dev->mtu))
+ 			break;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 64741b9..ed5c7bd 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -652,6 +652,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ 		if (!val)
+ 			skb_queue_purge(&sk->sk_error_queue);
+ 		break;
++#ifdef CONFIG_IP_MULTICAST
+ 	case IP_MULTICAST_TTL:
+ 		if (sk->sk_type == SOCK_STREAM)
+ 			goto e_inval;
+@@ -1010,6 +1011,7 @@ mc_msf_out:
+ 			goto e_inval;
+ 		inet->mc_all = val;
+ 		break;
++#endif
+ 	case IP_ROUTER_ALERT:
+ 		err = ip_ra_control(sk, val ? 1 : 0, NULL);
+ 		break;
+@@ -1248,6 +1250,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_RECVERR:
+ 		val = inet->recverr;
+ 		break;
++#ifdef CONFIG_IP_MULTICAST
+ 	case IP_MULTICAST_TTL:
+ 		val = inet->mc_ttl;
+ 		break;
+@@ -1310,6 +1313,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_MULTICAST_ALL:
+ 		val = inet->mc_all;
+ 		break;
++#endif
+ 	case IP_PKTOPTIONS:
+ 	{
+ 		struct msghdr msg;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 2110d2e..fe5823a 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -443,6 +443,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_do_large_bitmap,
+ 	},
++#ifdef CONFIG_IP_MULTICAST
+ 	{
+ 		.procname	= "igmp_max_memberships",
+ 		.data		= &sysctl_igmp_max_memberships,
+@@ -457,6 +458,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++#endif
+ 	{
+ 		.procname	= "inet_peer_threshold",
+ 		.data		= &inet_peer_threshold,
 -- 
-1.7.10.4
+1.9.0
