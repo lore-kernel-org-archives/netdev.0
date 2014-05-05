@@ -1,32 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] ipv4: remove inet_addr_hash_lock in devinet.c
-Date: Mon, 05 May 2014 16:35:24 -0400 (EDT)
-Message-ID: <20140505.163524.1995679741348650063.davem@davemloft.net>
-References: <1399315610-28771-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v6 1/2] net: ipv6: Unduplicate UDP, raw, and L2TP
+ sendmsg
+Date: Mon, 05 May 2014 13:41:46 -0400 (EDT)
+Message-ID: <20140505.134146.403956141125731315.davem@davemloft.net>
+References: <1399057868-3488-1-git-send-email-lorenzo@google.com>
+	<1399057868-3488-2-git-send-email-lorenzo@google.com>
+	<1399288557.26081.113742277.45B622D0@webmail.messagingengine.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: lorenzo@google.com, netdev@vger.kernel.org,
+	yoshifuji@linux-ipv6.org, david.laight@aculab.com,
+	eric.dumazet@gmail.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33480 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59774 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755726AbaEEUf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 16:35:26 -0400
-In-Reply-To: <1399315610-28771-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1750871AbaEERls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 13:41:48 -0400
+In-Reply-To: <1399288557.26081.113742277.45B622D0@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon,  5 May 2014 11:46:50 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 05 May 2014 04:15:57 -0700
 
-> All the callers hold RTNL lock, so there is no need to use inet_addr_hash_lock
-> to protect the hash list.
+> Hi!
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> On Fri, May 2, 2014, at 12:11, Lorenzo Colitti wrote:
+>> +
+>> +struct ip6_output_opts {
+>> +       int hlimit: 9;
+>> +       int tclass: 9;
+>> +       int dontfrag: 2;
+>> +       unsigned connected: 1;
+>> +       struct ipv6_txoptions *opt;
+>> +};
+> 
+> I don't think the bitfields are useful, they can cause more RMW cycles
+> and at least on 64-bit systems the structure does not shrink in size if
+> you instead just use s16 and bool types because of the padding needed
+> for the pointer. On 32-bit it does save 4 bytes on the stack, but I
+> don't think it is worth it.
+> 
+> If you put the pointer above the other members, newly added fields at
+> the bottom can eat into padding space instead of leaving padding holes
+> in it.
 
-If you are going to do this, please add ASSERT_RTNL() to these two locations
-at the same time.
+Furthermore, some architectures are just going to pass this in via two
+registers anyways, so it doesn't save argument count in practice.
 
-Thank you.
+I apologize, but I still don't like these changes :-/
