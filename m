@@ -1,167 +1,259 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Mon, 5 May 2014 16:18:05 -0700
-Message-ID: <CAK6E8=cQ37-O=z6oxwhNZ+rog2VrLZQvjKW4sq+E97Yz-VNorQ@mail.gmail.com>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org> <1399328773-6531-9-git-send-email-andi@firstfloor.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	tom.zanussi@linux.intel.com, Andi Kleen <ak@linux.intel.com>
-To: Andi Kleen <andi@firstfloor.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 07/24] net, diet: Make ping sockets optional
+Date: Mon,  5 May 2014 15:25:56 -0700
+Message-ID: <1399328773-6531-8-git-send-email-andi@firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:39585 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756962AbaEEXSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 19:18:45 -0400
-Received: by mail-ie0-f173.google.com with SMTP id rp18so8950352iec.18
-        for <netdev@vger.kernel.org>; Mon, 05 May 2014 16:18:45 -0700 (PDT)
-In-Reply-To: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+Received: from mga03.intel.com ([143.182.124.21]:48062 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756899AbaEEW23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 18:28:29 -0400
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 5, 2014 at 3:25 PM, Andi Kleen <andi@firstfloor.org> wrote:
-> From: Andi Kleen <ak@linux.intel.com>
->
-> This is all the code that saves connection information
-> between different sockets. Not really essential for
-> small systems.
->
-> Saves about 5.5k text
->
->    text    data     bss     dec     hex filename
->  492952   19571   13480  526003   806b3 net/built-in.o-with-metrics
->  487675   19275   13480  520430   7f0ee net/built-in.o-without-metrics
->
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> ---
->  include/net/tcp.h          | 25 +++++++++++++++++++++++++
->  net/ipv4/Kconfig           |  6 ++++++
->  net/ipv4/Makefile          |  3 ++-
->  net/ipv4/sysctl_net_ipv4.c |  2 ++
->  4 files changed, 35 insertions(+), 1 deletion(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 87d8774..d741d2f 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -419,14 +419,29 @@ int tcp_child_process(struct sock *parent, struct sock *child,
->                       struct sk_buff *skb);
->  void tcp_enter_loss(struct sock *sk, int how);
->  void tcp_clear_retrans(struct tcp_sock *tp);
-> +#ifdef CONFIG_TCP_METRICS
->  void tcp_update_metrics(struct sock *sk);
->  void tcp_init_metrics(struct sock *sk);
->  void tcp_metrics_init(void);
-> +
->  bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
->                         bool paws_check);
->  bool tcp_remember_stamp(struct sock *sk);
->  bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
->  void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
-> +#else
-> +static inline void tcp_update_metrics(struct sock *sk) {}
-> +static inline void tcp_init_metrics(struct sock *sk) {}
-> +static inline void tcp_metrics_init(void) {}
-> +static inline bool tcp_peer_is_proven(struct request_sock *req,
-> +                                     struct dst_entry *dst,
-> +                                     bool paws_check) { return false; }
-> +static inline bool tcp_remember_stamp(struct sock *sk) { return false; }
-> +static inline bool
-> +tcp_tw_remember_stamp(struct inet_timewait_sock *tw) { return false; }
-> +static inline void
-> +tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst) {}
-> +#endif
->  void tcp_disable_fack(struct tcp_sock *tp);
->  void tcp_close(struct sock *sk, long timeout);
->  void tcp_init_sock(struct sock *sk);
-> @@ -1296,11 +1311,21 @@ int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
->                      const struct tcp_md5sig_key *key);
->
->  /* From tcp_fastopen.c */
-> +#ifdef CONFIG_TCP_METRICS
->  void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
->                             struct tcp_fastopen_cookie *cookie, int *syn_loss,
->                             unsigned long *last_syn_loss);
->  void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
->                             struct tcp_fastopen_cookie *cookie, bool syn_lost);
-> +#else
-> +static inline void
-> +tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-> +                      struct tcp_fastopen_cookie *cookie, int *syn_loss,
-> +                      unsigned long *last_syn_loss) {}
-> +static inline void
-> +tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-> +                      struct tcp_fastopen_cookie *cookie, bool syn_lost) {}
-> +#endif
->  struct tcp_fastopen_request {
->         /* Fast Open cookie. Size 0 means a cookie request */
->         struct tcp_fastopen_cookie      cookie;
-> diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-> index 6146b1b..db2dada 100644
-> --- a/net/ipv4/Kconfig
-> +++ b/net/ipv4/Kconfig
-> @@ -264,6 +264,12 @@ config IP_PIMSM_V2
->           gated-5). This routing protocol is not used widely, so say N unless
->           you want to play with it.
->
-> +config TCP_METRICS
-> +       bool "Report TCP metrics over netlink"
-> +       ---help---
-> +           Enable support in TCP to save host information between different
-> +          connections.
-Please add that "Certain TCP features such as active TCP Fast Open
-depends on this."
+From: Andi Kleen <ak@linux.intel.com>
 
-> +
->  config SYN_COOKIES
->         bool "IP: TCP syncookie support"
->         ---help---
-> diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-> index 756855c..8b17b83 100644
-> --- a/net/ipv4/Makefile
-> +++ b/net/ipv4/Makefile
-> @@ -7,7 +7,7 @@ obj-y     := route.o inetpeer.o protocol.o \
->              ip_output.o ip_sockglue.o inet_hashtables.o \
->              inet_timewait_sock.o inet_connection_sock.o \
->              tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
-> -            tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
-> +            tcp_minisocks.o tcp_cong.o tcp_fastopen.o \
->              tcp_offload.o datagram.o raw.o udp.o udplite.o \
->              udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
->              fib_frontend.o fib_semantics.o fib_trie.o \
-> @@ -17,6 +17,7 @@ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
->  obj-$(CONFIG_IP_PING) += ping.o
->  obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
->  obj-$(CONFIG_PROC_FS) += proc.o
-> +obj-$(CONFIG_TCP_METRICS) += tcp_metrics.o
->  obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
->  obj-$(CONFIG_IP_MROUTE) += ipmr.o
->  obj-$(CONFIG_NET_IPIP) += ipip.o
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index 44eba05..2110d2e 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -573,6 +573,7 @@ static struct ctl_table ipv4_table[] = {
->                 .mode           = 0644,
->                 .proc_handler   = proc_dointvec
->         },
-> +#ifdef CONFIG_TCP_METRICS
->         {
->                 .procname       = "tcp_no_metrics_save",
->                 .data           = &sysctl_tcp_nometrics_save,
-> @@ -580,6 +581,7 @@ static struct ctl_table ipv4_table[] = {
->                 .mode           = 0644,
->                 .proc_handler   = proc_dointvec,
->         },
-> +#endif
->         {
->                 .procname       = "tcp_moderate_rcvbuf",
->                 .data           = &sysctl_tcp_moderate_rcvbuf,
-> --
-> 1.9.0
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This saves about 6k text/data. ping still works fine using raw
+sockets like it always did.
+
+   text	   data	    bss	    dec	    hex	filename
+ 268128	  11555	   7872	 287555	  46343	net/ipv4/built-in.o-noping
+ 273610	  11843	   8176	 293629	  47afd	net/ipv4/built-in.o-ping
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+---
+ include/net/ping.h      | 15 +++++++++++----
+ include/net/transp_v6.h |  2 --
+ net/ipv4/Kconfig        |  5 +++++
+ net/ipv4/Makefile       |  3 ++-
+ net/ipv4/af_inet.c      |  9 ++++-----
+ net/ipv4/icmp.c         |  1 +
+ net/ipv4/ping.c         |  3 +++
+ net/ipv6/Makefile       |  3 ++-
+ net/ipv6/af_inet6.c     |  8 ++++++--
+ 9 files changed, 34 insertions(+), 15 deletions(-)
+
+diff --git a/include/net/ping.h b/include/net/ping.h
+index 026479b..ca6b89d 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -71,7 +71,6 @@ void ping_unhash(struct sock *sk);
+ int  ping_init_sock(struct sock *sk);
+ void ping_close(struct sock *sk, long timeout);
+ int  ping_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len);
+-void ping_err(struct sk_buff *skb, int offset, u32 info);
+ int  ping_getfrag(void *from, char *to, int offset, int fraglen, int odd,
+ 		  struct sk_buff *);
+ 
+@@ -82,7 +81,6 @@ int  ping_common_sendmsg(int family, struct msghdr *msg, size_t len,
+ int  ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		     size_t len);
+ int  ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb);
+-void ping_rcv(struct sk_buff *skb);
+ 
+ #ifdef CONFIG_PROC_FS
+ struct ping_seq_afinfo {
+@@ -100,12 +98,21 @@ void ping_seq_stop(struct seq_file *seq, void *v);
+ int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo);
+ void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo);
+ 
+-int __init ping_proc_init(void);
+-void ping_proc_exit(void);
+ #endif
+ 
++#ifdef CONFIG_IP_PING
++void ping_rcv(struct sk_buff *skb);
++void ping_err(struct sk_buff *skb, int offset, u32 info);
+ void __init ping_init(void);
+ int  __init pingv6_init(void);
+ void pingv6_exit(void);
++#else
++static inline void ping_init(void) {}
++static inline int pingv6_init(void) { return 0; }
++static inline void pingv6_exit(void) { }
++static inline void ping_err(struct sk_buff *skb, int offset, u32 info) {}
++static inline void ping_rcv(struct sk_buff *skb) {}
++#endif
++
+ 
+ #endif /* _PING_H */
+diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
+index b927413..7a0e229 100644
+--- a/include/net/transp_v6.h
++++ b/include/net/transp_v6.h
+@@ -19,8 +19,6 @@ int ipv6_frag_init(void);
+ void ipv6_frag_exit(void);
+ 
+ /* transport protocols */
+-int pingv6_init(void);
+-void pingv6_exit(void);
+ int rawv6_init(void);
+ void rawv6_exit(void);
+ int udpv6_init(void);
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 05c57f0..6146b1b 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -52,6 +52,11 @@ config IP_ADVANCED_ROUTER
+ 
+ 	  If unsure, say N here.
+ 
++config IP_PING
++	bool "IP: ping sockets"
++	---help---
++	  Enable ping sockets to enable suid-less ping.
++
+ config IP_FIB_TRIE_STATS
+ 	bool "FIB TRIE statistics"
+ 	depends on IP_ADVANCED_ROUTER
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f032688..756855c 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -11,9 +11,10 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+ 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o \
+-	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
++	     inet_fragment.o ip_tunnel_core.o gre_offload.o
+ 
+ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
++obj-$(CONFIG_IP_PING) += ping.o
+ obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
+ obj-$(CONFIG_PROC_FS) += proc.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 8c54870..c275ce5 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1015,7 +1015,7 @@ static struct inet_protosw inetsw_array[] =
+ 		.no_check =   UDP_CSUM_DEFAULT,
+ 		.flags =      INET_PROTOSW_PERMANENT,
+        },
+-
++#ifdef CONFIG_IP_PING
+        {
+ 		.type =       SOCK_DGRAM,
+ 		.protocol =   IPPROTO_ICMP,
+@@ -1024,6 +1024,7 @@ static struct inet_protosw inetsw_array[] =
+ 		.no_check =   UDP_CSUM_DEFAULT,
+ 		.flags =      INET_PROTOSW_REUSE,
+        },
++#endif
+ 
+        {
+ 	       .type =       SOCK_RAW,
+@@ -1719,7 +1720,9 @@ static int __init inet_init(void)
+ 	if (rc)
+ 		goto out_unregister_udp_proto;
+ 
++#ifdef CONFIG_IP_PING
+ 	rc = proto_register(&ping_prot, 1);
++#endif
+ 	if (rc)
+ 		goto out_unregister_raw_proto;
+ 
+@@ -1836,15 +1839,11 @@ static int __init ipv4_proc_init(void)
+ 		goto out_tcp;
+ 	if (udp4_proc_init())
+ 		goto out_udp;
+-	if (ping_proc_init())
+-		goto out_ping;
+ 	if (ip_misc_proc_init())
+ 		goto out_misc;
+ out:
+ 	return rc;
+ out_misc:
+-	ping_proc_exit();
+-out_ping:
+ 	udp4_proc_exit();
+ out_udp:
+ 	tcp4_proc_exit();
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 0134663..df3872b 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -989,6 +989,7 @@ void icmp_err(struct sk_buff *skb, u32 info)
+ 		return;
+ 	}
+ 
++	/* RED-PEN dead code? the if above will eat all. */
+ 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED)
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_ICMP, 0);
+ 	else if (type == ICMP_REDIRECT)
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 8210964..3f79243 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -1206,6 +1206,9 @@ void ping_proc_exit(void)
+ 	unregister_pernet_subsys(&ping_v4_net_ops);
+ }
+ 
++module_init(ping_proc_init);
++module_exit(ping_proc_init);
++
+ #endif
+ 
+ void __init ping_init(void)
+diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
+index 2fe6836..6ff7cfd 100644
+--- a/net/ipv6/Makefile
++++ b/net/ipv6/Makefile
+@@ -7,13 +7,14 @@ obj-$(CONFIG_IPV6) += ipv6.o
+ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
+ 		addrlabel.o \
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o udplite.o \
+-		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o ping.o \
++		raw.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+ 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
+ 
+ ipv6-offload :=	ip6_offload.o tcpv6_offload.o udp_offload.o exthdrs_offload.o
+ 
+ ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
+ ipv6-$(CONFIG_IPV6_MROUTE) += ip6mr.o
++ipv6-$(CONFIG_IP_PING) += ping.o
+ 
+ ipv6-$(CONFIG_XFRM) += xfrm6_policy.o xfrm6_state.o xfrm6_input.o \
+ 	xfrm6_output.o xfrm6_protocol.o
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index d935889..68ac214 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -861,16 +861,18 @@ static int __init inet6_init(void)
+ 	if (err)
+ 		goto out_unregister_udplite_proto;
+ 
++#ifdef CONFIG_IP_PING
+ 	err = proto_register(&pingv6_prot, 1);
+ 	if (err)
+-		goto out_unregister_ping_proto;
++		goto out_unregister_raw_proto;
++#endif
+ 
+ 	/* We MUST register RAW sockets before we create the ICMP6,
+ 	 * IGMP6, or NDISC control sockets.
+ 	 */
+ 	err = rawv6_init();
+ 	if (err)
+-		goto out_unregister_raw_proto;
++		goto out_unregister_ping_proto;
+ 
+ 	/* Register the family here so that the init calls below will
+ 	 * be able to create sockets. (?? is this dangerous ??)
+@@ -1022,8 +1024,10 @@ register_pernet_fail:
+ out_sock_register_fail:
+ 	rawv6_exit();
+ out_unregister_ping_proto:
++#ifdef CONFIG_IP_PING
+ 	proto_unregister(&pingv6_prot);
+ out_unregister_raw_proto:
++#endif
+ 	proto_unregister(&rawv6_prot);
+ out_unregister_udplite_proto:
+ 	proto_unregister(&udplitev6_prot);
+-- 
+1.9.0
