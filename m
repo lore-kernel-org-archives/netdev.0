@@ -1,116 +1,89 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 2/2] Revert "net: core: introduce netif_skb_dev_features"
-Date: Mon,  5 May 2014 15:00:44 +0200
-Message-ID: <1399294844-7231-3-git-send-email-fw@strlen.de>
-References: <1399294844-7231-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/4] e1000e: Expand workaround for 10Mb HD throughput bug
+Date: Mon,  5 May 2014 13:07:38 -0700
+Message-ID: <1399320460-21774-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36400 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932187AbaEENGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 09:06:18 -0400
-In-Reply-To: <1399294844-7231-1-git-send-email-fw@strlen.de>
+Received: from mga02.intel.com ([134.134.136.20]:21818 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752588AbaEEUHu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 16:07:50 -0400
+In-Reply-To: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit d206940319c41df4299db75ed56142177bb2e5f6,
-there are no more callers.
+From: David Ertman <davidx.m.ertman@intel.com>
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+In commit 772d05c51c4f4896c120ad418b1e91144a2ac813 "e1000e: slow performance
+between two 82579 connected via 10Mbit hub", a workaround was put into place
+to address the overaggressive transmit behavior of 82579 parts when connecting
+at 10Mbs half-duplex.
+
+This same behavior is seen on i217 and i218 parts as well.  This patch expands
+the original workaround to encompass these parts.
+
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- include/linux/netdevice.h |  7 +------
- net/core/dev.c            | 22 ++++++++++------------
- 2 files changed, 11 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 15 +++++++++++----
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |  1 +
+ 2 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7ed3a3a..20e99ef 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3180,12 +3180,7 @@ void netdev_change_features(struct net_device *dev);
- void netif_stacked_transfer_operstate(const struct net_device *rootdev,
- 					struct net_device *dev);
- 
--netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
--					 const struct net_device *dev);
--static inline netdev_features_t netif_skb_features(struct sk_buff *skb)
--{
--	return netif_skb_dev_features(skb, skb->dev);
--}
-+netdev_features_t netif_skb_features(struct sk_buff *skb);
- 
- static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d2c8a06..c619b86 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2418,7 +2418,7 @@ EXPORT_SYMBOL(netdev_rx_csum_fault);
-  * 2. No high memory really exists on this machine.
-  */
- 
--static int illegal_highdma(const struct net_device *dev, struct sk_buff *skb)
-+static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
- {
- #ifdef CONFIG_HIGHMEM
- 	int i;
-@@ -2493,38 +2493,36 @@ static int dev_gso_segment(struct sk_buff *skb, netdev_features_t features)
- }
- 
- static netdev_features_t harmonize_features(struct sk_buff *skb,
--					    const struct net_device *dev,
--					    netdev_features_t features)
-+	netdev_features_t features)
- {
- 	int tmp;
- 
- 	if (skb->ip_summed != CHECKSUM_NONE &&
- 	    !can_checksum_protocol(features, skb_network_protocol(skb, &tmp))) {
- 		features &= ~NETIF_F_ALL_CSUM;
--	} else if (illegal_highdma(dev, skb)) {
-+	} else if (illegal_highdma(skb->dev, skb)) {
- 		features &= ~NETIF_F_SG;
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 9b736b8..059f1b0 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -1314,14 +1314,17 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+ 			return ret_val;
  	}
  
- 	return features;
- }
+-	/* When connected at 10Mbps half-duplex, 82579 parts are excessively
++	/* When connected at 10Mbps half-duplex, some parts are excessively
+ 	 * aggressive resulting in many collisions. To avoid this, increase
+ 	 * the IPG and reduce Rx latency in the PHY.
+ 	 */
+-	if ((hw->mac.type == e1000_pch2lan) && link) {
++	if (((hw->mac.type == e1000_pch2lan) ||
++	     (hw->mac.type == e1000_pch_lpt)) && link) {
+ 		u32 reg;
+ 		reg = er32(STATUS);
+ 		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
++			u16 emi_addr;
++
+ 			reg = er32(TIPG);
+ 			reg &= ~E1000_TIPG_IPGT_MASK;
+ 			reg |= 0xFF;
+@@ -1332,8 +1335,12 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
+ 			if (ret_val)
+ 				return ret_val;
  
--netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
--					 const struct net_device *dev)
-+netdev_features_t netif_skb_features(struct sk_buff *skb)
- {
- 	__be16 protocol = skb->protocol;
--	netdev_features_t features = dev->features;
-+	netdev_features_t features = skb->dev->features;
+-			ret_val =
+-			    e1000_write_emi_reg_locked(hw, I82579_RX_CONFIG, 0);
++			if (hw->mac.type == e1000_pch2lan)
++				emi_addr = I82579_RX_CONFIG;
++			else
++				emi_addr = I217_RX_CONFIG;
++
++			ret_val = e1000_write_emi_reg_locked(hw, emi_addr, 0);
  
--	if (skb_shinfo(skb)->gso_segs > dev->gso_max_segs)
-+	if (skb_shinfo(skb)->gso_segs > skb->dev->gso_max_segs)
- 		features &= ~NETIF_F_GSO_MASK;
+ 			hw->phy.ops.release(hw);
  
- 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
- 		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
- 		protocol = veh->h_vlan_encapsulated_proto;
- 	} else if (!vlan_tx_tag_present(skb)) {
--		return harmonize_features(skb, dev, features);
-+		return harmonize_features(skb, features);
- 	}
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index bead50f..8fc6c15 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -242,6 +242,7 @@
+ #define I217_EEE_CAPABILITY	0x8000	/* IEEE MMD Register 3.20 */
+ #define I217_EEE_ADVERTISEMENT	0x8001	/* IEEE MMD Register 7.60 */
+ #define I217_EEE_LP_ABILITY	0x8002	/* IEEE MMD Register 7.61 */
++#define I217_RX_CONFIG		0xB20C	/* Receive configuration */
  
--	features &= (dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
-+	features &= (skb->dev->vlan_features | NETIF_F_HW_VLAN_CTAG_TX |
- 					       NETIF_F_HW_VLAN_STAG_TX);
- 
- 	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD))
-@@ -2532,9 +2530,9 @@ netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
- 				NETIF_F_GEN_CSUM | NETIF_F_HW_VLAN_CTAG_TX |
- 				NETIF_F_HW_VLAN_STAG_TX;
- 
--	return harmonize_features(skb, dev, features);
-+	return harmonize_features(skb, features);
- }
--EXPORT_SYMBOL(netif_skb_dev_features);
-+EXPORT_SYMBOL(netif_skb_features);
- 
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			struct netdev_queue *txq)
+ #define E1000_EEE_RX_LPI_RCVD	0x0400	/* Tx LP idle received */
+ #define E1000_EEE_TX_LPI_RCVD	0x0800	/* Rx LP idle received */
 -- 
-1.8.1.5
+1.9.0
