@@ -1,83 +1,61 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 3/4] e1000e: Fix issue with link flap on 82579
-Date: Mon,  5 May 2014 13:07:39 -0700
-Message-ID: <1399320460-21774-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Lukasz Adamczuk <lukasz.adamczuk@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/2] net: systemport: only update UMAC_CMD if something changed
+Date: Mon,  5 May 2014 12:20:51 -0700
+Message-ID: <1399317652-20078-2-git-send-email-f.fainelli@gmail.com>
+References: <1399317652-20078-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21818 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752847AbaEEUHv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 16:07:51 -0400
-In-Reply-To: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:40129 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752140AbaEETVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:21:14 -0400
+Received: by mail-ig0-f181.google.com with SMTP id h3so1921417igd.14
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 12:21:14 -0700 (PDT)
+In-Reply-To: <1399317652-20078-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ertman <davidx.m.ertman@intel.com>
+The link adjustment callback can be called as frequently as desired by
+the PHY library, as such, let's avoid doing a Read/Modify/Write sequence
+if nothing changed, which is more than likely since we are interfaced
+with a switch device.
 
-Several customers have reported a link flap issue on 82579. The symptoms
-are random and intermittent link losses when 82579 is connected to specific
-link partners. Issue has been root caused as interoperability problem
-between 82579 and at least some Broadcom PHYs in the Energy Efficient
-Ethernet wake mechanism.
-
-To fix the issue, we are disabling the Phase Locked Loop shutdown in 100M
-Low Power Idle.  This solution will cause an increase of power in 100M EEE
-link. It will cost additional 28mW in this specific mode.
-
-Cc: Lukasz Adamczuk <lukasz.adamczuk@intel.com>
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 11 +++++++++++
- drivers/net/ethernet/intel/e1000e/ich8lan.h |  2 ++
- 2 files changed, 13 insertions(+)
+Changes in v2:
+- rebased against latest net-next/master
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 059f1b0..e8587b9 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -842,6 +842,17 @@ s32 e1000_set_eee_pchlan(struct e1000_hw *hw)
- 		}
- 	}
+ drivers/net/ethernet/broadcom/bcmsysport.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 4dc8d1e9829b..e118e7411ca4 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -959,15 +959,16 @@ static void bcm_sysport_adj_link(struct net_device *dev)
+ 	if (!phydev->pause)
+ 		cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
  
-+	if (hw->phy.type == e1000_phy_82579) {
-+		ret_val = e1000_read_emi_reg_locked(hw, I82579_LPI_PLL_SHUT,
-+						    &data);
-+		if (ret_val)
-+			goto release;
-+
-+		data &= ~I82579_LPI_100_PLL_SHUT;
-+		ret_val = e1000_write_emi_reg_locked(hw, I82579_LPI_PLL_SHUT,
-+						     data);
+-	reg = umac_readl(priv, UMAC_CMD);
+-	reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
+-			CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
+-			CMD_TX_PAUSE_IGNORE);
+-	reg |= cmd_bits;
+-	umac_writel(priv, reg, UMAC_CMD);
++	if (changed) {
++		reg = umac_readl(priv, UMAC_CMD);
++		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
++				CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
++				CMD_TX_PAUSE_IGNORE);
++		reg |= cmd_bits;
++		umac_writel(priv, reg, UMAC_CMD);
+ 
+-	if (changed)
+ 		phy_print_status(priv->phydev);
 +	}
-+
- 	/* R/Clr IEEE MMD 3.1 bits 11:10 - Tx/Rx LPI Received */
- 	ret_val = e1000_read_emi_reg_locked(hw, pcs_status, &data);
- 	if (ret_val)
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index 8fc6c15..5515126 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -232,12 +232,14 @@
- #define I82577_MSE_THRESHOLD	0x0887	/* 82577 Mean Square Error Threshold */
- #define I82579_MSE_LINK_DOWN	0x2411	/* MSE count before dropping link */
- #define I82579_RX_CONFIG		0x3412	/* Receive configuration */
-+#define I82579_LPI_PLL_SHUT		0x4412	/* LPI PLL Shut Enable */
- #define I82579_EEE_PCS_STATUS		0x182E	/* IEEE MMD Register 3.1 >> 8 */
- #define I82579_EEE_CAPABILITY		0x0410	/* IEEE MMD Register 3.20 */
- #define I82579_EEE_ADVERTISEMENT	0x040E	/* IEEE MMD Register 7.60 */
- #define I82579_EEE_LP_ABILITY		0x040F	/* IEEE MMD Register 7.61 */
- #define I82579_EEE_100_SUPPORTED	(1 << 1)	/* 100BaseTx EEE */
- #define I82579_EEE_1000_SUPPORTED	(1 << 2)	/* 1000BaseTx EEE */
-+#define I82579_LPI_100_PLL_SHUT	(1 << 2)	/* 100M LPI PLL Shut Enabled */
- #define I217_EEE_PCS_STATUS	0x9401	/* IEEE MMD Register 3.1 */
- #define I217_EEE_CAPABILITY	0x8000	/* IEEE MMD Register 3.20 */
- #define I217_EEE_ADVERTISEMENT	0x8001	/* IEEE MMD Register 7.60 */
+ }
+ 
+ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
 -- 
-1.9.0
+1.9.1
