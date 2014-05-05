@@ -1,50 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: via-rhine: Convert #ifdef USE_MMIO to a runtime
- flag
-Date: Mon, 05 May 2014 15:37:31 -0400 (EDT)
-Message-ID: <20140505.153731.953697715071354770.davem@davemloft.net>
-References: <20140502.155635.1691085402453175737.davem@davemloft.net>
-	<1399120853-26967-1-git-send-email-alchark@gmail.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 3/3] net: mvneta: Introduce a software TSO implementation
+Date: Mon, 5 May 2014 11:47:02 -0300
+Message-ID: <20140505144702.GB12693@arch.cereza>
+References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, fengguang.wu@intel.com
-To: alchark@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, cmetcalf@tilera.com,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Willy Tarreau <w@1wt.eu>, Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Simon Guinot <sguinot@lacie.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32775 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751AbaEEThd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:37:33 -0400
-In-Reply-To: <1399120853-26967-1-git-send-email-alchark@gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:38439 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932448AbaEEOre (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 10:47:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Charkov <alchark@gmail.com>
-Date: Sat,  3 May 2014 16:40:53 +0400
+Hi all,
 
-> This introduces another flag in 'quirks' to replace the preprocessor
-> define (USE_MMIO) used to indicate whether the device needs a
-> separate enable routine to operate in MMIO mode.
-> 
-> All of the currently known platform Rhine cores operate in MMIO
-> mode by default, and on PCI it is preferred over PIO for performance
-> reasons. However, a comment in code suggests that some (?) early
-> Rhine cores only work in PIO mode, so they should not be switched
-> to MMIO.
-> 
-> Enabling MMIO on PCI is still triggered by the same Kconfig option
-> to avoid breaking user configs needlessly, but this can be changed
-> going forward towards automatic runtime detection in case a list of
-> PIO-only Rhine revisions can be compiled.
-> 
-> This also fixes a couple of compiler warnings detected by Fengguang
-> Wu's test bot (!USE_MMIO case):
- ...
-> Signed-off-by: Alexey Charkov <alchark@gmail.com>
+On 10 Apr 07:58 PM, Ezequiel Garcia wrote:
+[..]
+> +
+> +	/* Calculate expected number of TX descriptors */
+> +	desc_count =3D skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_=
+frags;
+> +	if ((txq->count + desc_count) >=3D txq->size)
+> +		return 0;
+> +
 
-Applied, but in the future please make it clear what tree you are
-targetting by saying "[PATCH net]" or "[PATCH net-next]" in your
-subject line.
+Is this calculus correct? Does it give the accurate number of needed
+descriptors or is it an approximation?
 
-Thanks.
+Tilera's tilegx driver does a much stricter descriptor count (see
+tso_count_edescs). This functions loops through the skb_frag_t fragment=
+s
+as it's done later in the data egress, hence strictly counting the
+needed descriptors.
+
+However, as it's a much heavier routine than the one shown above,
+I'm wondering if we can get away without it.
+
+Willy, Any ideas here?
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
