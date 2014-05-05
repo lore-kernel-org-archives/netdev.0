@@ -1,54 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: fix vlan_features computing
-Date: Mon, 05 May 2014 23:45:00 -0400 (EDT)
-Message-ID: <20140505.234500.89241173582893591.davem@davemloft.net>
-References: <20140502165448.D8078E635B@unicorn.suse.cz>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] ipv6: Need to sock_put on zero csum error
+Date: Mon, 5 May 2014 13:11:57 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405051309280.21835@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net, mirq-linux@rere.qmqm.pl
-To: mkubecek@suse.cz
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36132 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933739AbaEFDpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:45:02 -0400
-In-Reply-To: <20140502165448.D8078E635B@unicorn.suse.cz>
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:51509 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752161AbaEEUL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 16:11:58 -0400
+Received: by mail-yh0-f74.google.com with SMTP id a41so318537yho.1
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 13:11:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Fri,  2 May 2014 18:54:48 +0200 (CEST)
+Commit 4068579e1e098fa81d48db9ba4432ab664c58561 introduced
+zero checksums being allowed for IPv6, but in the case that a
+socket disallows a zero checksum we need to sock_put.
 
-> bond_compute_features() uses netdev_increment_features() to
-> combine vlan_features of slaves into vlan_features of the bond.
-> As netdev_increment_features() only adds most features and we
-> start with BOND_VLAN_FEATURES, we may end up with features none
-> of the slaves provided.
-> 
-> In particular, BOND_VLAN_FEATURES contains NETIF_F_HW_CSUM so
-> that netdev_increment_features() clears NETIF_F_IP{,V6}_CSUM and
-> if we only have slaves with NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
-> (e.g. ixgbe based cards), the same will be in features of the
-> bond and a vlan device on top of the bond would support no
-> checksumming, resulting in significant performance degradation.
-> 
-> If there is at least one slave, initialize vlan_features only
-> with the flags in NETIF_F_ALL_FOR_ALL. Right now there is none
-> in BOND_VLAN_FEATURES but stating it explicitely will make the
-> code more future proof.
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/ipv6/udp.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Jay and others can you take a look at this one?
-
-I find that handling of NETIF_F_GEN_CSUM (which is basically just
-a synonym for NETIF_F_HW_CSUM) strange.
-
-I thought the whole idea with bond_compute_features() is that you
-could start with "everything" enabled, and as you add devices the
-feature bits get chopped off based upon what each slave can do.
-
-But the special NETIF_F_GEN_CSUM in bond_compute_features() seems to
-defeat that.
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 4fcd9bc..fc2be63 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -884,6 +884,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		int ret;
+ 
+ 		if (!uh->check && !sk->sk_no_check) {
++			sock_put(sk);
+ 			udp6_csum_zero_error(skb);
+ 			goto csum_error;
+ 		}
+-- 
+1.9.1.423.g4596e3a
