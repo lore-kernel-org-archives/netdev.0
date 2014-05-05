@@ -1,89 +1,149 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 2/4] e1000e: Expand workaround for 10Mb HD throughput bug
-Date: Mon,  5 May 2014 13:07:38 -0700
-Message-ID: <1399320460-21774-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:21818 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752588AbaEEUHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 16:07:50 -0400
-In-Reply-To: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Mon,  5 May 2014 15:25:57 -0700
+Message-ID: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ertman <davidx.m.ertman@intel.com>
+From: Andi Kleen <ak@linux.intel.com>
 
-In commit 772d05c51c4f4896c120ad418b1e91144a2ac813 "e1000e: slow performance
-between two 82579 connected via 10Mbit hub", a workaround was put into place
-to address the overaggressive transmit behavior of 82579 parts when connecting
-at 10Mbs half-duplex.
+This is all the code that saves connection information
+between different sockets. Not really essential for
+small systems.
 
-This same behavior is seen on i217 and i218 parts as well.  This patch expands
-the original workaround to encompass these parts.
+Saves about 5.5k text
 
-Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+   text	   data	    bss	    dec	    hex	filename
+ 492952	  19571	  13480	 526003	  806b3	net/built-in.o-with-metrics
+ 487675	  19275	  13480	 520430	  7f0ee	net/built-in.o-without-metrics
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 15 +++++++++++----
- drivers/net/ethernet/intel/e1000e/ich8lan.h |  1 +
- 2 files changed, 12 insertions(+), 4 deletions(-)
+ include/net/tcp.h          | 25 +++++++++++++++++++++++++
+ net/ipv4/Kconfig           |  6 ++++++
+ net/ipv4/Makefile          |  3 ++-
+ net/ipv4/sysctl_net_ipv4.c |  2 ++
+ 4 files changed, 35 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 9b736b8..059f1b0 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -1314,14 +1314,17 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 			return ret_val;
- 	}
- 
--	/* When connected at 10Mbps half-duplex, 82579 parts are excessively
-+	/* When connected at 10Mbps half-duplex, some parts are excessively
- 	 * aggressive resulting in many collisions. To avoid this, increase
- 	 * the IPG and reduce Rx latency in the PHY.
- 	 */
--	if ((hw->mac.type == e1000_pch2lan) && link) {
-+	if (((hw->mac.type == e1000_pch2lan) ||
-+	     (hw->mac.type == e1000_pch_lpt)) && link) {
- 		u32 reg;
- 		reg = er32(STATUS);
- 		if (!(reg & (E1000_STATUS_FD | E1000_STATUS_SPEED_MASK))) {
-+			u16 emi_addr;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 87d8774..d741d2f 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -419,14 +419,29 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+ 		      struct sk_buff *skb);
+ void tcp_enter_loss(struct sock *sk, int how);
+ void tcp_clear_retrans(struct tcp_sock *tp);
++#ifdef CONFIG_TCP_METRICS
+ void tcp_update_metrics(struct sock *sk);
+ void tcp_init_metrics(struct sock *sk);
+ void tcp_metrics_init(void);
 +
- 			reg = er32(TIPG);
- 			reg &= ~E1000_TIPG_IPGT_MASK;
- 			reg |= 0xFF;
-@@ -1332,8 +1335,12 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 			if (ret_val)
- 				return ret_val;
+ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
+ 			bool paws_check);
+ bool tcp_remember_stamp(struct sock *sk);
+ bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
+ void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
++#else
++static inline void tcp_update_metrics(struct sock *sk) {}
++static inline void tcp_init_metrics(struct sock *sk) {}
++static inline void tcp_metrics_init(void) {}
++static inline bool tcp_peer_is_proven(struct request_sock *req,
++				      struct dst_entry *dst,
++				      bool paws_check) { return false; }
++static inline bool tcp_remember_stamp(struct sock *sk) { return false; }
++static inline bool
++tcp_tw_remember_stamp(struct inet_timewait_sock *tw) { return false; }
++static inline void
++tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst) {}
++#endif
+ void tcp_disable_fack(struct tcp_sock *tp);
+ void tcp_close(struct sock *sk, long timeout);
+ void tcp_init_sock(struct sock *sk);
+@@ -1296,11 +1311,21 @@ int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
+ 		     const struct tcp_md5sig_key *key);
  
--			ret_val =
--			    e1000_write_emi_reg_locked(hw, I82579_RX_CONFIG, 0);
-+			if (hw->mac.type == e1000_pch2lan)
-+				emi_addr = I82579_RX_CONFIG;
-+			else
-+				emi_addr = I217_RX_CONFIG;
+ /* From tcp_fastopen.c */
++#ifdef CONFIG_TCP_METRICS
+ void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
+ 			    struct tcp_fastopen_cookie *cookie, int *syn_loss,
+ 			    unsigned long *last_syn_loss);
+ void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
+ 			    struct tcp_fastopen_cookie *cookie, bool syn_lost);
++#else
++static inline void
++tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
++		       struct tcp_fastopen_cookie *cookie, int *syn_loss,
++		       unsigned long *last_syn_loss) {}
++static inline void
++tcp_fastopen_cache_set(struct sock *sk, u16 mss,
++		       struct tcp_fastopen_cookie *cookie, bool syn_lost) {}
++#endif
+ struct tcp_fastopen_request {
+ 	/* Fast Open cookie. Size 0 means a cookie request */
+ 	struct tcp_fastopen_cookie	cookie;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 6146b1b..db2dada 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -264,6 +264,12 @@ config IP_PIMSM_V2
+ 	  gated-5). This routing protocol is not used widely, so say N unless
+ 	  you want to play with it.
+ 
++config TCP_METRICS
++	bool "Report TCP metrics over netlink"
++	---help---
++           Enable support in TCP to save host information between different
++	   connections.
 +
-+			ret_val = e1000_write_emi_reg_locked(hw, emi_addr, 0);
- 
- 			hw->phy.ops.release(hw);
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-index bead50f..8fc6c15 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
-@@ -242,6 +242,7 @@
- #define I217_EEE_CAPABILITY	0x8000	/* IEEE MMD Register 3.20 */
- #define I217_EEE_ADVERTISEMENT	0x8001	/* IEEE MMD Register 7.60 */
- #define I217_EEE_LP_ABILITY	0x8002	/* IEEE MMD Register 7.61 */
-+#define I217_RX_CONFIG		0xB20C	/* Receive configuration */
- 
- #define E1000_EEE_RX_LPI_RCVD	0x0400	/* Tx LP idle received */
- #define E1000_EEE_TX_LPI_RCVD	0x0800	/* Rx LP idle received */
+ config SYN_COOKIES
+ 	bool "IP: TCP syncookie support"
+ 	---help---
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 756855c..8b17b83 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -7,7 +7,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     ip_output.o ip_sockglue.o inet_hashtables.o \
+ 	     inet_timewait_sock.o inet_connection_sock.o \
+ 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
+-	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
++	     tcp_minisocks.o tcp_cong.o tcp_fastopen.o \
+ 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+ 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+ 	     fib_frontend.o fib_semantics.o fib_trie.o \
+@@ -17,6 +17,7 @@ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
+ obj-$(CONFIG_IP_PING) += ping.o
+ obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
+ obj-$(CONFIG_PROC_FS) += proc.o
++obj-$(CONFIG_TCP_METRICS) += tcp_metrics.o
+ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 44eba05..2110d2e 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -573,6 +573,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++#ifdef CONFIG_TCP_METRICS
+ 	{
+ 		.procname	= "tcp_no_metrics_save",
+ 		.data		= &sysctl_tcp_nometrics_save,
+@@ -580,6 +581,7 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++#endif
+ 	{
+ 		.procname	= "tcp_moderate_rcvbuf",
+ 		.data		= &sysctl_tcp_moderate_rcvbuf,
 -- 
 1.9.0
