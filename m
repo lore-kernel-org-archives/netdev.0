@@ -1,54 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] unregister_netdevice : move RTM_DELLINK to
- until after ndo_uninit
-Date: Mon, 05 May 2014 13:12:28 -0400 (EDT)
-Message-ID: <20140505.131228.2110654146298476507.davem@davemloft.net>
-References: <1398969630-4808-1-git-send-email-roopa@cumulusnetworks.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 2/4] Documentation: dts: Add bindings for APM X-Gene
+ SoC ethernet driver
+Date: Mon, 5 May 2014 14:57:13 -0700
+Message-ID: <CAGVrzcbecJHbZn1UU3yaD3MtSWk8FmgjMxG4zmQONrnVc05uqg@mail.gmail.com>
+References: <1399326447-2329-1-git-send-email-isubramanian@apm.com> <1399326447-2329-3-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
-	jiri@resnulli.us, tgraf@suug.ch, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59600 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210AbaEERMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 13:12:31 -0400
-In-Reply-To: <1398969630-4808-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	patches-qTEPVZfXA3Y@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399326447-2329-3-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: roopa@cumulusnetworks.com
-Date: Thu,  1 May 2014 11:40:30 -0700
+2014-05-05 14:47 GMT-07:00 Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>:
+> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
+>
+> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/apm-xgene-enet.txt     |   66 ++++++++++++++++++++
+>  1 file changed, 66 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> new file mode 100644
+> index 0000000..9ad6fe1
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> @@ -0,0 +1,66 @@
+> +APM X-Gene SoC Ethernet nodes
+> +
+> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
+> +APM X-Gene SoC.
+> +
+> +Required properties:
+> +- compatible:          Should be "apm,xgene-enet"
+> +- reg:                 First resource is the ethernet base register set
+> +                       Second resource is the ring base register set
+> +                       Third resource is the ring command register set
+> +- interrupts:          Ethernet main interrupt
+> +- clocks:              Reference to the clock entry.
+> +- local-mac-address:   Ethernet MAC address.
+> +- phy-connection-type: Ethernet MII mode.
 
-> From: roopa <roopa@cumulusnetworks.com>
+- phy-handle is not listed anywhere, yet, present in the example you give.
 
-Please fix your setup so that your real full name appears in the From:
-tag, not just 'roopa'.  I fixed it up for you this time.
+> +
+> +- mdio device tree subnode: When the X-Gene SoC has a phy connected to its local
+> +               mdio, there must be device tree subnode with the following
+> +               required properties:
 
-> This patch fixes ordering of rtnl notifications during unregister_netdevice
-> by moving RTM_DELLINK notification to until after ndo_uninit.
-> 
-> The problem was seen with unregistering bond netdevices.
-> 
-> bond ndo_uninit callback generates a few RTM_NEWLINK notifications for
-> NETDEV_CHANGEADDR and NETDEV_FEAT_CHANGE. This is seen mostly when the
-> bond is deleted with slaves still enslaved to the bond.
-> 
-> During unregister netdevice (rollback_registered_many to be specific)
-> bond ndo_uninit is called after RTM_DELLINK notification goes out.
-> This results in userspace seeing RTM_DELLINK followed by a couple of
-> RTM_NEWLINK's.
-> 
-> In userspace problem was seen with libnl. libnl cache deletes the bond
-> when it sees RTM_DELLINK and re-adds the bond with the following
-> RTM_NEWLINK. Resulting in a stale bond entry in libnl cache when the kernel
-> has already deleted the bond.
-> 
-> This patch has been tested for bond, bridges and vlan devices.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+In that specific case, 'phy-handle' becomes an optional property.
 
-Applied, thanks.
+> +
+> +       - compatible: Must be "apm,xgene-mdio".
+> +       - #address-cells: Must be <1>.
+> +       - #size-cells: Must be <0>.
+> +
+> +       For the phy on the mdio bus, there must be a node with the following
+> +       fields:
+> +
+> +       - reg: phy id used to communicate to phy.
+
+Better refer to Documentation/devicetree/bindings/ethernet/phy.txt
+which contains a more exhaustive binding description for Ethernet PHY
+nodes.
+
+> +
+> +Optional properties:
+> +- status               : Should be "ok" or "disabled" for enabled/disabled.
+> +                         Default is "ok".
+> +
+> +Example:
+> +       menetclk: menetclk {
+> +               compatible = "apm,xgene-device-clock";
+> +               clock-output-names = "menetclk";
+> +               status = "ok";
+> +       };
+> +
+> +       menet: ethernet@17020000 {
+> +               compatible = "apm,xgene-enet";
+> +               status = "disabled";
+> +               reg = <0x0 0x17020000 0x0 0xd100>,
+> +                     <0x0 0X17030000 0x0 0X400>,
+> +                     <0x0 0X10000000 0x0 0X200>;
+
+Since you have mutliple values in your 'reg' property, you could also
+provide an optional 'reg-names' which documents what the register
+ranges are about.
+
+> +               interrupts = <0x0 0x3c 0x4>;
+> +               clocks = <&menetclk 0>;
+> +               local-mac-address = [00 01 73 00 00 01];
+> +               phy-connection-type = "rgmii";
+> +               phy-handle = <&menetphy>;
+> +               mdio {
+> +                       compatible = "apm,xgene-mdio";
+> +                       #address-cells = <1>;
+> +                       #size-cells = <0>;
+> +                       menetphy: menetphy@3 {
+
+This PHY node is missing a compatible string as described in
+Documentation/devicetree/bindings/net/ethernet/phy.txt. Your binding
+should also link to that documentation for
+
+> +                               reg = <0x3>;
+> +                       };
+> +
+> +               };
+> +       };
+> +
+> +/* Board-specific peripheral configurations */
+> +
+> +&menet {
+> +        status = "ok";
+> +};
+> --
+> 1.7.9.5
+>
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+
+
+
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
