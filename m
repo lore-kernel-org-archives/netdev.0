@@ -1,42 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] be2net: Reset multicast promiscuous mode when
- its enabled
-Date: Mon, 05 May 2014 15:19:16 -0400 (EDT)
-Message-ID: <20140505.151916.1297916274867806527.davem@davemloft.net>
-References: <20140502194336.GA20113@emulex.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
+Date: Mon, 05 May 2014 09:24:13 -0700
+Message-ID: <5367BB2D.4080907@candelatech.com>
+References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com> <20140502151921.014fbeec@redhat.com> <5363A4E0.2000403@intel.com> <20140505171252.49773a5a@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: ajit.khaparde@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60762 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751671AbaEETTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:19:18 -0400
-In-Reply-To: <20140502194336.GA20113@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Zhouyi Zhou <zhouzhouyi@gmail.com>, davem@davemloft.net,
+	steffen.klassert@secunet.com, fan.du@windriver.com,
+	dborkman@redhat.com, minipli@googlemail.com, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140505171252.49773a5a@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWppdCBLaGFwYXJkZSA8YWppdC5raGFwYXJkZUBlbXVsZXguY29tPg0KRGF0ZTogRnJp
-LCAyIE1heSAyMDE0IDE0OjQzOjM2IC0wNTAwDQoNCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRzLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9l
-bXVsZXgvYmVuZXQvYmVfY21kcy5jDQo+IGluZGV4IGQxZWMxNWEuLjc4ODg4YWIgMTAwNjQ0DQo+
-IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRzLmMNCj4gKysr
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZW11bGV4L2JlbmV0L2JlX2NtZHMuYw0KPiBAQCAtMTg1
-OCw5ICsxODU4LDExIEBAIGludCBiZV9jbWRfcnhfZmlsdGVyKHN0cnVjdCBiZV9hZGFwdGVyICph
-ZGFwdGVyLCB1MzIgZmxhZ3MsIHUzMiB2YWx1ZSkNCj4gIAkJLyogUmVzZXQgbWNhc3QgcHJvbWlz
-YyBtb2RlIGlmIGFscmVhZHkgc2V0IGJ5IHNldHRpbmcgbWFzaw0KPiAgCQkgKiBhbmQgbm90IHNl
-dHRpbmcgZmxhZ3MgZmllbGQNCj4gIAkJICovDQo+IC0JCXJlcS0+aWZfZmxhZ3NfbWFzayB8PQ0K
-PiAtCQkJY3B1X3RvX2xlMzIoQkVfSUZfRkxBR1NfTUNBU1RfUFJPTUlTQ1VPVVMgJg0KPiAtCQkJ
-CSAgICBiZV9pZl9jYXBfZmxhZ3MoYWRhcHRlcikpOw0KPiArCQlpZiAoYWRhcHRlci0+ZmxhZ3Mg
-JiBCRV9GTEFHU19NQ0FTVF9QUk9NSVNDKQ0KPiArCQkJcmVxLT5pZl9mbGFnc19tYXNrIHw9DQo+
-ICsJCQkJY3B1X3RvX2xlMzIoQkVfSUZfRkxBR1NfTUNBU1RfUFJPTUlTQ1VPVVMgJg0KPiArCQkJ
-CQkgICAgYmVfaWZfY2FwX2ZsYWdzKGFkYXB0ZXIpKTsNCj4gKw0KDQpUaGlzIGJyZWFrcyB0aGUg
-YnVpbGQ6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRzLmM6IElu
-IGZ1bmN0aW9uIKFiZV9jbWRfcnhfZmlsdGVyojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2VtdWxl
-eC9iZW5ldC9iZV9jbWRzLmM6MTg2MToyNDogZXJyb3I6IKFCRV9GTEFHU19NQ0FTVF9QUk9NSVND
-oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCmRyaXZlcnMvbmV0L2V0
-aGVybmV0L2VtdWxleC9iZW5ldC9iZV9jbWRzLmM6MTg2MToyNDogbm90ZTogZWFjaCB1bmRlY2xh
-cmVkIGlkZW50aWZpZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0aW9uIGl0
-IGFwcGVhcnMgaW4NCg==
+On 05/05/2014 08:12 AM, Jesper Dangaard Brouer wrote:
+> On Fri, 02 May 2014 07:00:00 -0700
+> John Fastabend <john.r.fastabend@intel.com> wrote:
+> 
+>> On 5/2/2014 6:19 AM, Jesper Dangaard Brouer wrote:
+>>> On Fri,  2 May 2014 15:18:12 +0800
+>>> Zhouyi Zhou <zhouzhouyi@gmail.com> wrote:
+>>>
+>>>> As http://www.spinics.net/lists/netdev/msg165015.html
+>>>> pktgen generates shared packet through vlan interface will cause
+>>>> oops because of duplicate entering tc queue.
+>>>>
+>>>> Try to solve this problem by means of packet clone instead of sharing.
+>>>
+>>> I really don't like adding this stuff to the fast path of pktgen.
+>>>
+>>> Why would you use pktgen on a VLAN?
+>>
+>> Its a good way to test qdiscs. When you run pktgen over the VLAN
+>> you exercise the lower devices qdisc.
+> 
+> I do (personally) need a faster way/tool to exercise the qdisc path.
+> I'm currently using trafgen, but it is not fast enough for my 10G
+> testing.
+> 
+> Perhaps we could add a pktgen option, that explicitly enable
+> transmitting on qdisc path.  And when adding a VLAN device, auto enable
+> that mode?
+
+You could just force pktgen to not support multi-skb on vlan interfaces?
+
+I thought we went through this a year or two ago and came up with
+something like a 'pktgen-challenged' network interface flag?
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
