@@ -1,112 +1,41 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 01/10] tipc: always use tipc_node_lock() to hold node lock
-Date: Mon, 5 May 2014 08:56:09 +0800
-Message-ID: <1399251378-23842-2-git-send-email-ying.xue@windriver.com>
-References: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40111 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753971AbaEEA4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 20:56:36 -0400
-In-Reply-To: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH 1/3] rtlwifi: make MSI support a module parameter
+Date: Mon,  5 May 2014 16:33:36 +0800
+Message-ID: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Although we obtain node lock with tipc_node_lock() in most time, there
-are still places where we directly use native spin lock interface
-to grab node lock. But as we will do more jobs in the future when node
-lock is released, we should ensure that tipc_node_lock() is always
-called when node lock is taken.
+This makes MSI support a module parameter, for debugging and workaround
+convenience.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- net/tipc/link.c       |   12 ++++++------
- net/tipc/name_distr.c |    6 +++---
- 2 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/wireless/rtlwifi/wifi.h | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index c723ee9..3a80145 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -297,14 +297,14 @@ void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down)
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index 6965afd..eef93d1 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -2030,6 +2030,10 @@ struct rtl_mod_params {
  
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(n_ptr, &tipc_node_list, list) {
--		spin_lock_bh(&n_ptr->lock);
-+		tipc_node_lock(n_ptr);
- 		l_ptr = n_ptr->links[bearer_id];
- 		if (l_ptr) {
- 			tipc_link_reset(l_ptr);
- 			if (shutting_down || !tipc_node_is_up(n_ptr)) {
- 				tipc_node_detach_link(l_ptr->owner, l_ptr);
- 				tipc_link_reset_fragments(l_ptr);
--				spin_unlock_bh(&n_ptr->lock);
-+				tipc_node_unlock(n_ptr);
+ 	/* default: 1 = using linked fw power save */
+ 	bool fwctrl_lps;
++
++	/* default: 0 = not using MSI interrupts mode */
++	/* submodules should set their own defalut value */
++	bool msi_support;
+ };
  
- 				/* Nobody else can access this link now: */
- 				del_timer_sync(&l_ptr->timer);
-@@ -312,12 +312,12 @@ void tipc_link_delete_list(unsigned int bearer_id, bool shutting_down)
- 			} else {
- 				/* Detach/delete when failover is finished: */
- 				l_ptr->flags |= LINK_STOPPED;
--				spin_unlock_bh(&n_ptr->lock);
-+				tipc_node_unlock(n_ptr);
- 				del_timer_sync(&l_ptr->timer);
- 			}
- 			continue;
- 		}
--		spin_unlock_bh(&n_ptr->lock);
-+		tipc_node_unlock(n_ptr);
- 	}
- 	rcu_read_unlock();
- }
-@@ -474,11 +474,11 @@ void tipc_link_reset_list(unsigned int bearer_id)
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(n_ptr, &tipc_node_list, list) {
--		spin_lock_bh(&n_ptr->lock);
-+		tipc_node_lock(n_ptr);
- 		l_ptr = n_ptr->links[bearer_id];
- 		if (l_ptr)
- 			tipc_link_reset(l_ptr);
--		spin_unlock_bh(&n_ptr->lock);
-+		tipc_node_unlock(n_ptr);
- 	}
- 	rcu_read_unlock();
- }
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 974a73f..8465263 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -135,18 +135,18 @@ void named_cluster_distribute(struct sk_buff *buf)
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(n_ptr, &tipc_node_list, list) {
--		spin_lock_bh(&n_ptr->lock);
-+		tipc_node_lock(n_ptr);
- 		l_ptr = n_ptr->active_links[n_ptr->addr & 1];
- 		if (l_ptr) {
- 			buf_copy = skb_copy(buf, GFP_ATOMIC);
- 			if (!buf_copy) {
--				spin_unlock_bh(&n_ptr->lock);
-+				tipc_node_unlock(n_ptr);
- 				break;
- 			}
- 			msg_set_destnode(buf_msg(buf_copy), n_ptr->addr);
- 			__tipc_link_xmit(l_ptr, buf_copy);
- 		}
--		spin_unlock_bh(&n_ptr->lock);
-+		tipc_node_unlock(n_ptr);
- 	}
- 	rcu_read_unlock();
- 
+ struct rtl_hal_usbint_cfg {
 -- 
-1.7.9.5
+2.0.0.rc0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
