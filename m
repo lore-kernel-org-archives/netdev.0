@@ -1,74 +1,66 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH 5/5] net: macb: Fix race between HW and driver
-Date: Mon, 5 May 2014 14:05:19 -0700
-Message-ID: <7c62baab-5f60-4f04-87f7-6b53fecc4746@CH1EHSMHS038.ehs.local>
-References: <1399243382-12528-1-git-send-email-soren.brinkmann@xilinx.com>
- <1399243382-12528-6-git-send-email-soren.brinkmann@xilinx.com>
- <20140505.165653.1184059074645793091.davem@davemloft.net>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net] be2net: Poll for link status till 5s in ethtool diag test
+Date: Mon, 5 May 2014 18:20:14 -0500
+Message-ID: <20140505232014.GA27648@emulex.com>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <michal.simek@xilinx.com>, <nicolas.ferre@atmel.com>,
-	<git@xilinx.com>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:28346
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755872AbaEEVGn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 17:06:43 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:40478 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756859AbaEEXUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 19:20:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20140505.165653.1184059074645793091.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-05-05 at 04:56PM -0400, David Miller wrote:
-> From: Soren Brinkmann <soren.brinkmann@xilinx.com>
-> Date: Sun,  4 May 2014 15:43:02 -0700
->=20
-> > Under "heavy" RX load, the driver cannot handle the descriptors fas=
-t
-> > enough. In detail, when a descriptor is consumed, its used flag is
-> > cleared and once the RX budget is consumed all descriptors with a
-> > cleared used flag are prepared to receive more data. Under load tho=
-ugh,
-> > the HW may constantly receive more data and use those descriptors w=
-ith a
-> > cleared used flag before they are actually prepared for next usage.
-> >=20
-> > The head and tail pointers into the RX-ring should always be valid =
-and
-> > we can omit clearing and checking of the used flag.
-> >=20
-> > Signed-off-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
->=20
-> Isn't the RX_USED bit the only thing that controls what RX entries
-> the chip will try to use?
->=20
-> I can't see how you can just remove the RX_USED bit handling
-> altogether.
->=20
-> The problem actually seems to be that in the current code we clear th=
-e
-> RX_USED bit before we actually reallocate the buffer and set it up.
->=20
-> It should be a bug to see the RX_USED bit set in gem_rx_refill(), and
-> the only reason why it can happen is exactly because you're clearing =
-it
-> too early in gem_rx().
+After the loopback test is finished,
+it takes a few seconds for link to come back up.
+Poll for link status every 1 second interval for 5 seconds, only in cases
+when the link was UP before PHY loopback test was issued.
 
-I don't follow. The HW uses the descriptor and the driver handles the
-received data. So, in gem_rx_refill we should actually only replace
-descriptor which have the RX_USED _set_, not? Currently the test tests
-for the opposite, since SW clears RX_USED in gem_rx. This patch just
-removes those two parts. The RX_USED is left as is (HW should have set
-it). And in gem_rx_refill we simply rely on the head and tail pointers
-to refill the used descriptors. I didn't see a reason to do the additio=
-nal
-checking of the RX_USED bit.
-After the refill the RX_USED flags are of course cleared for all
-refilled descriptors.
+Signed-off-by: Suresh Reddy <suresh.reddy@emulex.com>
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-	Thanks,
-	S=C3=B6ren
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 15ba96c..b4be712 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -788,9 +788,11 @@ static u64 be_loopback_test(struct be_adapter *adapter, u8 loopback_type,
+ static void
+ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
+ {
++#define LINK_READY_TIMEOUT 5
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	int status;
+ 	u8 link_status = 0;
++	int timeout = netif_carrier_ok(netdev) ? 0 : LINK_READY_TIMEOUT;
+ 
+ 	if (adapter->function_caps & BE_FUNCTION_CAPS_SUPER_NIC) {
+ 		dev_err(&adapter->pdev->dev, "Self test not supported\n");
+@@ -822,7 +824,18 @@ be_self_test(struct net_device *netdev, struct ethtool_test *test, u64 *data)
+ 		test->flags |= ETH_TEST_FL_FAILED;
+ 	}
+ 
+-	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
++	/* After the loopback test is finished,
++	 * it takes a few seconds for the link to comeback up.
++	 * Poll for 5s before reporting a failure to the link test.
++	 */
++	do {
++		status = be_cmd_link_status_query(adapter, NULL,
++						  &link_status, 0);
++		if (link_status || status || ++timeout >= LINK_READY_TIMEOUT)
++			break;
++		ssleep(1);
++	} while (true);
++
+ 	if (status) {
+ 		test->flags |= ETH_TEST_FL_FAILED;
+ 		data[4] = -1;
+-- 
+1.8.3.2
