@@ -1,219 +1,87 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 06/10] tipc: avoid to asynchronously deliver name tables to peer node
-Date: Mon, 5 May 2014 08:56:14 +0800
-Message-ID: <1399251378-23842-7-git-send-email-ying.xue@windriver.com>
-References: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tip tree with the net-next tree
+Date: Mon, 5 May 2014 14:29:34 +1000
+Message-ID: <20140505142934.4d732ab3e809850b426fce3d@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:59969 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754144AbaEEA4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 20:56:52 -0400
-In-Reply-To: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__5_May_2014_14_29_34_+1000_pDT=pzXV7VKODGji"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Postpone the actions of delivering name tables until after node
-lock is released, avoiding to do it under asynchronous context.
+--Signature=_Mon__5_May_2014_14_29_34_+1000_pDT=pzXV7VKODGji
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/name_distr.c |   52 ++-----------------------------------------------
- net/tipc/name_distr.h |   30 +++++++++++++++++++++++++++-
- net/tipc/node.c       |   16 ++++++++++++++-
- net/tipc/node.h       |    8 ++++++--
- 4 files changed, 52 insertions(+), 54 deletions(-)
+Hi all,
 
-diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index 8465263..8ce7309 100644
---- a/net/tipc/name_distr.c
-+++ b/net/tipc/name_distr.c
-@@ -38,34 +38,6 @@
- #include "link.h"
- #include "name_distr.h"
- 
--#define ITEM_SIZE sizeof(struct distr_item)
--
--/**
-- * struct distr_item - publication info distributed to other nodes
-- * @type: name sequence type
-- * @lower: name sequence lower bound
-- * @upper: name sequence upper bound
-- * @ref: publishing port reference
-- * @key: publication key
-- *
-- * ===> All fields are stored in network byte order. <===
-- *
-- * First 3 fields identify (name or) name sequence being published.
-- * Reference field uniquely identifies port that published name sequence.
-- * Key field uniquely identifies publication, in the event a port has
-- * multiple publications of the same name sequence.
-- *
-- * Note: There is no field that identifies the publishing node because it is
-- * the same for all items contained within a publication message.
-- */
--struct distr_item {
--	__be32 type;
--	__be32 lower;
--	__be32 upper;
--	__be32 ref;
--	__be32 key;
--};
--
- /**
-  * struct publ_list - list of publications made by this node
-  * @list: circular list of publications
-@@ -239,29 +211,9 @@ static void named_distribute(struct list_head *message_list, u32 node,
- /**
-  * tipc_named_node_up - tell specified node about all publications by this node
-  */
--void tipc_named_node_up(unsigned long nodearg)
-+void tipc_named_node_up(u32 max_item_buf, u32 node)
- {
--	struct tipc_node *n_ptr;
--	struct tipc_link *l_ptr;
--	struct list_head message_list;
--	u32 node = (u32)nodearg;
--	u32 max_item_buf = 0;
--
--	/* compute maximum amount of publication data to send per message */
--	n_ptr = tipc_node_find(node);
--	if (n_ptr) {
--		tipc_node_lock(n_ptr);
--		l_ptr = n_ptr->active_links[0];
--		if (l_ptr)
--			max_item_buf = ((l_ptr->max_pkt - INT_H_SIZE) /
--				ITEM_SIZE) * ITEM_SIZE;
--		tipc_node_unlock(n_ptr);
--	}
--	if (!max_item_buf)
--		return;
--
--	/* create list of publication messages, then send them as a unit */
--	INIT_LIST_HEAD(&message_list);
-+	LIST_HEAD(message_list);
- 
- 	read_lock_bh(&tipc_nametbl_lock);
- 	named_distribute(&message_list, node, &publ_cluster, max_item_buf);
-diff --git a/net/tipc/name_distr.h b/net/tipc/name_distr.h
-index 47ff829..b2eed4e 100644
---- a/net/tipc/name_distr.h
-+++ b/net/tipc/name_distr.h
-@@ -39,10 +39,38 @@
- 
- #include "name_table.h"
- 
-+#define ITEM_SIZE sizeof(struct distr_item)
-+
-+/**
-+ * struct distr_item - publication info distributed to other nodes
-+ * @type: name sequence type
-+ * @lower: name sequence lower bound
-+ * @upper: name sequence upper bound
-+ * @ref: publishing port reference
-+ * @key: publication key
-+ *
-+ * ===> All fields are stored in network byte order. <===
-+ *
-+ * First 3 fields identify (name or) name sequence being published.
-+ * Reference field uniquely identifies port that published name sequence.
-+ * Key field uniquely identifies publication, in the event a port has
-+ * multiple publications of the same name sequence.
-+ *
-+ * Note: There is no field that identifies the publishing node because it is
-+ * the same for all items contained within a publication message.
-+ */
-+struct distr_item {
-+	__be32 type;
-+	__be32 lower;
-+	__be32 upper;
-+	__be32 ref;
-+	__be32 key;
-+};
-+
- struct sk_buff *tipc_named_publish(struct publication *publ);
- struct sk_buff *tipc_named_withdraw(struct publication *publ);
- void named_cluster_distribute(struct sk_buff *buf);
--void tipc_named_node_up(unsigned long node);
-+void tipc_named_node_up(u32 max_item_buf, u32 node);
- void tipc_named_rcv(struct sk_buff *buf);
- void tipc_named_reinit(void);
- 
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index c3a36bb..74efebc 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -267,7 +267,7 @@ void tipc_node_detach_link(struct tipc_node *n_ptr, struct tipc_link *l_ptr)
- 
- static void node_established_contact(struct tipc_node *n_ptr)
- {
--	tipc_k_signal((Handler)tipc_named_node_up, n_ptr->addr);
-+	n_ptr->flags |= TIPC_NODE_UP;
- 	n_ptr->bclink.oos_state = 0;
- 	n_ptr->bclink.acked = tipc_bclink_get_last_sent();
- 	tipc_bclink_add_node(n_ptr->addr);
-@@ -455,6 +455,9 @@ int tipc_node_get_linkname(u32 bearer_id, u32 addr, char *linkname, size_t len)
- void tipc_node_unlock(struct tipc_node *node)
- {
- 	LIST_HEAD(nsub_list);
-+	struct tipc_link *link;
-+	int pkt_sz = 0;
-+	u32 addr = 0;
- 
- 	if (likely(!node->flags)) {
- 		spin_unlock_bh(&node->lock);
-@@ -465,8 +468,19 @@ void tipc_node_unlock(struct tipc_node *node)
- 		list_replace_init(&node->nsub, &nsub_list);
- 		node->flags &= ~TIPC_NODE_LOST;
- 	}
-+	if (node->flags & TIPC_NODE_UP) {
-+		link = node->active_links[0];
-+		node->flags &= ~TIPC_NODE_UP;
-+		if (link) {
-+			pkt_sz = ((link->max_pkt - INT_H_SIZE) / ITEM_SIZE) *
-+				  ITEM_SIZE;
-+			addr = node->addr;
-+		}
-+	}
- 	spin_unlock_bh(&node->lock);
- 
- 	if (!list_empty(&nsub_list))
- 		tipc_nodesub_notify(&nsub_list);
-+	if (pkt_sz)
-+		tipc_named_node_up(pkt_sz, addr);
- }
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 4bd5eff..38f710f 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -48,15 +48,19 @@
- #define INVALID_NODE_SIG 0x10000
- 
- /* Flags used to block (re)establishment of contact with a neighboring node
-- * TIPC_NODE_DOWN: indicate node is down
-+ * TIPC_NODE_DOWN: indicate node is down and it's used to block the node's
-+ *                 links until RESET or ACTIVE message arrives
-  * TIPC_NODE_RESET: indicate node is reset
-  * TIPC_NODE_LOST: indicate node is lost and it's used to notify subscriptions
-  *                 when node lock is released
-+ * TIPC_NODE_UP: indicate node is up and it's used to deliver local name table
-+ *               when node lock is released
-  */
- enum {
- 	TIPC_NODE_DOWN	= (1 << 1),
- 	TIPC_NODE_RESET	= (1 << 2),
--	TIPC_NODE_LOST	= (1 << 3)
-+	TIPC_NODE_LOST	= (1 << 3),
-+	TIPC_NODE_UP	= (1 << 4)
- };
- 
- /**
--- 
-1.7.9.5
+Today's linux-next merge of the tip tree got a conflict in
+net/ipv4/tcp_output.c between commit e114a710aa50 ("tcp: fix cwnd limited
+checking to improve congestion control") from the  tree and commit
+4e857c58efeb ("arch: Mass conversion of smp_mb__*()") from the tip tree.
+
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/ipv4/tcp_output.c
+index 694711a140d4,366cf06587b8..000000000000
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@@ -1946,18 -1930,10 +1946,16 @@@ static bool tcp_write_xmit(struct sock=20
+  			/* It is possible TX completion already happened
+  			 * before we set TSQ_THROTTLED, so we must
+  			 * test again the condition.
+- 			 * We abuse smp_mb__after_clear_bit() because
+- 			 * there is no smp_mb__after_set_bit() yet
+  			 */
+- 			smp_mb__after_clear_bit();
++ 			smp_mb__after_atomic();
+ -			if (atomic_read(&sk->sk_wmem_alloc) > limit)
+ +			if (atomic_read(&sk->sk_wmem_alloc) > limit) {
+ +				u32 unsent_bytes;
+ +
+ +compute_unsent_segs:
+ +				unsent_bytes =3D tp->write_seq - tp->snd_nxt;
+ +				unsent_segs =3D DIV_ROUND_UP(unsent_bytes, mss_now);
+  				break;
+ +			}
+  		}
+ =20
+  		limit =3D mss_now;
+
+--Signature=_Mon__5_May_2014_14_29_34_+1000_pDT=pzXV7VKODGji
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTZxO3AAoJEMDTa8Ir7ZwVussP+wZ2M7RclqjNPcx4HqnSitMf
+z+OdogQvRBAz27NfhWWs2ekr9QPUgurNwg3ufmiUC3nSPtV4emSHcbTABGf1Zkuo
+TTajnam40xxuSIFsRA7JNhxyW56mGWqk7Vzc/Q9ru4DsyRIk5gSC7TK6Ufe4vqnm
+X1f6pCGVuViLc5Zc6N7bNnr/VeeIXSTiIMAroG9IB6aPii6RdVLqYrbECoMkkP19
+O0gO1z3UDR2yNIRgn438c8dKqR2LVN2MvmAwOpncheNCmI9z43LKvaa3ZgFd5oN4
+JbR3KBFar86wFJCfjfx1x8Dr+EZlqh0MY6/N0IC9b1ytbZdi9/AI0omtleqi93/S
+PM7gYs/BFlP0LSiQgTJ2dCqi8pi65v5si0CL7yKnG5yr7K+cwgaSm686+NNWnHIQ
+7a8jJ3FbtHnUXskL+IogC6B67se3QUdXTXvw89//GzUJeqVgNcVR7H4L8CDssiZJ
+Y/IFLUbvThkgJcVoUIYe2c+dfXZJv4qp8pobWUIBq6SXMt5lWQFZP1RI4Eenajqh
+dMutFs2pHanc2rjFzgqEU/9lNqZL8II0MdTFlDoDyb2F1fIZThFp7Y8G6Sc1f/uS
+fvhcCCNzZThjayxsdxpFw6DRNtG6WFuCgmwc6BamacgCTbAxYmEZhVMYLcHcGG6A
+TSDyCo7zcZYqI6/VmT0j
+=Mxms
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__5_May_2014_14_29_34_+1000_pDT=pzXV7VKODGji--
