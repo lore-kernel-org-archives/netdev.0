@@ -1,40 +1,30 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] ipv6: Need to sock_put on zero csum error
-Date: Mon, 5 May 2014 13:11:57 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405051309280.21835@tomh.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] ipv6: remove unused function
+ ipv6_inherit_linklocal()
+Date: Mon, 05 May 2014 15:30:45 -0400 (EDT)
+Message-ID: <20140505.153045.857124489317693183.davem@davemloft.net>
+References: <1399076461-12172-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:51509 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752161AbaEEUL6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 16:11:58 -0400
-Received: by mail-yh0-f74.google.com with SMTP id a41so318537yho.1
-        for <netdev@vger.kernel.org>; Mon, 05 May 2014 13:11:57 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:60888 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779AbaEETar (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:30:47 -0400
+In-Reply-To: <1399076461-12172-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 4068579e1e098fa81d48db9ba4432ab664c58561 introduced
-zero checksums being allowed for IPv6, but in the case that a
-socket disallows a zero checksum we need to sock_put.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri,  2 May 2014 17:21:01 -0700
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv6/udp.c | 1 +
- 1 file changed, 1 insertion(+)
+> It is no longer used after commit e837735ec406a347756e
+> (ip6_tunnel: ensure to always have a link local address).
+> 
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4fcd9bc..fc2be63 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -884,6 +884,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		int ret;
- 
- 		if (!uh->check && !sk->sk_no_check) {
-+			sock_put(sk);
- 			udp6_csum_zero_error(skb);
- 			goto csum_error;
- 		}
--- 
-1.9.1.423.g4596e3a
+Applied, thanks.
