@@ -1,112 +1,167 @@
-From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-Subject: RE: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV VF
- minimum and maximum Tx rate through ip tool.
-Date: Mon, 5 May 2014 06:24:25 +0000
-Message-ID: <290BEC245535C3449143D5D84900EEF78CE1DA45@avmb3.qlogic.org>
-References: <1397450220-8269-1-git-send-email-sucheta.chakraborty@qlogic.com>
- <20140422154051.26e584ce@nehalam.linuxnetplumber.net>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next 09/10] tipc: avoid to asynchronously reset all links
+Date: Mon, 5 May 2014 08:56:17 +0800
+Message-ID: <1399251378-23842-10-git-send-email-ying.xue@windriver.com>
+References: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
-	"Ariel Elior" <Ariel.Elior@qlogic.com>,
-	"amirv@mellanox.com" <amirv@mellanox.com>,
-	"mkubecek@suse.cz" <mkubecek@suse.cz>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
+	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
+	<tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:41491 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754473AbaEEGYo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 02:24:44 -0400
-Content-Language: en-US
+Received: from mail.windriver.com ([147.11.1.11]:40137 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161AbaEEA4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 20:56:54 -0400
+In-Reply-To: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sucheta Chakraborty
-> Sent: Monday, April 28, 2014 2:40 PM
-> To: 'Stephen Hemminger'
-> Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk;
-> gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel
-> Elior; amirv@mellanox.com; mkubecek@suse.cz
-> Subject: RE: [PATCH 1/1] iproute2: v3: Add support to configure SR-IOV
-> VF minimum and maximum Tx rate through ip tool.
-> 
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> > Sent: Wednesday, April 23, 2014 4:11 AM
-> > To: Sucheta Chakraborty
-> > Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk;
-> > gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel
-> > Elior; amirv@mellanox.com; mkubecek@suse.cz
-> > Subject: Re: [PATCH 1/1] iproute2: v3: Add support to configure SR-
-> IOV
-> > VF minimum and maximum Tx rate through ip tool.
-> >
-> > On Mon, 14 Apr 2014 00:37:00 -0400
-> > Sucheta Chakraborty <sucheta.chakraborty@qlogic.com> wrote:
-> >
-> > > o "min_tx_rate" option has been added for minimum Tx rate. Hence,
-> for
-> > >   consistent naming, "max_tx_rate" option has been introduced for
-> > maximum
-> > >   Tx rate.
-> > >
-> > > o Change in v2: "rate" can be used along with "max_tx_rate".
-> > >   When both are specified, "max_tx_rate" should override.
-> > >
-> > > o Change in v3:
-> > >   * IFLA_VF_RATE: When IFLA_VF_RATE is used, and user has given
-> only
-> > one of
-> > >     min_tx_rate or max_tx_rate, reading of previous rate limits is
-> > done in
-> > >     userspace instead of in kernel space before ndo_set_vf_rate.
-> > >
-> > >   * IFLA_VF_TX_RATE: When IFLA_VF_TX_RATE is used, min_tx_rate is
-> > always read
-> > >     in kernel space. This takes care of below scenarios:
-> > >     (1) when old tool sends "rate" but kernel is new (expects min
-> > > and
-> > max)
-> > >     (2) when new tool sends only "rate" but kernel is old (expects
-> > > only "rate")
-> > >
-> > > Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
-> >
-> > I like the concept fine, but the general policy of ip route commands
-> > is that the output format should match the input (except for
-> statistics).
-> >
-> > This (and ther earlier tx_rate patch are printing values in a
-> > different format than the input
-> >
-> > i.e don't print:
-> > 	max tx rate 110 (Mbps)
-> > instead print:
-> > 	max_tx_rate 110Mbps
-> >
-> >
-> With this change display would be as below:
-> 
-> vf 0 MAC 3e:a0:ca:bd:ae:5a, tx rate 300 (Mbps), max_tx_rate 300Mbps,
->     min_tx_rate 200Mbps
-> 
-> I did not change tx rate option to maintain backward compatibility.
-> 
-> Is the output valid?
-> 
-> Thanks,
-> Sucheta.
+Postpone the actions of resetting all links until after bclink
+lock is released, avoiding to asynchronously reset all links.
 
-Hi Stephen,
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c |   21 +++++++++++++++++++++
+ net/tipc/bcast.h |    2 ++
+ net/tipc/link.c  |   22 ++++++++--------------
+ net/tipc/link.h  |    1 +
+ 4 files changed, 32 insertions(+), 14 deletions(-)
 
-Did you get a chance to look at my previous mail? Does the above output looks okay to you?
-
-Thanks,
-Sucheta.
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index ef8cff4..a0978d0 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -87,6 +87,7 @@ struct tipc_bcbearer {
+  * @lock: spinlock governing access to structure
+  * @link: (non-standard) broadcast link structure
+  * @node: (non-standard) node structure representing b'cast link's peer node
++ * @flags: represent bclink states
+  * @bcast_nodes: map of broadcast-capable nodes
+  * @retransmit_to: node that most recently requested a retransmit
+  *
+@@ -96,6 +97,7 @@ struct tipc_bclink {
+ 	spinlock_t lock;
+ 	struct tipc_link link;
+ 	struct tipc_node node;
++	unsigned int flags;
+ 	struct tipc_node_map bcast_nodes;
+ 	struct tipc_node *retransmit_to;
+ };
+@@ -119,7 +121,26 @@ static void tipc_bclink_lock(void)
+ 
+ static void tipc_bclink_unlock(void)
+ {
++	struct tipc_node *node = NULL;
++
++	if (likely(!bclink->flags)) {
++		spin_unlock_bh(&bclink->lock);
++		return;
++	}
++
++	if (bclink->flags & TIPC_BCLINK_RESET) {
++		bclink->flags &= ~TIPC_BCLINK_RESET;
++		node = tipc_bclink_retransmit_to();
++	}
+ 	spin_unlock_bh(&bclink->lock);
++
++	if (node)
++		tipc_link_reset_all(node);
++}
++
++void tipc_bclink_set_flags(unsigned int flags)
++{
++	bclink->flags |= flags;
+ }
+ 
+ static u32 bcbuf_acks(struct sk_buff *buf)
+diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
+index ea162c7..00330c4 100644
+--- a/net/tipc/bcast.h
++++ b/net/tipc/bcast.h
+@@ -39,6 +39,7 @@
+ 
+ #define MAX_NODES 4096
+ #define WSIZE 32
++#define TIPC_BCLINK_RESET 1
+ 
+ /**
+  * struct tipc_node_map - set of node identifiers
+@@ -83,6 +84,7 @@ void tipc_port_list_free(struct tipc_port_list *pl_ptr);
+ 
+ int tipc_bclink_init(void);
+ void tipc_bclink_stop(void);
++void tipc_bclink_set_flags(unsigned int flags);
+ void tipc_bclink_add_node(u32 addr);
+ void tipc_bclink_remove_node(u32 addr);
+ struct tipc_node *tipc_bclink_retransmit_to(void);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index ac074aa..dce2bef 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1259,29 +1259,24 @@ void tipc_link_push_queue(struct tipc_link *l_ptr)
+ 	} while (!res);
+ }
+ 
+-static void link_reset_all(unsigned long addr)
++void tipc_link_reset_all(struct tipc_node *node)
+ {
+-	struct tipc_node *n_ptr;
+ 	char addr_string[16];
+ 	u32 i;
+ 
+-	n_ptr = tipc_node_find((u32)addr);
+-	if (!n_ptr)
+-		return;	/* node no longer exists */
+-
+-	tipc_node_lock(n_ptr);
++	tipc_node_lock(node);
+ 
+ 	pr_warn("Resetting all links to %s\n",
+-		tipc_addr_string_fill(addr_string, n_ptr->addr));
++		tipc_addr_string_fill(addr_string, node->addr));
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+-		if (n_ptr->links[i]) {
+-			link_print(n_ptr->links[i], "Resetting link\n");
+-			tipc_link_reset(n_ptr->links[i]);
++		if (node->links[i]) {
++			link_print(node->links[i], "Resetting link\n");
++			tipc_link_reset(node->links[i]);
+ 		}
+ 	}
+ 
+-	tipc_node_unlock(n_ptr);
++	tipc_node_unlock(node);
+ }
+ 
+ static void link_retransmit_failure(struct tipc_link *l_ptr,
+@@ -1318,10 +1313,9 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
+ 			n_ptr->bclink.oos_state,
+ 			n_ptr->bclink.last_sent);
+ 
+-		tipc_k_signal((Handler)link_reset_all, (unsigned long)n_ptr->addr);
+-
+ 		tipc_node_unlock(n_ptr);
+ 
++		tipc_bclink_set_flags(TIPC_BCLINK_RESET);
+ 		l_ptr->stale_count = 0;
+ 	}
+ }
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 4b556c1..7ba73fa 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -230,6 +230,7 @@ struct sk_buff *tipc_link_cmd_show_stats(const void *req_tlv_area,
+ 					 int req_tlv_space);
+ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area,
+ 					  int req_tlv_space);
++void tipc_link_reset_all(struct tipc_node *node);
+ void tipc_link_reset(struct tipc_link *l_ptr);
+ void tipc_link_reset_list(unsigned int bearer_id);
+ int tipc_link_xmit(struct sk_buff *buf, u32 dest, u32 selector);
+-- 
+1.7.9.5
