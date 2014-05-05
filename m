@@ -1,66 +1,74 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH net-next 00/10] purge signal handler infrastructure
-Date: Mon, 5 May 2014 08:56:08 +0800
-Message-ID: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
+From: Jon Maxwell <jmaxwell@redhat.com>
+Subject: Re: [PATCH net] bridge: Add port flap detection
+Date: Mon, 5 May 2014 02:22:33 -0400 (EDT)
+Message-ID: <2104584205.374814.1399270953940.JavaMail.zimbra@redhat.com>
+References: <1399238974-6210-1-git-send-email-jmaxwell@redhat.com> <20140504155331.13862a85@nehalam.linuxnetplumber.net> <CAADnVQL3OZwZ0q_utwE_JhYYGbKPHwwqwHsBZ9g+0XAS__BpWQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jon.maloy@ericsson.com>, <Paul.Gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <netdev@vger.kernel.org>,
-	<tipc-discussion@lists.sourceforge.net>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maxwell <jmaxwell37@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	makita toshiaki <makita.toshiaki@lab.ntt.co.jp>,
+	vyasevic@redhat.com, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Jiri Pirko <jpirko@redhat.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:59951 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019AbaEEA4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 May 2014 20:56:37 -0400
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:48381 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754473AbaEEGWw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 02:22:52 -0400
+In-Reply-To: <CAADnVQL3OZwZ0q_utwE_JhYYGbKPHwwqwHsBZ9g+0XAS__BpWQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we delay some actions to be executed in asynchronous contexts,
-these usually add unnecessary code complexities, and make their
-behaviours unpredictable and indeterministic. Moreover, as the signal
-handler infrastructure is first stopped when tipc module is removed,
-this may cause some potential risks for us. For instance, although
-signal handler is already stopped, some tipc components still submit
-signal requests to signal handler infrastructure, which may lead to
-some resources not to be released or freed correctly.
+I acknowledge that if a VM was moved or reconfigured with the MAC address of another machine it may generate one message. However in the cases we encountered the MAC address was toggling between the internal and external network constantly as the arp request was erroneously reflected back. We actually provided a kernel with this patch to trouble-shoot the issue. I propose that we change the patch to print the following message instead? That way a single message will be informational but multiple messages will indicate something is wrong.
 
-So the series aims to convert all actions being performed in tasklet
-context asynchronously with interface provided by signal handler
-infrastructure to be executed synchronously, thereby deleting the
-whole infrastructure of signal handler.
+ br_warn(br, "FDB port changed: source dev = %s mac = %pM, port_no = %d, existing dev = %s mac = %pM, port_no = %d\n",
 
-Ying Xue (10):
-  tipc: always use tipc_node_lock() to hold node lock
-  tipc: adjust order of variables in tipc_node structure
-  tipc: rename setup_blocked variable of node struct to flags
-  tipc: avoid to asynchronously notify subscriptions
-  tipc: remove TIPC_NAMES_GONE node flag
-  tipc: avoid to asynchronously deliver name tables to peer node
-  tipc: define new functions to operate bc_lock
-  tipc: convert allocations of global variables associated with bclink
-  tipc: avoid to asynchronously reset all links
-  tipc: purge signal handler infrastructure
+----- Original Message -----
+From: "Alexei Starovoitov" <alexei.starovoitov@gmail.com>
+To: "Stephen Hemminger" <stephen@networkplumber.org>
+Cc: "Jon Maxwell" <jmaxwell37@gmail.com>, netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, "makita toshiaki" <makita.toshiaki@lab.ntt.co.jp>, vyasevic@redhat.com, bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org, pirko@redhat.com, jmaxwell@redhat.com
+Sent: Monday, May 5, 2014 2:06:37 PM
+Subject: Re: [PATCH net] bridge: Add port flap detection
 
- net/tipc/Makefile      |    2 +-
- net/tipc/bcast.c       |  145 +++++++++++++++++++++++++++++++-----------------
- net/tipc/bcast.h       |    4 +-
- net/tipc/config.c      |    6 +-
- net/tipc/core.c        |    7 ---
- net/tipc/core.h        |    6 +-
- net/tipc/handler.c     |  134 --------------------------------------------
- net/tipc/link.c        |   54 ++++++++----------
- net/tipc/link.h        |    1 +
- net/tipc/name_distr.c  |   58 ++-----------------
- net/tipc/name_distr.h  |   30 +++++++++-
- net/tipc/net.c         |    9 ++-
- net/tipc/net.h         |    2 +-
- net/tipc/node.c        |   59 +++++++++++++-------
- net/tipc/node.h        |   92 ++++++++++++++++++------------
- net/tipc/node_subscr.c |    9 ++-
- net/tipc/node_subscr.h |    2 +-
- 17 files changed, 268 insertions(+), 352 deletions(-)
- delete mode 100644 net/tipc/handler.c
+On Sun, May 4, 2014 at 3:53 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Mon,  5 May 2014 07:29:34 +1000
+> Jon Maxwell <jmaxwell37@gmail.com> wrote:
+>
+>> There has been a number incidents recently where customers running KVM have reported that VM hosts on different Hypervisors are unreachable. Based on pcap traces we found that the bridge was broadcasting the ARP request out onto the network. However some NICs have an inbuilt switch which on occasions were broadcasting the VMs ARP request back through the physical NIC on the Hypervisor. This resulted in the bridge flapping ports and incorrectly learning that the VMs mac address was external. As a result the ARP reply was directed back onto the external network and VM never updated it's ARP cache. This patch will detect port flapping and log a message so that this condition can be detected earlier.
+>>
+>> Signed-off-by: Jon Maxwell <jmaxwell@redhat.com>
+>> ---
+>>  net/bridge/br_fdb.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+>> index 9203d5a..c08607b 100644
+>> --- a/net/bridge/br_fdb.c
+>> +++ b/net/bridge/br_fdb.c
+>> @@ -507,6 +507,13 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+>>                                       source->dev->name);
+>>               } else {
+>>                       /* fastpath: update of existing entry */
+>> +                     if (source->port_no != fdb->dst->port_no &&
+>> +                             net_ratelimit())
+>> +                             br_warn(br, "Port flapping detected source entry dev = %s mac = %pM, port_no = %d\n existing entry dev = %s mac = %pM, port_no = %d\n",
+>> +                                     source->dev->name,
+>> +                                     addr, source->port_no,
+>> +                                     fdb->dst->dev->name, addr,
+>> +                                     fdb->dst->port_no);
+>>                       fdb->dst = source;
+>>                       fdb->updated = jiffies;
+>>                       if (unlikely(added_by_user))
+>
+> Ok, but please shorten the message to a single line without excess wordage.
+> Plus flapping to mean means link going up and down. Maybe use same message
+> as BSD?
 
--- 
-1.7.9.5
+Isn't this normal mac move? Any message will be confusing.
+VMs can spoof their src macs and trigger this warning.
+I don't think it's worth adding it just to debug the learning on the
+external interface.
