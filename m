@@ -1,53 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 1/2] net: ipv6: Unduplicate UDP, raw, and L2TP
- sendmsg
-Date: Mon, 05 May 2014 13:41:46 -0400 (EDT)
-Message-ID: <20140505.134146.403956141125731315.davem@davemloft.net>
-References: <1399057868-3488-1-git-send-email-lorenzo@google.com>
-	<1399057868-3488-2-git-send-email-lorenzo@google.com>
-	<1399288557.26081.113742277.45B622D0@webmail.messagingengine.com>
+Subject: Re: [PATCH] net: via-rhine: Convert #ifdef USE_MMIO to a runtime
+ flag
+Date: Mon, 05 May 2014 15:37:31 -0400 (EDT)
+Message-ID: <20140505.153731.953697715071354770.davem@davemloft.net>
+References: <20140502.155635.1691085402453175737.davem@davemloft.net>
+	<1399120853-26967-1-git-send-email-alchark@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lorenzo@google.com, netdev@vger.kernel.org,
-	yoshifuji@linux-ipv6.org, david.laight@aculab.com,
-	eric.dumazet@gmail.com
-To: hannes@stressinduktion.org
+Cc: rl@hellgate.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, fengguang.wu@intel.com
+To: alchark@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59774 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32775 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871AbaEERls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 13:41:48 -0400
-In-Reply-To: <1399288557.26081.113742277.45B622D0@webmail.messagingengine.com>
+	with ESMTP id S1751751AbaEEThd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 15:37:33 -0400
+In-Reply-To: <1399120853-26967-1-git-send-email-alchark@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 05 May 2014 04:15:57 -0700
+From: Alexey Charkov <alchark@gmail.com>
+Date: Sat,  3 May 2014 16:40:53 +0400
 
-> Hi!
+> This introduces another flag in 'quirks' to replace the preprocessor
+> define (USE_MMIO) used to indicate whether the device needs a
+> separate enable routine to operate in MMIO mode.
 > 
-> On Fri, May 2, 2014, at 12:11, Lorenzo Colitti wrote:
->> +
->> +struct ip6_output_opts {
->> +       int hlimit: 9;
->> +       int tclass: 9;
->> +       int dontfrag: 2;
->> +       unsigned connected: 1;
->> +       struct ipv6_txoptions *opt;
->> +};
+> All of the currently known platform Rhine cores operate in MMIO
+> mode by default, and on PCI it is preferred over PIO for performance
+> reasons. However, a comment in code suggests that some (?) early
+> Rhine cores only work in PIO mode, so they should not be switched
+> to MMIO.
 > 
-> I don't think the bitfields are useful, they can cause more RMW cycles
-> and at least on 64-bit systems the structure does not shrink in size if
-> you instead just use s16 and bool types because of the padding needed
-> for the pointer. On 32-bit it does save 4 bytes on the stack, but I
-> don't think it is worth it.
+> Enabling MMIO on PCI is still triggered by the same Kconfig option
+> to avoid breaking user configs needlessly, but this can be changed
+> going forward towards automatic runtime detection in case a list of
+> PIO-only Rhine revisions can be compiled.
 > 
-> If you put the pointer above the other members, newly added fields at
-> the bottom can eat into padding space instead of leaving padding holes
-> in it.
+> This also fixes a couple of compiler warnings detected by Fengguang
+> Wu's test bot (!USE_MMIO case):
+ ...
+> Signed-off-by: Alexey Charkov <alchark@gmail.com>
 
-Furthermore, some architectures are just going to pass this in via two
-registers anyways, so it doesn't save argument count in practice.
+Applied, but in the future please make it clear what tree you are
+targetting by saying "[PATCH net]" or "[PATCH net-next]" in your
+subject line.
 
-I apologize, but I still don't like these changes :-/
+Thanks.
