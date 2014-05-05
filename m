@@ -1,290 +1,38 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 21/24] net, diet: Make packet tpacket/mmap/fanout/rings optional
-Date: Mon,  5 May 2014 15:26:10 -0700
-Message-ID: <1399328773-6531-22-git-send-email-andi@firstfloor.org>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	Andi Kleen <ak@linux.intel.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Darek Marcinkiewicz <reksio@newterm.pl>
+Subject: Re: [PATCH v7 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
+Date: Mon, 5 May 2014 21:06:44 +0200
+Message-ID: <20140505190644.GJ1156@newterm.pl>
+References: <20140504200800.GH1156@newterm.pl>
+ <6140861.bbEgARIqZU@amdc1032>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.newterm.pl ([79.187.237.18]:40400 "EHLO apollo.newterm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751671AbaEETGs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 15:06:48 -0400
+Content-Disposition: inline
+In-Reply-To: <6140861.bbEgARIqZU@amdc1032>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <ak@linux.intel.com>
+On Mon, May 05, 2014 at 04:32:49PM +0200, Bartlomiej Zolnierkiewicz wrote:
+> 
+> Hi,
+> 
+Hi.
+> 
+> There needs to be at least
+> 
+> 	depends on PCI
+> 
+> here or the driver will break build on platforms that doesn't have PCI
+> (i.e. ARM EXYNOS).
+> 
+Thank you. I'll update the patch.
 
-Many DHCP clients need basic packet sockets, but they don't need
-the fancy zero copy packet capture code, like tpacket, mmap, rings,
-fanouts. This is quite substantial code, so it's worthwhile to
-make it optional
-
-Worth nearly 10k code.
-
-   text	   data	    bss	    dec	    hex	filename
- 952827	  71874	  25352	1050053	 1005c5	net/built-in.o-with-packet-mmap
- 943211	  71810	  25352	1040373	  fdff5	net/built-in.o-wo-packet-mmap
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
----
- net/packet/Kconfig     |  8 +++++
- net/packet/af_packet.c | 82 +++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 75 insertions(+), 15 deletions(-)
-
-diff --git a/net/packet/Kconfig b/net/packet/Kconfig
-index cc55b35..c215d31 100644
---- a/net/packet/Kconfig
-+++ b/net/packet/Kconfig
-@@ -22,3 +22,11 @@ config PACKET_DIAG
- 	---help---
- 	  Support for PF_PACKET sockets monitoring interface used by the ss tool.
- 	  If unsure, say Y.
-+
-+config PACKET_MMAP
-+	bool "Enable packet mmap/ring support"
-+	depends on PACKET
-+	default y
-+	---help---
-+	  Enable support to mmap the packet data zero copy. This is useful for
-+	  highspeed packet interceptors.
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b85c67c..723f57f 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -158,6 +158,8 @@ struct packet_mreq_max {
- 	unsigned char	mr_address[MAX_ADDR_LEN];
- };
- 
-+#ifdef CONFIG_PACKET_MMAP
-+
- union tpacket_uhdr {
- 	struct tpacket_hdr  *h1;
- 	struct tpacket2_hdr *h2;
-@@ -165,8 +167,6 @@ union tpacket_uhdr {
- 	void *raw;
- };
- 
--static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
--		int closing, int tx_ring);
- 
- #define V3_ALIGNMENT	(8)
- 
-@@ -213,6 +213,9 @@ static void prb_clear_rxhash(struct tpacket_kbdq_core *,
- 		struct tpacket3_hdr *);
- static void prb_fill_vlan_info(struct tpacket_kbdq_core *,
- 		struct tpacket3_hdr *);
-+
-+#endif
-+
- static void packet_flush_mclist(struct sock *sk);
- 
- struct packet_skb_cb {
-@@ -384,6 +387,8 @@ static void unregister_prot_hook(struct sock *sk, bool sync)
- 		__unregister_prot_hook(sk, sync);
- }
- 
-+#ifdef CONFIG_PACKET_MMAP
-+
- static inline __pure struct page *pgv_to_page(void *addr)
- {
- 	if (is_vmalloc_addr(addr))
-@@ -1210,6 +1215,8 @@ static unsigned int packet_read_pending(const struct packet_ring_buffer *rb)
- 	return refcnt;
- }
- 
-+#endif
-+
- static int packet_alloc_pending(struct packet_sock *po)
- {
- 	po->rx_ring.pending_refcnt = NULL;
-@@ -1226,6 +1233,7 @@ static void packet_free_pending(struct packet_sock *po)
- 	free_percpu(po->tx_ring.pending_refcnt);
- }
- 
-+#ifdef CONFIG_PACKET_MMAP
- static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- {
- 	struct sock *sk = &po->sk;
-@@ -1249,6 +1257,8 @@ static bool packet_rcv_has_room(struct packet_sock *po, struct sk_buff *skb)
- 	return has_room;
- }
- 
-+#endif
-+
- static void packet_sock_destruct(struct sock *sk)
- {
- 	skb_queue_purge(&sk->sk_error_queue);
-@@ -1264,6 +1274,8 @@ static void packet_sock_destruct(struct sock *sk)
- 	sk_refcnt_debug_dec(sk);
- }
- 
-+#ifdef CONFIG_PACKET_MMAP
-+
- static int fanout_rr_next(struct packet_fanout *f, unsigned int num)
- {
- 	int x = atomic_read(&f->rr_cur) + 1;
-@@ -1530,6 +1542,12 @@ static void fanout_release(struct sock *sk)
- 	mutex_unlock(&fanout_mutex);
- }
- 
-+#else
-+static void __fanout_unlink(struct sock *sk, struct packet_sock *po) {}
-+static void __fanout_link(struct sock *sk, struct packet_sock *po) {}
-+static void fanout_release(struct sock *sk) {}
-+#endif
-+
- static const struct proto_ops packet_ops;
- 
- static const struct proto_ops packet_ops_spkt;
-@@ -1867,6 +1885,11 @@ drop:
- 	return 0;
- }
- 
-+#ifdef CONFIG_PACKET_MMAP
-+
-+static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
-+		int closing, int tx_ring);
-+
- static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		       struct packet_type *pt, struct net_device *orig_dev)
- {
-@@ -2357,6 +2380,35 @@ out:
- 	return err;
- }
- 
-+static inline bool use_tpacket(struct packet_sock *po)
-+{
-+	return po->tx_ring.pg_vec;
-+}
-+
-+static void tpacket_release(struct sock *sk, struct packet_sock *po)
-+{
-+	union tpacket_req_u req_u;
-+
-+	if (po->rx_ring.pg_vec) {
-+		memset(&req_u, 0, sizeof(req_u));
-+		packet_set_ring(sk, &req_u, 1, 0);
-+	}
-+
-+	if (po->tx_ring.pg_vec) {
-+		memset(&req_u, 0, sizeof(req_u));
-+		packet_set_ring(sk, &req_u, 1, 1);
-+	}
-+}
-+
-+#else
-+static inline bool use_tpacket(struct packet_sock *po) { return false; }
-+static inline void tpacket_release(struct sock *sk, struct packet_sock *po) {}
-+static inline int tpacket_snd(struct packet_sock *po, struct msghdr *msg) { return 0; }
-+static inline int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
-+			      struct packet_type *pt, struct net_device *orig_dev)
-+{ return 0; }
-+#endif
-+
- static struct sk_buff *packet_alloc_skb(struct sock *sk, size_t prepad,
- 				        size_t reserve, size_t len,
- 				        size_t linear, int noblock,
-@@ -2576,7 +2628,7 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po = pkt_sk(sk);
- 
--	if (po->tx_ring.pg_vec)
-+	if (use_tpacket(po))
- 		return tpacket_snd(po, msg);
- 	else
- 		return packet_snd(sock, msg, len);
-@@ -2592,7 +2644,6 @@ static int packet_release(struct socket *sock)
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po;
- 	struct net *net;
--	union tpacket_req_u req_u;
- 
- 	if (!sk)
- 		return 0;
-@@ -2620,15 +2671,7 @@ static int packet_release(struct socket *sock)
- 
- 	packet_flush_mclist(sk);
- 
--	if (po->rx_ring.pg_vec) {
--		memset(&req_u, 0, sizeof(req_u));
--		packet_set_ring(sk, &req_u, 1, 0);
--	}
--
--	if (po->tx_ring.pg_vec) {
--		memset(&req_u, 0, sizeof(req_u));
--		packet_set_ring(sk, &req_u, 1, 1);
--	}
-+	tpacket_release(sk, po);
- 
- 	fanout_release(sk);
- 
-@@ -3203,7 +3246,7 @@ static int
- packet_setsockopt(struct socket *sock, int level, int optname, char __user *optval, unsigned int optlen)
- {
- 	struct sock *sk = sock->sk;
--	struct packet_sock *po = pkt_sk(sk);
-+	struct packet_sock *po __maybe_unused = pkt_sk(sk);
- 	int ret;
- 
- 	if (level != SOL_PACKET)
-@@ -3231,6 +3274,7 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 		return ret;
- 	}
- 
-+#ifdef CONFIG_PACKET_MMAP
- 	case PACKET_RX_RING:
- 	case PACKET_TX_RING:
- 	{
-@@ -3314,6 +3358,7 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 		po->tp_loss = !!val;
- 		return 0;
- 	}
-+#endif
- 	case PACKET_AUXDATA:
- 	{
- 		int val;
-@@ -3366,6 +3411,7 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 		po->tp_tstamp = val;
- 		return 0;
- 	}
-+#ifdef CONFIG_PACKET_MMAP
- 	case PACKET_FANOUT:
- 	{
- 		int val;
-@@ -3390,6 +3436,7 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 		po->tp_tx_has_off = !!val;
- 		return 0;
- 	}
-+#endif
- 	case PACKET_QDISC_BYPASS:
- 	{
- 		int val;
-@@ -3615,6 +3662,7 @@ static int packet_ioctl(struct socket *sock, unsigned int cmd,
- 	return 0;
- }
- 
-+#ifdef CONFIG_PACKET_MMAP
- static unsigned int packet_poll(struct file *file, struct socket *sock,
- 				poll_table *wait)
- {
-@@ -3855,7 +3903,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
- 		swap(rb->pg_vec_len, req->tp_block_nr);
- 
- 		rb->pg_vec_pages = req->tp_block_size/PAGE_SIZE;
--		po->prot_hook.func = (po->rx_ring.pg_vec) ?
-+		po->prot_hook.func = use_tpacket(po) ?
- 						tpacket_rcv : packet_rcv;
- 		skb_queue_purge(rb_queue);
- 		if (atomic_read(&po->mapped))
-@@ -3944,6 +3992,10 @@ out:
- 	mutex_unlock(&po->pg_vec_lock);
- 	return err;
- }
-+#else
-+#define packet_mmap sock_no_mmap
-+#define packet_poll datagram_poll
-+#endif
- 
- static const struct proto_ops packet_ops_spkt = {
- 	.family =	PF_PACKET,
 -- 
-1.9.0
+DM
