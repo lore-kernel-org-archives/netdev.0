@@ -1,149 +1,42 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Mon,  5 May 2014 15:25:57 -0700
-Message-ID: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	Andi Kleen <ak@linux.intel.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] ip_tunnel: Set network header properly for
+ IP_ECN_decapsulate()
+Date: Mon, 05 May 2014 16:32:58 -0400 (EDT)
+Message-ID: <20140505.163258.2135122265806266709.davem@davemloft.net>
+References: <1399242005-28999-1-git-send-email-ycai@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ncardwell@google.com,
+	sergei.shtylyov@cogentembedded.com
+To: ycai@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33443 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754754AbaEEUc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 16:32:59 -0400
+In-Reply-To: <1399242005-28999-1-git-send-email-ycai@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <ak@linux.intel.com>
+From: Ying Cai <ycai@google.com>
+Date: Sun,  4 May 2014 15:20:04 -0700
 
-This is all the code that saves connection information
-between different sockets. Not really essential for
-small systems.
+> In ip_tunnel_rcv(), set skb->network_header to inner IP header
+> before IP_ECN_decapsulate().
+> 
+> Without the fix, IP_ECN_decapsulate() takes outer IP header as
+> inner IP header, possibly causing error messages or packet drops.
+> 
+> Note that this skb_reset_network_header() call was in this spot when
+> the original feature for checking consistency of ECN bits through
+> tunnels was added in eccc1bb8d4b4 ("tunnel: drop packet if ECN present
+> with not-ECT"). It was only removed from this spot in 3d7b46cd20e3
+> ("ip_tunnel: push generic protocol handling to ip_tunnel module.").
+> 
+> Fixes: 3d7b46cd20e3 ("ip_tunnel: push generic protocol handling to ip_tunnel module.")
+> Reported-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Ying Cai <ycai@google.com>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Saves about 5.5k text
-
-   text	   data	    bss	    dec	    hex	filename
- 492952	  19571	  13480	 526003	  806b3	net/built-in.o-with-metrics
- 487675	  19275	  13480	 520430	  7f0ee	net/built-in.o-without-metrics
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
----
- include/net/tcp.h          | 25 +++++++++++++++++++++++++
- net/ipv4/Kconfig           |  6 ++++++
- net/ipv4/Makefile          |  3 ++-
- net/ipv4/sysctl_net_ipv4.c |  2 ++
- 4 files changed, 35 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 87d8774..d741d2f 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -419,14 +419,29 @@ int tcp_child_process(struct sock *parent, struct sock *child,
- 		      struct sk_buff *skb);
- void tcp_enter_loss(struct sock *sk, int how);
- void tcp_clear_retrans(struct tcp_sock *tp);
-+#ifdef CONFIG_TCP_METRICS
- void tcp_update_metrics(struct sock *sk);
- void tcp_init_metrics(struct sock *sk);
- void tcp_metrics_init(void);
-+
- bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
- 			bool paws_check);
- bool tcp_remember_stamp(struct sock *sk);
- bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
- void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
-+#else
-+static inline void tcp_update_metrics(struct sock *sk) {}
-+static inline void tcp_init_metrics(struct sock *sk) {}
-+static inline void tcp_metrics_init(void) {}
-+static inline bool tcp_peer_is_proven(struct request_sock *req,
-+				      struct dst_entry *dst,
-+				      bool paws_check) { return false; }
-+static inline bool tcp_remember_stamp(struct sock *sk) { return false; }
-+static inline bool
-+tcp_tw_remember_stamp(struct inet_timewait_sock *tw) { return false; }
-+static inline void
-+tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst) {}
-+#endif
- void tcp_disable_fack(struct tcp_sock *tp);
- void tcp_close(struct sock *sk, long timeout);
- void tcp_init_sock(struct sock *sk);
-@@ -1296,11 +1311,21 @@ int tcp_md5_hash_key(struct tcp_md5sig_pool *hp,
- 		     const struct tcp_md5sig_key *key);
- 
- /* From tcp_fastopen.c */
-+#ifdef CONFIG_TCP_METRICS
- void tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
- 			    struct tcp_fastopen_cookie *cookie, int *syn_loss,
- 			    unsigned long *last_syn_loss);
- void tcp_fastopen_cache_set(struct sock *sk, u16 mss,
- 			    struct tcp_fastopen_cookie *cookie, bool syn_lost);
-+#else
-+static inline void
-+tcp_fastopen_cache_get(struct sock *sk, u16 *mss,
-+		       struct tcp_fastopen_cookie *cookie, int *syn_loss,
-+		       unsigned long *last_syn_loss) {}
-+static inline void
-+tcp_fastopen_cache_set(struct sock *sk, u16 mss,
-+		       struct tcp_fastopen_cookie *cookie, bool syn_lost) {}
-+#endif
- struct tcp_fastopen_request {
- 	/* Fast Open cookie. Size 0 means a cookie request */
- 	struct tcp_fastopen_cookie	cookie;
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 6146b1b..db2dada 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -264,6 +264,12 @@ config IP_PIMSM_V2
- 	  gated-5). This routing protocol is not used widely, so say N unless
- 	  you want to play with it.
- 
-+config TCP_METRICS
-+	bool "Report TCP metrics over netlink"
-+	---help---
-+           Enable support in TCP to save host information between different
-+	   connections.
-+
- config SYN_COOKIES
- 	bool "IP: TCP syncookie support"
- 	---help---
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 756855c..8b17b83 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -7,7 +7,7 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     ip_output.o ip_sockglue.o inet_hashtables.o \
- 	     inet_timewait_sock.o inet_connection_sock.o \
- 	     tcp.o tcp_input.o tcp_output.o tcp_timer.o tcp_ipv4.o \
--	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
-+	     tcp_minisocks.o tcp_cong.o tcp_fastopen.o \
- 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
- 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
-@@ -17,6 +17,7 @@ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
- obj-$(CONFIG_IP_PING) += ping.o
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
- obj-$(CONFIG_PROC_FS) += proc.o
-+obj-$(CONFIG_TCP_METRICS) += tcp_metrics.o
- obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 44eba05..2110d2e 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -573,6 +573,7 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+#ifdef CONFIG_TCP_METRICS
- 	{
- 		.procname	= "tcp_no_metrics_save",
- 		.data		= &sysctl_tcp_nometrics_save,
-@@ -580,6 +581,7 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+#endif
- 	{
- 		.procname	= "tcp_moderate_rcvbuf",
- 		.data		= &sysctl_tcp_moderate_rcvbuf,
--- 
-1.9.0
+Applied and queued up for -stable, thanks.
