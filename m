@@ -1,39 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] purge signal handler infrastructure
-Date: Mon, 05 May 2014 17:27:10 -0400 (EDT)
-Message-ID: <20140505.172710.1571847590302532388.davem@davemloft.net>
-References: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH] ipv6: Need to sock_put on zero csum error
+Date: Mon, 05 May 2014 16:23:23 -0400 (EDT)
+Message-ID: <20140505.162323.2182243726196148268.davem@davemloft.net>
+References: <alpine.DEB.2.02.1405051309280.21835@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33910 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33356 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755089AbaEEV1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 17:27:13 -0400
-In-Reply-To: <1399251378-23842-1-git-send-email-ying.xue@windriver.com>
+	with ESMTP id S1755293AbaEEUXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 16:23:25 -0400
+In-Reply-To: <alpine.DEB.2.02.1405051309280.21835@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Mon, 5 May 2014 08:56:08 +0800
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 5 May 2014 13:11:57 -0700 (PDT)
 
-> When we delay some actions to be executed in asynchronous contexts,
-> these usually add unnecessary code complexities, and make their
-> behaviours unpredictable and indeterministic. Moreover, as the signal
-> handler infrastructure is first stopped when tipc module is removed,
-> this may cause some potential risks for us. For instance, although
-> signal handler is already stopped, some tipc components still submit
-> signal requests to signal handler infrastructure, which may lead to
-> some resources not to be released or freed correctly.
-> 
-> So the series aims to convert all actions being performed in tasklet
-> context asynchronously with interface provided by signal handler
-> infrastructure to be executed synchronously, thereby deleting the
-> whole infrastructure of signal handler.
+> Commit 4068579e1e098fa81d48db9ba4432ab664c58561 introduced
 
-Series applied, thanks.
+Please provide the commit header line, in parenthesis and double
+quotes, after the SHA_ID.  SHA_ID's are ambiguous when changes get
+backported into other trees.
