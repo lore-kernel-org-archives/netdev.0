@@ -1,47 +1,160 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/6] Add CPTS support for AM437x
-Date: Mon, 05 May 2014 13:19:18 -0400 (EDT)
-Message-ID: <20140505.131918.1426781180793240906.davem@davemloft.net>
-References: <1399012324-20737-1-git-send-email-george.cherian@ti.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
-	linux-omap@vger.kernel.org, richardcochran@gmail.com,
-	jeffrey.t.kirsher@intel.com, dborkman@redhat.com, ast@plumgrid.com,
-	tklauser@distanz.ch, mpa@pengutronix.de, bhutchings@solarflare.com,
-	zonque@gmail.com, balbi@ti.com, mugunthanvnm@ti.com,
-	t-kristo@ti.com, mturquette@linaro.org, linux@arm.linux.org.uk,
-	galak@codeaurora.org, ijc+devicetree@hellion.org.uk,
-	mark.rutland@arm.com, pawel.moll@arm.com, robh+dt@kernel.org,
-	tony@atomide.com, bcousson@baylibre.com
-To: george.cherian@ti.com
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 11/24] net, diet: Move rtnl_lock to separate file
+Date: Mon,  5 May 2014 15:26:00 -0700
+Message-ID: <1399328773-6531-12-git-send-email-andi@firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59656 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754729AbaEERTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 13:19:25 -0400
-In-Reply-To: <1399012324-20737-1-git-send-email-george.cherian@ti.com>
+Received: from mga02.intel.com ([134.134.136.20]:58940 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933111AbaEEW0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 18:26:24 -0400
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: George Cherian <george.cherian@ti.com>
-Date: Fri, 2 May 2014 12:01:58 +0530
+From: Andi Kleen <ak@linux.intel.com>
 
-> The series adds CPTS support for AM4372.
-> 
-> Patch 1 - DT changes w.r.t clock changes for AM33xx.
-> Patch 2 - CPTS clock name harcoding in the driver is removed. 
-> 	  Easier to pass the clock name from dt rather than hardcoding in driver.
-> 	  Also in prepration for DRA7x CPTS support.
-> Patch 3 - Enable the CPTS support for both DRA7x and AM4372 in the driver.
-> Patch 4 - Enable the Annexe F for L2 PTP for AM437x and DRA7x.
-> Patch 5 - Change the default clocksource to dpll_core_m5 
-> Patch 6 - DT changes for AM4372.
-> 
-> v1 -> v2
-> 	Patch 1 and 2 Re-ordering.
-> 	Seperate TS_BITS define for Hw version V2 and V3
+rtnl_lock is used in a lot of places independently from rtnetlink.
+Move it to an own file.
 
-Series applied, thanks.
+Only ugly part is that the rtnetlink init still needs to access
+the mutex. do this through a private backdoor, to avoid putting
+it into the headers for everyone.
+
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
+---
+ net/core/Makefile    |  3 ++-
+ net/core/rtnetlink.c | 42 ++----------------------------------------
+ net/core/rtnl_lock.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 48 insertions(+), 41 deletions(-)
+ create mode 100644 net/core/rtnl_lock.c
+
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 7db2fff..e05bd9c 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -3,7 +3,8 @@
+ #
+ 
+ obj-y := sock.o request_sock.o skbuff.o iovec.o datagram.o stream.o scm.o \
+-	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o
++	 gen_stats.o gen_estimator.o net_namespace.o secure_seq.o flow_dissector.o \
++	 rtnl_lock.o
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d4ff417..0e802f0 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -60,46 +60,6 @@ struct rtnl_link {
+ 	rtnl_calcit_func 	calcit;
+ };
+ 
+-static DEFINE_MUTEX(rtnl_mutex);
+-
+-void rtnl_lock(void)
+-{
+-	mutex_lock(&rtnl_mutex);
+-}
+-EXPORT_SYMBOL(rtnl_lock);
+-
+-void __rtnl_unlock(void)
+-{
+-	mutex_unlock(&rtnl_mutex);
+-}
+-
+-void rtnl_unlock(void)
+-{
+-	/* This fellow will unlock it for us. */
+-	netdev_run_todo();
+-}
+-EXPORT_SYMBOL(rtnl_unlock);
+-
+-int rtnl_trylock(void)
+-{
+-	return mutex_trylock(&rtnl_mutex);
+-}
+-EXPORT_SYMBOL(rtnl_trylock);
+-
+-int rtnl_is_locked(void)
+-{
+-	return mutex_is_locked(&rtnl_mutex);
+-}
+-EXPORT_SYMBOL(rtnl_is_locked);
+-
+-#ifdef CONFIG_PROVE_LOCKING
+-int lockdep_rtnl_is_held(void)
+-{
+-	return lockdep_is_held(&rtnl_mutex);
+-}
+-EXPORT_SYMBOL(lockdep_rtnl_is_held);
+-#endif /* #ifdef CONFIG_PROVE_LOCKING */
+-
+ static struct rtnl_link *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
+ 
+ static inline int rtm_msgindex(int msgtype)
+@@ -2845,6 +2805,8 @@ static struct notifier_block rtnetlink_dev_notifier = {
+ 	.notifier_call	= rtnetlink_event,
+ };
+ 
++/* Don't put this into the header, private backdoor. */
++extern struct mutex rtnl_mutex;
+ 
+ static int __net_init rtnetlink_net_init(struct net *net)
+ {
+diff --git a/net/core/rtnl_lock.c b/net/core/rtnl_lock.c
+new file mode 100644
+index 0000000..f0dfd19
+--- /dev/null
++++ b/net/core/rtnl_lock.c
+@@ -0,0 +1,44 @@
++#include <linux/rtnetlink.h>
++#include <linux/mutex.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++
++DEFINE_MUTEX(rtnl_mutex);
++
++void rtnl_lock(void)
++{
++	mutex_lock(&rtnl_mutex);
++}
++EXPORT_SYMBOL(rtnl_lock);
++
++void __rtnl_unlock(void)
++{
++	mutex_unlock(&rtnl_mutex);
++}
++
++void rtnl_unlock(void)
++{
++	/* This fellow will unlock it for us. */
++	netdev_run_todo();
++}
++EXPORT_SYMBOL(rtnl_unlock);
++
++int rtnl_trylock(void)
++{
++	return mutex_trylock(&rtnl_mutex);
++}
++EXPORT_SYMBOL(rtnl_trylock);
++
++int rtnl_is_locked(void)
++{
++	return mutex_is_locked(&rtnl_mutex);
++}
++EXPORT_SYMBOL(rtnl_is_locked);
++
++#ifdef CONFIG_PROVE_LOCKING
++int lockdep_rtnl_is_held(void)
++{
++	return lockdep_is_held(&rtnl_mutex);
++}
++EXPORT_SYMBOL(lockdep_rtnl_is_held);
++#endif /* #ifdef CONFIG_PROVE_LOCKING */
+-- 
+1.9.0
