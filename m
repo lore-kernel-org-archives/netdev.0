@@ -1,100 +1,87 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v4 2/4] Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
-Date: Mon,  5 May 2014 14:47:25 -0700
-Message-ID: <1399326447-2329-3-git-send-email-isubramanian@apm.com>
-References: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
-	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
-	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH] netdev: pktgen xmit packet through vlan interface
+Date: Mon, 5 May 2014 17:43:18 +0200
+Message-ID: <20140505154318.GC2944@minipsycho.brq.redhat.com>
+References: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, steffen.klassert@secunet.com,
+	fan.du@windriver.com, dborkman@redhat.com, minipli@googlemail.com,
+	tgraf@suug.ch, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: Zhouyi Zhou <zhouzhouyi@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
+Content-Disposition: inline
+In-Reply-To: <1399015092-28643-1-git-send-email-zhouzhouyi@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
+Fri, May 02, 2014 at 09:18:12AM CEST, zhouzhouyi@gmail.com wrote:
+>As http://www.spinics.net/lists/netdev/msg165015.html
+>pktgen generates shared packet through vlan interface will cause
+>oops because of duplicate entering tc queue.
+>
+>Try to solve this problem by means of packet clone instead of sharing.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Ravi Patel <rapatel@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- .../devicetree/bindings/net/apm-xgene-enet.txt     |   66 ++++++++++++++++++++
- 1 file changed, 66 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+Isn't this prohibited by:
+dev->priv_flags         &= ~(IFF_TX_SKB_SHARING);
+?
 
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-new file mode 100644
-index 0000000..9ad6fe1
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -0,0 +1,66 @@
-+APM X-Gene SoC Ethernet nodes
-+
-+Ethernet nodes are defined to describe on-chip ethernet interfaces in
-+APM X-Gene SoC.
-+
-+Required properties:
-+- compatible:		Should be "apm,xgene-enet"
-+- reg:			First resource is the ethernet base register set
-+			Second resource is the ring base register set
-+			Third resource is the ring command register set
-+- interrupts:		Ethernet main interrupt
-+- clocks:		Reference to the clock entry.
-+- local-mac-address:	Ethernet MAC address.
-+- phy-connection-type:	Ethernet MII mode.
-+
-+- mdio device tree subnode: When the X-Gene SoC has a phy connected to its local
-+		mdio, there must be device tree subnode with the following
-+		required properties:
-+
-+	- compatible: Must be "apm,xgene-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
-+
-+	For the phy on the mdio bus, there must be a node with the following
-+	fields:
-+
-+	- reg: phy id used to communicate to phy.
-+
-+Optional properties:
-+- status		: Should be "ok" or "disabled" for enabled/disabled.
-+			  Default is "ok".
-+
-+Example:
-+	menetclk: menetclk {
-+		compatible = "apm,xgene-device-clock";
-+		clock-output-names = "menetclk";
-+		status = "ok";
-+	};
-+
-+	menet: ethernet@17020000 {
-+		compatible = "apm,xgene-enet";
-+		status = "disabled";
-+		reg = <0x0 0x17020000 0x0 0xd100>,
-+		      <0x0 0X17030000 0x0 0X400>,
-+		      <0x0 0X10000000 0x0 0X200>;
-+		interrupts = <0x0 0x3c 0x4>;
-+		clocks = <&menetclk 0>;
-+		local-mac-address = [00 01 73 00 00 01];
-+		phy-connection-type = "rgmii";
-+		phy-handle = <&menetphy>;
-+		mdio {
-+			compatible = "apm,xgene-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			menetphy: menetphy@3 {
-+				reg = <0x3>;
-+			};
-+
-+		};
-+	};
-+
-+/* Board-specific peripheral configurations */
-+
-+&menet {
-+        status = "ok";
-+};
--- 
-1.7.9.5
+>
+>Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+>---
+> net/core/pktgen.c |   20 +++++++++++++++++---
+> 1 files changed, 17 insertions(+), 3 deletions(-)
+>
+>diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+>index 0304f98..ced07fc 100644
+>--- a/net/core/pktgen.c
+>+++ b/net/core/pktgen.c
+>@@ -3297,6 +3297,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+> 	netdev_tx_t (*xmit)(struct sk_buff *, struct net_device *)
+> 		= odev->netdev_ops->ndo_start_xmit;
+> 	struct netdev_queue *txq;
+>+	struct sk_buff *nskb = NULL;
+> 	u16 queue_map;
+> 	int ret;
+> 
+>@@ -3347,8 +3348,18 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+> 		pkt_dev->last_ok = 0;
+> 		goto unlock;
+> 	}
+>-	atomic_inc(&(pkt_dev->skb->users));
+>-	ret = (*xmit)(pkt_dev->skb, odev);
+>+
+>+	if (pkt_dev->clone_skb && is_vlan_dev(odev)) {
+>+		nskb = skb_clone(pkt_dev->skb, GFP_ATOMIC);
+>+		ret = -ENOMEM;
+>+		if (nskb)
+>+			ret = (*xmit)(nskb, odev);
+>+		else
+>+			nskb = ERR_PTR(ret);
+>+	} else {
+>+		atomic_inc(&(pkt_dev->skb->users));
+>+		ret = (*xmit)(pkt_dev->skb, odev);
+>+	}
+> 
+> 	switch (ret) {
+> 	case NETDEV_TX_OK:
+>@@ -3372,7 +3383,10 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+> 	case NETDEV_TX_LOCKED:
+> 	case NETDEV_TX_BUSY:
+> 		/* Retry it next time */
+>-		atomic_dec(&(pkt_dev->skb->users));
+>+		if (nskb && !IS_ERR(nskb))
+>+			kfree_skb(nskb);
+>+		else
+>+			atomic_dec(&(pkt_dev->skb->users));
+> 		pkt_dev->last_ok = 0;
+> 	}
+> unlock:
+>-- 
+>1.7.1
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
