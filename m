@@ -1,70 +1,46 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 04/24] net, diet: Make FIB hash tables smaller with CONFIG_BASE_SMALL
-Date: Mon,  5 May 2014 15:25:53 -0700
-Message-ID: <1399328773-6531-5-git-send-email-andi@firstfloor.org>
+Subject: [PATCH 20/24] net, diet: Make XPS configurable
+Date: Mon,  5 May 2014 15:26:09 -0700
+Message-ID: <1399328773-6531-21-git-send-email-andi@firstfloor.org>
 References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
 	Andi Kleen <ak@linux.intel.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58940 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933053AbaEEW0U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 May 2014 18:26:20 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Andi Kleen <ak@linux.intel.com>
 
-Just make the FIB hash tables much smaller for small
-kernel.
+Not needed on small systems. Already disabled with !SMP,
+but also makes sense to explicitely disabled on very
+small multi-core SOCKs.
+
+Saves ~6k text, but increases the data segment by a
+mysterious ~4k (some padding?)
+
+   text	   data	    bss	    dec	    hex	filename
+6893698	1392544	 634880	8921122	 882022	vmlinux-with-xps
+6887542	1396544	 634880	8918966	 8817b6	vmlinux-wo-xps
 
 Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- include/net/ip_fib.h     | 5 +++++
- net/ipv4/fib_semantics.c | 4 ++++
- 2 files changed, 9 insertions(+)
+ net/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 9922093..cbe60cd 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -65,7 +65,11 @@ struct fnhe_hash_bucket {
- 	struct fib_nh_exception __rcu	*chain;
- };
+diff --git a/net/Kconfig b/net/Kconfig
+index cc0264a..2437348 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -259,7 +259,7 @@ config RFS_ACCEL
+ 	default y
  
-+#ifdef CONFIG_BASE_SMALL
-+#define FNHE_HASH_SIZE		16
-+#else
- #define FNHE_HASH_SIZE		2048
-+#endif
- #define FNHE_RECLAIM_DEPTH	5
- 
- struct fib_nh {
-@@ -162,6 +166,7 @@ struct fib_result_nl {
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- #define FIB_TABLE_HASHSZ 256
- #else
-+/* Can we use 1 for BASE_SMALL? */
- #define FIB_TABLE_HASHSZ 2
- #endif
- 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 8a043f0..c3d4e4d 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -51,7 +51,11 @@ static struct hlist_head *fib_info_laddrhash;
- static unsigned int fib_info_hash_size;
- static unsigned int fib_info_cnt;
- 
-+#ifdef CONFIG_BASE_SMALL
-+#define DEVINDEX_HASHBITS 2
-+#else
- #define DEVINDEX_HASHBITS 8
-+#endif
- #define DEVINDEX_HASHSIZE (1U << DEVINDEX_HASHBITS)
- static struct hlist_head fib_info_devhash[DEVINDEX_HASHSIZE];
+ config XPS
+-	boolean
++	bool "Support multiqueue transmit queues (XPS)"
+ 	depends on SMP
+ 	default y
  
 -- 
 1.9.0
