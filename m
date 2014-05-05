@@ -1,53 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] ipv4: remove inet_addr_hash_lock in devinet.c
-Date: Mon,  5 May 2014 11:46:50 -0700
-Message-ID: <1399315610-28771-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: [PATCH 02/24] net, diet: Reduce NAPI hash table for CONFIG_BASE_SMALL
+Date: Mon,  5 May 2014 15:25:51 -0700
+Message-ID: <1399328773-6531-3-git-send-email-andi@firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Cc: linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:39432 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750942AbaEESrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 14:47:05 -0400
-Received: by mail-pd0-f172.google.com with SMTP id g10so8327169pdj.17
-        for <netdev@vger.kernel.org>; Mon, 05 May 2014 11:47:04 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:39433 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933039AbaEEW0T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 18:26:19 -0400
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the callers hold RTNL lock, so there is no need to use inet_addr_hash_lock
-to protect the hash list.
+From: Andi Kleen <ak@linux.intel.com>
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+For really small kernels, use only 3 bits for the hash table.
 
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index bdbf68b..e497700 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -106,7 +106,6 @@ static const struct nla_policy ifa_ipv4_policy[IFA_MAX+1] = {
- #define IN4_ADDR_HSIZE		(1U << IN4_ADDR_HSIZE_SHIFT)
+ net/core/dev.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d2c8a06..c6cbe69 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -175,7 +175,14 @@ EXPORT_SYMBOL(dev_base_lock);
+ static DEFINE_SPINLOCK(napi_hash_lock);
  
- static struct hlist_head inet_addr_lst[IN4_ADDR_HSIZE];
--static DEFINE_SPINLOCK(inet_addr_hash_lock);
+ static unsigned int napi_gen_id;
+-static DEFINE_HASHTABLE(napi_hash, 8);
++
++#ifdef CONFIG_BASE_SMALL
++#define NAPI_HASH_BITS 3
++#else
++#define NAPI_HASH_BITS 8
++#endif
++
++static DEFINE_HASHTABLE(napi_hash, NAPI_HASH_BITS);
  
- static u32 inet_addr_hash(struct net *net, __be32 addr)
- {
-@@ -119,16 +118,12 @@ static void inet_hash_insert(struct net *net, struct in_ifaddr *ifa)
- {
- 	u32 hash = inet_addr_hash(net, ifa->ifa_local);
+ static seqcount_t devnet_rename_seq;
  
--	spin_lock(&inet_addr_hash_lock);
- 	hlist_add_head_rcu(&ifa->hash, &inet_addr_lst[hash]);
--	spin_unlock(&inet_addr_hash_lock);
- }
- 
- static void inet_hash_remove(struct in_ifaddr *ifa)
- {
--	spin_lock(&inet_addr_hash_lock);
- 	hlist_del_init_rcu(&ifa->hash);
--	spin_unlock(&inet_addr_hash_lock);
- }
- 
- /**
+-- 
+1.9.0
