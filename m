@@ -1,55 +1,83 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 1/3] rtlwifi: make MSI support a module parameter
-Date: Mon, 05 May 2014 09:56:16 -0500
-Message-ID: <5367A690.7010305@lwfinger.net>
-References: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "John W. Linville" <linville@tuxdriver.com>
-To: Adam Lee <adam.lee@canonical.com>, linux-wireless@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 3/4] e1000e: Fix issue with link flap on 82579
+Date: Mon,  5 May 2014 13:07:39 -0700
+Message-ID: <1399320460-21774-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Lukasz Adamczuk <lukasz.adamczuk@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:57296 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932448AbaEEO4T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 10:56:19 -0400
-In-Reply-To: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
+Received: from mga02.intel.com ([134.134.136.20]:21818 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752847AbaEEUHv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 May 2014 16:07:51 -0400
+In-Reply-To: <1399320460-21774-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/05/2014 03:33 AM, Adam Lee wrote:
-> This makes MSI support a module parameter, for debugging and workaround
-> convenience.
->
-> Signed-off-by: Adam Lee <adam.lee@canonical.com>
+From: David Ertman <davidx.m.ertman@intel.com>
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net> (for all 3 patches)
+Several customers have reported a link flap issue on 82579. The symptoms
+are random and intermittent link losses when 82579 is connected to specific
+link partners. Issue has been root caused as interoperability problem
+between 82579 and at least some Broadcom PHYs in the Energy Efficient
+Ethernet wake mechanism.
 
-I would have made the default for the MSI option to be true, but that is a 
-matter of preference, and only experience would show which default leads to the 
-fewer failures. On my laptop, both rtl8188ee and rtl8723be work either way. I am 
-now working on a driver for the RTL8192EE that also can use MSI - that has only 
-been tested with the option on.
+To fix the issue, we are disabling the Phase Locked Loop shutdown in 100M
+Low Power Idle.  This solution will cause an increase of power in 100M EEE
+link. It will cost additional 28mW in this specific mode.
 
-Larry
+Cc: Lukasz Adamczuk <lukasz.adamczuk@intel.com>
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 11 +++++++++++
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |  2 ++
+ 2 files changed, 13 insertions(+)
 
-> ---
->   drivers/net/wireless/rtlwifi/wifi.h | 4 ++++
->   1 file changed, 4 insertions(+)
->
-> diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-> index 6965afd..eef93d1 100644
-> --- a/drivers/net/wireless/rtlwifi/wifi.h
-> +++ b/drivers/net/wireless/rtlwifi/wifi.h
-> @@ -2030,6 +2030,10 @@ struct rtl_mod_params {
->
->   	/* default: 1 = using linked fw power save */
->   	bool fwctrl_lps;
-> +
-> +	/* default: 0 = not using MSI interrupts mode */
-> +	/* submodules should set their own defalut value */
-> +	bool msi_support;
->   };
->
->   struct rtl_hal_usbint_cfg {
->
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 059f1b0..e8587b9 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -842,6 +842,17 @@ s32 e1000_set_eee_pchlan(struct e1000_hw *hw)
+ 		}
+ 	}
+ 
++	if (hw->phy.type == e1000_phy_82579) {
++		ret_val = e1000_read_emi_reg_locked(hw, I82579_LPI_PLL_SHUT,
++						    &data);
++		if (ret_val)
++			goto release;
++
++		data &= ~I82579_LPI_100_PLL_SHUT;
++		ret_val = e1000_write_emi_reg_locked(hw, I82579_LPI_PLL_SHUT,
++						     data);
++	}
++
+ 	/* R/Clr IEEE MMD 3.1 bits 11:10 - Tx/Rx LPI Received */
+ 	ret_val = e1000_read_emi_reg_locked(hw, pcs_status, &data);
+ 	if (ret_val)
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index 8fc6c15..5515126 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -232,12 +232,14 @@
+ #define I82577_MSE_THRESHOLD	0x0887	/* 82577 Mean Square Error Threshold */
+ #define I82579_MSE_LINK_DOWN	0x2411	/* MSE count before dropping link */
+ #define I82579_RX_CONFIG		0x3412	/* Receive configuration */
++#define I82579_LPI_PLL_SHUT		0x4412	/* LPI PLL Shut Enable */
+ #define I82579_EEE_PCS_STATUS		0x182E	/* IEEE MMD Register 3.1 >> 8 */
+ #define I82579_EEE_CAPABILITY		0x0410	/* IEEE MMD Register 3.20 */
+ #define I82579_EEE_ADVERTISEMENT	0x040E	/* IEEE MMD Register 7.60 */
+ #define I82579_EEE_LP_ABILITY		0x040F	/* IEEE MMD Register 7.61 */
+ #define I82579_EEE_100_SUPPORTED	(1 << 1)	/* 100BaseTx EEE */
+ #define I82579_EEE_1000_SUPPORTED	(1 << 2)	/* 1000BaseTx EEE */
++#define I82579_LPI_100_PLL_SHUT	(1 << 2)	/* 100M LPI PLL Shut Enabled */
+ #define I217_EEE_PCS_STATUS	0x9401	/* IEEE MMD Register 3.1 */
+ #define I217_EEE_CAPABILITY	0x8000	/* IEEE MMD Register 3.20 */
+ #define I217_EEE_ADVERTISEMENT	0x8001	/* IEEE MMD Register 7.60 */
+-- 
+1.9.0
