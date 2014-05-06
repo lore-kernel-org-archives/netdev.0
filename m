@@ -1,51 +1,49 @@
-From: Venkata Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: FW: [PATCH v5 ethtool 0/2] patchset - Support for configurable RSS
- hash key
-Date: Tue, 6 May 2014 08:26:44 +0000
-Message-ID: <BF3270C86E8B1349A26C34E4EC1C44CB2C8BC00E@CMEXMB1.ad.emulex.com>
-References: <501b590b-178c-4c69-b82b-e7cfa96276ef@CMEXHTCAS2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings (ben@decadent.org.uk)" <ben@decadent.org.uk>
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH] net: davinci_mdio: Use of_mdiobus_register()
+Date: Tue,  6 May 2014 17:18:12 +0200
+Message-ID: <1399389492-32596-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Daniel Mack <zonque@gmail.com>
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:56896 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934235AbaEFI0q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 04:26:46 -0400
-In-Reply-To: <501b590b-178c-4c69-b82b-e7cfa96276ef@CMEXHTCAS2.ad.emulex.com>
-Content-Language: en-US
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:50948 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754500AbaEFPSV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:18:21 -0400
+Received: by mail-ee0-f45.google.com with SMTP id d49so2504729eek.32
+        for <netdev@vger.kernel.org>; Tue, 06 May 2014 08:18:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please look into this. Thanks.
+of_mdiobus_register() calls mdiobus_register() internally, so the
+functionality is preserved. However, by calling the of_ variant, phy
+nodes can be augmented with extra information.
 
-Venkat.
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Venkat Duvvuru
-Sent: Monday, April 21, 2014 3:39 PM
-To: netdev@vger.kernel.org
-Cc: Venkata Duvvuru
-Subject: [PATCH v5 ethtool 0/2] patchset - Support for configurable RSS hash key
-
-NIC drivers that support RSS use either a hard-coded value or a random value for the RSS hash key. Irrespective of the type of the key used, the user would want to change the hash key if he/she is not satisfied with the effectiveness of the default hash-key in spreading the incoming flows evenly across the RSS queues.
-
-This patch set adds support for configuring the RSS hash-key via the ethtool interface using .X/-x option.
-
-v5:
-1. Added rss_context field to ethtool_rxfh structure to support multiple
-   rss contexts.
-
-Venkat Duvvuru (2):
-  ethtool: Support for configurable RSS hash key
-  ethtool: Support for configurable RSS hash key
-
- ethtool-copy.h |   34 +++++++-
- ethtool.8.in   |   18 +++--
- ethtool.c      |  253 ++++++++++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 244 insertions(+), 61 deletions(-)
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 0cca9de..359d42c 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -38,6 +38,7 @@
+ #include <linux/davinci_emac.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
++#include <linux/of_mdio.h>
+ #include <linux/pinctrl/consumer.h>
+ 
+ /*
+@@ -389,7 +390,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* register the mii bus */
+-	ret = mdiobus_register(data->bus);
++	ret = of_mdiobus_register(data->bus, dev->of_node);
+ 	if (ret)
+ 		goto bail_out;
+ 
+-- 
+1.9.0
