@@ -1,48 +1,53 @@
-From: josh@joshtriplett.org
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 6 May 2014 15:50:39 -0700
-Message-ID: <20140506225039.GA22331@cloud>
-References: <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
- <20140506.164410.15377655213427639.davem@davemloft.net>
- <20140506210815.GB21791@cloud>
- <20140506.171117.1365037653422161013.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net 1/1] inet: fix sysctl_local_ports init when
+ namespaces are used
+Date: Wed, 7 May 2014 00:51:45 +0200
+Message-ID: <20140506225145.GA28325@electric-eye.fr.zoreil.com>
+References: <20140506055341.GA9051@electric-eye.fr.zoreil.com>
+ <CAHA+R7MpYxEaAW+ykUg2F5Cpy36cenm7oNv7eqA-C=HsbBrhTg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: xiyou.wangcong@gmail.com, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stefan de Konink <stefan@konink.de>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52049 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750882AbaEFWv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 18:51:58 -0400
 Content-Disposition: inline
-In-Reply-To: <20140506.171117.1365037653422161013.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAHA+R7MpYxEaAW+ykUg2F5Cpy36cenm7oNv7eqA-C=HsbBrhTg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 06, 2014 at 05:11:17PM -0400, David Miller wrote:
-> From: josh@joshtriplett.org
-> Date: Tue, 6 May 2014 14:08:15 -0700
+Cong Wang <cwang@twopensource.com> :
+> On Mon, May 5, 2014 at 10:53 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> > Bug: https://bugzilla.kernel.org/show_bug.cgi?id=75221
+> >
 > 
-> > On Tue, May 06, 2014 at 04:44:10PM -0400, David Miller wrote:
-> >> From: Cong Wang <xiyou.wangcong@gmail.com>
-> >> Date: Tue, 6 May 2014 11:33:11 -0700
-> >> 
-> >> > So why bothers 3.15+ Linux kernel? Why not use an old kernel e.g. 2.4.x?
-> >> > 2.4.x kernel doesn't have so many new features you want to get rid of here.
-> >> 
-> >> +1
-> > 
-> > You've got to be kidding.  Using 2.4 for a new network-connected device,
-> > today?  With all of its potential security holes that nobody is paying
-> > attention to?  Easier to fork 3.15 and trim it down than to do *that*.
-> > And there *are* a huge number of useful features in 3.15+, not least of
-> > which drivers for current hardware.
+> Well, $subject sucks, it only fixes !CONFIG_PROC_SYSCTL case actually...
+
+Sure. It says "fix something" though.
+
+> > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> > Reported-by: Stefan de Konink <stefan@konink.de>
+> > Tested-by: Stefan de Konink <stefan@konink.de>
 > 
-> So you're saying that the 2.4.x -stable maintainer did a shitty job and
-> his work is worthless?
+> I had some better fixes pending (I already tested them, just waiting to
+> submit).
 
-There's a difference between maintaining 2.4.x for all the existing
-users who can't or won't upgrade, and introducing a *new* product
-shipping with 2.4.x.  There's something very wrong if 2.4.x works for
-cases that 3.x doesn't; that would be a serious regression.
+Before ping patch (!CONFIG_PROC_SYSCTL): the ping group range is zero due
+to kzalloc and friends.
 
-- Josh Triplett
+After ping patch  (!CONFIG_PROC_SYSCTL): the ping group range is disabled
+and it can't be set afterwards.
+
+It isn't exactly "still work" but it's a welcome improvement.
+
+Feel free to submit formally so that davem can pick those up.
+
+-- 
+Ueimor
