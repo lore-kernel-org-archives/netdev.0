@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 23/24] net, diet: Add coccinelle script to convert
- drivers to ETHTOOL_OPS
-Date: Tue, 06 May 2014 11:05:04 -0400 (EDT)
-Message-ID: <20140506.110504.2135392385828482331.davem@davemloft.net>
+Subject: Re: [PATCH 16/24] net, diet: Make TCP fastopen optional
+Date: Mon, 05 May 2014 23:06:44 -0400 (EDT)
+Message-ID: <20140505.230644.165862049328890181.davem@davemloft.net>
 References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-	<1399328773-6531-24-git-send-email-andi@firstfloor.org>
-	<CAAxaTiOYTEQgibnpDBXdhNpJUAVrLFwxz0roq8Bin1rNnnsxgg@mail.gmail.com>
+	<1399328773-6531-17-git-send-email-andi@firstfloor.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com,
-	Julia.Lawall@lip6.fr, Gilles.Muller@lip6.fr
-To: nicolas.palix@imag.fr
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40631 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35876 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbaEFPFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:05:10 -0400
-In-Reply-To: <CAAxaTiOYTEQgibnpDBXdhNpJUAVrLFwxz0roq8Bin1rNnnsxgg@mail.gmail.com>
+	with ESMTP id S933731AbaEFDGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:06:45 -0400
+In-Reply-To: <1399328773-6531-17-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Palix <nicolas.palix@imag.fr>
-Date: Tue, 6 May 2014 11:27:27 +0200
+From: Andi Kleen <andi@firstfloor.org>
+Date: Mon,  5 May 2014 15:26:05 -0700
 
-> I saw you rejected almost the entire patch series.
-> 
-> However, is there any interest to enforce the use of SET_ETHTOOL_OPS ?
-> Are you likely to merge the patch 24/24 [1] ?
+> Make TCP fast open a config option. It's not really needed
+> on small systems. By itself it saves about 3k text,
 
-SET_ETHTOOL_OPS only exists so that drivers could be compiled
-on "older" kernels.
+It's for the sake of the remote service not the local client,
+sorry I'm not applying this, it's a facility we want to be
+ubiquitous and in widespread use on as many systems as possible.
 
-But the usefulness of that is long gone, we've had netdev->ethtool_ops
-since way before we started using GIT.
-
-I'd rather see a patch which removes it, to be honest.
+I'm not applying this, sorry.
