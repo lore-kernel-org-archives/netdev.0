@@ -1,45 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 06 May 2014 09:39:19 -0700
-Message-ID: <1399394359.15399.20.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
-	 <20140505.231229.136734008603421707.davem@davemloft.net>
-	 <20140506032114.GP2382@two.firstfloor.org>
-	 <20140505.232327.578134514220748085.davem@davemloft.net>
-	 <20140506155703.GA20391@cloud>
+From: Nicolas Palix <nicolas.palix@imag.fr>
+Subject: Re: [PATCH 23/24] net, diet: Add coccinelle script to convert drivers
+ to ETHTOOL_OPS
+Date: Tue, 6 May 2014 11:27:27 +0200
+Message-ID: <CAAxaTiOYTEQgibnpDBXdhNpJUAVrLFwxz0roq8Bin1rNnnsxgg@mail.gmail.com>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org> <1399328773-6531-24-git-send-email-andi@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: josh@joshtriplett.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:50199 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736AbaEFQjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 12:39:22 -0400
-In-Reply-To: <20140506155703.GA20391@cloud>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	tom.zanussi@linux.intel.com, Andi Kleen <ak@linux.intel.com>,
+	Julia Lawall <Julia.Lawall@lip6.fr>,
+	Gilles Muller <Gilles.Muller@lip6.fr>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399328773-6531-24-git-send-email-andi@firstfloor.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-05-06 at 08:57 -0700, josh@joshtriplett.org wrote:
+Hi David,
 
-> A NAK isn't going to cut it, here; tiny Linux systems are going to
-> exist, and they shouldn't have to maintain a long-term out-of-tree fork
-> or use crazy things like LWIP.
+I saw you rejected almost the entire patch series.
 
-What's wrong with user space implementations of networking stacks ?
+However, is there any interest to enforce the use of SET_ETHTOOL_OPS ?
+Are you likely to merge the patch 24/24 [1] ?
 
-For many usages, it can bring 10 times the performance of having user
-application and kernel sockets.
+Regards,
 
-In any cases, we do not model kernel implementations to 'compete' with
-user space.
+[1] https://lkml.org/lkml/2014/5/5/679
 
-We simply can not compete with user space, as a programmer is free to
-keep what he really wants/needs.
 
-I have started using linux on 386/486 pcs which had more than 2MB of
-memory, it makes me sad we want linux-3.16 to run on this kind of
-hardware, and consuming time to save few KB here and here.
+On Tue, May 6, 2014 at 12:26 AM, Andi Kleen <andi@firstfloor.org> wrote:
+> From: Andi Kleen <ak@linux.intel.com>
+>
+> Useful to remove unneeded driver code when ethtool is disabled.
+>
+> The patches doing this are submitted too, but let's add
+> the script too so people can re-use it.
+>
+> Cc: Julia Lawall <Julia.Lawall@lip6.fr>
+> Cc: Gilles Muller <Gilles.Muller@lip6.fr>
+> Cc: Nicolas Palix <nicolas.palix@imag.fr>
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> ---
+>  scripts/coccinelle/api/ethtool_ops.cocci | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+>  create mode 100644 scripts/coccinelle/api/ethtool_ops.cocci
+>
+> diff --git a/scripts/coccinelle/api/ethtool_ops.cocci b/scripts/coccinelle/api/ethtool_ops.cocci
+> new file mode 100644
+> index 0000000..a7ee6ed
+> --- /dev/null
+> +++ b/scripts/coccinelle/api/ethtool_ops.cocci
+> @@ -0,0 +1,9 @@
+> +// Convert network drivers to use the SET_ETHTOOL_OPS macro
+> +// This allows to compile out the ethtool code when not needed.
+> +//
+> +@@
+> +struct ethtool_ops *ops;
+> +struct net_device *dev;
+> +@@
+> +-      dev->ethtool_ops = ops;
+> ++      SET_ETHTOOL_OPS(dev, ops);
+> --
+> 1.9.0
+>
+
+
+
+-- 
+Nicolas Palix
+Tel: +33 4 76 51 46 27
+http://lig-membres.imag.fr/palix/
