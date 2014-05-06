@@ -1,31 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Mon, 05 May 2014 23:23:27 -0400 (EDT)
-Message-ID: <20140505.232327.578134514220748085.davem@davemloft.net>
-References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
-	<20140505.231229.136734008603421707.davem@davemloft.net>
-	<20140506032114.GP2382@two.firstfloor.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: andi@firstfloor.org
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: [PATCH 1/3] netfilter: Fix potential use after free in ip6_route_me_harder()
+Date: Tue,  6 May 2014 18:17:19 +0300
+Message-ID: <1399389441-20095-1-git-send-email-popovich_sergei@mail.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36021 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933796AbaEFDX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:23:29 -0400
-In-Reply-To: <20140506032114.GP2382@two.firstfloor.org>
+Received: from fallback2.mail.ru ([94.100.176.87]:60948 "EHLO
+	fallback6.mail.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756798AbaEFPXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:23:32 -0400
+Received: from smtp46.i.mail.ru (smtp46.i.mail.ru [94.100.177.106])
+	by fallback6.mail.ru (mPOP.Fallback_MX) with ESMTP id EB848384AB76
+	for <netdev@vger.kernel.org>; Tue,  6 May 2014 19:17:48 +0400 (MSK)
+Received: from [195.234.68.4] (port=52741 helo=tuxracer.skif.com.ua)
+	by smtp46.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1Whh7X-0007OK-7d
+	for netdev@vger.kernel.org; Tue, 06 May 2014 19:17:27 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 6 May 2014 05:21:14 +0200
+Dst is released one line before we access it again with dst->error.
 
-> What parts would you remove to get the foot print down for a 2MB
-> single purpose machine?
+Fixes: 58e35d147128 netfilter: ipv6: propagate routing errors from
+ip6_route_me_harder()
 
-I wouldn't use Linux, end of story.
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+---
+ net/ipv6/netfilter.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Maybe two decades ago, but not now, those days are over.
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index 95f3f1d..d38e6a8 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -30,13 +30,15 @@ int ip6_route_me_harder(struct sk_buff *skb)
+ 		.daddr = iph->daddr,
+ 		.saddr = iph->saddr,
+ 	};
++	int err;
+ 
+ 	dst = ip6_route_output(net, skb->sk, &fl6);
+-	if (dst->error) {
++	err = dst->error;
++	if (err) {
+ 		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+ 		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
+ 		dst_release(dst);
+-		return dst->error;
++		return err;
+ 	}
+ 
+ 	/* Drop old route. */
+-- 
+1.8.3.4
