@@ -1,153 +1,149 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 4/9] net: mvneta: Clean-up mvneta_init()
-Date: Tue,  6 May 2014 14:20:53 -0300
-Message-ID: <1399396858-14551-5-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH net 2/2] qlcnic: Set real_num_{tx|rx}_queues properly
+Date: Tue, 6 May 2014 03:46:49 -0400
+Message-ID: <1399362409-17039-3-git-send-email-rajesh.borundia@qlogic.com>
+References: <1399362409-17039-1-git-send-email-rajesh.borundia@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53537 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753627AbaEFRVs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:21:48 -0400
-In-Reply-To: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:40286 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934244AbaEFIPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 04:15:35 -0400
+In-Reply-To: <1399362409-17039-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit cleans-up mvneta_init(), which initializes the hardware
-and allocates the rx/qx queues. The queue allocation is simplified
-by using devm_kzalloc instead of kzalloc. The unused phy_addr parameter
-is removed. While here, the 'hal' references in the comments are removed.
-This commit makes no functionality change.
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Do not set netdev->real_num_tx_queues directly,
+let netif_set_real_num_tx_queues() take care of it.
+Do not overwrite netdev->num_tx_queues everytime when driver
+changes its Tx ring size through ethtool -L and also notify
+stack to update number of Rx queues.
+
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 38 ++++++++++++-----------------------
- 1 file changed, 13 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |   16 -------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   49 +++++++++++++++++++++-
+ 2 files changed, 47 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 743503a..9a444a0 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1999,7 +1999,7 @@ static void mvneta_tx_reset(struct mvneta_port *pp)
- {
- 	int queue;
- 
--	/* free the skb's in the hal tx ring */
-+	/* free the skb's in the tx ring */
- 	for (queue = 0; queue < txq_number; queue++)
- 		mvneta_txq_done_force(pp, &pp->txqs[queue]);
- 
-@@ -2638,7 +2638,7 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
- };
- 
- /* Initialize hw */
--static int mvneta_init(struct mvneta_port *pp, int phy_addr)
-+static int mvneta_init(struct device *dev, struct mvneta_port *pp)
- {
- 	int queue;
- 
-@@ -2648,8 +2648,9 @@ static int mvneta_init(struct mvneta_port *pp, int phy_addr)
- 	/* Set port default values */
- 	mvneta_defaults_set(pp);
- 
--	pp->txqs = kzalloc(txq_number * sizeof(struct mvneta_tx_queue),
--			   GFP_KERNEL);
-+	pp->txqs = devm_kzalloc(dev,
-+				txq_number * sizeof(struct mvneta_tx_queue),
-+				GFP_KERNEL);
- 	if (!pp->txqs)
- 		return -ENOMEM;
- 
-@@ -2661,12 +2662,11 @@ static int mvneta_init(struct mvneta_port *pp, int phy_addr)
- 		txq->done_pkts_coal = MVNETA_TXDONE_COAL_PKTS;
- 	}
- 
--	pp->rxqs = kzalloc(rxq_number * sizeof(struct mvneta_rx_queue),
--			   GFP_KERNEL);
--	if (!pp->rxqs) {
--		kfree(pp->txqs);
-+	pp->rxqs = devm_kzalloc(dev,
-+				rxq_number * sizeof(struct mvneta_rx_queue),
-+				GFP_KERNEL);
-+	if (!pp->rxqs)
- 		return -ENOMEM;
--	}
- 
- 	/* Create Rx descriptor rings */
- 	for (queue = 0; queue < rxq_number; queue++) {
-@@ -2680,12 +2680,6 @@ static int mvneta_init(struct mvneta_port *pp, int phy_addr)
- 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 7b52a88..f785d01 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -1719,22 +1719,6 @@ static inline u32 qlcnic_tx_avail(struct qlcnic_host_tx_ring *tx_ring)
+ 				tx_ring->producer;
  }
  
--static void mvneta_deinit(struct mvneta_port *pp)
+-static inline int qlcnic_set_real_num_queues(struct qlcnic_adapter *adapter,
+-					     struct net_device *netdev)
 -{
--	kfree(pp->txqs);
--	kfree(pp->rxqs);
+-	int err;
+-
+-	netdev->num_tx_queues = adapter->drv_tx_rings;
+-	netdev->real_num_tx_queues = adapter->drv_tx_rings;
+-
+-	err = netif_set_real_num_tx_queues(netdev, adapter->drv_tx_rings);
+-	if (err)
+-		netdev_err(netdev, "failed to set %d Tx queues\n",
+-			   adapter->drv_tx_rings);
+-
+-	return err;
 -}
 -
- /* platform glue : initialize decoding windows */
- static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
- 				     const struct mbus_dram_target_info *dram)
-@@ -2768,7 +2762,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 	struct resource *res;
- 	struct device_node *dn = pdev->dev.of_node;
- 	struct device_node *phy_node;
--	u32 phy_addr;
- 	struct mvneta_port *pp;
- 	struct net_device *dev;
- 	const char *dt_mac_addr;
-@@ -2864,16 +2857,14 @@ static int mvneta_probe(struct platform_device *pdev)
- 	pp->dev = dev;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
+ struct qlcnic_nic_template {
+ 	int (*config_bridged_mode) (struct qlcnic_adapter *, u32);
+ 	int (*config_led) (struct qlcnic_adapter *, u32, u32);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index be78951..7e55e88 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2206,6 +2206,31 @@ static void qlcnic_82xx_set_mac_filter_count(struct qlcnic_adapter *adapter)
+ 	ahw->max_uc_count = count;
+ }
  
--	err = mvneta_init(pp, phy_addr);
--	if (err < 0) {
--		dev_err(&pdev->dev, "can't init eth hal\n");
-+	err = mvneta_init(&pdev->dev, pp);
-+	if (err < 0)
- 		goto err_free_stats;
--	}
++static int qlcnic_set_real_num_queues(struct qlcnic_adapter *adapter,
++				      u8 tx_queues, u8 rx_queues)
++{
++	struct net_device *netdev = adapter->netdev;
++	int err = 0;
++
++	if (tx_queues) {
++		err = netif_set_real_num_tx_queues(netdev, tx_queues);
++		if (err) {
++			netdev_err(netdev, "failed to set %d Tx queues\n",
++				   tx_queues);
++			return err;
++		}
++	}
++
++	if (rx_queues) {
++		err = netif_set_real_num_rx_queues(netdev, rx_queues);
++		if (err)
++			netdev_err(netdev, "failed to set %d Rx queues\n",
++				   rx_queues);
++	}
++
++	return err;
++}
++
+ int
+ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+ 		    int pci_using_dac)
+@@ -2269,7 +2294,8 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+ 	netdev->priv_flags |= IFF_UNICAST_FLT;
+ 	netdev->irq = adapter->msix_entries[0].vector;
  
- 	err = mvneta_port_power_up(pp, phy_mode);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "can't power up port\n");
--		goto err_deinit;
-+		goto err_free_stats;
+-	err = qlcnic_set_real_num_queues(adapter, netdev);
++	err = qlcnic_set_real_num_queues(adapter, adapter->drv_tx_rings,
++					 adapter->drv_sds_rings);
+ 	if (err)
+ 		return err;
+ 
+@@ -3982,12 +4008,21 @@ int qlcnic_validate_rings(struct qlcnic_adapter *adapter, __u32 ring_cnt,
+ int qlcnic_setup_rings(struct qlcnic_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
++	u8 tx_rings, rx_rings;
+ 	int err;
+ 
+ 	if (test_bit(__QLCNIC_RESETTING, &adapter->state))
+ 		return -EBUSY;
+ 
++	tx_rings = adapter->drv_tss_rings;
++	rx_rings = adapter->drv_rss_rings;
++
+ 	netif_device_detach(netdev);
++
++	err = qlcnic_set_real_num_queues(adapter, tx_rings, rx_rings);
++	if (err)
++		goto done;
++
+ 	if (netif_running(netdev))
+ 		__qlcnic_down(adapter, netdev);
+ 
+@@ -4007,7 +4042,17 @@ int qlcnic_setup_rings(struct qlcnic_adapter *adapter)
+ 		return err;
  	}
  
- 	dram_target_info = mv_mbus_dram_info();
-@@ -2890,7 +2881,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	err = register_netdev(dev);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to register\n");
--		goto err_deinit;
-+		goto err_free_stats;
- 	}
+-	netif_set_real_num_tx_queues(netdev, adapter->drv_tx_rings);
++	/* Check if we need to update real_num_{tx|rx}_queues because
++	 * qlcnic_setup_intr() may change Tx/Rx rings size
++	 */
++	if ((tx_rings != adapter->drv_tx_rings) ||
++	    (rx_rings != adapter->drv_sds_rings)) {
++		err = qlcnic_set_real_num_queues(adapter,
++						 adapter->drv_tx_rings,
++						 adapter->drv_sds_rings);
++		if (err)
++			goto done;
++	}
  
- 	netdev_info(dev, "Using %s mac address %pM\n", mac_from,
-@@ -2900,8 +2891,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	return 0;
- 
--err_deinit:
--	mvneta_deinit(pp);
- err_free_stats:
- 	free_percpu(pp->stats);
- err_clk:
-@@ -2920,7 +2909,6 @@ static int mvneta_remove(struct platform_device *pdev)
- 	struct mvneta_port *pp = netdev_priv(dev);
- 
- 	unregister_netdev(dev);
--	mvneta_deinit(pp);
- 	clk_disable_unprepare(pp->clk);
- 	free_percpu(pp->stats);
- 	irq_dispose_mapping(dev->irq);
+ 	if (qlcnic_83xx_check(adapter)) {
+ 		qlcnic_83xx_initialize_nic(adapter, 1);
 -- 
-1.9.1
+1.6.3.3
