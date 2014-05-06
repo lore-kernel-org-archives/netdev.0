@@ -1,123 +1,65 @@
-From: David Decotigny <decot@googlers.com>
-Subject: [PATCH iproute2 v2] iproute2: show counter of carrier on<->off transitions
-Date: Mon,  5 May 2014 20:38:18 -0700
-Message-ID: <37c039131127d3511cd594157f727f9ce5f91c24.1399347445.git.decot@googlers.com>
-References: <cover.1399347445.git.decot@googlers.com>
-Cc: stephen@networkplumber.org, David Decotigny <decot@googlers.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: mdio: of_mdiobus_register(): fall back to
+ mdiobus_register() for !CONFIG_OF
+Date: Tue, 6 May 2014 10:06:14 -0700
+Message-ID: <CAGVrzcZEOLcrzQd=PA+=9PudJQby52F9+8koEZkOESsbSEkuug@mail.gmail.com>
+References: <1399395136-12139-1-git-send-email-zonque@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: mugunthanvnm <mugunthanvnm@ti.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Mack <zonque@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:58020 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933740AbaEFDi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:38:26 -0400
-Received: by mail-vc0-f202.google.com with SMTP id if11so36789vcb.5
-        for <netdev@vger.kernel.org>; Mon, 05 May 2014 20:38:25 -0700 (PDT)
-In-Reply-To: <cover.1399347445.git.decot@googlers.com>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:44125 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbaEFRGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:06:55 -0400
+Received: by mail-qa0-f48.google.com with SMTP id i13so4171219qae.35
+        for <netdev@vger.kernel.org>; Tue, 06 May 2014 10:06:54 -0700 (PDT)
+In-Reply-To: <1399395136-12139-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to display the current counter of carrier on<->off
-transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
-carrier on/off changes"):
+2014-05-06 9:52 GMT-07:00 Daniel Mack <zonque@gmail.com>:
+> If CONFIG_OF is not set, make of_mdiobus_register() call
+> mdiobus_register() instead of returning -ENOSYS.
+>
+> This way, we can just call of_mdiobus_register() from all DT-enabled
+> drivers to handle the compat cases.
+>
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 
-  ip -s -s link show dev eth0
-  32: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
-    link/ether ................. brd ff:ff:ff:ff:ff:ff
-    RX: bytes  packets  errors  dropped overrun mcast
-    125552461  258881   0       0       0       10150
-    RX errors: length  crc     frame   fifo    missed
-               0        0       0       0       0
-    TX: bytes  packets  errors  dropped carrier collsns
-    40426119   224444   0       0       0       0
-    TX errors: aborted fifo    window  heartbeat transns
-               0        0       0       0        3
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Tested:
-  - kernel with patch "net-sysfs: expose number of carrier on/off
-    changes": see "transns" column above
-  - kernel wthout the patch: "transns" not displayed (as expected)
+> ---
+>  include/linux/of_mdio.h | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+> index 6fe8464..881a7c3 100644
+> --- a/include/linux/of_mdio.h
+> +++ b/include/linux/of_mdio.h
+> @@ -31,7 +31,12 @@ extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
+>  #else /* CONFIG_OF */
+>  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+>  {
+> -       return -ENOSYS;
+> +       /*
+> +        * Fall back to the non-DT function to register a bus.
+> +        * This way, we don't have to keep compat bits around in drivers.
+> +        */
+> +
+> +       return mdiobus_register(mdio);
+>  }
+>
+>  static inline struct phy_device *of_phy_find_device(struct device_node *phy_np)
+> --
+> 1.9.0
+>
 
-Signed-off-by: David Decotigny <decot@googlers.com>
----
- ip/ipaddress.c | 32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 8169150..061c3b0 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -313,7 +313,8 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 	}
- }
- 
--static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
-+static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
-+                               const struct rtattr *carrier_changes) {
- 	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
- 		s->rx_compressed ? "compressed" : "", _SL_);
-@@ -352,16 +353,23 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
- 			(uint64_t)s->tx_compressed);
- 	if (show_stats > 1) {
- 		fprintf(fp, "%s", _SL_);
--		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
--		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-7"PRIu64"",
-+		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
-+                if (carrier_changes)
-+			fprintf(fp, " transns");
-+		fprintf(fp, _SL_);
-+		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-8"PRIu64"",
- 			(uint64_t)s->tx_aborted_errors,
- 			(uint64_t)s->tx_fifo_errors,
- 			(uint64_t)s->tx_window_errors,
- 			(uint64_t)s->tx_heartbeat_errors);
-+		if (carrier_changes)
-+			fprintf(fp, " %-7u",
-+				*(uint32_t*)RTA_DATA(carrier_changes));
- 	}
- }
- 
--static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
-+static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
-+			     const struct rtattr *carrier_changes)
- {
- 	fprintf(fp, "%s", _SL_);
- 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
-@@ -394,13 +402,19 @@ static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
- 		fprintf(fp, " %-7u", s->tx_compressed);
- 	if (show_stats > 1) {
- 		fprintf(fp, "%s", _SL_);
--		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
--		fprintf(fp, "               %-7u  %-7u %-7u %-7u",
-+		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
-+                if (carrier_changes)
-+			fprintf(fp, " transns");
-+		fprintf(fp, _SL_);
-+		fprintf(fp, "               %-7u  %-7u %-7u %-8u",
- 			s->tx_aborted_errors,
- 			s->tx_fifo_errors,
- 			s->tx_window_errors,
- 			s->tx_heartbeat_errors
- 			);
-+		if (carrier_changes)
-+			fprintf(fp, " %-7u",
-+				*(uint32_t*)RTA_DATA(carrier_changes));
- 	}
- }
- 
-@@ -522,9 +536,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 
- 	if (do_link && show_stats) {
- 		if (tb[IFLA_STATS64])
--			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]));
-+			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
-+					   tb[IFLA_CARRIER_CHANGES]);
- 		else if (tb[IFLA_STATS])
--			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
-+			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]),
-+					 tb[IFLA_CARRIER_CHANGES]);
- 	}
- 
- 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
+
 -- 
-1.9.1.423.g4596e3a
+Florian
