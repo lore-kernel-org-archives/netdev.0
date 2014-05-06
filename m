@@ -1,43 +1,70 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net] bonding: fix vlan_features computing
-Date: Tue, 6 May 2014 15:03:15 +0200
-Message-ID: <20140506130315.GB18366@unicorn.suse.cz>
-References: <20140502165448.D8078E635B@unicorn.suse.cz>
- <20140505.234500.89241173582893591.davem@davemloft.net>
- <17712.1399362807@localhost.localdomain>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] net_sched: increase drops and decrease backlog when packets are dropped
+Date: Tue, 6 May 2014 17:37:36 +0800
+Message-ID: <1399369056-1632-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	vfalico@gmail.com, andy@greyhouse.net, mirq-linux@rere.qmqm.pl
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <vtlam@google.com>,
+	<nanditad@google.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:37041 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753438AbaEFNDR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2014 09:03:17 -0400
-Content-Disposition: inline
-In-Reply-To: <17712.1399362807@localhost.localdomain>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:29111 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934526AbaEFJij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 05:38:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 06, 2014 at 12:53:27AM -0700, Jay Vosburgh wrote:
-> 
-> 	The VLAN device doesn't get _HW_CSUM (aka _GEN_CSUM)?  In
-> ethtool, this is tx-checksum-ip-generic, I believe.
-> 
-> 	I have only one machine with a _IP_CSUM only device (a tg3) set
-> up at the moment, it's running a Fedora 20 3.13 kernel, and a vlan ->
-> bond0 -> eth0 stack shows "generic" offload for the vlan and bond0, and
-> "ipv4" offload for the eth0 itself.
+When packets are dropped, backlog and drops statistic of qdisc
+need be changed. Replace kfree_skb() with qdisc_drop() for
+increasing drops.
 
-I checked now and at least since 3.12 bond has NETIF_F_HW_CSUM in its
-features even if its slaves have only NETIF_F_IP(V6)_CSUM. Therefore
-NETIF_F_HW_CSUM in vlan_features does no harm and vlan on top of the
-bond gets NETIF_F_HW_CSUM.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_fq.c       | 2 +-
+ net/sched/sch_fq_codel.c | 3 ++-
+ net/sched/sch_hhf.c      | 2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
-Unfortunately it means that while I still think the change I proposed
-is correct, it would break things unless computing features of the bond
-is fixed in similar way or vlan_dev_fix_features is modified to handle
-checksumming features more carefully.
-
-                                                        Michal Kubecek
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 23c682b42f99..958ef7d4b825 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -714,7 +714,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 		if (!skb)
+ 			break;
+-		kfree_skb(skb);
++		qdisc_drop(skb, sch);
+ 		drop_count++;
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, drop_count);
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 0bf432c782c1..83abd4cd10cd 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -344,7 +344,8 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = fq_codel_dequeue(sch);
+ 
+-		kfree_skb(skb);
++		sch->qstats.backlog -= qdisc_pkt_len(skb);
++		qdisc_drop(skb, sch);
+ 		q->cstats.drop_count++;
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, q->cstats.drop_count);
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index edee03d922e2..a9051d0fff52 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -592,7 +592,7 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = hhf_dequeue(sch);
+ 
+-		kfree_skb(skb);
++		qdisc_drop(skb, sch);
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
+ 
+-- 
+1.8.0
