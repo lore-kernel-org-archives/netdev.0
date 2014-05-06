@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 06 May 2014 16:46:17 -0400 (EDT)
-Message-ID: <20140506.164617.2264110988048227569.davem@davemloft.net>
-References: <20140506164108.GA20536@cloud>
-	<20140506191447.GB4137@netboy>
-	<20140506195049.GO19657@tassilo.jf.intel.com>
+Date: Tue, 06 May 2014 16:47:42 -0400 (EDT)
+Message-ID: <20140506.164742.951623564368259138.davem@davemloft.net>
+References: <20140506172106.GB20776@cloud>
+	<20140506.132501.331724703594119414.davem@davemloft.net>
+	<20140506200644.GC5619@two.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, josh@joshtriplett.org,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
-To: ak@linux.intel.com
+Cc: josh@joshtriplett.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
+To: andi@firstfloor.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140506195049.GO19657@tassilo.jf.intel.com>
+In-Reply-To: <20140506200644.GC5619@two.firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@linux.intel.com>
-Date: Tue, 6 May 2014 12:50:49 -0700
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 6 May 2014 22:06:44 +0200
 
-> It's still a more-features-than-your-typical-BSD TCP/IP stack
+>> You see, that's the point I'm trying to make, once it's upstream
+>> then it's my problem.
+> 
+> FWIW I don't think any of the changes I proposed would be likely
+> to add lots of new bugs.
 
-Said the guy posting patches to remove TCP metrics.
+Then you're living in a dream world, one in which the rest of us do
+not live in.
+
+Every new configuration combination is a new situation that competes
+testing wise with the others.
