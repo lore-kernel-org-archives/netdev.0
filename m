@@ -1,55 +1,73 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net] sfc: fix calling of free_irq with 0 argument
-Date: Tue,  6 May 2014 14:49:16 +0200
-Message-ID: <1399380556-25797-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	<linux-net-drivers@solarflare.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 6 May 2014 11:58:38 -0700
+Message-ID: <CA+mtBx81EdtZeXRG_ubgWMy+8rSOpK3q0S3YktBDDFt-LG2poA@mail.gmail.com>
+References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+	<20140505.231229.136734008603421707.davem@davemloft.net>
+	<20140506032114.GP2382@two.firstfloor.org>
+	<20140505.232327.578134514220748085.davem@davemloft.net>
+	<20140506155703.GA20391@cloud>
+	<1399394359.15399.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140506183216.GM19657@tassilo.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, josh@joshtriplett.org,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, tom.zanussi@linux.intel.com
+To: Andi Kleen <ak@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35766 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753074AbaEFMyF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2014 08:54:05 -0400
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:36310 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbaEFS6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 14:58:39 -0400
+Received: by mail-ie0-f178.google.com with SMTP id lx4so9860989iec.23
+        for <netdev@vger.kernel.org>; Tue, 06 May 2014 11:58:38 -0700 (PDT)
+In-Reply-To: <20140506183216.GM19657@tassilo.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the sfc driver is in legacy interrupt mode (either explicitly by
-using interrupt_mode module param or by falling back to it) it will
-hit a warning at kernel/irq/manage.c because it will try to free irq 0
-in efx_nic_fini_interrupt() since the MSI interrupts were freed always,
-but in legacy irq mode they're == 0. So fix it by checking if we
-actually have an interrupt allocated and only then free it.
+On Tue, May 6, 2014 at 11:32 AM, Andi Kleen <ak@linux.intel.com> wrote:
+>> We simply can not compete with user space, as a programmer is free to
+>> keep what he really wants/needs.
+>
+> Not true.
+>
+> With my patches and LTO Linux can be competive with LWIP+socket layer.
+> (about 60K more text). And it's easier to use because it's just
+> the standard interface.
+>
+>> I have started using linux on 386/486 pcs which had more than 2MB of
+>> memory, it makes me sad we want linux-3.16 to run on this kind of
+>> hardware, and consuming time to save few KB here and here.
+>
+> Linux has always been a system from very small to big.
+> That's been one of its strengths. It is very adaptable.
+>
+> Many subsystems are very configurable for this.
+> For example that is why we have both SLOB and SLUB.
+> That is why we have NOMMU MM and lots of other tuning
+> knobs for small systems.
+>
+> So if the other subsystems can do this, why should it be
+> impossible for networking?
+>
+Can this at least be done without the combinatorial explosion in
+number of configurations? As Yuchung pointed out these patches
+introduce at least one unresolved configuration dependency. CONFIG_SMP
+works quite well since with a single parameter we can enable/disable a
+whole bunch of functionality in bulk, and it's quite clear that new
+development cannot break smp or non-smp configurations. Maybe you want
+something similar like CONFIG_NETWORK_SMALL?
 
-CC: <linux-net-drivers@solarflare.com>
-CC: Shradha Shah <sshah@solarflare.com>
-CC: David S. Miller <davem@davemloft.net>
+Tom
 
-Reported-by: Zenghui Shi <zshi@redhat.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-There're other ways to fix this as well, but I chose this one as it follows
-the logic in the code. Also I saw it used in a few places to check if
-there's an IRQ allocated for that channel.
-
- drivers/net/ethernet/sfc/nic.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 32d969e857f7..cab627defbc3 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -158,7 +158,9 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
- 
- 	/* Disable MSI/MSI-X interrupts */
- 	efx_for_each_channel(channel, efx)
--		free_irq(channel->irq, &efx->msi_context[channel->channel]);
-+		if (channel->irq)
-+			free_irq(channel->irq,
-+				 &efx->msi_context[channel->channel]);
- 
- 	/* Disable legacy interrupt */
- 	if (efx->legacy_irq)
--- 
-1.8.5.3
+> -Andi
+>
+> --
+> ak@linux.intel.com -- Speaking for myself only
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
