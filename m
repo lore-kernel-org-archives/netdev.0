@@ -1,62 +1,43 @@
-From: josh@joshtriplett.org
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 6 May 2014 09:41:08 -0700
-Message-ID: <20140506164108.GA20536@cloud>
-References: <20140506032114.GP2382@two.firstfloor.org>
- <20140505.232327.578134514220748085.davem@davemloft.net>
- <20140506155703.GA20391@cloud>
- <20140506.115941.428706504757835279.davem@davemloft.net>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [RFC 0/9] cdc_ncm: add buffer tuning and stats using ethtool
+Date: Tue, 6 May 2014 11:23:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70D03B@AcuExch.aculab.com>
+References: <1399065116-19946-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	ak@linux.intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:46158 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751747AbaEFQlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 12:41:13 -0400
-Content-Disposition: inline
-In-Reply-To: <20140506.115941.428706504757835279.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399065116-19946-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Content-Language: en-US
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 06, 2014 at 11:59:41AM -0400, David Miller wrote:
-> From: josh@joshtriplett.org
-> Date: Tue, 6 May 2014 08:57:03 -0700
-> 
-> > On Mon, May 05, 2014 at 11:23:27PM -0400, David Miller wrote:
-> >> From: Andi Kleen <andi@firstfloor.org>
-> >> Date: Tue, 6 May 2014 05:21:14 +0200
-> >> 
-> >> > What parts would you remove to get the foot print down for a 2MB
-> >> > single purpose machine?
-> >> 
-> >> I wouldn't use Linux, end of story.
-> >> 
-> >> Maybe two decades ago, but not now, those days are over.
-> > 
-> > That's a self-fulfilling prophecy:
-> 
-> Making 2MB RAM machines today makes no sense at all.
-> 
-> The lowest end dirt cheap smartphone, something which fits on
-> someone's pocket, has gigabytes of ram.
-
-The lowest-end smartphone isn't anywhere close to "dirt cheap", and
-hardly counts as "embedded" at all anymore.  Smartphones cost $100+;
-we're talking about systems in the low tens of dollars or less.  These
-systems will have no graphics, no peripherals, and only one or two
-specific functions.  The entirety of their functionality will likely
-consist of a single userspace program; they might not even have a PID 2.
-*That's* the kind of "embedded" we're talking about, not the
-supercomputers we carry around in our pockets.
-
-Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
-Look at how much cache low-end processors have, and imagine running
-entirely out of *that*.  Let's not surrender that entire class of
-devices to VxWorks, FreeRTOS, and other painfully non-Linux systems,
-when we already know it's possible to run Linux on them successfully.
-
-- Josh Triplett
+RnJvbTogQmrDuHJuIE1vcmsNCj4gSSBoYXZlIGdvdCBxdWl0ZSBhIGZldyByZXBvcnRzIGZyb20g
+ZnJ1c3RyYXRlZCB1c2VycyBvZiBPcGVuV1JUDQo+IGhvc3RzIHRyeWluZyB0byB1c2Ugc29tZSBw
+b3dlcmZ1bCBMVEUgbW9kZW0sIGJ1dCBub3QgYWNoaWV2aW5nDQo+IGZ1bGwgc3BlZWQuICBUaGlz
+IGlzIHR5cGljYWxseSBjYXVzZWQgYnkgYSBjb21iaW5hdGlvbiBvZg0KPiBiaWcgYnVmZmVycyBh
+bmQgbGl0dGxlIG1lbW9yeSwgZ2l2aW5nIGluIGFsbG9jYXRpb24gZXJyb3JzIGFuZA0KPiBiYWQg
+cGVyZm9ybWFuY2UgYXMgYSByZXN1bHQuDQo+IA0KPiBUaGlzIHNlcmllcyBpcyBhbiBhdHRlbXB0
+IHRvIGxldCB1c2VycyBhZGp1c3QgdGhlIHNpemUgb2YgdGhlc2UNCj4gYnVmZmVycyB3aXRob3V0
+IGhhdmluZyB0byByZWJ1aWxkIHRoZSBkcml2ZXIuDQoNCkkgdGhpbmsgdGhhdCB0aGUgdXNibmV0
+IHJ4IGZyYW1ld29yayBuZWVkcyBzb21lIFRMQy4NCg0KVGhlcmUgaXMgbm8gcmVhc29uIHRvIHBh
+c3MgbGFyZ2UgcnggVVJCIHRvIHRoZSB1c2IgZGV2aWNlLg0KQmVjYXVzZSB0aGUgZW5kIG9mIGEg
+VVNCIGJ1bGsgJ21lc3NhZ2UnIGlzIGluZGljYXRlZCBieSBhIG5vbi1tYXhpbWFsDQpmcmFnbWVu
+dCAocG9zc2libHkgemVybyBsZW5ndGgpIGl0IGlzIHN1ZmZpY2llbnQgdG8gcHJvdmlkZSBtdWx0
+aXBsZQ0KcnggVVJCIHByb3ZpZGVkIHRoZSBVUkIgYXJlIGVhY2ggYSBtdWx0aXBsZSBvZiB0aGUg
+cGFja2V0IHNpemUgb2YgdGhlDQp1bmRlcmx5aW5nIFVTQiBsaW5rICg1MTIgYnl0ZXMgZm9yIFVT
+QjIgYW5kIDFrIGZvciBVU0IzKS4NCg0KVGhlIHVzYiBkcml2ZXIgbWlnaHQgdGhlbiBoYXZlIHRv
+IHNwbGl0IGFuZCBtZXJnZSBkYXRhIGZyb20NCm11bHRpcGxlIFVSQiB0byBnZW5lcmF0ZSB0aGUg
+ZGF0YSBza2JzLg0KSSdkIGd1ZXNzIHRoYXQgZm9yIHN1Yi1HZSBzcGVlZHMgYSBkYXRhIGNvcHkg
+aW4gdGhlIHJ4IHBhdGgNCndvbid0IG1hdHRlciAtIHNpbXBsaWZ5aW5nIG1hbnkgb2YgdGhlIGRy
+aXZlcnMuDQoNClNvbWUgb2YgdGhlIGRyaXZlcnMgYWxsb2NhdGUgMTZrIHNrYiwgdGhlbiBzZXQg
+dHJ1ZV9zaXplIHNtYWxsIQ0KDQoJRGF2aWQNCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
