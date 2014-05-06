@@ -1,72 +1,146 @@
-From: Nicolas Palix <nicolas.palix@imag.fr>
-Subject: Re: [PATCH 23/24] net, diet: Add coccinelle script to convert drivers
- to ETHTOOL_OPS
-Date: Tue, 6 May 2014 11:27:27 +0200
-Message-ID: <CAAxaTiOYTEQgibnpDBXdhNpJUAVrLFwxz0roq8Bin1rNnnsxgg@mail.gmail.com>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org> <1399328773-6531-24-git-send-email-andi@firstfloor.org>
+From: Tom Zanussi <tom.zanussi@linux.intel.com>
+Subject: Re: RFC: A reduced Linux network stack for small systems
+Date: Tue, 06 May 2014 10:34:50 -0500
+Message-ID: <1399390490.8767.122.camel@empanada>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+	 <CAFLxGvww8t-PpuS3B=dFvn8k3xBydk3CgA=qoLyEbkKJZJ0xhQ@mail.gmail.com>
+	 <1399383246.8767.99.camel@empanada>
+	 <CAADnVQLYiNfXRrXc=VZkGEFDbNhF63AzPg6Gyu6P1SF=6AiO7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	tom.zanussi@linux.intel.com, Andi Kleen <ak@linux.intel.com>,
-	Julia Lawall <Julia.Lawall@lip6.fr>,
-	Gilles Muller <Gilles.Muller@lip6.fr>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Weinberger <richard.weinberger@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399328773-6531-24-git-send-email-andi@firstfloor.org>
+In-Reply-To: <CAADnVQLYiNfXRrXc=VZkGEFDbNhF63AzPg6Gyu6P1SF=6AiO7g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Tue, 2014-05-06 at 08:20 -0700, Alexei Starovoitov wrote:
+> On Tue, May 6, 2014 at 6:34 AM, Tom Zanussi <tom.zanussi@linux.intel.com> wrote:
+> > On Tue, 2014-05-06 at 09:25 +0200, Richard Weinberger wrote:
+> >> On Tue, May 6, 2014 at 12:25 AM, Andi Kleen <andi@firstfloor.org> wrote:
+> >> > There has been a lot of interest recently to run Linux on very small systems,
+> >> > like Quark systems. These may have only 2-4MB memory. They are also limited
+> >> > by flash space.
+> >> >
+> >> > One problem on these small system is the size of the network stack.
+> >> > Currently enabling IPv4 costs about 400k in text, which is prohibitive on
+> >> > a 2MB system, and very expensive with 4MB.
+> >> >
+> >> > There were proposals to instead use LWIP in user space. LWIP with
+> >> > its socket interface comes in at a bit over 100k overhead per application.
+> >> >
+> >> > I maintain that the Linux network stack is actually not that bloated,
+> >> > it just has a lot of features :-)  The goal of this project was to
+> >> > subset it in a sensible way so that the native kernel stack becomes
+> >> > competitive with LWIP.
+> >> >
+> >> > It turns out that the standard stack has a couple of features that
+> >> > are not really needed on client systems. Luckily it is also
+> >> > relatively well modularized, so it becomes possible to stub
+> >> > out these features at the edge.
+> >> >
+> >> > With removing these features we still have a powerful TCP/IP stack,
+> >> > but one that fits better into small systems.
+> >> >
+> >> > It would have been prohibitive to ifdef every optional feature.
+> >> > This patchkit relies heavily on LTO to effectively remove unused
+> >> > code. This allows to disable features only at the module boundaries,
+> >> > and rely on the compiler to drop unreferenced code and data.
+> >> >
+> >> > A few features have been also reimplemented in a simpler way.
+> >> > And I shrank a number of data structures based on CONFIG_BASE_SMALL.
+> >> >
+> >> > With these changes I can get a fully featured network stack down
+> >> > to about 170k with LTO. Without LTO there are also benefits,
+> >> > but somewhat less.
+> >> >
+> >> > There are essentially three sensible configurations:
+> >> > - Full featured like today.
+> >> > - Client only subset, but still works with standard distribution userland.
+> >> > Remove some obscure features like fastopen, make all tables smaller,
+> >> > packet socket mmap code, use a simpler routing table, remove
+> >> > high speed networking features like RPX, XPS, GRO offload.
+> >> > Disable SNMP, TCP metrics
+> >> > - Minimal subset for deeply embedded systems that can use special userland.
+> >> > Remove rtnetlink (ioctl only), remove ethtool, raw sockets.
+> >> >
+> >> > Right now I'm using own Kconfigs for every removed features. I realize
+> >> > this somewhat increases the compile test matrix. It would be possible
+> >> > to hide some of the options and select them using higher level
+> >> > configurations like the ones listed above. I haven't done this
+> >> > in this version.
+> >> >
+> >> > At this point I'm mainly interested in review and comments.
+> >> >
+> >> > Git trees:
+> >> >
+> >> > git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat
+> >> > Main tree
+> >> >
+> >> > git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat-3.14
+> >> > 3.14 based tree.
+> >> >
+> >> > Thanks to Tom Zanussi for contributions and testing.
+> >>
+> >> What kind of userspace do you use on such a small system?
+> >> It looks like you run kernels without procfs and netlink, so not even
+> >> ps would work. :)
+> >>
+> >
+> > The microYocto 'distro' I have running with these net-diet patches
+> > doesn't use a full procfs, but a pared-down version (CONFIG_PROCFS_MIN).
+> > Keeping ps working is of course essential, and it does that (along with
+> > a couple other things like /proc/filesystems and /proc/mounts I needed
+> > to boot):
+> >
+> > https://github.com/tzanussi/linux-yocto-micro-3.14/commit/68379432afcfa82ac695d9f02892fcf48ade5ae8
+> >
+> > Anyway all the userspace and kernel bits are available for anyone who
+> > wants to build it and try it out:
+> >
+> > https://github.com/tzanussi/meta-galileo/blob/daisy/meta-galileo/README
+> >
+> > It's very much a work-in-progress with a lot of rough edges, but it is a
+> > fully functional system on real hardware (Galileo board/Quark processor)
+> > with a usable shell (ps too!) and web server running on a kernel with
+> > native networking and ~ 750k text size.
+> 
+> Intel Galileo datasheet says:
+> - 400MHz 32bit Intel
+> - 512 KBytes of on-die embedded SRAM
+> - 256 MByte DRAM, enabled by the firmware by default
+> 
+> where did 2-4Mbyte restriction come from?
+> 
 
-I saw you rejected almost the entire patch series.
+General 'order-of-magnitude' difference from the typical 'tiny distro'
+which typically targets about 16MB, so sort of arbitrary, but it's a
+nice round goal for similar systems I'm sure are coming.
 
-However, is there any interest to enforce the use of SET_ETHTOOL_OPS ?
-Are you likely to merge the patch 24/24 [1] ?
+Actually, a better goal would be to run only on the 512k SRAM, but let's
+start with something more achievable for a first cut.
 
-Regards,
+> Anyway, with all these hacks you get a half functional kernel with "a
+> lot of rough edges"
 
-[1] https://lkml.org/lkml/2014/5/5/679
+'work-in-progress' see above.
 
+> that is likely working only for the given very limited set of applications.
+> Kernel function profiling can potentially achieve the same thing.
+> Profile the kernel with the set of apps and then prune all cold
+> functions out of kernel.
 
-On Tue, May 6, 2014 at 12:26 AM, Andi Kleen <andi@firstfloor.org> wrote:
-> From: Andi Kleen <ak@linux.intel.com>
->
-> Useful to remove unneeded driver code when ethtool is disabled.
->
-> The patches doing this are submitted too, but let's add
-> the script too so people can re-use it.
->
-> Cc: Julia Lawall <Julia.Lawall@lip6.fr>
-> Cc: Gilles Muller <Gilles.Muller@lip6.fr>
-> Cc: Nicolas Palix <nicolas.palix@imag.fr>
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> ---
->  scripts/coccinelle/api/ethtool_ops.cocci | 9 +++++++++
->  1 file changed, 9 insertions(+)
->  create mode 100644 scripts/coccinelle/api/ethtool_ops.cocci
->
-> diff --git a/scripts/coccinelle/api/ethtool_ops.cocci b/scripts/coccinelle/api/ethtool_ops.cocci
-> new file mode 100644
-> index 0000000..a7ee6ed
-> --- /dev/null
-> +++ b/scripts/coccinelle/api/ethtool_ops.cocci
-> @@ -0,0 +1,9 @@
-> +// Convert network drivers to use the SET_ETHTOOL_OPS macro
-> +// This allows to compile out the ethtool code when not needed.
-> +//
-> +@@
-> +struct ethtool_ops *ops;
-> +struct net_device *dev;
-> +@@
-> +-      dev->ethtool_ops = ops;
-> ++      SET_ETHTOOL_OPS(dev, ops);
-> --
-> 1.9.0
->
+Right, and are Profile-Guided-Optimization results now reproduceable?
+Better change it to Trace-Guided-Optimization.  But yeah, for a
+single-purpose system where it's known exactly what will run for the
+lifetime of the system, it makes sense to get rid of all the codepaths
+that will never be hit.
 
-
-
--- 
-Nicolas Palix
-Tel: +33 4 76 51 46 27
-http://lig-membres.imag.fr/palix/
+> config explosion and LTO is unnecessary. Just some linker hacks.
+> Obviously such kernel will also be half functional,
+> but you'll get big reduction in .text that it seems is the goal of this project.
