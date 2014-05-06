@@ -1,59 +1,56 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 6 May 2014 14:05:49 -0700
-Message-ID: <20140506210549.GR19657@tassilo.jf.intel.com>
-References: <20140506032114.GP2382@two.firstfloor.org>
- <20140505.232327.578134514220748085.davem@davemloft.net>
- <20140506155703.GA20391@cloud>
- <20140506.115941.428706504757835279.davem@davemloft.net>
- <20140506164108.GA20536@cloud>
- <20140506191447.GB4137@netboy>
- <20140506195049.GO19657@tassilo.jf.intel.com>
- <20140506200738.GA17813@netboy>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: RFC: A reduced Linux network stack for small systems
+Date: Tue, 6 May 2014 14:05:30 -0700
+Message-ID: <CAADnVQLR1ayAjmaRMq4+56BUTEXafgpPGfenvVrq8pGSq3+nVg@mail.gmail.com>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+	<CAFLxGvww8t-PpuS3B=dFvn8k3xBydk3CgA=qoLyEbkKJZJ0xhQ@mail.gmail.com>
+	<1399383246.8767.99.camel@empanada>
+	<CAADnVQLYiNfXRrXc=VZkGEFDbNhF63AzPg6Gyu6P1SF=6AiO7g@mail.gmail.com>
+	<1399390490.8767.122.camel@empanada>
+	<CAADnVQ+nCtshedoDWN+QgiKzsCzBcojZOzrhkfzsqyXTpi4L=w@mail.gmail.com>
+	<20140506200047.GB5619@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: josh@joshtriplett.org, David Miller <davem@davemloft.net>,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Zanussi <tom.zanussi@linux.intel.com>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:61384 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755023AbaEFVGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2014 17:06:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20140506200738.GA17813@netboy>
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:56573 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755794AbaEFVFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 17:05:31 -0400
+In-Reply-To: <20140506200047.GB5619@two.firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 06, 2014 at 10:07:38PM +0200, Richard Cochran wrote:
-> On Tue, May 06, 2014 at 12:50:49PM -0700, Andi Kleen wrote:
-> > 
-> > > So I think Dave is right
-> > > in rejecting anything that compromises the _quality_ of the stack.
-> > 
-> > I don't think anything I removed compromised quality (modulo bugs)
-> > It's still a more-features-than-your-typical-BSD TCP/IP stack
-> 
-> But Dave seems to think so.
+On Tue, May 6, 2014 at 1:00 PM, Andi Kleen <andi@firstfloor.org> wrote:
+>> not quite. I'm saying: no extra optimizations, no GCC changes.
+>> Compile kernel as-is. Most functions have a stub for mcount() already.
+>> Use it to track whether kernel function was called or not.
+>> Collect this data in userspace (as perf already does), add few
+>> more functions that had 'notrace' attribute on them, and feed this into
+>> special linker that unpacks existing vmlinux, throws away cold functions,
+>> relocates the rest and here you have tiny vmlinux without recompilation.
+>
+> That's very difficult for networking code. How would you know you
+> exercised all the corner cases in the TCP stack? And you wouldn't
+> want a remotely exploitable system because some important error
+> handler is missing.
 
-Appeal to authority?
+I think removing functions by linker will get you the same level of bugs
+then stubbing functions out by kconfig.
+One doesn't have to use profile feedback to remove them.
+Either linker or config approach seems pretty much equivalent to me.
+In case of config, a lot of patches need to be reviewed and maintained.
+In case of linker the embedded setup can pick and choose without burdening
+mainline. If it crashes, it will be clear that it crashed due to call to removed
+function. Iteratively you'll get a setup that works for this
+particular application.
+Both approaches are full of potential crashes, undoing removal is much
+easier with linker. Best solution is to add memory and don't mess with .text.
 
-The vast majority of the patches only remove optional user interfaces.
-If the single program running on the embedded system does not use these
-interfaces it's simply dead code.
-
-The patches that change non interface parts:
-
-- Make FASTOPEN optional. FASTOPEN is a very expensive feature
-because it pulls in the complete crypto subsystem.  It's also
-a feature that needs to be explicitely enabled by the user program,
-and I doubt is widely deployed
-(my work station did exactly zero fast opens ever)
-- Make TCP_METRICS optional, so connections don't share state.
-- Simplify the routing table for the client < 10 routes case.
-Works exactly the same as before with a small number of routes.
-- Make GRO optional.
-This is purely a performance feature for high bandwidth.
-
--Andi
+> I agree it may work for some other subsystems.
+>
+> -Andi
