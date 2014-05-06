@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/24] net, diet: Use small UDP hash tables on small
- kernels
-Date: Mon, 05 May 2014 23:11:21 -0400 (EDT)
-Message-ID: <20140505.231121.1210034371289454749.davem@davemloft.net>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-	<1399328773-6531-7-git-send-email-andi@firstfloor.org>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 06 May 2014 13:14:42 -0400 (EDT)
+Message-ID: <20140506.131442.471106362264664281.davem@davemloft.net>
+References: <20140505.232327.578134514220748085.davem@davemloft.net>
+	<20140506155703.GA20391@cloud>
+	<1399394359.15399.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: andi@firstfloor.org
+Cc: josh@joshtriplett.org, andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	ak@linux.intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35926 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41590 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933731AbaEFDLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:11:23 -0400
-In-Reply-To: <1399328773-6531-7-git-send-email-andi@firstfloor.org>
+	with ESMTP id S1750830AbaEFROo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:14:44 -0400
+In-Reply-To: <1399394359.15399.20.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon,  5 May 2014 15:25:55 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 06 May 2014 09:39:19 -0700
 
-> From: Andi Kleen <ak@linux.intel.com>
-> 
-> UDP has two hash tables, for UDP and UDP lite. Default
-> them to 16 entries each on small kernels. This can be
-> still overriden on the command line.
-> 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> I have started using linux on 386/486 pcs which had more than 2MB of
+> memory, it makes me sad we want linux-3.16 to run on this kind of
+> hardware, and consuming time to save few KB here and here.
 
-Likewise, if you make it too small, overrunning the machine
-is way too easy.  Maybe it's even more important in a lower
-powered machine than a high powered one.
++1
