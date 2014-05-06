@@ -1,42 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 06 May 2014 11:59:41 -0400 (EDT)
-Message-ID: <20140506.115941.428706504757835279.davem@davemloft.net>
-References: <20140506032114.GP2382@two.firstfloor.org>
-	<20140505.232327.578134514220748085.davem@davemloft.net>
-	<20140506155703.GA20391@cloud>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH] net: davinci_mdio: Use of_mdiobus_register()
+Date: Tue, 06 May 2014 18:51:38 +0200
+Message-ID: <5369131A.1020908@gmail.com>
+References: <1399389492-32596-1-git-send-email-zonque@gmail.com> <CAGVrzcYH2BXTQ7bM_usz=ZuiAoU8PfNWVtDsxb6ONBxEimhDgw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	ak@linux.intel.com
-To: josh@joshtriplett.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140506155703.GA20391@cloud>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mugunthanvnm <mugunthanvnm@ti.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:58351 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892AbaEFQvm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 12:51:42 -0400
+Received: by mail-ee0-f48.google.com with SMTP id e49so5459488eek.7
+        for <netdev@vger.kernel.org>; Tue, 06 May 2014 09:51:40 -0700 (PDT)
+In-Reply-To: <CAGVrzcYH2BXTQ7bM_usz=ZuiAoU8PfNWVtDsxb6ONBxEimhDgw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: josh@joshtriplett.org
-Date: Tue, 6 May 2014 08:57:03 -0700
-
-> On Mon, May 05, 2014 at 11:23:27PM -0400, David Miller wrote:
->> From: Andi Kleen <andi@firstfloor.org>
->> Date: Tue, 6 May 2014 05:21:14 +0200
->> 
->> > What parts would you remove to get the foot print down for a 2MB
->> > single purpose machine?
->> 
->> I wouldn't use Linux, end of story.
->> 
->> Maybe two decades ago, but not now, those days are over.
+On 05/06/2014 06:42 PM, Florian Fainelli wrote:
+> 2014-05-06 8:18 GMT-07:00 Daniel Mack <zonque@gmail.com>:
+>> of_mdiobus_register() calls mdiobus_register() internally, so the
+>> functionality is preserved. However, by calling the of_ variant, phy
+>> nodes can be augmented with extra information.
 > 
-> That's a self-fulfilling prophecy:
+> Are there any non Device Tree aware platforms using this driver?
+> of_mdiobus_register() is an empty stub returning -ENOSYS when
+> CONFIG_OF is not set, maybe we should make it return
+> mdiobus_register() instead...
 
-Making 2MB RAM machines today makes no sense at all.
+Ah, good point. Yes, what you propose seems like a valid fix. I'll send
+a patch for that.
 
-The lowest end dirt cheap smartphone, something which fits on
-someone's pocket, has gigabytes of ram.
 
-The only entity looking backwards are the people making these
-improperly provisioned systems.
+Thanks,
+Daniel
