@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 16/24] net, diet: Make TCP fastopen optional
-Date: Mon, 05 May 2014 23:06:44 -0400 (EDT)
-Message-ID: <20140505.230644.165862049328890181.davem@davemloft.net>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-	<1399328773-6531-17-git-send-email-andi@firstfloor.org>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 06 May 2014 13:16:43 -0400 (EDT)
+Message-ID: <20140506.131643.994244006906866938.davem@davemloft.net>
+References: <20140506155703.GA20391@cloud>
+	<20140506.115941.428706504757835279.davem@davemloft.net>
+	<20140506164108.GA20536@cloud>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: andi@firstfloor.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35876 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933731AbaEFDGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:06:45 -0400
-In-Reply-To: <1399328773-6531-17-git-send-email-andi@firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	ak@linux.intel.com
+To: josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140506164108.GA20536@cloud>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <andi@firstfloor.org>
-Date: Mon,  5 May 2014 15:26:05 -0700
+From: josh@joshtriplett.org
+Date: Tue, 6 May 2014 09:41:08 -0700
 
-> Make TCP fast open a config option. It's not really needed
-> on small systems. By itself it saves about 3k text,
+> Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
 
-It's for the sake of the remote service not the local client,
-sorry I'm not applying this, it's a facility we want to be
-ubiquitous and in widespread use on as many systems as possible.
+Another poster commented that 16MB of DRAM would be cheaper than
+the 2MB of ram you have on these boards, probably one that fits
+your size profile is available as well.
 
-I'm not applying this, sorry.
+2MB is just a rediculous restriction.
+
+And last time I checked Linux wasn't a special purpose operating
+system, but lucky for you I hear there are lots of those around.
