@@ -1,48 +1,48 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 6/9] net: mvneta: Change the number of default rx queues to one
-Date: Tue,  6 May 2014 14:20:55 -0300
-Message-ID: <1399396858-14551-7-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: [PATCH] ipv4: fib_semantics: increment fib_info_cnt after fib_info allocation
+Date: Tue,  6 May 2014 18:23:08 +0300
+Message-ID: <1399389788-20363-1-git-send-email-popovich_sergei@mail.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53552 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753627AbaEFRVz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:21:55 -0400
-In-Reply-To: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from smtp39.i.mail.ru ([94.100.177.99]:60526 "EHLO smtp39.i.mail.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757573AbaEFPXS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2014 11:23:18 -0400
+Received: from [195.234.68.4] (port=52783 helo=tuxracer.skif.com.ua)
+	by smtp39.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1WhhD9-0005kL-NF
+	for netdev@vger.kernel.org; Tue, 06 May 2014 19:23:16 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver does not support multiple rx queues, and so it's a waste
-of resources to have a default number larger than one (1).
+Increment fib_info_cnt in fib_create_info() right after successfuly
+alllocating fib_info structure, overwise fib_metrics allocation failure
+leads to fib_info_cnt incorrectly decremented in free_fib_info(), called
+on error path from fib_create_info().
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
 ---
- drivers/net/ethernet/marvell/mvneta.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/ipv4/fib_semantics.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 0dcce29..ec4f67a 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -441,7 +441,10 @@ struct mvneta_rx_queue {
- 	int next_desc_to_proc;
- };
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index b53f0bf..9d43468 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -820,13 +820,13 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 	fi = kzalloc(sizeof(*fi)+nhs*sizeof(struct fib_nh), GFP_KERNEL);
+ 	if (fi == NULL)
+ 		goto failure;
++	fib_info_cnt++;
+ 	if (cfg->fc_mx) {
+ 		fi->fib_metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
+ 		if (!fi->fib_metrics)
+ 			goto failure;
+ 	} else
+ 		fi->fib_metrics = (u32 *) dst_default_metrics;
+-	fib_info_cnt++;
  
--static int rxq_number = 8;
-+/* The hardware supports eight (8) rx queues, but we are only allowing
-+ * the first one to be used. Therefore, let's just allocate one queue.
-+ */
-+static int rxq_number = 1;
- static int txq_number = 8;
- 
- static int rxq_def;
+ 	fi->fib_net = hold_net(net);
+ 	fi->fib_protocol = cfg->fc_protocol;
 -- 
-1.9.1
+1.8.3.4
