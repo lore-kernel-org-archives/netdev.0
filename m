@@ -1,48 +1,52 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: [PATCH] ipv4: fib_semantics: increment fib_info_cnt after fib_info allocation
-Date: Tue,  6 May 2014 18:23:08 +0300
-Message-ID: <1399389788-20363-1-git-send-email-popovich_sergei@mail.ru>
-To: netdev@vger.kernel.org
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH net 1/2] qlcnic: Fix panic while dumping TX queues on TX timeout
+Date: Tue, 6 May 2014 03:46:48 -0400
+Message-ID: <1399362409-17039-2-git-send-email-rajesh.borundia@qlogic.com>
+References: <1399362409-17039-1-git-send-email-rajesh.borundia@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Manish Chopra <manish.chopra@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp39.i.mail.ru ([94.100.177.99]:60526 "EHLO smtp39.i.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757573AbaEFPXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2014 11:23:18 -0400
-Received: from [195.234.68.4] (port=52783 helo=tuxracer.skif.com.ua)
-	by smtp39.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1WhhD9-0005kL-NF
-	for netdev@vger.kernel.org; Tue, 06 May 2014 19:23:16 +0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:42227 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934240AbaEFIPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 04:15:34 -0400
+In-Reply-To: <1399362409-17039-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Increment fib_info_cnt in fib_create_info() right after successfuly
-alllocating fib_info structure, overwise fib_metrics allocation failure
-leads to fib_info_cnt incorrectly decremented in free_fib_info(), called
-on error path from fib_create_info().
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+o In case of non-multi TX queue mode driver does not initialize "crb_intr_mask" pointer
+  and driver was accessing that un-initialized pointer while dumping TX queue.
+  So dump "crb_intr_mask" only when it is initilaized.
+
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 ---
- net/ipv4/fib_semantics.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index b53f0bf..9d43468 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -820,13 +820,13 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	fi = kzalloc(sizeof(*fi)+nhs*sizeof(struct fib_nh), GFP_KERNEL);
- 	if (fi == NULL)
- 		goto failure;
-+	fib_info_cnt++;
- 	if (cfg->fc_mx) {
- 		fi->fib_metrics = kzalloc(sizeof(u32) * RTAX_MAX, GFP_KERNEL);
- 		if (!fi->fib_metrics)
- 			goto failure;
- 	} else
- 		fi->fib_metrics = (u32 *) dst_default_metrics;
--	fib_info_cnt++;
- 
- 	fi->fib_net = hold_net(net);
- 	fi->fib_protocol = cfg->fc_protocol;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 0bc9148..be78951 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2943,9 +2943,13 @@ static void qlcnic_dump_tx_rings(struct qlcnic_adapter *adapter)
+ 			    tx_ring->tx_stats.xmit_called,
+ 			    tx_ring->tx_stats.xmit_on,
+ 			    tx_ring->tx_stats.xmit_off);
++
++		if (tx_ring->crb_intr_mask)
++			netdev_info(netdev, "crb_intr_mask=%d\n",
++				    readl(tx_ring->crb_intr_mask));
++
+ 		netdev_info(netdev,
+-			    "crb_intr_mask=%d, hw_producer=%d, sw_producer=%d sw_consumer=%d, hw_consumer=%d\n",
+-			    readl(tx_ring->crb_intr_mask),
++			    "hw_producer=%d, sw_producer=%d sw_consumer=%d, hw_consumer=%d\n",
+ 			    readl(tx_ring->crb_cmd_producer),
+ 			    tx_ring->producer, tx_ring->sw_consumer,
+ 			    le32_to_cpu(*(tx_ring->hw_consumer)));
 -- 
-1.8.3.4
+1.6.3.3
