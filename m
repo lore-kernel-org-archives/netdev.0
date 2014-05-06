@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 06 May 2014 13:16:43 -0400 (EDT)
-Message-ID: <20140506.131643.994244006906866938.davem@davemloft.net>
+Date: Tue, 06 May 2014 13:17:52 -0400 (EDT)
+Message-ID: <20140506.131752.740569380523989782.davem@davemloft.net>
 References: <20140506155703.GA20391@cloud>
-	<20140506.115941.428706504757835279.davem@davemloft.net>
-	<20140506164108.GA20536@cloud>
+	<1399394359.15399.20.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140506164546.GB20536@cloud>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	ak@linux.intel.com
+Cc: eric.dumazet@gmail.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
 To: josh@joshtriplett.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140506164108.GA20536@cloud>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41612 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaEFRRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:17:53 -0400
+In-Reply-To: <20140506164546.GB20536@cloud>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: josh@joshtriplett.org
-Date: Tue, 6 May 2014 09:41:08 -0700
+Date: Tue, 6 May 2014 09:45:46 -0700
 
-> Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
+> The kernel can do the same.  Consider the idea of analyzing a set of
+> userspace programs, determining what kernel functionality they do and
+> don't need, feeding that information into the kernel build process, and
+> automatically dropping unused bits of the kernel.
 
-Another poster commented that 16MB of DRAM would be cheaper than
-the 2MB of ram you have on these boards, probably one that fits
-your size profile is available as well.
+Please make sure I'm not on the list of people who see reports for
+bugs reported in that setup.
 
-2MB is just a rediculous restriction.
-
-And last time I checked Linux wasn't a special purpose operating
-system, but lucky for you I hear there are lots of those around.
+Thanks :-)
