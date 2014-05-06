@@ -1,191 +1,93 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] bonding: Fix stacked device detection in arp monitoring
-Date: Tue,  6 May 2014 13:41:15 -0400
-Message-ID: <1399398075-16323-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Patric McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28605 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750783AbaEFRld (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 May 2014 13:41:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets
+	between two guests on a bridge since merge of "TX grant
+	mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
+Date: Tue, 6 May 2014 19:33:52 +0200
+Message-ID: <1886609598.20140506193352@eikelenboom.it>
+References: <395225650.20140430124506@eikelenboom.it>
+	<536162D3.5080307@citrix.com>
+	<94755525.20140501002553@eikelenboom.it>
+	<53624E25.8040404@citrix.com>
+	<1810270947.20140501155911@eikelenboom.it>
+	<53626C39.3030304@citrix.com>
+	<928229683.20140501193936@eikelenboom.it>
+	<198418193.20140501213951@eikelenboom.it>
+	<5363A508.1000602@citrix.com>
+	<653156457.20140502160632@eikelenboom.it>
+	<5363AFED.5080601@citrix.com>
+	<1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>
+	<5363B929.1000502@citrix.com>
+	<35970097.20140502182818@eikelenboom.it>
+	<5363CBB0.6050804@citrix.com>
+	<15602339.20140505121912@eikelenboom.it>
+	<53691783.3060108@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, xen-devel@lists.xen.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <53691783.3060108@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-Prior to commit fbd929f2dce460456807a51e18d623db3db9f077
-	bonding: support QinQ for bond arp interval
 
-the arp monitoring code allowed for proper detection of devices
-stacked on top of vlans.  Since the above commit, the
-code can still detect a device stacked on top of single
-vlan, but not a device stacked on top of Q-in-Q configuration.
-The search will only set the inner vlan tag if the route
-device is the vlan device.  However, this is not always the
-case, as it is possible to extend the stacked configuration.
+Tuesday, May 6, 2014, 7:10:27 PM, you wrote:
 
-With this patch it is possible to provision devices on
-top Q-in-Q vlan configuration that should be used as
-a source of ARP monitoring information.
+> On 05/05/14 11:19, Sander Eikelenboom wrote:
+>>
+>> Hi Zoltan,
+>>
+>> This weekend i tried some more things, the summary:
+>>
+>>
+>> 1) It's a PITA to isolate your patches that went into 3.15 (to rule out any other changes) and apply
+>>     them to 3.14.2, which is tested and worked ok. Could you put up a git tree
+>>     somewhere and rebase your patch series on 3.14.2 for testing ?
+> I've managed to repro the case in house, now I'll start to add more 
+> debug logging
 
-For example:
-ip link add link bond0 vlan10 type vlan proto 802.1q id 10
-ip link add link vlan10 vlan100 type vlan proto 802.1q id 100
-ip link add link vlan100 type macvlan
+Yippie :-)
 
-Note:  This patch limits the number of stacked VLANs to 2,
-just like before.  The original, however had another issue
-in that if we had more then 2 levels of VLANs, we would end
-up generating incorrectly tagged traffic.  This is no longer
-possible.
 
-Fixes: fbd929f2dce460456807a51e18d623db3db9f077 (bonding: support QinQ for bond arp interval)
-CC: Jay Vosburgh <fubar@us.ibm.com>
-CC: Veaceslav Falico <vfalico@redhat.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Ding Tianhong <dingtianhong@huawei.com>
-CC: Patric McHardy <kaber@trash.net>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/bonding/bond_main.c | 90 +++++++++++++++++------------------------
- 1 file changed, 37 insertions(+), 53 deletions(-)
+>> 2) Does the test suite you are using also has tests verifying that the content of packets isn't altered ?
+> Not directly. But the applications running on top of them probably do 
+> so. Also, my tests are running on top of 3.10 kernel, where the netback 
+> changes are backported.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 9d08e00..4822728 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2164,22 +2164,46 @@ static void bond_arp_send(struct net_device *slave_dev, int arp_op,
- 	arp_xmit(skb);
- }
- 
-+static bool bond_collect_vlans(struct net_device *start, struct net_device *end,
-+				struct bond_vlan_tag *tag, int idx)
-+{
-+	struct net_device *upper;
-+	struct list_head  *iter;
-+
-+	/* We do not support more then 2 levels of VLAN nesting */
-+	if (idx >= 2)
-+		return false;
-+
-+	netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
-+		if (is_vlan_dev(upper)) {
-+			tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
-+			tag[idx].vlan_id = vlan_dev_vlan_id(upper);
-+			idx++;
-+		}
-+		if (upper == end)
-+			return true;
-+
-+		/* Look at upper devices list only if current device
-+		 * is a vlan
-+		 */
-+		if (is_vlan_dev(upper) && bond_collect_vlans(upper, end, tag, idx))
-+			return true;
-+	}
-+	return false;
-+}
-+
- 
- static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- {
--	struct net_device *upper, *vlan_upper;
--	struct list_head *iter, *vlan_iter;
- 	struct rtable *rt;
--	struct bond_vlan_tag inner, outer;
-+	struct bond_vlan_tag tags[2];
- 	__be32 *targets = bond->params.arp_targets, addr;
- 	int i;
-+	bool ret;
- 
- 	for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
- 		pr_debug("basa: target %pI4\n", &targets[i]);
--		inner.vlan_proto = 0;
--		inner.vlan_id = 0;
--		outer.vlan_proto = 0;
--		outer.vlan_id = 0;
-+		memset(tags, 0, sizeof(tags));
- 
- 		/* Find out through which dev should the packet go */
- 		rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
-@@ -2192,7 +2216,7 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 				net_warn_ratelimited("%s: no route to arp_ip_target %pI4 and arp_validate is set\n",
- 						     bond->dev->name,
- 						     &targets[i]);
--			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &inner, &outer);
-+			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0, &tags[1], &tags[0]);
- 			continue;
- 		}
- 
-@@ -2201,52 +2225,12 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
- 			goto found;
- 
- 		rcu_read_lock();
--		/* first we search only for vlan devices. for every vlan
--		 * found we verify its upper dev list, searching for the
--		 * rt->dst.dev. If found we save the tag of the vlan and
--		 * proceed to send the packet.
--		 */
--		netdev_for_each_all_upper_dev_rcu(bond->dev, vlan_upper,
--						  vlan_iter) {
--			if (!is_vlan_dev(vlan_upper))
--				continue;
--
--			if (vlan_upper == rt->dst.dev) {
--				outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
--				outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
--				rcu_read_unlock();
--				goto found;
--			}
--			netdev_for_each_all_upper_dev_rcu(vlan_upper, upper,
--							  iter) {
--				if (upper == rt->dst.dev) {
--					/* If the upper dev is a vlan dev too,
--					 *  set the vlan tag to inner tag.
--					 */
--					if (is_vlan_dev(upper)) {
--						inner.vlan_proto = vlan_dev_vlan_proto(upper);
--						inner.vlan_id = vlan_dev_vlan_id(upper);
--					}
--					outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
--					outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
--					rcu_read_unlock();
--					goto found;
--				}
--			}
--		}
--
--		/* if the device we're looking for is not on top of any of
--		 * our upper vlans, then just search for any dev that
--		 * matches, and in case it's a vlan - save the id
--		 */
--		netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--			if (upper == rt->dst.dev) {
--				rcu_read_unlock();
--				goto found;
--			}
--		}
-+		ret = bond_collect_vlans(bond->dev, rt->dst.dev, tags, 0);
- 		rcu_read_unlock();
- 
-+		if (ret)
-+			goto found;
-+
- 		/* Not our device - skip */
- 		pr_debug("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
- 			 bond->dev->name, &targets[i],
-@@ -2259,7 +2243,7 @@ found:
- 		addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
- 		ip_rt_put(rt);
- 		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
--			      addr, &inner, &outer);
-+			      addr, &tags[1], &tags[0]);
- 	}
- }
- 
--- 
-1.9.0
+I would probably be a nice test that would be overlooked quite easily, although 
+it the should be the primary concern .. :-)
+
+<big snip>
+
+>>
+>> Ad 4a) Assumption that  "An upstream guest shouldn't be able to send 18 slots":
+>>      - xen-netfront does this slot check in "xennet_start_xmit":
+>>          slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+>>                  xennet_count_skb_frag_slots(skb);
+>>          if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+>>                  net_alert_ratelimited(
+>>                          "xennet: skb rides the rocket: %d slots\n", slots);
+>>                  goto drop;
+>>          }
+>>
+>>      - The "MAX_SKB_FRAGS + 1" was changed due to: http://www.gossamer-threads.com/lists/xen/devel/266980,
+>>        but it doesn't seem to be the proper solution.
+>>      - So your assumption doesn't hold, MAX_SKB_FRAGS==17, so 18 slots can come through.
+>>      - On 3.15-rc4 i now started to see this warning getting triggered and packets dropped, i don't see this on 3.14.2:
+>>        [  118.526583] xen_netfront: xennet: skb rides the rocket: 19 slots | skb_shinfo(skb)->nr_frags: 3, len: 186, offset: 4070, skb->len: 62330, skb->data_len: 62144, skb->truesize: 63424, np->tx.sring->rsp_prod: 21434, np->tx.rsp_cons: 21434  DIV_ROUND_UP(offset + len, PAGE_SIZE): 2
+> Now I get it: compound pages on frags can cause more slots in certain 
+> cases. Hm, I don't know how we should handle this on netfront side.
+
+I don't know if something similar as netback does would be possible, do a check 
+before dequeuing the skb and do the required slot detection in the capped 
+pessimistic way (unless Paul comes up with something more clever) ?
