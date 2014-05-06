@@ -1,36 +1,38 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: [PATCH 0/3] Fixes to network device group configuration via rtnetlink
-Date: Tue,  6 May 2014 18:13:14 +0300
-Message-ID: <cover.1399388943.git.popovich_sergei@mail.ru>
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Questions on sk_no_check implemenation
+Date: Mon, 5 May 2014 19:34:40 -0700
+Message-ID: <CA+mtBx_SK5LG8z_kTr5sHNhGQMBDgc+kpG49uyjgDM_eoK1hKg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback3.mail.ru ([94.100.176.58]:38245 "EHLO
-	fallback3.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755365AbaEFPQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:16:01 -0400
-Received: from smtp10.mail.ru (smtp10.mail.ru [94.100.176.152])
-	by fallback3.mail.ru (mPOP.Fallback_MX) with ESMTP id EA293114AEF26
-	for <netdev@vger.kernel.org>; Tue,  6 May 2014 19:13:55 +0400 (MSK)
-Received: from [195.234.68.4] (port=41193 helo=tuxracer.skif.com.ua)
-	by smtp10.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1Whh3v-0004LE-MX
-	for netdev@vger.kernel.org; Tue, 06 May 2014 19:13:43 +0400
+Received: from mail-ig0-f171.google.com ([209.85.213.171]:61202 "EHLO
+	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933630AbaEFCel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 22:34:41 -0400
+Received: by mail-ig0-f171.google.com with SMTP id c1so5636020igq.10
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 19:34:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In this small patch series I present few fixes to the network device
-group configuration via rtnetlink interface.
+Hi, I'm looking at sk_no_check implementation and am hoping to get
+clarification on a couple of use cases.
 
-For more information on problems addressed, please see description
-of each patch in the thread.
+1) In l2tp_core.c, if sk_no_check is set it looks like this will
+completely bypass UDP checksum verification on RX even for packets
+with nonzero checksums.
 
-Sergey Popovich (3):
-  rtnetlink: walk through all devs in netns safely on link params change
-  rtnetlink: fix potential NULL pointer dereference
-  rtnetlink: add IFLA_GROUP to ifla_policy
+d2cf33616 (Benjamin LaHaise 2012-04-27 08:24:18 +0000 505) if
+(sk->sk_no_check || skb_csum_unnecessary(skb))
 
- net/core/rtnetlink.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+I don't believe this is standards compliant and seems pretty risky
+otherwise. What is the requirement here? Is this still needed?
 
--- 
-1.8.3.4
+2) The constant UDP_CSUM_NORCV was introduced for sunrpc and in fact
+this looks like the only code that sets it. AFAICT the only effect
+this would have would be to disable receive checksum verification in
+L2TP as described above. What was the intent of UDP_CSUM_NORCV and why
+was using this specific to sunrpc?
+
+Thanks for  your help,
+Tom
