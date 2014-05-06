@@ -1,38 +1,174 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Questions on sk_no_check implemenation
-Date: Mon, 5 May 2014 19:34:40 -0700
-Message-ID: <CA+mtBx_SK5LG8z_kTr5sHNhGQMBDgc+kpG49uyjgDM_eoK1hKg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:61202 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933630AbaEFCel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 22:34:41 -0400
-Received: by mail-ig0-f171.google.com with SMTP id c1so5636020igq.10
-        for <netdev@vger.kernel.org>; Mon, 05 May 2014 19:34:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+Subject: [PATCH v4 1/2] Update Micrel KSZ90x1 binding documentation
+Date: Tue,  6 May 2014 09:40:16 +0200
+Message-ID: <1399362017-25787-2-git-send-email-hchaumette@adeneo-embedded.com>
+References: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	rdunlap@infradead.org, xobs@kosagi.com, davem@davemloft.net,
+	devicetree@vger.kernel.org, linux-doc@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi, I'm looking at sk_no_check implementation and am hoping to get
-clarification on a couple of use cases.
+Renames micrel-ksz9021.txt to micrel-ksz90x1.txt and adds documentation for
+the KSZ9031 binding from patch 1. Also adds step increment information, and
+note about phy fixups.
 
-1) In l2tp_core.c, if sk_no_check is set it looks like this will
-completely bypass UDP checksum verification on RX even for packets
-with nonzero checksums.
+Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+---
+ .../devicetree/bindings/net/micrel-ksz9021.txt     | 49 -------------
+ .../devicetree/bindings/net/micrel-ksz90x1.txt     | 83 ++++++++++++++++++++++
+ 2 files changed, 83 insertions(+), 49 deletions(-)
+ delete mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+ create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
 
-d2cf33616 (Benjamin LaHaise 2012-04-27 08:24:18 +0000 505) if
-(sk->sk_no_check || skb_csum_unnecessary(skb))
-
-I don't believe this is standards compliant and seems pretty risky
-otherwise. What is the requirement here? Is this still needed?
-
-2) The constant UDP_CSUM_NORCV was introduced for sunrpc and in fact
-this looks like the only code that sets it. AFAICT the only effect
-this would have would be to disable receive checksum verification in
-L2TP as described above. What was the intent of UDP_CSUM_NORCV and why
-was using this specific to sunrpc?
-
-Thanks for  your help,
-Tom
+diff --git a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt b/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+deleted file mode 100644
+index 997a63f..0000000
+--- a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
++++ /dev/null
+@@ -1,49 +0,0 @@
+-Micrel KSZ9021 Gigabit Ethernet PHY
+-
+-Some boards require special tuning values, particularly when it comes to
+-clock delays.  You can specify clock delay values by adding
+-micrel-specific properties to an Ethernet OF device node.
+-
+-All skew control options are specified in picoseconds.  The minimum
+-value is 0, and the maximum value is 3000.
+-
+-Optional properties:
+- - rxc-skew-ps : Skew control of RXC pad
+- - rxdv-skew-ps : Skew control of RX CTL pad
+- - txc-skew-ps : Skew control of TXC pad
+- - txen-skew-ps : Skew control of TX_CTL pad
+- - rxd0-skew-ps : Skew control of RX data 0 pad
+- - rxd1-skew-ps : Skew control of RX data 1 pad
+- - rxd2-skew-ps : Skew control of RX data 2 pad
+- - rxd3-skew-ps : Skew control of RX data 3 pad
+- - txd0-skew-ps : Skew control of TX data 0 pad
+- - txd1-skew-ps : Skew control of TX data 1 pad
+- - txd2-skew-ps : Skew control of TX data 2 pad
+- - txd3-skew-ps : Skew control of TX data 3 pad
+-
+-Examples:
+-
+-	/* Attach to an Ethernet device with autodetected PHY */
+-	&enet {
+-		rxc-skew-ps = <3000>;
+-		rxdv-skew-ps = <0>;
+-		txc-skew-ps = <3000>;
+-		txen-skew-ps = <0>;
+-		status = "okay";
+-	};
+-
+-	/* Attach to an explicitly-specified PHY */
+-	mdio {
+-		phy0: ethernet-phy@0 {
+-			rxc-skew-ps = <3000>;
+-			rxdv-skew-ps = <0>;
+-			txc-skew-ps = <3000>;
+-			txen-skew-ps = <0>;
+-			reg = <0>;
+-		};
+-	};
+-	ethernet@70000 {
+-		status = "okay";
+-		phy = <&phy0>;
+-		phy-mode = "rgmii-id";
+-	};
+diff --git a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
+new file mode 100644
+index 0000000..692076f
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
+@@ -0,0 +1,83 @@
++Micrel KSZ9021/KSZ9031 Gigabit Ethernet PHY
++
++Some boards require special tuning values, particularly when it comes to
++clock delays. You can specify clock delay values by adding
++micrel-specific properties to an Ethernet OF device node.
++
++Note that these settings are applied after any phy-specific fixup from
++phy_fixup_list (see phy_init_hw() from drivers/net/phy/phy_device.c),
++and therefore may overwrite them.
++
++KSZ9021:
++
++  All skew control options are specified in picoseconds. The minimum
++  value is 0, the maximum value is 3000, and it is incremented by 200ps
++  steps.
++
++  Optional properties:
++
++    - rxc-skew-ps : Skew control of RXC pad
++    - rxdv-skew-ps : Skew control of RX CTL pad
++    - txc-skew-ps : Skew control of TXC pad
++    - txen-skew-ps : Skew control of TX CTL pad
++    - rxd0-skew-ps : Skew control of RX data 0 pad
++    - rxd1-skew-ps : Skew control of RX data 1 pad
++    - rxd2-skew-ps : Skew control of RX data 2 pad
++    - rxd3-skew-ps : Skew control of RX data 3 pad
++    - txd0-skew-ps : Skew control of TX data 0 pad
++    - txd1-skew-ps : Skew control of TX data 1 pad
++    - txd2-skew-ps : Skew control of TX data 2 pad
++    - txd3-skew-ps : Skew control of TX data 3 pad
++
++KSZ9031:
++
++  All skew control options are specified in picoseconds. The minimum
++  value is 0, and the maximum is property-dependent. The increment
++  step is 60ps.
++
++  Optional properties:
++
++    Maximum value of 1860:
++
++      - rxc-skew-ps : Skew control of RX clock pad
++      - txc-skew-ps : Skew control of TX clock pad
++
++    Maximum value of 900:
++
++      - rxdv-skew-ps : Skew control of RX CTL pad
++      - txen-skew-ps : Skew control of TX CTL pad
++      - rxd0-skew-ps : Skew control of RX data 0 pad
++      - rxd1-skew-ps : Skew control of RX data 1 pad
++      - rxd2-skew-ps : Skew control of RX data 2 pad
++      - rxd3-skew-ps : Skew control of RX data 3 pad
++      - txd0-skew-ps : Skew control of TX data 0 pad
++      - txd1-skew-ps : Skew control of TX data 1 pad
++      - txd2-skew-ps : Skew control of TX data 2 pad
++      - txd3-skew-ps : Skew control of TX data 3 pad
++
++Examples:
++
++	/* Attach to an Ethernet device with autodetected PHY */
++	&enet {
++		rxc-skew-ps = <3000>;
++		rxdv-skew-ps = <0>;
++		txc-skew-ps = <3000>;
++		txen-skew-ps = <0>;
++		status = "okay";
++	};
++
++	/* Attach to an explicitly-specified PHY */
++	mdio {
++		phy0: ethernet-phy@0 {
++			rxc-skew-ps = <3000>;
++			rxdv-skew-ps = <0>;
++			txc-skew-ps = <3000>;
++			txen-skew-ps = <0>;
++			reg = <0>;
++		};
++	};
++	ethernet@70000 {
++		status = "okay";
++		phy = <&phy0>;
++		phy-mode = "rgmii-id";
++	};
+-- 
+2.0.0.rc0
