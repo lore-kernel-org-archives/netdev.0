@@ -1,49 +1,54 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH] net: davinci_mdio: Use of_mdiobus_register()
-Date: Tue,  6 May 2014 17:18:12 +0200
-Message-ID: <1399389492-32596-1-git-send-email-zonque@gmail.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:50948 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754500AbaEFPSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:18:21 -0400
-Received: by mail-ee0-f45.google.com with SMTP id d49so2504729eek.32
-        for <netdev@vger.kernel.org>; Tue, 06 May 2014 08:18:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Zanussi <tom.zanussi@linux.intel.com>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Mon, 05 May 2014 23:39:08 -0500
+Message-ID: <1399351148.8767.84.camel@empanada>
+References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+	 <20140505.231229.136734008603421707.davem@davemloft.net>
+	 <20140506032114.GP2382@two.firstfloor.org>
+	 <20140505.232327.578134514220748085.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ak@linux.intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140505.232327.578134514220748085.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-of_mdiobus_register() calls mdiobus_register() internally, so the
-functionality is preserved. However, by calling the of_ variant, phy
-nodes can be augmented with extra information.
+On Mon, 2014-05-05 at 23:23 -0400, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Tue, 6 May 2014 05:21:14 +0200
+> 
+> > What parts would you remove to get the foot print down for a 2MB
+> > single purpose machine?
+> 
+> I wouldn't use Linux, end of story.
+> 
+> Maybe two decades ago, but not now, those days are over.
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
----
- drivers/net/ethernet/ti/davinci_mdio.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+These 'new' systems we're talking about pretty much are the same as
+systems from 20 years ago e.g. Quark, which is essentially a 486, with
+tiny amounts of RAM, say less than 2 MB, so I hope those days aren't
+over forever for Linux...
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 0cca9de..359d42c 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -38,6 +38,7 @@
- #include <linux/davinci_emac.h>
- #include <linux/of.h>
- #include <linux/of_device.h>
-+#include <linux/of_mdio.h>
- #include <linux/pinctrl/consumer.h>
- 
- /*
-@@ -389,7 +390,7 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	}
- 
- 	/* register the mii bus */
--	ret = mdiobus_register(data->bus);
-+	ret = of_mdiobus_register(data->bus, dev->of_node);
- 	if (ret)
- 		goto bail_out;
- 
--- 
-1.9.0
+Anyway, Andi's net-diet and LTO patches allowed me to go from a kernel
+text size of above 1100k down to about 750k with the kernel network
+stack running an unmodified small web server (nostromo) and the ability
+to drop in a dedicated single-purpose application that this type of
+system would typically run e.g. something based on for example UDP.
+
+I was able to get that down to about 620k removing INET completely and
+replacing it with LWIP, but LWIP either bloated the application back up
+to similar memory usage numbers as with INET configured in, or
+alternatively required extensive changes to the application in order to
+use the not-bloating low-level interface.
+
+But why go to all that trouble when there's a perfectly good networking
+stack in the kernel?  Even if most of these options aren't things that
+would be useful to most systems, being able to turn them off and save
+1/3 of the kernel text size for tiny systems like this does makes a big
+difference...
+
+Tom
