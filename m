@@ -1,74 +1,62 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets
-	between two guests on a bridge since merge of "TX grant
-	mapping with SKBTX_DEV_ZEROCOPY instead of copy" series.
-Date: Tue, 6 May 2014 19:37:23 +0200
-Message-ID: <437888929.20140506193723@eikelenboom.it>
-References: <395225650.20140430124506@eikelenboom.it>
-	<536162D3.5080307@citrix.com>
-	<94755525.20140501002553@eikelenboom.it>
-	<53624E25.8040404@citrix.com>
-	<1810270947.20140501155911@eikelenboom.it>
-	<53626C39.3030304@citrix.com>
-	<928229683.20140501193936@eikelenboom.it>
-	<198418193.20140501213951@eikelenboom.it>
-	<5363A508.1000602@citrix.com>
-	<653156457.20140502160632@eikelenboom.it>
-	<5363AFED.5080601@citrix.com>
-	<1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>
-	<5363B929.1000502@citrix.com>
-	<35970097.20140502182818@eikelenboom.it>
-	<5363CBB0.6050804@citrix.com>
-	<15602339.20140505121912@eikelenboom.it>
-	<536916E9.7010509@crc.id.au> <53691848.5010809@citrix.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH 1/3] rtlwifi: make MSI support a module parameter
+Date: Tue, 6 May 2014 14:08:37 -0400
+Message-ID: <20140506180836.GF3518@tuxdriver.com>
+References: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
+ <5367A690.7010305@lwfinger.net>
+ <20140505154037.19620ac2@nehalam.linuxnetplumber.net>
+ <20140506021915.GA3624@adam-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Steven Haigh <netwiz@crc.id.au>, Ian Campbell <Ian.Campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, "David S. Miller" <davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <53691848.5010809@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140506021915.GA3624@adam-laptop>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, May 06, 2014 at 10:19:15AM +0800, Adam Lee wrote:
+> On Mon, May 05, 2014 at 03:40:37PM -0700, Stephen Hemminger wrote:
+> > On Mon, 05 May 2014 09:56:16 -0500
+> > Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
+> > 
+> > > On 05/05/2014 03:33 AM, Adam Lee wrote:
+> > > > This makes MSI support a module parameter, for debugging and workaround
+> > > > convenience.
+> > > >
+> > > > Signed-off-by: Adam Lee <adam.lee-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>  
+> > > 
+> > > Acked-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (for all 3 patches)
+> > > 
+> > > I would have made the default for the MSI option to be true, but that is a 
+> > > matter of preference, and only experience would show which default leads to the 
+> > > fewer failures. On my laptop, both rtl8188ee and rtl8723be work either way. I am 
+> > > now working on a driver for the RTL8192EE that also can use MSI - that has only 
+> > > been tested with the option on.
+> > > 
+> > > Larry
+> > 
+> > Standard practice is to assume MSI is available, and let the quirks
+> > in the PCI subsystem reject the request to enable MSI.
+> > 
+> > Also other drivers have a 'disable_msi' module parameter why not follow
+> > their example.
+> > 
+> 
+> Because some submodule's MSI causes an regression, and other submodules
+> of rtlwifi are not fully tested under MSI, we need to disable it by
+> default(regression has higher priority) and have an 'enable_msi' module
+> parameter for some certain users.
 
-Tuesday, May 6, 2014, 7:13:44 PM, you wrote:
+Couldn't it be called 'disable_msi' and default to 'on'?
 
-> On 06/05/14 18:07, Steven Haigh wrote:
->> On a related note, I'm seeing this on an Arch Linux DomU and kernel
->> 3.14.2. Its running aria2c bit torrent client.
->>
->> The Dom0 is EL6 with Xen 4.2.4 / 3.14.2 kernel.
->>
->> I also lodged this on the Arch bug tracker:
->>       https://bugs.archlinux.org/task/40244
->>
->> In a nutshell, I see:
->> [ 7432.398096] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7434.270870] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7434.782199] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7435.184794] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7437.530677] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7437.973905] xen_netfront: xennet: skb rides the rocket: 19 slots
->> [ 7438.383947] xen_netfront: xennet: skb rides the rocket: 19 slots
-
-> Can you also see packet corruption? You can find a testfile generator in 
-> Sander's mail, downloading from an Apache server with wget seems to be OK.
-
-The corruption shouldn't be there since he is running 3.14.2 which is fine.
-
-And note that the corruption with 3.15 only seems to occur in traffic between 
-guests  and not between dom0 and guest. The bit torrent traffic is probably 
-inet <-> dom0 <-> guest, so shouldn't be affected, even with 3.15.
-
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
 --
-Sander
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
