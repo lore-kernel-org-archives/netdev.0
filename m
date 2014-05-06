@@ -1,108 +1,33 @@
-From: Tom Zanussi <tom.zanussi@linux.intel.com>
-Subject: Re: RFC: A reduced Linux network stack for small systems
-Date: Tue, 06 May 2014 08:34:06 -0500
-Message-ID: <1399383246.8767.99.camel@empanada>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-	 <CAFLxGvww8t-PpuS3B=dFvn8k3xBydk3CgA=qoLyEbkKJZJ0xhQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 22/24] net, diet: Support simpler routing table
+Date: Mon, 05 May 2014 23:21:05 -0400 (EDT)
+Message-ID: <20140505.232105.633722669086565626.davem@davemloft.net>
+References: <1399328773-6531-23-git-send-email-andi@firstfloor.org>
+	<20140505.230259.1803147080660592366.davem@davemloft.net>
+	<20140506030833.GL2382@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Richard Weinberger <richard.weinberger@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com,
+	robert.olsson@its.uu.se
+To: andi@firstfloor.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFLxGvww8t-PpuS3B=dFvn8k3xBydk3CgA=qoLyEbkKJZJ0xhQ@mail.gmail.com>
+In-Reply-To: <20140506030833.GL2382@two.firstfloor.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-05-06 at 09:25 +0200, Richard Weinberger wrote:
-> On Tue, May 6, 2014 at 12:25 AM, Andi Kleen <andi@firstfloor.org> wrote:
-> > There has been a lot of interest recently to run Linux on very small systems,
-> > like Quark systems. These may have only 2-4MB memory. They are also limited
-> > by flash space.
-> >
-> > One problem on these small system is the size of the network stack.
-> > Currently enabling IPv4 costs about 400k in text, which is prohibitive on
-> > a 2MB system, and very expensive with 4MB.
-> >
-> > There were proposals to instead use LWIP in user space. LWIP with
-> > its socket interface comes in at a bit over 100k overhead per application.
-> >
-> > I maintain that the Linux network stack is actually not that bloated,
-> > it just has a lot of features :-)  The goal of this project was to
-> > subset it in a sensible way so that the native kernel stack becomes
-> > competitive with LWIP.
-> >
-> > It turns out that the standard stack has a couple of features that
-> > are not really needed on client systems. Luckily it is also
-> > relatively well modularized, so it becomes possible to stub
-> > out these features at the edge.
-> >
-> > With removing these features we still have a powerful TCP/IP stack,
-> > but one that fits better into small systems.
-> >
-> > It would have been prohibitive to ifdef every optional feature.
-> > This patchkit relies heavily on LTO to effectively remove unused
-> > code. This allows to disable features only at the module boundaries,
-> > and rely on the compiler to drop unreferenced code and data.
-> >
-> > A few features have been also reimplemented in a simpler way.
-> > And I shrank a number of data structures based on CONFIG_BASE_SMALL.
-> >
-> > With these changes I can get a fully featured network stack down
-> > to about 170k with LTO. Without LTO there are also benefits,
-> > but somewhat less.
-> >
-> > There are essentially three sensible configurations:
-> > - Full featured like today.
-> > - Client only subset, but still works with standard distribution userland.
-> > Remove some obscure features like fastopen, make all tables smaller,
-> > packet socket mmap code, use a simpler routing table, remove
-> > high speed networking features like RPX, XPS, GRO offload.
-> > Disable SNMP, TCP metrics
-> > - Minimal subset for deeply embedded systems that can use special userland.
-> > Remove rtnetlink (ioctl only), remove ethtool, raw sockets.
-> >
-> > Right now I'm using own Kconfigs for every removed features. I realize
-> > this somewhat increases the compile test matrix. It would be possible
-> > to hide some of the options and select them using higher level
-> > configurations like the ones listed above. I haven't done this
-> > in this version.
-> >
-> > At this point I'm mainly interested in review and comments.
-> >
-> > Git trees:
-> >
-> > git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat
-> > Main tree
-> >
-> > git://git.kernel.org/pub/scm/linux/kernel/git/ak/linux-misc net/debloat-3.14
-> > 3.14 based tree.
-> >
-> > Thanks to Tom Zanussi for contributions and testing.
-> 
-> What kind of userspace do you use on such a small system?
-> It looks like you run kernels without procfs and netlink, so not even
-> ps would work. :)
-> 
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 6 May 2014 05:08:33 +0200
 
-The microYocto 'distro' I have running with these net-diet patches
-doesn't use a full procfs, but a pared-down version (CONFIG_PROCFS_MIN).
-Keeping ps working is of course essential, and it does that (along with
-a couple other things like /proc/filesystems and /proc/mounts I needed
-to boot):
+> FWIW it seems to me the trie code is very stable, there doesn't
+> seem to be any big changes in a long time.
 
-https://github.com/tzanussi/linux-yocto-micro-3.14/commit/68379432afcfa82ac695d9f02892fcf48ade5ae8
+But it was BUGGY AS HELL in the corner cases because it wasn't
+the default while it sat next to fib_hash.
 
-Anyway all the userspace and kernel bits are available for anyone who
-wants to build it and try it out:
+It only got totally fixed when it was the ONLY option.
 
-https://github.com/tzanussi/meta-galileo/blob/daisy/meta-galileo/README
-
-It's very much a work-in-progress with a lot of rough edges, but it is a
-fully functional system on real hardware (Galileo board/Quark processor)
-with a usable shell (ps too!) and web server running on a kernel with
-native networking and ~ 750k text size.
-
-Tom
+That's exactly my point, parts of it never got tested and were never
+verified because debugging resources for it was split with another
+implementation.
