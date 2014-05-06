@@ -1,154 +1,151 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [PATCH net-next 2/2] ping: move ping_group_range out of CONFIG_SYSCTL
-Date: Tue,  6 May 2014 11:02:50 -0700
-Message-ID: <1399399370-7849-2-git-send-email-xiyou.wangcong@gmail.com>
-References: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Brian Lilly <brian@crystalfontz.com>
+Subject: Re: i.MX28 based system losing eth0 on boot
+Date: Tue, 6 May 2014 12:12:22 -0700
+Message-ID: <CAOk88BJ+sCtM_cRLuBktUKWYHcPo6KtQ+GAgTJL0zBgQqcQYog@mail.gmail.com>
+References: <CAOk88BLR=nwNGdT++39vLdOt=TwZmemF-trSQPY8AdMN9tKtKQ@mail.gmail.com>
+ <20140506181151.GU28564@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:52055 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbaEFSDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 14:03:03 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so826674pad.2
-        for <netdev@vger.kernel.org>; Tue, 06 May 2014 11:03:02 -0700 (PDT)
-In-Reply-To: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel@pengutronix.de
+To: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140506181151.GU28564@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
+It is happening during boot up:
 
-Similarly, when CONFIG_SYSCTL is not set, ping_group_range should still
-work, just that no one can change it. Therefore we should move it out of
-sysctl_net_ipv4.c. And, it should not share the same seqlock with
-ip_local_port_range.
+<snip, kernel 3.12 >
 
-BTW, rename it to ->ping_group_range instead.
+Configuring network interfaces... [   35.117114] fec 800f0000.ethernet
+eth0: Freescale FEC PHY driver [SMSC LAN8710/LAN8720]
+(mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+[   35.129967] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+udhcpc (v1.21.1) started
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Francois Romieu <romieu@fr.zoreil.com>
-Reported-by: Stefan de Konink <stefan@konink.de>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- include/net/netns/ipv4.h   |  7 ++++++-
- net/ipv4/af_inet.c         |  8 ++++++++
- net/ipv4/ping.c            |  6 +++---
- net/ipv4/sysctl_net_ipv4.c | 13 +++----------
- 4 files changed, 20 insertions(+), 14 deletions(-)
+Sending discover...
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 3d95cd4..b2704fd0 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -20,6 +20,11 @@ struct local_ports {
- 	int		range[2];
- };
- 
-+struct ping_group_range {
-+	seqlock_t	lock;
-+	kgid_t		range[2];
-+};
-+
- struct netns_ipv4 {
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*forw_hdr;
-@@ -72,7 +77,7 @@ struct netns_ipv4 {
- 	int sysctl_ip_no_pmtu_disc;
- 	int sysctl_ip_fwd_use_pmtu;
- 
--	kgid_t sysctl_ping_group_range[2];
-+	struct ping_group_range ping_group_range;
- 
- 	atomic_t dev_addr_genid;
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index cccc8e4..6d6dd34 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1658,6 +1658,14 @@ static __net_init int inet_init_net(struct net *net)
- 	seqlock_init(&net->ipv4.ip_local_ports.lock);
- 	net->ipv4.ip_local_ports.range[0] =  32768;
- 	net->ipv4.ip_local_ports.range[1] =  61000;
-+
-+	seqlock_init(&net->ipv4.ping_group_range.lock);
-+	/*
-+	 * Sane defaults - nobody may create ping sockets.
-+	 * Boot scripts should set this to distro-specific group.
-+	 */
-+	net->ipv4.ping_group_range.range[0] = make_kgid(&init_user_ns, 1);
-+	net->ipv4.ping_group_range.range[1] = make_kgid(&init_user_ns, 0);
- 	return 0;
- }
- 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 347bdde..044a0dd 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -236,15 +236,15 @@ exit:
- static void inet_get_ping_group_range_net(struct net *net, kgid_t *low,
- 					  kgid_t *high)
- {
--	kgid_t *data = net->ipv4.sysctl_ping_group_range;
-+	kgid_t *data = net->ipv4.ping_group_range.range;
- 	unsigned int seq;
- 
- 	do {
--		seq = read_seqbegin(&net->ipv4.ip_local_ports.lock);
-+		seq = read_seqbegin(&net->ipv4.ping_group_range.lock);
- 
- 		*low = data[0];
- 		*high = data[1];
--	} while (read_seqretry(&net->ipv4.ip_local_ports.lock, seq));
-+	} while (read_seqretry(&net->ipv4.ping_group_range.lock, seq));
- }
- 
- 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index a116c41..5cde8f2 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -87,7 +87,7 @@ static void inet_get_ping_group_range_table(struct ctl_table *table, kgid_t *low
- {
- 	kgid_t *data = table->data;
- 	struct net *net =
--		container_of(table->data, struct net, ipv4.sysctl_ping_group_range);
-+		container_of(table->data, struct net, ipv4.ping_group_range.range);
- 	unsigned int seq;
- 	do {
- 		seq = read_seqbegin(&net->ipv4.ip_local_ports.lock);
-@@ -102,7 +102,7 @@ static void set_ping_group_range(struct ctl_table *table, kgid_t low, kgid_t hig
- {
- 	kgid_t *data = table->data;
- 	struct net *net =
--		container_of(table->data, struct net, ipv4.sysctl_ping_group_range);
-+		container_of(table->data, struct net, ipv4.ping_group_range.range);
- 	write_seqlock(&net->ipv4.ip_local_ports.lock);
- 	data[0] = low;
- 	data[1] = high;
-@@ -805,7 +805,7 @@ static struct ctl_table ipv4_net_table[] = {
- 	},
- 	{
- 		.procname	= "ping_group_range",
--		.data		= &init_net.ipv4.sysctl_ping_group_range,
-+		.data		= &init_net.ipv4.ping_group_range.range,
- 		.maxlen		= sizeof(gid_t)*2,
- 		.mode		= 0644,
- 		.proc_handler	= ipv4_ping_group_range,
-@@ -858,13 +858,6 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
- 			table[i].data += (void *)net - (void *)&init_net;
- 	}
- 
--	/*
--	 * Sane defaults - nobody may create ping sockets.
--	 * Boot scripts should set this to distro-specific group.
--	 */
--	net->ipv4.sysctl_ping_group_range[0] = make_kgid(&init_user_ns, 1);
--	net->ipv4.sysctl_ping_group_range[1] = make_kgid(&init_user_ns, 0);
--
- 	net->ipv4.ipv4_hdr = register_net_sysctl(net, "net/ipv4", table);
- 	if (net->ipv4.ipv4_hdr == NULL)
- 		goto err_reg;
--- 
-1.8.3.1
+[   37.113901] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+[   37.120134] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+Sending discover...
+
+Sending select for 10.10.10.217...
+Lease of 10.10.10.217 obtained, lease time 86400
+/etc/udhcpc.d/50default: Adding DNS 10.10.10.13
+[   39.319957] IPv6: ADDRCONF(NETDEV_UP): usb0: link is not ready
+done.
+Starting rpcbind daemon...done.
+net.ipv4.conf.default.rp_filter =3D 1
+net.ipv4.conf.all.rp_filter =3D 1
+Mon Apr 14 22:40:00 UTC 2014
+INIT: Entering runlevel: 5
+Starting Xserver
+Starting system message bus: dbus.
+Starting Connection Manager
+Starting wpa_supplicant
+Successfully initialized wpa_supplicant
+Starting Dropbear SSH server
+[   44.754915] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+[SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-=
+1)
+[   45.781364] fec 800f0000.ethernet eth0: MDIO read timeout
+[   46.826170] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[   47.811385] fec 800f0000.ethernet eth0: MDIO read timeout
+
+With a different kernel (3.14):
+
+[   28.989897] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+[Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+[   30.991210] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+[   37.369372] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+[Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+[   38.398346] fec 800f0000.ethernet eth0: MDIO read timeout
+[   39.438412] fec 800f0000.ethernet eth0: MDIO read timeout
+[   39.468419] fec 800f0000.ethernet eth0: MDIO write timeout
+[   40.498848] fec 800f0000.ethernet eth0: MDIO read timeout
+
+Afterward I have to ifdown eth0, ifup eth0 and then it functions
+normally, without reverting the commit.
+
+root@cfa100xx:~# ifdown eth0
+[ 1154.679658] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+[Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+root@cfa100xx:~# ifup eth0
+udhcpc (v1.21.1) started
+Sending discover...
+[ 1156.679547] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+Sending discover...
+Sending select for 10.10.10.217...
+Lease of 10.10.10.217 obtained, lease time 86400
+ip: RTNETLINK answers: File exists
+
+--
+Brian
+
+
+On Tue, May 6, 2014 at 11:11 AM, Uwe Kleine-K=C3=B6nig
+<u.kleine-koenig@pengutronix.de> wrote:
+> Hello Brian,
+>
+> On Tue, May 06, 2014 at 09:44:34AM -0700, Brian Lilly wrote:
+>> With commit a264b981f2c76e281ef27e7232774bf6c54ec865 we're having et=
+h0
+>> come up, then brought right back down with an MDIO rx timeout moment=
+s
+>> after.  Adding back in the removed code keeps the interface alive an=
+d
+>> it's working afterward without trouble.  I've tested the re-inserted
+>> code in 3.12, 3.14 without issue on our boards.
+> So you can reliably trigger that problem? You're just doing
+>
+>         ifconfig eth0 1.2.3.4 up
+>
+> (or equivalent) and the interface goes down without further
+> interference with the above mentioned commit? The exact error you're
+> seeing is
+>
+>         MDIO read timeout
+>
+> (with some prefix saying something about fec and eth0 I think)?
+>
+> This error is also present with a264b981f2 reverted, just doesn't aff=
+ect
+> eth0 being functional? Does the timeout always happen, or only on
+> specific addresses?
+>
+> This is not a proper fix, but does it help to increment FEC_MII_TIMEO=
+UT?
+>
+>> Is there something else that can be done to prevent the MDIO timeout=
+s?
+>> We are using basically the same schematic for networking as the
+>> imx28evk.
+> Hard to say, but assuming it works just fine on the imx28evk for you,
+> too, there seems to be some hardware difference that makes your machi=
+ne
+> fail. (That doesn't mean it's not fixable in software.)
+>
+> I don't know if a mdio read error is intended to make the device go
+> down, maybe one the the netdev guys can answer that.
+> Assuming that it's not intended, instrument the code, find out how th=
+at
+> timeout makes your device go down and find the wrong branch. I'd star=
+t
+> with adding stackdumps when the mdio timeout happens and when
+> fec_enet_start_xmit is called with fep->link =3D=3D 0.
+>
+> Best regards
+> Uwe
+>
+> --
+> Pengutronix e.K.                           | Uwe Kleine-K=C3=B6nig   =
+         |
+> Industrial Linux Solutions                 | http://www.pengutronix.d=
+e/  |
