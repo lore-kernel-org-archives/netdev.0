@@ -1,77 +1,39 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 5/9] net: mvneta: Use prepare/commit API to simplify MAC address setting
-Date: Tue,  6 May 2014 14:20:54 -0300
-Message-ID: <1399396858-14551-6-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 10/24] net, diet: Make LPF filter optional
+Date: Mon, 05 May 2014 23:10:15 -0400 (EDT)
+Message-ID: <20140505.231015.1267261274092331777.davem@davemloft.net>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+	<1399328773-6531-11-git-send-email-andi@firstfloor.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53542 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753627AbaEFRVv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:21:51 -0400
-In-Reply-To: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35914 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933731AbaEFDKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:10:16 -0400
+In-Reply-To: <1399328773-6531-11-git-send-email-andi@firstfloor.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use eth_prepare_mac_addr_change and eth_commit_mac_addr_change, instead
-of manually checking and storing the MAC address, which makes the
-code slightly more robust. This fixes the lack of valid MAC address check
-in the driver's .ndo_set_mac_address hook.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Mon,  5 May 2014 15:25:59 -0700
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 19 +++++++------------
- 1 file changed, 7 insertions(+), 12 deletions(-)
+> From: Andi Kleen <ak@linux.intel.com>
+> 
+> Small systems don't need the LPF filter, so make it all
+> optional
+> 
+> Saves about 4K text
+> 
+>    text	   data	    bss	    dec	    hex	filename
+>  483545	  19371	  13480	 516396	  7e12c	net/built-in.o-wo-filter
+>  487675	  19275	  13480	 520430	  7f0ee	net/built-in.o-with-filter
+> 
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 9a444a0..0dcce29 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2323,22 +2323,19 @@ static void mvneta_get_mac_addr(struct mvneta_port *pp, unsigned char *addr)
- static int mvneta_set_mac_addr(struct net_device *dev, void *addr)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	u8 *mac = addr + 2;
--	int i;
--
--	if (netif_running(dev))
--		return -EBUSY;
-+	struct sockaddr *sockaddr = addr;
-+	int ret;
- 
-+	ret = eth_prepare_mac_addr_change(dev, addr);
-+	if (ret < 0)
-+		return ret;
- 	/* Remove previous address table entry */
- 	mvneta_mac_addr_set(pp, dev->dev_addr, -1);
- 
- 	/* Set new addr in hw */
--	mvneta_mac_addr_set(pp, mac, rxq_def);
--
--	/* Set addr in the device */
--	for (i = 0; i < ETH_ALEN; i++)
--		dev->dev_addr[i] = mac[i];
-+	mvneta_mac_addr_set(pp, sockaddr->sa_data, rxq_def);
- 
-+	eth_commit_mac_addr_change(dev, addr);
- 	return 0;
- }
- 
-@@ -2433,8 +2430,6 @@ static int mvneta_open(struct net_device *dev)
- 	struct mvneta_port *pp = netdev_priv(dev);
- 	int ret;
- 
--	mvneta_mac_addr_set(pp, dev->dev_addr, rxq_def);
--
- 	pp->pkt_size = MVNETA_RX_PKT_SIZE(pp->dev->mtu);
- 	pp->frag_size = SKB_DATA_ALIGN(MVNETA_RX_BUF_SIZE(pp->pkt_size)) +
- 	                SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
--- 
-1.9.1
+I think you highly underestimate how much "small systems" use
+packet capturing and thus BPF.
