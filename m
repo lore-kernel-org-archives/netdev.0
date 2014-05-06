@@ -1,65 +1,36 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 9/9] net: mvneta: Remove unneeded 'weigth' field
-Date: Tue,  6 May 2014 14:20:58 -0300
-Message-ID: <1399396858-14551-10-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] ipv4: remove inet_addr_hash_lock in devinet.c
+Date: Mon, 5 May 2014 21:33:56 -0700
+Message-ID: <CAM_iQpUkEP6O4xcjRNDVwrQ2dWObP0aC2oNucpOgE_oju+DR-Q@mail.gmail.com>
+References: <1399315610-28771-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140505.163524.1995679741348650063.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53569 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753796AbaEFRWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:22:06 -0400
-In-Reply-To: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:34183 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101AbaEFEd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 00:33:57 -0400
+Received: by mail-oa0-f45.google.com with SMTP id l6so2243993oag.32
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 21:33:57 -0700 (PDT)
+In-Reply-To: <20140505.163524.1995679741348650063.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 'weight' field is only used to pass the weigth to napi initialization
-function. This commit removes the field, and instead uses a fixed value to
-initialize the napi context.
+On Mon, May 5, 2014 at 1:35 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Mon,  5 May 2014 11:46:50 -0700
+>
+>> All the callers hold RTNL lock, so there is no need to use inet_addr_hash_lock
+>> to protect the hash list.
+>>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+> If you are going to do this, please add ASSERT_RTNL() to these two locations
+> at the same time.
+>
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 28b0536..36fd90e 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -279,9 +279,6 @@ struct mvneta_port {
- 	u32 cause_rx_tx;
- 	struct napi_struct napi;
- 
--	/* Napi weight */
--	int weight;
--
- 	/* Core clock */
- 	struct clk *clk;
- 	u8 mcast_count[256];
-@@ -2807,8 +2804,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 	SET_ETHTOOL_OPS(dev, &mvneta_eth_tool_ops);
- 
- 	pp = netdev_priv(dev);
--
--	pp->weight = MVNETA_RX_POLL_WEIGHT;
- 	pp->phy_node = phy_node;
- 	pp->phy_interface = phy_mode;
- 
-@@ -2869,7 +2864,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	if (dram_target_info)
- 		mvneta_conf_mbus_windows(pp, dram_target_info);
- 
--	netif_napi_add(dev, &pp->napi, mvneta_poll, pp->weight);
-+	netif_napi_add(dev, &pp->napi, mvneta_poll, MVNETA_RX_POLL_WEIGHT);
- 
- 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
- 	dev->hw_features |= dev->features;
--- 
-1.9.1
+OK, makes sense. I will send v2.
