@@ -1,34 +1,55 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 6 May 2014 22:06:44 +0200
-Message-ID: <20140506200644.GC5619@two.firstfloor.org>
-References: <20140506164546.GB20536@cloud>
- <20140506.131752.740569380523989782.davem@davemloft.net>
- <20140506172106.GB20776@cloud>
- <20140506.132501.331724703594119414.davem@davemloft.net>
+From: Darek Marcinkiewicz <reksio@newterm.pl>
+Subject: Re: [PATCH v8 1/1] Driver for Beckhoff CX5020 EtherCAT master module.
+Date: Tue, 6 May 2014 22:18:15 +0200
+Message-ID: <20140506201815.GL1156@newterm.pl>
+References: <20140505191045.GK1156@newterm.pl>
+ <20140506145606.GH6455@distanz.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: josh@joshtriplett.org, eric.dumazet@gmail.com, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, ak@linux.intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.newterm.pl ([79.187.237.18]:51560 "EHLO apollo.newterm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754779AbaEFUSR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2014 16:18:17 -0400
 Content-Disposition: inline
-In-Reply-To: <20140506.132501.331724703594119414.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140506145606.GH6455@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> You see, that's the point I'm trying to make, once it's upstream
-> then it's my problem.
-
-FWIW I don't think any of the changes I proposed would be likely
-to add lots of new bugs. Nothing was really adding any significant new logic,
-just doing less (modulo perhaps fib_list) Was that your main concern?
-
-I realize the many config options are something that could
-be consolidated to ease compile time testing.
-
--Andi
+On Tue, May 06, 2014 at 04:56:06PM +0200, Tobias Klauser wrote:
+> > +		if (skb) {
+> > +			memcpy(skb_put(skb, pkt_size), data, pkt_size);
+> > +			skb->protocol = eth_type_trans(skb, priv->net_dev);
+> > +			dev_dbg(dev, "Protocol type: %x\n", skb->protocol);
+> > +
+> > +			netif_rx(skb);
+> > +		} else {
+> > +			dev_err_ratelimited(dev,
+> > +				"Couldn't allocate a skb_buff for a packet of size %u\n",
+> > +				pkt_size);
+> > +		}
+> > +
+> > +		priv->stat_rx_bytes += pkt_size;
+> 
+> This should only be incremented if the packet was actually passed to
+> netif_rx(), no?
+Yes, I guees it should.
+> 
+> > +
+> > +static struct rtnl_link_stats64 *
+> > +ec_bhf_get_stats(struct net_device *net_dev,
+> > +		 struct rtnl_link_stats64 *stats)
+> > +{
+> > +	struct ec_bhf_priv *priv = netdev_priv(net_dev);
+> > +
+> > +	memset(stats, 0, sizeof(*stats));
+> 
+> No need to memset() here, this is already done in dev_get_stats()
+> 
+Ok, thanks. Will send updated patch.
 
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+DM
