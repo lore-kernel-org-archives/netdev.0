@@ -1,81 +1,48 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 1/9] net: mv643xx_eth: Simplify mv643xx_eth_adjust_link()
-Date: Tue,  6 May 2014 14:20:50 -0300
-Message-ID: <1399396858-14551-2-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Willy Tarreau <w@1wt.eu>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: [PATCH 3/3] ip6_gre: do not leak dst on tunnel destroy path
+Date: Tue,  6 May 2014 18:17:21 +0300
+Message-ID: <1399389441-20095-3-git-send-email-popovich_sergei@mail.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53517 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750939AbaEFRVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:21:37 -0400
-In-Reply-To: <1399396858-14551-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from fallback7.mail.ru ([94.100.176.135]:40524 "EHLO
+	fallback7.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754459AbaEFPRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:17:52 -0400
+Received: from smtp46.i.mail.ru (smtp46.i.mail.ru [94.100.177.106])
+	by fallback7.mail.ru (mPOP.Fallback_MX) with ESMTP id 2CFBC10120AD6
+	for <netdev@vger.kernel.org>; Tue,  6 May 2014 19:17:49 +0400 (MSK)
+Received: from [195.234.68.4] (port=52741 helo=tuxracer.skif.com.ua)
+	by smtp46.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1Whh7X-0007OK-Ty
+	for netdev@vger.kernel.org; Tue, 06 May 2014 19:17:28 +0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, mv643xx_eth_adjust_link() is only used to call mv643xx_adjust_pscr().
-This commit renames the latter to the former, and therefore removes the extra
-and useless function.
+On IPv6 GRE tunnel device destroy we may leak destination
+if it was previously established in xmit path.
 
-Acked-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+This might look like following on console:
+
+  unregister_netdevice: waiting for lo to become free. Usage count = 3
+
+on network namespace destroy path and/or ip6_gre unloaded.
+
+Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+ net/ipv6/ip6_gre.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index b7b8d74..b75965f3 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1010,8 +1010,9 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 75277b7..14ba77e 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -358,6 +358,7 @@ static void ip6gre_tunnel_uninit(struct net_device *dev)
+ 	struct ip6gre_net *ign = net_generic(t->net, ip6gre_net_id);
  
- 
- /* mii management interface *************************************************/
--static void mv643xx_adjust_pscr(struct mv643xx_eth_private *mp)
-+static void mv643xx_eth_adjust_link(struct net_device *dev)
- {
-+	struct mv643xx_eth_private *mp = netdev_priv(dev);
- 	u32 pscr = rdlp(mp, PORT_SERIAL_CONTROL);
- 	u32 autoneg_disable = FORCE_LINK_PASS |
- 	             DISABLE_AUTO_NEG_SPEED_GMII |
-@@ -1387,7 +1388,7 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- 	ret = phy_ethtool_sset(mp->phy, cmd);
- 	if (!ret)
--		mv643xx_adjust_pscr(mp);
-+		mv643xx_eth_adjust_link(dev);
- 	return ret;
+ 	ip6gre_tunnel_unlink(ign, t);
++	ip6_tnl_dst_reset(t);
+ 	dev_put(dev);
  }
  
-@@ -2303,7 +2304,7 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 
- 	ret = phy_mii_ioctl(mp->phy, ifr, cmd);
- 	if (!ret)
--		mv643xx_adjust_pscr(mp);
-+		mv643xx_eth_adjust_link(dev);
- 	return ret;
- }
- 
-@@ -2701,13 +2702,6 @@ static void set_params(struct mv643xx_eth_private *mp,
- 	mp->txq_count = pd->tx_queue_count ? : 1;
- }
- 
--static void mv643xx_eth_adjust_link(struct net_device *dev)
--{
--	struct mv643xx_eth_private *mp = netdev_priv(dev);
--
--	mv643xx_adjust_pscr(mp);
--}
--
- static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
- 				   int phy_addr)
- {
 -- 
-1.9.1
+1.8.3.4
