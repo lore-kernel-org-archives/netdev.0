@@ -1,57 +1,123 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 06/24] net, diet: Use small UDP hash tables on small
- kernels
-Date: Tue, 06 May 2014 07:26:42 -0700
-Message-ID: <1399386402.15399.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-	 <1399328773-6531-7-git-send-email-andi@firstfloor.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tom.zanussi@linux.intel.com, Andi Kleen <ak@linux.intel.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399328773-6531-7-git-send-email-andi@firstfloor.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH iproute2 v2] iproute2: show counter of carrier on<->off transitions
+Date: Mon,  5 May 2014 20:38:18 -0700
+Message-ID: <37c039131127d3511cd594157f727f9ce5f91c24.1399347445.git.decot@googlers.com>
+References: <cover.1399347445.git.decot@googlers.com>
+Cc: stephen@networkplumber.org, David Decotigny <decot@googlers.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:58020 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933740AbaEFDi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:38:26 -0400
+Received: by mail-vc0-f202.google.com with SMTP id if11so36789vcb.5
+        for <netdev@vger.kernel.org>; Mon, 05 May 2014 20:38:25 -0700 (PDT)
+In-Reply-To: <cover.1399347445.git.decot@googlers.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-05-05 at 15:25 -0700, Andi Kleen wrote:
-> From: Andi Kleen <ak@linux.intel.com>
-> 
-> UDP has two hash tables, for UDP and UDP lite. Default
-> them to 16 entries each on small kernels. This can be
-> still overriden on the command line.
-> 
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
-> ---
->  net/ipv4/udp.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 4468e1a..90f967b 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -2415,7 +2415,12 @@ void udp4_proc_exit(void)
->  }
->  #endif /* CONFIG_PROC_FS */
->  
-> +#ifdef CONFIG_BASE_SMALL
-> +static __initdata unsigned long uhash_entries = 16;
-> +#else
->  static __initdata unsigned long uhash_entries;
-> +#endif
-> +
->  static int __init set_uhash_entries(char *str)
->  {
->  	ssize_t ret;
+This patch allows to display the current counter of carrier on<->off
+transitions (IFLA_CARRIER_CHANGES, see kernel commit "expose number of
+carrier on/off changes"):
 
-Its changed to UDP_HTABLE_SIZE_MIN later in alloc_large_system_hash()
+  ip -s -s link show dev eth0
+  32: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 ...
+    link/ether ................. brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    125552461  258881   0       0       0       10150
+    RX errors: length  crc     frame   fifo    missed
+               0        0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    40426119   224444   0       0       0       0
+    TX errors: aborted fifo    window  heartbeat transns
+               0        0       0       0        3
 
-The reason there is a minimum UDP hash size is PORTS_PER_CHAIN,
-or DECLARE_BITMAP(bitmap, PORTS_PER_CHAIN) on stack.
+Tested:
+  - kernel with patch "net-sysfs: expose number of carrier on/off
+    changes": see "transns" column above
+  - kernel wthout the patch: "transns" not displayed (as expected)
 
-This patch has no effect on a small machine, because we already
-dynamically size this hash table.
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ ip/ipaddress.c | 32 ++++++++++++++++++++++++--------
+ 1 file changed, 24 insertions(+), 8 deletions(-)
 
-(The factor is one slot per 2MB of low memory)
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 8169150..061c3b0 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -313,7 +313,8 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 	}
+ }
+ 
+-static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
++static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s,
++                               const struct rtattr *carrier_changes) {
+ 	fprintf(fp, "%s", _SL_);
+ 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
+ 		s->rx_compressed ? "compressed" : "", _SL_);
+@@ -352,16 +353,23 @@ static void print_link_stats64(FILE *fp, const struct rtnl_link_stats64 *s) {
+ 			(uint64_t)s->tx_compressed);
+ 	if (show_stats > 1) {
+ 		fprintf(fp, "%s", _SL_);
+-		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
+-		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-7"PRIu64"",
++		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
++                if (carrier_changes)
++			fprintf(fp, " transns");
++		fprintf(fp, _SL_);
++		fprintf(fp, "               %-7"PRIu64"  %-7"PRIu64" %-7"PRIu64" %-8"PRIu64"",
+ 			(uint64_t)s->tx_aborted_errors,
+ 			(uint64_t)s->tx_fifo_errors,
+ 			(uint64_t)s->tx_window_errors,
+ 			(uint64_t)s->tx_heartbeat_errors);
++		if (carrier_changes)
++			fprintf(fp, " %-7u",
++				*(uint32_t*)RTA_DATA(carrier_changes));
+ 	}
+ }
+ 
+-static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
++static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s,
++			     const struct rtattr *carrier_changes)
+ {
+ 	fprintf(fp, "%s", _SL_);
+ 	fprintf(fp, "    RX: bytes  packets  errors  dropped overrun mcast   %s%s",
+@@ -394,13 +402,19 @@ static void print_link_stats(FILE *fp, const struct rtnl_link_stats *s)
+ 		fprintf(fp, " %-7u", s->tx_compressed);
+ 	if (show_stats > 1) {
+ 		fprintf(fp, "%s", _SL_);
+-		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat%s", _SL_);
+-		fprintf(fp, "               %-7u  %-7u %-7u %-7u",
++		fprintf(fp, "    TX errors: aborted fifo    window  heartbeat");
++                if (carrier_changes)
++			fprintf(fp, " transns");
++		fprintf(fp, _SL_);
++		fprintf(fp, "               %-7u  %-7u %-7u %-8u",
+ 			s->tx_aborted_errors,
+ 			s->tx_fifo_errors,
+ 			s->tx_window_errors,
+ 			s->tx_heartbeat_errors
+ 			);
++		if (carrier_changes)
++			fprintf(fp, " %-7u",
++				*(uint32_t*)RTA_DATA(carrier_changes));
+ 	}
+ }
+ 
+@@ -522,9 +536,11 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 
+ 	if (do_link && show_stats) {
+ 		if (tb[IFLA_STATS64])
+-			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]));
++			print_link_stats64(fp, RTA_DATA(tb[IFLA_STATS64]),
++					   tb[IFLA_CARRIER_CHANGES]);
+ 		else if (tb[IFLA_STATS])
+-			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]));
++			print_link_stats(fp, RTA_DATA(tb[IFLA_STATS]),
++					 tb[IFLA_CARRIER_CHANGES]);
+ 	}
+ 
+ 	if (do_link && tb[IFLA_VFINFO_LIST] && tb[IFLA_NUM_VF]) {
+-- 
+1.9.1.423.g4596e3a
