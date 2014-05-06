@@ -1,65 +1,55 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: mdio: of_mdiobus_register(): fall back to
- mdiobus_register() for !CONFIG_OF
-Date: Tue, 6 May 2014 10:06:14 -0700
-Message-ID: <CAGVrzcZEOLcrzQd=PA+=9PudJQby52F9+8koEZkOESsbSEkuug@mail.gmail.com>
-References: <1399395136-12139-1-git-send-email-zonque@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: mugunthanvnm <mugunthanvnm@ti.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Mack <zonque@gmail.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net] sfc: fix calling of free_irq with 0 argument
+Date: Tue,  6 May 2014 14:49:16 +0200
+Message-ID: <1399380556-25797-1-git-send-email-nikolay@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	<linux-net-drivers@solarflare.com>,
+	Shradha Shah <sshah@solarflare.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f48.google.com ([209.85.216.48]:44125 "EHLO
-	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110AbaEFRGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 13:06:55 -0400
-Received: by mail-qa0-f48.google.com with SMTP id i13so4171219qae.35
-        for <netdev@vger.kernel.org>; Tue, 06 May 2014 10:06:54 -0700 (PDT)
-In-Reply-To: <1399395136-12139-1-git-send-email-zonque@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35766 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753074AbaEFMyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2014 08:54:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-06 9:52 GMT-07:00 Daniel Mack <zonque@gmail.com>:
-> If CONFIG_OF is not set, make of_mdiobus_register() call
-> mdiobus_register() instead of returning -ENOSYS.
->
-> This way, we can just call of_mdiobus_register() from all DT-enabled
-> drivers to handle the compat cases.
->
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+If the sfc driver is in legacy interrupt mode (either explicitly by
+using interrupt_mode module param or by falling back to it) it will
+hit a warning at kernel/irq/manage.c because it will try to free irq 0
+in efx_nic_fini_interrupt() since the MSI interrupts were freed always,
+but in legacy irq mode they're == 0. So fix it by checking if we
+actually have an interrupt allocated and only then free it.
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+CC: <linux-net-drivers@solarflare.com>
+CC: Shradha Shah <sshah@solarflare.com>
+CC: David S. Miller <davem@davemloft.net>
 
-> ---
->  include/linux/of_mdio.h | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
->
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-> index 6fe8464..881a7c3 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -31,7 +31,12 @@ extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
->  #else /* CONFIG_OF */
->  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
->  {
-> -       return -ENOSYS;
-> +       /*
-> +        * Fall back to the non-DT function to register a bus.
-> +        * This way, we don't have to keep compat bits around in drivers.
-> +        */
-> +
-> +       return mdiobus_register(mdio);
->  }
->
->  static inline struct phy_device *of_phy_find_device(struct device_node *phy_np)
-> --
-> 1.9.0
->
+Reported-by: Zenghui Shi <zshi@redhat.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+There're other ways to fix this as well, but I chose this one as it follows
+the logic in the code. Also I saw it used in a few places to check if
+there's an IRQ allocated for that channel.
 
+ drivers/net/ethernet/sfc/nic.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index 32d969e857f7..cab627defbc3 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -158,7 +158,9 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
+ 
+ 	/* Disable MSI/MSI-X interrupts */
+ 	efx_for_each_channel(channel, efx)
+-		free_irq(channel->irq, &efx->msi_context[channel->channel]);
++		if (channel->irq)
++			free_irq(channel->irq,
++				 &efx->msi_context[channel->channel]);
+ 
+ 	/* Disable legacy interrupt */
+ 	if (efx->legacy_irq)
 -- 
-Florian
+1.8.5.3
