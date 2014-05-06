@@ -1,49 +1,43 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH] net: mdio: of_mdiobus_register(): fall back to mdiobus_register() for !CONFIG_OF
-Date: Tue,  6 May 2014 18:52:16 +0200
-Message-ID: <1399395136-12139-1-git-send-email-zonque@gmail.com>
-Cc: mugunthanvnm@ti.com, davem@davemloft.net, netdev@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:39884 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbaEFQwY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 12:52:24 -0400
-Received: by mail-ee0-f51.google.com with SMTP id e51so1952715eek.24
-        for <netdev@vger.kernel.org>; Tue, 06 May 2014 09:52:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 06 May 2014 13:25:01 -0400 (EDT)
+Message-ID: <20140506.132501.331724703594119414.davem@davemloft.net>
+References: <20140506164546.GB20536@cloud>
+	<20140506.131752.740569380523989782.davem@davemloft.net>
+	<20140506172106.GB20776@cloud>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
+To: josh@joshtriplett.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140506172106.GB20776@cloud>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If CONFIG_OF is not set, make of_mdiobus_register() call
-mdiobus_register() instead of returning -ENOSYS.
+From: josh@joshtriplett.org
+Date: Tue, 6 May 2014 10:21:06 -0700
 
-This way, we can just call of_mdiobus_register() from all DT-enabled
-drivers to handle the compat cases.
+> On Tue, May 06, 2014 at 01:17:52PM -0400, David Miller wrote:
+>> From: josh@joshtriplett.org
+>> Date: Tue, 6 May 2014 09:45:46 -0700
+>> 
+>> > The kernel can do the same.  Consider the idea of analyzing a set of
+>> > userspace programs, determining what kernel functionality they do and
+>> > don't need, feeding that information into the kernel build process, and
+>> > automatically dropping unused bits of the kernel.
+>> 
+>> Please make sure I'm not on the list of people who see reports for
+>> bugs reported in that setup.
+>> 
+>> Thanks :-)
+> 
+> Fine by me.  Just please allow such a setup to exist. :)
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
-Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/linux/of_mdio.h | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+You see, that's the point I'm trying to make, once it's upstream
+then it's my problem.
 
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index 6fe8464..881a7c3 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -31,7 +31,12 @@ extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
- #else /* CONFIG_OF */
- static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- {
--	return -ENOSYS;
-+	/*
-+	 * Fall back to the non-DT function to register a bus.
-+	 * This way, we don't have to keep compat bits around in drivers.
-+	 */
-+
-+	return mdiobus_register(mdio);
- }
- 
- static inline struct phy_device *of_phy_find_device(struct device_node *phy_np)
--- 
-1.9.0
+You absolutely must consider the burdon you put upon upstream
+maintainers when you ask for things to be included.
