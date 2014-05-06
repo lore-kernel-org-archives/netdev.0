@@ -1,40 +1,34 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: RFC: A reduced Linux network stack for small systems
-Date: Tue, 6 May 2014 22:00:47 +0200
-Message-ID: <20140506200047.GB5619@two.firstfloor.org>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
- <CAFLxGvww8t-PpuS3B=dFvn8k3xBydk3CgA=qoLyEbkKJZJ0xhQ@mail.gmail.com>
- <1399383246.8767.99.camel@empanada>
- <CAADnVQLYiNfXRrXc=VZkGEFDbNhF63AzPg6Gyu6P1SF=6AiO7g@mail.gmail.com>
- <1399390490.8767.122.camel@empanada>
- <CAADnVQ+nCtshedoDWN+QgiKzsCzBcojZOzrhkfzsqyXTpi4L=w@mail.gmail.com>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 6 May 2014 12:50:49 -0700
+Message-ID: <20140506195049.GO19657@tassilo.jf.intel.com>
+References: <20140506032114.GP2382@two.firstfloor.org>
+ <20140505.232327.578134514220748085.davem@davemloft.net>
+ <20140506155703.GA20391@cloud>
+ <20140506.115941.428706504757835279.davem@davemloft.net>
+ <20140506164108.GA20536@cloud>
+ <20140506191447.GB4137@netboy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tom Zanussi <tom.zanussi@linux.intel.com>,
-	Richard Weinberger <richard.weinberger@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: josh@joshtriplett.org, David Miller <davem@davemloft.net>,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:11039 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753974AbaEFTu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2014 15:50:57 -0400
 Content-Disposition: inline
-In-Reply-To: <CAADnVQ+nCtshedoDWN+QgiKzsCzBcojZOzrhkfzsqyXTpi4L=w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140506191447.GB4137@netboy>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> not quite. I'm saying: no extra optimizations, no GCC changes.
-> Compile kernel as-is. Most functions have a stub for mcount() already.
-> Use it to track whether kernel function was called or not.
-> Collect this data in userspace (as perf already does), add few
-> more functions that had 'notrace' attribute on them, and feed this into
-> special linker that unpacks existing vmlinux, throws away cold functions,
-> relocates the rest and here you have tiny vmlinux without recompilation.
 
-That's very difficult for networking code. How would you know you 
-exercised all the corner cases in the TCP stack? And you wouldn't
-want a remotely exploitable system because some important error
-handler is missing.
+> So I think Dave is right
+> in rejecting anything that compromises the _quality_ of the stack.
 
-I agree it may work for some other subsystems.
+I don't think anything I removed compromised quality (modulo bugs)
+It's still a more-features-than-your-typical-BSD TCP/IP stack
 
 -Andi
