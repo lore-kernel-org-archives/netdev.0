@@ -1,26 +1,25 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Tue, 06 May 2014 16:44:10 -0400 (EDT)
-Message-ID: <20140506.164410.15377655213427639.davem@davemloft.net>
-References: <20140506.131643.994244006906866938.davem@davemloft.net>
-	<20140506175547.GE20776@cloud>
-	<CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
+Date: Tue, 06 May 2014 16:46:17 -0400 (EDT)
+Message-ID: <20140506.164617.2264110988048227569.davem@davemloft.net>
+References: <20140506164108.GA20536@cloud>
+	<20140506191447.GB4137@netboy>
+	<20140506195049.GO19657@tassilo.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: josh@joshtriplett.org, andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	ak@linux.intel.com
-To: xiyou.wangcong@gmail.com
+Cc: richardcochran@gmail.com, josh@joshtriplett.org,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
+To: ak@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
+In-Reply-To: <20140506195049.GO19657@tassilo.jf.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 6 May 2014 11:33:11 -0700
+From: Andi Kleen <ak@linux.intel.com>
+Date: Tue, 6 May 2014 12:50:49 -0700
 
-> So why bothers 3.15+ Linux kernel? Why not use an old kernel e.g. 2.4.x?
-> 2.4.x kernel doesn't have so many new features you want to get rid of here.
+> It's still a more-features-than-your-typical-BSD TCP/IP stack
 
-+1
+Said the guy posting patches to remove TCP metrics.
