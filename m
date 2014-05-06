@@ -1,38 +1,31 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: A reduced Linux network stack for small systems
-Date: Tue, 6 May 2014 09:18:25 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70CFB5@AcuExch.aculab.com>
-References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Mon, 05 May 2014 23:23:27 -0400 (EDT)
+Message-ID: <20140505.232327.578134514220748085.davem@davemloft.net>
+References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+	<20140505.231229.136734008603421707.davem@davemloft.net>
+	<20140506032114.GP2382@two.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"tom.zanussi@linux.intel.com" <tom.zanussi@linux.intel.com>
-To: 'Andi Kleen' <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tom.zanussi@linux.intel.com, ak@linux.intel.com
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933796AbaEFDX3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 May 2014 23:23:29 -0400
+In-Reply-To: <20140506032114.GP2382@two.firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen
-> There has been a lot of interest recently to run Linux on very small systems,
-> like Quark systems. These may have only 2-4MB memory. They are also limited
-> by flash space.
+From: Andi Kleen <andi@firstfloor.org>
+Date: Tue, 6 May 2014 05:21:14 +0200
 
-I'm intrigued about the 2-4MB memory.
-That is more that would typically be available on-chip in a DSP or FPGA.
-It sounds like an expensive SRAM chip.
-OTOH a single SDRAM gives 16MB and DDR a lot more - and are a lot cheaper
-and lower power.
-Most modern silicon can easily have SDRAM/DDR interfaces.
+> What parts would you remove to get the foot print down for a 2MB
+> single purpose machine?
 
-You may want some size reduction to run in 16MB, but it is not as problematic
-as running in 2MB.
+I wouldn't use Linux, end of story.
 
-With that little memory I wouldn't want to run anything that relied on
-dynamic memory allocation (after startup) - except for fixed size data
-buffers.
-
-	David
+Maybe two decades ago, but not now, those days are over.
