@@ -1,53 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 1/1] inet: fix sysctl_local_ports init when
- namespaces are used
-Date: Wed, 7 May 2014 00:51:45 +0200
-Message-ID: <20140506225145.GA28325@electric-eye.fr.zoreil.com>
-References: <20140506055341.GA9051@electric-eye.fr.zoreil.com>
- <CAHA+R7MpYxEaAW+ykUg2F5Cpy36cenm7oNv7eqA-C=HsbBrhTg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Tue, 06 May 2014 16:27:19 -0700
+Message-ID: <1399418839.15399.106.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
+	 <20140506.164410.15377655213427639.davem@davemloft.net>
+	 <20140506210815.GB21791@cloud>
+	 <20140506.171117.1365037653422161013.davem@davemloft.net>
+	 <20140506225039.GA22331@cloud>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stefan de Konink <stefan@konink.de>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	ak@linux.intel.com
+To: josh@joshtriplett.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52049 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750882AbaEFWv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 18:51:58 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHA+R7MpYxEaAW+ykUg2F5Cpy36cenm7oNv7eqA-C=HsbBrhTg@mail.gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:43748 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750867AbaEFX1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 19:27:23 -0400
+In-Reply-To: <20140506225039.GA22331@cloud>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <cwang@twopensource.com> :
-> On Mon, May 5, 2014 at 10:53 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> > Bug: https://bugzilla.kernel.org/show_bug.cgi?id=75221
-> >
-> 
-> Well, $subject sucks, it only fixes !CONFIG_PROC_SYSCTL case actually...
+On Tue, 2014-05-06 at 15:50 -0700, josh@joshtriplett.org wrote:
 
-Sure. It says "fix something" though.
+> There's something very wrong if 2.4.x works for
+> cases that 3.x doesn't; that would be a serious regression.
 
-> > Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> > Reported-by: Stefan de Konink <stefan@konink.de>
-> > Tested-by: Stefan de Konink <stefan@konink.de>
-> 
-> I had some better fixes pending (I already tested them, just waiting to
-> submit).
-
-Before ping patch (!CONFIG_PROC_SYSCTL): the ping group range is zero due
-to kzalloc and friends.
-
-After ping patch  (!CONFIG_PROC_SYSCTL): the ping group range is disabled
-and it can't be set afterwards.
-
-It isn't exactly "still work" but it's a welcome improvement.
-
-Feel free to submit formally so that davem can pick those up.
-
--- 
-Ueimor
+You'll have to ask Linus to bring back i386 support then,
+I believe it was removed in 3.8
