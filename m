@@ -1,43 +1,32 @@
-From: George Cherian <george.cherian@ti.com>
-Subject: Re: [PATCH v2 0/3]  TI CPSW Cleanup
-Date: Tue, 6 May 2014 17:33:22 +0530
-Message-ID: <5368CF8A.2060808@ti.com>
-References: <1399264035-22530-1-git-send-email-george.cherian@ti.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH 12/24] net, diet: Make rtnetlink optional
+Date: Tue, 6 May 2014 05:11:27 +0200
+Message-ID: <20140506031127.GM2382@two.firstfloor.org>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+ <1399328773-6531-13-git-send-email-andi@firstfloor.org>
+ <20140505.230830.1291070654883866275.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <mugunthanvnm@ti.com>, <balbi@ti.com>, <zonque@gmail.com>,
-	<mpa@pengutronix.de>, <bhutchings@solarflare.com>,
-	<tklauser@distanz.ch>, <christian.riesch@omicron.at>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	ak@linux.intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399264035-22530-1-git-send-email-george.cherian@ti.com>
+Content-Disposition: inline
+In-Reply-To: <20140505.230830.1291070654883866275.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
-On 5/5/2014 9:57 AM, George Cherian wrote:
-> This series does some minimal cleanups.
-> 	-Conversion of pr_*() to dev_*()
-> 	-Convert kzalloc to devm_kzalloc.
->
-> No functional changes.
->
-> v1 -> v2 Address review comments.
->
-> George Cherian (3):
->    driver net: cpsw: Convert pr_*() to dev_*() calls
->    net: davinci_mdio: Convert pr_err() to dev_err() call
->    drivers: net: davinci_cpdma: Convert kzalloc() to devm_kzalloc().
->
->   drivers/net/ethernet/ti/cpsw.c          | 50 ++++++++++++++++-----------------
->   drivers/net/ethernet/ti/davinci_cpdma.c | 35 ++++++++---------------
->   drivers/net/ethernet/ti/davinci_mdio.c  |  8 ++----
->   3 files changed, 39 insertions(+), 54 deletions(-)
-For some reason i cant see this series in netdev patchwork.
-Did I miss something?  If not can you please take this series.
+> The moment one of these "small" systems, or whatever you want to call
+> it, tries to use any feature added to device configuration in the last
+> 20 years ioctl doesn't cut it.
 
+They will simply not use all that complexity ever, 400k is simply prohibitive
+with 2MB.
+
+If you want to keep netlink what would you remove instead?
+
+-Andi
 
 -- 
--George
+ak@linux.intel.com -- Speaking for myself only.
