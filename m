@@ -1,31 +1,38 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 19/24] net, diet: Make RPS configurable
-Date: Tue, 6 May 2014 05:16:21 +0200
-Message-ID: <20140506031621.GO2382@two.firstfloor.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: A reduced Linux network stack for small systems
+Date: Tue, 6 May 2014 09:18:25 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70CFB5@AcuExch.aculab.com>
 References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
- <1399328773-6531-20-git-send-email-andi@firstfloor.org>
- <20140505.231433.1853863657752503508.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
-	ak@linux.intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"tom.zanussi@linux.intel.com" <tom.zanussi@linux.intel.com>
+To: 'Andi Kleen' <andi@firstfloor.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140505.231433.1853863657752503508.davem@davemloft.net>
+In-Reply-To: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 05, 2014 at 11:14:33PM -0400, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Mon,  5 May 2014 15:26:08 -0700
-> 
-> > Multiple receive queues are not needed on small systems,
-> > so allow disabling them.
-> 
-> It's only enabled with SMP...
+From: Andi Kleen
+> There has been a lot of interest recently to run Linux on very small systems,
+> like Quark systems. These may have only 2-4MB memory. They are also limited
+> by flash space.
 
-You didn't read the whole description, did you?
+I'm intrigued about the 2-4MB memory.
+That is more that would typically be available on-chip in a DSP or FPGA.
+It sounds like an expensive SRAM chip.
+OTOH a single SDRAM gives 16MB and DDR a lot more - and are a lot cheaper
+and lower power.
+Most modern silicon can easily have SDRAM/DDR interfaces.
 
--Andi
+You may want some size reduction to run in 16MB, but it is not as problematic
+as running in 2MB.
+
+With that little memory I wouldn't want to run anything that relied on
+dynamic memory allocation (after startup) - except for fixed size data
+buffers.
+
+	David
