@@ -1,147 +1,43 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: [PATCH 2/3] fib6_rules: fix throw route support
-Date: Tue,  6 May 2014 18:17:20 +0300
-Message-ID: <1399389441-20095-2-git-send-email-popovich_sergei@mail.ru>
-To: netdev@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] bonding: fix vlan_features computing
+Date: Tue, 6 May 2014 15:03:15 +0200
+Message-ID: <20140506130315.GB18366@unicorn.suse.cz>
+References: <20140502165448.D8078E635B@unicorn.suse.cz>
+ <20140505.234500.89241173582893591.davem@davemloft.net>
+ <17712.1399362807@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	vfalico@gmail.com, andy@greyhouse.net, mirq-linux@rere.qmqm.pl
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.176.87]:60727 "EHLO
-	fallback6.mail.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757869AbaEFPXc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 11:23:32 -0400
-Received: from smtp46.i.mail.ru (smtp46.i.mail.ru [94.100.177.106])
-	by fallback6.mail.ru (mPOP.Fallback_MX) with ESMTP id A90AB384AAC9
-	for <netdev@vger.kernel.org>; Tue,  6 May 2014 19:17:38 +0400 (MSK)
-Received: from [195.234.68.4] (port=52741 helo=tuxracer.skif.com.ua)
-	by smtp46.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1Whh7X-0007OK-J9
-	for netdev@vger.kernel.org; Tue, 06 May 2014 19:17:27 +0400
+Received: from cantor2.suse.de ([195.135.220.15]:37041 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753438AbaEFNDR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 May 2014 09:03:17 -0400
+Content-Disposition: inline
+In-Reply-To: <17712.1399362807@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consider sample Policy-Based Routing (PBR) setup for IPv6:
+On Tue, May 06, 2014 at 12:53:27AM -0700, Jay Vosburgh wrote:
+> 
+> 	The VLAN device doesn't get _HW_CSUM (aka _GEN_CSUM)?  In
+> ethtool, this is tx-checksum-ip-generic, I believe.
+> 
+> 	I have only one machine with a _IP_CSUM only device (a tg3) set
+> up at the moment, it's running a Fedora 20 3.13 kernel, and a vlan ->
+> bond0 -> eth0 stack shows "generic" offload for the vlan and bond0, and
+> "ipv4" offload for the eth0 itself.
 
- # ip -6 route add throw 2a03:2880::/32 table 100
- # ip -6 route add prohibit default table 100
- # ip -6 rule add pref 0x7ff0 table 100
+I checked now and at least since 3.12 bond has NETIF_F_HW_CSUM in its
+features even if its slaves have only NETIF_F_IP(V6)_CSUM. Therefore
+NETIF_F_HW_CSUM in vlan_features does no harm and vlan on top of the
+bond gets NETIF_F_HW_CSUM.
 
- # host -t aaaa facebook.com
- facebook.com has IPv6 address 2a03:2880:2110:df07:face:b00c:0:1
+Unfortunately it means that while I still think the change I proposed
+is correct, it would break things unless computing features of the bond
+is fixed in similar way or vlan_dev_fix_features is modified to handle
+checksumming features more carefully.
 
- # ping6 2a03:2880:2110:df07:face:b00c:0:1
- connect: Resource temporarily unavailable
-
- # ip -6 route show table 100
- throw 2a03:2880::/32 dev lo  metric 1024  error -11
- prohibit default dev lo  metric 1024  error -13
-
-Seems ping6(1) receives -EAGAIN (-11) from kernel, where we expect
-routing lookup should continue on next PBR rule (rule with 0x7ffe
-preference in our case, performing lookup in "main" table).
-
-Since rt != net->ipv6.ip6_null_entry for "throw" type routes and
-not NULL we never return -EAGAIN from fib6_rule_action() and
-fib_rules_lookup() returns just rt with dst.error set to -EAGAIN,
-that is returned to ping6(1).
-
-Make fib6_rule_action() return referenced rt entry for special-type
-routes (e.g.: blackhole, unreachable, prohibit) among with error
-code, and just error code for throw to let fib_rules_lookup()
-continue on next rule in list.
-
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
----
- net/ipv6/fib6_rules.c | 58 ++++++++++++++++++++++++++++-----------------------
- 1 file changed, 32 insertions(+), 26 deletions(-)
-
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index b4d5e1d..d885148 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -50,12 +50,13 @@ struct dst_entry *fib6_rule_lookup(struct net *net, struct flowi6 *fl6,
- static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 			    int flags, struct fib_lookup_arg *arg)
- {
-+	struct fib6_rule *r = (struct fib6_rule *) rule;
- 	struct flowi6 *flp6 = &flp->u.ip6;
- 	struct rt6_info *rt = NULL;
- 	struct fib6_table *table;
- 	struct net *net = rule->fr_net;
- 	pol_lookup_t lookup = arg->lookup_ptr;
--	int err = 0;
-+	int err;
- 
- 	switch (rule->action) {
- 	case FR_ACT_TO_TBL:
-@@ -82,30 +83,37 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 	}
- 
- 	rt = lookup(net, table, flp6, flags);
--	if (rt != net->ipv6.ip6_null_entry) {
--		struct fib6_rule *r = (struct fib6_rule *)rule;
--
--		/*
--		 * If we need to find a source address for this traffic,
--		 * we check the result if it meets requirement of the rule.
--		 */
--		if ((rule->flags & FIB_RULE_FIND_SADDR) &&
--		    r->src.plen && !(flags & RT6_LOOKUP_F_HAS_SADDR)) {
--			struct in6_addr saddr;
--
--			if (ipv6_dev_get_saddr(net,
--					       ip6_dst_idev(&rt->dst)->dev,
--					       &flp6->daddr,
--					       rt6_flags2srcprefs(flags),
--					       &saddr))
--				goto again;
--			if (!ipv6_prefix_equal(&saddr, &r->src.addr,
--					       r->src.plen))
--				goto again;
--			flp6->saddr = saddr;
--		}
-+	err = rt->dst.error;
-+	if (err) {
-+		if (err == -EAGAIN || rt == net->ipv6.ip6_null_entry)
-+			goto again;
- 		goto out;
- 	}
-+
-+	/*
-+	 * If we need to find a source address for this traffic,
-+	 * we check the result if it meets requirement of the rule.
-+	 */
-+	if ((rule->flags & FIB_RULE_FIND_SADDR) &&
-+	    r->src.plen && !(flags & RT6_LOOKUP_F_HAS_SADDR)) {
-+		struct in6_addr saddr;
-+
-+		if (ipv6_dev_get_saddr(net,
-+				       ip6_dst_idev(&rt->dst)->dev,
-+				       &flp6->daddr,
-+				       rt6_flags2srcprefs(flags),
-+				       &saddr))
-+			goto again;
-+		if (!ipv6_prefix_equal(&saddr, &r->src.addr,
-+				       r->src.plen))
-+			goto again;
-+		flp6->saddr = saddr;
-+	}
-+
-+out:
-+	arg->result = rt;
-+	return err;
-+
- again:
- 	ip6_rt_put(rt);
- 	err = -EAGAIN;
-@@ -114,9 +122,7 @@ again:
- 
- discard_pkt:
- 	dst_hold(&rt->dst);
--out:
--	arg->result = rt;
--	return err;
-+	goto out;
- }
- 
- static bool fib6_rule_suppress(struct fib_rule *rule, struct fib_lookup_arg *arg)
--- 
-1.8.3.4
+                                                        Michal Kubecek
