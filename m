@@ -1,45 +1,63 @@
-From: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-Subject: [PATCH v4 0/2] net/phy: micrel: Add DT configuration support and documentation for KSZ9031
-Date: Tue,  6 May 2014 09:40:15 +0200
-Message-ID: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	rdunlap@infradead.org, xobs@kosagi.com, davem@davemloft.net,
-	devicetree@vger.kernel.org, linux-doc@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.adetelgroup.com ([94.247.26.71]:10155 "EHLO
-	hbg-pa71.hmc-pa.adm" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934069AbaEFHlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 03:41:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Decotigny <decot@googlers.com>
+Subject: [PATCH v1] net-sysfs: expose permanent hardware address in sysfs
+Date: Mon,  5 May 2014 20:34:00 -0700
+Message-ID: <cd90d330753ff145d209240a72caafac32f5e750.1399347193.git.decot@googlers.com>
+References: <cover.1399347193.git.decot@googlers.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	David Decotigny <decot@googlers.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michael Dalton <mwdalton@google.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1399347193.git.decot@googlers.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- - Adds DT configuration support for ksz9031
- - Renames micrel-ksz9021.txt to micrel-ksz90x1.txt and adds ksz9031 binding
-   documentation
+Tested:
+  grep . /sys/class/net/*/*addr*
 
-Changes since v3:
- - Rebased on net-next
-Changes since v2:
- - Merged together ksz9031_load_{clk,data,ctrl}_skew_values()
- - Added field length and number of fields prameter to account for registers
-  specificities
- - Added binding documentation
-Changes since v1:
- - Removed ksz9021 and ksz9031 fixup deletions from arch/arm/mach-imx/mach-imx6q.c
+Signed-off-by: David Decotigny <decot@googlers.com>
+---
+ net/core/net-sysfs.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-Hubert Chaumette (2):
-  Update Micrel KSZ90x1 binding documentation
-  ARM: i.MX6: Add OF configuration support for ksz9031
-
- .../devicetree/bindings/net/micrel-ksz9021.txt     |  49 ----------
- .../devicetree/bindings/net/micrel-ksz90x1.txt     |  83 ++++++++++++++++
- drivers/net/phy/micrel.c                           | 106 ++++++++++++++++++++-
- 3 files changed, 188 insertions(+), 50 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
- create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1cac29e..bf57024 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -127,6 +127,20 @@ static ssize_t address_show(struct device *dev, struct device_attribute *attr,
+ }
+ static DEVICE_ATTR_RO(address);
+ 
++static ssize_t perm_addr_show(struct device *dev, struct device_attribute *attr,
++			      char *buf)
++{
++	struct net_device *net = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
++
++	read_lock(&dev_base_lock);
++	if (dev_isalive(net))
++		ret = sysfs_format_mac(buf, net->perm_addr, net->addr_len);
++	read_unlock(&dev_base_lock);
++	return ret;
++}
++static DEVICE_ATTR_RO(perm_addr);
++
+ static ssize_t broadcast_show(struct device *dev,
+ 			      struct device_attribute *attr, char *buf)
+ {
+@@ -391,6 +405,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_addr_len.attr,
+ 	&dev_attr_link_mode.attr,
+ 	&dev_attr_address.attr,
++	&dev_attr_perm_addr.attr,
+ 	&dev_attr_broadcast.attr,
+ 	&dev_attr_speed.attr,
+ 	&dev_attr_duplex.attr,
 -- 
-2.0.0.rc0
+1.9.1.423.g4596e3a
