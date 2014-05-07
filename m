@@ -1,66 +1,61 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 1/3] bonding: remove the unnecessary struct bond_net
-Date: Wed, 7 May 2014 22:02:37 +0800
-Message-ID: <1399471359-5120-2-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 2/3] bonding: simplify the slave_do_arp_validate_only()
+Date: Wed, 7 May 2014 22:02:38 +0800
+Message-ID: <1399471359-5120-3-git-send-email-dingtianhong@huawei.com>
 References: <1399471359-5120-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
 To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:3816 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaEGODM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:03:12 -0400
+Received: from szxga01-in.huawei.com ([119.145.14.64]:17913 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755603AbaEGODT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:03:19 -0400
 In-Reply-To: <1399471359-5120-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the structure bond_net forward, and remove the unnecessary structure declaration.
+The argument slave is not used for slave_do_arp_validate_only(), so no need
+to keep it, make the function more simple.
 
-Cc: Ding Tianhong <dingtianhong@huawei.com>
 Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Veaceslav Falico <vfalico@redhat.com>
 Cc: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/bonding/bonding.h | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+ drivers/net/bonding/bond_main.c | 4 ++--
+ drivers/net/bonding/bonding.h   | 3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 69aff72..ff73c14 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2291,8 +2291,8 @@ int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+ 	int alen, is_arp = skb->protocol == __cpu_to_be16(ETH_P_ARP);
+ 
+ 	if (!slave_do_arp_validate(bond, slave)) {
+-		if ((slave_do_arp_validate_only(bond, slave) && is_arp) ||
+-		    !slave_do_arp_validate_only(bond, slave))
++		if ((slave_do_arp_validate_only(bond) && is_arp) ||
++		    !slave_do_arp_validate_only(bond))
+ 			slave->last_rx = jiffies;
+ 		return RX_HANDLER_ANOTHER;
+ 	} else if (!is_arp) {
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b8bdd0a..9f23bf3 100644
+index 9f23bf3..5d1e1a8 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -487,7 +487,14 @@ static inline bool slave_can_tx(struct slave *slave)
- 		return false;
+@@ -395,8 +395,7 @@ static inline int slave_do_arp_validate(struct bonding *bond,
+ 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
  }
  
--struct bond_net;
-+struct bond_net {
-+	struct net		*net;	/* Associated network namespace */
-+	struct list_head	dev_list;
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry	*proc_dir;
-+#endif
-+	struct class_attribute	class_attr_bonding_masters;
-+};
- 
- int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond, struct slave *slave);
- void bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
-@@ -516,15 +523,6 @@ struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
- const char *bond_slave_link_status(s8 link);
- 
--struct bond_net {
--	struct net *		net;	/* Associated network namespace */
--	struct list_head	dev_list;
--#ifdef CONFIG_PROC_FS
--	struct proc_dir_entry *	proc_dir;
--#endif
--	struct class_attribute	class_attr_bonding_masters;
--};
--
- #ifdef CONFIG_PROC_FS
- void bond_create_proc_entry(struct bonding *bond);
- void bond_remove_proc_entry(struct bonding *bond);
+-static inline int slave_do_arp_validate_only(struct bonding *bond,
+-					     struct slave *slave)
++static inline int slave_do_arp_validate_only(struct bonding *bond)
+ {
+ 	return bond->params.arp_validate & BOND_ARP_FILTER;
+ }
 -- 
 1.8.0
