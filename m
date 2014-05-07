@@ -1,74 +1,49 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH] tcp: more documentation for tcp_tw_reuse and tcp_tw_recycle
-Date: Wed, 07 May 2014 21:55:49 +0200
-Message-ID: <m3eh058it6.fsf@neo.luffy.cx>
-References: <1399196499-8449-1-git-send-email-vincent@bernat.im>
-	<1399196499-8449-2-git-send-email-vincent@bernat.im>
-	<20140507.151637.562958118271192092.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: clean up snmp stats code
+Date: Wed, 07 May 2014 16:06:37 -0400 (EDT)
+Message-ID: <20140507.160637.784739838834354060.davem@davemloft.net>
+References: <1399330555-4572-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: edumazet@google.com, linux-doc@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20140507.151637.562958118271192092.davem@davemloft.net> (David
-	Miller's message of "Wed, 07 May 2014 15:16:37 -0400 (EDT)")
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cl@linux.com, eric.dumazet@gmail.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51421 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751451AbaEGUGj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 16:06:39 -0400
+In-Reply-To: <1399330555-4572-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6  7 mai 2014 15:16 -0400, David Miller <davem@davemloft.net>=C2=
-=A0:
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon,  5 May 2014 15:55:55 -0700
 
->> The documentation is not very helpful about what those settings
->> affect. We find numerous tuning guides advising to set both these
->> settings to 1 to reduce the number of entries in the TIME-WAIT
->> state. However, enabling tcp_tw_recycle will cause massive problems =
-when
->> working with NAT.
->>=20
->> The documentation is completed a bit to explain quickly what kind of
->> connections both those settings will affect and to encourage the use=
- of
->> tcp_tw_reuse instead of tcp_tw_recycle for outgoing connections.
->
-> First of all your change locks a proper signoff.
+> commit 8f0ea0fe3a036a47767f9c80e (snmp: reduce percpu needs by 50%)
+> reduced snmp array size to 1, so technically it doesn't have to be
+> an array any more. What's more, after the following commit:
+> 
+> 	commit 933393f58fef9963eac61db8093689544e29a600
+> 	Date:   Thu Dec 22 11:58:51 2011 -0600
+> 
+> 	    percpu: Remove irqsafe_cpu_xxx variants
+> 	    
+> 	    We simply say that regular this_cpu use must be safe regardless of
+> 	    preemption and interrupt state.  That has no material change for x86
+> 	    and s390 implementations of this_cpu operations.  However, arches that
+> 	    do not provide their own implementation for this_cpu operations will
+> 	    now get code generated that disables interrupts instead of preemption.
+> 
+> probably no arch wants to have SNMP_ARRAY_SZ == 2. At least after
+> almost 3 years, no one complains.
+> 
+> So, just convert the array to a single pointer and remove snmp_mib_init()
+> and snmp_mib_free() as well.
+> 
+> Cc: Christoph Lameter <cl@linux.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Sorry for that. I'll resend once the other problem is fixed.
-
-> Second of all, both options can cause problems in the presence of NAT
-> because both optimizations assume unique IP addresses identify unique
-> physical hosts.
-
-If NAT is done at the remote end (the outgoing connection is to some
-load-balanced VIP) and if a TW state is reused for another
-host than the original host, this can be one of those cases:
-
- 1. There was no prior connection to the other host, so no problem.
-=20
- 2. There was a prior connection to this host and the TW state has
-    properly expired (60-second regular timeout), no problem.
-=20
- 3. There was a prior connection to this host and the TW state has been
-    reused previously, so we are already in the right condition
-    (timestamps) to do the same thing.
-
-I don't see a scenario where NAT can be a problem with tcp_tw_reuse.
-
-If the NAT is done on the local end (we are behind a NAT device), as th=
-e
-TW is on our side, I don't see what problem could have the remote end
-which has properly closed the connection. Even without tcp_tw_reuse, th=
-e
-remote side could get a legit connection from another local host.
-
-We could be on the safe side and say that both settings may interact
-badly with NAT gateways (or any altering gateways), but in this case,
-both settings will look the same and the documentation will be as
-unhelpful as it is now to someone which insists on using those settings=
-=2E
---=20
- /* After several hours of tedious analysis, the following hash
-  * function won.  Do not mess with it... -DaveM
-  */
-	2.2.16 /usr/src/linux/fs/buffer.c
+This is a very nice cleanup, applied to net-next, thanks.
