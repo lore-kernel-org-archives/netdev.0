@@ -1,59 +1,40 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH net-next 0/5] SR-IOV and FW-dump enhancements
-Date: Wed, 7 May 2014 13:39:33 -0400
-Message-ID: <1399484378-22864-1-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH net-next 5/5] qlcnic: Update version to 5.3.59
+Date: Wed, 7 May 2014 13:39:38 -0400
+Message-ID: <1399484378-22864-6-git-send-email-rajesh.borundia@qlogic.com>
+References: <1399484378-22864-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:18602 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751389AbaEGSI2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 14:08:28 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:39280 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751298AbaEGSIb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 14:08:31 -0400
+In-Reply-To: <1399484378-22864-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series contain following enhancements.
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-* SR-IOV enhancements:
- - Allow SR-IOV VF's to probe in hypervisor. SR-IOV VF can be
-   uplinked to bridge/macvtap device with this change.
- - Commands from VF are processed in process context
-   as it may sleep during PF-VF communication. Earlier
-   we use to process qlcnic_sriov_vf_set_multi function in 
-   process context but now we process individual commands.
- - As SR-IOV VF's can be uplinked to bridge/macvtap device
-   support mac-learning to allow communication through 
-   embedded switch.
-
-* FW-dump enhancement:
- - Support to collect RDMEM section of firmware dump using 
-   PEX DMA method for 82xx series adapter. 
-
-Please apply this series to net-next.
-
-Thanks,
-Rajesh
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 557b911..6cb24dc 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -39,8 +39,8 @@
  
-Rajesh Borundia (4):
-  qlcnic: Allow SR-IOV VF probe in hypervisor.
-  qlcnic: Add support to process commands in atomic context
-  qlcnic: Add mac learning support to SR-IOV VF.
-  qlcnic: Update version to 5.3.59
-
-Shahed Shaikh (1):
-  qlcnic: Collect firmware dump using DMA on 82xx adapters
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   18 ++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   31 +---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    4 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   12 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   32 ++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   12 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   25 ++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |   37 ++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    4 +-
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  187 ++++++++++++--------
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   84 +++++----
- 11 files changed, 244 insertions(+), 202 deletions(-)
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 3
+-#define _QLCNIC_LINUX_SUBVERSION 58
+-#define QLCNIC_LINUX_VERSIONID  "5.3.58"
++#define _QLCNIC_LINUX_SUBVERSION 59
++#define QLCNIC_LINUX_VERSIONID  "5.3.59"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+-- 
+1.6.3.3
