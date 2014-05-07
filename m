@@ -1,52 +1,48 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/3] cxgb4vf: Check if rx checksum offload is enabled, while reading hardware calculated checksum
-Date: Wed, 7 May 2014 18:01:04 +0530
-Message-ID: <1399465864-17737-4-git-send-email-hariprasad@chelsio.com>
-References: <1399465864-17737-1-git-send-email-hariprasad@chelsio.com>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: A reduced Linux network stack for small systems
+Date: Wed, 7 May 2014 14:20:47 +0100
+Message-ID: <20140507142047.46012957@alan.etchedpixels.co.uk>
+References: <1399328773-6531-1-git-send-email-andi@firstfloor.org>
+	<063D6719AE5E284EB5DD2968C1650D6D0F70CFB5@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <dm@chelsio.com>, <leedom@chelsio.com>,
-	<kumaras@chelsio.com>, <nirranjan@chelsio.com>,
-	<santosh@chelsio.com>, Hariprasad Shenai <hariprasad@chelsio.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:28987 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755877AbaEGM3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 08:29:40 -0400
-In-Reply-To: <1399465864-17737-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'Andi Kleen'" <andi@firstfloor.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"tom.zanussi@linux.intel.com" <tom.zanussi@linux.intel.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F70CFB5@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+> You may want some size reduction to run in 16MB, but it is not as pro=
+blematic
+> as running in 2MB.
+>=20
+> With that little memory I wouldn't want to run anything that relied o=
+n
+> dynamic memory allocation (after startup) - except for fixed size dat=
+a
+> buffers.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 9cfa4b4..adebbf8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1510,7 +1510,8 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- {
- 	struct sk_buff *skb;
- 	const struct cpl_rx_pkt *pkt = (void *)rsp;
--	bool csum_ok = pkt->csum_calc && !pkt->err_vec;
-+	bool csum_ok = pkt->csum_calc && !pkt->err_vec &&
-+		       (rspq->netdev->features & NETIF_F_RXCSUM);
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
- 
- 	/*
-@@ -1538,8 +1539,8 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 	skb_record_rx_queue(skb, rspq->idx);
- 	rxq->stats.pkts++;
- 
--	if (csum_ok && (rspq->netdev->features & NETIF_F_RXCSUM) &&
--	    !pkt->err_vec && (be32_to_cpu(pkt->l2info) & (RXF_UDP|RXF_TCP))) {
-+	if (csum_ok && !pkt->err_vec &&
-+	    (be32_to_cpu(pkt->l2info) & (RXF_UDP|RXF_TCP))) {
- 		if (!pkt->ip_frag)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		else {
--- 
-1.8.4
+You mean like =C2=B5httpd 8) Been there, done that and Tom in fact sent=
+ me the
+patches to port it to Linux from 2.11BSD PDP/11.
+
+You can do a lot in a very small space. Heck you can run a full 2.11BSD
+on a PDP/11 in 1MB, including network stack. You used to be able to bui=
+ld
+a full self hosting Linux 1.x on a 4MB 386.
+
+If you are using glibc and GNU tools it isn't going to work, but long a=
+go
+tools were written which just did the job they were supposed to do at t=
+he
+time and were small and tidy. Programmers were expected to use shell
+scripts to combine them for harder jobs rather than be the one person a
+year who invoked gnu-wibble --format-sideways-while-singing
+--tune=3Dwaltzing-matilda
+
+Alan
