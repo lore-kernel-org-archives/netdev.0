@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: send pkttoobig immediately if orig frag
- size > mtu
-Date: Wed, 07 May 2014 15:28:29 -0400 (EDT)
-Message-ID: <20140507.152829.1489444818446628583.davem@davemloft.net>
-References: <1399241014-32471-1-git-send-email-fw@strlen.de>
+Subject: Re: [Patch net-next] net: rename local_df to ignore_df
+Date: Wed, 07 May 2014 15:30:14 -0400 (EDT)
+Message-ID: <20140507.153014.491918803207368640.davem@davemloft.net>
+References: <1399246758-29795-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, maze@google.com, fw@strlen.de,
+	eric.dumazet@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51071 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51086 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866AbaEGT2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:28:30 -0400
-In-Reply-To: <1399241014-32471-1-git-send-email-fw@strlen.de>
+	with ESMTP id S1750904AbaEGTaQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:30:16 -0400
+In-Reply-To: <1399246758-29795-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon,  5 May 2014 00:03:34 +0200
+=46rom: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Sun,  4 May 2014 16:39:18 -0700
 
-> If conntrack defragments incoming ipv6 frags it stores largest original
-> frag size in ip6cb and sets ->local_df.
-> 
-> We must thus first test the largest original frag size vs. mtu, and not
-> vice versa.
-> 
-> Without this patch PKTTOOBIG is still generated in ip6_fragment() later
-> in the stack, but
-> 
-> 1) IPSTATS_MIB_INTOOBIGERRORS won't increment
-> 2) packet did (needlessly) traverse netfilter postrouting hook.
-> 
-> Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> As suggested by several people, rename local_df to ignore_df,
+> since it means "ignore df bit if it is set".
+>=20
+> Cc: Maciej =AFenczykowski <maze@google.com>
+> Cc: Florian Westphal <fw@strlen.de>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Also applied and queued up for -stable, thanks Florian.
+I'll apply this the next time I merge net into net-next in order to dea=
+l
+with the conflict with Florian's bug fixes more easily.
+
+Thanks.
