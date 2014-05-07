@@ -1,56 +1,75 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Wed, 7 May 2014 06:33:46 +0200
-Message-ID: <20140507043346.GE5619@two.firstfloor.org>
-References: <20140506032114.GP2382@two.firstfloor.org>
- <20140505.232327.578134514220748085.davem@davemloft.net>
- <20140506155703.GA20391@cloud>
- <20140506.115941.428706504757835279.davem@davemloft.net>
- <20140506164108.GA20536@cloud>
- <20140506191447.GB4137@netboy>
- <20140506195049.GO19657@tassilo.jf.intel.com>
- <20140506200738.GA17813@netboy>
- <20140506210549.GR19657@tassilo.jf.intel.com>
- <1399418979.15399.107.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v1] net-sysfs: expose permanent hardware address in sysfs
+Date: Tue, 06 May 2014 22:24:49 -0700
+Message-ID: <5369C3A1.2070502@gmail.com>
+References: <cover.1399347193.git.decot@googlers.com> <cd90d330753ff145d209240a72caafac32f5e750.1399347193.git.decot@googlers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@linux.intel.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	josh@joshtriplett.org, David Miller <davem@davemloft.net>,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Weilong Chen <chenweilong@huawei.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michael Dalton <mwdalton@google.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>, Tejun Heo <tj@kernel.org>
+To: David Decotigny <decot@googlers.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1399418979.15399.107.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <cd90d330753ff145d209240a72caafac32f5e750.1399347193.git.decot@googlers.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 06, 2014 at 04:29:39PM -0700, Eric Dumazet wrote:
-> On Tue, 2014-05-06 at 14:05 -0700, Andi Kleen wrote:
-> 
-> > - Make GRO optional.
-> > This is purely a performance feature for high bandwidth.
-> 
-> Make this properly then, instead of relying on LTO.
-> 
-> We did preliminary work to put this stuff in separate files, but its not
-> complete yet.
+Le 05/05/2014 20:34, David Decotigny a =E9crit :
+> Tested:
+>    grep . /sys/class/net/*/*addr*
 
-FWIW doesn't matter for LTO.
+Please also include the relevant sysfs documentation changes in=20
+Documentation/ABI/testing/sysfs-class-net.
 
-> 
-> tcpv4_offload has pointers to tcp4_gro_receive() and tcp4_gro_complete()
-> 
-> Is LTO smart enough to understand this will never be called, and do
-> proper code elimination of whole _gro_ helpers ?
+Thanks!
 
-When there are pointers in static objects it cannot eliminate it for C
-(it may work for C++)
-
-However if you just  remove the pointer it'll remove the rest.
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+>
+> Signed-off-by: David Decotigny <decot@googlers.com>
+> ---
+>   net/core/net-sysfs.c | 15 +++++++++++++++
+>   1 file changed, 15 insertions(+)
+>
+> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+> index 1cac29e..bf57024 100644
+> --- a/net/core/net-sysfs.c
+> +++ b/net/core/net-sysfs.c
+> @@ -127,6 +127,20 @@ static ssize_t address_show(struct device *dev, =
+struct device_attribute *attr,
+>   }
+>   static DEVICE_ATTR_RO(address);
+>
+> +static ssize_t perm_addr_show(struct device *dev, struct device_attr=
+ibute *attr,
+> +			      char *buf)
+> +{
+> +	struct net_device *net =3D to_net_dev(dev);
+> +	ssize_t ret =3D -EINVAL;
+> +
+> +	read_lock(&dev_base_lock);
+> +	if (dev_isalive(net))
+> +		ret =3D sysfs_format_mac(buf, net->perm_addr, net->addr_len);
+> +	read_unlock(&dev_base_lock);
+> +	return ret;
+> +}
+> +static DEVICE_ATTR_RO(perm_addr);
+> +
+>   static ssize_t broadcast_show(struct device *dev,
+>   			      struct device_attribute *attr, char *buf)
+>   {
+> @@ -391,6 +405,7 @@ static struct attribute *net_class_attrs[] =3D {
+>   	&dev_attr_addr_len.attr,
+>   	&dev_attr_link_mode.attr,
+>   	&dev_attr_address.attr,
+> +	&dev_attr_perm_addr.attr,
+>   	&dev_attr_broadcast.attr,
+>   	&dev_attr_speed.attr,
+>   	&dev_attr_duplex.attr,
+>
