@@ -1,38 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] w83977af_ir: remove two faux Kconfig macros
-Date: Wed, 07 May 2014 15:24:33 -0400 (EDT)
-Message-ID: <20140507.152433.1601521913694225915.davem@davemloft.net>
-References: <1399201392.8729.7.camel@x220>
+Subject: Re: [PATCH] net: ipv4: ip_forward: fix inverted local_df test
+Date: Wed, 07 May 2014 15:26:47 -0400 (EDT)
+Message-ID: <20140507.152647.350304258692008227.davem@davemloft.net>
+References: <1399238671-21170-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51055 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51064 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbaEGTYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:24:35 -0400
-In-Reply-To: <1399201392.8729.7.camel@x220>
+	with ESMTP id S1750951AbaEGT0t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:26:49 -0400
+In-Reply-To: <1399238671-21170-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Sun, 04 May 2014 13:03:12 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Sun,  4 May 2014 23:24:31 +0200
 
-> Ever since v2.3.5 the driver for "Winbond W83977AF (IR)" contains two
-> unneeded preprocessor macros.
+> local_df means 'ignore DF bit if set', so if its set we're
+> allowed to perform ip fragmentation.
 > 
-> CONFIG_NETWINDER_TX_DMA_PROBLEMS is never defined and can safely be
-> removed. And CONFIG_NETWINDER_RX_DMA_PROBLEMS is just an alias for
-> CONFIG_ARCH_NETWINDER, so that (valid) Kconfig macro can be used
-> instead.
+> This wasn't noticed earlier because the output path also drops such skbs
+> (and emits needed icmp error) and because netfilter ip defrag did not
+> set local_df until couple of days ago.
 > 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> Compile tested only (on x86_64, that is).
+> Only difference is that DF-packets-larger-than MTU now discarded
+> earlier (f.e. we avoid pointless netfilter postrouting trip).
 > 
-> I sneaked in a related whitespace fix.
+> While at it, drop the repeated test ip_exceeds_mtu, checking it once
+> is enough...
+> 
+> Fixes: fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in forwarding path")
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied to net-next, thanks.
+Applied and queued up for -stable, thanks Florian.
