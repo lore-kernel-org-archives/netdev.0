@@ -1,38 +1,52 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Wed, 7 May 2014 08:39:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70DE29@AcuExch.aculab.com>
-References: <20140506032114.GP2382@two.firstfloor.org>
- <20140505.232327.578134514220748085.davem@davemloft.net>
- <20140506155703.GA20391@cloud>
- <20140506.115941.428706504757835279.davem@davemloft.net>
- <20140506164108.GA20536@cloud>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC net-next 0/4] Support UID range routing.
+Date: Wed, 07 May 2014 02:24:21 -0700
+Message-ID: <1399454661.19449.114587073.05E84176@webmail.messagingengine.com>
+References: <20140428.125807.409036177577836732.davem@davemloft.net>
+ <CAKD1Yr1HN4=42JYfe9LYguWukXxNE38vvwLBt-aEeQ-zSisN9Q@mail.gmail.com>
+ <CAKD1Yr0wqj0wG3Ges9NeqMBALO-SxY9KTgZo_sp_8VYKnihKMQ@mail.gmail.com>
+ <20140502.152441.695810627123047.davem@davemloft.net>
+ <CAKD1Yr24VnDU9swPzq67uocFvyD2EOkLVT0Ph7Xwkq=wGkzNgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "andi@firstfloor.org" <andi@firstfloor.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"tom.zanussi@linux.intel.com" <tom.zanussi@linux.intel.com>,
-	"ak@linux.intel.com" <ak@linux.intel.com>
-To: "'josh@joshtriplett.org'" <josh@joshtriplett.org>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: David Newall <davidn@davidnewall.com>, netdev@vger.kernel.org,
+	JP Abgrall <jpa@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>,
 	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140506164108.GA20536@cloud>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from new2-smtp.messagingengine.com ([66.111.4.224]:56180 "EHLO
+	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932265AbaEGJYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 05:24:22 -0400
+In-Reply-To: <CAKD1Yr24VnDU9swPzq67uocFvyD2EOkLVT0Ph7Xwkq=wGkzNgQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: josh@joshtriplett.org
-...
-> Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
-> Look at how much cache low-end processors have, and imagine running
-> entirely out of *that*.  Let's not surrender that entire class of
-> devices to VxWorks, FreeRTOS, and other painfully non-Linux systems,
-> when we already know it's possible to run Linux on them successfully.
+Hi,
 
-Have you considered running (say) NetBSD instead of Linux?
-You'll get more support there for running on 'small memory' systems.
-You can also make your own changes with having issues with the GPL.
+On Tue, May 6, 2014, at 20:59, Lorenzo Colitti wrote:
+> This doesn't just affect the source address, it similarly affects any
+> other parameters that are taken from route lookups and stored in the
+> socket, such as MSS, initial cwnd / rwnd / RTO, etc. Some (like MSS)
+> can be fixed up with netfilter, but not all. Also, every connection
+> made through this scheme takes up conntrack state, is affected by
+> conntrack timeouts, etc.
 
-	David
+I question the abstraction of using UIDs for matching routing rules.
+E.g. freebsd uses setfib[1] to alter the view of the routing table per
+process. E.g. an interface like ip rule exec (action ACTION)+ PROGRAM
+would be much nicer in combination with a prctl, maybe? I would much
+rather enjoy an interface not based on UIDs. Would something like that
+solve your initial problem?
+
+The other possibility that came to my mind would be that it is possible
+to share interfaces and ip addresses per netns but it seems more
+difficult to implement.
+
+Greetings,
+
+  Hannes
+
+[1]
+http://www.freebsd.org/cgi/man.cgi?query=setfib&apropos=0&sektion=0&manpath=FreeBSD+10.0-RELEASE&arch=default&format=html
