@@ -1,49 +1,169 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: fix calling of free_irq with 0 argument
-Date: Wed, 07 May 2014 15:39:25 -0400 (EDT)
-Message-ID: <20140507.153925.2030838202936450086.davem@davemloft.net>
-References: <1399380556-25797-1-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	sshah@solarflare.com
-To: nikolay@redhat.com
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH v2 net] bonding: Fix stacked device detection in arp monitoring
+Date: Wed, 07 May 2014 12:40:32 -0700
+Message-ID: <31868.1399491632@localhost.localdomain>
+References: <1399470461-22213-1-git-send-email-vyasevic@redhat.com> <29645.1399481039@localhost.localdomain> <536A6879.8070303@redhat.com> <20140507174910.GT6295@redhat.com> <20140507181100.GU6295@redhat.com> <536A7FC8.7060502@redhat.com> <20140507185937.GV6295@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	Patric McHardy <kaber@trash.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51148 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019AbaEGTj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:39:27 -0400
-In-Reply-To: <1399380556-25797-1-git-send-email-nikolay@redhat.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:47712 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbaEGTkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:40:41 -0400
+In-reply-to: <20140507185937.GV6295@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Tue,  6 May 2014 14:49:16 +0200
+Veaceslav Falico <vfalico@redhat.com> wrote:
 
-> If the sfc driver is in legacy interrupt mode (either explicitly by
-> using interrupt_mode module param or by falling back to it) it will
-> hit a warning at kernel/irq/manage.c because it will try to free irq 0
-> in efx_nic_fini_interrupt() since the MSI interrupts were freed always,
-> but in legacy irq mode they're == 0. So fix it by checking if we
-> actually have an interrupt allocated and only then free it.
-> 
-> CC: <linux-net-drivers@solarflare.com>
-> CC: Shradha Shah <sshah@solarflare.com>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Reported-by: Zenghui Shi <zshi@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
-> There're other ways to fix this as well, but I chose this one as it follows
-> the logic in the code. Also I saw it used in a few places to check if
-> there's an IRQ allocated for that channel.
+>On Wed, May 07, 2014 at 02:47:36PM -0400, Vlad Yasevich wrote:
+>>On 05/07/2014 02:11 PM, Veaceslav Falico wrote:
+>>> On Wed, May 07, 2014 at 07:49:10PM +0200, Veaceslav Falico wrote:
+>>>> On Wed, May 07, 2014 at 01:08:09PM -0400, Vlad Yasevich wrote:
+>>>> ...snip...
+>>>>> Yes.  I verified that it works.  The reason is that we are traversing
+>>>>> the all_adj_list.upper list which contains all of the upper devices at
+>>>>> each level.  So, at vlan100 level, we will see vlan200 and all will be
+>>>>> well.
+>>>>
+>>>> Hrm, two scenarios, with the following config:
+>>>>
+>>>> bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+>>>>
+>>>> end == whatever3_IP
+>>>>
+>>> ...snip...
+>>>>
+>>>> So, the end patch (not compiled, not tested...) would look something like
+>>>> (only the bond_check_path() is changed and copied here, everything else
+>>>> remains the same):
+>>>>
+>>>> +       bool upper_found = false;
+>>>> +
+>>>> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
+>>>> +               if (upper == end)
+>>>> +                       upper_found = true;
+>>>> +
+>>>> +               if (idx < 2 && is_vlan_dev(upper) &&
+>>>> +                   bond_check_path(upper, end, tag, idx+1)) {
+>>>> +                       tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
+>>>> +                       tag[idx].vlan_id = vlan_dev_vlan_id(upper);
+>>>> +                       return true;
+>>>
+>>> Actually, screw that, we might find here the vlan2 first and end up with
+>>> only 1 vlan (vlan2, skipping vlan1).
+>>>
+>>
+>>hmm..  I am not sure that's actually possible...
+>>
+>>__netdev_adjacent_dev_insert() will always insert at the tail.  If you
+>>have a stack of vlans:
+>>   vlan1 (vid 10, 802.1Q)
+>>     |
+>>     v
+>>   vlan2 (vid 20, 802.1AD)
+>>     |
+>>     v
+>>   bond0
+>>
+>>then vlan1 will always be at the end of the list, and after vlan2.
+>>Even if we remove things, the higher the device, the later it will be in
+>>the list.
+>>
+>>So, in the event of the configuration:
+>>bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+>>
+>>waterver_IP will be last in the list due to list_add_tail_rcu()
+>>usage.
+>
+>Yeah, you're right, sorry for misunderstanding (I've been tricked by the
+>master thing, but it doesn't actually add anything to all_upper).
+>
+>Anyway, so the only concern is:
+>
+>bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+>					\-> vlan3
+>bond_check_path start==bond0 idx=0
+>finds vlan1, tag[0] set, recursion start==vlan1 idx=1
+>\->
+>	bond_check_path start==vlan1 idx=1
+>	finds vlan2, tag[1] set, recursion start==vlan2 idx=2
+>	\->	returns right away with false as idx >= 2.
+>
+>	finds vlan3 (!!!) that isn't related with whatever_IP, tag[1] set with the
+>	wrong vlan, recursion start==vlan3 idx=2
+>	\->	return right away with false as idx >= 2.
+>
+>	finds whatever3_IP, returns true.
+>returns true
+>
+>and this way we end up with vlan1 -> vlan3, instead of vlan1 -> vlan2.
+>
+>Can be fixed by that "don't go deeper/populate tag[] if idx == 2" trick.
 
-Zero can be a valid interrupt on some systems.
+	How, exactly?  I'm not sure I see a way to do this correctly
+other than walking the tree layout (and I use that term loosely, given
+that the upper dev list is not an actual tree data structure in the
+usual sense) from bond0 -> whatever3_IP and pulling the VLANs from that
+path.
 
-This is a discussion that keeps popping up from time to time, and Linus
-usually gets upset when someone adds a "!irq" test somewhere.
+	Being later in the device list (and thus higher) doesn't
+automatically make it part of the path, e.g.,
 
-Why not just guard the efx_for_each_channel() loop with a top-level
-test of whether we are using legacy interrupt mode?  That will avoid
-this issue entirely.
+bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3
+		\---> vlan3 -> whatever4_IP
+
+	if we're looking for whatever4_IP.  Are we guaranteed to hit
+whatever4_IP and finish up before vlan2 ends up in a tag[], even if
+whatever4_IP was the last interface added to the pile?
+
+	-J
+
+>>Did I misunderstand something in the code? I can't seem to make it
+>>the above config fail in my tests.
+>>
+>>-vlad
+>>> The way to fix this might be to get the most "lengthy" path of vlans, as
+>>> in:
+>>>
+>>> + * Return the maximum length of stacked vlans + device found, 0 if the end
+>>> + * device is not found.
+>>> + */
+>>> +static int bond_check_path(struct net_device *start, struct net_device
+>>> *end,
+>>> +                          struct bond_vlan_tag *tag, int idx)
+>>> +{
+>>> +       struct net_device *upper;
+>>> +       struct list_head  *iter;
+>>> +       int length, max_length = 0;
+>>> +
+>>> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
+>>> +               if (upper == end && !max_length)
+>>> +                       max_length = 1;
+>>> +
+>>> +               if (idx < 2 && is_vlan_dev(upper)) {
+>>> +                       length = bond_check_path(upper, end, tag, idx + 1);
+>>> +
+>>> +                       if (max_length < length + 1) {
+>>> +                               tag[idx].vlan_proto =
+>>> vlan_dev_vlan_proto(upper);
+>>> +                               tag[idx].vlan_id = vlan_dev_vlan_id(upper);
+>>> +                               max_length = length + 1;
+>>> +                       }
+>>> +               }
+>>> +       }
+>>> +       return max_length;
+>>> +}
+>>>
+>>> Hope that helps.
+>>>
+>>>> +               }
+>>>> +       }
+>>>> +       return upper_found;
+>>> ...snip...
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
