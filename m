@@ -1,201 +1,51 @@
-From: Ruben Herold <ruben@insecure.pw>
-Subject: Problems with gre tunnel between 3.6.3 and 3.14.2
-Date: Wed, 7 May 2014 12:47:33 +0200
-Message-ID: <20140507104733.GK9704@insecure.pw>
-Reply-To: Ruben Herold <ruben@insecure.pw>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [RFC net-next 0/4] Support UID range routing.
+Date: Wed, 7 May 2014 19:58:10 +0900
+Message-ID: <CAKD1Yr0ZXniXMyZ3WcWFsZ=UD9JJ+Bhv69meRrGuMEiN-_SugA@mail.gmail.com>
+References: <20140428.125807.409036177577836732.davem@davemloft.net>
+ <CAKD1Yr1HN4=42JYfe9LYguWukXxNE38vvwLBt-aEeQ-zSisN9Q@mail.gmail.com>
+ <CAKD1Yr0wqj0wG3Ges9NeqMBALO-SxY9KTgZo_sp_8VYKnihKMQ@mail.gmail.com>
+ <20140502.152441.695810627123047.davem@davemloft.net> <CAKD1Yr24VnDU9swPzq67uocFvyD2EOkLVT0Ph7Xwkq=wGkzNgQ@mail.gmail.com>
+ <1399454661.19449.114587073.05E84176@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="lt3WynA+XK9Fj6D4"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	David Newall <davidn@davidnewall.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	JP Abgrall <jpa@google.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.insecure.pw ([194.97.1.30]:59297 "EHLO mail.insecure.pw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932157AbaEGKxC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2014 06:53:02 -0400
-Received: from insecure.pw (unknown [194.97.1.21])
-	(using TLSv1.2 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by mail.insecure.pw (Postfix) with ESMTPSA id CCBEA2005A
-	for <netdev@vger.kernel.org>; Wed,  7 May 2014 10:47:34 +0000 (UTC)
-Content-Disposition: inline
+Received: from mail-ig0-f173.google.com ([209.85.213.173]:52760 "EHLO
+	mail-ig0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932181AbaEGK6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 06:58:30 -0400
+Received: by mail-ig0-f173.google.com with SMTP id hn18so7509804igb.6
+        for <netdev@vger.kernel.org>; Wed, 07 May 2014 03:58:30 -0700 (PDT)
+In-Reply-To: <1399454661.19449.114587073.05E84176@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, May 7, 2014 at 6:24 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> I question the abstraction of using UIDs for matching routing rules.
+> E.g. freebsd uses setfib[1] to alter the view of the routing table per
+> process. E.g. an interface like ip rule exec (action ACTION)+ PROGRAM
+> would be much nicer in combination with a prctl, maybe? I would much
+> rather enjoy an interface not based on UIDs. Would something like that
+> solve your initial problem?
 
---lt3WynA+XK9Fj6D4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+So you're suggesting something that would still be an ip rule, but
+would match a new identifier ("fibgroup") rather than the uid? I think
+that would work, though obviously it's a much bigger change than what
+I am proposing here.
 
-        hi,
+It would require defining a new identifier, figuring out what its
+semantics are, setting it when socket objects are created, attaching
+it to sockets across accept/fork, etc. Userspace code would have to be
+update it to set it on processes (whereas the uid is already dealt
+with by existing tools), etc.
 
-I have a strange problem setting up an gre tunnel between to existing
-linux router over the internet. (I have try to tunnel it over ipsec
-with the same results described below, so I stopped using ipsec for
-debugging the issue)
-
-Here the setup with  anonymized IP Adresses
-
-Router A: =20
-         kernel:  3.6.3 (32bit)
-         system:  Debian testing with custom kernel
-         tunnel: =20
-
-                  /sbin/ip tunnel add tun0 mode gre remote $REMOTE_IP local=
- $LOCAL_IP
-                  /sbin/ip addr add 192.168.0.2/31 peer 192.168.0.1/31 dev =
-tun0
-                  /sbin/ifconfig tun0 up
-
-   =20
-Router B:=20
-         kernel:  3.14.2 (64bit)
-         system:  Debian testing with custom kernel
-         tunnel:
-
-                  /sbin/ip tunnel add tun0 mode gre remote $REMOTE_IP local=
- $LOCAL_IP
-                  /sbin/ip addr add 192.168.0.1/31 peer 192.168.0.2/31 dev =
-tun0
-                  /sbin/ifconfig tun0 up
-
-
-tracepath (Same version on both systems) between the systems:
-
-Router A --> Router B:
-
-        tracepath -n xxx.xxx.xxx.xxx
-        1:  xxx.xxx.xxx.xxx                                          0.240m=
-s pmtu 1500
-        1:  xxx.xxx.xxx.xxx                                          0.360m=
-s=20
-        1:  xxx.xxx.xxx.xxx                                          0.222m=
-s=20
-        2:  xxx.xxx.xxx.xxx                                         1.280ms=
- asymm 3=20
-        3:  xxx.xxx.xxx.xxx                                        1.439ms =
-!H
-        Resume: pmtu 1500=20
-
-
-Router B --> Router A:
-
-tracepath -n XXX.XXX.XXX.XXX
-        1?: [LOCALHOST]                                         pmtu 1500
-        1:  XXX.XXX.XXX.XXX                                        0.352ms =
-asymm 2=20
-        1:  XXX.XXX.XXX.XXX                                        0.234ms =
-asymm 2=20
-        2:  XXX.XXX.XXX.XXX                                         1.483ms=
-=20
-        3:  XXX.XXX.XXX.XXX                                          1.479m=
-s reached
-        Resume: pmtu 1500 hops 3 back 3=20
-
-
-So we have clean pmtu 1500 between this hosts
-Now the tunnel from both sides:
-
-Router A --> Router B:
-
-    tracepath -n 192.168.0.1
-     1:  192.168.0.2                                          0.292ms pmtu =
-1476
-     1:  no reply
-     2:  no reply
-     3:  192.168.0.1                                          1.516ms !H
-     Resume: pmtu 1476=20
-
-
-Router B --> Router A:
-
-    tracepath -n 192.168.0.2
-     1?: [LOCALHOST]                                         pmtu 1476
-     1:  no reply
-     2:  no reply
-     3:  192.168.0.1                                          1.482ms    re=
-ached
-     Resume: pmtu 1476 hops 3 back 1=20
-
-
-
-icmp ping runs fine via the tunnel but if I try to get a large screen
-output via ssh vor example from the dmesg output the connection freezed.
-
-Same with other protocols, looks for me like an mtu problem but I can't
-find it. Setting the mtu down on both sides also doesn't help.
-
-But what I'm wondering is that on Router B the HWaddr is changeing on
-every ifconfig run:
-
-root@RouterB:[~] > ifconfig tun0 ; ifconfig tun0
-tun0      Link encap:UNSPEC  HWaddr C2-61-6A-73-00-00-E0-34-00-00-00-00-00-=
-00-00-00 =20
-          inet addr:192.168.0.1  P-t-P:192.168.0.2  Mask:255.255.255.254
-          inet6 addr: fe80::200:5efe:c261:6a73/64 Scope:Link
-          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
-          RX packets:1228 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:34739 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:120614 (117.7 KiB)  TX bytes:2686718 (2.5 MiB)
-
-tun0      Link encap:UNSPEC  HWaddr C2-61-6A-73-00-00-E0-24-00-00-00-00-00-=
-00-00-00 =20
-          inet addr:192.168.0.1  P-t-P:192.168.0.2  Mask:255.255.255.254
-          inet6 addr: fe80::200:5efe:c261:6a73/64 Scope:Link
-          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
-          RX packets:1228 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:34741 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:120614 (117.7 KiB)  TX bytes:2687442 (2.5 MiB)
-
-This doesn't happend on Router A:
-
-root@RouterA:[~] > ifconfig tun0; ifconfig tun0
-tun0      Link encap:UNSPEC  HWaddr C2-61-01-8A-00-00-00-00-00-00-00-00-00-=
-00-00-00 =20
-          inet addr:192.168.0.2  P-t-P:192.168.0.1  Mask:255.255.255.254
-          inet6 addr: fe80::200:5efe:c261:18a/64 Scope:Link
-          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
-          RX packets:1615 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:45959 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:385274 (376.2 KiB)  TX bytes:2277674 (2.1 MiB)
-
-tun0      Link encap:UNSPEC  HWaddr C2-61-01-8A-00-00-00-00-00-00-00-00-00-=
-00-00-00 =20
-          inet addr:192.168.0.2  P-t-P:192.168.0.1  Mask:255.255.255.254
-          inet6 addr: fe80::200:5efe:c261:18a/64 Scope:Link
-          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
-          RX packets:1615 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:45959 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:385274 (376.2 KiB)  TX bytes:2277674 (2.1 MiB)
-
-
-
-What does this mean? Could this be the problem?
-
-    thx for help
-
-            Ruben
-
-
-
---=20
-Ruben Herold=20
-ruben@insecure.pw
-
---lt3WynA+XK9Fj6D4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iEYEARECAAYFAlNqD0UACgkQgHHssbUmOEI3MACgnSZQOcUZYmTX/ulmpY2ejNog
-y6AAoMlW7zbm1Zh4YwaXTFCy/v2bvw2O
-=y5SO
------END PGP SIGNATURE-----
-
---lt3WynA+XK9Fj6D4--
+If you're proposing something not that's not an ip rule, then that
+seems like a step backwards, because it won't allow the rich policy
+allowed by processing rules in priority order, throw routes, FRA_GOTO,
+etc.
