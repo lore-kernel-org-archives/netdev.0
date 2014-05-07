@@ -1,88 +1,41 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP sockets
-Date: Wed, 7 May 2014 16:11:08 +0200
-Message-ID: <20140507141108.GG4686@cpaasch-mac>
-References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
- <20140507.013820.1357850416047414291.davem@davemloft.net>
- <bc98535539ef4d2c9cb6f53f85068b65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
- <20140507134620.GF4686@cpaasch-mac>
- <906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 3/3 RESEND] bonding: remove the unused macro
+Date: Wed, 7 May 2014 22:10:21 +0800
+Message-ID: <1399471821-11252-4-git-send-email-dingtianhong@huawei.com>
+References: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Octavian Purdila <octavian.purdila@intel.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39782 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933AbaEGOLR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:11:17 -0400
-Content-Disposition: inline
-In-Reply-To: <906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:30550 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932801AbaEGOQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:16:14 -0400
+In-Reply-To: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/05/14 - 14:04:36, Octavian Purdila wrote:
-> On Wed, May 7, 2014 at 4:46 PM, Christoph Paasch
-> <christoph.paasch@uclouvain.be> wrote:
-> > On 07/05/14 - 07:30:23, Octavian Purdila wrote:
-> >> Unfortunately skb_tcp_cb does not have enough space to hold
-> >> information for new large options. To work around that, the MPTCP
-> >> implementation is pushing the option data in the skb and then
-> >> occasionally uses the following when the pskb_copy is used:
-> >>
-> >> -               else
-> >> +               if (unlikely(skb_cloned(skb))) {
-> >> +                       struct sk_buff *newskb;
-> >> +                       if (mptcp_is_data_seq(skb))
-> >> +                               skb_push(skb, MPTCP_SUB_LEN_DSS_ALIGN +
-> >> +                                             MPTCP_SUB_LEN_ACK_ALIGN +
-> >> +                                             MPTCP_SUB_LEN_SEQ_ALIGN);
-> >> +
-> >> +                       newskb = pskb_copy(skb, gfp_mask);
-> >> +
-> >> +                       if (mptcp_is_data_seq(skb)) {
-> >> +                               skb_pull(skb, MPTCP_SUB_LEN_DSS_ALIGN +
-> >> +                                             MPTCP_SUB_LEN_ACK_ALIGN +
-> >> +                                             MPTCP_SUB_LEN_SEQ_ALIGN);
-> >> +                               if (newskb)
-> >> +                                       skb_pull(newskb,
-> >> MPTCP_SUB_LEN_DSS_ALIGN +
-> >> +
-> >> MPTCP_SUB_LEN_ACK_ALIGN +
-> >> +
-> >> MPTCP_SUB_LEN_SEQ_ALIGN);
-> >> +                       }
-> >> +                       skb = newskb;
-> >> +               } else {
-> >>                         skb = skb_clone(skb, gfp_mask);
-> >> +               }
-> >>
-> >> MPTCP has many other intrusive changes in the TCP stack. To avoid that
-> >> complexity, we could do the bulk of the implementation in a separate
-> >> layer, on top of TCP. But we would need a mechanism to pass the
-> >> options down to the TCP layer somehow.
-> >
-> > Why not extend the head-space of the linear data of the skb as we discussed
-> > already previously on mptcp-dev? Just in a similar way as 'struct can_skb_priv'
-> > is being used. This would avoid this expensive list-processing and clean up
-> > the above example you give.
-> >
-> > Or did something else prevented to do it in such a way?
-> >
-> 
-> You mean storing options at skb->head? Wouldn't we have the same issue
-> as above for pskb_copy?
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/bonding/bonding.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-Yes, but it could be done in a more "clean" way so that future extensions to
-TCP are no more limited by the limitation of struct tcp_skb_cb.
-
-Basically, allow some memory inside the linear part to be used by the layer
-the skb is currently at and let pskb_copy handle it properly (not like the
-current 'hack' in tcp_transmit_skb).
-This allows extensions at any layer who are not widely enough used to justify increasing
-skb->cb.
-
-
-Cheers,
-Christoph
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 5d1e1a8..f462f6f 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -182,8 +182,6 @@ struct bond_parm_tbl {
+ 	int mode;
+ };
+ 
+-#define BOND_MAX_MODENAME_LEN 20
+-
+ struct slave {
+ 	struct net_device *dev; /* first - useful for panic debug */
+ 	struct bonding *bond; /* our master */
+-- 
+1.8.0
