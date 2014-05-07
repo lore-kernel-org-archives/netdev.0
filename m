@@ -1,66 +1,124 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP sockets
-Date: Wed, 7 May 2014 21:15:54 +0300
-Message-ID: <CAE1zotLxNPSpksBbKu6Z1MrcgdnFGxK8E-6c+fT6csEcQmFOsw@mail.gmail.com>
-References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
-	<20140507.013820.1357850416047414291.davem@davemloft.net>
-	<bc98535539ef4d2c9cb6f53f85068b65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
-	<20140507134620.GF4686@cpaasch-mac>
-	<906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
-	<20140507141108.GG4686@cpaasch-mac>
-	<CAE1zot+L0WVdxSRX7gUSU7V52X0qdk2mTrsXaCAbGmPRu6=Yog@mail.gmail.com>
-	<1399476728.15399.146.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net] bonding: Fix stacked device detection in arp monitoring
+Date: Wed, 07 May 2014 14:47:36 -0400
+Message-ID: <536A7FC8.7060502@redhat.com>
+References: <1399470461-22213-1-git-send-email-vyasevic@redhat.com> <29645.1399481039@localhost.localdomain> <536A6879.8070303@redhat.com> <20140507174910.GT6295@redhat.com> <20140507181100.GU6295@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	Patric McHardy <kaber@trash.net>
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:33403 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750924AbaEGSP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 14:15:56 -0400
-Received: by mail-wi0-f181.google.com with SMTP id n15so1824334wiw.14
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 11:15:54 -0700 (PDT)
-In-Reply-To: <1399476728.15399.146.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:62393 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751192AbaEGSrq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2014 14:47:46 -0400
+In-Reply-To: <20140507181100.GU6295@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 7, 2014 at 6:32 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-05-07 at 18:17 +0300, Octavian Purdila wrote:
->
+On 05/07/2014 02:11 PM, Veaceslav Falico wrote:
+> On Wed, May 07, 2014 at 07:49:10PM +0200, Veaceslav Falico wrote:
+>> On Wed, May 07, 2014 at 01:08:09PM -0400, Vlad Yasevich wrote:
+>> ...snip...
+>>> Yes.  I verified that it works.  The reason is that we are traversing
+>>> the all_adj_list.upper list which contains all of the upper devices at
+>>> each level.  So, at vlan100 level, we will see vlan200 and all will be
+>>> well.
 >>
->> That would require adding a new field to sk_buff to keep track of how
->> much we need to copy in pskb_copy. Fortunately it seems it has some
->> holes we could use.
+>> Hrm, two scenarios, with the following config:
 >>
->> David, does that seem reasonable?
->
-> MPTCP and/or Minion could be implemented in user land, with a generic
-> infrastructure in the kernel to directly pass raw packets once demux
-> has been done by the kernel.
->
+>> bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+>>
+>> end == whatever3_IP
+>>
+> ...snip...
+>>
+>> So, the end patch (not compiled, not tested...) would look something like
+>> (only the bond_check_path() is changed and copied here, everything else
+>> remains the same):
+>>
+>> +       bool upper_found = false;
+>> +
+>> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
+>> +               if (upper == end)
+>> +                       upper_found = true;
+>> +
+>> +               if (idx < 2 && is_vlan_dev(upper) &&
+>> +                   bond_check_path(upper, end, tag, idx+1)) {
+>> +                       tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
+>> +                       tag[idx].vlan_id = vlan_dev_vlan_id(upper);
+>> +                       return true;
+> 
+> Actually, screw that, we might find here the vlan2 first and end up with
+> only 1 vlan (vlan2, skipping vlan1).
+> 
 
-Implementing MPTCP in userspace makes a lot of sense to me as you can
-naturally consider MPTCP as a layer on top of TCP. Passing raw packets
-is one option, another one is creating the infrastructure to
-send/receive TCP options with standard TCP sockets APIs like sendmsg
-or recvmsg.
+hmm..  I am not sure that's actually possible...
 
-The first option is more flexible, but on the other hand (at least for
-MPTCP), it means that userspace must duplicate the "basic" TCP
-functionality. The second option allows one to reuse the TCP stack in
-kernel while adding new functionality on top of that.
+__netdev_adjacent_dev_insert() will always insert at the tail.  If you
+have a stack of vlans:
+   vlan1 (vid 10, 802.1Q)
+     |
+     v
+   vlan2 (vid 20, 802.1AD)
+     |
+     v
+   bond0
 
-> Large CDN cant always assume multi paths to hit a particular destination
-> can all originate from a single host in the datacenter.
->
-> MPTCP has this hard assumption from day one.
->
-> Our team try to focus on making TCP better, we believe all these
-> experimental features do not belong to the kernel yet.
+then vlan1 will always be at the end of the list, and after vlan2.
+Even if we remove things, the higher the device, the later it will be in
+the list.
 
-I hear you, the TCP stack is already very complex. That is why I am
-looking at ways to manage the increased complexity that MPTCP brings
-by using a layered approach.
+So, in the event of the configuration:
+bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+
+waterver_IP will be last in the list due to list_add_tail_rcu()
+usage.
+
+Did I misunderstand something in the code? I can't seem to make it
+the above config fail in my tests.
+
+-vlad
+> The way to fix this might be to get the most "lengthy" path of vlans, as
+> in:
+> 
+> + * Return the maximum length of stacked vlans + device found, 0 if the end
+> + * device is not found.
+> + */
+> +static int bond_check_path(struct net_device *start, struct net_device
+> *end,
+> +                          struct bond_vlan_tag *tag, int idx)
+> +{
+> +       struct net_device *upper;
+> +       struct list_head  *iter;
+> +       int length, max_length = 0;
+> +
+> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
+> +               if (upper == end && !max_length)
+> +                       max_length = 1;
+> +
+> +               if (idx < 2 && is_vlan_dev(upper)) {
+> +                       length = bond_check_path(upper, end, tag, idx + 1);
+> +
+> +                       if (max_length < length + 1) {
+> +                               tag[idx].vlan_proto =
+> vlan_dev_vlan_proto(upper);
+> +                               tag[idx].vlan_id = vlan_dev_vlan_id(upper);
+> +                               max_length = length + 1;
+> +                       }
+> +               }
+> +       }
+> +       return max_length;
+> +}
+> 
+> Hope that helps.
+> 
+>> +               }
+>> +       }
+>> +       return upper_found;
+> ...snip...
