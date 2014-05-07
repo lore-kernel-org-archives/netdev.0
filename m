@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fib_semantics: increment fib_info_cnt after
- fib_info allocation
-Date: Wed, 07 May 2014 17:15:06 -0400 (EDT)
-Message-ID: <20140507.171506.289552938622558058.davem@davemloft.net>
-References: <1399389788-20363-1-git-send-email-popovich_sergei@mail.ru>
+Subject: Re: [PATCH] net: mdio: of_mdiobus_register(): fall back to
+ mdiobus_register() for !CONFIG_OF
+Date: Wed, 07 May 2014 17:16:51 -0400 (EDT)
+Message-ID: <20140507.171651.445446700464386722.davem@davemloft.net>
+References: <1399395136-12139-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: popovich_sergei@mail.ru
+Cc: f.fainelli@gmail.com, mugunthanvnm@ti.com, netdev@vger.kernel.org
+To: zonque@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51988 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51995 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbaEGVPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:15:08 -0400
-In-Reply-To: <1399389788-20363-1-git-send-email-popovich_sergei@mail.ru>
+	with ESMTP id S1750968AbaEGVQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:16:54 -0400
+In-Reply-To: <1399395136-12139-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Date: Tue,  6 May 2014 18:23:08 +0300
+From: Daniel Mack <zonque@gmail.com>
+Date: Tue,  6 May 2014 18:52:16 +0200
 
-> Increment fib_info_cnt in fib_create_info() right after successfuly
-> alllocating fib_info structure, overwise fib_metrics allocation failure
-> leads to fib_info_cnt incorrectly decremented in free_fib_info(), called
-> on error path from fib_create_info().
+> If CONFIG_OF is not set, make of_mdiobus_register() call
+> mdiobus_register() instead of returning -ENOSYS.
 > 
-> Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+> This way, we can just call of_mdiobus_register() from all DT-enabled
+> drivers to handle the compat cases.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied and queued up for -stable, thanks Sergey.
+Applied, thanks Daniel.
