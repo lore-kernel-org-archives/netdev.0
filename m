@@ -1,41 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] net: systemport: only update UMAC_CMD if
- something changed
-Date: Wed, 7 May 2014 14:38:01 -0700
-Message-ID: <CAGVrzcY14pLoEUC8MPne8LBnQ3WUOyxJf6LLQ=AwpBJNJsx3+A@mail.gmail.com>
-References: <1399317652-20078-1-git-send-email-f.fainelli@gmail.com>
- <1399317652-20078-2-git-send-email-f.fainelli@gmail.com> <20140507.155957.393285971385097449.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] Misc. fixes for cxgb4 and cxgb4vf driver
+Date: Wed, 07 May 2014 17:43:22 -0400 (EDT)
+Message-ID: <20140507.174322.1831077822469300875.davem@davemloft.net>
+References: <1399465864-17737-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
+	kumaras@chelsio.com, nirranjan@chelsio.com, santosh@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:34718 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559AbaEGVim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:38:42 -0400
-Received: by mail-qg0-f54.google.com with SMTP id q108so1765110qgd.41
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 14:38:41 -0700 (PDT)
-In-Reply-To: <20140507.155957.393285971385097449.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52122 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751811AbaEGVnZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:43:25 -0400
+In-Reply-To: <1399465864-17737-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-07 12:59 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Mon,  5 May 2014 12:20:51 -0700
->
->> +             reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
->> +                             CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
->> +                             CMD_TX_PAUSE_IGNORE);
->
-> While you're here use indentation more consistent with the rest of the
-> networking for this kind of expression.
->
-> On the second and third line, indent to the first column after the openning
-> parenthesis on the first line.
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed, 7 May 2014 18:01:01 +0530
 
-My email client does not render this properly apparently, so I do see
-the same problem as you hinted, but the lines do really follow your
-recommendation if you take a look at the raw patch in e.g: patchwork.
--- 
-Florian
+> This series of patch provides fixes for cxgb4 and cxgb4vf driver related to
+> rx checksum counter and decodes module type a bit more for ethtool output.
+> 
+> The patches series is created against David Miller's 'net-next' tree.
+> 
+> We would like to request this patch series to get merged via David Miller's
+> 'net-next' tree.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
+
+Series applied, thanks.
