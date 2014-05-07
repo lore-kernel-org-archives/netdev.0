@@ -1,86 +1,68 @@
-From: V JobNickname <workofv@gmail.com>
-Subject: Re: Is 3.18 patch "The tcp: TSO packets automatic sizing" will cause
- to Troughput drop when enable NO_HZ_IDEL or HIGH_RES_TIMERS ?
-Date: Wed, 7 May 2014 23:51:29 +0800
-Message-ID: <CANHbGWsqBZEw0-6A0zE6PrSUF1osbN86mcYxjo9Z4V6WWyXTww@mail.gmail.com>
-References: <CANHbGWs=oQBDVVZc8h5wX0WY+PRbQfCqiv5FrF1tH29QGiRndA@mail.gmail.com>
-	<CADVnQy=1WdUT1xHX04uBQtROwOYDZF6idw1Qx2o2DM13kWWjFQ@mail.gmail.com>
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH] net: mdio: of_mdio: check for already registered phy
+ before creating new instances
+Date: Wed, 07 May 2014 18:01:51 +0200
+Message-ID: <536A58EF.4070206@gmail.com>
+References: <1399389711-32716-1-git-send-email-zonque@gmail.com> <CAGVrzcY+3xeDzMAe1683+ypF59eMN9oTss6LC_rLShuEpmC4NA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:54985 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755603AbaEGPva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 11:51:30 -0400
-Received: by mail-ie0-f178.google.com with SMTP id lx4so1151145iec.23
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 08:51:30 -0700 (PDT)
-In-Reply-To: <CADVnQy=1WdUT1xHX04uBQtROwOYDZF6idw1Qx2o2DM13kWWjFQ@mail.gmail.com>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:34215 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933028AbaEGQBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 12:01:54 -0400
+Received: by mail-ee0-f43.google.com with SMTP id d17so894914eek.16
+        for <netdev@vger.kernel.org>; Wed, 07 May 2014 09:01:53 -0700 (PDT)
+In-Reply-To: <CAGVrzcY+3xeDzMAe1683+ypF59eMN9oTss6LC_rLShuEpmC4NA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-07 0:48 GMT+08:00 Neal Cardwell <ncardwell@google.com>:
-> On Tue, May 6, 2014 at 12:17 PM, V JobNickname <workofv@gmail.com> wrote:
->> More detail trace, the first commit of 3.10.18, tcp: TSO packets
->> automatic sizing, cause to this issue.
->> https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/diff/?id=5e25ba5003ee5de0ba2be56bfd54d16d4b1b028d
->
-> To provide another data point, it would be interesting to know what
-> performance you see with v3.15-rc4. Linux 3.15 has the following
-> patch:
->
->  740b0f1841f6  tcp: switch rtt estimations to usec resolution
->
-> That patch switches tcp_update_pacing_rate() to use microsecond RTTs
-> for its calculation. That may help things in your case. (As Eric says,
-> more details would help.)
->
->> I don't know why this TSO patch affect my network since the network
->> driver doesn't enable NETIF_F_TSO.
->
-> Keep in mind that anytime the Linux TCP code or commit descriptions
-> talk about "TSO", the same applies to GSO. Is GSO enabled for your
-> device?
->
-> neal
+(+ Mugunthan V N)
 
-Porting to the v3.15-rc4 from main stream, the performance is well when
- enabled NO_HZ_IDEL or HIGH_RES_TIMERS.
+Hi Florian,
 
-I also try the version before commit 740b0f1841f6  tcp: switch rtt
-estimations to usec resolution, i.e
-363ec392352 net: add skb_mstamp infrastructure,
-also not cause to performance drop. So I think my case is regardless
-to use jiffie or nesc in tcp_update_pacing_rate().
+On 05/07/2014 02:55 AM, Florian Fainelli wrote:
+> 2014-05-06 8:21 GMT-07:00 Daniel Mack <zonque@gmail.com>:
+>> In of_mdiobus_register_phy(), check if the phy with the given address is
+>> already registered within the mii bus before calling phy_device_create()
+>> or get_phy_device().
+> 
+> I am not exactly sure how you could be in that sort of situation.
+> of_mdiobus_register() handles two different cases at the moment:
+> 
+> 1) PHY child nodes have a valid 'reg' property, and this property is
+> used to register the PHY at the given address
+> 2) if a PHY child node does not have a valid 'reg' property, which
+> will trigger an auto-scan and then we iterate through all 32 addresses
+> of the bus, we skip over PHYs that are already registered
+> 
+>>
+>> This allows us to augment auto-probed phy devices with extra information
+>> via DT. Without this patch, a second instance of the phydev is created
+>> unnecessarily.
+> 
+> Which piece of code is doing the auto-probing in your case? One of the
+> very first things that of_mdiobus_register() does is set the PHY mask
+> to 0xffffffff to prevent the default PHY probing method to trigger,
+> since we are using information from the Device Tree right after that.
 
-Then I try more eraly version and found that in 3.14-rc2 thes case was
-hit but solved at 3.14-rc3.
-(I use "git checkout -b 3.14-rc2 v3.14-rc2" and "git checkout -b
-3.14-rc3 v3.14-rc3"  to get taged version,
-and use "git checkout 3.14-rc2/3.14-rc3 to switch between". Hope my
-usage are correct, since I'm not familer with git.)
+Ah, ok. So what happens here is that of_mdiobus_register() sets the
+phy_mask to ~0, but mdiobus_register() calls bus->reset(), which resets
+the mask to ffffffef in my case. bus->reset is davinci_mdio_reset() in
+my case.
 
-I think some commit between 3.14-rc2 and 3.14-rc3 can help find the
-root cause of my case.
+Is the davinci mdio driver doing anything wrong by touching
+bus->phy_mask? Another solution would be to split mdiobus_register() and
+create a mdiobus_register_noscan() or something, and then call that from
+of_mdiobus_register().
 
-ps.
-But I don't know how to use git to update from rc2 to rc3 by each
-commit(or maybe binary search commit log), and find that one commit.
 
-For example, I would like to following logs start from 3.14-rc2 tag in
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/log/?h=linux-3.14.y&ofs=1650
-
-Can I,
-
-git checkout 3.14-rc2 -- switch to 3.14-rc2
-git checout 07b0e5b10258b48e5edfb6c8ac156f05510eb775 (ASoC: da9055:
-Fix device registration of PMIC and CODEC devices)
-will the commit between this commit and 3.14-rc2 also updated?
-if this commit solve my case, I can try some one commit between it and 3.14-rc2.
-such as
-git checkout a49f56eec54d864ba0fda838e4c8bf5c72f3eb08 (microblaze: Fix
-a typo when disabling stack protection)
-should I revert to 3.14-rc2 first, or the git will done it?
-
-Thanks
+Thanks,
+Daniel
