@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Wed, 07 May 2014 13:20:21 -0400 (EDT)
-Message-ID: <20140507.132021.591444790908478214.davem@davemloft.net>
-References: <20140505.232327.578134514220748085.davem@davemloft.net>
-	<1399351148.8767.84.camel@empanada>
-	<20140507145938.79110827@alan.etchedpixels.co.uk>
+Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP
+ sockets
+Date: Wed, 07 May 2014 13:23:01 -0400 (EDT)
+Message-ID: <20140507.132301.170284205486641795.davem@davemloft.net>
+References: <20140507134620.GF4686@cpaasch-mac>
+	<906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+	<20140507141108.GG4686@cpaasch-mac>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tom.zanussi@linux.intel.com, andi@firstfloor.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gnomes@lxorguk.ukuu.org.uk
+Cc: octavian.purdila@intel.com, netdev@vger.kernel.org
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50296 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50312 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbaEGRUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 13:20:23 -0400
-In-Reply-To: <20140507145938.79110827@alan.etchedpixels.co.uk>
+	with ESMTP id S1750895AbaEGRXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 13:23:02 -0400
+In-Reply-To: <20140507141108.GG4686@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Date: Wed, 7 May 2014 14:59:38 +0100
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Wed, 7 May 2014 16:11:08 +0200
 
-> 16MB of DRAM means adding a chip to your system. You've just exceeded the
-> space, power and cost budget on the very low end. In many cases like FPGA
-> systems you can't even add DRAM without major hoop jumping.
+> Yes, but it could be done in a more "clean" way so that future
+> extensions to TCP are no more limited by the limitation of struct
+> tcp_skb_cb.
 
-A year or so for now this may not be true, which makes these kinds of changes
-very nearly in the "point in time solution" category.
+Would you stop harping on this point?
 
-My main point in all of this is that whilst Linux should work on a braod range
-of system types, there has to be a limit somewhere and I think 2MB is off
-the deep end.
+Adding new options to TCP is a really big deal, it implicitly
+involves deeply understanding how it interacts with other options
+and what is the most optimal way to insert those options in the
+output path.
+
+It should be "hard".
