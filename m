@@ -1,33 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 1/2] ipv4: move local_port_range out of
- CONFIG_SYSCTL
-Date: Thu, 8 May 2014 00:48:48 +0200
-Message-ID: <20140507224848.GA1272@electric-eye.fr.zoreil.com>
-References: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
- <20140507.172641.1968628089443229607.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Wed, 07 May 2014 18:52:20 -0400 (EDT)
+Message-ID: <20140507.185220.239991580573862433.davem@davemloft.net>
+References: <20140507145938.79110827@alan.etchedpixels.co.uk>
+	<20140507.132021.591444790908478214.davem@davemloft.net>
+	<CA+bK7J78WdJmH7omCKgOBDwr_qQV83xezoar89MQE=LYSeEthQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56286 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbaEGWsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 18:48:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20140507.172641.1968628089443229607.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gnomes@lxorguk.ukuu.org.uk, tom.zanussi@linux.intel.com,
+	andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tbird20d@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+bK7J78WdJmH7omCKgOBDwr_qQV83xezoar89MQE=LYSeEthQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> :
-[...]
-> I think these two changes fix fairly serious issues that have existed for some
-> time, so it should go into 'net', do you agree?
+From: Tim Bird <tbird20d@gmail.com>
+Date: Wed, 7 May 2014 15:19:03 -0700
 
-Patch #1, yes.
+> If you don't want to help avoid problems, I understand.  All the kernel
+> maintainers are extremely busy.  But the use cases are pretty interesting,
+> and it would be nice to have you on board.
 
-Without patch #2, the root group id is always granted ping init when
-CONFIG_SYSCTL is not set. It's more cautious than serious.
-
--- 
-Ueimor
+Or running with improper privileges.
