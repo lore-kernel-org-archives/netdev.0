@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP
  sockets
-Date: Wed, 07 May 2014 13:23:01 -0400 (EDT)
-Message-ID: <20140507.132301.170284205486641795.davem@davemloft.net>
-References: <20140507134620.GF4686@cpaasch-mac>
-	<906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+Date: Wed, 07 May 2014 13:24:41 -0400 (EDT)
+Message-ID: <20140507.132441.1803688666370582852.davem@davemloft.net>
+References: <906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
 	<20140507141108.GG4686@cpaasch-mac>
+	<CAE1zot+L0WVdxSRX7gUSU7V52X0qdk2mTrsXaCAbGmPRu6=Yog@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: octavian.purdila@intel.com, netdev@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org
+To: octavian.purdila@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50312 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50327 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbaEGRXC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 13:23:02 -0400
-In-Reply-To: <20140507141108.GG4686@cpaasch-mac>
+	with ESMTP id S1750880AbaEGRYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 13:24:43 -0400
+In-Reply-To: <CAE1zot+L0WVdxSRX7gUSU7V52X0qdk2mTrsXaCAbGmPRu6=Yog@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Wed, 7 May 2014 16:11:08 +0200
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Wed, 7 May 2014 18:17:08 +0300
 
-> Yes, but it could be done in a more "clean" way so that future
-> extensions to TCP are no more limited by the limitation of struct
-> tcp_skb_cb.
+> That would require adding a new field to sk_buff to keep track of how
+> much we need to copy in pskb_copy. Fortunately it seems it has some
+> holes we could use.
+> 
+> David, does that seem reasonable?
 
-Would you stop harping on this point?
+As long as you can find a way to delete something in sk_buff to make
+room for it sure.
 
-Adding new options to TCP is a really big deal, it implicitly
-involves deeply understanding how it interacts with other options
-and what is the most optimal way to insert those options in the
-output path.
-
-It should be "hard".
+I am very serious, I don't want sk_buff to turn into something like mm_struct
+which seems to double in size every time I look at it.
