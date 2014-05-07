@@ -1,8 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 1/2] Update Micrel KSZ90x1 binding documentation
-Date: Wed, 7 May 2014 10:31:02 -0700
-Message-ID: <CAGVrzcY=RaWEPFwsifw_RymBZ7zNVEV=-ZByn8HG-QWV9+2uVw@mail.gmail.com>
-References: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com> <1399362017-25787-2-git-send-email-hchaumette@adeneo-embedded.com>
+Subject: Re: [PATCH v4 2/2] ARM: i.MX6: Add OF configuration support for ksz9031
+Date: Wed, 7 May 2014 10:31:45 -0700
+Message-ID: <CAGVrzcb6MP-LMrQDmeP8EcpN9y_RZe=_3hTYP6zZD_U5cJgdHw@mail.gmail.com>
+References: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com> <1399362017-25787-3-git-send-email-hchaumette@adeneo-embedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
@@ -18,170 +18,145 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
 To: Hubert Chaumette <hchaumette@adeneo-embedded.com>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1399362017-25787-2-git-send-email-hchaumette@adeneo-embedded.com>
+In-Reply-To: <1399362017-25787-3-git-send-email-hchaumette@adeneo-embedded.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 2014-05-06 0:40 GMT-07:00 Hubert Chaumette <hchaumette@adeneo-embedded.com>:
-> Renames micrel-ksz9021.txt to micrel-ksz90x1.txt and adds documentation for
-> the KSZ9031 binding from patch 1. Also adds step increment information, and
-> note about phy fixups.
+> Adds support for ksz9031 PAD skew configuration over devicetree.
 >
 > Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
 > ---
->  .../devicetree/bindings/net/micrel-ksz9021.txt     | 49 -------------
->  .../devicetree/bindings/net/micrel-ksz90x1.txt     | 83 ++++++++++++++++++++++
->  2 files changed, 83 insertions(+), 49 deletions(-)
->  delete mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
->  create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
+>  drivers/net/phy/micrel.c | 106 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 105 insertions(+), 1 deletion(-)
 >
-> diff --git a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt b/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
-> deleted file mode 100644
-> index 997a63f..0000000
-> --- a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
-> +++ /dev/null
-> @@ -1,49 +0,0 @@
-> -Micrel KSZ9021 Gigabit Ethernet PHY
-> -
-> -Some boards require special tuning values, particularly when it comes to
-> -clock delays.  You can specify clock delay values by adding
-> -micrel-specific properties to an Ethernet OF device node.
-> -
-> -All skew control options are specified in picoseconds.  The minimum
-> -value is 0, and the maximum value is 3000.
-> -
-> -Optional properties:
-> - - rxc-skew-ps : Skew control of RXC pad
-> - - rxdv-skew-ps : Skew control of RX CTL pad
-> - - txc-skew-ps : Skew control of TXC pad
-> - - txen-skew-ps : Skew control of TX_CTL pad
-> - - rxd0-skew-ps : Skew control of RX data 0 pad
-> - - rxd1-skew-ps : Skew control of RX data 1 pad
-> - - rxd2-skew-ps : Skew control of RX data 2 pad
-> - - rxd3-skew-ps : Skew control of RX data 3 pad
-> - - txd0-skew-ps : Skew control of TX data 0 pad
-> - - txd1-skew-ps : Skew control of TX data 1 pad
-> - - txd2-skew-ps : Skew control of TX data 2 pad
-> - - txd3-skew-ps : Skew control of TX data 3 pad
-> -
-> -Examples:
-> -
-> -       /* Attach to an Ethernet device with autodetected PHY */
-> -       &enet {
-> -               rxc-skew-ps = <3000>;
-> -               rxdv-skew-ps = <0>;
-> -               txc-skew-ps = <3000>;
-> -               txen-skew-ps = <0>;
-> -               status = "okay";
-> -       };
-> -
-> -       /* Attach to an explicitly-specified PHY */
-> -       mdio {
-> -               phy0: ethernet-phy@0 {
-> -                       rxc-skew-ps = <3000>;
-> -                       rxdv-skew-ps = <0>;
-> -                       txc-skew-ps = <3000>;
-> -                       txen-skew-ps = <0>;
-> -                       reg = <0>;
-> -               };
-> -       };
-> -       ethernet@70000 {
-> -               status = "okay";
-> -               phy = <&phy0>;
-> -               phy-mode = "rgmii-id";
-> -       };
-> diff --git a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-> new file mode 100644
-> index 0000000..692076f
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
-> @@ -0,0 +1,83 @@
-> +Micrel KSZ9021/KSZ9031 Gigabit Ethernet PHY
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index d849684..bc7c7d2 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -283,6 +283,110 @@ static int ksz9021_config_init(struct phy_device *phydev)
+>         return 0;
+>  }
+>
+> +#define MII_KSZ9031RN_MMD_CTRL_REG     0x0d
+> +#define MII_KSZ9031RN_MMD_REGDATA_REG  0x0e
+> +#define OP_DATA                                1
+> +#define KSZ9031_PS_TO_REG              60
 > +
-> +Some boards require special tuning values, particularly when it comes to
-> +clock delays. You can specify clock delay values by adding
-> +micrel-specific properties to an Ethernet OF device node.
+> +/* Extended registers */
+> +#define MII_KSZ9031RN_CONTROL_PAD_SKEW 4
+> +#define MII_KSZ9031RN_RX_DATA_PAD_SKEW 5
+> +#define MII_KSZ9031RN_TX_DATA_PAD_SKEW 6
+> +#define MII_KSZ9031RN_CLK_PAD_SKEW     8
 > +
-> +Note that these settings are applied after any phy-specific fixup from
-> +phy_fixup_list (see phy_init_hw() from drivers/net/phy/phy_device.c),
-> +and therefore may overwrite them.
+> +static int ksz9031_extended_write(struct phy_device *phydev,
+> +                                 u8 mode, u32 dev_addr, u32 regnum, u16 val)
+> +{
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, dev_addr);
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, regnum);
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, (mode << 14) | dev_addr);
+> +       return phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, val);
+> +}
 > +
-> +KSZ9021:
+> +static int ksz9031_extended_read(struct phy_device *phydev,
+> +                                u8 mode, u32 dev_addr, u32 regnum)
+> +{
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, dev_addr);
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, regnum);
+> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, (mode << 14) | dev_addr);
+> +       return phy_read(phydev, MII_KSZ9031RN_MMD_REGDATA_REG);
+> +}
 > +
-> +  All skew control options are specified in picoseconds. The minimum
-> +  value is 0, the maximum value is 3000, and it is incremented by 200ps
-> +  steps.
+> +static int ksz9031_of_load_skew_values(struct phy_device *phydev,
+> +                                      struct device_node *of_node,
+> +                                      u16 reg, size_t field_sz,
+> +                                      char *field[], u8 numfields)
+> +{
+> +       int val[4] = {-1, -2, -3, -4};
+> +       int matches = 0;
+> +       u16 mask;
+> +       u16 maxval;
+> +       u16 newval;
+> +       int i;
 > +
-> +  Optional properties:
+> +       for (i = 0; i < numfields; i++)
+> +               if (!of_property_read_u32(of_node, field[i], val + i))
+> +                       matches++;
 > +
-> +    - rxc-skew-ps : Skew control of RXC pad
-> +    - rxdv-skew-ps : Skew control of RX CTL pad
-> +    - txc-skew-ps : Skew control of TXC pad
-> +    - txen-skew-ps : Skew control of TX CTL pad
-> +    - rxd0-skew-ps : Skew control of RX data 0 pad
-> +    - rxd1-skew-ps : Skew control of RX data 1 pad
-> +    - rxd2-skew-ps : Skew control of RX data 2 pad
-> +    - rxd3-skew-ps : Skew control of RX data 3 pad
-> +    - txd0-skew-ps : Skew control of TX data 0 pad
-> +    - txd1-skew-ps : Skew control of TX data 1 pad
-> +    - txd2-skew-ps : Skew control of TX data 2 pad
-> +    - txd3-skew-ps : Skew control of TX data 3 pad
+> +       if (!matches)
+> +               return 0;
 > +
-> +KSZ9031:
+> +       if (matches < numfields)
+> +               newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
+> +       else
+> +               newval = 0;
 > +
-> +  All skew control options are specified in picoseconds. The minimum
-> +  value is 0, and the maximum is property-dependent. The increment
-> +  step is 60ps.
+> +       maxval = (field_sz == 4) ? 0xf : 0x1f;
+> +       for (i = 0; i < numfields; i++)
+> +               if (val[i] != -(i + 1)) {
+> +                       mask = 0xffff;
+> +                       mask ^= maxval << (field_sz * i);
+> +                       newval = (newval & mask) |
+> +                               (((val[i] / KSZ9031_PS_TO_REG) & maxval)
+> +                                       << (field_sz * i));
+> +               }
 > +
-> +  Optional properties:
+> +       return ksz9031_extended_write(phydev, OP_DATA, 2, reg, newval);
+> +}
 > +
-> +    Maximum value of 1860:
-> +
-> +      - rxc-skew-ps : Skew control of RX clock pad
-> +      - txc-skew-ps : Skew control of TX clock pad
-> +
-> +    Maximum value of 900:
-> +
-> +      - rxdv-skew-ps : Skew control of RX CTL pad
-> +      - txen-skew-ps : Skew control of TX CTL pad
-> +      - rxd0-skew-ps : Skew control of RX data 0 pad
-> +      - rxd1-skew-ps : Skew control of RX data 1 pad
-> +      - rxd2-skew-ps : Skew control of RX data 2 pad
-> +      - rxd3-skew-ps : Skew control of RX data 3 pad
-> +      - txd0-skew-ps : Skew control of TX data 0 pad
-> +      - txd1-skew-ps : Skew control of TX data 1 pad
-> +      - txd2-skew-ps : Skew control of TX data 2 pad
-> +      - txd3-skew-ps : Skew control of TX data 3 pad
-> +
-> +Examples:
-> +
-> +       /* Attach to an Ethernet device with autodetected PHY */
-> +       &enet {
-> +               rxc-skew-ps = <3000>;
-> +               rxdv-skew-ps = <0>;
-> +               txc-skew-ps = <3000>;
-> +               txen-skew-ps = <0>;
-> +               status = "okay";
+> +static int ksz9031_config_init(struct phy_device *phydev)
+> +{
+> +       struct device *dev = &phydev->dev;
+> +       struct device_node *of_node = dev->of_node;
+> +       char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
+> +       char *rx_data_skews[4] = {
+> +               "rxd0-skew-ps", "rxd1-skew-ps",
+> +               "rxd2-skew-ps", "rxd3-skew-ps"
 > +       };
+> +       char *tx_data_skews[4] = {
+> +               "txd0-skew-ps", "txd1-skew-ps",
+> +               "txd2-skew-ps", "txd3-skew-ps"
+> +       };
+> +       char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
 > +
-> +       /* Attach to an explicitly-specified PHY */
-> +       mdio {
-> +               phy0: ethernet-phy@0 {
-> +                       rxc-skew-ps = <3000>;
-> +                       rxdv-skew-ps = <0>;
-> +                       txc-skew-ps = <3000>;
-> +                       txen-skew-ps = <0>;
-> +                       reg = <0>;
-> +               };
-> +       };
-> +       ethernet@70000 {
-> +               status = "okay";
-> +               phy = <&phy0>;
-> +               phy-mode = "rgmii-id";
-> +       };
+> +       if (!of_node && dev->parent->of_node)
+> +               of_node = dev->parent->of_node;
+> +
+> +       if (of_node) {
+> +               ksz9031_of_load_skew_values(phydev, of_node,
+> +                               MII_KSZ9031RN_CLK_PAD_SKEW, 5,
+> +                               clk_skews, 2);
+> +
+> +               ksz9031_of_load_skew_values(phydev, of_node,
+> +                               MII_KSZ9031RN_CONTROL_PAD_SKEW, 4,
+> +                               control_skews, 2);
+> +
+> +               ksz9031_of_load_skew_values(phydev, of_node,
+> +                               MII_KSZ9031RN_RX_DATA_PAD_SKEW, 4,
+> +                               rx_data_skews, 4);
+> +
+> +               ksz9031_of_load_skew_values(phydev, of_node,
+> +                               MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
+> +                               tx_data_skews, 4);
+> +       }
+> +       return 0;
+> +}
+> +
+>  #define KSZ8873MLL_GLOBAL_CONTROL_4    0x06
+>  #define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX     (1 << 6)
+>  #define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED      (1 << 4)
+> @@ -469,7 +573,7 @@ static struct phy_driver ksphy_driver[] = {
+>         .features       = (PHY_GBIT_FEATURES | SUPPORTED_Pause
+>                                 | SUPPORTED_Asym_Pause),
+>         .flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> -       .config_init    = kszphy_config_init,
+> +       .config_init    = ksz9031_config_init,
+>         .config_aneg    = genphy_config_aneg,
+>         .read_status    = genphy_read_status,
+>         .ack_interrupt  = kszphy_ack_interrupt,
 > --
 > 2.0.0.rc0
 >
