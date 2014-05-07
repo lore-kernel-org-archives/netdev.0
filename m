@@ -1,97 +1,104 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP sockets
-Date: Wed, 7 May 2014 10:30:23 +0300
-Message-ID: <CAE1zotJXpM+crFYE8-95G6s77BGvWF0LUUNgvCjQPcr-nbmzAA@mail.gmail.com>
-References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
-	<20140507.013820.1357850416047414291.davem@davemloft.net>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH] net: sxgbe: Added tail point update
+Date: Wed, 07 May 2014 17:14:00 +0900
+Message-ID: <008b01cf69cc$4d304e50$e790eaf0$%an@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Christoph Paasch <christoph.paasch@uclouvain.be>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:42245 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031AbaEGHaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 03:30:25 -0400
-Received: by mail-we0-f178.google.com with SMTP id u56so552960wes.37
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 00:30:24 -0700 (PDT)
-In-Reply-To: <20140507.013820.1357850416047414291.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ks.giri@samsung.com, vipul.pandya@samsung.com
+To: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org
+Return-path: <linux-samsung-soc-owner@vger.kernel.org>
+Content-language: ko
+Sender: linux-samsung-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 7, 2014 at 8:38 AM, David Miller <davem@davemloft.net> wrote:
->
-> From: Octavian Purdila <octavian.purdila@intel.com>
-> Date: Tue,  6 May 2014 21:05:24 +0300
->
-> > Pardon the rough patch, but I hope it is enough to get some feedback
-> > on the overall approach.
->
-> Sorry I don't like this.
->
-> Walking a linked list unnecessary is going to add overhead to every
-> single packet transmission.  I think more people want our TCP stack to
-> be fast (everyone) than those who want option processing to be
-> abstracted enough to be modular (you).
->
-> Just make the intrusive changes, they are necessary as they force you
-> to think fully about how one option might interact with another.
->
 
-Unfortunately skb_tcp_cb does not have enough space to hold
-information for new large options. To work around that, the MPTCP
-implementation is pushing the option data in the skb and then
-occasionally uses the following when the pskb_copy is used:
+This patch adds tail point update function for rx path
+after rx_refill function. It indicates tail point for rx dma.
 
--               else
-+               if (unlikely(skb_cloned(skb))) {
-+                       struct sk_buff *newskb;
-+                       if (mptcp_is_data_seq(skb))
-+                               skb_push(skb, MPTCP_SUB_LEN_DSS_ALIGN +
-+                                             MPTCP_SUB_LEN_ACK_ALIGN +
-+                                             MPTCP_SUB_LEN_SEQ_ALIGN);
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c  |   14 +++++++++++++-
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h  |    4 ++++
+ drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c |    5 +++++
+ 3 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+index 49240c9..249b0e0 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.c
+@@ -112,7 +112,7 @@ static void sxgbe_dma_channel_init(void __iomem *ioaddr, int cha_num,
+ 
+ 	dma_addr = dma_rx + ((r_rsize - 1) * SXGBE_DESC_SIZE_BYTES);
+ 	writel(lower_32_bits(dma_addr),
+-	       ioaddr + SXGBE_DMA_CHA_RXDESC_LADD_REG(cha_num));
++	       ioaddr + SXGBE_DMA_CHA_RXDESC_TAILPTR_REG(cha_num));
+ 	/* program the ring sizes */
+ 	writel(t_rsize - 1, ioaddr + SXGBE_DMA_CHA_TXDESC_RINGLEN_REG(cha_num));
+ 	writel(r_rsize - 1, ioaddr + SXGBE_DMA_CHA_RXDESC_RINGLEN_REG(cha_num));
+@@ -370,6 +370,17 @@ static void sxgbe_enable_tso(void __iomem *ioaddr, u8 chan_num)
+ 	writel(ctrl, ioaddr + SXGBE_DMA_CHA_TXCTL_REG(chan_num));
+ }
+ 
++static void sxgbe_dma_update_rxdesc_tail_ptr(void __iomem *ioaddr, u8 chan_num,
++					      dma_addr_t dma_rx_phy, int cur_rx,
++					      int rxsize)
++{
++	u32 reg_val;
 +
-+                       newskb = pskb_copy(skb, gfp_mask);
++	reg_val = (dma_rx_phy & 0xFFFFFFFF) + ((cur_rx % rxsize) *
++					       SXGBE_DESC_SIZE_BYTES);
++	writel(reg_val, ioaddr + SXGBE_DMA_CHA_RXDESC_TAILPTR_REG(chan_num));
++}
 +
-+                       if (mptcp_is_data_seq(skb)) {
-+                               skb_pull(skb, MPTCP_SUB_LEN_DSS_ALIGN +
-+                                             MPTCP_SUB_LEN_ACK_ALIGN +
-+                                             MPTCP_SUB_LEN_SEQ_ALIGN);
-+                               if (newskb)
-+                                       skb_pull(newskb,
-MPTCP_SUB_LEN_DSS_ALIGN +
+ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
+ 	.init				= sxgbe_dma_init,
+ 	.cha_init			= sxgbe_dma_channel_init,
+@@ -386,6 +397,7 @@ static const struct sxgbe_dma_ops sxgbe_dma_ops = {
+ 	.rx_dma_int_status		= sxgbe_rx_dma_int_status,
+ 	.rx_watchdog			= sxgbe_dma_rx_watchdog,
+ 	.enable_tso			= sxgbe_enable_tso,
++	.update_rxdesc_tail_ptr		= sxgbe_dma_update_rxdesc_tail_ptr,
+ };
+ 
+ const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void)
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
+index 843fa9b..a06e01e 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_dma.h
+@@ -43,6 +43,10 @@ struct sxgbe_dma_ops {
+ 	void (*rx_watchdog)(void __iomem *ioaddr, u32 riwt);
+ 	/* Enable TSO for each DMA channel */
+ 	void (*enable_tso)(void __iomem *ioaddr, u8 chan_num);
++	void (*update_rxdesc_tail_ptr)(void __iomem *ioaddr, u8 chan_num,
++				       dma_addr_t dma_rx, int r_rentry,
++				       int r_rsize);
 +
-MPTCP_SUB_LEN_ACK_ALIGN +
-+
-MPTCP_SUB_LEN_SEQ_ALIGN);
-+                       }
-+                       skb = newskb;
-+               } else {
-                        skb = skb_clone(skb, gfp_mask);
-+               }
-
-MPTCP has many other intrusive changes in the TCP stack. To avoid that
-complexity, we could do the bulk of the implementation in a separate
-layer, on top of TCP. But we would need a mechanism to pass the
-options down to the TCP layer somehow.
-
-> I also disagree with the "if the option doesn't fit, send it in the
-> next packet" idea.  Where did that come from?
->
-> For SACK for example, that doesn't make any sense, and it's SACK
-> that usually can put us past the amount of space available.  For
-> SACK the thing to do is send the SACK information for the area
-> closest to what we've fully ACKd and just forget about advertising
-> the rest of the SACK blocks.
-
-It is useful for MPTCP. A few MPTCP options are 12-20 bytes but if you
-already have timestamps and SACK in the packet there is not enough
-space to include it. However, MPTCP does not bound you to sent the
-options immediately, they can be sent at a later time.
-
-The patch may look like an "abstraction bloat", but it is just a way
-of trying to to keep adding more complexity in the TCP stack when
-implementing MPTCP. If people have other ideas of how can we
-accomplish that, so that we can integrate MPTCP upstream, I am keenly
-looking for suggestions.
+ };
+ 
+ const struct sxgbe_dma_ops *sxgbe_get_dma_ops(void);
+diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+index 93bf151..7dc3449 100644
+--- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
++++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_main.c
+@@ -1521,6 +1521,7 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 		skb_put(skb, frame_len);
+ 
+ 		skb->ip_summed = checksum;
++		skb->protocol = eth_type_trans(skb, priv->dev);
+ 		if (checksum == CHECKSUM_NONE)
+ 			netif_receive_skb(skb);
+ 		else
+@@ -1530,6 +1531,10 @@ static int sxgbe_rx(struct sxgbe_priv_data *priv, int limit)
+ 	}
+ 
+ 	sxgbe_rx_refill(priv);
++	priv->hw->dma->update_rxdesc_tail_ptr(priv->ioaddr, qnum,
++					      priv->rxq[qnum]->dma_rx_phy,
++					      priv->rxq[qnum]->cur_rx,
++					      priv->dma_rx_size);
+ 
+ 	return count;
+ }
+-- 
+1.7.10.4
