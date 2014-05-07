@@ -1,89 +1,192 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: mdio: of_mdio: check for already registered phy
- before creating new instances
-Date: Wed, 7 May 2014 10:26:14 -0700
-Message-ID: <CAGVrzcZL7w8vRQ6-3NEqLK3VFHa-c1BMUVoaWSKmD2RXRedMCw@mail.gmail.com>
-References: <1399389711-32716-1-git-send-email-zonque@gmail.com>
- <CAGVrzcY+3xeDzMAe1683+ypF59eMN9oTss6LC_rLShuEpmC4NA@mail.gmail.com> <536A58EF.4070206@gmail.com>
+Subject: Re: [PATCH v4 1/2] Update Micrel KSZ90x1 binding documentation
+Date: Wed, 7 May 2014 10:31:02 -0700
+Message-ID: <CAGVrzcY=RaWEPFwsifw_RymBZ7zNVEV=-ZByn8HG-QWV9+2uVw@mail.gmail.com>
+References: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com> <1399362017-25787-2-git-send-email-hchaumette@adeneo-embedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Grant Likely <grant.likely@linaro.org>,
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Rob Herring <robh+dt@kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:42260 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750900AbaEGR0z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 13:26:55 -0400
-Received: by mail-qa0-f42.google.com with SMTP id j5so1335961qaq.29
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 10:26:54 -0700 (PDT)
-In-Reply-To: <536A58EF.4070206@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Randy Dunlap <rdunlap@infradead.org>, xobs@kosagi.com,
+	David Miller <davem@davemloft.net>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <1399362017-25787-2-git-send-email-hchaumette@adeneo-embedded.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
-
-2014-05-07 9:01 GMT-07:00 Daniel Mack <zonque@gmail.com>:
-> (+ Mugunthan V N)
+2014-05-06 0:40 GMT-07:00 Hubert Chaumette <hchaumette@adeneo-embedded.com>:
+> Renames micrel-ksz9021.txt to micrel-ksz90x1.txt and adds documentation for
+> the KSZ9031 binding from patch 1. Also adds step increment information, and
+> note about phy fixups.
 >
-> Hi Florian,
+> Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
+
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  .../devicetree/bindings/net/micrel-ksz9021.txt     | 49 -------------
+>  .../devicetree/bindings/net/micrel-ksz90x1.txt     | 83 ++++++++++++++++++++++
+>  2 files changed, 83 insertions(+), 49 deletions(-)
+>  delete mode 100644 Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+>  create mode 100644 Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
 >
-> On 05/07/2014 02:55 AM, Florian Fainelli wrote:
->> 2014-05-06 8:21 GMT-07:00 Daniel Mack <zonque@gmail.com>:
->>> In of_mdiobus_register_phy(), check if the phy with the given address is
->>> already registered within the mii bus before calling phy_device_create()
->>> or get_phy_device().
->>
->> I am not exactly sure how you could be in that sort of situation.
->> of_mdiobus_register() handles two different cases at the moment:
->>
->> 1) PHY child nodes have a valid 'reg' property, and this property is
->> used to register the PHY at the given address
->> 2) if a PHY child node does not have a valid 'reg' property, which
->> will trigger an auto-scan and then we iterate through all 32 addresses
->> of the bus, we skip over PHYs that are already registered
->>
->>>
->>> This allows us to augment auto-probed phy devices with extra information
->>> via DT. Without this patch, a second instance of the phydev is created
->>> unnecessarily.
->>
->> Which piece of code is doing the auto-probing in your case? One of the
->> very first things that of_mdiobus_register() does is set the PHY mask
->> to 0xffffffff to prevent the default PHY probing method to trigger,
->> since we are using information from the Device Tree right after that.
+> diff --git a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt b/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+> deleted file mode 100644
+> index 997a63f..0000000
+> --- a/Documentation/devicetree/bindings/net/micrel-ksz9021.txt
+> +++ /dev/null
+> @@ -1,49 +0,0 @@
+> -Micrel KSZ9021 Gigabit Ethernet PHY
+> -
+> -Some boards require special tuning values, particularly when it comes to
+> -clock delays.  You can specify clock delay values by adding
+> -micrel-specific properties to an Ethernet OF device node.
+> -
+> -All skew control options are specified in picoseconds.  The minimum
+> -value is 0, and the maximum value is 3000.
+> -
+> -Optional properties:
+> - - rxc-skew-ps : Skew control of RXC pad
+> - - rxdv-skew-ps : Skew control of RX CTL pad
+> - - txc-skew-ps : Skew control of TXC pad
+> - - txen-skew-ps : Skew control of TX_CTL pad
+> - - rxd0-skew-ps : Skew control of RX data 0 pad
+> - - rxd1-skew-ps : Skew control of RX data 1 pad
+> - - rxd2-skew-ps : Skew control of RX data 2 pad
+> - - rxd3-skew-ps : Skew control of RX data 3 pad
+> - - txd0-skew-ps : Skew control of TX data 0 pad
+> - - txd1-skew-ps : Skew control of TX data 1 pad
+> - - txd2-skew-ps : Skew control of TX data 2 pad
+> - - txd3-skew-ps : Skew control of TX data 3 pad
+> -
+> -Examples:
+> -
+> -       /* Attach to an Ethernet device with autodetected PHY */
+> -       &enet {
+> -               rxc-skew-ps = <3000>;
+> -               rxdv-skew-ps = <0>;
+> -               txc-skew-ps = <3000>;
+> -               txen-skew-ps = <0>;
+> -               status = "okay";
+> -       };
+> -
+> -       /* Attach to an explicitly-specified PHY */
+> -       mdio {
+> -               phy0: ethernet-phy@0 {
+> -                       rxc-skew-ps = <3000>;
+> -                       rxdv-skew-ps = <0>;
+> -                       txc-skew-ps = <3000>;
+> -                       txen-skew-ps = <0>;
+> -                       reg = <0>;
+> -               };
+> -       };
+> -       ethernet@70000 {
+> -               status = "okay";
+> -               phy = <&phy0>;
+> -               phy-mode = "rgmii-id";
+> -       };
+> diff --git a/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
+> new file mode 100644
+> index 0000000..692076f
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
+> @@ -0,0 +1,83 @@
+> +Micrel KSZ9021/KSZ9031 Gigabit Ethernet PHY
+> +
+> +Some boards require special tuning values, particularly when it comes to
+> +clock delays. You can specify clock delay values by adding
+> +micrel-specific properties to an Ethernet OF device node.
+> +
+> +Note that these settings are applied after any phy-specific fixup from
+> +phy_fixup_list (see phy_init_hw() from drivers/net/phy/phy_device.c),
+> +and therefore may overwrite them.
+> +
+> +KSZ9021:
+> +
+> +  All skew control options are specified in picoseconds. The minimum
+> +  value is 0, the maximum value is 3000, and it is incremented by 200ps
+> +  steps.
+> +
+> +  Optional properties:
+> +
+> +    - rxc-skew-ps : Skew control of RXC pad
+> +    - rxdv-skew-ps : Skew control of RX CTL pad
+> +    - txc-skew-ps : Skew control of TXC pad
+> +    - txen-skew-ps : Skew control of TX CTL pad
+> +    - rxd0-skew-ps : Skew control of RX data 0 pad
+> +    - rxd1-skew-ps : Skew control of RX data 1 pad
+> +    - rxd2-skew-ps : Skew control of RX data 2 pad
+> +    - rxd3-skew-ps : Skew control of RX data 3 pad
+> +    - txd0-skew-ps : Skew control of TX data 0 pad
+> +    - txd1-skew-ps : Skew control of TX data 1 pad
+> +    - txd2-skew-ps : Skew control of TX data 2 pad
+> +    - txd3-skew-ps : Skew control of TX data 3 pad
+> +
+> +KSZ9031:
+> +
+> +  All skew control options are specified in picoseconds. The minimum
+> +  value is 0, and the maximum is property-dependent. The increment
+> +  step is 60ps.
+> +
+> +  Optional properties:
+> +
+> +    Maximum value of 1860:
+> +
+> +      - rxc-skew-ps : Skew control of RX clock pad
+> +      - txc-skew-ps : Skew control of TX clock pad
+> +
+> +    Maximum value of 900:
+> +
+> +      - rxdv-skew-ps : Skew control of RX CTL pad
+> +      - txen-skew-ps : Skew control of TX CTL pad
+> +      - rxd0-skew-ps : Skew control of RX data 0 pad
+> +      - rxd1-skew-ps : Skew control of RX data 1 pad
+> +      - rxd2-skew-ps : Skew control of RX data 2 pad
+> +      - rxd3-skew-ps : Skew control of RX data 3 pad
+> +      - txd0-skew-ps : Skew control of TX data 0 pad
+> +      - txd1-skew-ps : Skew control of TX data 1 pad
+> +      - txd2-skew-ps : Skew control of TX data 2 pad
+> +      - txd3-skew-ps : Skew control of TX data 3 pad
+> +
+> +Examples:
+> +
+> +       /* Attach to an Ethernet device with autodetected PHY */
+> +       &enet {
+> +               rxc-skew-ps = <3000>;
+> +               rxdv-skew-ps = <0>;
+> +               txc-skew-ps = <3000>;
+> +               txen-skew-ps = <0>;
+> +               status = "okay";
+> +       };
+> +
+> +       /* Attach to an explicitly-specified PHY */
+> +       mdio {
+> +               phy0: ethernet-phy@0 {
+> +                       rxc-skew-ps = <3000>;
+> +                       rxdv-skew-ps = <0>;
+> +                       txc-skew-ps = <3000>;
+> +                       txen-skew-ps = <0>;
+> +                       reg = <0>;
+> +               };
+> +       };
+> +       ethernet@70000 {
+> +               status = "okay";
+> +               phy = <&phy0>;
+> +               phy-mode = "rgmii-id";
+> +       };
+> --
+> 2.0.0.rc0
 >
-> Ah, ok. So what happens here is that of_mdiobus_register() sets the
-> phy_mask to ~0, but mdiobus_register() calls bus->reset(), which resets
-> the mask to ffffffef in my case. bus->reset is davinci_mdio_reset() in
-> my case.
 
-I see, something similar exists with TI's CPMAC driver too, where the
-MDIO bus can tell you which MDIO slave is alive.
 
->
-> Is the davinci mdio driver doing anything wrong by touching
-> bus->phy_mask?
 
-Not really, I think it is valid to do this as part of the
-mdiobus_reset() callback. This worked much better with non-DT
-configurations because nothing would override the phy_mask.
-
-> Another solution would be to split mdiobus_register() and
-> create a mdiobus_register_noscan() or something, and then call that from
-> of_mdiobus_register().
-
-That, or have a specific MDIO bus controller node boolean property
-such as  "mdio-bus-autoscan" or something similar which will tell
-of_mdiobus_register() not to override the phy_mask since the MDIO bus
-controller is capable of auto-detecting the PHYs present.
-
-This should not be too controversial as we should really be describing
-a feature of the hardware here.
-
-What do you think?
 -- 
 Florian
