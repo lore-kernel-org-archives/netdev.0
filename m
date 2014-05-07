@@ -1,68 +1,73 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH] net: mdio: of_mdio: check for already registered phy
- before creating new instances
-Date: Wed, 07 May 2014 18:01:51 +0200
-Message-ID: <536A58EF.4070206@gmail.com>
-References: <1399389711-32716-1-git-send-email-zonque@gmail.com> <CAGVrzcY+3xeDzMAe1683+ypF59eMN9oTss6LC_rLShuEpmC4NA@mail.gmail.com>
+From: V JobNickname <workofv@gmail.com>
+Subject: Re: Is 3.18 patch "The tcp: TSO packets automatic sizing" will cause
+ to Troughput drop when enable NO_HZ_IDEL or HIGH_RES_TIMERS ?
+Date: Thu, 8 May 2014 00:18:32 +0800
+Message-ID: <CANHbGWuiKAO=kufFYNVn6y+75Zk68X1FWD45uj0+k-hGmoDqkw@mail.gmail.com>
+References: <CANHbGWs=oQBDVVZc8h5wX0WY+PRbQfCqiv5FrF1tH29QGiRndA@mail.gmail.com>
+	<1399393821.15399.12.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1399394474.15399.22.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CANHbGWttbfApi_K3HHFAFSa1=76fDmx2PP5bon1gzB1wOZXtAw@mail.gmail.com>
+	<1399477552.15399.150.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:34215 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933028AbaEGQBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 12:01:54 -0400
-Received: by mail-ee0-f43.google.com with SMTP id d17so894914eek.16
-        for <netdev@vger.kernel.org>; Wed, 07 May 2014 09:01:53 -0700 (PDT)
-In-Reply-To: <CAGVrzcY+3xeDzMAe1683+ypF59eMN9oTss6LC_rLShuEpmC4NA@mail.gmail.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:63260 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751129AbaEGQSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 12:18:33 -0400
+Received: by mail-ie0-f170.google.com with SMTP id rd18so1258797iec.1
+        for <netdev@vger.kernel.org>; Wed, 07 May 2014 09:18:32 -0700 (PDT)
+In-Reply-To: <1399477552.15399.150.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(+ Mugunthan V N)
+Try to lower
+#define STMMAC_COAL_TX_TIMER    10000
+or
+#define STMMAC_TX_FRAMES    0 (this will casue to skip coalescing path)
+can't solve the issue.
 
-Hi Florian,
-
-On 05/07/2014 02:55 AM, Florian Fainelli wrote:
-> 2014-05-06 8:21 GMT-07:00 Daniel Mack <zonque@gmail.com>:
->> In of_mdiobus_register_phy(), check if the phy with the given address is
->> already registered within the mii bus before calling phy_device_create()
->> or get_phy_device().
-> 
-> I am not exactly sure how you could be in that sort of situation.
-> of_mdiobus_register() handles two different cases at the moment:
-> 
-> 1) PHY child nodes have a valid 'reg' property, and this property is
-> used to register the PHY at the given address
-> 2) if a PHY child node does not have a valid 'reg' property, which
-> will trigger an auto-scan and then we iterate through all 32 addresses
-> of the bus, we skip over PHYs that are already registered
-> 
+2014-05-07 23:45 GMT+08:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2014-05-07 at 22:27 +0800, V JobNickname wrote:
+>> 2014-05-07 0:41 GMT+08:00 Eric Dumazet <eric.dumazet@gmail.com>:
+>> > On Tue, 2014-05-06 at 09:30 -0700, Eric Dumazet wrote:
+>> >
+>> >> I cant see any effect for this patch explaining a 50% reduction in
+>> >> speed, unless a special qdisc setup maybe.
+>> >
+>> > Oh wait, a buggy driver could explain the problem.
+>> >
+>> > Some drivers really expected TX completion to happen as a side effect of
+>> > subsequent transmits.
+>> >
+>> > You'll have to give more details on the configuration you are using.
+>> >
+>> >
+>> >
+>> Does the "buggy driver" here mean the NIC driver or some higher level
+>> network stack driver?
+>> The xmit function of the used NIC driver is to stuff DMA channel, is
+>> there have "expected Tx completion" behavior in the driver's flow ?
 >>
->> This allows us to augment auto-probed phy devices with extra information
->> via DT. Without this patch, a second instance of the phydev is created
->> unnecessarily.
-> 
-> Which piece of code is doing the auto-probing in your case? One of the
-> very first things that of_mdiobus_register() does is set the PHY mask
-> to 0xffffffff to prevent the default PHY probing method to trigger,
-> since we are using information from the Device Tree right after that.
-
-Ah, ok. So what happens here is that of_mdiobus_register() sets the
-phy_mask to ~0, but mdiobus_register() calls bus->reset(), which resets
-the mask to ffffffef in my case. bus->reset is davinci_mdio_reset() in
-my case.
-
-Is the davinci mdio driver doing anything wrong by touching
-bus->phy_mask? Another solution would be to split mdiobus_register() and
-create a mdiobus_register_noscan() or something, and then call that from
-of_mdiobus_register().
-
-
-Thanks,
-Daniel
+>> The more detail:
+>>
+>> 1. The platform's NIC is compilable with dwmac, use driver
+>> ethernet/stmicro/stmmac
+>>      some feature controls in plat_stmmacenet_data are set as
+>>         .phy_bus_name = "stmmac",
+>>         .bus_id = 0,
+>>         .phy_addr = -1, /*auto phy by pooling by mdio bus */
+>>         .has_gmac = 1,
+>>         .enh_desc = 0,
+>>         .tx_coe = 1,
+>>         .rx_coe = STMMAC_RX_COE_TYPE2,
+>
+> Right, this driver seems to implement a 'coalescing tx strategy' using a
+> 40ms timer.
+>
+> Try to lower STMMAC_COAL_TX_TIMER ?
+>
+>
+>
