@@ -1,42 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: Add support for adaptive interrupt
- coalescing
-Date: Wed, 07 May 2014 17:00:43 -0400 (EDT)
-Message-ID: <20140507.170043.896249393177676627.davem@davemloft.net>
-References: <1399386262-20769-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH 2/3] rtnetlink: fix potential NULL pointer dereference
+Date: Wed, 07 May 2014 17:04:16 -0400 (EDT)
+Message-ID: <20140507.170416.948105227236114740.davem@davemloft.net>
+References: <cover.1399388943.git.popovich_sergei@mail.ru>
+	<d525a30e52966da564bc3e4de31c4197a989b2ae.1399388943.git.popovich_sergei@mail.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com,
-	neepatel@cisco.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org
+To: popovich_sergei@mail.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51876 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51920 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750786AbaEGVAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:00:45 -0400
-In-Reply-To: <1399386262-20769-1-git-send-email-_govind@gmx.com>
+	with ESMTP id S1751377AbaEGVES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:04:18 -0400
+In-Reply-To: <d525a30e52966da564bc3e4de31c4197a989b2ae.1399388943.git.popovich_sergei@mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Tue,  6 May 2014 19:54:22 +0530
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Date: Tue,  6 May 2014 18:13:16 +0300
 
-> From: Sujith Sankar <ssujith@cisco.com>
-> 
-> Signed-off-by: Sujith Sankar <ssujith@cisco.com>
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Now since commit fbdc1e8c6b79 (rtnetlink: walk through all devs in
+> netns safely on link params change) group of network devices can
 
-Please never submit patches except absolutely the most extremely
-trivial ones without a real commit log message explaining what
-the change does, how it does it, and why you implemented it that
-way.
+This is not how you do this, first of all that SHA ID doesn't exist
+in any tree other than your's.  It's not an existing commit, but
+rather one you are adding in this series.
 
-> +enum hrtimer_restart enic_hrtimer_cb(struct hrtimer *timer)
-> +{
-> +	return HRTIMER_RESTART;
-> +}
+And secondly, and even more importantly, your patch in this series
+is adding this new NULL pointer case.
 
-For example, I have no idea why in the world you need an hrtimer whose
-function is a complete NOP if the networking hardware does the
-interrupt coalescing for you.
+Therefore you should adjust your first patch to handle this properly
+since it introduced the possibility of it happening in the first
+place.
