@@ -1,66 +1,88 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 1/3 RESEND] bonding: remove the unnecessary struct bond_net
-Date: Wed, 7 May 2014 22:10:19 +0800
-Message-ID: <1399471821-11252-2-git-send-email-dingtianhong@huawei.com>
-References: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP sockets
+Date: Wed, 7 May 2014 16:11:08 +0200
+Message-ID: <20140507141108.GG4686@cpaasch-mac>
+References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
+ <20140507.013820.1357850416047414291.davem@davemloft.net>
+ <bc98535539ef4d2c9cb6f53f85068b65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+ <20140507134620.GF4686@cpaasch-mac>
+ <906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <fubar@us.ibm.com>, <vfalico@redhat.com>, <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Octavian Purdila <octavian.purdila@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:29526 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756030AbaEGOLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:11:01 -0400
-In-Reply-To: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39782 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaEGOLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 10:11:17 -0400
+Content-Disposition: inline
+In-Reply-To: <906b020ccf1b4e1b98ac414147259a65@UCL-MBX03.OASIS.UCLOUVAIN.BE>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the structure bond_net forward, and remove the unnecessary structure declaration.
+On 07/05/14 - 14:04:36, Octavian Purdila wrote:
+> On Wed, May 7, 2014 at 4:46 PM, Christoph Paasch
+> <christoph.paasch@uclouvain.be> wrote:
+> > On 07/05/14 - 07:30:23, Octavian Purdila wrote:
+> >> Unfortunately skb_tcp_cb does not have enough space to hold
+> >> information for new large options. To work around that, the MPTCP
+> >> implementation is pushing the option data in the skb and then
+> >> occasionally uses the following when the pskb_copy is used:
+> >>
+> >> -               else
+> >> +               if (unlikely(skb_cloned(skb))) {
+> >> +                       struct sk_buff *newskb;
+> >> +                       if (mptcp_is_data_seq(skb))
+> >> +                               skb_push(skb, MPTCP_SUB_LEN_DSS_ALIGN +
+> >> +                                             MPTCP_SUB_LEN_ACK_ALIGN +
+> >> +                                             MPTCP_SUB_LEN_SEQ_ALIGN);
+> >> +
+> >> +                       newskb = pskb_copy(skb, gfp_mask);
+> >> +
+> >> +                       if (mptcp_is_data_seq(skb)) {
+> >> +                               skb_pull(skb, MPTCP_SUB_LEN_DSS_ALIGN +
+> >> +                                             MPTCP_SUB_LEN_ACK_ALIGN +
+> >> +                                             MPTCP_SUB_LEN_SEQ_ALIGN);
+> >> +                               if (newskb)
+> >> +                                       skb_pull(newskb,
+> >> MPTCP_SUB_LEN_DSS_ALIGN +
+> >> +
+> >> MPTCP_SUB_LEN_ACK_ALIGN +
+> >> +
+> >> MPTCP_SUB_LEN_SEQ_ALIGN);
+> >> +                       }
+> >> +                       skb = newskb;
+> >> +               } else {
+> >>                         skb = skb_clone(skb, gfp_mask);
+> >> +               }
+> >>
+> >> MPTCP has many other intrusive changes in the TCP stack. To avoid that
+> >> complexity, we could do the bulk of the implementation in a separate
+> >> layer, on top of TCP. But we would need a mechanism to pass the
+> >> options down to the TCP layer somehow.
+> >
+> > Why not extend the head-space of the linear data of the skb as we discussed
+> > already previously on mptcp-dev? Just in a similar way as 'struct can_skb_priv'
+> > is being used. This would avoid this expensive list-processing and clean up
+> > the above example you give.
+> >
+> > Or did something else prevented to do it in such a way?
+> >
+> 
+> You mean storing options at skb->head? Wouldn't we have the same issue
+> as above for pskb_copy?
 
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bonding.h | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
+Yes, but it could be done in a more "clean" way so that future extensions to
+TCP are no more limited by the limitation of struct tcp_skb_cb.
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index b8bdd0a..9f23bf3 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -487,7 +487,14 @@ static inline bool slave_can_tx(struct slave *slave)
- 		return false;
- }
- 
--struct bond_net;
-+struct bond_net {
-+	struct net		*net;	/* Associated network namespace */
-+	struct list_head	dev_list;
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry	*proc_dir;
-+#endif
-+	struct class_attribute	class_attr_bonding_masters;
-+};
- 
- int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond, struct slave *slave);
- void bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
-@@ -516,15 +523,6 @@ struct net_device *bond_option_active_slave_get_rcu(struct bonding *bond);
- struct net_device *bond_option_active_slave_get(struct bonding *bond);
- const char *bond_slave_link_status(s8 link);
- 
--struct bond_net {
--	struct net *		net;	/* Associated network namespace */
--	struct list_head	dev_list;
--#ifdef CONFIG_PROC_FS
--	struct proc_dir_entry *	proc_dir;
--#endif
--	struct class_attribute	class_attr_bonding_masters;
--};
--
- #ifdef CONFIG_PROC_FS
- void bond_create_proc_entry(struct bonding *bond);
- void bond_remove_proc_entry(struct bonding *bond);
--- 
-1.8.0
+Basically, allow some memory inside the linear part to be used by the layer
+the skb is currently at and let pskb_copy handle it properly (not like the
+current 'hack' in tcp_transmit_skb).
+This allows extensions at any layer who are not widely enough used to justify increasing
+skb->cb.
+
+
+Cheers,
+Christoph
