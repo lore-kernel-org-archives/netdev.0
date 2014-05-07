@@ -1,44 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP
- sockets
-Date: Wed, 07 May 2014 01:38:20 -0400 (EDT)
-Message-ID: <20140507.013820.1357850416047414291.davem@davemloft.net>
-References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH 3/3] net: mvneta: Introduce a software TSO implementation
+Date: Wed, 7 May 2014 08:04:25 +0200
+Message-ID: <20140507060425.GE8325@1wt.eu>
+References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com> <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com> <20140505144702.GB12693@arch.cereza>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: octavian.purdila@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, cmetcalf@tilera.com,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Simon Guinot <sguinot@lacie.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45379 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbaEGFjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 01:39:06 -0400
-In-Reply-To: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
+Received: from 1wt.eu ([62.212.114.60]:33858 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750946AbaEGGFB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2014 02:05:01 -0400
+Content-Disposition: inline
+In-Reply-To: <20140505144702.GB12693@arch.cereza>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <octavian.purdila@intel.com>
-Date: Tue,  6 May 2014 21:05:24 +0300
+Hi Ezequiel,
 
-> Pardon the rough patch, but I hope it is enough to get some feedback
-> on the overall approach.
+On Mon, May 05, 2014 at 11:47:02AM -0300, Ezequiel Garcia wrote:
+> Hi all,
+> 
+> On 10 Apr 07:58 PM, Ezequiel Garcia wrote:
+> [..]
+> > +
+> > +	/* Calculate expected number of TX descriptors */
+> > +	desc_count = skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
+> > +	if ((txq->count + desc_count) >= txq->size)
+> > +		return 0;
+> > +
+> 
+> Is this calculus correct? Does it give the accurate number of needed
+> descriptors or is it an approximation?
+> 
+> Tilera's tilegx driver does a much stricter descriptor count (see
+> tso_count_edescs). This functions loops through the skb_frag_t fragments
+> as it's done later in the data egress, hence strictly counting the
+> needed descriptors.
+> 
+> However, as it's a much heavier routine than the one shown above,
+> I'm wondering if we can get away without it.
+> 
+> Willy, Any ideas here?
 
-Sorry I don't like this.
+I think we don't absolutely need to have the exact value, provided we
+don't fall into the case where we cannot send a single skb with an
+empty queue. Here we have 532 tx descriptors max, which means that
+with an MSS below 246 bytes, we may fall into this situation.
 
-Walking a linked list unnecessary is going to add overhead to every
-single packet transmission.  I think more people want our TCP stack to
-be fast (everyone) than those who want option processing to be
-abstracted enough to be modular (you).
+Eric pointed out commit 7e6d06f0de3f7 which applies a limit on the
+number of segments for the sfc driver, I think you should take a look
+at it. I haven't played with gso_max_segs yet, but there are clear
+explanations in the commit message and in the comments that can serve
+as a nice starting point.
 
-Just make the intrusive changes, they are necessary as they force you
-to think fully about how one option might interact with another.
+Hoping this helps :-/
 
-I also disagree with the "if the option doesn't fit, send it in the
-next packet" idea.  Where did that come from?
-
-For SACK for example, that doesn't make any sense, and it's SACK
-that usually can put us past the amount of space available.  For
-SACK the thing to do is send the SACK information for the area
-closest to what we've fully ACKd and just forget about advertising
-the rest of the SACK blocks.
+Willy
