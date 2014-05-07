@@ -1,25 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mellanox: Logging message cleanups
-Date: Wed, 07 May 2014 15:41:08 -0400 (EDT)
-Message-ID: <20140507.154108.567253192690937393.davem@davemloft.net>
-References: <e029b6ed75d46cfbada06622df91d4d331eeabde.1399259459.git.joe@perches.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch v] isdn: hisax: remove some dead code
+Date: Wed, 07 May 2014 15:44:06 -0400 (EDT)
+Message-ID: <20140507.154406.1455843067836633870.davem@davemloft.net>
+References: <53668DFC.6040106@bfs.de>
+	<20140505085305.GA17365@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <e029b6ed75d46cfbada06622df91d4d331eeabde.1399259459.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: isdn@linux-pingi.de, jkosina@suse.cz, rdunlap@infradead.org,
+	standby24x7@gmail.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, wharms@bfs.de
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20140505085305.GA17365@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 5 May 2014 11:53:05 +0300
 
-Joe, please get rid of the initial empty line you're adding to fw.c and
-resubmit with Amir's ACK.
+> The HISAX_HFC4S8S_PCIMEM code hasn't been able to compile since before
+> the start of git history.  I have deleted it.
+> 
+> There are also a few indenting mistakes where one side of the ifdef
+> wasn't indented correctly which I fixed as well.
+> 
+> Reported-by: Walter Harms <wharms@bfs.de>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: delete the dead ifdefed code.
 
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll apply this to net-next, thanks Dan.
