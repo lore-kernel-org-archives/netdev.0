@@ -1,66 +1,68 @@
-From: Tim Bird <tbird20d@gmail.com>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Wed, 7 May 2014 15:19:03 -0700
-Message-ID: <CA+bK7J78WdJmH7omCKgOBDwr_qQV83xezoar89MQE=LYSeEthQ@mail.gmail.com>
-References: <20140505.232327.578134514220748085.davem@davemloft.net>
-	<1399351148.8767.84.camel@empanada>
-	<20140507145938.79110827@alan.etchedpixels.co.uk>
-	<20140507.132021.591444790908478214.davem@davemloft.net>
+From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+Subject: Re: [PATCH 5/5] net: Use netlink_ns_capable to verify the permisions
+ of netlink messages
+Date: Thu, 08 May 2014 00:18:57 +0200
+Message-ID: <536AB151.2070804@dti2.net>
+References: <CALCETrWzUQ7QjykT85ExDfX-+9eDD-D-dcxofUMPvLK=ia9arg@mail.gmail.com>	<87r44qrt8v.fsf_-_@x220.int.ebiederm.org>	<87r44pnk3c.fsf@x220.int.ebiederm.org>	<20140423.153216.1388028648299605195.davem@davemloft.net>	<87a9bbeo2o.fsf_-_@x220.int.ebiederm.org> <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: gnomes@lxorguk.ukuu.org.uk, tom.zanussi@linux.intel.com,
-	andi@firstfloor.org, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140507.132021.591444790908478214.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: vgoyal@redhat.com, ssorce@redhat.com, security@kernel.org,
+	luto@amacapital.net, netdev@vger.kernel.org, serge@hallyn.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alcalazamora.dti2.net ([81.24.162.8]:60476 "EHLO
+	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751163AbaEGWYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 18:24:30 -0400
+Received: from [172.16.16.6] ([81.24.161.20])
+	(authenticated user jorge@dti2.net)
+	by alcalazamora.dti2.net (alcalazamora.dti2.net [81.24.162.8])
+	(MDaemon PRO v13.5.2)
+	with ESMTP id md50034321318.msg
+	for <netdev@vger.kernel.org>; Thu, 08 May 2014 00:18:58 +0200
+In-Reply-To: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 7, 2014 at 10:20 AM, David Miller <davem@davemloft.net> wrote:
-> From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-> Date: Wed, 7 May 2014 14:59:38 +0100
->
->> 16MB of DRAM means adding a chip to your system. You've just exceeded the
->> space, power and cost budget on the very low end. In many cases like FPGA
->> systems you can't even add DRAM without major hoop jumping.
->
-> A year or so for now this may not be true, which makes these kinds of changes
-> very nearly in the "point in time solution" category.
->
-> My main point in all of this is that whilst Linux should work on a braod range
-> of system types, there has to be a limit somewhere and I think 2MB is off
-> the deep end.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+El 23/04/2014 23:29, Eric W. Biederman escribi=F3:
+>=20
+> It is possible by passing a netlink socket to a more privileged=20
+> executable and then to fool that executable into writing to the=20
+> socket data that happens to be valid netlink message to do something=20
+> that privileged executable did not intend to do.
+>=20
+> To keep this from happening replace bare capable and ns_capable calls
+> with netlink_capable, netlink_net_calls and netlink_ns_capable calls.
+> Which act the same as the previous calls except they verify that the
+> opener of the socket had the desired permissions as well.
+>=20
 
-Linux 2.6.33 is currently running on a microcontroller with 2MB of flash
-and 256K of RAM.  See Vitaly Wool's presentation from ELC about
-this here:
-http://elinux.org/images/c/ca/Spreading.pdf.
-It might be off the deep end, but I think that's pretty exciting.
+	Hi, after this patch, zebra daemon of quagga in Debian testing fails t=
+o
+send routes to kernel with an -EPERM error.
+	Reverting this patch and commit a64d90fd96 (netfilter: Fix warning in
+nfnetlink_receive().) fixes it for me.
 
-That's not a super-recent kernel, but I think current kernels could get
-to 512K RAM and 2MB flash with some elbow grease.  That hits the
-sweet spot for where the deep embedded processors (everything on-die,
-at really aggressive price per unit) are heading in the next few years.
+	I haven't got time to do a proper analisys and could be that zebra
+it's doing something silly but this patch seems to subtly change some
+semantics.
 
-I sympathize with the arguments about increasing configuration complexity,
-and the possibility of introducing bugs. "big switches" and LTO should both
-help with the config complexity problem.  With regard to bugs, I think some
-of  the patches may be a problem, and that's where the help of the
-networking experts would be great in helping to avoid problems.  Dropping
-optional features is going to happen on these devices whether it's Linux
-running there or some RTOS.  Linux will certainly be talking to these
-devices, if not running in them.  So your life on the host side might be
-improved if you have some say what the stack looks like on the device
-side.
-
-If you don't want to help avoid problems, I understand.  All the kernel
-maintainers are extremely busy.  But the use cases are pretty interesting,
-and it would be nice to have you on board.
-
- -- Tim Bird
+--=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+Jorge Boncompte - Ingenieria y Gestion de RED
+DTI2 - Desarrollo de la Tecnologia de las Comunicaciones
+--------------------------------------------------------------
+C/ Abogado Enriquez Barrios, 5   14004 CORDOBA (SPAIN)
+Tlf: +34 957 761395 / FAX: +34 957 450380
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+- There is only so much duct tape you can put on something
+  before it just becomes a giant ball of duct tape.
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
