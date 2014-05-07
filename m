@@ -1,45 +1,61 @@
-From: David Miller <davem@redhat.com>
-Subject: Re: Questions on sk_no_check implemenation
-Date: Wed, 07 May 2014 16:15:11 -0400 (EDT)
-Message-ID: <20140507.161511.1183516412491161617.davem@redhat.com>
-References: <CA+mtBx_SK5LG8z_kTr5sHNhGQMBDgc+kpG49uyjgDM_eoK1hKg@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] jme: Fix DMA unmap warning
+Date: Wed, 7 May 2014 16:33:17 -0400
+Message-ID: <20140507203317.GC8786@hmsreliant.think-freely.org>
+References: <1399315907-27148-1-git-send-email-nhorman@tuxdriver.com>
+ <20140507.155613.630399521517455317.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, cooldavid@cooldavid.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13804 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750951AbaEGU1t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2014 16:27:49 -0400
-In-Reply-To: <CA+mtBx_SK5LG8z_kTr5sHNhGQMBDgc+kpG49uyjgDM_eoK1hKg@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47143 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963AbaEGUdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 16:33:23 -0400
+Content-Disposition: inline
+In-Reply-To: <20140507.155613.630399521517455317.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 5 May 2014 19:34:40 -0700
-
-> Hi, I'm looking at sk_no_check implementation and am hoping to get
-> clarification on a couple of use cases.
+On Wed, May 07, 2014 at 03:56:13PM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon,  5 May 2014 14:51:47 -0400
 > 
-> 1) In l2tp_core.c, if sk_no_check is set it looks like this will
-> completely bypass UDP checksum verification on RX even for packets
-> with nonzero checksums.
+> > The jme driver forgot to check the return status from pci_map_page in its tx
+> > path, causing a dma api warning on unmap.  Easy fix, just do the check and
+> > augment the tx path to tell the stack that the driver is busy so we re-queue the
+> > frame.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 > 
-> d2cf33616 (Benjamin LaHaise 2012-04-27 08:24:18 +0000 505) if
-> (sk->sk_no_check || skb_csum_unnecessary(skb))
+> Applied thanks Neil.
 > 
-> I don't believe this is standards compliant and seems pretty risky
-> otherwise. What is the requirement here? Is this still needed?
+No problem.
 
-I think this is simply a thinko and the code should be checking non-zero
-csums.
+> Probably we should eventually come up with a perhaps more suitable recovery
+> scheme in the generic netdev queuing layer for these situations.
+> 
+> If a mapping fails, usually it's because of resource exhaustion and that's
+> a "wait and try again" type situation in hoping that whatever releases
+> are keeping the allocation from happening will get released.
+> 
+> But that's not exactly what we do right now when NETDEV_TX_BUSY is
+> signalled.  We'll just loop over and over in the TX software interrupt
+> handler for the qdisc.
+> 
+> Perhaps an hrtimer or similar would be more appropriate.
+> 
+Hm, timers seem like they might be a bit too 'dead reckoned' I think.  I.e.
+theres no correlation or interlock between how long we set the timer to expire,
+and the likelyhood that the resource limitation is cleared (or was cleared and
+recurred from a subsequent glut of traffic).  
 
-> 2) The constant UDP_CSUM_NORCV was introduced for sunrpc and in fact
-> this looks like the only code that sets it. AFAICT the only effect
-> this would have would be to disable receive checksum verification in
-> L2TP as described above. What was the intent of UDP_CSUM_NORCV and why
-> was using this specific to sunrpc?
-
-I have no idea about this case.
+Perhaps a solution is a signalling mechanism tied to completion interrupts?
+I.e. a mapping failure gets reported to the stack, which causes the
+correspondnig queue to be stopped, until such time a the driver signals a safe
+restart by the reception of a tx completion interrupt?  I'm actually tinkering
+right now with a mechanism that provides guidance to the stack as to how many
+dma descriptors are available in a given net_device that might come in handy
+here
+Neil
