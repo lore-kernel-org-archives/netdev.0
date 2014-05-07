@@ -1,91 +1,74 @@
-From: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [patch] net, sunrpc: suppress allocation warning in rpc_malloc()
-Date: Wed, 7 May 2014 13:03:41 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405071257320.25707@chino.kir.corp.google.com>
-References: <2562595.ix17LO7uqe@fb07-iapwap2> <alpine.DEB.2.02.1405050241180.11071@chino.kir.corp.google.com> <20140505070812.470c66bd@tlielax.poochiereds.net>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH] tcp: more documentation for tcp_tw_reuse and tcp_tw_recycle
+Date: Wed, 07 May 2014 21:55:49 +0200
+Message-ID: <m3eh058it6.fsf@neo.luffy.cx>
+References: <1399196499-8449-1-git-send-email-vincent@bernat.im>
+	<1399196499-8449-2-git-send-email-vincent@bernat.im>
+	<20140507.151637.562958118271192092.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140505070812.470c66bd-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: edumazet@google.com, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20140507.151637.562958118271192092.davem@davemloft.net> (David
+	Miller's message of "Wed, 07 May 2014 15:16:37 -0400 (EDT)")
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rpc_malloc() allocates with GFP_NOWAIT without making any attempt at 
-reclaim so it easily fails when low on memory.  This ends up spamming the 
-kernel log:
+ =E2=9D=A6  7 mai 2014 15:16 -0400, David Miller <davem@davemloft.net>=C2=
+=A0:
 
-SLAB: Unable to allocate memory on node 0 (gfp=0x4000)
-  cache: kmalloc-8192, object size: 8192, order: 1
-  node 0: slabs: 207/207, objs: 207/207, free: 0
-rekonq: page allocation failure: order:1, mode:0x204000
-CPU: 2 PID: 14321 Comm: rekonq Tainted: G           O  3.15.0-rc3-12.gfc9498b-desktop+ #6
-Hardware name: System manufacturer System Product Name/M4A785TD-V EVO, BIOS 2105    07/23/2010
- 0000000000000000 ffff880010ff17d0 ffffffff815e693c 0000000000204000
- ffff880010ff1858 ffffffff81137bd2 0000000000000000 0000001000000000
- ffff88011ffebc38 0000000000000001 0000000000204000 ffff88011ffea000
-Call Trace:
- [<ffffffff815e693c>] dump_stack+0x4d/0x6f
- [<ffffffff81137bd2>] warn_alloc_failed+0xd2/0x140
- [<ffffffff8113be19>] __alloc_pages_nodemask+0x7e9/0xa30
- [<ffffffff811824a8>] kmem_getpages+0x58/0x140
- [<ffffffff81183de6>] fallback_alloc+0x1d6/0x210
- [<ffffffff81183be3>] ____cache_alloc_node+0x123/0x150
- [<ffffffff81185953>] __kmalloc+0x203/0x490
- [<ffffffffa06b0ee2>] rpc_malloc+0x32/0xa0 [sunrpc]
- [<ffffffffa06a6999>] call_allocate+0xb9/0x170 [sunrpc]
- [<ffffffffa06b19d8>] __rpc_execute+0x88/0x460 [sunrpc]
- [<ffffffffa06b2da9>] rpc_execute+0x59/0xc0 [sunrpc]
- [<ffffffffa06a932b>] rpc_run_task+0x6b/0x90 [sunrpc]
- [<ffffffffa077b5c1>] nfs4_call_sync_sequence+0x51/0x80 [nfsv4]
- [<ffffffffa077d45d>] _nfs4_do_setattr+0x1ed/0x280 [nfsv4]
- [<ffffffffa0782a72>] nfs4_do_setattr+0x72/0x180 [nfsv4]
- [<ffffffffa078334c>] nfs4_proc_setattr+0xbc/0x140 [nfsv4]
- [<ffffffffa074a7e8>] nfs_setattr+0xd8/0x240 [nfs]
- [<ffffffff811baa71>] notify_change+0x231/0x380
- [<ffffffff8119cf5c>] chmod_common+0xfc/0x120
- [<ffffffff8119df80>] SyS_chmod+0x40/0x90
- [<ffffffff815f4cfd>] system_call_fastpath+0x1a/0x1f
-...
+>> The documentation is not very helpful about what those settings
+>> affect. We find numerous tuning guides advising to set both these
+>> settings to 1 to reduce the number of entries in the TIME-WAIT
+>> state. However, enabling tcp_tw_recycle will cause massive problems =
+when
+>> working with NAT.
+>>=20
+>> The documentation is completed a bit to explain quickly what kind of
+>> connections both those settings will affect and to encourage the use=
+ of
+>> tcp_tw_reuse instead of tcp_tw_recycle for outgoing connections.
+>
+> First of all your change locks a proper signoff.
 
-If the allocation fails, simply return NULL and avoid spamming the kernel 
-log.
+Sorry for that. I'll resend once the other problem is fixed.
 
-Reported-by: Marc Dietrich <marvin24-Mmb7MZpHnFY@public.gmane.org>
-Signed-off-by: David Rientjes <rientjes-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
----
- net/sunrpc/sched.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+> Second of all, both options can cause problems in the presence of NAT
+> because both optimizations assume unique IP addresses identify unique
+> physical hosts.
 
-diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
---- a/net/sunrpc/sched.c
-+++ b/net/sunrpc/sched.c
-@@ -832,7 +832,8 @@ static void rpc_async_schedule(struct work_struct *work)
-  * @size: requested byte size
-  *
-  * To prevent rpciod from hanging, this allocator never sleeps,
-- * returning NULL if the request cannot be serviced immediately.
-+ * returning NULL and suppressing warning if the request cannot be serviced
-+ * immediately.
-  * The caller can arrange to sleep in a way that is safe for rpciod.
-  *
-  * Most requests are 'small' (under 2KiB) and can be serviced from a
-@@ -845,7 +846,7 @@ static void rpc_async_schedule(struct work_struct *work)
- void *rpc_malloc(struct rpc_task *task, size_t size)
- {
- 	struct rpc_buffer *buf;
--	gfp_t gfp = GFP_NOWAIT;
-+	gfp_t gfp = GFP_NOWAIT | __GFP_NOWARN;
- 
- 	if (RPC_IS_SWAPPER(task))
- 		gfp |= __GFP_MEMALLOC;
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+If NAT is done at the remote end (the outgoing connection is to some
+load-balanced VIP) and if a TW state is reused for another
+host than the original host, this can be one of those cases:
+
+ 1. There was no prior connection to the other host, so no problem.
+=20
+ 2. There was a prior connection to this host and the TW state has
+    properly expired (60-second regular timeout), no problem.
+=20
+ 3. There was a prior connection to this host and the TW state has been
+    reused previously, so we are already in the right condition
+    (timestamps) to do the same thing.
+
+I don't see a scenario where NAT can be a problem with tcp_tw_reuse.
+
+If the NAT is done on the local end (we are behind a NAT device), as th=
+e
+TW is on our side, I don't see what problem could have the remote end
+which has properly closed the connection. Even without tcp_tw_reuse, th=
+e
+remote side could get a legit connection from another local host.
+
+We could be on the safe side and say that both settings may interact
+badly with NAT gateways (or any altering gateways), but in this case,
+both settings will look the same and the documentation will be as
+unhelpful as it is now to someone which insists on using those settings=
+=2E
+--=20
+ /* After several hours of tedious analysis, the following hash
+  * function won.  Do not mess with it... -DaveM
+  */
+	2.2.16 /usr/src/linux/fs/buffer.c
