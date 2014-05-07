@@ -1,220 +1,74 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] bonding: Fix stacked device detection in arp monitoring
-Date: Wed, 07 May 2014 09:56:56 -0400
-Message-ID: <536A3BA8.7020305@redhat.com>
-References: <1399398075-16323-1-git-send-email-vyasevic@redhat.com> <20140507133239.GR6295@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Wed, 7 May 2014 14:59:38 +0100
+Message-ID: <20140507145938.79110827@alan.etchedpixels.co.uk>
+References: <1399328773-6531-9-git-send-email-andi@firstfloor.org>
+	<20140505.231229.136734008603421707.davem@davemloft.net>
+	<20140506032114.GP2382@two.firstfloor.org>
+	<20140505.232327.578134514220748085.davem@davemloft.net>
+	<1399351148.8767.84.camel@empanada>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Patric McHardy <kaber@trash.net>
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46913 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932243AbaEGN5T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2014 09:57:19 -0400
-In-Reply-To: <20140507133239.GR6295@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tom Zanussi <tom.zanussi@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399351148.8767.84.camel@empanada>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/07/2014 09:32 AM, Veaceslav Falico wrote:
-> On Tue, May 06, 2014 at 01:41:15PM -0400, Vlad Yasevich wrote:
->> Prior to commit fbd929f2dce460456807a51e18d623db3db9f077
->>     bonding: support QinQ for bond arp interval
->>
->> the arp monitoring code allowed for proper detection of devices
->> stacked on top of vlans.  Since the above commit, the
->> code can still detect a device stacked on top of single
->> vlan, but not a device stacked on top of Q-in-Q configuration.
->> The search will only set the inner vlan tag if the route
->> device is the vlan device.  However, this is not always the
->> case, as it is possible to extend the stacked configuration.
->>
->> With this patch it is possible to provision devices on
->> top Q-in-Q vlan configuration that should be used as
->> a source of ARP monitoring information.
->>
->> For example:
->> ip link add link bond0 vlan10 type vlan proto 802.1q id 10
->> ip link add link vlan10 vlan100 type vlan proto 802.1q id 100
->> ip link add link vlan100 type macvlan
->>
->> Note:  This patch limits the number of stacked VLANs to 2,
->> just like before.  The original, however had another issue
->> in that if we had more then 2 levels of VLANs, we would end
->> up generating incorrectly tagged traffic.  This is no longer
->> possible.
->>
->> Fixes: fbd929f2dce460456807a51e18d623db3db9f077 (bonding: support QinQ
->> for bond arp interval)
->> CC: Jay Vosburgh <fubar@us.ibm.com>
->> CC: Veaceslav Falico <vfalico@redhat.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> CC: Ding Tianhong <dingtianhong@huawei.com>
->> CC: Patric McHardy <kaber@trash.net>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->> drivers/net/bonding/bond_main.c | 90
->> +++++++++++++++++------------------------
->> 1 file changed, 37 insertions(+), 53 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c
->> b/drivers/net/bonding/bond_main.c
->> index 9d08e00..4822728 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2164,22 +2164,46 @@ static void bond_arp_send(struct net_device
->> *slave_dev, int arp_op,
->>     arp_xmit(skb);
->> }
->>
->> +static bool bond_collect_vlans(struct net_device *start, struct
->> net_device *end,
->> +                struct bond_vlan_tag *tag, int idx)
->> +{
->> +    struct net_device *upper;
->> +    struct list_head  *iter;
->> +
->> +    /* We do not support more then 2 levels of VLAN nesting */
->> +    if (idx >= 2)
->> +        return false;
->> +
->> +    netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
->> +        if (is_vlan_dev(upper)) {
->> +            tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
->> +            tag[idx].vlan_id = vlan_dev_vlan_id(upper);
->> +            idx++;
-> 
-> Won't idx here skyrocket if we have more than 1 vlan on top of bonding?
+> But why go to all that trouble when there's a perfectly good networking
+> stack in the kernel?  Even if most of these options aren't things that
+> would be useful to most systems, being able to turn them off and save
+> 1/3 of the kernel text size for tiny systems like this does makes a big
+> difference...
 
-Right.  See v2 of the patch. :)
+There are a vast number of low memory devices for various platforms and
+FPGA devices. I've also been looking at this for some other projects and
+there is a reason I went back and started playing with 2.11BSD. 
 
-Thanks
--vlad
+> So why bothers 3.15+ Linux kernel? Why not use an old kernel e.g. 2.4.x?
+> 2.4.x kernel doesn't have so many new features you want to get rid of here.
 
-> 
-> Otherwise I like this approach, from the first view.
-> 
->> +        }
->> +        if (upper == end)
->> +            return true;
->> +
->> +        /* Look at upper devices list only if current device
->> +         * is a vlan
->> +         */
->> +        if (is_vlan_dev(upper) && bond_collect_vlans(upper, end, tag,
->> idx))
->> +            return true;
->> +    }
->> +    return false;
->> +}
->> +
->>
->> static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->> {
->> -    struct net_device *upper, *vlan_upper;
->> -    struct list_head *iter, *vlan_iter;
->>     struct rtable *rt;
->> -    struct bond_vlan_tag inner, outer;
->> +    struct bond_vlan_tag tags[2];
->>     __be32 *targets = bond->params.arp_targets, addr;
->>     int i;
->> +    bool ret;
->>
->>     for (i = 0; i < BOND_MAX_ARP_TARGETS && targets[i]; i++) {
->>         pr_debug("basa: target %pI4\n", &targets[i]);
->> -        inner.vlan_proto = 0;
->> -        inner.vlan_id = 0;
->> -        outer.vlan_proto = 0;
->> -        outer.vlan_id = 0;
->> +        memset(tags, 0, sizeof(tags));
->>
->>         /* Find out through which dev should the packet go */
->>         rt = ip_route_output(dev_net(bond->dev), targets[i], 0,
->> @@ -2192,7 +2216,7 @@ static void bond_arp_send_all(struct bonding
->> *bond, struct slave *slave)
->>                 net_warn_ratelimited("%s: no route to arp_ip_target
->> %pI4 and arp_validate is set\n",
->>                              bond->dev->name,
->>                              &targets[i]);
->> -            bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0,
->> &inner, &outer);
->> +            bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], 0,
->> &tags[1], &tags[0]);
->>             continue;
->>         }
->>
->> @@ -2201,52 +2225,12 @@ static void bond_arp_send_all(struct bonding
->> *bond, struct slave *slave)
->>             goto found;
->>
->>         rcu_read_lock();
->> -        /* first we search only for vlan devices. for every vlan
->> -         * found we verify its upper dev list, searching for the
->> -         * rt->dst.dev. If found we save the tag of the vlan and
->> -         * proceed to send the packet.
->> -         */
->> -        netdev_for_each_all_upper_dev_rcu(bond->dev, vlan_upper,
->> -                          vlan_iter) {
->> -            if (!is_vlan_dev(vlan_upper))
->> -                continue;
->> -
->> -            if (vlan_upper == rt->dst.dev) {
->> -                outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
->> -                outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
->> -                rcu_read_unlock();
->> -                goto found;
->> -            }
->> -            netdev_for_each_all_upper_dev_rcu(vlan_upper, upper,
->> -                              iter) {
->> -                if (upper == rt->dst.dev) {
->> -                    /* If the upper dev is a vlan dev too,
->> -                     *  set the vlan tag to inner tag.
->> -                     */
->> -                    if (is_vlan_dev(upper)) {
->> -                        inner.vlan_proto = vlan_dev_vlan_proto(upper);
->> -                        inner.vlan_id = vlan_dev_vlan_id(upper);
->> -                    }
->> -                    outer.vlan_proto = vlan_dev_vlan_proto(vlan_upper);
->> -                    outer.vlan_id = vlan_dev_vlan_id(vlan_upper);
->> -                    rcu_read_unlock();
->> -                    goto found;
->> -                }
->> -            }
->> -        }
->> -
->> -        /* if the device we're looking for is not on top of any of
->> -         * our upper vlans, then just search for any dev that
->> -         * matches, and in case it's a vlan - save the id
->> -         */
->> -        netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
->> -            if (upper == rt->dst.dev) {
->> -                rcu_read_unlock();
->> -                goto found;
->> -            }
->> -        }
->> +        ret = bond_collect_vlans(bond->dev, rt->dst.dev, tags, 0);
->>         rcu_read_unlock();
->>
->> +        if (ret)
->> +            goto found;
->> +
->>         /* Not our device - skip */
->>         pr_debug("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
->>              bond->dev->name, &targets[i],
->> @@ -2259,7 +2243,7 @@ found:
->>         addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
->>         ip_rt_put(rt);
->>         bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
->> -                  addr, &inner, &outer);
->> +                  addr, &tags[1], &tags[0]);
->>     }
->> }
->>
->> -- 
->> 1.9.0
->>
+Simple answer. 2.11BSD is vastly superior on a small system to 2.4.x
+Linux. Also 2.4 is old and lightly maintained. Even forking 3.15 into
+bloatix and embedded Linux (ELKS2 ;-)) would make more sense.
+
+2/11BSD has the advantage that you don't need virtual memory and you
+don't have the cost of page tables which are mostly useless on a device
+that small these days because I/O speeds are so much higher. It has a
+bloatfree userspace, although it does need chunks of the openbsd security
+work backporting.
+
+Forking a current Linux would give you all the modern stuff wanted like
+USB, SPI, eMMC etc but comes with all the debloating work and some
+annoying assumptions about memory. Do the fork off GregKH's next long
+term kernel and it wouldn't be that horrific to maintain until there is a
+clear picture about uses and whether it justifies merging ?
+
+> Another poster commented that 16MB of DRAM would be cheaper than
+> the 2MB of ram you have on these boards, probably one that fits
+> your size profile is available as well.
+
+16MB of DRAM means adding a chip to your system. You've just exceeded the
+space, power and cost budget on the very low end. In many cases like FPGA
+systems you can't even add DRAM without major hoop jumping.
+
+On the Linux side there's also a ton of other stuff with vm handling that
+could be done far better for a small x86 device if the kernel was split
+(for now anyway). If it gets a lot of users then DaveM's arguments about
+unjustified maintenance hassle go away and it an then get re-merged.
+
+> 2MB is just a rediculous restriction.
+
+Linux used to run fine in 2MB ;-)
+
+> And last time I checked Linux wasn't a special purpose operating
+> system, but lucky for you I hear there are lots of those around.
+
+Server, desktop, tablet and even phone main OS devices are "special
+purpose" in the big picture of processor use. Even today 2MB is "big
+computer" to an awful lot of people!
+
+Alan
