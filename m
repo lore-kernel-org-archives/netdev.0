@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v] isdn: hisax: remove some dead code
-Date: Wed, 07 May 2014 15:44:06 -0400 (EDT)
-Message-ID: <20140507.154406.1455843067836633870.davem@davemloft.net>
-References: <53668DFC.6040106@bfs.de>
-	<20140505085305.GA17365@mwanda>
+From: "Junfeng Feng" <jfeng@evertz.com>
+Subject: IGMP issue with kernel 2.6.31
+Date: Wed, 7 May 2014 15:46:28 -0400
+Message-ID: <C70A636B101FD44999B82525C3E92AFA03A93B71@otis.burlington.evertz.tv>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, jkosina@suse.cz, rdunlap@infradead.org,
-	standby24x7@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, wharms@bfs.de
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20140505085305.GA17365@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.evertz.com ([204.187.63.106]:5926 "EHLO mail.evertz.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942AbaEGTq3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:46:29 -0400
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 5 May 2014 11:53:05 +0300
+Hello there,
 
-> The HISAX_HFC4S8S_PCIMEM code hasn't been able to compile since before
-> the start of git history.  I have deleted it.
-> 
-> There are also a few indenting mistakes where one side of the ifdef
-> wasn't indented correctly which I fixed as well.
-> 
-> Reported-by: Walter Harms <wharms@bfs.de>
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: delete the dead ifdefed code.
+Right now, I try to support the IGMP functionality on TI Davinci chip
+with kernel 2.6.31. I have 
+configured the option CONFIG_IP_MULTICAST. But when I try to join or
+leave one multicast group, I did not see 
+the multicast traffic(monitored with wireshark). For comparison, I have
+tried the same test 
+program on TI Netra chip with kernel 2.6.37 and there is multicast
+message there.
 
-I'll apply this to net-next, thanks Dan.
+Have anyone encountered the same issue before? Thanks.
+
+
+Regards,
+Junfeng
+
+
+Regards,
+Junfeng
