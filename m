@@ -1,157 +1,117 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v2 net] bonding: Fix stacked device detection in arp
- monitoring
-Date: Wed, 7 May 2014 20:59:37 +0200
-Message-ID: <20140507185937.GV6295@redhat.com>
-References: <1399470461-22213-1-git-send-email-vyasevic@redhat.com>
- <29645.1399481039@localhost.localdomain>
- <536A6879.8070303@redhat.com>
- <20140507174910.GT6295@redhat.com>
- <20140507181100.GU6295@redhat.com>
- <536A7FC8.7060502@redhat.com>
+From: Brian Lilly <brian@crystalfontz.com>
+Subject: Re: i.MX28 based system losing eth0 on boot
+Date: Wed, 7 May 2014 12:00:02 -0700
+Message-ID: <CAOk88BJm2n2X8=pbREZWYceaDdwT47pppzdkF7mf+7cYA9yAMA@mail.gmail.com>
+References: <CAOk88BLR=nwNGdT++39vLdOt=TwZmemF-trSQPY8AdMN9tKtKQ@mail.gmail.com>
+ <CAOMZO5C4GiLu3sGPxuEDX+cVOvXsk=z9iqLSvZX8HzpncJuJOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Patric McHardy <kaber@trash.net>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33850 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752122AbaEGTAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2014 15:00:00 -0400
-Content-Disposition: inline
-In-Reply-To: <536A7FC8.7060502@redhat.com>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:37001 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750969AbaEGTAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 15:00:43 -0400
+Received: by mail-oa0-f44.google.com with SMTP id i11so1783182oag.17
+        for <netdev@vger.kernel.org>; Wed, 07 May 2014 12:00:42 -0700 (PDT)
+In-Reply-To: <CAOMZO5C4GiLu3sGPxuEDX+cVOvXsk=z9iqLSvZX8HzpncJuJOw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 07, 2014 at 02:47:36PM -0400, Vlad Yasevich wrote:
->On 05/07/2014 02:11 PM, Veaceslav Falico wrote:
->> On Wed, May 07, 2014 at 07:49:10PM +0200, Veaceslav Falico wrote:
->>> On Wed, May 07, 2014 at 01:08:09PM -0400, Vlad Yasevich wrote:
->>> ...snip...
->>>> Yes.  I verified that it works.  The reason is that we are traversing
->>>> the all_adj_list.upper list which contains all of the upper devices at
->>>> each level.  So, at vlan100 level, we will see vlan200 and all will be
->>>> well.
->>>
->>> Hrm, two scenarios, with the following config:
->>>
->>> bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
->>>
->>> end == whatever3_IP
->>>
->> ...snip...
->>>
->>> So, the end patch (not compiled, not tested...) would look something like
->>> (only the bond_check_path() is changed and copied here, everything else
->>> remains the same):
->>>
->>> +       bool upper_found = false;
->>> +
->>> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
->>> +               if (upper == end)
->>> +                       upper_found = true;
->>> +
->>> +               if (idx < 2 && is_vlan_dev(upper) &&
->>> +                   bond_check_path(upper, end, tag, idx+1)) {
->>> +                       tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
->>> +                       tag[idx].vlan_id = vlan_dev_vlan_id(upper);
->>> +                       return true;
+Moving forward to 3.15.0-rc4 merged with Russell's FEC patches makes it much
+more noisy  (http://pastebin.com/17TyyMPn):
+
+Populating dev cache
+Configuring network interfaces... [   26.268156] fec 800f0000.ethernet
+eth0: MDIO write timeout
+[   26.298087] fec 800f0000.ethernet eth0: MDIO read timeout
+[   26.328074] fec 800f0000.ethernet eth0: MDIO write timeout
+[   26.358077] fec 800f0000.ethernet eth0: MDIO read timeout
+[   26.388070] fec 800f0000.ethernet eth0: MDIO write timeout
+[   26.393631] fec 800f0000.ethernet eth0: could not attach to PHY
+ip: SIOCSIFFLAGS: Connection timed out
+Starting rpcbind daemon...rpcbind: cannot create socket for udp6
+rpcbind: cannot create socket for tcp6
+done.
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.all.rp_filter = 1
+INIT: Entering runlevel: 5
+Starting Xserver
+Starting system message bus: dbus.
+Starting Connection Manager
+Starting wpa_supplicant
+Successfully initialized wpa_supplicant
+Starting Dropbear SSH server: dropbear.
+starting Busybox UDHCP Server: u[   31.129045] fec 800f0000.ethernet
+eth0: MDIO write timeout
+dhcpd... [   31.158388] fec 800f0000.ethernet eth0: MDIO read timeout
+[   31.188437] fec 800f0000.ethernet eth0: MDIO write timeout
+done.
+[   31.218260] fec 800f0000.ethernet eth0: MDIO read timeout
+[   31.248256] fec 800f0000.ethernet eth0: MDIO write timeout
+[   31.253830] fec 800f0000.ethernet eth0: could not attach to PHY
+Starting syslogd/klogd: done
+
+from dmesg:
+
+[   26.268156] fec 800f0000.ethernet eth0: MDIO write timeout
+[   26.298087] fec 800f0000.ethernet eth0: MDIO read timeout
+[   26.328074] fec 800f0000.ethernet eth0: MDIO write timeout
+[   26.358077] fec 800f0000.ethernet eth0: MDIO read timeout
+[   26.388070] fec 800f0000.ethernet eth0: MDIO write timeout
+[   26.393631] fec 800f0000.ethernet eth0: could not attach to PHY
+[   31.129045] fec 800f0000.ethernet eth0: MDIO write timeout
+[   31.158388] fec 800f0000.ethernet eth0: MDIO read timeout
+[   31.188437] fec 800f0000.ethernet eth0: MDIO write timeout
+[   31.218260] fec 800f0000.ethernet eth0: MDIO read timeout
+[   31.248256] fec 800f0000.ethernet eth0: MDIO write timeout
+[   31.253830] fec 800f0000.ethernet eth0: could not attach to PHY
+
+I can go back and cull the timeout bits in 3.12 or 3.14 and report
+back if you think that it'd be helpful ...
+
+Please let me know if you have any questions.
+
+Thank you.
+
+Brian Lilly
+Crystalfontz America, Incorporated
+12412 East Saltese Road
+Spokane Valley, WA 99216
+brian@crystalfontz.com http://www.crystalfontz.com
+Twitter: @Crystalfontz
+US toll-free (888) 206-9720 voice (509) 892-1200
+
+
+On Tue, May 6, 2014 at 8:17 PM, Fabio Estevam <festevam@gmail.com> wrote:
+> Brian,
+>
+> On Tue, May 6, 2014 at 1:44 PM, Brian Lilly <brian@crystalfontz.com> wrote:
+>> Uwe:
 >>
->> Actually, screw that, we might find here the vlan2 first and end up with
->> only 1 vlan (vlan2, skipping vlan1).
+>> With commit a264b981f2c76e281ef27e7232774bf6c54ec865 we're having eth0
+>> come up, then brought right back down with an MDIO rx timeout moments
+>> after.  Adding back in the removed code keeps the interface alive and
+>> it's working afterward without trouble.  I've tested the re-inserted
+>> code in 3.12, 3.14 without issue on our boards.
 >>
->
->hmm..  I am not sure that's actually possible...
->
->__netdev_adjacent_dev_insert() will always insert at the tail.  If you
->have a stack of vlans:
->   vlan1 (vid 10, 802.1Q)
->     |
->     v
->   vlan2 (vid 20, 802.1AD)
->     |
->     v
->   bond0
->
->then vlan1 will always be at the end of the list, and after vlan2.
->Even if we remove things, the higher the device, the later it will be in
->the list.
->
->So, in the event of the configuration:
->bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
->
->waterver_IP will be last in the list due to list_add_tail_rcu()
->usage.
-
-Yeah, you're right, sorry for misunderstanding (I've been tricked by the
-master thing, but it doesn't actually add anything to all_upper).
-
-Anyway, so the only concern is:
-
-bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
-					\-> vlan3
-bond_check_path start==bond0 idx=0
-finds vlan1, tag[0] set, recursion start==vlan1 idx=1
-\->
-	bond_check_path start==vlan1 idx=1
-	finds vlan2, tag[1] set, recursion start==vlan2 idx=2
-	\->	returns right away with false as idx >= 2.
-
-	finds vlan3 (!!!) that isn't related with whatever_IP, tag[1] set with the
-	wrong vlan, recursion start==vlan3 idx=2
-	\->	return right away with false as idx >= 2.
-
-	finds whatever3_IP, returns true.
-returns true
-
-and this way we end up with vlan1 -> vlan3, instead of vlan1 -> vlan2.
-
-Can be fixed by that "don't go deeper/populate tag[] if idx == 2" trick.
-
->
->Did I misunderstand something in the code? I can't seem to make it
->the above config fail in my tests.
->
->-vlad
->> The way to fix this might be to get the most "lengthy" path of vlans, as
->> in:
+>> Is there something else that can be done to prevent the MDIO timeouts?
+>> We are using basically the same schematic for networking as the
+>> imx28evk.
 >>
->> + * Return the maximum length of stacked vlans + device found, 0 if the end
->> + * device is not found.
->> + */
->> +static int bond_check_path(struct net_device *start, struct net_device
->> *end,
->> +                          struct bond_vlan_tag *tag, int idx)
->> +{
->> +       struct net_device *upper;
->> +       struct list_head  *iter;
->> +       int length, max_length = 0;
->> +
->> +       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
->> +               if (upper == end && !max_length)
->> +                       max_length = 1;
->> +
->> +               if (idx < 2 && is_vlan_dev(upper)) {
->> +                       length = bond_check_path(upper, end, tag, idx + 1);
->> +
->> +                       if (max_length < length + 1) {
->> +                               tag[idx].vlan_proto =
->> vlan_dev_vlan_proto(upper);
->> +                               tag[idx].vlan_id = vlan_dev_vlan_id(upper);
->> +                               max_length = length + 1;
->> +                       }
->> +               }
->> +       }
->> +       return max_length;
->> +}
->>
->> Hope that helps.
->>
->>> +               }
->>> +       }
->>> +       return upper_found;
->> ...snip...
+>> Any thoughts on how to resolve this?
 >
+> Could you try the latest Russell's FEC patches available at?
+>  http://ftp.arm.linux.org.uk/cgit/linux-arm.git/log/?h=fec-testing
+>
+> In particular this one could help with your "MDIO timeout" issue:
+> http://ftp.arm.linux.org.uk/cgit/linux-arm.git/commit/?h=fec-testing&id=ec1fac3de70b16c69d3edc9f223e91d56b1915de
