@@ -1,57 +1,304 @@
-From: Adam Lee <adam.lee@canonical.com>
-Subject: Re: [PATCH 1/3] rtlwifi: make MSI support a module parameter
-Date: Wed, 7 May 2014 10:52:30 +0800
-Message-ID: <20140507025230.GB3712@adam-laptop>
-References: <1399278818-19152-1-git-send-email-adam.lee@canonical.com>
- <5367A690.7010305@lwfinger.net>
- <20140505154037.19620ac2@nehalam.linuxnetplumber.net>
- <20140506021915.GA3624@adam-laptop>
- <20140506180836.GF3518@tuxdriver.com>
- <20140507023105.GA3712@adam-laptop>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: i.MX28 based system losing eth0 on boot
+Date: Tue, 6 May 2014 20:07:15 -0700
+Message-ID: <CAGVrzcaL6817-WQ73srFHC022QY9LOJwQyx=uxqjHBt+Cf7ZRg@mail.gmail.com>
+References: <CAOk88BLR=nwNGdT++39vLdOt=TwZmemF-trSQPY8AdMN9tKtKQ@mail.gmail.com>
+ <20140506181151.GU28564@pengutronix.de> <CAOk88BJ+sCtM_cRLuBktUKWYHcPo6KtQ+GAgTJL0zBgQqcQYog@mail.gmail.com>
+ <CAGVrzcZs9-f4bCLNv3-s9iubMk8SF8P9+aJaere7rdLbvfo0bw@mail.gmail.com>
+ <CAOk88B+5CQZ639S_DwprrdBwZCs9m1cN_hr5hDRVkP18DqHd0w@mail.gmail.com>
+ <CAGVrzcbdm-owTaz6ENZMCCGDxQsSaHoEVP=5ex9kZj-FprqUxQ@mail.gmail.com> <CAOk88BKmoSytTCXrXgsAGQXhUYvXqCPeX7TmYBRST+K8e0bv3w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:46746 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491AbaEGCwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 May 2014 22:52:35 -0400
-Received: by mail-pa0-f54.google.com with SMTP id lf10so434071pab.27
-        for <netdev@vger.kernel.org>; Tue, 06 May 2014 19:52:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140507023105.GA3712@adam-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fugang Duan <B38611@freescale.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel <kernel@pengutronix.de>
+To: Brian Lilly <brian@crystalfontz.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAOk88BKmoSytTCXrXgsAGQXhUYvXqCPeX7TmYBRST+K8e0bv3w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 07, 2014 at 10:31:05AM +0800, Adam Lee wrote:
-> On Tue, May 06, 2014 at 02:08:37PM -0400, John W. Linville wrote:
-> > > > Standard practice is to assume MSI is available, and let the quirks
-> > > > in the PCI subsystem reject the request to enable MSI.
-> > > > 
-> > > > Also other drivers have a 'disable_msi' module parameter why not follow
-> > > > their example.
-> > > > 
-> > > 
-> > > Because some submodule's MSI causes an regression, and other submodules
-> > > of rtlwifi are not fully tested under MSI, we need to disable it by
-> > > default(regression has higher priority) and have an 'enable_msi' module
-> > > parameter for some certain users.
-> > 
-> > Couldn't it be called 'disable_msi' and default to 'on'?
-> 
-> It could be, will send an v2 patchset, thanks.
+2014-05-06 15:27 GMT-07:00 Brian Lilly <brian@crystalfontz.com>:
+> It would appear that I don't have that commit.  I could move to 3.14
+> to see if it makes a difference, but the last couple of responses hav=
+e
+> been on 3.12.18 -- or perhaps I'm missing something else.
 
-Sorry, just grep linux/driver, there is no convention of 'disable_msi'
-parameter, only 5 drivers uses that, but 15 drivers are using 'msi'...
+I did miss that you were also seeing the problem in 3.12. At that
+point, I believe that the driver was working around a potential PHY
+bug that is not covered by the SMSC PHY driver, or that the MDIO
+timeout is simply not long enough, or that your MDIO interrupts fire
+much longer than what the timeout allows, or that these interrupts are
+not reliable.
 
-Please still apply v1, setting 'disable_msi' to 'on' and asking users to
-set it to 'off' is a little weird. John, please ask me to send v2 if you
-think the 'disable_msi' parameter is better.
+You could probably try to ignore the timeout and see if you get
+sensible data out of the MDIO bus regardless.
 
-Thanks.
+> Please let me know if you have any questions.
+>
+> Thank you.
+>
+> Brian Lilly
+> Crystalfontz America, Incorporated
+> 12412 East Saltese Road
+> Spokane Valley, WA 99216
+> brian@crystalfontz.com http://www.crystalfontz.com
+> Twitter: @Crystalfontz
+> US toll-free (888) 206-9720 voice (509) 892-1200
+>
+>
+> On Tue, May 6, 2014 at 3:06 PM, Florian Fainelli <f.fainelli@gmail.co=
+m> wrote:
+>> 2014-05-06 14:40 GMT-07:00 Brian Lilly <brian@crystalfontz.com>:
+>>> The PHY on board is the SMSC LAN8720
+>>>
+>>> With the generic PHY driver selected:  http://pastebin.com/A4MH4Ptw
+>>>
+>>> [   28.828761] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+>>> [Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>> [   28.840626] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> [   30.827536] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+>>> [   30.833739] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes re=
+ady
+>>> [   32.986999] IPv6: ADDRCONF(NETDEV_UP): usb0: link is not ready
+>>> [   37.316421] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+>>> [Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>> [   38.345047] fec 800f0000.ethernet eth0: MDIO read timeout
+>>> [   39.506210] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> [   40.374961] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>
+>>> With the SMSC PHY driver selected:  http://pastebin.com/DhdDyrMv
+>>>
+>>> [   28.778974] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+>>> [SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=
+=3D-1)
+>>> [   28.791742] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> [   30.773078] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
+>>> [   30.779286] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes re=
+ady
+>>> [   32.934692] IPv6: ADDRCONF(NETDEV_UP): usb0: link is not ready
+>>> [   37.242162] fec 800f0000.ethernet eth0: Freescale FEC PHY driver
+>>> [SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=
+=3D-1)
+>>> [   38.270611] fec 800f0000.ethernet eth0: MDIO read timeout
+>>> [   39.415256] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>> [   40.300454] fec 800f0000.ethernet eth0: MDIO read timeout
+>>
+>> Thanks for trying this, at least this is consistent no matter which
+>> PHY driver we are using. Just to rule out a potential PHY power-down
+>> issue, could you try to revert the following commit
+>> be9dad1f9f26604fb71c0d53ccb39a8f1d425807 ("net: phy: suspend phydev
+>> when going to HALTED") and see if that works better for you?
+>>
+>> Thanks!
+>>
+>>>
+>>> On Tue, May 6, 2014 at 12:24 PM, Florian Fainelli <f.fainelli@gmail=
+=2Ecom> wrote:
+>>>> 2014-05-06 12:12 GMT-07:00 Brian Lilly <brian@crystalfontz.com>:
+>>>>> It is happening during boot up:
+>>>>>
+>>>>> <snip, kernel 3.12 >
+>>>>>
+>>>>> Configuring network interfaces... [   35.117114] fec 800f0000.eth=
+ernet
+>>>>> eth0: Freescale FEC PHY driver [SMSC LAN8710/LAN8720]
+>>>>
+>>>> Note that the SMSC PHY driver is picked up here, and that specific
+>>>> driver implements a different phy_read_status() callback due to ho=
+w
+>>>> the PHY operates. The PHY driver also overrides the config_init()
+>>>> callback to perform some PHY-specific initialization. See below fo=
+r
+>>>> more.
+>>>>
+>>>>> (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>>>> [   35.129967] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>>> udhcpc (v1.21.1) started
+>>>>>
+>>>>> Sending discover...
+>>>>>
+>>>>> [   37.113901] libphy: 800f0000.etherne:00 - Link is Up - 100/Ful=
+l
+>>>>> [   37.120134] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes =
+ready
+>>>>> Sending discover...
+>>>>>
+>>>>> Sending select for 10.10.10.217...
+>>>>> Lease of 10.10.10.217 obtained, lease time 86400
+>>>>> /etc/udhcpc.d/50default: Adding DNS 10.10.10.13
+>>>>> [   39.319957] IPv6: ADDRCONF(NETDEV_UP): usb0: link is not ready
+>>>>> done.
+>>>>> Starting rpcbind daemon...done.
+>>>>> net.ipv4.conf.default.rp_filter =3D 1
+>>>>> net.ipv4.conf.all.rp_filter =3D 1
+>>>>> Mon Apr 14 22:40:00 UTC 2014
+>>>>> INIT: Entering runlevel: 5
+>>>>> Starting Xserver
+>>>>> Starting system message bus: dbus.
+>>>>> Starting Connection Manager
+>>>>> Starting wpa_supplicant
+>>>>> Successfully initialized wpa_supplicant
+>>>>> Starting Dropbear SSH server
+>>>>> [   44.754915] fec 800f0000.ethernet eth0: Freescale FEC PHY driv=
+er
+>>>>> [SMSC LAN8710/LAN8720] (mii_bus:phy_addr=3D800f0000.etherne:00, i=
+rq=3D-1)
+>>>>
+>>>> The correct PHY driver is selected here...
+>>>>
+>>>>> [   45.781364] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>>> [   46.826170] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+>>>>> [   47.811385] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>>
+>>>> But we are still seeing MDIO read timeouts, which is not great.
+>>>>
+>>>>>
+>>>>> With a different kernel (3.14):
+>>>>>
+>>>>> [   28.989897] fec 800f0000.ethernet eth0: Freescale FEC PHY driv=
+er
+>>>>> [Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>>>> [   30.991210] libphy: 800f0000.etherne:00 - Link is Up - 100/Ful=
+l
+>>>>> [   37.369372] fec 800f0000.ethernet eth0: Freescale FEC PHY driv=
+er
+>>>>> [Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>>>
+>>>> Here, the Generic PHY driver has been selected, which will use the
+>>>> MII_BMSR register contents to determine the Link status and
+>>>> parameters. You might want to make sure that your board selects th=
+e
+>>>> appropriate PHY driver, such that we are not chasing two issues he=
+re.
+>>>>
+>>>>> [   38.398346] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>>> [   39.438412] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>>> [   39.468419] fec 800f0000.ethernet eth0: MDIO write timeout
+>>>>> [   40.498848] fec 800f0000.ethernet eth0: MDIO read timeout
+>>>>
+>>>> It would also be helpful to print the register that were accessed,
+>>>> such that you could correlate this with the exact steps in the PHY
+>>>> library state machine. Please also retry the experiment with the S=
+MSC
+>>>> PHY driver enabled, as it does some PHY specific initialization th=
+at
+>>>> seems to be relevant. Then we are hopefully left with only the MDI=
+O
+>>>> timeout issue and not the PHY mis-configuration + MDIO timeout.
+>>>>
+>>>>>
+>>>>> Afterward I have to ifdown eth0, ifup eth0 and then it functions
+>>>>> normally, without reverting the commit.
+>>>>>
+>>>>> root@cfa100xx:~# ifdown eth0
+>>>>> [ 1154.679658] fec 800f0000.ethernet eth0: Freescale FEC PHY driv=
+er
+>>>>> [Generic PHY] (mii_bus:phy_addr=3D800f0000.etherne:00, irq=3D-1)
+>>>>> root@cfa100xx:~# ifup eth0
+>>>>> udhcpc (v1.21.1) started
+>>>>> Sending discover...
+>>>>> [ 1156.679547] libphy: 800f0000.etherne:00 - Link is Up - 100/Ful=
+l
+>>>>> Sending discover...
+>>>>> Sending select for 10.10.10.217...
+>>>>> Lease of 10.10.10.217 obtained, lease time 86400
+>>>>> ip: RTNETLINK answers: File exists
+>>>>>
+>>>>> --
+>>>>> Brian
+>>>>>
+>>>>>
+>>>>> On Tue, May 6, 2014 at 11:11 AM, Uwe Kleine-K=C3=B6nig
+>>>>> <u.kleine-koenig@pengutronix.de> wrote:
+>>>>>> Hello Brian,
+>>>>>>
+>>>>>> On Tue, May 06, 2014 at 09:44:34AM -0700, Brian Lilly wrote:
+>>>>>>> With commit a264b981f2c76e281ef27e7232774bf6c54ec865 we're havi=
+ng eth0
+>>>>>>> come up, then brought right back down with an MDIO rx timeout m=
+oments
+>>>>>>> after.  Adding back in the removed code keeps the interface ali=
+ve and
+>>>>>>> it's working afterward without trouble.  I've tested the re-ins=
+erted
+>>>>>>> code in 3.12, 3.14 without issue on our boards.
+>>>>>> So you can reliably trigger that problem? You're just doing
+>>>>>>
+>>>>>>         ifconfig eth0 1.2.3.4 up
+>>>>>>
+>>>>>> (or equivalent) and the interface goes down without further
+>>>>>> interference with the above mentioned commit? The exact error yo=
+u're
+>>>>>> seeing is
+>>>>>>
+>>>>>>         MDIO read timeout
+>>>>>>
+>>>>>> (with some prefix saying something about fec and eth0 I think)?
+>>>>>>
+>>>>>> This error is also present with a264b981f2 reverted, just doesn'=
+t affect
+>>>>>> eth0 being functional? Does the timeout always happen, or only o=
+n
+>>>>>> specific addresses?
+>>>>>>
+>>>>>> This is not a proper fix, but does it help to increment FEC_MII_=
+TIMEOUT?
+>>>>>>
+>>>>>>> Is there something else that can be done to prevent the MDIO ti=
+meouts?
+>>>>>>> We are using basically the same schematic for networking as the
+>>>>>>> imx28evk.
+>>>>>> Hard to say, but assuming it works just fine on the imx28evk for=
+ you,
+>>>>>> too, there seems to be some hardware difference that makes your =
+machine
+>>>>>> fail. (That doesn't mean it's not fixable in software.)
+>>>>>>
+>>>>>> I don't know if a mdio read error is intended to make the device=
+ go
+>>>>>> down, maybe one the the netdev guys can answer that.
+>>>>>> Assuming that it's not intended, instrument the code, find out h=
+ow that
+>>>>>> timeout makes your device go down and find the wrong branch. I'd=
+ start
+>>>>>> with adding stackdumps when the mdio timeout happens and when
+>>>>>> fec_enet_start_xmit is called with fep->link =3D=3D 0.
+>>>>>>
+>>>>>> Best regards
+>>>>>> Uwe
+>>>>>>
+>>>>>> --
+>>>>>> Pengutronix e.K.                           | Uwe Kleine-K=C3=B6n=
+ig            |
+>>>>>> Industrial Linux Solutions                 | http://www.pengutro=
+nix.de/  |
+>>>>> --
+>>>>> To unsubscribe from this list: send the line "unsubscribe netdev"=
+ in
+>>>>> the body of a message to majordomo@vger.kernel.org
+>>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.htm=
+l
+>>>>
+>>>>
+>>>>
+>>>> --
+>>>> Florian
+>>
+>>
+>>
+>> --
+>> Florian
 
--- 
-Adam Lee
+
+
+--=20
+=46lorian
