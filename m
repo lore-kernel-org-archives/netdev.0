@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qlcnic: Fix Kconfig dependency on HWMON
-Date: Wed, 07 May 2014 17:23:48 -0400 (EDT)
-Message-ID: <20140507.172348.946895436076177246.davem@davemloft.net>
-References: <1399442775-20610-1-git-send-email-harish.patil@qlogic.com>
+Subject: Re: [PATCH net-next 1/2] ipv4: move local_port_range out of
+ CONFIG_SYSCTL
+Date: Wed, 07 May 2014 17:26:41 -0400 (EDT)
+Message-ID: <20140507.172641.1968628089443229607.davem@davemloft.net>
+References: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shahed.shaikh@qlogic.com,
-	Dept-HSGLinuxNICDev@qlogic.com, arnd@arndb.de
-To: harish.patil@qlogic.com
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52016 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52033 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752011AbaEGVXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:23:51 -0400
-In-Reply-To: <1399442775-20610-1-git-send-email-harish.patil@qlogic.com>
+	with ESMTP id S1751111AbaEGV0n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 17:26:43 -0400
+In-Reply-To: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Harish Patil <harish.patil@qlogic.com>
-Date: Wed, 7 May 2014 02:06:15 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  6 May 2014 11:02:49 -0700
 
-> Commit 1f0f467b670e "qlcnic: Add hwmon interface to export board
-> temperature" introduced a randconfig build error in the case
-> when the hwmon framework is built as a module and the qlcnic
-> driver itself is built-in:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
 > 
-> drivers/built-in.o: In function `qlcnic_register_hwmon_dev':
-> drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c:1301:
-> undefined reference to `hwmon_device_register_with_groups'
-> drivers/built-in.o: In function `qlcnic_unregister_hwmon_dev':
-> drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c:1309:
-> undefined reference to `hwmon_device_unregister'.
+> When CONFIG_SYSCTL is not set, ip_local_port_range should still work,
+> just that no one can change it. Therefore we should move it out of sysctl_inet.c.
+> Also, rename it to ->ip_local_ports instead.
 > 
-> This changes the Kconfig logic to enforce that the qlcnic hwmon
-> support can only be enabled if it is possible to successfully
-> build it.
-> 
-> Signed-off-by: Harish Patil <harish.patil@qlogic.com>
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Francois Romieu <romieu@fr.zoreil.com>
+> Reported-by: Stefan de Konink <stefan@konink.de>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied, thanks for following up on this.
+I think these two changes fix fairly serious issues that have existed for some
+time, so it should go into 'net', do you agree?
