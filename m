@@ -1,53 +1,57 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH] neigh: set nud_state to NUD_INCOMPLETE when probing router
-  reachability
-Date: Wed, 7 May 2014 17:33:27 +0800
-Message-ID: <5369FDE7.3030001@cn.fujitsu.com>
+From: Pavel Machek <pavel@denx.de>
+Subject: socfpga/sockit ethernet problems
+Date: Wed, 7 May 2014 12:45:18 +0200
+Message-ID: <20140507104518.GB18139@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, Jiri Benc <jbenc@redhat.com>,
-	<hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	dinguyen@altera.com, linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:16290 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754652AbaEGJfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 05:35:46 -0400
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:57376 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755389AbaEGKpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 May 2014 06:45:20 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-Since commit 7e98056964("ipv6: router reachability probing"), a router falls
-into NUD_FAILED will be probed.
+It seems we have some problems with Ethernet on socfpga boards.
 
-Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
-and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
-then function dst_neigh_output() can directly send packets, but actually the
-neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
-NUD_PROBE, packets will not be sent out until the neihbour is reachable.
+Like, "stmmac: Energy-Efficient Ethernet initialized" repeated way too
+often. Or machine failing to boot because NFS server can not be
+accessed. (And then working on next try). Or link going up and down
+and up and down. Or link taking 3 seconds, 10 seconds to estabilish.
 
-In addition, use neigh_max_probes() to simplify function.
+It also seems to be picky about hubs it wants to talk to.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/core/neighbour.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This time it mounted root; on last boot it just hung.
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 8f8a96e..32d872e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
- 	neigh->updated = jiffies;
- 	if (!(neigh->nud_state & NUD_FAILED))
- 		return;
--	neigh->nud_state = NUD_PROBE;
--	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
-+	neigh->nud_state = NUD_INCOMPLETE;
-+	atomic_set(&neigh->probes, neigh_max_probes(neigh));
- 	neigh_add_timer(neigh,
- 			jiffies + NEIGH_VAR(neigh->parms, RETRANS_TIME));
- }
+Mounts root 31.394855 Waiting 5 sec before mounting root device...
+Mounts root 33.331379 stmmaceth ff702000.ethernet eth0: Link is Up -
+100Mbps/Full - flow control rx/tx
+Mounts root 36.418308 VFS: Mounted root (nfs filesystem) on device
+0:12.
+### Milestone reached:  Mounts root
+Userland boots 51.455751 nfs: server 192.168.1.1 not responding, still
+trying
+Userland boots 52.552075 nfs: server 192.168.1.1 OK
+Userland boots 52.555110 devtmpfs: mounted
+Userland boots 52.566032 Freeing unused kernel memory: 264K (80597000
+- 805d9000)
+Userland boots 61.395175 nfs: server 192.168.1.1 not responding, still
+trying
+Userland boots 61.401301 nfs: server 192.168.1.1 OK
+
+U-boot seems to configure phy timing:
+
+u-boot talk 12.033741 Configuring PHY skew timing for Micrel ksz9021
+
+is there something similar that needs to be done at Linux layer.
+
+Any ideas? Thanks,
+									Pavel
 -- 
-1.8.3.1
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
