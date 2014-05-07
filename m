@@ -1,97 +1,72 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v2 net] bonding: Fix stacked device detection in arp
- monitoring
-Date: Wed, 7 May 2014 20:11:00 +0200
-Message-ID: <20140507181100.GU6295@redhat.com>
-References: <1399470461-22213-1-git-send-email-vyasevic@redhat.com>
- <29645.1399481039@localhost.localdomain>
- <536A6879.8070303@redhat.com>
- <20140507174910.GT6295@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Patric McHardy <kaber@trash.net>
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51801 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752438AbaEGSLY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 May 2014 14:11:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20140507174910.GT6295@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] checkpatch: Make --strict a default for files in drivers/net and net/
+Date: Wed,  7 May 2014 11:13:26 -0700
+Message-ID: <487acde009f61607863704e5dd9da7f151cf5be8.1399486274.git.joe@perches.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Andy Whitcroft <apw@canonical.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 07, 2014 at 07:49:10PM +0200, Veaceslav Falico wrote:
->On Wed, May 07, 2014 at 01:08:09PM -0400, Vlad Yasevich wrote:
->...snip...
->>Yes.  I verified that it works.  The reason is that we are traversing
->>the all_adj_list.upper list which contains all of the upper devices at
->>each level.  So, at vlan100 level, we will see vlan200 and all will be
->>well.
->
->Hrm, two scenarios, with the following config:
->
->bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
->
->end == whatever3_IP
->
-...snip...
->
->So, the end patch (not compiled, not tested...) would look something like
->(only the bond_check_path() is changed and copied here, everything else
->remains the same):
->
->+       bool upper_found = false;
->+
->+       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
->+               if (upper == end)
->+                       upper_found = true;
->+
->+               if (idx < 2 && is_vlan_dev(upper) &&
->+                   bond_check_path(upper, end, tag, idx+1)) {
->+                       tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
->+                       tag[idx].vlan_id = vlan_dev_vlan_id(upper);
->+                       return true;
+Networking files are generally more strictly conformant to
+linux-kernel style so make checkpatch more verbose by default for
+patches to files or when checking files in these directories.
 
-Actually, screw that, we might find here the vlan2 first and end up with
-only 1 vlan (vlan2, skipping vlan1).
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ scripts/checkpatch.pl | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-The way to fix this might be to get the most "lengthy" path of vlans, as
-in:
-
-+ * Return the maximum length of stacked vlans + device found, 0 if the end
-+ * device is not found.
-+ */
-+static int bond_check_path(struct net_device *start, struct net_device *end,
-+                          struct bond_vlan_tag *tag, int idx)
-+{
-+       struct net_device *upper;
-+       struct list_head  *iter;
-+       int length, max_length = 0;
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 85fc923..633e9f6 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -24,6 +24,7 @@ my $emacs = 0;
+ my $terse = 0;
+ my $file = 0;
+ my $check = 0;
++my $check_orig = 0;
+ my $summary = 1;
+ my $mailback = 0;
+ my $summary_file = 0;
+@@ -146,6 +147,7 @@ GetOptions(
+ help(0) if ($help);
+ 
+ $fix = 1 if ($fix_inplace);
++$check_orig = $check;
+ 
+ my $exit = 0;
+ 
+@@ -1813,11 +1815,13 @@ sub process {
+ 		$here = "#$linenr: " if (!$file);
+ 		$here = "#$realline: " if ($file);
+ 
++		my $found_file = 0;
+ 		# extract the filename as it passes
+ 		if ($line =~ /^diff --git.*?(\S+)$/) {
+ 			$realfile = $1;
+ 			$realfile =~ s@^([^/]*)/@@ if (!$file);
+ 			$in_commit_log = 0;
++			$found_file = 1;
+ 		} elsif ($line =~ /^\+\+\+\s+(\S+)/) {
+ 			$realfile = $1;
+ 			$realfile =~ s@^([^/]*)/@@ if (!$file);
+@@ -1834,6 +1838,15 @@ sub process {
+ 				ERROR("MODIFIED_INCLUDE_ASM",
+ 				      "do not modify files in include/asm, change architecture specific files in include/asm-<architecture>\n" . "$here$rawline\n");
+ 			}
++			$found_file = 1;
++		}
 +
-+       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
-+               if (upper == end && !max_length)
-+                       max_length = 1;
-+
-+               if (idx < 2 && is_vlan_dev(upper)) {
-+                       length = bond_check_path(upper, end, tag, idx + 1);
-+
-+                       if (max_length < length + 1) {
-+                               tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
-+                               tag[idx].vlan_id = vlan_dev_vlan_id(upper);
-+                               max_length = length + 1;
-+                       }
-+               }
-+       }
-+       return max_length;
-+}
-
-Hope that helps.
-
->+               }
->+       }
->+       return upper_found;
-...snip...
++		if ($found_file) {
++			if ($realfile =~ m@^(drivers/net/|net/)@) {
++				$check = 1;
++			} else {
++				$check = $check_orig;
++			}
+ 			next;
+ 		}
+ 
+-- 
+1.8.1.2.459.gbcd45b4.dirty
