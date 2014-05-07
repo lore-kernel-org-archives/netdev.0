@@ -1,167 +1,106 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 2/2] ARM: i.MX6: Add OF configuration support for ksz9031
-Date: Wed, 7 May 2014 10:31:45 -0700
-Message-ID: <CAGVrzcb6MP-LMrQDmeP8EcpN9y_RZe=_3hTYP6zZD_U5cJgdHw@mail.gmail.com>
-References: <1399362017-25787-1-git-send-email-hchaumette@adeneo-embedded.com> <1399362017-25787-3-git-send-email-hchaumette@adeneo-embedded.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH v2 net] bonding: Fix stacked device detection in arp
+ monitoring
+Date: Wed, 7 May 2014 19:49:10 +0200
+Message-ID: <20140507174910.GT6295@redhat.com>
+References: <1399470461-22213-1-git-send-email-vyasevic@redhat.com>
+ <29645.1399481039@localhost.localdomain>
+ <536A6879.8070303@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Randy Dunlap <rdunlap@infradead.org>, xobs@kosagi.com,
-	David Miller <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
-To: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1399362017-25787-3-git-send-email-hchaumette@adeneo-embedded.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Ding Tianhong <dingtianhong@huawei.com>,
+	Patric McHardy <kaber@trash.net>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2398 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751884AbaEGRtl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 May 2014 13:49:41 -0400
+Content-Disposition: inline
+In-Reply-To: <536A6879.8070303@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-05-06 0:40 GMT-07:00 Hubert Chaumette <hchaumette@adeneo-embedded.com>:
-> Adds support for ksz9031 PAD skew configuration over devicetree.
+On Wed, May 07, 2014 at 01:08:09PM -0400, Vlad Yasevich wrote:
+...snip...
+>Yes.  I verified that it works.  The reason is that we are traversing
+>the all_adj_list.upper list which contains all of the upper devices at
+>each level.  So, at vlan100 level, we will see vlan200 and all will be
+>well.
+
+Hrm, two scenarios, with the following config:
+
+bond0 -> whatever1 -> vlan1 -> whatever2 -> vlan2 -> whatever3_IP
+
+end == whatever3_IP
+
+1) IIRC there are no guarantees on order of all_upper list, so, if
+whatever3_IP dev is the first in the list - bond_check_patch() will return
+true right away.
+
+I might be wrong, though, it's 8PM and my brain farts when trying to look
+at that code.
+
+That's fixable (from first sight) by introducing a variable upper_found:
+
++       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
+...
++               if (upper == end)
++                       upper_found = true;
+...
++       }
++       return upper_found;
+
+This way it will first try to go through all nested vlans and, if none
+found, will return true. Basically, "return upper_found (=true)" has the
+meaning that upper was found and there are no vlans in between.
+
+The "wrong" order might be achieved by creating a bridge for whatever2,
+creating and linking vlan2 and whatever3_IP, and only *after* that adding
+vlan1 as a port to bridge whatever2.
+
+2) (with the fix from #1 applied)
+
+bond_check_path start==bond0 idx=0
+finds vlan1, tag[0] set, recursion start==vlan1 idx=1
+bond_check_path start==vlan1 idx=1
+finds vlan2, tag[1] set, recursion start==vlan2 idx=2
+returns right away with false as idx >= 2.
+
+That's wrong as there might be vlan3 on top of whatever2, and tag[1] might
+be set to it, whilst vlan3 has nothing to do with whatever3_IP.
+
+The fix here would be to halt on idx > 2, or, rather, to NOT use
+recursion/vlan checks if idx == 2, thus leaving us with only upper_found
+logic.
+
+So, the end patch (not compiled, not tested...) would look something like
+(only the bond_check_path() is changed and copied here, everything else
+remains the same):
+
++       bool upper_found = false;
++
++       netdev_for_each_all_upper_dev_rcu(start, upper, iter) {
++               if (upper == end)
++                       upper_found = true;
++
++               if (idx < 2 && is_vlan_dev(upper) &&
++                   bond_check_path(upper, end, tag, idx+1)) {
++                       tag[idx].vlan_proto = vlan_dev_vlan_proto(upper);
++                       tag[idx].vlan_id = vlan_dev_vlan_id(upper);
++                       return true;
++               }
++       }
++       return upper_found;
+
+This way we'll collect the maximum ammount of stacked vlans on our trip
+from bond0 to whatever3_IP (the limit is 2, however it might be removed
+afterwards if needed, will still work with long enough tag[]).
+
+Hope that makes at least some sense.
+
 >
-> Signed-off-by: Hubert Chaumette <hchaumette@adeneo-embedded.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  drivers/net/phy/micrel.c | 106 ++++++++++++++++++++++++++++++++++++++++++++++-
->  1 file changed, 105 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index d849684..bc7c7d2 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -283,6 +283,110 @@ static int ksz9021_config_init(struct phy_device *phydev)
->         return 0;
->  }
->
-> +#define MII_KSZ9031RN_MMD_CTRL_REG     0x0d
-> +#define MII_KSZ9031RN_MMD_REGDATA_REG  0x0e
-> +#define OP_DATA                                1
-> +#define KSZ9031_PS_TO_REG              60
-> +
-> +/* Extended registers */
-> +#define MII_KSZ9031RN_CONTROL_PAD_SKEW 4
-> +#define MII_KSZ9031RN_RX_DATA_PAD_SKEW 5
-> +#define MII_KSZ9031RN_TX_DATA_PAD_SKEW 6
-> +#define MII_KSZ9031RN_CLK_PAD_SKEW     8
-> +
-> +static int ksz9031_extended_write(struct phy_device *phydev,
-> +                                 u8 mode, u32 dev_addr, u32 regnum, u16 val)
-> +{
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, dev_addr);
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, regnum);
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, (mode << 14) | dev_addr);
-> +       return phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, val);
-> +}
-> +
-> +static int ksz9031_extended_read(struct phy_device *phydev,
-> +                                u8 mode, u32 dev_addr, u32 regnum)
-> +{
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, dev_addr);
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_REGDATA_REG, regnum);
-> +       phy_write(phydev, MII_KSZ9031RN_MMD_CTRL_REG, (mode << 14) | dev_addr);
-> +       return phy_read(phydev, MII_KSZ9031RN_MMD_REGDATA_REG);
-> +}
-> +
-> +static int ksz9031_of_load_skew_values(struct phy_device *phydev,
-> +                                      struct device_node *of_node,
-> +                                      u16 reg, size_t field_sz,
-> +                                      char *field[], u8 numfields)
-> +{
-> +       int val[4] = {-1, -2, -3, -4};
-> +       int matches = 0;
-> +       u16 mask;
-> +       u16 maxval;
-> +       u16 newval;
-> +       int i;
-> +
-> +       for (i = 0; i < numfields; i++)
-> +               if (!of_property_read_u32(of_node, field[i], val + i))
-> +                       matches++;
-> +
-> +       if (!matches)
-> +               return 0;
-> +
-> +       if (matches < numfields)
-> +               newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
-> +       else
-> +               newval = 0;
-> +
-> +       maxval = (field_sz == 4) ? 0xf : 0x1f;
-> +       for (i = 0; i < numfields; i++)
-> +               if (val[i] != -(i + 1)) {
-> +                       mask = 0xffff;
-> +                       mask ^= maxval << (field_sz * i);
-> +                       newval = (newval & mask) |
-> +                               (((val[i] / KSZ9031_PS_TO_REG) & maxval)
-> +                                       << (field_sz * i));
-> +               }
-> +
-> +       return ksz9031_extended_write(phydev, OP_DATA, 2, reg, newval);
-> +}
-> +
-> +static int ksz9031_config_init(struct phy_device *phydev)
-> +{
-> +       struct device *dev = &phydev->dev;
-> +       struct device_node *of_node = dev->of_node;
-> +       char *clk_skews[2] = {"rxc-skew-ps", "txc-skew-ps"};
-> +       char *rx_data_skews[4] = {
-> +               "rxd0-skew-ps", "rxd1-skew-ps",
-> +               "rxd2-skew-ps", "rxd3-skew-ps"
-> +       };
-> +       char *tx_data_skews[4] = {
-> +               "txd0-skew-ps", "txd1-skew-ps",
-> +               "txd2-skew-ps", "txd3-skew-ps"
-> +       };
-> +       char *control_skews[2] = {"txen-skew-ps", "rxdv-skew-ps"};
-> +
-> +       if (!of_node && dev->parent->of_node)
-> +               of_node = dev->parent->of_node;
-> +
-> +       if (of_node) {
-> +               ksz9031_of_load_skew_values(phydev, of_node,
-> +                               MII_KSZ9031RN_CLK_PAD_SKEW, 5,
-> +                               clk_skews, 2);
-> +
-> +               ksz9031_of_load_skew_values(phydev, of_node,
-> +                               MII_KSZ9031RN_CONTROL_PAD_SKEW, 4,
-> +                               control_skews, 2);
-> +
-> +               ksz9031_of_load_skew_values(phydev, of_node,
-> +                               MII_KSZ9031RN_RX_DATA_PAD_SKEW, 4,
-> +                               rx_data_skews, 4);
-> +
-> +               ksz9031_of_load_skew_values(phydev, of_node,
-> +                               MII_KSZ9031RN_TX_DATA_PAD_SKEW, 4,
-> +                               tx_data_skews, 4);
-> +       }
-> +       return 0;
-> +}
-> +
->  #define KSZ8873MLL_GLOBAL_CONTROL_4    0x06
->  #define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX     (1 << 6)
->  #define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED      (1 << 4)
-> @@ -469,7 +573,7 @@ static struct phy_driver ksphy_driver[] = {
->         .features       = (PHY_GBIT_FEATURES | SUPPORTED_Pause
->                                 | SUPPORTED_Asym_Pause),
->         .flags          = PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
-> -       .config_init    = kszphy_config_init,
-> +       .config_init    = ksz9031_config_init,
->         .config_aneg    = genphy_config_aneg,
->         .read_status    = genphy_read_status,
->         .ack_interrupt  = kszphy_ack_interrupt,
-> --
-> 2.0.0.rc0
->
-
-
-
--- 
-Florian
+>-vlad
+...snip...
