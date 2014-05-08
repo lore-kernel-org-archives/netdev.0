@@ -1,71 +1,49 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next,v2] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Thu, 8 May 2014 20:50:06 +0000
-Message-ID: <b641d25465f44cae8c7c9a680a31594d@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1399581693-25050-1-git-send-email-haiyangz@microsoft.com>
- <20140508.164458.157597820665207475.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140508.164458.157597820665207475.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next 0/3] BPF testsuite and cleanup
+Date: Thu,  8 May 2014 14:10:50 -0700
+Message-ID: <1399583453-4315-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:63620 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754921AbaEHVLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 17:11:01 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so3337960pab.8
+        for <netdev@vger.kernel.org>; Thu, 08 May 2014 14:11:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This patchset adds BPF testsuite and improves readability of classic
+to internal BPF converter.
 
+The testsuite helped to find 'negative offset bug' in x64 JIT that was
+fixed by commit fdfaf64e ("x86: bpf_jit: support negative offsets")
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, May 8, 2014 4:45 PM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org; driverdev-
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next,v2] Add support for netvsc build without
-> CONFIG_SYSFS flag
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Thu,  8 May 2014 13:41:33 -0700
-> 
-> > +static inline void netvsc_record_rx_queue(struct sk_buff *skb,
-> > +					  struct hv_netvsc_packet *packet,
-> > +					  struct net_device *ndev)
-> > +{
-> > +#ifdef CONFIG_SYSFS
-> > +	skb_record_rx_queue(skb, packet->channel->
-> > +			    offermsg.offer.sub_channel_index %
-> > +			    ndev->real_num_rx_queues);
-> > +#endif
-> > +}
-> 
-> This is still fantastically gross, what is so unique about your driver that it needs
-> hacks like this?  No other driver to my knowledge does.
-> 
-> Figure out what it is that makes your driver so unique, and try to make it
-> conform to how other drivers handle these features without SYSFS ifdef'ery
-> instead.
-> 
+It can be very useful for classic and internal JIT compiler developers.
+Also it serves as performance benchmark.
 
-I looked around the other drivers, and the netif_set_real_num_rx_queues() function. 
-It's already switched to no-op without CONFIG_SYSFS flag. So I will rely on this, and 
-don't have to handle the flag in my code. 
+x86_64/i386 pass all tests with and without JIT. arm32 JIT is failing
+negative offset tests which are unsupported.
 
-Thanks,
-- Haiyang
+Internal BPF tests are much larger than classic tests to cover different
+combinations of registers. Negative tests check correctness of classic
+BPF verifier which must reject them.
+
+Alexei Starovoitov (3):
+  net: filter: make BPF conversion more readable
+  net: filter: BPF testsuite
+  net: filter: additional BPF tests
+
+ include/linux/filter.h               |   51 ++
+ lib/Kconfig.debug                    |   13 +
+ lib/Makefile                         |    1 +
+ lib/test_bpf.c                       | 1546 ++++++++++++++++++++++++++++++++++
+ net/core/filter.c                    |  142 ++--
+ tools/testing/selftests/net/Makefile |    8 +-
+ 6 files changed, 1668 insertions(+), 93 deletions(-)
+ create mode 100644 lib/test_bpf.c
+
+-- 
+1.7.9.5
