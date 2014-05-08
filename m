@@ -1,7 +1,7 @@
 From: George Cherian <george.cherian@ti.com>
-Subject: [PATCH v2 3/3] drivers: net: davinci_cpdma: Convert kzalloc() to devm_kzalloc().
-Date: Thu, 8 May 2014 15:20:52 +0530
-Message-ID: <1399542652-14900-4-git-send-email-george.cherian@ti.com>
+Subject: [PATCH v2 1/3] driver net: cpsw: Convert pr_*() to dev_*() calls
+Date: Thu, 8 May 2014 15:20:50 +0530
+Message-ID: <1399542652-14900-2-git-send-email-george.cherian@ti.com>
 References: <1399542652-14900-1-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,125 +14,198 @@ In-Reply-To: <1399542652-14900-1-git-send-email-george.cherian@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert kzalloc() to devm_kzalloc().
+Convert all pr_*() calls to dev_*() calls.
+No functional changes.
 
 Signed-off-by: George Cherian <george.cherian@ti.com>
 Reviewed-by: Felipe Balbi <balbi@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c | 35 +++++++++++----------------------
- 1 file changed, 12 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 50 +++++++++++++++++++++---------------------
+ 1 file changed, 25 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 88ef270..539dbde 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -158,9 +158,9 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
- 	int bitmap_size;
- 	struct cpdma_desc_pool *pool;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index d14c8da..9512738 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1808,25 +1808,25 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		return -EINVAL;
  
--	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
-+	pool = devm_kzalloc(dev, sizeof(*pool), GFP_KERNEL);
- 	if (!pool)
--		return NULL;
-+		goto fail;
- 
- 	spin_lock_init(&pool->lock);
- 
-@@ -170,7 +170,7 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
- 	pool->num_desc	= size / pool->desc_size;
- 
- 	bitmap_size  = (pool->num_desc / BITS_PER_LONG) * sizeof(long);
--	pool->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
-+	pool->bitmap = devm_kzalloc(dev, bitmap_size, GFP_KERNEL);
- 	if (!pool->bitmap)
- 		goto fail;
- 
-@@ -187,10 +187,7 @@ cpdma_desc_pool_create(struct device *dev, u32 phys, u32 hw_addr,
- 
- 	if (pool->iomap)
- 		return pool;
--
- fail:
--	kfree(pool->bitmap);
--	kfree(pool);
- 	return NULL;
- }
- 
-@@ -203,7 +200,6 @@ static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
- 
- 	spin_lock_irqsave(&pool->lock, flags);
- 	WARN_ON(pool->used_desc);
--	kfree(pool->bitmap);
- 	if (pool->cpumap) {
- 		dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
- 				  pool->phys);
-@@ -211,7 +207,6 @@ static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
- 		iounmap(pool->iomap);
+ 	if (of_property_read_u32(node, "slaves", &prop)) {
+-		pr_err("Missing slaves property in the DT.\n");
++		dev_err(&pdev->dev, "Missing slaves property in the DT.\n");
+ 		return -EINVAL;
  	}
- 	spin_unlock_irqrestore(&pool->lock, flags);
--	kfree(pool);
- }
+ 	data->slaves = prop;
  
- static inline dma_addr_t desc_phys(struct cpdma_desc_pool *pool,
-@@ -276,7 +271,7 @@ struct cpdma_ctlr *cpdma_ctlr_create(struct cpdma_params *params)
- {
- 	struct cpdma_ctlr *ctlr;
+ 	if (of_property_read_u32(node, "active_slave", &prop)) {
+-		pr_err("Missing active_slave property in the DT.\n");
++		dev_err(&pdev->dev, "Missing active_slave property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->active_slave = prop;
  
--	ctlr = kzalloc(sizeof(*ctlr), GFP_KERNEL);
-+	ctlr = devm_kzalloc(params->dev, sizeof(*ctlr), GFP_KERNEL);
- 	if (!ctlr)
- 		return NULL;
+ 	if (of_property_read_u32(node, "cpts_clock_mult", &prop)) {
+-		pr_err("Missing cpts_clock_mult property in the DT.\n");
++		dev_err(&pdev->dev, "Missing cpts_clock_mult property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->cpts_clock_mult = prop;
  
-@@ -468,7 +463,6 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+ 	if (of_property_read_u32(node, "cpts_clock_shift", &prop)) {
+-		pr_err("Missing cpts_clock_shift property in the DT.\n");
++		dev_err(&pdev->dev, "Missing cpts_clock_shift property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->cpts_clock_shift = prop;
+@@ -1838,31 +1838,31 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		return -ENOMEM;
  
- 	cpdma_desc_pool_destroy(ctlr->pool);
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
--	kfree(ctlr);
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
-@@ -507,21 +501,22 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler)
- {
- 	struct cpdma_chan *chan;
--	int ret, offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
-+	int offset = (chan_num % CPDMA_MAX_CHANNELS) * 4;
- 	unsigned long flags;
+ 	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
+-		pr_err("Missing cpdma_channels property in the DT.\n");
++		dev_err(&pdev->dev, "Missing cpdma_channels property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->channels = prop;
  
- 	if (__chan_linear(chan_num) >= ctlr->num_chan)
- 		return NULL;
+ 	if (of_property_read_u32(node, "ale_entries", &prop)) {
+-		pr_err("Missing ale_entries property in the DT.\n");
++		dev_err(&pdev->dev, "Missing ale_entries property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->ale_entries = prop;
  
--	ret = -ENOMEM;
--	chan = kzalloc(sizeof(*chan), GFP_KERNEL);
-+	chan = devm_kzalloc(ctlr->dev, sizeof(*chan), GFP_KERNEL);
- 	if (!chan)
--		goto err_chan_alloc;
-+		return ERR_PTR(-ENOMEM);
+ 	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
+-		pr_err("Missing bd_ram_size property in the DT.\n");
++		dev_err(&pdev->dev, "Missing bd_ram_size property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->bd_ram_size = prop;
  
- 	spin_lock_irqsave(&ctlr->lock, flags);
--	ret = -EBUSY;
--	if (ctlr->channels[chan_num])
--		goto err_chan_busy;
-+	if (ctlr->channels[chan_num]) {
-+		spin_unlock_irqrestore(&ctlr->lock, flags);
-+		devm_kfree(ctlr->dev, chan);
-+		return ERR_PTR(-EBUSY);
-+	}
+ 	if (of_property_read_u32(node, "rx_descs", &prop)) {
+-		pr_err("Missing rx_descs property in the DT.\n");
++		dev_err(&pdev->dev, "Missing rx_descs property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->rx_descs = prop;
  
- 	chan->ctlr	= ctlr;
- 	chan->state	= CPDMA_STATE_IDLE;
-@@ -551,12 +546,6 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 	ctlr->channels[chan_num] = chan;
- 	spin_unlock_irqrestore(&ctlr->lock, flags);
- 	return chan;
--
--err_chan_busy:
--	spin_unlock_irqrestore(&ctlr->lock, flags);
--	kfree(chan);
--err_chan_alloc:
--	return ERR_PTR(ret);
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_create);
+ 	if (of_property_read_u32(node, "mac_control", &prop)) {
+-		pr_err("Missing mac_control property in the DT.\n");
++		dev_err(&pdev->dev, "Missing mac_control property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->mac_control = prop;
+@@ -1876,7 +1876,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
+ 	/* We do not want to force this, as in some cases may not have child */
+ 	if (ret)
+-		pr_warn("Doesn't have any child node\n");
++		dev_warn(&pdev->dev, "Doesn't have any child node\n");
  
+ 	for_each_child_of_node(node, slave_node) {
+ 		struct cpsw_slave_data *slave_data = data->slave_data + i;
+@@ -1893,7 +1893,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 
+ 		parp = of_get_property(slave_node, "phy_id", &lenp);
+ 		if ((parp == NULL) || (lenp != (sizeof(void *) * 2))) {
+-			pr_err("Missing slave[%d] phy_id property\n", i);
++			dev_err(&pdev->dev, "Missing slave[%d] phy_id property\n", i);
+ 			return -EINVAL;
+ 		}
+ 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
+@@ -1918,18 +1918,18 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 
+ 		slave_data->phy_if = of_get_phy_mode(slave_node);
+ 		if (slave_data->phy_if < 0) {
+-			pr_err("Missing or malformed slave[%d] phy-mode property\n",
+-			       i);
++			dev_err(&pdev->dev, "Missing or malformed slave[%d] phy-mode property\n",
++				i);
+ 			return slave_data->phy_if;
+ 		}
+ 
+ 		if (data->dual_emac) {
+ 			if (of_property_read_u32(slave_node, "dual_emac_res_vlan",
+ 						 &prop)) {
+-				pr_err("Missing dual_emac_res_vlan in DT.\n");
++				dev_err(&pdev->dev, "Missing dual_emac_res_vlan in DT.\n");
+ 				slave_data->dual_emac_res_vlan = i+1;
+-				pr_err("Using %d as Reserved VLAN for %d slave\n",
+-				       slave_data->dual_emac_res_vlan, i);
++				dev_err(&pdev->dev, "Using %d as Reserved VLAN for %d slave\n",
++					slave_data->dual_emac_res_vlan, i);
+ 			} else {
+ 				slave_data->dual_emac_res_vlan = prop;
+ 			}
+@@ -1953,7 +1953,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+ 
+ 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+ 	if (!ndev) {
+-		pr_err("cpsw: error allocating net_device\n");
++		dev_err(&pdev->dev, "cpsw: error allocating net_device\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -1969,10 +1969,10 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+ 	if (is_valid_ether_addr(data->slave_data[1].mac_addr)) {
+ 		memcpy(priv_sl2->mac_addr, data->slave_data[1].mac_addr,
+ 			ETH_ALEN);
+-		pr_info("cpsw: Detected MACID = %pM\n", priv_sl2->mac_addr);
++		dev_info(&pdev->dev, "cpsw: Detected MACID = %pM\n", priv_sl2->mac_addr);
+ 	} else {
+ 		random_ether_addr(priv_sl2->mac_addr);
+-		pr_info("cpsw: Random MACID = %pM\n", priv_sl2->mac_addr);
++		dev_info(&pdev->dev, "cpsw: Random MACID = %pM\n", priv_sl2->mac_addr);
+ 	}
+ 	memcpy(ndev->dev_addr, priv_sl2->mac_addr, ETH_ALEN);
+ 
+@@ -2010,7 +2010,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+-		pr_err("cpsw: error registering net device\n");
++		dev_err(&pdev->dev, "cpsw: error registering net device\n");
+ 		free_netdev(ndev);
+ 		ret = -ENODEV;
+ 	}
+@@ -2032,7 +2032,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+ 	if (!ndev) {
+-		pr_err("error allocating net_device\n");
++		dev_err(&pdev->dev, "error allocating net_device\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -2047,7 +2047,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	priv->cpts = devm_kzalloc(&pdev->dev, sizeof(struct cpts), GFP_KERNEL);
+ 	priv->irq_enabled = true;
+ 	if (!priv->cpts) {
+-		pr_err("error allocating cpts\n");
++		dev_err(&pdev->dev, "error allocating cpts\n");
+ 		goto clean_ndev_ret;
+ 	}
+ 
+@@ -2060,7 +2060,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	pinctrl_pm_select_default_state(&pdev->dev);
+ 
+ 	if (cpsw_probe_dt(&priv->data, pdev)) {
+-		pr_err("cpsw: platform data missing\n");
++		dev_err(&pdev->dev, "cpsw: platform data missing\n");
+ 		ret = -ENODEV;
+ 		goto clean_runtime_disable_ret;
+ 	}
+@@ -2068,10 +2068,10 @@ static int cpsw_probe(struct platform_device *pdev)
+ 
+ 	if (is_valid_ether_addr(data->slave_data[0].mac_addr)) {
+ 		memcpy(priv->mac_addr, data->slave_data[0].mac_addr, ETH_ALEN);
+-		pr_info("Detected MACID = %pM\n", priv->mac_addr);
++		dev_info(&pdev->dev, "Detected MACID = %pM\n", priv->mac_addr);
+ 	} else {
+ 		eth_random_addr(priv->mac_addr);
+-		pr_info("Random MACID = %pM\n", priv->mac_addr);
++		dev_info(&pdev->dev, "Random MACID = %pM\n", priv->mac_addr);
+ 	}
+ 
+ 	memcpy(ndev->dev_addr, priv->mac_addr, ETH_ALEN);
 -- 
 1.8.3.1
