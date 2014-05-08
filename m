@@ -1,45 +1,80 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next 1/2] net: Expose header length compution function
-Date: Thu, 08 May 2014 08:18:22 -0700
-Message-ID: <536BA03E.6030109@intel.com>
-References: <1399553434-25617-1-git-send-email-amirv@mellanox.com> <1399553434-25617-2-git-send-email-amirv@mellanox.com>
+From: Dinh Nguyen <dinh.linux@gmail.com>
+Subject: Re: socfpga/sockit ethernet problems
+Date: Thu, 08 May 2014 10:28:41 -0500
+Message-ID: <536BA2A9.2080908@gmail.com>
+References: <20140507104518.GB18139@amd.pavel.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: Pavel Machek <pavel@denx.de>, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, dinguyen@altera.com,
+	linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32051 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752733AbaEHPT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2014 11:19:58 -0400
-In-Reply-To: <1399553434-25617-2-git-send-email-amirv@mellanox.com>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:36276 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752733AbaEHP2p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 11:28:45 -0400
+Received: by mail-oa0-f44.google.com with SMTP id i11so3290339oag.3
+        for <netdev@vger.kernel.org>; Thu, 08 May 2014 08:28:44 -0700 (PDT)
+In-Reply-To: <20140507104518.GB18139@amd.pavel.ucw.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/08/2014 05:50 AM, Amir Vadai wrote:
-> From: Ido Shamay <idos@mellanox.com>
-> 
-> This commit exposes an header length compution generic function,
-> introduced in some of Intel's Etherent drivers (igb and ixgbe),
-> to net public namespace under the name __net_get_headlen,
-> where it can be used by other vendors and removes code duplication.
-> 
-> Signed-off-by: Ido Shamay <idos@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Thanks for doing this.  It was something I was meaning to do but just
-haven't had the time to do it.
 
-Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+On 05/07/2014 05:45 AM, Pavel Machek wrote:
+> Hi!
+>
+> It seems we have some problems with Ethernet on socfpga boards.
+>
+> Like, "stmmac: Energy-Efficient Ethernet initialized" repeated way too
+> often. Or machine failing to boot because NFS server can not be
+
+There's a patch that already mainlined that fixes this:
+
+83bf79b6bb stmmac: disable at run-time the EEE if not supported
+
+
+> accessed. (And then working on next try). Or link going up and down
+> and up and down. Or link taking 3 seconds, 10 seconds to estabilish.
+>
+> It also seems to be picky about hubs it wants to talk to.
+>
+> This time it mounted root; on last boot it just hung.
+>
+> Mounts root 31.394855 Waiting 5 sec before mounting root device...
+> Mounts root 33.331379 stmmaceth ff702000.ethernet eth0: Link is Up -
+> 100Mbps/Full - flow control rx/tx
+> Mounts root 36.418308 VFS: Mounted root (nfs filesystem) on device
+> 0:12.
+> ### Milestone reached:  Mounts root
+> Userland boots 51.455751 nfs: server 192.168.1.1 not responding, still
+> trying
+> Userland boots 52.552075 nfs: server 192.168.1.1 OK
+> Userland boots 52.555110 devtmpfs: mounted
+> Userland boots 52.566032 Freeing unused kernel memory: 264K (80597000
+> - 805d9000)
+> Userland boots 61.395175 nfs: server 192.168.1.1 not responding, still
+> trying
+> Userland boots 61.401301 nfs: server 192.168.1.1 OK
+>
+> U-boot seems to configure phy timing:
+>
+> u-boot talk 12.033741 Configuring PHY skew timing for Micrel ksz9021
+>
+> is there something similar that needs to be done at Linux layer.
+
+I haven't tested in the sockit, but I have been testing on the devkit, 
+and I am able to NFS mount just fine everytime.
+
+I have a branch at:
+
+git://git.rocketboards.org/linux-socfpga-next.git  for-next
+
+that you can test.
+
+Dinh
+>
+> Any ideas? Thanks,
+> 									Pavel
+>
