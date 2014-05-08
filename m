@@ -1,1456 +1,1153 @@
-From: Wilfried Klaebe <w-lkml-pFTr4yDReMQpLY+iQtz4oH4Z0sVMXfX4hC4ANOJQIlc@public.gmane.org>
-Subject: [PATCH] net: get rid of SET_ETHTOOL_OPS
-Date: Thu, 8 May 2014 11:53:54 +0000
-Message-ID: <20140508115354.GB7875@kaos.lebenslange-mailadresse.de>
+From: Andreas Irestal <andreas.irestal@axis.com>
+Subject: [RFC PATCH] net:Add basic DWC Ethernet QoS Driver
+Date: Thu, 8 May 2014 13:49:02 +0200
+Message-ID: <201405081349.03139.Andreas.Irestal@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Nandini Hanumanthagowda <nandu.hgowda-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, Anders Larsen <al-V9/YLgxv/GvR7s880joybQ@public.gmane.org>,
- Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>, Rasesh Mody <rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>,
- Andreas Herrmann <andreas.herrmann-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>, "K. Y. Srinivasan" <kys-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>,
- Aaron Marburg <amarburg-MtqYO9m3oizKBv0CESTyP2D2FQJk+8+b@public.gmane.org>,
- Andy Gospodarek <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>, Roland Stigge <stigge-uj/7R2tJ6VmzQB+pC5nmwQ@public.gmane.org>,
- Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
- Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>, Sathya Perla <sathya.perla-laKkSmNT4hbQT0dZR+AlfA@public.gmane.org>,
- Jingoo Han <jg1.han-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, Manish Chopra <manish.chopra-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
- Luka Perkov <luka-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
- Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
- Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
- Alex Duyck <alexander.h.duyck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Mugunthan V N <mu
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: "grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"maxime.ripard@free-electrons.com" <maxime.ripard@free-electrons.com>,
+	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"sr@denx.de" <sr@denx.de>,
+	"jonas.jensen@gmail.com" <jonas.jensen@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Jesper Nilsson <jespern@axis.com>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave Miller mentioned he'd like to see SET_ETHTOOL_OPS gone.
-This does that.
+This is an early version of a driver for the Synopsys DWC Ethernet QoS IP
+version 4. Unfortunately, version 4.00a and onwards of this IP is totally
+different from earlier versions used in the STMicroelectronics drivers. Both
+functionality and registers are different. As this is my first network driver
+I am submitting an RFC to catch design flaws and bad coding standards at an
+early stage. Also, others looking at this IP could hopefully be helped by this
+early code.
 
-Compile tested only, but I'd seriously wonder if this broke anything.
+The driver is quite inefficient, yet still functional (Gbit only) and uses a
+polling-driven TX-approach. For the RX side NAPI and interrupts are used.
+There are still quite a lot of work to do. Link handling, more robust
+error-handling, HW Checksumming, scatter-gather and TCP Segmentation and
+checksum offloading to name a few.
 
-Suggested-by: Dave Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Signed-off-by: Wilfried Klaebe <w-lkml-pFTr4yDReMQpLY+iQtz4oH4Z0sVMXfX4hC4ANOJQIlc@public.gmane.org>
+All code has been developed and tested using an FPGA implementation of the IP,
+with an ARM Cortex A9 as the main CPU, running Linux 3.13.
 
+Signed-off-by: Andreas Irestaal <Andreas.Irestal@axis.com>
 ---
+ drivers/net/ethernet/Kconfig                |    1 +
+ drivers/net/ethernet/Makefile               |    1 +
+ drivers/net/ethernet/synopsys/Kconfig       |   24 +
+ drivers/net/ethernet/synopsys/Makefile      |    5 +
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c |  710 +++++++++++++++++++++++++++
+ drivers/net/ethernet/synopsys/dwc_eth_qos.h |  308 ++++++++++++
+ 6 files changed, 1049 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/ethernet/synopsys/Kconfig
+ create mode 100644 drivers/net/ethernet/synopsys/Makefile
+ create mode 100644 drivers/net/ethernet/synopsys/dwc_eth_qos.c
+ create mode 100644 drivers/net/ethernet/synopsys/dwc_eth_qos.h
 
-Applies against v3.15-rc4.
-
-diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-index c4b3940..078cadd 100644
---- a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-+++ b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
-@@ -105,5 +105,5 @@ static const struct ethtool_ops ipoib_ethtool_ops = {
- 
- void ipoib_set_ethtool_ops(struct net_device *dev)
- {
--	SET_ETHTOOL_OPS(dev, &ipoib_ethtool_ops);
-+	dev->ethtool_ops = &ipoib_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
-index 35df0b9..a968654 100644
---- a/drivers/net/ethernet/3com/3c509.c
-+++ b/drivers/net/ethernet/3com/3c509.c
-@@ -534,7 +534,7 @@ static int el3_common_init(struct net_device *dev)
- 	/* The EL3-specific entries in the device structure. */
- 	dev->netdev_ops = &netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- 
- 	err = register_netdev(dev);
- 	if (err) {
-diff --git a/drivers/net/ethernet/3com/3c589_cs.c b/drivers/net/ethernet/3com/3c589_cs.c
-index 063557e..f18647c 100644
---- a/drivers/net/ethernet/3com/3c589_cs.c
-+++ b/drivers/net/ethernet/3com/3c589_cs.c
-@@ -218,7 +218,7 @@ static int tc589_probe(struct pcmcia_device *link)
- 	dev->netdev_ops = &el3_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 
--	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-+	dev->ethtool_ops = &netdev_ethtool_ops;
- 
- 	return tc589_config(link);
- }
-diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-index 465cc71..e13b046 100644
---- a/drivers/net/ethernet/3com/typhoon.c
-+++ b/drivers/net/ethernet/3com/typhoon.c
-@@ -2435,7 +2435,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netif_napi_add(dev, &tp->napi, typhoon_poll, 16);
- 	dev->watchdog_timeo	= TX_TIMEOUT;
- 
--	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
-+	dev->ethtool_ops = &typhoon_ethtool_ops;
- 
- 	/* We can handle scatter gather, up to 16 entries, and
- 	 * we can do IP checksumming (only version 4, doh...)
-diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
-index 171d73c..40dbbf7 100644
---- a/drivers/net/ethernet/adaptec/starfire.c
-+++ b/drivers/net/ethernet/adaptec/starfire.c
-@@ -784,7 +784,7 @@ static int starfire_init_one(struct pci_dev *pdev,
- 
- 	dev->netdev_ops = &netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- 
- 	netif_napi_add(dev, &np->napi, netdev_poll, max_interrupt_work);
- 
-diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
-index 1517e9df..9a6991b 100644
---- a/drivers/net/ethernet/alteon/acenic.c
-+++ b/drivers/net/ethernet/alteon/acenic.c
-@@ -476,7 +476,7 @@ static int acenic_probe_one(struct pci_dev *pdev,
- 	dev->watchdog_timeo = 5*HZ;
- 
- 	dev->netdev_ops = &ace_netdev_ops;
--	SET_ETHTOOL_OPS(dev, &ace_ethtool_ops);
-+	dev->ethtool_ops = &ace_ethtool_ops;
- 
- 	/* we only display this string ONCE */
- 	if (!boards_found)
-diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
-index 319ca74..8ac4bd2 100644
---- a/drivers/net/ethernet/altera/altera_tse_ethtool.c
-+++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
-@@ -231,5 +231,5 @@ static const struct ethtool_ops tse_ethtool_ops = {
- 
- void altera_tse_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &tse_ethtool_ops);
-+	netdev->ethtool_ops = &tse_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 26efaaa..068dc7c 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1900,7 +1900,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
- 
- 	/* Initialize driver entry points */
- 	dev->netdev_ops = &amd8111e_netdev_ops;
--	SET_ETHTOOL_OPS(dev, &ops);
-+	dev->ethtool_ops = &ops;
- 	dev->irq =pdev->irq;
- 	dev->watchdog_timeo = AMD8111E_TX_TIMEOUT;
- 	netif_napi_add(dev, &lp->napi, amd8111e_rx_poll, 32);
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index a2bd91e..a78e4c1 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -1229,7 +1229,7 @@ static int au1000_probe(struct platform_device *pdev)
- 	dev->base_addr = base->start;
- 	dev->irq = irq;
- 	dev->netdev_ops = &au1000_netdev_ops;
--	SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
-+	dev->ethtool_ops = &au1000_ethtool_ops;
- 	dev->watchdog_timeo = ETH_TX_TIMEOUT;
- 
- 	/*
-diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
-index 08569fe..abf3b15 100644
---- a/drivers/net/ethernet/amd/nmclan_cs.c
-+++ b/drivers/net/ethernet/amd/nmclan_cs.c
-@@ -457,7 +457,7 @@ static int nmclan_probe(struct pcmcia_device *link)
-     lp->tx_free_frames=AM2150_MAX_TX_FRAMES;
- 
-     dev->netdev_ops = &mace_netdev_ops;
--    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-+    dev->ethtool_ops = &netdev_ethtool_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
- 
-     return nmclan_config(link);
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 17bb9ce..49faa97 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1302,7 +1302,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	netdev->netdev_ops = &alx_netdev_ops;
--	SET_ETHTOOL_OPS(netdev, &alx_ethtool_ops);
-+	netdev->ethtool_ops = &alx_ethtool_ops;
- 	netdev->irq = pdev->irq;
- 	netdev->watchdog_timeo = ALX_WATCHDOG_TIME;
- 
-diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-index 859ea84..ecacaae 100644
---- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
-@@ -305,5 +305,5 @@ static const struct ethtool_ops atl1c_ethtool_ops = {
- 
- void atl1c_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &atl1c_ethtool_ops);
-+	netdev->ethtool_ops = &atl1c_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-index 82b2386..206e9b7 100644
---- a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-+++ b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
-@@ -388,5 +388,5 @@ static const struct ethtool_ops atl1e_ethtool_ops = {
- 
- void atl1e_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &atl1e_ethtool_ops);
-+	netdev->ethtool_ops = &atl1e_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
-index 78befb5..2587fed 100644
---- a/drivers/net/ethernet/atheros/atlx/atl2.c
-+++ b/drivers/net/ethernet/atheros/atlx/atl2.c
-@@ -1396,7 +1396,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	atl2_setup_pcicmd(pdev);
- 
- 	netdev->netdev_ops = &atl2_netdev_ops;
--	SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
-+	netdev->ethtool_ops = &atl2_ethtool_ops;
- 	netdev->watchdog_timeo = 5 * HZ;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index 05ba625..ca5a20a 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -2380,7 +2380,7 @@ static int b44_init_one(struct ssb_device *sdev,
- 	netif_napi_add(dev, &bp->napi, b44_poll, 64);
- 	dev->watchdog_timeo = B44_TX_TIMEOUT;
- 	dev->irq = sdev->irq;
--	SET_ETHTOOL_OPS(dev, &b44_ethtool_ops);
-+	dev->ethtool_ops = &b44_ethtool_ops;
- 
- 	err = ssb_bus_powerup(sdev->bus, 0);
- 	if (err) {
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index a7d11f5..1e7bba9c 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1898,7 +1898,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	dev->netdev_ops = &bcm_enet_ops;
- 	netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
- 
--	SET_ETHTOOL_OPS(dev, &bcm_enet_ethtool_ops);
-+	dev->ethtool_ops = &bcm_enet_ethtool_ops;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	ret = register_netdev(dev);
-@@ -2784,7 +2784,7 @@ static int bcm_enetsw_probe(struct platform_device *pdev)
- 	/* register netdevice */
- 	dev->netdev_ops = &bcm_enetsw_ops;
- 	netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
--	SET_ETHTOOL_OPS(dev, &bcm_enetsw_ethtool_ops);
-+	dev->ethtool_ops = &bcm_enetsw_ethtool_ops;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
- 	spin_lock_init(&priv->enetsw_mdio_lock);
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 0297a79..05c6af6 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1436,7 +1436,7 @@ static int bgmac_probe(struct bcma_device *core)
- 		return -ENOMEM;
- 	net_dev->netdev_ops = &bgmac_netdev_ops;
- 	net_dev->irq = core->irq;
--	SET_ETHTOOL_OPS(net_dev, &bgmac_ethtool_ops);
-+	net_dev->ethtool_ops = &bgmac_ethtool_ops;
- 	bgmac = netdev_priv(net_dev);
- 	bgmac->net_dev = net_dev;
- 	bgmac->core = core;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index b6de05e..0322409 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -3506,8 +3506,6 @@ static const struct ethtool_ops bnx2x_vf_ethtool_ops = {
- 
- void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev)
- {
--	if (IS_PF(bp))
--		SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
--	else /* vf */
--		SET_ETHTOOL_OPS(netdev, &bnx2x_vf_ethtool_ops);
-+	netdev->ethtool_ops = (IS_PF(bp)) ?
-+		&bnx2x_ethtool_ops : &bnx2x_vf_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 0966bd0..5ba1cfb 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2481,7 +2481,7 @@ static int bcmgenet_probe(struct platform_device *pdev)
- 	dev_set_drvdata(&pdev->dev, dev);
- 	ether_addr_copy(dev->dev_addr, macaddr);
- 	dev->watchdog_timeo = 2 * HZ;
--	SET_ETHTOOL_OPS(dev, &bcmgenet_ethtool_ops);
-+	dev->ethtool_ops = &bcmgenet_ethtool_ops;
- 	dev->netdev_ops = &bcmgenet_netdev_ops;
- 	netif_napi_add(dev, &priv->napi, bcmgenet_poll, 64);
- 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index f9e1508..adca62b 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -1137,5 +1137,5 @@ static const struct ethtool_ops bnad_ethtool_ops = {
- void
- bnad_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &bnad_ethtool_ops);
-+	netdev->ethtool_ops = &bnad_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 521dfea..25d6b2a 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -1737,7 +1737,7 @@ static int xgmac_probe(struct platform_device *pdev)
- 	platform_set_drvdata(pdev, ndev);
- 	ether_setup(ndev);
- 	ndev->netdev_ops = &xgmac_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &xgmac_ethtool_ops);
-+	ndev->ethtool_ops = &xgmac_ethtool_ops;
- 	spin_lock_init(&priv->stats_lock);
- 	INIT_WORK(&priv->tx_timeout_work, xgmac_tx_timeout_work);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-index 0fe7ff7..c1b2c1d 100644
---- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
-@@ -1100,7 +1100,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 		netif_napi_add(netdev, &adapter->napi, t1_poll, 64);
- 
--		SET_ETHTOOL_OPS(netdev, &t1_ethtool_ops);
-+		netdev->ethtool_ops = &t1_ethtool_ops;
- 	}
- 
- 	if (t1_init_sw_modules(adapter, bi) < 0) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-index 07bbb71..3ed5079 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
-@@ -3291,7 +3291,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			netdev->features |= NETIF_F_HIGHDMA;
- 
- 		netdev->netdev_ops = &cxgb_netdev_ops;
--		SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
-+		netdev->ethtool_ops = &cxgb_ethtool_ops;
- 	}
- 
- 	pci_set_drvdata(pdev, adapter);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 6fe5891..7c61f89 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -6074,7 +6074,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netdev->priv_flags |= IFF_UNICAST_FLT;
- 
- 		netdev->netdev_ops = &cxgb4_netdev_ops;
--		SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
-+		netdev->ethtool_ops = &cxgb_ethtool_ops;
- 	}
- 
- 	pci_set_drvdata(pdev, adapter);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 5285928..ff1cdd1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2664,7 +2664,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
- 		netdev->priv_flags |= IFF_UNICAST_FLT;
- 
- 		netdev->netdev_ops = &cxgb4vf_netdev_ops;
--		SET_ETHTOOL_OPS(netdev, &cxgb4vf_ethtool_ops);
-+		netdev->ethtool_ops = &cxgb4vf_ethtool_ops;
- 
- 		/*
- 		 * Initialize the hardware/software state for the port.
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 47e3562..58a8c67 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -253,5 +253,5 @@ static const struct ethtool_ops enic_ethtool_ops = {
- 
- void enic_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &enic_ethtool_ops);
-+	netdev->ethtool_ops = &enic_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index 1642de7..8616608 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -1703,7 +1703,7 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- #ifdef CONFIG_TULIP_NAPI
- 	netif_napi_add(dev, &tp->napi, tulip_poll, 16);
- #endif
--	SET_ETHTOOL_OPS(dev, &ops);
-+	dev->ethtool_ops = &ops;
- 
- 	if (register_netdev(dev))
- 		goto err_out_free_ring;
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index 4fb756d..2324f2d 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -227,7 +227,7 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 	dev->netdev_ops = &netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- #if 0
- 	dev->features = NETIF_F_IP_CSUM;
- #endif
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index d9e5ca0..433c1e1 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -577,7 +577,7 @@ static int sundance_probe1(struct pci_dev *pdev,
- 
- 	/* The chip-specific entries in the device structure. */
- 	dev->netdev_ops = &netdev_ops;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 
- 	pci_set_drvdata(pdev, dev);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a186454..9a9e7c7 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4301,7 +4301,7 @@ static void be_netdev_init(struct net_device *netdev)
- 
- 	netdev->netdev_ops = &be_netdev_ops;
- 
--	SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
-+	netdev->ethtool_ops = &be_ethtool_ops;
- }
- 
- static void be_unmap_pci_bars(struct be_adapter *adapter)
-diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index 68069ea..c77fa4a 100644
---- a/drivers/net/ethernet/faraday/ftgmac100.c
-+++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1210,7 +1210,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
- 
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
- 
--	SET_ETHTOOL_OPS(netdev, &ftgmac100_ethtool_ops);
-+	netdev->ethtool_ops = &ftgmac100_ethtool_ops;
- 	netdev->netdev_ops = &ftgmac100_netdev_ops;
- 	netdev->features = NETIF_F_IP_CSUM | NETIF_F_GRO;
- 
-diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
-index 8be5b40..4ff1adc 100644
---- a/drivers/net/ethernet/faraday/ftmac100.c
-+++ b/drivers/net/ethernet/faraday/ftmac100.c
-@@ -1085,7 +1085,7 @@ static int ftmac100_probe(struct platform_device *pdev)
- 	}
- 
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
--	SET_ETHTOOL_OPS(netdev, &ftmac100_ethtool_ops);
-+	netdev->ethtool_ops = &ftmac100_ethtool_ops;
- 	netdev->netdev_ops = &ftmac100_netdev_ops;
- 
- 	platform_set_drvdata(pdev, netdev);
-diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-index 413329e..cc83350 100644
---- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
-@@ -417,5 +417,5 @@ static const struct ethtool_ops uec_ethtool_ops = {
- 
- void uec_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &uec_ethtool_ops);
-+	netdev->ethtool_ops = &uec_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-index 7becab1..cfe7a74 100644
---- a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-+++ b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
-@@ -256,7 +256,7 @@ static int fmvj18x_probe(struct pcmcia_device *link)
-     dev->netdev_ops = &fjn_netdev_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
- 
--    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-+    dev->ethtool_ops = &netdev_ethtool_ops;
- 
-     return fmvj18x_config(link);
- } /* fmvj18x_attach */
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
-index 95837b9..6055e3e 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
-@@ -278,5 +278,5 @@ static const struct ethtool_ops ehea_ethtool_ops = {
- 
- void ehea_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &ehea_ethtool_ops);
-+	netdev->ethtool_ops = &ehea_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index ae342fd..87bd953 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -2879,7 +2879,7 @@ static int emac_probe(struct platform_device *ofdev)
- 		dev->commac.ops = &emac_commac_sg_ops;
- 	} else
- 		ndev->netdev_ops = &emac_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &emac_ethtool_ops);
-+	ndev->ethtool_ops = &emac_ethtool_ops;
- 
- 	netif_carrier_off(ndev);
- 
-diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
-index 25045ae..5727779 100644
---- a/drivers/net/ethernet/icplus/ipg.c
-+++ b/drivers/net/ethernet/icplus/ipg.c
-@@ -2245,7 +2245,7 @@ static int ipg_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 	 */
- 	dev->netdev_ops = &ipg_netdev_ops;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
--	SET_ETHTOOL_OPS(dev, &ipg_ethtool_ops);
-+	dev->ethtool_ops = &ipg_ethtool_ops;
- 
- 	rc = pci_request_regions(pdev, DRV_NAME);
- 	if (rc)
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index b56461c..9d979d7 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -2854,7 +2854,7 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->hw_features |= NETIF_F_RXALL;
- 
- 	netdev->netdev_ops = &e100_netdev_ops;
--	SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
-+	netdev->ethtool_ops = &e100_ethtool_ops;
- 	netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
- 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index 73a8aee..341889a 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -1905,5 +1905,5 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 
- void e1000_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &e1000_ethtool_ops);
-+	netdev->ethtool_ops = &e1000_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index cad250b..d9f8a2d 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -2315,5 +2315,5 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 
- void e1000e_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &e1000_ethtool_ops);
-+	netdev->ethtool_ops = &e1000_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 03d99cb..7673f86 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1692,5 +1692,5 @@ static const struct ethtool_ops i40e_ethtool_ops = {
- 
- void i40e_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &i40e_ethtool_ops);
-+	netdev->ethtool_ops = &i40e_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 8b0db1c..4defd51 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -389,5 +389,5 @@ static struct ethtool_ops i40evf_ethtool_ops = {
-  **/
- void i40evf_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &i40evf_ethtool_ops);
-+	netdev->ethtool_ops = &i40evf_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index e5570ac..30b76e1 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -3029,5 +3029,5 @@ static const struct ethtool_ops igb_ethtool_ops = {
- 
- void igb_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &igb_ethtool_ops);
-+	netdev->ethtool_ops = &igb_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
-index 90eef07..f58170b 100644
---- a/drivers/net/ethernet/intel/igbvf/ethtool.c
-+++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
-@@ -476,5 +476,5 @@ static const struct ethtool_ops igbvf_ethtool_ops = {
- 
- void igbvf_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &igbvf_ethtool_ops);
-+	netdev->ethtool_ops = &igbvf_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-index dbb7dd2..1da2d98 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
-@@ -656,5 +656,5 @@ static const struct ethtool_ops ixgb_ethtool_ops = {
- 
- void ixgb_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &ixgb_ethtool_ops);
-+	netdev->ethtool_ops = &ixgb_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 6c55c14..31d7268 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -3099,5 +3099,5 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &ixgbe_ethtool_ops);
-+	netdev->ethtool_ops = &ixgbe_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-index 1baecb6..a757f07 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
-@@ -813,5 +813,5 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
- 
- void ixgbevf_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &ixgbevf_ethtool_ops);
-+	netdev->ethtool_ops = &ixgbevf_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index b7b8d74..df1d1b9 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2889,7 +2889,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 	if (err)
- 		goto out;
- 
--	SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops);
-+	dev->ethtool_ops = &mv643xx_eth_ethtool_ops;
- 
- 	init_pscr(mp, pd->speed, pd->duplex);
- 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 14786c8..72bc47f 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2813,7 +2813,7 @@ static int mvneta_probe(struct platform_device *pdev)
- 	dev->watchdog_timeo = 5 * HZ;
- 	dev->netdev_ops = &mvneta_netdev_ops;
- 
--	SET_ETHTOOL_OPS(dev, &mvneta_eth_tool_ops);
-+	dev->ethtool_ops = &mvneta_eth_tool_ops;
- 
- 	pp = netdev_priv(dev);
- 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index b358c2f..8f5aa7c 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1488,7 +1488,7 @@ static int pxa168_eth_probe(struct platform_device *pdev)
- 	dev->netdev_ops = &pxa168_eth_netdev_ops;
- 	dev->watchdog_timeo = 2 * HZ;
- 	dev->base_addr = 0;
--	SET_ETHTOOL_OPS(dev, &pxa168_ethtool_ops);
-+	dev->ethtool_ops = &pxa168_ethtool_ops;
- 
- 	INIT_WORK(&pep->tx_timeout_task, pxa168_eth_tx_timeout_task);
- 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index b811064..6969338 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -4760,7 +4760,7 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
- 
- 	SET_NETDEV_DEV(dev, &hw->pdev->dev);
- 	dev->irq = hw->pdev->irq;
--	SET_ETHTOOL_OPS(dev, &sky2_ethtool_ops);
-+	dev->ethtool_ops = &sky2_ethtool_ops;
- 	dev->watchdog_timeo = TX_WATCHDOG;
- 	dev->netdev_ops = &sky2_netdev_ops[port];
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 7e4b172..36af5e7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2539,7 +2539,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
--	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
-+	dev->ethtool_ops = &mlx4_en_ethtool_ops;
- 
- 	/*
- 	 * Set driver features
-diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
-index 16435b3..6c7c78ba 100644
---- a/drivers/net/ethernet/micrel/ks8695net.c
-+++ b/drivers/net/ethernet/micrel/ks8695net.c
-@@ -1504,15 +1504,15 @@ ks8695_probe(struct platform_device *pdev)
- 	if (ksp->phyiface_regs && ksp->link_irq == -1) {
- 		ks8695_init_switch(ksp);
- 		ksp->dtype = KS8695_DTYPE_LAN;
--		SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
-+		ndev->ethtool_ops = &ks8695_ethtool_ops;
- 	} else if (ksp->phyiface_regs && ksp->link_irq != -1) {
- 		ks8695_init_wan_phy(ksp);
- 		ksp->dtype = KS8695_DTYPE_WAN;
--		SET_ETHTOOL_OPS(ndev, &ks8695_wan_ethtool_ops);
-+		ndev->ethtool_ops = &ks8695_wan_ethtool_ops;
- 	} else {
- 		/* No initialisation since HPNA does not have a PHY */
- 		ksp->dtype = KS8695_DTYPE_HPNA;
--		SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
-+		ndev->ethtool_ops = &ks8695_ethtool_ops;
- 	}
- 
- 	/* And bring up the net_device with the net core */
-diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
-index e0c92e0..13767eb 100644
---- a/drivers/net/ethernet/micrel/ks8851.c
-+++ b/drivers/net/ethernet/micrel/ks8851.c
-@@ -1471,7 +1471,7 @@ static int ks8851_probe(struct spi_device *spi)
- 
- 	skb_queue_head_init(&ks->txq);
- 
--	SET_ETHTOOL_OPS(ndev, &ks8851_ethtool_ops);
-+	ndev->ethtool_ops = &ks8851_ethtool_ops;
- 	SET_NETDEV_DEV(ndev, &spi->dev);
- 
- 	spi_set_drvdata(spi, ks);
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index 14ac0e2..4b9592c1 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -7106,7 +7106,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
- 		}
- 
- 		dev->netdev_ops = &netdev_ops;
--		SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-+		dev->ethtool_ops = &netdev_ethtool_ops;
- 		if (register_netdev(dev))
- 			goto pcidev_init_reg_err;
- 		port_set_power_saving(port, true);
-diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
-index c7b40aa..b1b5f66 100644
---- a/drivers/net/ethernet/microchip/enc28j60.c
-+++ b/drivers/net/ethernet/microchip/enc28j60.c
-@@ -1593,7 +1593,7 @@ static int enc28j60_probe(struct spi_device *spi)
- 	dev->irq = spi->irq;
- 	dev->netdev_ops = &enc28j60_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
--	SET_ETHTOOL_OPS(dev, &enc28j60_ethtool_ops);
-+	dev->ethtool_ops = &enc28j60_ethtool_ops;
- 
- 	enc28j60_lowpower(priv, true);
- 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 130f6b2..f3d5d79 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -4112,7 +4112,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	setup_timer(&mgp->watchdog_timer, myri10ge_watchdog_timer,
- 		    (unsigned long)mgp);
- 
--	SET_ETHTOOL_OPS(netdev, &myri10ge_ethtool_ops);
-+	netdev->ethtool_ops = &myri10ge_ethtool_ops;
- 	INIT_WORK(&mgp->watchdog_work, myri10ge_watchdog);
- 	status = register_netdev(netdev);
- 	if (status != 0) {
-diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
-index 64ec2a4..291fba8 100644
---- a/drivers/net/ethernet/natsemi/natsemi.c
-+++ b/drivers/net/ethernet/natsemi/natsemi.c
-@@ -927,7 +927,7 @@ static int natsemi_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	dev->netdev_ops = &natsemi_netdev_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- 
- 	if (mtu)
- 		dev->mtu = mtu;
-diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-index dbccf1d..19bb824 100644
---- a/drivers/net/ethernet/natsemi/ns83820.c
-+++ b/drivers/net/ethernet/natsemi/ns83820.c
-@@ -2030,7 +2030,7 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
- 		pci_dev->subsystem_vendor, pci_dev->subsystem_device);
- 
- 	ndev->netdev_ops = &netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &ops);
-+	ndev->ethtool_ops = &ops;
- 	ndev->watchdog_timeo = 5 * HZ;
- 	pci_set_drvdata(pci_dev, ndev);
- 
-diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
-index a2844ff..190538d 100644
---- a/drivers/net/ethernet/neterion/s2io.c
-+++ b/drivers/net/ethernet/neterion/s2io.c
-@@ -7919,7 +7919,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
- 
- 	/*  Driver entry points */
- 	dev->netdev_ops = &s2io_netdev_ops;
--	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
-+	dev->ethtool_ops = &netdev_ethtool_ops;
- 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO6 |
- 		NETIF_F_RXCSUM | NETIF_F_LRO;
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-index f8f0738..ddcc81a 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
-@@ -1128,5 +1128,5 @@ static const struct ethtool_ops vxge_ethtool_ops = {
- 
- void vxge_initialize_ethtool_ops(struct net_device *ndev)
- {
--	SET_ETHTOOL_OPS(ndev, &vxge_ethtool_ops);
-+	ndev->ethtool_ops = &vxge_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index fddb464..e8235c5 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -5766,7 +5766,7 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
- 		dev->netdev_ops = &nv_netdev_ops_optimized;
- 
- 	netif_napi_add(dev, &np->napi, nv_napi_poll, RX_WORK_PER_LOOP);
--	SET_ETHTOOL_OPS(dev, &ops);
-+	dev->ethtool_ops = &ops;
- 	dev->watchdog_timeo = NV_WATCHDOG_TIMEO;
- 
- 	pci_set_drvdata(pci_dev, dev);
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-index 826f0cc..114d2fe 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
-@@ -508,5 +508,5 @@ static const struct ethtool_ops pch_gbe_ethtool_ops = {
- 
- void pch_gbe_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &pch_gbe_ethtool_ops);
-+	netdev->ethtool_ops = &pch_gbe_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
-index b6bdeb3..9a997e4 100644
---- a/drivers/net/ethernet/packetengines/hamachi.c
-+++ b/drivers/net/ethernet/packetengines/hamachi.c
-@@ -724,10 +724,8 @@ static int hamachi_init_one(struct pci_dev *pdev,
- 
- 	/* The Hamachi-specific entries in the device structure. */
- 	dev->netdev_ops = &hamachi_netdev_ops;
--	if (chip_tbl[hmp->chip_id].flags & CanHaveMII)
--		SET_ETHTOOL_OPS(dev, &ethtool_ops);
--	else
--		SET_ETHTOOL_OPS(dev, &ethtool_ops_no_mii);
-+	dev->ethtool_ops = (chip_tbl[hmp->chip_id].flags & CanHaveMII) ?
-+		&ethtool_ops : &ethtool_ops_no_mii;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 	if (mtu)
- 		dev->mtu = mtu;
-diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
-index 9a6cb48..69a8dc0 100644
---- a/drivers/net/ethernet/packetengines/yellowfin.c
-+++ b/drivers/net/ethernet/packetengines/yellowfin.c
-@@ -472,7 +472,7 @@ static int yellowfin_init_one(struct pci_dev *pdev,
- 
- 	/* The Yellowfin-specific entries in the device structure. */
- 	dev->netdev_ops = &netdev_ops;
--	SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+	dev->ethtool_ops = &ethtool_ops;
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 
- 	if (mtu)
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-index f09c35d..5bf0581 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
-@@ -1373,7 +1373,7 @@ netxen_setup_netdev(struct netxen_adapter *adapter,
- 
- 	netxen_nic_change_mtu(netdev, netdev->mtu);
- 
--	SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
-+	netdev->ethtool_ops = &netxen_nic_ethtool_ops;
- 
- 	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
- 	                      NETIF_F_RXCSUM;
-diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
-index 2eabd44..b5d6bc1 100644
---- a/drivers/net/ethernet/qlogic/qla3xxx.c
-+++ b/drivers/net/ethernet/qlogic/qla3xxx.c
-@@ -3838,7 +3838,7 @@ static int ql3xxx_probe(struct pci_dev *pdev,
- 
- 	/* Set driver entry points */
- 	ndev->netdev_ops = &ql3xxx_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &ql3xxx_ethtool_ops);
-+	ndev->ethtool_ops = &ql3xxx_ethtool_ops;
- 	ndev->watchdog_timeo = 5 * HZ;
- 
- 	netif_napi_add(ndev, &qdev->napi, ql_poll, 64);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index dbf7539..4bdbdca 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2222,10 +2222,8 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
- 
- 	qlcnic_change_mtu(netdev, netdev->mtu);
- 
--	if (qlcnic_sriov_vf_check(adapter))
--		SET_ETHTOOL_OPS(netdev, &qlcnic_sriov_vf_ethtool_ops);
--	else
--		SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
-+	netdev->ethtool_ops = (qlcnic_sriov_vf_check(adapter)) ?
-+		&qlcnic_sriov_vf_ethtool_ops : &qlcnic_ethtool_ops;
- 
- 	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
- 			     NETIF_F_IPV6_CSUM | NETIF_F_GRO |
-@@ -2630,7 +2628,7 @@ err_out_disable_pdev:
- err_out_maintenance_mode:
- 	set_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state);
- 	netdev->netdev_ops = &qlcnic_netdev_failed_ops;
--	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_failed_ops);
-+	netdev->ethtool_ops = &qlcnic_ethtool_failed_ops;
- 	ahw->port_type = QLCNIC_XGBE;
- 
- 	if (qlcnic_83xx_check(adapter))
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 0a1d76a..79b86e9 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -4770,7 +4770,7 @@ static int qlge_probe(struct pci_dev *pdev,
- 	ndev->irq = pdev->irq;
- 
- 	ndev->netdev_ops = &qlge_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &qlge_ethtool_ops);
-+	ndev->ethtool_ops = &qlge_ethtool_ops;
- 	ndev->watchdog_timeo = 10 * HZ;
- 
- 	err = register_netdev(ndev);
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index aa1c079..be425ad 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -7125,7 +7125,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	for (i = 0; i < ETH_ALEN; i++)
- 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
- 
--	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
-+	dev->ethtool_ops = &rtl8169_ethtool_ops;
- 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
- 
- 	netif_napi_add(dev, &tp->napi, rtl8169_poll, R8169_NAPI_WEIGHT);
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 6a9509c..967314c 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2843,7 +2843,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
- 		ndev->netdev_ops = &sh_eth_netdev_ops_tsu;
- 	else
- 		ndev->netdev_ops = &sh_eth_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
-+	ndev->ethtool_ops = &sh_eth_ethtool_ops;
- 	ndev->watchdog_timeo = TX_TIMEOUT;
- 
- 	/* debug message level */
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-index 0415fa5..c0981ae 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-@@ -520,5 +520,5 @@ static const struct ethtool_ops sxgbe_ethtool_ops = {
- 
- void sxgbe_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &sxgbe_ethtool_ops);
-+	netdev->ethtool_ops = &sxgbe_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 63d595f..1e27404 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2248,7 +2248,7 @@ static int efx_register_netdev(struct efx_nic *efx)
- 	} else {
- 		net_dev->netdev_ops = &efx_farch_netdev_ops;
- 	}
--	SET_ETHTOOL_OPS(net_dev, &efx_ethtool_ops);
-+	net_dev->ethtool_ops = &efx_ethtool_ops;
- 	net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
- 
- 	rtnl_lock();
-diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
-index acbbe48..a863399 100644
---- a/drivers/net/ethernet/sis/sis190.c
-+++ b/drivers/net/ethernet/sis/sis190.c
-@@ -1877,7 +1877,7 @@ static int sis190_init_one(struct pci_dev *pdev,
- 
- 	dev->netdev_ops = &sis190_netdev_ops;
- 
--	SET_ETHTOOL_OPS(dev, &sis190_ethtool_ops);
-+	dev->ethtool_ops = &sis190_ethtool_ops;
- 	dev->watchdog_timeo = SIS190_TX_TIMEOUT;
- 
- 	spin_lock_init(&tp->lock);
-diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
-index c7a4868..6b33127 100644
---- a/drivers/net/ethernet/smsc/smc91c92_cs.c
-+++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
-@@ -318,7 +318,7 @@ static int smc91c92_probe(struct pcmcia_device *link)
- 
-     /* The SMC91c92-specific entries in the device structure. */
-     dev->netdev_ops = &smc_netdev_ops;
--    SET_ETHTOOL_OPS(dev, &ethtool_ops);
-+    dev->ethtool_ops = &ethtool_ops;
-     dev->watchdog_timeo = TX_TIMEOUT;
- 
-     smc->mii_if.dev = dev;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index c5f9cb8..c963394 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -784,5 +784,5 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 
- void stmmac_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &stmmac_ethtool_ops);
-+	netdev->ethtool_ops = &stmmac_ethtool_ops;
- }
-diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
-index 2ead877..38da73a 100644
---- a/drivers/net/ethernet/tehuti/tehuti.c
-+++ b/drivers/net/ethernet/tehuti/tehuti.c
-@@ -2413,7 +2413,7 @@ static void bdx_set_ethtool_ops(struct net_device *netdev)
- 		.get_ethtool_stats = bdx_get_ethtool_stats,
- 	};
- 
--	SET_ETHTOOL_OPS(netdev, &bdx_ethtool_ops);
-+	netdev->ethtool_ops = &bdx_ethtool_ops;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 36aa109..6ecab3c 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1975,7 +1975,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
- 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	ndev->netdev_ops = &cpsw_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
-+	ndev->ethtool_ops = &cpsw_ethtool_ops;
- 	netif_napi_add(ndev, &priv_sl2->napi, cpsw_poll, CPSW_POLL_WEIGHT);
- 
- 	/* register the network device */
-@@ -2204,7 +2204,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 
- 	ndev->netdev_ops = &cpsw_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
-+	ndev->ethtool_ops = &cpsw_ethtool_ops;
- 	netif_napi_add(ndev, &priv->napi, cpsw_poll, CPSW_POLL_WEIGHT);
- 
- 	/* register the network device */
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 8f0e69c..e76eae5 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1980,7 +1980,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
- 	}
- 
- 	ndev->netdev_ops = &emac_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &ethtool_ops);
-+	ndev->ethtool_ops = &ethtool_ops;
- 	netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
- 
- 	/* register the network device */
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 31e55fb..2170db5 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -715,7 +715,7 @@ static int netvsc_probe(struct hv_device *dev,
- 	net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
- 			NETIF_F_IP_CSUM | NETIF_F_TSO;
- 
--	SET_ETHTOOL_OPS(net, &ethtool_ops);
-+	net->ethtool_ops = &ethtool_ops;
- 	SET_NETDEV_DEV(net, &dev->device);
- 
- 	/* Notify the netvsc driver of the new device */
-diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
-index 63aa9d9..27536aa 100644
---- a/drivers/net/ntb_netdev.c
-+++ b/drivers/net/ntb_netdev.c
-@@ -348,7 +348,7 @@ static int ntb_netdev_probe(struct pci_dev *pdev)
- 	memcpy(ndev->dev_addr, ndev->perm_addr, ndev->addr_len);
- 
- 	ndev->netdev_ops = &ntb_netdev_ops;
--	SET_ETHTOOL_OPS(ndev, &ntb_ethtool_ops);
-+	ndev->ethtool_ops = &ntb_ethtool_ops;
- 
- 	dev->qp = ntb_transport_create_queue(ndev, pdev, &ntb_netdev_handlers);
- 	if (!dev->qp) {
-diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
-index a849718..dac7a0d 100644
---- a/drivers/net/rionet.c
-+++ b/drivers/net/rionet.c
-@@ -494,7 +494,7 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
- 	ndev->mtu = RIO_MAX_MSG_SIZE - 14;
- 	ndev->features = NETIF_F_LLTX;
- 	SET_NETDEV_DEV(ndev, &mport->dev);
--	SET_ETHTOOL_OPS(ndev, &rionet_ethtool_ops);
-+	ndev->ethtool_ops = &rionet_ethtool_ops;
- 
- 	spin_lock_init(&rnet->lock);
- 	spin_lock_init(&rnet->tx_lock);
-diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index 630caf4..8cfc3bb 100644
---- a/drivers/net/usb/catc.c
-+++ b/drivers/net/usb/catc.c
-@@ -793,7 +793,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 
- 	netdev->netdev_ops = &catc_netdev_ops;
- 	netdev->watchdog_timeo = TX_TIMEOUT;
--	SET_ETHTOOL_OPS(netdev, &ops);
-+	netdev->ethtool_ops = &ops;
- 
- 	catc->usbdev = usbdev;
- 	catc->netdev = netdev;
-diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-index 660bd5e..a3a0586 100644
---- a/drivers/net/usb/hso.c
-+++ b/drivers/net/usb/hso.c
-@@ -2425,7 +2425,7 @@ static void hso_net_init(struct net_device *net)
- 	net->type = ARPHRD_NONE;
- 	net->mtu = DEFAULT_MTU - 14;
- 	net->tx_queue_len = 10;
--	SET_ETHTOOL_OPS(net, &ops);
-+	net->ethtool_ops = &ops;
- 
- 	/* and initialize the semaphore */
- 	spin_lock_init(&hso_net->net_lock);
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 421934c..f725707 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -524,7 +524,7 @@ static int ipheth_probe(struct usb_interface *intf,
- 	usb_set_intfdata(intf, dev);
- 
- 	SET_NETDEV_DEV(netdev, &intf->dev);
--	SET_ETHTOOL_OPS(netdev, &ops);
-+	netdev->ethtool_ops = &ops;
- 
- 	retval = register_netdev(netdev);
- 	if (retval) {
-diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
-index a359d3b..dcb6d33 100644
---- a/drivers/net/usb/kaweth.c
-+++ b/drivers/net/usb/kaweth.c
-@@ -1171,7 +1171,7 @@ err_fw:
- 	netdev->netdev_ops = &kaweth_netdev_ops;
- 	netdev->watchdog_timeo = KAWETH_TX_TIMEOUT;
- 	netdev->mtu = le16_to_cpu(kaweth->configuration.segment_size);
--	SET_ETHTOOL_OPS(netdev, &ops);
-+	netdev->ethtool_ops = &ops;
- 
- 	/* kaweth is zeroed as part of alloc_netdev */
- 	INIT_DELAYED_WORK(&kaweth->lowmem_work, kaweth_resubmit_tl);
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index 03e8a15..f840802 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -1159,7 +1159,7 @@ static int pegasus_probe(struct usb_interface *intf,
- 
- 	net->watchdog_timeo = PEGASUS_TX_TIMEOUT;
- 	net->netdev_ops = &pegasus_netdev_ops;
--	SET_ETHTOOL_OPS(net, &ops);
-+	net->ethtool_ops = &ops;
- 	pegasus->mii.dev = net;
- 	pegasus->mii.mdio_read = mdio_read;
- 	pegasus->mii.mdio_write = mdio_write;
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3fbfb08..9f91c7a 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3452,7 +3452,7 @@ static int rtl8152_probe(struct usb_interface *intf,
- 			      NETIF_F_TSO | NETIF_F_FRAGLIST |
- 			      NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
- 
--	SET_ETHTOOL_OPS(netdev, &ops);
-+	netdev->ethtool_ops = &ops;
- 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
- 
- 	tp->mii.dev = netdev;
-diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index da2c458..6e87e57 100644
---- a/drivers/net/usb/rtl8150.c
-+++ b/drivers/net/usb/rtl8150.c
-@@ -878,7 +878,7 @@ static int rtl8150_probe(struct usb_interface *intf,
- 	dev->netdev = netdev;
- 	netdev->netdev_ops = &rtl8150_netdev_ops;
- 	netdev->watchdog_timeo = RTL8150_TX_TIMEOUT;
--	SET_ETHTOOL_OPS(netdev, &ops);
-+	netdev->ethtool_ops = &ops;
- 	dev->intr_interval = 100;	/* 100ms */
- 
- 	if (!alloc_all_urbs(dev)) {
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7b68746..3f83359 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1646,7 +1646,7 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	dev->netdev_ops = &virtnet_netdev;
- 	dev->features = NETIF_F_HIGHDMA;
- 
--	SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
-+	dev->ethtool_ops = &virtnet_ethtool_ops;
- 	SET_NETDEV_DEV(dev, &vdev->dev);
- 
- 	/* Do we support "hardware" checksums? */
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index 600ab56..00e1202 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -635,5 +635,5 @@ static const struct ethtool_ops vmxnet3_ethtool_ops = {
- 
- void vmxnet3_set_ethtool_ops(struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &vmxnet3_ethtool_ops);
-+	netdev->ethtool_ops = &vmxnet3_ethtool_ops;
- }
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 82355d5..457359c 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -2706,7 +2706,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		return -EEXIST;
- 	}
- 
--	SET_ETHTOOL_OPS(dev, &vxlan_ethtool_ops);
-+	dev->ethtool_ops = &vxlan_ethtool_ops;
- 
- 	/* create an fdb entry for a valid default destination */
- 	if (!vxlan_addr_any(&vxlan->default_dst.remote_ip)) {
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index 67db34e..52919ad 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -882,7 +882,7 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
- 	dev->mtu = local->mtu;
- 
- 
--	SET_ETHTOOL_OPS(dev, &prism2_ethtool_ops);
-+	dev->ethtool_ops = &prism2_ethtool_ops;
- 
- }
- 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index ef05c5c..a755733 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -386,7 +386,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
- 		NETIF_F_TSO | NETIF_F_TSO6;
- 	dev->features = dev->hw_features | NETIF_F_RXCSUM;
--	SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
-+	dev->ethtool_ops = &xenvif_ethtool_ops;
- 
- 	dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
- 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 158b5e6..895355d 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1332,7 +1332,7 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
-          */
- 	netdev->features |= netdev->hw_features;
- 
--	SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
-+	netdev->ethtool_ops = &xennet_ethtool_ops;
- 	SET_NETDEV_DEV(netdev, &dev->dev);
- 
- 	netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index 8dea3f1..047b4da 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -964,10 +964,9 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
- 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
- 	card->dev->mtu = card->info.initial_mtu;
- 	card->dev->netdev_ops = &qeth_l2_netdev_ops;
--	if (card->info.type != QETH_CARD_TYPE_OSN)
--		SET_ETHTOOL_OPS(card->dev, &qeth_l2_ethtool_ops);
--	else
--		SET_ETHTOOL_OPS(card->dev, &qeth_l2_osn_ops);
-+	card->dev->ethtool_ops =
-+		(card->info.type != QETH_CARD_TYPE_OSN) ?
-+		&qeth_l2_ethtool_ops : &qeth_l2_osn_ops;
- 	card->dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
- 	card->info.broadcast_capable = 1;
- 	qeth_l2_request_initial_mac(card);
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 3524d34..0a59d24 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3298,7 +3298,7 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
- 	card->dev->ml_priv = card;
- 	card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
- 	card->dev->mtu = card->info.initial_mtu;
--	SET_ETHTOOL_OPS(card->dev, &qeth_l3_ethtool_ops);
-+	card->dev->ethtool_ops = &qeth_l3_ethtool_ops;
- 	card->dev->features |=	NETIF_F_HW_VLAN_CTAG_TX |
- 				NETIF_F_HW_VLAN_CTAG_RX |
- 				NETIF_F_HW_VLAN_CTAG_FILTER;
-diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index d329cf3..15e0f4d 100644
---- a/drivers/staging/et131x/et131x.c
-+++ b/drivers/staging/et131x/et131x.c
-@@ -4604,7 +4604,7 @@ static int et131x_pci_setup(struct pci_dev *pdev,
- 	netdev->netdev_ops     = &et131x_netdev_ops;
- 
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
--	SET_ETHTOOL_OPS(netdev, &et131x_ethtool_ops);
-+	netdev->ethtool_ops = &et131x_ethtool_ops;
- 
- 	adapter = et131x_adapter_init(netdev, pdev);
- 
-diff --git a/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c b/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
-index d6421b9..a6158be 100644
---- a/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
-+++ b/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
-@@ -2249,7 +2249,7 @@ struct net_device *init_ft1000_card(struct pcmcia_device *link,
- 
- 	ft1000InitProc(dev);
- 	ft1000_card_present = 1;
--	SET_ETHTOOL_OPS(dev, &ops);
-+	dev->ethtool_ops = &ops;
- 	printk(KERN_INFO "ft1000: %s: addr 0x%04lx irq %d, MAC addr %pM\n",
- 			dev->name, dev->base_addr, dev->irq, dev->dev_addr);
- 	return dev;
-diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
-index c83e337..9d95761 100644
---- a/drivers/staging/netlogic/xlr_net.c
-+++ b/drivers/staging/netlogic/xlr_net.c
-@@ -1066,7 +1066,7 @@ static int xlr_net_probe(struct platform_device *pdev)
- 	xlr_set_rx_mode(ndev);
- 
- 	priv->num_rx_desc += MAX_NUM_DESC_SPILL;
--	SET_ETHTOOL_OPS(ndev, &xlr_ethtool_ops);
-+	ndev->ethtool_ops = &xlr_ethtool_ops;
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 
- 	/* Common registers, do one time initialization */
-diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
-index ff7214a..da9dd6b 100644
---- a/drivers/staging/octeon/ethernet.c
-+++ b/drivers/staging/octeon/ethernet.c
-@@ -469,7 +469,7 @@ int cvm_oct_common_init(struct net_device *dev)
- 
- 	/* We do our own locking, Linux doesn't need to */
- 	dev->features |= NETIF_F_LLTX;
--	SET_ETHTOOL_OPS(dev, &cvm_oct_ethtool_ops);
-+	dev->ethtool_ops = &cvm_oct_ethtool_ops;
- 
- 	cvm_oct_phy_setup_device(dev);
- 	cvm_oct_set_mac_filter(dev);
-diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
-index b7d4f82..ce8e281 100644
---- a/drivers/usb/gadget/u_ether.c
-+++ b/drivers/usb/gadget/u_ether.c
-@@ -793,7 +793,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
- 
- 	net->netdev_ops = &eth_netdev_ops;
- 
--	SET_ETHTOOL_OPS(net, &ops);
-+	net->ethtool_ops = &ops;
- 
- 	dev->gadget = g;
- 	SET_NETDEV_DEV(net, &g->dev);
-@@ -850,7 +850,7 @@ struct net_device *gether_setup_name_default(const char *netname)
- 
- 	net->netdev_ops = &eth_netdev_ops;
- 
--	SET_ETHTOOL_OPS(net, &ops);
-+	net->ethtool_ops = &ops;
- 	SET_NETDEV_DEVTYPE(net, &gadget_type);
- 
- 	return net;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 7ed3a3a..06071f7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -56,9 +56,6 @@ struct device;
- struct phy_device;
- /* 802.11 specific */
- struct wireless_dev;
--					/* source back-compat hooks */
--#define SET_ETHTOOL_OPS(netdev,ops) \
--	( (netdev)->ethtool_ops = (ops) )
- 
- void netdev_set_default_ethtool_ops(struct net_device *dev,
- 				    const struct ethtool_ops *ops);
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 744a59b..e7ee65d 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -884,7 +884,7 @@ static void batadv_softif_init_early(struct net_device *dev)
- 	/* generate random address */
- 	eth_hw_addr_random(dev);
- 
--	SET_ETHTOOL_OPS(dev, &batadv_ethtool_ops);
-+	dev->ethtool_ops = &batadv_ethtool_ops;
- 
- 	memset(priv, 0, sizeof(*priv));
- }
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 3e2da2c..9212015 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -348,7 +348,7 @@ void br_dev_setup(struct net_device *dev)
- 
- 	dev->netdev_ops = &br_netdev_ops;
- 	dev->destructor = br_dev_free;
--	SET_ETHTOOL_OPS(dev, &br_ethtool_ops);
-+	dev->ethtool_ops = &br_ethtool_ops;
- 	SET_NETDEV_DEVTYPE(dev, &br_type);
- 	dev->tx_queue_len = 0;
- 	dev->priv_flags = IFF_EBRIDGE;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 02c0e17..64c5af0 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -346,7 +346,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		return slave_dev;
- 
- 	slave_dev->features = master->vlan_features;
--	SET_ETHTOOL_OPS(slave_dev, &dsa_slave_ethtool_ops);
-+	slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
- 	eth_hw_addr_inherit(slave_dev, master);
- 	slave_dev->tx_queue_len = 0;
- 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 729c687..789af92 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -130,7 +130,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
- 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	netdev->destructor = internal_dev_destructor;
--	SET_ETHTOOL_OPS(netdev, &internal_dev_ethtool_ops);
-+	netdev->ethtool_ops = &internal_dev_ethtool_ops;
- 	netdev->tx_queue_len = 0;
- 
- 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 506b024..64e8189 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -157,6 +157,7 @@ source "drivers/net/ethernet/sgi/Kconfig"
+ source "drivers/net/ethernet/smsc/Kconfig"
+ source "drivers/net/ethernet/stmicro/Kconfig"
+ source "drivers/net/ethernet/sun/Kconfig"
++source "drivers/net/ethernet/synopsys/Kconfig"
+ source "drivers/net/ethernet/tehuti/Kconfig"
+ source "drivers/net/ethernet/ti/Kconfig"
+ source "drivers/net/ethernet/tile/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index c0b8789..57e4967 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -68,6 +68,7 @@ obj-$(CONFIG_NET_VENDOR_SGI) += sgi/
+ obj-$(CONFIG_NET_VENDOR_SMSC) += smsc/
+ obj-$(CONFIG_NET_VENDOR_STMICRO) += stmicro/
+ obj-$(CONFIG_NET_VENDOR_SUN) += sun/
++obj-$(CONFIG_NET_VENDOR_SYNOPSYS) += synopsys/
+ obj-$(CONFIG_NET_VENDOR_TEHUTI) += tehuti/
+ obj-$(CONFIG_NET_VENDOR_TI) += ti/
+ obj-$(CONFIG_TILE_NET) += tile/
+diff --git a/drivers/net/ethernet/synopsys/Kconfig b/drivers/net/ethernet/synopsys/Kconfig
+new file mode 100644
+index 0000000..90dceb2
+--- /dev/null
++++ b/drivers/net/ethernet/synopsys/Kconfig
+@@ -0,0 +1,24 @@
++#
++# Synopsys network device configuration
++#
++
++config NET_VENDOR_SYNOPSYS
++	bool "Synopsys devices"
++	default y
++	---help---
++	  If you have a network (Ethernet) device belonging to this class, say Y
++
++	  Note that the answer to this question doesn't directly affect the
++	  kernel: saying N will just cause the configurator to skip all
++	  the questions about Synopsys devices. If you say Y, you will be asked
++	  for your specific device in the following questions.
++
++if NET_VENDOR_SYNOPSYS
++
++config SYNOPSYS_DWC_ETH_QOS
++	tristate "Sypnopsys DWC Ethernet QOS v4.00a support"
++	select PHYLIB
++	---help---
++	  This driver supports the DWC Ethernet QoS from Synopsys
++
++endif # NET_VENDOR_SYNOPSYS
+diff --git a/drivers/net/ethernet/synopsys/Makefile b/drivers/net/ethernet/synopsys/Makefile
+new file mode 100644
+index 0000000..7a37572
+--- /dev/null
++++ b/drivers/net/ethernet/synopsys/Makefile
+@@ -0,0 +1,5 @@
++#
++# Makefile for the Synopsys network device drivers.
++#
++
++obj-$(CONFIG_SYNOPSYS_DWC_ETH_QOS) += dwc_eth_qos.o
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+new file mode 100644
+index 0000000..bd37802
+--- /dev/null
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -0,0 +1,710 @@
++/*  Synopsys DWC Ethernet: Linux driver for Ethernet
++ *
++ *  This is a driver for the Synopsys DWC Ethernet IP version 4.00a. This
++ *  version introduced a lot of changes which breaks backwards compatibility
++ *  with version 3 of the same IP (Used in ST Micro drivers).
++ *
++ *  This driver only support basic functionality and Gigabit Ethernet Only. It
++ *  uses polling for TX and IRQ-driven RX with NAPI support. No hardware
++ *  checksumming or scatter-gather are supported. There are many things left to
++ *  implement: Scatter-gather, TCP Segmentation Offloading, HW Checksumming,
++ *  IRQ-driven TX, link handling, and a lot of general error handling.
++ *
++ *  Copyright (C) 2014 Axis Communications AB.
++ *
++ *  This program is free software; you can redistribute it and/or modify it
++ *  under the terms and conditions of the GNU General Public License,
++ *  version 2, as published by the Free Software Foundation.
++ */
++
++#include <linux/clk.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/stat.h>
++
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/mm.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/platform_device.h>
++#include <linux/phy.h>
++#include <linux/mii.h>
++#include <linux/delay.h>
++#include <linux/dma-mapping.h>
++#include <linux/vmalloc.h>
++#include <linux/version.h>
++#include <linux/of.h>
++#include <linux/interrupt.h>
++#include <linux/clocksource.h>
++#include <linux/net_tstamp.h>
++#include <linux/pm_runtime.h>
++#include <linux/of_net.h>
++#include <linux/of_address.h>
++#include <linux/of_mdio.h>
++#include <linux/timer.h>
++#include "dwc_eth_qos.h"
++
++#define DRIVER_NAME			"dwceqos"
++#define DRIVER_DESCRIPTION		"Synopsys DWC Ethernet QoS driver"
++#define DRIVER_VERSION			"0.1"
++
++#ifdef DWCEQOS_DEBUG
++static void dwceqos_write(void __iomem *p, u32 offset, u32 v)
++{
++	printk(KERN_DEBUG "Write: Addr=%08x, Data=%08x\n", (u32)p + offset , v);
++	writel(v, p + offset);
++}
++
++static u32 dwceqos_read(void __iomem *p, u32 offset)
++{
++	u32 v = 0;
++	v = readl(p + offset);
++	printk(KERN_DEBUG "Read: Addr=%08x, Data=%08x\n", (u32)p + offset, v);
++	return v;
++}
++#else
++#define dwceqos_read(base, reg)						\
++	__raw_readl(((void __iomem *)(base)) + (reg))
++#define dwceqos_write(base, reg, val)					\
++	__raw_writel((val), ((void __iomem *)(base)) + (reg))
++#endif
++
++/* DMA ring descriptor. These are used as support descriptors for the HW DMA */
++struct ring_info {
++	struct sk_buff *skb;
++	dma_addr_t mapping;
++	size_t len;
++};
++
++struct net_local {
++	void __iomem *baseaddr;
++	struct clk *phy_ref_clk;
++	struct clk *apb_pclk;
++
++	struct net_device *ndev;
++	struct platform_device *pdev;
++
++	volatile struct dwc_eth_qos_txdesc *tx_descs;
++	volatile struct dwc_eth_qos_rxdesc *rx_descs;
++
++	void *tx_buf;
++
++	struct ring_info *rx_skb;
++
++	dma_addr_t tx_descs_addr;
++	dma_addr_t rx_descs_addr;
++
++	u32 next_tx;
++	u32 next_rx;
++
++	struct napi_struct napi;
++
++	struct net_device_stats stats;
++	spinlock_t rx_lock;
++};
++
++/* Allocate DMA helper structure at position given by index */
++static void dwceqos_alloc_rxring_desc(struct net_local *lp, int index)
++{
++	struct sk_buff *new_skb;
++	u32 new_skb_baddr = 0;
++	new_skb = netdev_alloc_skb(lp->ndev, DWCEQOS_RX_BUF_SIZE);
++	if (!new_skb) {
++		dev_err(&lp->ndev->dev, "alloc_skb error for desc %d\n", index);
++		goto out;
++	}
++
++	/* Get dma handle of skb->data */
++	new_skb_baddr = (u32)dma_map_single(lp->ndev->dev.parent,
++		new_skb->data, DWCEQOS_RX_BUF_SIZE, DMA_FROM_DEVICE);
++	if (dma_mapping_error(lp->ndev->dev.parent, new_skb_baddr)) {
++		dev_err(&lp->pdev->dev, "DMA map error\n");
++		dev_kfree_skb(new_skb);
++		new_skb = NULL;
++	}
++out:
++	lp->rx_skb[index].skb = new_skb;
++	lp->rx_skb[index].mapping = new_skb_baddr;
++	lp->rx_skb[index].len = DWCEQOS_RX_BUF_SIZE;
++
++	return;
++}
++
++static void dwceqos_mtl_init(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_MTL_OP_MODE, 0x00000060);
++}
++
++static void dwceqos_mtl_tx_init(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_MTL_TXQ0_OP_MODE,
++			DWCEQOS_MTL_TXQ_EN);
++}
++
++static void dwceqos_mtl_rx_init(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_MTL_RXQ0_OP_MODE,
++		DWCEQOS_MTL_RXQ_RQS256 | DWCEQOS_MTL_RXQ_DIS_TCP_EF |
++		DWCEQOS_MTL_RXQ_FEP | DWCEQOS_MTL_RXQ_FUP |
++		DWCEQOS_MTL_RXQ_RTC32);
++}
++
++static void dwceqos_mac_rx_init(struct net_local *lp)
++{
++	u32 val;
++	dwceqos_write(lp->baseaddr, DWCEQOS_MAC_RXQ_CTRL0, 2);
++	val = DWCEQOS_MAC_PKT_FILTER_RX_ALL | DWCEQOS_MAC_PKT_FILTER_PCF_ALL |
++		DWCEQOS_MAC_PKT_FILTER_PROMISCUOUS;
++	dwceqos_write(lp->baseaddr, DWCEQOS_MAC_PKT_FILTER, val);
++}
++
++static int dwceqos_mac_enable(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_MAC_CFG,
++		DWCEQOS_MAC_CFG_DM | DWCEQOS_MAC_CFG_TE |
++		DWCEQOS_MAC_CFG_RE);
++	return 0;
++}
++
++static void dwceqos_dma_wake_rx(struct net_local *lp)
++{
++	u32 offset;
++	offset = DWCEQOS_RX_DCNT * sizeof(struct dwc_eth_qos_rxdesc);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_RXDESC_TAIL,
++		(u32)lp->rx_descs_addr + offset);
++}
++
++static inline void dwceqos_dma_rx_start(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_RX_CTRL,
++		DWCEQOS_DMA_CH0_TXRX_CONTROL_START |
++		DWCEQOS_DMA_CH0_TXRX_CONTROL_PBL16 |
++		DWCEQOS_RX_BUF_SIZE);
++	dwceqos_dma_wake_rx(lp);
++}
++
++static inline void dwceqos_dma_tx_start(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_TX_CTRL,
++		DWCEQOS_DMA_CH0_TXRX_CONTROL_START |
++		DWCEQOS_DMA_CH0_TXRX_CONTROL_PBL16);
++}
++
++static void dwceqos_dma_setmode(struct net_local *lp)
++{
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_MODE,
++		DWCEQOS_DMA_MODE_TXPR | DWCEQOS_DMA_MODE_DA);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_SYSBUS_MODE,
++		DWCEQOS_DMA_SYSBUS_MB);
++}
++
++static void dwceqos_dma_txenable(struct net_local *lp)
++{
++	u32 val;
++	val = DWCEQOS_DMA_CH0_TXRX_CONTROL_PBL16 |
++		DWCEQOS_DMA_CH0_TXRX_CONTROL_START;
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_TX_CTRL, val);
++}
++
++static void dwceqos_dma_rx_enable(struct net_local *lp)
++{
++	u32 val;
++	val = DWCEQOS_DMA_CH0_TXRX_CONTROL_PBL16 |
++		DWCEQOS_RX_BUF_SIZE | DWCEQOS_DMA_CH0_TXRX_CONTROL_START;
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_RX_CTRL, val);
++}
++
++/* Initialize DMA descriptors to their start values */
++static void dwceqos_dma_prepare(struct net_local *lp)
++{
++	int i;
++	for (i = 0; i < DWCEQOS_TX_DCNT; ++i) {
++		lp->tx_descs[i].tdes0.raw = 0;
++		lp->tx_descs[i].tdes1.raw = 0;
++		lp->tx_descs[i].tdes2.raw = 0;
++		lp->tx_descs[i].tdes3.raw = 0;
++	}
++
++	for (i = 0; i < DWCEQOS_RX_DCNT; ++i) {
++		lp->rx_descs[i].rdes0.rd.buffer1 = lp->rx_skb[i].mapping;
++		lp->rx_descs[i].rdes1.raw = 0;
++		lp->rx_descs[i].rdes2.rd.buffer2 = 0;
++		lp->rx_descs[i].rdes3.raw = 0;
++		lp->rx_descs[i].rdes3.rd.buf1v = 1;
++		lp->rx_descs[i].rdes3.rd.inte = 1;
++		lp->rx_descs[i].rdes3.rd.own = 1;
++	}
++	lp->next_tx = 0;
++	lp->next_rx = 0;
++}
++
++/* Allocate and initiate DMA rings for TX and RX. Also allocates RX buffers for
++ * incoming packets.
++ */
++static int dwceqos_dma_alloc(struct net_local *lp)
++{
++	u32 size;
++	int i;
++
++	size = DWCEQOS_RX_DCNT * sizeof(struct ring_info);
++	lp->rx_skb = kzalloc(size, GFP_KERNEL);
++	if (!lp->rx_skb) {
++		dev_err(&lp->pdev->dev, "Unable to allocate ring descriptor area\n");
++		return -ENOMEM;
++	}
++
++	/* Allocate DMA descriptors */
++	size = DWCEQOS_TX_DCNT * sizeof(struct dwc_eth_qos_txdesc);
++	lp->tx_descs = dma_alloc_coherent(&lp->pdev->dev, size,
++			&lp->tx_descs_addr, 0);
++	if (!lp->tx_descs) {
++		dev_err(&lp->pdev->dev, "Failed to allocate TX DMA descriptors\n");
++		/* Should deallocate memory here */
++		return -ENOMEM;
++	}
++	size = DWCEQOS_RX_DCNT * sizeof(struct dwc_eth_qos_rxdesc);
++	lp->rx_descs = dma_alloc_coherent(&lp->pdev->dev, size,
++			&lp->rx_descs_addr, 0);
++	if (!lp->rx_descs) {
++		dev_err(&lp->pdev->dev, "Failed to allocate RX DMA descriptors\n");
++		/* Should deallocate memory here */
++		return -ENOMEM;
++	}
++
++	for (i = 0; i < DWCEQOS_RX_DCNT; ++i) {
++		dwceqos_alloc_rxring_desc(lp, i);
++		if (!(lp->rx_skb[lp->next_rx].skb)) {
++			dev_err(&lp->pdev->dev, "Unable to map descriptor %d to DMA\n",
++				lp->next_rx);
++			/* What error code to return for mapping error? */
++			return -1;
++		}
++	}
++
++	dwceqos_dma_prepare(lp);
++
++	/* Tell HW where to look*/
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_RXDESC_RING_LEN,
++		DWCEQOS_RX_DCNT-1);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_TXDESC_RING_LEN,
++		DWCEQOS_TX_DCNT-1);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_RXDESC_LIST_ADDR,
++		(u32)lp->rx_descs_addr);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_TXDESC_LIST_ADDR,
++		(u32)lp->tx_descs_addr);
++	return 0;
++}
++
++/* Checks if there are any available incoming packets ready for processing */
++int dwceqos_packet_avail(struct net_local *lp)
++{
++	return !lp->rx_descs[lp->next_rx].rdes3.wr.own;
++}
++
++/* Free DMA descriptor area */
++static void dwceqos_dma_free(struct net_local *lp)
++{
++	u32 size;
++	size = DWCEQOS_TX_DCNT * sizeof(struct dwc_eth_qos_txdesc);
++	if (lp->tx_descs)
++		dma_free_coherent(&lp->pdev->dev, size,
++			lp->tx_descs, lp->tx_descs_addr);
++	size = DWCEQOS_RX_DCNT * sizeof(struct dwc_eth_qos_rxdesc);
++	if (lp->rx_descs)
++		dma_free_coherent(&lp->pdev->dev, size,
++			lp->rx_descs, lp->rx_descs_addr);
++}
++
++/* HW transmit function. */
++static void dwceqos_dma_xmit(struct net_local *lp, void *data, int len)
++{
++	u32 regval;
++	int i = lp->next_tx;
++	int dwc_wait;
++	dma_addr_t dma_handle;
++
++	dma_handle = dma_map_single(lp->ndev->dev.parent,
++		data, DWCEQOS_RX_BUF_SIZE, DMA_TO_DEVICE);
++	if (dma_mapping_error(lp->ndev->dev.parent, dma_handle)) {
++		dev_err(&lp->pdev->dev, "DMA Mapping error\n");
++		return;
++	}
++
++	lp->tx_descs[i].tdes0.rd.buffer1 = dma_handle;
++	lp->tx_descs[i].tdes2.rd.buf1len = len;
++	lp->tx_descs[i].tdes3.rd.fl = len;
++	lp->tx_descs[i].tdes3.rd.fd = 1;
++	lp->tx_descs[i].tdes3.rd.ld = 1;
++	lp->tx_descs[i].tdes3.rd.own = 1;
++
++	/* Issue Transmit Poll by writing address of next free descriptor */
++	regval = lp->tx_descs_addr + (i+1) * sizeof(struct dwc_eth_qos_txdesc);
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_TXDESC_TAIL, regval);
++
++	/* Set poll wait timeout to 2 seconds */
++	dwc_wait = 200;
++
++	while (lp->tx_descs[i].tdes3.wr.own) {
++		mdelay(10);
++		if (!dwc_wait--)
++			break;
++	}
++	if (lp->tx_descs[i].tdes3.wr.own)
++		dev_err(&lp->pdev->dev, "Failed to transmit: Timed out\n");
++
++	lp->next_tx = (lp->next_tx + 1) % DWCEQOS_TX_DCNT;
++	dma_unmap_single(lp->ndev->dev.parent,
++			dma_handle, DWCEQOS_RX_BUF_SIZE, DMA_TO_DEVICE);
++}
++
++/* Store HW Addr in MAC registers. Source Address Replacement not used yet */
++static void dwceqos_set_hwaddr(struct net_local *lp)
++{
++	u32 val;
++
++	val = DWCEQOS_MAC_ADDR_HI_EN | (lp->ndev->dev_addr[0] << 8) |
++		(lp->ndev->dev_addr[1]);
++	dwceqos_write(lp->baseaddr, DWCEQOS_MAC_ADDR_HI, val);
++	val = (lp->ndev->dev_addr[2] << 24) | (lp->ndev->dev_addr[3] << 16) |
++		(lp->ndev->dev_addr[4] << 8)  | (lp->ndev->dev_addr[5]);
++	dwceqos_write(lp->baseaddr, DWCEQOS_MAC_ADDR_LO, val);
++}
++
++/* DMA reset. When issued also resets all MTL and MAC registers as well */
++static void dwceqos_dma_reset(struct net_local *lp)
++{
++	/* Wait 5 seconds for DMA reset*/
++	int i = 5000;
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_MODE, 1);
++
++	do {
++		mdelay(1);
++	} while ((dwceqos_read(lp->baseaddr, DWCEQOS_DMA_MODE) & 0x1) && i--);
++}
++
++/* Interrupt handler. So far only RX interrupts are used */
++static irqreturn_t dwceqos_interrupt(int irq, void *dev_id)
++{
++	struct net_device *ndev = dev_id;
++	struct net_local *lp = netdev_priv(ndev);
++
++	u32 cause;
++	u32 val;
++
++	cause = dwceqos_read(lp->baseaddr, DWCEQOS_DMA_INT_STAT);
++	if (cause & 0x00000001) {
++		/* DMA Channel 0 Interrupt. Assume RX interrupt for now */
++		val = dwceqos_read(lp->baseaddr, DWCEQOS_DMA_CH0_STAT);
++		/* Ack */
++		dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_STAT, val);
++		if (val & 0x00000040)
++			napi_schedule(&lp->napi);
++	} else if (unlikely(!cause)) {
++		return IRQ_NONE;
++	}
++	return IRQ_HANDLED;
++}
++
++static int dwceqos_open(struct net_device *ndev)
++{
++	/* Allocate Buffers & DMA Descr. + Initiate DMA descriptors */
++	struct net_local *lp = netdev_priv(ndev);
++
++	/* Set up hardware. It looks like order of writes is important here.
++	 * Only gigatbit support, no advanced MTL or MAC configuration yet.
++	 */
++	dwceqos_dma_reset(lp);
++	dwceqos_mtl_init(lp);
++	dwceqos_mtl_tx_init(lp);
++	dwceqos_dma_setmode(lp);
++	dwceqos_dma_alloc(lp);
++	dwceqos_dma_wake_rx(lp);
++	dwceqos_dma_txenable(lp);
++	dwceqos_mtl_rx_init(lp);
++	dwceqos_mac_rx_init(lp);
++	dwceqos_dma_rx_enable(lp);
++	dwceqos_dma_wake_rx(lp);
++	dwceqos_set_hwaddr(lp);
++	dwceqos_mac_enable(lp);
++
++	/* Enable RX Interrupts */
++	dwceqos_write(lp->baseaddr, DWCEQOS_DMA_CH0_INT_EN, 0x00010040);
++
++	napi_enable(&lp->napi);
++	netif_carrier_on(ndev);
++	netif_start_queue(ndev);
++	return 0;
++}
++
++
++int dwceqos_stop(struct net_device *ndev)
++{
++	struct net_local *lp = netdev_priv(ndev);
++	dwceqos_dma_free(lp);
++	netif_stop_queue(ndev);
++	napi_disable(&lp->napi);
++	netif_carrier_off(ndev);
++	return 0;
++}
++
++/* Receive one packet and return skb */
++struct sk_buff *
++dwceqos_recv_packet(struct net_local *lp)
++{
++	struct sk_buff *skb;
++	u32 len;
++
++	skb = lp->rx_skb[lp->next_rx].skb;
++	len = lp->rx_descs[lp->next_rx].rdes3.wr.length;
++
++	/* Unmap old buffer */
++	dma_unmap_single(lp->ndev->dev.parent, lp->rx_skb[lp->next_rx].mapping,
++		lp->rx_skb[lp->next_rx].len, DMA_FROM_DEVICE);
++	skb_put(skb, len);
++	skb->protocol = eth_type_trans(skb, lp->ndev);
++	skb->ip_summed = 0;
++
++	/* Initialize new Buffer descriptor */
++	dwceqos_alloc_rxring_desc(lp, lp->next_rx);
++	if (!(lp->rx_skb[lp->next_rx].skb)) {
++		dev_err(&lp->pdev->dev, "Unable to map descriptor %d to DMA\n",
++			lp->next_rx);
++		return NULL;
++	}
++
++	/* Initialize new DMA descriptor */
++	lp->rx_descs[lp->next_rx].rdes0.rd.buffer1 =
++		lp->rx_skb[lp->next_rx].mapping;
++	lp->rx_descs[lp->next_rx].rdes1.raw = 0;
++	lp->rx_descs[lp->next_rx].rdes2.rd.buffer2 = 0;
++	lp->rx_descs[lp->next_rx].rdes3.raw = 0;
++	lp->rx_descs[lp->next_rx].rdes3.rd.buf1v = 1;
++	lp->rx_descs[lp->next_rx].rdes3.rd.inte = 1;
++	lp->rx_descs[lp->next_rx].rdes3.rd.own = 1;
++	lp->next_rx = (lp->next_rx + 1) % DWCEQOS_RX_DCNT;
++	return skb;
++}
++
++
++/* NAPI poll routine */
++int dwceqos_rx_poll(struct napi_struct *napi, int budget)
++{
++	struct net_local *lp = container_of(napi, struct net_local, napi);
++	int npackets = 0;
++	struct sk_buff *skb;
++
++	spin_lock(&lp->rx_lock);
++	while (npackets < budget && dwceqos_packet_avail(lp)) {
++
++		skb = dwceqos_recv_packet(lp);
++		if (!skb)
++			break;
++
++		netif_receive_skb(skb);
++
++		lp->stats.rx_packets++;
++		lp->stats.rx_bytes += skb->len;
++		npackets++;
++	}
++	if (npackets < budget)
++		napi_complete(napi);
++
++	spin_unlock(&lp->rx_lock);
++	return npackets;
++}
++
++/* Main transmit function called from kernel */
++int dwceqos_start_xmit(struct sk_buff *skb, struct net_device *ndev)
++{
++	int len;
++	struct net_local *lp = netdev_priv(ndev);
++	char *data;
++	data = skb->data;
++	len = skb->len;
++
++	/* Send packet on wire */
++	dwceqos_dma_xmit(lp, data, len);
++
++	skb_tx_timestamp(skb);
++
++	ndev->stats.tx_bytes += len;
++	dev_kfree_skb(skb);
++
++	return 0;
++}
++
++struct net_device_ops dwceq_netdev_ops;
++
++#ifdef CONFIG_OF
++static inline int dwceqos_probe_config_dt(struct platform_device *pdev)
++{
++	struct net_device *ndev;
++	const void *mac_address;
++
++	ndev = platform_get_drvdata(pdev);
++	/* Set the MAC address. */
++	mac_address = of_get_mac_address(pdev->dev.of_node);
++	if (mac_address)
++		memcpy(ndev->dev_addr, mac_address, ETH_ALEN);
++	else
++		dev_warn(&pdev->dev, "No MAC address found\n");
++	return 0;
++}
++#else
++static inline int dwceqos_probe_config_dt()
++{
++	return -ENOSYS;
++}
++#endif
++
++
++/**
++ * dwceqos_probe - Platform driver probe
++ * @pdev: Pointer to platform device structure
++ *
++ * Return 0 on success, negative value if error
++ */
++int dwceqos_probe(struct platform_device *pdev)
++{
++	struct resource *r_mem = NULL;
++	struct resource *r_irq = NULL;
++	struct net_device *ndev;
++	struct net_local *lp;
++	int ret = -ENXIO;
++
++	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	r_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!r_mem || !r_irq) {
++		dev_err(&pdev->dev, "no IO resource defined.\n");
++		return -ENXIO;
++	}
++	ndev = alloc_etherdev(sizeof(*lp));
++	if (!ndev) {
++		dev_err(&pdev->dev, "etherdev allocation failed.\n");
++		return -ENOMEM;
++	}
++
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++
++	lp = netdev_priv(ndev);
++	lp->ndev = ndev;
++	lp->pdev = pdev;
++
++	lp->baseaddr = devm_ioremap_resource(&pdev->dev, r_mem);
++	if (IS_ERR(lp->baseaddr)) {
++		dev_err(&pdev->dev, "failed to map baseaddress.\n");
++		ret = PTR_ERR(lp->baseaddr);
++		goto err_out_free_netdev;
++	}
++
++
++	dev_dbg(&lp->pdev->dev, "BASEADDRESS hw: %p virt: %p\n",
++			(void *)r_mem->start, lp->baseaddr);
++
++	ndev->irq = platform_get_irq(pdev, 0);
++	ndev->netdev_ops = &dwceq_netdev_ops;
++	ndev->base_addr = r_mem->start;
++	ndev->features = 0;
++
++	netif_napi_add(ndev, &lp->napi, dwceqos_rx_poll, 64);
++
++	ret = register_netdev(ndev);
++	if (ret) {
++		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
++		goto err_out_free_netdev;
++	}
++
++	lp->apb_pclk = devm_clk_get(&pdev->dev, "apb_pclk");
++	if (IS_ERR(lp->apb_pclk)) {
++		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
++		ret = PTR_ERR(lp->apb_pclk);
++		goto err_out_unregister_netdev;
++	}
++	lp->phy_ref_clk = devm_clk_get(&pdev->dev, "phy_ref_clk");
++	if (IS_ERR(lp->phy_ref_clk)) {
++		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
++		ret = PTR_ERR(lp->phy_ref_clk);
++		goto err_out_unregister_netdev;
++	}
++
++	ret = clk_prepare_enable(lp->apb_pclk);
++	if (ret) {
++		dev_err(&pdev->dev, "Unable to enable APER clock.\n");
++		goto err_out_unregister_netdev;
++	}
++	ret = clk_prepare_enable(lp->phy_ref_clk);
++	if (ret) {
++		dev_err(&pdev->dev, "Unable to enable device clock.\n");
++		goto err_out_clk_dis_aper;
++	}
++
++	platform_set_drvdata(pdev, ndev);
++	ret = dwceqos_probe_config_dt(pdev);
++	if (ret) {
++		dev_err(&lp->pdev->dev, "Unable to retrieve DT, error %d\n", ret);
++		goto err_out_dis_aper;
++	}
++	dev_info(&lp->pdev->dev, "pdev->id %d, baseaddr 0x%08lx, irq %d\n",
++			pdev->id, ndev->base_addr, ndev->irq);
++
++	ret = devm_request_irq(&pdev->dev, ndev->irq, &dwceqos_interrupt, 0,
++		ndev->name, ndev);
++	if (ret) {
++		dev_err(&lp->pdev->dev, "Unable to request IRQ %p, error %d\n",
++			r_irq, ret);
++		goto err_out_unregister_clk_notifier;
++	}
++
++	return 0;
++
++err_out_unregister_clk_notifier:
++	clk_disable_unprepare(lp->phy_ref_clk);
++err_out_clk_dis_aper:
++	clk_disable_unprepare(lp->apb_pclk);
++err_out_unregister_netdev:
++	unregister_netdev(ndev);
++err_out_free_netdev:
++	free_netdev(ndev);
++	platform_set_drvdata(pdev, NULL);
++	return ret;
++}
++
++int dwceqos_remove(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	unregister_netdev(ndev);
++	free_netdev(ndev);
++	return 0;
++}
++
++struct net_device_ops dwceq_netdev_ops = {
++	.ndo_open	= dwceqos_open,
++	.ndo_stop	= dwceqos_stop,
++	.ndo_start_xmit	= dwceqos_start_xmit,
++};
++
++struct of_device_id dwceq_of_match[] = {
++	{ .compatible = "dwc,qos-ethernet", },
++	{}
++};
++MODULE_DEVICE_TABLE(of, dwceq_of_match);
++
++struct platform_driver dwceqos_driver = {
++	.probe   = dwceqos_probe,
++	.remove  = dwceqos_remove,
++	.driver  = {
++		.name  = DRIVER_NAME,
++		.owner = THIS_MODULE,
++		.of_match_table = dwceq_of_match,
++	},
++};
++
++module_platform_driver(dwceqos_driver);
++
++MODULE_DESCRIPTION("DWC Ethernet QoS v4.00a driver");
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Andreas Irestaal");
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.h b/drivers/net/ethernet/synopsys/dwc_eth_qos.h
+new file mode 100644
+index 0000000..9aa84a0
+--- /dev/null
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.h
+@@ -0,0 +1,308 @@
++#ifndef DWC_ETH_QOS_H
++#define DWC_ETH_QOS_H
++
++#define DWCEQOS_RX_BUF_SIZE 2048
++
++#define DWCEQOS_RX_DCNT 16
++#define DWCEQOS_TX_DCNT 16
++
++/* DMA Registers */
++#define DWCEQOS_DMA_MODE			0x1000
++#define DWCEQOS_DMA_SYSBUS_MODE			0x1004
++#define DWCEQOS_DMA_INT_STAT			0x1008
++#define DWCEQOS_DMA_DEBUG_STAT0			0x100c
++#define DWCEQOS_DMA_DEBUG_STAT1			0x1010
++#define DWCEQOS_DMA_DEBUG_STAT2			0x1014
++#define DWCEQOS_DMA_CH0_CTRL			0x1100
++#define DWCEQOS_DMA_CH0_TX_CTRL			0x1104
++#define DWCEQOS_DMA_CH0_RX_CTRL			0x1108
++#define DWCEQOS_DMA_CH0_TXDESC_LIST_ADDR	0x1114
++#define DWCEQOS_DMA_CH0_RXDESC_LIST_ADDR	0x111C
++#define DWCEQOS_DMA_CH0_TXDESC_TAIL		0x1120
++#define DWCEQOS_DMA_CH0_RXDESC_TAIL		0x1128
++#define DWCEQOS_DMA_CH0_TXDESC_RING_LEN		0x112c
++#define DWCEQOS_DMA_CH0_RXDESC_RING_LEN		0x1130
++#define DWCEQOS_DMA_CH0_INT_EN			0x1134
++#define DWCEQOS_DMA_CH0_INT_WATCHDOG_T		0x1138
++#define DWCEQOS_DMA_CH0_SLOT_FUNC_CTRL_STAT	0x113c
++#define DWCEQOS_DMA_CH0_CUR_APP_TXDESC		0x1144
++#define DWCEQOS_DMA_CH0_CUR_APP_RXDESC		0x114c
++#define DWCEQOS_DMA_CH0_CUR_APP_TXBUF		0x1154
++#define DWCEQOS_DMA_CH0_CUR_APP_RXBUF		0x115c
++#define DWCEQOS_DMA_CH0_STAT			0x1160
++
++/* MAC Registers */
++#define DWCEQOS_MAC_CFG				0x0000
++#define DWCEQOS_MAC_EXT_CFG			0x0004
++#define DWCEQOS_MAC_PACKET_FILTER		0x0008
++#define DWCEQOS_MAC_RXQ_CTRL0			0x00a0
++#define DWCEQOS_MAC_IE				0x00b4
++#define DWCEQOS_MAC_RX_TX_STATUS		0x00b8
++#define DWCEQOS_MAC_PHYIF_CTRL_STATUS		0x00f8
++#define DWCEQOS_MAC_DEBUG			0x0114
++#define DWCEQOS_MAC_HW_FEATURE0			0x011c
++#define DWCEQOS_MAC_HW_FEATURE1			0x0120
++#define DWCEQOS_MAC_HW_FEATURE2			0x0124
++#define DWCEQOS_MAC_ADDR_HI			0x0300
++#define DWCEQOS_MAC_ADDR_LO			0x0304
++#define DWCEQOS_MAC_MDIO_ADDR			0x0200
++#define DWCEQOS_MAC_MDIO_DATA			0x0204
++#define DWCEQOS_MAC_PKT_FILTER			0x8
++
++/* MTL Registers */
++#define DWCEQOS_MTL_OP_MODE			0x0c00
++#define DWCEQOS_MTL_DEUBIG_CTRL			0x0c08
++#define DWCEQOS_MTL_DEBUG_STATUS		0x0c0c
++#define DWCEQOS_MTL_FIFO_DEBUG_DATA		0x0c10
++#define DWCEQOS_MTL_INT_STATUS			0x0c20
++#define DWCEQOS_MTL_RXQ0_DMA_MAP0		0x0c30
++#define DWCEQOS_MTL_RXQ0_DMA_MAP1		0x0c34
++#define DWCEQOS_MTL_TXQ0_OP_MODE		0x0d00
++#define DWCEQOS_MTL_TXQ0_UNDERFLOW		0x0d04
++#define DWCEQOS_MTL_TXQ0_DEBUG			0x0d08
++#define DWCEQOS_MTL_TXQ0_ETS_STATUS		0x0d14
++#define DWCEQOS_MTL_TXQ0_QUANTUM		0x0d18
++#define DWCEQOS_MTL_TXQ0_INT_CTRL_STATUS	0x0d2c
++#define DWCEQOS_MTL_RXQ0_OP_MODE		0x0d30
++#define DWCEQOS_MTL_RXQ0_MISSED_PACKET_OF_CNT	0x0d34
++#define DWCEQOS_MTL_RXQ0_DEBUG			0x0d38
++#define DWCEQOS_MTL_RXQ0_CTRL			0x0d3c
++
++
++/* Fields/constants */
++#define DWCEQOS_DMA_MODE_SWR			1
++#define DWCEQOS_DMA_MODE_TXPR			(1 << 11)
++#define DWCEQOS_DMA_MODE_DA			(1 << 1)
++#define DWCEQOS_DMA_SYSBUS_MB			(1 << 14)
++
++#define DWCEQOS_DMA_CH0_TXRX_CONTROL_PBL16	(1 << 20)
++#define DWCEQOS_DMA_CH0_TXRX_CONTROL_OSP	(1 << 4)
++#define DWCEQOS_DMA_CH0_TXRX_CONTROL_START	1
++
++#define DWCEQOS_MTL_TXQ_TTC32			0
++#define DWCEQOS_MTL_TXQ_EN			(1 << 3)
++#define DWCEQOS_MTL_RXQ_EN			(1 << 3)
++#define DWCEQOS_MTL_TXQ_TSF			(1 << 1)
++
++#define DWCEQOS_MTL_TXQ0_DEBUG_TRQSTS		(1 << 4)
++#define DWCEQOS_MTL_TXQ0_DEBUG_TRCSTS		(3 << 3)
++#define DWCEQOS_MTL_TXQ0_DEBUG_TRCSTS_READ	(1 << 3)
++
++#define DWCEQOS_MTL_RXQ_RQS256			(3 << 20)
++#define DWCEQOS_MTL_RXQ_RTC128			3
++#define DWCEQOS_MTL_RXQ_RTC32			1
++
++#define DWCEQOS_MTL_RXQ_DIS_TCP_EF		(1 << 6)
++#define DWCEQOS_MTL_RXQ_FEP			(1 << 4)
++#define DWCEQOS_MTL_RXQ_FUP			(1 << 3)
++
++#define DWCEQOS_MAC_CFG_PS			(1 << 15)
++#define DWCEQOS_MAC_CFG_DM			(1 << 13)
++#define DWCEQOS_MAC_CFG_TE			(1 << 1)
++#define DWCEQOS_MAC_CFG_RE			1
++
++#define DWCEQOS_MAC_CFG_SARC_A0			(3 << 28)
++#define DWCEQOS_MAC_CFG_SARC_A1			(7 << 28)
++
++#define DWCEQOS_MAC_PKT_FILTER_RX_ALL		(1 << 31)
++#define DWCEQOS_MAC_PKT_FILTER_PCF_ALL		(2 << 6)
++#define DWCEQOS_MAC_PKT_FILTER_PROMISCUOUS	(1 << 0)
++
++#define DWCEQOS_MAC_MDIO_ADDR_CSR_20_30_MHZ	(2 << 8)
++#define DWCEQOS_MAC_MDIO_ADDR_WRITE		(1 << 2)
++#define DWCEQOS_MAC_MDIO_ADDR_READ		(3 << 2)
++#define DWCEQOS_MAC_MDIO_ADDR_BUSY		1
++
++#define DWCEQOS_MAC_ADDR_HI_EN			(1 << 31)
++
++
++#define DWCEQOS_MAC_INT_RXSTSIE			(1 << 14)
++
++/* DMA Structs */
++struct tdes0_rd {
++	u32 buffer1;
++};
++
++struct tdes1_rd {
++	u32 buffer2;
++};
++
++struct tdes2_rd {
++	u32 buf1len:14;
++	u32 vtir:2;
++	u32 buf2len:14;
++	u32 ttse:1;
++	u32 ioc:1;
++};
++
++struct tdes3_rd {
++	u32 fl:15;
++	u32 tiplh:1;
++	u32 cic:2;
++	u32 tse:1;
++	u32 slotnum:4;
++	u32 saic:3;
++	u32 cpc:2;
++	u32 ld:1;
++	u32 fd:1;
++	u32 ctxt:1;
++	u32 own:1;
++};
++
++struct tdes0_wr {
++	u32 ts_lo;
++};
++
++struct tdes1_wr {
++	u32 ts_hi;
++};
++
++struct tdes2_wr {
++	u32 rsvd;
++};
++
++struct tdes3_wr {
++	u32 ihe:1;
++	u32 db:1;
++	u32 uf:1;
++	u32 ed:1;
++	u32 cc:4;
++	u32 ec:1;
++	u32 lc:1;
++	u32 nc:1;
++	u32 loc:1;
++	u32 pce:1;
++	u32 ff:1;
++	u32 jt:1;
++	u32 es:1;
++	u32 rsvd1:1;
++	u32 ttss:1;
++	u32 rsvd:10;
++	u32 ld:1;
++	u32 fd:1;
++	u32 ctxt:1;
++	u32 own:1;
++};
++
++struct rdes0_rd {
++	u32 buffer1;
++};
++
++struct rdes1_rd {
++	u32 reserved;
++};
++
++struct rdes2_rd {
++	u32 buffer2;
++};
++
++struct rdes3_rd {
++	u32 rsvd1:24;
++	u32 buf1v:1;
++	u32 buf2v:1;
++	u32 rsvd:4;
++	u32 inte:1;
++	u32 own:1;
++};
++
++struct rdes0_wr {
++	u32 vt:16;
++	u32 rsvd:16;
++};
++
++struct rdes1_wr {
++	u32 pt:3;
++	u32 iphe:1;
++	u32 ipv4:1;
++	u32 ipv6:1;
++	u32 ipcb:1;
++	u32 ipce:1;
++	u32 pmt:4;
++	u32 pft:1;
++	u32 pv:1;
++	u32 tsa:1;
++	u32 td:1;
++	u32 ipt1c:16;
++};
++
++struct rdes2_wr {
++	u32 hl:10;
++	u32 arprcvf:1;
++	u32 arpnr:1;
++	u32 rsvd:3;
++	u32 vf:1;
++	u32 saf:1;
++	u32 daf:1;
++	u32 hf:1;
++	u32 madrm:8;
++	u32 l3fm:1;
++	u32 l4fm:1;
++	u32 l3l4fm:3;
++};
++
++struct rdes3_wr {
++	u32 length:15;
++	u32 es:1;
++	u32 lt:3;
++	u32 de:1;
++	u32 re:1;
++	u32 oe:1;
++	u32 rwt:1;
++	u32 gp:1;
++	u32 ce:1;
++	u32 rs0v:1;
++	u32 rs1v:1;
++	u32 rs2v:1;
++	u32 ld:1;
++	u32 fd:1;
++	u32 ctxt:1;
++	u32 own:1;
++};
++
++struct dwc_eth_qos_txdesc {
++	union {
++		struct tdes0_rd rd;
++		struct tdes0_wr wr;
++		u32 raw;
++	} tdes0;
++	union {
++		struct tdes1_rd rd;
++		struct tdes1_wr wr;
++		u32 raw;
++	} tdes1;
++	union {
++		struct tdes2_rd rd;
++		struct tdes2_wr wr;
++		u32 raw;
++	} tdes2;
++	union {
++		struct tdes3_rd rd;
++		struct tdes3_wr wr;
++		u32 raw;
++	} tdes3;
++};
++
++struct dwc_eth_qos_rxdesc {
++	union {
++		struct rdes0_rd rd;
++		struct rdes0_wr wr;
++		u32 raw;
++	} rdes0;
++	union {
++		struct rdes1_rd rd;
++		struct rdes1_wr wr;
++		u32 raw;
++	} rdes1;
++	union {
++		struct rdes2_rd rd;
++		struct rdes2_wr wr;
++		u32 raw;
++	} rdes2;
++	union {
++		struct rdes3_rd rd;
++		struct rdes3_wr wr;
++		u32 raw;
++	} rdes3;
++};
++
++#endif
+-- 
+1.7.2.5
