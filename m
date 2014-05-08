@@ -1,86 +1,46 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH net-next] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Thu, 8 May 2014 02:13:04 -0700
-Message-ID: <20140508091304.GB24820@kroah.com>
-References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Peter Christensen <pch@ordbogen.com>
+Subject: [PATCH] macvlan: Don't propagate IFF_ALLMULTI changes on down interfaces.
+Date: Thu,  8 May 2014 11:15:37 +0200
+Message-ID: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
+Cc: netdev@vger.kernel.org, Peter Christensen <pch@ordbogen.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ordbogen.com ([86.58.170.13]:52004 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850AbaEHJYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2014 05:24:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
-> This change ensures the driver can be built successfully without the
-> CONFIG_SYSFS flag.
-> MS-TFS: 182270
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
->  drivers/net/hyperv/hyperv_net.h   |    2 ++
->  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
->  drivers/net/hyperv/rndis_filter.c |    4 ++--
->  3 files changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-> index 4b7df5a..23b96bc 100644
-> --- a/drivers/net/hyperv/hyperv_net.h
-> +++ b/drivers/net/hyperv/hyperv_net.h
-> @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /* NDIS_RECEIVE_SCALE_CAPABILITIES */
->  #define HASH_KEYLEN NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
->  extern u8 netvsc_hash_key[];
->  
-> +extern unsigned int netvsc_num_queue;
-> +
->  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
->  	struct ndis_obj_header hdr;
->  
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 939e3af..07896f3 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -52,6 +52,8 @@ static int ring_size = 128;
->  module_param(ring_size, int, S_IRUGO);
->  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
->  
-> +unsigned int netvsc_num_queue = 1;
-> +
->  static void do_set_multicast(struct work_struct *w)
->  {
->  	struct net_device_context *ndevctx =
-> @@ -639,9 +641,11 @@ int netvsc_recv_callback(struct hv_device *device_obj,
->  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
->  				       packet->vlan_tci);
->  
-> +#ifdef CONFIG_SYSFS
->  	skb_record_rx_queue(skb, packet->channel->
->  			    offermsg.offer.sub_channel_index %
->  			    net->real_num_rx_queues);
-> +#endif
+Clearing the IFF_ALLMULTI flag on a down interface could cause an allmulti
+overflow on the underlying interface.
 
-Why is this a sysfs-only function?  It should have nothing to do with
-sysfs, right?  So why would the driver care?
+Attempting the set IFF_ALLMULTI on the underlying interface would cause an
+error and the log message:
 
-Don't put #ifdef in drivers, it's unmaintainable over time, if this
-really is a sysfs-only function, this should already be handled
-automatically in a .h file somewhere.
+"allmulti touches root, set allmulti failed."
 
-thanks,
+Signed-off-by: Peter Christensen <pch@ordbogen.com>
+---
+ drivers/net/macvlan.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-greg k-h
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index b0e2865..c5fb9cf 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -458,8 +458,10 @@ static void macvlan_change_rx_flags(struct net_device *dev, int change)
+ 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 	struct net_device *lowerdev = vlan->lowerdev;
+ 
+-	if (change & IFF_ALLMULTI)
+-		dev_set_allmulti(lowerdev, dev->flags & IFF_ALLMULTI ? 1 : -1);
++	if (dev->flags & IFF_UP) {
++		if (change & IFF_ALLMULTI)
++			dev_set_allmulti(lowerdev, dev->flags & IFF_ALLMULTI ? 1 : -1);
++	}
+ }
+ 
+ static void macvlan_set_mac_lists(struct net_device *dev)
+-- 
+1.7.10.4
