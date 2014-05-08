@@ -1,26 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: get rid of SET_ETHTOOL_OPS
-Date: Thu, 08 May 2014 13:28:21 -0400 (EDT)
-Message-ID: <20140508.132821.1353252452955604450.davem@davemloft.net>
-References: <20140508115354.GB7875@kaos.lebenslange-mailadresse.de>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC PATCH] net:Add basic DWC Ethernet QoS Driver
+Date: Thu, 08 May 2014 13:29:37 -0400 (EDT)
+Message-ID: <20140508.132937.1739161639772164878.davem@davemloft.net>
+References: <201405081450.14449.Andreas.Irestal@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: w-lkml@lebenslange-mailadresse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57796 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754915AbaEHR2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 13:28:23 -0400
-In-Reply-To: <20140508115354.GB7875@kaos.lebenslange-mailadresse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org,
+	abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org, sr-ynQEQJNshbs@public.gmane.org, jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jespern-VrBV9hrLPhE@public.gmane.org
+To: andreas.irestal-VrBV9hrLPhE@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201405081450.14449.Andreas.Irestal-VrBV9hrLPhE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
-Your CC list was far too large and thus your email was rejected by
-the listserver, please trim your CC: list down to the most minimal
-possible so that you don't exceed the limit (1024 bytes) imposed
-by vger.kernel.org for incoming postings.
-
-Thanks.
+Why did you post this patch twice?  Is there some difference between
+the two versions?
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
