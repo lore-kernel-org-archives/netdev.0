@@ -1,70 +1,60 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net v2] sfc: fix calling of free_irq with already free vector
-Date: Thu,  8 May 2014 12:44:53 +0200
-Message-ID: <1399545893-25563-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Zenghui Shi <zshi@redhat.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	<linux-net-drivers@solarflare.com>,
-	Shradha Shah <sshah@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] jme: Fix DMA unmap warning
+Date: Thu, 8 May 2014 07:00:48 -0400
+Message-ID: <20140508110048.GA9696@hmsreliant.think-freely.org>
+References: <1399315907-27148-1-git-send-email-nhorman@tuxdriver.com>
+ <20140507.155613.630399521517455317.davem@davemloft.net>
+ <20140507203317.GC8786@hmsreliant.think-freely.org>
+ <063D6719AE5E284EB5DD2968C1650D6D0F70F4EB@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cooldavid@cooldavid.org" <cooldavid@cooldavid.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8842 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754441AbaEHKpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2014 06:45:16 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54635 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752673AbaEHLA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 07:00:57 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F70F4EB@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the sfc driver is in legacy interrupt mode (either explicitly by
-using interrupt_mode module param or by falling back to it) it will
-hit a warning at kernel/irq/manage.c because it will try to free an irq
-which wasn't allocated by it in the first place because the MSI(X) irqs are
-zero and it'll try to free them unconditionally. So fix it by checking if
-we're in legacy mode and freeing the appropriate irqs.
+On Thu, May 08, 2014 at 09:02:04AM +0000, David Laight wrote:
+> From: Neil Horman
+> ...
+> > Perhaps a solution is a signalling mechanism tied to completion interrupts?
+> > I.e. a mapping failure gets reported to the stack, which causes the
+> > correspondnig queue to be stopped, until such time a the driver signals a safe
+> > restart by the reception of a tx completion interrupt?  I'm actually tinkering
+> > right now with a mechanism that provides guidance to the stack as to how many
+> > dma descriptors are available in a given net_device that might come in handy
+> 
+> Is there any mileage in the driver pre-allocating a block of iommu entries
+> and then allocating them to the tx and rx buffers itself?
+> This might need some 'claw back' mechanism to get 'fair' (ok working)
+> allocations when there aren't enough entries for all the drivers.
+> 
+I don't think that will work (or more specifically, it won't work in a wide
+enough range of cases).  We can't reasonably predict how many devices will need
+to use dma and how much space each device will need.  A common desktop system
+will likely have no issue with reserving enough room for each nic, but a system
+with 5+ nics/infiniband/fcoe on board is going to have a lot more trouble.  And
+if you happen to be using swiotlb for whatever reason, you may not be able to
+reserve enough space at all.  
 
-CC: Zenghui Shi <zshi@redhat.com>
-CC: Ben Hutchings <ben@decadent.org.uk>
-CC: <linux-net-drivers@solarflare.com>
-CC: Shradha Shah <sshah@solarflare.com>
-CC: David S. Miller <davem@davemloft.net>
+What we really need is just a way for the dma_* api to put backpressure on
+callers for a very brief period of time.  Thats why I was thinking something
+involving completion interupts or unmapping events.
 
-Fixes: 1899c111a535 ("sfc: Fix IRQ cleanup in case of a probe failure")
-Reported-by: Zenghui Shi <zshi@redhat.com>
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
-v2: Change the fix to check for the interrupt mode and adjust the
-commit message.
-
- drivers/net/ethernet/sfc/nic.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 32d969e857f7..43761d3b8651 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -156,13 +156,15 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
- 	efx->net_dev->rx_cpu_rmap = NULL;
- #endif
- 
--	/* Disable MSI/MSI-X interrupts */
--	efx_for_each_channel(channel, efx)
--		free_irq(channel->irq, &efx->msi_context[channel->channel]);
--
--	/* Disable legacy interrupt */
--	if (efx->legacy_irq)
-+	if (efx->interrupt_mode != EFX_INT_MODE_LEGACY) {
-+		/* Disable MSI/MSI-X interrupts */
-+		efx_for_each_channel(channel, efx)
-+			free_irq(channel->irq,
-+				 &efx->msi_context[channel->channel]);
-+	} else {
-+		/* Disable legacy interrupt */
- 		free_irq(efx->legacy_irq, efx);
-+	}
- }
- 
- /* Register dump */
--- 
-1.8.5.3
+> I remember some old systems where the cost of setting up the iommu
+> entries was such that the breakeven point for copying data was
+> measured as about 1k bytes. I've no idea what it is for these systems.
+> 
+> 	David
+> 
+> 
+> 
+> 
