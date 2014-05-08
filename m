@@ -1,131 +1,101 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Thu, 8 May 2014 19:47:52 +0000
-Message-ID: <ec503f90e3914e2786e0f0d0f7dc0796@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
- <20140508091304.GB24820@kroah.com>
- <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140508190712.GB6766@kroah.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: cassini: possible recursive locking detected
+Date: Thu, 8 May 2014 23:00:03 +0300 (EEST)
+Message-ID: <alpine.SOC.1.00.1405082259340.27832@math.ut.ee>
+References: <alpine.SOC.1.00.1405061232520.3891@math.ut.ee> <20140508125336.GB4338@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140508190712.GB6766@kroah.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Emil Goode <emilgoode@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:43671 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932170AbaEHUAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2014 16:00:06 -0400
+In-Reply-To: <20140508125336.GB4338@lianli>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com]
-> Sent: Thursday, May 8, 2014 3:07 PM
-> To: Haiyang Zhang
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
-> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next] Add support for netvsc build without
-> CONFIG_SYSFS flag
+> Hello Meelis,
 > 
-> On Thu, May 08, 2014 at 03:13:19PM +0000, Haiyang Zhang wrote:
-> >
-> >
-> > > -----Original Message-----
-> > > From: Greg KH [mailto:greg@kroah.com]
-> > > Sent: Thursday, May 8, 2014 5:13 AM
-> > > To: Haiyang Zhang
-> > > Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
-> > > jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> > > kernel@vger.kernel.org
-> > > Subject: Re: [PATCH net-next] Add support for netvsc build without
-> > > CONFIG_SYSFS flag
-> > >
-> > > On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
-> > > > This change ensures the driver can be built successfully without
-> > > > the CONFIG_SYSFS flag.
-> > > > MS-TFS: 182270
-> > > >
-> > > > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > > > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > > ---
-> > > >  drivers/net/hyperv/hyperv_net.h   |    2 ++
-> > > >  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
-> > > >  drivers/net/hyperv/rndis_filter.c |    4 ++--
-> > > >  3 files changed, 15 insertions(+), 3 deletions(-)
-> > > >
-> > > > diff --git a/drivers/net/hyperv/hyperv_net.h
-> > > > b/drivers/net/hyperv/hyperv_net.h index 4b7df5a..23b96bc 100644
-> > > > --- a/drivers/net/hyperv/hyperv_net.h
-> > > > +++ b/drivers/net/hyperv/hyperv_net.h
-> > > > @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /*
-> > > > NDIS_RECEIVE_SCALE_CAPABILITIES */  #define HASH_KEYLEN
-> > > > NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
-> > > >  extern u8 netvsc_hash_key[];
-> > > >
-> > > > +extern unsigned int netvsc_num_queue;
-> > > > +
-> > > >  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS
-> */
-> > > >  	struct ndis_obj_header hdr;
-> > > >
-> > > > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> > > > b/drivers/net/hyperv/netvsc_drv.c index 939e3af..07896f3 100644
-> > > > --- a/drivers/net/hyperv/netvsc_drv.c
-> > > > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > > > @@ -52,6 +52,8 @@ static int ring_size = 128;
-> > > > module_param(ring_size, int, S_IRUGO);
-> > > > MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
-> > > >
-> > > > +unsigned int netvsc_num_queue = 1;
-> > > > +
-> > > >  static void do_set_multicast(struct work_struct *w)  {
-> > > >  	struct net_device_context *ndevctx = @@ -639,9 +641,11 @@ int
-> > > > netvsc_recv_callback(struct hv_device *device_obj,
-> > > >  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-> > > >  				       packet->vlan_tci);
-> > > >
-> > > > +#ifdef CONFIG_SYSFS
-> > > >  	skb_record_rx_queue(skb, packet->channel->
-> > > >  			    offermsg.offer.sub_channel_index %
-> > > >  			    net->real_num_rx_queues);
-> > > > +#endif
-> > >
-> > > Why is this a sysfs-only function?  It should have nothing to do with sysfs,
-> right?
-> > > So why would the driver care?
-> >
-> > Without CONFIG_SYSFS the multi-receive queues are not allocated, see
-> > below, and the variable real_num_rx_queues is not defined, so we skip this
-> function.
-> >
-> > In alloc_netdev_mqs(), file "net/core/dev.c":
-> > #ifdef CONFIG_SYSFS
-> >         dev->num_rx_queues = rxqs;
-> >         dev->real_num_rx_queues = rxqs;
-> >         if (netif_alloc_rx_queues(dev))
-> >                 goto free_all;
-> > #endif
+> I think this warning happens because we acquire multiple locks
+> in a loop in cas_lock_tx() and I believe we should use nested
+> lock annotation here.
 > 
-> Then you need to structure your driver better :)
+> Perhaps you would like to try the attached patch?
 
-I have submitted an update patch.
+Yes, it silences the warning.
 
-Thanks,
-- Haiyang
+> It won't fix the deadlock that you mentioned though.
+
+Yes, the hang still happens, following a
+ERROR: System Hardware FATAL RESET from  CPU0 CPU2
+
+> 
+> Best regards,
+> 
+> Emil Goode
+> 
+> On Tue, May 06, 2014 at 12:39:48PM +0300, Meelis Roos wrote:
+> > While installing Linux on Sun Fire V480, any traffic on builtin cassini 
+> > NIC caused a hang. Worked this around by using Broadcom NIC and tried a 
+> > kernel with most debugging options. This resulted in the following 
+> > warning. Maybe this is the deadlonck I was seeing?
+> > 
+> > [   88.316595] =============================================
+> > [   88.316597] [ INFO: possible recursive locking detected ]
+> > [   88.316603] 3.15.0-rc4-00202-g30321c7-dirty #11 Not tainted
+> > [   88.316605] ---------------------------------------------
+> > [   88.316608] swapper/3/1 is trying to acquire lock:
+> > [   88.316644]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > [   88.316646]
+> > [   88.316646] but task is already holding lock:
+> > [   88.316657]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > [   88.316659]
+> > [   88.316659] other info that might help us debug this:
+> > [   88.316661]  Possible unsafe locking scenario:
+> > [   88.316661]
+> > [   88.316662]        CPU0
+> > [   88.316664]        ----
+> > [   88.316668]   lock(&(&cp->tx_lock[i])->rlock);
+> > [   88.316671]   lock(&(&cp->tx_lock[i])->rlock);
+> > [   88.316672]
+> > [   88.316672]  *** DEADLOCK ***
+> > [   88.316672]
+> > [   88.316674]  May be due to missing lock nesting notation
+> > [   88.316674]
+> > [   88.316677] 3 locks held by swapper/3/1:
+> > [   88.316694]  #0:  ((&cp->link_timer)){+.-...}, at: [<0000000000465f80>] call_timer_fn+0x0/0xe0
+> > [   88.316706]  #1:  (&(&cp->lock)->rlock){..-...}, at: [<0000000000745d80>] cas_link_timer+0x80/0x460
+> > [   88.316716]  #2:  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > [   88.316718]
+> > [   88.316718] stack backtrace:
+> > [   88.316724] CPU: 2 PID: 1 Comm: swapper/3 Not tainted 3.15.0-rc4-00202-g30321c7-dirty #11
+> > [   88.316727] Call Trace:
+> > [   88.316743]  [00000000004a2c5c] __lock_acquire+0x10fc/0x1fa0
+> > [   88.316749]  [00000000004a406c] lock_acquire+0x4c/0x80
+> > [   88.316760]  [000000000083e07c] _raw_spin_lock+0x1c/0x40
+> > [   88.316765]  [0000000000745da0] cas_link_timer+0xa0/0x460
+> > [   88.316769]  [0000000000465fc8] call_timer_fn+0x48/0xe0
+> > [   88.316775]  [00000000004665d4] run_timer_softirq+0x214/0x280
+> > [   88.316788]  [000000000045f650] __do_softirq+0xf0/0x240
+> > [   88.316800]  [000000000042bd0c] do_softirq_own_stack+0x2c/0x40
+> > [   88.316804]  [000000000045fb44] irq_exit+0xc4/0xe0
+> > [   88.316814]  [000000000042fcc8] timer_interrupt+0x88/0xc0
+> > [   88.316819]  [0000000000426b84] valid_addr_bitmap_patch+0xbc/0x238
+> > [   88.316826]  [00000000004ab2f8] vprintk_emit+0x1d8/0x540
+> > [   88.316842]  [0000000000835fb8] printk+0x34/0x48
+> > [   88.316847]  [00000000004ac3e0] register_console+0x340/0x3e0
+> > [   88.316862]  [0000000000a74f2c] init_netconsole+0x180/0x20c
+> > [   88.316867]  [0000000000426eb0] do_one_initcall+0x110/0x1a0
+> > 
+> > -- 
+> > Meelis Roos (mroos@linux.ee)
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+-- 
+Meelis Roos (mroos@linux.ee)
