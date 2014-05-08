@@ -1,120 +1,115 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 00/22] Random ARM randconfig fixes in drivers
-Date: Thu,  8 May 2014 16:46:51 +0200
-Message-ID: <1399560433-1402630-1-git-send-email-arnd@arndb.de>
-Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
-	bhelgaas@google.com, dwmw2@infradead.org,
-	dmitry.torokhov@gmail.com, balbi@ti.com,
-	gregkh@linuxfoundation.org, plagnioj@jcrosoft.com,
-	jic23@kernel.org, josh.wu@atmel.com, kishon@ti.com,
-	linus.walleij@linaro.org, broonie@kernel.org,
-	mturquette@linaro.org, nicolas.ferre@atmel.com, ohad@wizery.com,
-	linux@arm.linux.org.uk, tony@atomide.com, vinod.koul@intel.com,
-	wim@iguana.be, wsa@the-dreams.de, dmaengine@vger.kernel.org,
-	linux-i2c@vger.kernel.org, linux-ide@vger.kernel.org,
-	linux-iio@vger.kernel.org, linux-input@vger.kernel.org,
-	linux-mtd@lists.infradead.org, linux-pci@vger.kernel.org,
-	linux-samsung-soc@vger.kernel.org, linux-sh@vger.kernel.org,
-	linux-watchdog@vger.kernel.org, netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] Add support for netvsc build without
+ CONFIG_SYSFS flag
+Date: Thu, 8 May 2014 15:13:19 +0000
+Message-ID: <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
+ <20140508091304.GB24820@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Greg KH <greg@kroah.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140508091304.GB24820@kroah.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-These are a bunch of fixes I had to do to get all randconfig
-configurations on ARM working. Most of these are really old
-bugs, but there are also some new ones. I don't think any of
-them require a backport to linux-stable.
 
-I have checked that they are all still required on yesterday's
-linux-next kernel. Please apply on the appropriate trees unless
-there are objections.
 
-Patch numbers are per subsystem, which I thought is less confusing
-than numbering them 1-22 when they are all totall independent.
+> -----Original Message-----
+> From: Greg KH [mailto:greg@kroah.com]
+> Sent: Thursday, May 8, 2014 5:13 AM
+> To: Haiyang Zhang
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
+> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next] Add support for netvsc build without
+> CONFIG_SYSFS flag
+> 
+> On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
+> > This change ensures the driver can be built successfully without the
+> > CONFIG_SYSFS flag.
+> > MS-TFS: 182270
+> >
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> > ---
+> >  drivers/net/hyperv/hyperv_net.h   |    2 ++
+> >  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
+> >  drivers/net/hyperv/rndis_filter.c |    4 ++--
+> >  3 files changed, 15 insertions(+), 3 deletions(-)
+> >
+> > diff --git a/drivers/net/hyperv/hyperv_net.h
+> > b/drivers/net/hyperv/hyperv_net.h index 4b7df5a..23b96bc 100644
+> > --- a/drivers/net/hyperv/hyperv_net.h
+> > +++ b/drivers/net/hyperv/hyperv_net.h
+> > @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /*
+> > NDIS_RECEIVE_SCALE_CAPABILITIES */  #define HASH_KEYLEN
+> > NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
+> >  extern u8 netvsc_hash_key[];
+> >
+> > +extern unsigned int netvsc_num_queue;
+> > +
+> >  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+> >  	struct ndis_obj_header hdr;
+> >
+> > diff --git a/drivers/net/hyperv/netvsc_drv.c
+> > b/drivers/net/hyperv/netvsc_drv.c index 939e3af..07896f3 100644
+> > --- a/drivers/net/hyperv/netvsc_drv.c
+> > +++ b/drivers/net/hyperv/netvsc_drv.c
+> > @@ -52,6 +52,8 @@ static int ring_size = 128;  module_param(ring_size,
+> > int, S_IRUGO);  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of
+> > pages)");
+> >
+> > +unsigned int netvsc_num_queue = 1;
+> > +
+> >  static void do_set_multicast(struct work_struct *w)  {
+> >  	struct net_device_context *ndevctx = @@ -639,9 +641,11 @@ int
+> > netvsc_recv_callback(struct hv_device *device_obj,
+> >  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+> >  				       packet->vlan_tci);
+> >
+> > +#ifdef CONFIG_SYSFS
+> >  	skb_record_rx_queue(skb, packet->channel->
+> >  			    offermsg.offer.sub_channel_index %
+> >  			    net->real_num_rx_queues);
+> > +#endif
+> 
+> Why is this a sysfs-only function?  It should have nothing to do with sysfs, right?
+> So why would the driver care?
 
-Arnd Bergmann (22):
-  mdio_bus: fix devm_mdiobus_alloc_size export
-  phy: kona2: use 'select GENERIC_PHY' in Kconfig
-  phy: exynos: fix SATA phy license typo
-  dmaengine: omap: hide filter_fn for built-in drivers
-  dmaengine: sa11x0: remove broken #ifdef
-  mtd/onenand: fix build warning for dma type
-  mtd: orion-nand: fix build error with ARMv4
-  clk/versatile: export symbols for impd1
-  bus/omap_l3: avoid sync initcall for modules
-  bus/arm-cci: add dependency on OF && CPU_V7
-  watchdog: iop_wdt only builds for mach-iop13xx
-  mpilib: use 'static inline' for mpi-inline.h
-  ata: pata_at91 only works on sam9
-  i2c/nuc900: fix ancient build error
-  iio: always select ANON_INODES
-  iio:adc: at91 requires the input subsystem
-  pci: rcar host needs OF
-  input: fix ps2/serio module dependency
-  input: atmel-wm97xx: only build for AVR32
-  misc: atmel_pwm: only build for supported platforms
-  remoteproc: da8xx: don't select CMA on no-MMU
-  regulator: arizona-ldo1: add missing #include
+Without CONFIG_SYSFS the multi-receive queues are not allocated, see below, and 
+the variable real_num_rx_queues is not defined, so we skip this function.
 
- drivers/ata/Kconfig               | 2 +-
- drivers/bus/Kconfig               | 2 +-
- drivers/bus/omap_l3_noc.c         | 4 ++++
- drivers/bus/omap_l3_smx.c         | 4 ++++
- drivers/clk/versatile/clk-icst.c  | 1 +
- drivers/clk/versatile/clk-impd1.c | 2 ++
- drivers/dma/sa11x0-dma.c          | 4 ----
- drivers/i2c/busses/i2c-nuc900.c   | 2 +-
- drivers/iio/Kconfig               | 1 +
- drivers/iio/adc/Kconfig           | 1 +
- drivers/input/keyboard/Kconfig    | 2 +-
- drivers/input/mouse/Kconfig       | 2 +-
- drivers/input/touchscreen/Kconfig | 2 +-
- drivers/misc/Kconfig              | 3 ++-
- drivers/mtd/nand/orion_nand.c     | 5 +++++
- drivers/mtd/onenand/samsung.c     | 8 ++++----
- drivers/net/phy/mdio_bus.c        | 2 +-
- drivers/pci/host/Kconfig          | 2 +-
- drivers/phy/Kconfig               | 2 +-
- drivers/phy/phy-exynos5250-sata.c | 2 +-
- drivers/regulator/arizona-ldo1.c  | 1 +
- drivers/remoteproc/Kconfig        | 2 +-
- drivers/watchdog/Kconfig          | 2 +-
- include/linux/omap-dma.h          | 2 +-
- lib/mpi/mpi-inline.h              | 2 +-
- lib/mpi/mpi-internal.h            | 8 --------
- 26 files changed, 39 insertions(+), 31 deletions(-)
+In alloc_netdev_mqs(), file "net/core/dev.c":
+#ifdef CONFIG_SYSFS
+        dev->num_rx_queues = rxqs;
+        dev->real_num_rx_queues = rxqs;
+        if (netif_alloc_rx_queues(dev))
+                goto free_all;
+#endif
 
--- 
-1.8.3.2
+> Don't put #ifdef in drivers, it's unmaintainable over time, if this really is a sysfs-
+> only function, this should already be handled automatically in a .h file
+> somewhere.
 
-Cc: bhelgaas@google.com
-Cc: dwmw2@infradead.org
-Cc: dmitry.torokhov@gmail.com
-Cc: balbi@ti.com
-Cc: gregkh@linuxfoundation.org
-Cc: plagnioj@jcrosoft.com
-Cc: jic23@kernel.org
-Cc: josh.wu@atmel.com
-Cc: kishon@ti.com
-Cc: linus.walleij@linaro.org
-Cc: broonie@kernel.org
-Cc: mturquette@linaro.org
-Cc: nicolas.ferre@atmel.com
-Cc: ohad@wizery.com
-Cc: linux@arm.linux.org.uk
-Cc: tony@atomide.com
-Cc: vinod.koul@intel.com
-Cc: wim@iguana.be
-Cc: wsa@the-dreams.de
-Cc: dmaengine@vger.kernel.org
-Cc: linux-i2c@vger.kernel.org
-Cc: linux-ide@vger.kernel.org
-Cc: linux-iio@vger.kernel.org
-Cc: linux-input@vger.kernel.org
-Cc: linux-mtd@lists.infradead.org
-Cc: linux-pci@vger.kernel.org
-Cc: linux-samsung-soc@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: linux-watchdog@vger.kernel.org
-Cc: netdev@vger.kernel.org
+OK, I will move the #ifdef into hyperv_net.h.
+
+Thanks,
+- Haiyang
