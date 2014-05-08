@@ -1,112 +1,86 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH net-next] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Thu, 8 May 2014 21:07:12 +0200
-Message-ID: <20140508190712.GB6766@kroah.com>
-References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
- <20140508091304.GB24820@kroah.com>
- <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: TCP CLOSE_WAIT unacceptable ACK behavior and RFC 793 compliance
+Date: Thu, 8 May 2014 15:20:45 -0400
+Message-ID: <CADVnQy=cw6Z+8tTUHp6-b0+0M6iPar+VFTZAc+sgfm8tpZbQ2A@mail.gmail.com>
+References: <c95895f13e2adae32cc9a23bf9ccf96b.squirrel@squirrel.science.ru.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Frits Vaandrager <f.vaandrager@cs.ru.nl>
+To: P.Fiterau-Brostean@science.ru.nl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:46665 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755325AbaEHTUq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 15:20:46 -0400
+Received: by mail-we0-f177.google.com with SMTP id x48so2875658wes.8
+        for <netdev@vger.kernel.org>; Thu, 08 May 2014 12:20:45 -0700 (PDT)
+In-Reply-To: <c95895f13e2adae32cc9a23bf9ccf96b.squirrel@squirrel.science.ru.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 08, 2014 at 03:13:19PM +0000, Haiyang Zhang wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Greg KH [mailto:greg@kroah.com]
-> > Sent: Thursday, May 8, 2014 5:13 AM
-> > To: Haiyang Zhang
-> > Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
-> > jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> > kernel@vger.kernel.org
-> > Subject: Re: [PATCH net-next] Add support for netvsc build without
-> > CONFIG_SYSFS flag
-> > 
-> > On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
-> > > This change ensures the driver can be built successfully without the
-> > > CONFIG_SYSFS flag.
-> > > MS-TFS: 182270
-> > >
-> > > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > > ---
-> > >  drivers/net/hyperv/hyperv_net.h   |    2 ++
-> > >  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
-> > >  drivers/net/hyperv/rndis_filter.c |    4 ++--
-> > >  3 files changed, 15 insertions(+), 3 deletions(-)
-> > >
-> > > diff --git a/drivers/net/hyperv/hyperv_net.h
-> > > b/drivers/net/hyperv/hyperv_net.h index 4b7df5a..23b96bc 100644
-> > > --- a/drivers/net/hyperv/hyperv_net.h
-> > > +++ b/drivers/net/hyperv/hyperv_net.h
-> > > @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /*
-> > > NDIS_RECEIVE_SCALE_CAPABILITIES */  #define HASH_KEYLEN
-> > > NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
-> > >  extern u8 netvsc_hash_key[];
-> > >
-> > > +extern unsigned int netvsc_num_queue;
-> > > +
-> > >  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
-> > >  	struct ndis_obj_header hdr;
-> > >
-> > > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> > > b/drivers/net/hyperv/netvsc_drv.c index 939e3af..07896f3 100644
-> > > --- a/drivers/net/hyperv/netvsc_drv.c
-> > > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > > @@ -52,6 +52,8 @@ static int ring_size = 128;  module_param(ring_size,
-> > > int, S_IRUGO);  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of
-> > > pages)");
-> > >
-> > > +unsigned int netvsc_num_queue = 1;
-> > > +
-> > >  static void do_set_multicast(struct work_struct *w)  {
-> > >  	struct net_device_context *ndevctx = @@ -639,9 +641,11 @@ int
-> > > netvsc_recv_callback(struct hv_device *device_obj,
-> > >  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-> > >  				       packet->vlan_tci);
-> > >
-> > > +#ifdef CONFIG_SYSFS
-> > >  	skb_record_rx_queue(skb, packet->channel->
-> > >  			    offermsg.offer.sub_channel_index %
-> > >  			    net->real_num_rx_queues);
-> > > +#endif
-> > 
-> > Why is this a sysfs-only function?  It should have nothing to do with sysfs, right?
-> > So why would the driver care?
-> 
-> Without CONFIG_SYSFS the multi-receive queues are not allocated, see below, and 
-> the variable real_num_rx_queues is not defined, so we skip this function.
-> 
-> In alloc_netdev_mqs(), file "net/core/dev.c":
-> #ifdef CONFIG_SYSFS
->         dev->num_rx_queues = rxqs;
->         dev->real_num_rx_queues = rxqs;
->         if (netif_alloc_rx_queues(dev))
->                 goto free_all;
-> #endif
+On Thu, May 8, 2014 at 1:13 PM,  <P.Fiterau-Brostean@science.ru.nl> wrote:
+> In short, when the SERVER is in CLOSE_WAIT state and the CLIENT sends an
+> ACK  (or a FIN+ACK) with a valid seq number but an unacceptable ack
+> number, the SERVER either responds with an ACK (re-transmission of last
+> ACK sent by the server) or it doesn't respond at all. I attached a capture
 
-Then you need to structure your driver better :)
+Yes, this does not seem to match the RFC.
 
-greg k-h
+Have you tried this scenario with SEG.ACK > SND.NXT in other states,
+e.g. ESTABLISHED?
+
+Have you checked what other OSes do?
+
+Here would be a proposed change, if we decide to send an ACK instead
+of dropping (please excuse the formatting; for the real patch I'd use
+git send-email...):
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d6b46eb..08f2f55 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3383,11 +3383,15 @@ static int tcp_ack(...
+                goto old_ack;
+        }
+
+-       /* If the ack includes data we haven't sent yet, discard
+-        * this segment (RFC793 Section 3.9).
++       /* "If the ACK acks something not yet sent (SEG.ACK > SND.NXT)
++         * then send an ACK, drop the segment, and return." (RFC793
++         * Section 3.9, p. 72).
+         */
+-       if (after(ack, tp->snd_nxt))
++       if (after(ack, tp->snd_nxt)) {
++               /* RFC 5961 5.2 [Blind Data Injection Attack].[Mitigation] */
++               tcp_send_challenge_ack(sk);
+                goto invalid_ack;
++       }
+
+        if (icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
+            icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)
+
+I am playing with that.
+
+neal
+
+---
+
+BTW, here is a packetdrill test case to reproduce this scenario:
+
+// Set up a server listening socket.
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
++0    setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
++0    bind(3, ..., ...) = 0
++0    listen(3, 1) = 0
+
+// Establish connection
++0    < S 0:0(0) win 32792 <mss 1460,nop,nop,sackOK>
++0    > S. 0:0(0) ack 1    <mss 1460,nop,nop,sackOK>
++.010 < . 1:1(0) ack 1 win 32792
+
++0 accept(3, ..., ...) = 4
+
++.010 < F. 1:1(0) ack 1 win 32792
++0    > . 1:1(0) ack 2
++.010 < . 2:2(0) ack 500 win 32792
