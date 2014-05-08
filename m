@@ -1,90 +1,66 @@
-From: Andreas =?iso-8859-1?q?Irest=E5l?= <andreas.irestal-VrBV9hrLPhE@public.gmane.org>
+From: Arnd Bergmann <arnd@arndb.de>
 Subject: Re: [RFC PATCH] net:Add basic DWC Ethernet QoS Driver
-Date: Thu, 8 May 2014 16:18:04 +0200
-Message-ID: <201405081618.04475.Andreas.Irestal@axis.com>
-References: <201405081349.03139.Andreas.Irestal@axis.com> <20248221.mJ8pFfyc5U@wuerfel>
+Date: Thu, 08 May 2014 16:26 +0200
+Message-ID: <5261973.l3atPvULh6@wuerfel>
+References: <201405081349.03139.Andreas.Irestal@axis.com> <20248221.mJ8pFfyc5U@wuerfel> <201405081618.04475.Andreas.Irestal@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	"robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org" <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org" <abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-	"jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org" <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org" <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	"sr-ynQEQJNshbs@public.gmane.org" <sr-ynQEQJNshbs@public.gmane.org>,
-	"jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <jonas.jensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jesper Nilsson <jespern-VrBV9hrLPhE@public.gmane.org>, <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20248221.mJ8pFfyc5U@wuerfel>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"maxime.ripard@free-electrons.com" <maxime.ripard@free-electrons.com>,
+	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"sr@denx.de" <sr@denx.de>,
+	"jonas.jensen@gmail.com" <jonas.jensen@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Jesper Nilsson <jespern@axis.com>, peppe.cavallaro@st.com
+To: Andreas =?ISO-8859-1?Q?Irest=E5l?= <andreas.irestal@axis.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:55488 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751401AbaEHO03 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 10:26:29 -0400
+In-Reply-To: <201405081618.04475.Andreas.Irestal@axis.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Signed-off-by: Andreas Irestaal <Andreas.Irestal-VrBV9hrLPhE@public.gmane.org>
-> > ---
-> >  drivers/net/ethernet/Kconfig                |    1 +
-> >  drivers/net/ethernet/Makefile               |    1 +
-> >  drivers/net/ethernet/synopsys/Kconfig       |   24 +
-> >  drivers/net/ethernet/synopsys/Makefile      |    5 +
-> >  drivers/net/ethernet/synopsys/dwc_eth_qos.c |  710 +++++++++++++++++++++++++++
-> >  drivers/net/ethernet/synopsys/dwc_eth_qos.h |  308 ++++++++++++
-> 
-> Should we maybe move the dw_mac driver out of the stmicro directory into
-> synopsys as a preparation, to keep them in the same place?
-> 
+On Thursday 08 May 2014 16:18:04 Andreas Irest=E5l wrote:
+>=20
+> > > +
+> > > +   /* Set poll wait timeout to 2 seconds */
+> > > +   dwc_wait =3D 200;
+> > > +
+> > > +   while (lp->tx_descs[i].tdes3.wr.own) {
+> > > +           mdelay(10);
+> > > +           if (!dwc_wait--)
+> > > +                   break;
+> > > +   }
+> >=20
+> > This is really evil: you are blocking the CPU for up to two seconds=
+!
+> > You already mentioned that this is work-in-progress, but I guess it=
+ has
+> > to be a little better than this and do something that doesn't block
+> > out the CPU during TX.
+> >=20
+>=20
+> It really is, but a 2s lockout is only happening upon TX failure. Any=
+way, this
+> won't be an issue in the final version, since it won't use polling fo=
+r TX.
 
-That sounds like a good idea since that driver uses the same IP. I'm not the
-person to take that decision though.
+Actually I'd expect a 10ms delay for most packets, which is also too mu=
+ch.
 
-> > +
-> > +	/* Set poll wait timeout to 2 seconds */
-> > +	dwc_wait = 200;
-> > +
-> > +	while (lp->tx_descs[i].tdes3.wr.own) {
-> > +		mdelay(10);
-> > +		if (!dwc_wait--)
-> > +			break;
-> > +	}
-> 
-> This is really evil: you are blocking the CPU for up to two seconds!
-> You already mentioned that this is work-in-progress, but I guess it has
-> to be a little better than this and do something that doesn't block
-> out the CPU during TX.
-> 
+Just for scale: at gigabit speed, a 10 *microsecond* delay would be mor=
+e
+appropriate than a 10 milisecond delay. Anyway, it's not important here=
+ as
+long as you find a proper solution.
 
-It really is, but a 2s lockout is only happening upon TX failure. Anyway, this
-won't be an issue in the final version, since it won't use polling for TX.
-
-> 
-> > +/* Fields/constants */
-> > +#define DWCEQOS_DMA_MODE_SWR			1
-> > +#define DWCEQOS_DMA_MODE_TXPR			(1 << 11)
-> > +#define DWCEQOS_DMA_MODE_DA			(1 << 1)
-> > +#define DWCEQOS_DMA_SYSBUS_MB			(1 << 14)
-> 
-> I find it more readable to use hexadecimal notation here
-> 
-> #define DWCEQOS_DMA_MODE_SWR		0x0001
-> #define DWCEQOS_DMA_MODE_DA		0x0002
-> #define DWCEQOS_DMA_MODE_TXPR		0x0800
-> #define DWCEQOS_DMA_SYSBUS_MB		0x4000
-> 
-
-I agree, but it's not 100% clear which one is preferred as there exist drivers
-using the first notation style. Anyway, I'll use the hex notation in future
-patches since you prefer it.
-
-Thanks for all valuable input. This was exactly the kind of feedback i was looking for
-
-/Andreas
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
