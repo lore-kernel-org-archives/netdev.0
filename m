@@ -1,101 +1,92 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: cassini: possible recursive locking detected
-Date: Thu, 8 May 2014 23:00:03 +0300 (EEST)
-Message-ID: <alpine.SOC.1.00.1405082259340.27832@math.ut.ee>
-References: <alpine.SOC.1.00.1405061232520.3891@math.ut.ee> <20140508125336.GB4338@lianli>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net-next, v2] Add support for netvsc build without
+ CONFIG_SYSFS flag
+Date: Thu, 8 May 2014 22:03:52 +0200
+Message-ID: <20140508200352.GB8847@kroah.com>
+References: <1399581693-25050-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Emil Goode <emilgoode@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.it.da.ut.ee ([193.40.5.67]:43671 "EHLO smtp2.it.da.ut.ee"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932170AbaEHUAG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2014 16:00:06 -0400
-In-Reply-To: <20140508125336.GB4338@lianli>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1399581693-25050-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-> Hello Meelis,
+On Thu, May 08, 2014 at 01:41:33PM -0700, Haiyang Zhang wrote:
+> This change ensures the driver can be built successfully without the
+> CONFIG_SYSFS flag.
+> MS-TFS: 182270
 > 
-> I think this warning happens because we acquire multiple locks
-> in a loop in cas_lock_tx() and I believe we should use nested
-> lock annotation here.
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h   |   28 ++++++++++++++++++++++++++++
+>  drivers/net/hyperv/netvsc_drv.c   |   13 +++++++------
+>  drivers/net/hyperv/rndis_filter.c |    4 ++--
+>  3 files changed, 37 insertions(+), 8 deletions(-)
 > 
-> Perhaps you would like to try the attached patch?
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index 4b7df5a..02358cb 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /* NDIS_RECEIVE_SCALE_CAPABILITIES */
+>  #define HASH_KEYLEN NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
+>  extern u8 netvsc_hash_key[];
+>  
+> +extern unsigned int netvsc_num_queue;
+> +
+>  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+>  	struct ndis_obj_header hdr;
+>  
+> @@ -178,6 +180,32 @@ struct rndis_device {
+>  	unsigned char hw_mac_adr[ETH_ALEN];
+>  };
+>  
+> +static inline void netvsc_record_rx_queue(struct sk_buff *skb,
+> +					  struct hv_netvsc_packet *packet,
+> +					  struct net_device *ndev)
+> +{
+> +#ifdef CONFIG_SYSFS
+> +	skb_record_rx_queue(skb, packet->channel->
+> +			    offermsg.offer.sub_channel_index %
+> +			    ndev->real_num_rx_queues);
+> +#endif
 
-Yes, it silences the warning.
+Really?  Do all other wireless drivers have this type of #ifdef needed?
 
-> It won't fix the deadlock that you mentioned though.
+> +}
+> +
+> +static inline void netvsc_show_num_queue(struct device *dev,
+> +					 struct net_device *ndev)
+> +{
+> +#ifdef CONFIG_SYSFS
+> +	dev_info(dev, "real num tx,rx queues:%u, %u\n",
+> +		 ndev->real_num_tx_queues, ndev->real_num_rx_queues);
+> +#endif
 
-Yes, the hang still happens, following a
-ERROR: System Hardware FATAL RESET from  CPU0 CPU2
+Do network drivers really spam the kernel log with this type of thing?
+If you have sysfs, why is this needed in the kernel log?
 
-> 
-> Best regards,
-> 
-> Emil Goode
-> 
-> On Tue, May 06, 2014 at 12:39:48PM +0300, Meelis Roos wrote:
-> > While installing Linux on Sun Fire V480, any traffic on builtin cassini 
-> > NIC caused a hang. Worked this around by using Broadcom NIC and tried a 
-> > kernel with most debugging options. This resulted in the following 
-> > warning. Maybe this is the deadlonck I was seeing?
-> > 
-> > [   88.316595] =============================================
-> > [   88.316597] [ INFO: possible recursive locking detected ]
-> > [   88.316603] 3.15.0-rc4-00202-g30321c7-dirty #11 Not tainted
-> > [   88.316605] ---------------------------------------------
-> > [   88.316608] swapper/3/1 is trying to acquire lock:
-> > [   88.316644]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
-> > [   88.316646]
-> > [   88.316646] but task is already holding lock:
-> > [   88.316657]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
-> > [   88.316659]
-> > [   88.316659] other info that might help us debug this:
-> > [   88.316661]  Possible unsafe locking scenario:
-> > [   88.316661]
-> > [   88.316662]        CPU0
-> > [   88.316664]        ----
-> > [   88.316668]   lock(&(&cp->tx_lock[i])->rlock);
-> > [   88.316671]   lock(&(&cp->tx_lock[i])->rlock);
-> > [   88.316672]
-> > [   88.316672]  *** DEADLOCK ***
-> > [   88.316672]
-> > [   88.316674]  May be due to missing lock nesting notation
-> > [   88.316674]
-> > [   88.316677] 3 locks held by swapper/3/1:
-> > [   88.316694]  #0:  ((&cp->link_timer)){+.-...}, at: [<0000000000465f80>] call_timer_fn+0x0/0xe0
-> > [   88.316706]  #1:  (&(&cp->lock)->rlock){..-...}, at: [<0000000000745d80>] cas_link_timer+0x80/0x460
-> > [   88.316716]  #2:  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
-> > [   88.316718]
-> > [   88.316718] stack backtrace:
-> > [   88.316724] CPU: 2 PID: 1 Comm: swapper/3 Not tainted 3.15.0-rc4-00202-g30321c7-dirty #11
-> > [   88.316727] Call Trace:
-> > [   88.316743]  [00000000004a2c5c] __lock_acquire+0x10fc/0x1fa0
-> > [   88.316749]  [00000000004a406c] lock_acquire+0x4c/0x80
-> > [   88.316760]  [000000000083e07c] _raw_spin_lock+0x1c/0x40
-> > [   88.316765]  [0000000000745da0] cas_link_timer+0xa0/0x460
-> > [   88.316769]  [0000000000465fc8] call_timer_fn+0x48/0xe0
-> > [   88.316775]  [00000000004665d4] run_timer_softirq+0x214/0x280
-> > [   88.316788]  [000000000045f650] __do_softirq+0xf0/0x240
-> > [   88.316800]  [000000000042bd0c] do_softirq_own_stack+0x2c/0x40
-> > [   88.316804]  [000000000045fb44] irq_exit+0xc4/0xe0
-> > [   88.316814]  [000000000042fcc8] timer_interrupt+0x88/0xc0
-> > [   88.316819]  [0000000000426b84] valid_addr_bitmap_patch+0xbc/0x238
-> > [   88.316826]  [00000000004ab2f8] vprintk_emit+0x1d8/0x540
-> > [   88.316842]  [0000000000835fb8] printk+0x34/0x48
-> > [   88.316847]  [00000000004ac3e0] register_console+0x340/0x3e0
-> > [   88.316862]  [0000000000a74f2c] init_netconsole+0x180/0x20c
-> > [   88.316867]  [0000000000426eb0] do_one_initcall+0x110/0x1a0
-> > 
-> > -- 
-> > Meelis Roos (mroos@linux.ee)
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> +}
+> +
+> +static inline void netvsc_set_num_queue(unsigned int *nq)
+> +{
+> +#ifdef CONFIG_SYSFS
+> +	*nq = num_online_cpus();
+> +#endif
+> +}
 
--- 
-Meelis Roos (mroos@linux.ee)
+I really feel that something is odd here...
