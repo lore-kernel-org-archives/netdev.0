@@ -1,7 +1,7 @@
 From: Johan Hovold <jhovold@gmail.com>
-Subject: [PATCH RESEND 2/5] net: mdio-gpio: warn about missing bus alias id
-Date: Thu,  8 May 2014 10:09:21 +0200
-Message-ID: <1399536564-7626-3-git-send-email-jhovold@gmail.com>
+Subject: [PATCH RESEND 5/5] net: cpsw: add missing of_node_put
+Date: Thu,  8 May 2014 10:09:24 +0200
+Message-ID: <1399536564-7626-6-git-send-email-jhovold@gmail.com>
 References: <1399534639-4947-1-git-send-email-jhovold@gmail.com>
  <1399536564-7626-1-git-send-email-jhovold@gmail.com>
 Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -14,28 +14,24 @@ In-Reply-To: <1399536564-7626-1-git-send-email-jhovold@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use a sane default bus id (rather than -ENODEV) and print a warning when
-the bus alias id is missing.
+Add missing of_node_put to avoid kref leak.
 
 Signed-off-by: Johan Hovold <jhovold@gmail.com>
 ---
- drivers/net/phy/mdio-gpio.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/ti/cpsw.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 9c4defdec67b..5f1a2250018f 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -215,6 +215,10 @@ static int mdio_gpio_probe(struct platform_device *pdev)
- 	if (pdev->dev.of_node) {
- 		pdata = mdio_gpio_of_get_data(pdev);
- 		bus_id = of_alias_get_id(pdev->dev.of_node, "mdio-gpio");
-+		if (bus_id < 0) {
-+			dev_warn(&pdev->dev, "failed to get alias id\n");
-+			bus_id = 0;
-+		}
- 	} else {
- 		pdata = dev_get_platdata(&pdev->dev);
- 		bus_id = pdev->id;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index db9360cd861c..c331b7ebc812 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1871,6 +1871,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
+ 		phyid = be32_to_cpup(parp+1);
+ 		mdio = of_find_device_by_node(mdio_node);
++		of_node_put(mdio_node);
+ 		if (!mdio) {
+ 			pr_err("Missing mdio platform device\n");
+ 			return -EINVAL;
 -- 
 1.8.3.2
