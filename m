@@ -1,53 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: sxgbe: Added tail point update
-Date: Thu, 8 May 2014 10:44:47 +0200
-Message-ID: <20140508084447.GA8079@electric-eye.fr.zoreil.com>
-References: <008b01cf69cc$4d304e50$e790eaf0$%an@samsung.com>
- <CAGVrzcaic-rrbRg2CpvzpyTpt0iRtX9=QE8WLpR3Eep=8w5czQ@mail.gmail.com>
- <002f01cf6a5b$a92e3660$fb8aa320$%an@samsung.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] jme: Fix DMA unmap warning
+Date: Thu, 8 May 2014 09:02:04 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70F4EB@AcuExch.aculab.com>
+References: <1399315907-27148-1-git-send-email-nhorman@tuxdriver.com>
+ <20140507.155613.630399521517455317.davem@davemloft.net>
+ <20140507203317.GC8786@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Florian Fainelli'" <f.fainelli@gmail.com>,
-	"'netdev'" <netdev@vger.kernel.org>,
-	linux-samsung-soc@vger.kernel.org,
-	"'David Miller'" <davem@davemloft.net>,
-	"'ks.giri'" <ks.giri@samsung.com>,
-	"'vipul.pandya'" <vipul.pandya@samsung.com>
-To: Byungho An <bh74.an@samsung.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"cooldavid@cooldavid.org" <cooldavid@cooldavid.org>
+To: 'Neil Horman' <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57069 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516AbaEHIo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 04:44:57 -0400
-Content-Disposition: inline
-In-Reply-To: <002f01cf6a5b$a92e3660$fb8aa320$%an@samsung.com>
+Received: from mx0.aculab.com ([213.249.233.131]:33013 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753396AbaEHJDa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 05:03:30 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06328-06 for <netdev@vger.kernel.org>;
+ Thu,  8 May 2014 10:03:20 +0100 (BST)
+In-Reply-To: <20140507203317.GC8786@hmsreliant.think-freely.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Byungho An <bh74.an@samsung.com> :
-> Florian Fainelli wrote: 
-[...]
-> > I think that at some point you should revisit your abstraction, all
-> > the patches that I see do take a void __iomem * argument as the first
-> > function argument, you should probably use your driver private context
-> > here. The day you support a different version of the hardware, there
-> > might be other differences that need to be taken care of.
-> > 
-> I agree with you, it would be more robust for different version of the hardware and make simple function argument.
-> But most functions of this driver deal with read/write register using ioaddr.
+From: Neil Horman
+...
+> Perhaps a solution is a signalling mechanism tied to completion interrupts?
+> I.e. a mapping failure gets reported to the stack, which causes the
+> correspondnig queue to be stopped, until such time a the driver signals a safe
+> restart by the reception of a tx completion interrupt?  I'm actually tinkering
+> right now with a mechanism that provides guidance to the stack as to how many
+> dma descriptors are available in a given net_device that might come in handy
 
-It does not imply that they should urge on ioaddr.
+Is there any mileage in the driver pre-allocating a block of iommu entries
+and then allocating them to the tx and rx buffers itself?
+This might need some 'claw back' mechanism to get 'fair' (ok working)
+allocations when there aren't enough entries for all the drivers.
 
-drivers/net/ethernet/broadcom/tg3.c gets it right and there is no reason
-why sxgbe should be different.
+I remember some old systems where the cost of setting up the iommu
+entries was such that the breakeven point for copying data was
+measured as about 1k bytes. I've no idea what it is for these systems.
 
-> As of now I think it is enough but I'll consider it later.
-
-In the meantime:
-1) more use-once function pointers are added
-2) their parameter list keeps growing
-
-Please reconsider sooner than later.
-
--- 
-Ueimor
+	David
