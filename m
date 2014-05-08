@@ -1,40 +1,46 @@
-From: Johan Hovold <jhovold@gmail.com>
-Subject: [PATCH 5/5] net: cpsw: add missing of_node_put
-Date: Thu,  8 May 2014 09:37:19 +0200
-Message-ID: <1399534639-4947-6-git-send-email-jhovold@gmail.com>
-References: <1399534639-4947-1-git-send-email-jhovold@gmail.com>
-Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
-	Johan Hovold <jhovold@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next] ipv4: fix kfree static array pointer in ipv4_sysctl_exit_net
+Date: Thu, 8 May 2014 15:40:45 +0800
+Message-ID: <536B34FD.8030601@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
+	<jmorris@namei.org>, <yoshfuji@linux-ipv6.org>, <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:51649 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753164AbaEHHkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 03:40:51 -0400
-In-Reply-To: <1399534639-4947-1-git-send-email-jhovold@gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:12061 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991AbaEHHln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 03:41:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add missing of_node_put to avoid kref leak.
+In ipv4_sysctl_init_net, we don't kmemdup a sysctl_table for init_net,
+so init_net->ipv4.ipv4_hdr->ctl_table_arg points to ipv4_net_table which
+is a static array pointer. So when do ipv4_sysctl_exit_net, it will
+free the ipv4_net_table for init_net.
 
-Signed-off-by: Johan Hovold <jhovold@gmail.com>
+So add a check net_namespace init_net before kfree the sysctl_table.
+
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/ipv4/sysctl_net_ipv4.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index db9360cd861c..c331b7ebc812 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1871,6 +1871,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		mdio_node = of_find_node_by_phandle(be32_to_cpup(parp));
- 		phyid = be32_to_cpup(parp+1);
- 		mdio = of_find_device_by_node(mdio_node);
-+		of_node_put(mdio_node);
- 		if (!mdio) {
- 			pr_err("Missing mdio platform device\n");
- 			return -EINVAL;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 44eba05..2825577 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -891,7 +891,8 @@ static __net_exit void ipv4_sysctl_exit_net(struct net *net)
+ 
+ 	table = net->ipv4.ipv4_hdr->ctl_table_arg;
+ 	unregister_net_sysctl_table(net->ipv4.ipv4_hdr);
+-	kfree(table);
++	if (!net_eq(net, &init_net))
++		kfree(table);
+ }
+ 
+ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
 -- 
-1.8.3.2
+1.7.12
