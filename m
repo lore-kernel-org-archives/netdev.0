@@ -1,127 +1,151 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [RFC PATCH] net: Provide linear backoff mechanism for constrained resources at the driver
-Date: Thu,  8 May 2014 15:29:52 -0400
-Message-ID: <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
-References: <20140507.155613.630399521517455317.davem@davemloft.net>
-Cc: davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33257 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754447AbaEHTaC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 15:30:02 -0400
-In-Reply-To: <20140507.155613.630399521517455317.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ v2] Add support for netvsc build without CONFIG_SYSFS flag
+Date: Thu,  8 May 2014 13:41:33 -0700
+Message-ID: <1399581693-25050-1-git-send-email-haiyangz@microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-What about something like this?  Its not even compile tested, but let me know
-what you think of the idea.  The reasoning behind it is that transient resources
-like dma address ranges in the iommu or swiotlb have the following attributes
+This change ensures the driver can be built successfully without the
+CONFIG_SYSFS flag.
+MS-TFS: 182270
 
-1) they are quickly allocated and freed
-
-2) Usually handled by simply trying again at some later point in time
-
-3) Likely to fail again if tried again immediately.
-
-4) Not condusive to interlocked signaling mechanisms as the time it takes to
-find and signal a waiting tx queue that resources are now available may take
-longer than needed, and may still result in failure, as competing allocators
-may race in and claim said resources during the signaling period.
-
-As such, what if we try something more simple like a linear backoff? In this
-example we add a TX return code that indicates that the driver is not busy, but
-unable to transmit due to resource constraints.  This signals the qdisc layer to
-skip trying to drain this transmit queue for a short period of time, with
-subsequent simmilar errors causing increased backoff.  Once the condition is
-cleared, the backoff delay is removed and operation returns to normal.
-
-Thouthgs?
-
-Neil
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- include/linux/netdevice.h |  4 ++++
- net/sched/sch_generic.c   | 20 ++++++++++++++++++++
- 2 files changed, 24 insertions(+)
+ drivers/net/hyperv/hyperv_net.h   |   28 ++++++++++++++++++++++++++++
+ drivers/net/hyperv/netvsc_drv.c   |   13 +++++++------
+ drivers/net/hyperv/rndis_filter.c |    4 ++--
+ 3 files changed, 37 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a803d79..2b88ccd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -105,6 +105,7 @@ enum netdev_tx {
- 	NETDEV_TX_OK	 = 0x00,	/* driver took care of packet */
- 	NETDEV_TX_BUSY	 = 0x10,	/* driver tx path was busy*/
- 	NETDEV_TX_LOCKED = 0x20,	/* driver tx lock was already taken */
-+	NETDEV_TX_BACKOFF= 0x40		/* driver resource contrained */
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4b7df5a..02358cb 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /* NDIS_RECEIVE_SCALE_CAPABILITIES */
+ #define HASH_KEYLEN NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
+ extern u8 netvsc_hash_key[];
+ 
++extern unsigned int netvsc_num_queue;
++
+ struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+ 	struct ndis_obj_header hdr;
+ 
+@@ -178,6 +180,32 @@ struct rndis_device {
+ 	unsigned char hw_mac_adr[ETH_ALEN];
  };
- typedef enum netdev_tx netdev_tx_t;
  
-@@ -572,6 +573,9 @@ struct netdev_queue {
- 
- 	unsigned long		state;
- 
-+	unsigned long		backoff_count;
-+	unsigned long		skip_count;
++static inline void netvsc_record_rx_queue(struct sk_buff *skb,
++					  struct hv_netvsc_packet *packet,
++					  struct net_device *ndev)
++{
++#ifdef CONFIG_SYSFS
++	skb_record_rx_queue(skb, packet->channel->
++			    offermsg.offer.sub_channel_index %
++			    ndev->real_num_rx_queues);
++#endif
++}
 +
- #ifdef CONFIG_BQL
- 	struct dql		dql;
- #endif
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index e1543b0..64bf6fe 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -30,6 +30,8 @@
- #include <net/pkt_sched.h>
- #include <net/dst.h>
- 
-+#define MAX_BACKOFF_COUNT 4
++static inline void netvsc_show_num_queue(struct device *dev,
++					 struct net_device *ndev)
++{
++#ifdef CONFIG_SYSFS
++	dev_info(dev, "real num tx,rx queues:%u, %u\n",
++		 ndev->real_num_tx_queues, ndev->real_num_rx_queues);
++#endif
++}
 +
- /* Qdisc to use by default */
- const struct Qdisc_ops *default_qdisc_ops = &pfifo_fast_ops;
- EXPORT_SYMBOL(default_qdisc_ops);
-@@ -121,6 +123,15 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
++static inline void netvsc_set_num_queue(unsigned int *nq)
++{
++#ifdef CONFIG_SYSFS
++	*nq = num_online_cpus();
++#endif
++}
+ 
+ /* Interface */
+ int netvsc_device_add(struct hv_device *device, void *additional_info);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 939e3af..11794a0 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -52,6 +52,8 @@ static int ring_size = 128;
+ module_param(ring_size, int, S_IRUGO);
+ MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+ 
++unsigned int netvsc_num_queue = 1;
++
+ static void do_set_multicast(struct work_struct *w)
  {
- 	int ret = NETDEV_TX_BUSY;
+ 	struct net_device_context *ndevctx =
+@@ -639,9 +641,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 				       packet->vlan_tci);
  
-+	/* Only attempt transmit module the backoff_count */
-+	if ((txq->backoff_count) {
-+		if (txq->skip_count % txq->backoff_count) {
-+			txq->skip_count++;
-+			return ret;
-+		}
-+		txq->skip_count = 0;
-+	}
-+		
- 	/* And release qdisc */
- 	spin_unlock(root_lock);
+-	skb_record_rx_queue(skb, packet->channel->
+-			    offermsg.offer.sub_channel_index %
+-			    net->real_num_rx_queues);
++	netvsc_record_rx_queue(skb, packet, net);
  
-@@ -135,9 +146,17 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
- 	if (dev_xmit_complete(ret)) {
- 		/* Driver sent out skb successfully or skb was consumed */
- 		ret = qdisc_qlen(q);
-+		txq->backoff_count = 0;
- 	} else if (ret == NETDEV_TX_LOCKED) {
- 		/* Driver try lock failed */
- 		ret = handle_dev_cpu_collision(skb, txq, q);
-+		txq->backoff_count = 0;
-+	} else if (ret == NETDEV_TX_BACKOFF) {
-+		/* The driver claims to be resource constrained */
-+		if (txq->backoff_count != MAX_BACKOFF_COUNT)
-+			txq->backoff_count++;
-+		txq->skip_count++;
-+		ret = dev_requeue_skb(skb, q);
- 	} else {
- 		/* Driver returned NETDEV_TX_BUSY - requeue skb */
- 		if (unlikely(ret != NETDEV_TX_BUSY))
-@@ -145,6 +164,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
- 					     dev->name, ret, q->q.qlen);
+ 	net->stats.rx_packets++;
+ 	net->stats.rx_bytes += packet->total_data_buflen;
+@@ -788,7 +788,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	int ret;
  
- 		ret = dev_requeue_skb(skb, q);
-+		txq->backoff_count = 0;
- 	}
+ 	net = alloc_etherdev_mq(sizeof(struct net_device_context),
+-				num_online_cpus());
++				netvsc_num_queue);
+ 	if (!net)
+ 		return -ENOMEM;
  
- 	if (ret && netif_xmit_frozen_or_stopped(txq))
+@@ -824,8 +824,7 @@ static int netvsc_probe(struct hv_device *dev,
+ 	nvdev = hv_get_drvdata(dev);
+ 	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+ 	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+-	dev_info(&dev->device, "real num tx,rx queues:%u, %u\n",
+-		 net->real_num_tx_queues, net->real_num_rx_queues);
++	netvsc_show_num_queue(&dev->device, net);
+ 
+ 	ret = register_netdev(net);
+ 	if (ret != 0) {
+@@ -897,6 +896,8 @@ static void __exit netvsc_drv_exit(void)
+ 
+ static int __init netvsc_drv_init(void)
+ {
++	netvsc_set_num_queue(&netvsc_num_queue);
++
+ 	if (ring_size < RING_SIZE_MIN) {
+ 		ring_size = RING_SIZE_MIN;
+ 		pr_info("Increased ring_size to %d (min allowed)\n",
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 99c527a..9db163c 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1094,8 +1094,8 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	if (ret || rsscap.num_recv_que < 2)
+ 		goto out;
+ 
+-	net_device->num_chn = (num_online_cpus() < rsscap.num_recv_que) ?
+-			       num_online_cpus() : rsscap.num_recv_que;
++	net_device->num_chn = (netvsc_num_queue < rsscap.num_recv_que) ?
++			       netvsc_num_queue : rsscap.num_recv_que;
+ 	if (net_device->num_chn == 1)
+ 		goto out;
+ 
 -- 
-1.8.3.1
+1.7.4.1
