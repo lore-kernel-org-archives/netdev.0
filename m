@@ -1,65 +1,53 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [RFC] tcp: add support for scheduling TCP options on TCP sockets
-Date: Thu, 8 May 2014 10:32:47 +0200
-Message-ID: <20140508083247.GA5719@cpaasch-mac>
-References: <1399399524-28550-1-git-send-email-octavian.purdila@intel.com>
- <20140507.013820.1357850416047414291.davem@davemloft.net>
- <CAE1zotJXpM+crFYE8-95G6s77BGvWF0LUUNgvCjQPcr-nbmzAA@mail.gmail.com>
- <09b16b4c1a6147f8aa4137e2c50e2e74@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net: sxgbe: Added tail point update
+Date: Thu, 8 May 2014 10:44:47 +0200
+Message-ID: <20140508084447.GA8079@electric-eye.fr.zoreil.com>
+References: <008b01cf69cc$4d304e50$e790eaf0$%an@samsung.com>
+ <CAGVrzcaic-rrbRg2CpvzpyTpt0iRtX9=QE8WLpR3Eep=8w5czQ@mail.gmail.com>
+ <002f01cf6a5b$a92e3660$fb8aa320$%an@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "octavian.purdila@intel.com" <octavian.purdila@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "'Florian Fainelli'" <f.fainelli@gmail.com>,
+	"'netdev'" <netdev@vger.kernel.org>,
+	linux-samsung-soc@vger.kernel.org,
+	"'David Miller'" <davem@davemloft.net>,
+	"'ks.giri'" <ks.giri@samsung.com>,
+	"'vipul.pandya'" <vipul.pandya@samsung.com>
+To: Byungho An <bh74.an@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:37408 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192AbaEHIcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 04:32:53 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57069 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751516AbaEHIo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 04:44:57 -0400
 Content-Disposition: inline
-In-Reply-To: <09b16b4c1a6147f8aa4137e2c50e2e74@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+In-Reply-To: <002f01cf6a5b$a92e3660$fb8aa320$%an@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/05/14 - 16:48:59, David Miller wrote:
-> From: Octavian Purdila <octavian.purdila@intel.com>
-> Date: Wed, 7 May 2014 10:30:23 +0300
-> 
-> > On Wed, May 7, 2014 at 8:38 AM, David Miller <davem@davemloft.net> wrote:
-> >>
-> >> From: Octavian Purdila <octavian.purdila@intel.com>
-> >> Date: Tue,  6 May 2014 21:05:24 +0300
-> >>
-> >> > Pardon the rough patch, but I hope it is enough to get some feedback
-> >> > on the overall approach.
-> >>
-> >> Sorry I don't like this.
-> >>
-> >> Walking a linked list unnecessary is going to add overhead to every
-> >> single packet transmission.  I think more people want our TCP stack to
-> >> be fast (everyone) than those who want option processing to be
-> >> abstracted enough to be modular (you).
-> >>
-> >> Just make the intrusive changes, they are necessary as they force you
-> >> to think fully about how one option might interact with another.
-> >>
+Byungho An <bh74.an@samsung.com> :
+> Florian Fainelli wrote: 
+[...]
+> > I think that at some point you should revisit your abstraction, all
+> > the patches that I see do take a void __iomem * argument as the first
+> > function argument, you should probably use your driver private context
+> > here. The day you support a different version of the hardware, there
+> > might be other differences that need to be taken care of.
 > > 
-> > Unfortunately skb_tcp_cb does not have enough space to hold
-> > information for new large options. To work around that, the MPTCP
-> > implementation is pushing the option data in the skb and then
-> > occasionally uses the following when the pskb_copy is used:
-> 
-> Why not deal with the problem directly by trying to find a way to
-> compress the existing use of skb_tcp_cb() so that there is actually
-> the amount of space you need?
+> I agree with you, it would be more robust for different version of the hardware and make simple function argument.
+> But most functions of this driver deal with read/write register using ioaddr.
 
-It might be possible to replace accesses to end_seq by calculating (seq + len + fin/syn)
-That way, we gain 4 bytes. Would this be acceptable?
+It does not imply that they should urge on ioaddr.
 
-And union tcp_flags/ip_dsfield as suggested in b82d1bb4fd206 (tcp: unalias
-tcp_skb_cb flags and ip_dsfield).
+drivers/net/ethernet/broadcom/tg3.c gets it right and there is no reason
+why sxgbe should be different.
 
+> As of now I think it is enough but I'll consider it later.
 
+In the meantime:
+1) more use-once function pointers are added
+2) their parameter list keeps growing
 
-Cheers,
-Christoph
+Please reconsider sooner than later.
+
+-- 
+Ueimor
