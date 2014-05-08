@@ -1,57 +1,86 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] rds: remove the unneed NULL checking
-Date: Thu, 8 May 2014 17:01:53 +0800
-Message-ID: <536B4801.9020802@huawei.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net-next] Add support for netvsc build without
+ CONFIG_SYSFS flag
+Date: Thu, 8 May 2014 02:13:04 -0700
+Message-ID: <20140508091304.GB24820@kroah.com>
+References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <chien.yen@oracle.com>, <rds-devel@oss.oracle.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:60645 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753457AbaEHJEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 05:04:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ davem@davemloft.net
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-unregister_net_sysctl_table will check the ctl_table_header,
-so remove the unneed checking
+On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
+> This change ensures the driver can be built successfully without the
+> CONFIG_SYSFS flag.
+> MS-TFS: 182270
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> ---
+>  drivers/net/hyperv/hyperv_net.h   |    2 ++
+>  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
+>  drivers/net/hyperv/rndis_filter.c |    4 ++--
+>  3 files changed, 15 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+> index 4b7df5a..23b96bc 100644
+> --- a/drivers/net/hyperv/hyperv_net.h
+> +++ b/drivers/net/hyperv/hyperv_net.h
+> @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /* NDIS_RECEIVE_SCALE_CAPABILITIES */
+>  #define HASH_KEYLEN NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
+>  extern u8 netvsc_hash_key[];
+>  
+> +extern unsigned int netvsc_num_queue;
+> +
+>  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+>  	struct ndis_obj_header hdr;
+>  
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 939e3af..07896f3 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -52,6 +52,8 @@ static int ring_size = 128;
+>  module_param(ring_size, int, S_IRUGO);
+>  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of pages)");
+>  
+> +unsigned int netvsc_num_queue = 1;
+> +
+>  static void do_set_multicast(struct work_struct *w)
+>  {
+>  	struct net_device_context *ndevctx =
+> @@ -639,9 +641,11 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+>  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+>  				       packet->vlan_tci);
+>  
+> +#ifdef CONFIG_SYSFS
+>  	skb_record_rx_queue(skb, packet->channel->
+>  			    offermsg.offer.sub_channel_index %
+>  			    net->real_num_rx_queues);
+> +#endif
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/rds/iw_sysctl.c | 3 +--
- net/rds/sysctl.c    | 3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+Why is this a sysfs-only function?  It should have nothing to do with
+sysfs, right?  So why would the driver care?
 
-diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
-index 89c9151..139239d 100644
---- a/net/rds/iw_sysctl.c
-+++ b/net/rds/iw_sysctl.c
-@@ -111,8 +111,7 @@ static struct ctl_table rds_iw_sysctl_table[] = {
- 
- void rds_iw_sysctl_exit(void)
- {
--	if (rds_iw_sysctl_hdr)
--		unregister_net_sysctl_table(rds_iw_sysctl_hdr);
-+	unregister_net_sysctl_table(rds_iw_sysctl_hdr);
- }
- 
- int rds_iw_sysctl_init(void)
-diff --git a/net/rds/sysctl.c b/net/rds/sysctl.c
-index b5cb2aa..c3b0cd4 100644
---- a/net/rds/sysctl.c
-+++ b/net/rds/sysctl.c
-@@ -94,8 +94,7 @@ static struct ctl_table rds_sysctl_rds_table[] = {
- 
- void rds_sysctl_exit(void)
- {
--	if (rds_sysctl_reg_table)
--		unregister_net_sysctl_table(rds_sysctl_reg_table);
-+	unregister_net_sysctl_table(rds_sysctl_reg_table);
- }
- 
- int rds_sysctl_init(void)
--- 
-1.7.12
+Don't put #ifdef in drivers, it's unmaintainable over time, if this
+really is a sysfs-only function, this should already be handled
+automatically in a .h file somewhere.
+
+thanks,
+
+greg k-h
