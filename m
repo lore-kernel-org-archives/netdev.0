@@ -1,60 +1,31 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH v2 2/3] net: davinci_mdio: Convert pr_err() to dev_err()
- call
-Date: Thu, 8 May 2014 16:50:41 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63AD20DC@avmb3.qlogic.org>
-References: <1399542652-14900-1-git-send-email-george.cherian@ti.com>
- <1399542652-14900-3-git-send-email-george.cherian@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] enic: Add support for adaptive interrupt
+ coalescing
+Date: Thu, 08 May 2014 13:03:33 -0400 (EDT)
+Message-ID: <20140508.130333.2263967033333936453.davem@davemloft.net>
+References: <1399386262-20769-1-git-send-email-_govind@gmx.com>
+	<20140507.170043.896249393177676627.davem@davemloft.net>
+	<alpine.LNX.2.03.1405081126320.1536@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
-	"balbi@ti.com" <balbi@ti.com>,
-	"zonque@gmail.com" <zonque@gmail.com>,
-	"mpa@pengutronix.de" <mpa@pengutronix.de>,
-	"tklauser@distanz.ch" <tklauser@distanz.ch>
-To: George Cherian <george.cherian@ti.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com, neepatel@cisco.com
+To: gvaradar@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:3827 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751295AbaEHQvb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 May 2014 12:51:31 -0400
-In-Reply-To: <1399542652-14900-3-git-send-email-george.cherian@ti.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:57587 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754699AbaEHRDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 13:03:37 -0400
+In-Reply-To: <alpine.LNX.2.03.1405081126320.1536@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Also, Convert kzalloc to devm_kzalloc.
+From: Govindarajulu Varadarajan <gvaradar@cisco.com>
+Date: Thu, 8 May 2014 11:43:03 +0530 (IST)
 
-Looks like you should remove this part of the comment.
+> The idea was to get time delta in usec, to measure the pkt rate. We
+> want to make damping of coal timer more aggressive. I guess we can use
+> ktime_get() instead of hrtimers.
 
->
-> Signed-off-by: George Cherian <george.cherian@ti.com>
-> Reviewed-by: Felipe Balbi <balbi@ti.com>
-> ---
->  drivers/net/ethernet/ti/davinci_mdio.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c
-> b/drivers/net/ethernet/ti/davinci_mdio.c
-> index 34e97ec..735dc53 100644
-> --- a/drivers/net/ethernet/ti/davinci_mdio.c
-> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-> @@ -303,7 +303,7 @@ static int davinci_mdio_probe_dt(struct
-> mdio_platform_data *data,
->               return -EINVAL;
->
->       if (of_property_read_u32(node, "bus_freq", &prop)) {
-> -             pr_err("Missing bus_freq property in the DT.\n");
-> +             dev_err(&pdev->dev, "Missing bus_freq property in the DT.\n");
->               return -EINVAL;
->       }
->       data->bus_freq = prop;
-
-________________________________
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+Yes, just use ktime_get().
