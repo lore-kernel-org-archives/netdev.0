@@ -1,46 +1,43 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] sctp: add a checking for sctp_sysctl_net_register
-Date: Thu, 8 May 2014 15:55:05 +0800
-Message-ID: <536B3859.2050908@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
+From: Johan Hovold <jhovold@gmail.com>
+Subject: [PATCH RESEND 1/5] net: mdio-gpio: fix device-tree binding documentation
+Date: Thu,  8 May 2014 10:09:20 +0200
+Message-ID: <1399536564-7626-2-git-send-email-jhovold@gmail.com>
+References: <1399534639-4947-1-git-send-email-jhovold@gmail.com>
+ <1399536564-7626-1-git-send-email-jhovold@gmail.com>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
+	Johan Hovold <jhovold@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:18216 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752845AbaEHH4H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 03:56:07 -0400
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:50118 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbaEHIJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 04:09:58 -0400
+In-Reply-To: <1399536564-7626-1-git-send-email-jhovold@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When register_net_sysctl failed, we should free the
-sysctl_table while the net_namespace is not init_net.
+Fix aliases syntax in device-tree binding example to avoid
+copy-paste errors (the alias would be dropped silently).
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Signed-off-by: Johan Hovold <jhovold@gmail.com>
 ---
- net/sctp/sysctl.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ Documentation/devicetree/bindings/net/mdio-gpio.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 844d2b0..4c17694 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -450,6 +450,11 @@ int sctp_sysctl_net_register(struct net *net)
- 	}
+diff --git a/Documentation/devicetree/bindings/net/mdio-gpio.txt b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+index c79bab025369..8dbcf8295c6c 100644
+--- a/Documentation/devicetree/bindings/net/mdio-gpio.txt
++++ b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+@@ -14,7 +14,7 @@ node.
+ Example:
  
- 	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
-+	if (net->sctp.sysctl_header == NULL) {
-+		if (!net_eq(net, &init_net))
-+			kfree(table);
-+		return -ENOMEM;
-+	}
- 	return 0;
- }
+ aliases {
+-	mdio-gpio0 = <&mdio0>;
++	mdio-gpio0 = &mdio0;
+ };
  
+ mdio0: mdio {
 -- 
-1.7.12
+1.8.3.2
