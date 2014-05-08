@@ -1,185 +1,115 @@
-From: Andreas Greve <andreas.greve@a-greve.de>
-Subject: Bug: tc filter show .... raise segfault if more than one rule with
- action -j MARK exist
-Date: Thu, 08 May 2014 13:48:19 +0200
-Message-ID: <536B6F03.5040401@a-greve.de>
-Reply-To: andreas.greve@a-greve.de
+From: "Wisniewski, Krzysztof" <krzysztof.wisniewski@intel.com>
+Subject: Re: [how to] modify initrd.img from RHEL6.5_tftpboot
+ to include i40e module - FIXED
+Date: Thu, 8 May 2014 11:49:29 +0000
+Message-ID: <B48049383861234BA9F90C37DCBC24F92240B009@IRSMSX104.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050606080504050007040805"
-Cc: andreas.greve@a-greve.de, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.217]:46652 "EHLO
-	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270AbaEHLtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 07:49:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Gafka, Aleksander" <aleksander.gafka@intel.com>, "Lawton,
+	Shanon R" <shanon.r.lawton@intel.com>, "Ciesielski,
+	Dariusz K" <dariusz.k.ciesielski@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Wallace,
+	Andrew" <andrew.wallace@intel.com>, "Morgan,
+	Jack" <jack.morgan@intel.com>, "Kepczynski,
+	Tomasz" <tomasz.kepczynski@intel.com>, "Kulkarni,
+	Suyog D" <suyog.d.kulkarni@intel.com>
+To: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050606080504050007040805
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi,
+Sorry for kind of spam. When corrected depmod usage then it started to work.
+Issue solved so the handover scenario from "legacy PXE boot driver"  to "RH=
+EL6 i40e driver" in PXE network RHEL installation may be tested.
+However "getNetConfig" is failing to configure i40e network interface. It w=
+ill be addressed in separate thread.
+Thanks and sorry for bothering.
+krzysztof
 
-Dear Stephen Hemminger, Dear List Members,
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>..
+From: Wisniewski, Krzysztof =
 
-the command
+Sent: Thursday, May 08, 2014 12:19 PM
+To: 'e1000-devel@lists.sourceforge.net'; 'netdev@vger.kernel.org'
+Cc: Kepczynski, Tomasz; Gafka, Aleksander; Morgan, Jack; Lawton, Shanon R; =
+Ronciak, John; Kulkarni, Suyog D; Wallace, Andrew; Ciesielski, Dariusz K
+Subject: [how to] modify initrd.img from RHEL6.5_tftpboot to include i40e m=
+odule
 
-tc filter show dev eth1 parent ffff:
+Hi,
+Looking for help with RHEL 6.5 initrd.img modification to include i40e modu=
+le for 40G adapter to perform legacy PXE boot on it.
 
-raise a segmentation fault if there are more than one filter rule with 
-action -j MARK exists.
+What I try to acomplish: 40G PXE boot of RHEL 6.5 on 40G NIC with PCI ID x1=
+572.
 
-Reason:
-In print_ipt(...) xtables will be initialzed with a pointer to the 
-static struct tcipt_globals at xtables_init_all(). Later on the fields 
-.opts and .options_offset of tcipt_globals are modified.  The call of 
-xtables_free_opts(1) at the end of print_ipt(...) does not restore the 
-original values of tcipt_globals for the modified fields. It only frees 
-some allocated memory and sets .opts to NULL. This leads to a 
-segmentation fault when print_ipt()
-is called for the next filter rule with action -j MARK.
+What I do:
+-install RHEL 6.5 with kernel 2.6.32-431.el6.x86_64, retrieve tftpboot init=
+rd.img and make o copy of it in /tmp
+-build i40e module and test that it works correctly
+-exctract the content of initrd.img in /tmp with xz and cpio ->
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 mv initrd.img initrd.img.xz
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 xz -d -F lzma initrd.img.xz
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 mkdir initrd
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 cd initrd-new
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 cpio -ivdum < ../initrd.img
+-add i40e module into initrd ->
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 copy i40e.ko into /tmp/initrd=
+/modules/2.6.32-431.el6.x86_64/kernel/drivers/net/i40e/
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 gzip i40e.ko
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 modify files: module-info, mo=
+dules.alias, modules.dep, modules.networking, modules.pcimap
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 run: depmod -b initrd -a and =
+verify with: modinfo -b initrd i40e
+-build initrd into initrd.img ->
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 find . -print |cpio -o -H new=
+c | xz -F lzma > ../initrd.img
+-copy generated initrd.img into PXE linux server into tftpboot data
+-reboot platform, select PXE boot on 40G NIC and RHEL 6.5 tftpboot initrd.i=
+mg is loaded and fails to find 40G networking interface...
+with info as in attached file: module i40e not found.....
 
-Fix: (patch attached)
-Cloneing tcipt_globals on the stack as tmp_tcipt_globals and use it 
-instead of tcipt_globals, so tcipt_globals will be not modified.
+I would appreciate any hints or links on how to incorporate i40e module int=
+o tftpboot initrd.img in RHEL6 ?
+Thanks a lot, regards, krzysztof wisniewski
+--------------------------------------------------------------------
 
-Tests:
-I only have done limit tests for this fix ( action -j MARK ) on a debian 
-wheezy iproute2 package build from source based on upstream/3.14.0. The 
-system is a little bit special  kernel 3.12.17-xen on xen-4.4.1-pre.
+Intel Technology Poland sp. z o.o.
+ul. Slowackiego 173 | 80-298 Gdansk | Sad Rejonowy Gdansk Polnoc | VII Wydz=
+ial Gospodarczy Krajowego Rejestru Sadowego - KRS 101882 | NIP 957-07-52-31=
+6 | Kapital zakladowy 200.000 PLN.
 
-
-Andreas Henriksson (debian iproute maintainer) give me an other idea of 
-how to fix this bug by modifying  xtables_free_opts() so that it sets 
-.opts = .orig_opts instead .opts = NULL. This should  avoid having to 
-duplicate the entire struct each time.
-
-I prefer the cloning  because:
-
-1)  In my understanding the variable tcipt_globals is a complex 
-"constant" that should never be modified. ( Is that right ?)
-
-2) If we want to do the fix in xtables_free_opts we have to change the 
-struct xtables_globals because we need for all fields .orig fields I 
-think this will  make all things much more complicated.
-
-
-additional Brainstorms:
-
-a ) Perhaps we have to think about of a deep clone of tcipt_globals to 
-protect the underlaying option array
-b ) makes cloning of  tcipt_globals sense in  parse_ipt(...)
-But for this two decisions my understanding of the whole system is not 
-enough.
-
-
-I hope the Information helps
-
-Thanks
-
-Best wishes
-
-
-Andreas Greve
-
-
-
-
-
-
+Ta wiadomosc wraz z zalacznikami jest przeznaczona dla okreslonego adresata=
+ i moze zawierac informacje poufne. W razie przypadkowego otrzymania tej wi=
+adomosci, prosimy o powiadomienie nadawcy oraz trwale jej usuniecie; jakiek=
+olwiek przegladanie lub rozpowszechnianie jest zabronione.
+This e-mail and any attachments may contain confidential material for the s=
+ole use of the intended recipient(s). If you are not the intended recipient=
+, please contact the sender and delete all copies; any review or distributi=
+on by others is strictly prohibited.
 
 
-Andreas Henriksson
-
-
-Stephen Hemminger
-
-
---------------050606080504050007040805
-Content-Type: text/x-patch;
- name="0001-print_ipt-segfault-if-more-then-one-filter-with-acti.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-print_ipt-segfault-if-more-then-one-filter-with-acti.pa";
- filename*1="tch"
-
->From 2be366b5b534af61756e1eb69e26fcf9c4544aa7 Mon Sep 17 00:00:00 2001
-From: Andreas Greve <andreas.greve@a-greve.de>
-Date: Thu, 8 May 2014 12:03:16 +0200
-Subject: [PATCH] print_ipt: segfault if more then one filter with action -j
- MARK.
-
-tc fulter show ... produce a segmentation fault if more than one
-filter rule with action -j MARK exists.
-
-Reason: In print_ipt(...) xtables will be initialzed with a
-pointer to the static struct tcipt_globals at xtables_init_all().
-Later on the fields .opts and .options_offset of tcipt_globals are
-modified. The call of xtables_free_opts(1) at the end of print(...)
-does not restore the original values of tcipt_globals for the
-modified fields. It only frees some allocated memory and sets
-.opts to NULL. This leads to a segmentation fault when print_ipt()
-is called for the next filter rule with action -j MARK.
-
-Fix: Cloneing tcipt_globals on the stack as tmp_tcipt_globals and
-use it instead of tcipt_globals, so tcipt_globals will be not
-modified.
-
-Signed-off-by: Andreas Greve <andreas.greve@a-greve.de>
+---------------------------------------------------------------------------=
 ---
- tc/m_xt.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
-
-diff --git a/tc/m_xt.c b/tc/m_xt.c
-index 27029c1..873adad 100644
---- a/tc/m_xt.c
-+++ b/tc/m_xt.c
-@@ -298,7 +298,15 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
- 	if (arg == NULL)
- 		return -1;
- 
--	xtables_init_all(&tcipt_globals, NFPROTO_IPV4);
-+	/* 
-+	   clone tcipt_globals because .opts and .options_offset  will be modified later and not 
-+           restored by iptables. If tcipt_globals is not cloned the modification tcipt_globals will 
-+           cause a segmentation fault if more than one filter rule  with action -j  exists.
-+        */
-+	struct xtables_globals tmp_tcipt_globals;
-+	memcpy (&tmp_tcipt_globals, &tcipt_globals, sizeof(struct xtables_globals) );
-+
-+	xtables_init_all(&tmp_tcipt_globals, NFPROTO_IPV4);
- 	set_lib_dir();
- 
- 	parse_rtattr_nested(tb, TCA_IPT_MAX, arg);
-@@ -333,12 +341,12 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
- 			}
- 
- #if (XTABLES_VERSION_CODE >= 6)
--		opts = xtables_options_xfrm(tcipt_globals.orig_opts,
--					    tcipt_globals.opts,
-+		opts = xtables_options_xfrm(tmp_tcipt_globals.orig_opts,
-+					    tmp_tcipt_globals.opts,
- 					    m->x6_options,
- 					    &m->option_offset);
- #else
--		opts = xtables_merge_options(tcipt_globals.opts,
-+		opts = xtables_merge_options(tmp_tcipt_globals.opts,
- 					     m->extra_opts,
- 					     &m->option_offset);
- #endif
-@@ -346,7 +354,7 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
- 		fprintf(stderr, " failed to find aditional options for target %s\n\n", optarg);
- 		return -1;
- 	} else
--		tcipt_globals.opts = opts;
-+		tmp_tcipt_globals.opts = opts;
- 		} else {
- 			fprintf(stderr, " failed to find target %s\n\n",
- 				t->u.user.name);
--- 
-1.7.10.4
-
-
---------------050606080504050007040805--
+Is your legacy SCM system holding you back? Join Perforce May 7 to find out:
+&#149; 3 signs your SCM is hindering your productivity
+&#149; Requirements for releasing software faster
+&#149; Expert tips and advice for migrating your SCM now
+http://p.sf.net/sfu/perforce
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
