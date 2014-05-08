@@ -1,47 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] jme: Fix DMA unmap warning
-Date: Thu, 8 May 2014 09:02:04 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F70F4EB@AcuExch.aculab.com>
-References: <1399315907-27148-1-git-send-email-nhorman@tuxdriver.com>
- <20140507.155613.630399521517455317.davem@davemloft.net>
- <20140507203317.GC8786@hmsreliant.think-freely.org>
+From: Wang Weidong <wangweidong1@huawei.com>
+Subject: [PATCH net-next] rds: remove the unneed NULL checking
+Date: Thu, 8 May 2014 17:01:53 +0800
+Message-ID: <536B4801.9020802@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"cooldavid@cooldavid.org" <cooldavid@cooldavid.org>
-To: 'Neil Horman' <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <chien.yen@oracle.com>, <rds-devel@oss.oracle.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33013 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753396AbaEHJDa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 05:03:30 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06328-06 for <netdev@vger.kernel.org>;
- Thu,  8 May 2014 10:03:20 +0100 (BST)
-In-Reply-To: <20140507203317.GC8786@hmsreliant.think-freely.org>
-Content-Language: en-US
+Received: from szxga02-in.huawei.com ([119.145.14.65]:60645 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753457AbaEHJEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 05:04:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman
-...
-> Perhaps a solution is a signalling mechanism tied to completion interrupts?
-> I.e. a mapping failure gets reported to the stack, which causes the
-> correspondnig queue to be stopped, until such time a the driver signals a safe
-> restart by the reception of a tx completion interrupt?  I'm actually tinkering
-> right now with a mechanism that provides guidance to the stack as to how many
-> dma descriptors are available in a given net_device that might come in handy
+unregister_net_sysctl_table will check the ctl_table_header,
+so remove the unneed checking
 
-Is there any mileage in the driver pre-allocating a block of iommu entries
-and then allocating them to the tx and rx buffers itself?
-This might need some 'claw back' mechanism to get 'fair' (ok working)
-allocations when there aren't enough entries for all the drivers.
+Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+---
+ net/rds/iw_sysctl.c | 3 +--
+ net/rds/sysctl.c    | 3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-I remember some old systems where the cost of setting up the iommu
-entries was such that the breakeven point for copying data was
-measured as about 1k bytes. I've no idea what it is for these systems.
-
-	David
+diff --git a/net/rds/iw_sysctl.c b/net/rds/iw_sysctl.c
+index 89c9151..139239d 100644
+--- a/net/rds/iw_sysctl.c
++++ b/net/rds/iw_sysctl.c
+@@ -111,8 +111,7 @@ static struct ctl_table rds_iw_sysctl_table[] = {
+ 
+ void rds_iw_sysctl_exit(void)
+ {
+-	if (rds_iw_sysctl_hdr)
+-		unregister_net_sysctl_table(rds_iw_sysctl_hdr);
++	unregister_net_sysctl_table(rds_iw_sysctl_hdr);
+ }
+ 
+ int rds_iw_sysctl_init(void)
+diff --git a/net/rds/sysctl.c b/net/rds/sysctl.c
+index b5cb2aa..c3b0cd4 100644
+--- a/net/rds/sysctl.c
++++ b/net/rds/sysctl.c
+@@ -94,8 +94,7 @@ static struct ctl_table rds_sysctl_rds_table[] = {
+ 
+ void rds_sysctl_exit(void)
+ {
+-	if (rds_sysctl_reg_table)
+-		unregister_net_sysctl_table(rds_sysctl_reg_table);
++	unregister_net_sysctl_table(rds_sysctl_reg_table);
+ }
+ 
+ int rds_sysctl_init(void)
+-- 
+1.7.12
