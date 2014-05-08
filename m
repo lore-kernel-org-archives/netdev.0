@@ -1,115 +1,45 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Thu, 8 May 2014 15:13:19 +0000
-Message-ID: <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
- <20140508091304.GB24820@kroah.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next 1/2] net: Expose header length compution function
+Date: Thu, 08 May 2014 08:18:22 -0700
+Message-ID: <536BA03E.6030109@intel.com>
+References: <1399553434-25617-1-git-send-email-amirv@mellanox.com> <1399553434-25617-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140508091304.GB24820@kroah.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ido Shamay <idos@mellanox.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:32051 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752733AbaEHPT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 May 2014 11:19:58 -0400
+In-Reply-To: <1399553434-25617-2-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com]
-> Sent: Thursday, May 8, 2014 5:13 AM
-> To: Haiyang Zhang
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
-> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next] Add support for netvsc build without
-> CONFIG_SYSFS flag
+On 05/08/2014 05:50 AM, Amir Vadai wrote:
+> From: Ido Shamay <idos@mellanox.com>
 > 
-> On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
-> > This change ensures the driver can be built successfully without the
-> > CONFIG_SYSFS flag.
-> > MS-TFS: 182270
-> >
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/hyperv_net.h   |    2 ++
-> >  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
-> >  drivers/net/hyperv/rndis_filter.c |    4 ++--
-> >  3 files changed, 15 insertions(+), 3 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/hyperv_net.h
-> > b/drivers/net/hyperv/hyperv_net.h index 4b7df5a..23b96bc 100644
-> > --- a/drivers/net/hyperv/hyperv_net.h
-> > +++ b/drivers/net/hyperv/hyperv_net.h
-> > @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /*
-> > NDIS_RECEIVE_SCALE_CAPABILITIES */  #define HASH_KEYLEN
-> > NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
-> >  extern u8 netvsc_hash_key[];
-> >
-> > +extern unsigned int netvsc_num_queue;
-> > +
-> >  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
-> >  	struct ndis_obj_header hdr;
-> >
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> > b/drivers/net/hyperv/netvsc_drv.c index 939e3af..07896f3 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -52,6 +52,8 @@ static int ring_size = 128;  module_param(ring_size,
-> > int, S_IRUGO);  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of
-> > pages)");
-> >
-> > +unsigned int netvsc_num_queue = 1;
-> > +
-> >  static void do_set_multicast(struct work_struct *w)  {
-> >  	struct net_device_context *ndevctx = @@ -639,9 +641,11 @@ int
-> > netvsc_recv_callback(struct hv_device *device_obj,
-> >  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
-> >  				       packet->vlan_tci);
-> >
-> > +#ifdef CONFIG_SYSFS
-> >  	skb_record_rx_queue(skb, packet->channel->
-> >  			    offermsg.offer.sub_channel_index %
-> >  			    net->real_num_rx_queues);
-> > +#endif
+> This commit exposes an header length compution generic function,
+> introduced in some of Intel's Etherent drivers (igb and ixgbe),
+> to net public namespace under the name __net_get_headlen,
+> where it can be used by other vendors and removes code duplication.
 > 
-> Why is this a sysfs-only function?  It should have nothing to do with sysfs, right?
-> So why would the driver care?
+> Signed-off-by: Ido Shamay <idos@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Without CONFIG_SYSFS the multi-receive queues are not allocated, see below, and 
-the variable real_num_rx_queues is not defined, so we skip this function.
+Thanks for doing this.  It was something I was meaning to do but just
+haven't had the time to do it.
 
-In alloc_netdev_mqs(), file "net/core/dev.c":
-#ifdef CONFIG_SYSFS
-        dev->num_rx_queues = rxqs;
-        dev->real_num_rx_queues = rxqs;
-        if (netif_alloc_rx_queues(dev))
-                goto free_all;
-#endif
-
-> Don't put #ifdef in drivers, it's unmaintainable over time, if this really is a sysfs-
-> only function, this should already be handled automatically in a .h file
-> somewhere.
-
-OK, I will move the #ifdef into hyperv_net.h.
-
-Thanks,
-- Haiyang
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
