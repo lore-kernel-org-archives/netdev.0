@@ -1,54 +1,117 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Fw: [Bug 75571] New: using tc action mirred results BUG at net/core/skbuff.c:119
-Date: Thu, 08 May 2014 06:13:43 -0400
-Message-ID: <536B58D7.2070009@mojatatu.com>
-References: <20140506081628.1626ff94@nehalam.linuxnetplumber.net> <CAHA+R7NX639wxkvvrqP=ogeiAwDeJYDnFp_z_VqB3yqh8KLjFA@mail.gmail.com>
+From: "Wisniewski, Krzysztof" <krzysztof.wisniewski@intel.com>
+Subject: [how to] modify initrd.img from RHEL6.5_tftpboot to
+ include i40e module
+Date: Thu, 8 May 2014 10:19:09 +0000
+Message-ID: <B48049383861234BA9F90C37DCBC24F92240AF9D@IRSMSX104.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: multipart/mixed;
+	boundary="_004_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_"
+Cc: "Gafka, Aleksander" <aleksander.gafka@intel.com>, "Lawton,
+	Shanon R" <shanon.r.lawton@intel.com>, "Ciesielski,
+	Dariusz K" <dariusz.k.ciesielski@intel.com>, "Ronciak,
+	John" <john.ronciak@intel.com>, "Wallace,
+	Andrew" <andrew.wallace@intel.com>, "Morgan,
+	Jack" <jack.morgan@intel.com>, "Kepczynski,
+	Tomasz" <tomasz.kepczynski@intel.com>, "Kulkarni,
+	Suyog D" <suyog.d.kulkarni@intel.com>
+To: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+--_004_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_
+Content-Type: multipart/alternative;
+	boundary="_000_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_"
+
+--_000_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+Looking for help with RHEL 6.5 initrd.img modification to include i40e modu=
+le for 40G adapter to perform legacy PXE boot on it.
+
+What I try to acomplish: 40G PXE boot of RHEL 6.5 on 40G NIC with PCI ID x1=
+572.
+
+What I do:
+-install RHEL 6.5 with kernel 2.6.32-431.el6.x86_64, retrieve tftpboot init=
+rd.img and make o copy of it in /tmp
+-build i40e module and test that it works correctly
+-exctract the content of initrd.img in /tmp with xz and cpio ->
+                mv initrd.img initrd.img.xz
+                xz -d -F lzma initrd.img.xz
+                mkdir initrd
+                cd initrd-new
+                cpio -ivdum < ../initrd.img
+-add i40e module into initrd ->
+                copy i40e.ko into /tmp/initrd/modules/2.6.32-431.el6.x86_64=
+/kernel/drivers/net/i40e/
+                gzip i40e.ko
+                modify files: module-info, modules.alias, modules.dep, modu=
+les.networking, modules.pcimap
+                run: depmod -b initrd -a and verify with: modinfo -b initrd=
+ i40e
+-build initrd into initrd.img ->
+                find . -print |cpio -o -H newc | xz -F lzma > ../initrd.img
+-copy generated initrd.img into PXE linux server into tftpboot data
+-reboot platform, select PXE boot on 40G NIC and RHEL 6.5 tftpboot initrd.i=
+mg is loaded and fails to find 40G networking interface...
+with info as in attached file: module i40e not found.....
+
+I would appreciate any hints or links on how to incorporate i40e module int=
+o tftpboot initrd.img in RHEL6 ?
+Thanks a lot, regards, krzysztof wisniewski
+--------------------------------------------------------------------
+
+Intel Technology Poland sp. z o.o.
+ul. Slowackiego 173 | 80-298 Gdansk | Sad Rejonowy Gdansk Polnoc | VII Wydz=
+ial Gospodarczy Krajowego Rejestru Sadowego - KRS 101882 | NIP 957-07-52-31=
+6 | Kapital zakladowy 200.000 PLN.
+
+Ta wiadomosc wraz z zalacznikami jest przeznaczona dla okreslonego adresata=
+ i moze zawierac informacje poufne. W razie przypadkowego otrzymania tej wi=
+adomosci, prosimy o powiadomienie nadawcy oraz trwale jej usuniecie; jakiek=
+olwiek przegladanie lub rozpowszechnianie jest zabronione.
+This e-mail and any attachments may contain confidential material for the s=
+ole use of the intended recipient(s). If you are not the intended recipient=
+, please contact the sender and delete all copies; any review or distributi=
+on by others is strictly prohibited.
+
+--_000_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_--
+
+--_004_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, d77190@mail.ru
-To: Cong Wang <cwang@twopensource.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:36430 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753353AbaEHKNz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 06:13:55 -0400
-Received: by mail-ig0-f169.google.com with SMTP id hl10so656525igb.2
-        for <netdev@vger.kernel.org>; Thu, 08 May 2014 03:13:55 -0700 (PDT)
-In-Reply-To: <CAHA+R7NX639wxkvvrqP=ogeiAwDeJYDnFp_z_VqB3yqh8KLjFA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-Hi Cong,
+------------------------------------------------------------------------------
+Is your legacy SCM system holding you back? Join Perforce May 7 to find out:
+&#149; 3 signs your SCM is hindering your productivity
+&#149; Requirements for releasing software faster
+&#149; Expert tips and advice for migrating your SCM now
+http://p.sf.net/sfu/perforce
+--_004_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Sorry for the latency - on travel mode.
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-On 05/06/14 18:30, Cong Wang wrote:
-> On Tue, May 6, 2014 at 8:16 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-
->
-> Hmm, looks like we pushed wrong header size here. tcf_mirred_init()
-> checks if we could push hard header by checking the type of the target device,
-> while in tcf_mirred() we push the ->hard_header_len of the source device
-> where this skb is received. I am not sure at all.
->
-> Jamal, does the following patch make any sense for you?
->
-
-Dont feel like that patch would help. Scratching my head....
-One way to tell is to: ifconfig down the source (which seems like tunnel
-device) and install all the rules then last step is ifconfig first ifb,
-then the tunnel device. And if it works with current kernel patch is not
-needed. It feels like some race condition between installing
-rule and using it i.e rule gets installed and when still trying to
-advertise to user space, a packet arrives and starts using it.
-If the above works - then the question to d77190@mail.ru is what kernel
-this is and when did this last work as installed?
-
-[My gut feeling is it may have something to do with the rcu changes
-perhaps - but not sure.]
-
-cheers,
-jamal
+--_004_B48049383861234BA9F90C37DCBC24F92240AF9DIRSMSX104gercor_--
