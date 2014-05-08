@@ -1,60 +1,48 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: [PATCH] ptp: fix kconfig dependency warnings
-Date: Thu, 08 May 2014 14:54:42 -0700
-Message-ID: <536BFD22.3020505@infradead.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 5/5] net: Use netlink_ns_capable to verify the
+ permisions of netlink messages
+Date: Thu, 8 May 2014 15:07:12 -0700
+Message-ID: <20140508150712.35e41e66@nehalam.linuxnetplumber.net>
+References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
+	<536AB151.2070804@dti2.net>
+	<CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com>
+	<20140507.185256.496391962242529591.davem@davemloft.net>
+	<CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com>
+	<CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com>
+	<20140508142939.201b3e07@nehalam.linuxnetplumber.net>
+	<CA+55aFzOHZcw2o6Cq6rSddSBDZvhgzYToBruak9SLCHxx-fA3Q@mail.gmail.com>
+	<CALCETrWP_u+9Aw1Hf-7JWECP5mX55rUAp4bKRJf16jjo=0-+0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"security@kernel.org" <security@kernel.org>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Simo Sorce <ssorce@redhat.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	David Miller <davem@davemloft.net>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:53848 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994AbaEHVyp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 17:54:45 -0400
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:44913 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755378AbaEHWHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 18:07:16 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so2814282pdj.31
+        for <netdev@vger.kernel.org>; Thu, 08 May 2014 15:07:15 -0700 (PDT)
+In-Reply-To: <CALCETrWP_u+9Aw1Hf-7JWECP5mX55rUAp4bKRJf16jjo=0-+0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+On Thu, 8 May 2014 14:49:11 -0700
+Andy Lutomirski <luto@amacapital.net> wrote:
 
-Fix kconfig warnings:
+> TBH, I'm starting to think that the real solution is to add a new syscall:
+> 
+> sys_net_ctl(int nl_proto, const void *intput, size_t inlen, void
+> *output, size_t outlen)
 
-PTP_1588_CLOCK selects NET_PTP_CLASSIFY, which depends on NET,
-so PTP_1588_CLOCK should also depend on NET.
-
-PTP_1588_CLOCK_PCH selects PTP_1588_CLOCK so the former should
-depend on NET.
-
-warning: (IXP4XX_ETH && PTP_1588_CLOCK) selects NET_PTP_CLASSIFY which has unmet direct dependencies (NET)
-
-warning: (SFC && TILE_NET && BFIN_MAC_USE_HWSTAMP && TIGON3 && FEC && E1000E && IGB && IXGBE && I40E && MLX4_EN && SXGBE_ETH && STMMAC_ETH && TI_CPTS && PTP_1588_CLOCK_GIANFAR && PTP_1588_CLOCK_IXP46X && DP83640_PHY && PTP_1588_CLOCK_PCH) selects PTP_1588_CLOCK which has unmet direct dependencies (NET)
-[This warning is caused by the new 'depends on NET' in PTP_1588_CLOCK.]
-
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
----
- drivers/ptp/Kconfig |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-Found in linux-next but applies to mainline.
-
---- linux-next-20140508.orig/drivers/ptp/Kconfig
-+++ linux-next-20140508/drivers/ptp/Kconfig
-@@ -6,6 +6,7 @@ menu "PTP clock support"
- 
- config PTP_1588_CLOCK
- 	tristate "PTP clock support"
-+	depends on NET
- 	select PPS
- 	select NET_PTP_CLASSIFY
- 	help
-@@ -74,7 +75,7 @@ config DP83640_PHY
- config PTP_1588_CLOCK_PCH
- 	tristate "Intel PCH EG20T as PTP clock"
- 	depends on X86 || COMPILE_TEST
--	depends on HAS_IOMEM
-+	depends on HAS_IOMEM && NET
- 	select PTP_1588_CLOCK
- 	help
- 	  This driver adds support for using the PCH EG20T as a PTP
+No.
+Changing all the applications based on netlink is a really bad idea.
