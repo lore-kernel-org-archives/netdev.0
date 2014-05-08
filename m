@@ -1,241 +1,112 @@
-From: Xi Wang <xii@google.com>
-Subject: Re: [PATCH] net-tun: restructure tun_do_read for better sleep/wakeup efficiency
-Date: Thu, 8 May 2014 11:22:46 -0700
-Message-ID: <CAOBoifh6X8nbiqcNXNxJeFzWj1Q3N9Jc-xxQNrLWwFQf8LjZzQ@mail.gmail.com>
-References: <1399422244-22751-1-git-send-email-xii@google.com>
-	<5369AB36.6030609@redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH net-next] Add support for netvsc build without
+ CONFIG_SYSFS flag
+Date: Thu, 8 May 2014 21:07:12 +0200
+Message-ID: <20140508190712.GB6766@kroah.com>
+References: <1399502704-18495-1-git-send-email-haiyangz@microsoft.com>
+ <20140508091304.GB24820@kroah.com>
+ <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:49000 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755281AbaEHSWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 14:22:47 -0400
-Received: by mail-lb0-f181.google.com with SMTP id u14so4148383lbd.12
-        for <netdev@vger.kernel.org>; Thu, 08 May 2014 11:22:46 -0700 (PDT)
-In-Reply-To: <5369AB36.6030609@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <67b9b573b20f4cc2b6fe75fe84ee48e1@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 6, 2014 at 8:40 PM, Jason Wang <jasowang@redhat.com> wrote:
->
-> On 05/07/2014 08:24 AM, Xi Wang wrote:
-> > tun_do_read always adds current thread to wait queue, even if a packet
-> > is ready to read. This is inefficient because both sleeper and waker
-> > want to acquire the wait queue spin lock when packet rate is high.
->
-> After commit 61a5ff15ebdab87887861a6b128b108404e4706d, this will only
-> help for blocking read. Looks like for performance critical userspaces,
-> they will use non blocking reads.
-> >
-> > We restructure the read function and use common kernel networking
-> > routines to handle receive, sleep and wakeup. With the change
-> > available packets are checked first before the reading thread is added
-> > to the wait queue.
->
-> This is interesting, since it may help if we want to add rx busy loop
-> for tun. (In fact I worked a similar patch like this).
+On Thu, May 08, 2014 at 03:13:19PM +0000, Haiyang Zhang wrote:
+> 
+> 
+> > -----Original Message-----
+> > From: Greg KH [mailto:greg@kroah.com]
+> > Sent: Thursday, May 8, 2014 5:13 AM
+> > To: Haiyang Zhang
+> > Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
+> > jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
+> > kernel@vger.kernel.org
+> > Subject: Re: [PATCH net-next] Add support for netvsc build without
+> > CONFIG_SYSFS flag
+> > 
+> > On Wed, May 07, 2014 at 03:45:04PM -0700, Haiyang Zhang wrote:
+> > > This change ensures the driver can be built successfully without the
+> > > CONFIG_SYSFS flag.
+> > > MS-TFS: 182270
+> > >
+> > > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> > > ---
+> > >  drivers/net/hyperv/hyperv_net.h   |    2 ++
+> > >  drivers/net/hyperv/netvsc_drv.c   |   12 +++++++++++-
+> > >  drivers/net/hyperv/rndis_filter.c |    4 ++--
+> > >  3 files changed, 15 insertions(+), 3 deletions(-)
+> > >
+> > > diff --git a/drivers/net/hyperv/hyperv_net.h
+> > > b/drivers/net/hyperv/hyperv_net.h index 4b7df5a..23b96bc 100644
+> > > --- a/drivers/net/hyperv/hyperv_net.h
+> > > +++ b/drivers/net/hyperv/hyperv_net.h
+> > > @@ -87,6 +87,8 @@ struct ndis_recv_scale_cap { /*
+> > > NDIS_RECEIVE_SCALE_CAPABILITIES */  #define HASH_KEYLEN
+> > > NDIS_RSS_HASH_SECRET_KEY_MAX_SIZE_REVISION_2
+> > >  extern u8 netvsc_hash_key[];
+> > >
+> > > +extern unsigned int netvsc_num_queue;
+> > > +
+> > >  struct ndis_recv_scale_param { /* NDIS_RECEIVE_SCALE_PARAMETERS */
+> > >  	struct ndis_obj_header hdr;
+> > >
+> > > diff --git a/drivers/net/hyperv/netvsc_drv.c
+> > > b/drivers/net/hyperv/netvsc_drv.c index 939e3af..07896f3 100644
+> > > --- a/drivers/net/hyperv/netvsc_drv.c
+> > > +++ b/drivers/net/hyperv/netvsc_drv.c
+> > > @@ -52,6 +52,8 @@ static int ring_size = 128;  module_param(ring_size,
+> > > int, S_IRUGO);  MODULE_PARM_DESC(ring_size, "Ring buffer size (# of
+> > > pages)");
+> > >
+> > > +unsigned int netvsc_num_queue = 1;
+> > > +
+> > >  static void do_set_multicast(struct work_struct *w)  {
+> > >  	struct net_device_context *ndevctx = @@ -639,9 +641,11 @@ int
+> > > netvsc_recv_callback(struct hv_device *device_obj,
+> > >  		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+> > >  				       packet->vlan_tci);
+> > >
+> > > +#ifdef CONFIG_SYSFS
+> > >  	skb_record_rx_queue(skb, packet->channel->
+> > >  			    offermsg.offer.sub_channel_index %
+> > >  			    net->real_num_rx_queues);
+> > > +#endif
+> > 
+> > Why is this a sysfs-only function?  It should have nothing to do with sysfs, right?
+> > So why would the driver care?
+> 
+> Without CONFIG_SYSFS the multi-receive queues are not allocated, see below, and 
+> the variable real_num_rx_queues is not defined, so we skip this function.
+> 
+> In alloc_netdev_mqs(), file "net/core/dev.c":
+> #ifdef CONFIG_SYSFS
+>         dev->num_rx_queues = rxqs;
+>         dev->real_num_rx_queues = rxqs;
+>         if (netif_alloc_rx_queues(dev))
+>                 goto free_all;
+> #endif
 
+Then you need to structure your driver better :)
 
-Yes this should be a good side effect and I am also interested in trying.
-Busy polling in user space is not ideal as it doesn't give the lowest latency.
-Besides differences in interrupt latency etc., there is a bad case for
-non blocking mode: When a packet arrives right before the polling thread
-returns to userspace. The control flow has to cross kernel/userspace
-boundary 3 times before the packet can be processed, while kernel
-blocking or busy polling only needs 1 boundary crossing.
-
-
->
-> >
-> > Ran performance tests with the following configuration:
-> >
-> >  - my packet generator -> tap1 -> br0 -> tap0 -> my packet consumer
-> >  - sender pinned to one core and receiver pinned to another core
-> >  - sender send small UDP packets (64 bytes total) as fast as it can
-> >  - sandy bridge cores
-> >  - throughput are receiver side goodput numbers
-> >
-> > The results are
-> >
-> > baseline: 757k pkts/sec, cpu utilization at 1.54 cpus
-> >  changed: 804k pkts/sec, cpu utilization at 1.57 cpus
-> >
-> > The performance difference is largely determined by packet rate and
-> > inter-cpu communication cost. For example, if the sender and
-> > receiver are pinned to different cpu sockets, the results are
-> >
-> > baseline: 558k pkts/sec, cpu utilization at 1.71 cpus
-> >  changed: 690k pkts/sec, cpu utilization at 1.67 cpus
->
-> So I believe your consumer is using blocking reads. How about re-test
-> with non blocking reads and re-test to make sure no regression?
-
-
-I tested non blocking read and found no regression. However the sender
-is the bottleneck in my case so packet blasting is not a good test for
-non blocking mode. I switched to RR / ping pong type of traffic through tap.
-The packet rates for both cases are ~477k and the difference is way
-below noise.
-
-
->
-> >
-> > Co-authored-by: Eric Dumazet <edumazet@google.com>
-> > Signed-off-by: Xi Wang <xii@google.com>
-> > ---
-> >  drivers/net/tun.c | 68 +++++++++++++++++++++----------------------------------
-> >  1 file changed, 26 insertions(+), 42 deletions(-)
-> >
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index ee328ba..cb25385 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -133,8 +133,7 @@ struct tap_filter {
-> >  struct tun_file {
-> >       struct sock sk;
-> >       struct socket socket;
-> > -     struct socket_wq wq;
-> > -     struct tun_struct __rcu *tun;
-> > +     struct tun_struct __rcu *tun ____cacheline_aligned_in_smp;
->
-> This seems a optimization which is un-related to the topic. May send as
-> another patch but did you really see improvement for this?
-
-
-There is an ~1% difference (not as reliable as other data since the difference
-is small). This is not a major performance contributor.
-
-
->
-> >       struct net *net;
-> >       struct fasync_struct *fasync;
-> >       /* only used for fasnyc */
-> > @@ -498,12 +497,12 @@ static void tun_detach_all(struct net_device *dev)
-> >       for (i = 0; i < n; i++) {
-> >               tfile = rtnl_dereference(tun->tfiles[i]);
-> >               BUG_ON(!tfile);
-> > -             wake_up_all(&tfile->wq.wait);
-> > +             tfile->socket.sk->sk_data_ready(tfile->socket.sk);
-> >               RCU_INIT_POINTER(tfile->tun, NULL);
-> >               --tun->numqueues;
-> >       }
-> >       list_for_each_entry(tfile, &tun->disabled, next) {
-> > -             wake_up_all(&tfile->wq.wait);
-> > +     tfile->socket.sk->sk_data_ready(tfile->socket.sk);
-> >               RCU_INIT_POINTER(tfile->tun, NULL);
-> >       }
-> >       BUG_ON(tun->numqueues != 0);
-> > @@ -807,8 +806,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-> >       /* Notify and wake up reader process */
-> >       if (tfile->flags & TUN_FASYNC)
-> >               kill_fasync(&tfile->fasync, SIGIO, POLL_IN);
-> > -     wake_up_interruptible_poll(&tfile->wq.wait, POLLIN |
-> > -                                POLLRDNORM | POLLRDBAND);
-> > +     tfile->socket.sk->sk_data_ready(tfile->socket.sk);
-> >
-> >       rcu_read_unlock();
-> >       return NETDEV_TX_OK;
-> > @@ -965,7 +963,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
-> >
-> >       tun_debug(KERN_INFO, tun, "tun_chr_poll\n");
-> >
-> > -     poll_wait(file, &tfile->wq.wait, wait);
-> > +     poll_wait(file, sk_sleep(sk), wait);
-> >
-> >       if (!skb_queue_empty(&sk->sk_receive_queue))
-> >               mask |= POLLIN | POLLRDNORM;
-> > @@ -1330,46 +1328,21 @@ done:
-> >  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
-> >                          const struct iovec *iv, ssize_t len, int noblock)
-> >  {
-> > -     DECLARE_WAITQUEUE(wait, current);
-> >       struct sk_buff *skb;
-> >       ssize_t ret = 0;
-> > +     int peeked, err, off = 0;
-> >
-> >       tun_debug(KERN_INFO, tun, "tun_do_read\n");
-> >
-> > -     if (unlikely(!noblock))
-> > -             add_wait_queue(&tfile->wq.wait, &wait);
-> > -     while (len) {
-> > -             if (unlikely(!noblock))
-> > -                     current->state = TASK_INTERRUPTIBLE;
-> > -
-> > -             /* Read frames from the queue */
-> > -             if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
-> > -                     if (noblock) {
-> > -                             ret = -EAGAIN;
-> > -                             break;
-> > -                     }
-> > -                     if (signal_pending(current)) {
-> > -                             ret = -ERESTARTSYS;
-> > -                             break;
-> > -                     }
-> > -                     if (tun->dev->reg_state != NETREG_REGISTERED) {
-> > -                             ret = -EIO;
-> > -                             break;
-> > -                     }
-> > -
-> > -                     /* Nothing to read, let's sleep */
-> > -                     schedule();
-> > -                     continue;
-> > -             }
-> > +     if (!len)
-> > +             return ret;
-> >
-> > +     /* Read frames from queue */
-> > +     skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
-> > +                               &peeked, &off, &err);
-> > +     if (skb) {
->
-> This changes the userspace ABI a little bit. Originally, userspace can
-> see different error codes and do responds, but here it can only see zero.
-
-
-Thanks for catching this! Seems forwarding the &err parameter of
-__skb_recv_datagram
-should get the most of the error code compatibility back? I'll check
-related code.
-
-
->
-> >               ret = tun_put_user(tun, tfile, skb, iv, len);
-> >               kfree_skb(skb);
-> > -             break;
-> > -     }
-> > -
-> > -     if (unlikely(!noblock)) {
-> > -             current->state = TASK_RUNNING;
-> > -             remove_wait_queue(&tfile->wq.wait, &wait);
-> >       }
-> >
-> >       return ret;
-> > @@ -2187,20 +2160,28 @@ out:
-> >  static int tun_chr_open(struct inode *inode, struct file * file)
-> >  {
-> >       struct tun_file *tfile;
-> > +     struct socket_wq *wq;
-> >
-> >       DBG1(KERN_INFO, "tunX: tun_chr_open\n");
-> >
-> > +     wq = kzalloc(sizeof(*wq), GFP_KERNEL);
-> > +     if (!wq)
-> > +             return -ENOMEM;
-> > +
->
-> Why not just reusing the socket_wq structure inside tun_file structure
-> like what we did in the past?
-
-
-There is no strong reason for going either way. Changing to dynamic allocation
-is based on: Less chance of cacheline contention and syncing the code pattern
-with core stack.
-
-
--Xi
+greg k-h
