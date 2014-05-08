@@ -1,112 +1,33 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: Re: [PATCH net-next] sctp: add a checking for sctp_sysctl_net_register
-Date: Thu, 8 May 2014 19:57:35 +0800
-Message-ID: <536B712F.70707@huawei.com>
-References: <536B3859.2050908@huawei.com> <20140508111126.GC9696@hmsreliant.think-freely.org> <536B69E3.1090104@huawei.com> <536B6AFD.40303@huawei.com> <20140508114124.GD9696@hmsreliant.think-freely.org>
+From: Robin Kreis <r.kreis@uni-bremen.de>
+Subject: ip netns exec after unshare --map-root-user
+Date: Thu, 8 May 2014 14:06:03 +0200
+Message-ID: <20140508140603.67734f6e@sat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	<linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:18292 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753157AbaEHMEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 08:04:11 -0400
-In-Reply-To: <20140508114124.GD9696@hmsreliant.think-freely.org>
+Received: from gabriel-2.zfn.uni-bremen.de ([134.102.20.37]:40602 "EHLO
+	smtp.uni-bremen.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751820AbaEHMTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 08:19:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/5/8 19:41, Neil Horman wrote:
-> On Thu, May 08, 2014 at 07:31:09PM +0800, Wang Weidong wrote:
->> On 2014/5/8 19:26, Wang Weidong wrote:
->>> On 2014/5/8 19:11, Neil Horman wrote:
->>>> On Thu, May 08, 2014 at 03:55:05PM +0800, Wang Weidong wrote:
->>>>> When register_net_sysctl failed, we should free the
->>>>> sysctl_table while the net_namespace is not init_net.
->>>>>
->>>>> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
->>>>> ---
->>>>>  net/sctp/sysctl.c | 5 +++++
->>>>>  1 file changed, 5 insertions(+)
->>>>>
->>>>> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
->>>>> index 844d2b0..4c17694 100644
->>>>> --- a/net/sctp/sysctl.c
->>>>> +++ b/net/sctp/sysctl.c
->>>>> @@ -450,6 +450,11 @@ int sctp_sysctl_net_register(struct net *net)
->>>>>  	}
->>>>>  
->>>>>  	net->sctp.sysctl_header = register_net_sysctl(net, "net/sctp", table);
->>>>> +	if (net->sctp.sysctl_header == NULL) {
->>>>> +		if (!net_eq(net, &init_net))
->>>>> +			kfree(table);
->>>>> +		return -ENOMEM;
->>>>> +	}
->>>> Sorry, we're not special casing this in 3 places.  Why not just revert the
->>>> origonal commit so that all the sysctl tables can be handled the same way
->>>> Neil
->>>>
->>> Hi Neil,
->>>
->>> The original commit avoids to kmemdup 
->>>
->> Hi Neil,
->>
->> Sorry for the accomplished mail.
->> Although, revert the original commit, the checking for net->sctp.sysctl_header
->> is need from coding view.
->>
->> What do you think?
->>
-> That was my review.  I get that the origional commit avoids kmemdup for the
-> init_net case.  My point was that, in so doing you created the need to special
-> case the handling of the sysctl table for init_net in 3 places now.  It seems to
-> me that, while its always nice to save space, it would be cleaner programming to
-> just accept the need for the extra 1.6Kb of space and not have to worry about
-> the special casing.
-> 
-> Neil
-> 
+Hi!
 
-Hm, Should I add this:
+After 'unshare --map-root-user --mount' and ensuring that /var/run/netns
+is writable (possibly by binding another directory there), a network
+namespace can be created by running 'ip netns create test'.
 
-+	if (net->sctp.sysctl_header == NULL);
-+		kfree(table);
+However, 'ip netns exec test sh' exits when it attempts to
+unmount /sys.  I don't think that the failing to umount /sys should be a
+fatal error, because the following mount call ensures that /sys has the
+right contents.  I checked that 'ip netns exec' works fine when the
+error returned by umount is ignored.  Should I submit a patch to
+iproute2?
 
-to the revert patch or do a new patch?
+Please CC me, because I'm not subscribed to the mailing list.
 
-Regards
-Wang
-
->> Regards
->> Wang
->>
->>>>>  	return 0;
->>>>>  }
->>>>>  
->>>>> -- 
->>>>> 1.7.12
->>>>>
->>>>>
->>>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>>
->>>
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
-> .
-> 
+Greetings,
+Robin Kreis
