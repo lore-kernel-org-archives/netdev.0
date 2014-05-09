@@ -1,44 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: make a generic sysfs option store
- and fix comments
-Date: Fri, 09 May 2014 16:13:26 -0400 (EDT)
-Message-ID: <20140509.161326.1808390476882515095.davem@davemloft.net>
-References: <1399551834-31583-1-git-send-email-nikolay@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: nikolay@redhat.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 2/2] net: systemport: pad packets to a minimum of 64 bytes
+Date: Fri,  9 May 2014 13:16:39 -0700
+Message-ID: <1399666599-19398-3-git-send-email-f.fainelli@gmail.com>
+References: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39370 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756796AbaEIUN2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:13:28 -0400
-In-Reply-To: <1399551834-31583-1-git-send-email-nikolay@redhat.com>
+Received: from mail-yh0-f41.google.com ([209.85.213.41]:55661 "EHLO
+	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757350AbaEIURH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:17:07 -0400
+Received: by mail-yh0-f41.google.com with SMTP id f73so4303027yha.28
+        for <netdev@vger.kernel.org>; Fri, 09 May 2014 13:17:06 -0700 (PDT)
+In-Reply-To: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Thu,  8 May 2014 14:23:54 +0200
+The switch fabric which is used behind the Broadcom SYSTEMPORT Ethernet
+controller will discard any incoming packet that is not 64 bytes or
+more. Since the UniMAC hardware transmits up to the specified size, just
+make sure that we properly pad the end of the packet with zeroes using
+skb_padto() and set a minimum packet length of 64 bytes.
 
-> Introduce a generic option store function for sysfs and remove the
-> specific ones. The attribute name is used to match against the option
-> which is to be set.
-> Also adjust the "name" of tlb_dynamic_lb option to match the sysfs
-> entry and fix the comments and comment style in bond_sysfs.c
-> The comments which showed obvious behaviour (i.e. behaviour that's seen
-> in the option's entry) are removed, the ones that explained important
-> points about the setting function have been moved above the respective
-> set function in bond_options.c
-> 
-> There's only 1 exception: num_unsol_na/num_grat_arp since it has 2 names
-> 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v4:
+- respin due to first patch
 
-Nice cleanup, applied to net-next, thanks.
+Changes in v3:
+- reword the commit message and comment to explain the special hardware
+  requirements
+- print skb_len instead of skb->len in the DMA map failure error
+
+Changes in v2:
+- add missing skb_padto() to zero-out packets
+
+ drivers/net/ethernet/broadcom/bcmsysport.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index ac42a9e91f3a..dbae674384ea 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -821,6 +821,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+ 	struct bcm_sysport_cb *cb;
+ 	struct netdev_queue *txq;
+ 	struct dma_desc *desc;
++	unsigned int skb_len;
+ 	dma_addr_t mapping;
+ 	u32 len_status;
+ 	u16 queue;
+@@ -848,10 +849,22 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	mapping = dma_map_single(kdev, skb->data, skb->len, DMA_TO_DEVICE);
++	/* The Ethernet switch we are interfaced with needs packets to be at
++	 * least 64 bytes otherwise they will be discarded when they enter
++	 * the switch port logic. The UniMAC hardware transmits up to the
++	 * specified length.
++	 */
++	if (skb_padto(skb, 64)) {
++		ret = NETDEV_TX_OK;
++		goto out;
++	}
++
++	skb_len = skb->len < 64 ? 64 : skb->len;
++
++	mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(kdev, mapping)) {
+ 		netif_err(priv, tx_err, dev, "DMA map failed at %p (len=%d)\n",
+-				skb->data, skb->len);
++				skb->data, skb_len);
+ 		ret = NETDEV_TX_OK;
+ 		goto out;
+ 	}
+@@ -860,14 +873,14 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+ 	cb = &ring->cbs[ring->curr_desc];
+ 	cb->skb = skb;
+ 	dma_unmap_addr_set(cb, dma_addr, mapping);
+-	dma_unmap_len_set(cb, dma_len, skb->len);
++	dma_unmap_len_set(cb, dma_len, skb_len);
+ 
+ 	/* Fetch a descriptor entry from our pool */
+ 	desc = ring->desc_cpu;
+ 
+ 	desc->addr_lo = lower_32_bits(mapping);
+ 	len_status = upper_32_bits(mapping) & DESC_ADDR_HI_MASK;
+-	len_status |= (skb->len << DESC_LEN_SHIFT);
++	len_status |= (skb_len << DESC_LEN_SHIFT);
+ 	len_status |= (DESC_SOP | DESC_EOP | TX_STATUS_APP_CRC) <<
+ 			DESC_STATUS_SHIFT;
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL)
+-- 
+1.9.1
