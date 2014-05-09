@@ -1,40 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/2] net: systemport: only update UMAC_CMD
- if something changed
-Date: Thu, 08 May 2014 23:44:27 -0400 (EDT)
-Message-ID: <20140508.234427.1071681345426052376.davem@davemloft.net>
-References: <1399498564-22037-1-git-send-email-f.fainelli@gmail.com>
-	<1399498564-22037-2-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/7] net: Checksum offload changes - Part II
+Date: Thu, 08 May 2014 23:48:27 -0400 (EDT)
+Message-ID: <20140508.234827.771833499800031850.davem@davemloft.net>
+References: <alpine.DEB.2.02.1405071642040.858@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33060 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33079 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424AbaEIDo3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 23:44:29 -0400
-In-Reply-To: <1399498564-22037-2-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1752161AbaEIDs3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 23:48:29 -0400
+In-Reply-To: <alpine.DEB.2.02.1405071642040.858@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed,  7 May 2014 14:36:03 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 7 May 2014 16:51:33 -0700 (PDT)
 
-> Changes in v3:
-> - make sure the second and third line after CMD_SPEED_MASK are aligned
->   properly
- ...
-> +		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
-> +				CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
-> +				CMD_TX_PAUSE_IGNORE);
+> I am working on overhauling RX checksum offload. Goals of this effort
+> are:
+> 
+> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+> - Preserve CHECKSUM_COMPLETE through encapsulation layers
+> - Don't do skb_checksum more than once per packet
+> - Unify GRO and non-GRO csum verification as much as possible
+> - Unify the checksum functions (checksum_init)
+> - Simply code
+> 
+> What is in this second patch set:
+> 
+> - Call common inet checksum validation functions in ICMP{4,6},
+>   GRE{4,6}, and IGMP.
+> - In UDP, verify checksum before handing off to encap_rcv.
+> - Remove custom UDP checksum validation code in L2TP.
+> 
+> Please review carefully and test if possible, mucking with basic
+> checksum functions is always a little precarious :-)
 
-Still not right, in fact it looks like you didn't change anything
-at all.
-
-It should look like:
-
-		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
-			 CMD_HD_EN | CMD_RX_PAUSE_IGNORE |
-			 CMD_TX_PAUSE_IGNORE);
+This looks good to me, applied, thanks Tom.
