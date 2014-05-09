@@ -1,45 +1,57 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH v3 3/4] net: davinci_mdio: drop pinctrl_pm_select_default_state
- from probe
-Date: Fri, 9 May 2014 13:41:38 +0200
-Message-ID: <CACRpkdZWaDvqec1T_0kwEo=v7abmvLpay-DvYbWKr19y3PN=XA@mail.gmail.com>
-References: <1398860616-6612-1-git-send-email-grygorii.strashko@ti.com>
-	<1398860616-6612-4-git-send-email-grygorii.strashko@ti.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 00/22] Random ARM randconfig fixes in drivers
+Date: Fri, 9 May 2014 13:48:49 +0200
+Message-ID: <201405091348.49713.arnd@arndb.de>
+References: <1399560433-1402630-1-git-send-email-arnd@arndb.de>
+ <20140508164157.GA22224@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Randy Dunlap <rdunlap@infradead.org>,
-	Jonathan Cameron <jic23@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Santosh Shilimkar <santosh.shilimkar@ti.com>,
-	Sekhar Nori <nsekhar@ti.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davinci-linux-open-source@linux.davincidsp.com"
-	<davinci-linux-open-source@linux.davincidsp.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Prabhakar Lad <prabhakar.csengg@gmail.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1398860616-6612-4-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wsa@the-dreams.de, tony@atomide.com, linux-pci@vger.kernel.org,
+ linus.walleij@linaro.org, nicolas.ferre@atmel.com, linux-ide@vger.kernel.org,
+ wim@iguana.be, linux-mtd@lists.infradead.org, linux-i2c@vger.kernel.org,
+ linux-samsung-soc@vger.kernel.org, mturquette@linaro.org, vinod.koul@intel.com,
+ linux-sh@vger.kernel.org, kishon@ti.com, linux-iio@vger.kernel.org,
+ linux-input@vger.kernel.org, plagnioj@jcrosoft.com, ohad@wizery.com,
+ linux-watchdog@vger.kernel.org, broonie@kernel.org, bhelgaas@google.com,
+ linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
+ gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
+ linux-kernel@vger.kernel.org, balbi@ti.com, josh.wu@atmel.com,
+ netdev@vger.kernel.org, dmaengine@vger.kernel.org, dwmw2@infradead.org,
+ jic23@kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20140508164157.GA22224@roeck-us.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 30, 2014 at 2:23 PM, Grygorii Strashko
-<grygorii.strashko@ti.com> wrote:
+On Thursday 08 May 2014, Guenter Roeck wrote:
+> On Thu, May 08, 2014 at 04:46:51PM +0200, Arnd Bergmann wrote:
+> > These are a bunch of fixes I had to do to get all randconfig
+> > configurations on ARM working. Most of these are really old
+> > bugs, but there are also some new ones. I don't think any of
+> > them require a backport to linux-stable.
+> > 
+> > I have checked that they are all still required on yesterday's
+> > linux-next kernel. Please apply on the appropriate trees unless
+> > there are objections.
+> > 
+> Is this series of patches also going to fix arm:allmodconfig ?
 
-> The "default" pinctrl state is set by Drivers core now before
-> calling the driver's probe.
-> Hence, it's safe to drop pinctrl_pm_select_default_state() call
-> from Davinci mdio driver probe.
->
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Linus Walleij <linus.walleij@linaro.org>
-> Acked-and-tested-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Possibly, I haven't checked in a while. I'm unfortunately sitting on
+about 200 other patches in the same branch, which together fix all
+build errors in any configuration I encountered.
 
-Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+I should really do some allmodconfig/allnoconfig/allyesconfig
+builds without my series again, and prioritize sending out the
+ones required for that.
 
-Yours,
-Linus Walleij
+	Arnd
