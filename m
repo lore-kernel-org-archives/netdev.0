@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] be2net: patch set
-Date: Fri, 09 May 2014 13:16:39 -0400 (EDT)
-Message-ID: <20140509.131639.1863974776718809090.davem@davemloft.net>
-References: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH 0/6] Netfilter fixes for net
+Date: Fri, 09 May 2014 13:17:58 -0400 (EDT)
+Message-ID: <20140509.131758.403206154033471633.davem@davemloft.net>
+References: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38292 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757102AbaEIRQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:16:41 -0400
-In-Reply-To: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Fri, 9 May 2014 13:29:12 +0530
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri,  9 May 2014 12:56:01 +0200
 
-> This patch set contains the following modificatons:
-> * three patches (1/7 to 3/7) that fix indentation style issues
-> * convert the u8 vlan[] array to a bit-map to reduce memory usage
-> * use MCCQ instead of MBOX in be_cmd_rss_config() as the MCCQ is already
->   created by that time
-> * include rx-comp-error counter in ethtool stats
-> * remove the unused promiscuous setting from be_cmd_vlan_config()
+> The following batch contains netfilter fixes for your net tree, they are:
 > 
-> Pls apply to net-next tree. Thanks!
+> 1) Fix use after free in nfnetlink when sending a batch for some
+>    unsupported subsystem, from Denys Fedoryshchenko.
+> 
+> 2) Skip autoload of the nat module if no binding is specified via
+>    ctnetlink, from Florian Westphal.
+> 
+> 3) Set local_df after netfilter defragmentation to avoid a bogus ICMP
+>    fragmentation needed in the forwarding path, also from Florian.
+> 
+> 4) Fix potential user after free in ip6_route_me_harder() when returning
+>    the error code to the upper layers, from Sergey Popovich.
+> 
+> 5) Skip possible bogus ICMP time exceeded emitted from the router (not
+>    valid according to RFC) if conntrack zones are used, from Vasily Averin.
+> 
+> 6) Fix fragment handling when nf_defrag_ipv4 is loaded but nf_conntrack
+>    is not present, also from Vasily.
 
-Series applied, thanks.
+Pulled, thanks a lot Pablo.
