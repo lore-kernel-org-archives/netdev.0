@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netdev: add support for interface name retrieval from
- DT aliases
-Date: Thu, 08 May 2014 22:42:52 -0400 (EDT)
-Message-ID: <20140508.224252.1337086843732451389.davem@davemloft.net>
-References: <1399390594-1409-1-git-send-email-boris.brezillon@free-electrons.com>
+Subject: Re: [PATCH net-next 1/2] ipv4: move local_port_range out of
+ CONFIG_SYSCTL
+Date: Thu, 08 May 2014 22:52:21 -0400 (EDT)
+Message-ID: <20140508.225221.188940173991264163.davem@davemloft.net>
+References: <1399399370-7849-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140507.172641.1968628089443229607.davem@davemloft.net>
+	<20140507224848.GA1272@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olof@lixom.net, nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: boris.brezillon@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399390594-1409-1-git-send-email-boris.brezillon@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32867 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754574AbaEICwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 22:52:23 -0400
+In-Reply-To: <20140507224848.GA1272@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Boris BREZILLON <boris.brezillon@free-electrons.com>
-Date: Tue,  6 May 2014 17:36:34 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 8 May 2014 00:48:48 +0200
 
-> There is currently no proper way to bind a net interface to a specific
-> name. The interface name is chosen based on the interface type (eth,
-> wlan, ...) and the interfaces already registered (the core codes takes
-> the first unused interface id of the given type).
+> David Miller <davem@davemloft.net> :
+> [...]
+>> I think these two changes fix fairly serious issues that have existed for some
+>> time, so it should go into 'net', do you agree?
 > 
-> Add support for DT retrieval of the interface id based on DT aliases.
-> The alias name must match the interface type (e.g. ethX if you're defining
-> an ethernet dev alias).
+> Patch #1, yes.
 > 
-> Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
+> Without patch #2, the root group id is always granted ping init when
+> CONFIG_SYSCTL is not set. It's more cautious than serious.
 
-This really isn't kosher at all.
+Still, initializing such fundamental values to different defaults
+based upon whether SYSCTL is enabled or not is pretty bad, so I've
+decided to apply both patches to 'net'.
 
-And there absolutely is a proper way to bind a net interface to
-a specific name, udev has provided this facility for years.
-
-I'm not applying this, sorry.
+Thanks.
