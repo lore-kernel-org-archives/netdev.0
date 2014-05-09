@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mdio_bus: fix devm_mdiobus_alloc_size export
-Date: Fri, 09 May 2014 16:39:33 -0400 (EDT)
-Message-ID: <20140509.163933.1063955800318301161.davem@davemloft.net>
-References: <1399560433-1402630-1-git-send-email-arnd@arndb.de>
-	<1399560433-1402630-2-git-send-email-arnd@arndb.de>
+Subject: Re: [net-next 0/2] sctp: fix kfree static array pointer in
+ sctp_sysctl_net_unregister
+Date: Fri, 09 May 2014 16:41:43 -0400 (EDT)
+Message-ID: <20140509.164143.1972373677615840350.davem@davemloft.net>
+References: <1399553702-7960-1-git-send-email-wangweidong1@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	grygorii.strashko@ti.com, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, prabhakar.csengg@gmail.com,
-	netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399560433-1402630-2-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, dborkman@redhat.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39515 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756796AbaEIUlp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:41:45 -0400
+In-Reply-To: <1399553702-7960-1-git-send-email-wangweidong1@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu,  8 May 2014 16:46:52 +0200
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Thu, 8 May 2014 20:55:00 +0800
 
-> commit 6d48f44b7b2 "mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free"
-> introduced a new function devm_mdiobus_alloc_size() but added an export
-> for a different function devm_mdiobus_alloc(), which was obviously
-> a simple mistake that leads to  build error whenever this function is
-> used from a loadable module:
-> 
-> ERROR: "devm_mdiobus_alloc_size" [drivers/net/ethernet/ti/davinci_mdio.ko] undefined!
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> patch #1 revert the efb842c45("sctp: optimize the sctp_sysctl_net_register")
+> patch #2 add a checking for sctp_sysctl_net_register
 
-Applied to net-next, thanks Arnd.
+Series applied, thanks.
