@@ -1,30 +1,33 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] TBF man page fix (tbf is not classless)
-Date: Fri, 9 May 2014 13:36:21 -0700
-Message-ID: <20140509133621.7c652874@nehalam.linuxnetplumber.net>
-References: <1399659174-20841-1-git-send-email-sergey@lobanov.in>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mdio_bus: fix devm_mdiobus_alloc_size export
+Date: Fri, 09 May 2014 16:39:33 -0400 (EDT)
+Message-ID: <20140509.163933.1063955800318301161.davem@davemloft.net>
+References: <1399560433-1402630-1-git-send-email-arnd@arndb.de>
+	<1399560433-1402630-2-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Sergey V. Lobanov" <sergey@lobanov.in>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:42375 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756796AbaEIUgZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:36:25 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so4860859pad.30
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 13:36:25 -0700 (PDT)
-In-Reply-To: <1399659174-20841-1-git-send-email-sergey@lobanov.in>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	grygorii.strashko@ti.com, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, prabhakar.csengg@gmail.com,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399560433-1402630-2-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri,  9 May 2014 22:12:54 +0400
-"Sergey V. Lobanov" <sergey@lobanov.in> wrote:
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu,  8 May 2014 16:46:52 +0200
 
-> TBF is not classless qdisc. man page corrected, added example
-> describing the use of inner qdisc
+> commit 6d48f44b7b2 "mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free"
+> introduced a new function devm_mdiobus_alloc_size() but added an export
+> for a different function devm_mdiobus_alloc(), which was obviously
+> a simple mistake that leads to  build error whenever this function is
+> used from a loadable module:
 > 
-> Signed-off-by: Sergey V. Lobanov <sergey@lobanov.in>
+> ERROR: "devm_mdiobus_alloc_size" [drivers/net/ethernet/ti/davinci_mdio.ko] undefined!
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Looks good, applied
+Applied to net-next, thanks Arnd.
