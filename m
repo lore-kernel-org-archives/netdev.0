@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Fix UNDI driver unload
-Date: Fri, 09 May 2014 16:02:11 -0400 (EDT)
-Message-ID: <20140509.160211.1142514076359669647.davem@davemloft.net>
-References: <1399541671-740-1-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: Re: [PATCH] macvlan: Don't propagate IFF_ALLMULTI changes on down
+ interfaces.
+Date: Fri, 09 May 2014 16:02:25 -0400 (EDT)
+Message-ID: <20140509.160225.1543592257804345860.davem@davemloft.net>
+References: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com
-To: Yuval.Mintz@qlogic.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: pch@ordbogen.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39282 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39286 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008AbaEIUCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:02:13 -0400
-In-Reply-To: <1399541671-740-1-git-send-email-Yuval.Mintz@qlogic.com>
+	with ESMTP id S1756553AbaEIUC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:02:27 -0400
+In-Reply-To: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Thu, 8 May 2014 12:34:31 +0300
+From: Peter Christensen <pch@ordbogen.com>
+Date: Thu,  8 May 2014 11:15:37 +0200
 
-> Commit 91ebb928b "bnx2x: Add support for Multi-Function UNDI" contains a bug
-> which prevent the emptying of the device's Rx buffers before reset.
-> As a result, on new boards it is likely HW will reach some fatal assertion
-> once its interfaces load after UNDI was previously loaded.
+> Clearing the IFF_ALLMULTI flag on a down interface could cause an allmulti
+> overflow on the underlying interface.
 > 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> Attempting the set IFF_ALLMULTI on the underlying interface would cause an
+> error and the log message:
+> 
+> "allmulti touches root, set allmulti failed."
+> 
+> Signed-off-by: Peter Christensen <pch@ordbogen.com>
 
-Applied, thanks.
+Hmmm, but won't we lose this event once the interface is brought
+back up?
