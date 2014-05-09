@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 5/8] tipc: rename and move
-	message reassembly function
-Date: Fri,  9 May 2014 09:13:26 -0400
-Message-ID: <1399641209-26112-6-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 8/8] tipc: merge port message
+	reception into socket reception function
+Date: Fri,  9 May 2014 09:13:29 -0400
+Message-ID: <1399641209-26112-9-git-send-email-jon.maloy@ericsson.com>
 References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,349 +23,246 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function tipc_link_frag_rcv() is in reality a re-entrant generic
-message reassemby function that has nothing in particular to do with
-the link, where it is defined now. This becomes obvious when we see
-the need to call the function from other places in the code.
-
-In this commit rename it to tipc_buf_append() and move it to the file
-msg.c. We also simplify its signature by moving the tail pointer to
-the control block of the head buffer, hence making the head buffer
-self-contained.
+In order to reduce complexity and save a call level during message
+reception at port/socket level, we remove the function tipc_port_rcv()
+and merge its functionality into tipc_sk_rcv().
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c |   10 +++-----
- net/tipc/core.h  |    1 +
- net/tipc/link.c  |   67 ++++--------------------------------------------------
- net/tipc/link.h  |   14 ++----------
- net/tipc/msg.c   |   55 +++++++++++++++++++++++++++++++++++++++++++-
- net/tipc/msg.h   |    5 +++-
- net/tipc/node.c  |    7 +++---
- net/tipc/node.h  |    6 ++---
- 8 files changed, 74 insertions(+), 91 deletions(-)
+ net/tipc/link.c   |    3 ++-
+ net/tipc/net.c    |    3 ++-
+ net/tipc/port.c   |   39 ++++--------------------------------
+ net/tipc/port.h   |    1 -
+ net/tipc/socket.c |   57 ++++++++++++++++++++++++++++++++++-------------------
+ net/tipc/socket.h |    2 +-
+ 6 files changed, 46 insertions(+), 59 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index a0978d0..671f981 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -506,18 +506,14 @@ receive:
- 			tipc_node_unlock(node);
- 			tipc_link_bundle_rcv(buf);
- 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
--			int ret;
--			ret = tipc_link_frag_rcv(&node->bclink.reasm_head,
--						 &node->bclink.reasm_tail,
--						 &buf);
--			if (ret == LINK_REASM_ERROR)
-+			tipc_buf_append(&node->bclink.reasm_buf, &buf);
-+			if (unlikely(!buf && !node->bclink.reasm_buf))
- 				goto unlock;
- 			tipc_bclink_lock();
- 			bclink_accept_pkt(node, seqno);
- 			bcl->stats.recv_fragments++;
--			if (ret == LINK_REASM_COMPLETE) {
-+			if (buf) {
- 				bcl->stats.recv_fragmented++;
--				/* Point msg to inner header */
- 				msg = buf_msg(buf);
- 				tipc_bclink_unlock();
- 				goto receive;
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index ae55d37..2e00682 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -187,6 +187,7 @@ static inline void k_term_timer(struct timer_list *timer)
- struct tipc_skb_cb {
- 	void *handle;
- 	bool deferred;
-+	struct sk_buff *tail;
- };
- 
- #define TIPC_SKB_CB(__skb) ((struct tipc_skb_cb *)&((__skb)->cb[0]))
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 9272d4c..24d0587 100644
+index 24d0587..ad2c57f 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -398,9 +398,8 @@ static void link_release_outqueue(struct tipc_link *l_ptr)
-  */
- void tipc_link_reset_fragments(struct tipc_link *l_ptr)
- {
--	kfree_skb(l_ptr->reasm_head);
--	l_ptr->reasm_head = NULL;
--	l_ptr->reasm_tail = NULL;
-+	kfree_skb(l_ptr->reasm_buf);
-+	l_ptr->reasm_buf = NULL;
- }
+@@ -37,6 +37,7 @@
+ #include "core.h"
+ #include "link.h"
+ #include "port.h"
++#include "socket.h"
+ #include "name_distr.h"
+ #include "discover.h"
+ #include "config.h"
+@@ -1590,7 +1591,7 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		case TIPC_HIGH_IMPORTANCE:
+ 		case TIPC_CRITICAL_IMPORTANCE:
+ 			tipc_node_unlock(n_ptr);
+-			tipc_port_rcv(buf);
++			tipc_sk_rcv(buf);
+ 			continue;
+ 		case MSG_BUNDLER:
+ 			l_ptr->stats.recv_bundles++;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index f8fc95d..f64375e 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -39,6 +39,7 @@
+ #include "name_distr.h"
+ #include "subscr.h"
+ #include "port.h"
++#include "socket.h"
+ #include "node.h"
+ #include "config.h"
  
- /**
-@@ -1573,17 +1572,12 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 			}
- 			msg = buf_msg(buf);
- 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
--			int rc;
--
- 			l_ptr->stats.recv_fragments++;
--			rc = tipc_link_frag_rcv(&l_ptr->reasm_head,
--						&l_ptr->reasm_tail,
--						&buf);
--			if (rc == LINK_REASM_COMPLETE) {
-+			if (tipc_buf_append(&l_ptr->reasm_buf, &buf)) {
- 				l_ptr->stats.recv_fragmented++;
- 				msg = buf_msg(buf);
- 			} else {
--				if (rc == LINK_REASM_ERROR)
-+				if (!l_ptr->reasm_buf)
- 					tipc_link_reset(l_ptr);
- 				tipc_node_unlock(n_ptr);
- 				continue;
-@@ -2169,9 +2163,7 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
+@@ -141,7 +142,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
+ 			if (msg_mcast(msg))
+ 				tipc_port_mcast_rcv(buf, NULL);
+ 			else if (msg_destport(msg))
+-				tipc_port_rcv(buf);
++				tipc_sk_rcv(buf);
+ 			else
+ 				net_route_named_msg(buf);
+ 			return;
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 5c14c78..5fd7acc 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -165,7 +165,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
+ 		msg_set_destnode(msg, tipc_own_addr);
+ 		if (dp->count == 1) {
+ 			msg_set_destport(msg, dp->ports[0]);
+-			tipc_port_rcv(buf);
++			tipc_sk_rcv(buf);
+ 			tipc_port_list_free(dp);
+ 			return;
  		}
- 		if (msg_user(msg) == MSG_FRAGMENTER) {
- 			l_ptr->stats.recv_fragments++;
--			tipc_link_frag_rcv(&l_ptr->reasm_head,
--					   &l_ptr->reasm_tail,
--					   &buf);
-+			tipc_buf_append(&l_ptr->reasm_buf, &buf);
+@@ -180,7 +180,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
+ 			if ((index == 0) && (cnt != 0))
+ 				item = item->next;
+ 			msg_set_destport(buf_msg(b), item->ports[index]);
+-			tipc_port_rcv(b);
++			tipc_sk_rcv(b);
  		}
  	}
  exit:
-@@ -2309,55 +2301,6 @@ static int tipc_link_frag_xmit(struct tipc_link *l_ptr, struct sk_buff *buf)
- 	return dsz;
+@@ -343,7 +343,7 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ 	/* send returned message & dispose of rejected message */
+ 	src_node = msg_prevnode(msg);
+ 	if (in_own_node(src_node))
+-		tipc_port_rcv(rbuf);
++		tipc_sk_rcv(rbuf);
+ 	else
+ 		tipc_link_xmit(rbuf, src_node, msg_link_selector(rmsg));
+ exit:
+@@ -754,37 +754,6 @@ int tipc_port_shutdown(u32 ref)
+ 	return tipc_port_disconnect(ref);
  }
  
--/* tipc_link_frag_rcv(): Called with node lock on. Returns
-- * the reassembled buffer if message is complete.
+-/**
+- * tipc_port_rcv - receive message from lower layer and deliver to port user
 - */
--int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
--		       struct sk_buff **fbuf)
+-int tipc_port_rcv(struct sk_buff *buf)
 -{
--	struct sk_buff *frag = *fbuf;
--	struct tipc_msg *msg = buf_msg(frag);
--	u32 fragid = msg_type(msg);
--	bool headstolen;
--	int delta;
+-	struct tipc_port *p_ptr;
+-	struct tipc_msg *msg = buf_msg(buf);
+-	u32 destport = msg_destport(msg);
+-	u32 dsz = msg_data_sz(msg);
+-	u32 err;
 -
--	skb_pull(frag, msg_hdr_sz(msg));
--	if (fragid == FIRST_FRAGMENT) {
--		if (*head || skb_unclone(frag, GFP_ATOMIC))
--			goto out_free;
--		*head = frag;
--		skb_frag_list_init(*head);
--		*fbuf = NULL;
--		return 0;
--	} else if (*head &&
--		   skb_try_coalesce(*head, frag, &headstolen, &delta)) {
--		kfree_skb_partial(frag, headstolen);
+-	/* forward unresolved named message */
+-	if (unlikely(!destport)) {
+-		tipc_net_route_msg(buf);
+-		return dsz;
+-	}
+-
+-	/* validate destination & pass to port, otherwise reject message */
+-	p_ptr = tipc_port_lock(destport);
+-	if (likely(p_ptr)) {
+-		err = tipc_sk_rcv(&tipc_port_to_sock(p_ptr)->sk, buf);
+-		tipc_port_unlock(p_ptr);
+-		if (likely(!err))
+-			return dsz;
 -	} else {
--		if (!*head)
--			goto out_free;
--		if (!skb_has_frag_list(*head))
--			skb_shinfo(*head)->frag_list = frag;
--		else
--			(*tail)->next = frag;
--		*tail = frag;
--		(*head)->truesize += frag->truesize;
--		(*head)->data_len += frag->len;
--		(*head)->len += frag->len;
+-		err = TIPC_ERR_NO_PORT;
 -	}
--	if (fragid == LAST_FRAGMENT) {
--		*fbuf = *head;
--		*tail = *head = NULL;
--		return LINK_REASM_COMPLETE;
--	}
--	*fbuf = NULL;
--	return 0;
--out_free:
--	pr_warn_ratelimited("Link unable to reassemble fragmented message\n");
--	kfree_skb(*fbuf);
--	*fbuf = NULL;
--	return LINK_REASM_ERROR;
+-
+-	return tipc_reject_msg(buf, err);
 -}
 -
- static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance)
- {
- 	if ((tolerance < TIPC_MIN_LINK_TOL) || (tolerance > TIPC_MAX_LINK_TOL))
-diff --git a/net/tipc/link.h b/net/tipc/link.h
-index 7ba73fa..200d518 100644
---- a/net/tipc/link.h
-+++ b/net/tipc/link.h
-@@ -40,11 +40,6 @@
- #include "msg.h"
- #include "node.h"
- 
--/* Link reassembly status codes
-- */
--#define LINK_REASM_ERROR	-1
--#define LINK_REASM_COMPLETE	1
--
- /* Out-of-range value for link sequence numbers
-  */
- #define INVALID_LINK_SEQ 0x10000
-@@ -140,8 +135,7 @@ struct tipc_stats {
-  * @next_out: ptr to first unsent outbound message in queue
-  * @waiting_ports: linked list of ports waiting for link congestion to abate
-  * @long_msg_seq_no: next identifier to use for outbound fragmented messages
-- * @reasm_head: list head of partially reassembled inbound message fragments
-- * @reasm_tail: last fragment received
-+ * @reasm_buf: head of partially reassembled inbound message fragments
-  * @stats: collects statistics regarding link activity
-  */
- struct tipc_link {
-@@ -204,8 +198,7 @@ struct tipc_link {
- 
- 	/* Fragmentation/reassembly */
- 	u32 long_msg_seq_no;
--	struct sk_buff *reasm_head;
--	struct sk_buff *reasm_tail;
-+	struct sk_buff *reasm_buf;
- 
- 	/* Statistics */
- 	struct tipc_stats stats;
-@@ -242,9 +235,6 @@ int tipc_link_iovec_xmit_fast(struct tipc_port *sender,
- 			      struct iovec const *msg_sect,
- 			      unsigned int len, u32 destnode);
- void tipc_link_bundle_rcv(struct sk_buff *buf);
--int tipc_link_frag_rcv(struct sk_buff **reasm_head,
--		       struct sk_buff **reasm_tail,
--		       struct sk_buff **fbuf);
- void tipc_link_proto_xmit(struct tipc_link *l_ptr, u32 msg_typ, int prob,
- 			  u32 gap, u32 tolerance, u32 priority, u32 acked_mtu);
- void tipc_link_push_queue(struct tipc_link *l_ptr);
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index e525f8c..8be6e94 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -1,7 +1,7 @@
  /*
-  * net/tipc/msg.c: TIPC message header routines
-  *
-- * Copyright (c) 2000-2006, Ericsson AB
-+ * Copyright (c) 2000-2006, 2014, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -99,3 +99,56 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
- 	}
- 	return dsz;
+  *  tipc_port_iovec_rcv: Concatenate and deliver sectioned
+  *                       message for this node.
+@@ -798,7 +767,7 @@ static int tipc_port_iovec_rcv(struct tipc_port *sender,
+ 
+ 	res = tipc_msg_build(&sender->phdr, msg_sect, len, MAX_MSG_SIZE, &buf);
+ 	if (likely(buf))
+-		tipc_port_rcv(buf);
++		tipc_sk_rcv(buf);
+ 	return res;
  }
+ 
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 5dfd165..cf4ca5b 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -135,7 +135,6 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
+ /*
+  * TIPC messaging routines
+  */
+-int tipc_port_rcv(struct sk_buff *buf);
+ 
+ int tipc_send(struct tipc_port *port,
+ 	      struct iovec const *msg_sect,
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 2495006..ac08966 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1442,39 +1442,56 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
+ 
+ /**
+  * tipc_sk_rcv - handle incoming message
+- * @sk:  socket receiving message
+- * @buf: message
+- *
+- * Called with port lock already taken.
+- *
+- * Returns TIPC error status code (TIPC_OK if message is not to be rejected)
++ * @buf: buffer containing arriving message
++ * Consumes buffer
++ * Returns 0 if success, or errno: -EHOSTUNREACH
+  */
+-u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
++int tipc_sk_rcv(struct sk_buff *buf)
+ {
+-	struct tipc_sock *tsk = tipc_sk(sk);
+-	u32 res;
++	struct tipc_sock *tsk;
++	struct tipc_port *port;
++	struct sock *sk;
++	u32 dport = msg_destport(buf_msg(buf));
++	int err = TIPC_OK;
+ 	uint limit;
+-	/*
+-	 * Process message if socket is unlocked; otherwise add to backlog queue
+-	 *
+-	 * This code is based on sk_receive_skb(), but must be distinct from it
+-	 * since a TIPC-specific filter/reject mechanism is utilized
+-	 */
 +
-+/* tipc_buf_append(): Append a buffer to the fragment list of another buffer
-+ * Let first buffer become head buffer
-+ * Returns 1 and sets *buf to headbuf if chain is complete, otherwise 0
-+ * Leaves headbuf pointer at NULL if failure
-+ */
-+int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
-+{
-+	struct sk_buff *head = *headbuf;
-+	struct sk_buff *frag = *buf;
-+	struct sk_buff *tail;
-+	struct tipc_msg *msg = buf_msg(frag);
-+	u32 fragid = msg_type(msg);
-+	bool headstolen;
-+	int delta;
-+
-+	skb_pull(frag, msg_hdr_sz(msg));
-+
-+	if (fragid == FIRST_FRAGMENT) {
-+		if (head || skb_unclone(frag, GFP_ATOMIC))
-+			goto out_free;
-+		head = *headbuf = frag;
-+		skb_frag_list_init(head);
++	/* Forward unresolved named message */
++	if (unlikely(!dport)) {
++		tipc_net_route_msg(buf);
 +		return 0;
 +	}
-+	if (!head)
-+		goto out_free;
-+	tail = TIPC_SKB_CB(head)->tail;
-+	if (skb_try_coalesce(head, frag, &headstolen, &delta)) {
-+		kfree_skb_partial(frag, headstolen);
-+	} else {
-+		if (!skb_has_frag_list(head))
-+			skb_shinfo(head)->frag_list = frag;
-+		else
-+			tail->next = frag;
-+		head->truesize += frag->truesize;
-+		head->data_len += frag->len;
-+		head->len += frag->len;
-+		TIPC_SKB_CB(head)->tail = frag;
-+	}
-+	if (fragid == LAST_FRAGMENT) {
-+		*buf = head;
-+		TIPC_SKB_CB(head)->tail = NULL;
-+		*headbuf = NULL;
-+		return 1;
-+	}
-+	*buf = NULL;
-+	return 0;
-+out_free:
-+	pr_warn_ratelimited("Unable to build fragment list\n");
-+	kfree_skb(*buf);
-+	return 0;
-+}
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 76d1269..5035119 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/msg.h: Include file for TIPC message header routines
-  *
-- * Copyright (c) 2000-2007, Ericsson AB
-+ * Copyright (c) 2000-2007, 2014, Ericsson AB
-  * Copyright (c) 2005-2008, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -711,4 +711,7 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
- 		   u32 destnode);
- int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
- 		   unsigned int len, int max_size, struct sk_buff **buf);
 +
-+int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
++	/* Validate destination */
++	port = tipc_port_lock(dport);
++	if (unlikely(!port)) {
++		err = TIPC_ERR_NO_PORT;
++		goto exit;
++	}
 +
++	tsk = tipc_port_to_sock(port);
++	sk = &tsk->sk;
++
++	/* Queue message */
+ 	bh_lock_sock(sk);
++
+ 	if (!sock_owned_by_user(sk)) {
+-		res = filter_rcv(sk, buf);
++		err = filter_rcv(sk, buf);
+ 	} else {
+ 		if (sk->sk_backlog.len == 0)
+ 			atomic_set(&tsk->dupl_rcvcnt, 0);
+ 		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
+ 		if (sk_add_backlog(sk, buf, limit))
+-			res = TIPC_ERR_OVERLOAD;
+-		else
+-			res = TIPC_OK;
++			err = TIPC_ERR_OVERLOAD;
+ 	}
++
+ 	bh_unlock_sock(sk);
++	tipc_port_unlock(port);
+ 
+-	return res;
++	if (likely(!err))
++		return 0;
++exit:
++	tipc_reject_msg(buf, err);
++	return -EHOSTUNREACH;
+ }
+ 
+ static int tipc_wait_for_connect(struct socket *sock, long *timeo_p)
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index 86c27cc..3afcd2a 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -69,6 +69,6 @@ static inline void tipc_sock_wakeup(struct tipc_sock *tsk)
+ 	tsk->sk.sk_write_space(&tsk->sk);
+ }
+ 
+-u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf);
++int tipc_sk_rcv(struct sk_buff *buf);
+ 
  #endif
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index facd561..5b44c30 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -286,10 +286,9 @@ static void node_lost_contact(struct tipc_node *n_ptr)
- 		kfree_skb_list(n_ptr->bclink.deferred_head);
- 		n_ptr->bclink.deferred_size = 0;
- 
--		if (n_ptr->bclink.reasm_head) {
--			kfree_skb(n_ptr->bclink.reasm_head);
--			n_ptr->bclink.reasm_head = NULL;
--			n_ptr->bclink.reasm_tail = NULL;
-+		if (n_ptr->bclink.reasm_buf) {
-+			kfree_skb(n_ptr->bclink.reasm_buf);
-+			n_ptr->bclink.reasm_buf = NULL;
- 		}
- 
- 		tipc_bclink_remove_node(n_ptr->addr);
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index 5454edf..9087063 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -69,8 +69,7 @@ enum {
-  * @deferred_size: number of OOS b'cast messages in deferred queue
-  * @deferred_head: oldest OOS b'cast message received from node
-  * @deferred_tail: newest OOS b'cast message received from node
-- * @reasm_head: broadcast reassembly queue head from node
-- * @reasm_tail: last broadcast fragment received from node
-+ * @reasm_buf: broadcast reassembly queue head from node
-  * @recv_permitted: true if node is allowed to receive b'cast messages
-  */
- struct tipc_node_bclink {
-@@ -81,8 +80,7 @@ struct tipc_node_bclink {
- 	u32 deferred_size;
- 	struct sk_buff *deferred_head;
- 	struct sk_buff *deferred_tail;
--	struct sk_buff *reasm_head;
--	struct sk_buff *reasm_tail;
-+	struct sk_buff *reasm_buf;
- 	bool recv_permitted;
- };
- 
 -- 
 1.7.9.5
 
