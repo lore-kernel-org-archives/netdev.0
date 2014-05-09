@@ -1,127 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] net: support marking accepting TCP sockets
-Date: Fri, 09 May 2014 11:05:31 -0700
-Message-ID: <1399658731.7973.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1399657021-26082-1-git-send-email-lorenzo@google.com>
-	 <1399657021-26082-4-git-send-email-lorenzo@google.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: [PATCH net-next 1/8] tipc: decrease connection flow control
+ window
+Date: Fri, 9 May 2014 18:07:28 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C24FDDC@eusaamb103.ericsson.se>
+References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
+ <1399641209-26112-2-git-send-email-jon.maloy@ericsson.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F71067C@AcuExch.aculab.com>
+ <20140509142739.GQ30044@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+ <063D6719AE5E284EB5DD2968C1650D6D0F71075B@AcuExch.aculab.com>
+ <536CFBAB.8050107@donjonn.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F7107C3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jpa@google.com, davem@davemloft.net,
-	ja@ssi.bg, hannes@stressinduktion.org
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Jon Maloy' <maloy@donjonn.com>,
+	Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33435 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667AbaEISFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 14:05:36 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kp14so4630515pab.40
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 11:05:36 -0700 (PDT)
-In-Reply-To: <1399657021-26082-4-git-send-email-lorenzo@google.com>
+Received: from usevmg21.ericsson.net ([198.24.6.65]:56630 "EHLO
+	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755370AbaEISHg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 14:07:36 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F7107C3@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-05-10 at 02:37 +0900, Lorenzo Colitti wrote:
-> When using mark-based routing, sockets returned from accept()
-> may need to be marked differently depending on the incoming
-> connection request.
+
+
+> -----Original Message-----
+> From: David Laight [mailto:David.Laight@ACULAB.COM]
+> Sent: May-09-14 12:35 PM
+> To: 'Jon Maloy'; Erik Hugne
+> Cc: Jon Maloy; davem@davemloft.net; netdev@vger.kernel.org; Paul
+> Gortmaker; ying.xue@windriver.com; tipc-discussion@lists.sourceforge.net
+> Subject: RE: [PATCH net-next 1/8] tipc: decrease connection flow control
+> window
 > 
-> This is the case, for example, if different socket marks identify
-> different networks: a listening socket may want to accept
-> connections from all networks, but each connection should be
-> marked with the network that the request came in on, so that
-> subsequent packets are sent on the correct network.
+> From: Jon Maloy
+> > On 05/09/2014 10:59 AM, David Laight wrote:
+> > > From: erik.hugne@ericsson.
+> > >> On Fri, May 09, 2014 at 01:30:43PM +0000, David Laight wrote:
+> > >>> Sounds a bit like a badly designed protocol to me...
+> > >> Well, i don't like this either but the current message-oriented
+> > >> flowcontrol will eventually be replaced with a byte-based one.
+> > >> Right now we're trying to find a way to adapt a message-oriented
+> > >> flow control to per-socket buffer constraints, without breaking protocol
+> compatibility.
+> > > I wasn't thinking of the byte/message flow control problems.
+> > > More of only requesting acks every 512 messages
+> >
+> > Acks are not requested, they are sent out unsolicited at fix
+> > intervals, controlled by the reading capacity of the receiving
+> > process.
 > 
-> This patch adds a sysctl to mark TCP sockets based on the fwmark
-> of the incoming SYN packet. If enabled, and an unmarked socket
-> receives a SYN, then the SYN packet's fwmark is written to the
-> connection's inet_request_sock, and later written back to the
-> accepted socket when the connection is established.  If the
-> socket already has a nonzero mark, then the behaviour is the same
-> as it is today, i.e., the listening socket's fwmark is used.
+> Requested by the received side...
+??? Sent by the receiving side.
 > 
-> Black-box tested using user-mode linux:
+> > The fundamental problem we have is that we acknowledge messages,
+> > without considering their size, so a sender won't stop (there is no
+> > active stop message from the receiver) until he has sent 512 messages
+> > and not received an ack, which in the worst case amounts to 512 x
+> > truesize(64KB) = 67 MB outstanding data. This is what the receiving
+> > socket must be able to absorb, in order to avoid broken connections.
 > 
-> - IPv4/IPv6 SYN+ACK, FIN, etc. packets are routed based on the
->   mark of the incoming SYN packet.
-> - The socket returned by accept() is marked with the mark of the
->   incoming SYN packet.
-> - Tested with syncookies=1 and syncookies=2.
+> Even 512 x 64kB is a lot.
+> I thought that a 64k skb would only have a truesize of 72k (with 4k pages).
+> I'm also guessing that an ethernet controller that can do txp rx offloading
+> might have to allocate 64k skb - so a single 1500 byte ethernet frame is likely
+> to be in an skb with a truesize of 72k.
+> I'm not sure if this affects your 128k truesize though.
+
+The 128KiB comes from locally allocated buffers. TIPC, being an IPC protocol,
+does not use the loopback interface, and hence does not need fragmentation
+for node local communication. This gives a latency improvement of ~3 times
+as compared to TCP.
+
 > 
-> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-> ---
->  include/net/inet_sock.h          | 10 ++++++++++
->  include/net/netns/ipv4.h         |  1 +
->  net/ipv4/inet_connection_sock.c  |  6 ++++--
->  net/ipv4/syncookies.c            |  3 ++-
->  net/ipv4/sysctl_net_ipv4.c       |  7 +++++++
->  net/ipv4/tcp_ipv4.c              |  1 +
->  net/ipv6/inet6_connection_sock.c |  2 +-
->  net/ipv6/syncookies.c            |  4 +++-
->  net/ipv6/tcp_ipv6.c              |  1 +
->  9 files changed, 30 insertions(+), 5 deletions(-)
+> (Pasted from below)
+> > TIPC connections always run over a reliable media, - its own link
+> > layer. This means that the connection layer does not have any form of
+> > sequence numbering or retransmission, -it just assumes that everything
+> > arrives in order and without losses, as long as the link layer doesn't
+> > tell it otherwise.
 > 
+> Hmmm... If multiple connections are multiplexed over a single link you are
+> completely stuffed!
 
-Patch looks mostly OK.
+Not as much as you would think. First, we are not limited to one link, we
+can have parallel links across different LANS/VLANs. As a matter of fact, 
+TIPC was running circles around TCP until a few years ago, but now it is
+admittedly behind when it comes to total throughput/interface. Recent 
+tests using GRO and variable link transmission windows still shows that we
+ an easily fill  2x10G links, which is no less than TCP can do given the physical 
+constraint, and it is anyway the maximum most systems have these days.
+It remains to be seen what happens when we go to 40G or 100G, but
+we have some ideas even there.
 
-> diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-> index 1833c3f..b1edf17 100644
-> --- a/include/net/inet_sock.h
-> +++ b/include/net/inet_sock.h
-> @@ -90,6 +90,7 @@ struct inet_request_sock {
->  	kmemcheck_bitfield_end(flags);
->  	struct ip_options_rcu	*opt;
->  	struct sk_buff		*pktopts;
-> +	u32                     ir_mark;
+///jon
 
-Move this before the *opt field to avoid an extra 4byte hole on 64bit
-arches.
-
->  };
->  
->  static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
-> @@ -97,6 +98,15 @@ static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
->  	return (struct inet_request_sock *)sk;
->  }
->  
-> +static inline u32 inet_request_mark(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	if (!sk->sk_mark && sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept) {
-> +		return skb->mark;
-> +	} else {
-> +		return sk->sk_mark;
-> +	}
-
-No need for {} blocks :
-
-	if (!sk->sk_mark && sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept)
-		return skb->mark;
-
-	return sk->sk_mark;
-
->  struct inet_cork {
->  	unsigned int		flags;
->  	__be32			addr;
-
-...
-> index e40a738..6480281 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -845,6 +845,13 @@ static struct ctl_table ipv4_net_table[] = {
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec,
->  	},
-> +	{
-> +		.procname	= "tcp_fwmark_accept",
-> +		.data		= &init_net.ipv4.sysctl_tcp_fwmark_accept,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= proc_dointvec,
-> +	},
->  	{ }
->  };
->  
-
-Please add relevant section in Documentation/networking/ip-sysctl.txt
-
-Thanks
+> 
+> 	David
+> 
+> 
