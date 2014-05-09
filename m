@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip6_tunnel: fix potential NULL pointer dereference
-Date: Fri, 09 May 2014 13:12:23 -0400 (EDT)
-Message-ID: <20140509.131223.649558454524140168.davem@davemloft.net>
-References: <1399660892-19008-1-git-send-email-susant@redhat.com>
+Subject: Re: [PATCH net-next 0/7] be2net: patch set
+Date: Fri, 09 May 2014 13:16:39 -0400 (EDT)
+Message-ID: <20140509.131639.1863974776718809090.davem@davemloft.net>
+References: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@suug.ch
-To: susant@redhat.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38263 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38292 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757105AbaEIRMY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:12:24 -0400
-In-Reply-To: <1399660892-19008-1-git-send-email-susant@redhat.com>
+	with ESMTP id S1757102AbaEIRQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:16:41 -0400
+In-Reply-To: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Susant Sahani <susant@redhat.com>
-Date: Sat, 10 May 2014 00:11:32 +0530
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Fri, 9 May 2014 13:29:12 +0530
 
-> The function ip6_tnl_validate assumes that the rtnl
-> attribute IFLA_IPTUN_PROTO always be filled . If this
-> attribute is not filled by  the userspace application
-> kernel get crashed with NULL pointer dereference. This
-> patch fixes the potential kernel crash when
-> IFLA_IPTUN_PROTO is missing .
+> This patch set contains the following modificatons:
+> * three patches (1/7 to 3/7) that fix indentation style issues
+> * convert the u8 vlan[] array to a bit-map to reduce memory usage
+> * use MCCQ instead of MBOX in be_cmd_rss_config() as the MCCQ is already
+>   created by that time
+> * include rx-comp-error counter in ethtool stats
+> * remove the unused promiscuous setting from be_cmd_vlan_config()
 > 
-> Signed-off-by: Susant Sahani <susant@redhat.com>
-> Acked-by: Thomas Graf <tgraf@suug.ch>
+> Pls apply to net-next tree. Thanks!
 
-You really need to fix the date on your computer, it was not
-Saturday May 10th when you submitted this patch.
+Series applied, thanks.
