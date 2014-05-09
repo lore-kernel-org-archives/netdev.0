@@ -1,58 +1,54 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 75571] New: using tc action mirred results BUG at net/core/skbuff.c:119
-Date: Fri, 9 May 2014 11:31:52 -0700
-Message-ID: <CAHA+R7OG0qqr4Q2cFomY0CKH6DP+J==ii_G--d6FzcTScB6iEA@mail.gmail.com>
-References: <20140506081628.1626ff94@nehalam.linuxnetplumber.net>
-	<CAHA+R7NX639wxkvvrqP=ogeiAwDeJYDnFp_z_VqB3yqh8KLjFA@mail.gmail.com>
-	<536B58D7.2070009@mojatatu.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch net] rtnetlink: call rtnl_lock_unregistering() in
+ rtnl_link_unregister()
+Date: Fri, 9 May 2014 12:02:41 -0700
+Message-ID: <20140509120241.3b628dc1@nehalam.linuxnetplumber.net>
+References: <1399657653-4909-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140509110345.417d2b90@nehalam.linuxnetplumber.net>
+	<CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>, d77190@mail.ru
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:48054 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063AbaEISby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 14:31:54 -0400
-Received: by mail-la0-f54.google.com with SMTP id pv20so155665lab.27
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 11:31:52 -0700 (PDT)
-In-Reply-To: <536B58D7.2070009@mojatatu.com>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:55931 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754499AbaEITCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 15:02:45 -0400
+Received: by mail-pd0-f181.google.com with SMTP id w10so3991161pde.26
+        for <netdev@vger.kernel.org>; Fri, 09 May 2014 12:02:45 -0700 (PDT)
+In-Reply-To: <CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 8, 2014 at 3:13 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> Hi Cong,
->
-> Sorry for the latency - on travel mode.
->
->
-> On 05/06/14 18:30, Cong Wang wrote:
->>
->> On Tue, May 6, 2014 at 8:16 AM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->
->
->>
->> Hmm, looks like we pushed wrong header size here. tcf_mirred_init()
->> checks if we could push hard header by checking the type of the target
->> device,
->> while in tcf_mirred() we push the ->hard_header_len of the source device
->> where this skb is received. I am not sure at all.
->>
->> Jamal, does the following patch make any sense for you?
->>
->
-> Dont feel like that patch would help. Scratching my head....
-> One way to tell is to: ifconfig down the source (which seems like tunnel
-> device) and install all the rules then last step is ifconfig first ifb,
-> then the tunnel device. And if it works with current kernel patch is not
-> needed. It feels like some race condition between installing
-> rule and using it i.e rule gets installed and when still trying to
-> advertise to user space, a packet arrives and starts using it.
-> If the above works - then the question to d77190@mail.ru is what kernel
-> this is and when did this last work as installed?
+On Fri, 9 May 2014 11:10:36 -0700
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-It's an old kernel, 3.2.58. :-/
+> On Fri, May 9, 2014 at 11:03 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > On Fri,  9 May 2014 10:47:33 -0700
+> > Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> >
+> >> I know making rtnl_lock_unregistering() a macro is ugly, but I don't find
+> >> any less ugly way to fix it unless we duplicate the code. For long term,
+> >> I think we should clean up the mess of netdev_run_todo() and net namespce
+> >> exit code.
+> >
+> > Huh, why isn't a real function going to work.
+> 
+> Because in its callers:
+> 
+> +       rtnl_lock_unregistering(net_list, exit_list);
+> +       rtnl_lock_unregistering(&net_namespace_list, list);
+> 
+> struct net is linked via ->exit_list in net_list and is linked
+> via ->list in net_namespace_list.
+> 
+> This can't be done without a macro (at least for me). Or
+> we have to duplicate the code.
 
-Please try to reproduce it on the latest kernel if possible.
+macro method is too ugly, figure out a better way.
