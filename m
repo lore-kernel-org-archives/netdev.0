@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3 RESEND] bonding: slight optimization
- and cleanup
-Date: Thu, 08 May 2014 23:41:25 -0400 (EDT)
-Message-ID: <20140508.234125.645020851632853596.davem@davemloft.net>
-References: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2] mellanox: Logging message cleanups
+Date: Thu, 08 May 2014 23:42:25 -0400 (EDT)
+Message-ID: <20140508.234225.1072761273005912123.davem@davemloft.net>
+References: <20140507.154108.567253192690937393.davem@davemloft.net>
+	<eceba320507a1895ff8f1a5bd0b7a67839e7b7b0.1399492267.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, vfalico@redhat.com, andy@greyhouse.net,
-	netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33039 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752029AbaEIDl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 23:41:26 -0400
-In-Reply-To: <1399471821-11252-1-git-send-email-dingtianhong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <eceba320507a1895ff8f1a5bd0b7a67839e7b7b0.1399492267.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Wed, 7 May 2014 22:10:18 +0800
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Wed,  7 May 2014 12:52:57 -0700
 
-> v1->v2: fix some wrong format for patch 1.
+> Use a more current logging style.
 > 
-> Ding Tianhong (3):
->   bonding: remove the unnecessary struct bond_net
->   bonding: simplify the slave_do_arp_validate_only()
->   bonding: remove the unused macro
+> o Coalesce formats
+> o Add missing spaces for coalesced formats
+> o Align arguments for modified formats
+> o Add missing newlines for some logging messages
+> o Use DRV_NAME as part of format instead of %s, DRV_NAME to
+>   reduce overall text.
+> o Use ..., ##__VA_ARGS__ instead of args... in macros
+> o Correct a few format typos
+> o Use a single line message where appropriate
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> Acked-By: Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Series applied, thanks.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
