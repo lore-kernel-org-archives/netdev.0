@@ -1,305 +1,64 @@
 From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: [PATCH v2 net-next 4/5] qlcnic: Collect firmware dump using DMA on 82xx adapters
-Date: Fri, 9 May 2014 02:51:32 -0400
-Message-ID: <1399618293-28633-5-git-send-email-rajesh.borundia@qlogic.com>
-References: <1399618293-28633-1-git-send-email-rajesh.borundia@qlogic.com>
+Subject: [PATCH v2 net-next 0/5] SR-IOV and FW-dump enhancements
+Date: Fri, 9 May 2014 02:51:28 -0400
+Message-ID: <1399618293-28633-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:2287 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:22316 "EHLO
 	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751382AbaEIHUZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 03:20:25 -0400
-In-Reply-To: <1399618293-28633-1-git-send-email-rajesh.borundia@qlogic.com>
+	by vger.kernel.org with ESMTP id S1751079AbaEIHUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 03:20:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+This patch series contain following enhancements.
 
-o Add support to collect RDMEM section of firmware dump
-  using PEX DMA method.
-o This patch uses most of the code used for PEX DMA support
-  on 83xx series adapters and some refactoring.
+* SR-IOV enhancements:
+ - Allow SR-IOV VF's to probe in hypervisor. SR-IOV VF can be
+   uplinked to bridge/macvtap device with this change.
+ - Commands from VF are processed in process context
+   as it may sleep during PF-VF communication. Earlier
+   we use to process qlcnic_sriov_vf_set_multi function in 
+   process context but now we process individual commands.
+ - As SR-IOV VF's can be uplinked to bridge/macvtap device
+   support mac-learning to allow communication through 
+   embedded switch.
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   31 +++++-----------
+* FW-dump enhancement:
+ - Support to collect RDMEM section of firmware dump using 
+   PEX DMA method for 82xx series adapter. 
+
+* Changes in v2:
+ - Removed unnecessary cast from void pointer to something
+   else and verified this issue in entire patch series as
+   per David Miller's suggestion.
+
+Please apply this series to net-next.
+
+Thanks,
+Rajesh
+ 
+Rajesh Borundia (4):
+  qlcnic: Allow SR-IOV VF probe in hypervisor.
+  qlcnic: Add support to process commands in atomic context
+  qlcnic: Add mac learning support to SR-IOV VF.
+  qlcnic: Update version to 5.3.59
+
+Shahed Shaikh (1):
+  qlcnic: Collect firmware dump using DMA on 82xx adapters
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   18 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   31 +---
  .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    4 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   12 +++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |    8 +++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |   37 +++++++++----------
- 5 files changed, 42 insertions(+), 50 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 7c125d7..a4a4ec0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -3037,19 +3037,18 @@ void qlcnic_83xx_unlock_driver(struct qlcnic_adapter *adapter)
- 	QLCRDX(adapter->ahw, QLC_83XX_DRV_UNLOCK);
- }
- 
--int qlcnic_83xx_ms_mem_write128(struct qlcnic_adapter *adapter, u64 addr,
-+int qlcnic_ms_mem_write128(struct qlcnic_adapter *adapter, u64 addr,
- 				u32 *data, u32 count)
- {
- 	int i, j, ret = 0;
- 	u32 temp;
--	int err = 0;
- 
- 	/* Check alignment */
- 	if (addr & 0xF)
- 		return -EIO;
- 
- 	mutex_lock(&adapter->ahw->mem_lock);
--	qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_ADDR_HI, 0);
-+	qlcnic_ind_wr(adapter, QLCNIC_MS_ADDR_HI, 0);
- 
- 	for (i = 0; i < count; i++, addr += 16) {
- 		if (!((ADDR_IN_RANGE(addr, QLCNIC_ADDR_QDR_NET,
-@@ -3060,26 +3059,16 @@ int qlcnic_83xx_ms_mem_write128(struct qlcnic_adapter *adapter, u64 addr,
- 			return -EIO;
- 		}
- 
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_ADDR_LO, addr);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_WRTDATA_LO,
--					     *data++);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_WRTDATA_HI,
--					     *data++);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_WRTDATA_ULO,
--					     *data++);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_WRTDATA_UHI,
--					     *data++);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_CTRL,
--					     QLCNIC_TA_WRITE_ENABLE);
--		qlcnic_83xx_wrt_reg_indirect(adapter, QLCNIC_MS_CTRL,
--					     QLCNIC_TA_WRITE_START);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_ADDR_LO, addr);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_WRTDATA_LO, *data++);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_WRTDATA_HI, *data++);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_WRTDATA_ULO, *data++);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_WRTDATA_UHI, *data++);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_CTRL, QLCNIC_TA_WRITE_ENABLE);
-+		qlcnic_ind_wr(adapter, QLCNIC_MS_CTRL, QLCNIC_TA_WRITE_START);
- 
- 		for (j = 0; j < MAX_CTL_CHECK; j++) {
--			temp = QLCRD32(adapter, QLCNIC_MS_CTRL, &err);
--			if (err == -EIO) {
--				mutex_unlock(&adapter->ahw->mem_lock);
--				return err;
--			}
-+			temp = qlcnic_ind_rd(adapter, QLCNIC_MS_CTRL);
- 
- 			if ((temp & TA_CTL_BUSY) == 0)
- 				break;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 88d809c..97784d0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -560,7 +560,7 @@ void qlcnic_83xx_napi_del(struct qlcnic_adapter *);
- void qlcnic_83xx_napi_enable(struct qlcnic_adapter *);
- void qlcnic_83xx_napi_disable(struct qlcnic_adapter *);
- int qlcnic_83xx_config_led(struct qlcnic_adapter *, u32, u32);
--void qlcnic_ind_wr(struct qlcnic_adapter *, u32, u32);
-+int qlcnic_ind_wr(struct qlcnic_adapter *, u32, u32);
- int qlcnic_ind_rd(struct qlcnic_adapter *, u32);
- int qlcnic_83xx_create_rx_ctx(struct qlcnic_adapter *);
- int qlcnic_83xx_create_tx_ctx(struct qlcnic_adapter *,
-@@ -617,7 +617,6 @@ void qlcnic_83xx_idc_request_reset(struct qlcnic_adapter *, u32);
- int qlcnic_83xx_lock_driver(struct qlcnic_adapter *);
- void qlcnic_83xx_unlock_driver(struct qlcnic_adapter *);
- int qlcnic_83xx_set_default_offload_settings(struct qlcnic_adapter *);
--int qlcnic_83xx_ms_mem_write128(struct qlcnic_adapter *, u64, u32 *, u32);
- int qlcnic_83xx_idc_vnic_pf_entry(struct qlcnic_adapter *);
- int qlcnic_83xx_disable_vnic_mode(struct qlcnic_adapter *, int);
- int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *);
-@@ -659,4 +658,5 @@ void qlcnic_83xx_cache_tmpl_hdr_values(struct qlcnic_fw_dump *);
- u32 qlcnic_83xx_get_cap_size(void *, int);
- void qlcnic_83xx_set_sys_info(void *, int, u32);
- void qlcnic_83xx_store_cap_mask(void *, u32);
-+int qlcnic_ms_mem_write128(struct qlcnic_adapter *, u64, u32 *, u32);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index 34d2737..f33559b 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -1363,8 +1363,8 @@ static int qlcnic_83xx_copy_bootloader(struct qlcnic_adapter *adapter)
- 		return ret;
- 	}
- 	/* 16 byte write to MS memory */
--	ret = qlcnic_83xx_ms_mem_write128(adapter, dest, (u32 *)p_cache,
--					  size / 16);
-+	ret = qlcnic_ms_mem_write128(adapter, dest, (u32 *)p_cache,
-+				     size / 16);
- 	if (ret) {
- 		vfree(p_cache);
- 		return ret;
-@@ -1389,8 +1389,8 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
- 	p_cache = (u32 *)fw->data;
- 	addr = (u64)dest;
- 
--	ret = qlcnic_83xx_ms_mem_write128(adapter, addr,
--					  p_cache, size / 16);
-+	ret = qlcnic_ms_mem_write128(adapter, addr,
-+				     p_cache, size / 16);
- 	if (ret) {
- 		dev_err(&adapter->pdev->dev, "MS memory write failed\n");
- 		release_firmware(fw);
-@@ -1405,8 +1405,8 @@ static int qlcnic_83xx_copy_fw_file(struct qlcnic_adapter *adapter)
- 			data[i] = fw->data[size + i];
- 		for (; i < 16; i++)
- 			data[i] = 0;
--		ret = qlcnic_83xx_ms_mem_write128(adapter, addr,
--						  (u32 *)data, 1);
-+		ret = qlcnic_ms_mem_write128(adapter, addr,
-+					     (u32 *)data, 1);
- 		if (ret) {
- 			dev_err(&adapter->pdev->dev,
- 				"MS memory write failed\n");
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index e5352b7..c9e8574 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -373,12 +373,16 @@ int qlcnic_ind_rd(struct qlcnic_adapter *adapter, u32 addr)
- 	return data;
- }
- 
--void qlcnic_ind_wr(struct qlcnic_adapter *adapter, u32 addr, u32 data)
-+int qlcnic_ind_wr(struct qlcnic_adapter *adapter, u32 addr, u32 data)
- {
-+	int ret = 0;
-+
- 	if (qlcnic_82xx_check(adapter))
- 		qlcnic_write_window_reg(addr, adapter->ahw->pci_base0, data);
- 	else
--		qlcnic_83xx_wrt_reg_indirect(adapter, addr, data);
-+		ret = qlcnic_83xx_wrt_reg_indirect(adapter, addr, data);
-+
-+	return ret;
- }
- 
- static int
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index 37b979b..f7694da 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -238,6 +238,8 @@ void qlcnic_82xx_cache_tmpl_hdr_values(struct qlcnic_fw_dump *fw_dump)
- 
- 	hdr->drv_cap_mask = hdr->cap_mask;
- 	fw_dump->cap_mask = hdr->cap_mask;
-+
-+	fw_dump->use_pex_dma = (hdr->capabilities & BIT_0) ? true : false;
- }
- 
- inline u32 qlcnic_82xx_get_cap_size(void *t_hdr, int index)
-@@ -276,6 +278,8 @@ inline void qlcnic_83xx_set_saved_state(void *t_hdr, u32 index,
- 	hdr->saved_state[index] = value;
- }
- 
-+#define QLCNIC_TEMPLATE_VERSION (0x20001)
-+
- void qlcnic_83xx_cache_tmpl_hdr_values(struct qlcnic_fw_dump *fw_dump)
- {
- 	struct qlcnic_83xx_dump_template_hdr *hdr;
-@@ -288,6 +292,9 @@ void qlcnic_83xx_cache_tmpl_hdr_values(struct qlcnic_fw_dump *fw_dump)
- 
- 	hdr->drv_cap_mask = hdr->cap_mask;
- 	fw_dump->cap_mask = hdr->cap_mask;
-+
-+	fw_dump->use_pex_dma = (fw_dump->version & 0xfffff) >=
-+			       QLCNIC_TEMPLATE_VERSION;
- }
- 
- inline u32 qlcnic_83xx_get_cap_size(void *t_hdr, int index)
-@@ -658,29 +665,28 @@ out:
- static int qlcnic_start_pex_dma(struct qlcnic_adapter *adapter,
- 				struct __mem *mem)
- {
--	struct qlcnic_83xx_dump_template_hdr *tmpl_hdr;
- 	struct device *dev = &adapter->pdev->dev;
- 	u32 dma_no, dma_base_addr, temp_addr;
- 	int i, ret, dma_sts;
-+	void *tmpl_hdr;
- 
- 	tmpl_hdr = adapter->ahw->fw_dump.tmpl_hdr;
--	dma_no = tmpl_hdr->saved_state[QLC_83XX_DMA_ENGINE_INDEX];
-+	dma_no = qlcnic_get_saved_state(adapter, tmpl_hdr,
-+					QLC_83XX_DMA_ENGINE_INDEX);
- 	dma_base_addr = QLC_DMA_REG_BASE_ADDR(dma_no);
- 
- 	temp_addr = dma_base_addr + QLC_DMA_CMD_BUFF_ADDR_LOW;
--	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr,
--					   mem->desc_card_addr);
-+	ret = qlcnic_ind_wr(adapter, temp_addr, mem->desc_card_addr);
- 	if (ret)
- 		return ret;
- 
- 	temp_addr = dma_base_addr + QLC_DMA_CMD_BUFF_ADDR_HI;
--	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr, 0);
-+	ret = qlcnic_ind_wr(adapter, temp_addr, 0);
- 	if (ret)
- 		return ret;
- 
- 	temp_addr = dma_base_addr + QLC_DMA_CMD_STATUS_CTRL;
--	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr,
--					   mem->start_dma_cmd);
-+	ret = qlcnic_ind_wr(adapter, temp_addr, mem->start_dma_cmd);
- 	if (ret)
- 		return ret;
- 
-@@ -710,15 +716,16 @@ static u32 qlcnic_read_memory_pexdma(struct qlcnic_adapter *adapter,
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 	u32 temp, dma_base_addr, size = 0, read_size = 0;
- 	struct qlcnic_pex_dma_descriptor *dma_descr;
--	struct qlcnic_83xx_dump_template_hdr *tmpl_hdr;
- 	struct device *dev = &adapter->pdev->dev;
- 	dma_addr_t dma_phys_addr;
- 	void *dma_buffer;
-+	void *tmpl_hdr;
- 
- 	tmpl_hdr = fw_dump->tmpl_hdr;
- 
- 	/* Check if DMA engine is available */
--	temp = tmpl_hdr->saved_state[QLC_83XX_DMA_ENGINE_INDEX];
-+	temp = qlcnic_get_saved_state(adapter, tmpl_hdr,
-+				      QLC_83XX_DMA_ENGINE_INDEX);
- 	dma_base_addr = QLC_DMA_REG_BASE_ADDR(temp);
- 	temp = qlcnic_ind_rd(adapter,
- 			     dma_base_addr + QLC_DMA_CMD_STATUS_CTRL);
-@@ -764,8 +771,8 @@ static u32 qlcnic_read_memory_pexdma(struct qlcnic_adapter *adapter,
- 
- 		/* Write DMA descriptor to MS memory*/
- 		temp = sizeof(struct qlcnic_pex_dma_descriptor) / 16;
--		*ret = qlcnic_83xx_ms_mem_write128(adapter, mem->desc_card_addr,
--						   (u32 *)dma_descr, temp);
-+		*ret = qlcnic_ms_mem_write128(adapter, mem->desc_card_addr,
-+					      (u32 *)dma_descr, temp);
- 		if (*ret) {
- 			dev_info(dev, "Failed to write DMA descriptor to MS memory at address 0x%x\n",
- 				 mem->desc_card_addr);
-@@ -1141,8 +1148,6 @@ free_mem:
- 	return err;
- }
- 
--#define QLCNIC_TEMPLATE_VERSION (0x20001)
--
- int qlcnic_fw_cmd_get_minidump_temp(struct qlcnic_adapter *adapter)
- {
- 	struct qlcnic_hardware_context *ahw;
-@@ -1203,12 +1208,6 @@ flash_temp:
- 		 "Default minidump capture mask 0x%x\n",
- 		 fw_dump->cap_mask);
- 
--	if (qlcnic_83xx_check(adapter) &&
--	    (fw_dump->version & 0xfffff) >= QLCNIC_TEMPLATE_VERSION)
--		fw_dump->use_pex_dma = true;
--	else
--		fw_dump->use_pex_dma = false;
--
- 	qlcnic_enable_fw_dump_state(adapter);
- 
- 	return 0;
--- 
-1.6.3.3
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   12 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   32 ++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   12 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   25 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |   37 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    4 +-
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |  188 ++++++++++++--------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   84 +++++----
+ 11 files changed, 244 insertions(+), 203 deletions(-)
