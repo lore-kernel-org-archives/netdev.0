@@ -1,70 +1,83 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: A SACK block to the left of the ACK? (with ptr to raw trace)
-Date: Fri, 09 May 2014 10:34:24 -0700
-Message-ID: <536D11A0.6050400@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH 0/3] Make mark-based routing work better with multiple separate networks.
+Date: Sat, 10 May 2014 02:36:58 +0900
+Message-ID: <1399657021-26082-1-git-send-email-lorenzo@google.com>
+Cc: jpa@google.com, davem@davemloft.net, ja@ssi.bg,
+	hannes@stressinduktion.org, Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hp.com ([15.217.136.92]:47503 "EHLO
-	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756779AbaEIReu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:34:50 -0400
-Received: from g4t3425.houston.hp.com (g4t3425.houston.hp.com [15.201.208.53])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id B5AE9820
-	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:15:36 +0000 (UTC)
-Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
-	by g4t3425.houston.hp.com (Postfix) with ESMTP id 3366E284
-	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:34:25 +0000 (UTC)
-Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
-	by g9t2301.houston.hp.com (Postfix) with ESMTP id 066A167
-	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:34:24 +0000 (UTC)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:44248 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757303AbaEIRhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:37:09 -0400
+Received: by mail-pa0-f42.google.com with SMTP id rd3so4685221pab.29
+        for <netdev@vger.kernel.org>; Fri, 09 May 2014 10:37:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi -
+Mark-based routing (ip rule fwmark 17 lookup 100) combined with
+either iptables marking (iptables -j MARK --set-mark 17) or
+application-based marking (the SO_MARK setsockopt) are a good
+way to deal with connecting simultaneously to multiple networks.
 
-As part of looking at a customer issue, I've been running some netperf 
-TCP_RR between a pair of instances running 3.2.0 with whatever stuff 
-Canonical have backported into their -60 version.  While looking at 
-packet traces I've seen the following odd SACK:
+Each network can be given a routing table, and ip rules can
+be configured to make different fwmarks select different
+networks. Applications can select networks them by setting
+appropriate socket marks, and iptables rules can be used to
+handle non-aware applications, enforce policy, etc.
 
-08:14:40.329583 IP 15.126.222.122.48130 > 10.0.0.3.12345: Flags [.], ack 
-63734, win 457, options [nop,nop,TS val 14282026 ecr 
-14255813,nop,nop,sack 1 {63716:63717}], length 0
+This patch series improves functionality when mark-based routing
+is used in this way. Current behaviour has the following
+limitations:
 
-I don't think that this "to the left of the ACK" SACK block actually 
-caused anything heinous to happen but it does look odd and so I thought 
-I might mention it to see if anyone else has seen it or if perhaps it is 
-a known issue fixed in a later kernel.  The full tcpdump from one side 
-is up at:
+1. Kernel-originated replies that are not associated with a
+   socket always use a mark of zero. This means that, for
+   example, when the kernel sends a ping reply or a TCP reset,
+   it does not send it on the network from which it received the
+   original packet.
+2. Path MTU discovery, which is triggered by incoming packets,
+   does not always work correctly, because the routing lookups it
+   uses to clone routes do not take the fwmark into account and
+   thus can happen in the wrong routing table.
+3. Application-based marking works well for outbound connections,
+   but does not work well for incoming connections. Marking a
+   listening socket causes that socket to only accept
+   connections from a given network, and sockets that are
+   returned by accept() are not marked (and are thus not routed
+   correctly).
 
-ftp://ftp.netperf.org/rr_16.pcap.gz
+#1 and #2 are addressed by a new net.ipv[46].fwmark_reflect
+sysctl. This causes route lookups for kernel-generated replies
+and PMTUD to use the fwmark of the packet that caused them.
 
-The netperf running was:
+#3 is addressed by a new net.ipv4.tcp_fwmark_accept sysctl,
+which causes TCP sockets returned by accept() to be marked with
+the same mark that sent the intial SYN packet.
 
-ubuntu@zpet-netperf-east-1-vm01:~$ netperf -l 60 -H 
-zPet_NetPerf-East-2-vm01 -t TCP_RR -- -b 16 -D -P ,12345
+Lorenzo Colitti (3):
+  net: add a sysctl to reflect the fwmark on replies
+  net: Use fwmark reflection in PMTU discovery.
+  net: support marking accepting TCP sockets
 
-So TCP_NODELAY was set (-D), and there were upwards of 17 segments in 
-flight at any one time (-b 16 - 16 added to the default of one).
+ include/net/inet_sock.h          | 10 ++++++++++
+ include/net/ip.h                 |  3 +++
+ include/net/ipv6.h               |  3 +++
+ include/net/netns/ipv4.h         |  3 +++
+ include/net/netns/ipv6.h         |  1 +
+ net/ipv4/icmp.c                  | 11 +++++++++--
+ net/ipv4/inet_connection_sock.c  |  6 ++++--
+ net/ipv4/ip_output.c             |  3 ++-
+ net/ipv4/route.c                 |  7 +++++++
+ net/ipv4/syncookies.c            |  3 ++-
+ net/ipv4/sysctl_net_ipv4.c       | 14 ++++++++++++++
+ net/ipv4/tcp_ipv4.c              |  1 +
+ net/ipv6/icmp.c                  |  6 ++++++
+ net/ipv6/inet6_connection_sock.c |  2 +-
+ net/ipv6/route.c                 |  2 +-
+ net/ipv6/syncookies.c            |  4 +++-
+ net/ipv6/sysctl_net_ipv6.c       |  7 +++++++
+ net/ipv6/tcp_ipv6.c              |  2 ++
+ 18 files changed, 79 insertions(+), 9 deletions(-)
 
-The trace was taken at zPet_NetPerf-East-2-vm01.  As you might have 
-guessed there is NAT involved - in both directions actually.  The 
-node(s) on which this NAT is happening are running a 3.5.0-44 kernel.
-
-Here is one being sent from the side where the trace was being taken:
-
-08:15:01.137718 IP 10.0.0.3.12345 > 15.126.222.122.48130: Flags [.], ack 
-218871, win 453, options [nop,nop,TS val 14261016 ecr 
-14287228,nop,nop,sack 1 {218854:218855}], length 0
-
-Which I suppose rules-out some odd NAT bug as the source of the "to the 
-left of the ACK" SACKs since that was captured pre-NAT.
-
-happy benchmarking,
-
-rick jones
+-- 
+1.9.1.423.g4596e3a
