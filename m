@@ -1,74 +1,79 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] ipv6: remove parameter rt from fib6_prune_clones()
-Date: Fri, 9 May 2014 13:31:43 +0800
-Message-ID: <536C683F.40408@cn.fujitsu.com>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: [RFC][PATCH] af_key: return error when meet errors on sendmsg() syscall
+Date: Fri, 9 May 2014 13:47:35 +0800
+Message-ID: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:17527 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751553AbaEIFeB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 01:34:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+	<davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Current implementation for pfkey_sendmsg() always return success
+no matter whether or not error happens during this syscall,
+this is incompatible with the general send()/sendmsg() API:
+  man send
+    RETURN VALUE
+      On success, these calls return the number of characters sent.
+      On error, -1 is returned, and errno is set appropriately.
 
-the parameter rt will be assigned to c.arg in function fib6_clean_tree(),
-but function fib6_prune_clone() doesn't use c.arg, so we can remove it
-safely.
+One side effect this problem introduces is that we can't determine
+when to resend the message when the previous send() fails because
+it was interrupted by signals.
+We detect such a problem when racoon is sending SADBADD message to
+add SAD entry in the kernel, but sometimes kernel is responding with
+"Interrupted system call"(-EINTR) error.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Check the send implementation of strongswan, it has below logic:
+  pfkey_send_socket()
+  {
+  	...
+  	while (TRUE)
+  	{
+        	len = send(socket, in, in_len, 0);
+
+  		if (len != in_len)
+  		{
+  			case EINTR:
+  				/* interrupted, try again */
+  				continue;
+  			...
+  		}
+  	}
+  	...
+}
+So it makes sense to return errors for send() syscall.      
+
+Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 ---
- net/ipv6/ip6_fib.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ net/key/af_key.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 34e0ded..6fefd44 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -71,8 +71,7 @@ static DEFINE_RWLOCK(fib6_walker_lock);
- #define FWS_INIT FWS_L
- #endif
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index f3c8307..9e4bc8c 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -335,7 +335,7 @@ static int pfkey_error(const struct sadb_msg *orig, int err, struct sock *sk)
  
--static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
--			      struct rt6_info *rt);
-+static void fib6_prune_clones(struct net *net, struct fib6_node *fn);
- static struct rt6_info *fib6_find_prefix(struct net *net, struct fib6_node *fn);
- static struct fib6_node *fib6_repair_tree(struct net *net, struct fib6_node *fn);
- static int fib6_walk(struct fib6_walker_t *w);
-@@ -941,7 +940,7 @@ int fib6_add(struct fib6_node *root, struct rt6_info *rt, struct nl_info *info,
- 	if (!err) {
- 		fib6_start_gc(info->nl_net, rt);
- 		if (!(rt->rt6i_flags & RTF_CACHE))
--			fib6_prune_clones(info->nl_net, pn, rt);
-+			fib6_prune_clones(info->nl_net, pn);
- 	}
+ 	pfkey_broadcast(skb, GFP_KERNEL, BROADCAST_ONE, sk, sock_net(sk));
+ 
+-	return 0;
++	return -err;
+ }
+ 
+ static const u8 sadb_ext_min_len[] = {
+@@ -3644,8 +3644,8 @@ static int pfkey_sendmsg(struct kiocb *kiocb,
+ 	mutex_unlock(&net->xfrm.xfrm_cfg_mutex);
  
  out:
-@@ -1375,7 +1374,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
- 			pn = pn->parent;
- 		}
- #endif
--		fib6_prune_clones(info->nl_net, pn, rt);
-+		fib6_prune_clones(info->nl_net, pn);
- 	}
+-	if (err && hdr && pfkey_error(hdr, err, sk) == 0)
+-		err = 0;
++	if (err && hdr)
++		err = pfkey_error(hdr, err, sk);
+ 	kfree_skb(skb);
  
- 	/*
-@@ -1600,10 +1599,9 @@ static int fib6_prune_clone(struct rt6_info *rt, void *arg)
- 	return 0;
- }
- 
--static void fib6_prune_clones(struct net *net, struct fib6_node *fn,
--			      struct rt6_info *rt)
-+static void fib6_prune_clones(struct net *net, struct fib6_node *fn)
- {
--	fib6_clean_tree(net, fn, fib6_prune_clone, 1, rt);
-+	fib6_clean_tree(net, fn, fib6_prune_clone, 1, NULL);
- }
- 
- /*
+ 	return err ? : len;
 -- 
-1.8.3.1
+1.7.0.2
