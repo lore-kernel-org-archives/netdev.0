@@ -1,69 +1,126 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH] net: Provide linear backoff mechanism for
- constrained resources at the driver
-Date: Fri, 9 May 2014 15:46:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F710792@AcuExch.aculab.com>
-References: <20140507.155613.630399521517455317.davem@davemloft.net>
- <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F71037C@AcuExch.aculab.com>
- <20140509111751.GB13793@hmsreliant.think-freely.org>
- <063D6719AE5E284EB5DD2968C1650D6D0F710574@AcuExch.aculab.com>
- <20140509153321.GE13793@hmsreliant.think-freely.org>
+From: Jon Maloy <maloy@donjonn.com>
+Subject: Re: [PATCH net-next 1/8] tipc: decrease
+	connection flow control window
+Date: Fri, 09 May 2014 12:00:43 -0400
+Message-ID: <536CFBAB.8050107@donjonn.com>
+References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
+	<1399641209-26112-2-git-send-email-jon.maloy@ericsson.com>
+	<063D6719AE5E284EB5DD2968C1650D6D0F71067C@AcuExch.aculab.com>
+	<20140509142739.GQ30044@eerihug-hybrid.rnd.ki.sw.ericsson.se>
+	<063D6719AE5E284EB5DD2968C1650D6D0F71075B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: 'Jon Maloy' <jon.maloy@ericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
 	"davem@davemloft.net" <davem@davemloft.net>
-To: 'Neil Horman' <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58060 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752279AbaEIPro convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 11:47:44 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 07947-04 for <netdev@vger.kernel.org>;
- Fri,  9 May 2014 16:47:36 +0100 (BST)
-In-Reply-To: <20140509153321.GE13793@hmsreliant.think-freely.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'erik.hugne@ericsson.com'" <erik.hugne@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F71075B@AcuExch.aculab.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman [mailto:nhorman@tuxdriver.com]
-...
-> 2 Things:
-> 
-> 1) Need is really a strong term here.  The penalty for failing a dma mapping is
-> to drop the frame.  Thats not unacceptible in many use cases.
+On 05/09/2014 10:59 AM, David Laight wrote:
+> From: erik.hugne@ericsson. 
+>> On Fri, May 09, 2014 at 01:30:43PM +0000, David Laight wrote:
+>>> Sounds a bit like a badly designed protocol to me...
+>> Well, i don't like this either but the current message-oriented flowcontrol
+>> will eventually be replaced with a byte-based one. Right now we're trying
+>> to find a way to adapt a message-oriented flow control to per-socket buffer
+>> constraints, without breaking protocol compatibility.
+> I wasn't thinking of the byte/message flow control problems.
+> More of only requesting acks every 512 messages
 
-Indeed, but dropping an ethernet frame will be recovered by the higher layers.
-While not ideal, it is a 'last resort' action.
-Note that I'm not suggesting that your deferred retry of the transmit isn't
-a good idea, just that it is probably papering over the cracks.
+Acks are not requested, they are sent out unsolicited at fix
+intervals, controlled by the reading capacity of the receiving
+process.
 
-> 2) It seems to me that global constraint here implies a static, well known
-> number.  While its true we can interrogate an iommu, and compare its mapping
-> size to the ring size of all the NICS/devices on a system to see if we're likely
-> to exceed the iommu space available, we shouldn't do that.  If a given NIC
-> doesn't produce much traffic, its ring sizes aren't relevant to the computation.
+The fundamental problem we have is that we acknowledge
+messages, without considering their size, so a sender won't
+stop (there is no active stop message from the receiver) until
+he has sent 512 messages and not received an ack, which in
+the worst case amounts to 512 x truesize(64KB) = 67 MB
+outstanding data. This is what the receiving socket must
+be able to absorb, in order to avoid broken connections.
 
-An idle NIC will be using a lot of iommu entries for its receive buffers.
+If we acknowledge bytes instead of messages and possibly
+introduce a flexible acknowledge interval, this whole problem will
+go away, but until then (a few months from now, I think) we have do
+make the best out of what we have.
 
-> We're not trying to address a static allocation scheme here.  If a system boots,
-> it implies that all the recive rings on all the devices were able to reserve the
-> amount of space they needed in the iommu (as you note earlier, they populate
-> their rings on init, effectively doing a iommu reservation).  The problem we're
-> addressing is the periodic lack of space that arises from temporary exhaustion
-> of iommu space under heavy I/O loads.  We won't know if that happens, until it
-> happens, and we can't just allocate for the worst case, because then we're sure
-> to run out of space as devices scale up.  Sharing is the way to do this whenever
-> possible.
 
-Do you have any data for which drivers have active iommu entries when an
-allocate fails?
+> (if my quick reading of the proposed change is right).
+> Especially without the receiver being able to stop the sender when
+> there is a buffer crisis (of any kind) at the receiver.
 
-I can imagine systems where almost all the iommu entries are being used
-for ethernet rx buffers, and everything else is fighting for the last
-few entries.
+To use any form of active feedback to the sender sounds scary
+to me. Passive feedback, in the form of withheld acks, is the way
+to go. That is the way it works now, and the way it should work,
+it is just that the buffer limits we need to sustain this currently
+are insanely high.
 
-	David
+>
+> I guess the aim was to limit the 'back traffic' by making the
+> assumption that the receiving system would always be able to
+> process the data as fast as it arrived.
+> If the receiver is an embedded system this is unlikely to be true.
+
+True.  Legacy TIPC comes from a world where memory constraints
+wasn't considered a big issue. That is different now, of course, and
+has to be remedied.
+
+>
+> I suspect you want the receiver to offer a large window (bytes or messages),
+> but on a buffer crisis (per connection or global) be able to tell the
+> sender to stop sending.
+
+I believe we rather should put our effort into a byte-oriented, TCP-like
+flow control, to permanently solve this issue. As said, it is on our agenda.
+
+> A few messages received while the sender is stopped could still be saved
+> (effectively assuming they were sent before the 'stop' was received).
+>
+> If running over an unreliable transport you'll want to retx the stop in
+> case it was lost.
+
+TIPC connections always run over a reliable media, - its own link
+layer. This means that the connection layer does not have any
+form of sequence numbering or retransmission, -it just assumes
+that everything arrives in order and without losses, as long
+as the link layer doesn't tell it otherwise.
+
+This isn't really a problem, as long as the connection-level flow
+control is able to work within reasonable constraints.  That is
+what it is unable to do now, and what we are going remedy once
+our drive to redo the locking policy is finished.
+
+Regards
+///jon
+
+
+> If the 'stop' message is an ack, then don't ack the last received message.
+> Then you'll get timeout recovery if the 'start' message is lost.
+>
+> 	David
+>
+>
+>
+
+
+------------------------------------------------------------------------------
+Is your legacy SCM system holding you back? Join Perforce May 7 to find out:
+&#149; 3 signs your SCM is hindering your productivity
+&#149; Requirements for releasing software faster
+&#149; Expert tips and advice for migrating your SCM now
+http://p.sf.net/sfu/perforce
