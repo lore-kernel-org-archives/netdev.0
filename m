@@ -1,32 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] overhaul node action flags
-Date: Fri, 09 May 2014 01:41:33 -0400 (EDT)
-Message-ID: <20140509.014133.290035406849365172.davem@davemloft.net>
-References: <1399510480-29558-1-git-send-email-ying.xue@windriver.com>
+From: Andreas =?iso-8859-1?q?Irest=E5l?= <andreas.irestal@axis.com>
+Subject: Re: [RFC PATCH] net:Add basic DWC Ethernet QoS Driver
+Date: Fri, 9 May 2014 08:24:25 +0200
+Message-ID: <201405090824.26137.Andreas.Irestal@axis.com>
+References: <201405081450.14449.Andreas.Irestal@axis.com> <20140508.132937.1739161639772164878.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33519 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124AbaEIFlq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 01:41:46 -0400
-In-Reply-To: <1399510480-29558-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	"maxime.ripard@free-electrons.com" <maxime.ripard@free-electrons.com>,
+	"abrodkin@synopsys.com" <abrodkin@synopsys.com>,
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"sr@denx.de" <sr@denx.de>,
+	"jonas.jensen@gmail.com" <jonas.jensen@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Jesper Nilsson <jespern@axis.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140508.132937.1739161639772164878.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ying Xue <ying.xue@windriver.com>
-Date: Thu, 8 May 2014 08:54:38 +0800
-
-> We currently have two problems with the node flags field:
->  - The naming of the individual action flags is unclear and confusing
->  - The flags are often not cleared individually,  making it hard to follow
->    where this happens.
+On Thursday 08 May 2014 19:29:37 David Miller wrote:
 > 
-> So the series aims to solve above two problems.
+> Why did you post this patch twice?  Is there some difference between
+> the two versions?
 
-Series applied, thanks.
+No they're not. It was a mistake by me as the patch did not appear on my netdev subscription, fooling me to send a second time. Please ignore the duplicate. Sorry for this inconvenience. Will not happen again
+
+/Andreas
