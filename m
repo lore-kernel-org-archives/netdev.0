@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND 0/5] net: cpsw and mdio-gpio fixes for
- v3.15-final
-Date: Fri, 09 May 2014 15:51:47 -0400 (EDT)
-Message-ID: <20140509.155147.151325080919519192.davem@davemloft.net>
-References: <1399534639-4947-1-git-send-email-jhovold@gmail.com>
-	<1399536564-7626-1-git-send-email-jhovold@gmail.com>
+Subject: Re: [PATCH net-next] rds: remove the unneed NULL checking
+Date: Fri, 09 May 2014 16:00:11 -0400 (EDT)
+Message-ID: <20140509.160011.1892260902101470591.davem@davemloft.net>
+References: <536B4801.9020802@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mugunthanvnm@ti.com
-To: jhovold@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399536564-7626-1-git-send-email-jhovold@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org
+To: wangweidong1@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39274 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757088AbaEIUAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:00:13 -0400
+In-Reply-To: <536B4801.9020802@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johan Hovold <jhovold@gmail.com>
-Date: Thu,  8 May 2014 10:09:19 +0200
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Thu, 8 May 2014 17:01:53 +0800
 
-> These patches against v3.15-rc4 fix a few issues in the cpsw and
-> mdio-gpio drivers.
+> unregister_net_sysctl_table will check the ctl_table_header,
+> so remove the unneed checking
 > 
-> Resend with proper stable CC (git send-email still fails to parse the
-> #-part of the tag unless address is enclosed in <> it seems).
-> 
-> Sorry about the noise.
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Series applied, thanks.
+Applied, thanks.
