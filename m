@@ -1,62 +1,146 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH] mdio_bus: fix devm_mdiobus_alloc_size export
-Date: Fri, 9 May 2014 12:36:20 +0530
-Message-ID: <CA+V-a8vt5=MB8SipxRKc99hLaXt8m=3UmSBLRCX20M0c1jcJLA@mail.gmail.com>
-References: <1399560433-1402630-1-git-send-email-arnd@arndb.de> <1399560433-1402630-2-git-send-email-arnd@arndb.de>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH v2 net-next 1/5] qlcnic: Allow SR-IOV VF probe in hypervisor.
+Date: Fri, 9 May 2014 02:51:29 -0400
+Message-ID: <1399618293-28633-2-git-send-email-rajesh.borundia@qlogic.com>
+References: <1399618293-28633-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LAK <linux-arm-kernel@lists.infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399560433-1402630-2-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:65162 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751090AbaEIHUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 03:20:24 -0400
+In-Reply-To: <1399618293-28633-1-git-send-email-rajesh.borundia@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 8, 2014 at 8:16 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> commit 6d48f44b7b2 "mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free"
-> introduced a new function devm_mdiobus_alloc_size() but added an export
-> for a different function devm_mdiobus_alloc(), which was obviously
-> a simple mistake that leads to  build error whenever this function is
-> used from a loadable module:
->
-> ERROR: "devm_mdiobus_alloc_size" [drivers/net/ethernet/ti/davinci_mdio.ko] undefined!
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Grygorii Strashko <grygorii.strashko@ti.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Cc: Lad, Prabhakar <prabhakar.csengg@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
+o Add support for SR-IOV VF probe in hypervisor to enable
+  assignment of VFs within hypervisor.
+o SR-IOV VF can be uplinked to bridge/macvtap device with this change.
+o Refactor SR-IOV enable/disable code. We cannot take rtnl lock
+  while enabling/disabling SR-IOV as VF probe will take an rtnl
+  lock.
+o Disable spoofchk by default.
 
-Acked-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    5 +--
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   34 +++++++++++++-------
+ 3 files changed, 24 insertions(+), 17 deletions(-)
 
-Thanks,
---Prabhakar Lad
-
-> ---
->  drivers/net/phy/mdio_bus.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> index 68a9a38..a628496 100644
-> --- a/drivers/net/phy/mdio_bus.c
-> +++ b/drivers/net/phy/mdio_bus.c
-> @@ -117,7 +117,7 @@ struct mii_bus *devm_mdiobus_alloc_size(struct device *dev, int sizeof_priv)
->
->         return bus;
->  }
-> -EXPORT_SYMBOL_GPL(devm_mdiobus_alloc);
-> +EXPORT_SYMBOL_GPL(devm_mdiobus_alloc_size);
->
->  /**
->   * devm_mdiobus_free - Resource-managed mdiobus_free()
-> --
-> 1.8.3.2
->
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 7023d35..28ebe1b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2398,9 +2398,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int err, pci_using_dac = -1;
+ 	char board_name[QLCNIC_MAX_BOARD_NAME_LEN + 19]; /* MAC + ": " + name */
+ 
+-	if (pdev->is_virtfn)
+-		return -ENODEV;
+-
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+ 		return err;
+@@ -2680,9 +2677,9 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 		return;
+ 
+ 	netdev = adapter->netdev;
+-	qlcnic_sriov_pf_disable(adapter);
+ 
+ 	qlcnic_cancel_idc_work(adapter);
++	qlcnic_sriov_pf_disable(adapter);
+ 	ahw = adapter->ahw;
+ 
+ 	unregister_netdev(netdev);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 0638c18..4eccc2b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -198,7 +198,7 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
+ 			}
+ 			sriov->vf_info[i].vp = vp;
+ 			vp->max_tx_bw = MAX_BW;
+-			vp->spoofchk = true;
++			vp->spoofchk = false;
+ 			random_ether_addr(vp->mac);
+ 			dev_info(&adapter->pdev->dev,
+ 				 "MAC Address %pM is configured for VF %d\n",
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index c7926ce..df40908 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -472,12 +472,12 @@ static int qlcnic_pci_sriov_disable(struct qlcnic_adapter *adapter)
+ 		return -EPERM;
+ 	}
+ 
++	qlcnic_sriov_pf_disable(adapter);
++
+ 	rtnl_lock();
+ 	if (netif_running(netdev))
+ 		__qlcnic_down(adapter, netdev);
+ 
+-	qlcnic_sriov_pf_disable(adapter);
+-
+ 	qlcnic_sriov_free_vlans(adapter);
+ 
+ 	qlcnic_sriov_pf_cleanup(adapter);
+@@ -596,7 +596,6 @@ static int __qlcnic_pci_sriov_enable(struct qlcnic_adapter *adapter,
+ 
+ 	qlcnic_sriov_alloc_vlans(adapter);
+ 
+-	err = qlcnic_sriov_pf_enable(adapter, num_vfs);
+ 	return err;
+ 
+ del_flr_queue:
+@@ -627,25 +626,36 @@ static int qlcnic_pci_sriov_enable(struct qlcnic_adapter *adapter, int num_vfs)
+ 		__qlcnic_down(adapter, netdev);
+ 
+ 	err = __qlcnic_pci_sriov_enable(adapter, num_vfs);
+-	if (err) {
+-		netdev_info(netdev, "Failed to enable SR-IOV on port %d\n",
+-			    adapter->portnum);
++	if (err)
++		goto error;
+ 
+-		err = -EIO;
+-		if (qlcnic_83xx_configure_opmode(adapter))
+-			goto error;
+-	} else {
++	if (netif_running(netdev))
++		__qlcnic_up(adapter, netdev);
++
++	rtnl_unlock();
++	err = qlcnic_sriov_pf_enable(adapter, num_vfs);
++	if (!err) {
+ 		netdev_info(netdev,
+ 			    "SR-IOV is enabled successfully on port %d\n",
+ 			    adapter->portnum);
+ 		/* Return number of vfs enabled */
+-		err = num_vfs;
++		return num_vfs;
+ 	}
++
++	rtnl_lock();
+ 	if (netif_running(netdev))
+-		__qlcnic_up(adapter, netdev);
++		__qlcnic_down(adapter, netdev);
+ 
+ error:
++	if (!qlcnic_83xx_configure_opmode(adapter)) {
++		if (netif_running(netdev))
++			__qlcnic_up(adapter, netdev);
++	}
++
+ 	rtnl_unlock();
++	netdev_info(netdev, "Failed to enable SR-IOV on port %d\n",
++		    adapter->portnum);
++
+ 	return err;
+ }
+ 
+-- 
+1.6.3.3
