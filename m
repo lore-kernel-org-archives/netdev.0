@@ -1,48 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] Fix Linux priority and band for TOS==0x2
- (man 8 tc-prio)
-Date: Fri, 9 May 2014 13:30:38 -0700
-Message-ID: <20140509133038.6647d26b@nehalam.linuxnetplumber.net>
-References: <1399663362-23054-1-git-send-email-sergey@lobanov.in>
+From: David Miller <davem@davemloft.net>
+Subject: Re: cassini: possible recursive locking detected
+Date: Fri, 09 May 2014 16:33:30 -0400 (EDT)
+Message-ID: <20140509.163330.1112297139498899531.davem@davemloft.net>
+References: <20140508223833.GB4385@lianli>
+	<alpine.SOC.1.00.1405090726190.12382@math.ut.ee>
+	<20140509090642.GA4267@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Sergey V. Lobanov" <sergey@lobanov.in>
+Cc: mroos@linux.ee, netdev@vger.kernel.org
+To: emilgoode@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:36602 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757249AbaEIUal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:30:41 -0400
-Received: by mail-pd0-f176.google.com with SMTP id y13so4094414pdi.7
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 13:30:41 -0700 (PDT)
-In-Reply-To: <1399663362-23054-1-git-send-email-sergey@lobanov.in>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39475 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756972AbaEIUdc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 16:33:32 -0400
+In-Reply-To: <20140509090642.GA4267@lianli>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  9 May 2014 23:22:42 +0400
-"Sergey V. Lobanov" <sergey@lobanov.in> wrote:
+From: Emil Goode <emilgoode@gmail.com>
+Date: Fri, 9 May 2014 11:06:42 +0200
 
-> Due to commit 4a2b9c3(in Linux kernel) Linux priority(skb->priority)
-> changed for TOS==0x2
+> I searched the net a bit and found these old threads:
 > 
-> Signed-off-by: Sergey V. Lobanov <sergey@lobanov.in>
-> ---
->  man/man8/tc-prio.8 |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> http://lists.freebsd.org/pipermail/freebsd-sparc64/2010-January/006935.html
 > 
-> diff --git a/man/man8/tc-prio.8 b/man/man8/tc-prio.8
-> index 1625fcc..78694ea 100644
-> --- a/man/man8/tc-prio.8
-> +++ b/man/man8/tc-prio.8
-> @@ -106,7 +106,7 @@ see in the first column of this table:
->  TOS     Bits  Means                    Linux Priority    Band
->  ------------------------------------------------------------
->  0x0     0     Normal Service           0 Best Effort     1
-> -0x2     1     Minimize Monetary Cost   1 Filler          2
-> +0x2     1     Minimize Monetary Cost   0 Best Effort     1
->  0x4     2     Maximize Reliability     0 Best Effort     1
->  0x6     3     mmc+mr                   0 Best Effort     1
->  0x8     4     Maximize Throughput      2 Bulk            2
+> "FreeBSD currently crashes on older models of V480 when attempting
+>  to use an on-board NIC due to what appears to be a CPU bug which
+>  needs to be worked around."
 
-Applied
+I wish I still had a copy of that Schizo chip errata document referenced
+at the end of that posting, it's not accessible any longer.
