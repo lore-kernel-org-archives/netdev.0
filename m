@@ -1,54 +1,59 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
- guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Fri, 9 May 2014 18:19:08 -0400
-Message-ID: <CADVnQymtPHaqKHwd=mwQwe0i8oVY=njOZY1SsPj8prodNMQfbw@mail.gmail.com>
-References: <395225650.20140430124506@eikelenboom.it>
-	<536250F9.7060405@citrix.com>
-	<1967602892.20140501160513@eikelenboom.it>
-	<53626563.8010404@citrix.com>
-	<1046603646.20140501174053@eikelenboom.it>
-	<1399044933.29914.242.camel@edumazet-glaptop2.roam.corp.google.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [Patch net] rtnetlink: call rtnl_lock_unregistering() in rtnl_link_unregister()
+Date: Fri, 09 May 2014 16:05:27 -0700
+Message-ID: <87bnv6lfig.fsf@x220.int.ebiederm.org>
+References: <1399657653-4909-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140509110345.417d2b90@nehalam.linuxnetplumber.net>
+	<CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
+	<20140509120241.3b628dc1@nehalam.linuxnetplumber.net>
+	<CAM_iQpWsbvC8nZd31n+akt2tQfCKvsHW6WAfjFdsgKNc5iiVig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sander Eikelenboom <linux@eikelenboom.it>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
+Content-Type: text/plain
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, xen-devel@lists.xen.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:38799 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757079AbaEIWTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 18:19:10 -0400
-Received: by mail-wi0-f177.google.com with SMTP id f8so2015562wiw.4
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 15:19:09 -0700 (PDT)
-In-Reply-To: <1399044933.29914.242.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:55312 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756295AbaEIXGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 19:06:11 -0400
+In-Reply-To: <CAM_iQpWsbvC8nZd31n+akt2tQfCKvsHW6WAfjFdsgKNc5iiVig@mail.gmail.com>
+	(Cong Wang's message of "Fri, 9 May 2014 12:22:14 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 2, 2014 at 11:35 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-05-01 at 17:40 +0200, Sander Eikelenboom wrote:
->
->> Yesterday i tried to get packetdrill (https://code.google.com/p/packetdrill/) to
->> work to see if i could reproduce with one of it's tests, but didn't get the
->> client server stuff working. It seems it has helped with finding and fixing
->> previous kernel networking bugs.
->
-> If you use recent net-next kernel, you need a packetdrill patch, Neal
-> might submit it shortly on packetdrill repo.
->
-> packetdrill currently does not consume the packets sent on the tun
-> device, so this triggers the new [1] TCP stack behavior detecting packet
-> did not yet leaved the host.
->
-> [1] :
-> ( http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=1f3279ae0c13cd742731726b0ed195d5f09b14e4 )
+Cong Wang <xiyou.wangcong@gmail.com> writes:
 
-I have submitted the fix to the packetdrill repo. If you "git pull"
-the latest packetdrill sources then its "local mode" should work again
-for net-next. Sorry if the delay has caused any hassles.
+> On Fri, May 9, 2014 at 12:02 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+>> On Fri, 9 May 2014 11:10:36 -0700
+>> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>
+>>>
+>>> This can't be done without a macro (at least for me). Or
+>>> we have to duplicate the code.
+>>
+>> macro method is too ugly, figure out a better way.
+>
+> That's what I am going to do for -net-next. This patch is for -net,
+> it's an ugly but minimum change I can find.
+>
+> Of course, if you insist we should clean up it for -net as well,
+> I can do that.
 
-neal
+It would be no worse to rename the existing function
+rtnl_lock_unregistering_list
+
+And add a second function rtnl_lock_unregistering that does
+the same thing but uses the global list.
+
+Of course this begs the question what happens if the network
+device we want to destroy is a network namespace that is currently
+exiting and not on the global list.
+
+It looks like we need to grab the net_mutex to get a state where network
+namespaces are not exiting...
+
+Eric
