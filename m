@@ -1,56 +1,70 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: cdc_mbim: handle unaccelerated VLAN
- tagged frames
-Date: Fri, 09 May 2014 13:30:39 -0400 (EDT)
-Message-ID: <20140509.133039.881525971468143859.davem@davemloft.net>
-References: <1399639500-13907-1-git-send-email-bjorn@mork.no>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: A SACK block to the left of the ACK? (with ptr to raw trace)
+Date: Fri, 09 May 2014 10:34:24 -0700
+Message-ID: <536D11A0.6050400@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1399639500-13907-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t1383g.austin.hp.com ([15.217.136.92]:47503 "EHLO
+	g2t1383g.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756779AbaEIReu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:34:50 -0400
+Received: from g4t3425.houston.hp.com (g4t3425.houston.hp.com [15.201.208.53])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hp.com (Postfix) with ESMTPS id B5AE9820
+	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:15:36 +0000 (UTC)
+Received: from g9t2301.houston.hp.com (g9t2301.houston.hp.com [16.216.185.78])
+	by g4t3425.houston.hp.com (Postfix) with ESMTP id 3366E284
+	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:34:25 +0000 (UTC)
+Received: from [16.103.148.51] (tardy.usa.hp.com [16.103.148.51])
+	by g9t2301.houston.hp.com (Postfix) with ESMTP id 066A167
+	for <netdev@vger.kernel.org>; Fri,  9 May 2014 17:34:24 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Fri,  9 May 2014 14:45:00 +0200
+Hi -
 
-> This driver maps 802.1q VLANs to MBIM sessions. The mapping is based =
-on
-> a bogus assumption that all tagged frames will use the acceleration A=
-PI
-> because we enable NETIF_F_HW_VLAN_CTAG_TX. This fails for e.g. frames
-> tagged in userspace using packet sockets. Such frames will erroneousl=
-y
-> be considered as untagged and silently dropped based on not being IP.
->=20
-> Fix by falling back to looking into the ethernet header for a tag if =
-no
-> accelerated tag was found.
->=20
-> Fixes: a82c7ce5bc5b ("net: cdc_ncm: map MBIM IPS SessionID to VLAN ID=
-")
-> Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+As part of looking at a customer issue, I've been running some netperf 
+TCP_RR between a pair of instances running 3.2.0 with whatever stuff 
+Canonical have backported into their -60 version.  While looking at 
+packet traces I've seen the following odd SACK:
 
-Applied, thank you!
+08:14:40.329583 IP 15.126.222.122.48130 > 10.0.0.3.12345: Flags [.], ack 
+63734, win 457, options [nop,nop,TS val 14282026 ecr 
+14255813,nop,nop,sack 1 {63716:63717}], length 0
 
-> This bug has been present since the driver was introduced in v3.8, an=
-d
-> should therefore be applied to all maintained stable kernels from v3.=
-8
-> and onwards.  I have verified that it applies cleanly to the original
-> v3.8 version as well as the current net/master, so I believe it shoul=
-d
-> apply unmodified all versions in between.
+I don't think that this "to the left of the ACK" SACK block actually 
+caused anything heinous to happen but it does look odd and so I thought 
+I might mention it to see if anyone else has seen it or if perhaps it is 
+a known issue fixed in a later kernel.  The full tcpdump from one side 
+is up at:
 
-This annotation is very much appreciated, because when I process my
--stable queue this information in right there waiting for me in the
-patchwork bundle I create.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ftp://ftp.netperf.org/rr_16.pcap.gz
+
+The netperf running was:
+
+ubuntu@zpet-netperf-east-1-vm01:~$ netperf -l 60 -H 
+zPet_NetPerf-East-2-vm01 -t TCP_RR -- -b 16 -D -P ,12345
+
+So TCP_NODELAY was set (-D), and there were upwards of 17 segments in 
+flight at any one time (-b 16 - 16 added to the default of one).
+
+The trace was taken at zPet_NetPerf-East-2-vm01.  As you might have 
+guessed there is NAT involved - in both directions actually.  The 
+node(s) on which this NAT is happening are running a 3.5.0-44 kernel.
+
+Here is one being sent from the side where the trace was being taken:
+
+08:15:01.137718 IP 10.0.0.3.12345 > 15.126.222.122.48130: Flags [.], ack 
+218871, win 453, options [nop,nop,TS val 14261016 ecr 
+14287228,nop,nop,sack 1 {218854:218855}], length 0
+
+Which I suppose rules-out some odd NAT bug as the source of the "to the 
+left of the ACK" SACKs since that was captured pre-NAT.
+
+happy benchmarking,
+
+rick jones
