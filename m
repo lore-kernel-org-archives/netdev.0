@@ -1,37 +1,118 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neigh: set nud_state to NUD_INCOMPLETE when probing
- router reachability
-Date: Thu, 08 May 2014 23:11:34 -0400 (EDT)
-Message-ID: <20140508.231134.1238493636510322105.davem@davemloft.net>
-References: <5369FDE7.3030001@cn.fujitsu.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH] ipv6: update Destination Cache entries when gateway turn
+ into host
+Date: Fri, 9 May 2014 11:24:36 +0800
+Message-ID: <536C4A74.2050103@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="GB2312"
 Content-Transfer-Encoding: 7bit
-Cc: jbenc@redhat.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: <hannes@stressinduktion.org>, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32940 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756017AbaEIDLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 23:11:36 -0400
-In-Reply-To: <5369FDE7.3030001@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([59.151.112.132]:9612 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752051AbaEID0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 May 2014 23:26:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 7 May 2014 17:33:27 +0800
 
-> In addition, use neigh_max_probes() to simplify function.
- ...
-> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
-...
-> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
+RFC 4861 states in 7.2.5:
 
-This is not an equivalent transformation, this changes things, in
-particular APP_PROBES will be included now.
+	The IsRouter flag in the cache entry MUST be set based on the
+         Router flag in the received advertisement.  In those cases
+         where the IsRouter flag changes from TRUE to FALSE as a result
+         of this update, the node MUST remove that router from the
+         Default Router List and update the Destination Cache entries
+         for all destinations using that neighbor as a router as
+         specified in Section 7.3.3.  This is needed to detect when a
+         node that is used as a router stops forwarding packets due to
+         being configured as a host.
 
-That's a functional change, not just "to simplify the function."
+Currently, when dealing with NA Message which IsRouter flag changes from
+TRUE to FALSE, the kernel only removes router from the Default Router List,
+and don't update the Destination Cache entries.
 
-You'll therefore need to explain in detail why this is a valid
-change and why it should be made.
+Now in order to update those Destination Cache entries, i introduce
+function rt6_clean_tohost().
+
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ include/net/ip6_route.h |  1 +
+ net/ipv6/ndisc.c        |  7 ++-----
+ net/ipv6/route.c        | 23 +++++++++++++++++++++++
+ 3 files changed, 26 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 6c4f5ea..216cecc 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -127,6 +127,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg);
+ void rt6_ifdown(struct net *net, struct net_device *dev);
+ void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
+ void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
++void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
+ 
+ 
+ /*
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 09a22f4..ca8d4ea 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -851,7 +851,7 @@ out:
+ static void ndisc_recv_na(struct sk_buff *skb)
+ {
+ 	struct nd_msg *msg = (struct nd_msg *)skb_transport_header(skb);
+-	const struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
++	struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
+ 	const struct in6_addr *daddr = &ipv6_hdr(skb)->daddr;
+ 	u8 *lladdr = NULL;
+ 	u32 ndoptlen = skb_tail_pointer(skb) - (skb_transport_header(skb) +
+@@ -944,10 +944,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
+ 			/*
+ 			 * Change: router to host
+ 			 */
+-			struct rt6_info *rt;
+-			rt = rt6_get_dflt_router(saddr, dev);
+-			if (rt)
+-				ip6_del_rt(rt);
++			rt6_clean_tohost(dev_net(dev),  saddr);
+ 		}
+ 
+ out:
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 004fffb..ebde127 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2234,6 +2234,29 @@ void rt6_remove_prefsrc(struct inet6_ifaddr *ifp)
+ 	fib6_clean_all(net, fib6_remove_prefsrc, &adni);
+ }
+ 
++/*remove routers and update dst entries when gateway turn into host.*/
++static int fib6_clean_tohost(struct rt6_info *rt, void *arg)
++{
++	struct in6_addr *gateway = (struct in6_addr *)arg;
++
++	if (((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
++	    == (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
++	    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
++		return -1;
++	} else if (((rt->rt6i_flags & (RTF_GATEWAY | RTF_CACHE))
++		      == (RTF_GATEWAY | RTF_CACHE))
++		    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
++		rt->rt6i_flags |= RTF_REJECT;
++		rt->dst.error = -ENETUNREACH;
++	}
++	return 0;
++}
++
++void rt6_clean_tohost(struct net *net, struct in6_addr *gateway)
++{
++	fib6_clean_all(net, fib6_clean_tohost, gateway);
++}
++
+ struct arg_dev_net {
+ 	struct net_device *dev;
+ 	struct net *net;
+-- 
+1.8.3.1
