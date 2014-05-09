@@ -1,78 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/6] Netfilter fixes for net
-Date: Fri,  9 May 2014 12:56:01 +0200
-Message-ID: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/6] netfilter: ctnetlink: don't add null bindings if no nat requested
+Date: Fri,  9 May 2014 12:56:02 +0200
+Message-ID: <1399632967-4423-2-git-send-email-pablo@netfilter.org>
+References: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40260 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:40270 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674AbaEIK4O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2014 06:56:14 -0400
+	id S1754610AbaEIK4R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 May 2014 06:56:17 -0400
+In-Reply-To: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Florian Westphal <fw@strlen.de>
 
-The following batch contains netfilter fixes for your net tree, they are:
+commit 0eba801b64cc8284d9024c7ece30415a2b981a72 tried to fix a race
+where nat initialisation can happen after ctnetlink-created conntrack
+has been created.
 
-1) Fix use after free in nfnetlink when sending a batch for some
-   unsupported subsystem, from Denys Fedoryshchenko.
+However, it causes the nat module(s) to be loaded needlessly on
+systems that are not using NAT.
 
-2) Skip autoload of the nat module if no binding is specified via
-   ctnetlink, from Florian Westphal.
+Fortunately, we do not have to create null bindings in that case.
 
-3) Set local_df after netfilter defragmentation to avoid a bogus ICMP
-   fragmentation needed in the forwarding path, also from Florian.
+conntracks injected via ctnetlink always have the CONFIRMED bit set,
+which prevents addition of the nat extension in nf_nat_ipv4/6_fn().
 
-4) Fix potential user after free in ip6_route_me_harder() when returning
-   the error code to the upper layers, from Sergey Popovich.
+We only need to make sure that either no nat extension is added
+or that we've created both src and dst manips.
 
-5) Skip possible bogus ICMP time exceeded emitted from the router (not
-   valid according to RFC) if conntrack zones are used, from Vasily Averin.
-
-6) Fix fragment handling when nf_defrag_ipv4 is loaded but nf_conntrack
-   is not present, also from Vasily.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 014f1b20108dc2c0bb0777d8383654a089c790f8:
-
-  net: bonding: Fix format string mismatch in bond_sysfs.c (2014-04-28 14:48:16 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to a8951d5814e1373807a94f79f7ccec7041325470:
-
-  netfilter: Fix potential use after free in ip6_route_me_harder() (2014-05-09 02:36:39 +0200)
-
-----------------------------------------------------------------
-Denys Fedoryshchenko (1):
-      netfilter: nfnetlink: Fix use after free when it fails to process batch
-
-Florian Westphal (2):
-      netfilter: ctnetlink: don't add null bindings if no nat requested
-      netfilter: ipv4: defrag: set local_df flag on defragmented skb
-
-Sergey Popovich (1):
-      netfilter: Fix potential use after free in ip6_route_me_harder()
-
-Vasily Averin (2):
-      ipv4: fix "conntrack zones" support for defrag user check in ip_expire
-      bridge: superfluous skb->nfct check in br_nf_dev_queue_xmit
-
- net/bridge/br_netfilter.c            |    4 ++--
- net/ipv4/ip_fragment.c               |    5 +++--
- net/ipv4/netfilter/nf_defrag_ipv4.c  |    5 +++--
- net/ipv6/netfilter.c                 |    6 ++++--
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/nf_conntrack_netlink.c |    3 +++
- net/netfilter/nfnetlink.c            |    8 ++++----
- 6 files changed, 19 insertions(+), 12 deletions(-)
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index ccc46fa..5857963 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1336,6 +1336,9 @@ ctnetlink_setup_nat(struct nf_conn *ct, const struct nlattr * const cda[])
+ #ifdef CONFIG_NF_NAT_NEEDED
+ 	int ret;
+ 
++	if (!cda[CTA_NAT_DST] && !cda[CTA_NAT_SRC])
++		return 0;
++
+ 	ret = ctnetlink_parse_nat_setup(ct, NF_NAT_MANIP_DST,
+ 					cda[CTA_NAT_DST]);
+ 	if (ret < 0)
+-- 
+1.7.10.4
