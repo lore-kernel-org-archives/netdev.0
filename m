@@ -1,53 +1,81 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6] netfilter: Fix potential use after free in ip6_route_me_harder()
-Date: Fri,  9 May 2014 12:56:07 +0200
-Message-ID: <1399632967-4423-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/6] netfilter: nfnetlink: Fix use after free when it fails to process batch
+Date: Fri,  9 May 2014 12:56:04 +0200
+Message-ID: <1399632967-4423-4-git-send-email-pablo@netfilter.org>
 References: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40276 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:40285 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755884AbaEIK4U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2014 06:56:20 -0400
+	id S1756358AbaEIK4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 May 2014 06:56:22 -0400
 In-Reply-To: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergey Popovich <popovich_sergei@mail.ru>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 
-Dst is released one line before we access it again with dst->error.
+This bug manifests when calling the nft command line tool without
+nf_tables kernel support.
 
-Fixes: 58e35d147128 netfilter: ipv6: propagate routing errors from
-ip6_route_me_harder()
+kernel message:
+[   44.071555] Netfilter messages via NETLINK v0.30.
+[   44.072253] BUG: unable to handle kernel NULL pointer dereference at 0000000000000119
+[   44.072264] IP: [<ffffffff8171db1f>] netlink_getsockbyportid+0xf/0x70
+[   44.072272] PGD 7f2b74067 PUD 7f2b73067 PMD 0
+[   44.072277] Oops: 0000 [#1] SMP
+[...]
+[   44.072369] Call Trace:
+[   44.072373]  [<ffffffff8171fd81>] netlink_unicast+0x91/0x200
+[   44.072377]  [<ffffffff817206c9>] netlink_ack+0x99/0x110
+[   44.072381]  [<ffffffffa004b951>] nfnetlink_rcv+0x3c1/0x408 [nfnetlink]
+[   44.072385]  [<ffffffff8171fde3>] netlink_unicast+0xf3/0x200
+[   44.072389]  [<ffffffff817201ef>] netlink_sendmsg+0x2ff/0x740
+[   44.072394]  [<ffffffff81044752>] ? __mmdrop+0x62/0x90
+[   44.072398]  [<ffffffff816dafdb>] sock_sendmsg+0x8b/0xc0
+[   44.072403]  [<ffffffff812f1af5>] ? copy_user_enhanced_fast_string+0x5/0x10
+[   44.072406]  [<ffffffff816dbb6c>] ? move_addr_to_kernel+0x2c/0x50
+[   44.072410]  [<ffffffff816db423>] ___sys_sendmsg+0x3c3/0x3d0
+[   44.072415]  [<ffffffff811301ba>] ? handle_mm_fault+0xa9a/0xc60
+[   44.072420]  [<ffffffff811362d6>] ? mmap_region+0x166/0x5a0
+[   44.072424]  [<ffffffff817da84c>] ? __do_page_fault+0x1dc/0x510
+[   44.072428]  [<ffffffff812b8b2c>] ? apparmor_capable+0x1c/0x60
+[   44.072435]  [<ffffffff817d6e9a>] ? _raw_spin_unlock_bh+0x1a/0x20
+[   44.072439]  [<ffffffff816dfc86>] ? release_sock+0x106/0x150
+[   44.072443]  [<ffffffff816dc212>] __sys_sendmsg+0x42/0x80
+[   44.072446]  [<ffffffff816dc262>] SyS_sendmsg+0x12/0x20
+[   44.072450]  [<ffffffff817df616>] system_call_fastpath+0x1a/0x1f
 
-Signed-off-by: Sergey Popovich <popovich_sergei@mail.ru>
+Signed-off-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/netfilter/nfnetlink.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-index 95f3f1d..d38e6a8 100644
---- a/net/ipv6/netfilter.c
-+++ b/net/ipv6/netfilter.c
-@@ -30,13 +30,15 @@ int ip6_route_me_harder(struct sk_buff *skb)
- 		.daddr = iph->daddr,
- 		.saddr = iph->saddr,
- 	};
-+	int err;
- 
- 	dst = ip6_route_output(net, skb->sk, &fl6);
--	if (dst->error) {
-+	err = dst->error;
-+	if (err) {
- 		IP6_INC_STATS(net, ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
- 		LIMIT_NETDEBUG(KERN_DEBUG "ip6_route_me_harder: No more route.\n");
- 		dst_release(dst);
--		return dst->error;
-+		return err;
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index e009087..23ef77c 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -256,15 +256,15 @@ replay:
+ #endif
+ 		{
+ 			nfnl_unlock(subsys_id);
+-			kfree_skb(nskb);
+-			return netlink_ack(skb, nlh, -EOPNOTSUPP);
++			netlink_ack(skb, nlh, -EOPNOTSUPP);
++			return kfree_skb(nskb);
+ 		}
  	}
  
- 	/* Drop old route. */
+ 	if (!ss->commit || !ss->abort) {
+ 		nfnl_unlock(subsys_id);
+-		kfree_skb(nskb);
+-		return netlink_ack(skb, nlh, -EOPNOTSUPP);
++		netlink_ack(skb, nlh, -EOPNOTSUPP);
++		return kfree_skb(skb);
+ 	}
+ 
+ 	while (skb->len >= nlmsg_total_size(0)) {
 -- 
 1.7.10.4
