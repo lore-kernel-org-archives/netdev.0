@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 6/8] tipc: improve and extend
-	media address conversion functions
-Date: Fri,  9 May 2014 09:13:27 -0400
-Message-ID: <1399641209-26112-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 7/8] tipc: clean up neigbor
+	discovery message reception
+Date: Fri,  9 May 2014 09:13:28 -0400
+Message-ID: <1399641209-26112-8-git-send-email-jon.maloy@ericsson.com>
 References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,386 +23,297 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-TIPC currently handles two media specific addresses: Ethernet MAC
-addresses and InfiniBand addresses. Those are kept in three different
-formats:
+The function tipc_disc_rcv(), which is handling received neighbor
+discovery messages, is perceived as messy, and it is hard to verify
+its correctness by code inspection. The fact that the task it is set
+to resolve is fairly complex does not make the situation better.
 
-1) A "raw" format as obtained from the device. This format is known
-   only by the media specific adapter code in eth_media.c and
-   ib_media.c.
-2) A "generic" internal format, in the form of struct tipc_media_addr,
-   which can be referenced and passed around by the generic media-
-   unaware code.
-3) A serialized version of the latter, to be conveyed in neighbor
-   discovery messages.
-
-Conversion between the three formats can only be done by the media
-specific code, so we have function pointers for this purpose in
-struct tipc_media. Here, the media adapters can install their own
-conversion functions at startup.
-
-We now introduce a new such function, 'raw2addr()', whose purpose
-is to convert from format 1 to format 2 above. We also try to as far
-as possible uniform commenting, variable names and usage of these
-functions, with the purpose of making them more comprehensible.
-
-We can now also remove the function tipc_l2_media_addr_set(), whose
-job is done better by the new function.
-
-Finally, we expand the field for serialized addresses (format 3)
-in discovery messages from 20 to 32 bytes. This is permitted
-according to the spec, and reduces the risk of problems when we
-add new media in the future.
+In this commit we try to take a more systematic approach to the
+problem. We define a decision machine which takes three state flags
+ as input, and produces three action flags as output. We then walk
+through all permutations of the state flags, and for each of them we
+describe verbally what is going on, plus that we set zero or more of
+the action flags. The action flags indicate what should be done once
+the decision machine has finished its job, while the last part of the
+function deals with performing those actions.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bearer.c    |   36 +++++++----------------------------
- net/tipc/bearer.h    |   35 ++++++++++++++++++----------------
- net/tipc/core.h      |    1 +
- net/tipc/discover.c  |    2 +-
- net/tipc/eth_media.c |   51 +++++++++++++++++++++++++++++++-------------------
- net/tipc/ib_media.c  |   34 ++++++++++++++++++++++-----------
- 6 files changed, 83 insertions(+), 76 deletions(-)
+ net/tipc/discover.c |  219 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 111 insertions(+), 108 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index f3259d4..2644743 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -411,28 +411,6 @@ int tipc_disable_bearer(const char *name)
- 	return res;
- }
- 
--
--/* tipc_l2_media_addr_set - initialize Ethernet media address structure
-- *
-- * Media-dependent "value" field stores MAC address in first 6 bytes
-- * and zeroes out the remaining bytes.
-- */
--void tipc_l2_media_addr_set(const struct tipc_bearer *b,
--			    struct tipc_media_addr *a, char *mac)
--{
--	int len = b->media->hwaddr_len;
--
--	if (unlikely(sizeof(a->value) < len)) {
--		WARN_ONCE(1, "Media length invalid\n");
--		return;
--	}
--
--	memcpy(a->value, mac, len);
--	memset(a->value + len, 0, sizeof(a->value) - len);
--	a->media_id = b->media->type_id;
--	a->broadcast = !memcmp(mac, b->bcast_addr.value, len);
--}
--
- int tipc_enable_l2_media(struct tipc_bearer *b)
- {
- 	struct net_device *dev;
-@@ -443,21 +421,21 @@ int tipc_enable_l2_media(struct tipc_bearer *b)
- 	if (!dev)
- 		return -ENODEV;
- 
--	/* Associate TIPC bearer with Ethernet bearer */
-+	/* Associate TIPC bearer with L2 bearer */
- 	rcu_assign_pointer(b->media_ptr, dev);
--	memset(b->bcast_addr.value, 0, sizeof(b->bcast_addr.value));
-+	memset(&b->bcast_addr, 0, sizeof(b->bcast_addr));
- 	memcpy(b->bcast_addr.value, dev->broadcast, b->media->hwaddr_len);
- 	b->bcast_addr.media_id = b->media->type_id;
- 	b->bcast_addr.broadcast = 1;
- 	b->mtu = dev->mtu;
--	tipc_l2_media_addr_set(b, &b->addr, (char *)dev->dev_addr);
-+	b->media->raw2addr(b, &b->addr, (char *)dev->dev_addr);
- 	rcu_assign_pointer(dev->tipc_ptr, b);
- 	return 0;
- }
- 
--/* tipc_disable_l2_media - detach TIPC bearer from an Ethernet interface
-+/* tipc_disable_l2_media - detach TIPC bearer from an L2 interface
-  *
-- * Mark Ethernet bearer as inactive so that incoming buffers are thrown away,
-+ * Mark L2 bearer as inactive so that incoming buffers are thrown away,
-  * then get worker thread to complete bearer cleanup.  (Can't do cleanup
-  * here because cleanup code needs to sleep and caller holds spinlocks.)
-  */
-@@ -473,7 +451,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
- }
- 
- /**
-- * tipc_l2_send_msg - send a TIPC packet out over an Ethernet interface
-+ * tipc_l2_send_msg - send a TIPC packet out over an L2 interface
-  * @buf: the packet to be sent
-  * @b_ptr: the bearer through which the packet is to be sent
-  * @dest: peer destination address
-@@ -597,7 +575,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
- 		tipc_reset_bearer(b_ptr);
- 		break;
- 	case NETDEV_CHANGEADDR:
--		tipc_l2_media_addr_set(b_ptr, &b_ptr->addr,
-+		b_ptr->media->raw2addr(b_ptr, &b_ptr->addr,
- 				       (char *)dev->dev_addr);
- 		tipc_reset_bearer(b_ptr);
- 		break;
-diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
-index a983b30..78fccc4 100644
---- a/net/tipc/bearer.h
-+++ b/net/tipc/bearer.h
-@@ -42,14 +42,12 @@
- #define MAX_BEARERS	2
- #define MAX_MEDIA	2
- 
--/*
-- * Identifiers associated with TIPC message header media address info
-- *
-- * - address info field is 20 bytes long
-- * - media type identifier located at offset 3
-- * - remaining bytes vary according to media type
-+/* Identifiers associated with TIPC message header media address info
-+ * - address info field is 32 bytes long
-+ * - the field's actual content and length is defined per media
-+ * - remaining unused bytes in the field are set to zero
-  */
--#define TIPC_MEDIA_ADDR_SIZE	20
-+#define TIPC_MEDIA_ADDR_SIZE	32
- #define TIPC_MEDIA_TYPE_OFFSET	3
- 
- /*
-@@ -77,9 +75,10 @@ struct tipc_bearer;
-  * @send_msg: routine which handles buffer transmission
-  * @enable_media: routine which enables a media
-  * @disable_media: routine which disables a media
-- * @addr2str: routine which converts media address to string
-- * @addr2msg: routine which converts media address to protocol message area
-- * @msg2addr: routine which converts media address from protocol message area
-+ * @addr2str: convert media address format to string
-+ * @addr2msg: convert from media addr format to discovery msg addr format
-+ * @msg2addr: convert from discovery msg addr format to media addr format
-+ * @raw2addr: convert from raw addr format to media addr format
-  * @priority: default link (and bearer) priority
-  * @tolerance: default time (in ms) before declaring link failure
-  * @window: default window (in packets) before declaring link congestion
-@@ -93,10 +92,16 @@ struct tipc_media {
- 			struct tipc_media_addr *dest);
- 	int (*enable_media)(struct tipc_bearer *b_ptr);
- 	void (*disable_media)(struct tipc_bearer *b_ptr);
--	int (*addr2str)(struct tipc_media_addr *a, char *str_buf, int str_size);
--	int (*addr2msg)(struct tipc_media_addr *a, char *msg_area);
--	int (*msg2addr)(const struct tipc_bearer *b_ptr,
--			struct tipc_media_addr *a, char *msg_area);
-+	int (*addr2str)(struct tipc_media_addr *addr,
-+			char *strbuf,
-+			int bufsz);
-+	int (*addr2msg)(char *msg, struct tipc_media_addr *addr);
-+	int (*msg2addr)(struct tipc_bearer *b,
-+			struct tipc_media_addr *addr,
-+			char *msg);
-+	int (*raw2addr)(struct tipc_bearer *b,
-+			struct tipc_media_addr *addr,
-+			char *raw);
- 	u32 priority;
- 	u32 tolerance;
- 	u32 window;
-@@ -175,8 +180,6 @@ int tipc_media_set_priority(const char *name, u32 new_value);
- int tipc_media_set_window(const char *name, u32 new_value);
- void tipc_media_addr_printf(char *buf, int len, struct tipc_media_addr *a);
- struct sk_buff *tipc_media_get_names(void);
--void tipc_l2_media_addr_set(const struct tipc_bearer *b,
--			    struct tipc_media_addr *a, char *mac);
- int tipc_enable_l2_media(struct tipc_bearer *b);
- void tipc_disable_l2_media(struct tipc_bearer *b);
- int tipc_l2_send_msg(struct sk_buff *buf, struct tipc_bearer *b,
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 2e00682..bb26ed1 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -57,6 +57,7 @@
- #include <linux/slab.h>
- #include <linux/vmalloc.h>
- #include <linux/rtnetlink.h>
-+#include <linux/etherdevice.h>
- 
- #define TIPC_MOD_VER "2.0.0"
- 
 diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index bd35c4a..b15cbed 100644
+index b15cbed..aa722a4 100644
 --- a/net/tipc/discover.c
 +++ b/net/tipc/discover.c
-@@ -83,7 +83,7 @@ static void tipc_disc_init_msg(struct sk_buff *buf, u32 type,
- 	msg_set_node_sig(msg, tipc_random);
- 	msg_set_dest_domain(msg, dest_domain);
- 	msg_set_bc_netid(msg, tipc_net_id);
--	b_ptr->media->addr2msg(&b_ptr->addr, msg_media_addr(msg));
-+	b_ptr->media->addr2msg(msg_media_addr(msg), &b_ptr->addr);
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/discover.c
+  *
+- * Copyright (c) 2003-2006, Ericsson AB
++ * Copyright (c) 2003-2006, 2014, Ericsson AB
+  * Copyright (c) 2005-2006, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -106,147 +106,150 @@ static void disc_dupl_alert(struct tipc_bearer *b_ptr, u32 node_addr,
  }
  
  /**
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index 67cf3f9..5e1426f 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/eth_media.c: Ethernet bearer support for TIPC
-  *
-- * Copyright (c) 2001-2007, 2013, Ericsson AB
-+ * Copyright (c) 2001-2007, 2013-2014, Ericsson AB
-  * Copyright (c) 2005-2008, 2011-2013, Wind River Systems
-  * All rights reserved.
-  *
-@@ -37,39 +37,52 @@
- #include "core.h"
- #include "bearer.h"
- 
--#define ETH_ADDR_OFFSET	4	/* message header offset of MAC address */
-+#define ETH_ADDR_OFFSET  4  /* MAC addr position inside address field */
- 
--/* convert Ethernet address to string */
--static int tipc_eth_addr2str(struct tipc_media_addr *a, char *str_buf,
--			     int str_size)
-+/* Convert Ethernet address (media address format) to string */
-+static int tipc_eth_addr2str(struct tipc_media_addr *addr,
-+			     char *strbuf, int bufsz)
+- * tipc_disc_rcv - handle incoming link setup message (request or response)
++ * tipc_disc_rcv - handle incoming discovery message (request or response)
+  * @buf: buffer containing message
+- * @b_ptr: bearer that message arrived on
++ * @bearer: bearer that message arrived on
+  */
+-void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *b_ptr)
++void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *bearer)
  {
--	if (str_size < 18)	/* 18 = strlen("aa:bb:cc:dd:ee:ff\0") */
-+	if (bufsz < 18)	/* 18 = strlen("aa:bb:cc:dd:ee:ff\0") */
- 		return 1;
- 
--	sprintf(str_buf, "%pM", a->value);
-+	sprintf(strbuf, "%pM", addr->value);
- 	return 0;
- }
- 
--/* convert Ethernet address format to message header format */
--static int tipc_eth_addr2msg(struct tipc_media_addr *a, char *msg_area)
-+/* Convert from media address format to discovery message addr format */
-+static int tipc_eth_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
--	memset(msg_area, 0, TIPC_MEDIA_ADDR_SIZE);
--	msg_area[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
--	memcpy(msg_area + ETH_ADDR_OFFSET, a->value, ETH_ALEN);
-+	memset(msg, 0, TIPC_MEDIA_ADDR_SIZE);
-+	msg[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_ETH;
-+	memcpy(msg + ETH_ADDR_OFFSET, addr->value, ETH_ALEN);
- 	return 0;
- }
- 
--/* convert message header address format to Ethernet format */
--static int tipc_eth_msg2addr(const struct tipc_bearer *tb_ptr,
--			     struct tipc_media_addr *a, char *msg_area)
-+/* Convert raw mac address format to media addr format */
-+static int tipc_eth_raw2addr(struct tipc_bearer *b,
-+			     struct tipc_media_addr *addr,
-+			     char *msg)
- {
--	if (msg_area[TIPC_MEDIA_TYPE_OFFSET] != TIPC_MEDIA_TYPE_ETH)
--		return 1;
-+	char bcast_mac[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
- 
--	tipc_l2_media_addr_set(tb_ptr, a, msg_area + ETH_ADDR_OFFSET);
-+	memset(addr, 0, sizeof(*addr));
-+	ether_addr_copy(addr->value, msg);
-+	addr->media_id = TIPC_MEDIA_TYPE_ETH;
-+	addr->broadcast = !memcmp(addr->value, bcast_mac, ETH_ALEN);
- 	return 0;
- }
- 
-+/* Convert discovery msg addr format to Ethernet media addr format */
-+static int tipc_eth_msg2addr(struct tipc_bearer *b,
-+			     struct tipc_media_addr *addr,
-+			     char *msg)
-+{
-+	/* Skip past preamble: */
-+	msg += ETH_ADDR_OFFSET;
-+	return tipc_eth_raw2addr(b, addr, msg);
-+}
-+
- /* Ethernet media registration info */
- struct tipc_media eth_media_info = {
- 	.send_msg	= tipc_l2_send_msg,
-@@ -78,6 +91,7 @@ struct tipc_media eth_media_info = {
- 	.addr2str	= tipc_eth_addr2str,
- 	.addr2msg	= tipc_eth_addr2msg,
- 	.msg2addr	= tipc_eth_msg2addr,
-+	.raw2addr	= tipc_eth_raw2addr,
- 	.priority	= TIPC_DEF_LINK_PRI,
- 	.tolerance	= TIPC_DEF_LINK_TOL,
- 	.window		= TIPC_DEF_LINK_WIN,
-@@ -85,4 +99,3 @@ struct tipc_media eth_media_info = {
- 	.hwaddr_len	= ETH_ALEN,
- 	.name		= "eth"
- };
+-	struct tipc_node *n_ptr;
++	struct tipc_node *node;
+ 	struct tipc_link *link;
+-	struct tipc_media_addr media_addr;
++	struct tipc_media_addr maddr;
+ 	struct sk_buff *rbuf;
+ 	struct tipc_msg *msg = buf_msg(buf);
+-	u32 dest = msg_dest_domain(msg);
+-	u32 orig = msg_prevnode(msg);
++	u32 ddom = msg_dest_domain(msg);
++	u32 onode = msg_prevnode(msg);
+ 	u32 net_id = msg_bc_netid(msg);
+-	u32 type = msg_type(msg);
++	u32 mtyp = msg_type(msg);
+ 	u32 signature = msg_node_sig(msg);
+-	int addr_mismatch;
+-	int link_fully_up;
 -
-diff --git a/net/tipc/ib_media.c b/net/tipc/ib_media.c
-index 844a77e..8522eef 100644
---- a/net/tipc/ib_media.c
-+++ b/net/tipc/ib_media.c
-@@ -42,7 +42,7 @@
- #include "core.h"
- #include "bearer.h"
- 
--/* convert InfiniBand address to string */
-+/* convert InfiniBand address (media address format) media address to string */
- static int tipc_ib_addr2str(struct tipc_media_addr *a, char *str_buf,
- 			    int str_size)
- {
-@@ -54,23 +54,35 @@ static int tipc_ib_addr2str(struct tipc_media_addr *a, char *str_buf,
- 	return 0;
- }
- 
--/* convert InfiniBand address format to message header format */
--static int tipc_ib_addr2msg(struct tipc_media_addr *a, char *msg_area)
-+/* Convert from media address format to discovery message addr format */
-+static int tipc_ib_addr2msg(char *msg, struct tipc_media_addr *addr)
- {
--	memset(msg_area, 0, TIPC_MEDIA_ADDR_SIZE);
--	msg_area[TIPC_MEDIA_TYPE_OFFSET] = TIPC_MEDIA_TYPE_IB;
--	memcpy(msg_area, a->value, INFINIBAND_ALEN);
-+	memset(msg, 0, TIPC_MEDIA_ADDR_SIZE);
-+	memcpy(msg, addr->value, INFINIBAND_ALEN);
- 	return 0;
- }
- 
--/* convert message header address format to InfiniBand format */
--static int tipc_ib_msg2addr(const struct tipc_bearer *tb_ptr,
--			    struct tipc_media_addr *a, char *msg_area)
-+/* Convert raw InfiniBand address format to media addr format */
-+static int tipc_ib_raw2addr(struct tipc_bearer *b,
-+			    struct tipc_media_addr *addr,
-+			    char *msg)
- {
--	tipc_l2_media_addr_set(tb_ptr, a, msg_area);
-+	memset(addr, 0, sizeof(*addr));
-+	memcpy(addr->value, msg, INFINIBAND_ALEN);
-+	addr->media_id = TIPC_MEDIA_TYPE_IB;
-+	addr->broadcast = !memcmp(msg, b->bcast_addr.value,
-+				  INFINIBAND_ALEN);
- 	return 0;
- }
- 
-+/* Convert discovery msg addr format to InfiniBand media addr format */
-+static int tipc_ib_msg2addr(struct tipc_bearer *b,
-+			    struct tipc_media_addr *addr,
-+			    char *msg)
-+{
-+	return tipc_ib_raw2addr(b, addr, msg);
-+}
+-	media_addr.broadcast = 1;
+-	b_ptr->media->msg2addr(b_ptr, &media_addr, msg_media_addr(msg));
++	bool addr_match = false;
++	bool sign_match = false;
++	bool link_up = false;
++	bool accept_addr = false;
++	bool accept_sign = false;
++	bool respond = false;
 +
- /* InfiniBand media registration info */
- struct tipc_media ib_media_info = {
- 	.send_msg	= tipc_l2_send_msg,
-@@ -79,6 +91,7 @@ struct tipc_media ib_media_info = {
- 	.addr2str	= tipc_ib_addr2str,
- 	.addr2msg	= tipc_ib_addr2msg,
- 	.msg2addr	= tipc_ib_msg2addr,
-+	.raw2addr	= tipc_ib_raw2addr,
- 	.priority	= TIPC_DEF_LINK_PRI,
- 	.tolerance	= TIPC_DEF_LINK_TOL,
- 	.window		= TIPC_DEF_LINK_WIN,
-@@ -86,4 +99,3 @@ struct tipc_media ib_media_info = {
- 	.hwaddr_len	= INFINIBAND_ALEN,
- 	.name		= "ib"
- };
++	bearer->media->msg2addr(bearer, &maddr, msg_media_addr(msg));
+ 	kfree_skb(buf);
+ 
+ 	/* Ensure message from node is valid and communication is permitted */
+ 	if (net_id != tipc_net_id)
+ 		return;
+-	if (media_addr.broadcast)
++	if (maddr.broadcast)
+ 		return;
+-	if (!tipc_addr_domain_valid(dest))
++	if (!tipc_addr_domain_valid(ddom))
+ 		return;
+-	if (!tipc_addr_node_valid(orig))
++	if (!tipc_addr_node_valid(onode))
+ 		return;
+-	if (orig == tipc_own_addr) {
+-		if (memcmp(&media_addr, &b_ptr->addr, sizeof(media_addr)))
+-			disc_dupl_alert(b_ptr, tipc_own_addr, &media_addr);
++
++	if (in_own_node(onode)) {
++		if (memcmp(&maddr, &bearer->addr, sizeof(maddr)))
++			disc_dupl_alert(bearer, tipc_own_addr, &maddr);
+ 		return;
+ 	}
+-	if (!tipc_in_scope(dest, tipc_own_addr))
++	if (!tipc_in_scope(ddom, tipc_own_addr))
+ 		return;
+-	if (!tipc_in_scope(b_ptr->domain, orig))
++	if (!tipc_in_scope(bearer->domain, onode))
+ 		return;
+ 
+-	/* Locate structure corresponding to requesting node */
+-	n_ptr = tipc_node_find(orig);
+-	if (!n_ptr) {
+-		n_ptr = tipc_node_create(orig);
+-		if (!n_ptr)
+-			return;
+-	}
+-	tipc_node_lock(n_ptr);
++	/* Locate, or if necessary, create, node: */
++	node = tipc_node_find(onode);
++	if (!node)
++		node = tipc_node_create(onode);
++	if (!node)
++		return;
+ 
+-	/* Prepare to validate requesting node's signature and media address */
+-	link = n_ptr->links[b_ptr->identity];
+-	addr_mismatch = (link != NULL) &&
+-		memcmp(&link->media_addr, &media_addr, sizeof(media_addr));
++	tipc_node_lock(node);
++	link = node->links[bearer->identity];
+ 
+-	/*
+-	 * Ensure discovery message's signature is correct
+-	 *
+-	 * If signature is incorrect and there is no working link to the node,
+-	 * accept the new signature but invalidate all existing links to the
+-	 * node so they won't re-activate without a new discovery message.
+-	 *
+-	 * If signature is incorrect and the requested link to the node is
+-	 * working, accept the new signature. (This is an instance of delayed
+-	 * rediscovery, where a link endpoint was able to re-establish contact
+-	 * with its peer endpoint on a node that rebooted before receiving a
+-	 * discovery message from that node.)
+-	 *
+-	 * If signature is incorrect and there is a working link to the node
+-	 * that is not the requested link, reject the request (must be from
+-	 * a duplicate node).
+-	 */
+-	if (signature != n_ptr->signature) {
+-		if (n_ptr->working_links == 0) {
+-			struct tipc_link *curr_link;
+-			int i;
 -
+-			for (i = 0; i < MAX_BEARERS; i++) {
+-				curr_link = n_ptr->links[i];
+-				if (curr_link) {
+-					memset(&curr_link->media_addr, 0,
+-					       sizeof(media_addr));
+-					tipc_link_reset(curr_link);
+-				}
+-			}
+-			addr_mismatch = (link != NULL);
+-		} else if (tipc_link_is_up(link) && !addr_mismatch) {
+-			/* delayed rediscovery */
+-		} else {
+-			disc_dupl_alert(b_ptr, orig, &media_addr);
+-			tipc_node_unlock(n_ptr);
+-			return;
+-		}
+-		n_ptr->signature = signature;
++	/* Prepare to validate requesting node's signature and media address */
++	sign_match = (signature == node->signature);
++	addr_match = link && !memcmp(&link->media_addr, &maddr, sizeof(maddr));
++	link_up = link && tipc_link_is_up(link);
++
++
++	/* These three flags give us eight permutations: */
++
++	if (sign_match && addr_match && link_up) {
++		/* All is fine. Do nothing. */
++	} else if (sign_match && addr_match && !link_up) {
++		/* Respond. The link will come up in due time */
++		respond = true;
++	} else if (sign_match && !addr_match && link_up) {
++		/* Peer has changed i/f address without rebooting.
++		 * If so, the link will reset soon, and the next
++		 * discovery will be accepted. So we can ignore it.
++		 * It may also be an cloned or malicious peer having
++		 * chosen the same node address and signature as an
++		 * existing one.
++		 * Ignore requests until the link goes down, if ever.
++		 */
++		disc_dupl_alert(bearer, onode, &maddr);
++	} else if (sign_match && !addr_match && !link_up) {
++		/* Peer link has changed i/f address without rebooting.
++		 * It may also be a cloned or malicious peer; we can't
++		 * distinguish between the two.
++		 * The signature is correct, so we must accept.
++		 */
++		accept_addr = true;
++		respond = true;
++	} else if (!sign_match && addr_match && link_up) {
++		/* Peer node rebooted. Two possibilities:
++		 *  - Delayed re-discovery; this link endpoint has already
++		 *    reset and re-established contact with the peer, before
++		 *    receiving a discovery message from that node.
++		 *    (The peer happened to receive one from this node first).
++		 *  - The peer came back so fast that our side has not
++		 *    discovered it yet. Probing from this side will soon
++		 *    reset the link, since there can be no working link
++		 *    endpoint at the peer end, and the link will re-establish.
++		 *  Accept the signature, since it comes from a known peer.
++		 */
++		accept_sign = true;
++	} else if (!sign_match && addr_match && !link_up) {
++		/*  The peer node has rebooted.
++		 *  Accept signature, since it is a known peer.
++		 */
++		accept_sign = true;
++		respond = true;
++	} else if (!sign_match && !addr_match && link_up) {
++		/* Peer rebooted with new address, or a new/duplicate peer.
++		 * Ignore until the link goes down, if ever.
++		 */
++		disc_dupl_alert(bearer, onode, &maddr);
++	} else if (!sign_match && !addr_match && !link_up) {
++		/* Peer rebooted with new address, or it is a new peer.
++		 * Accept signature and address.
++		*/
++		accept_sign = true;
++		accept_addr = true;
++		respond = true;
+ 	}
+ 
+-	/*
+-	 * Ensure requesting node's media address is correct
+-	 *
+-	 * If media address doesn't match and the link is working, reject the
+-	 * request (must be from a duplicate node).
+-	 *
+-	 * If media address doesn't match and the link is not working, accept
+-	 * the new media address and reset the link to ensure it starts up
+-	 * cleanly.
+-	 */
+-	if (addr_mismatch) {
+-		if (tipc_link_is_up(link)) {
+-			disc_dupl_alert(b_ptr, orig, &media_addr);
+-			tipc_node_unlock(n_ptr);
+-			return;
+-		} else {
+-			memcpy(&link->media_addr, &media_addr,
+-			       sizeof(media_addr));
+-			tipc_link_reset(link);
+-		}
+-	}
++	if (accept_sign)
++		node->signature = signature;
+ 
+-	/* Create a link endpoint for this bearer, if necessary */
+-	if (!link) {
+-		link = tipc_link_create(n_ptr, b_ptr, &media_addr);
+-		if (!link) {
+-			tipc_node_unlock(n_ptr);
+-			return;
++	if (accept_addr) {
++		if (!link)
++			link = tipc_link_create(node, bearer, &maddr);
++		if (link) {
++			memcpy(&link->media_addr, &maddr, sizeof(maddr));
++			tipc_link_reset(link);
++		} else {
++			respond = false;
+ 		}
+ 	}
+ 
+-	/* Accept discovery message & send response, if necessary */
+-	link_fully_up = link_working_working(link);
+-
+-	if ((type == DSC_REQ_MSG) && !link_fully_up) {
++	/* Send response, if necessary */
++	if (respond && (mtyp == DSC_REQ_MSG)) {
+ 		rbuf = tipc_buf_acquire(INT_H_SIZE);
+ 		if (rbuf) {
+-			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, b_ptr);
+-			tipc_bearer_send(b_ptr->identity, rbuf, &media_addr);
++			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, bearer);
++			tipc_bearer_send(bearer->identity, rbuf, &maddr);
+ 			kfree_skb(rbuf);
+ 		}
+ 	}
+-
+-	tipc_node_unlock(n_ptr);
++	tipc_node_unlock(node);
+ }
+ 
+ /**
 -- 
 1.7.9.5
 
