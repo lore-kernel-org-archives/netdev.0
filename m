@@ -1,54 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net] rtnetlink: call rtnl_lock_unregistering() in
- rtnl_link_unregister()
-Date: Fri, 9 May 2014 12:02:41 -0700
-Message-ID: <20140509120241.3b628dc1@nehalam.linuxnetplumber.net>
-References: <1399657653-4909-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140509110345.417d2b90@nehalam.linuxnetplumber.net>
-	<CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
+Subject: Re: [PATCH iproute2] tc/netem: fix loss state display and p14
+ parsing
+Date: Fri, 9 May 2014 12:07:49 -0700
+Message-ID: <20140509120749.0150c757@nehalam.linuxnetplumber.net>
+References: <13144.1399600940@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, netem@lists.linux-foundation.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:55931 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754499AbaEITCp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 15:02:45 -0400
-Received: by mail-pd0-f181.google.com with SMTP id w10so3991161pde.26
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 12:02:45 -0700 (PDT)
-In-Reply-To: <CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:58410 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756903AbaEITHw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 15:07:52 -0400
+Received: by mail-pd0-f172.google.com with SMTP id g10so4104703pdj.3
+        for <netdev@vger.kernel.org>; Fri, 09 May 2014 12:07:52 -0700 (PDT)
+In-Reply-To: <13144.1399600940@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 9 May 2014 11:10:36 -0700
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On Thu, 08 May 2014 19:02:20 -0700
+Jay Vosburgh <jay.vosburgh@canonical.com> wrote:
 
-> On Fri, May 9, 2014 at 11:03 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Fri,  9 May 2014 10:47:33 -0700
-> > Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> >
-> >> I know making rtnl_lock_unregistering() a macro is ugly, but I don't find
-> >> any less ugly way to fix it unless we duplicate the code. For long term,
-> >> I think we should clean up the mess of netdev_run_todo() and net namespce
-> >> exit code.
-> >
-> > Huh, why isn't a real function going to work.
 > 
-> Because in its callers:
+> 	The display of the entire netem loss state is shown as if it
+> were gemodel state, as the loss state information is assigned to the
+> wrong pointer.  Correct this by assigning the loss state to the correct
+> pointer.
 > 
-> +       rtnl_lock_unregistering(net_list, exit_list);
-> +       rtnl_lock_unregistering(&net_namespace_list, list);
+> 	Additionally, attempting to set netem loss state will result in
+> random values in the p14 state probability because the option value
+> passed to the kernel by tc netem is not parsed or initialized.  Fix this
+> by supplying a default value of 0 for p14 and parsing the p14 value if
+> one is supplied.
 > 
-> struct net is linked via ->exit_list in net_list and is linked
-> via ->list in net_namespace_list.
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 > 
-> This can't be done without a macro (at least for me). Or
-> we have to duplicate the code.
+> ---
+>  tc/q_netem.c | 10 +++++++++-
+>  1 file changed, 9 insertions(+), 1 deletion(-)
 
-macro method is too ugly, figure out a better way.
+Applied
