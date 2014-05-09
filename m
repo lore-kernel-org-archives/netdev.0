@@ -1,47 +1,55 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net: rename local_df to ignore_df
-Date: Thu, 8 May 2014 21:40:39 -0700
-Message-ID: <CAM_iQpXzYsHc7i3hx5UVONbQA6+z3S5M=gq5o0FhQq+7FD+RPw@mail.gmail.com>
-References: <1399246758-29795-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140507.153014.491918803207368640.davem@davemloft.net>
+From: George Cherian <george.cherian@ti.com>
+Subject: Re: [PATCH v2 2/3] net: davinci_mdio: Convert pr_err() to dev_err()
+ call
+Date: Fri, 9 May 2014 10:45:17 +0530
+Message-ID: <536C6465.6060907@ti.com>
+References: <1399542652-14900-1-git-send-email-george.cherian@ti.com> <1399542652-14900-3-git-send-email-george.cherian@ti.com> <B5657A6538887040AD3A81F1008BEC63AD20DC@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:65310 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbaEIEkj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 00:40:39 -0400
-Received: by mail-oa0-f45.google.com with SMTP id l6so4243013oag.4
-        for <netdev@vger.kernel.org>; Thu, 08 May 2014 21:40:39 -0700 (PDT)
-In-Reply-To: <20140507.153014.491918803207368640.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"mugunthanvnm@ti.com" <mugunthanvnm@ti.com>,
+	"balbi@ti.com" <balbi@ti.com>,
+	"zonque@gmail.com" <zonque@gmail.com>,
+	"mpa@pengutronix.de" <mpa@pengutronix.de>,
+	"tklauser@distanz.ch" <tklauser@distanz.ch>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63AD20DC@avmb3.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 7, 2014 at 12:30 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Sun,  4 May 2014 16:39:18 -0700
->
->> As suggested by several people, rename local_df to ignore_df,
->> since it means "ignore df bit if it is set".
+On 5/8/2014 10:20 PM, Yuval Mintz wrote:
+>> Also, Convert kzalloc to devm_kzalloc.
+> Looks like you should remove this part of the comment.
+Ah... Missed to update the commit log after rebasing patch to net-next.
+>> Signed-off-by: George Cherian <george.cherian@ti.com>
+>> Reviewed-by: Felipe Balbi <balbi@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/davinci_mdio.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
 >>
->> Cc: Maciej =C5=BBenczykowski <maze@google.com>
->> Cc: Florian Westphal <fw@strlen.de>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c
+>> b/drivers/net/ethernet/ti/davinci_mdio.c
+>> index 34e97ec..735dc53 100644
+>> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+>> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+>> @@ -303,7 +303,7 @@ static int davinci_mdio_probe_dt(struct
+>> mdio_platform_data *data,
+>>                return -EINVAL;
+>>
+>>        if (of_property_read_u32(node, "bus_freq", &prop)) {
+>> -             pr_err("Missing bus_freq property in the DT.\n");
+>> +             dev_err(&pdev->dev, "Missing bus_freq property in the DT.\n");
+>>                return -EINVAL;
+>>        }
+>>        data->bus_freq = prop;
+> ________________________________
 >
-> I'll apply this the next time I merge net into net-next in order to d=
-eal
-> with the conflict with Florian's bug fixes more easily.
->
+> This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
-Sounds good to me.
 
-Thanks.
+-- 
+-George
