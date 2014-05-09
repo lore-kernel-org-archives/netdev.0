@@ -1,81 +1,100 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/8] tipc: decrease connection flow control
- window
-Date: Fri, 9 May 2014 16:35:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F7107C3@AcuExch.aculab.com>
-References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
- <1399641209-26112-2-git-send-email-jon.maloy@ericsson.com>
- <063D6719AE5E284EB5DD2968C1650D6D0F71067C@AcuExch.aculab.com>
- <20140509142739.GQ30044@eerihug-hybrid.rnd.ki.sw.ericsson.se>
- <063D6719AE5E284EB5DD2968C1650D6D0F71075B@AcuExch.aculab.com>
- <536CFBAB.8050107@donjonn.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [RFC PATCH] net: Provide linear backoff mechanism for
+ constrained resources at the driver
+Date: Fri, 9 May 2014 13:02:42 -0400
+Message-ID: <20140509170242.GF13793@hmsreliant.think-freely.org>
+References: <20140507.155613.630399521517455317.davem@davemloft.net>
+ <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F71037C@AcuExch.aculab.com>
+ <20140509111751.GB13793@hmsreliant.think-freely.org>
+ <063D6719AE5E284EB5DD2968C1650D6D0F710574@AcuExch.aculab.com>
+ <20140509153321.GE13793@hmsreliant.think-freely.org>
+ <063D6719AE5E284EB5DD2968C1650D6D0F710792@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: 'Jon Maloy' <jon.maloy@ericsson.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: 'Jon Maloy' <maloy@donjonn.com>,
-	"'erik.hugne@ericsson.com'" <erik.hugne@ericsson.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58672 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753378AbaEIQgh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 12:36:37 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15517-08 for <netdev@vger.kernel.org>;
- Fri,  9 May 2014 17:36:28 +0100 (BST)
-In-Reply-To: <536CFBAB.8050107@donjonn.com>
-Content-Language: en-US
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45489 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932286AbaEIRCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 13:02:54 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D0F710792@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy
-> On 05/09/2014 10:59 AM, David Laight wrote:
-> > From: erik.hugne@ericsson.
-> >> On Fri, May 09, 2014 at 01:30:43PM +0000, David Laight wrote:
-> >>> Sounds a bit like a badly designed protocol to me...
-> >> Well, i don't like this either but the current message-oriented flowcontrol
-> >> will eventually be replaced with a byte-based one. Right now we're trying
-> >> to find a way to adapt a message-oriented flow control to per-socket buffer
-> >> constraints, without breaking protocol compatibility.
-> > I wasn't thinking of the byte/message flow control problems.
-> > More of only requesting acks every 512 messages
+On Fri, May 09, 2014 at 03:46:14PM +0000, David Laight wrote:
+> From: Neil Horman [mailto:nhorman@tuxdriver.com]
+> ...
+> > 2 Things:
+> > 
+> > 1) Need is really a strong term here.  The penalty for failing a dma mapping is
+> > to drop the frame.  Thats not unacceptible in many use cases.
 > 
-> Acks are not requested, they are sent out unsolicited at fix
-> intervals, controlled by the reading capacity of the receiving
-> process.
+> Indeed, but dropping an ethernet frame will be recovered by the higher layers.
+> While not ideal, it is a 'last resort' action.
+No argument there, but its the best we have at the moment.
 
-Requested by the received side...
+> Note that I'm not suggesting that your deferred retry of the transmit isn't
+> a good idea, just that it is probably papering over the cracks.
+> 
+Except that forcing everyone to a lower througput based on worst case scenarios
+doesn't seem like a better solution to me.
 
-> The fundamental problem we have is that we acknowledge
-> messages, without considering their size, so a sender won't
-> stop (there is no active stop message from the receiver) until
-> he has sent 512 messages and not received an ack, which in
-> the worst case amounts to 512 x truesize(64KB) = 67 MB
-> outstanding data. This is what the receiving socket must
-> be able to absorb, in order to avoid broken connections.
+> > 2) It seems to me that global constraint here implies a static, well known
+> > number.  While its true we can interrogate an iommu, and compare its mapping
+> > size to the ring size of all the NICS/devices on a system to see if we're likely
+> > to exceed the iommu space available, we shouldn't do that.  If a given NIC
+> > doesn't produce much traffic, its ring sizes aren't relevant to the computation.
+> 
+> An idle NIC will be using a lot of iommu entries for its receive buffers.
+> 
+Yes, and thats really the point!  Only an Idle NIC will be (mis)using alot of
+extra iommu entries.  But we have no way to know if a NIC will be idle, we have
+to reserve space for them in the iommu because thats how the hardware is
+designed.  The only recourse we have here is to reserve less space for each NIC
+RX ring, which punishes those NICS that are active, which is the opposite of
+what we really want to do here.
 
-Even 512 x 64kB is a lot.
-I thought that a 64k skb would only have a truesize of 72k (with 4k pages).
-I'm also guessing that an ethernet controller that can do txp rx offloading
-might have to allocate 64k skb - so a single 1500 byte ethernet frame
-is likely to be in an skb with a truesize of 72k.
-I'm not sure if this affects your 128k truesize though.
+> > We're not trying to address a static allocation scheme here.  If a system boots,
+> > it implies that all the recive rings on all the devices were able to reserve the
+> > amount of space they needed in the iommu (as you note earlier, they populate
+> > their rings on init, effectively doing a iommu reservation).  The problem we're
+> > addressing is the periodic lack of space that arises from temporary exhaustion
+> > of iommu space under heavy I/O loads.  We won't know if that happens, until it
+> > happens, and we can't just allocate for the worst case, because then we're sure
+> > to run out of space as devices scale up.  Sharing is the way to do this whenever
+> > possible.
+> 
+> Do you have any data for which drivers have active iommu entries when an
+> allocate fails?
+> 
+No, but I'm not sure it matters which driver holds DMA descriptors when an
+allocation failure occurs.  I'm operating under the assumption here that drivers
+are attempting to allocate a reasonable number of buffers for the work they need
+to do.  I'm not arguing that we can't reclaim space by forcing any given drier
+to allocate less, only that doing so isn't helpful in that it will just decrease
+receive througput.  We're trading in one problem for another.
 
-(Pasted from below)
-> TIPC connections always run over a reliable media, - its own link
-> layer. This means that the connection layer does not have any
-> form of sequence numbering or retransmission, -it just assumes
-> that everything arrives in order and without losses, as long
-> as the link layer doesn't tell it otherwise.
+> I can imagine systems where almost all the iommu entries are being used
+> for ethernet rx buffers, and everything else is fighting for the last
+> few entries.
+> 
+I would argue that its not quite as unbalance as all/few, but yes, your ponit is
+sound in that the tx path is fighting for a reduced pool of shared buffers
+because of the nature of the RX paths' pre-allocation needs.  We could reduce
+the number of those buffers statically, but thats really an administrative job
+because the kernel never really knows when a NIC is going to be a high volume
+producer or consumer.
 
-Hmmm... If multiple connections are multiplexed over a single
-link you are completely stuffed!
+Hmm, that actually makes me wonder, is this a job for something like tuned up in
+user space?  or a cmobination of something like my backoff patch and tuned?  The
+backoff patch helps the tx path in case of an actuall exhaustion, and tuned can
+be administratively loaded with a profile to indicate which nics are likely to
+be low volume, and therefore can have their ring sizes reduced, giving the iommu
+the maximum free pool to services all the other dma users?
 
-	David
+What do you think?
+Neil
