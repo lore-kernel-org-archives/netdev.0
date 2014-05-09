@@ -1,74 +1,43 @@
-From: Boris BREZILLON <boris.brezillon@free-electrons.com>
-Subject: Re: [PATCH] netdev: add support for interface name retrieval from
- DT aliases
-Date: Fri, 09 May 2014 10:26:46 +0200
-Message-ID: <536C9146.2060007@free-electrons.com>
-References: <1399390594-1409-1-git-send-email-boris.brezillon@free-electrons.com> <20140508.224252.1337086843732451389.davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] sch_hhf: fix comparison of qlen and limit
+Date: Fri, 9 May 2014 16:49:05 +0800
+Message-ID: <1399625345-6588-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: olof@lixom.net, nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140508.224252.1337086843732451389.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <vtlam@google.com>,
+	<nanditad@google.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:47101 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751055AbaEIItn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 04:49:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+When I use the following command, eth0 cannot send any packets.
+ #tc qdisc add dev eth0 root handle 1: hhf limit 1
 
-On 09/05/2014 04:42, David Miller wrote:
-> From: Boris BREZILLON <boris.brezillon@free-electrons.com>
-> Date: Tue,  6 May 2014 17:36:34 +0200
->
->> There is currently no proper way to bind a net interface to a specific
->> name. The interface name is chosen based on the interface type (eth,
->> wlan, ...) and the interfaces already registered (the core codes takes
->> the first unused interface id of the given type).
->>
->> Add support for DT retrieval of the interface id based on DT aliases.
->> The alias name must match the interface type (e.g. ethX if you're defining
->> an ethernet dev alias).
->>
->> Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
-> This really isn't kosher at all.
+Because qlen need be smaller than limit, all packets were dropped.
+Fix this by qlen *<=* limit.
 
-Just for my personal knowledge, what is wrong with this code ?
-Is it because I'm using "of_" functions in the core code, and you want
-to keep it DT agnostic ?
-Or is it something else ?
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_hhf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->
-> And there absolutely is a proper way to bind a net interface to
-> a specific name, udev has provided this facility for years.
-
-Thanks for pointing this out.
-
-But, what if the system does not use udev (this is often the case on
-embedded systems where udev is replaced by mdev) ?
-Moreover, on embedded systems, most users rely on the default interface
-name provided by the kernel.
-
-IIRC (tell me if I'm wrong), before moving to DT we could control the
-probe order of net interfaces derived from platform devices by modifying
-the platform dev registration order (okay, this is only true if the
-platform devices are controlled by the same driver, which is often the
-case when a SoC provides several net interfaces).
-With DT we can't know for sure the exact probe order because it depends
-on the net interface node position in the DT, and this node position
-might change over the time (or at least it used to change, now that
-we're enforced to declare DT nodes in strict memory @ order it should
-not change that much).
-
-Another issue: what if I want to rename eth0 into eth1 and eth1 into eth0 ?
-I guess I'll have to execute this sequence: eth1 -> eth2, eth0 -> eth1,
-eth2 -> eth0, otherwise the SIOCSIFNAME ioctl will return an error.
-
-Best Regards,
-
-Boris
-
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index a9051d0fff52..9544c5caadb9 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -414,7 +414,7 @@ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		}
+ 		bucket->deficit = weight * q->quantum;
+ 	}
+-	if (++sch->q.qlen < sch->limit)
++	if (++sch->q.qlen <= sch->limit)
+ 		return NET_XMIT_SUCCESS;
+ 
+ 	q->drop_overlimit++;
 -- 
-Boris Brezillon, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+1.8.0
