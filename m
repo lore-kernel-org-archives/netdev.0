@@ -1,81 +1,45 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] netfilter: nfnetlink: Fix use after free when it fails to process batch
-Date: Fri,  9 May 2014 12:56:04 +0200
-Message-ID: <1399632967-4423-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] ipv4: fix "conntrack zones" support for defrag user check in ip_expire
+Date: Fri,  9 May 2014 12:56:05 +0200
+Message-ID: <1399632967-4423-5-git-send-email-pablo@netfilter.org>
 References: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40285 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756358AbaEIK4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2014 06:56:22 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+From: Vasily Averin <vvs@parallels.com>
 
-This bug manifests when calling the nft command line tool without
-nf_tables kernel support.
+Defrag user check in ip_expire was not updated after adding support for
+"conntrack zones".
 
-kernel message:
-[   44.071555] Netfilter messages via NETLINK v0.30.
-[   44.072253] BUG: unable to handle kernel NULL pointer dereference at 0000000000000119
-[   44.072264] IP: [<ffffffff8171db1f>] netlink_getsockbyportid+0xf/0x70
-[   44.072272] PGD 7f2b74067 PUD 7f2b73067 PMD 0
-[   44.072277] Oops: 0000 [#1] SMP
-[...]
-[   44.072369] Call Trace:
-[   44.072373]  [<ffffffff8171fd81>] netlink_unicast+0x91/0x200
-[   44.072377]  [<ffffffff817206c9>] netlink_ack+0x99/0x110
-[   44.072381]  [<ffffffffa004b951>] nfnetlink_rcv+0x3c1/0x408 [nfnetlink]
-[   44.072385]  [<ffffffff8171fde3>] netlink_unicast+0xf3/0x200
-[   44.072389]  [<ffffffff817201ef>] netlink_sendmsg+0x2ff/0x740
-[   44.072394]  [<ffffffff81044752>] ? __mmdrop+0x62/0x90
-[   44.072398]  [<ffffffff816dafdb>] sock_sendmsg+0x8b/0xc0
-[   44.072403]  [<ffffffff812f1af5>] ? copy_user_enhanced_fast_string+0x5/0x10
-[   44.072406]  [<ffffffff816dbb6c>] ? move_addr_to_kernel+0x2c/0x50
-[   44.072410]  [<ffffffff816db423>] ___sys_sendmsg+0x3c3/0x3d0
-[   44.072415]  [<ffffffff811301ba>] ? handle_mm_fault+0xa9a/0xc60
-[   44.072420]  [<ffffffff811362d6>] ? mmap_region+0x166/0x5a0
-[   44.072424]  [<ffffffff817da84c>] ? __do_page_fault+0x1dc/0x510
-[   44.072428]  [<ffffffff812b8b2c>] ? apparmor_capable+0x1c/0x60
-[   44.072435]  [<ffffffff817d6e9a>] ? _raw_spin_unlock_bh+0x1a/0x20
-[   44.072439]  [<ffffffff816dfc86>] ? release_sock+0x106/0x150
-[   44.072443]  [<ffffffff816dc212>] __sys_sendmsg+0x42/0x80
-[   44.072446]  [<ffffffff816dc262>] SyS_sendmsg+0x12/0x20
-[   44.072450]  [<ffffffff817df616>] system_call_fastpath+0x1a/0x1f
+This bug manifests as a RFC violation, since the router will send
+the icmp time exceeeded message when using conntrack zones.
 
-Signed-off-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Signed-off-by: Vasily Averin <vvs@openvz.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/ip_fragment.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index e009087..23ef77c 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -256,15 +256,15 @@ replay:
- #endif
- 		{
- 			nfnl_unlock(subsys_id);
--			kfree_skb(nskb);
--			return netlink_ack(skb, nlh, -EOPNOTSUPP);
-+			netlink_ack(skb, nlh, -EOPNOTSUPP);
-+			return kfree_skb(nskb);
- 		}
- 	}
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index c10a3ce..ed32313 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -232,8 +232,9 @@ static void ip_expire(unsigned long arg)
+ 		 * "Fragment Reassembly Timeout" message, per RFC792.
+ 		 */
+ 		if (qp->user == IP_DEFRAG_AF_PACKET ||
+-		    (qp->user == IP_DEFRAG_CONNTRACK_IN &&
+-		     skb_rtable(head)->rt_type != RTN_LOCAL))
++		    ((qp->user >= IP_DEFRAG_CONNTRACK_IN) &&
++		     (qp->user <= __IP_DEFRAG_CONNTRACK_IN_END) &&
++		     (skb_rtable(head)->rt_type != RTN_LOCAL)))
+ 			goto out_rcu_unlock;
  
- 	if (!ss->commit || !ss->abort) {
- 		nfnl_unlock(subsys_id);
--		kfree_skb(nskb);
--		return netlink_ack(skb, nlh, -EOPNOTSUPP);
-+		netlink_ack(skb, nlh, -EOPNOTSUPP);
-+		return kfree_skb(skb);
- 	}
  
- 	while (skb->len >= nlmsg_total_size(0)) {
 -- 
 1.7.10.4
+
