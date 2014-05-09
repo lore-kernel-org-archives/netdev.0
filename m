@@ -1,61 +1,65 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/6] bridge: superfluous skb->nfct check in br_nf_dev_queue_xmit
-Date: Fri,  9 May 2014 12:56:06 +0200
-Message-ID: <1399632967-4423-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/6] netfilter: ipv4: defrag: set local_df flag on defragmented skb
+Date: Fri,  9 May 2014 12:56:03 +0200
+Message-ID: <1399632967-4423-3-git-send-email-pablo@netfilter.org>
 References: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40290 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755884AbaEIK4X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2014 06:56:23 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1399632967-4423-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasily Averin <vvs@parallels.com>
+From: Florian Westphal <fw@strlen.de>
 
-Currently bridge can silently drop ipv4 fragments.
-If node have loaded nf_defrag_ipv4 module but have no nf_conntrack_ipv4,
-br_nf_pre_routing defragments incoming ipv4 fragments
-but nfct check in br_nf_dev_queue_xmit does not allow re-fragment combined
-packet back, and therefore it is dropped in br_dev_queue_push_xmit without
-incrementing of any failcounters
+else we may fail to forward skb even if original fragments do fit
+outgoing link mtu:
 
-It seems the only way to hit the ip_fragment code in the bridge xmit
-path is to have a fragment list whose reassembled fragments go over
-the mtu. This only happens if nf_defrag is enabled. Thanks to
-Florian Westphal for providing feedback to clarify this.
+1. remote sends 2k packets in two 1000 byte frags, DF set
+2. we want to forward but only see '2k > mtu and DF set'
+3. we then send icmp error saying that outgoing link is 1500
 
-Defragmentation ipv4 is required not only in conntracks but at least in
-TPROXY target and socket match, therefore #ifdef is changed from
-NF_CONNTRACK_IPV4 to NF_DEFRAG_IPV4
+But original sender never sent a packet that would not fit
+the outgoing link.
 
-Signed-off-by: Vasily Averin <vvs@openvz.org>
+Setting local_df makes outgoing path test size vs.
+IPCB(skb)->frag_max_size, so we will still send the correct
+error in case the largest original size did not fit
+outgoing link mtu.
+
+Reported-by: Maxime Bizon <mbizon@freebox.fr>
+Suggested-by: Maxime Bizon <mbizon@freebox.fr>
+Fixes: 5f2d04f1f9 (ipv4: fix path MTU discovery with connection tracking)
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/br_netfilter.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/netfilter/nf_defrag_ipv4.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 80e1b0f..2acf7fa 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -859,12 +859,12 @@ static unsigned int br_nf_forward_arp(const struct nf_hook_ops *ops,
- 	return NF_STOLEN;
- }
+diff --git a/net/ipv4/netfilter/nf_defrag_ipv4.c b/net/ipv4/netfilter/nf_defrag_ipv4.c
+index 12e13bd..f40f321 100644
+--- a/net/ipv4/netfilter/nf_defrag_ipv4.c
++++ b/net/ipv4/netfilter/nf_defrag_ipv4.c
+@@ -22,7 +22,6 @@
+ #endif
+ #include <net/netfilter/nf_conntrack_zones.h>
  
--#if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
-+#if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4)
- static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+-/* Returns new sk_buff, or NULL */
+ static int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
  {
- 	int ret;
+ 	int err;
+@@ -33,8 +32,10 @@ static int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+ 	err = ip_defrag(skb, user);
+ 	local_bh_enable();
  
--	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
-+	if (skb->protocol == htons(ETH_P_IP) &&
- 	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
- 	    !skb_is_gso(skb)) {
- 		if (br_parse_ip_options(skb))
+-	if (!err)
++	if (!err) {
+ 		ip_send_check(ip_hdr(skb));
++		skb->local_df = 1;
++	}
+ 
+ 	return err;
+ }
 -- 
 1.7.10.4
+
