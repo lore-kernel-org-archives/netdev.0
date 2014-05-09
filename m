@@ -1,73 +1,113 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 7/7] be2net: use MCCQ instead of MBOX in be_cmd_rss_config()
-Date: Fri, 9 May 2014 13:29:19 +0530
-Message-ID: <1399622359-25926-8-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 4/7] be2net: covert vlan array to bit-map
+Date: Fri, 9 May 2014 13:29:16 +0530
+Message-ID: <1399622359-25926-5-git-send-email-sathya.perla@emulex.com>
 References: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:3302 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755214AbaEIH4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 03:56:23 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:21312 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460AbaEIH4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 03:56:11 -0400
 In-Reply-To: <1399622359-25926-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+From: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
 
-be_cmd_rss_config() is called after the MCCQ is created; so this cmd is
-now modified to use the MCCQ instead of MBOX. Also fixed some indentation
-problem in this routine.
+This patch converts the vlan u8[] used to track vlan-id
+membership to a bit-map as it reduces memory usage.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |   19 +++++++++----------
+ 2 files changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 5b23664..476752d 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2042,10 +2042,13 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
- 	if (!(be_if_cap_flags(adapter) & BE_IF_FLAGS_RSS))
- 		return 0;
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 2f67c7c..31c3766 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -455,7 +455,7 @@ struct be_adapter {
+ 	struct be_drv_stats drv_stats;
+ 	struct be_aic_obj aic_obj[MAX_EVT_QS];
+ 	u16 vlans_added;
+-	u8 vlan_tag[VLAN_N_VID];
++	unsigned long vids[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u8 vlan_prio_bmap;	/* Available Priority BitMap */
+ 	u16 recommended_prio;	/* Recommended Priority */
+ 	struct be_dma_mem rx_filter; /* Cmd DMA mem for rx-filter */
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 8dc1af4..2cd733b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1094,7 +1094,7 @@ static int be_change_mtu(struct net_device *netdev, int new_mtu)
+ static int be_vid_config(struct be_adapter *adapter)
+ {
+ 	u16 vids[BE_NUM_VLANS_SUPPORTED];
+-	u16 num = 0, i;
++	u16 num = 0, i = 0;
+ 	int status = 0;
  
--	if (mutex_lock_interruptible(&adapter->mbox_lock))
--		return -1;
-+	spin_lock_bh(&adapter->mcc_lock);
+ 	/* No need to further configure vids if in promiscuous mode */
+@@ -1105,9 +1105,8 @@ static int be_vid_config(struct be_adapter *adapter)
+ 		goto set_vlan_promisc;
  
--	wrb = wrb_from_mbox(adapter);
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
- 	req = embedded_payload(wrb);
+ 	/* Construct VLAN Table to give to HW */
+-	for (i = 0; i < VLAN_N_VID; i++)
+-		if (adapter->vlan_tag[i])
+-			vids[num++] = cpu_to_le16(i);
++	for_each_set_bit(i, adapter->vids, VLAN_N_VID)
++		vids[num++] = cpu_to_le16(i);
  
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
-@@ -2055,16 +2058,16 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable,
- 	req->enable_rss = cpu_to_le16(rss_hash_opts);
- 	req->cpu_table_size_log2 = cpu_to_le16(fls(table_size) - 1);
+ 	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num, 0);
  
--	if (lancer_chip(adapter) || skyhawk_chip(adapter))
-+	if (!BEx_chip(adapter))
- 		req->hdr.version = 1;
+@@ -1155,16 +1154,16 @@ static int be_vlan_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
+ 	if (lancer_chip(adapter) && vid == 0)
+ 		return status;
  
- 	memcpy(req->cpu_table, rsstable, table_size);
- 	memcpy(req->hash, rss_hkey, RSS_HASH_KEY_LEN);
- 	be_dws_cpu_to_le(req->hash, sizeof(req->hash));
+-	if (adapter->vlan_tag[vid])
++	if (test_bit(vid, adapter->vids))
+ 		return status;
  
--	status = be_mbox_notify_wait(adapter);
--
--	mutex_unlock(&adapter->mbox_lock);
-+	status = be_mcc_notify_wait(adapter);
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
+-	adapter->vlan_tag[vid] = 1;
++	set_bit(vid, adapter->vids);
+ 	adapter->vlans_added++;
+ 
+ 	status = be_vid_config(adapter);
+ 	if (status) {
+ 		adapter->vlans_added--;
+-		adapter->vlan_tag[vid] = 0;
++		clear_bit(vid, adapter->vids);
+ 	}
+ 
+ 	return status;
+@@ -1179,12 +1178,12 @@ static int be_vlan_rem_vid(struct net_device *netdev, __be16 proto, u16 vid)
+ 	if (lancer_chip(adapter) && vid == 0)
+ 		goto ret;
+ 
+-	adapter->vlan_tag[vid] = 0;
++	clear_bit(vid, adapter->vids);
+ 	status = be_vid_config(adapter);
+ 	if (!status)
+ 		adapter->vlans_added--;
+ 	else
+-		adapter->vlan_tag[vid] = 1;
++		set_bit(vid, adapter->vids);
+ ret:
  	return status;
  }
+@@ -1795,7 +1794,7 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+ 			rxcp->vlan_tag = swab16(rxcp->vlan_tag);
+ 
+ 		if (adapter->pvid == (rxcp->vlan_tag & VLAN_VID_MASK) &&
+-		    !adapter->vlan_tag[rxcp->vlan_tag])
++		    !test_bit(rxcp->vlan_tag, adapter->vids))
+ 			rxcp->vlanf = 0;
+ 	}
  
 -- 
 1.7.1
