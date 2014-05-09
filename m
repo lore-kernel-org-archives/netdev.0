@@ -1,79 +1,60 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH net v3] sfc: fix calling of free_irq with already free
- vector
-Date: Fri, 9 May 2014 10:25:21 +0100
-Message-ID: <536C9F01.6080708@solarflare.com>
-References: <1399626699-7181-1-git-send-email-nikolay@redhat.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Fri, 9 May 2014 11:48:13 +0200
+Message-ID: <20140509094813.GC4877@xo-6d-61-c0.localdomain>
+References: <20140506032114.GP2382@two.firstfloor.org>
+ <20140505.232327.578134514220748085.davem@davemloft.net>
+ <20140506155703.GA20391@cloud>
+ <20140506.115941.428706504757835279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Zenghui Shi <zshi@redhat.com>, Ben Hutchings <ben@decadent.org.uk>,
-	<linux-net-drivers@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31730 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753102AbaEIJZ0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 05:25:26 -0400
-In-Reply-To: <1399626699-7181-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: josh@joshtriplett.org, andi@firstfloor.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tom.zanussi@linux.intel.com,
+	ak@linux.intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140506.115941.428706504757835279.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/05/14 10:11, Nikolay Aleksandrov wrote:
-> If the sfc driver is in legacy interrupt mode (either explicitly by
-> using interrupt_mode module param or by falling back to it) it will
-> hit a warning at kernel/irq/manage.c because it will try to free an irq
-> which wasn't allocated by it in the first place because the MSI(X) irqs are
-> zero and it'll try to free them unconditionally. So fix it by checking if
-> we're in legacy mode and freeing the appropriate irqs.
->
-> CC: Zenghui Shi <zshi@redhat.com>
-> CC: Ben Hutchings <ben@decadent.org.uk>
-> CC: <linux-net-drivers@solarflare.com>
-> CC: Shradha Shah <sshah@solarflare.com>
-> CC: David S. Miller <davem@davemloft.net>
->
-> Fixes: 1899c111a535 ("sfc: Fix IRQ cleanup in case of a probe failure")
-> Reported-by: Zenghui Shi <zshi@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+On Tue 2014-05-06 11:59:41, David Miller wrote:
+> From: josh@joshtriplett.org
+> Date: Tue, 6 May 2014 08:57:03 -0700
+> 
+> > On Mon, May 05, 2014 at 11:23:27PM -0400, David Miller wrote:
+> >> From: Andi Kleen <andi@firstfloor.org>
+> >> Date: Tue, 6 May 2014 05:21:14 +0200
+> >> 
+> >> > What parts would you remove to get the foot print down for a 2MB
+> >> > single purpose machine?
+> >> 
+> >> I wouldn't use Linux, end of story.
+> >> 
+> >> Maybe two decades ago, but not now, those days are over.
+> > 
+> > That's a self-fulfilling prophecy:
+> 
+> Making 2MB RAM machines today makes no sense at all.
+> 
+> The lowest end dirt cheap smartphone, something which fits on
+> someone's pocket, has gigabytes of ram.
 
-Acked-by: Shradha Shah <sshah@solarflare.com>
+Low end smartphone is quite high-end device :-). It only has to run for
+few days on big battery.
 
-> ---
-> v3: Use the EFX_INT_MODE_USE_MSI macro instead of direct check
-> as suggested by Ben
-> v2: Change the fix to check for the interrupt mode and adjust the
-> commit message.
->
->  drivers/net/ethernet/sfc/nic.c | 14 ++++++++------
->  1 file changed, 8 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-> index 32d969e857f7..89b83e59e1dc 100644
-> --- a/drivers/net/ethernet/sfc/nic.c
-> +++ b/drivers/net/ethernet/sfc/nic.c
-> @@ -156,13 +156,15 @@ void efx_nic_fini_interrupt(struct efx_nic *efx)
->       efx->net_dev->rx_cpu_rmap = NULL;
->  #endif
->
-> -     /* Disable MSI/MSI-X interrupts */
-> -     efx_for_each_channel(channel, efx)
-> -             free_irq(channel->irq, &efx->msi_context[channel->channel]);
-> -
-> -     /* Disable legacy interrupt */
-> -     if (efx->legacy_irq)
-> +     if (EFX_INT_MODE_USE_MSI(efx)) {
-> +             /* Disable MSI/MSI-X interrupts */
-> +             efx_for_each_channel(channel, efx)
-> +                     free_irq(channel->irq,
-> +                              &efx->msi_context[channel->channel]);
-> +     } else {
-> +             /* Disable legacy interrupt */
->               free_irq(efx->legacy_irq, efx);
-> +     }
->  }
->
->  /* Register dump */
->
-The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+I have programmable watch with <64K RAM. Yes, that one runs for months on
+battery. 
+
+> The only entity looking backwards are the people making these
+> improperly provisioned systems.
+
+There's nothing improper about small ammount of RAM to save power.
+
+									Pavel
+
+
+
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
