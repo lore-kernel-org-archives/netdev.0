@@ -1,49 +1,135 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH] net: Provide linear backoff mechanism for
- constrained resources at the driver
-Date: Fri, 9 May 2014 08:55:10 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F71037C@AcuExch.aculab.com>
-References: <20140507.155613.630399521517455317.davem@davemloft.net>
- <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: Re: cassini: possible recursive locking detected
+Date: Fri, 9 May 2014 11:06:42 +0200
+Message-ID: <20140509090642.GA4267@lianli>
+References: <alpine.SOC.1.00.1405061232520.3891@math.ut.ee>
+ <20140508125336.GB4338@lianli>
+ <alpine.SOC.1.00.1405082259340.27832@math.ut.ee>
+ <20140508223833.GB4385@lianli>
+ <alpine.SOC.1.00.1405090726190.12382@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>
-To: 'Neil Horman' <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Meelis Roos <mroos@linux.ee>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50681 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751055AbaEII4j convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 04:56:39 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 21741-07 for <netdev@vger.kernel.org>;
- Fri,  9 May 2014 09:56:31 +0100 (BST)
-In-Reply-To: <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
-Content-Language: en-US
+Received: from mail-la0-f48.google.com ([209.85.215.48]:46942 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221AbaEIJFT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 05:05:19 -0400
+Received: by mail-la0-f48.google.com with SMTP id mc6so225065lab.7
+        for <netdev@vger.kernel.org>; Fri, 09 May 2014 02:05:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.SOC.1.00.1405090726190.12382@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman
-> What about something like this?  Its not even compile tested, but let me know
-> what you think of the idea.  The reasoning behind it is that transient resources
-> like dma address ranges in the iommu or swiotlb have the following attributes
+On Fri, May 09, 2014 at 08:37:30AM +0300, Meelis Roos wrote:
+> > > > It won't fix the deadlock that you mentioned though.
+> > > 
+> > > Yes, the hang still happens, following a
+> > > ERROR: System Hardware FATAL RESET from  CPU0 CPU2
+> > > 
+> > 
+> > Are you able to get the full dmesg output?
+> > I think this could be hard to solve since I don't have
+> > the hardware, but could take a look.
 > 
-> 1) they are quickly allocated and freed
+> There is sparc64 firmware-specific FATAL RESET only, inclugind pages of 
+> state dump for all 4 CPU-s and their MMUs etc. Nothing from Linux side.
+> 
+> So it's like recursive fault or something similar.
+> 
 
-I'm not sure that is true for iommu entries.
-The ones allocated for ethernet receive are effectively permanently allocated.
+I searched the net a bit and found these old threads:
 
-Imagine a system with 512 iommu entries.
-An ethernet driver allocates 128 RX ring entries using one iommu entry each.
-There are now no iommu entries left for anything else.
-That system will only work if the ethernet driver reduces the number of
-active rx buffers.
+http://lists.freebsd.org/pipermail/freebsd-sparc64/2010-January/006935.html
 
-It is also possible (but less likely) that ethernet transmit will
-use so many iommu entries that none are left for more important things.
-The network will work with only one active transmit, but you may
-have to do disc and/or usb transfers even when resource limited.
+"FreeBSD currently crashes on older models of V480 when attempting
+ to use an on-board NIC due to what appears to be a CPU bug which
+ needs to be worked around."
 
-	David
+http://marc.info/?l=linux-sparc&m=122220796209509&w=2
+
+"I noticed the cassini network driver for the builtin gigabit
+ network is unstable and brings the kernel down on a dualprocessor sparc
+ SunFire 480R with a Hardware FATAL RESET"
+
+I think you should ask about this on the sparclinux mailing list.
+
+http://vger.kernel.org/vger-lists.html#sparclinux
+
+I would say it's very unlikely that the problem is related to that lockdep warning.
+
+> > 
+> > > > 
+> > > > Best regards,
+> > > > 
+> > > > Emil Goode
+> > > > 
+> > > > On Tue, May 06, 2014 at 12:39:48PM +0300, Meelis Roos wrote:
+> > > > > While installing Linux on Sun Fire V480, any traffic on builtin cassini 
+> > > > > NIC caused a hang. Worked this around by using Broadcom NIC and tried a 
+> > > > > kernel with most debugging options. This resulted in the following 
+> > > > > warning. Maybe this is the deadlonck I was seeing?
+> > > > > 
+> > > > > [   88.316595] =============================================
+> > > > > [   88.316597] [ INFO: possible recursive locking detected ]
+> > > > > [   88.316603] 3.15.0-rc4-00202-g30321c7-dirty #11 Not tainted
+> > > > > [   88.316605] ---------------------------------------------
+> > > > > [   88.316608] swapper/3/1 is trying to acquire lock:
+> > > > > [   88.316644]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > > > > [   88.316646]
+> > > > > [   88.316646] but task is already holding lock:
+> > > > > [   88.316657]  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > > > > [   88.316659]
+> > > > > [   88.316659] other info that might help us debug this:
+> > > > > [   88.316661]  Possible unsafe locking scenario:
+> > > > > [   88.316661]
+> > > > > [   88.316662]        CPU0
+> > > > > [   88.316664]        ----
+> > > > > [   88.316668]   lock(&(&cp->tx_lock[i])->rlock);
+> > > > > [   88.316671]   lock(&(&cp->tx_lock[i])->rlock);
+> > > > > [   88.316672]
+> > > > > [   88.316672]  *** DEADLOCK ***
+> > > > > [   88.316672]
+> > > > > [   88.316674]  May be due to missing lock nesting notation
+> > > > > [   88.316674]
+> > > > > [   88.316677] 3 locks held by swapper/3/1:
+> > > > > [   88.316694]  #0:  ((&cp->link_timer)){+.-...}, at: [<0000000000465f80>] call_timer_fn+0x0/0xe0
+> > > > > [   88.316706]  #1:  (&(&cp->lock)->rlock){..-...}, at: [<0000000000745d80>] cas_link_timer+0x80/0x460
+> > > > > [   88.316716]  #2:  (&(&cp->tx_lock[i])->rlock){..-...}, at: [<0000000000745da0>] cas_link_timer+0xa0/0x460
+> > > > > [   88.316718]
+> > > > > [   88.316718] stack backtrace:
+> > > > > [   88.316724] CPU: 2 PID: 1 Comm: swapper/3 Not tainted 3.15.0-rc4-00202-g30321c7-dirty #11
+> > > > > [   88.316727] Call Trace:
+> > > > > [   88.316743]  [00000000004a2c5c] __lock_acquire+0x10fc/0x1fa0
+> > > > > [   88.316749]  [00000000004a406c] lock_acquire+0x4c/0x80
+> > > > > [   88.316760]  [000000000083e07c] _raw_spin_lock+0x1c/0x40
+> > > > > [   88.316765]  [0000000000745da0] cas_link_timer+0xa0/0x460
+> > > > > [   88.316769]  [0000000000465fc8] call_timer_fn+0x48/0xe0
+> > > > > [   88.316775]  [00000000004665d4] run_timer_softirq+0x214/0x280
+> > > > > [   88.316788]  [000000000045f650] __do_softirq+0xf0/0x240
+> > > > > [   88.316800]  [000000000042bd0c] do_softirq_own_stack+0x2c/0x40
+> > > > > [   88.316804]  [000000000045fb44] irq_exit+0xc4/0xe0
+> > > > > [   88.316814]  [000000000042fcc8] timer_interrupt+0x88/0xc0
+> > > > > [   88.316819]  [0000000000426b84] valid_addr_bitmap_patch+0xbc/0x238
+> > > > > [   88.316826]  [00000000004ab2f8] vprintk_emit+0x1d8/0x540
+> > > > > [   88.316842]  [0000000000835fb8] printk+0x34/0x48
+> > > > > [   88.316847]  [00000000004ac3e0] register_console+0x340/0x3e0
+> > > > > [   88.316862]  [0000000000a74f2c] init_netconsole+0x180/0x20c
+> > > > > [   88.316867]  [0000000000426eb0] do_one_initcall+0x110/0x1a0
+> > > > > 
+> > > > > -- 
+> > > > > Meelis Roos (mroos@linux.ee)
+> > > > > --
+> > > > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > > > the body of a message to majordomo@vger.kernel.org
+> > > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > > 
+> > > 
+> > > -- 
+> > > Meelis Roos (mroos@linux.ee)
+> > 
+> 
+> -- 
+> Meelis Roos (mroos@linux.ee)
