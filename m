@@ -1,8 +1,9 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 0/8] tipc: bug fixes and
-	improvements
-Date: Fri,  9 May 2014 09:13:21 -0400
-Message-ID: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 4/8] tipc: mark head of
+	reassembly buffer as non-linear
+Date: Fri,  9 May 2014 09:13:25 -0400
+Message-ID: <1399641209-26112-5-git-send-email-jon.maloy@ericsson.com>
+References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -21,45 +23,34 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Intensive and extensive testing has revealed some rather infrequent
-problems related to flow control, buffer handling and link
-establishment. Commits ##1 to 4 deal with these problems.
+The message reassembly function does not update the 'len' and 'data_len'
+fields of the head skbuff correctly when fragments are chained to it.
+This may sometimes lead to obsure errors, such as fragment reordering
+when we receive fragments which are cloned buffers.
 
-The remaining four commits are just code improvments, aiming at
-making the code more comprehensible and maintainable. There are
-no functional enhancements in this series.
+This commit fixes this, by ensuring that the two fields are updated
+correctly.
 
-Jon Maloy (8):
-  tipc: decrease connection flow control window
-  tipc: compensate for double accounting in socket rcv buffer
-  tipc: don't record link RESET or ACTIVATE messages as traffic
-  tipc: mark head of reassembly buffer as non-linear
-  tipc: rename and move message reassembly function
-  tipc: improve and extend media address conversion functions
-  tipc: clean up neigbor discovery message reception
-  tipc: merge port message reception into socket reception function
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/link.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
- net/tipc/bcast.c     |   10 +--
- net/tipc/bearer.c    |   36 ++------
- net/tipc/bearer.h    |   35 ++++----
- net/tipc/core.c      |    7 +-
- net/tipc/core.h      |    2 +
- net/tipc/discover.c  |  221 +++++++++++++++++++++++++-------------------------
- net/tipc/eth_media.c |   51 +++++++-----
- net/tipc/ib_media.c  |   34 +++++---
- net/tipc/link.c      |   75 +++--------------
- net/tipc/link.h      |   14 +---
- net/tipc/msg.c       |   55 ++++++++++++-
- net/tipc/msg.h       |    5 +-
- net/tipc/net.c       |    3 +-
- net/tipc/node.c      |    7 +-
- net/tipc/node.h      |    6 +-
- net/tipc/port.c      |   39 +--------
- net/tipc/port.h      |   10 +--
- net/tipc/socket.c    |   85 ++++++++++++-------
- net/tipc/socket.h    |    4 +-
- 19 files changed, 348 insertions(+), 351 deletions(-)
-
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 6cf7938..9272d4c 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2341,6 +2341,8 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
+ 			(*tail)->next = frag;
+ 		*tail = frag;
+ 		(*head)->truesize += frag->truesize;
++		(*head)->data_len += frag->len;
++		(*head)->len += frag->len;
+ 	}
+ 	if (fragid == LAST_FRAGMENT) {
+ 		*fbuf = *head;
 -- 
 1.7.9.5
 
