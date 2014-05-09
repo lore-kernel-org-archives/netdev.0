@@ -1,137 +1,119 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net,stable] net: cdc_mbim: handle unaccelerated VLAN tagged frames
-Date: Fri,  9 May 2014 14:45:00 +0200
-Message-ID: <1399639500-13907-1-git-send-email-bjorn@mork.no>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH] net: Provide linear backoff mechanism for
+ constrained resources at the driver
+Date: Fri, 9 May 2014 12:53:29 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D0F710574@AcuExch.aculab.com>
+References: <20140507.155613.630399521517455317.davem@davemloft.net>
+ <1399577392-4457-1-git-send-email-nhorman@tuxdriver.com>
+ <063D6719AE5E284EB5DD2968C1650D6D0F71037C@AcuExch.aculab.com>
+ <20140509111751.GB13793@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: 'Neil Horman' <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:48040 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750712AbaEIMpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 May 2014 08:45:34 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:54991 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750824AbaEIMy7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 08:54:59 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 00750-09 for <netdev@vger.kernel.org>;
+ Fri,  9 May 2014 13:54:51 +0100 (BST)
+In-Reply-To: <20140509111751.GB13793@hmsreliant.think-freely.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This driver maps 802.1q VLANs to MBIM sessions. The mapping is based on
-a bogus assumption that all tagged frames will use the acceleration API
-because we enable NETIF_F_HW_VLAN_CTAG_TX. This fails for e.g. frames
-tagged in userspace using packet sockets. Such frames will erroneously
-be considered as untagged and silently dropped based on not being IP.
+From: Neil Horman 
+> On Fri, May 09, 2014 at 08:55:10AM +0000, David Laight wrote:
+> > From: Neil Horman
+> > > What about something like this?  Its not even compile tested, but let me know
+> > > what you think of the idea.  The reasoning behind it is that transient resources
+> > > like dma address ranges in the iommu or swiotlb have the following attributes
+> > >
+> > > 1) they are quickly allocated and freed
+> >
+> > I'm not sure that is true for iommu entries.
+> > The ones allocated for ethernet receive are effectively permanently allocated.
+> >
+> I disagree.  A review of several NIC drivers shows the pseudocode for the RX
+> patch to be:
+> 
+> For SKB X on the RX ring:
+> 	If LENGTH(SKB) < COPYBREAK
+> 		SKB2 = ALLOCATE_SKB
+> 		COPY_DATA(SKB2, SKB1)
+> 		RECEIVE(SKB2)
+> 	Else
+> 		UNMAP(SKB1)
+> 		RECEIVE(SKB1)
+> 		SKB1 = ALLOCATE_SKB
+> 		MAP(SKB1)
+> Done
+> 
+> The value of COPYBREAK is configurable, but is never more than 256 bytes, and is
+> often 128 or fewer bytes (sometimes zero).  This will cause some udp traffic to
+> get handled as copies, but never more reasonably sized udp packets, and no well
+> behaved tcp traffic will ever get copied.  Those iommu entries will come and go
+> very quickly.
 
-=46ix by falling back to looking into the ethernet header for a tag if =
-no
-accelerated tag was found.
+If I understand correctly the iommu entries are needed for the ethernet
+chip to access main memory. The usual state is that RX ring is full
+buffers - all of which are mapped for dma.
 
-=46ixes: a82c7ce5bc5b ("net: cdc_ncm: map MBIM IPS SessionID to VLAN ID=
-")
-Cc: Greg Suarez <gsuarez@smithmicro.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-This bug has been present since the driver was introduced in v3.8, and
-should therefore be applied to all maintained stable kernels from v3.8
-and onwards.  I have verified that it applies cleanly to the original
-v3.8 version as well as the current net/master, so I believe it should
-apply unmodified all versions in between.
+> > Imagine a system with 512 iommu entries.
+> > An ethernet driver allocates 128 RX ring entries using one iommu entry each.
+> > There are now no iommu entries left for anything else.
+
+> That actually leaves 384 entries remaiing, but thats neither here nor there :).
+I seem to fail to write 'include 4 such interfaces and' ...
+
+>   iommus work like tlbs, in that they don't have a fixed number of entries.
+> Each iommu has a set of page tables, wherein a set of pages can be mapped.
+> ...
+
+Yes I realise that what is actually being allocated is io virtual address space.
+But the '1 buffer' == '1 slot' simplification is reasonable appropriate for
+some 'thought designs'.
 
 
-Thanks,
-Bj=C3=B8rn
+> Its a
+> limited resource shared unevenly between all dma-ing devices.  Thats why we
+> can't reserve entries, because you don't have alot of space to begin with, and
+> you don't know how much you'll need until you have the data to send, which can
+> vary wildly depending on the device.
 
+You do know how much resource is left though.
 
- drivers/net/usb/cdc_mbim.c | 39 ++++++++++++++++++++++++++++----------=
--
- 1 file changed, 28 insertions(+), 11 deletions(-)
+> > That system will only work if the ethernet driver reduces the number of
+> > active rx buffers.
+> >
+> Reducing the number of active rx buffers is tantamount to reducing the ring size
+> of a NIC, which is already a tunable feature, and not one to be received overly
+> well by people trying to maximize their network througput.
 
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index 13f7705fd679..2e025ddcef21 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -120,6 +120,16 @@ static void cdc_mbim_unbind(struct usbnet *dev, st=
-ruct usb_interface *intf)
- 	cdc_ncm_unbind(dev, intf);
- }
-=20
-+/* verify that the ethernet protocol is IPv4 or IPv6 */
-+static bool is_ip_proto(__be16 proto)
-+{
-+	switch (proto) {
-+	case htons(ETH_P_IP):
-+	case htons(ETH_P_IPV6):
-+		return true;
-+	}
-+	return false;
-+}
-=20
- static struct sk_buff *cdc_mbim_tx_fixup(struct usbnet *dev, struct sk=
-_buff *skb, gfp_t flags)
- {
-@@ -128,6 +138,7 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usb=
-net *dev, struct sk_buff *skb
- 	struct cdc_ncm_ctx *ctx =3D info->ctx;
- 	__le32 sign =3D cpu_to_le32(USB_CDC_MBIM_NDP16_IPS_SIGN);
- 	u16 tci =3D 0;
-+	bool is_ip;
- 	u8 *c;
-=20
- 	if (!ctx)
-@@ -137,25 +148,32 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct u=
-sbnet *dev, struct sk_buff *skb
- 		if (skb->len <=3D ETH_HLEN)
- 			goto error;
-=20
-+		/* Some applications using e.g. packet sockets will
-+		 * bypass the VLAN acceleration and create tagged
-+		 * ethernet frames directly.  We primarily look for
-+		 * the accelerated out-of-band tag, but fall back if
-+		 * required
-+		 */
-+		skb_reset_mac_header(skb);
-+		if (vlan_get_tag(skb, &tci) < 0 && skb->len > VLAN_ETH_HLEN &&
-+		    __vlan_get_tag(skb, &tci) =3D=3D 0) {
-+			is_ip =3D is_ip_proto(vlan_eth_hdr(skb)->h_vlan_encapsulated_proto)=
-;
-+			skb_pull(skb, VLAN_ETH_HLEN);
-+		} else {
-+			is_ip =3D is_ip_proto(eth_hdr(skb)->h_proto);
-+			skb_pull(skb, ETH_HLEN);
-+		}
-+
- 		/* mapping VLANs to MBIM sessions:
- 		 *   no tag     =3D> IPS session <0>
- 		 *   1 - 255    =3D> IPS session <vlanid>
- 		 *   256 - 511  =3D> DSS session <vlanid - 256>
- 		 *   512 - 4095 =3D> unsupported, drop
- 		 */
--		vlan_get_tag(skb, &tci);
--
- 		switch (tci & 0x0f00) {
- 		case 0x0000: /* VLAN ID 0 - 255 */
--			/* verify that datagram is IPv4 or IPv6 */
--			skb_reset_mac_header(skb);
--			switch (eth_hdr(skb)->h_proto) {
--			case htons(ETH_P_IP):
--			case htons(ETH_P_IPV6):
--				break;
--			default:
-+			if (!is_ip)
- 				goto error;
--			}
- 			c =3D (u8 *)&sign;
- 			c[3] =3D tci;
- 			break;
-@@ -169,7 +187,6 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct usb=
-net *dev, struct sk_buff *skb
- 				  "unsupported tci=3D0x%04x\n", tci);
- 			goto error;
- 		}
--		skb_pull(skb, ETH_HLEN);
- 	}
-=20
- 	spin_lock_bh(&ctx->mtx);
---=20
-2.0.0.rc2
+Except that it needs to done automatically if there is a global constraint
+(be it iommu space or dma-able memory).
+In isolation a large rx ring is almost always an advantage.
+
+> > It is also possible (but less likely) that ethernet transmit will
+> > use so many iommu entries that none are left for more important things.
+> This is possible in all cases, not just transmit.
+> 
+> > The network will work with only one active transmit, but you may
+> > have to do disc and/or usb transfers even when resource limited.
+> >
+> Hence my RFC patch in my prior note.  If we're resource constrained, push back
+> on the qdisc such that we try not to use as many mappings for short time without
+> causing too much overhead.  It doesn't affect receive of course, but its very
+> hard to deal with managing mapping use when the producer is not directly
+> controllable by us.
+
+But ethernet receive is likely to be the big user of iommu entries.
+If you constrain it, then there probably won't be allocation failures
+elsewhere.
+
+	David
