@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/8] tipc: compensate for double
-	accounting in socket rcv buffer
-Date: Fri,  9 May 2014 09:13:23 -0400
-Message-ID: <1399641209-26112-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 3/8] tipc: don't record link
+	RESET or ACTIVATE messages as traffic
+Date: Fri,  9 May 2014 09:13:24 -0400
+Message-ID: <1399641209-26112-4-git-send-email-jon.maloy@ericsson.com>
 References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,153 +23,66 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function net/core/sock.c::__release_sock() runs a tight loop
-to move buffers from the socket backlog queue to the receive queue.
+In the current code, all incoming LINK_PROTOCOL messages, irrespective
+of type, nudge the "last message received" checkpoint, informing the
+link state machine that a message was received from the peer since last
+supervision timeout event. This inhibits the link from starting probing
+the peer unnecessarily.
 
-As a security measure, sk_backlog.len of the receiving socket
-is not set to zero until after the loop is finished, i.e., until
-the whole backlog queue has been transferred to the receive queue.
-During this transfer, the data that has already been moved is counted
-both in the backlog queue and the receive queue, hence giving an
-incorrect picture of the available queue space for new arriving buffers.
+However, not only STATE messages are recorded as legitimate incoming
+traffic this way, but even RESET and ACTIVATE messages, which in
+reality are there to inform the link that the peer endpoint has been
+reset. At the same time, some RESET messages may be dropped instead
+of causing a link reset. This happens when the link endpoint thinks
+it is fully up and working, and the session number of the RESET is
+lower than or equal to the current link session. In such cases the
+RESET is perceived as a delayed remnant from an earlier session, or
+the current one, and dropped.
 
-This leads to unnecessary rejection of buffers by sk_add_backlog(),
-which in TIPC leads to unnecessarily broken connections.
+Now, if a TIPC module is removed and then immediately reinserted, e.g.
+when using a script, RESET messages may arrive at the peer link endpoint
+before this one has had time to discover the failure. The RESET may be
+dropped because of the session number, but only after it has been
+recorded as a legitimate traffic event. Hence, the receiving link will
+not start probing, and not discover that the peer endpoint is down, at
+the same time ignoring the periodic RESET messages coming from that
+endpoint. We have ended up in a stale state where a failed link cannot
+be re-established.
 
-In this commit, we compensate for this double accounting by adding
-a counter that keeps track of it. The function socket.c::backlog_rcv()
-receives buffers one by one from __release_sock(), and adds them to the
-socket receive queue. If the transfer is successful, it increases a new
-atomic counter 'tipc_sock::dupl_rcvcnt' with 'truesize' of the
-transferred buffer. If a new buffer arrives during this transfer and
-finds the socket busy (owned), we attempt to add it to the backlog.
-However, when sk_add_backlog() is called, we adjust the 'limit'
-parameter with the value of the new counter, so that the risk of
-inadvertent rejection is eliminated.
-
-It should be noted that this change does not invalidate the original
-purpose of zeroing 'sk_backlog.len' after the full transfer. We set an
-upper limit for dupl_rcvcnt, so that if a 'wild' sender (i.e., one that
-doesn't respect the send window) keeps pumping in buffers to
-sk_add_backlog(), he will eventually reach an upper limit,
-(2 x TIPC_CONN_OVERLOAD_LIMIT). After that, no messages can be added
-to the backlog, and the connection will be broken. Ordinary, well-
-behaved senders will never will never reach the buffer limit at all.
+In this commit, we remedy this by nudging the checkpoint only for
+received STATE messages, not for RESET or ACTIVATE messages.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/socket.c |   28 +++++++++++++++++++---------
- net/tipc/socket.h |    2 ++
- 2 files changed, 21 insertions(+), 9 deletions(-)
+ net/tipc/link.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8685daf..2495006 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1,5 +1,5 @@
- /*
-- * net/tipc/socket.c: TIPC socket API
-+* net/tipc/socket.c: TIPC socket API
-  *
-  * Copyright (c) 2001-2007, 2012-2014, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-@@ -45,7 +45,7 @@
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 2140837..6cf7938 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1831,9 +1831,6 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	if (l_ptr->exp_msg_count)
+ 		goto exit;
  
- #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
- 
--static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
-+static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb);
- static void tipc_data_ready(struct sock *sk);
- static void tipc_write_space(struct sock *sk);
- static int tipc_release(struct socket *sock);
-@@ -196,11 +196,12 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 	sock->state = state;
- 
- 	sock_init_data(sock, sk);
--	sk->sk_backlog_rcv = backlog_rcv;
-+	sk->sk_backlog_rcv = tipc_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
- 	sk->sk_write_space = tipc_write_space;
--	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
-+	tsk->conn_timeout = CONN_TIMEOUT_DEFAULT;
-+	atomic_set(&tsk->dupl_rcvcnt, 0);
- 	tipc_port_unlock(port);
- 
- 	if (sock->state == SS_READY) {
-@@ -1416,7 +1417,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- }
- 
- /**
-- * backlog_rcv - handle incoming message from backlog queue
-+ * tipc_backlog_rcv - handle incoming message from backlog queue
-  * @sk: socket
-  * @buf: message
-  *
-@@ -1424,13 +1425,18 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
-  *
-  * Returns 0
-  */
--static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
-+static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
- {
- 	u32 res;
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 
- 	res = filter_rcv(sk, buf);
--	if (res)
-+	if (unlikely(res))
- 		tipc_reject_msg(buf, res);
-+
-+	if (atomic_read(&tsk->dupl_rcvcnt) < TIPC_CONN_OVERLOAD_LIMIT)
-+		atomic_add(buf->truesize, &tsk->dupl_rcvcnt);
-+
- 	return 0;
- }
- 
-@@ -1445,8 +1451,9 @@ static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
-  */
- u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
- {
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	u32 res;
+-	/* record unnumbered packet arrival (force mismatch on next timeout) */
+-	l_ptr->checkpoint--;
 -
-+	uint limit;
- 	/*
- 	 * Process message if socket is unlocked; otherwise add to backlog queue
- 	 *
-@@ -1457,7 +1464,10 @@ u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
- 	if (!sock_owned_by_user(sk)) {
- 		res = filter_rcv(sk, buf);
- 	} else {
--		if (sk_add_backlog(sk, buf, rcvbuf_limit(sk, buf)))
-+		if (sk->sk_backlog.len == 0)
-+			atomic_set(&tsk->dupl_rcvcnt, 0);
-+		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
-+		if (sk_add_backlog(sk, buf, limit))
- 			res = TIPC_ERR_OVERLOAD;
- 		else
- 			res = TIPC_OK;
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index 74e5c7f..86c27cc 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -44,12 +44,14 @@
-  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
-  * @peer_name: the peer of the connection, if any
-  * @conn_timeout: the time we can wait for an unresponded setup request
-+ * @dupl_rcvcnt: number of bytes counted twice, in both backlog and rcv queue
-  */
- 
- struct tipc_sock {
- 	struct sock sk;
- 	struct tipc_port port;
- 	unsigned int conn_timeout;
-+	atomic_t dupl_rcvcnt;
- };
- 
- static inline struct tipc_sock *tipc_sk(const struct sock *sk)
+ 	if (l_ptr->net_plane != msg_net_plane(msg))
+ 		if (tipc_own_addr > msg_prevnode(msg))
+ 			l_ptr->net_plane = msg_net_plane(msg);
+@@ -1909,6 +1906,10 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 			tipc_link_reset(l_ptr); /* Enforce change to take effect */
+ 			break;
+ 		}
++
++		/* Record reception; force mismatch at next timeout: */
++		l_ptr->checkpoint--;
++
+ 		link_state_event(l_ptr, TRAFFIC_MSG_EVT);
+ 		l_ptr->stats.recv_states++;
+ 		if (link_reset_unknown(l_ptr))
 -- 
 1.7.9.5
 
