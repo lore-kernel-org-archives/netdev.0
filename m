@@ -1,58 +1,111 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 10/11] net: cdc_ncm: fix argument alignment
-Date: Sat, 10 May 2014 17:41:48 +0200
-Message-ID: <1399736509-1159-11-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next 03/11] net: cdc_ncm: split .bind device initialization
+Date: Sat, 10 May 2014 17:41:41 +0200
+Message-ID: <1399736509-1159-4-git-send-email-bjorn@mork.no>
 References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1399736509-1159-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:43768 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752850AbaEJPmX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 May 2014 11:42:23 -0400
+In-Reply-To: <1399736509-1159-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Now that we have split out the part of the device setup
+which MUST be done with the data interface in altsetting 0,
+we can delay the rest of the initialization. This allows us
+to move some of post-init buffer size config from bind to
+the appropriate setup function.
+
+The purpose of this refactoring is to collect all code
+adjusting the rx_max and tx_max buffers in one place, so
+that it is easier to call it from multiple call sites.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/usb/cdc_ncm.c | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 7d315b983e7e..c65145671521 100644
+index d2e9b56c27ff..ad29cde75f41 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -1316,14 +1316,14 @@ cdc_ncm_speed_change(struct usbnet *dev,
- 	 */
- 	if ((tx_speed > 1000000) && (rx_speed > 1000000)) {
- 		netif_info(dev, link, dev->net,
--		       "%u mbit/s downlink %u mbit/s uplink\n",
--		       (unsigned int)(rx_speed / 1000000U),
--		       (unsigned int)(tx_speed / 1000000U));
-+			   "%u mbit/s downlink %u mbit/s uplink\n",
-+			   (unsigned int)(rx_speed / 1000000U),
-+			   (unsigned int)(tx_speed / 1000000U));
- 	} else {
- 		netif_info(dev, link, dev->net,
--		       "%u kbit/s downlink %u kbit/s uplink\n",
--		       (unsigned int)(rx_speed / 1000U),
--		       (unsigned int)(tx_speed / 1000U));
-+			   "%u kbit/s downlink %u kbit/s uplink\n",
-+			   (unsigned int)(rx_speed / 1000U),
-+			   (unsigned int)(tx_speed / 1000U));
- 	}
+@@ -111,6 +111,21 @@ static void cdc_ncm_update_rxtx_max(struct usbnet =
+*dev, u32 new_rx, u32 new_tx)
+ 	if (val !=3D ctx->tx_max)
+ 		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
+ 	ctx->tx_max =3D val;
++
++	/* Adding a pad byte here if necessary simplifies the handling
++	 * in cdc_ncm_fill_tx_frame, making tx_max always represent
++	 * the real skb max size.
++	 *
++	 * We cannot use dev->maxpacket here because this is called from
++	 * .bind which is called before usbnet sets up dev->maxpacket
++	 */
++	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
++	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
++		ctx->tx_max++;
++
++	/* usbnet use these values for sizing tx/rx queues */
++	dev->hard_mtu =3D ctx->tx_max;
++	dev->rx_urb_size =3D ctx->rx_max;
  }
+=20
+ /* helpers for NCM and MBIM differences */
+@@ -316,9 +331,6 @@ static int cdc_ncm_setup(struct usbnet *dev)
+ {
+ 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
+=20
+-	/* initialize basic device settings */
+-	cdc_ncm_init(dev);
+-
+ 	/* clamp rx_max and tx_max and inform device */
+ 	cdc_ncm_update_rxtx_max(dev, le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize=
+),
+ 				le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize));
+@@ -525,8 +537,8 @@ advance:
+ 		goto error2;
+ 	}
+=20
+-	/* initialize data interface */
+-	if (cdc_ncm_setup(dev))
++	/* initialize basic device settings */
++	if (cdc_ncm_init(dev))
+ 		goto error2;
+=20
+ 	/* configure data interface */
+@@ -555,18 +567,8 @@ advance:
+ 		dev_info(&intf->dev, "MAC-Address: %pM\n", dev->net->dev_addr);
+ 	}
+=20
+-	/* usbnet use these values for sizing tx/rx queues */
+-	dev->hard_mtu =3D ctx->tx_max;
+-	dev->rx_urb_size =3D ctx->rx_max;
+-
+-	/* cdc_ncm_setup will override dwNtbOutMaxSize if it is
+-	 * outside the sane range. Adding a pad byte here if necessary
+-	 * simplifies the handling in cdc_ncm_fill_tx_frame, making
+-	 * tx_max always represent the real skb max size.
+-	 */
+-	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
+-	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
+-		ctx->tx_max++;
++	/* finish setting up the device specific data */
++	cdc_ncm_setup(dev);
+=20
+ 	return 0;
 =20
 --=20
 2.0.0.rc2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
