@@ -1,77 +1,203 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: Expose header length compution function
-Date: Sat, 10 May 2014 14:53:43 -0700
-Message-ID: <536E9FE7.6060809@gmail.com>
-References: <1399553434-25617-1-git-send-email-amirv@mellanox.com>		<1399553434-25617-2-git-send-email-amirv@mellanox.com>	 <20140509.162454.1317479460010270185.davem@davemloft.net>	 <536E5DF4.8010908@gmail.com> <1399744197.7973.11.camel@edumazet-glaptop2.roam.corp.google.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 4/4] net: cdc_ncm/cdc_mbim: rework probing of NCM/MBIM functions
+Date: Sun, 11 May 2014 00:17:23 +0200
+Message-ID: <1399760243-26625-5-git-send-email-bjorn@mork.no>
+References: <1399760243-26625-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, amirv@mellanox.com,
-	netdev@vger.kernel.org, idos@mellanox.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:39915 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752006AbaEJVxp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 17:53:45 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so5851065pad.2
-        for <netdev@vger.kernel.org>; Sat, 10 May 2014 14:53:45 -0700 (PDT)
-In-Reply-To: <1399744197.7973.11.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399760243-26625-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 05/10/2014 10:49 AM, Eric Dumazet wrote:
-> On Sat, 2014-05-10 at 10:12 -0700, Alexander Duyck wrote:
->
->> Actually the flow keys with the exception of maybe thoff and ip_proto
->> are pretty much useless to us for our purpose.  As is we are left to
->> then go off and compute the header length of the transport before we get
->> to the information we need.
->>
->> The two functions are very similar though.  It might be worth while to
->> actually park the two next to each other so that it is obvious that when
->> one gets updated to support a new protocol the other should as well.  So
->> for example the headlen function could pick up some of the tunnel stuff.
->>
->> The main difference between __net_get_headlen() and skb_flow_dissect()
->> is that skb_flow_dissect is meant to work on a packet headed in either
->> direction, as such there are multiple calls to skb_copy_bits and all the
->> copies out of the paged area that go with it.  __net_get_headlen() is
->> meant to be called by the base netdev on a linear buffer to parse
->> through everything from the start of the Ethernet header to the start of
->> the data section and determine the length of that region.  So one
->> obvious difference is that we care about the length of non-l4 headers,
->> whereas skb_flow_dissect does not.
-> Its actually possible to prepare an skb with the needed parts so that
-> skb_flow_dissect() has no copy to do.
->
-> Its a 10 lines helper maybe.
->
-> I already mentioned this in the past, I fail to understand your
-> resistance.
->
-> I will provide it unless someone beats me, because its the week end and
-> I have other plans at the moment.
+The NCM class match in the cdc_mbim driver is confusing and
+cause unexpected behaviour. The USB core guarantees that a
+USB interface is in altsetting 0 when probing starts. This
+means that devices implementing a NCM 1.0 backwards
+compatible MBIM function (a "NCM/MBIM function") always hit
+the NCM entry in the cdc_mbim driver match table. Such
+functions will never match any of the MBIM entries.
 
-I'm more of a fan of purpose built functions in hot-path.  In the case
-of skb_flow_dissect, it is meant to collect the inputs for a Jenkins
-hash.  If we also expand it to get the length my concern is that it may
-do both, but it won't be very efficient at doing either, and that
-doesn't even take into account that somebody at some point might want
-the flow dissector to not do things like coalesce IPv6 addresses to
-support things like a Toeplitz hash which would slow things down further.
+This causes unexpeced behaviour for cases where the NCM and
+MBIM entries are differet, which is currently the case for
+all except Ericsson devices.
 
-I can wait for the patch. I don't really see what you're talking about
-since we are trying to linearize the header portion of the buffers and
-for jumbos frames all 2K of the buffer has been used so you can't do any
-tricks like use a paged frag for the head.
+Improve the probing of NCM/MBIM functions by looking up the
+device again in the cdc_mbim match table after switching to
+the MBIM identity.
 
-Thanks,
+The shared altsetting selection is updated to better
+accommodate the new probing logic, returning the preferred
+altsetting for the control interface instead of the data
+interface. The control interface altsetting update is moved
+to the cdc_mbim driver. It is never necessary to change the
+control interface altsetting for NCM.
 
-Alex
+Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+Reported by: Yu-an Shih <yshih-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/cdc_mbim.c  | 43 +++++++++++++++++++++++++++++++++++++=
+++++--
+ drivers/net/usb/cdc_ncm.c   | 27 +++++++++++++--------------
+ include/linux/usb/cdc_ncm.h |  2 +-
+ 3 files changed, 55 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index beb8b95160a5..cfbd9ba65bc5 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -107,15 +107,54 @@ static const struct net_device_ops cdc_mbim_netde=
+v_ops =3D {
+ 	.ndo_vlan_rx_kill_vid =3D cdc_mbim_rx_kill_vid,
+ };
+=20
++/* Change the control interface altsetting and update the .driver_info
++ * pointer if the matching entry after changing class codes points to
++ * a different struct
++ */
++static int cdc_mbim_set_ctrlalt(struct usbnet *dev, struct usb_interfa=
+ce *intf, u8 alt)
++{
++	struct usb_driver *driver =3D to_usb_driver(intf->dev.driver);
++	const struct usb_device_id *id;
++	struct driver_info *info;
++	int ret;
++
++	ret =3D usb_set_interface(dev->udev,
++				intf->cur_altsetting->desc.bInterfaceNumber,
++				alt);
++	if (ret)
++		return ret;
++
++	id =3D usb_match_id(intf, driver->id_table);
++	if (!id)
++		return -ENODEV;
++
++	info =3D (struct driver_info *)id->driver_info;
++	if (info !=3D dev->driver_info) {
++		dev_dbg(&intf->dev, "driver_info updated to '%s'\n",
++			info->description);
++		dev->driver_info =3D info;
++	}
++	return 0;
++}
++
+ static int cdc_mbim_bind(struct usbnet *dev, struct usb_interface *int=
+f)
+ {
+ 	struct cdc_ncm_ctx *ctx;
+ 	struct usb_driver *subdriver =3D ERR_PTR(-ENODEV);
+ 	int ret =3D -ENODEV;
+-	u8 data_altsetting =3D cdc_ncm_select_altsetting(dev, intf);
++	u8 data_altsetting =3D 1;
+ 	struct cdc_mbim_state *info =3D (void *)&dev->data;
+=20
+-	/* Probably NCM, defer for cdc_ncm_bind */
++	/* should we change control altsetting on a NCM/MBIM function? */
++	if (cdc_ncm_select_altsetting(intf) =3D=3D CDC_NCM_COMM_ALTSETTING_MB=
+IM) {
++		data_altsetting =3D CDC_NCM_DATA_ALTSETTING_MBIM;
++		ret =3D cdc_mbim_set_ctrlalt(dev, intf, CDC_NCM_COMM_ALTSETTING_MBIM=
+);
++		if (ret)
++			goto err;
++		ret =3D -ENODEV;
++	}
++
++	/* we will hit this for NCM/MBIM functions if prefer_mbim is false */
+ 	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
+ 		goto err;
+=20
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 549dbac710ed..a1e0ba2a3a42 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -541,10 +541,10 @@ void cdc_ncm_unbind(struct usbnet *dev, struct us=
+b_interface *intf)
+ }
+ EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
+=20
+-/* Select the MBIM altsetting iff it is preferred and available,
+- * returning the number of the corresponding data interface altsetting
++/* Return the number of the MBIM control interface altsetting iff it
++ * is preferred and available,
+  */
+-u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf)
++u8 cdc_ncm_select_altsetting(struct usb_interface *intf)
+ {
+ 	struct usb_host_interface *alt;
+=20
+@@ -563,15 +563,15 @@ u8 cdc_ncm_select_altsetting(struct usbnet *dev, =
+struct usb_interface *intf)
+ 	 *   the rules given in section 6 (USB Device Model) of this
+ 	 *   specification."
+ 	 */
+-	if (prefer_mbim && intf->num_altsetting =3D=3D 2) {
++	if (intf->num_altsetting < 2)
++		return intf->cur_altsetting->desc.bAlternateSetting;
++
++	if (prefer_mbim) {
+ 		alt =3D usb_altnum_to_altsetting(intf, CDC_NCM_COMM_ALTSETTING_MBIM)=
+;
+-		if (alt && cdc_ncm_comm_intf_is_mbim(alt) &&
+-		    !usb_set_interface(dev->udev,
+-				       intf->cur_altsetting->desc.bInterfaceNumber,
+-				       CDC_NCM_COMM_ALTSETTING_MBIM))
+-			return CDC_NCM_DATA_ALTSETTING_MBIM;
++		if (alt && cdc_ncm_comm_intf_is_mbim(alt))
++			return CDC_NCM_COMM_ALTSETTING_MBIM;
+ 	}
+-	return CDC_NCM_DATA_ALTSETTING_NCM;
++	return CDC_NCM_COMM_ALTSETTING_NCM;
+ }
+ EXPORT_SYMBOL_GPL(cdc_ncm_select_altsetting);
+=20
+@@ -580,12 +580,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struc=
+t usb_interface *intf)
+ 	int ret;
+=20
+ 	/* MBIM backwards compatible function? */
+-	cdc_ncm_select_altsetting(dev, intf);
+-	if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++	if (cdc_ncm_select_altsetting(intf) !=3D CDC_NCM_COMM_ALTSETTING_NCM)
+ 		return -ENODEV;
+=20
+-	/* NCM data altsetting is always 1 */
+-	ret =3D cdc_ncm_bind_common(dev, intf, 1);
++	/* The NCM data altsetting is fixed */
++	ret =3D cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
+=20
+ 	/*
+ 	 * We should get an event when network connection is "connected" or
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 44b38b92236a..55b6feead93b 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -121,7 +121,7 @@ struct cdc_ncm_ctx {
+ 	u16 connected;
+ };
+=20
+-u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf);
++u8 cdc_ncm_select_altsetting(struct usb_interface *intf);
+ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting);
+ void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
+ struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_bu=
+ff *skb, __le32 sign);
+--=20
+2.0.0.rc2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
