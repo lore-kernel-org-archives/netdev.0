@@ -1,126 +1,91 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max update of setup
-Date: Sat, 10 May 2014 17:41:39 +0200
-Message-ID: <1399736509-1159-2-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next 07/11] net: cdc_ncm: set reasonable padding limits
+Date: Sat, 10 May 2014 17:41:45 +0200
+Message-ID: <1399736509-1159-8-git-send-email-bjorn@mork.no>
 References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1399736509-1159-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:43755 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751820AbaEJPmU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 May 2014 11:42:20 -0400
+In-Reply-To: <1399736509-1159-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Split out the part of setup dealing with updating the rx_max
-and tx_max buffer sizes so that this code can be reused for
-dynamically updating the limits.
+We pad frames larger than X to maximum size for devices which
+don't need a ZLP after maximum sized frames. This allows the
+device to optimize its transfers for one fixed buffer size.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+X was arbitrarily set at 512 bytes regardless of real buffer
+maximum, causing extreme overheads due to excessive padding of
+larger tx buffers. Limit the padding to at most 3 full USB
+packets, still allowing the overhead to payload ratio of 3/1.
+
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c | 81 +++++++++++++++++++++++++++++----------=
---------
- 1 file changed, 50 insertions(+), 31 deletions(-)
+ drivers/net/usb/cdc_ncm.c   | 8 ++++++--
+ include/linux/usb/cdc_ncm.h | 1 +
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 549dbac710ed..87a32edf7ea5 100644
+index faa494c0377e..e28b530bff3a 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -65,6 +65,54 @@ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_=
-ctx *ctx);
- static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_tim=
-er);
- static struct usb_driver cdc_ncm_driver;
+@@ -201,6 +201,10 @@ static void cdc_ncm_update_rxtx_max(struct usbnet =
+*dev, u32 new_rx, u32 new_tx)
 =20
-+/* handle rx_max and tx_max changes */
-+static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, u3=
-2 new_tx)
-+{
-+	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
-+	u8 iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber;
-+	u32 val, max, min;
+ 	/* max qlen depend on hard_mtu and rx_urb_size */
+ 	usbnet_update_max_qlen(dev);
 +
-+	/* clamp new_rx to sane values */
-+	min =3D min_t(u32, USB_CDC_NCM_NTB_MIN_IN_SIZE, le32_to_cpu(ctx->ncm_=
-parm.dwNtbInMaxSize));
-+	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_parm=
-=2EdwNtbInMaxSize));
-+
-+	val =3D clamp_t(u32, new_rx, min, max);
-+	if (val !=3D new_rx) {
-+		dev_dbg(&dev->intf->dev, "rx_max must be in the [%u, %u] range. Usin=
-g %u\n",
-+			min, max, val);
-+	}
-+
-+	/* inform device about NTB input size changes */
-+	if (val !=3D ctx->rx_max) {
-+		__le32 dwNtbInMaxSize =3D cpu_to_le32(val);
-+
-+		dev_info(&dev->intf->dev, "setting rx_max =3D %u\n", val);
-+		if (usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
-+				     USB_TYPE_CLASS | USB_DIR_OUT
-+				     | USB_RECIP_INTERFACE,
-+				     0, iface_no, &dwNtbInMaxSize, 4) < 0)
-+			dev_dbg(&dev->intf->dev, "Setting NTB Input Size failed\n");
-+		else
-+			ctx->rx_max =3D val;
-+	}
-+
-+	/* clamp new_tx to sane values */
-+	min =3D CDC_NCM_MIN_HDR_SIZE + ctx->max_datagram_size;
-+	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_TX, le32_to_cpu(ctx->ncm_parm=
-=2EdwNtbOutMaxSize));
-+
-+	/* some devices set dwNtbOutMaxSize too low for the above default */
-+	min =3D min(min, max);
-+
-+	val =3D clamp_t(u32, new_tx, min, max);
-+	if (val !=3D new_tx) {
-+		dev_dbg(&dev->intf->dev, "tx_max must be in the [%u, %u] range. Usin=
-g %u\n",
-+			min, max, val);
-+	}
-+	if (val !=3D ctx->tx_max)
-+		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
-+	ctx->tx_max =3D val;
-+}
-+
- static int cdc_ncm_setup(struct usbnet *dev)
- {
- 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
-@@ -132,37 +180,8 @@ static int cdc_ncm_setup(struct usbnet *dev)
- 			(ctx->tx_max_datagrams > CDC_NCM_DPT_DATAGRAMS_MAX))
- 		ctx->tx_max_datagrams =3D CDC_NCM_DPT_DATAGRAMS_MAX;
++	/* never pad more than 3 full USB packets per transfer */
++	ctx->min_tx_pkt =3D clamp_t(u16, ctx->tx_max - 3 * usb_maxpacket(dev-=
+>udev, dev->out, 1),
++				  CDC_NCM_MIN_TX_PKT, ctx->tx_max);
+ }
 =20
--	/* verify maximum size of received NTB in bytes */
--	if (ctx->rx_max < USB_CDC_NCM_NTB_MIN_IN_SIZE) {
--		dev_dbg(&dev->intf->dev, "Using min receive length=3D%d\n",
--			USB_CDC_NCM_NTB_MIN_IN_SIZE);
--		ctx->rx_max =3D USB_CDC_NCM_NTB_MIN_IN_SIZE;
--	}
--
--	if (ctx->rx_max > CDC_NCM_NTB_MAX_SIZE_RX) {
--		dev_dbg(&dev->intf->dev, "Using default maximum receive length=3D%d\=
-n",
--			CDC_NCM_NTB_MAX_SIZE_RX);
--		ctx->rx_max =3D CDC_NCM_NTB_MAX_SIZE_RX;
--	}
--
--	/* inform device about NTB input size changes */
--	if (ctx->rx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
--		__le32 dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
--
--		err =3D usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
--				       USB_TYPE_CLASS | USB_DIR_OUT
--				       | USB_RECIP_INTERFACE,
--				       0, iface_no, &dwNtbInMaxSize, 4);
--		if (err < 0)
--			dev_dbg(&dev->intf->dev, "Setting NTB Input Size failed\n");
--	}
+ /* helpers for NCM and MBIM differences */
+@@ -936,7 +940,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk=
+_buff *skb, __le32 sign)
+ 		/* variables will be reset at next call */
+ 	}
+=20
+-	/* If collected data size is less or equal CDC_NCM_MIN_TX_PKT
++	/* If collected data size is less or equal ctx->min_tx_pkt
+ 	 * bytes, we send buffers as it is. If we get more data, it
+ 	 * would be more efficient for USB HS mobile device with DMA
+ 	 * engine to receive a full size NTB, than canceling DMA
+@@ -946,7 +950,7 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk=
+_buff *skb, __le32 sign)
+ 	 * a ZLP after full sized NTBs.
+ 	 */
+ 	if (!(dev->driver_info->flags & FLAG_SEND_ZLP) &&
+-	    skb_out->len > CDC_NCM_MIN_TX_PKT)
++	    skb_out->len > ctx->min_tx_pkt)
+ 		memset(skb_put(skb_out, ctx->tx_max - skb_out->len), 0,
+ 		       ctx->tx_max - skb_out->len);
+ 	else if ((skb_out->len % dev->maxpacket) =3D=3D 0)
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index bbc4ce9ffef5..0aac70ee23b6 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -115,6 +115,7 @@ struct cdc_ncm_ctx {
+ 	u16 tx_seq;
+ 	u16 rx_seq;
+ 	u16 connected;
++	u16 min_tx_pkt;
+ };
+=20
+ u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf);
+--=20
+2.0.0.rc2
