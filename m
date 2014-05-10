@@ -1,78 +1,102 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [B.A.T.M.A.N.] pull request net: batman-adv 20140510
-Date: Sat, 10 May 2014 17:40:50 +0200
-Message-ID: <536E4882.4020106@meshcoding.com>
-References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc
-	   Networking <b.a.t.m.a.n@lists.open-mesh.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 04/11] net: cdc_ncm: support rx_max/tx_max updates when running
+Date: Sat, 10 May 2014 17:41:42 +0200
+Message-ID: <1399736509-1159-5-git-send-email-bjorn@mork.no>
+References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="2kLlMcJgsxaLlXuULMLgMnVTpgWRV0NxX"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:15433 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780AbaEJPl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 11:41:57 -0400
-In-Reply-To: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---2kLlMcJgsxaLlXuULMLgMnVTpgWRV0NxX
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399736509-1159-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 10/05/14 17:35, Antonio Quartulli wrote:
-> The following changes since commit 1448eb566970c6d3cade522419848fdaee24=
-c684:
->=20
->   Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel=
-/git/linville/wireless (2014-05-09 16:46:53 -0400)
->=20
-> are available in the git repository at:
->=20
->=20
->   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem=
+=46inish the rx_max/tx_max setup by flushing buffers and
+informing usbnet about the changes.  This way, the settings
+can be modified while the netdev is up and running.
 
->=20
-> for you to fetch changes up to 29bcc8064fc0b82bc708c09577d550923b954e5a=
-:
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c | 31 +++++++++++++++++++++++++------
+ 1 file changed, 25 insertions(+), 6 deletions(-)
 
-The tag points now to 05191f523653461ca6a4e4fb38012e0d8f3c5641 because I
-fixed a too long line.
-
-
-Cheers,
-
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index ad29cde75f41..466922a8af4d 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -82,11 +82,20 @@ static void cdc_ncm_update_rxtx_max(struct usbnet *=
+dev, u32 new_rx, u32 new_tx)
+ 			min, max, val);
+ 	}
+=20
++	/* usbnet use these values for sizing rx queues */
++	dev->rx_urb_size =3D val;
++
+ 	/* inform device about NTB input size changes */
+ 	if (val !=3D ctx->rx_max) {
+ 		__le32 dwNtbInMaxSize =3D cpu_to_le32(val);
+=20
+ 		dev_info(&dev->intf->dev, "setting rx_max =3D %u\n", val);
++
++		/* need to unlink rx urbs before increasing buffer size */
++		if (netif_running(dev->net) && dev->rx_urb_size > ctx->rx_max)
++			usbnet_unlink_rx_urbs(dev);
++
++		/* tell device to use new size */
+ 		if (usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
+ 				     USB_TYPE_CLASS | USB_DIR_OUT
+ 				     | USB_RECIP_INTERFACE,
+@@ -110,7 +119,6 @@ static void cdc_ncm_update_rxtx_max(struct usbnet *=
+dev, u32 new_rx, u32 new_tx)
+ 	}
+ 	if (val !=3D ctx->tx_max)
+ 		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
+-	ctx->tx_max =3D val;
+=20
+ 	/* Adding a pad byte here if necessary simplifies the handling
+ 	 * in cdc_ncm_fill_tx_frame, making tx_max always represent
+@@ -119,13 +127,24 @@ static void cdc_ncm_update_rxtx_max(struct usbnet=
+ *dev, u32 new_rx, u32 new_tx)
+ 	 * We cannot use dev->maxpacket here because this is called from
+ 	 * .bind which is called before usbnet sets up dev->maxpacket
+ 	 */
+-	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
+-	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
+-		ctx->tx_max++;
++	if (val !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
++	    val % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
++		val++;
++
++	/* we might need to flush any pending tx buffers if running */
++	if (netif_running(dev->net) && val > ctx->tx_max) {
++		netif_tx_lock_bh(dev->net);
++		usbnet_start_xmit(NULL, dev->net);
++		ctx->tx_max =3D val;
++		netif_tx_unlock_bh(dev->net);
++	} else {
++		ctx->tx_max =3D val;
++	}
+=20
+-	/* usbnet use these values for sizing tx/rx queues */
+ 	dev->hard_mtu =3D ctx->tx_max;
+-	dev->rx_urb_size =3D ctx->rx_max;
++
++	/* max qlen depend on hard_mtu and rx_urb_size */
++	usbnet_update_max_qlen(dev);
+ }
+=20
+ /* helpers for NCM and MBIM differences */
 --=20
-Antonio Quartulli
+2.0.0.rc2
 
-
---2kLlMcJgsxaLlXuULMLgMnVTpgWRV0NxX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJTbkiLAAoJEEKTMo6mOh1V5xcP/RdJSQcxTHSMKAfa39Dgz6hu
-GtCebNPAM2h24MIVprba9ZTPnlRiHaLirGTCdZE+WM9to+oqEAu/BmK4IBcruwIS
-YISgbpJtdAR3X0sWpw/wg9n72R5YFqACACIXnbvxjErc5DrBAiOLC5aUla759g2/
-guxqaRq5k2hHDUXOWkerOxt/9zYWUgHL32+d+zUHUqb055txV15nWDVFxngMW+z1
-/5RkBDtucR7CVH6LKbut2YGFjNP/RA++pdsVurxU2gA+LwjEQdvjnULcUK04J/R9
-ExyWyx0bh/ts3GO3TKkdgISci3eS/IIIY3WW0dDFCpuUnhqrwT6I1xEXWMu000Dy
-eIJGopGfWommalIlSnhQSMgBgBry5LPmKEybX0sFpz5ORoS0aHzH8lDsKTrVZCy6
-FEI9zETF79ALRVKDcgtsZk11TEshmEPyT4DR74uLGRdyFr0v0SSpGqM5SprcDR/V
-gvYSazOy83kiUe56OHsu9P8A1roecUMKtYag5NWtlRJwM668NwSauKoX9ymDqwEF
-VtD9y/l/lAZlbHH3ew30LaLku+s6VY+qK+3/EKJ2KmIVMssULjKqF5B1Oz2wwzXw
-9wYdLcbdcUDc3U96gULZMPQU5ubLs7Uf/ufNHBnuLlNPuOhTvwN+FXRdoh10HGDY
-lHYR5n49pqHX/AVgrIp4
-=qXs3
------END PGP SIGNATURE-----
-
---2kLlMcJgsxaLlXuULMLgMnVTpgWRV0NxX--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
