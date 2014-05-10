@@ -1,76 +1,104 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: pull request net: batman-adv 20140510
-Date: Sat, 10 May 2014 17:35:06 +0200
-Message-ID: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+Subject: [PATCH 4/4] batman-adv: fix removing neigh_ifinfo
+Date: Sat, 10 May 2014 17:35:10 +0200
+Message-ID: <1399736110-22333-5-git-send-email-antonio@meshcoding.com>
+References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Simon Wunderlich <simon@open-mesh.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Antonio Quartulli <antonio@meshcoding.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:11411 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:6330 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964AbaEJPga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 11:36:30 -0400
+	with ESMTP id S1750964AbaEJPgd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 11:36:33 -0400
+In-Reply-To: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Simon Wunderlich <simon@open-mesh.com>
 
-here you have 4 small but important patches from Simon Wunderlich intended
-for net/linux-3.15 and *stable/linux-3.14* (please enqueue them).
+When an interface is removed separately, all neighbors need to be
+checked if they have a neigh_ifinfo structure for that particular
+interface. If that is the case, remove that ifinfo so any references to
+a hard interface can be freed.
 
-I know it's rather late in the rc cycle but these 4 changes are addressing
-some severe reference counting imbalances in different parts of code.
+This is a regression introduced by
+89652331c00f43574515059ecbf262d26d885717
+("batman-adv: split tq information in neigh_node struct")
 
-All these reference counting problems are rather important because they prevent
-the netdev object used by batman-adv from being released and then the
-system from properly shutdown/reboot/reconfigure by holding the networking stack
-with the following (sad) message:
+Reported-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+---
+ net/batman-adv/originator.c | 46 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
 
-unregister_netdevice: waiting for mesh0 to become free. Usage count = 1
-
-
-Please pull or let me know of any problem!
-
-Thanks a lot,
-	Antonio
-
-
-The following changes since commit 1448eb566970c6d3cade522419848fdaee24c684:
-
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless (2014-05-09 16:46:53 -0400)
-
-are available in the git repository at:
-
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to 29bcc8064fc0b82bc708c09577d550923b954e5a:
-
-  batman-adv: fix removing neigh_ifinfo (2014-05-10 10:59:05 +0200)
-
-----------------------------------------------------------------
-Included changes:
-- properly release neigh_ifinfo in batadv_iv_ogm_process_per_outif()
-- properly release orig_ifinfo->router when freeing orig_ifinfo
-- properly release neigh_node objects during periodic check
-- properly release neigh_info objects when the related hard_iface
-  is free'd
-
-These changes are all very important because they fix some
-reference counting imbalances that lead to the
-impossibility of releasing the netdev object used by
-batman-adv on shutdown.
-The consequence is that such object cannot be destroyed by
-the networking stack (the refcounter does not reach zero)
-thus bringing the system in hanging state during a normal
-reboot operation or a network reconfiguration.
-
-----------------------------------------------------------------
-Simon Wunderlich (4):
-      batman-adv: fix neigh_ifinfo imbalance
-      batman-adv: fix neigh reference imbalance
-      batman-adv: always run purge_orig_neighbors
-      batman-adv: fix removing neigh_ifinfo
-
- net/batman-adv/bat_iv_ogm.c |  2 ++
- net/batman-adv/originator.c | 59 ++++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 57 insertions(+), 4 deletions(-)
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 8104c3c..427c07d 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -707,6 +707,47 @@ free_orig_node:
+ }
+ 
+ /**
++ * batadv_purge_neigh_ifinfo - purge obsolete ifinfo entries from neighbor
++ * @bat_priv: the bat priv with all the soft interface information
++ * @neigh_node: orig node which is to be checked
++ */
++static void
++batadv_purge_neigh_ifinfo(struct batadv_priv *bat_priv,
++			  struct batadv_neigh_node *neigh)
++{
++	struct batadv_neigh_ifinfo *neigh_ifinfo;
++	struct batadv_hard_iface *if_outgoing;
++	struct hlist_node *node_tmp;
++
++	spin_lock_bh(&neigh->ifinfo_lock);
++
++	/* for all ifinfo objects for this neighinator */
++	hlist_for_each_entry_safe(neigh_ifinfo, node_tmp,
++				  &neigh->ifinfo_list, list) {
++		if_outgoing = neigh_ifinfo->if_outgoing;
++
++		/* always keep the default interface */
++		if (if_outgoing == BATADV_IF_DEFAULT)
++			continue;
++
++		/* don't purge if the interface is not (going) down */
++		if ((if_outgoing->if_status != BATADV_IF_INACTIVE) &&
++		    (if_outgoing->if_status != BATADV_IF_NOT_IN_USE) &&
++		    (if_outgoing->if_status != BATADV_IF_TO_BE_REMOVED))
++			continue;
++
++		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
++			   "neighbor/ifinfo purge: neighbor %pM, iface: %s\n",
++			   neigh->addr, if_outgoing->net_dev->name);
++
++		hlist_del_rcu(&neigh_ifinfo->list);
++		batadv_neigh_ifinfo_free_ref(neigh_ifinfo);
++	}
++
++	spin_unlock_bh(&neigh->ifinfo_lock);
++}
++
++/**
+  * batadv_purge_orig_ifinfo - purge obsolete ifinfo entries from originator
+  * @bat_priv: the bat priv with all the soft interface information
+  * @orig_node: orig node which is to be checked
+@@ -805,6 +846,11 @@ batadv_purge_orig_neighbors(struct batadv_priv *bat_priv,
+ 
+ 			hlist_del_rcu(&neigh_node->list);
+ 			batadv_neigh_node_free_ref(neigh_node);
++		} else {
++			/* only neccesary if not the whole neighbor is to be deleted,
++			 * but some interface has been removed.
++			 */
++			batadv_purge_neigh_ifinfo(bat_priv, neigh_node);
+ 		}
+ 	}
+ 
+-- 
+1.8.5.5
