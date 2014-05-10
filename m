@@ -1,139 +1,126 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 11/11] net: cdc_ncm: remove redundant "disconnected" flag
-Date: Sat, 10 May 2014 17:41:49 +0200
-Message-ID: <1399736509-1159-12-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max update of setup
+Date: Sat, 10 May 2014 17:41:39 +0200
+Message-ID: <1399736509-1159-2-git-send-email-bjorn@mork.no>
 References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43767 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752591AbaEJPmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 May 2014 11:42:22 -0400
-In-Reply-To: <1399736509-1159-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399736509-1159-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Calling netif_carrier_{on,off} is sufficient.  There is no need
-to duplicate the carrier state in a driver specific flag.
+Split out the part of setup dealing with updating the rx_max
+and tx_max buffer sizes so that this code can be reused for
+dynamically updating the limits.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c        | 19 ++-----------------
- drivers/net/usb/huawei_cdc_ncm.c | 13 -------------
- include/linux/usb/cdc_ncm.h      |  1 -
- 3 files changed, 2 insertions(+), 31 deletions(-)
+ drivers/net/usb/cdc_ncm.c | 81 +++++++++++++++++++++++++++++----------=
+--------
+ 1 file changed, 50 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index c65145671521..114d56b9fe29 100644
+index 549dbac710ed..87a32edf7ea5 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -1353,11 +1353,10 @@ static void cdc_ncm_status(struct usbnet *dev, =
-struct urb *urb)
- 		 * USB_CDC_NOTIFY_NETWORK_CONNECTION notification shall be
- 		 * sent by device after USB_CDC_NOTIFY_SPEED_CHANGE.
- 		 */
--		ctx->connected =3D le16_to_cpu(event->wValue);
- 		netif_info(dev, link, dev->net,
- 			   "network connection: %sconnected\n",
--			   ctx->connected ? "" : "dis");
--		usbnet_link_change(dev, ctx->connected, 0);
-+			   !!event->wValue ? "" : "dis");
-+		usbnet_link_change(dev, !!event->wValue, 0);
- 		break;
+@@ -65,6 +65,54 @@ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_=
+ctx *ctx);
+ static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_tim=
+er);
+ static struct usb_driver cdc_ncm_driver;
 =20
- 	case USB_CDC_NOTIFY_SPEED_CHANGE:
-@@ -1377,23 +1376,11 @@ static void cdc_ncm_status(struct usbnet *dev, =
-struct urb *urb)
- 	}
- }
-=20
--static int cdc_ncm_check_connect(struct usbnet *dev)
--{
--	struct cdc_ncm_ctx *ctx;
--
--	ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--	if (ctx =3D=3D NULL)
--		return 1;	/* disconnected */
--
--	return !ctx->connected;
--}
--
- static const struct driver_info cdc_ncm_info =3D {
- 	.description =3D "CDC NCM",
- 	.flags =3D FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
- 	.bind =3D cdc_ncm_bind,
- 	.unbind =3D cdc_ncm_unbind,
--	.check_connect =3D cdc_ncm_check_connect,
- 	.manage_power =3D usbnet_manage_power,
- 	.status =3D cdc_ncm_status,
- 	.rx_fixup =3D cdc_ncm_rx_fixup,
-@@ -1407,7 +1394,6 @@ static const struct driver_info wwan_info =3D {
- 			| FLAG_WWAN,
- 	.bind =3D cdc_ncm_bind,
- 	.unbind =3D cdc_ncm_unbind,
--	.check_connect =3D cdc_ncm_check_connect,
- 	.manage_power =3D usbnet_manage_power,
- 	.status =3D cdc_ncm_status,
- 	.rx_fixup =3D cdc_ncm_rx_fixup,
-@@ -1421,7 +1407,6 @@ static const struct driver_info wwan_noarp_info =3D=
++/* handle rx_max and tx_max changes */
++static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, u3=
+2 new_tx)
++{
++	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
++	u8 iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber;
++	u32 val, max, min;
++
++	/* clamp new_rx to sane values */
++	min =3D min_t(u32, USB_CDC_NCM_NTB_MIN_IN_SIZE, le32_to_cpu(ctx->ncm_=
+parm.dwNtbInMaxSize));
++	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_parm=
+=2EdwNtbInMaxSize));
++
++	val =3D clamp_t(u32, new_rx, min, max);
++	if (val !=3D new_rx) {
++		dev_dbg(&dev->intf->dev, "rx_max must be in the [%u, %u] range. Usin=
+g %u\n",
++			min, max, val);
++	}
++
++	/* inform device about NTB input size changes */
++	if (val !=3D ctx->rx_max) {
++		__le32 dwNtbInMaxSize =3D cpu_to_le32(val);
++
++		dev_info(&dev->intf->dev, "setting rx_max =3D %u\n", val);
++		if (usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
++				     USB_TYPE_CLASS | USB_DIR_OUT
++				     | USB_RECIP_INTERFACE,
++				     0, iface_no, &dwNtbInMaxSize, 4) < 0)
++			dev_dbg(&dev->intf->dev, "Setting NTB Input Size failed\n");
++		else
++			ctx->rx_max =3D val;
++	}
++
++	/* clamp new_tx to sane values */
++	min =3D CDC_NCM_MIN_HDR_SIZE + ctx->max_datagram_size;
++	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_TX, le32_to_cpu(ctx->ncm_parm=
+=2EdwNtbOutMaxSize));
++
++	/* some devices set dwNtbOutMaxSize too low for the above default */
++	min =3D min(min, max);
++
++	val =3D clamp_t(u32, new_tx, min, max);
++	if (val !=3D new_tx) {
++		dev_dbg(&dev->intf->dev, "tx_max must be in the [%u, %u] range. Usin=
+g %u\n",
++			min, max, val);
++	}
++	if (val !=3D ctx->tx_max)
++		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
++	ctx->tx_max =3D val;
++}
++
+ static int cdc_ncm_setup(struct usbnet *dev)
  {
- 			| FLAG_WWAN | FLAG_NOARP,
- 	.bind =3D cdc_ncm_bind,
- 	.unbind =3D cdc_ncm_unbind,
--	.check_connect =3D cdc_ncm_check_connect,
- 	.manage_power =3D usbnet_manage_power,
- 	.status =3D cdc_ncm_status,
- 	.rx_fixup =3D cdc_ncm_rx_fixup,
-diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_=
-cdc_ncm.c
-index 312178d7b698..f9822bc75425 100644
---- a/drivers/net/usb/huawei_cdc_ncm.c
-+++ b/drivers/net/usb/huawei_cdc_ncm.c
-@@ -172,24 +172,11 @@ err:
- 	return ret;
- }
+ 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
+@@ -132,37 +180,8 @@ static int cdc_ncm_setup(struct usbnet *dev)
+ 			(ctx->tx_max_datagrams > CDC_NCM_DPT_DATAGRAMS_MAX))
+ 		ctx->tx_max_datagrams =3D CDC_NCM_DPT_DATAGRAMS_MAX;
 =20
--static int huawei_cdc_ncm_check_connect(struct usbnet *usbnet_dev)
--{
--	struct cdc_ncm_ctx *ctx;
+-	/* verify maximum size of received NTB in bytes */
+-	if (ctx->rx_max < USB_CDC_NCM_NTB_MIN_IN_SIZE) {
+-		dev_dbg(&dev->intf->dev, "Using min receive length=3D%d\n",
+-			USB_CDC_NCM_NTB_MIN_IN_SIZE);
+-		ctx->rx_max =3D USB_CDC_NCM_NTB_MIN_IN_SIZE;
+-	}
 -
--	ctx =3D (struct cdc_ncm_ctx *)usbnet_dev->data[0];
+-	if (ctx->rx_max > CDC_NCM_NTB_MAX_SIZE_RX) {
+-		dev_dbg(&dev->intf->dev, "Using default maximum receive length=3D%d\=
+n",
+-			CDC_NCM_NTB_MAX_SIZE_RX);
+-		ctx->rx_max =3D CDC_NCM_NTB_MAX_SIZE_RX;
+-	}
 -
--	if (ctx =3D=3D NULL)
--		return 1; /* disconnected */
+-	/* inform device about NTB input size changes */
+-	if (ctx->rx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize)) {
+-		__le32 dwNtbInMaxSize =3D cpu_to_le32(ctx->rx_max);
 -
--	return !ctx->connected;
--}
--
- static const struct driver_info huawei_cdc_ncm_info =3D {
- 	.description =3D "Huawei CDC NCM device",
- 	.flags =3D FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
- 	.bind =3D huawei_cdc_ncm_bind,
- 	.unbind =3D huawei_cdc_ncm_unbind,
--	.check_connect =3D huawei_cdc_ncm_check_connect,
- 	.manage_power =3D huawei_cdc_ncm_manage_power,
- 	.rx_fixup =3D cdc_ncm_rx_fixup,
- 	.tx_fixup =3D cdc_ncm_tx_fixup,
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 1921bdadd9ab..dc175b1debdf 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -118,7 +118,6 @@ struct cdc_ncm_ctx {
- 	u16 tx_ndp_modulus;
- 	u16 tx_seq;
- 	u16 rx_seq;
--	u16 connected;
- 	u16 min_tx_pkt;
-=20
- 	/* statistics */
---=20
-2.0.0.rc2
+-		err =3D usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
+-				       USB_TYPE_CLASS | USB_DIR_OUT
+-				       | USB_RECIP_INTERFACE,
+-				       0, iface_no, &dwNtbInMaxSize, 4);
+-		if (err < 0)
+-			dev_dbg(&dev->intf->dev, "Setting NTB Input Size failed\n");
+-	}
