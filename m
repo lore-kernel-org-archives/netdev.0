@@ -1,74 +1,67 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: [PATCH iproute2] tc/netem: loss gemodel options fixes
-Date: Sat, 10 May 2014 13:34:58 -0700
-Message-ID: <29682.1399754098@localhost.localdomain>
-Cc: netdev@vger.kernel.org, netem@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/4] batman-adv: fix removing neigh_ifinfo
+Date: Sun, 11 May 2014 00:39:50 +0400
+Message-ID: <536E8E96.7090401@cogentembedded.com>
+References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com> <1399736110-22333-5-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Simon Wunderlich <simon@open-mesh.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>
+To: Antonio Quartulli <antonio@meshcoding.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:38007 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752174AbaEJUfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 16:35:05 -0400
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:50520 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752970AbaEJUjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 16:39:35 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so6436914lbi.29
+        for <netdev@vger.kernel.org>; Sat, 10 May 2014 13:39:33 -0700 (PDT)
+In-Reply-To: <1399736110-22333-5-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-	First, the default value for 1-k is documented as being 0, but is
-currently being set to 1. (100%).  This causes all packets to be dropped
-in the good state if 1-k is not explicitly specified.  Fix this by setting
-the default to 0.
+On 05/10/2014 07:35 PM, Antonio Quartulli wrote:
 
-	Second, the 1-h option is parsed correctly, however, the kernel is
-expecting "h", not 1-h.  Fix this by inverting the "1-h" percentage before
-sending to and after receiving from the kernel.  This does change the
-behavior, but makes it consistent with the netem documentation and the
-literature on the Gilbert-Elliot model, which refer to "1-h" and "1-k,"
-not "h" or "k" directly.
+> From: Simon Wunderlich <simon@open-mesh.com>
 
-	Last, fix a minor formatting issue for the options reporting.
+> When an interface is removed separately, all neighbors need to be
+> checked if they have a neigh_ifinfo structure for that particular
+> interface. If that is the case, remove that ifinfo so any references to
+> a hard interface can be freed.
 
-Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
----
- tc/q_netem.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+> This is a regression introduced by
+> 89652331c00f43574515059ecbf262d26d885717
+> ("batman-adv: split tq information in neigh_node struct")
 
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index c83e301..8abe07f 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -307,7 +307,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 				/* set defaults */
- 				set_percent(&gemodel.r, 1.);
- 				set_percent(&gemodel.h, 0);
--				set_percent(&gemodel.k1, 1.);
-+				set_percent(&gemodel.k1, 0);
- 				loss_type = NETEM_LOSS_GE;
- 
- 				if (!NEXT_IS_NUMBER())
-@@ -325,6 +325,10 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 					explain1("loss gemodel h");
- 					return -1;
- 				}
-+				/* netem option is "1-h" but kernel
-+				 * expects "h".
-+				 */
-+				gemodel.h = max_percent_value - gemodel.h;
- 
- 				if (!NEXT_IS_NUMBER())
- 					continue;
-@@ -625,10 +629,11 @@ static int netem_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- 	}
- 
- 	if (gemodel) {
--		fprintf(f, "loss gemodel p %s",
-+		fprintf(f, " loss gemodel p %s",
- 			sprint_percent(gemodel->p, b1));
- 		fprintf(f, " r %s", sprint_percent(gemodel->r, b1));
--		fprintf(f, " 1-h %s", sprint_percent(gemodel->h, b1));
-+		fprintf(f, " 1-h %s", sprint_percent(max_percent_value -
-+						     gemodel->h, b1));
- 		fprintf(f, " 1-k %s", sprint_percent(gemodel->k1, b1));
- 	}
- 
--- 
-1.8.3.2
+> Reported-by: Antonio Quartulli <antonio@open-mesh.com>
+> Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+> Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+> Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
+> ---
+>   net/batman-adv/originator.c | 46 +++++++++++++++++++++++++++++++++++++++++++++
+>   1 file changed, 46 insertions(+)
+
+> diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+> index 8104c3c..427c07d 100644
+> --- a/net/batman-adv/originator.c
+> +++ b/net/batman-adv/originator.c
+> @@ -707,6 +707,47 @@ free_orig_node:
+>   }
+>
+>   /**
+> + * batadv_purge_neigh_ifinfo - purge obsolete ifinfo entries from neighbor
+> + * @bat_priv: the bat priv with all the soft interface information
+> + * @neigh_node: orig node which is to be checked
+
+    The corresponding parameter is called just 'neigh'.
+
+> + */
+> +static void
+> +batadv_purge_neigh_ifinfo(struct batadv_priv *bat_priv,
+> +			  struct batadv_neigh_node *neigh)
+[...]
+
+WBR, Sergei
