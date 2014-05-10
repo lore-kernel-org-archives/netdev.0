@@ -1,251 +1,67 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v2 3/3] net: support marking accepting TCP sockets
-Date: Sat, 10 May 2014 12:08:18 +0900
-Message-ID: <1399691298-2531-3-git-send-email-lorenzo@google.com>
-References: <1399691298-2531-1-git-send-email-lorenzo@google.com>
-Cc: jpa@google.com, davem@davemloft.net, ja@ssi.bg,
-	hannes@stressinduktion.org, eric.dumazet@gmail.com,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [PATCH] checkpatch.pl: Fix checkpatch false positive due to ternary operator break
+Date: Fri,  9 May 2014 21:41:51 -0700
+Message-ID: <1399696911-6550-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: David Ertman <davidx.m.ertman@intel.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: joe@perches.com, akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:48814 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753006AbaEJDId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 May 2014 23:08:33 -0400
-Received: by mail-pd0-f170.google.com with SMTP id v10so4419017pde.15
-        for <netdev@vger.kernel.org>; Fri, 09 May 2014 20:08:33 -0700 (PDT)
-In-Reply-To: <1399691298-2531-1-git-send-email-lorenzo@google.com>
+Received: from mga09.intel.com ([134.134.136.24]:41345 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750871AbaEJEly (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 10 May 2014 00:41:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using mark-based routing, sockets returned from accept()
-may need to be marked differently depending on the incoming
-connection request.
+From: David Ertman <davidx.m.ertman@intel.com>
 
-This is the case, for example, if different socket marks identify
-different networks: a listening socket may want to accept
-connections from all networks, but each connection should be
-marked with the network that the request came in on, so that
-subsequent packets are sent on the correct network.
+Using the intuitive breaking of a ternary operator used in the
+initialization of a variable in its declaration:
 
-This patch adds a sysctl to mark TCP sockets based on the fwmark
-of the incoming SYN packet. If enabled, and an unmarked socket
-receives a SYN, then the SYN packet's fwmark is written to the
-connection's inet_request_sock, and later written back to the
-accepted socket when the connection is established.  If the
-socket already has a nonzero mark, then the behaviour is the same
-as it is today, i.e., the listening socket's fwmark is used.
+type var = FOO ?
+           BAR :
+           FEE;
 
-Black-box tested using user-mode linux:
+is causing a checkpatch warning:
+"WARNING:SPACING: networking uses a blank line after declarations"
 
-- IPv4/IPv6 SYN+ACK, FIN, etc. packets are routed based on the
-  mark of the incoming SYN packet.
-- The socket returned by accept() is marked with the mark of the
-  incoming SYN packet.
-- Tested with syncookies=1 and syncookies=2.
+Checkpatch is checking for the ternary operators at the beginning of the
+lines after the initial break like the following:
 
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+type var = FOO
+           ? BAR
+           : FEE;
+
+Change checkpatch so that it is checking fot the correct breaking of ternary
+operators used in networking variable declaration/initialization.
+
+Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- Documentation/networking/ip-sysctl.txt | 10 ++++++++++
- include/net/inet_sock.h                |  9 +++++++++
- include/net/netns/ipv4.h               |  1 +
- net/ipv4/inet_connection_sock.c        |  6 ++++--
- net/ipv4/syncookies.c                  |  3 ++-
- net/ipv4/sysctl_net_ipv4.c             |  7 +++++++
- net/ipv4/tcp_ipv4.c                    |  1 +
- net/ipv6/inet6_connection_sock.c       |  2 +-
- net/ipv6/syncookies.c                  |  4 +++-
- net/ipv6/tcp_ipv6.c                    |  1 +
- 10 files changed, 39 insertions(+), 5 deletions(-)
+ scripts/checkpatch.pl | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 03c4bde..6a6267a 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -514,6 +514,16 @@ tcp_fastopen - INTEGER
- 
- 	See include/net/tcp.h and the code for more details.
- 
-+tcp_fwmark_accept - BOOLEAN
-+	If set, incoming connections to listening sockets that do not have a
-+	socket mark will set the mark of the accepting socket to the fwmark of
-+	the incoming SYN packet. This will cause all packets on that connection
-+	(starting from the first SYNACK) to be sent with that fwmark. The
-+	listening socket's mark is unchanged. Listening sockets that already
-+	have a fwmark set via setsockopt(SOL_SOCKET, SO_MARK, ...) are
-+	unaffected.
-+	Default: 0
-+
- tcp_syn_retries - INTEGER
- 	Number of times initial SYNs for an active TCP connection attempt
- 	will be retransmitted. Should not be higher than 255. Default value
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 1833c3f..adb0fbe 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -88,6 +88,7 @@ struct inet_request_sock {
- 				acked	   : 1,
- 				no_srccheck: 1;
- 	kmemcheck_bitfield_end(flags);
-+	u32                     ir_mark;
- 	struct ip_options_rcu	*opt;
- 	struct sk_buff		*pktopts;
- };
-@@ -97,6 +98,14 @@ static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
- 	return (struct inet_request_sock *)sk;
- }
- 
-+static inline u32 inet_request_mark(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (!sk->sk_mark && sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept)
-+		return skb->mark;
-+
-+	return sk->sk_mark;
-+}
-+
- struct inet_cork {
- 	unsigned int		flags;
- 	__be32			addr;
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 8e1a9c0..c701843 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -73,6 +73,7 @@ struct netns_ipv4 {
- 	int sysctl_ip_fwd_use_pmtu;
- 
- 	int sysctl_fwmark_reflect;
-+	int sysctl_tcp_fwmark_accept;
- 
- 	kgid_t sysctl_ping_group_range[2];
- 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 0d1e2cb..5ae71ec 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -408,7 +408,7 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
- 	struct net *net = sock_net(sk);
- 	int flags = inet_sk_flowi_flags(sk);
- 
--	flowi4_init_output(fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(fl4, sk->sk_bound_dev_if, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
- 			   sk->sk_protocol,
- 			   flags,
-@@ -445,7 +445,7 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
- 
- 	rcu_read_lock();
- 	opt = rcu_dereference(newinet->inet_opt);
--	flowi4_init_output(fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(fl4, sk->sk_bound_dev_if, inet_rsk(req)->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
- 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
- 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
-@@ -680,6 +680,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
- 		inet_sk(newsk)->inet_sport = htons(inet_rsk(req)->ir_num);
- 		newsk->sk_write_space = sk_stream_write_space;
- 
-+		newsk->sk_mark = inet_rsk(req)->ir_mark;
-+
- 		newicsk->icsk_retransmits = 0;
- 		newicsk->icsk_backoff	  = 0;
- 		newicsk->icsk_probes_out  = 0;
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index f2ed13c..c86624b 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -303,6 +303,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	ireq->ir_rmt_port	= th->source;
- 	ireq->ir_loc_addr	= ip_hdr(skb)->daddr;
- 	ireq->ir_rmt_addr	= ip_hdr(skb)->saddr;
-+	ireq->ir_mark		= inet_request_mark(sk, skb);
- 	ireq->ecn_ok		= ecn_ok;
- 	ireq->snd_wscale	= tcp_opt.snd_wscale;
- 	ireq->sack_ok		= tcp_opt.sack_ok;
-@@ -339,7 +340,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	 * hasn't changed since we received the original syn, but I see
- 	 * no easy way to do this.
- 	 */
--	flowi4_init_output(&fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(&fl4, sk->sk_bound_dev_if, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
- 			   inet_sk_flowi_flags(sk),
- 			   (opt && opt->srr) ? opt->faddr : ireq->ir_rmt_addr,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index e40a738..6480281 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -845,6 +845,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "tcp_fwmark_accept",
-+		.data		= &init_net.ipv4.sysctl_tcp_fwmark_accept,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index ad166dc..6c1b6f6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1507,6 +1507,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq->ir_rmt_addr = saddr;
- 	ireq->no_srccheck = inet_sk(sk)->transparent;
- 	ireq->opt = tcp_v4_save_options(skb);
-+	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index d4ade34..a245e5d 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -81,7 +81,7 @@ struct dst_entry *inet6_csk_route_req(struct sock *sk,
- 	final_p = fl6_update_dst(fl6, np->opt, &final);
- 	fl6->saddr = ireq->ir_v6_loc_addr;
- 	fl6->flowi6_oif = ireq->ir_iif;
--	fl6->flowi6_mark = sk->sk_mark;
-+	fl6->flowi6_mark = ireq->ir_mark;
- 	fl6->fl6_dport = ireq->ir_rmt_port;
- 	fl6->fl6_sport = htons(ireq->ir_num);
- 	security_req_classify_flow(req, flowi6_to_flowi(fl6));
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index bb53a5e7..a822b88 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -216,6 +216,8 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
- 		ireq->ir_iif = inet6_iif(skb);
- 
-+	ireq->ir_mark = inet_request_mark(sk, skb);
-+
- 	req->expires = 0UL;
- 	req->num_retrans = 0;
- 	ireq->ecn_ok		= ecn_ok;
-@@ -242,7 +244,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		final_p = fl6_update_dst(&fl6, np->opt, &final);
- 		fl6.saddr = ireq->ir_v6_loc_addr;
- 		fl6.flowi6_oif = sk->sk_bound_dev_if;
--		fl6.flowi6_mark = sk->sk_mark;
-+		fl6.flowi6_mark = ireq->ir_mark;
- 		fl6.fl6_dport = ireq->ir_rmt_port;
- 		fl6.fl6_sport = inet_sk(sk)->inet_sport;
- 		security_req_classify_flow(req, flowi6_to_flowi(&fl6));
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 994572c..37c8334 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1017,6 +1017,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
- 
- 	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 34eb216..baabf1c 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -2269,12 +2269,13 @@ sub process {
+ 		if ($realfile =~ m@^(drivers/net/|net/)@ &&
+ 		    $prevline =~ /^\+\s+$Declare\s+$Ident/ &&
+ 		    !($prevline =~ /(?:$Compare|$Assignment|$Operators)\s*$/ ||
+-		      $prevline =~ /(?:\{\s*|\\)$/) &&		#extended lines
++		      $prevline =~ /(?:\{\s*|\\)$/ ||		#extended lines
++		      $prevline =~ /(?:[\?\:])$/) &&		#ternary ops
+ 		    $sline =~ /^\+\s+/ &&			#Not at char 1
+ 		    !($sline =~ /^\+\s+$Declare/ ||
+ 		      $sline =~ /^\+\s+$Ident\s+$Ident/ ||	#eg: typedef foo
+ 		      $sline =~ /^\+\s+(?:union|struct|enum|typedef)\b/ ||
+-		      $sline =~ /^\+\s+(?:$|[\{\}\.\#\"\?\:\(])/ ||
++		      $sline =~ /^\+\s+(?:$|[\{\}\.\#\"\(])/ ||
+ 		      $sline =~ /^\+\s+\(?\s*(?:$Compare|$Assignment|$Operators)/)) {
+ 			WARN("SPACING",
+ 			     "networking uses a blank line after declarations\n" . $hereprev);
 -- 
-1.9.1.423.g4596e3a
+1.9.0
