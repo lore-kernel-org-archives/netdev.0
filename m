@@ -1,64 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: Expose header length compution
- function
-Date: Sat, 10 May 2014 10:49:57 -0700
-Message-ID: <1399744197.7973.11.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1399553434-25617-1-git-send-email-amirv@mellanox.com>
-		<1399553434-25617-2-git-send-email-amirv@mellanox.com>
-	 <20140509.162454.1317479460010270185.davem@davemloft.net>
-	 <536E5DF4.8010908@gmail.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH] bnx2x: fix build when BNX2X_SRIOV is not enabled
+Date: Sat, 10 May 2014 11:33:54 -0700
+Message-ID: <536E7112.4080506@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, amirv@mellanox.com,
-	netdev@vger.kernel.org, idos@mellanox.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Ariel Elior <ariele@broadcom.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:63574 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751001AbaEJRuA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 13:50:00 -0400
-Received: by mail-pd0-f173.google.com with SMTP id y10so4952507pdj.18
-        for <netdev@vger.kernel.org>; Sat, 10 May 2014 10:50:00 -0700 (PDT)
-In-Reply-To: <536E5DF4.8010908@gmail.com>
+Received: from merlin.infradead.org ([205.233.59.134]:55115 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbaEJSd5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 May 2014 14:33:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-05-10 at 10:12 -0700, Alexander Duyck wrote:
+From: Randy Dunlap <rdunlap@infradead.org>
 
-> Actually the flow keys with the exception of maybe thoff and ip_proto
-> are pretty much useless to us for our purpose.  As is we are left to
-> then go off and compute the header length of the transport before we get
-> to the information we need.
-> 
-> The two functions are very similar though.  It might be worth while to
-> actually park the two next to each other so that it is obvious that when
-> one gets updated to support a new protocol the other should as well.  So
-> for example the headlen function could pick up some of the tunnel stuff.
-> 
-> The main difference between __net_get_headlen() and skb_flow_dissect()
-> is that skb_flow_dissect is meant to work on a packet headed in either
-> direction, as such there are multiple calls to skb_copy_bits and all the
-> copies out of the paged area that go with it.  __net_get_headlen() is
-> meant to be called by the base netdev on a linear buffer to parse
-> through everything from the start of the Ethernet header to the start of
-> the data section and determine the length of that region.  So one
-> obvious difference is that we care about the length of non-l4 headers,
-> whereas skb_flow_dissect does not.
+Fix build when BNX2X_SRIOV is not enabled.
+Change one parameter struct from bnx2 to bnx2x and don't return a value
+from a void function.
 
-Its actually possible to prepare an skb with the needed parts so that
-skb_flow_dissect() has no copy to do.
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h:576:48: warning: 'struct bnx2' declared inside parameter list [enabled by default]
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h:576:48: warning: its scope is only this definition or declaration, which is probably not what you want [enabled by default]
 
-Its a 10 lines helper maybe.
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h:576:60: warning: 'return' with a value, in function returning void [enabled by default]
 
-I already mentioned this in the past, I fail to understand your
-resistance.
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc:	Ariel Elior <ariele@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I will provide it unless someone beats me, because its the week end and
-I have other plans at the moment.
+Found in linux-next and mmotm.
+
+--- mmotm-2014-0509-1617.orig/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ mmotm-2014-0509-1617/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -571,7 +571,7 @@ static inline void __iomem *bnx2x_vf_doo
+ 	return NULL;
+ }
+ 
+-static inline void bnx2x_vf_pci_dealloc(struct bnx2 *bp) {return 0; }
++static inline void bnx2x_vf_pci_dealloc(struct bnx2x *bp) {}
+ static inline int bnx2x_vf_pci_alloc(struct bnx2x *bp) {return 0; }
+ static inline void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp) {}
+ static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {return 0; }
