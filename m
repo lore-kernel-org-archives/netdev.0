@@ -1,71 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [RFC net-next 0/4] Support UID range routing.
-Date: Sun, 11 May 2014 14:45:45 -0700
-Message-ID: <1399844745.13956.116157949.32873A56@webmail.messagingengine.com>
-References: <20140428.125807.409036177577836732.davem@davemloft.net>
- <CAKD1Yr1HN4=42JYfe9LYguWukXxNE38vvwLBt-aEeQ-zSisN9Q@mail.gmail.com>
- <CAKD1Yr0wqj0wG3Ges9NeqMBALO-SxY9KTgZo_sp_8VYKnihKMQ@mail.gmail.com>
- <20140502.152441.695810627123047.davem@davemloft.net>
- <CAKD1Yr24VnDU9swPzq67uocFvyD2EOkLVT0Ph7Xwkq=wGkzNgQ@mail.gmail.com>
- <1399454661.19449.114587073.05E84176@webmail.messagingengine.com>
- <CAKD1Yr0ZXniXMyZ3WcWFsZ=UD9JJ+Bhv69meRrGuMEiN-_SugA@mail.gmail.com>
+From: Mateusz Guzik <mguzik@redhat.com>
+Subject: Re: [PATCH] net: ipv4: current group_info should be put after using.
+Date: Sun, 11 May 2014 23:55:22 +0200
+Message-ID: <20140511215521.GA12224@mguzik.redhat.com>
+References: <1397493045.2575.8.camel@wxm-ubuntu>
+ <20140413.225407.1762639913754561393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	David Newall <davidn@davidnewall.com>, netdev@vger.kernel.org,
-	JP Abgrall <jpa@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from new2-smtp.messagingengine.com ([66.111.4.224]:44647 "EHLO
-	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755717AbaEKVps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2014 17:45:48 -0400
-In-Reply-To: <CAKD1Yr0ZXniXMyZ3WcWFsZ=UD9JJ+Bhv69meRrGuMEiN-_SugA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: xiaoming.wang@intel.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
+	dongxing.zhang@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140413.225407.1762639913754561393.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 7, 2014, at 3:58, Lorenzo Colitti wrote:
-> On Wed, May 7, 2014 at 6:24 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
-> > I question the abstraction of using UIDs for matching routing rules.
-> > E.g. freebsd uses setfib[1] to alter the view of the routing table per
-> > process. E.g. an interface like ip rule exec (action ACTION)+ PROGRAM
-> > would be much nicer in combination with a prctl, maybe? I would much
-> > rather enjoy an interface not based on UIDs. Would something like that
-> > solve your initial problem?
+On Sun, Apr 13, 2014 at 10:54:07PM -0400, David Miller wrote:
+> From: "Wang, Xiaoming" <xiaoming.wang@intel.com>
+> Date: Mon, 14 Apr 2014 12:30:45 -0400
 > 
-> So you're suggesting something that would still be an ip rule, but
-> would match a new identifier ("fibgroup") rather than the uid? I think
-> that would work, though obviously it's a much bigger change than what
-> I am proposing here.
+> > Plug a group_info refcount leak in ping_init.
+> > group_info is only needed during initialization and 
+> > the code failed to release the reference on exit.
+> > While here move grabbing the reference to a place 
+> > where it is actually needed.
+> > 
+> > Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+> > Signed-off-by: Zhang Dongxing <dongxing.zhang@intel.com>
+> > Signed-off-by: xiaoming wang <xiaoming.wang@intel.com>
 > 
-> It would require defining a new identifier, figuring out what its
-> semantics are, setting it when socket objects are created, attaching
-> it to sockets across accept/fork, etc. Userspace code would have to be
-> update it to set it on processes (whereas the uid is already dealt
-> with by existing tools), etc.
+> Applied and queued up for -stable, thanks.
 
-That was my idea, yes. Having some kind of opaque identifier with
-user-friendly names a la /etc/iproute2/rt_tables which can be used in ip
-rule matches.
+I see this only made its way to 3.12 kernel, what is holding up inclusion
+in other kernels? (or maybe this question should be directed at someone
+else?)
 
-I see, it would require very heavy lifting, but in the end seems to be
-more user-friendly to me than uids. But I guess task_struct is something
-like sk_buff, where you need to find very good arguments to expand it.
+The bug was introduced with:
+commit c319b4d76b9e583a5d88d6bf190e079c4e43213d
+Author: Vasiliy Kulikov <segoon@openwall.com>
+Date:   Fri May 13 10:01:00 2011 +0000
+    net: ipv4: add IPPROTO_ICMP socket kind
 
-Maybe something like cgroup/net_cls.classid would be possible, but I am
-not familar on how to interact with cgroups internally and don't know
-how much work that would be (and if more network cgroup interaction is
-actually desirable).
+starting with 3.0.
 
-> If you're proposing something not that's not an ip rule, then that
-> seems like a step backwards, because it won't allow the rich policy
-> allowed by processing rules in priority order, throw routes, FRA_GOTO,
-> etc.
-
-Agreed.
-
-Bye,
-
-  Hannes
+Thanks,
+-- 
+Mateusz Guzik
