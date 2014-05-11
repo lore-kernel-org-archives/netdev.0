@@ -1,114 +1,86 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: e1000 crash on 3.15.0-rc4
-Date: Sun, 11 May 2014 13:12:12 +0100
-Message-ID: <1399810332.11946.127.camel@deadeye.wl.decadent.org.uk>
-References: <20140507053245.GB15783@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6976336947721230323=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: bo.li.liu@oracle.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20140507053245.GB15783@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected mode TX path
+Date: Sun, 11 May 2014 15:15:09 +0300
+Message-ID: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi Roland,
 
---===============6976336947721230323==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-oRnqtAQvFS703bbize5e"
+This series is a refactored form of the one posted by Jiri Kosina 
+to LKML and netdev according to the discussion that followed
+and the guidelines you provided here https://lkml.org/lkml/2014/3/5/250
 
+Basically, the functionality changes introduced by this series fully 
+reside on the IB side of things, so I am only posting the actual patches 
+to linux-rdma with CC on the cover-letter to the lists that were on V0.
 
---=-oRnqtAQvFS703bbize5e
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Or.
 
-On Wed, 2014-05-07 at 13:32 +0800, Liu Bo wrote:
-> Hi,
->=20
-> I'm using qemu to load kernel of 3.15.0-rc4, and with CONFIG_E1000=3Dy,
-> everying is ok, but with CONFIG_E1000=3Dm, I got the following crash:
->=20
-> [...]
-> [    6.020409] tsc: Refined TSC clocksource calibration: 2491.912 MHz
-> [    6.074925] floppy: Unknown symbol mutex_lock (err 0)
-> [    6.128579] virtio_blk: Unknown symbol mutex_lock (err 0)
-> [    6.141264] i2c_core: Unknown symbol mutex_lock (err 0)
+As described in the change log of patch #2 this series comes to address 
+a problem whereby NFS client writes would enter uninterruptible sleep 
+forever. The issue happened when using NFS over IPoIB connected mode.
 
-Really???
+The problem encountered was described as follows: it's not memory
+reclamation that is the problem as such. There is an indirect dependency
+between network filesystems writing back pages and ipoib_cm_tx_init()
+due to how a kworker is used. Page reclaim cannot make forward progress
+until ipoib_cm_tx_init() succeeds and it is stuck in page reclaim itself
+waiting for network transmission. Ordinarily this situation may be
+avoided by having the caller use GFP_NOFS but ipoib_cm_tx_init()
+does not have that information.
 
-> [    6.167490] e1000: Intel(R) PRO/1000 Network Driver - version 7.3.21-k=
-8-NAPI
-> [    6.168240] e1000: Copyright (c) 1999-2006 Intel Corporation.
-> [    6.171078] ACPI: PCI Interrupt Link [LNKC] enabled at IRQ 10
-> [    6.190295] BUG: spinlock bad magic on CPU#3, systemd-udevd/208
-[...]
+To address this, we take a more general approach vs. V0 and generalize 
+the solution such that when the new QP creation flag is provided, the
+HW driver should use a GFP_NOIO for the memory allocations related
+to the new QP.
 
-I think you may have rebuilt the kernel with lockdep enabled, but
-haven't also rebuilt and installed the modules with lockdep enabled.
+changes from V0:
+ - removed the module param for IPoIB, the connected mode code would
+   attempt to use GFP_NOIO for the QP creation and fallback to GFP_KERNEL
+   (as before) if the HW driver doesn't support that. This approach will let
+   
 
-You should enable symbol versions to catch such mistakes.
+Jiri Kosina (1):
+  mlx4: Enhance the QP creation path to use a given GFP directive
 
-Ben.
+Or Gerlitz (2):
+  IB: Return error when QP creation are provided for driver not supporting that
+  IB: Add a QP creation flag to allow specifying a NOIO allocation directive
 
---=20
-Ben Hutchings
-Sturgeon's Law: Ninety percent of everything is crap.
+ drivers/infiniband/hw/mlx4/cq.c                    |    6 ++--
+ drivers/infiniband/hw/mlx4/mlx4_ib.h               |    1 +
+ drivers/infiniband/hw/mlx4/qp.c                    |   30 +++++++++++--------
+ drivers/infiniband/hw/mlx4/srq.c                   |    7 ++--
+ drivers/infiniband/hw/qib/qib_qp.c                 |    3 +-
+ drivers/infiniband/hw/usnic/usnic_ib_verbs.c       |    3 ++
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c            |   19 ++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/alloc.c         |   27 +++++++++--------
+ drivers/net/ethernet/mellanox/mlx4/cq.c            |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    6 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c         |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/icm.c           |    7 ++--
+ drivers/net/ethernet/mellanox/mlx4/icm.h           |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/mr.c            |   17 ++++++-----
+ drivers/net/ethernet/mellanox/mlx4/qp.c            |   20 ++++++------
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 +-
+ drivers/net/ethernet/mellanox/mlx4/srq.c           |    4 +-
+ include/linux/mlx4/device.h                        |   10 ++++--
+ include/rdma/ib_verbs.h                            |    1 +
+ 20 files changed, 104 insertions(+), 74 deletions(-)
 
---=-oRnqtAQvFS703bbize5e
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUAU29pJue/yOyVhhEJAQr4YxAAnZSwn3NmkpIq3Ypy3KEKLxlAdV26lO7u
-PwQppS7ruY+2fzKwt6LWhXsHIj3iB1p6H7Y8H/ieq19xoe8drnoLjLshO581xbvh
-POIwnoGZeyfSDf1JQe5ix37YGx6maFn7x09QLgK2p6PFFK57KVaLoLQ7bDFkGRw6
-t1OAAdpPrIHI8UvWSAxufcWPGgBuWoaRqyLYbJfWodbIqQxJ+b9nB9soA8rv44C+
-u671AGqeu4ihDzG7u18iS2jATyuI73E7suwI3XmcIpHOb3Z/jTTtRFkMV2OtlGJS
-ComxdjTc6qzsyOLkwaMOYhcLW1g3ST4vrZcLr+6VX905QU7jlig1sXdBXxvbYCzA
-kKP4etjlWWLvCNRgGeV/xD9ii4jtjAm4//sUgX5hwZ0TOCsxZF4f2QIBKcTavJ5Z
-WfUov2NnR31JL8csFHKkrPoVwKg57E0Ql+sfCXnepLF/2XONr/Gu7rZUp71zHf7h
-2gN8QH1U+blKGeP/TSDTLdiZzkLzKCeXwKzP8va0cESWRflbYMeqSvuneydlumIS
-f711QI66lsGREActEmjfWbVREQqCxnaHKZM+wyn1SXeANDWXPGj5cpli23NAkwIa
-B719nSme0kFGNaUbBITrxGyvUE/ZFOK0ZhHgm5cK005mDjOI7Hf0+YVNrE+GMbGJ
-bxNI1WLrmPQ=
-=IVdu
------END PGP SIGNATURE-----
-
---=-oRnqtAQvFS703bbize5e--
-
-
---===============6976336947721230323==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Is your legacy SCM system holding you back? Join Perforce May 7 to find out:
-&#149; 3 signs your SCM is hindering your productivity
-&#149; Requirements for releasing software faster
-&#149; Expert tips and advice for migrating your SCM now
-http://p.sf.net/sfu/perforce
---===============6976336947721230323==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============6976336947721230323==--
+Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Cc: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
