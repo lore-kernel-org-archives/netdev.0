@@ -1,203 +1,148 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next v2 4/4] net: cdc_ncm/cdc_mbim: rework probing of NCM/MBIM functions
-Date: Sun, 11 May 2014 10:47:15 +0200
-Message-ID: <1399798035-29117-5-git-send-email-bjorn@mork.no>
-References: <1399798035-29117-1-git-send-email-bjorn@mork.no>
+From: "Enrico Mioso (@atlantide)" <mrkiko.rs@gmail.com>
+Subject: Re: [PATCH net-next 11/11] net: cdc_ncm: remove redundant "disconnected"
+ flag
+Date: Sun, 11 May 2014 11:14:29 +0200 (CEST)
+Message-ID: <alpine.LNX.2.03.1405111113530.1398@gmail.com>
+References: <1399736509-1159-1-git-send-email-bjorn@mork.no> <1399736509-1159-12-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1399798035-29117-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	David Laight <David.Laight@aculab.com>
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:47742 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757977AbaEKJDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2014 05:03:48 -0400
+In-Reply-To: <1399736509-1159-12-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The NCM class match in the cdc_mbim driver is confusing and
-cause unexpected behaviour. The USB core guarantees that a
-USB interface is in altsetting 0 when probing starts. This
-means that devices implementing a NCM 1.0 backwards
-compatible MBIM function (a "NCM/MBIM function") always hit
-the NCM entry in the cdc_mbim driver match table. Such
-functions will never match any of the MBIM entries.
+Acked-By: Enrico Mioso <mrkiko.rs@gmail.com>
 
-This causes unexpeced behaviour for cases where the NCM and
-MBIM entries are differet, which is currently the case for
-all except Ericsson devices.
+On Sat, 10 May 2014, Bj?rn Mork wrote:
 
-Improve the probing of NCM/MBIM functions by looking up the
-device again in the cdc_mbim match table after switching to
-the MBIM identity.
-
-The shared altsetting selection is updated to better
-accommodate the new probing logic, returning the preferred
-altsetting for the control interface instead of the data
-interface. The control interface altsetting update is moved
-to the cdc_mbim driver. It is never necessary to change the
-control interface altsetting for NCM.
-
-Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
-Reported by: Yu-an Shih <yshih-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
- drivers/net/usb/cdc_mbim.c  | 43 +++++++++++++++++++++++++++++++++++++=
-++++--
- drivers/net/usb/cdc_ncm.c   | 27 +++++++++++++--------------
- include/linux/usb/cdc_ncm.h |  2 +-
- 3 files changed, 55 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
-index ae5a4821f976..bcabe573a77a 100644
---- a/drivers/net/usb/cdc_mbim.c
-+++ b/drivers/net/usb/cdc_mbim.c
-@@ -107,15 +107,54 @@ static const struct net_device_ops cdc_mbim_netde=
-v_ops =3D {
- 	.ndo_vlan_rx_kill_vid =3D cdc_mbim_rx_kill_vid,
- };
-=20
-+/* Change the control interface altsetting and update the .driver_info
-+ * pointer if the matching entry after changing class codes points to
-+ * a different struct
-+ */
-+static int cdc_mbim_set_ctrlalt(struct usbnet *dev, struct usb_interfa=
-ce *intf, u8 alt)
-+{
-+	struct usb_driver *driver =3D to_usb_driver(intf->dev.driver);
-+	const struct usb_device_id *id;
-+	struct driver_info *info;
-+	int ret;
-+
-+	ret =3D usb_set_interface(dev->udev,
-+				intf->cur_altsetting->desc.bInterfaceNumber,
-+				alt);
-+	if (ret)
-+		return ret;
-+
-+	id =3D usb_match_id(intf, driver->id_table);
-+	if (!id)
-+		return -ENODEV;
-+
-+	info =3D (struct driver_info *)id->driver_info;
-+	if (info !=3D dev->driver_info) {
-+		dev_dbg(&intf->dev, "driver_info updated to '%s'\n",
-+			info->description);
-+		dev->driver_info =3D info;
-+	}
-+	return 0;
-+}
-+
- static int cdc_mbim_bind(struct usbnet *dev, struct usb_interface *int=
-f)
- {
- 	struct cdc_ncm_ctx *ctx;
- 	struct usb_driver *subdriver =3D ERR_PTR(-ENODEV);
- 	int ret =3D -ENODEV;
--	u8 data_altsetting =3D cdc_ncm_select_altsetting(dev, intf);
-+	u8 data_altsetting =3D 1;
- 	struct cdc_mbim_state *info =3D (void *)&dev->data;
-=20
--	/* Probably NCM, defer for cdc_ncm_bind */
-+	/* should we change control altsetting on a NCM/MBIM function? */
-+	if (cdc_ncm_select_altsetting(intf) =3D=3D CDC_NCM_COMM_ALTSETTING_MB=
-IM) {
-+		data_altsetting =3D CDC_NCM_DATA_ALTSETTING_MBIM;
-+		ret =3D cdc_mbim_set_ctrlalt(dev, intf, CDC_NCM_COMM_ALTSETTING_MBIM=
-);
-+		if (ret)
-+			goto err;
-+		ret =3D -ENODEV;
-+	}
-+
-+	/* we will hit this for NCM/MBIM functions if prefer_mbim is false */
- 	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
- 		goto err;
-=20
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 549dbac710ed..a1e0ba2a3a42 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -541,10 +541,10 @@ void cdc_ncm_unbind(struct usbnet *dev, struct us=
-b_interface *intf)
- }
- EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
-=20
--/* Select the MBIM altsetting iff it is preferred and available,
-- * returning the number of the corresponding data interface altsetting
-+/* Return the number of the MBIM control interface altsetting iff it
-+ * is preferred and available,
-  */
--u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
-*intf)
-+u8 cdc_ncm_select_altsetting(struct usb_interface *intf)
- {
- 	struct usb_host_interface *alt;
-=20
-@@ -563,15 +563,15 @@ u8 cdc_ncm_select_altsetting(struct usbnet *dev, =
-struct usb_interface *intf)
- 	 *   the rules given in section 6 (USB Device Model) of this
- 	 *   specification."
- 	 */
--	if (prefer_mbim && intf->num_altsetting =3D=3D 2) {
-+	if (intf->num_altsetting < 2)
-+		return intf->cur_altsetting->desc.bAlternateSetting;
-+
-+	if (prefer_mbim) {
- 		alt =3D usb_altnum_to_altsetting(intf, CDC_NCM_COMM_ALTSETTING_MBIM)=
-;
--		if (alt && cdc_ncm_comm_intf_is_mbim(alt) &&
--		    !usb_set_interface(dev->udev,
--				       intf->cur_altsetting->desc.bInterfaceNumber,
--				       CDC_NCM_COMM_ALTSETTING_MBIM))
--			return CDC_NCM_DATA_ALTSETTING_MBIM;
-+		if (alt && cdc_ncm_comm_intf_is_mbim(alt))
-+			return CDC_NCM_COMM_ALTSETTING_MBIM;
- 	}
--	return CDC_NCM_DATA_ALTSETTING_NCM;
-+	return CDC_NCM_COMM_ALTSETTING_NCM;
- }
- EXPORT_SYMBOL_GPL(cdc_ncm_select_altsetting);
-=20
-@@ -580,12 +580,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struc=
-t usb_interface *intf)
- 	int ret;
-=20
- 	/* MBIM backwards compatible function? */
--	cdc_ncm_select_altsetting(dev, intf);
--	if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
-+	if (cdc_ncm_select_altsetting(intf) !=3D CDC_NCM_COMM_ALTSETTING_NCM)
- 		return -ENODEV;
-=20
--	/* NCM data altsetting is always 1 */
--	ret =3D cdc_ncm_bind_common(dev, intf, 1);
-+	/* The NCM data altsetting is fixed */
-+	ret =3D cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
-=20
- 	/*
- 	 * We should get an event when network connection is "connected" or
-diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
-index 44b38b92236a..55b6feead93b 100644
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -121,7 +121,7 @@ struct cdc_ncm_ctx {
- 	u16 connected;
- };
-=20
--u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
-*intf);
-+u8 cdc_ncm_select_altsetting(struct usb_interface *intf);
- int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
-, u8 data_altsetting);
- void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
- struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_bu=
-ff *skb, __le32 sign);
---=20
-2.0.0.rc2
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+==Date: Sat, 10 May 2014 17:41:49 +0200
+==From: Bj?rn Mork <bjorn@mork.no>
+==To: netdev@vger.kernel.org
+==Cc: linux-usb@vger.kernel.org, Alexey Orishko <alexey.orishko@gmail.com>,
+==    Oliver Neukum <oliver@neukum.org>, Enrico Mioso <mrkiko.rs@gmail.com>,
+==    David Laight <David.Laight@aculab.com>, Bj?rn Mork <bjorn@mork.no>
+==Subject: [PATCH net-next 11/11] net: cdc_ncm: remove redundant "disconnected"
+==    flag
+==
+==Calling netif_carrier_{on,off} is sufficient.  There is no need
+==to duplicate the carrier state in a driver specific flag.
+==
+==Signed-off-by: Bj?rn Mork <bjorn@mork.no>
+==---
+== drivers/net/usb/cdc_ncm.c        | 19 ++-----------------
+== drivers/net/usb/huawei_cdc_ncm.c | 13 -------------
+== include/linux/usb/cdc_ncm.h      |  1 -
+== 3 files changed, 2 insertions(+), 31 deletions(-)
+==
+==diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+==index c65145671521..114d56b9fe29 100644
+==--- a/drivers/net/usb/cdc_ncm.c
+==+++ b/drivers/net/usb/cdc_ncm.c
+==@@ -1353,11 +1353,10 @@ static void cdc_ncm_status(struct usbnet *dev, struct urb *urb)
+== 		 * USB_CDC_NOTIFY_NETWORK_CONNECTION notification shall be
+== 		 * sent by device after USB_CDC_NOTIFY_SPEED_CHANGE.
+== 		 */
+==-		ctx->connected = le16_to_cpu(event->wValue);
+== 		netif_info(dev, link, dev->net,
+== 			   "network connection: %sconnected\n",
+==-			   ctx->connected ? "" : "dis");
+==-		usbnet_link_change(dev, ctx->connected, 0);
+==+			   !!event->wValue ? "" : "dis");
+==+		usbnet_link_change(dev, !!event->wValue, 0);
+== 		break;
+== 
+== 	case USB_CDC_NOTIFY_SPEED_CHANGE:
+==@@ -1377,23 +1376,11 @@ static void cdc_ncm_status(struct usbnet *dev, struct urb *urb)
+== 	}
+== }
+== 
+==-static int cdc_ncm_check_connect(struct usbnet *dev)
+==-{
+==-	struct cdc_ncm_ctx *ctx;
+==-
+==-	ctx = (struct cdc_ncm_ctx *)dev->data[0];
+==-	if (ctx == NULL)
+==-		return 1;	/* disconnected */
+==-
+==-	return !ctx->connected;
+==-}
+==-
+== static const struct driver_info cdc_ncm_info = {
+== 	.description = "CDC NCM",
+== 	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
+== 	.bind = cdc_ncm_bind,
+== 	.unbind = cdc_ncm_unbind,
+==-	.check_connect = cdc_ncm_check_connect,
+== 	.manage_power = usbnet_manage_power,
+== 	.status = cdc_ncm_status,
+== 	.rx_fixup = cdc_ncm_rx_fixup,
+==@@ -1407,7 +1394,6 @@ static const struct driver_info wwan_info = {
+== 			| FLAG_WWAN,
+== 	.bind = cdc_ncm_bind,
+== 	.unbind = cdc_ncm_unbind,
+==-	.check_connect = cdc_ncm_check_connect,
+== 	.manage_power = usbnet_manage_power,
+== 	.status = cdc_ncm_status,
+== 	.rx_fixup = cdc_ncm_rx_fixup,
+==@@ -1421,7 +1407,6 @@ static const struct driver_info wwan_noarp_info = {
+== 			| FLAG_WWAN | FLAG_NOARP,
+== 	.bind = cdc_ncm_bind,
+== 	.unbind = cdc_ncm_unbind,
+==-	.check_connect = cdc_ncm_check_connect,
+== 	.manage_power = usbnet_manage_power,
+== 	.status = cdc_ncm_status,
+== 	.rx_fixup = cdc_ncm_rx_fixup,
+==diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+==index 312178d7b698..f9822bc75425 100644
+==--- a/drivers/net/usb/huawei_cdc_ncm.c
+==+++ b/drivers/net/usb/huawei_cdc_ncm.c
+==@@ -172,24 +172,11 @@ err:
+== 	return ret;
+== }
+== 
+==-static int huawei_cdc_ncm_check_connect(struct usbnet *usbnet_dev)
+==-{
+==-	struct cdc_ncm_ctx *ctx;
+==-
+==-	ctx = (struct cdc_ncm_ctx *)usbnet_dev->data[0];
+==-
+==-	if (ctx == NULL)
+==-		return 1; /* disconnected */
+==-
+==-	return !ctx->connected;
+==-}
+==-
+== static const struct driver_info huawei_cdc_ncm_info = {
+== 	.description = "Huawei CDC NCM device",
+== 	.flags = FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
+== 	.bind = huawei_cdc_ncm_bind,
+== 	.unbind = huawei_cdc_ncm_unbind,
+==-	.check_connect = huawei_cdc_ncm_check_connect,
+== 	.manage_power = huawei_cdc_ncm_manage_power,
+== 	.rx_fixup = cdc_ncm_rx_fixup,
+== 	.tx_fixup = cdc_ncm_tx_fixup,
+==diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+==index 1921bdadd9ab..dc175b1debdf 100644
+==--- a/include/linux/usb/cdc_ncm.h
+==+++ b/include/linux/usb/cdc_ncm.h
+==@@ -118,7 +118,6 @@ struct cdc_ncm_ctx {
+== 	u16 tx_ndp_modulus;
+== 	u16 tx_seq;
+== 	u16 rx_seq;
+==-	u16 connected;
+== 	u16 min_tx_pkt;
+== 
+== 	/* statistics */
+==-- 
+==2.0.0.rc2
+==
+==
