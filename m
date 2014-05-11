@@ -1,50 +1,62 @@
-From: Mateusz Guzik <mguzik@redhat.com>
-Subject: Re: [PATCH] net: ipv4: current group_info should be put after using.
-Date: Sun, 11 May 2014 23:55:22 +0200
-Message-ID: <20140511215521.GA12224@mguzik.redhat.com>
-References: <1397493045.2575.8.camel@wxm-ubuntu>
- <20140413.225407.1762639913754561393.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
+ router reachability
+Date: Sun, 11 May 2014 15:04:23 -0700
+Message-ID: <1399845863.17976.116165369.3E7E2F36@webmail.messagingengine.com>
+References: <536C64C0.5050204@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: xiaoming.wang@intel.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, chuansheng.liu@intel.com,
-	dongxing.zhang@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140413.225407.1762639913754561393.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Jiri Benc <jbenc@redhat.com>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from new2-smtp.messagingengine.com ([66.111.4.224]:60543 "EHLO
+	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755478AbaEKWEY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2014 18:04:24 -0400
+In-Reply-To: <536C64C0.5050204@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 13, 2014 at 10:54:07PM -0400, David Miller wrote:
-> From: "Wang, Xiaoming" <xiaoming.wang@intel.com>
-> Date: Mon, 14 Apr 2014 12:30:45 -0400
+On Thu, May 8, 2014, at 22:16, Duan Jiong wrote:
 > 
-> > Plug a group_info refcount leak in ping_init.
-> > group_info is only needed during initialization and 
-> > the code failed to release the reference on exit.
-> > While here move grabbing the reference to a place 
-> > where it is actually needed.
-> > 
-> > Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
-> > Signed-off-by: Zhang Dongxing <dongxing.zhang@intel.com>
-> > Signed-off-by: xiaoming wang <xiaoming.wang@intel.com>
+> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
+> into NUD_FAILED will be probed.
 > 
-> Applied and queued up for -stable, thanks.
+> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
+> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
+> then function dst_neigh_output() can directly send packets, but actually the
+> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
+> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
+> 
+> In addition, because the route should be probes with a single NS, so we must
+> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
+> neigh_timer_handler() will not send other NS Messages.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+> Changes from v1:
+> 	*modify changelog to explain in detail why use neigh_max_probes().
+> 
+>  net/core/neighbour.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 8f8a96e..32d872e 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
+>  	neigh->updated = jiffies;
+>  	if (!(neigh->nud_state & NUD_FAILED))
+>  		return;
+> -	neigh->nud_state = NUD_PROBE;
+> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
+> +	neigh->nud_state = NUD_INCOMPLETE;
+> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
 
-I see this only made its way to 3.12 kernel, what is holding up inclusion
-in other kernels? (or maybe this question should be directed at someone
-else?)
+Wouldn't it be better if we neigh_suspect the neighbour and leaving the state in NUD_PROBE? We call down to ->output in case neighbour is in NUD_PROBE state, so we must just disable connected 'fast-path'.
 
-The bug was introduced with:
-commit c319b4d76b9e583a5d88d6bf190e079c4e43213d
-Author: Vasiliy Kulikov <segoon@openwall.com>
-Date:   Fri May 13 10:01:00 2011 +0000
-    net: ipv4: add IPPROTO_ICMP socket kind
+Greetings,
 
-starting with 3.0.
-
-Thanks,
--- 
-Mateusz Guzik
+  Hannes
