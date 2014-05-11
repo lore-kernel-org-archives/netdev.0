@@ -1,94 +1,1479 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: [B.A.T.M.A.N.] pull request net: batman-adv 20140510
-Date: Sun, 11 May 2014 09:16:47 +0200
-Message-ID: <536F23DF.7000807@meshcoding.com>
-References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com> <536E4882.4020106@meshcoding.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc
-	   Networking <b.a.t.m.a.n@lists.open-mesh.org>
+From: Anish Khurana <anish.khurana130181-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] [resend] net: get rid of SET_ETHTOOL_OPS
+Date: Sun, 11 May 2014 13:13:47 +0530
+Message-ID: <CANKiNjV7qrx-556DJk0qcOopnBs4NnKy51POEeZ7LpbdjX35OQ@mail.gmail.com>
+References: <20140511001231.GC7875@kaos.lebenslange-mailadresse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="nDqBw1I94sRvKh2IvR65Ds0QLAambrauU"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:16632 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751489AbaEKHRv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2014 03:17:51 -0400
-In-Reply-To: <536E4882.4020106@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-acenic-OfajU3CKLf1/SzgSGea1oA@public.gmane.org,
+ nios2-dev-g9ZBwUv/Ih/yUk5EbOjzuce+I+R0W71w@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org,
+ linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
+ linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+ dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140511001231.GC7875-nlA/u61Y6hm367kbjPfHB0BTNCSLfCM8peFElF40ga4@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---nDqBw1I94sRvKh2IvR65Ds0QLAambrauU
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+SET_ETHTOOL_OPS is equivalent to :
+#define SET_ETHTOOL_OPS(netdev,ops) \
+    ( (netdev)->ethtool_ops = (ops) )
 
-On 10/05/14 17:40, Antonio Quartulli wrote:
-> On 10/05/14 17:35, Antonio Quartulli wrote:
->> The following changes since commit 1448eb566970c6d3cade522419848fdaee2=
-4c684:
->>
->>   Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kerne=
-l/git/linville/wireless (2014-05-09 16:46:53 -0400)
->>
->> are available in the git repository at:
->>
->>
->>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-dave=
-m
->>
->> for you to fetch changes up to 29bcc8064fc0b82bc708c09577d550923b954e5=
-a:
->=20
-> The tag points now to 05191f523653461ca6a4e4fb38012e0d8f3c5641 because =
-I
-> fixed a too long line.
->=20
+how it makes difference  removing this code and replacing with the
+code mentioned ?
 
-David,
-
-the batman-adv-fix-for-davem tag now points to
-709de13f0c532fe9c468c094aff069a725ed57fe which contains the fix for the
-long line I said before, the fix for the kerneldoc as suggested by
-Sergei and a correction of a small typ0.
-
-
-I can re-send the whole pull request if you want, but I wanted to avoid
-to create more noise, unless it is needed.
-
-Thanks a lot.
-
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-
---nDqBw1I94sRvKh2IvR65Ds0QLAambrauU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJTbyPkAAoJEEKTMo6mOh1VrRcP/AxiLNfcvEZcP3Uqw4XNGvTj
-5SwKDKc/tu8ON8OEFXUQkJKf/VFmggHQb3nRL+NZu1+9ubTET5FhfmpwryCQiyjY
-lFI5Zrh6iy28kSFjE9haxDNshT1QkuufjTZo05E3UT7aCgTw/8kC5BSec3ViBRsL
-XZ5pt+QixI2/k/Q8z7uPv3I8I+oHvSTu12ciyJZyGA1G+dvwrF6QsuIVPWIch2YH
-2OJXVTrTK6E5pIHyu/rGHVAZZQep5wVx/CoaLBbyQKR4iPh88UD5WIwplQvRkU/W
-sZ4xtp47R1nP7v0xkHLbJykshfxXmUWBpWWdrU4A6HvBBRZrykielrxkVNgdlKLR
-Ksrrs+7eP6TBut7VkOLMQmqmvoUloZX20ES6Dc6bzUOYt/AEoXGIBDMFtFqdbNgL
-YYNH8C+P3u7jzK0IA3PJ+vjacEWhPDPw09QMlQDJ/JxAqb8dd9uO1ai2HxOhvMw3
-CS53i1AvzvYTJinaiJ/Z3kdrmewf+scX2CyAzsskU+Fc9fLVmIpJWeWf9eGIKYQp
-YdO0KzaeJ1ldIVgaNcwsJ+cMd8zUnjwWfCAB4tPu2Z3WRm5Y+rXRm/s7YvoXg1QY
-zFJIlEytkhLVRMQaxNfa/1TMt9FCGyuCSUNmMo+vFoI4TFsaHwET3Enb/2P5K0Oi
-ddM5IPUchUSkTwlgNIVZ
-=rAfC
------END PGP SIGNATURE-----
-
---nDqBw1I94sRvKh2IvR65Ds0QLAambrauU--
+On Sun, May 11, 2014 at 5:42 AM, Wilfried Klaebe
+<w-lkml-pFTr4yDReMQpLY+iQtz4oH4Z0sVMXfX4hC4ANOJQIlc@public.gmane.org> wrote:
+> net: get rid of SET_ETHTOOL_OPS
+>
+> Dave Miller mentioned he'd like to see SET_ETHTOOL_OPS gone.
+> This does that.
+>
+> Mostly done via coccinelle script:
+> @@
+> struct ethtool_ops *ops;
+> struct net_device *dev;
+> @@
+> -       SET_ETHTOOL_OPS(dev, ops);
+> +       dev->ethtool_ops = ops;
+>
+> Compile tested only, but I'd seriously wonder if this broke anything.
+>
+> Suggested-by: Dave Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Signed-off-by: Wilfried Klaebe <w-lkml-pFTr4yDReMQpLY+iQtz4oH4Z0sVMXfX4hC4ANOJQIlc@public.gmane.org>
+>
+> ---
+>
+> Applies against v3.15-rc4 and v3.15-rc5 likewise.
+>
+> resend: trimmed CC list. Thanks to Dave for notifying me.
+>
+> diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> index c4b3940..078cadd 100644
+> --- a/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> +++ b/drivers/infiniband/ulp/ipoib/ipoib_ethtool.c
+> @@ -105,5 +105,5 @@ static const struct ethtool_ops ipoib_ethtool_ops = {
+>
+>  void ipoib_set_ethtool_ops(struct net_device *dev)
+>  {
+> -       SET_ETHTOOL_OPS(dev, &ipoib_ethtool_ops);
+> +       dev->ethtool_ops = &ipoib_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
+> index 35df0b9..a968654 100644
+> --- a/drivers/net/ethernet/3com/3c509.c
+> +++ b/drivers/net/ethernet/3com/3c509.c
+> @@ -534,7 +534,7 @@ static int el3_common_init(struct net_device *dev)
+>         /* The EL3-specific entries in the device structure. */
+>         dev->netdev_ops = &netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>
+>         err = register_netdev(dev);
+>         if (err) {
+> diff --git a/drivers/net/ethernet/3com/3c589_cs.c b/drivers/net/ethernet/3com/3c589_cs.c
+> index 063557e..f18647c 100644
+> --- a/drivers/net/ethernet/3com/3c589_cs.c
+> +++ b/drivers/net/ethernet/3com/3c589_cs.c
+> @@ -218,7 +218,7 @@ static int tc589_probe(struct pcmcia_device *link)
+>         dev->netdev_ops = &el3_netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+>
+> -       SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> +       dev->ethtool_ops = &netdev_ethtool_ops;
+>
+>         return tc589_config(link);
+>  }
+> diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
+> index 465cc71..e13b046 100644
+> --- a/drivers/net/ethernet/3com/typhoon.c
+> +++ b/drivers/net/ethernet/3com/typhoon.c
+> @@ -2435,7 +2435,7 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         netif_napi_add(dev, &tp->napi, typhoon_poll, 16);
+>         dev->watchdog_timeo     = TX_TIMEOUT;
+>
+> -       SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
+> +       dev->ethtool_ops = &typhoon_ethtool_ops;
+>
+>         /* We can handle scatter gather, up to 16 entries, and
+>          * we can do IP checksumming (only version 4, doh...)
+> diff --git a/drivers/net/ethernet/adaptec/starfire.c b/drivers/net/ethernet/adaptec/starfire.c
+> index 171d73c..40dbbf7 100644
+> --- a/drivers/net/ethernet/adaptec/starfire.c
+> +++ b/drivers/net/ethernet/adaptec/starfire.c
+> @@ -784,7 +784,7 @@ static int starfire_init_one(struct pci_dev *pdev,
+>
+>         dev->netdev_ops = &netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>
+>         netif_napi_add(dev, &np->napi, netdev_poll, max_interrupt_work);
+>
+> diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
+> index 1517e9df..9a6991b 100644
+> --- a/drivers/net/ethernet/alteon/acenic.c
+> +++ b/drivers/net/ethernet/alteon/acenic.c
+> @@ -476,7 +476,7 @@ static int acenic_probe_one(struct pci_dev *pdev,
+>         dev->watchdog_timeo = 5*HZ;
+>
+>         dev->netdev_ops = &ace_netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &ace_ethtool_ops);
+> +       dev->ethtool_ops = &ace_ethtool_ops;
+>
+>         /* we only display this string ONCE */
+>         if (!boards_found)
+> diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+> index 319ca74..8ac4bd2 100644
+> --- a/drivers/net/ethernet/altera/altera_tse_ethtool.c
+> +++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+> @@ -231,5 +231,5 @@ static const struct ethtool_ops tse_ethtool_ops = {
+>
+>  void altera_tse_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &tse_ethtool_ops);
+> +       netdev->ethtool_ops = &tse_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+> index 26efaaa..068dc7c 100644
+> --- a/drivers/net/ethernet/amd/amd8111e.c
+> +++ b/drivers/net/ethernet/amd/amd8111e.c
+> @@ -1900,7 +1900,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
+>
+>         /* Initialize driver entry points */
+>         dev->netdev_ops = &amd8111e_netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &ops);
+> +       dev->ethtool_ops = &ops;
+>         dev->irq =pdev->irq;
+>         dev->watchdog_timeo = AMD8111E_TX_TIMEOUT;
+>         netif_napi_add(dev, &lp->napi, amd8111e_rx_poll, 32);
+> diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+> index a2bd91e..a78e4c1 100644
+> --- a/drivers/net/ethernet/amd/au1000_eth.c
+> +++ b/drivers/net/ethernet/amd/au1000_eth.c
+> @@ -1229,7 +1229,7 @@ static int au1000_probe(struct platform_device *pdev)
+>         dev->base_addr = base->start;
+>         dev->irq = irq;
+>         dev->netdev_ops = &au1000_netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &au1000_ethtool_ops);
+> +       dev->ethtool_ops = &au1000_ethtool_ops;
+>         dev->watchdog_timeo = ETH_TX_TIMEOUT;
+>
+>         /*
+> diff --git a/drivers/net/ethernet/amd/nmclan_cs.c b/drivers/net/ethernet/amd/nmclan_cs.c
+> index 08569fe..abf3b15 100644
+> --- a/drivers/net/ethernet/amd/nmclan_cs.c
+> +++ b/drivers/net/ethernet/amd/nmclan_cs.c
+> @@ -457,7 +457,7 @@ static int nmclan_probe(struct pcmcia_device *link)
+>      lp->tx_free_frames=AM2150_MAX_TX_FRAMES;
+>
+>      dev->netdev_ops = &mace_netdev_ops;
+> -    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> +    dev->ethtool_ops = &netdev_ethtool_ops;
+>      dev->watchdog_timeo = TX_TIMEOUT;
+>
+>      return nmclan_config(link);
+> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+> index 17bb9ce..49faa97 100644
+> --- a/drivers/net/ethernet/atheros/alx/main.c
+> +++ b/drivers/net/ethernet/atheros/alx/main.c
+> @@ -1302,7 +1302,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         }
+>
+>         netdev->netdev_ops = &alx_netdev_ops;
+> -       SET_ETHTOOL_OPS(netdev, &alx_ethtool_ops);
+> +       netdev->ethtool_ops = &alx_ethtool_ops;
+>         netdev->irq = pdev->irq;
+>         netdev->watchdog_timeo = ALX_WATCHDOG_TIME;
+>
+> diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+> index 859ea84..ecacaae 100644
+> --- a/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+> +++ b/drivers/net/ethernet/atheros/atl1c/atl1c_ethtool.c
+> @@ -305,5 +305,5 @@ static const struct ethtool_ops atl1c_ethtool_ops = {
+>
+>  void atl1c_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &atl1c_ethtool_ops);
+> +       netdev->ethtool_ops = &atl1c_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+> index 82b2386..206e9b7 100644
+> --- a/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+> +++ b/drivers/net/ethernet/atheros/atl1e/atl1e_ethtool.c
+> @@ -388,5 +388,5 @@ static const struct ethtool_ops atl1e_ethtool_ops = {
+>
+>  void atl1e_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &atl1e_ethtool_ops);
+> +       netdev->ethtool_ops = &atl1e_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+> index 78befb5..2587fed 100644
+> --- a/drivers/net/ethernet/atheros/atlx/atl2.c
+> +++ b/drivers/net/ethernet/atheros/atlx/atl2.c
+> @@ -1396,7 +1396,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         atl2_setup_pcicmd(pdev);
+>
+>         netdev->netdev_ops = &atl2_netdev_ops;
+> -       SET_ETHTOOL_OPS(netdev, &atl2_ethtool_ops);
+> +       netdev->ethtool_ops = &atl2_ethtool_ops;
+>         netdev->watchdog_timeo = 5 * HZ;
+>         strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+>
+> diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+> index 05ba625..ca5a20a 100644
+> --- a/drivers/net/ethernet/broadcom/b44.c
+> +++ b/drivers/net/ethernet/broadcom/b44.c
+> @@ -2380,7 +2380,7 @@ static int b44_init_one(struct ssb_device *sdev,
+>         netif_napi_add(dev, &bp->napi, b44_poll, 64);
+>         dev->watchdog_timeo = B44_TX_TIMEOUT;
+>         dev->irq = sdev->irq;
+> -       SET_ETHTOOL_OPS(dev, &b44_ethtool_ops);
+> +       dev->ethtool_ops = &b44_ethtool_ops;
+>
+>         err = ssb_bus_powerup(sdev->bus, 0);
+>         if (err) {
+> diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> index a7d11f5..1e7bba9c 100644
+> --- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> +++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> @@ -1898,7 +1898,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
+>         dev->netdev_ops = &bcm_enet_ops;
+>         netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
+>
+> -       SET_ETHTOOL_OPS(dev, &bcm_enet_ethtool_ops);
+> +       dev->ethtool_ops = &bcm_enet_ethtool_ops;
+>         SET_NETDEV_DEV(dev, &pdev->dev);
+>
+>         ret = register_netdev(dev);
+> @@ -2784,7 +2784,7 @@ static int bcm_enetsw_probe(struct platform_device *pdev)
+>         /* register netdevice */
+>         dev->netdev_ops = &bcm_enetsw_ops;
+>         netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
+> -       SET_ETHTOOL_OPS(dev, &bcm_enetsw_ethtool_ops);
+> +       dev->ethtool_ops = &bcm_enetsw_ethtool_ops;
+>         SET_NETDEV_DEV(dev, &pdev->dev);
+>
+>         spin_lock_init(&priv->enetsw_mdio_lock);
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index 0297a79..05c6af6 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -1436,7 +1436,7 @@ static int bgmac_probe(struct bcma_device *core)
+>                 return -ENOMEM;
+>         net_dev->netdev_ops = &bgmac_netdev_ops;
+>         net_dev->irq = core->irq;
+> -       SET_ETHTOOL_OPS(net_dev, &bgmac_ethtool_ops);
+> +       net_dev->ethtool_ops = &bgmac_ethtool_ops;
+>         bgmac = netdev_priv(net_dev);
+>         bgmac->net_dev = net_dev;
+>         bgmac->core = core;
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> index b6de05e..0322409 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> @@ -3506,8 +3506,6 @@ static const struct ethtool_ops bnx2x_vf_ethtool_ops = {
+>
+>  void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev)
+>  {
+> -       if (IS_PF(bp))
+> -               SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
+> -       else /* vf */
+> -               SET_ETHTOOL_OPS(netdev, &bnx2x_vf_ethtool_ops);
+> +       netdev->ethtool_ops = (IS_PF(bp)) ?
+> +               &bnx2x_ethtool_ops : &bnx2x_vf_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> index 0966bd0..5ba1cfb 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+> @@ -2481,7 +2481,7 @@ static int bcmgenet_probe(struct platform_device *pdev)
+>         dev_set_drvdata(&pdev->dev, dev);
+>         ether_addr_copy(dev->dev_addr, macaddr);
+>         dev->watchdog_timeo = 2 * HZ;
+> -       SET_ETHTOOL_OPS(dev, &bcmgenet_ethtool_ops);
+> +       dev->ethtool_ops = &bcmgenet_ethtool_ops;
+>         dev->netdev_ops = &bcmgenet_netdev_ops;
+>         netif_napi_add(dev, &priv->napi, bcmgenet_poll, 64);
+>
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> index f9e1508..adca62b 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> +++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> @@ -1137,5 +1137,5 @@ static const struct ethtool_ops bnad_ethtool_ops = {
+>  void
+>  bnad_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &bnad_ethtool_ops);
+> +       netdev->ethtool_ops = &bnad_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+> index 521dfea..25d6b2a 100644
+> --- a/drivers/net/ethernet/calxeda/xgmac.c
+> +++ b/drivers/net/ethernet/calxeda/xgmac.c
+> @@ -1737,7 +1737,7 @@ static int xgmac_probe(struct platform_device *pdev)
+>         platform_set_drvdata(pdev, ndev);
+>         ether_setup(ndev);
+>         ndev->netdev_ops = &xgmac_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &xgmac_ethtool_ops);
+> +       ndev->ethtool_ops = &xgmac_ethtool_ops;
+>         spin_lock_init(&priv->stats_lock);
+>         INIT_WORK(&priv->tx_timeout_work, xgmac_tx_timeout_work);
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+> index 0fe7ff7..c1b2c1d 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+> @@ -1100,7 +1100,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>
+>                 netif_napi_add(netdev, &adapter->napi, t1_poll, 64);
+>
+> -               SET_ETHTOOL_OPS(netdev, &t1_ethtool_ops);
+> +               netdev->ethtool_ops = &t1_ethtool_ops;
+>         }
+>
+>         if (t1_init_sw_modules(adapter, bi) < 0) {
+> diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> index 07bbb71..3ed5079 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c
+> @@ -3291,7 +3291,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>                         netdev->features |= NETIF_F_HIGHDMA;
+>
+>                 netdev->netdev_ops = &cxgb_netdev_ops;
+> -               SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
+> +               netdev->ethtool_ops = &cxgb_ethtool_ops;
+>         }
+>
+>         pci_set_drvdata(pdev, adapter);
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> index 6fe5891..7c61f89 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -6074,7 +6074,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>                 netdev->priv_flags |= IFF_UNICAST_FLT;
+>
+>                 netdev->netdev_ops = &cxgb4_netdev_ops;
+> -               SET_ETHTOOL_OPS(netdev, &cxgb_ethtool_ops);
+> +               netdev->ethtool_ops = &cxgb_ethtool_ops;
+>         }
+>
+>         pci_set_drvdata(pdev, adapter);
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> index 5285928..ff1cdd1 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+> @@ -2664,7 +2664,7 @@ static int cxgb4vf_pci_probe(struct pci_dev *pdev,
+>                 netdev->priv_flags |= IFF_UNICAST_FLT;
+>
+>                 netdev->netdev_ops = &cxgb4vf_netdev_ops;
+> -               SET_ETHTOOL_OPS(netdev, &cxgb4vf_ethtool_ops);
+> +               netdev->ethtool_ops = &cxgb4vf_ethtool_ops;
+>
+>                 /*
+>                  * Initialize the hardware/software state for the port.
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> index 47e3562..58a8c67 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+> @@ -253,5 +253,5 @@ static const struct ethtool_ops enic_ethtool_ops = {
+>
+>  void enic_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &enic_ethtool_ops);
+> +       netdev->ethtool_ops = &enic_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> index 1642de7..8616608 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -1703,7 +1703,7 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  #ifdef CONFIG_TULIP_NAPI
+>         netif_napi_add(dev, &tp->napi, tulip_poll, 16);
+>  #endif
+> -       SET_ETHTOOL_OPS(dev, &ops);
+> +       dev->ethtool_ops = &ops;
+>
+>         if (register_netdev(dev))
+>                 goto err_out_free_ring;
+> diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
+> index 4fb756d..2324f2d 100644
+> --- a/drivers/net/ethernet/dlink/dl2k.c
+> +++ b/drivers/net/ethernet/dlink/dl2k.c
+> @@ -227,7 +227,7 @@ rio_probe1 (struct pci_dev *pdev, const struct pci_device_id *ent)
+>         }
+>         dev->netdev_ops = &netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>  #if 0
+>         dev->features = NETIF_F_IP_CSUM;
+>  #endif
+> diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+> index d9e5ca0..433c1e1 100644
+> --- a/drivers/net/ethernet/dlink/sundance.c
+> +++ b/drivers/net/ethernet/dlink/sundance.c
+> @@ -577,7 +577,7 @@ static int sundance_probe1(struct pci_dev *pdev,
+>
+>         /* The chip-specific entries in the device structure. */
+>         dev->netdev_ops = &netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+>
+>         pci_set_drvdata(pdev, dev);
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index a186454..9a9e7c7 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4301,7 +4301,7 @@ static void be_netdev_init(struct net_device *netdev)
+>
+>         netdev->netdev_ops = &be_netdev_ops;
+>
+> -       SET_ETHTOOL_OPS(netdev, &be_ethtool_ops);
+> +       netdev->ethtool_ops = &be_ethtool_ops;
+>  }
+>
+>  static void be_unmap_pci_bars(struct be_adapter *adapter)
+> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+> index 68069ea..c77fa4a 100644
+> --- a/drivers/net/ethernet/faraday/ftgmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
+> @@ -1210,7 +1210,7 @@ static int ftgmac100_probe(struct platform_device *pdev)
+>
+>         SET_NETDEV_DEV(netdev, &pdev->dev);
+>
+> -       SET_ETHTOOL_OPS(netdev, &ftgmac100_ethtool_ops);
+> +       netdev->ethtool_ops = &ftgmac100_ethtool_ops;
+>         netdev->netdev_ops = &ftgmac100_netdev_ops;
+>         netdev->features = NETIF_F_IP_CSUM | NETIF_F_GRO;
+>
+> diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+> index 8be5b40..4ff1adc 100644
+> --- a/drivers/net/ethernet/faraday/ftmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftmac100.c
+> @@ -1085,7 +1085,7 @@ static int ftmac100_probe(struct platform_device *pdev)
+>         }
+>
+>         SET_NETDEV_DEV(netdev, &pdev->dev);
+> -       SET_ETHTOOL_OPS(netdev, &ftmac100_ethtool_ops);
+> +       netdev->ethtool_ops = &ftmac100_ethtool_ops;
+>         netdev->netdev_ops = &ftmac100_netdev_ops;
+>
+>         platform_set_drvdata(pdev, netdev);
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+> index 413329e..cc83350 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+> +++ b/drivers/net/ethernet/freescale/ucc_geth_ethtool.c
+> @@ -417,5 +417,5 @@ static const struct ethtool_ops uec_ethtool_ops = {
+>
+>  void uec_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &uec_ethtool_ops);
+> +       netdev->ethtool_ops = &uec_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+> index 7becab1..cfe7a74 100644
+> --- a/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+> +++ b/drivers/net/ethernet/fujitsu/fmvj18x_cs.c
+> @@ -256,7 +256,7 @@ static int fmvj18x_probe(struct pcmcia_device *link)
+>      dev->netdev_ops = &fjn_netdev_ops;
+>      dev->watchdog_timeo = TX_TIMEOUT;
+>
+> -    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> +    dev->ethtool_ops = &netdev_ethtool_ops;
+>
+>      return fmvj18x_config(link);
+>  } /* fmvj18x_attach */
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
+> index 95837b9..6055e3e 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_ethtool.c
+> @@ -278,5 +278,5 @@ static const struct ethtool_ops ehea_ethtool_ops = {
+>
+>  void ehea_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &ehea_ethtool_ops);
+> +       netdev->ethtool_ops = &ehea_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
+> index ae342fd..87bd953 100644
+> --- a/drivers/net/ethernet/ibm/emac/core.c
+> +++ b/drivers/net/ethernet/ibm/emac/core.c
+> @@ -2879,7 +2879,7 @@ static int emac_probe(struct platform_device *ofdev)
+>                 dev->commac.ops = &emac_commac_sg_ops;
+>         } else
+>                 ndev->netdev_ops = &emac_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &emac_ethtool_ops);
+> +       ndev->ethtool_ops = &emac_ethtool_ops;
+>
+>         netif_carrier_off(ndev);
+>
+> diff --git a/drivers/net/ethernet/icplus/ipg.c b/drivers/net/ethernet/icplus/ipg.c
+> index 25045ae..5727779 100644
+> --- a/drivers/net/ethernet/icplus/ipg.c
+> +++ b/drivers/net/ethernet/icplus/ipg.c
+> @@ -2245,7 +2245,7 @@ static int ipg_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+>          */
+>         dev->netdev_ops = &ipg_netdev_ops;
+>         SET_NETDEV_DEV(dev, &pdev->dev);
+> -       SET_ETHTOOL_OPS(dev, &ipg_ethtool_ops);
+> +       dev->ethtool_ops = &ipg_ethtool_ops;
+>
+>         rc = pci_request_regions(pdev, DRV_NAME);
+>         if (rc)
+> diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+> index b56461c..9d979d7 100644
+> --- a/drivers/net/ethernet/intel/e100.c
+> +++ b/drivers/net/ethernet/intel/e100.c
+> @@ -2854,7 +2854,7 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         netdev->hw_features |= NETIF_F_RXALL;
+>
+>         netdev->netdev_ops = &e100_netdev_ops;
+> -       SET_ETHTOOL_OPS(netdev, &e100_ethtool_ops);
+> +       netdev->ethtool_ops = &e100_ethtool_ops;
+>         netdev->watchdog_timeo = E100_WATCHDOG_PERIOD;
+>         strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+>
+> diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> index 73a8aee..341889a 100644
+> --- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> @@ -1905,5 +1905,5 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+>
+>  void e1000_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &e1000_ethtool_ops);
+> +       netdev->ethtool_ops = &e1000_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> index cad250b..d9f8a2d 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> @@ -2315,5 +2315,5 @@ static const struct ethtool_ops e1000_ethtool_ops = {
+>
+>  void e1000e_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &e1000_ethtool_ops);
+> +       netdev->ethtool_ops = &e1000_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> index 03d99cb..7673f86 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+> @@ -1692,5 +1692,5 @@ static const struct ethtool_ops i40e_ethtool_ops = {
+>
+>  void i40e_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &i40e_ethtool_ops);
+> +       netdev->ethtool_ops = &i40e_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+> index 8b0db1c..4defd51 100644
+> --- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+> +++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+> @@ -389,5 +389,5 @@ static struct ethtool_ops i40evf_ethtool_ops = {
+>   **/
+>  void i40evf_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &i40evf_ethtool_ops);
+> +       netdev->ethtool_ops = &i40evf_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> index e5570ac..30b76e1 100644
+> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+> @@ -3029,5 +3029,5 @@ static const struct ethtool_ops igb_ethtool_ops = {
+>
+>  void igb_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &igb_ethtool_ops);
+> +       netdev->ethtool_ops = &igb_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/igbvf/ethtool.c b/drivers/net/ethernet/intel/igbvf/ethtool.c
+> index 90eef07..f58170b 100644
+> --- a/drivers/net/ethernet/intel/igbvf/ethtool.c
+> +++ b/drivers/net/ethernet/intel/igbvf/ethtool.c
+> @@ -476,5 +476,5 @@ static const struct ethtool_ops igbvf_ethtool_ops = {
+>
+>  void igbvf_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &igbvf_ethtool_ops);
+> +       netdev->ethtool_ops = &igbvf_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+> index dbb7dd2..1da2d98 100644
+> --- a/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+> +++ b/drivers/net/ethernet/intel/ixgb/ixgb_ethtool.c
+> @@ -656,5 +656,5 @@ static const struct ethtool_ops ixgb_ethtool_ops = {
+>
+>  void ixgb_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &ixgb_ethtool_ops);
+> +       netdev->ethtool_ops = &ixgb_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> index 6c55c14..31d7268 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+> @@ -3099,5 +3099,5 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
+>
+>  void ixgbe_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &ixgbe_ethtool_ops);
+> +       netdev->ethtool_ops = &ixgbe_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> index 1baecb6..a757f07 100644
+> --- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> +++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+> @@ -813,5 +813,5 @@ static const struct ethtool_ops ixgbevf_ethtool_ops = {
+>
+>  void ixgbevf_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &ixgbevf_ethtool_ops);
+> +       netdev->ethtool_ops = &ixgbevf_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index b7b8d74..df1d1b9 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -2889,7 +2889,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+>         if (err)
+>                 goto out;
+>
+> -       SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops);
+> +       dev->ethtool_ops = &mv643xx_eth_ethtool_ops;
+>
+>         init_pscr(mp, pd->speed, pd->duplex);
+>
+> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+> index 14786c8..72bc47f 100644
+> --- a/drivers/net/ethernet/marvell/mvneta.c
+> +++ b/drivers/net/ethernet/marvell/mvneta.c
+> @@ -2813,7 +2813,7 @@ static int mvneta_probe(struct platform_device *pdev)
+>         dev->watchdog_timeo = 5 * HZ;
+>         dev->netdev_ops = &mvneta_netdev_ops;
+>
+> -       SET_ETHTOOL_OPS(dev, &mvneta_eth_tool_ops);
+> +       dev->ethtool_ops = &mvneta_eth_tool_ops;
+>
+>         pp = netdev_priv(dev);
+>
+> diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+> index b358c2f..8f5aa7c 100644
+> --- a/drivers/net/ethernet/marvell/pxa168_eth.c
+> +++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+> @@ -1488,7 +1488,7 @@ static int pxa168_eth_probe(struct platform_device *pdev)
+>         dev->netdev_ops = &pxa168_eth_netdev_ops;
+>         dev->watchdog_timeo = 2 * HZ;
+>         dev->base_addr = 0;
+> -       SET_ETHTOOL_OPS(dev, &pxa168_ethtool_ops);
+> +       dev->ethtool_ops = &pxa168_ethtool_ops;
+>
+>         INIT_WORK(&pep->tx_timeout_task, pxa168_eth_tx_timeout_task);
+>
+> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+> index b811064..6969338 100644
+> --- a/drivers/net/ethernet/marvell/sky2.c
+> +++ b/drivers/net/ethernet/marvell/sky2.c
+> @@ -4760,7 +4760,7 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+>
+>         SET_NETDEV_DEV(dev, &hw->pdev->dev);
+>         dev->irq = hw->pdev->irq;
+> -       SET_ETHTOOL_OPS(dev, &sky2_ethtool_ops);
+> +       dev->ethtool_ops = &sky2_ethtool_ops;
+>         dev->watchdog_timeo = TX_WATCHDOG;
+>         dev->netdev_ops = &sky2_netdev_ops[port];
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 7e4b172..36af5e7 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -2539,7 +2539,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+>         netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
+>         netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
+>
+> -       SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+> +       dev->ethtool_ops = &mlx4_en_ethtool_ops;
+>
+>         /*
+>          * Set driver features
+> diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
+> index 16435b3..6c7c78ba 100644
+> --- a/drivers/net/ethernet/micrel/ks8695net.c
+> +++ b/drivers/net/ethernet/micrel/ks8695net.c
+> @@ -1504,15 +1504,15 @@ ks8695_probe(struct platform_device *pdev)
+>         if (ksp->phyiface_regs && ksp->link_irq == -1) {
+>                 ks8695_init_switch(ksp);
+>                 ksp->dtype = KS8695_DTYPE_LAN;
+> -               SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
+> +               ndev->ethtool_ops = &ks8695_ethtool_ops;
+>         } else if (ksp->phyiface_regs && ksp->link_irq != -1) {
+>                 ks8695_init_wan_phy(ksp);
+>                 ksp->dtype = KS8695_DTYPE_WAN;
+> -               SET_ETHTOOL_OPS(ndev, &ks8695_wan_ethtool_ops);
+> +               ndev->ethtool_ops = &ks8695_wan_ethtool_ops;
+>         } else {
+>                 /* No initialisation since HPNA does not have a PHY */
+>                 ksp->dtype = KS8695_DTYPE_HPNA;
+> -               SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
+> +               ndev->ethtool_ops = &ks8695_ethtool_ops;
+>         }
+>
+>         /* And bring up the net_device with the net core */
+> diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+> index e0c92e0..13767eb 100644
+> --- a/drivers/net/ethernet/micrel/ks8851.c
+> +++ b/drivers/net/ethernet/micrel/ks8851.c
+> @@ -1471,7 +1471,7 @@ static int ks8851_probe(struct spi_device *spi)
+>
+>         skb_queue_head_init(&ks->txq);
+>
+> -       SET_ETHTOOL_OPS(ndev, &ks8851_ethtool_ops);
+> +       ndev->ethtool_ops = &ks8851_ethtool_ops;
+>         SET_NETDEV_DEV(ndev, &spi->dev);
+>
+>         spi_set_drvdata(spi, ks);
+> diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+> index 14ac0e2..4b9592c1 100644
+> --- a/drivers/net/ethernet/micrel/ksz884x.c
+> +++ b/drivers/net/ethernet/micrel/ksz884x.c
+> @@ -7106,7 +7106,7 @@ static int pcidev_init(struct pci_dev *pdev, const struct pci_device_id *id)
+>                 }
+>
+>                 dev->netdev_ops = &netdev_ops;
+> -               SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> +               dev->ethtool_ops = &netdev_ethtool_ops;
+>                 if (register_netdev(dev))
+>                         goto pcidev_init_reg_err;
+>                 port_set_power_saving(port, true);
+> diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
+> index c7b40aa..b1b5f66 100644
+> --- a/drivers/net/ethernet/microchip/enc28j60.c
+> +++ b/drivers/net/ethernet/microchip/enc28j60.c
+> @@ -1593,7 +1593,7 @@ static int enc28j60_probe(struct spi_device *spi)
+>         dev->irq = spi->irq;
+>         dev->netdev_ops = &enc28j60_netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(dev, &enc28j60_ethtool_ops);
+> +       dev->ethtool_ops = &enc28j60_ethtool_ops;
+>
+>         enc28j60_lowpower(priv, true);
+>
+> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> index 130f6b2..f3d5d79 100644
+> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> @@ -4112,7 +4112,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         setup_timer(&mgp->watchdog_timer, myri10ge_watchdog_timer,
+>                     (unsigned long)mgp);
+>
+> -       SET_ETHTOOL_OPS(netdev, &myri10ge_ethtool_ops);
+> +       netdev->ethtool_ops = &myri10ge_ethtool_ops;
+>         INIT_WORK(&mgp->watchdog_work, myri10ge_watchdog);
+>         status = register_netdev(netdev);
+>         if (status != 0) {
+> diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+> index 64ec2a4..291fba8 100644
+> --- a/drivers/net/ethernet/natsemi/natsemi.c
+> +++ b/drivers/net/ethernet/natsemi/natsemi.c
+> @@ -927,7 +927,7 @@ static int natsemi_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         dev->netdev_ops = &natsemi_netdev_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+>
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>
+>         if (mtu)
+>                 dev->mtu = mtu;
+> diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
+> index dbccf1d..19bb824 100644
+> --- a/drivers/net/ethernet/natsemi/ns83820.c
+> +++ b/drivers/net/ethernet/natsemi/ns83820.c
+> @@ -2030,7 +2030,7 @@ static int ns83820_init_one(struct pci_dev *pci_dev,
+>                 pci_dev->subsystem_vendor, pci_dev->subsystem_device);
+>
+>         ndev->netdev_ops = &netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &ops);
+> +       ndev->ethtool_ops = &ops;
+>         ndev->watchdog_timeo = 5 * HZ;
+>         pci_set_drvdata(pci_dev, ndev);
+>
+> diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+> index a2844ff..190538d 100644
+> --- a/drivers/net/ethernet/neterion/s2io.c
+> +++ b/drivers/net/ethernet/neterion/s2io.c
+> @@ -7919,7 +7919,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+>
+>         /*  Driver entry points */
+>         dev->netdev_ops = &s2io_netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> +       dev->ethtool_ops = &netdev_ethtool_ops;
+>         dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+>                 NETIF_F_TSO | NETIF_F_TSO6 |
+>                 NETIF_F_RXCSUM | NETIF_F_LRO;
+> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+> index f8f0738..ddcc81a 100644
+> --- a/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+> +++ b/drivers/net/ethernet/neterion/vxge/vxge-ethtool.c
+> @@ -1128,5 +1128,5 @@ static const struct ethtool_ops vxge_ethtool_ops = {
+>
+>  void vxge_initialize_ethtool_ops(struct net_device *ndev)
+>  {
+> -       SET_ETHTOOL_OPS(ndev, &vxge_ethtool_ops);
+> +       ndev->ethtool_ops = &vxge_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+> index fddb464..e8235c5 100644
+> --- a/drivers/net/ethernet/nvidia/forcedeth.c
+> +++ b/drivers/net/ethernet/nvidia/forcedeth.c
+> @@ -5766,7 +5766,7 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+>                 dev->netdev_ops = &nv_netdev_ops_optimized;
+>
+>         netif_napi_add(dev, &np->napi, nv_napi_poll, RX_WORK_PER_LOOP);
+> -       SET_ETHTOOL_OPS(dev, &ops);
+> +       dev->ethtool_ops = &ops;
+>         dev->watchdog_timeo = NV_WATCHDOG_TIMEO;
+>
+>         pci_set_drvdata(pci_dev, dev);
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+> index 826f0cc..114d2fe 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_ethtool.c
+> @@ -508,5 +508,5 @@ static const struct ethtool_ops pch_gbe_ethtool_ops = {
+>
+>  void pch_gbe_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &pch_gbe_ethtool_ops);
+> +       netdev->ethtool_ops = &pch_gbe_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
+> index b6bdeb3..9a997e4 100644
+> --- a/drivers/net/ethernet/packetengines/hamachi.c
+> +++ b/drivers/net/ethernet/packetengines/hamachi.c
+> @@ -724,10 +724,8 @@ static int hamachi_init_one(struct pci_dev *pdev,
+>
+>         /* The Hamachi-specific entries in the device structure. */
+>         dev->netdev_ops = &hamachi_netdev_ops;
+> -       if (chip_tbl[hmp->chip_id].flags & CanHaveMII)
+> -               SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> -       else
+> -               SET_ETHTOOL_OPS(dev, &ethtool_ops_no_mii);
+> +       dev->ethtool_ops = (chip_tbl[hmp->chip_id].flags & CanHaveMII) ?
+> +               &ethtool_ops : &ethtool_ops_no_mii;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+>         if (mtu)
+>                 dev->mtu = mtu;
+> diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
+> index 9a6cb48..69a8dc0 100644
+> --- a/drivers/net/ethernet/packetengines/yellowfin.c
+> +++ b/drivers/net/ethernet/packetengines/yellowfin.c
+> @@ -472,7 +472,7 @@ static int yellowfin_init_one(struct pci_dev *pdev,
+>
+>         /* The Yellowfin-specific entries in the device structure. */
+>         dev->netdev_ops = &netdev_ops;
+> -       SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +       dev->ethtool_ops = &ethtool_ops;
+>         dev->watchdog_timeo = TX_TIMEOUT;
+>
+>         if (mtu)
+> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+> index f09c35d..5bf0581 100644
+> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+> @@ -1373,7 +1373,7 @@ netxen_setup_netdev(struct netxen_adapter *adapter,
+>
+>         netxen_nic_change_mtu(netdev, netdev->mtu);
+>
+> -       SET_ETHTOOL_OPS(netdev, &netxen_nic_ethtool_ops);
+> +       netdev->ethtool_ops = &netxen_nic_ethtool_ops;
+>
+>         netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+>                               NETIF_F_RXCSUM;
+> diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+> index 2eabd44..b5d6bc1 100644
+> --- a/drivers/net/ethernet/qlogic/qla3xxx.c
+> +++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+> @@ -3838,7 +3838,7 @@ static int ql3xxx_probe(struct pci_dev *pdev,
+>
+>         /* Set driver entry points */
+>         ndev->netdev_ops = &ql3xxx_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &ql3xxx_ethtool_ops);
+> +       ndev->ethtool_ops = &ql3xxx_ethtool_ops;
+>         ndev->watchdog_timeo = 5 * HZ;
+>
+>         netif_napi_add(ndev, &qdev->napi, ql_poll, 64);
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> index dbf7539..4bdbdca 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+> @@ -2222,10 +2222,8 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+>
+>         qlcnic_change_mtu(netdev, netdev->mtu);
+>
+> -       if (qlcnic_sriov_vf_check(adapter))
+> -               SET_ETHTOOL_OPS(netdev, &qlcnic_sriov_vf_ethtool_ops);
+> -       else
+> -               SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
+> +       netdev->ethtool_ops = (qlcnic_sriov_vf_check(adapter)) ?
+> +               &qlcnic_sriov_vf_ethtool_ops : &qlcnic_ethtool_ops;
+>
+>         netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
+>                              NETIF_F_IPV6_CSUM | NETIF_F_GRO |
+> @@ -2630,7 +2628,7 @@ err_out_disable_pdev:
+>  err_out_maintenance_mode:
+>         set_bit(__QLCNIC_MAINTENANCE_MODE, &adapter->state);
+>         netdev->netdev_ops = &qlcnic_netdev_failed_ops;
+> -       SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_failed_ops);
+> +       netdev->ethtool_ops = &qlcnic_ethtool_failed_ops;
+>         ahw->port_type = QLCNIC_XGBE;
+>
+>         if (qlcnic_83xx_check(adapter))
+> diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+> index 0a1d76a..79b86e9 100644
+> --- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+> +++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+> @@ -4770,7 +4770,7 @@ static int qlge_probe(struct pci_dev *pdev,
+>         ndev->irq = pdev->irq;
+>
+>         ndev->netdev_ops = &qlge_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &qlge_ethtool_ops);
+> +       ndev->ethtool_ops = &qlge_ethtool_ops;
+>         ndev->watchdog_timeo = 10 * HZ;
+>
+>         err = register_netdev(ndev);
+> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+> index aa1c079..be425ad 100644
+> --- a/drivers/net/ethernet/realtek/r8169.c
+> +++ b/drivers/net/ethernet/realtek/r8169.c
+> @@ -7125,7 +7125,7 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>         for (i = 0; i < ETH_ALEN; i++)
+>                 dev->dev_addr[i] = RTL_R8(MAC0 + i);
+>
+> -       SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
+> +       dev->ethtool_ops = &rtl8169_ethtool_ops;
+>         dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+>
+>         netif_napi_add(dev, &tp->napi, rtl8169_poll, R8169_NAPI_WEIGHT);
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 6a9509c..967314c 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2843,7 +2843,7 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>                 ndev->netdev_ops = &sh_eth_netdev_ops_tsu;
+>         else
+>                 ndev->netdev_ops = &sh_eth_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
+> +       ndev->ethtool_ops = &sh_eth_ethtool_ops;
+>         ndev->watchdog_timeo = TX_TIMEOUT;
+>
+>         /* debug message level */
+> diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+> index 0415fa5..c0981ae 100644
+> --- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+> +++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
+> @@ -520,5 +520,5 @@ static const struct ethtool_ops sxgbe_ethtool_ops = {
+>
+>  void sxgbe_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &sxgbe_ethtool_ops);
+> +       netdev->ethtool_ops = &sxgbe_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+> index 63d595f..1e27404 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+> @@ -2248,7 +2248,7 @@ static int efx_register_netdev(struct efx_nic *efx)
+>         } else {
+>                 net_dev->netdev_ops = &efx_farch_netdev_ops;
+>         }
+> -       SET_ETHTOOL_OPS(net_dev, &efx_ethtool_ops);
+> +       net_dev->ethtool_ops = &efx_ethtool_ops;
+>         net_dev->gso_max_segs = EFX_TSO_MAX_SEGS;
+>
+>         rtnl_lock();
+> diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
+> index acbbe48..a863399 100644
+> --- a/drivers/net/ethernet/sis/sis190.c
+> +++ b/drivers/net/ethernet/sis/sis190.c
+> @@ -1877,7 +1877,7 @@ static int sis190_init_one(struct pci_dev *pdev,
+>
+>         dev->netdev_ops = &sis190_netdev_ops;
+>
+> -       SET_ETHTOOL_OPS(dev, &sis190_ethtool_ops);
+> +       dev->ethtool_ops = &sis190_ethtool_ops;
+>         dev->watchdog_timeo = SIS190_TX_TIMEOUT;
+>
+>         spin_lock_init(&tp->lock);
+> diff --git a/drivers/net/ethernet/smsc/smc91c92_cs.c b/drivers/net/ethernet/smsc/smc91c92_cs.c
+> index c7a4868..6b33127 100644
+> --- a/drivers/net/ethernet/smsc/smc91c92_cs.c
+> +++ b/drivers/net/ethernet/smsc/smc91c92_cs.c
+> @@ -318,7 +318,7 @@ static int smc91c92_probe(struct pcmcia_device *link)
+>
+>      /* The SMC91c92-specific entries in the device structure. */
+>      dev->netdev_ops = &smc_netdev_ops;
+> -    SET_ETHTOOL_OPS(dev, &ethtool_ops);
+> +    dev->ethtool_ops = &ethtool_ops;
+>      dev->watchdog_timeo = TX_TIMEOUT;
+>
+>      smc->mii_if.dev = dev;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> index c5f9cb8..c963394 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+> @@ -784,5 +784,5 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
+>
+>  void stmmac_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &stmmac_ethtool_ops);
+> +       netdev->ethtool_ops = &stmmac_ethtool_ops;
+>  }
+> diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+> index 2ead877..38da73a 100644
+> --- a/drivers/net/ethernet/tehuti/tehuti.c
+> +++ b/drivers/net/ethernet/tehuti/tehuti.c
+> @@ -2413,7 +2413,7 @@ static void bdx_set_ethtool_ops(struct net_device *netdev)
+>                 .get_ethtool_stats = bdx_get_ethtool_stats,
+>         };
+>
+> -       SET_ETHTOOL_OPS(netdev, &bdx_ethtool_ops);
+> +       netdev->ethtool_ops = &bdx_ethtool_ops;
+>  }
+>
+>  /**
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 36aa109..6ecab3c 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -1975,7 +1975,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>         ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+>
+>         ndev->netdev_ops = &cpsw_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
+> +       ndev->ethtool_ops = &cpsw_ethtool_ops;
+>         netif_napi_add(ndev, &priv_sl2->napi, cpsw_poll, CPSW_POLL_WEIGHT);
+>
+>         /* register the network device */
+> @@ -2204,7 +2204,7 @@ static int cpsw_probe(struct platform_device *pdev)
+>         ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+>
+>         ndev->netdev_ops = &cpsw_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
+> +       ndev->ethtool_ops = &cpsw_ethtool_ops;
+>         netif_napi_add(ndev, &priv->napi, cpsw_poll, CPSW_POLL_WEIGHT);
+>
+>         /* register the network device */
+> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> index 8f0e69c..e76eae5 100644
+> --- a/drivers/net/ethernet/ti/davinci_emac.c
+> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> @@ -1980,7 +1980,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+>         }
+>
+>         ndev->netdev_ops = &emac_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &ethtool_ops);
+> +       ndev->ethtool_ops = &ethtool_ops;
+>         netif_napi_add(ndev, &priv->napi, emac_poll, EMAC_POLL_WEIGHT);
+>
+>         /* register the network device */
+> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+> index 31e55fb..2170db5 100644
+> --- a/drivers/net/hyperv/netvsc_drv.c
+> +++ b/drivers/net/hyperv/netvsc_drv.c
+> @@ -715,7 +715,7 @@ static int netvsc_probe(struct hv_device *dev,
+>         net->features = NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_SG | NETIF_F_RXCSUM |
+>                         NETIF_F_IP_CSUM | NETIF_F_TSO;
+>
+> -       SET_ETHTOOL_OPS(net, &ethtool_ops);
+> +       net->ethtool_ops = &ethtool_ops;
+>         SET_NETDEV_DEV(net, &dev->device);
+>
+>         /* Notify the netvsc driver of the new device */
+> diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
+> index 63aa9d9..27536aa 100644
+> --- a/drivers/net/ntb_netdev.c
+> +++ b/drivers/net/ntb_netdev.c
+> @@ -348,7 +348,7 @@ static int ntb_netdev_probe(struct pci_dev *pdev)
+>         memcpy(ndev->dev_addr, ndev->perm_addr, ndev->addr_len);
+>
+>         ndev->netdev_ops = &ntb_netdev_ops;
+> -       SET_ETHTOOL_OPS(ndev, &ntb_ethtool_ops);
+> +       ndev->ethtool_ops = &ntb_ethtool_ops;
+>
+>         dev->qp = ntb_transport_create_queue(ndev, pdev, &ntb_netdev_handlers);
+>         if (!dev->qp) {
+> diff --git a/drivers/net/rionet.c b/drivers/net/rionet.c
+> index a849718..dac7a0d 100644
+> --- a/drivers/net/rionet.c
+> +++ b/drivers/net/rionet.c
+> @@ -494,7 +494,7 @@ static int rionet_setup_netdev(struct rio_mport *mport, struct net_device *ndev)
+>         ndev->mtu = RIO_MAX_MSG_SIZE - 14;
+>         ndev->features = NETIF_F_LLTX;
+>         SET_NETDEV_DEV(ndev, &mport->dev);
+> -       SET_ETHTOOL_OPS(ndev, &rionet_ethtool_ops);
+> +       ndev->ethtool_ops = &rionet_ethtool_ops;
+>
+>         spin_lock_init(&rnet->lock);
+>         spin_lock_init(&rnet->tx_lock);
+> diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
+> index 630caf4..8cfc3bb 100644
+> --- a/drivers/net/usb/catc.c
+> +++ b/drivers/net/usb/catc.c
+> @@ -793,7 +793,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
+>
+>         netdev->netdev_ops = &catc_netdev_ops;
+>         netdev->watchdog_timeo = TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(netdev, &ops);
+> +       netdev->ethtool_ops = &ops;
+>
+>         catc->usbdev = usbdev;
+>         catc->netdev = netdev;
+> diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+> index 660bd5e..a3a0586 100644
+> --- a/drivers/net/usb/hso.c
+> +++ b/drivers/net/usb/hso.c
+> @@ -2425,7 +2425,7 @@ static void hso_net_init(struct net_device *net)
+>         net->type = ARPHRD_NONE;
+>         net->mtu = DEFAULT_MTU - 14;
+>         net->tx_queue_len = 10;
+> -       SET_ETHTOOL_OPS(net, &ops);
+> +       net->ethtool_ops = &ops;
+>
+>         /* and initialize the semaphore */
+>         spin_lock_init(&hso_net->net_lock);
+> diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
+> index 421934c..f725707 100644
+> --- a/drivers/net/usb/ipheth.c
+> +++ b/drivers/net/usb/ipheth.c
+> @@ -524,7 +524,7 @@ static int ipheth_probe(struct usb_interface *intf,
+>         usb_set_intfdata(intf, dev);
+>
+>         SET_NETDEV_DEV(netdev, &intf->dev);
+> -       SET_ETHTOOL_OPS(netdev, &ops);
+> +       netdev->ethtool_ops = &ops;
+>
+>         retval = register_netdev(netdev);
+>         if (retval) {
+> diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+> index a359d3b..dcb6d33 100644
+> --- a/drivers/net/usb/kaweth.c
+> +++ b/drivers/net/usb/kaweth.c
+> @@ -1171,7 +1171,7 @@ err_fw:
+>         netdev->netdev_ops = &kaweth_netdev_ops;
+>         netdev->watchdog_timeo = KAWETH_TX_TIMEOUT;
+>         netdev->mtu = le16_to_cpu(kaweth->configuration.segment_size);
+> -       SET_ETHTOOL_OPS(netdev, &ops);
+> +       netdev->ethtool_ops = &ops;
+>
+>         /* kaweth is zeroed as part of alloc_netdev */
+>         INIT_DELAYED_WORK(&kaweth->lowmem_work, kaweth_resubmit_tl);
+> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+> index 03e8a15..f840802 100644
+> --- a/drivers/net/usb/pegasus.c
+> +++ b/drivers/net/usb/pegasus.c
+> @@ -1159,7 +1159,7 @@ static int pegasus_probe(struct usb_interface *intf,
+>
+>         net->watchdog_timeo = PEGASUS_TX_TIMEOUT;
+>         net->netdev_ops = &pegasus_netdev_ops;
+> -       SET_ETHTOOL_OPS(net, &ops);
+> +       net->ethtool_ops = &ops;
+>         pegasus->mii.dev = net;
+>         pegasus->mii.mdio_read = mdio_read;
+>         pegasus->mii.mdio_write = mdio_write;
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 3fbfb08..9f91c7a 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -3452,7 +3452,7 @@ static int rtl8152_probe(struct usb_interface *intf,
+>                               NETIF_F_TSO | NETIF_F_FRAGLIST |
+>                               NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
+>
+> -       SET_ETHTOOL_OPS(netdev, &ops);
+> +       netdev->ethtool_ops = &ops;
+>         netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
+>
+>         tp->mii.dev = netdev;
+> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> index da2c458..6e87e57 100644
+> --- a/drivers/net/usb/rtl8150.c
+> +++ b/drivers/net/usb/rtl8150.c
+> @@ -878,7 +878,7 @@ static int rtl8150_probe(struct usb_interface *intf,
+>         dev->netdev = netdev;
+>         netdev->netdev_ops = &rtl8150_netdev_ops;
+>         netdev->watchdog_timeo = RTL8150_TX_TIMEOUT;
+> -       SET_ETHTOOL_OPS(netdev, &ops);
+> +       netdev->ethtool_ops = &ops;
+>         dev->intr_interval = 100;       /* 100ms */
+>
+>         if (!alloc_all_urbs(dev)) {
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 7b68746..3f83359 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1646,7 +1646,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>         dev->netdev_ops = &virtnet_netdev;
+>         dev->features = NETIF_F_HIGHDMA;
+>
+> -       SET_ETHTOOL_OPS(dev, &virtnet_ethtool_ops);
+> +       dev->ethtool_ops = &virtnet_ethtool_ops;
+>         SET_NETDEV_DEV(dev, &vdev->dev);
+>
+>         /* Do we support "hardware" checksums? */
+> diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> index 600ab56..00e1202 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> @@ -635,5 +635,5 @@ static const struct ethtool_ops vmxnet3_ethtool_ops = {
+>
+>  void vmxnet3_set_ethtool_ops(struct net_device *netdev)
+>  {
+> -       SET_ETHTOOL_OPS(netdev, &vmxnet3_ethtool_ops);
+> +       netdev->ethtool_ops = &vmxnet3_ethtool_ops;
+>  }
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 82355d5..457359c 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -2706,7 +2706,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+>                 return -EEXIST;
+>         }
+>
+> -       SET_ETHTOOL_OPS(dev, &vxlan_ethtool_ops);
+> +       dev->ethtool_ops = &vxlan_ethtool_ops;
+>
+>         /* create an fdb entry for a valid default destination */
+>         if (!vxlan_addr_any(&vxlan->default_dst.remote_ip)) {
+> diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
+> index 67db34e..52919ad 100644
+> --- a/drivers/net/wireless/hostap/hostap_main.c
+> +++ b/drivers/net/wireless/hostap/hostap_main.c
+> @@ -882,7 +882,7 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
+>         dev->mtu = local->mtu;
+>
+>
+> -       SET_ETHTOOL_OPS(dev, &prism2_ethtool_ops);
+> +       dev->ethtool_ops = &prism2_ethtool_ops;
+>
+>  }
+>
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index ef05c5c..a755733 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -386,7 +386,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+>                 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>                 NETIF_F_TSO | NETIF_F_TSO6;
+>         dev->features = dev->hw_features | NETIF_F_RXCSUM;
+> -       SET_ETHTOOL_OPS(dev, &xenvif_ethtool_ops);
+> +       dev->ethtool_ops = &xenvif_ethtool_ops;
+>
+>         dev->tx_queue_len = XENVIF_QUEUE_LENGTH;
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 158b5e6..895355d 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1332,7 +1332,7 @@ static struct net_device *xennet_create_dev(struct xenbus_device *dev)
+>           */
+>         netdev->features |= netdev->hw_features;
+>
+> -       SET_ETHTOOL_OPS(netdev, &xennet_ethtool_ops);
+> +       netdev->ethtool_ops = &xennet_ethtool_ops;
+>         SET_NETDEV_DEV(netdev, &dev->dev);
+>
+>         netif_set_gso_max_size(netdev, XEN_NETIF_MAX_TX_SIZE - MAX_TCP_HEADER);
+> diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+> index 8dea3f1..047b4da 100644
+> --- a/drivers/s390/net/qeth_l2_main.c
+> +++ b/drivers/s390/net/qeth_l2_main.c
+> @@ -964,10 +964,9 @@ static int qeth_l2_setup_netdev(struct qeth_card *card)
+>         card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
+>         card->dev->mtu = card->info.initial_mtu;
+>         card->dev->netdev_ops = &qeth_l2_netdev_ops;
+> -       if (card->info.type != QETH_CARD_TYPE_OSN)
+> -               SET_ETHTOOL_OPS(card->dev, &qeth_l2_ethtool_ops);
+> -       else
+> -               SET_ETHTOOL_OPS(card->dev, &qeth_l2_osn_ops);
+> +       card->dev->ethtool_ops =
+> +               (card->info.type != QETH_CARD_TYPE_OSN) ?
+> +               &qeth_l2_ethtool_ops : &qeth_l2_osn_ops;
+>         card->dev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+>         card->info.broadcast_capable = 1;
+>         qeth_l2_request_initial_mac(card);
+> diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+> index 3524d34..0a59d24 100644
+> --- a/drivers/s390/net/qeth_l3_main.c
+> +++ b/drivers/s390/net/qeth_l3_main.c
+> @@ -3298,7 +3298,7 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
+>         card->dev->ml_priv = card;
+>         card->dev->watchdog_timeo = QETH_TX_TIMEOUT;
+>         card->dev->mtu = card->info.initial_mtu;
+> -       SET_ETHTOOL_OPS(card->dev, &qeth_l3_ethtool_ops);
+> +       card->dev->ethtool_ops = &qeth_l3_ethtool_ops;
+>         card->dev->features |=  NETIF_F_HW_VLAN_CTAG_TX |
+>                                 NETIF_F_HW_VLAN_CTAG_RX |
+>                                 NETIF_F_HW_VLAN_CTAG_FILTER;
+> diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
+> index d329cf3..15e0f4d 100644
+> --- a/drivers/staging/et131x/et131x.c
+> +++ b/drivers/staging/et131x/et131x.c
+> @@ -4604,7 +4604,7 @@ static int et131x_pci_setup(struct pci_dev *pdev,
+>         netdev->netdev_ops     = &et131x_netdev_ops;
+>
+>         SET_NETDEV_DEV(netdev, &pdev->dev);
+> -       SET_ETHTOOL_OPS(netdev, &et131x_ethtool_ops);
+> +       netdev->ethtool_ops = &et131x_ethtool_ops;
+>
+>         adapter = et131x_adapter_init(netdev, pdev);
+>
+> diff --git a/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c b/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
+> index d6421b9..a6158be 100644
+> --- a/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
+> +++ b/drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c
+> @@ -2249,7 +2249,7 @@ struct net_device *init_ft1000_card(struct pcmcia_device *link,
+>
+>         ft1000InitProc(dev);
+>         ft1000_card_present = 1;
+> -       SET_ETHTOOL_OPS(dev, &ops);
+> +       dev->ethtool_ops = &ops;
+>         printk(KERN_INFO "ft1000: %s: addr 0x%04lx irq %d, MAC addr %pM\n",
+>                         dev->name, dev->base_addr, dev->irq, dev->dev_addr);
+>         return dev;
+> diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
+> index c83e337..9d95761 100644
+> --- a/drivers/staging/netlogic/xlr_net.c
+> +++ b/drivers/staging/netlogic/xlr_net.c
+> @@ -1066,7 +1066,7 @@ static int xlr_net_probe(struct platform_device *pdev)
+>         xlr_set_rx_mode(ndev);
+>
+>         priv->num_rx_desc += MAX_NUM_DESC_SPILL;
+> -       SET_ETHTOOL_OPS(ndev, &xlr_ethtool_ops);
+> +       ndev->ethtool_ops = &xlr_ethtool_ops;
+>         SET_NETDEV_DEV(ndev, &pdev->dev);
+>
+>         /* Common registers, do one time initialization */
+> diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
+> index ff7214a..da9dd6b 100644
+> --- a/drivers/staging/octeon/ethernet.c
+> +++ b/drivers/staging/octeon/ethernet.c
+> @@ -469,7 +469,7 @@ int cvm_oct_common_init(struct net_device *dev)
+>
+>         /* We do our own locking, Linux doesn't need to */
+>         dev->features |= NETIF_F_LLTX;
+> -       SET_ETHTOOL_OPS(dev, &cvm_oct_ethtool_ops);
+> +       dev->ethtool_ops = &cvm_oct_ethtool_ops;
+>
+>         cvm_oct_phy_setup_device(dev);
+>         cvm_oct_set_mac_filter(dev);
+> diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
+> index b7d4f82..ce8e281 100644
+> --- a/drivers/usb/gadget/u_ether.c
+> +++ b/drivers/usb/gadget/u_ether.c
+> @@ -793,7 +793,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g,
+>
+>         net->netdev_ops = &eth_netdev_ops;
+>
+> -       SET_ETHTOOL_OPS(net, &ops);
+> +       net->ethtool_ops = &ops;
+>
+>         dev->gadget = g;
+>         SET_NETDEV_DEV(net, &g->dev);
+> @@ -850,7 +850,7 @@ struct net_device *gether_setup_name_default(const char *netname)
+>
+>         net->netdev_ops = &eth_netdev_ops;
+>
+> -       SET_ETHTOOL_OPS(net, &ops);
+> +       net->ethtool_ops = &ops;
+>         SET_NETDEV_DEVTYPE(net, &gadget_type);
+>
+>         return net;
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 7ed3a3a..06071f7 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -56,9 +56,6 @@ struct device;
+>  struct phy_device;
+>  /* 802.11 specific */
+>  struct wireless_dev;
+> -                                       /* source back-compat hooks */
+> -#define SET_ETHTOOL_OPS(netdev,ops) \
+> -       ( (netdev)->ethtool_ops = (ops) )
+>
+>  void netdev_set_default_ethtool_ops(struct net_device *dev,
+>                                     const struct ethtool_ops *ops);
+> diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+> index 744a59b..e7ee65d 100644
+> --- a/net/batman-adv/soft-interface.c
+> +++ b/net/batman-adv/soft-interface.c
+> @@ -884,7 +884,7 @@ static void batadv_softif_init_early(struct net_device *dev)
+>         /* generate random address */
+>         eth_hw_addr_random(dev);
+>
+> -       SET_ETHTOOL_OPS(dev, &batadv_ethtool_ops);
+> +       dev->ethtool_ops = &batadv_ethtool_ops;
+>
+>         memset(priv, 0, sizeof(*priv));
+>  }
+> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+> index 3e2da2c..9212015 100644
+> --- a/net/bridge/br_device.c
+> +++ b/net/bridge/br_device.c
+> @@ -348,7 +348,7 @@ void br_dev_setup(struct net_device *dev)
+>
+>         dev->netdev_ops = &br_netdev_ops;
+>         dev->destructor = br_dev_free;
+> -       SET_ETHTOOL_OPS(dev, &br_ethtool_ops);
+> +       dev->ethtool_ops = &br_ethtool_ops;
+>         SET_NETDEV_DEVTYPE(dev, &br_type);
+>         dev->tx_queue_len = 0;
+>         dev->priv_flags = IFF_EBRIDGE;
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 02c0e17..64c5af0 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -346,7 +346,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+>                 return slave_dev;
+>
+>         slave_dev->features = master->vlan_features;
+> -       SET_ETHTOOL_OPS(slave_dev, &dsa_slave_ethtool_ops);
+> +       slave_dev->ethtool_ops = &dsa_slave_ethtool_ops;
+>         eth_hw_addr_inherit(slave_dev, master);
+>         slave_dev->tx_queue_len = 0;
+>
+> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> index 729c687..789af92 100644
+> --- a/net/openvswitch/vport-internal_dev.c
+> +++ b/net/openvswitch/vport-internal_dev.c
+> @@ -130,7 +130,7 @@ static void do_setup(struct net_device *netdev)
+>         netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
+>         netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+>         netdev->destructor = internal_dev_destructor;
+> -       SET_ETHTOOL_OPS(netdev, &internal_dev_ethtool_ops);
+> +       netdev->ethtool_ops = &internal_dev_ethtool_ops;
+>         netdev->tx_queue_len = 0;
+>
+>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
