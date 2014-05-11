@@ -1,86 +1,47 @@
-From: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected mode TX path
-Date: Sun, 11 May 2014 15:15:09 +0300
-Message-ID: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Wilfried Klaebe <w-lkml-pFTr4yDReMQpLY+iQtz4oH4Z0sVMXfX4hC4ANOJQIlc@public.gmane.org>
+Subject: Re: [PATCH] [resend] net: get rid of SET_ETHTOOL_OPS
+Date: Sun, 11 May 2014 12:46:34 +0000
+Message-ID: <20140511124633.GD7875@kaos.lebenslange-mailadresse.de>
+References: <20140511001231.GC7875@kaos.lebenslange-mailadresse.de>
+ <CANKiNjV7qrx-556DJk0qcOopnBs4NnKy51POEeZ7LpbdjX35OQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+ xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ linux-acenic-OfajU3CKLf1/SzgSGea1oA@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+ bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org,
+ nios2-dev-g9ZBwUv/Ih/yUk5EbOjzuce+I+R0W71w@public.gmane.org, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+ linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Anish Khurana <anish.khurana130181-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CANKiNjV7qrx-556DJk0qcOopnBs4NnKy51POEeZ7LpbdjX35OQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Roland,
+Am Sun, May 11, 2014 at 01:13:47PM +0530 schrieb Anish Khurana:
+> SET_ETHTOOL_OPS is equivalent to :
+> #define SET_ETHTOOL_OPS(netdev,ops) \
+>     ( (netdev)->ethtool_ops = (ops) )
+> 
+> how it makes difference  removing this code and replacing with the
+> code mentioned ?
 
-This series is a refactored form of the one posted by Jiri Kosina 
-to LKML and netdev according to the discussion that followed
-and the guidelines you provided here https://lkml.org/lkml/2014/3/5/250
+It doesn't change anything in the resulting binaries. The whole point
+is to remove the macro, which is something Dave wants to happen.
 
-Basically, the functionality changes introduced by this series fully 
-reside on the IB side of things, so I am only posting the actual patches 
-to linux-rdma with CC on the cover-letter to the lists that were on V0.
-
-Or.
-
-As described in the change log of patch #2 this series comes to address 
-a problem whereby NFS client writes would enter uninterruptible sleep 
-forever. The issue happened when using NFS over IPoIB connected mode.
-
-The problem encountered was described as follows: it's not memory
-reclamation that is the problem as such. There is an indirect dependency
-between network filesystems writing back pages and ipoib_cm_tx_init()
-due to how a kworker is used. Page reclaim cannot make forward progress
-until ipoib_cm_tx_init() succeeds and it is stuck in page reclaim itself
-waiting for network transmission. Ordinarily this situation may be
-avoided by having the caller use GFP_NOFS but ipoib_cm_tx_init()
-does not have that information.
-
-To address this, we take a more general approach vs. V0 and generalize 
-the solution such that when the new QP creation flag is provided, the
-HW driver should use a GFP_NOIO for the memory allocations related
-to the new QP.
-
-changes from V0:
- - removed the module param for IPoIB, the connected mode code would
-   attempt to use GFP_NOIO for the QP creation and fallback to GFP_KERNEL
-   (as before) if the HW driver doesn't support that. This approach will let
-   
-
-Jiri Kosina (1):
-  mlx4: Enhance the QP creation path to use a given GFP directive
-
-Or Gerlitz (2):
-  IB: Return error when QP creation are provided for driver not supporting that
-  IB: Add a QP creation flag to allow specifying a NOIO allocation directive
-
- drivers/infiniband/hw/mlx4/cq.c                    |    6 ++--
- drivers/infiniband/hw/mlx4/mlx4_ib.h               |    1 +
- drivers/infiniband/hw/mlx4/qp.c                    |   30 +++++++++++--------
- drivers/infiniband/hw/mlx4/srq.c                   |    7 ++--
- drivers/infiniband/hw/qib/qib_qp.c                 |    3 +-
- drivers/infiniband/hw/usnic/usnic_ib_verbs.c       |    3 ++
- drivers/infiniband/ulp/ipoib/ipoib_cm.c            |   19 ++++++++++--
- drivers/net/ethernet/mellanox/mlx4/alloc.c         |   27 +++++++++--------
- drivers/net/ethernet/mellanox/mlx4/cq.c            |    4 +-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    6 ++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |    2 +-
- drivers/net/ethernet/mellanox/mlx4/icm.c           |    7 ++--
- drivers/net/ethernet/mellanox/mlx4/icm.h           |    3 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    4 +-
- drivers/net/ethernet/mellanox/mlx4/mr.c            |   17 ++++++-----
- drivers/net/ethernet/mellanox/mlx4/qp.c            |   20 ++++++------
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    4 +-
- drivers/net/ethernet/mellanox/mlx4/srq.c           |    4 +-
- include/linux/mlx4/device.h                        |   10 ++++--
- include/rdma/ib_verbs.h                            |    1 +
- 20 files changed, 104 insertions(+), 74 deletions(-)
-
-Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-Cc: Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Kind regards,
+Wilfried
