@@ -1,83 +1,50 @@
-From: Darek Marcinkiewicz <reksio@newterm.pl>
-Subject: [PATCH] driver/net/ethernet/ec_bhf.c: fix sparse warnings
-Date: Sun, 11 May 2014 09:56:08 +0200
-Message-ID: <20140511075608.GA9034@newterm.pl>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next 1/4] net: cdc_mbim: optionally use VLAN ID 4094 for IP session 0
+Date: Sun, 11 May 2014 10:28:55 +0200
+Message-ID: <87r440oh14.fsf@nemi.mork.no>
+References: <1399760243-26625-1-git-send-email-bjorn@mork.no>
+	<1399760243-26625-2-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.newterm.pl ([79.187.237.18]:44163 "EHLO apollo.newterm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756798AbaEKH4D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 May 2014 03:56:03 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399760243-26625-2-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+ (=?utf-8?Q?=22Bj=C3=B8rn?= Mork"'s
+	message of "Sun, 11 May 2014 00:17:20 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> writes:
+
+> @@ -164,12 +211,24 @@ static struct sk_buff *cdc_mbim_tx_fixup(struct=
+ usbnet *dev, struct sk_buff *skb
+>  			skb_pull(skb, ETH_HLEN);
+>  		}
+> =20
+> +		/* Is IP session <0> tagged too? */
+> +		if (!tci && info->flags & FLAG_IPS0_VLAN) {
+> +			/* drop all untagged packets */
+> +			if (!tci)
+> +				goto error;
+> +			/* map MBIM_IPS0_VID to IPS<0> */
+> +			if (tci =3D=3D MBIM_IPS0_VID)
+> +				tci =3D 0;
+> +		}
+
+This is embarrassing.  I made a mess of this, "tidying" it up while
+doing the final rebase before submitting.  And obviously never tested
+the final result...
+
+Will fix and submbit a new version.  Sorry for the noise.
 
 
-Sparse was reporting quite a few warnings for the driver.
-Those get fixed by this patch.
----
- drivers/net/ethernet/ec_bhf.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index 4884205..056b44b 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -134,17 +134,17 @@ struct ec_bhf_priv {
- 
- 	struct pci_dev *dev;
- 
--	void * __iomem io;
--	void * __iomem dma_io;
-+	void __iomem *io;
-+	void __iomem *dma_io;
- 
- 	struct hrtimer hrtimer;
- 
- 	int tx_dma_chan;
- 	int rx_dma_chan;
--	void * __iomem ec_io;
--	void * __iomem fifo_io;
--	void * __iomem mii_io;
--	void * __iomem mac_io;
-+	void __iomem *ec_io;
-+	void __iomem *fifo_io;
-+	void __iomem *mii_io;
-+	void __iomem *mac_io;
- 
- 	struct bhf_dma rx_buf;
- 	struct rx_desc *rx_descs;
-@@ -297,7 +297,7 @@ static int ec_bhf_setup_offsets(struct ec_bhf_priv *priv)
- {
- 	struct device *dev = PRIV_TO_DEV(priv);
- 	unsigned block_count, i;
--	void * __iomem ec_info;
-+	void __iomem *ec_info;
- 
- 	dev_dbg(dev, "Info block:\n");
- 	dev_dbg(dev, "Type of function: %x\n", (unsigned)ioread16(priv->io));
-@@ -569,8 +569,8 @@ static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
- {
- 	struct net_device *net_dev;
- 	struct ec_bhf_priv *priv;
--	void * __iomem dma_io;
--	void * __iomem io;
-+	void __iomem *dma_io;
-+	void __iomem *io;
- 	int err = 0;
- 
- 	err = pci_enable_device(dev);
-@@ -615,7 +615,7 @@ static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 	}
- 
- 	net_dev = alloc_etherdev(sizeof(struct ec_bhf_priv));
--	if (net_dev == 0) {
-+	if (net_dev == NULL) {
- 		err = -ENOMEM;
- 		goto err_unmap_dma_io;
- 	}
--- 
-1.7.10.4
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
