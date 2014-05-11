@@ -1,389 +1,203 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next v2 3/4] net: cdc_mbim: add driver documentation
-Date: Sun, 11 May 2014 10:47:14 +0200
-Message-ID: <1399798035-29117-4-git-send-email-bjorn@mork.no>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net-next v2 4/4] net: cdc_ncm/cdc_mbim: rework probing of NCM/MBIM functions
+Date: Sun, 11 May 2014 10:47:15 +0200
+Message-ID: <1399798035-29117-5-git-send-email-bjorn@mork.no>
 References: <1399798035-29117-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:58478 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754825AbaEKIra (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 11 May 2014 04:47:30 -0400
-In-Reply-To: <1399798035-29117-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399798035-29117-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-An initial attempt on describing some of the odd APIs
-provided by this driver.
+The NCM class match in the cdc_mbim driver is confusing and
+cause unexpected behaviour. The USB core guarantees that a
+USB interface is in altsetting 0 when probing starts. This
+means that devices implementing a NCM 1.0 backwards
+compatible MBIM function (a "NCM/MBIM function") always hit
+the NCM entry in the cdc_mbim driver match table. Such
+functions will never match any of the MBIM entries.
 
-Cc: Greg Suarez <gsuarez@smithmicro.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+This causes unexpeced behaviour for cases where the NCM and
+MBIM entries are differet, which is currently the case for
+all except Ericsson devices.
+
+Improve the probing of NCM/MBIM functions by looking up the
+device again in the cdc_mbim match table after switching to
+the MBIM identity.
+
+The shared altsetting selection is updated to better
+accommodate the new probing logic, returning the preferred
+altsetting for the control interface instead of the data
+interface. The control interface altsetting update is moved
+to the cdc_mbim driver. It is never necessary to change the
+control interface altsetting for NCM.
+
+Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+Reported by: Yu-an Shih <yshih-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- Documentation/networking/cdc_mbim.txt | 339 ++++++++++++++++++++++++++=
-++++++++
- 1 file changed, 339 insertions(+)
- create mode 100644 Documentation/networking/cdc_mbim.txt
+ drivers/net/usb/cdc_mbim.c  | 43 +++++++++++++++++++++++++++++++++++++=
+++++--
+ drivers/net/usb/cdc_ncm.c   | 27 +++++++++++++--------------
+ include/linux/usb/cdc_ncm.h |  2 +-
+ 3 files changed, 55 insertions(+), 17 deletions(-)
 
-diff --git a/Documentation/networking/cdc_mbim.txt b/Documentation/netw=
-orking/cdc_mbim.txt
-new file mode 100644
-index 000000000000..a15ea602aa52
---- /dev/null
-+++ b/Documentation/networking/cdc_mbim.txt
-@@ -0,0 +1,339 @@
-+     cdc_mbim - Driver for CDC MBIM Mobile Broadband modems
-+    =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index ae5a4821f976..bcabe573a77a 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -107,15 +107,54 @@ static const struct net_device_ops cdc_mbim_netde=
+v_ops =3D {
+ 	.ndo_vlan_rx_kill_vid =3D cdc_mbim_rx_kill_vid,
+ };
+=20
++/* Change the control interface altsetting and update the .driver_info
++ * pointer if the matching entry after changing class codes points to
++ * a different struct
++ */
++static int cdc_mbim_set_ctrlalt(struct usbnet *dev, struct usb_interfa=
+ce *intf, u8 alt)
++{
++	struct usb_driver *driver =3D to_usb_driver(intf->dev.driver);
++	const struct usb_device_id *id;
++	struct driver_info *info;
++	int ret;
 +
-+The cdc_mbim driver supports USB devices conforming to the "Universal
-+Serial Bus Communications Class Subclass Specification for Mobile
-+Broadband Interface Model" [1], which is a further development of
-+"Universal Serial Bus Communications Class Subclass Specifications for
-+Network Control Model Devices" [2] optimized for Mobile Broadband
-+devices, aka "3G/LTE modems".
++	ret =3D usb_set_interface(dev->udev,
++				intf->cur_altsetting->desc.bInterfaceNumber,
++				alt);
++	if (ret)
++		return ret;
 +
++	id =3D usb_match_id(intf, driver->id_table);
++	if (!id)
++		return -ENODEV;
 +
-+Command Line Parameters
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
++	info =3D (struct driver_info *)id->driver_info;
++	if (info !=3D dev->driver_info) {
++		dev_dbg(&intf->dev, "driver_info updated to '%s'\n",
++			info->description);
++		dev->driver_info =3D info;
++	}
++	return 0;
++}
 +
-+The cdc_mbim driver has no parameters of its own.  But the probing
-+behaviour for NCM 1.0 backwards compatible MBIM functions (an
-+"NCM/MBIM function" as defined in section 3.2 of [1]) is affected
-+by a cdc_ncm driver parameter:
-+
-+prefer_mbim
-+-----------
-+Type:          Boolean
-+Valid Range:   N/Y (0-1)
-+Default Value: Y (MBIM is preferred)
-+
-+This parameter sets the system policy for NCM/MBIM functions.  Such
-+functions will be handled by either the cdc_ncm driver or the cdc_mbim
-+driver depending on the prefer_mbim setting.  Setting prefer_mbim=3DN
-+makes the cdc_mbim driver ignore these functions and lets the cdc_ncm
-+driver handle them instead.
-+
-+The parameter is writable, and can be changed at any time. A manual
-+unbind/bind is required to make the change effective for NCM/MBIM
-+functions bound to the "wrong" driver
-+
-+
-+Basic usage
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+MBIM functions are inactive when unmanaged. The cdc_mbim driver only
-+provides an userspace interface to the MBIM control channel, and will
-+not participate in the management of the function. This implies that a
-+userspace MBIM management application always is required to enable a
-+MBIM function.
-+
-+Such userspace applications includes, but are not limited to:
-+ - mbimcli (included with the libmbim [3] library), and
-+ - ModemManager [4]
-+
-+Establishing a MBIM IP session reequires at least these actions by the
-+management application:
-+ - open the control channel
-+ - configure network connection settings
-+ - connect to network
-+ - configure IP interface
-+
-+Management application development
-+----------------------------------
-+The driver <-> userspace interfaces are described below.  The MBIM
-+control channel protocol is described in [1].
-+
-+
-+MBIM control channel userspace ABI
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+/dev/cdc-wdmX character device
-+------------------------------
-+The driver creates a two-way pipe to the MBIM function control channel
-+using the cdc-wdm driver as a subdriver.  The userspace end of the
-+control channel pipe is a /dev/cdc-wdmX character device.
-+
-+The cdc_mbim driver does not process or police messages on the control
-+channel.  The channel is fully delegated to the userspace management
-+application.  It is therefore up to this application to ensure that it
-+complies with all the control channel requirements in [1].
-+
-+The cdc-wdmX device is created as a child of the MBIM control
-+interface USB device.  The character device associated with a specific
-+MBIM function can be looked up using sysfs.  For example:
-+
-+ bjorn@nemi:~$ ls /sys/bus/usb/drivers/cdc_mbim/2-4:2.12/usbmisc
-+ cdc-wdm0
-+
-+ bjorn@nemi:~$ grep . /sys/bus/usb/drivers/cdc_mbim/2-4:2.12/usbmisc/c=
-dc-wdm0/dev
-+ 180:0
-+
-+
-+USB configuration descriptors
-+-----------------------------
-+The wMaxControlMessage field of the CDC MBIM functional descriptor
-+limits the maximum control message size. The managament application is
-+responsible for negotiating a control message size complying with the
-+requirements in section 9.3.1 of [1], taking this descriptor field
-+into consideration.
-+
-+The userspace application can access the CDC MBIM functional
-+descriptor of a MBIM function using either of the two USB
-+configuration descriptor kernel interfaces described in [6] or [7].
-+
-+See also the ioctl documentation below.
-+
-+
-+Fragmentation
-+-------------
-+The userspace application is responsible for all control message
-+fragmentation and defragmentaion, as described in section 9.5 of [1].
-+
-+
-+/dev/cdc-wdmX write()
-+---------------------
-+The MBIM control messages from the management application *must not*
-+exceed the negotiated control message size.
-+
-+
-+/dev/cdc-wdmX read()
-+--------------------
-+The management application *must* accept control messages of up the
-+negotiated control message size.
-+
-+
-+/dev/cdc-wdmX ioctl()
-+--------------------
-+IOCTL_WDM_MAX_COMMAND: Get Maximum Command Size
-+This ioctl returns the wMaxControlMessage field of the CDC MBIM
-+functional descriptor for MBIM devices.  This is intended as a
-+convenience, eliminating the need to parse the USB descriptors from
-+userspace.
-+
-+	#include <stdio.h>
-+	#include <fcntl.h>
-+	#include <sys/ioctl.h>
-+	#include <linux/types.h>
-+	#include <linux/usb/cdc-wdm.h>
-+	int main()
-+	{
-+		__u16 max;
-+		int fd =3D open("/dev/cdc-wdm0", O_RDWR);
-+		if (!ioctl(fd, IOCTL_WDM_MAX_COMMAND, &max))
-+			printf("wMaxControlMessage is %d\n", max);
+ static int cdc_mbim_bind(struct usbnet *dev, struct usb_interface *int=
+f)
+ {
+ 	struct cdc_ncm_ctx *ctx;
+ 	struct usb_driver *subdriver =3D ERR_PTR(-ENODEV);
+ 	int ret =3D -ENODEV;
+-	u8 data_altsetting =3D cdc_ncm_select_altsetting(dev, intf);
++	u8 data_altsetting =3D 1;
+ 	struct cdc_mbim_state *info =3D (void *)&dev->data;
+=20
+-	/* Probably NCM, defer for cdc_ncm_bind */
++	/* should we change control altsetting on a NCM/MBIM function? */
++	if (cdc_ncm_select_altsetting(intf) =3D=3D CDC_NCM_COMM_ALTSETTING_MB=
+IM) {
++		data_altsetting =3D CDC_NCM_DATA_ALTSETTING_MBIM;
++		ret =3D cdc_mbim_set_ctrlalt(dev, intf, CDC_NCM_COMM_ALTSETTING_MBIM=
+);
++		if (ret)
++			goto err;
++		ret =3D -ENODEV;
 +	}
 +
++	/* we will hit this for NCM/MBIM functions if prefer_mbim is false */
+ 	if (!cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
+ 		goto err;
+=20
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 549dbac710ed..a1e0ba2a3a42 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -541,10 +541,10 @@ void cdc_ncm_unbind(struct usbnet *dev, struct us=
+b_interface *intf)
+ }
+ EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
+=20
+-/* Select the MBIM altsetting iff it is preferred and available,
+- * returning the number of the corresponding data interface altsetting
++/* Return the number of the MBIM control interface altsetting iff it
++ * is preferred and available,
+  */
+-u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf)
++u8 cdc_ncm_select_altsetting(struct usb_interface *intf)
+ {
+ 	struct usb_host_interface *alt;
+=20
+@@ -563,15 +563,15 @@ u8 cdc_ncm_select_altsetting(struct usbnet *dev, =
+struct usb_interface *intf)
+ 	 *   the rules given in section 6 (USB Device Model) of this
+ 	 *   specification."
+ 	 */
+-	if (prefer_mbim && intf->num_altsetting =3D=3D 2) {
++	if (intf->num_altsetting < 2)
++		return intf->cur_altsetting->desc.bAlternateSetting;
 +
-+Custom device services
-+----------------------
-+The MBIM specification allows vendors to freely define additional
-+services.  This is fully supported by the cdc_mbim driver.
-+
-+Support for new MBIM services, including vendor specified services, is
-+implemented entirely in userspace, like the rest of the MBIM control
-+protocol
-+
-+New services should be registered in the MBIM Registry [5].
-+
-+
-+
-+MBIM data channel userspace ABI
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D
-+
-+wwanY network device
-+--------------------
-+The cdc_mbim driver represents the MBIM data channel as a single
-+network device of the "wwan" type. This network device is initially
-+mapped to MBIM IP session 0.
-+
-+
-+Multiplexed IP sessions (IPS)
-+-----------------------------
-+MBIM allows multiplexing up to 256 IP sessions over a single USB data
-+channel.  The cdc_mbim driver models such IP sessions as 802.1q VLAN
-+subdevices of the master wwanY device, mapping MBIM IP session Z to
-+VLAN ID Z for all values of Z greater than 0.
-+
-+The device maximum Z is given in the MBIM_DEVICE_CAPS_INFO structure
-+described in section 10.5.1 of [1].
-+
-+The userspace management application is responsible for adding new
-+VLAN links prior to establishing MBIM IP sessions where the SessionId
-+is greater than 0. These links can be added by using the normal VLAN
-+kernel interfaces, either ioctl or netlink.
-+
-+For example, adding a link for a MBIM IP session with SessionId 3:
-+
-+  ip link add link wwan0 name wwan0.3 type vlan id 3
-+
-+The driver will automatically map the "wwan0.3" network device to MBIM
-+IP session 3.
-+
-+
-+Device Service Streams (DSS)
-+----------------------------
-+MBIM also allows up to 256 non-IP data streams to be multiplexed over
-+the same shared USB data channel.  The cdc_mbim driver models these
-+sessions as another set of 802.1q VLAN subdevices of the master wwanY
-+device, mapping MBIM DSS session A to VLAN ID (256 + A) for all values
-+of A.
-+
-+The device maximum A is given in the MBIM_DEVICE_SERVICES_INFO
-+structure described in section 10.5.29 of [1].
-+
-+The DSS VLAN subdevices are used as a practical interface between the
-+shared MBIM data channel and a MBIM DSS aware userspace application.
-+It is not intended to be presented as-is to an end user. The
-+assumption is that an userspace application initiating a DSS session
-+also takes care of the necessary framing of the DSS data, presenting
-+the stream to the end user in an appropriate way for the stream type.
-+
-+The network device ABI requires a dummy ethernet header for every DSS
-+data frame being transported.  The contents of this header is
-+arbitrary, with the following exceptions:
-+ - TX frames using an IP protocol (0x0800 or 0x86dd) will be dropped
-+ - RX frames will have the protocol field set to ETH_P_802_3 (but will
-+   not be properly formatted 802.3 frames)
-+ - RX frames will have the destination address set to the hardware
-+   address of the master device
-+
-+The DSS supporting userspace management application is responsible for
-+adding the dummy ethernet header on TX and stripping it on RX.
-+
-+This is a simple example using tools commonly available, exporting
-+DssSessionId 5 as a pty character device pointed to by a /dev/nmea
-+symlink:
-+
-+  ip link add link wwan0 name wwan0.dss5 type vlan id 261
-+  ip link set dev wwan0.dss5 up
-+  socat INTERFACE:wwan0.dss5,type=3D2 PTY:,echo=3D0,link=3D/dev/nmea
-+
-+This is only an example, most suitable for testing out a DSS
-+service. Userspace applications supporting specific MBIM DSS services
-+are expected to use the tools and programming interfaces required by
-+that service.
-+
-+Note that adding VLAN links for DSS sessions is entirely optional.  A
-+management application may instead choose to bind a packet socket
-+directly to the master network device, using the received VLAN tags to
-+map frames to the correct DSS session and adding 18 byte VLAN ethernet
-+headers with the appropriate tag on TX.  In this case using a socket
-+filter is recommended, matching only the DSS VLAN subset. This avoid
-+unnecessary copying of unrelated IP session data to userspace.  For
-+example:
-+
-+  static struct sock_filter dssfilter[] =3D {
-+	/* use special negative offsets to get VLAN tag */
-+	BPF_STMT(BPF_LD|BPF_B|BPF_ABS, SKF_AD_OFF + SKF_AD_VLAN_TAG_PRESENT),
-+	BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 1, 0, 6), /* true */
-+
-+	/* verify DSS VLAN range */
-+	BPF_STMT(BPF_LD|BPF_H|BPF_ABS, SKF_AD_OFF + SKF_AD_VLAN_TAG),
-+	BPF_JUMP(BPF_JMP|BPF_JGE|BPF_K, 256, 0, 4),	/* 256 is first DSS VLAN =
-*/
-+	BPF_JUMP(BPF_JMP|BPF_JGE|BPF_K, 512, 3, 0),	/* 511 is last DSS VLAN *=
-/
-+
-+	/* verify ethertype */
-+        BPF_STMT(BPF_LD|BPF_H|BPF_ABS, 2 * ETH_ALEN),
-+        BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, ETH_P_802_3, 0, 1),
-+
-+        BPF_STMT(BPF_RET|BPF_K, (u_int)-1),	/* accept */
-+        BPF_STMT(BPF_RET|BPF_K, 0),		/* ignore */
-+  };
-+
-+
-+
-+Tagged IP session 0 VLAN
-+------------------------
-+As described above, MBIM IP session 0 is treated as special by the
-+driver.  It is initially mapped to untagged frames on the wwanY
-+network device.
-+
-+This mapping implies a few restrictions on multiplexed IPS and DSS
-+sessions, which may not always be practical:
-+ - no IPS or DSS session can use a frame size greater than the MTU on
-+   IP session 0
-+ - no IPS or DSS session can be in the up state unless the network
-+   device representing IP session 0 also is up
-+
-+These problems can be avoided by optionally making the driver map IP
-+session 0 to a VLAN subdevice, similar to all other IP sessions.  This
-+behaviour is triggered by adding a VLAN link for the magic VLAN ID
-+4094.  The driver will then immediately start mapping MBIM IP session
-+0 to this VLAN, and will drop untagged frames on the master wwanY
-+device.
-+
-+Tip: It might be less confusing to the end user to name this VLAN
-+subdevice after the MBIM SessionID instead of the VLAN ID.  For
-+example:
-+
-+  ip link add link wwan0 name wwan0.0 type vlan id 4094
-+
-+
-+VLAN mapping
-+------------
-+
-+Summarizing the cdc_mbim driver mapping described above, we have this
-+relationship between VLAN tags on the wwanY network device and MBIM
-+sessions on the shared USB data channel:
-+
-+  VLAN ID       MBIM type   MBIM SessionID           Notes
-+  ---------------------------------------------------------
-+  untagged      IPS         0                        a)
-+  1 - 255       IPS         1 - 255 <VLANID>
-+  256 - 511     DSS         0 - 255 <VLANID - 256>
-+  512 - 4093                                         b)
-+  4094          IPS         0                        c)
-+
-+    a) if no VLAN ID 4094 link exists, else dropped
-+    b) unsupported VLAN range, unconditionally dropped
-+    c) if a VLAN ID 4094 link exists, else dropped
-+
-+
-+
-+
-+References
-+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-+
-+[1] USB Implementers Forum, Inc. - "Universal Serial Bus
-+      Communications Class Subclass Specification for Mobile Broadband
-+      Interface Model", Revision 1.0 (Errata 1), May 1, 2013
-+      - http://www.usb.org/developers/docs/devclass_docs/
-+
-+[2] USB Implementers Forum, Inc. - "Universal Serial Bus
-+      Communications Class Subclass Specifications for Network Control
-+      Model Devices", Revision 1.0 (Errata 1), November 24, 2010
-+      - http://www.usb.org/developers/docs/devclass_docs/
-+
-+[3] libmbim - "a glib-based library for talking to WWAN modems and
-+      devices which speak the Mobile Interface Broadband Model (MBIM)
-+      protocol"
-+      - http://www.freedesktop.org/wiki/Software/libmbim/
-+
-+[4] ModemManager - "a DBus-activated daemon which controls mobile
-+      broadband (2G/3G/4G) devices and connections"
-+      - http://www.freedesktop.org/wiki/Software/ModemManager/
-+
-+[5] "MBIM (Mobile Broadband Interface Model) Registry"
-+       - http://compliance.usb.org/mbim/
-+
-+[6] "/proc/bus/usb filesystem output"
-+       - Documentation/usb/proc_usb_info.txt
-+
-+[7] "/sys/bus/usb/devices/.../descriptors"
-+       - Documentation/ABI/stable/sysfs-bus-usb
++	if (prefer_mbim) {
+ 		alt =3D usb_altnum_to_altsetting(intf, CDC_NCM_COMM_ALTSETTING_MBIM)=
+;
+-		if (alt && cdc_ncm_comm_intf_is_mbim(alt) &&
+-		    !usb_set_interface(dev->udev,
+-				       intf->cur_altsetting->desc.bInterfaceNumber,
+-				       CDC_NCM_COMM_ALTSETTING_MBIM))
+-			return CDC_NCM_DATA_ALTSETTING_MBIM;
++		if (alt && cdc_ncm_comm_intf_is_mbim(alt))
++			return CDC_NCM_COMM_ALTSETTING_MBIM;
+ 	}
+-	return CDC_NCM_DATA_ALTSETTING_NCM;
++	return CDC_NCM_COMM_ALTSETTING_NCM;
+ }
+ EXPORT_SYMBOL_GPL(cdc_ncm_select_altsetting);
+=20
+@@ -580,12 +580,11 @@ static int cdc_ncm_bind(struct usbnet *dev, struc=
+t usb_interface *intf)
+ 	int ret;
+=20
+ 	/* MBIM backwards compatible function? */
+-	cdc_ncm_select_altsetting(dev, intf);
+-	if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
++	if (cdc_ncm_select_altsetting(intf) !=3D CDC_NCM_COMM_ALTSETTING_NCM)
+ 		return -ENODEV;
+=20
+-	/* NCM data altsetting is always 1 */
+-	ret =3D cdc_ncm_bind_common(dev, intf, 1);
++	/* The NCM data altsetting is fixed */
++	ret =3D cdc_ncm_bind_common(dev, intf, CDC_NCM_DATA_ALTSETTING_NCM);
+=20
+ 	/*
+ 	 * We should get an event when network connection is "connected" or
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 44b38b92236a..55b6feead93b 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -121,7 +121,7 @@ struct cdc_ncm_ctx {
+ 	u16 connected;
+ };
+=20
+-u8 cdc_ncm_select_altsetting(struct usbnet *dev, struct usb_interface =
+*intf);
++u8 cdc_ncm_select_altsetting(struct usb_interface *intf);
+ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting);
+ void cdc_ncm_unbind(struct usbnet *dev, struct usb_interface *intf);
+ struct sk_buff *cdc_ncm_fill_tx_frame(struct usbnet *dev, struct sk_bu=
+ff *skb, __le32 sign);
 --=20
 2.0.0.rc2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
