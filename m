@@ -1,46 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2] sh_eth: replace devm_kzalloc() with devm_kmalloc_array()
-Date: Tue, 13 May 2014 02:30:14 +0400
-Message-ID: <201405130230.14743.sergei.shtylyov@cogentembedded.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH 0/3] Make mark-based routing work better with multiple
+ separate networks.
+Date: Tue, 13 May 2014 07:53:27 +0900
+Message-ID: <CAKD1Yr0z40vY8ucGDuLo8rPDudtHeOeMPbN_vfSSS_K4KjCffg@mail.gmail.com>
+References: <1399657021-26082-1-git-send-email-lorenzo@google.com>
+ <CACP96tS0ikGfx85HX6t1w8+AENuiJu2N2-AyiJP+=VBohKjb4A@mail.gmail.com>
+ <CAKD1Yr1ey0j03OtO3_tD+AREQwnk1J9Mx60-TcEP9QwEy4tdAw@mail.gmail.com> <CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, JP Abgrall <jpa@google.com>,
+	David Miller <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: sowmini varadhan <sowmini05@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:61766 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758434AbaELWxs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 18:53:48 -0400
+Received: by mail-ie0-f170.google.com with SMTP id ar20so4253969iec.15
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 15:53:47 -0700 (PDT)
+In-Reply-To: <CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When I was converting the driver to the managed device API, only devm_kzalloc()
-was available for memory allocation, so I had to use it, despite zeroing out the
-PHY IRQ array right before initializing all  its entries to PHY_POLL was quite
-stupid.   Now that devm_kmalloc_array() has become available, we can avoid the
-needless zeroing out...
+On Tue, May 13, 2014 at 6:09 AM, sowmini varadhan <sowmini05@gmail.com> wrote:
+> http://lwn.net/Articles/407495/, a single
+> process should be able to open sockes in different namespaces.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-This patch is against DaveM's 'net-next.git' repo.
-
-Changes in version 2:
-- switched to calling devm_kmalloc_array().
-
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Index: renesas/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- renesas.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ renesas/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2627,8 +2627,8 @@ static int sh_mdio_init(struct sh_eth_pr
- 		 pdev->name, pdev->id);
- 
- 	/* PHY IRQ */
--	mdp->mii_bus->irq = devm_kzalloc(dev, sizeof(int) * PHY_MAX_ADDR,
--					 GFP_KERNEL);
-+	mdp->mii_bus->irq = devm_kmalloc_array(dev, PHY_MAX_ADDR, sizeof(int),
-+					       GFP_KERNEL);
- 	if (!mdp->mii_bus->irq) {
- 		ret = -ENOMEM;
- 		goto out_free_bus;
+Other things that you can't do with namespaces are have the same physical
+interface (and the same IP address?) in two different namespaces, or
+have the same listening socket in two different namespaces. Namespaces
+are not a panacea.
