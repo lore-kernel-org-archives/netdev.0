@@ -1,84 +1,39 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH iproute2] fq: don't allow set options to zero
-Date: Mon, 12 May 2014 12:18:39 +0800
-Message-ID: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] BPF testsuite and cleanup
+Date: Mon, 12 May 2014 00:25:47 -0400 (EDT)
+Message-ID: <20140512.002547.1104211599437826768.davem@davemloft.net>
+References: <1399583453-4315-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
-To: <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, edumazet@google.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:60320 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677AbaELESt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 00:18:49 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:54757 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750750AbaELEZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 00:25:48 -0400
+In-Reply-To: <1399583453-4315-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now options of fair queue can be zero but cannot be (~0U).
-Zero is useless, so don't allow set the options to zero.
-Also, maxrate cannot be reset to unlimited because it
-cannot be (~0U).
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Thu,  8 May 2014 14:10:50 -0700
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- tc/q_fq.c | 24 ++++++++++++------------
- 1 file changed, 12 insertions(+), 12 deletions(-)
+> This patchset adds BPF testsuite and improves readability of classic
+> to internal BPF converter.
+> 
+> The testsuite helped to find 'negative offset bug' in x64 JIT that was
+> fixed by commit fdfaf64e ("x86: bpf_jit: support negative offsets")
+> 
+> It can be very useful for classic and internal JIT compiler developers.
+> Also it serves as performance benchmark.
+> 
+> x86_64/i386 pass all tests with and without JIT. arm32 JIT is failing
+> negative offset tests which are unsupported.
+> 
+> Internal BPF tests are much larger than classic tests to cover different
+> combinations of registers. Negative tests check correctness of classic
+> BPF verifier which must reject them.
 
-diff --git a/tc/q_fq.c b/tc/q_fq.c
-index c1f658e..c529842 100644
---- a/tc/q_fq.c
-+++ b/tc/q_fq.c
-@@ -71,13 +71,13 @@ static unsigned int ilog2(unsigned int val)
- static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 			struct nlmsghdr *n)
- {
--	unsigned int plimit = ~0U;
--	unsigned int flow_plimit = ~0U;
--	unsigned int quantum = ~0U;
--	unsigned int initial_quantum = ~0U;
-+	unsigned int plimit = 0;
-+	unsigned int flow_plimit = 0;
-+	unsigned int quantum = 0;
-+	unsigned int initial_quantum = 0;
- 	unsigned int buckets = 0;
--	unsigned int maxrate = ~0U;
--	unsigned int defrate = ~0U;
-+	unsigned int maxrate = 0;
-+	unsigned int defrate = 0;
- 	int pacing = -1;
- 	struct rtattr *tail;
- 
-@@ -147,24 +147,24 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 		addattr_l(n, 1024, TCA_FQ_BUCKETS_LOG,
- 			  &log, sizeof(log));
- 	}
--	if (plimit != ~0U)
-+	if (plimit)
- 		addattr_l(n, 1024, TCA_FQ_PLIMIT,
- 			  &plimit, sizeof(plimit));
--	if (flow_plimit != ~0U)
-+	if (flow_plimit)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_PLIMIT,
- 			  &flow_plimit, sizeof(flow_plimit));
--	if (quantum != ~0U)
-+	if (quantum)
- 		addattr_l(n, 1024, TCA_FQ_QUANTUM, &quantum, sizeof(quantum));
--	if (initial_quantum != ~0U)
-+	if (initial_quantum)
- 		addattr_l(n, 1024, TCA_FQ_INITIAL_QUANTUM,
- 			  &initial_quantum, sizeof(initial_quantum));
- 	if (pacing != -1)
- 		addattr_l(n, 1024, TCA_FQ_RATE_ENABLE,
- 			  &pacing, sizeof(pacing));
--	if (maxrate != ~0U)
-+	if (maxrate)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_MAX_RATE,
- 			  &maxrate, sizeof(maxrate));
--	if (defrate != ~0U)
-+	if (defrate)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_DEFAULT_RATE,
- 			  &defrate, sizeof(defrate));
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
--- 
-1.8.0
+Series applied, thanks.
