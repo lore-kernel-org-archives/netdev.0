@@ -1,34 +1,40 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH 0/3] Make mark-based routing work better with multiple
- separate networks.
-Date: Tue, 13 May 2014 07:53:27 +0900
-Message-ID: <CAKD1Yr0z40vY8ucGDuLo8rPDudtHeOeMPbN_vfSSS_K4KjCffg@mail.gmail.com>
-References: <1399657021-26082-1-git-send-email-lorenzo@google.com>
- <CACP96tS0ikGfx85HX6t1w8+AENuiJu2N2-AyiJP+=VBohKjb4A@mail.gmail.com>
- <CAKD1Yr1ey0j03OtO3_tD+AREQwnk1J9Mx60-TcEP9QwEy4tdAw@mail.gmail.com> <CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, JP Abgrall <jpa@google.com>,
-	David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: sowmini varadhan <sowmini05@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:61766 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758434AbaELWxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 18:53:48 -0400
-Received: by mail-ie0-f170.google.com with SMTP id ar20so4253969iec.15
-        for <netdev@vger.kernel.org>; Mon, 12 May 2014 15:53:47 -0700 (PDT)
-In-Reply-To: <CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Subject: [PATCH] irda: sh_irda: Enable driver compilation with COMPILE_TEST
+Date: Tue, 13 May 2014 01:04:36 +0200
+Message-ID: <1399935876-16954-1-git-send-email-laurent.pinchart+renesas@ideasonboard.com>
+Cc: linux-sh@vger.kernel.org, Samuel Ortiz <samuel@sortiz.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 13, 2014 at 6:09 AM, sowmini varadhan <sowmini05@gmail.com> wrote:
-> http://lwn.net/Articles/407495/, a single
-> process should be able to open sockes in different namespaces.
+This helps increasing build testing coverage.
 
-Other things that you can't do with namespaces are have the same physical
-interface (and the same IP address?) in two different namespaces, or
-have the same listening socket in two different namespaces. Namespaces
-are not a panacea.
+Signed-off-by: Laurent Pinchart <laurent.pinchart+renesas@ideasonboard.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+---
+ drivers/net/irda/Kconfig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+Samuel, could you please pick this patch up for v3.16 ? I've pinged you twice
+back at v3.14 time, I'd hate missing yet another merge window.
+
+diff --git a/drivers/net/irda/Kconfig b/drivers/net/irda/Kconfig
+index 3da44d5..8d101d6 100644
+--- a/drivers/net/irda/Kconfig
++++ b/drivers/net/irda/Kconfig
+@@ -396,7 +396,8 @@ config MCS_FIR
+ 
+ config SH_IRDA
+ 	tristate "SuperH IrDA driver"
+-	depends on IRDA && ARCH_SHMOBILE
++	depends on IRDA
++	depends on ARCH_SHMOBILE || COMPILE_TEST
+ 	help
+ 	  Say Y here if your want to enable SuperH IrDA devices.
+ 
+-- 
+Regards,
+
+Laurent Pinchart
+
