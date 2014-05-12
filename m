@@ -1,40 +1,47 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 0/8] net: Checksum offload changes - Part III
-Date: Mon, 12 May 2014 09:57:53 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405120944250.28961@tomh.mtv.corp.google.com>
+Subject: [PATCH 1/8] sunrpc: Remove sk_no_check setting
+Date: Mon, 12 May 2014 09:58:08 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405120945510.31299@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:34353 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932196AbaELQ5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:57:54 -0400
-Received: by mail-oa0-f74.google.com with SMTP id m1so1518004oag.1
-        for <netdev@vger.kernel.org>; Mon, 12 May 2014 09:57:54 -0700 (PDT)
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:34182 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932196AbaELQ6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:58:09 -0400
+Received: by mail-ob0-f202.google.com with SMTP id wm4so1515641obc.3
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 09:58:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am working on overhauling RX checksum offload. Goals of this effort
-are:
+Setting sk_no_check to UDP_CSUM_NORCV seems to have no effect.
 
-- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-- Preserve CHECKSUM_COMPLETE through encapsulation layers
-- Don't do skb_checksum more than once per packet
-- Unify GRO and non-GRO csum verification as much as possible
-- Unify the checksum functions (checksum_init)
-- Simply code
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/sunrpc/xprtsock.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-What is in this third patch set:
-
-- Remove sk_no_check from sunrpc (doesn't seem to have any effect)
-- Eliminate no_check from protosw. All protocols are using default of
-  zero for this
-- Split sk_no_check into sk_no_check_tx and sk_no_check_rx
-- Make enabling of UDP6 more restrictive and explicit
-- Support zero UDP6 checksums in l2tp
-- Support zero UDP6 checksums in vxlan
-- Add ability in VXLAN to send non-zero checksums
-
-Please review carefully and test if possible, mucking with basic
-checksum functions is always a little precarious :-)
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 25a3dcf..1dec604 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -866,8 +866,6 @@ static void xs_reset_transport(struct sock_xprt *transport)
+ 	xs_restore_old_callbacks(transport, sk);
+ 	write_unlock_bh(&sk->sk_callback_lock);
+ 
+-	sk->sk_no_check = 0;
+-
+ 	trace_rpc_socket_close(&transport->xprt, sock);
+ 	sock_release(sock);
+ }
+@@ -2046,7 +2044,6 @@ static void xs_udp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
+ 		sk->sk_user_data = xprt;
+ 		sk->sk_data_ready = xs_udp_data_ready;
+ 		sk->sk_write_space = xs_udp_write_space;
+-		sk->sk_no_check = UDP_CSUM_NORCV;
+ 		sk->sk_allocation = GFP_ATOMIC;
+ 
+ 		xprt_set_connected(xprt);
+-- 
+1.9.1.423.g4596e3a
