@@ -1,57 +1,61 @@
-From: "Cho, Yu-Chen" <acho@suse.com>
-Subject: [PATCH] use cond_resched() to replace udelay() when dump eeprom
-Date: Mon, 12 May 2014 15:06:24 +0800
-Message-ID: <1399878384-4690-1-git-send-email-acho@suse.com>
-Cc: bpoirier@suse.de
-To: netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 5/9] net/mlx4_core: Removed unnecessary bit operation condition
+Date: Mon, 12 May 2014 10:43:21 +0300
+Message-ID: <1399880605-28772-6-git-send-email-amirv@mellanox.com>
+References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from victor.provo.novell.com ([137.65.250.26]:43674 "EHLO
-	victor.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbaELHOH (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:0:0>);
-	Mon, 12 May 2014 03:14:07 -0400
+Received: from mailp.voltaire.com ([193.47.165.129]:59184 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751862AbaELHnq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2014 03:43:46 -0400
+In-Reply-To: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The loop in tg3_nvram_exec_cmd() will give up after about 100 msec per command,
-it can loop for a long time.
+From: Eyal Perry <eyalpe@mellanox.com>
 
-For some test case , if we try to dump eeprom from tg3 interface,
-what is UP but not running , NO-CARRIER (no cable), then the lock up occurs:
+Fix the "warn: suspicious bitop condition" made by the smatch semantic
+checker on:
+drivers/net/ethernet/mellanox/mlx4/main.c:509 mlx4_slave_cap()
 
-[<ffffffffa01def4a>] tg3_nvram_exec_cmd+0x3a/0x60 [tg3]
-[<ffffffffa01e2982>] tg3_nvram_read+0x62/0x130 [tg3]
-[<ffffffffa01e2a62>] tg3_nvram_read_be32+0x12/0x30 [tg3]
-[<ffffffffa01e2b1d>] tg3_get_eeprom+0x9d/0x190 [tg3]
-[<ffffffff81494cc2>] ethtool_get_any_eeprom+0xe2/0x170
-[<ffffffff81496108>] dev_ethtool+0xd58/0x1a60
-[<ffffffff814a43fb>] dev_ioctl+0x1ab/0x560
-[<ffffffff8147782d>] sock_do_ioctl+0x3d/0x50
-[<ffffffff81477c78>] sock_ioctl+0x1e8/0x2c0
-[<ffffffff81197cc4>] do_vfs_ioctl+0x2d4/0x4b0
-[<ffffffff81197f20>] SyS_ioctl+0x80/0xa0
-[<ffffffff81581a7d>] system_call_fastpath+0x1a/0x1f
-[<00007f6b6cbf4387>] 0x7f6b6cbf4386
 
-Signed-off-by: Cho, Yu-Chen <acho@suse.com>
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/main.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index e5d95c5..7dc8bb5 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -3232,7 +3232,9 @@ static int tg3_nvram_exec_cmd(struct tg3 *tp, u32 nvram_cmd)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index df2c1fb..e74847d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -104,8 +104,6 @@ module_param(enable_64b_cqe_eqe, bool, 0444);
+ MODULE_PARM_DESC(enable_64b_cqe_eqe,
+ 		 "Enable 64 byte CQEs/EQEs when the FW supports this (default: True)");
  
- 	tw32(NVRAM_CMD, nvram_cmd);
- 	for (i = 0; i < NVRAM_CMD_TIMEOUT; i++) {
--		udelay(10);
-+
-+		cond_resched();
-+
- 		if (tr32(NVRAM_CMD) & NVRAM_CMD_DONE) {
- 			udelay(10);
- 			break;
+-#define HCA_GLOBAL_CAP_MASK            0
+-
+ #define PF_CONTEXT_BEHAVIOUR_MASK	MLX4_FUNC_CAP_64B_EQE_CQE
+ 
+ static char mlx4_version[] =
+@@ -582,9 +580,10 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 		return err;
+ 	}
+ 
+-	/*fail if the hca has an unknown capability */
+-	if ((hca_param.global_caps | HCA_GLOBAL_CAP_MASK) !=
+-	    HCA_GLOBAL_CAP_MASK) {
++	/* fail if the hca has an unknown global capability
++	 * at this time global_caps should be always zeroed
++	 */
++	if (hca_param.global_caps) {
+ 		mlx4_err(dev, "Unknown hca global capabilities\n");
+ 		return -ENOSYS;
+ 	}
 -- 
-1.8.4.5
+1.8.3.4
