@@ -1,48 +1,36 @@
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
-Subject: Re: [RFC][PATCH] af_key: return error when meet errors on sendmsg()
- syscall
-Date: Mon, 12 May 2014 14:05:09 +0800
-Message-ID: <53706495.1050303@windriver.com>
-References: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com> <20140512.011141.74073195599318391.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH iproute2] fq: don't allow set options to zero
+Date: Sun, 11 May 2014 22:58:56 -0700
+Message-ID: <1399874336.7973.17.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140512.011141.74073195599318391.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Yang Yingliang <yangyingliang@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:65280 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbaELF67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:58:59 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so3549715pab.19
+        for <netdev@vger.kernel.org>; Sun, 11 May 2014 22:58:58 -0700 (PDT)
+In-Reply-To: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2014 01:11 PM, David Miller wrote:
->
->> So it makes sense to return errors for send() syscall.
->>
->> Signed-off-by: Xufeng Zhang<xufeng.zhang@windriver.com>
->>      
-> I disagree.
->
-> If pfkey_error() is successful, the error will be reported in the AF_KEY
-> message that is broadcast, there is no reason for sendmsg to return an
-> error.  The message was sucessfully sent, there was no problem with it's
-> passage into the AF_KEY layer.
->
-> Like netlink, operational responses come in packets, not error codes.
->
-> However, if pfkey_error() fails, we must do pass back the original
-> error code because it's a last ditch effort to prevent information
-> from being lost.
->
-> That's why 'err' must be preserved when pfkey_error() returns zero.
->    
+On Mon, 2014-05-12 at 12:18 +0800, Yang Yingliang wrote:
+> Now options of fair queue can be zero but cannot be (~0U).
+> Zero is useless, so don't allow set the options to zero.
+> Also, maxrate cannot be reset to unlimited because it
+> cannot be (~0U).
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> ---
+>  tc/q_fq.c | 24 ++++++++++++------------
+>  1 file changed, 12 insertions(+), 12 deletions(-)
 
-I know what you mean, but isn't the kernel API aimed to facilitate the
-implementation of user space?
-Since send the message to the kernel and receive the error report message
-are asynchronous, I don't think it's easy to recover from the EINTR error
-by parsing the error report message.
+No, you are changing behavior for existing scripts.
 
-
-Thanks,
-Xufeng
+If you really want to fix these cases, you need to do it properly.
