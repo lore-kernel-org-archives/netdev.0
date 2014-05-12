@@ -1,129 +1,40 @@
-From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
-Subject: Socket receives packet to multicast group to which it was not joined
- since kernel 3.13.10-1
-Date: Mon, 12 May 2014 20:38:03 +0400
-Message-ID: <5370F8EB.2070009@oktetlabs.ru>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/8] net: Checksum offload changes - Part III
+Date: Mon, 12 May 2014 09:57:53 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405120944250.28961@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040606050806040304000203"
-Cc: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([84.52.89.53]:35903 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047AbaELQrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:47:52 -0400
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:34353 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932196AbaELQ5y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:57:54 -0400
+Received: by mail-oa0-f74.google.com with SMTP id m1so1518004oag.1
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 09:57:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040606050806040304000203
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+I am working on overhauling RX checksum offload. Goals of this effort
+are:
 
-On kernel 3.13.10-1 I see that socket joined to one multicast group 
-receives packets to another multicast address. That can be reproduced by 
-the following example:
+- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+- Preserve CHECKSUM_COMPLETE through encapsulation layers
+- Don't do skb_checksum more than once per packet
+- Unify GRO and non-GRO csum verification as much as possible
+- Unify the checksum functions (checksum_init)
+- Simply code
 
-1. socket(DGRAM) -> 3
-2. bind(3, 0.0.0.0:12345) -> 0
-3. setsockopt(3, IP_MULTICAST_IF, {224.168.2.9, 7}) -> 0
-// "7" is correct interface index
+What is in this third patch set:
 
-4. Send packet from peer host to 224.168.2.9:12345
-5. poll({3, POLLIN}) -> 1
-6. recv(3) -> <data_length>
+- Remove sk_no_check from sunrpc (doesn't seem to have any effect)
+- Eliminate no_check from protosw. All protocols are using default of
+  zero for this
+- Split sk_no_check into sk_no_check_tx and sk_no_check_rx
+- Make enabling of UDP6 more restrictive and explicit
+- Support zero UDP6 checksums in l2tp
+- Support zero UDP6 checksums in vxlan
+- Add ability in VXLAN to send non-zero checksums
 
-5. Send packet from peer host to 225.168.2.9:12345
-// Note that the address is not the same!
-6. poll({3, POLLIN}) -> 1
-7. recv(3) -> <data_length>
-
-I checked kernel 3.12.6-2, there is no such problem. I have placed 
-simple C-program in attachment to reproduce the behaviour. It should be 
-called:
-./mult_recv <mcast_address> <interface index> i.e. in example above:
-./mult_recv 224.168.2.9 7
-
---------------040606050806040304000203
-Content-Type: text/x-csrc;
- name="mult_recv.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="mult_recv.c"
-
-#include <stdio.h>
-#include <netinet/in.h>
-#include <errno.h>
-#include <string.h>
-#include <poll.h>
-
-int
-main(int argc, char *argv[])
-{
-    int sock;
-    int rc;
-    struct sockaddr_in addr;
-    struct ip_mreqn req;
-    char buf[256];
-    struct pollfd fds;
-
-    if (argc < 2)
-    {
-        printf("\nToo few arguments\n");
-        return 1;
-    }
-
-    sock = socket(PF_INET, SOCK_DGRAM, 0);
-    printf("socket() -> %d(%d)\n", sock, errno);
-
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(12345);
-    addr.sin_addr.s_addr = INADDR_ANY;
-    rc = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
-    printf("bind() -> %d(%d)\n", rc, errno);
-
-    memset((void *)&req, 0, sizeof(req));
-    rc = inet_aton(argv[1], &req.imr_multiaddr);
-    printf("inet_aton() -> %d(%d)\n", rc, errno);
-    req.imr_ifindex = atoi(argv[2]);
-
-    rc = setsockopt(sock, SOL_IP, IP_ADD_MEMBERSHIP, &req, sizeof(req));
-    printf("setsockopt() -> %d(%d)\n", rc, errno);
-
-    printf("Send packet to %s:12345 address...", argv[1]);
-    getchar();
-
-    fds.fd = sock;
-    fds.events = POLLIN;
-    rc = poll(&fds, 1, 1000);
-    printf("poll() -> %d(%d)\n", rc, errno);
-
-    if (rc != 1)
-    {
-        printf("The packet was not received.\n");
-        return 1;
-    }
-
-    rc = recv(sock, buf, sizeof(buf), 0);
-    printf("recv() -> %d(%d)\n", rc, errno);
-
-    printf("Send packet to different multicast address(with 12345 port)...");
-    getchar();
-
-    rc = poll(&fds, 1, 1000);
-    printf("poll() -> %d(%d)\n", rc, errno);
-
-    if (rc != 0)
-    {
-        printf("The packet to different multicast address was received.\n");
-        rc = recv(sock, buf, sizeof(buf), 0);
-        printf("recv() -> %d(%d)\n", rc, errno);
-        return 1;
-    }
-    printf("The behaviour is correct\n");
-
-    return 0;
-}
-
---------------040606050806040304000203--
+Please review carefully and test if possible, mucking with basic
+checksum functions is always a little precarious :-)
