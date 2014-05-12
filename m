@@ -1,67 +1,67 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 4/9] net/mlx4_core: Fix smatch error - possible access to a null variable
-Date: Mon, 12 May 2014 10:43:20 +0300
-Message-ID: <1399880605-28772-5-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 3/9] net/mlx4_en: Fix errors in MAC address changing when port is down
+Date: Mon, 12 May 2014 10:43:19 +0300
+Message-ID: <1399880605-28772-4-git-send-email-amirv@mellanox.com>
 References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>
+	Shani Michaelli <shanim@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37749 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:59180 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752404AbaELHnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2014 03:43:49 -0400
+	id S1751827AbaELHnq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2014 03:43:46 -0400
 In-Reply-To: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eyal Perry <eyalpe@mellanox.com>
+From: Shani Michaelli <shanim@mellanox.com>
 
-Fix the "error: we previously assumed 'out_param' could be null" found
-by smatch semantic checker on:
-drivers/net/ethernet/mellanox/mlx4/cmd.c:506 mlx4_cmd_poll()
-drivers/net/ethernet/mellanox/mlx4/cmd.c:578 mlx4_cmd_wait()
+This patch fix an issue that happen when changing the MAC address when
+the port is down, described as follows:
+1. Set the port down.
+2. Change the MAC address - mlx4_en_set_mac() will change dev->dev_addr.
+3. Set the port up - will result in mlx4_en_do_uc_filter that will
+   remove the prev_mac entry from the mac_hash db.
+4. Changing the MAC address again will eventually trigger the call to
+   mlx4_en_replace_mac() in order to replace prev_mac with dev_addr but
+   the prev_mac entry is already not exist in the mac_hash db therefore
+   the operation fails.
+
+The fix is to set the prev_mac with the new MAC address so in step 3
+above, after setting the port up mlx4_en_get_qp() is updating the
+mac_hash with the entry of dev_addr which is equal to prev_mac.
+Therefore in step 4, when calling mlx4_en_replace_mac, the entry related
+to prev_mac exist in mac_hash and the replace operation succeed.
 
 
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Reviewed-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Shani Michaeli <shanim@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 2420103..357dcb0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -473,6 +473,13 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 		goto out;
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index fba3c8e..eea7868 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -770,11 +770,12 @@ static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
+ 					  priv->dev->dev_addr, priv->prev_mac);
+ 		if (err)
+ 			en_err(priv, "Failed changing HW MAC address\n");
+-		memcpy(priv->prev_mac, priv->dev->dev_addr,
+-		       sizeof(priv->prev_mac));
+ 	} else
+ 		en_dbg(HW, priv, "Port is down while registering mac, exiting...\n");
  
-+	if (out_is_imm && !out_param) {
-+		mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
-+			 op);
-+		err = -EINVAL;
-+		goto out;
-+	}
++	memcpy(priv->prev_mac, priv->dev->dev_addr,
++	       sizeof(priv->prev_mac));
 +
- 	err = mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
- 			    in_modifier, op_modifier, op, CMD_POLL_TOKEN, 0);
- 	if (err)
-@@ -551,6 +558,13 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
- 	cmd->free_head = context->next;
- 	spin_unlock(&cmd->context_lock);
+ 	return err;
+ }
  
-+	if (out_is_imm && !out_param) {
-+		mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
-+			 op);
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
- 	init_completion(&context->done);
- 
- 	mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
 -- 
 1.8.3.4
