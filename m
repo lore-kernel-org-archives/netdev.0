@@ -1,71 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH] af_key: return error when meet errors on
- sendmsg() syscall
-Date: Mon, 12 May 2014 01:11:41 -0400 (EDT)
-Message-ID: <20140512.011141.74073195599318391.davem@davemloft.net>
-References: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the gpio tree with the net-next tree
+Date: Mon, 12 May 2014 15:16:47 +1000
+Message-ID: <20140512151647.1ceae8f2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xufeng.zhang@windriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/MVjs+d+Msi0bgSUrUcBA4U+"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thierry Reding <treding@nvidia.com>,
+	Grygorii Strashko <grygorii.strashko@ti.com>
+To: Linus Walleij <linus.walleij@linaro.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
-Date: Fri, 9 May 2014 13:47:35 +0800
+--Sig_/MVjs+d+Msi0bgSUrUcBA4U+
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-> Current implementation for pfkey_sendmsg() always return success
-> no matter whether or not error happens during this syscall,
-> this is incompatible with the general send()/sendmsg() API:
->   man send
->     RETURN VALUE
->       On success, these calls return the number of characters sent.
->       On error, -1 is returned, and errno is set appropriately.
-> 
-> One side effect this problem introduces is that we can't determine
-> when to resend the message when the previous send() fails because
-> it was interrupted by signals.
-> We detect such a problem when racoon is sending SADBADD message to
-> add SAD entry in the kernel, but sometimes kernel is responding with
-> "Interrupted system call"(-EINTR) error.
-> 
-> Check the send implementation of strongswan, it has below logic:
->   pfkey_send_socket()
->   {
->   	...
->   	while (TRUE)
->   	{
->         	len = send(socket, in, in_len, 0);
-> 
->   		if (len != in_len)
->   		{
->   			case EINTR:
->   				/* interrupted, try again */
->   				continue;
->   			...
->   		}
->   	}
->   	...
-> }
-> So it makes sense to return errors for send() syscall.      
-> 
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+Hi Linus,
 
-I disagree.
+Today's linux-next merge of the gpio tree got a conflict in
+Documentation/driver-model/devres.txt between commit 6d48f44b7b2a
+("mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free") from the
+net-next tree and commit f9748ef13b6a ("gpio: Add missing
+device-managed documentation") from the gpio tree.
 
-If pfkey_error() is successful, the error will be reported in the AF_KEY
-message that is broadcast, there is no reason for sendmsg to return an
-error.  The message was sucessfully sent, there was no problem with it's
-passage into the AF_KEY layer.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-Like netlink, operational responses come in packets, not error codes.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-However, if pfkey_error() fails, we must do pass back the original
-error code because it's a last ditch effort to prevent information
-from being lost.
+diff --cc Documentation/driver-model/devres.txt
+index d483f2cf221b,8ff1167cfedf..000000000000
+--- a/Documentation/driver-model/devres.txt
++++ b/Documentation/driver-model/devres.txt
+@@@ -310,7 -309,7 +310,12 @@@ SLAVE DMA ENGIN
+  SPI
+    devm_spi_register_master()
+ =20
+ +MDIO
+ +  devm_mdiobus_alloc()
+ +  devm_mdiobus_alloc_size()
+ +  devm_mdiobus_free()
+++
++ GPIO
++   devm_gpiod_get()
++   devm_gpiod_get_index()
++   devm_gpiod_put()
 
-That's why 'err' must be preserved when pfkey_error() returns zero.
+--Sig_/MVjs+d+Msi0bgSUrUcBA4U+
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTcFlEAAoJEMDTa8Ir7ZwVhxgQAI5sk/kqpjeNzZN8CUOO1h5w
+42mbASrCn1dgUO+dns6PmIfdnCnKqrMlZpt3Ri8eDWIGTJvn4YtQfsjx4hcXNen4
+bd3yycCeoduHkzY9BnarW8bTa0xHsu5wND4NOHVCJFO8sMeRKq+J1I2KX0Jvam5U
+i0M9p1MqBpt+n/6b4qgM2TTGh9cBPJep5vF1bZLHUBdK6TS94+9yOaYvow9lD0Yz
+7OevnKrpRw7jybG0i1HQDhKFY03Ec2UeiY0I74yG9IiFZ5ttKyk4MGXi+ZJrDbq8
+5MfPdLEuZYsGDtkZ/oUbCjlPz9vMiFWbwsUpqINnUN8osLfNXakgOMvgjcy1JjvZ
+drZQy4BHhI/NpJJ8W9s3jHXBT/tD9aCl4DglspWXnIewdKlS1Gcy62GI6+woSqAV
+JqOJxV4ldYv1SgTP+Pf4v893KPTJwT8+l0xKNnt5gh0NU3Vj/fOePgfuxI6ltTXa
+6sTJ94fPD5XQ764AuJ2qLzPtuMF9IllntoWi4zpARagWuCpODYvgzHCSc2BJH66i
+BF/PRZg/mqP7uEeqooif3ctbgifF10P5NgENudEKjmpoIltEeBkJBrxsMnWBOI4D
+53jN7IYH1LHyCzhMmP6F8AkB7vpBQZNTekvBhTqyUAvyitGnfHcE9iAFb7Pc/wC5
+v8YHRUZxOBI8sBVBC14l
+=VVtt
+-----END PGP SIGNATURE-----
+
+--Sig_/MVjs+d+Msi0bgSUrUcBA4U+--
