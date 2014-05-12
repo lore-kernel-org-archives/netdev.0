@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v3] Add support for netvsc build without
- CONFIG_SYSFS flag
-Date: Mon, 12 May 2014 01:03:06 -0400 (EDT)
-Message-ID: <20140512.010306.302000625227507734.davem@davemloft.net>
-References: <1399587250-27846-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next] ipv6: remove parameter rt from
+ fib6_prune_clones()
+Date: Mon, 12 May 2014 01:07:10 -0400 (EDT)
+Message-ID: <20140512.010710.1360440297212614695.davem@davemloft.net>
+References: <536C683F.40408@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1399587250-27846-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54983 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943AbaELFHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:07:12 -0400
+In-Reply-To: <536C683F.40408@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu,  8 May 2014 15:14:10 -0700
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Fri, 9 May 2014 13:31:43 +0800
 
-> This change ensures the driver can be built successfully without the
-> CONFIG_SYSFS flag.
-> MS-TFS: 182270
+> the parameter rt will be assigned to c.arg in function fib6_clean_tree(),
+> but function fib6_prune_clone() doesn't use c.arg, so we can remove it
+> safely.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-Applied, thanks.
+This is fine, applied, thanks.
