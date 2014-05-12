@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 9/9] net/mlx4_core: Fix inaccurate return value of mlx4_flow_attach()
-Date: Mon, 12 May 2014 10:43:25 +0300
-Message-ID: <1399880605-28772-10-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 4/9] net/mlx4_core: Fix smatch error - possible access to a null variable
+Date: Mon, 12 May 2014 10:43:20 +0300
+Message-ID: <1399880605-28772-5-git-send-email-amirv@mellanox.com>
 References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
@@ -9,39 +9,59 @@ Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Eyal Perry <eyalpe@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59203 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:37749 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752566AbaELHnu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2014 03:43:50 -0400
+	id S1752404AbaELHnt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2014 03:43:49 -0400
 In-Reply-To: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eyal Perry <eyalpe@mellanox.com>
 
-Adopt the "info: why not propagate 'ret' from parse_trans_rule()..."
-suggestion made by the smatch semantic checker on:
-drivers/net/ethernet/mellanox/mlx4/mcg.c:867 mlx4_flow_attach()
+Fix the "error: we previously assumed 'out_param' could be null" found
+by smatch semantic checker on:
+drivers/net/ethernet/mellanox/mlx4/cmd.c:506 mlx4_cmd_poll()
+drivers/net/ethernet/mellanox/mlx4/cmd.c:578 mlx4_cmd_wait()
 
 
 Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/cmd.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 7c6eba6..4c36def 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -897,7 +897,7 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
- 		ret = parse_trans_rule(dev, cur, mailbox->buf + size);
- 		if (ret < 0) {
- 			mlx4_free_cmd_mailbox(dev, mailbox);
--			return -EINVAL;
-+			return ret;
- 		}
- 		size += ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 2420103..357dcb0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -473,6 +473,13 @@ static int mlx4_cmd_poll(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 		goto out;
  	}
+ 
++	if (out_is_imm && !out_param) {
++		mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
++			 op);
++		err = -EINVAL;
++		goto out;
++	}
++
+ 	err = mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
+ 			    in_modifier, op_modifier, op, CMD_POLL_TOKEN, 0);
+ 	if (err)
+@@ -551,6 +558,13 @@ static int mlx4_cmd_wait(struct mlx4_dev *dev, u64 in_param, u64 *out_param,
+ 	cmd->free_head = context->next;
+ 	spin_unlock(&cmd->context_lock);
+ 
++	if (out_is_imm && !out_param) {
++		mlx4_err(dev, "response expected while output mailbox is NULL for command 0x%x\n",
++			 op);
++		err = -EINVAL;
++		goto out;
++	}
++
+ 	init_completion(&context->done);
+ 
+ 	mlx4_cmd_post(dev, in_param, out_param ? *out_param : 0,
 -- 
 1.8.3.4
