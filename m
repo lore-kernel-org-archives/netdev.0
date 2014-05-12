@@ -1,50 +1,68 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 7/8] l2tp: Call udp{6}_set_csum
-Date: Mon, 12 May 2014 09:59:17 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405120948390.3985@tomh.mtv.corp.google.com>
+Subject: [PATCH 8/8] vxlan: Add support for zero UDP6 checksums
+Date: Mon, 12 May 2014 09:59:25 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405120952470.12635@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:37508 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755017AbaELQ7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:59:18 -0400
-Received: by mail-ob0-f201.google.com with SMTP id wn1so1517751obc.0
-        for <netdev@vger.kernel.org>; Mon, 12 May 2014 09:59:17 -0700 (PDT)
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:35436 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756465AbaELQ71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:59:27 -0400
+Received: by mail-yh0-f74.google.com with SMTP id 29so1001137yhl.3
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 09:59:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call general utility function to set checksum in UDP header
-of tunneled packet on TX.
+Added module parameters to specify sending of TX checksums and
+allow receiving RX checksums. Also added a module parameter and
+support for using IPv4 checksums on TX (default is off so zero
+checksums are sent).
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/l2tp/l2tp_core.c | 53 ++++------------------------------------------------
- 1 file changed, 4 insertions(+), 49 deletions(-)
+ drivers/net/vxlan.c | 42 ++++++++++++++++++++++++++----------------
+ 1 file changed, 26 insertions(+), 16 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 28cdf45..ac0aadb 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1095,33 +1095,6 @@ static int l2tp_xmit_core(struct l2tp_session *session, struct sk_buff *skb,
- 	return 0;
- }
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1dfee9a..4839edb 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -83,6 +83,18 @@ static bool log_ecn_error = true;
+ module_param(log_ecn_error, bool, 0644);
+ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
  
--#if IS_ENABLED(CONFIG_IPV6)
--static void l2tp_xmit_ipv6_csum(struct sock *sk, struct sk_buff *skb,
--				int udp_len)
--{
--	struct ipv6_pinfo *np = inet6_sk(sk);
--	struct udphdr *uh = udp_hdr(skb);
--
--	if (udp_get_no_check6_tx(sk))
--		skb->ip_summed = CHECKSUM_NONE;
--	if (!skb_dst(skb) || !skb_dst(skb)->dev ||
--	    !(skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
--		__wsum csum = skb_checksum(skb, 0, udp_len, 0);
++static bool use_udp_checksums;
++module_param(use_udp_checksums, bool, 0644);
++MODULE_PARM_DESC(use_udp_checksums, "Send UDP checksums (IPv4)");
++
++static bool udp6_tx_zero_checksums;
++module_param(udp6_tx_zero_checksums, bool, 0644);
++MODULE_PARM_DESC(udp6_tx_zero_checksums, "Send zero IPv6 checksums");
++
++static bool udp6_rx_zero_checksums;
++module_param(udp6_rx_zero_checksums, bool, 0644);
++MODULE_PARM_DESC(udp6_rx_zero_checksums, "Receive zero IPv6 checksums");
++
+ static int vxlan_net_id;
+ 
+ static const u8 all_zeros_mac[ETH_ALEN];
+@@ -1666,27 +1678,13 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+ 	uh->source = src_port;
+ 
+ 	uh->len = htons(skb->len);
+-	uh->check = 0;
+ 
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+ 			      IPSKB_REROUTED);
+ 	skb_dst_set(skb, dst);
+ 
+-	if (!skb_is_gso(skb) && !(dst->dev->features & NETIF_F_IPV6_CSUM)) {
+-		__wsum csum = skb_checksum(skb, 0, skb->len, 0);
 -		skb->ip_summed = CHECKSUM_UNNECESSARY;
--		uh->check = csum_ipv6_magic(&np->saddr, &sk->sk_v6_daddr, udp_len,
+-		uh->check = csum_ipv6_magic(saddr, daddr, skb->len,
 -					    IPPROTO_UDP, csum);
 -		if (uh->check == 0)
 -			uh->check = CSUM_MANGLED_0;
@@ -52,60 +70,47 @@ index 28cdf45..ac0aadb 100644
 -		skb->ip_summed = CHECKSUM_PARTIAL;
 -		skb->csum_start = skb_transport_header(skb) - skb->head;
 -		skb->csum_offset = offsetof(struct udphdr, check);
--		uh->check = ~csum_ipv6_magic(&np->saddr, &sk->sk_v6_daddr,
--					     udp_len, IPPROTO_UDP, 0);
+-		uh->check = ~csum_ipv6_magic(saddr, daddr,
+-					     skb->len, IPPROTO_UDP, 0);
 -	}
--}
--#endif
--
- /* If caller requires the skb to have a ppp header, the header must be
-  * inserted in the skb data before calling this function.
-  */
-@@ -1133,7 +1106,6 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 	struct flowi *fl;
- 	struct udphdr *uh;
- 	struct inet_sock *inet;
--	__wsum csum;
- 	int headroom;
- 	int uhlen = (tunnel->encap == L2TP_ENCAPTYPE_UDP) ? sizeof(struct udphdr) : 0;
- 	int udp_len;
-@@ -1182,33 +1154,16 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- 		uh->dest = inet->inet_dport;
- 		udp_len = uhlen + hdr_len + data_len;
- 		uh->len = htons(udp_len);
--		uh->check = 0;
++	udp6_set_csum(vs->sock->sk, skb, saddr, daddr, skb->len);
  
- 		/* Calculate UDP checksum if configured to do so */
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (sk->sk_family == PF_INET6 && !tunnel->v4mapped)
--			l2tp_xmit_ipv6_csum(sk, skb, udp_len);
-+			udp6_set_csum(sk, skb, &inet6_sk(sk)->saddr,
-+				      &sk->sk_v6_daddr, udp_len);
- 		else
- #endif
--		if (sk->sk_no_check_tx)
--			skb->ip_summed = CHECKSUM_NONE;
--		else if ((skb_dst(skb) && skb_dst(skb)->dev) &&
--			 (!(skb_dst(skb)->dev->features & NETIF_F_V4_CSUM))) {
--			skb->ip_summed = CHECKSUM_COMPLETE;
--			csum = skb_checksum(skb, 0, udp_len, 0);
--			uh->check = csum_tcpudp_magic(inet->inet_saddr,
--						      inet->inet_daddr,
--						      udp_len, IPPROTO_UDP, csum);
--			if (uh->check == 0)
--				uh->check = CSUM_MANGLED_0;
--		} else {
--			skb->ip_summed = CHECKSUM_PARTIAL;
--			skb->csum_start = skb_transport_header(skb) - skb->head;
--			skb->csum_offset = offsetof(struct udphdr, check);
--			uh->check = ~csum_tcpudp_magic(inet->inet_saddr,
--						       inet->inet_daddr,
--						       udp_len, IPPROTO_UDP, 0);
--		}
-+		udp_set_csum(sk, skb, inet->inet_saddr, inet->inet_daddr,
-+			     udp_len);
- 		break;
+ 	__skb_push(skb, sizeof(*ip6h));
+ 	skb_reset_network_header(skb);
+@@ -1756,7 +1754,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ 	uh->source = src_port;
  
- 	case L2TP_ENCAPTYPE_IP:
+ 	uh->len = htons(skb->len);
+-	uh->check = 0;
++
++	udp_set_csum(vs->sock->sk, skb, src, dst, skb->len);
+ 
+ 	err = handle_offloads(skb);
+ 	if (err)
+@@ -2442,6 +2441,13 @@ static struct socket *create_v6_sock(struct net *net, __be16 port)
+ 
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop = 0;
++
++	if (udp6_rx_zero_checksums)
++		udp_set_no_check6_rx(sk, true);
++
++	if (udp6_tx_zero_checksums)
++		udp_set_no_check6_tx(sk, true);
++
+ 	return sock;
+ }
+ 
+@@ -2486,6 +2492,10 @@ static struct socket *create_v4_sock(struct net *net, __be16 port)
+ 
+ 	/* Disable multicast loopback */
+ 	inet_sk(sk)->mc_loop = 0;
++
++	if (!use_udp_checksums)
++		sock->sk->sk_no_check_tx = 1;
++
+ 	return sock;
+ }
+ 
 -- 
 1.9.1.423.g4596e3a
