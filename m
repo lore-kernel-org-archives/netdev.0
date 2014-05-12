@@ -1,32 +1,146 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [next PATCH 0/5] net: tcp: DCTCP congestion control algorithm
-Date: Mon, 12 May 2014 15:01:52 -0700
-Message-ID: <CAHA+R7O7yGaMJ+e=nrTmvt+wK7h0kF9okZPTzGseJZa1PiJg9Q@mail.gmail.com>
-References: <1399928384-24143-1-git-send-email-fw@strlen.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [PATCH net v2] rtnetlink: wait for unregistering devices in rtnl_link_unregister()
+Date: Mon, 12 May 2014 15:11:20 -0700
+Message-ID: <1399932680-31479-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	stephen@networkplumber.org, Cong Wang <cwang@twopensource.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:32992 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751802AbaELWBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 18:01:53 -0400
-Received: by mail-la0-f52.google.com with SMTP id gl10so2410672lab.39
-        for <netdev@vger.kernel.org>; Mon, 12 May 2014 15:01:52 -0700 (PDT)
-In-Reply-To: <1399928384-24143-1-git-send-email-fw@strlen.de>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:54342 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254AbaELWLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 18:11:31 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so148558pbb.5
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 15:11:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2014 at 1:59 PM, Florian Westphal <fw@strlen.de> wrote:
-> This patch series adds support for the Datacenter TCP (DCTCP) congestion
-> control algorithm.
->
-> Please see individual patches' changelog for the details. A summary
-> of DCTCP and test results can be found in patch 5.
->
+From: Cong Wang <cwang@twopensource.com>
 
-Is DCTCP draft accepted by IETF? It looks like there is some issue
-with the design:
+From: Cong Wang <cwang@twopensource.com>
 
-http://www.ietf.org/mail-archive/web/tcpm/current/msg08693.html
+commit 50624c934db18ab90 (net: Delay default_device_exit_batch until no
+devices are unregistering) introduced rtnl_lock_unregistering() for
+default_device_exit_batch(). Same race could happen we when rmmod a driver
+which calls rtnl_link_unregister() as we call dev->destructor without rtnl
+lock.
+
+For long term, I think we should clean up the mess of netdev_run_todo()
+and net namespce exit code.
+
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+---
+v2: avoid using macro and hold net_mutex too
+
+ include/linux/rtnetlink.h |  5 +++++
+ net/core/dev.c            |  2 +-
+ net/core/net_namespace.c  |  2 +-
+ net/core/rtnetlink.c      | 33 ++++++++++++++++++++++++++++++++-
+ 4 files changed, 39 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 8e3e66a..953937e 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -4,6 +4,7 @@
+ 
+ #include <linux/mutex.h>
+ #include <linux/netdevice.h>
++#include <linux/wait.h>
+ #include <uapi/linux/rtnetlink.h>
+ 
+ extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
+@@ -22,6 +23,10 @@ extern void rtnl_lock(void);
+ extern void rtnl_unlock(void);
+ extern int rtnl_trylock(void);
+ extern int rtnl_is_locked(void);
++
++extern wait_queue_head_t netdev_unregistering_wq;
++extern struct mutex net_mutex;
++
+ #ifdef CONFIG_PROVE_LOCKING
+ extern int lockdep_rtnl_is_held(void);
+ #else
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c619b86..6da649b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5541,7 +5541,7 @@ static int dev_new_index(struct net *net)
+ 
+ /* Delayed registration/unregisteration */
+ static LIST_HEAD(net_todo_list);
+-static DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wq);
++DECLARE_WAIT_QUEUE_HEAD(netdev_unregistering_wq);
+ 
+ static void net_set_todo(struct net_device *dev)
+ {
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 81d3a9a..7c8ffd9 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -24,7 +24,7 @@
+ 
+ static LIST_HEAD(pernet_list);
+ static struct list_head *first_device = &pernet_list;
+-static DEFINE_MUTEX(net_mutex);
++DEFINE_MUTEX(net_mutex);
+ 
+ LIST_HEAD(net_namespace_list);
+ EXPORT_SYMBOL_GPL(net_namespace_list);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 9837beb..2d8d8fc 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -353,15 +353,46 @@ void __rtnl_link_unregister(struct rtnl_link_ops *ops)
+ }
+ EXPORT_SYMBOL_GPL(__rtnl_link_unregister);
+ 
++/* Return with the rtnl_lock held when there are no network
++ * devices unregistering in any network namespace.
++ */
++static void rtnl_lock_unregistering_all(void)
++{
++	struct net *net;
++	bool unregistering;
++	DEFINE_WAIT(wait);
++
++	for (;;) {
++		prepare_to_wait(&netdev_unregistering_wq, &wait,
++				TASK_UNINTERRUPTIBLE);
++		unregistering = false;
++		rtnl_lock();
++		for_each_net(net) {
++			if (net->dev_unreg_count > 0) {
++				unregistering = true;
++				break;
++			}
++		}
++		if (!unregistering)
++			break;
++		__rtnl_unlock();
++		schedule();
++	}
++	finish_wait(&netdev_unregistering_wq, &wait);
++}
++
+ /**
+  * rtnl_link_unregister - Unregister rtnl_link_ops from rtnetlink.
+  * @ops: struct rtnl_link_ops * to unregister
+  */
+ void rtnl_link_unregister(struct rtnl_link_ops *ops)
+ {
+-	rtnl_lock();
++	/* Close the race with cleanup_net() */
++	mutex_lock(&net_mutex);
++	rtnl_lock_unregistering_all();
+ 	__rtnl_link_unregister(ops);
+ 	rtnl_unlock();
++	mutex_unlock(&net_mutex);
+ }
+ EXPORT_SYMBOL_GPL(rtnl_link_unregister);
+ 
