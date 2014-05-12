@@ -1,47 +1,54 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/9] net/mlx4_en: User prio mapping gets corrupted when changing number of channels
-Date: Mon, 12 May 2014 10:43:18 +0300
-Message-ID: <1399880605-28772-3-git-send-email-amirv@mellanox.com>
-References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Peter Christensen <pch@ordbogen.com>
+Subject: Re: [PATCH] macvlan: Don't propagate IFF_ALLMULTI changes on down
+ interfaces.
+Date: Mon, 12 May 2014 09:59:53 +0200
+Message-ID: <20140512095953.076bd76d@pch.odense.ordbogen.com>
+References: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
+	<20140509.160225.1543592257804345860.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37711 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751848AbaELHnq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2014 03:43:46 -0400
-In-Reply-To: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
+Received: from mail.ordbogen.com ([86.58.170.13]:33260 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752938AbaELIAG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2014 04:00:06 -0400
+In-Reply-To: <20140509.160225.1543592257804345860.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Shamay <idos@mellanox.com>
+On Fri, 09 May 2014 16:02:25 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
 
-When using ethtool set_channels, mlx4_en_setup_tc is always called, even
-when it was not configured. Fixed code to call mlx4_en_setup_tc() only if
-needed.
+> From: Peter Christensen <pch@ordbogen.com>
+> Date: Thu,  8 May 2014 11:15:37 +0200
+> 
+> > Clearing the IFF_ALLMULTI flag on a down interface could cause an
+> > allmulti overflow on the underlying interface.
+> > 
+> > Attempting the set IFF_ALLMULTI on the underlying interface would
+> > cause an error and the log message:
+> > 
+> > "allmulti touches root, set allmulti failed."
+> > 
+> > Signed-off-by: Peter Christensen <pch@ordbogen.com>
+> 
+> Hmmm, but won't we lose this event once the interface is brought
+> back up?
 
-Signed-off-by: Ido Shamay <idos@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+No, macvlan_open and macvlan_stop already takes care of that (which is
+part of the reason the allmulti counter overflowed). Either
+macvlan_open and macvlan_close shouldn't touch the flag on the
+underlying interface, or
+macvlan_change_rx_flags shouldn't touch the underlying interface if the
+MACVLAN interface is down.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index c373604..a72d99f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1151,7 +1151,8 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
- 
--	mlx4_en_setup_tc(dev, MLX4_EN_NUM_UP);
-+	if (dev->num_tc)
-+		mlx4_en_setup_tc(dev, MLX4_EN_NUM_UP);
- 
- 	en_warn(priv, "Using %d TX rings\n", priv->tx_ring_num);
- 	en_warn(priv, "Using %d RX rings\n", priv->rx_ring_num);
--- 
-1.8.3.4
+I though that it was probably better to make MACVLAN as non-intrusive
+to the underlying interface when the MACVLAN interface is down, so I
+opted for this solution.
+
+Apparently the 802.1Q VLAN driver behaves
+exactly like that, and back in 2011 it got a patch similar to this one
+(commit deede2fabe24e00bd7e246eb81cd5767dc6fcfc7).
