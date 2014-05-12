@@ -1,60 +1,76 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] macvlan: Don't propagate IFF_ALLMULTI changes on down
- interfaces.
-Date: Mon, 12 May 2014 14:15:54 -0400 (EDT)
-Message-ID: <20140512.141554.1557022486435680828.davem@davemloft.net>
-References: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
-	<20140509.160225.1543592257804345860.davem@davemloft.net>
-	<20140512095953.076bd76d@pch.odense.ordbogen.com>
+Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
+ router reachability
+Date: Mon, 12 May 2014 14:37:20 -0400 (EDT)
+Message-ID: <20140512.143720.896863177762079657.davem@davemloft.net>
+References: <536C64C0.5050204@cn.fujitsu.com>
+	<1399845863.17976.116165369.3E7E2F36@webmail.messagingengine.com>
+	<53703F52.9060900@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: pch@ordbogen.com
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
+	jbenc@redhat.com
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59648 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59725 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751616AbaELSP7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 14:15:59 -0400
-In-Reply-To: <20140512095953.076bd76d@pch.odense.ordbogen.com>
+	with ESMTP id S1751567AbaELShW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 14:37:22 -0400
+In-Reply-To: <53703F52.9060900@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Christensen <pch@ordbogen.com>
-Date: Mon, 12 May 2014 09:59:53 +0200
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Mon, 12 May 2014 11:26:10 +0800
 
-> On Fri, 09 May 2014 16:02:25 -0400 (EDT)
-> David Miller <davem@davemloft.net> wrote:
-> 
->> From: Peter Christensen <pch@ordbogen.com>
->> Date: Thu,  8 May 2014 11:15:37 +0200
+> 于 2014年05月12日 06:04, Hannes Frederic Sowa 写道:
+>> On Thu, May 8, 2014, at 22:16, Duan Jiong wrote:
+>>>
+>>> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
+>>> into NUD_FAILED will be probed.
+>>>
+>>> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
+>>> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
+>>> then function dst_neigh_output() can directly send packets, but actually the
+>>> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
+>>> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
+>>>
+>>> In addition, because the route should be probes with a single NS, so we must
+>>> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
+>>> neigh_timer_handler() will not send other NS Messages.
+>>>
+>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>> ---
+>>> Changes from v1:
+>>> 	*modify changelog to explain in detail why use neigh_max_probes().
+>>>
+>>>  net/core/neighbour.c | 4 ++--
+>>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>>
+>>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>>> index 8f8a96e..32d872e 100644
+>>> --- a/net/core/neighbour.c
+>>> +++ b/net/core/neighbour.c
+>>> @@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
+>>>  	neigh->updated = jiffies;
+>>>  	if (!(neigh->nud_state & NUD_FAILED))
+>>>  		return;
+>>> -	neigh->nud_state = NUD_PROBE;
+>>> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
+>>> +	neigh->nud_state = NUD_INCOMPLETE;
+>>> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
 >> 
->> > Clearing the IFF_ALLMULTI flag on a down interface could cause an
->> > allmulti overflow on the underlying interface.
->> > 
->> > Attempting the set IFF_ALLMULTI on the underlying interface would
->> > cause an error and the log message:
->> > 
->> > "allmulti touches root, set allmulti failed."
->> > 
->> > Signed-off-by: Peter Christensen <pch@ordbogen.com>
+>> Wouldn't it be better if we neigh_suspect the neighbour and leaving the state in NUD_PROBE? We call down to ->output in case neighbour is in NUD_PROBE state, so we must just disable connected 'fast-path'.
 >> 
->> Hmmm, but won't we lose this event once the interface is brought
->> back up?
 > 
-> No, macvlan_open and macvlan_stop already takes care of that (which is
-> part of the reason the allmulti counter overflowed). Either
-> macvlan_open and macvlan_close shouldn't touch the flag on the
-> underlying interface, or
-> macvlan_change_rx_flags shouldn't touch the underlying interface if the
-> MACVLAN interface is down.
+> You can look into neigh_event_send() called in neigh_resolve_output(), and if neigh->nud_state
+> still is NUD_PROBE, the neigh_event_send() will return 0, so the packet will still be sent out
+> without probe.
 > 
-> I though that it was probably better to make MACVLAN as non-intrusive
-> to the underlying interface when the MACVLAN interface is down, so I
-> opted for this solution.
-> 
-> Apparently the 802.1Q VLAN driver behaves
-> exactly like that, and back in 2011 it got a patch similar to this one
-> (commit deede2fabe24e00bd7e246eb81cd5767dc6fcfc7).
+> So, using neigh_suspect is not a good idea.
 
-Thanks for the detailed explanation, applied and queued up for -stable, thanks!
+If you set it to NUD_INCOMPLETE however, neigh_event_send() is going to add the packet
+to the neigh's ARP queue and return '1'.
+
+Is that really what you want to happen in this case?
