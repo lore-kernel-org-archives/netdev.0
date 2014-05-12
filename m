@@ -1,47 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] sfc: fix calling of free_irq with already free
- vector
-Date: Mon, 12 May 2014 14:57:18 -0400 (EDT)
-Message-ID: <20140512.145718.681289825304031115.davem@davemloft.net>
-References: <1399626699-7181-1-git-send-email-nikolay@redhat.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 1/5] tcp: move fastopen functions to tcp_fastopen.c
+Date: Mon, 12 May 2014 15:16:01 -0400
+Message-ID: <CADVnQymyG86LDsZokNS0u02cnWc-m_DGChBF3x40M7kANvfWyg@mail.gmail.com>
+References: <1399864933-28287-1-git-send-email-ycheng@google.com>
+	<1399864933-28287-2-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zshi@redhat.com, ben@decadent.org.uk,
-	linux-net-drivers@solarflare.com, sshah@solarflare.com
-To: nikolay@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, longinus00@gmail.com,
+	Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59867 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754860AbaELS5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 14:57:20 -0400
-In-Reply-To: <1399626699-7181-1-git-send-email-nikolay@redhat.com>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38880 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750970AbaELTQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 15:16:03 -0400
+Received: by mail-wi0-f170.google.com with SMTP id bs8so6009345wib.5
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 12:16:01 -0700 (PDT)
+In-Reply-To: <1399864933-28287-2-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Fri,  9 May 2014 11:11:39 +0200
-
-> If the sfc driver is in legacy interrupt mode (either explicitly by
-> using interrupt_mode module param or by falling back to it) it will
-> hit a warning at kernel/irq/manage.c because it will try to free an irq
-> which wasn't allocated by it in the first place because the MSI(X) irqs are
-> zero and it'll try to free them unconditionally. So fix it by checking if
-> we're in legacy mode and freeing the appropriate irqs.
-> 
-> CC: Zenghui Shi <zshi@redhat.com>
-> CC: Ben Hutchings <ben@decadent.org.uk>
-> CC: <linux-net-drivers@solarflare.com>
-> CC: Shradha Shah <sshah@solarflare.com>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Fixes: 1899c111a535 ("sfc: Fix IRQ cleanup in case of a probe failure")
-> Reported-by: Zenghui Shi <zshi@redhat.com>
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+On Sun, May 11, 2014 at 11:22 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> Move common TFO functions that will be used by both v4 and v6
+> to tcp_fastopen.c. Create a helper tcp_fastopen_queue_check().
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Daniel Lee <longinus00@gmail.com>
+> Signed-off-by: Jerry Chu <hkchu@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > ---
-> v3: Use the EFX_INT_MODE_USE_MSI macro instead of direct check
-> as suggested by Ben
-> v2: Change the fix to check for the interrupt mode and adjust the
-> commit message.
+>  include/net/tcp.h       |  10 ++-
+>  net/ipv4/tcp_fastopen.c | 190 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_ipv4.c     | 185 +---------------------------------------------
+>  3 files changed, 200 insertions(+), 185 deletions(-)
 
-Applied and queued up for -stable, thanks Nikolay.
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+neal
