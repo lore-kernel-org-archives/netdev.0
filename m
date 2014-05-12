@@ -1,42 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] tcp: IPv6 support for fastopen server
-Date: Sun, 11 May 2014 23:33:04 -0400 (EDT)
-Message-ID: <20140511.233304.404648412910391761.davem@davemloft.net>
-References: <1399864933-28287-1-git-send-email-ycheng@google.com>
-	<CAK6E8=dR0MrRtwi=LtihoHXXxbynao8C9mAYc29riVdP6--6TA@mail.gmail.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH iproute2] fq: don't allow set options to zero
+Date: Mon, 12 May 2014 12:18:39 +0800
+Message-ID: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, edumazet@google.com, longinus00@gmail.com,
-	hkchu@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <eric.dumazet@gmail.com>
+To: <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54528 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326AbaELDdH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 May 2014 23:33:07 -0400
-In-Reply-To: <CAK6E8=dR0MrRtwi=LtihoHXXxbynao8C9mAYc29riVdP6--6TA@mail.gmail.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:60320 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677AbaELESt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 00:18:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Sun, 11 May 2014 20:26:21 -0700
+Now options of fair queue can be zero but cannot be (~0U).
+Zero is useless, so don't allow set the options to zero.
+Also, maxrate cannot be reset to unlimited because it
+cannot be (~0U).
 
-> Sorry I forget to mention the patches are for net-next. Let me know if
-> I should re-submit with the proper subject line.
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ tc/q_fq.c | 24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-That's not necessary.
-
-And you might as well not do so for another reason, for the past few
-days any time a googler posts to vger.kernel.org from their work
-address, every list recipient that forwards their email to gmail
-ends up bouncing with stuff like:
-
-<xxxx@gmail.com> (expanded from <x@yyy.org.whatever>): host
-    gmail-smtp-in.l.google.com[74.125.25.26] said: 550-5.7.1 [xxx.xx.xxx.xxx
-    1] Our system has detected an unusual rate of 550-5.7.1 unsolicited mail
-    originating from your IP address. To protect our 550-5.7.1 users from spam,
-    mail sent from your IP address has been blocked. 550-5.7.1 Please visit
-    550-5.7.1 http://www.google.com/mail/help/bulk_mail.html to review our Bulk
-    550 5.7.1 Email Senders Guidelines. fb11si8629921pac.227 - gsmtp (in reply
-    to end of DATA command)
+diff --git a/tc/q_fq.c b/tc/q_fq.c
+index c1f658e..c529842 100644
+--- a/tc/q_fq.c
++++ b/tc/q_fq.c
+@@ -71,13 +71,13 @@ static unsigned int ilog2(unsigned int val)
+ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 			struct nlmsghdr *n)
+ {
+-	unsigned int plimit = ~0U;
+-	unsigned int flow_plimit = ~0U;
+-	unsigned int quantum = ~0U;
+-	unsigned int initial_quantum = ~0U;
++	unsigned int plimit = 0;
++	unsigned int flow_plimit = 0;
++	unsigned int quantum = 0;
++	unsigned int initial_quantum = 0;
+ 	unsigned int buckets = 0;
+-	unsigned int maxrate = ~0U;
+-	unsigned int defrate = ~0U;
++	unsigned int maxrate = 0;
++	unsigned int defrate = 0;
+ 	int pacing = -1;
+ 	struct rtattr *tail;
+ 
+@@ -147,24 +147,24 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 		addattr_l(n, 1024, TCA_FQ_BUCKETS_LOG,
+ 			  &log, sizeof(log));
+ 	}
+-	if (plimit != ~0U)
++	if (plimit)
+ 		addattr_l(n, 1024, TCA_FQ_PLIMIT,
+ 			  &plimit, sizeof(plimit));
+-	if (flow_plimit != ~0U)
++	if (flow_plimit)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_PLIMIT,
+ 			  &flow_plimit, sizeof(flow_plimit));
+-	if (quantum != ~0U)
++	if (quantum)
+ 		addattr_l(n, 1024, TCA_FQ_QUANTUM, &quantum, sizeof(quantum));
+-	if (initial_quantum != ~0U)
++	if (initial_quantum)
+ 		addattr_l(n, 1024, TCA_FQ_INITIAL_QUANTUM,
+ 			  &initial_quantum, sizeof(initial_quantum));
+ 	if (pacing != -1)
+ 		addattr_l(n, 1024, TCA_FQ_RATE_ENABLE,
+ 			  &pacing, sizeof(pacing));
+-	if (maxrate != ~0U)
++	if (maxrate)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_MAX_RATE,
+ 			  &maxrate, sizeof(maxrate));
+-	if (defrate != ~0U)
++	if (defrate)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_DEFAULT_RATE,
+ 			  &defrate, sizeof(defrate));
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+-- 
+1.8.0
