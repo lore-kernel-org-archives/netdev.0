@@ -1,70 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169/r8168 slow internet upload
-Date: Mon, 12 May 2014 07:44:47 +0200
-Message-ID: <20140512054447.GA17153@electric-eye.fr.zoreil.com>
-References: <20140511231946.GA12504@offline.be>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: Re: [RFC][PATCH] af_key: return error when meet errors on sendmsg()
+ syscall
+Date: Mon, 12 May 2014 14:05:09 +0800
+Message-ID: <53706495.1050303@windriver.com>
+References: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com> <20140512.011141.74073195599318391.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Marc Duponcheel <marc@offline.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:37516 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340AbaELFox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:44:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20140511231946.GA12504@offline.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <steffen.klassert@secunet.com>, <herbert@gondor.apana.org.au>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140512.011141.74073195599318391.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marc Duponcheel <marc@offline.be> :
-[...]
->  I have an issue with linux box acting as router (in fact forwarder)
-> with 2 Realtek RTL8111/8168/8411 cards.
-> 
->  In short: large file uploads are way too slow and, during such
-> uploads, I see TcpRetransSegs and TcpOutRsts on sending host.
-> 
->  System is bleeding edge gentoo.
+On 05/12/2014 01:11 PM, David Miller wrote:
+>
+>> So it makes sense to return errors for send() syscall.
+>>
+>> Signed-off-by: Xufeng Zhang<xufeng.zhang@windriver.com>
+>>      
+> I disagree.
+>
+> If pfkey_error() is successful, the error will be reported in the AF_KEY
+> message that is broadcast, there is no reason for sendmsg to return an
+> error.  The message was sucessfully sent, there was no problem with it's
+> passage into the AF_KEY layer.
+>
+> Like netlink, operational responses come in packets, not error codes.
+>
+> However, if pfkey_error() fails, we must do pass back the original
+> error code because it's a last ditch effort to prevent information
+> from being lost.
+>
+> That's why 'err' must be preserved when pfkey_error() returns zero.
+>    
 
-Please specify kernel version.
+I know what you mean, but isn't the kernel API aimed to facilitate the
+implementation of user space?
+Since send the message to the kernel and receive the error report message
+are asynchronous, I don't think it's easy to recover from the EINTR error
+by parsing the error report message.
 
-[...]
-> * r8169:
-> 
->  Incoming speed is OK (50Mbps) but outgoing is only 200Kbps. 30 times
-> too slow.
 
-Please send plain ethtool output and network capture file for the outgoing
-traffic.
-
->  Now I set eth speeds to 100Mbps (on linux-router, I never touch
-> linux-server who works fine anyway for years with cisco-router):
-> 
->  Outgoing speed to few hops away is 2Mbps and to many hops away still 200Kbps.
-
-A capture file for each of those would be welcome.
-
-[...]
-> * replace r8169 with r8168:
-> 
->  Outgoing to few hops away is 3Mbps and to many hops away is 1.5Mbps.
-
-Same capture as above will be welcome.
-
-[...]
-> Am I missing something obvious? Or are the RTL8111/8168/8411
-> cards/drivers not good for this setup? Any other hints? I am happy to
-> do whatever tests and provide whatever outputs that may help drive
-> discussion.
-
-Nothing obvious on the driver side. There could be an r816x hardware bug
-thus some (small) packets loss.
-
-Please send a complete dmesg including the 'XID' line from the r8169
-driver.
-
-Thanks.
-
--- 
-Ueimor
+Thanks,
+Xufeng
