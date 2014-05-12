@@ -1,48 +1,129 @@
-From: United Nations <maj@junin.gob.ar>
-Subject: =?utf-8?Q?Felicit=C4=83ri?=
-Date: Mon, 12 May 2014 12:26:12 -0300 (ART)
-Message-ID: <1947954622.423487.1399908372007.JavaMail.zimbra@junin.gob.ar>
-Reply-To: United Nations <unitednationsgrants@admin.in.th>
+From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Subject: Socket receives packet to multicast group to which it was not joined
+ since kernel 3.13.10-1
+Date: Mon, 12 May 2014 20:38:03 +0400
+Message-ID: <5370F8EB.2070009@oktetlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: multipart/mixed;
+ boundary="------------040606050806040304000203"
+Cc: "Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from junin.gov.ar ([201.234.19.13]:56513 "EHLO mail.junin.gob.ar"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752578AbaELPkx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 11:40:53 -0400
+Received: from shelob.oktetlabs.ru ([84.52.89.53]:35903 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047AbaELQrw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 12:47:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is a multi-part message in MIME format.
+--------------040606050806040304000203
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
+On kernel 3.13.10-1 I see that socket joined to one multicast group 
+receives packets to another multicast address. That can be reproduced by 
+the following example:
 
-=46elicit=C4=83ri=20
+1. socket(DGRAM) -> 3
+2. bind(3, 0.0.0.0:12345) -> 0
+3. setsockopt(3, IP_MULTICAST_IF, {224.168.2.9, 7}) -> 0
+// "7" is correct interface index
 
-Sunte=C8=9Bi unul dintre beneficiarii de pe ordinea de zi a Na=C8=9Biun=
-ilor Unite 2014/2015 Grant Award. Informa=C8=9Biile dvs. au fost verifi=
-cate =C8=99i suma de =C8=99ase milioane de euro (6.000.000,00) a fost a=
-cordat pentru a v=C4=83 =C3=AEn programul de granturi al Na=C8=9Biunilo=
-r Unite ca Date tale au fost listate pe lista c=C3=A2=C8=99tig=C4=83toa=
-re.=20
+4. Send packet from peer host to 224.168.2.9:12345
+5. poll({3, POLLIN}) -> 1
+6. recv(3) -> <data_length>
 
-Aceast=C4=83 sum=C4=83 urmeaz=C4=83 a fi utilizate de dumneavoastr=C4=83=
- pentru orice scop, de care vor beneficia foloseste comunitatea ta.=20
+5. Send packet from peer host to 225.168.2.9:12345
+// Note that the address is not the same!
+6. poll({3, POLLIN}) -> 1
+7. recv(3) -> <data_length>
 
-Informa=C8=9Biile de care avem nevoie pentru verificare sunt:=20
+I checked kernel 3.12.6-2, there is no such problem. I have placed 
+simple C-program in attachment to reproduce the behaviour. It should be 
+called:
+./mult_recv <mcast_address> <interface index> i.e. in example above:
+./mult_recv 224.168.2.9 7
 
-Numele complet:=20
-adresa:=20
-Urm=C4=83tor de Kin:=20
+--------------040606050806040304000203
+Content-Type: text/x-csrc;
+ name="mult_recv.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="mult_recv.c"
 
-Va oferi, de asemenea, un cont bancar care premiile de finan=C8=9Bare a=
-r trebui s=C4=83 fie depus =C3=AEn. Ve=C8=9Bi avea nevoie, de asemenea,=
- s=C4=83 pl=C4=83teasc=C4=83 doar o tax=C4=83 administrativ=C4=83 de 72=
-1 de euro (=C8=99apte sute dou=C4=83zeci =C8=99i unu de euro).=20
+#include <stdio.h>
+#include <netinet/in.h>
+#include <errno.h>
+#include <string.h>
+#include <poll.h>
 
-Ajunge =C3=AEnapoi la noi c=C3=A2t mai cur=C3=A2nd posibil, astfel =C3=AE=
-nc=C3=A2t s=C4=83 pute=C8=9Bi trimite certificatul c=C3=A2=C8=99tig=C4=83=
-toare.=20
+int
+main(int argc, char *argv[])
+{
+    int sock;
+    int rc;
+    struct sockaddr_in addr;
+    struct ip_mreqn req;
+    char buf[256];
+    struct pollfd fds;
 
-Biroul Organiza=C8=9Biei Na=C8=9Biunilor Unite.=20
-2014/2015
+    if (argc < 2)
+    {
+        printf("\nToo few arguments\n");
+        return 1;
+    }
+
+    sock = socket(PF_INET, SOCK_DGRAM, 0);
+    printf("socket() -> %d(%d)\n", sock, errno);
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(12345);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    rc = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+    printf("bind() -> %d(%d)\n", rc, errno);
+
+    memset((void *)&req, 0, sizeof(req));
+    rc = inet_aton(argv[1], &req.imr_multiaddr);
+    printf("inet_aton() -> %d(%d)\n", rc, errno);
+    req.imr_ifindex = atoi(argv[2]);
+
+    rc = setsockopt(sock, SOL_IP, IP_ADD_MEMBERSHIP, &req, sizeof(req));
+    printf("setsockopt() -> %d(%d)\n", rc, errno);
+
+    printf("Send packet to %s:12345 address...", argv[1]);
+    getchar();
+
+    fds.fd = sock;
+    fds.events = POLLIN;
+    rc = poll(&fds, 1, 1000);
+    printf("poll() -> %d(%d)\n", rc, errno);
+
+    if (rc != 1)
+    {
+        printf("The packet was not received.\n");
+        return 1;
+    }
+
+    rc = recv(sock, buf, sizeof(buf), 0);
+    printf("recv() -> %d(%d)\n", rc, errno);
+
+    printf("Send packet to different multicast address(with 12345 port)...");
+    getchar();
+
+    rc = poll(&fds, 1, 1000);
+    printf("poll() -> %d(%d)\n", rc, errno);
+
+    if (rc != 0)
+    {
+        printf("The packet to different multicast address was received.\n");
+        rc = recv(sock, buf, sizeof(buf), 0);
+        printf("recv() -> %d(%d)\n", rc, errno);
+        return 1;
+    }
+    printf("The behaviour is correct\n");
+
+    return 0;
+}
+
+--------------040606050806040304000203--
