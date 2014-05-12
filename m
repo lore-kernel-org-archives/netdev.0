@@ -1,57 +1,41 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Re: Bad checksum on bridge with IP options
-Date: Mon, 12 May 2014 22:53:19 +0930
-Message-ID: <5370CB47.4010400@davidnewall.com>
-References: <536F8C0F.4090206@davidnewall.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Subject: [PATCH ipsec-next 0/2] xfrm: scalability enhancements for policy database
+Date: Mon, 12 May 2014 15:45:23 +0200
+Message-ID: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
+Cc: netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hawking.rebel.net.au ([203.20.69.83]:58951 "EHLO
-	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756632AbaELNXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 09:23:23 -0400
-In-Reply-To: <536F8C0F.4090206@davidnewall.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:59868 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbaELNpp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 09:45:45 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hm4so4501911wib.11
+        for <netdev@vger.kernel.org>; Mon, 12 May 2014 06:45:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've got a patch which fixes the faulty checksums, and now ping works 
-with RR or TS set.  I'm not quite sure, though, that it fixes the right 
-thing.  I wonder if the problem is less that the checksum becomes wrong, 
-and more that the route and timestamps ought not to be changed by the 
-bridge interface.
+This patchset enables to hash more policies than just non-prefixed
+ones: hash policies whose prefix lengths are greater or equal to
+configurable thresholds.
 
-Anyway, for discussion, here's the patch:
+These thresholds are configured via /proc entries:
 
---- br_netfilter.c.orig	2014-05-12 22:10:59.809988125 +0930
-+++ br_netfilter.c	2014-05-12 22:27:46.769299379 +0930
-@@ -261,8 +261,10 @@
-  static int br_parse_ip_options(struct sk_buff *skb)
-  {
-  	struct ip_options *opt;
--	const struct iphdr *iph;
-+	struct iphdr *iph;
-  	struct net_device *dev = skb->dev;
-+	__sum16 oldsum;
-+	int err;
-  	u32 len;
-  
-  	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-@@ -298,8 +300,15 @@
-  	if (iph->ihl == 5)
-  		return 0;
-  
-+	oldsum = iph->check;
-  	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
--	if (ip_options_compile(dev_net(dev), opt, skb))
-+	err = ip_options_compile(dev_net(dev), opt, skb);
-+	ip_send_check(iph);
-+	if (iph->check != oldsum)
-+		LIMIT_NETDEBUG(KERN_ERR
-+			pr_fmt("br_parse_ip_options: bad sum %x replaced by %x\n"),
-+			                       oldsum, iph->check);
-+	if (err)
-  		goto inhdr_error;
-  
-  	/* Check correct handling of SRR option */
+/proc/sys/net/ipv4/xfrm4_policy_hash_tresh: 32 32
+/proc/sys/net/ipv6/xfrm6_policy_hash_tresh: 128 128
+
+Christophe Gouault (2):
+      xfrm: hash prefixed policies based on preflen thresholds
+      xfrm: configure policy hash table thresholds by /proc
+
+ include/net/netns/xfrm.h |   8 +++
+ include/net/xfrm.h       |   1 +
+ net/ipv4/xfrm4_policy.c  |  67 ++++++++++++++++++++++
+ net/ipv6/xfrm6_policy.c  |  67 ++++++++++++++++++++++
+ net/xfrm/xfrm_hash.h     |  76 +++++++++++++++++++++----
+ net/xfrm/xfrm_policy.c   | 142 +++++++++++++++++++++++++++++++++++++++++++++--
+ net/xfrm/xfrm_sysctl.c   |   3 +
+ 7 files changed, 348 insertions(+), 16 deletions(-)
+
+Best Regards,
+Christophe
