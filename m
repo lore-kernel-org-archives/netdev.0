@@ -1,30 +1,71 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove parameter rt from
- fib6_prune_clones()
-Date: Mon, 12 May 2014 01:07:10 -0400 (EDT)
-Message-ID: <20140512.010710.1360440297212614695.davem@davemloft.net>
-References: <536C683F.40408@cn.fujitsu.com>
+Subject: Re: [RFC][PATCH] af_key: return error when meet errors on
+ sendmsg() syscall
+Date: Mon, 12 May 2014 01:11:41 -0400 (EDT)
+Message-ID: <20140512.011141.74073195599318391.davem@davemloft.net>
+References: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54983 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbaELFHM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:07:12 -0400
-In-Reply-To: <536C683F.40408@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: xufeng.zhang@windriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399614455-10551-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 9 May 2014 13:31:43 +0800
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Date: Fri, 9 May 2014 13:47:35 +0800
 
-> the parameter rt will be assigned to c.arg in function fib6_clean_tree(),
-> but function fib6_prune_clone() doesn't use c.arg, so we can remove it
-> safely.
+> Current implementation for pfkey_sendmsg() always return success
+> no matter whether or not error happens during this syscall,
+> this is incompatible with the general send()/sendmsg() API:
+>   man send
+>     RETURN VALUE
+>       On success, these calls return the number of characters sent.
+>       On error, -1 is returned, and errno is set appropriately.
 > 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> One side effect this problem introduces is that we can't determine
+> when to resend the message when the previous send() fails because
+> it was interrupted by signals.
+> We detect such a problem when racoon is sending SADBADD message to
+> add SAD entry in the kernel, but sometimes kernel is responding with
+> "Interrupted system call"(-EINTR) error.
+> 
+> Check the send implementation of strongswan, it has below logic:
+>   pfkey_send_socket()
+>   {
+>   	...
+>   	while (TRUE)
+>   	{
+>         	len = send(socket, in, in_len, 0);
+> 
+>   		if (len != in_len)
+>   		{
+>   			case EINTR:
+>   				/* interrupted, try again */
+>   				continue;
+>   			...
+>   		}
+>   	}
+>   	...
+> }
+> So it makes sense to return errors for send() syscall.      
+> 
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 
-This is fine, applied, thanks.
+I disagree.
+
+If pfkey_error() is successful, the error will be reported in the AF_KEY
+message that is broadcast, there is no reason for sendmsg to return an
+error.  The message was sucessfully sent, there was no problem with it's
+passage into the AF_KEY layer.
+
+Like netlink, operational responses come in packets, not error codes.
+
+However, if pfkey_error() fails, we must do pass back the original
+error code because it's a last ditch effort to prevent information
+from being lost.
+
+That's why 'err' must be preserved when pfkey_error() returns zero.
