@@ -1,54 +1,27 @@
-From: Peter Christensen <pch@ordbogen.com>
-Subject: Re: [PATCH] macvlan: Don't propagate IFF_ALLMULTI changes on down
- interfaces.
-Date: Mon, 12 May 2014 09:59:53 +0200
-Message-ID: <20140512095953.076bd76d@pch.odense.ordbogen.com>
-References: <1399540537-19262-1-git-send-email-pch@ordbogen.com>
-	<20140509.160225.1543592257804345860.davem@davemloft.net>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Bad checksum on bridge with IP options
+Date: Mon, 12 May 2014 17:44:52 +0930
+Message-ID: <537082FC.2030505@davidnewall.com>
+References: <536F8C0F.4090206@davidnewall.com> <DUB123-W15AFD3F815E035C19E3BF9ED4A0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Lukas Tribus <luky-37@hotmail.com>, Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ordbogen.com ([86.58.170.13]:33260 "EHLO mail.ordbogen.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752938AbaELIAG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 May 2014 04:00:06 -0400
-In-Reply-To: <20140509.160225.1543592257804345860.davem@davemloft.net>
+Received: from hawking.rebel.net.au ([203.20.69.83]:39691 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752685AbaELIPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 04:15:00 -0400
+In-Reply-To: <DUB123-W15AFD3F815E035C19E3BF9ED4A0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 09 May 2014 16:02:25 -0400 (EDT)
-David Miller <davem@davemloft.net> wrote:
+On 12/05/14 05:12, Lukas Tribus wrote:
+> I think you will have to reproduce this on a vanilla kernel.org kernel
+> like 3.14.3 and 3.15-rc5 [1] ...
 
-> From: Peter Christensen <pch@ordbogen.com>
-> Date: Thu,  8 May 2014 11:15:37 +0200
-> 
-> > Clearing the IFF_ALLMULTI flag on a down interface could cause an
-> > allmulti overflow on the underlying interface.
-> > 
-> > Attempting the set IFF_ALLMULTI on the underlying interface would
-> > cause an error and the log message:
-> > 
-> > "allmulti touches root, set allmulti failed."
-> > 
-> > Signed-off-by: Peter Christensen <pch@ordbogen.com>
-> 
-> Hmmm, but won't we lose this event once the interface is brought
-> back up?
+Didn't know about those packages.  And to think of how much time I've 
+wasted by downloading and compiling for myself...
 
-No, macvlan_open and macvlan_stop already takes care of that (which is
-part of the reason the allmulti counter overflowed). Either
-macvlan_open and macvlan_close shouldn't touch the flag on the
-underlying interface, or
-macvlan_change_rx_flags shouldn't touch the underlying interface if the
-MACVLAN interface is down.
-
-I though that it was probably better to make MACVLAN as non-intrusive
-to the underlying interface when the MACVLAN interface is down, so I
-opted for this solution.
-
-Apparently the 802.1Q VLAN driver behaves
-exactly like that, and back in 2011 it got a patch similar to this one
-(commit deede2fabe24e00bd7e246eb81cd5767dc6fcfc7).
+Of course the bug does exist in a vanilla kernel, too, loaded from 
+http://kernel.ubuntu.com/~kernel-ppa/mainline/v3.14-rc8-trusty/linux-image-3.14.0-031400rc8-generic_3.14.0-031400rc8.201403242335_amd64.deb.
