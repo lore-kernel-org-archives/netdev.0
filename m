@@ -1,87 +1,108 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net] rtnetlink: call rtnl_lock_unregistering() in rtnl_link_unregister()
-Date: Mon, 12 May 2014 02:18:45 -0700
-Message-ID: <87mwenjqx6.fsf@x220.int.ebiederm.org>
-References: <1399657653-4909-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140509110345.417d2b90@nehalam.linuxnetplumber.net>
-	<CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
-	<20140509120241.3b628dc1@nehalam.linuxnetplumber.net>
-	<CAM_iQpWsbvC8nZd31n+akt2tQfCKvsHW6WAfjFdsgKNc5iiVig@mail.gmail.com>
-	<87bnv6lfig.fsf@x220.int.ebiederm.org>
-	<CAM_iQpVYwx175-qbo4g80nHKbJ3XPYD5Py409Tmyt=zaJqgZ-Q@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: update Destination Cache entries when gateway turn
+ into host
+Date: Mon, 12 May 2014 03:13:52 -0700
+Message-ID: <1399889632.5495.116325721.7AF2C83C@webmail.messagingengine.com>
+References: <536C4A74.2050103@cn.fujitsu.com>
+ <1399856097.16759.116198185.2A93B8D8@webmail.messagingengine.com>
+ <53703AFF.2040208@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:52428 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750791AbaELJTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 05:19:32 -0400
-In-Reply-To: <CAM_iQpVYwx175-qbo4g80nHKbJ3XPYD5Py409Tmyt=zaJqgZ-Q@mail.gmail.com>
-	(Cong Wang's message of "Sun, 11 May 2014 22:17:11 -0700")
+Received: from new2-smtp.messagingengine.com ([66.111.4.224]:59394 "EHLO
+	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752740AbaELKNy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 May 2014 06:13:54 -0400
+In-Reply-To: <53703AFF.2040208@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+On Sun, May 11, 2014, at 20:07, Duan Jiong wrote:
+> =E4=BA=8E 2014=E5=B9=B405=E6=9C=8812=E6=97=A5 08:54, Hannes Frederic =
+Sowa =E5=86=99=E9=81=93:
+> > On Thu, May 8, 2014, at 20:24, Duan Jiong wrote:
+> >>
+> >> RFC 4861 states in 7.2.5:
+> >>
+> >> 	The IsRouter flag in the cache entry MUST be set based on the
+> >>          Router flag in the received advertisement.  In those case=
+s
+> >>          where the IsRouter flag changes from TRUE to FALSE as a r=
+esult
+> >>          of this update, the node MUST remove that router from the
+> >>          Default Router List and update the Destination Cache entr=
+ies
+> >>          for all destinations using that neighbor as a router as
+> >>          specified in Section 7.3.3.  This is needed to detect whe=
+n a
+> >>          node that is used as a router stops forwarding packets du=
+e to
+> >>          being configured as a host.
+> >>
+> >> Currently, when dealing with NA Message which IsRouter flag change=
+s from
+> >> TRUE to FALSE, the kernel only removes router from the Default Rou=
+ter List,
+> >> and don't update the Destination Cache entries.
+> >>
+> >> Now in order to update those Destination Cache entries, i introduc=
+e
+> >> function rt6_clean_tohost().
+> >>
+> >> [...]
+> >>
+> >> +/*remove routers and update dst entries when gateway turn into ho=
+st.*/
+> >> +static int fib6_clean_tohost(struct rt6_info *rt, void *arg)
+> >> +{
+> >> +	struct in6_addr *gateway =3D (struct in6_addr *)arg;
+> >> +
+> >> +	if (((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY=
+))
+> >> +	    =3D=3D (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
+> >> +	    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
+> >> +		return -1;
+> >> +	} else if (((rt->rt6i_flags & (RTF_GATEWAY | RTF_CACHE))
+> >> +		      =3D=3D (RTF_GATEWAY | RTF_CACHE))
+> >> +		    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
+> >> +		rt->rt6i_flags |=3D RTF_REJECT;
+> >> +		rt->dst.error =3D -ENETUNREACH;
+> >> +	}
+> >> +	return 0;
+> >> +}
+> >=20
+> > I am not so happy with that but have not tried that.
+> >=20
+> > The Destination Cache you quote from the RFC (if you follow 7.3.3.)=
+ actually refers to the neighbouring
+> > subsystem, where we would need to generate subsequent errors in cas=
+e we try to forward a packet
+> > through a this particular router.
+> >=20
+> > The reason why I am not that happy is, that the semantics when neig=
+hbour nodes are cleared is well
+> > defined but we don't have that semantics when those rt6_nodes get c=
+leared up. E.g. consider a router which just temporarily switches forwa=
+rding off and on.
+> >=20
+> > I guess we need to inspect NTF_ROUTER flag in the output path someh=
+ow. :/
+>=20
+> Why we need to inspect NTF_ROUTER flag?
+> In my opinion, the problem is that we can't use the neighbour node as=
+ next hop.
 
-> On Fri, May 9, 2014 at 4:05 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> writes:
->>
->>> On Fri, May 9, 2014 at 12:02 PM, Stephen Hemminger
->>> <stephen@networkplumber.org> wrote:
->>>> On Fri, 9 May 2014 11:10:36 -0700
->>>> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>>>
->>>>>
->>>>> This can't be done without a macro (at least for me). Or
->>>>> we have to duplicate the code.
->>>>
->>>> macro method is too ugly, figure out a better way.
->>>
->>> That's what I am going to do for -net-next. This patch is for -net,
->>> it's an ugly but minimum change I can find.
->>>
->>> Of course, if you insist we should clean up it for -net as well,
->>> I can do that.
->>
->> It would be no worse to rename the existing function
->> rtnl_lock_unregistering_list
->>
->> And add a second function rtnl_lock_unregistering that does
->> the same thing but uses the global list.
->>
->> Of course this begs the question what happens if the network
->> device we want to destroy is a network namespace that is currently
->> exiting and not on the global list.
->>
->
-> OK, so we have to duplicate the code.
->
->> It looks like we need to grab the net_mutex to get a state where network
->> namespaces are not exiting...
->>
->
-> Hmm, for me it looks like we need net_mutex only we change pernet ops,
-> here rtnl lock is enough. No?
+I agree. I don't see a problem with returning -1 from the function but =
+with the case
+where you originate errors from the routing table by setting rt->dst.er=
+ror. These
+entries have a lifetime governed by the gc.
 
-Look at net/core/net_namespace.c:cleanup_net
+Greetings,
 
-While namespaces are being torn down the net_mutex is held.  At the same
-time the rtnl_mutex is not held, and those namespaces are not on the
-net_namespace_list.
-
-So while holding the rtnl_lock is enough to traverse the net_namespace
-list without it changing.  You need the net_mutex to make certain there
-are not network namespaces in the final stages of being cleaned up
-that are not on the net_namespaces list.
-
-Those namespaces in the final stages of being cleaned up are as
-problematic as network devices that are being cleaned up that live
-on the netdev todo list.  for_each_net in rtnl_link_unregister
-can not see them.
-
-Eric
+  Hannes
