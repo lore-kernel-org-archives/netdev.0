@@ -1,45 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] net: sxgbe: Added dma related function and
- non-burst mode support
-Date: Mon, 12 May 2014 00:57:00 -0400 (EDT)
-Message-ID: <20140512.005700.1622310019794083211.davem@davemloft.net>
-References: <003a01cf6b2a$e7bf5bf0$b73e13d0$%an@samsung.com>
+Subject: Re: [PATCH] ipv6: update Destination Cache entries when gateway
+ turn into host
+Date: Mon, 12 May 2014 01:01:52 -0400 (EDT)
+Message-ID: <20140512.010152.808234287210437125.davem@davemloft.net>
+References: <536C4A74.2050103@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org,
-	ks.giri@samsung.com, vipul.pandya@samsung.com
-To: bh74.an@samsung.com
-Return-path: <linux-samsung-soc-owner@vger.kernel.org>
-In-Reply-To: <003a01cf6b2a$e7bf5bf0$b73e13d0$%an@samsung.com>
-Sender: linux-samsung-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54950 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751120AbaELFBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:01:54 -0400
+In-Reply-To: <536C4A74.2050103@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Byungho An <bh74.an@samsung.com>
-Date: Fri, 09 May 2014 11:03:43 +0900
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Fri, 9 May 2014 11:24:36 +0800
 
-> This series added 
-> - functions to update rx descriptor tail pointer 
-> - non burst mode support
-> - fixed dma channel feature.
+> +/*remove routers and update dst entries when gateway turn into host.*/
 
-This description is not sufficient.
+This comment is poorly formatted.
 
-I don't understand what non fixed burst mode means, and why
-it is so critical to add support for it in 'net' which is
-only for bug fixes.
+Please put a space after "/*", capitalize "Remove" and place
+a space before "*/" at the end of the comment.
 
-I also do not understand what the "mtl and dma channel" feature is,
-what was wrong with it, and what exactly patch #3 is doing to fix it.
+> +static int fib6_clean_tohost(struct rt6_info *rt, void *arg)
+> +{
+> +	struct in6_addr *gateway = (struct in6_addr *)arg;
+> +
+> +	if (((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
+> +	    == (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
+> +	    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
 
-Finally, I have no idea why the tail pointer update is necessary
-and what problem it is fixing.
+This conditional is poorly formatted:
 
-You have several things to address in this patch series before I
-can apply it.
+> +	} else if (((rt->rt6i_flags & (RTF_GATEWAY | RTF_CACHE))
+> +		      == (RTF_GATEWAY | RTF_CACHE))
+> +		    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
 
-Furthermore, you have to make it clear what tree you intend these
-changes to go into.  'net' is only for bug fixes, and 'net-next'
-is for cleanups and new features.
+As is this one.
 
-Thank you.
+Never put operators at the beginning of a continuation line, rather
+put them at the end of the previous line.  This includes "&&", "||",
+and "=="
