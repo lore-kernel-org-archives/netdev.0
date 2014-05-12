@@ -1,76 +1,67 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the gpio tree with the net-next tree
-Date: Mon, 12 May 2014 15:16:47 +1000
-Message-ID: <20140512151647.1ceae8f2@canb.auug.org.au>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] rtnetlink: call rtnl_lock_unregistering() in rtnl_link_unregister()
+Date: Sun, 11 May 2014 22:17:11 -0700
+Message-ID: <CAM_iQpVYwx175-qbo4g80nHKbJ3XPYD5Py409Tmyt=zaJqgZ-Q@mail.gmail.com>
+References: <1399657653-4909-1-git-send-email-xiyou.wangcong@gmail.com>
+	<20140509110345.417d2b90@nehalam.linuxnetplumber.net>
+	<CAM_iQpUJ7q_RgFzJ7yu5F0aYSSCVAEu64UpwN=md0OyRGHBFAg@mail.gmail.com>
+	<20140509120241.3b628dc1@nehalam.linuxnetplumber.net>
+	<CAM_iQpWsbvC8nZd31n+akt2tQfCKvsHW6WAfjFdsgKNc5iiVig@mail.gmail.com>
+	<87bnv6lfig.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/MVjs+d+Msi0bgSUrUcBA4U+"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thierry Reding <treding@nvidia.com>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: Linus Walleij <linus.walleij@linaro.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:38756 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750721AbaELFRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:17:11 -0400
+Received: by mail-ob0-f175.google.com with SMTP id wo20so7450394obc.20
+        for <netdev@vger.kernel.org>; Sun, 11 May 2014 22:17:11 -0700 (PDT)
+In-Reply-To: <87bnv6lfig.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/MVjs+d+Msi0bgSUrUcBA4U+
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Fri, May 9, 2014 at 4:05 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
+> Cong Wang <xiyou.wangcong@gmail.com> writes:
+>
+>> On Fri, May 9, 2014 at 12:02 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>>> On Fri, 9 May 2014 11:10:36 -0700
+>>> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>
+>>>>
+>>>> This can't be done without a macro (at least for me). Or
+>>>> we have to duplicate the code.
+>>>
+>>> macro method is too ugly, figure out a better way.
+>>
+>> That's what I am going to do for -net-next. This patch is for -net,
+>> it's an ugly but minimum change I can find.
+>>
+>> Of course, if you insist we should clean up it for -net as well,
+>> I can do that.
+>
+> It would be no worse to rename the existing function
+> rtnl_lock_unregistering_list
+>
+> And add a second function rtnl_lock_unregistering that does
+> the same thing but uses the global list.
+>
+> Of course this begs the question what happens if the network
+> device we want to destroy is a network namespace that is currently
+> exiting and not on the global list.
+>
 
-Hi Linus,
+OK, so we have to duplicate the code.
 
-Today's linux-next merge of the gpio tree got a conflict in
-Documentation/driver-model/devres.txt between commit 6d48f44b7b2a
-("mdio_bus: implement devm_mdiobus_alloc/devm_mdiobus_free") from the
-net-next tree and commit f9748ef13b6a ("gpio: Add missing
-device-managed documentation") from the gpio tree.
+> It looks like we need to grab the net_mutex to get a state where network
+> namespaces are not exiting...
+>
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc Documentation/driver-model/devres.txt
-index d483f2cf221b,8ff1167cfedf..000000000000
---- a/Documentation/driver-model/devres.txt
-+++ b/Documentation/driver-model/devres.txt
-@@@ -310,7 -309,7 +310,12 @@@ SLAVE DMA ENGIN
-  SPI
-    devm_spi_register_master()
- =20
- +MDIO
- +  devm_mdiobus_alloc()
- +  devm_mdiobus_alloc_size()
- +  devm_mdiobus_free()
-++
-+ GPIO
-+   devm_gpiod_get()
-+   devm_gpiod_get_index()
-+   devm_gpiod_put()
-
---Sig_/MVjs+d+Msi0bgSUrUcBA4U+
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTcFlEAAoJEMDTa8Ir7ZwVhxgQAI5sk/kqpjeNzZN8CUOO1h5w
-42mbASrCn1dgUO+dns6PmIfdnCnKqrMlZpt3Ri8eDWIGTJvn4YtQfsjx4hcXNen4
-bd3yycCeoduHkzY9BnarW8bTa0xHsu5wND4NOHVCJFO8sMeRKq+J1I2KX0Jvam5U
-i0M9p1MqBpt+n/6b4qgM2TTGh9cBPJep5vF1bZLHUBdK6TS94+9yOaYvow9lD0Yz
-7OevnKrpRw7jybG0i1HQDhKFY03Ec2UeiY0I74yG9IiFZ5ttKyk4MGXi+ZJrDbq8
-5MfPdLEuZYsGDtkZ/oUbCjlPz9vMiFWbwsUpqINnUN8osLfNXakgOMvgjcy1JjvZ
-drZQy4BHhI/NpJJ8W9s3jHXBT/tD9aCl4DglspWXnIewdKlS1Gcy62GI6+woSqAV
-JqOJxV4ldYv1SgTP+Pf4v893KPTJwT8+l0xKNnt5gh0NU3Vj/fOePgfuxI6ltTXa
-6sTJ94fPD5XQ764AuJ2qLzPtuMF9IllntoWi4zpARagWuCpODYvgzHCSc2BJH66i
-BF/PRZg/mqP7uEeqooif3ctbgifF10P5NgENudEKjmpoIltEeBkJBrxsMnWBOI4D
-53jN7IYH1LHyCzhMmP6F8AkB7vpBQZNTekvBhTqyUAvyitGnfHcE9iAFb7Pc/wC5
-v8YHRUZxOBI8sBVBC14l
-=VVtt
------END PGP SIGNATURE-----
-
---Sig_/MVjs+d+Msi0bgSUrUcBA4U+--
+Hmm, for me it looks like we need net_mutex only we change pernet ops,
+here rtnl lock is enough. No?
