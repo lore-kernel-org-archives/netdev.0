@@ -1,49 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: update Destination Cache entries when gateway
- turn into host
-Date: Mon, 12 May 2014 01:01:52 -0400 (EDT)
-Message-ID: <20140512.010152.808234287210437125.davem@davemloft.net>
-References: <536C4A74.2050103@cn.fujitsu.com>
+Subject: Re: [PATCH net-next,v3] Add support for netvsc build without
+ CONFIG_SYSFS flag
+Date: Mon, 12 May 2014 01:03:06 -0400 (EDT)
+Message-ID: <20140512.010306.302000625227507734.davem@davemloft.net>
+References: <1399587250-27846-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54950 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120AbaELFBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 01:01:54 -0400
-In-Reply-To: <536C4A74.2050103@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1399587250-27846-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 9 May 2014 11:24:36 +0800
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Thu,  8 May 2014 15:14:10 -0700
 
-> +/*remove routers and update dst entries when gateway turn into host.*/
+> This change ensures the driver can be built successfully without the
+> CONFIG_SYSFS flag.
+> MS-TFS: 182270
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-This comment is poorly formatted.
-
-Please put a space after "/*", capitalize "Remove" and place
-a space before "*/" at the end of the comment.
-
-> +static int fib6_clean_tohost(struct rt6_info *rt, void *arg)
-> +{
-> +	struct in6_addr *gateway = (struct in6_addr *)arg;
-> +
-> +	if (((rt->rt6i_flags & (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
-> +	    == (RTF_ADDRCONF | RTF_DEFAULT | RTF_GATEWAY))
-> +	    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
-
-This conditional is poorly formatted:
-
-> +	} else if (((rt->rt6i_flags & (RTF_GATEWAY | RTF_CACHE))
-> +		      == (RTF_GATEWAY | RTF_CACHE))
-> +		    && ipv6_addr_equal(gateway, &rt->rt6i_gateway)) {
-
-As is this one.
-
-Never put operators at the beginning of a continuation line, rather
-put them at the end of the previous line.  This includes "&&", "||",
-and "=="
+Applied, thanks.
