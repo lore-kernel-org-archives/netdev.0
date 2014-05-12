@@ -1,7 +1,8 @@
 From: George Cherian <george.cherian@ti.com>
-Subject: [PATCH v3 0/3] TI CPSW Cleanup
-Date: Mon, 12 May 2014 10:21:18 +0530
-Message-ID: <1399870281-27200-1-git-send-email-george.cherian@ti.com>
+Subject: [PATCH v3 2/3] net: davinci_mdio: Convert pr_err() to dev_err() call
+Date: Mon, 12 May 2014 10:21:20 +0530
+Message-ID: <1399870281-27200-3-git-send-email-george.cherian@ti.com>
+References: <1399870281-27200-1-git-send-email-george.cherian@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <mugunthanvnm@ti.com>, <davem@davemloft.net>, <balbi@ti.com>,
@@ -9,27 +10,30 @@ Cc: <mugunthanvnm@ti.com>, <davem@davemloft.net>, <balbi@ti.com>,
 	George Cherian <george.cherian@ti.com>
 To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399870281-27200-1-git-send-email-george.cherian@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series does some minimal cleanups.
-	-Conversion of pr_*() to dev_*()
-	-Convert kzalloc to devm_kzalloc.
+Convert the lone pr_err() to dev_err() call.
 
-No functional changes.
+Signed-off-by: George Cherian <george.cherian@ti.com>
+Reviewed-by: Felipe Balbi <balbi@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-v1 -> v2 Address review comments.
-v2 -> v3 Remove a stale commit comment.
-
-George Cherian (3):
-  driver net: cpsw: Convert pr_*() to dev_*() calls
-  net: davinci_mdio: Convert pr_err() to dev_err() call
-  drivers: net: davinci_cpdma: Convert kzalloc() to devm_kzalloc().
-
- drivers/net/ethernet/ti/cpsw.c          | 50 ++++++++++++++++-----------------
- drivers/net/ethernet/ti/davinci_cpdma.c | 35 ++++++++---------------
- drivers/net/ethernet/ti/davinci_mdio.c  |  2 +-
- 3 files changed, 38 insertions(+), 49 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 34e97ec..735dc53 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -303,7 +303,7 @@ static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
+ 		return -EINVAL;
+ 
+ 	if (of_property_read_u32(node, "bus_freq", &prop)) {
+-		pr_err("Missing bus_freq property in the DT.\n");
++		dev_err(&pdev->dev, "Missing bus_freq property in the DT.\n");
+ 		return -EINVAL;
+ 	}
+ 	data->bus_freq = prop;
 -- 
 1.8.3.1
