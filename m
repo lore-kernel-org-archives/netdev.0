@@ -1,117 +1,81 @@
-From: Arnaldo Carvalho de Melo <acme@infradead.org>
-Subject: Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Mon, 12 May 2014 11:34:51 -0300
-Message-ID: <20140512143451.GB13801@kernel.org>
-References: <536101C9.9090601@gmail.com>
- <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?T25kxZllaiBCw61sa2E=?= <neleai@seznam.cz>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>,
-	Chris Friesen <chris.friesen@windriver.com>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] jme: Fix unmap loop counting error:
+Date: Mon, 12 May 2014 10:38:18 -0400
+Message-ID: <1399905498-27691-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guo-Fu Tseng <cooldavid@cooldavid.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39915 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758678AbaELOie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 10:38:34 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Mon, May 12, 2014 at 12:15:25PM +0200, Michael Kerrisk (man-pages) escreveu:
-> Hi Arnaldo,
-> 
-> Ping!
+In my recent fix (76a691d0a: fix dma unmap warning), Ben Hutchings noted that my
+loop count was incorrect.  Where j started at startidx, it should have started
+at zero, and gone on for count entries, not to endidx.  Additionally, a DMA
+resource exhaustion should drop the frame and (for now), return
+NETDEV_TX_OK, not NETEV_TX_BUSY.  This patch fixes both of those issues:
 
-I acknowledge the problem, the timeout has to be passed to the
-underlying ->recvmsg() implementations that should return the time spent
-waiting for each packet, so that we can accrue that at recvmmsg level.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Ben Hutchings <ben@decadent.org.uk>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Guo-Fu Tseng <cooldavid@cooldavid.org>
+---
+ drivers/net/ethernet/jme.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-We can do either passing an extra timeout parameter to the recvmsg
-implementations or using some struct sock member to specify that
-timeout.
-
-The first approach is intrusive, touches tons of files, so I'll try
-making it all mostly transparent by hooking into sock_rcvtimeo()
-somehow.
-
-- Arnaldo
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 6e664d9..b78378c 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -2027,14 +2027,14 @@ jme_fill_tx_map(struct pci_dev *pdev,
+ 	return 0;
+ }
  
-> Cheers,
-> 
-> Michael
-> 
-> 
-> On Wed, Apr 30, 2014 at 3:59 PM, Michael Kerrisk (man-pages)
-> <mtk.manpages@gmail.com> wrote:
-> > Arnaldo,
-> >
-> > I raised this issue somewhat more than a year ago, here:
-> > http://thread.gmane.org/gmane.linux.man/3477
-> > but got no reply from you. (Chris Friesen in that thread agreed
-> > that there is a problem though.)
-> >
-> > Here, a slightly revised version of that mail, since I've just bumper
-> > into a related problem in a different context...
-> >
-> > As part of his attempt to better document the recvmmsg() syscall that
-> > you added in commit a2e2725541fad72416326798c2d7fa4dafb7d337, Elie de
-> > Brauwer alerted to me to some strangeness in the timeout behavior of
-> > the syscall. I suspect there's a bug that needs fixing, as detailed
-> > below.
-> >
-> > AFAICT, the timeout argument was added to this syscall as a result of
-> > the discussion here:
-> > http://markmail.org/message/m5l2ap4hiiimut6k#query:+page:1+mid:m5l2ap4hiiimut6k+state:results
-> > (20-21 May 2009, "[RFC 1/2] net: Introduce recvmmsg...")
-> >
-> > If I understand correctly, the *intended* purpose of the timeout
-> > argument is to set a limit on how long to wait for additional
-> > datagrams after the arrival of an initial datagram. However, the
-> > syscall behaves in quite a different way. Instead, it potentially
-> > blocks forever, regardless of the timeout. The way the timeout seems
-> > to work is as follows:
-> >
-> > 1. The timeout, T, is armed on receipt of first diagram, starting at time X.
-> > 2. After each further datagram is received, a check is made if we have
-> > reached time X+T. If we have reached that time, then the syscall
-> > returns.
-> >
-> > Since the timeout is only checked after the arrival of each datagram,
-> > we can have scenarios like the following:
-> >
-> > 0. Assume a timeout of 10 seconds, and that vlen is 5.
-> > 1. First datagram arrives at time X.
-> > 2. Second datagram arrives at time X+2 secs
-> > 3. No more datagrams arrive.
-> >
-> > In this case, the call blocks forever. Is that intended behavior?
-> > (Basically, if up to vlen-1 datagrams arrive before X+T, but then no
-> > more datagrams arrive, the call will remain blocked forever.) If it's
-> > intended behavior, could you elaborate the use case, since it would be
-> > good to add that to the man page. If not, a fix seems to be needed,
-> > since otherwise, it's hard to see how the recvmmsg() timeout argument
-> > can sanely be used.
-> >
-> > Thanks,
-> >
-> > Michael
-> >
-> > --
-> > Michael Kerrisk
-> > Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> > Linux/UNIX System Programming Training: http://man7.org/training/
-> 
-> 
-> 
-> -- 
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Linux/UNIX System Programming Training: http://man7.org/training/
+-static void jme_drop_tx_map(struct jme_adapter *jme, int startidx, int endidx)
++static void jme_drop_tx_map(struct jme_adapter *jme, int startidx, int count)
+ {
+ 	struct jme_ring *txring = &(jme->txring[0]);
+ 	struct jme_buffer_info *txbi = txring->bufinf, *ctxbi;
+ 	int mask = jme->tx_ring_mask;
+ 	int j;
+ 
+-	for (j = startidx ; j < endidx ; ++j) {
++	for (j = 0 ; j < count ; j++) {
+ 		ctxbi = txbi + ((startidx + j + 2) & (mask));
+ 		pci_unmap_page(jme->pdev,
+ 				ctxbi->mapping,
+@@ -2069,7 +2069,7 @@ jme_map_tx_skb(struct jme_adapter *jme, struct sk_buff *skb, int idx)
+ 				skb_frag_page(frag),
+ 				frag->page_offset, skb_frag_size(frag), hidma);
+ 		if (ret) {
+-			jme_drop_tx_map(jme, idx, idx+i);
++			jme_drop_tx_map(jme, idx, i);
+ 			goto out;
+ 		}
+ 
+@@ -2081,7 +2081,7 @@ jme_map_tx_skb(struct jme_adapter *jme, struct sk_buff *skb, int idx)
+ 	ret = jme_fill_tx_map(jme->pdev, ctxdesc, ctxbi, virt_to_page(skb->data),
+ 			offset_in_page(skb->data), len, hidma);
+ 	if (ret)
+-		jme_drop_tx_map(jme, idx, idx+i);
++		jme_drop_tx_map(jme, idx, i);
+ 
+ out:
+ 	return ret;
+@@ -2269,7 +2269,7 @@ jme_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	}
+ 
+ 	if (jme_fill_tx_desc(jme, skb, idx))
+-		return NETDEV_TX_BUSY;
++		return NETDEV_TX_OK;
+ 
+ 	jwrite32(jme, JME_TXCS, jme->reg_txcs |
+ 				TXCS_SELECT_QUEUE0 |
+-- 
+1.8.3.1
