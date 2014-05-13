@@ -1,64 +1,57 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] net-tun: restructure tun_do_read for better sleep/wakeup
- efficiency
-Date: Tue, 13 May 2014 14:15:25 +0800
-Message-ID: <5371B87D.3020609@redhat.com>
-References: <1399422244-22751-1-git-send-email-xii@google.com> <5369AB36.6030609@redhat.com> <CAOBoifh6X8nbiqcNXNxJeFzWj1Q3N9Jc-xxQNrLWwFQf8LjZzQ@mail.gmail.com> <536C4733.9020704@redhat.com> <20140512061557.GA12581@redhat.com>
+From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Subject: Re: Socket receives packet to multicast group to which it was not
+ joined since kernel 3.13.10-1
+Date: Tue, 13 May 2014 10:25:37 +0400
+Message-ID: <5371BAE1.2090806@oktetlabs.ru>
+References: <5370F8EB.2070009@oktetlabs.ru> <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57430 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752342AbaEMGWu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 02:22:50 -0400
-In-Reply-To: <20140512061557.GA12581@redhat.com>
+Received: from shelob.oktetlabs.ru ([84.52.89.53]:57115 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750906AbaEMGZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 02:25:46 -0400
+In-Reply-To: <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/12/2014 02:15 PM, Michael S. Tsirkin wrote:
-> On Fri, May 09, 2014 at 11:10:43AM +0800, Jason Wang wrote:
->> > On 05/09/2014 02:22 AM, Xi Wang wrote:
->>> > > On Tue, May 6, 2014 at 8:40 PM, Jason Wang <jasowang@redhat.com> wrote:
->>>> > >> On 05/07/2014 08:24 AM, Xi Wang wrote:
->>>>> > >>> tun_do_read always adds current thread to wait queue, even if a packet
->>>>> > >>> is ready to read. This is inefficient because both sleeper and waker
->>>>> > >>> want to acquire the wait queue spin lock when packet rate is high.
->>>> > >> After commit 61a5ff15ebdab87887861a6b128b108404e4706d, this will only
->>>> > >> help for blocking read. Looks like for performance critical userspaces,
->>>> > >> they will use non blocking reads.
->>>>> > >>> We restructure the read function and use common kernel networking
->>>>> > >>> routines to handle receive, sleep and wakeup. With the change
->>>>> > >>> available packets are checked first before the reading thread is added
->>>>> > >>> to the wait queue.
->>>> > >> This is interesting, since it may help if we want to add rx busy loop
->>>> > >> for tun. (In fact I worked a similar patch like this).
->>> > >
->>> > > Yes this should be a good side effect and I am also interested in trying.
->>> > > Busy polling in user space is not ideal as it doesn't give the lowest latency.
->>> > > Besides differences in interrupt latency etc., there is a bad case for
->>> > > non blocking mode: When a packet arrives right before the polling thread
->>> > > returns to userspace. The control flow has to cross kernel/userspace
->>> > > boundary 3 times before the packet can be processed, while kernel
->>> > > blocking or busy polling only needs 1 boundary crossing.
->> > 
->> > So if we want to implement this, we need a feature bit to turn it on.
->> > Then vhost may benefit from this.
-> IFF_TUN_POLL_BUSY_LOOP ? I'm not sure it has to be
-> a flag. Maybe an ioctl is better, if userspace
-> misconfigures this it is only hurting itself, right?
-
-Flag has the same effect. But adding new ioctls means userspace needs to
-be modified. This is different with current rx busy polling for tcp/udp
-socket which is transparent to userspace application.
-> Maybe add a module parameter to control polling timeout,
-> or reuse low_latency_poll.
+On 12/05/14 21:18, Eric Dumazet wrote:
+> On Mon, 2014-05-12 at 20:38 +0400, Yurij M. Plotnikov wrote:
+>> On kernel 3.13.10-1 I see that socket joined to one multicast group
+>> receives packets to another multicast address. That can be reproduced by
+>> the following example:
+>>
+>> 1. socket(DGRAM) -> 3
+>> 2. bind(3, 0.0.0.0:12345) -> 0
+>> 3. setsockopt(3, IP_MULTICAST_IF, {224.168.2.9, 7}) -> 0
+>> // "7" is correct interface index
+>>
+>> 4. Send packet from peer host to 224.168.2.9:12345
+>> 5. poll({3, POLLIN}) -> 1
+>> 6. recv(3) -> <data_length>
+>>
+>> 5. Send packet from peer host to 225.168.2.9:12345
+>> // Note that the address is not the same!
+>> 6. poll({3, POLLIN}) -> 1
+>> 7. recv(3) -> <data_length>
+>>
+>> I checked kernel 3.12.6-2, there is no such problem. I have placed
+>> simple C-program in attachment to reproduce the behaviour. It should be
+>> called:
+>> ./mult_recv <mcast_address> <interface index> i.e. in example above:
+>> ./mult_recv 224.168.2.9 7
 >
-
-If we don't need a global parameter, we can just implement it without
-generic helper like __skb_recv_datagram().
+> I suspect problem came with commit
+> 421b3885bf6d56391297844f43fb7154a6396e12
+> ("udp: ipv4: Add udp early demux")
+>
+> Is that better if you try :
+>
+> echo 0 >/proc/sys/net/ipv4/ip_early_demux
+>
+Yes, this fixes the problem.
