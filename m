@@ -1,99 +1,202 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH 0/3] Make mark-based routing work better with multiple
- separate networks.
-Date: Tue, 13 May 2014 11:12:03 -0600
-Message-ID: <53725263.2080903@gmail.com>
-References: <1399657021-26082-1-git-send-email-lorenzo@google.com>	<CACP96tS0ikGfx85HX6t1w8+AENuiJu2N2-AyiJP+=VBohKjb4A@mail.gmail.com>	<CAKD1Yr1ey0j03OtO3_tD+AREQwnk1J9Mx60-TcEP9QwEy4tdAw@mail.gmail.com>	<CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>	<CAKD1Yr0z40vY8ucGDuLo8rPDudtHeOeMPbN_vfSSS_K4KjCffg@mail.gmail.com> <CACP96tTRQqvQM6UTuqtVonZJW3LaHkBZkkpH+zCZa=GjHAEy+Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: mmotm 2014-05-09-16-17 uploaded (ptrace-ab.hi vs.
+ net/core/filter.c)
+Date: Tue, 13 May 2014 13:14:08 -0400 (EDT)
+Message-ID: <20140513.131408.1239450870035635955.davem@davemloft.net>
+References: <20140509231825.22D005A4123@corp2gmr1-2.hot.corp.google.com>
+	<536E5EB9.5060101@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, JP Abgrall <jpa@google.com>,
-	David Miller <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: sowmini varadhan <sowmini05@gmail.com>,
-	Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:64378 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152AbaEMRMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 13:12:07 -0400
-Received: by mail-pb0-f42.google.com with SMTP id md12so136845pbc.15
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 10:12:07 -0700 (PDT)
-In-Reply-To: <CACP96tTRQqvQM6UTuqtVonZJW3LaHkBZkkpH+zCZa=GjHAEy+Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	richard@nod.at
+To: rdunlap@infradead.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <536E5EB9.5060101@infradead.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/13/14, 4:49 AM, sowmini varadhan wrote:
-> On Mon, May 12, 2014 at 6:53 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
->> On Tue, May 13, 2014 at 6:09 AM, sowmini varadhan <sowmini05@gmail.com> wrote:
->>> http://lwn.net/Articles/407495/, a single
->>> process should be able to open sockes in different namespaces.
->>
->> Other things that you can't do with namespaces are have the same physical
->> interface (and the same IP address?) in two different namespaces, or
->> have the same listening socket in two different namespaces. Namespaces
->> are not a panacea.'
->
-> So this thread got unintentionally cut off by my not selecting Reply-All
-> in the google gui.
->
-> But to summarize a couple of private exchanges between Lorenzo and
-> me, it still appears to me that the use-case here is what routers
-> consider a "VRF". Thus it makes sense to add code (if/as needed)
-> to fix the VRF support in linux, rather than adding yet-another-one-off
-> feature with socket marking.
->
-> Specifically addressing the two issues raised above:
-> - yes, it is true that an interface can exist in only one netns at a time.
->    But the same ip address can exist in multiple netns-es. If the
->    app wants to listen to a proper-subset of networks that go in/out
->    a single physical interface, you can use macvlan, and assign the
->    macvlans to the desired netns.
-> - "same listening socket for multiple namespaces". Clearly that problem
->    also exists for the socket-marks approach. But again this can actually
->    be solved (for both netns and sock-marks) by having the application
->    set up separate sockets for each netns (netns or whatever) of interest,
->    and build an epoll fd over that set of sockets. No need for any kernel
->    code for this.
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Sat, 10 May 2014 10:15:37 -0700
 
-using namespaces for VRFs has a number of problems:
+> On 05/09/2014 04:18 PM, akpm@linux-foundation.org wrote:
+>> The mm-of-the-moment snapshot 2014-05-09-16-17 has been uploaded to
+>> 
+>>    http://www.ozlabs.org/~akpm/mmotm/
+>> 
+> 
+> 
+> uml defconfig on x86_64: (also happens in linux-next)
+> 
+> net/core/filter.c:57:0: warning: "R8" redefined [enabled by default]
+> arch/x86/include/uapi/asm/ptrace-abi.h:38:0: note: this is the location of the previous definition
+> 
+> Same warnings for R9 and R10.
 
-1. It does not scale efficiently -- e.g., 1k VRFs.
-    a. namespaces have high memory consumption. It depends on features 
-enabled, but I see ~200kB/namespace. At 1024 namespaces that's a high 
-memory hit.
+I'm going to commit the following to net-next to fix this,
+thanks Randy.
 
-    b. requiring separate processes/threads/sockets per namespace for a 
-service to have a presence in each. ie., the 'same listening socket for 
-multiple namespaces' problem.
+====================
+[PATCH] net: filter: Fix redefinition warnings on x86-64.
 
-2. Complicates L2 apps which should be vrf agnostic.
+Do not collide with the x86-64 PTRACE user API namespace.
 
-3. Requires root (CAP_SYS_ADMIN) to use setns. If you go the 
-thread/socket per namespace route all of those processes need SYS_ADMIN 
-capability which is not the desired security posture.
+net/core/filter.c:57:0: warning: "R8" redefined [enabled by default]
+arch/x86/include/uapi/asm/ptrace-abi.h:38:0: note: this is the location of the previous definition
 
->
->    Or you can optimize this by building infra in the kernel to support the
->    Wildcard ALL_VRFS notion. Or add even more code to support something
->    less than ALL_VRFS.
->
-> My point is: what is the real networking construct that this use-case needs?
-> Isn't it what routers describe as the VRF? If yes, then shouldnt
-> we have one single way of supporting that in linux, instead of having
-> a little-bit-here and a little-bit-there?
+Fix by adding a BPF_ prefix to the register macros.
 
- From a separation of resources perspective why not have the 
-infrastructure kernel side that allows interfaces to be separated into 
-namespaces for isolation and then within a namespace provide L3 
-abstractions that allow separate routing tables, neighbor caches, etc -- 
-ie., VRF abstraction within a network namespace. Allow apps to have a 
-listen socket that works across the VRFs in a namespace; connected 
-sockets are VRF based.
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/filter.c | 71 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 37 insertions(+), 34 deletions(-)
 
-Nested network namespaces (which does not seem to work with 3.4 and 3.10 
-kernels) would provide that layering but still suffers from the problems 
-mentioned above.
-
-David
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 9aaa05a..c442a0d 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -46,17 +46,17 @@
+ #include <linux/if_vlan.h>
+ 
+ /* Registers */
+-#define R0	regs[BPF_REG_0]
+-#define R1	regs[BPF_REG_1]
+-#define R2	regs[BPF_REG_2]
+-#define R3	regs[BPF_REG_3]
+-#define R4	regs[BPF_REG_4]
+-#define R5	regs[BPF_REG_5]
+-#define R6	regs[BPF_REG_6]
+-#define R7	regs[BPF_REG_7]
+-#define R8	regs[BPF_REG_8]
+-#define R9	regs[BPF_REG_9]
+-#define R10	regs[BPF_REG_10]
++#define BPF_R0	regs[BPF_REG_0]
++#define BPF_R1	regs[BPF_REG_1]
++#define BPF_R2	regs[BPF_REG_2]
++#define BPF_R3	regs[BPF_REG_3]
++#define BPF_R4	regs[BPF_REG_4]
++#define BPF_R5	regs[BPF_REG_5]
++#define BPF_R6	regs[BPF_REG_6]
++#define BPF_R7	regs[BPF_REG_7]
++#define BPF_R8	regs[BPF_REG_8]
++#define BPF_R9	regs[BPF_REG_9]
++#define BPF_R10	regs[BPF_REG_10]
+ 
+ /* Named registers */
+ #define A	regs[insn->a_reg]
+@@ -383,10 +383,12 @@ select_insn:
+ 
+ 	/* CALL */
+ 	JMP_CALL_0:
+-		/* Function call scratches R1-R5 registers, preserves R6-R9,
+-		 * and stores return value into R0.
++		/* Function call scratches BPF_R1-BPF_R5 registers,
++		 * preserves BPF_R6-BPF_R9, and stores return value
++		 * into BPF_R0.
+ 		 */
+-		R0 = (__bpf_call_base + insn->imm)(R1, R2, R3, R4, R5);
++		BPF_R0 = (__bpf_call_base + insn->imm)(BPF_R1, BPF_R2, BPF_R3,
++						       BPF_R4, BPF_R5);
+ 		CONT;
+ 
+ 	/* JMP */
+@@ -478,7 +480,7 @@ select_insn:
+ 		}
+ 		CONT;
+ 	JMP_EXIT_0:
+-		return R0;
++		return BPF_R0;
+ 
+ 	/* STX and ST and LDX*/
+ #define LDST(SIZEOP, SIZE)					\
+@@ -505,18 +507,19 @@ select_insn:
+ 		atomic64_add((u64) X, (atomic64_t *)(unsigned long)
+ 			     (A + insn->off));
+ 		CONT;
+-	LD_ABS_W: /* R0 = ntohl(*(u32 *) (skb->data + K)) */
++	LD_ABS_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + K)) */
+ 		off = K;
+ load_word:
+-		/* BPF_LD + BPD_ABS and BPF_LD + BPF_IND insns are only
+-		 * appearing in the programs where ctx == skb. All programs
+-		 * keep 'ctx' in regs[BPF_REG_CTX] == R6, sk_convert_filter()
+-		 * saves it in R6, internal BPF verifier will check that
+-		 * R6 == ctx.
++		/* BPF_LD + BPD_ABS and BPF_LD + BPF_IND insns are
++		 * only appearing in the programs where ctx ==
++		 * skb. All programs keep 'ctx' in regs[BPF_REG_CTX]
++		 * == BPF_R6, sk_convert_filter() saves it in BPF_R6,
++		 * internal BPF verifier will check that BPF_R6 ==
++		 * ctx.
+ 		 *
+-		 * BPF_ABS and BPF_IND are wrappers of function calls, so
+-		 * they scratch R1-R5 registers, preserve R6-R9, and store
+-		 * return value into R0.
++		 * BPF_ABS and BPF_IND are wrappers of function calls,
++		 * so they scratch BPF_R1-BPF_R5 registers, preserve
++		 * BPF_R6-BPF_R9, and store return value into BPF_R0.
+ 		 *
+ 		 * Implicit input:
+ 		 *   ctx
+@@ -526,39 +529,39 @@ load_word:
+ 		 *   K == 32-bit immediate
+ 		 *
+ 		 * Output:
+-		 *   R0 - 8/16/32-bit skb data converted to cpu endianness
++		 *   BPF_R0 - 8/16/32-bit skb data converted to cpu endianness
+ 		 */
+ 		ptr = load_pointer((struct sk_buff *) ctx, off, 4, &tmp);
+ 		if (likely(ptr != NULL)) {
+-			R0 = get_unaligned_be32(ptr);
++			BPF_R0 = get_unaligned_be32(ptr);
+ 			CONT;
+ 		}
+ 		return 0;
+-	LD_ABS_H: /* R0 = ntohs(*(u16 *) (skb->data + K)) */
++	LD_ABS_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + K)) */
+ 		off = K;
+ load_half:
+ 		ptr = load_pointer((struct sk_buff *) ctx, off, 2, &tmp);
+ 		if (likely(ptr != NULL)) {
+-			R0 = get_unaligned_be16(ptr);
++			BPF_R0 = get_unaligned_be16(ptr);
+ 			CONT;
+ 		}
+ 		return 0;
+-	LD_ABS_B: /* R0 = *(u8 *) (ctx + K) */
++	LD_ABS_B: /* BPF_R0 = *(u8 *) (ctx + K) */
+ 		off = K;
+ load_byte:
+ 		ptr = load_pointer((struct sk_buff *) ctx, off, 1, &tmp);
+ 		if (likely(ptr != NULL)) {
+-			R0 = *(u8 *)ptr;
++			BPF_R0 = *(u8 *)ptr;
+ 			CONT;
+ 		}
+ 		return 0;
+-	LD_IND_W: /* R0 = ntohl(*(u32 *) (skb->data + X + K)) */
++	LD_IND_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + X + K)) */
+ 		off = K + X;
+ 		goto load_word;
+-	LD_IND_H: /* R0 = ntohs(*(u16 *) (skb->data + X + K)) */
++	LD_IND_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + X + K)) */
+ 		off = K + X;
+ 		goto load_half;
+-	LD_IND_B: /* R0 = *(u8 *) (skb->data + X + K) */
++	LD_IND_B: /* BPF_R0 = *(u8 *) (skb->data + X + K) */
+ 		off = K + X;
+ 		goto load_byte;
+ 
+@@ -1001,7 +1004,7 @@ do_pass:
+ 			*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_TMP, BPF_REG_A);
+ 			insn++;
+ 
+-			/* A = R0 = *(u8 *) (skb->data + K) */
++			/* A = BPF_R0 = *(u8 *) (skb->data + K) */
+ 			*insn = BPF_LD_ABS(BPF_B, fp->k);
+ 			insn++;
+ 
+-- 
+1.9.0
