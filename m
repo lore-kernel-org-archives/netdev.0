@@ -1,72 +1,62 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 0/9] Mellanox driver update 2014-05-12
-Date: Tue, 13 May 2014 13:06:49 +0300
-Message-ID: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 6/9] net/mlx4_en: Protect MAC address modification with the state_lock mutex
+Date: Tue, 13 May 2014 13:06:55 +0300
+Message-ID: <1399975618-18707-7-git-send-email-amirv@mellanox.com>
+References: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Shani Michaelli <shanim@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40928 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40929 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760707AbaEMKH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1760739AbaEMKH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 13 May 2014 06:07:28 -0400
+In-Reply-To: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Shani Michaelli <shanim@mellanox.com>
 
-This patchset introduce some small bug fixes:
-Eyal fixed some compilation and syntactic checkers warnings. Ido fixed a
-coruption in user priority mapping when changing number of channels. Noa fixed
-a bug in flow steering table when using a bond device. Shani fixed some other
-problems when modifying MAC address. Yuval fixed a problem when changing IRQ
-affinity during high traffic - IRQ changes got effective only after the first
-pause in traffic.
+This Patches solves an issue that could raise when modifying the
+device's MAC. It occurs due to a simultaneous access to priv->mac_hash
+from two contexts. The buggy scenario described below:
+Context 1: copy the new mac address to the dev->dev_addr field.
+Context 2: mlx4_en_do_uc_filter removes prev_mac entry from the mac_hash
+           db since it is not in dev->uc and not equal to dev->dev_addr.
+Context 1: mlx4_en_do_set_mac() calls mlx4_en_replace_mac() to replace
+           prev_mac with dev_addr but it fails to update the mac_hash db
+           since it no longer contains prev_mac, therefore it returns
+           with an error.
 
-This patchset was tested and applied over commit 93dccc5: "mdio_bus: fix
-devm_mdiobus_alloc_size export"
+The fix is to prevent mlx4_en_do_uc_filter from being executed by both
+of the context 1 calls described above, This is done by putting them
+both under the mdev->state_lock lock, it will solve this issue since
+mlx4_en_do_uc_filter is already protected by the mdev->state_lock.
 
-Changes from V0:
-- Patch 1/9 - net/mlx4_core: Enforce irq affinity changes immediatly
-  - Moved the new members to a hot cache line as Eric suggested
 
-Thanks,
-Amir
+Reviewed-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Eyal Perry (4):
-  net/mlx4_core: Fix smatch error - possible access to a null variable
-  net/mlx4_core: Removed unnecessary bit operation condition
-  net/mlx4_en: Using positive error value for unsigned
-  net/mlx4_core: Fix inaccurate return value of mlx4_flow_attach()
-
-Ido Shamay (1):
-  net/mlx4_en: User prio mapping gets corrupted when changing number of
-    channels
-
-Noa Osherovich (1):
-  net/mlx4_en: Fix mac_hash database inconsistency
-
-Shani Michaelli (2):
-  net/mlx4_en: Fix errors in MAC address changing when port is down
-  net/mlx4_en: Protect MAC address modification with the state_lock
-    mutex
-
-Yuval Atias (1):
-  net/mlx4_core: Enforce irq affinity changes immediatly
-
- drivers/net/ethernet/mellanox/mlx4/cmd.c        | 14 ++++++
- drivers/net/ethernet/mellanox/mlx4/cq.c         |  3 ++
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  3 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 29 +++++++-----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 11 ++++-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      |  6 +++
- drivers/net/ethernet/mellanox/mlx4/eq.c         | 62 +++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/main.c       |  9 ++--
- drivers/net/ethernet/mellanox/mlx4/mcg.c        |  2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  2 +-
- include/linux/mlx4/device.h                     |  3 ++
- 11 files changed, 122 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index eea7868..9090643 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -789,9 +789,8 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
+ 	if (!is_valid_ether_addr(saddr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+-
+ 	mutex_lock(&mdev->state_lock);
++	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+ 	err = mlx4_en_do_set_mac(priv);
+ 	mutex_unlock(&mdev->state_lock);
+ 
 -- 
 1.8.3.4
