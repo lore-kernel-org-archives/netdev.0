@@ -1,41 +1,75 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: phy: resume phydev when PHY_RESUMING
-Date: Tue, 13 May 2014 22:51:05 +0400
-Message-ID: <53726999.4050103@cogentembedded.com>
-References: <1399972998-21772-1-git-send-email-zhangfei.gao@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiancheng Xue <xuejiancheng@huawei.com>
-To: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-	davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] net: filter: x86: fix JIT address randomization
+Date: Tue, 13 May 2014 11:53:34 -0700
+Message-ID: <1400007214-3236-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:55326 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754446AbaEMSvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 14:51:06 -0400
-Received: by mail-lb0-f180.google.com with SMTP id p9so609866lbv.39
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 11:51:04 -0700 (PDT)
-In-Reply-To: <1399972998-21772-1-git-send-email-zhangfei.gao@linaro.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:43913 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751357AbaEMSxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 14:53:39 -0400
+Received: by mail-pb0-f52.google.com with SMTP id rr13so608856pbb.39
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 11:53:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+bpf_alloc_binary() adds 128 bytes of room to JITed program image
+and rounds it up to the nearest page size. If image size is close
+to page size (like 4000), it is rounded to two pages:
+round_up(4000 + 4 + 128) == 8192
+then 'hole' is computed as 8192 - (4000 + 4) = 4188
+If prandom_u32() % hole selects a number >= 4096, then kernel will crash
+during bpf_jit_free():
 
-On 05/13/2014 01:23 PM, Zhangfei Gao wrote:
+kernel BUG at arch/x86/mm/pageattr.c:887!
+Call Trace:
+ [<ffffffff81037285>] change_page_attr_set_clr+0x135/0x460
+ [<ffffffff81694cc0>] ? _raw_spin_unlock_irq+0x30/0x50
+ [<ffffffff810378ff>] set_memory_rw+0x2f/0x40
+ [<ffffffffa01a0d8d>] bpf_jit_free_deferred+0x2d/0x60
+ [<ffffffff8106bf98>] process_one_work+0x1d8/0x6a0
+ [<ffffffff8106bf38>] ? process_one_work+0x178/0x6a0
+ [<ffffffff8106c90c>] worker_thread+0x11c/0x370
 
-> Commit be9dad1f9f26604fb suspend phydev when going to HALTED.
+since bpf_jit_free() does:
+  unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+  struct bpf_binary_header *header = (void *)addr;
+to compute start address of 'bpf_binary_header'
+and header->pages will pass junk to:
+  set_memory_rw(addr, header->pages);
 
-    Please also specify that commit's summary line in parens.
+Fix it by picking image offset always out of the first page.
 
-> However not to resume phydev when going to RESUMING.
-> BMCR_PDOWN remains set "ifconfig eth0 down" -> "ifconfig eth0 up".
-> Unless phy_attach_direct is called in open function.
+While at it make the offset to be within first half of the page,
+so there is some room for CPU to run before it hits page miss.
 
-> Fix the issue via phy_resume in PHY_RESUMING
+Fixes: 314beb9bcabfd ("x86: bpf_jit_comp: secure bpf jit against spraying attacks")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
 
-> Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
-> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+s390 commit aa2d2c73c21f ("s390/bpf,jit: address randomize and write protect jit code")
+seems to have the same problem
 
-WBR, Sergei
+ arch/x86/net/bpf_jit_comp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index dc01773..c6ab7a0 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -171,7 +171,7 @@ static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
+ 	memset(header, 0xcc, sz); /* fill whole space with int3 instructions */
+ 
+ 	header->pages = sz / PAGE_SIZE;
+-	hole = sz - (proglen + sizeof(*header));
++	hole = min(sz - (proglen + sizeof(*header)), PAGE_SIZE / 2);
+ 
+ 	/* insert a random number of int3 instructions before BPF code */
+ 	*image_ptr = &header->image[prandom_u32() % hole];
+-- 
+1.7.9.5
