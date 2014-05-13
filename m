@@ -1,230 +1,77 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v3 3/3] net: support marking accepting TCP sockets
-Date: Tue, 13 May 2014 10:17:35 -0700
-Message-ID: <1400001455-30267-4-git-send-email-lorenzo@google.com>
-References: <1400001455-30267-1-git-send-email-lorenzo@google.com>
-Cc: jpa@google.com, davem@davemloft.net, ja@ssi.bg,
-	hannes@stressinduktion.org, eric.dumazet@gmail.com,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: Re: [PATCH 1/3] net: of_mdio: factor out code to parse a phy's 'reg'
+ property
+Date: Tue, 13 May 2014 19:21:54 +0200
+Message-ID: <537254B2.9050600@gmail.com>
+References: <1399739875-16434-1-git-send-email-zonque@gmail.com>	<1399739875-16434-2-git-send-email-zonque@gmail.com>	<536E8C0E.3040407@cogentembedded.com> <20140513.130738.453141636294063523.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	ujhelyi.m@gmail.com
+To: David Miller <davem@davemloft.net>,
+	sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:60121 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753555AbaEMRRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 13:17:47 -0400
-Received: by mail-pa0-f42.google.com with SMTP id rd3so518960pab.15
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 10:17:47 -0700 (PDT)
-In-Reply-To: <1400001455-30267-1-git-send-email-lorenzo@google.com>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:40623 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174AbaEMRV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 13:21:57 -0400
+Received: by mail-ee0-f41.google.com with SMTP id t10so650484eei.28
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 10:21:56 -0700 (PDT)
+In-Reply-To: <20140513.130738.453141636294063523.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When using mark-based routing, sockets returned from accept()
-may need to be marked differently depending on the incoming
-connection request.
+On 05/13/2014 07:07 PM, David Miller wrote:
+> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date: Sun, 11 May 2014 00:29:02 +0400
+> 
+>> Hello.
+>>
+>> On 05/10/2014 08:37 PM, Daniel Mack wrote:
+>>
+>>> Factor out some logic into of_mdio_parse_addr() so it can be reused
+>>> later.
+>>
+>>> Signed-off-by: Daniel Mack <zonque@gmail.com>
+>>> ---
+>>>   drivers/of/of_mdio.c | 37 +++++++++++++++++++++++++------------
+>>>   1 file changed, 25 insertions(+), 12 deletions(-)
+>>
+>>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+>>> index 9a95831..171f9d5 100644
+>>> --- a/drivers/of/of_mdio.c
+>>> +++ b/drivers/of/of_mdio.c
+>>> @@ -114,6 +114,29 @@ static int of_mdiobus_register_phy(struct mii_bus
+>>> *mdio, struct device_node *chi
+>>>   	return 0;
+>>>   }
+>>>
+>>> +static int of_mdio_parse_addr(struct device *dev, const struct
+>>> device_node *np)
+>>> +{
+>>> +	const __be32 *paddr;
+>>> +	u32 addr;
+>>> +	int len;
+>>> +
+>>> +	/* A PHY must have a reg property in the range [0-31] */
+>>> +	paddr = of_get_property(np, "reg", &len);
+>>> +	if (!paddr || len < sizeof(*paddr)) {
+>>> + dev_err(dev, "%s has invalid PHY address\n", np->full_name);
+>>> +		return -EINVAL;
+>>> +	}
+>>> +
+>>> +	addr = be32_to_cpup(paddr);
+>>
+>>    Why not just use of_property_read_u32() instead of the above? At least
+>>    that's a material for a follow-up patch...
+> 
+> Agreed, I would prefer if of_property_read_u32() is used here instead
+> of this by hand expansion.
+> 
 
-This is the case, for example, if different socket marks identify
-different networks: a listening socket may want to accept
-connections from all networks, but each connection should be
-marked with the network that the request came in on, so that
-subsequent packets are sent on the correct network.
+Yes, I agree as well, but I guess I can add this as a follow-up patch,
+so we have it separate from the code move?
 
-This patch adds a sysctl to mark TCP sockets based on the fwmark
-of the incoming SYN packet. If enabled, and an unmarked socket
-receives a SYN, then the SYN packet's fwmark is written to the
-connection's inet_request_sock, and later written back to the
-accepted socket when the connection is established.  If the
-socket already has a nonzero mark, then the behaviour is the same
-as it is today, i.e., the listening socket's fwmark is used.
 
-Black-box tested using user-mode linux:
-
-- IPv4/IPv6 SYN+ACK, FIN, etc. packets are routed based on the
-  mark of the incoming SYN packet.
-- The socket returned by accept() is marked with the mark of the
-  incoming SYN packet.
-- Tested with syncookies=1 and syncookies=2.
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- include/net/inet_sock.h          | 10 ++++++++++
- include/net/netns/ipv4.h         |  1 +
- net/ipv4/inet_connection_sock.c  |  6 ++++--
- net/ipv4/syncookies.c            |  3 ++-
- net/ipv4/sysctl_net_ipv4.c       |  7 +++++++
- net/ipv4/tcp_ipv4.c              |  1 +
- net/ipv6/inet6_connection_sock.c |  2 +-
- net/ipv6/syncookies.c            |  4 +++-
- net/ipv6/tcp_ipv6.c              |  1 +
- 9 files changed, 30 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 1833c3f..b1edf17 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -90,6 +90,7 @@ struct inet_request_sock {
- 	kmemcheck_bitfield_end(flags);
- 	struct ip_options_rcu	*opt;
- 	struct sk_buff		*pktopts;
-+	u32                     ir_mark;
- };
- 
- static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
-@@ -97,6 +98,15 @@ static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
- 	return (struct inet_request_sock *)sk;
- }
- 
-+static inline u32 inet_request_mark(struct sock *sk, struct sk_buff *skb)
-+{
-+	if (!sk->sk_mark && sock_net(sk)->ipv4.sysctl_tcp_fwmark_accept) {
-+		return skb->mark;
-+	} else {
-+		return sk->sk_mark;
-+	}
-+}
-+
- struct inet_cork {
- 	unsigned int		flags;
- 	__be32			addr;
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index a32fc4d..2f0cfad 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -78,6 +78,7 @@ struct netns_ipv4 {
- 	int sysctl_ip_fwd_use_pmtu;
- 
- 	int sysctl_fwmark_reflect;
-+	int sysctl_tcp_fwmark_accept;
- 
- 	struct ping_group_range ping_group_range;
- 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index a56b8e6..12e502c 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -408,7 +408,7 @@ struct dst_entry *inet_csk_route_req(struct sock *sk,
- 	struct net *net = sock_net(sk);
- 	int flags = inet_sk_flowi_flags(sk);
- 
--	flowi4_init_output(fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(fl4, sk->sk_bound_dev_if, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
- 			   sk->sk_protocol,
- 			   flags,
-@@ -445,7 +445,7 @@ struct dst_entry *inet_csk_route_child_sock(struct sock *sk,
- 
- 	rcu_read_lock();
- 	opt = rcu_dereference(newinet->inet_opt);
--	flowi4_init_output(fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(fl4, sk->sk_bound_dev_if, inet_rsk(req)->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE,
- 			   sk->sk_protocol, inet_sk_flowi_flags(sk),
- 			   (opt && opt->opt.srr) ? opt->opt.faddr : ireq->ir_rmt_addr,
-@@ -680,6 +680,8 @@ struct sock *inet_csk_clone_lock(const struct sock *sk,
- 		inet_sk(newsk)->inet_sport = htons(inet_rsk(req)->ir_num);
- 		newsk->sk_write_space = sk_stream_write_space;
- 
-+		newsk->sk_mark = inet_rsk(req)->ir_mark;
-+
- 		newicsk->icsk_retransmits = 0;
- 		newicsk->icsk_backoff	  = 0;
- 		newicsk->icsk_probes_out  = 0;
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index f2ed13c..c86624b 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -303,6 +303,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	ireq->ir_rmt_port	= th->source;
- 	ireq->ir_loc_addr	= ip_hdr(skb)->daddr;
- 	ireq->ir_rmt_addr	= ip_hdr(skb)->saddr;
-+	ireq->ir_mark		= inet_request_mark(sk, skb);
- 	ireq->ecn_ok		= ecn_ok;
- 	ireq->snd_wscale	= tcp_opt.snd_wscale;
- 	ireq->sack_ok		= tcp_opt.sack_ok;
-@@ -339,7 +340,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	 * hasn't changed since we received the original syn, but I see
- 	 * no easy way to do this.
- 	 */
--	flowi4_init_output(&fl4, sk->sk_bound_dev_if, sk->sk_mark,
-+	flowi4_init_output(&fl4, sk->sk_bound_dev_if, ireq->ir_mark,
- 			   RT_CONN_FLAGS(sk), RT_SCOPE_UNIVERSE, IPPROTO_TCP,
- 			   inet_sk_flowi_flags(sk),
- 			   (opt && opt->srr) ? opt->faddr : ireq->ir_rmt_addr,
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index f50d51850..a33b9fb 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -845,6 +845,13 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+	{
-+		.procname	= "tcp_fwmark_accept",
-+		.data		= &init_net.ipv4.sysctl_tcp_fwmark_accept,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index ad166dc..6c1b6f6 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1507,6 +1507,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq->ir_rmt_addr = saddr;
- 	ireq->no_srccheck = inet_sk(sk)->transparent;
- 	ireq->opt = tcp_v4_save_options(skb);
-+	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index d4ade34..a245e5d 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -81,7 +81,7 @@ struct dst_entry *inet6_csk_route_req(struct sock *sk,
- 	final_p = fl6_update_dst(fl6, np->opt, &final);
- 	fl6->saddr = ireq->ir_v6_loc_addr;
- 	fl6->flowi6_oif = ireq->ir_iif;
--	fl6->flowi6_mark = sk->sk_mark;
-+	fl6->flowi6_mark = ireq->ir_mark;
- 	fl6->fl6_dport = ireq->ir_rmt_port;
- 	fl6->fl6_sport = htons(ireq->ir_num);
- 	security_req_classify_flow(req, flowi6_to_flowi(fl6));
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index bb53a5e7..a822b88 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -216,6 +216,8 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	    ipv6_addr_type(&ireq->ir_v6_rmt_addr) & IPV6_ADDR_LINKLOCAL)
- 		ireq->ir_iif = inet6_iif(skb);
- 
-+	ireq->ir_mark = inet_request_mark(sk, skb);
-+
- 	req->expires = 0UL;
- 	req->num_retrans = 0;
- 	ireq->ecn_ok		= ecn_ok;
-@@ -242,7 +244,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 		final_p = fl6_update_dst(&fl6, np->opt, &final);
- 		fl6.saddr = ireq->ir_v6_loc_addr;
- 		fl6.flowi6_oif = sk->sk_bound_dev_if;
--		fl6.flowi6_mark = sk->sk_mark;
-+		fl6.flowi6_mark = ireq->ir_mark;
- 		fl6.fl6_dport = ireq->ir_rmt_port;
- 		fl6.fl6_sport = inet_sk(sk)->inet_sport;
- 		security_req_classify_flow(req, flowi6_to_flowi(&fl6));
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 994572c..37c8334 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1017,6 +1017,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
- 
- 	ireq->ir_iif = sk->sk_bound_dev_if;
-+	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
--- 
-1.9.1.423.g4596e3a
+Daniel
