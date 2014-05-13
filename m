@@ -1,77 +1,41 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH 1/3] net: of_mdio: factor out code to parse a phy's 'reg'
- property
-Date: Tue, 13 May 2014 19:21:54 +0200
-Message-ID: <537254B2.9050600@gmail.com>
-References: <1399739875-16434-1-git-send-email-zonque@gmail.com>	<1399739875-16434-2-git-send-email-zonque@gmail.com>	<536E8C0E.3040407@cogentembedded.com> <20140513.130738.453141636294063523.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	ujhelyi.m@gmail.com
-To: David Miller <davem@davemloft.net>,
-	sergei.shtylyov@cogentembedded.com
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 0/5] 802154: some cleanups and fixes
+Date: Tue, 13 May 2014 19:24:01 +0200
+Message-ID: <1400001846-5349-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:40623 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751174AbaEMRV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 13:21:57 -0400
-Received: by mail-ee0-f41.google.com with SMTP id t10so650484eei.28
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 10:21:56 -0700 (PDT)
-In-Reply-To: <20140513.130738.453141636294063523.davem@davemloft.net>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:39672 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753057AbaEMRYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 13:24:24 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s4DHOLnt024087
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 May 2014 19:24:21 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/13/2014 07:07 PM, David Miller wrote:
-> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Date: Sun, 11 May 2014 00:29:02 +0400
-> 
->> Hello.
->>
->> On 05/10/2014 08:37 PM, Daniel Mack wrote:
->>
->>> Factor out some logic into of_mdio_parse_addr() so it can be reused
->>> later.
->>
->>> Signed-off-by: Daniel Mack <zonque@gmail.com>
->>> ---
->>>   drivers/of/of_mdio.c | 37 +++++++++++++++++++++++++------------
->>>   1 file changed, 25 insertions(+), 12 deletions(-)
->>
->>> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
->>> index 9a95831..171f9d5 100644
->>> --- a/drivers/of/of_mdio.c
->>> +++ b/drivers/of/of_mdio.c
->>> @@ -114,6 +114,29 @@ static int of_mdiobus_register_phy(struct mii_bus
->>> *mdio, struct device_node *chi
->>>   	return 0;
->>>   }
->>>
->>> +static int of_mdio_parse_addr(struct device *dev, const struct
->>> device_node *np)
->>> +{
->>> +	const __be32 *paddr;
->>> +	u32 addr;
->>> +	int len;
->>> +
->>> +	/* A PHY must have a reg property in the range [0-31] */
->>> +	paddr = of_get_property(np, "reg", &len);
->>> +	if (!paddr || len < sizeof(*paddr)) {
->>> + dev_err(dev, "%s has invalid PHY address\n", np->full_name);
->>> +		return -EINVAL;
->>> +	}
->>> +
->>> +	addr = be32_to_cpup(paddr);
->>
->>    Why not just use of_property_read_u32() instead of the above? At least
->>    that's a material for a follow-up patch...
-> 
-> Agreed, I would prefer if of_property_read_u32() is used here instead
-> of this by hand expansion.
-> 
+This series adds some definitions for 802.15.4 header fields that were missing,
+changes 6lowpan packet size calculation to always be correct and fixes a bug in
+802.15.4 dgram sockets where sockets would ignore arguments to sendmsg(). Also,
+a few minor changes to mac_cb handling, and mark a single-use function static.
 
-Yes, I agree as well, but I guess I can add this as a follow-up patch,
-so we have it separate from the code move?
+---
+
+Phoebe Buckheister (5):
+      ieee802154: add definitions for link-layer security and header functions
+      6lowpan: simplify/fix payload length calculation
+      ieee802154: change _cb handling slightly
+      ieee802154: don't ignore "to" argument in unbound dgram sendmsg
+      mac802154: make mac802154_wpan_open static
 
 
-Daniel
+ include/net/ieee802154.h        |    9 +++++++
+ include/net/ieee802154_netdev.h |   54 ++++++++++++++++++++++++++-------------
+ net/ieee802154/6lowpan_rtnl.c   |   33 ++++++++++++++----------
+ net/ieee802154/dgram.c          |   23 +++++++++++------
+ net/ieee802154/header_ops.c     |   52 ++++++++++++++++++++++++++++++++-----
+ net/mac802154/rx.c              |    2 --
+ net/mac802154/wpan.c            |   28 ++++++++++----------
+ 7 files changed, 139 insertions(+), 62 deletions(-)
