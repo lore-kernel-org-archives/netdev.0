@@ -1,161 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v1] vhost: avoid large order allocations
-Date: Tue, 13 May 2014 11:40:49 +0300
-Message-ID: <20140513084049.GE29442@redhat.com>
-References: <1399970133-46783-1-git-send-email-mimu@linux.vnet.ibm.com>
-	<1399970133-46783-2-git-send-email-mimu@linux.vnet.ibm.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [net] BUG: unable to handle kernel NULL pointer dereference at
+ 000000000000022f
+Date: Tue, 13 May 2014 09:51:58 +0200
+Message-ID: <5371CF1E.8090903@pengutronix.de>
+References: <537188D4.6050201@intel.com> <5371AA32.6070407@hartkopp.net> <5371CD3A.9020500@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ddongch@cn.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	borntraeger@de.ibm.com
-To: Michael Mueller <mimu@linux.vnet.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1399970133-46783-2-git-send-email-mimu@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="0oJNWNKvum3OuhJMmlIcnicfDPNj3I9gq"
+Cc: Fengguang Wu <fengguang.wu@intel.com>,
+	linux-crypto@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Jet Chen <jet.chen@intel.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5371CD3A.9020500@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 13, 2014 at 10:35:33AM +0200, Michael Mueller wrote:
-> From: Dong Dong Chen <ddongch@cn.ibm.com>
-> 
-> Under memory pressure we observe load issues with module vhost_net, as the
-> vhost setup code will try to do an order 4 allocation for the device.
-> The likeliness of this issue to occur can be reduced when the statically
-> allocated variable "iov" in "struct vhost_virtqueue" is dynamically allocated
-> with exactly the required size, reducing this to an order 2 allocation.
-> 
-> Signed-off-by: Dong Dong Chen <ddongch@cn.ibm.com>
-> Reviewed-by: Christian Borntraeger <borntraeger@de.ibm.com>
-> Reviewed-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-> Reviewed-by: Michael Mueller <mimu@linux.vnet.ibm.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--0oJNWNKvum3OuhJMmlIcnicfDPNj3I9gq
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Please dont' do this, extra indirection hurts performance.
-Instead, please change vhost_net_open and scsi to allocate the whole
-structure with vmalloc if kmalloc fails, along the lines of
-74d332c13b2148ae934ea94dac1745ae92efe8e5
+On 05/13/2014 09:43 AM, Marc Kleine-Budde wrote:
+> On 05/13/2014 07:14 AM, Oliver Hartkopp wrote:
+>> Hello Jet,
+>>
+>> this is likely not CAN related, as
+>>
+>> # CONFIG_CAN is not set
+>>
+>> and all the CAN changes introduced by Marc's merge are not even compil=
+ed in
+>> your setup.
+>>
+>> So I assume the issue somewhere in the netlink or ipv6 stuff (see comm=
+it at
+>> the end.
+>=20
+> Yes, I my merge is probably broken. That was an attempt to merge net
+> into net-next, but I'm going to ask David Miller to do so. As I'm going=
 
-> ---
->  drivers/vhost/net.c   | 4 ++--
->  drivers/vhost/scsi.c  | 4 ++--
->  drivers/vhost/test.c  | 2 +-
->  drivers/vhost/vhost.c | 6 +++++-
->  drivers/vhost/vhost.h | 2 +-
->  5 files changed, 11 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index be414d2..e3a9a68 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -374,7 +374,7 @@ static void handle_tx(struct vhost_net *net)
->  			break;
->  
->  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> +					 UIO_MAXIOV,
->  					 &out, &in,
->  					 NULL, NULL);
->  		/* On error, stop handling until the next kick. */
-> @@ -506,7 +506,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
->  			goto err;
->  		}
->  		r = vhost_get_vq_desc(vq->dev, vq, vq->iov + seg,
-> -				      ARRAY_SIZE(vq->iov) - seg, &out,
-> +				      UIO_MAXIOV - seg, &out,
->  				      &in, log, log_num);
->  		if (unlikely(r < 0))
->  			goto err;
-> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> index cf50ce9..a70f1d9 100644
-> --- a/drivers/vhost/scsi.c
-> +++ b/drivers/vhost/scsi.c
-> @@ -607,7 +607,7 @@ tcm_vhost_do_evt_work(struct vhost_scsi *vs, struct tcm_vhost_evt *evt)
->  again:
->  	vhost_disable_notify(&vs->dev, vq);
->  	head = vhost_get_vq_desc(&vs->dev, vq, vq->iov,
-> -			ARRAY_SIZE(vq->iov), &out, &in,
-> +			UIO_MAXIOV, &out, &in,
->  			NULL, NULL);
->  	if (head < 0) {
->  		vs->vs_events_missed = true;
-> @@ -946,7 +946,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
->  
->  	for (;;) {
->  		head = vhost_get_vq_desc(&vs->dev, vq, vq->iov,
-> -					ARRAY_SIZE(vq->iov), &out, &in,
-> +					UIO_MAXIOV, &out, &in,
->  					NULL, NULL);
->  		pr_debug("vhost_get_vq_desc: head: %d, out: %u in: %u\n",
->  					head, out, in);
-> diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-> index c2a54fb..2e01920 100644
-> --- a/drivers/vhost/test.c
-> +++ b/drivers/vhost/test.c
-> @@ -54,7 +54,7 @@ static void handle_vq(struct vhost_test *n)
->  
->  	for (;;) {
->  		head = vhost_get_vq_desc(&n->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> +					 UIO_MAXIOV,
->  					 &out, &in,
->  					 NULL, NULL);
->  		/* On error, stop handling until the next kick. */
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 78987e4..9017a55 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -251,6 +251,8 @@ static int vhost_worker(void *data)
->  
->  static void vhost_vq_free_iovecs(struct vhost_virtqueue *vq)
->  {
-> +	kfree(vq->iov);
-> +	vq->iov = NULL;
->  	kfree(vq->indirect);
->  	vq->indirect = NULL;
->  	kfree(vq->log);
-> @@ -267,11 +269,12 @@ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
->  
->  	for (i = 0; i < dev->nvqs; ++i) {
->  		vq = dev->vqs[i];
-> +		vq->iov = kmalloc(sizeof(*vq->iov) * UIO_MAXIOV, GFP_KERNEL);
->  		vq->indirect = kmalloc(sizeof *vq->indirect * UIO_MAXIOV,
->  				       GFP_KERNEL);
->  		vq->log = kmalloc(sizeof *vq->log * UIO_MAXIOV, GFP_KERNEL);
->  		vq->heads = kmalloc(sizeof *vq->heads * UIO_MAXIOV, GFP_KERNEL);
-> -		if (!vq->indirect || !vq->log || !vq->heads)
-> +		if (!vq->iov || !vq->indirect || !vq->log || !vq->heads)
->  			goto err_nomem;
->  	}
->  	return 0;
-> @@ -310,6 +313,7 @@ void vhost_dev_init(struct vhost_dev *dev,
->  	for (i = 0; i < dev->nvqs; ++i) {
->  		vq = dev->vqs[i];
->  		vq->log = NULL;
-> +		vq->iov = NULL;
->  		vq->indirect = NULL;
->  		vq->heads = NULL;
->  		vq->dev = dev;
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 35eeb2a..541f757 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -100,7 +100,7 @@ struct vhost_virtqueue {
->  	bool log_used;
->  	u64 log_addr;
->  
-> -	struct iovec iov[UIO_MAXIOV];
-> +	struct iovec *iov;
->  	struct iovec *indirect;
->  	struct vring_used_elem *heads;
->  	/* Protected by virtqueue mutex. */
-> -- 
-> 1.8.3.1
+> to rebase this branch onto David's net-next (after the net merge), we
+> can ignore this for now.
+
+While I was asleep David merged net to net-master ;) I just rebased this
+branch and updated it. The oops should be gone now.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--0oJNWNKvum3OuhJMmlIcnicfDPNj3I9gq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlNxzx4ACgkQjTAFq1RaXHPcPQCgmCNTHEPQSYNlBdr0GuJLbZm6
+T8MAoIGfXp5A5Fva6d38QFfdIDuzb7Y3
+=NgTP
+-----END PGP SIGNATURE-----
+
+--0oJNWNKvum3OuhJMmlIcnicfDPNj3I9gq--
