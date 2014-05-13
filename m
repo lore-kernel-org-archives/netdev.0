@@ -1,84 +1,135 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
- router reachability
-Date: Tue, 13 May 2014 09:07:12 +0800
-Message-ID: <53717040.2070102@cn.fujitsu.com>
-References: <536C64C0.5050204@cn.fujitsu.com>	<1399845863.17976.116165369.3E7E2F36@webmail.messagingengine.com>	<53703F52.9060900@cn.fujitsu.com> <20140512.143720.896863177762079657.davem@davemloft.net>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH iproute2 v2] fq: allow options of fair queue set to ~0U
+Date: Tue, 13 May 2014 10:23:29 +0800
+Message-ID: <53718221.6040909@huawei.com>
+References: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>	 <1399874336.7973.17.camel@edumazet-glaptop2.roam.corp.google.com>	 <5370713F.7040701@huawei.com> <1399908225.7973.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <hannes@stressinduktion.org>, <netdev@vger.kernel.org>,
-	<jbenc@redhat.com>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>, <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:18676 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751524AbaEMBJh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 21:09:37 -0400
-In-Reply-To: <20140512.143720.896863177762079657.davem@davemloft.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:62252 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752597AbaEMCZE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 22:25:04 -0400
+In-Reply-To: <1399908225.7973.25.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-于 2014年05月13日 02:37, David Miller 写道:
-> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> Date: Mon, 12 May 2014 11:26:10 +0800
-> 
->> 于 2014年05月12日 06:04, Hannes Frederic Sowa 写道:
->>> On Thu, May 8, 2014, at 22:16, Duan Jiong wrote:
->>>>
->>>> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
->>>> into NUD_FAILED will be probed.
->>>>
->>>> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
->>>> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
->>>> then function dst_neigh_output() can directly send packets, but actually the
->>>> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
->>>> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
->>>>
->>>> In addition, because the route should be probes with a single NS, so we must
->>>> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
->>>> neigh_timer_handler() will not send other NS Messages.
->>>>
->>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->>>> ---
->>>> Changes from v1:
->>>> 	*modify changelog to explain in detail why use neigh_max_probes().
->>>>
->>>>  net/core/neighbour.c | 4 ++--
->>>>  1 file changed, 2 insertions(+), 2 deletions(-)
->>>>
->>>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
->>>> index 8f8a96e..32d872e 100644
->>>> --- a/net/core/neighbour.c
->>>> +++ b/net/core/neighbour.c
->>>> @@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
->>>>  	neigh->updated = jiffies;
->>>>  	if (!(neigh->nud_state & NUD_FAILED))
->>>>  		return;
->>>> -	neigh->nud_state = NUD_PROBE;
->>>> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
->>>> +	neigh->nud_state = NUD_INCOMPLETE;
->>>> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
->>>
->>> Wouldn't it be better if we neigh_suspect the neighbour and leaving the state in NUD_PROBE? We call down to ->output in case neighbour is in NUD_PROBE state, so we must just disable connected 'fast-path'.
->>>
->>
->> You can look into neigh_event_send() called in neigh_resolve_output(), and if neigh->nud_state
->> still is NUD_PROBE, the neigh_event_send() will return 0, so the packet will still be sent out
->> without probe.
->>
->> So, using neigh_suspect is not a good idea.
-> 
-> If you set it to NUD_INCOMPLETE however, neigh_event_send() is going to add the packet
-> to the neigh's ARP queue and return '1'.
-> 
-> Is that really what you want to happen in this case?
+From: Yang Yingliang <yangyingliang@huawei.com>
 
-Yes, packets should not be sent out until the neihbour is reachable.
+Some options of fair queue cannot be (~0U). It leads to maxrate
+cannot be reset to unlimited because it cannot be (~0U).
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> .
-> 
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ tc/q_fq.c | 36 ++++++++++++++++++++++++------------
+ 1 file changed, 24 insertions(+), 12 deletions(-)
+
+diff --git a/tc/q_fq.c b/tc/q_fq.c
+index c1f658e..6a493a5 100644
+--- a/tc/q_fq.c
++++ b/tc/q_fq.c
+@@ -71,13 +71,19 @@ static unsigned int ilog2(unsigned int val)
+ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 			struct nlmsghdr *n)
+ {
+-	unsigned int plimit = ~0U;
+-	unsigned int flow_plimit = ~0U;
+-	unsigned int quantum = ~0U;
+-	unsigned int initial_quantum = ~0U;
++	unsigned int plimit;
++	unsigned int flow_plimit;
++	unsigned int quantum;
++	unsigned int initial_quantum;
+ 	unsigned int buckets = 0;
+-	unsigned int maxrate = ~0U;
+-	unsigned int defrate = ~0U;
++	unsigned int maxrate;
++	unsigned int defrate;
++	int set_plimit = 0;
++	int set_flow_plimit = 0;
++	int set_quantum = 0;
++	int set_initial_quantum = 0;
++	int set_maxrate = 0;
++	int set_defrate = 0;
+ 	int pacing = -1;
+ 	struct rtattr *tail;
+ 
+@@ -88,12 +94,14 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 				fprintf(stderr, "Illegal \"limit\"\n");
+ 				return -1;
+ 			}
++			set_plimit = 1;
+ 		} else if (strcmp(*argv, "flow_limit") == 0) {
+ 			NEXT_ARG();
+ 			if (get_unsigned(&flow_plimit, *argv, 0)) {
+ 				fprintf(stderr, "Illegal \"flow_limit\"\n");
+ 				return -1;
+ 			}
++			set_flow_plimit = 0;
+ 		} else if (strcmp(*argv, "buckets") == 0) {
+ 			NEXT_ARG();
+ 			if (get_unsigned(&buckets, *argv, 0)) {
+@@ -106,24 +114,28 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 				fprintf(stderr, "Illegal \"maxrate\"\n");
+ 				return -1;
+ 			}
++			set_maxrate = 1;
+ 		} else if (strcmp(*argv, "defrate") == 0) {
+ 			NEXT_ARG();
+ 			if (get_rate(&defrate, *argv)) {
+ 				fprintf(stderr, "Illegal \"defrate\"\n");
+ 				return -1;
+ 			}
++			set_defrate = 1;
+ 		} else if (strcmp(*argv, "quantum") == 0) {
+ 			NEXT_ARG();
+ 			if (get_unsigned(&quantum, *argv, 0)) {
+ 				fprintf(stderr, "Illegal \"quantum\"\n");
+ 				return -1;
+ 			}
++			set_quantum = 1;
+ 		} else if (strcmp(*argv, "initial_quantum") == 0) {
+ 			NEXT_ARG();
+ 			if (get_unsigned(&initial_quantum, *argv, 0)) {
+ 				fprintf(stderr, "Illegal \"initial_quantum\"\n");
+ 				return -1;
+ 			}
++			set_initial_quantum = 1;
+ 		} else if (strcmp(*argv, "pacing") == 0) {
+ 			pacing = 1;
+ 		} else if (strcmp(*argv, "nopacing") == 0) {
+@@ -147,24 +159,24 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
+ 		addattr_l(n, 1024, TCA_FQ_BUCKETS_LOG,
+ 			  &log, sizeof(log));
+ 	}
+-	if (plimit != ~0U)
++	if (set_plimit)
+ 		addattr_l(n, 1024, TCA_FQ_PLIMIT,
+ 			  &plimit, sizeof(plimit));
+-	if (flow_plimit != ~0U)
++	if (set_flow_plimit)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_PLIMIT,
+ 			  &flow_plimit, sizeof(flow_plimit));
+-	if (quantum != ~0U)
++	if (set_quantum)
+ 		addattr_l(n, 1024, TCA_FQ_QUANTUM, &quantum, sizeof(quantum));
+-	if (initial_quantum != ~0U)
++	if (set_initial_quantum)
+ 		addattr_l(n, 1024, TCA_FQ_INITIAL_QUANTUM,
+ 			  &initial_quantum, sizeof(initial_quantum));
+ 	if (pacing != -1)
+ 		addattr_l(n, 1024, TCA_FQ_RATE_ENABLE,
+ 			  &pacing, sizeof(pacing));
+-	if (maxrate != ~0U)
++	if (set_maxrate)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_MAX_RATE,
+ 			  &maxrate, sizeof(maxrate));
+-	if (defrate != ~0U)
++	if (set_defrate)
+ 		addattr_l(n, 1024, TCA_FQ_FLOW_DEFAULT_RATE,
+ 			  &defrate, sizeof(defrate));
+ 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
