@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request net: batman-adv 20140510
-Date: Tue, 13 May 2014 12:54:30 -0400 (EDT)
-Message-ID: <20140513.125430.1667087876589781606.davem@davemloft.net>
-References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: [PATCH -next] net: fix test_bpf build to depend on NET
+Date: Tue, 13 May 2014 09:58:44 -0700
+Message-ID: <53724F44.2010608@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbaEMQyc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:54:32 -0400
-In-Reply-To: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Sat, 10 May 2014 17:35:06 +0200
+From: Randy Dunlap <rdunlap@infradead.org>
 
-> here you have 4 small but important patches from Simon Wunderlich intended
-> for net/linux-3.15 and *stable/linux-3.14* (please enqueue them).
-> 
-> I know it's rather late in the rc cycle but these 4 changes are addressing
-> some severe reference counting imbalances in different parts of code.
+Fix build when CONFIG_NET is not enabled.
+Fixes these build errors:
 
-Pulled and queued up for -stable, thanks.
+WARNING: "sk_unattached_filter_destroy" [lib/test_bpf.ko] undefined!
+WARNING: "kfree_skb" [lib/test_bpf.ko] undefined!
+WARNING: "sk_unattached_filter_create" [lib/test_bpf.ko] undefined!
+WARNING: "sk_run_filter_int_skb" [lib/test_bpf.ko] undefined!
+WARNING: "__alloc_skb" [lib/test_bpf.ko] undefined!
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+---
+ lib/Kconfig.debug |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-next-20140513.orig/lib/Kconfig.debug
++++ linux-next-20140513/lib/Kconfig.debug
+@@ -1639,7 +1639,7 @@ config TEST_USER_COPY
+ config TEST_BPF
+ 	tristate "Test BPF filter functionality"
+ 	default n
+-	depends on m
++	depends on m && NET
+ 	help
+ 	  This builds the "test_bpf" module that runs various test vectors
+ 	  against the BPF interpreter or BPF JIT compiler depending on the
