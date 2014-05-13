@@ -1,69 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: resume phydev when PHY_RESUMING
-Date: Tue, 13 May 2014 12:46:05 -0700
-Message-ID: <CAGVrzca9_KFtgjOywvjSm4gqL7OH5BtmQjk8e0xs3Nb+h-qZDA@mail.gmail.com>
-References: <1399972998-21772-1-git-send-email-zhangfei.gao@linaro.org> <53726999.4050103@cogentembedded.com>
+From: David Rientjes <rientjes@google.com>
+Subject: [patch] net, filter: make new test_bpf depend on networking
+Date: Tue, 13 May 2014 12:57:56 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405131255380.3392@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Zhangfei Gao <zhangfei.gao@linaro.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jiancheng Xue <xuejiancheng@huawei.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:62405 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752364AbaEMTqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 15:46:46 -0400
-Received: by mail-qc0-f170.google.com with SMTP id i8so1172748qcq.1
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 12:46:45 -0700 (PDT)
-In-Reply-To: <53726999.4050103@cogentembedded.com>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:63398 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751641AbaEMT56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 15:57:58 -0400
+Received: by mail-pb0-f47.google.com with SMTP id un15so668554pbc.34
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 12:57:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-13 11:51 GMT-07:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
->
-> On 05/13/2014 01:23 PM, Zhangfei Gao wrote:
->
->> Commit be9dad1f9f26604fb suspend phydev when going to HALTED.
->
->
->    Please also specify that commit's summary line in parens.
+CONFIG_TEST_BPF depends on CONFIG_NET, otherwise the build fails:
 
-That, and please rephrase your commit message such that we can
-understand the problem this fixes. Something along the lines of:
+ERROR: "sk_unattached_filter_destroy" [lib/test_bpf.ko] undefined!
+ERROR: "kfree_skb" [lib/test_bpf.ko] undefined!
+ERROR: "sk_unattached_filter_create" [lib/test_bpf.ko] undefined!
+ERROR: "sk_run_filter_int_skb" [lib/test_bpf.ko] undefined!
+ERROR: "__alloc_skb" [lib/test_bpf.ko] undefined!
 
-"With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
-to HALTED"), an unused PHY device will be put in a low-power mode
-using BMCR_PDOWN. Some Ethernet drivers might be calling phy_connect()
-and phy_disconnect() from their ndo_open, respectively ndo_close()
-callbacks, in such a case, the PHY will be powered down during the
-phy_disconnect() call, but will fail to be powered up in
-phy_connect(). This patch fixes the following scenario."
+Add the dependency.
 
-Thanks
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Signed-off-by: David Rientjes <rientjes@google.com>
+---
+ lib/Kconfig.debug | 1 +
+ 1 file changed, 1 insertion(+)
 
->
->
->> However not to resume phydev when going to RESUMING.
->> BMCR_PDOWN remains set "ifconfig eth0 down" -> "ifconfig eth0 up".
->> Unless phy_attach_direct is called in open function.
->
->
->> Fix the issue via phy_resume in PHY_RESUMING
->
->
->> Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
->> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
->
->
-> WBR, Sergei
->
-
-
-
--- 
-Florian
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -1639,6 +1639,7 @@ config TEST_USER_COPY
+ config TEST_BPF
+ 	tristate "Test BPF filter functionality"
+ 	default n
++	depends on NET
+ 	depends on m
+ 	help
+ 	  This builds the "test_bpf" module that runs various test vectors
