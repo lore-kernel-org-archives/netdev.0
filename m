@@ -1,41 +1,41 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max
- update of setup
-Date: Tue, 13 May 2014 13:07:59 +0200
-Message-ID: <1399979279.8278.14.camel@linux-fkkt.site>
-References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
-	 <1399736509-1159-2-git-send-email-bjorn@mork.no>
-	 <1399968546.8278.2.camel@linux-fkkt.site> <871tvy2hcp.fsf@nemi.mork.no>
-	 <1399972165.8278.11.camel@linux-fkkt.site> <87sioe114n.fsf@nemi.mork.no>
+From: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected
+ mode TX path
+Date: Tue, 13 May 2014 13:38:42 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1405131338030.16459@pobox.suse.cz>
+References: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52116 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759006AbaEMLIB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 07:08:01 -0400
-In-Reply-To: <87sioe114n.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399810512-30774-1-git-send-email-ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-05-13 at 11:25 +0200, Bj=C3=B8rn Mork wrote:
-> Oliver Neukum <oneukum@suse.de> writes:
+On Sun, 11 May 2014, Or Gerlitz wrote:
 
-> Yes, I agree.  Will change this. Let's try to go for b) then. I.e.
->=20
->  	min =3D USB_CDC_NCM_NTB_MIN_IN_SIZE;
->  	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_pa=
-rm.dwNtbInMaxSize));
->         if (max < min)
->               max =3D min;
+> This series is a refactored form of the one posted by Jiri Kosina 
+> to LKML and netdev according to the discussion that followed
+> and the guidelines you provided here https://lkml.org/lkml/2014/3/5/250
+> 
+> Basically, the functionality changes introduced by this series fully 
+> reside on the IB side of things, so I am only posting the actual patches 
+> to linux-rdma with CC on the cover-letter to the lists that were on V0.
 
-Thanks
+Thanks, I am fine with my Signoff on that.
 
-	Regards
-		Oliver
+Roland, is this going to be merged by you, or should this go to DaveM 
+directly?
+
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
