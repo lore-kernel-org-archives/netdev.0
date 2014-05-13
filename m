@@ -1,58 +1,77 @@
-From: xuyongjiande@gmail.com
-Subject: [PATCH] e1000: To filter the negative skb->len
-Date: Tue, 13 May 2014 11:33:07 +0800
-Message-ID: <1399951987-10434-1-git-send-email-xuyongjiande@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the ipsec tree
+Date: Tue, 13 May 2014 13:53:22 +1000
+Message-ID: <20140513135322.3dfadb7c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Yongjian Xu <xuyongjiande@gmail.com>
-To: linux.nics@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/JYR/4_vn_mDAL19ffHkl+ZP"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yongjian Xu <xuyongjiande@gmail.com>
+--Sig_/JYR/4_vn_mDAL19ffHkl+ZP
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-skb->len is unsigned int, "skb->len <= 0" should be "(int)(skb->len) <= 0".
+Hi all,
 
-Signed-off-by: Yongjian Xu <xuyongjiande@gmail.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Today's linux-next merge of the net-next tree got a conflict in
+net/ipv6/xfrm6_output.c between commit 5596732fa8c1 ("xfrm: Fix crash
+with ipv6 IPsec tunnel and NAT") from the ipsec tree and commit
+60ff746739bf ("net: rename local_df to ignore_df") from the net-next
+tree.
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 27058df..29dbfc8 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -3105,7 +3105,7 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	 */
- 	tx_ring = adapter->tx_ring;
- 
--	if (unlikely(skb->len <= 0)) {
-+	if (unlikely((int)(skb->len) <= 0)) {
- 		dev_kfree_skb_any(skb);
- 		return NETDEV_TX_OK;
- 	}
--- 
-1.9.1
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-------------------------------------------------------------------------------
-"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
-Instantly run your Selenium tests across 300+ browser/OS combos.
-Get unparalleled scalability from the best Selenium testing platform available
-Simple to use. Nothing to install. Get started now for free."
-http://p.sf.net/sfu/SauceLabs
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --cc net/ipv6/xfrm6_output.c
+index b930d080c66f,f47c8b153dd3..000000000000
+--- a/net/ipv6/xfrm6_output.c
++++ b/net/ipv6/xfrm6_output.c
+@@@ -114,7 -114,13 +114,7 @@@ int xfrm6_prepare_output(struct xfrm_st
+  	if (err)
+  		return err;
+ =20
+- 	skb->local_df =3D 1;
+ -	memset(IP6CB(skb), 0, sizeof(*IP6CB(skb)));
+ -#ifdef CONFIG_NETFILTER
+ -	IP6CB(skb)->flags |=3D IP6SKB_XFRM_TRANSFORMED;
+ -#endif
+ -
+ -	skb->protocol =3D htons(ETH_P_IPV6);
++ 	skb->ignore_df =3D 1;
+ =20
+  	return x->outer_mode->output2(x, skb);
+  }
+
+--Sig_/JYR/4_vn_mDAL19ffHkl+ZP
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTcZc3AAoJEMDTa8Ir7ZwVlNoQAIRlYcONp54ZRsaSBt/9tGz0
++x6X5yp7McVN5fXOoSWLwVD1EF4/Tlv0ShMRoWIA3PSzipVsiLC1JggzYxR4t31y
+zZ1O0RExukA1TtZnecNw88waBIlEVPPME1r0jV5PD0miJFiqyRnujH430FKFKlRQ
+76PIJy9njRIzZMsvxsz3lHYzCVop6+kk8sjk8CtFOwAr7MeKWx4QSuTYb/Axzj8B
+py4e390C8S5I/MojoV9ZT2f9XnHkNLwnKJTA11TrOYI8KzemejK5nzx+J/thz9Ej
+65YoeqkKlM3yxwpyW+d0HlB35cFtip7tHU2zbln4LZ2aeAIQ58FRk81qDyhKGViw
+75Xbh8k7WDDJqfGr5UiVUsTYtyMDNeuHkK7Vlfcx+jYw+r46rI7hHKczVKtJdCzN
+7XY/bSmRCkZtFPfG+44/WGdjK0NDH83N75MDPOmg5rXca5Kmoaaa8ALhFl5/2fmX
+H8K4fDT247DPXXHy2kWRAo4KG95FeWD+iLHv/fbrQid8ESmYoQa7kELGLvdZejUU
+TEt1rHlawQOYOQ8ZKYYAOCskIXBIhyIRZ1pw88v6n9M7kZ4Rp+QvDtGHqh1CUFOJ
+s/07sYFrPNgOm/nu2rwbQimHuASQD21z9qobWVFhxuweCc8oyqWLXMPUt27alwWR
+MUd/I2sSQ/uSzTJQ6bEL
+=gbre
+-----END PGP SIGNATURE-----
+
+--Sig_/JYR/4_vn_mDAL19ffHkl+ZP--
