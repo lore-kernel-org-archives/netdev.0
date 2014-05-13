@@ -1,36 +1,34 @@
-From: Michael Mueller <mimu@linux.vnet.ibm.com>
-Subject: [PATCH v1] vhost: avoid large order allocations
-Date: Tue, 13 May 2014 10:35:32 +0200
-Message-ID: <1399970133-46783-1-git-send-email-mimu@linux.vnet.ibm.com>
-Cc: borntraeger@de.ibm.com, cornelia.huck@de.ibm.com,
-	mimu@linux.vnet.ibm.com, ddongch@cn.ibm.com
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec 1/3] vti6: Don't unregister pernet ops twice on
+ init errors
+Date: Tue, 13 May 2014 10:35:55 +0200
+Message-ID: <20140513083554.GY32371@secunet.com>
+References: <1399671822-12842-1-git-send-email-minipli@googlemail.com>
+ <1399671822-12842-2-git-send-email-minipli@googlemail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Mathias Krause <minipli@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:36231 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759514AbaEMIgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 04:36:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1399671822-12842-2-git-send-email-minipli@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A test case which generates memory pressure while performing guest administration
-fails with vhost triggering "page allocation failure" and guest not starting up.
+On Fri, May 09, 2014 at 11:43:40PM +0200, Mathias Krause wrote:
+> If we fail to register one of the xfrm protocol handlers we will
+> unregister the pernet ops twice on the error exit path. This will
+> probably lead to a kernel panic as the double deregistration
+> leads to a double kfree().
+> 
+> Fix this by removing one of the calls to do it only once.
+> 
+> Fixes: fa9ad96d49 ("vti6: Update the ipv6 side to use its own...")
+> Signed-off-by: Mathias Krause <minipli@googlemail.com>
 
-After some analysis we discovered the allocation order of vhost to be rensponsible
-for this behaviour. Thus we suggest patch 1/1 which dynamically allocates the
-required memory. Please see its description for details.
-
-Thanks,
-Michael 
-
-Dong Dong Chen (1):
-  vhost: avoid large order allocations
-
- drivers/vhost/net.c   | 4 ++--
- drivers/vhost/scsi.c  | 4 ++--
- drivers/vhost/test.c  | 2 +-
- drivers/vhost/vhost.c | 6 +++++-
- drivers/vhost/vhost.h | 2 +-
- 5 files changed, 11 insertions(+), 7 deletions(-)
-
--- 
-1.8.3.1
-
+Applied to the ipsec tree, thanks!
