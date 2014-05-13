@@ -1,40 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
- router reachability
-Date: Tue, 13 May 2014 12:43:54 -0400 (EDT)
-Message-ID: <20140513.124354.854952996973060630.davem@davemloft.net>
-References: <536C64C0.5050204@cn.fujitsu.com>
+Subject: Re: [PATCH net-next v4 0/2] net: systemport: couple fixes
+Date: Tue, 13 May 2014 12:48:08 -0400 (EDT)
+Message-ID: <20140513.124808.5372264136223193.davem@davemloft.net>
+References: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbenc@redhat.com,
-	hannes@stressinduktion.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43429 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43448 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaEMQn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:43:56 -0400
-In-Reply-To: <536C64C0.5050204@cn.fujitsu.com>
+	with ESMTP id S1750768AbaEMQsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:48:10 -0400
+In-Reply-To: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 9 May 2014 13:16:48 +0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri,  9 May 2014 13:16:37 -0700
 
-> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
-> into NUD_FAILED will be probed.
-> 
-> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
-> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
-> then function dst_neigh_output() can directly send packets, but actually the
-> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
-> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
-> 
-> In addition, because the route should be probes with a single NS, so we must
-> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
-> neigh_timer_handler() will not send other NS Messages.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> This patch set fixes a few minor issues found in the SYSTEMPORT
+> driver while doing some more testing with its switching hardware.
 
-Applied and queued up for -stable, thanks.
+Please address David Laight's feedback on patch #2 and resubmit.
+
+Thank you.
