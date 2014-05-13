@@ -1,63 +1,90 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [net] BUG: unable to handle kernel NULL pointer dereference at
- 000000000000022f
-Date: Tue, 13 May 2014 07:14:26 +0200
-Message-ID: <5371AA32.6070407@hartkopp.net>
-References: <537188D4.6050201@intel.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
+ router reachability
+Date: Tue, 13 May 2014 13:12:29 +0800
+Message-ID: <5371A9BD.2020106@cn.fujitsu.com>
+References: <53703F52.9060900@cn.fujitsu.com>	<20140512.143720.896863177762079657.davem@davemloft.net>	<53717040.2070102@cn.fujitsu.com> <20140512.232511.1061979369646724590.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	linux-crypto@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
-To: Jet Chen <jet.chen@intel.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <537188D4.6050201@intel.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <hannes@stressinduktion.org>, <netdev@vger.kernel.org>,
+	<jbenc@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([59.151.112.132]:23974 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758289AbaEMFOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 01:14:52 -0400
+In-Reply-To: <20140512.232511.1061979369646724590.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Jet,
-
-this is likely not CAN related, as
-
-# CONFIG_CAN is not set
-
-and all the CAN changes introduced by Marc's merge are not even compiled in
-your setup.
-
-So I assume the issue somewhere in the netlink or ipv6 stuff (see commit at
-the end.
-
-Best regards,
-Oliver
-
-
-On 13.05.2014 04:52, Jet Chen wrote:
-
-> [    1.301982]  [<ffffffff8163ee35>] netlink_bind+0x1e5/0x220
-> [    1.301982]  [<ffffffff815f57e8>] SYSC_bind+0xb8/0xf0
-> [    1.301982]  [<ffffffff815fbcd8>] ? sock_setsockopt+0x1a8/0x9c0
-> [    1.301982]  [<ffffffff815f6926>] ? SyS_setsockopt+0xb6/0xd0
-> [    1.301982]  [<ffffffff815f671e>] SyS_bind+0xe/0x10
-> [    1.301982]  [<ffffffff81752be9>] system_call_fastpath+0x16/0x1b
-> [    1.301982] Code: 50 48 85 c0 74 06 ff d0 5d c3 66 90 41 ff 51 40 5d c3 66
-> 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 55 48 89 e5 41 54 41 89 d4 53 <48>
-> 8b 87 30 02 00 00 48 89 f3 48 8b 78 18 e8 ae 94 a7 ff 31 d2 [    1.301982]
-> RIP  [<ffffffff815f7b3f>] sk_ns_capable+0xf/0x40
-> [    1.301982]  RSP <ffff88000becfe58>
-> [    1.301982] CR2: 000000000000022f
-> [    1.337456] ---[ end trace e34617f32717aa50 ]---
-> [    1.338240] Kernel panic - not syncing: Fatal exception
+于 2014年05月13日 11:25, David Miller 写道:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Date: Tue, 13 May 2014 09:07:12 +0800
 > 
-> Attached dmesg for the parent commit, too, to help confirm whether it is a
-> noise error.
+>> 于 2014年05月13日 02:37, David Miller 写道:
+>>> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>> Date: Mon, 12 May 2014 11:26:10 +0800
+>>>
+>>>> 于 2014年05月12日 06:04, Hannes Frederic Sowa 写道:
+>>>>> On Thu, May 8, 2014, at 22:16, Duan Jiong wrote:
+>>>>>>
+>>>>>> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
+>>>>>> into NUD_FAILED will be probed.
+>>>>>>
+>>>>>> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
+>>>>>> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
+>>>>>> then function dst_neigh_output() can directly send packets, but actually the
+>>>>>> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
+>>>>>> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
+>>>>>>
+>>>>>> In addition, because the route should be probes with a single NS, so we must
+>>>>>> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
+>>>>>> neigh_timer_handler() will not send other NS Messages.
+>>>>>>
+>>>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>>>> ---
+>>>>>> Changes from v1:
+>>>>>> 	*modify changelog to explain in detail why use neigh_max_probes().
+>>>>>>
+>>>>>>  net/core/neighbour.c | 4 ++--
+>>>>>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>>>>>
+>>>>>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>>>>>> index 8f8a96e..32d872e 100644
+>>>>>> --- a/net/core/neighbour.c
+>>>>>> +++ b/net/core/neighbour.c
+>>>>>> @@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
+>>>>>>  	neigh->updated = jiffies;
+>>>>>>  	if (!(neigh->nud_state & NUD_FAILED))
+>>>>>>  		return;
+>>>>>> -	neigh->nud_state = NUD_PROBE;
+>>>>>> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
+>>>>>> +	neigh->nud_state = NUD_INCOMPLETE;
+>>>>>> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
+>>>>>
+>>>>> Wouldn't it be better if we neigh_suspect the neighbour and leaving the state in NUD_PROBE? We call down to ->output in case neighbour is in NUD_PROBE state, so we must just disable connected 'fast-path'.
+>>>>>
+>>>>
+>>>> You can look into neigh_event_send() called in neigh_resolve_output(), and if neigh->nud_state
+>>>> still is NUD_PROBE, the neigh_event_send() will return 0, so the packet will still be sent out
+>>>> without probe.
+>>>>
+>>>> So, using neigh_suspect is not a good idea.
+>>>
+>>> If you set it to NUD_INCOMPLETE however, neigh_event_send() is going to add the packet
+>>> to the neigh's ARP queue and return '1'.
+>>>
+>>> Is that really what you want to happen in this case?
+>>
+>> Yes, packets should not be sent out until the neihbour is reachable.
 > 
+> But shouldn't we be using the router in the list which did not enter
+> NUD_FAILED in this situation?
+> .
 
-
-> # first bad commit: [0a240764becbec91589bd579b591c2fcf2df2bcf] Merge tag
-> 'linux-can-fixes-for-3.15-20140424' into HEAD
-> git bisect good 163cd4e817a4444e348ca577cb74c71d245f0c72  # 01:08     60+     
-> 2  ipv6: remove parameter rt from fib6_prune_clones()
-> git bisect good 367525c8c20a34560afe1d0c7cca52a44ccd62e9  # 01:11     60+     
+In situation of connected router, the router which enter NUD_FAILED will
+never be choosed, and we only probe NUD_FAILED router's reachability by sending
+a single Neighbor Solicitation to that router's address.  Finally， we 
+still send packets out through the connected router.
