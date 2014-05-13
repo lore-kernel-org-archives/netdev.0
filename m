@@ -1,109 +1,140 @@
-From: Stefan Bader <stefan.bader@canonical.com>
-Subject: xen-netfront possibly rides the rocket too often
-Date: Tue, 13 May 2014 20:21:31 +0200
-Message-ID: <537262AB.5010408@canonical.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 8/8] vxlan: Add support for zero UDP6 checksums
+Date: Tue, 13 May 2014 21:27:55 +0300
+Message-ID: <CAJZOPZJBHQt3W5i2w=nyDsEm72ZysPOSdC4uAJhCPETM6XzqGA@mail.gmail.com>
+References: <alpine.DEB.2.02.1405120952470.12635@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="oOum5wo88OQkkSrVjAiKKhx7ntHtkgRiX"
-To: xen-devel@lists.xenproject.org, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:56124 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753969AbaEMSVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 14:21:35 -0400
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:44509 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753855AbaEMS15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 14:27:57 -0400
+Received: by mail-qg0-f48.google.com with SMTP id i50so948876qgf.21
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 11:27:56 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1405120952470.12635@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---oOum5wo88OQkkSrVjAiKKhx7ntHtkgRiX
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Mon, May 12, 2014 at 7:59 PM, Tom Herbert <therbert@google.com> wrote:
+> Added module parameters to specify sending of TX checksums and
+> allow receiving RX checksums. Also added a module parameter and
+> support for using IPv4 checksums on TX
 
-We had reports about this message being seen on EC2 for a while but final=
-ly a
-reporter did notice some details about the guests and was able to provide=
- a
-simple way to reproduce[1].
+Hi Tom,
 
-For my local experiments I use a Xen-4.2.2 based host (though I would say=
- the
-host versions are not important). The host has one NIC which is used as t=
-he
-outgoing port of a Linux based (not openvswitch) bridge. And the PV guest=
-s use
-that bridge. I set the mtu to 9001 (which was seen on affected instance t=
-ypes)
-and also inside the guests. As described in the report one guests runs
-redis-server and the other nodejs through two scripts (for me I had to do=
- the
-two sub.js calls in separate shells). After a bit the error messages appe=
-ar on
-the guest running the redis-server.
+So... module params have their limited (which could turn to be nasty)
+nature, do we really want to have them here (which practically also
+means supporting them forever) or maybe/better use some more
+programmable method to control that?
 
-I added some debug printk's to show a bit more detail about the skb and g=
-ot the
-following (<length>@<offset (after masking off complete pages)>):
+> (default is off so zero checksums are sent).
 
-[ 698.108119] xen_netfront: xennet: skb rides the rocket: 19 slots
-[ 698.108134] header 1490@238 -> 1 slots
-[ 698.108139] frag #0 1614@2164 -> + 1 pages
-[ 698.108143] frag #1 3038@1296 -> + 2 pages
-[ 698.108147] frag #2 6076@1852 -> + 2 pages
-[ 698.108151] frag #3 6076@292 -> + 2 pages
-[ 698.108156] frag #4 6076@2828 -> + 3 pages
-[ 698.108160] frag #5 3038@1268 -> + 2 pages
-[ 698.108164] frag #6 2272@1824 -> + 1 pages
-[ 698.108168] frag #7 3804@0 -> + 1 pages
-[ 698.108172] frag #8 6076@264 -> + 2 pages
-[ 698.108177] frag #9 3946@2800 -> + 2 pages
-[ 698.108180] frags adding 18 slots
-
-Since I am not deeply familiar with the networking code, I wonder about t=
-wo things:
-- is there something that should limit the skb data length from all frags=
-
-  to stay below the 64K which the definition of MAX_SKB_FRAGS hints?
-- is multiple frags having offsets expected?
-
-The latter is the problem here. If I did the maths right, the overall dat=
-a size
-is around 41K. But since frags 1,4,5, and 9 have an offset big enough to =
-require
-an additional page, the overall slot count goes up to 19.
-
-If such a layout is valid, maybe the xen-netfront driver needs to reduce =
-its
-XEN_NETIF_MAX_TX_SIZE which currently is set to 64K? Or something else...=
+Or.
 
 
--Stefan
-
-[1] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1317811
 
 
---oOum5wo88OQkkSrVjAiKKhx7ntHtkgRiX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJTcmKrAAoJEOhnXe7L7s6jSMYQAJV2pQHHDDw2/pSwBOJKUJqP
-wL+Q9MchPjNvpagc+SSprw74rF+Grp0hiAMLlWGzjSRMvUNpYuA6cskViQXF9ko5
-puIxLPwv60lifdnOzz7KYf5HzeN0IW5ZcPT9AX3agRbKWxZNz76qmGc/31aewv3c
-yEoSAqXD3qAJyQyFafg6yz3C9D5y2HcbAEET4Gqvqwl2ze7MbzPBfPOodJobuLx2
-Z4vfD0zNIYNOzruCoMNnOQ6EpXPQ96IXZ4UU+TKSlo0cMVMQ/LUyHWSdKsN9m14D
-oux65wTDzolYHENeHJAYz9m3QycaFFbcqHjFSiQVfHASv+3o+nhvgRVY70Lu1Ml4
-2J1s94g8MNCVjYePDdDRfUjanCGMxMEfXG3JnCYcom2mQWj+aZal/xQEJA9siONn
-IjFYDkLmI+6i3yKuiVPS36CRrHG+C3hKZrIkm/ebrRvkOuVhgFYkEg8ULhB1jmoI
-JzFSjFVZgKTmf4byv9RhdSPn2UhdBRNP0Y735Nk/v07GOPLsjzt9BQGW+Yst1lGL
-HgEtB9yFrnwPWXWsTLM1//ikxZFsDpXgNq39v80WcKdhmZQTQan4iFbXvnrfCQay
-bPBZADwF3cIURy0NcPjI772RQD4vSWeS3ERDXESAkksNzXyqo8wZ36lXeBjUd8KU
-9t8y6YionqRG8UvTygqu
-=sLUN
------END PGP SIGNATURE-----
-
---oOum5wo88OQkkSrVjAiKKhx7ntHtkgRiX--
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/vxlan.c | 42 ++++++++++++++++++++++++++----------------
+>  1 file changed, 26 insertions(+), 16 deletions(-)
+>
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 1dfee9a..4839edb 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -83,6 +83,18 @@ static bool log_ecn_error = true;
+>  module_param(log_ecn_error, bool, 0644);
+>  MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
+>
+> +static bool use_udp_checksums;
+> +module_param(use_udp_checksums, bool, 0644);
+> +MODULE_PARM_DESC(use_udp_checksums, "Send UDP checksums (IPv4)");
+> +
+> +static bool udp6_tx_zero_checksums;
+> +module_param(udp6_tx_zero_checksums, bool, 0644);
+> +MODULE_PARM_DESC(udp6_tx_zero_checksums, "Send zero IPv6 checksums");
+> +
+> +static bool udp6_rx_zero_checksums;
+> +module_param(udp6_rx_zero_checksums, bool, 0644);
+> +MODULE_PARM_DESC(udp6_rx_zero_checksums, "Receive zero IPv6 checksums");
+> +
+>  static int vxlan_net_id;
+>
+>  static const u8 all_zeros_mac[ETH_ALEN];
+> @@ -1666,27 +1678,13 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+>         uh->source = src_port;
+>
+>         uh->len = htons(skb->len);
+> -       uh->check = 0;
+>
+>         memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+>         IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+>                               IPSKB_REROUTED);
+>         skb_dst_set(skb, dst);
+>
+> -       if (!skb_is_gso(skb) && !(dst->dev->features & NETIF_F_IPV6_CSUM)) {
+> -               __wsum csum = skb_checksum(skb, 0, skb->len, 0);
+> -               skb->ip_summed = CHECKSUM_UNNECESSARY;
+> -               uh->check = csum_ipv6_magic(saddr, daddr, skb->len,
+> -                                           IPPROTO_UDP, csum);
+> -               if (uh->check == 0)
+> -                       uh->check = CSUM_MANGLED_0;
+> -       } else {
+> -               skb->ip_summed = CHECKSUM_PARTIAL;
+> -               skb->csum_start = skb_transport_header(skb) - skb->head;
+> -               skb->csum_offset = offsetof(struct udphdr, check);
+> -               uh->check = ~csum_ipv6_magic(saddr, daddr,
+> -                                            skb->len, IPPROTO_UDP, 0);
+> -       }
+> +       udp6_set_csum(vs->sock->sk, skb, saddr, daddr, skb->len);
+>
+>         __skb_push(skb, sizeof(*ip6h));
+>         skb_reset_network_header(skb);
+> @@ -1756,7 +1754,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+>         uh->source = src_port;
+>
+>         uh->len = htons(skb->len);
+> -       uh->check = 0;
+> +
+> +       udp_set_csum(vs->sock->sk, skb, src, dst, skb->len);
+>
+>         err = handle_offloads(skb);
+>         if (err)
+> @@ -2442,6 +2441,13 @@ static struct socket *create_v6_sock(struct net *net, __be16 port)
+>
+>         /* Disable multicast loopback */
+>         inet_sk(sk)->mc_loop = 0;
+> +
+> +       if (udp6_rx_zero_checksums)
+> +               udp_set_no_check6_rx(sk, true);
+> +
+> +       if (udp6_tx_zero_checksums)
+> +               udp_set_no_check6_tx(sk, true);
+> +
+>         return sock;
+>  }
+>
+> @@ -2486,6 +2492,10 @@ static struct socket *create_v4_sock(struct net *net, __be16 port)
+>
+>         /* Disable multicast loopback */
+>         inet_sk(sk)->mc_loop = 0;
+> +
+> +       if (!use_udp_checksums)
+> +               sock->sk->sk_no_check_tx = 1;
+> +
+>         return sock;
+>  }
+>
+> --
+> 1.9.1.423.g4596e3a
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
