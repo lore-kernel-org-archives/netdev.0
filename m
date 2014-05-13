@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 9/9] net/mlx4_core: Fix inaccurate return value of mlx4_flow_attach()
-Date: Tue, 13 May 2014 13:06:58 +0300
-Message-ID: <1399975618-18707-10-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 8/9] net/mlx4_en: Using positive error value for unsigned
+Date: Tue, 13 May 2014 13:06:57 +0300
+Message-ID: <1399975618-18707-9-git-send-email-amirv@mellanox.com>
 References: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -9,39 +9,47 @@ Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Eyal Perry <eyalpe@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:54280 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:40932 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760709AbaEMKH4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 06:07:56 -0400
+	id S1760709AbaEMKH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 06:07:28 -0400
 In-Reply-To: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eyal Perry <eyalpe@mellanox.com>
 
-Adopt the "info: why not propagate 'ret' from parse_trans_rule()..."
-suggestion made by the smatch semantic checker on:
-drivers/net/ethernet/mellanox/mlx4/mcg.c:867 mlx4_flow_attach()
+Using a positive value for error: MLX4_NET_TRANS_RULE_NUM instead
+of -EPROTONOSUPPORT, to remove compilation warning.
 
 
 Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 7c6eba6..4c36def 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -897,7 +897,7 @@ int mlx4_flow_attach(struct mlx4_dev *dev,
- 		ret = parse_trans_rule(dev, cur, mailbox->buf + size);
- 		if (ret < 0) {
- 			mlx4_free_cmd_mailbox(dev, mailbox);
--			return -EINVAL;
-+			return ret;
- 		}
- 		size += ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 4d38a2a..5bb7eda 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -130,7 +130,7 @@ static enum mlx4_net_trans_rule_id mlx4_ip_proto_to_trans_rule_id(u8 ip_proto)
+ 	case IPPROTO_TCP:
+ 		return MLX4_NET_TRANS_RULE_ID_TCP;
+ 	default:
+-		return -EPROTONOSUPPORT;
++		return MLX4_NET_TRANS_RULE_NUM;
  	}
+ };
+ 
+@@ -177,7 +177,7 @@ static void mlx4_en_filter_work(struct work_struct *work)
+ 	int rc;
+ 	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
+ 
+-	if (spec_tcp_udp.id < 0) {
++	if (spec_tcp_udp.id >= MLX4_NET_TRANS_RULE_NUM) {
+ 		en_warn(priv, "RFS: ignoring unsupported ip protocol (%d)\n",
+ 			filter->ip_proto);
+ 		goto ignore;
 -- 
 1.8.3.4
