@@ -1,152 +1,86 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH iproute2 v3] fq: allow options of fair queue set to ~0U
-Date: Tue, 13 May 2014 12:20:52 +0800
-Message-ID: <53719DA4.1010300@huawei.com>
-References: <1399868319-2184-1-git-send-email-yangyingliang@huawei.com>	 <1399874336.7973.17.camel@edumazet-glaptop2.roam.corp.google.com>	 <5370713F.7040701@huawei.com> <1399908225.7973.25.camel@edumazet-glaptop2.roam.corp.google.com> <53718221.6040909@huawei.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v4 0/4] net: Add APM X-Gene SoC Ethernet driver support
+Date: Tue, 13 May 2014 12:24:14 +0800
+Message-ID: <CACVXFVPRcPxm2a+-VDa=80Xp3w+p_+k0ng=7B9KyP8r3E=4_YA@mail.gmail.com>
+References: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>, <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:64696 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750773AbaEMEVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 00:21:06 -0400
-In-Reply-To: <53718221.6040909@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	jcm@redhat.com, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	patches@apm.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Keyur Chudgar <kchudgar@apm.com>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	Ravi Patel <rapatel@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399326447-2329-1-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yang Yingliang <yangyingliang@huawei.com>
+Hi Iyappan,
 
-Some options of fair queue cannot be (~0U). It leads to maxrate
-cannot be reset to unlimited because it cannot be (~0U).
+On Tue, May 6, 2014 at 5:47 AM, Iyappan Subramanian
+<isubramanian@apm.com> wrote:
+> Adding APM X-Gene SoC Ethernet driver.
+>
+> v4: Address comments from v3 review
+> * MAINTAINERS: changed status to supported
+> * Kconfig: made default to no
+> * changed to bool data type wherever applicable
+> * cleaned up single bit set and masking code
+> * removed statistics counters masking
+> * removed unnecessary OOM message printing
+> * fixed dma_map_single and dma_unmap_single size parameter
+> * changed set bits macro body using new set_bits function
 
-Tested by the following command:
- # tc qdisc replace dev eth4 root handle 1: fq limit 2000 maxrate 100mbit quantum 2000 initial_quantum 1600
- # tc -s -d qdisc show
-qdisc fq 1: dev eth4 root refcnt 2 limit 100p flow_limit 2000p buckets 1024 quantum 2000 initial_quantum 1600 maxrate 100Mbit 
- Sent 12596 bytes 82 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-  2 flows (1 inactive, 0 throttled)
-  0 gc, 0 highprio, 0 throttled
+I just tested the v4 against 3.15.0-rc5-next-20140512+ on mustang
+board , looks ethernet becomes very unstable with the change,
+sometimes I saw:
 
- # tc qdisc replace dev eth4 root handle 1: fq limit 100 maxrate 34359738360 quantum 2000 initial_quantum 1600
- # tc -s -d qdisc show
-qdisc fq 1: dev eth4 root refcnt 2 limit 100p flow_limit 100p buckets 1024 quantum 2000 initial_quantum 1600 
- Sent 15758 bytes 99 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-  2 flows (1 inactive, 0 throttled)
-  0 gc, 0 highprio, 0 throttled
+[  301.057140] Unable to handle kernel paging request at virtual
+address ffffffc800a7cd70
 
-Suggested-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
----
- tc/q_fq.c | 36 ++++++++++++++++++++++++------------
- 1 file changed, 24 insertions(+), 12 deletions(-)
+Also network may  become unusable after a while from booting.
 
-diff --git a/tc/q_fq.c b/tc/q_fq.c
-index c1f658e..6a493a5 100644
---- a/tc/q_fq.c
-+++ b/tc/q_fq.c
-@@ -71,13 +71,19 @@ static unsigned int ilog2(unsigned int val)
- static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 			struct nlmsghdr *n)
- {
--	unsigned int plimit = ~0U;
--	unsigned int flow_plimit = ~0U;
--	unsigned int quantum = ~0U;
--	unsigned int initial_quantum = ~0U;
-+	unsigned int plimit;
-+	unsigned int flow_plimit;
-+	unsigned int quantum;
-+	unsigned int initial_quantum;
- 	unsigned int buckets = 0;
--	unsigned int maxrate = ~0U;
--	unsigned int defrate = ~0U;
-+	unsigned int maxrate;
-+	unsigned int defrate;
-+	int set_plimit = 0;
-+	int set_flow_plimit = 0;
-+	int set_quantum = 0;
-+	int set_initial_quantum = 0;
-+	int set_maxrate = 0;
-+	int set_defrate = 0;
- 	int pacing = -1;
- 	struct rtattr *tail;
- 
-@@ -88,12 +94,14 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 				fprintf(stderr, "Illegal \"limit\"\n");
- 				return -1;
- 			}
-+			set_plimit = 1;
- 		} else if (strcmp(*argv, "flow_limit") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&flow_plimit, *argv, 0)) {
- 				fprintf(stderr, "Illegal \"flow_limit\"\n");
- 				return -1;
- 			}
-+			set_flow_plimit = 1;
- 		} else if (strcmp(*argv, "buckets") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&buckets, *argv, 0)) {
-@@ -106,24 +114,28 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 				fprintf(stderr, "Illegal \"maxrate\"\n");
- 				return -1;
- 			}
-+			set_maxrate = 1;
- 		} else if (strcmp(*argv, "defrate") == 0) {
- 			NEXT_ARG();
- 			if (get_rate(&defrate, *argv)) {
- 				fprintf(stderr, "Illegal \"defrate\"\n");
- 				return -1;
- 			}
-+			set_defrate = 1;
- 		} else if (strcmp(*argv, "quantum") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&quantum, *argv, 0)) {
- 				fprintf(stderr, "Illegal \"quantum\"\n");
- 				return -1;
- 			}
-+			set_quantum = 1;
- 		} else if (strcmp(*argv, "initial_quantum") == 0) {
- 			NEXT_ARG();
- 			if (get_unsigned(&initial_quantum, *argv, 0)) {
- 				fprintf(stderr, "Illegal \"initial_quantum\"\n");
- 				return -1;
- 			}
-+			set_initial_quantum = 1;
- 		} else if (strcmp(*argv, "pacing") == 0) {
- 			pacing = 1;
- 		} else if (strcmp(*argv, "nopacing") == 0) {
-@@ -147,24 +159,24 @@ static int fq_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 		addattr_l(n, 1024, TCA_FQ_BUCKETS_LOG,
- 			  &log, sizeof(log));
- 	}
--	if (plimit != ~0U)
-+	if (set_plimit)
- 		addattr_l(n, 1024, TCA_FQ_PLIMIT,
- 			  &plimit, sizeof(plimit));
--	if (flow_plimit != ~0U)
-+	if (set_flow_plimit)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_PLIMIT,
- 			  &flow_plimit, sizeof(flow_plimit));
--	if (quantum != ~0U)
-+	if (set_quantum)
- 		addattr_l(n, 1024, TCA_FQ_QUANTUM, &quantum, sizeof(quantum));
--	if (initial_quantum != ~0U)
-+	if (set_initial_quantum)
- 		addattr_l(n, 1024, TCA_FQ_INITIAL_QUANTUM,
- 			  &initial_quantum, sizeof(initial_quantum));
- 	if (pacing != -1)
- 		addattr_l(n, 1024, TCA_FQ_RATE_ENABLE,
- 			  &pacing, sizeof(pacing));
--	if (maxrate != ~0U)
-+	if (set_maxrate)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_MAX_RATE,
- 			  &maxrate, sizeof(maxrate));
--	if (defrate != ~0U)
-+	if (set_defrate)
- 		addattr_l(n, 1024, TCA_FQ_FLOW_DEFAULT_RATE,
- 			  &defrate, sizeof(defrate));
- 	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
+Another oops log found during reboot:
+
+[ 1156.315992] skbuff: skb_over_panic: text:ffffffc000435b48 len:1514
+put:1514 head:          (null) data:ffffffc3ec667dd0 tail:0x5ea
+end:0x0 dev:<NULL>
+[ 1156.329322] BUG: failure at net/core/skbuff.c:99/skb_panic()!
+[ 1156.335043] Kernel panic - not syncing: BUG!
+[ 1156.339292] CPU: 3 PID: 2710 Comm: ip Not tainted
+3.15.0-rc5-next-20140512+ #29
+[ 1156.346562] Call trace:
+[ 1156.349000] [<ffffffc000087884>] dump_backtrace+0x0/0x10c
+[ 1156.354372] [<ffffffc0000879a0>] show_stack+0x10/0x1c
+[ 1156.359398] [<ffffffc000625b50>] dump_stack+0x88/0xcc
+[ 1156.364422] [<ffffffc0006219dc>] panic+0xe4/0x228
+[ 1156.369101] [<ffffffc000626574>] skb_panic+0x78/0x7c
+[ 1156.374041] [<ffffffc0004a3e98>] skb_put+0x7c/0x8c
+[ 1156.378807] [<ffffffc000435b44>] xgene_enet_process_ring+0xcc/0x2b4
+[ 1156.385041] [<ffffffc000435e2c>] xgene_enet_close+0xb0/0xd8
+[ 1156.390583] [<ffffffc0004ad11c>] __dev_close_many+0xa0/0xd0
+[ 1156.396126] [<ffffffc0004ad170>] __dev_close+0x24/0x40
+[ 1156.401237] [<ffffffc0004b3c94>] __dev_change_flags+0xa4/0x14c
+[ 1156.407039] [<ffffffc0004b3d58>] dev_change_flags+0x1c/0x5c
+[ 1156.412582] [<ffffffc0004c046c>] do_setlink+0x250/0x6ec
+[ 1156.417779] [<ffffffc0004c1590>] rtnl_newlink+0x320/0x508
+[ 1156.423149] [<ffffffc0004c18f8>] rtnetlink_rcv_msg+0x180/0x1a0
+[ 1156.428952] [<ffffffc0004d5558>] netlink_rcv_skb+0x60/0xc4
+[ 1156.434408] [<ffffffc0004c00c4>] rtnetlink_rcv+0x1c/0x2c
+[ 1156.439692] [<ffffffc0004d4c8c>] netlink_unicast+0xcc/0x18c
+[ 1156.445234] [<ffffffc0004d5374>] netlink_sendmsg+0x57c/0x5f8
+[ 1156.450863] [<ffffffc0004992f4>] sock_sendmsg+0x68/0x84
+[ 1156.456060] [<ffffffc000499bc0>] ___sys_sendmsg+0x1ec/0x288
+[ 1156.461602] [<ffffffc00049c9cc>] __sys_sendmsg+0x3c/0x64
+[ 1156.466886] [<ffffffc00049ca00>] SyS_sendmsg+0xc/0x20
+
+
+
+Thanks
+--
+Ming Lei
