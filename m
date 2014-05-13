@@ -1,31 +1,67 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Stable backport of 2 igb fixes
-Date: Tue, 13 May 2014 11:59:21 +0200
-Message-ID: <20140513095921.GC30843@1wt.eu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>,
-	stable@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1 3/9] net/mlx4_en: Fix errors in MAC address changing when port is down
+Date: Tue, 13 May 2014 13:06:52 +0300
+Message-ID: <1399975618-18707-4-git-send-email-amirv@mellanox.com>
+References: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shani Michaelli <shanim@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:35009 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753736AbaEMJ7f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 05:59:35 -0400
-Content-Disposition: inline
+Received: from mailp.voltaire.com ([193.47.165.129]:54225 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1760647AbaEMKH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 06:07:28 -0400
+In-Reply-To: <1399975618-18707-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Shani Michaelli <shanim@mellanox.com>
 
-could we please have the following patches backported to stable :
+This patch fix an issue that happen when changing the MAC address when
+the port is down, described as follows:
+1. Set the port down.
+2. Change the MAC address - mlx4_en_set_mac() will change dev->dev_addr.
+3. Set the port up - will result in mlx4_en_do_uc_filter that will
+   remove the prev_mac entry from the mac_hash db.
+4. Changing the MAC address again will eventually trigger the call to
+   mlx4_en_replace_mac() in order to replace prev_mac with dev_addr but
+   the prev_mac entry is already not exist in the mac_hash db therefore
+   the operation fails.
 
-  cb06d102327 igb: Fix Null-pointer dereference in igb_reset_q_vector
-  b709323d247 igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back to msi-only
+The fix is to set the prev_mac with the new MAC address so in step 3
+above, after setting the port up mlx4_en_get_qp() is updating the
+mac_hash with the entry of dev_addr which is equal to prev_mac.
+Therefore in step 4, when calling mlx4_en_replace_mac, the entry related
+to prev_mac exist in mac_hash and the replace operation succeed.
 
-This morning I experienced again that old kernel panic on 3.14.3 when
-loading igb on an ARM board without them.
 
-Thanks!
-Willy
+Reviewed-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Shani Michaeli <shanim@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index fba3c8e..eea7868 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -770,11 +770,12 @@ static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
+ 					  priv->dev->dev_addr, priv->prev_mac);
+ 		if (err)
+ 			en_err(priv, "Failed changing HW MAC address\n");
+-		memcpy(priv->prev_mac, priv->dev->dev_addr,
+-		       sizeof(priv->prev_mac));
+ 	} else
+ 		en_dbg(HW, priv, "Port is down while registering mac, exiting...\n");
+ 
++	memcpy(priv->prev_mac, priv->dev->dev_addr,
++	       sizeof(priv->prev_mac));
++
+ 	return err;
+ }
+ 
+-- 
+1.8.3.4
