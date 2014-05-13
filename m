@@ -1,99 +1,30 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 1/9] net/mlx4_core: Enforce irq affinity changes
- immediatly
-Date: Tue, 13 May 2014 13:17:30 +0300
-Message-ID: <5371F13A.2040803@mellanox.com>
-References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>	 <1399880605-28772-2-git-send-email-amirv@mellanox.com> <1399903028.7973.23.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Achal Verma <achalv18@gmail.com>
+Subject: is there any kernel feature to disable IPsec processing even if
+ policy and sa are present
+Date: Tue, 13 May 2014 15:36:24 +0530
+Message-ID: <CAEzCmYAAzBJ1HDCiYEcsztVHC5LwNgFehzEWp+mgtSN0jbPDAQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Yevgeny Petrilin" <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"Yuval Atias" <yuvala@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, Achal Verma <achalv18@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:48159 "EHLO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933001AbaEMKSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 06:18:43 -0400
-In-Reply-To: <1399903028.7973.23.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yh0-f66.google.com ([209.85.213.66]:49854 "EHLO
+	mail-yh0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933175AbaEMKYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 06:24:22 -0400
+Received: by mail-yh0-f66.google.com with SMTP id f73so33260yha.9
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 03:24:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/12/2014 4:57 PM, Eric Dumazet wrote:
-> On Mon, 2014-05-12 at 10:43 +0300, Amir Vadai wrote:
->> From: Yuval Atias <yuvala@mellanox.com>
->>
->> During heavy traffic, napi is constatntly polling the complition queue
->> and no interrupt is fired. Because of that, changes to irq affinity are
->> ignored until traffic is stopped and resumed.
->>
->> By registering to the irq notifier mechanism, and forcing interrupt when
->> affinity is changed, irq affinity changes will be immediatly enforced.
->>
->> Signed-off-by: Yuval Atias <yuvala@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->
-> Interesting. Its a bit sad it has to be in fast path...
-Right.
-The other option we thought of - was to add some sort of 'restart' to 
-the NAPI, to enable the notifier callback to stop any current running 
-NAPI loop, and make it start again on the right CPU - this looks very 
-complicated and adding one if doesn't seem to be so bad. So we chose 
-that option.
+I know disable_xfrm and disable_policy can be used to avoid IPsec
+processing on packets hitting particular network interface.
+But is there any way so that I can disable ipsec processing on per
+policy/sa basis .
 
->
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> index 89585c6..81b7571 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
->> @@ -474,9 +474,15 @@ int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget)
->>   	/* If we used up all the quota - we're probably not done yet... */
->>   	if (done < budget) {
->>   		/* Done for now */
->> +		cq->mcq.irq_affinity_change = 0;
->
->
->>   		napi_complete(napi);
->>   		mlx4_en_arm_cq(priv, cq);
->>   		return done;
->> +	} else if (unlikely(cq->mcq.irq_affinity_change)) {
->> +		cq->mcq.irq_affinity_change = 0;
->> +		napi_complete(napi);
->> +		mlx4_en_arm_cq(priv, cq);
->> +		return 0;
->>   	}
->>   	return budget;
->
->
->>   			priv->msix_ctl.pool_bm &= ~(1ULL << i);
->> diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
->> index ba87bd2..74f5aa8 100644
->> --- a/include/linux/mlx4/device.h
->> +++ b/include/linux/mlx4/device.h
->> @@ -586,6 +586,8 @@ struct mlx4_cq {
->>
->>   	atomic_t		refcount;
->>   	struct completion	free;
->> +	u16                     irq;
->> +	bool                    irq_affinity_change;
->>   };
->>
->>   struct mlx4_qp {
->
-> But could you place irq_affinity_change in another cache line ?
->
-> It seems there is a 32bit hole between cons_index and set_ci_db
->
-> (Both fields can be moved)
-Done in V1
+scenario is like my same interface is acting as endpoint for both
+tunnel and transport modes but my requirement is to do ipsec
+processing only on tunneled packets and avoid that for transport mode.
 
-Thanks,
-Amir
-
->
-> Thanks
->
->
+Our implementation is using these sysctl parameters(disable_policy and
+disable_xfrm) , so I expect they will not be deprecated and removed in
+near future releases.
