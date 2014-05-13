@@ -1,57 +1,47 @@
-From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
-Subject: Re: Socket receives packet to multicast group to which it was not
- joined since kernel 3.13.10-1
-Date: Tue, 13 May 2014 10:25:37 +0400
-Message-ID: <5371BAE1.2090806@oktetlabs.ru>
-References: <5370F8EB.2070009@oktetlabs.ru> <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next] macvlan: Propagate lowerdev MTU changes
+Date: Tue, 13 May 2014 14:39:27 +0800
+Message-ID: <5371BE1F.7030508@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([84.52.89.53]:57115 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbaEMGZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 02:25:46 -0400
-In-Reply-To: <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:20546 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756403AbaEMGkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 02:40:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/05/14 21:18, Eric Dumazet wrote:
-> On Mon, 2014-05-12 at 20:38 +0400, Yurij M. Plotnikov wrote:
->> On kernel 3.13.10-1 I see that socket joined to one multicast group
->> receives packets to another multicast address. That can be reproduced by
->> the following example:
->>
->> 1. socket(DGRAM) -> 3
->> 2. bind(3, 0.0.0.0:12345) -> 0
->> 3. setsockopt(3, IP_MULTICAST_IF, {224.168.2.9, 7}) -> 0
->> // "7" is correct interface index
->>
->> 4. Send packet from peer host to 224.168.2.9:12345
->> 5. poll({3, POLLIN}) -> 1
->> 6. recv(3) -> <data_length>
->>
->> 5. Send packet from peer host to 225.168.2.9:12345
->> // Note that the address is not the same!
->> 6. poll({3, POLLIN}) -> 1
->> 7. recv(3) -> <data_length>
->>
->> I checked kernel 3.12.6-2, there is no such problem. I have placed
->> simple C-program in attachment to reproduce the behaviour. It should be
->> called:
->> ./mult_recv <mcast_address> <interface index> i.e. in example above:
->> ./mult_recv 224.168.2.9 7
->
-> I suspect problem came with commit
-> 421b3885bf6d56391297844f43fb7154a6396e12
-> ("udp: ipv4: Add udp early demux")
->
-> Is that better if you try :
->
-> echo 0 >/proc/sys/net/ipv4/ip_early_demux
->
-Yes, this fixes the problem.
+When the physical MTU changes we should ensure that all existing MACVLAN
+dev MTU do not exceed the new lowerdev MTU. This patch adds that
+propagation.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ drivers/net/macvlan.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index f0118d1..e03707d 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1091,6 +1091,13 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 			netdev_update_features(vlan->dev);
+ 		}
+ 		break;
++	case NETDEV_CHANGEMTU:
++		list_for_each_entry(vlan, &port->vlans, list) {
++			if (vlan->dev->mtu <= dev->mtu)
++				continue;
++			dev_set_mtu(vlan->dev, dev->mtu);
++		}
++		break;
+ 	case NETDEV_UNREGISTER:
+ 		/* twiddle thumbs on netns device moves */
+ 		if (dev->reg_state != NETREG_UNREGISTERING)
+-- 
+1.8.0
