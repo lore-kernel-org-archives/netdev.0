@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/3] net: add a sysctl to reflect the fwmark on
- replies
-Date: Tue, 13 May 2014 12:52:36 -0400 (EDT)
-Message-ID: <20140513.125236.689947368922450038.davem@davemloft.net>
-References: <1399691298-2531-1-git-send-email-lorenzo@google.com>
+Subject: Re: pull request net: batman-adv 20140510
+Date: Tue, 13 May 2014 12:54:30 -0400 (EDT)
+Message-ID: <20140513.125430.1667087876589781606.davem@davemloft.net>
+References: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jpa@google.com, ja@ssi.bg,
-	hannes@stressinduktion.org, eric.dumazet@gmail.com
-To: lorenzo@google.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43467 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43480 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752689AbaEMQwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:52:38 -0400
-In-Reply-To: <1399691298-2531-1-git-send-email-lorenzo@google.com>
+	with ESMTP id S1751205AbaEMQyc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:54:32 -0400
+In-Reply-To: <1399736110-22333-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Sat, 10 May 2014 17:35:06 +0200
 
-These patches do not apply cleanly to net-next.
+> here you have 4 small but important patches from Simon Wunderlich intended
+> for net/linux-3.15 and *stable/linux-3.14* (please enqueue them).
+> 
+> I know it's rather late in the rc cycle but these 4 changes are addressing
+> some severe reference counting imbalances in different parts of code.
 
-Also, you did not provide a top level initial "[PATCH 0/N] " posting
-giving a high level overview of what these changes do, and why we
-should make these changes.
+Pulled and queued up for -stable, thanks.
