@@ -1,75 +1,77 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] net: filter: x86: fix JIT address randomization
-Date: Tue, 13 May 2014 11:53:34 -0700
-Message-ID: <1400007214-3236-1-git-send-email-ast@plumgrid.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
+Date: Tue, 13 May 2014 21:25:00 +0200
+Message-ID: <192127279.20140513212500@eikelenboom.it>
+References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com> <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	xen-devel@lists.xenproject.org, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <paul.durrant@citrix.com>,
+	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
+	<davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:43913 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357AbaEMSxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 14:53:39 -0400
-Received: by mail-pb0-f52.google.com with SMTP id rr13so608856pbb.39
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 11:53:39 -0700 (PDT)
+Received: from vserver.eikelenboom.it ([84.200.39.61]:48999 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751945AbaEMTZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 15:25:07 -0400
+In-Reply-To: <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bpf_alloc_binary() adds 128 bytes of room to JITed program image
-and rounds it up to the nearest page size. If image size is close
-to page size (like 4000), it is rounded to two pages:
-round_up(4000 + 4 + 128) == 8192
-then 'hole' is computed as 8192 - (4000 + 4) = 4188
-If prandom_u32() % hole selects a number >= 4096, then kernel will crash
-during bpf_jit_free():
 
-kernel BUG at arch/x86/mm/pageattr.c:887!
-Call Trace:
- [<ffffffff81037285>] change_page_attr_set_clr+0x135/0x460
- [<ffffffff81694cc0>] ? _raw_spin_unlock_irq+0x30/0x50
- [<ffffffff810378ff>] set_memory_rw+0x2f/0x40
- [<ffffffffa01a0d8d>] bpf_jit_free_deferred+0x2d/0x60
- [<ffffffff8106bf98>] process_one_work+0x1d8/0x6a0
- [<ffffffff8106bf38>] ? process_one_work+0x178/0x6a0
- [<ffffffff8106c90c>] worker_thread+0x11c/0x370
+Tuesday, May 13, 2014, 6:13:55 PM, you wrote:
 
-since bpf_jit_free() does:
-  unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
-  struct bpf_binary_header *header = (void *)addr;
-to compute start address of 'bpf_binary_header'
-and header->pages will pass junk to:
-  set_memory_rw(addr, header->pages);
+> On Tue, 2014-05-13 at 15:31 +0100, Zoltan Kiss wrote:
+>> The original series for reintroducing grant mapping for netback had a patch [1]
+>> to handle receiving of packets from an another VIF. Grant copy on the receiving
+>> side needs the grant ref of the page to set up the op.
+>> The original patch assumed (wrongly) that the frags array haven't changed. In
+>> the case reported by Sander, the sending guest sent a packet where the linear
+>> buffer and the first frag were under PKT_PROT_LEN (=128) bytes.
+>> xenvif_tx_submit() then pulled up the linear area to 128 bytes, and ditched the
+>> first frag. The receiving side had an off-by-one problem when gathered the grant
+>> refs.
+>> This patch fixes that by checking whether the actual frag's page pointer is the
+>> same as the page in the original frag list. It can handle any kind of changes on
+>> the original frags array, like:
+>> - removing granted frags from the beginning or the end
+>> - adding local pages to the frags list
+>> To keep it optimized to the most common cases, it doesn't handle when the order
+>> of the original frags changed. That would require ubuf to be reseted to the
+>> beginning of the chain (skb_shinfo(skb)->destructor_arg), and reiterating
+>> through the list every time.
+>> 
+>> OPEN QUESTIONS:
+>> - Is it a safe assumption that nothing changes the order of the original frags?
+>>   Removing them from the array or injecting new pages anywhere is not a problem.
+>> - I used UINT_MAX as a kind of INVALID_GRANT_REF, however there is no such thing
+>>   in the grant mapping API. Should we codify this or is it better if we just
+>>   find another way to distinguish whether a frag is local or not?
+>> - Should this fix go to David's net tree or directly to the mainline tree? Or
+>>   both?
+>> 
+>> [1]: 3e2234: xen-netback: Handle foreign mapped pages on the guest RX path
+>> 
+>> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> ---
 
-Fix it by picking image offset always out of the first page.
+Will test the patch tomorrow and see how this works out for me.
 
-While at it make the offset to be within first half of the page,
-so there is some room for CPU to run before it hits page miss.
+> The 'cleanup' of stale ubufs should be right after __pskb_pull_tail().
 
-Fixes: 314beb9bcabfd ("x86: bpf_jit_comp: secure bpf jit against spraying attacks")
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
+> This is the function that can 'consume frags' after all.
 
-s390 commit aa2d2c73c21f ("s390/bpf,jit: address randomize and write protect jit code")
-seems to have the same problem
+> Its not clear that you catch all cases, like skbs being purged in case
+> of device dismantle.
+Hmm that's quite important since a partial fix only makes the potential 
+remaining cases even harder to spot and debug i'm afraid.
 
- arch/x86/net/bpf_jit_comp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> I am not saying your patch is wrong, only that it adds yet an obscure
+> thing with no comments. In two years, nobody will understand this.
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index dc01773..c6ab7a0 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -171,7 +171,7 @@ static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
- 	memset(header, 0xcc, sz); /* fill whole space with int3 instructions */
- 
- 	header->pages = sz / PAGE_SIZE;
--	hole = sz - (proglen + sizeof(*header));
-+	hole = min(sz - (proglen + sizeof(*header)), PAGE_SIZE / 2);
- 
- 	/* insert a random number of int3 instructions before BPF code */
- 	*image_ptr = &header->image[prandom_u32() % hole];
--- 
-1.7.9.5
+--
+Sander
