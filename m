@@ -1,51 +1,64 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: igb patches needed for stable
-Date: Tue, 13 May 2014 09:59:49 +0200
-Message-ID: <20140513095949.09333569@free-electrons.com>
-References: <20140410143603.3df4f20c@skate>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max
+ update of setup
+Date: Tue, 13 May 2014 10:09:06 +0200
+Message-ID: <1399968546.8278.2.camel@linux-fkkt.site>
+References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
+	 <1399736509-1159-2-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Pieper <jeffrey.e.pieper@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:35791 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752928AbaEMH7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 03:59:52 -0400
-In-Reply-To: <20140410143603.3df4f20c@skate>
+Received: from cantor2.suse.de ([195.135.220.15]:47681 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759080AbaEMIJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 04:09:08 -0400
+In-Reply-To: <1399736509-1159-2-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Sat, 2014-05-10 at 17:41 +0200, Bj=C3=B8rn Mork wrote:
+> Split out the part of setup dealing with updating the rx_max
+> and tx_max buffer sizes so that this code can be reused for
+> dynamically updating the limits.
+>=20
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+> ---
+>  drivers/net/usb/cdc_ncm.c | 81 +++++++++++++++++++++++++++++--------=
+----------
+>  1 file changed, 50 insertions(+), 31 deletions(-)
+>=20
+> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+> index 549dbac710ed..87a32edf7ea5 100644
+> --- a/drivers/net/usb/cdc_ncm.c
+> +++ b/drivers/net/usb/cdc_ncm.c
+> @@ -65,6 +65,54 @@ static void cdc_ncm_tx_timeout_start(struct cdc_nc=
+m_ctx *ctx);
+>  static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_t=
+imer);
+>  static struct usb_driver cdc_ncm_driver;
+> =20
+> +/* handle rx_max and tx_max changes */
+> +static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, =
+u32 new_tx)
+> +{
+> +	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
+> +	u8 iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber=
+;
+> +	u32 val, max, min;
+> +
+> +	/* clamp new_rx to sane values */
+> +	min =3D min_t(u32, USB_CDC_NCM_NTB_MIN_IN_SIZE, le32_to_cpu(ctx->nc=
+m_parm.dwNtbInMaxSize));
+> +	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_pa=
+rm.dwNtbInMaxSize));
 
-On Thu, 10 Apr 2014 14:36:03 +0200, Thomas Petazzoni wrote:
-> Hello,
-> 
-> I just wanted to let you know that the following two patches:
-> 
->   cb06d102327eadcd1bdc480bfd9f8876251d1007 igb: Fix Null-pointer dereference in igb_reset_q_vector
->   b709323d2477614823a38c2f2a9a206e087e28fc igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back to msi-only
-> 
-> should probably be backported to stable 3.14 versions. The above
-> patches are part of Linus tree, but merged after v3.14 has been
-> released. However, they fix a regression introduced by cd14ef54d25b
-> (igb: Change to use statically allocated array for MSIx entries), which
-> is part of v3.14.
-> 
-> And I'm actually experiencing a crash igb_reset_q_vector() on a system
-> which has MSI support, but not MSI-X support, and basically the code
-> path of the driver which fallbacks from MSI-X to MSI is the one
-> crashing. With both of these patches applied on top of 3.14, my igb NIC
-> works fine.
+Are you sure this makes sense? min_t both times?
 
-Any news about these patches?
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+	Regards
+		Oliver
