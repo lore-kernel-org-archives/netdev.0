@@ -1,35 +1,38 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Problem with iflink in netns
-Date: Tue, 13 May 2014 13:44:24 -0700
-Message-ID: <CAHA+R7P_MBrPLVqtvCnC+bPkQ7FHRiLgi0zHAQkz5-9_Z1MBJA@mail.gmail.com>
-References: <20140513083945.062de6c3@nehalam.linuxnetplumber.net>
-	<CAHA+R7NX8BoXHkSZ97+op7Leg3nD_=TFjJ1K3wSr3pWQbF4Eug@mail.gmail.com>
-	<20140513130554.2e452af8@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] net, filter: make new test_bpf depend on networking
+Date: Tue, 13 May 2014 17:13:38 -0400 (EDT)
+Message-ID: <20140513.171338.874422171651978643.davem@davemloft.net>
+References: <alpine.DEB.2.02.1405131255380.3392@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@plumgrid.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: rientjes@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:35472 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751991AbaEMUoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 16:44:25 -0400
-Received: by mail-la0-f53.google.com with SMTP id ec20so714589lab.40
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 13:44:24 -0700 (PDT)
-In-Reply-To: <20140513130554.2e452af8@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45379 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752935AbaEMVNm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 17:13:42 -0400
+In-Reply-To: <alpine.DEB.2.02.1405131255380.3392@chino.kir.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 13, 2014 at 1:05 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
->
-> That won't solve the problem.
->  1. a pointer increase size of netns and requires refcount
+From: David Rientjes <rientjes@google.com>
+Date: Tue, 13 May 2014 12:57:56 -0700 (PDT)
 
-Yes.
+> CONFIG_TEST_BPF depends on CONFIG_NET, otherwise the build fails:
+> 
+> ERROR: "sk_unattached_filter_destroy" [lib/test_bpf.ko] undefined!
+> ERROR: "kfree_skb" [lib/test_bpf.ko] undefined!
+> ERROR: "sk_unattached_filter_create" [lib/test_bpf.ko] undefined!
+> ERROR: "sk_run_filter_int_skb" [lib/test_bpf.ko] undefined!
+> ERROR: "__alloc_skb" [lib/test_bpf.ko] undefined!
+> 
+> Add the dependency.
+> 
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Signed-off-by: David Rientjes <rientjes@google.com>
 
->  2. iflink is still exposed in kernel user API and has to be set
->     otherwise the device is falsely reported.
-
-Then report 0 which is not a valid ifindex?
+I just applied a patch from Randy Dunlap that does the same thing,
+thanks.
