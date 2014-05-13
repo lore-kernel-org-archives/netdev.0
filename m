@@ -1,64 +1,75 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max
- update of setup
-Date: Tue, 13 May 2014 10:09:06 +0200
-Message-ID: <1399968546.8278.2.camel@linux-fkkt.site>
-References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
-	 <1399736509-1159-2-git-send-email-bjorn@mork.no>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] net-tun: restructure tun_do_read for better sleep/wakeup
+ efficiency
+Date: Tue, 13 May 2014 11:20:27 +0300
+Message-ID: <20140513082027.GB29442@redhat.com>
+References: <1399422244-22751-1-git-send-email-xii@google.com>
+ <5369AB36.6030609@redhat.com>
+ <CAOBoifh6X8nbiqcNXNxJeFzWj1Q3N9Jc-xxQNrLWwFQf8LjZzQ@mail.gmail.com>
+ <536C4733.9020704@redhat.com>
+ <20140512061557.GA12581@redhat.com>
+ <5371B87D.3020609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47681 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:16515 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759080AbaEMIJI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 04:09:08 -0400
-In-Reply-To: <1399736509-1159-2-git-send-email-bjorn@mork.no>
+	id S1752692AbaEMIVk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 04:21:40 -0400
+Content-Disposition: inline
+In-Reply-To: <5371B87D.3020609@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-05-10 at 17:41 +0200, Bj=C3=B8rn Mork wrote:
-> Split out the part of setup dealing with updating the rx_max
-> and tx_max buffer sizes so that this code can be reused for
-> dynamically updating the limits.
->=20
-> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
-> ---
->  drivers/net/usb/cdc_ncm.c | 81 +++++++++++++++++++++++++++++--------=
-----------
->  1 file changed, 50 insertions(+), 31 deletions(-)
->=20
-> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-> index 549dbac710ed..87a32edf7ea5 100644
-> --- a/drivers/net/usb/cdc_ncm.c
-> +++ b/drivers/net/usb/cdc_ncm.c
-> @@ -65,6 +65,54 @@ static void cdc_ncm_tx_timeout_start(struct cdc_nc=
-m_ctx *ctx);
->  static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_t=
-imer);
->  static struct usb_driver cdc_ncm_driver;
-> =20
-> +/* handle rx_max and tx_max changes */
-> +static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, =
-u32 new_tx)
-> +{
-> +	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
-> +	u8 iface_no =3D ctx->control->cur_altsetting->desc.bInterfaceNumber=
-;
-> +	u32 val, max, min;
-> +
-> +	/* clamp new_rx to sane values */
-> +	min =3D min_t(u32, USB_CDC_NCM_NTB_MIN_IN_SIZE, le32_to_cpu(ctx->nc=
-m_parm.dwNtbInMaxSize));
-> +	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_pa=
-rm.dwNtbInMaxSize));
+On Tue, May 13, 2014 at 02:15:25PM +0800, Jason Wang wrote:
+> On 05/12/2014 02:15 PM, Michael S. Tsirkin wrote:
+> > On Fri, May 09, 2014 at 11:10:43AM +0800, Jason Wang wrote:
+> >> > On 05/09/2014 02:22 AM, Xi Wang wrote:
+> >>> > > On Tue, May 6, 2014 at 8:40 PM, Jason Wang <jasowang@redhat.com> wrote:
+> >>>> > >> On 05/07/2014 08:24 AM, Xi Wang wrote:
+> >>>>> > >>> tun_do_read always adds current thread to wait queue, even if a packet
+> >>>>> > >>> is ready to read. This is inefficient because both sleeper and waker
+> >>>>> > >>> want to acquire the wait queue spin lock when packet rate is high.
+> >>>> > >> After commit 61a5ff15ebdab87887861a6b128b108404e4706d, this will only
+> >>>> > >> help for blocking read. Looks like for performance critical userspaces,
+> >>>> > >> they will use non blocking reads.
+> >>>>> > >>> We restructure the read function and use common kernel networking
+> >>>>> > >>> routines to handle receive, sleep and wakeup. With the change
+> >>>>> > >>> available packets are checked first before the reading thread is added
+> >>>>> > >>> to the wait queue.
+> >>>> > >> This is interesting, since it may help if we want to add rx busy loop
+> >>>> > >> for tun. (In fact I worked a similar patch like this).
+> >>> > >
+> >>> > > Yes this should be a good side effect and I am also interested in trying.
+> >>> > > Busy polling in user space is not ideal as it doesn't give the lowest latency.
+> >>> > > Besides differences in interrupt latency etc., there is a bad case for
+> >>> > > non blocking mode: When a packet arrives right before the polling thread
+> >>> > > returns to userspace. The control flow has to cross kernel/userspace
+> >>> > > boundary 3 times before the packet can be processed, while kernel
+> >>> > > blocking or busy polling only needs 1 boundary crossing.
+> >> > 
+> >> > So if we want to implement this, we need a feature bit to turn it on.
+> >> > Then vhost may benefit from this.
+> > IFF_TUN_POLL_BUSY_LOOP ? I'm not sure it has to be
+> > a flag. Maybe an ioctl is better, if userspace
+> > misconfigures this it is only hurting itself, right?
+> 
+> Flag has the same effect. But adding new ioctls means userspace needs to
+> be modified. This is different with current rx busy polling for tcp/udp
+> socket which is transparent to userspace application.
 
-Are you sure this makes sense? min_t both times?
+OTOH risk is much lower though.
 
-	Regards
-		Oliver
+> > Maybe add a module parameter to control polling timeout,
+> > or reuse low_latency_poll.
+> >
+> 
+> If we don't need a global parameter, we can just implement it without
+> generic helper like __skb_recv_datagram().
+
+not sure I get the meaning here.
