@@ -1,49 +1,35 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v1] vhost: avoid large order allocations
-Date: Tue, 13 May 2014 18:15:27 +0300
-Message-ID: <20140513151527.GA28517@redhat.com>
-References: <1399970133-46783-1-git-send-email-mimu@linux.vnet.ibm.com>
-	<1399970133-46783-2-git-send-email-mimu@linux.vnet.ibm.com>
-	<20140513084049.GE29442@redhat.com>
-	<87tx8tg3a1.fsf@kima.orebokech.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [next PATCH 0/5] net: tcp: DCTCP congestion control algorithm
+Date: Tue, 13 May 2014 08:18:46 -0700
+Message-ID: <20140513081846.5ca28812@nehalam.linuxnetplumber.net>
+References: <1399928384-24143-1-git-send-email-fw@strlen.de>
+	<CAHA+R7O7yGaMJ+e=nrTmvt+wK7h0kF9okZPTzGseJZa1PiJg9Q@mail.gmail.com>
+	<20140512214515.7eb085af@nehalam.linuxnetplumber.net>
+	<CAPh34mf-nRwyA0LmSwJXy_e4yqMxZ2BEJFz+3LTW_Po91fY5fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ddongch@cn.ibm.com, Michael Mueller <mimu@linux.vnet.ibm.com>,
-	kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, borntraeger@de.ibm.com
-To: Romain Francoise <romain@orebokech.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <87tx8tg3a1.fsf@kima.orebokech.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: lars@netapp.com, Cong Wang <cwang@twopensource.com>,
+	Florian Westphal <fw@strlen.de>,
+	netdev <netdev@vger.kernel.org>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:49337 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753015AbaEMPSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 11:18:51 -0400
+Received: by mail-pa0-f48.google.com with SMTP id rd3so397434pab.21
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 08:18:50 -0700 (PDT)
+In-Reply-To: <CAPh34mf-nRwyA0LmSwJXy_e4yqMxZ2BEJFz+3LTW_Po91fY5fw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 13, 2014 at 04:29:58PM +0200, Romain Francoise wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> 
-> > Please dont' do this, extra indirection hurts performance.
-> > Instead, please change vhost_net_open and scsi to allocate the whole
-> > structure with vmalloc if kmalloc fails, along the lines of
-> > 74d332c13b2148ae934ea94dac1745ae92efe8e5
-> 
-> Back in January 2013, you didn't seem to think it was a good idea:
-> 
-> https://lkml.org/lkml/2013/1/23/492
+On Tue, 13 May 2014 11:34:29 +0200
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-Hmm true, and Dave thought the structure's too large.
-I'll have to do some benchmarks to see what the effect
-of Michael's patch is, performance-wise.
-If it's too expensive I can pick up your patch, no need to
-repost.
+> The IPR statement licence it under Royalty-Free, Reasonable and
+> Non-Discriminatory licence.
 
--- 
-MST
+This is not enough to allow distribution under GPL.
+GPL has patent and redistribution clauses that as far as I know
+are not compatible.
