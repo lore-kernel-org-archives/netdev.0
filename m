@@ -1,47 +1,45 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next] macvlan: Propagate lowerdev MTU changes
-Date: Tue, 13 May 2014 14:39:27 +0800
-Message-ID: <5371BE1F.7030508@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:20546 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756403AbaEMGkE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 02:40:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jon Maxwell <jmaxwell37@gmail.com>
+Subject: [PATCH net] bridge: notify user space of fdb port change
+Date: Tue, 13 May 2014 17:55:08 +1000
+Message-ID: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
+Cc: davem@davemloft.net, makita.toshiaki@lab.ntt.co.jp,
+	vyasevic@redhat.com, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jpirko@redhat.com, jmaxwell37@gmail.com, jmaxwell@redhat.com
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When the physical MTU changes we should ensure that all existing MACVLAN
-dev MTU do not exceed the new lowerdev MTU. This patch adds that
-propagation.
+From: Jon Maxwell <jmaxwell37@gmail.com>
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+There has been a number incidents recently where customers running KVM have 
+reported that VM hosts on different Hypervisors are unreachable. Based on 
+pcap traces we found that the bridge was broadcasting the ARP request out 
+onto the network. However some NICs have an inbuilt switch which on occasions 
+were broadcasting the VMs ARP request back through the physical NIC on the 
+Hypervisor. This resulted in the bridge changing ports and incorrectly learning
+that the VMs mac address was external. As a result the ARP reply was directed 
+back onto the external network and VM never updated it's ARP cache. This patch 
+will notify the bridge command to identify such port toggling.
+
+Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
 ---
- drivers/net/macvlan.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/bridge/br_fdb.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index f0118d1..e03707d 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1091,6 +1091,13 @@ static int macvlan_device_event(struct notifier_block *unused,
- 			netdev_update_features(vlan->dev);
- 		}
- 		break;
-+	case NETDEV_CHANGEMTU:
-+		list_for_each_entry(vlan, &port->vlans, list) {
-+			if (vlan->dev->mtu <= dev->mtu)
-+				continue;
-+			dev_set_mtu(vlan->dev, dev->mtu);
-+		}
-+		break;
- 	case NETDEV_UNREGISTER:
- 		/* twiddle thumbs on netns device moves */
- 		if (dev->reg_state != NETREG_UNREGISTERING)
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 9203d5a..37742e2 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 					source->dev->name);
+ 		} else {
+ 			/* fastpath: update of existing entry */
++			if (source->port_no != fdb->dst->port_no)
++				fdb_notify(br, fdb, RTM_NEWNEIGH);
+ 			fdb->dst = source;
+ 			fdb->updated = jiffies;
+ 			if (unlikely(added_by_user))
 -- 
-1.8.0
+1.8.3.1
