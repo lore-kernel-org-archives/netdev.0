@@ -1,34 +1,71 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max
- update of setup
-Date: Tue, 13 May 2014 11:40:36 +0200 (CEST)
-Message-ID: <alpine.LNX.2.03.1405131138210.1290@gmail.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: [PATCH net-next] net_sched: increase drop count when packets are dropped
+Date: Tue, 13 May 2014 17:42:43 +0800
+Message-ID: <1399974163-8788-1-git-send-email-yangyingliang@huawei.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
-Cc: Alexey Orishko <alexey.orishko@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>, <vtlam@google.com>,
+	<nanditad@google.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:37363 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932681AbaEMJki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 05:40:38 -0400
-Content-ID: <alpine.LNX.2.03.1405131138212.1290@gmail.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:28139 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759744AbaEMJmx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 05:42:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note: I am re-sending the mail, since I sent it privately to Bj*rn only, by 
-mistake. Sorry. And sorry also for continously mistyping your name: I would 
-like to learn writing it right! :)
+When packets are dropped because of overlimit, the drop count
+should be increased. Replace kfree_skb() with qdisc_drop() for
+increasing drop count.
 
-I would also propose some polite warning message regarding what's happening.
-Ok, I know it may simply be SPAM for users, but it may help identifying devices
-not behaving properly in regard to specifications.
-I know - it doesn't make much sense, even considering there are simply devices
-that will act like NCM but use AT for signaling reasons. But with this message,
-the kernle may inform users about a situation like:
-2oh - I am trying to do my best. If performances are not as good as they might
-be, proceed with ..."
-This is only a proposal, nothing more.
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+---
+ net/sched/sch_fq.c       | 2 +-
+ net/sched/sch_fq_codel.c | 3 ++-
+ net/sched/sch_hhf.c      | 3 ++-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
 
-Enrico
+diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+index 23c682b42f99..958ef7d4b825 100644
+--- a/net/sched/sch_fq.c
++++ b/net/sched/sch_fq.c
+@@ -714,7 +714,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 		if (!skb)
+ 			break;
+-		kfree_skb(skb);
++		qdisc_drop(skb, sch);
+ 		drop_count++;
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, drop_count);
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 0bf432c782c1..bcfe4594470f 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -344,7 +344,8 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = fq_codel_dequeue(sch);
+ 
+-		kfree_skb(skb);
++		qdisc_drop(skb, sch);
++		q->drop_overlimit++;
+ 		q->cstats.drop_count++;
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, q->cstats.drop_count);
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index 6aab8619bbb0..71542d2cecac 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -593,7 +593,8 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	while (sch->q.qlen > sch->limit) {
+ 		struct sk_buff *skb = hhf_dequeue(sch);
+ 
+-		kfree_skb(skb);
++		qdisc_drop(skb, sch);
++		q->drop_overlimit++;
+ 	}
+ 	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
+ 
+-- 
+1.8.0
