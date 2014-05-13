@@ -1,45 +1,51 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net] bridge: notify user space of fdb port change
-Date: Tue, 13 May 2014 17:55:08 +1000
-Message-ID: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
-Cc: davem@davemloft.net, makita.toshiaki@lab.ntt.co.jp,
-	vyasevic@redhat.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jpirko@redhat.com, jmaxwell37@gmail.com, jmaxwell@redhat.com
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: igb patches needed for stable
+Date: Tue, 13 May 2014 09:59:49 +0200
+Message-ID: <20140513095949.09333569@free-electrons.com>
+References: <20140410143603.3df4f20c@skate>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Pieper <jeffrey.e.pieper@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:35791 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752928AbaEMH7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 03:59:52 -0400
+In-Reply-To: <20140410143603.3df4f20c@skate>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
+Hello,
 
-There has been a number incidents recently where customers running KVM have 
-reported that VM hosts on different Hypervisors are unreachable. Based on 
-pcap traces we found that the bridge was broadcasting the ARP request out 
-onto the network. However some NICs have an inbuilt switch which on occasions 
-were broadcasting the VMs ARP request back through the physical NIC on the 
-Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-that the VMs mac address was external. As a result the ARP reply was directed 
-back onto the external network and VM never updated it's ARP cache. This patch 
-will notify the bridge command to identify such port toggling.
+On Thu, 10 Apr 2014 14:36:03 +0200, Thomas Petazzoni wrote:
+> Hello,
+> 
+> I just wanted to let you know that the following two patches:
+> 
+>   cb06d102327eadcd1bdc480bfd9f8876251d1007 igb: Fix Null-pointer dereference in igb_reset_q_vector
+>   b709323d2477614823a38c2f2a9a206e087e28fc igb: Unset IGB_FLAG_HAS_MSIX-flag when falling back to msi-only
+> 
+> should probably be backported to stable 3.14 versions. The above
+> patches are part of Linus tree, but merged after v3.14 has been
+> released. However, they fix a regression introduced by cd14ef54d25b
+> (igb: Change to use statically allocated array for MSIx entries), which
+> is part of v3.14.
+> 
+> And I'm actually experiencing a crash igb_reset_q_vector() on a system
+> which has MSI support, but not MSI-X support, and basically the code
+> path of the driver which fallbacks from MSI-X to MSI is the one
+> crashing. With both of these patches applied on top of 3.14, my igb NIC
+> works fine.
 
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
----
- net/bridge/br_fdb.c | 2 ++
- 1 file changed, 2 insertions(+)
+Any news about these patches?
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..37742e2 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 					source->dev->name);
- 		} else {
- 			/* fastpath: update of existing entry */
-+			if (source->port_no != fdb->dst->port_no)
-+				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 			fdb->dst = source;
- 			fdb->updated = jiffies;
- 			if (unlikely(added_by_user))
+Thomas
 -- 
-1.8.3.1
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
