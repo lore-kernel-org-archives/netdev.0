@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [next PATCH 0/5] net: tcp: DCTCP congestion control algorithm
- - IPR Patent Issue
-Date: Tue, 13 May 2014 12:35:15 -0400 (EDT)
-Message-ID: <20140513.123515.1864213307391048280.davem@davemloft.net>
-References: <CAPh34me6C2hzrqqADTHPs35TGfVwOjL3NBQD1pG57OXssvM4wg@mail.gmail.com>
-	<20140513091019.7b1efbef@nehalam.linuxnetplumber.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
+ router reachability
+Date: Tue, 13 May 2014 09:39:31 -0700
+Message-ID: <1399999171.11539.116940145.6657B6F0@webmail.messagingengine.com>
+References: <53703F52.9060900@cn.fujitsu.com>
+ <20140512.143720.896863177762079657.davem@davemloft.net>
+ <53717040.2070102@cn.fujitsu.com>
+ <20140512.232511.1061979369646724590.davem@davemloft.net>
+ <5371A9BD.2020106@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hagen@jauu.net, lars@netapp.com, cwang@twopensource.com,
-	fw@strlen.de, netdev@vger.kernel.org, torvalds@linux-foundation.org
-To: stephen@networkplumber.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jbenc@redhat.com
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43361 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbaEMQfR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:35:17 -0400
-In-Reply-To: <20140513091019.7b1efbef@nehalam.linuxnetplumber.net>
+Received: from new2-smtp.messagingengine.com ([66.111.4.224]:41257 "EHLO
+	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751029AbaEMQjc convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 12:39:32 -0400
+In-Reply-To: <5371A9BD.2020106@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 13 May 2014 09:10:19 -0700
+On Mon, May 12, 2014, at 22:12, Duan Jiong wrote:
+> In situation of connected router, the router which enter NUD_FAILED w=
+ill
+> never be choosed, and we only probe NUD_FAILED router's reachability =
+by
+> sending
+> a single Neighbor Solicitation to that router's address.  Finally=EF=BC=
+=8C we=20
+> still send packets out through the connected router.
 
-> IANAL but my understanding is that FRAND and GPL are not by nature directly
-> compatible. It is possible for do it but only if the entity claiming IPR
-> gives a free license to all GPL users. This is the case of the recent Cisco
-> PIE implementation for example.
+I agree with the patch mostly. The reason why I would liked to see
+another change without changing nud_state is that we export those state=
+s
+to user space.
 
-I am not even looking at this patch until this issue is resolved.
+Greetings,
 
-Please resubmit these changes at that point in time.
+  Hannes
