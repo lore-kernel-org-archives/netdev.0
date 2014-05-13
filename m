@@ -1,45 +1,84 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 8/8] vxlan: Add support for zero UDP6 checksums
-Date: Mon, 12 May 2014 17:13:29 -0700
-Message-ID: <CAEP_g=8L0hse+AezexT7NDgEs0A1sjP3NY9LC7C-5wDsf-OAEQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1405120952470.12635@tomh.mtv.corp.google.com>
- <CAEP_g=9BTrUN48uV2teyufmG7QPZHmYsMrvWOBs9JhJam2oOVw@mail.gmail.com> <CA+mtBx-0GHNRZ+midMYa4SNv33jmF62Cgv2Y188JqPnx7NH5bg@mail.gmail.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH v2] neigh: set nud_state to NUD_INCOMPLETE when probing
+ router reachability
+Date: Tue, 13 May 2014 09:07:12 +0800
+Message-ID: <53717040.2070102@cn.fujitsu.com>
+References: <536C64C0.5050204@cn.fujitsu.com>	<1399845863.17976.116165369.3E7E2F36@webmail.messagingengine.com>	<53703F52.9060900@cn.fujitsu.com> <20140512.143720.896863177762079657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: <hannes@stressinduktion.org>, <netdev@vger.kernel.org>,
+	<jbenc@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na6sys009bog022.obsmtp.com ([74.125.150.84]:45417 "HELO
-	na6sys009bog022.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751923AbaEMANv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 20:13:51 -0400
-Received: by mail-qg0-f48.google.com with SMTP id i50so8623134qgf.35
-        for <netdev@vger.kernel.org>; Mon, 12 May 2014 17:13:50 -0700 (PDT)
-In-Reply-To: <CA+mtBx-0GHNRZ+midMYa4SNv33jmF62Cgv2Y188JqPnx7NH5bg@mail.gmail.com>
+Received: from cn.fujitsu.com ([59.151.112.132]:18676 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751524AbaEMBJh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 May 2014 21:09:37 -0400
+In-Reply-To: <20140512.143720.896863177762079657.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2014 at 4:35 PM, Tom Herbert <therbert@google.com> wrote:
-> On Mon, May 12, 2014 at 2:41 PM, Jesse Gross <jesse@nicira.com> wrote:
->> On Mon, May 12, 2014 at 9:59 AM, Tom Herbert <therbert@google.com> wrote:
->>> @@ -1756,7 +1754,8 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
->>>         uh->source = src_port;
+于 2014年05月13日 02:37, David Miller 写道:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Date: Mon, 12 May 2014 11:26:10 +0800
+> 
+>> 于 2014年05月12日 06:04, Hannes Frederic Sowa 写道:
+>>> On Thu, May 8, 2014, at 22:16, Duan Jiong wrote:
+>>>>
+>>>> Since commit 7e98056964("ipv6: router reachability probing"), a router falls
+>>>> into NUD_FAILED will be probed.
+>>>>
+>>>> Now if function rt6_select() selects a router which neighbour state is NUD_FAILED,
+>>>> and at the same time function rt6_probe() changes the neighbour state to NUD_PROBE,
+>>>> then function dst_neigh_output() can directly send packets, but actually the
+>>>> neighbour still is unreachable. If we set nud_state to NUD_INCOMPLETE instead
+>>>> NUD_PROBE, packets will not be sent out until the neihbour is reachable.
+>>>>
+>>>> In addition, because the route should be probes with a single NS, so we must
+>>>> set neigh->probes to neigh_max_probes(), then the neigh timer timeout and function
+>>>> neigh_timer_handler() will not send other NS Messages.
+>>>>
+>>>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>>>> ---
+>>>> Changes from v1:
+>>>> 	*modify changelog to explain in detail why use neigh_max_probes().
+>>>>
+>>>>  net/core/neighbour.c | 4 ++--
+>>>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+>>>> index 8f8a96e..32d872e 100644
+>>>> --- a/net/core/neighbour.c
+>>>> +++ b/net/core/neighbour.c
+>>>> @@ -1248,8 +1248,8 @@ void __neigh_set_probe_once(struct neighbour *neigh)
+>>>>  	neigh->updated = jiffies;
+>>>>  	if (!(neigh->nud_state & NUD_FAILED))
+>>>>  		return;
+>>>> -	neigh->nud_state = NUD_PROBE;
+>>>> -	atomic_set(&neigh->probes, NEIGH_VAR(neigh->parms, UCAST_PROBES));
+>>>> +	neigh->nud_state = NUD_INCOMPLETE;
+>>>> +	atomic_set(&neigh->probes, neigh_max_probes(neigh));
 >>>
->>>         uh->len = htons(skb->len);
->>> -       uh->check = 0;
->>> +
->>> +       udp_set_csum(vs->sock->sk, skb, src, dst, skb->len);
+>>> Wouldn't it be better if we neigh_suspect the neighbour and leaving the state in NUD_PROBE? We call down to ->output in case neighbour is in NUD_PROBE state, so we must just disable connected 'fast-path'.
+>>>
 >>
->> How does this interact with inner checksum offloading? I don't think
->> that we have any infrastructure to support computing two checksums on
->> a packet yet.
->
-> Right, as it stands now we could overwrite the csum offload parameters
-> for the inner header which would be a problem. I will fix that.
->
-> The ability to offload two csums in TX could be quite useful for
-> encapsulations like vxlan. I don't know if any HW is planning to
-> support that...
+>> You can look into neigh_event_send() called in neigh_resolve_output(), and if neigh->nud_state
+>> still is NUD_PROBE, the neigh_event_send() will return 0, so the packet will still be sent out
+>> without probe.
+>>
+>> So, using neigh_suspect is not a good idea.
+> 
+> If you set it to NUD_INCOMPLETE however, neigh_event_send() is going to add the packet
+> to the neigh's ARP queue and return '1'.
+> 
+> Is that really what you want to happen in this case?
 
-I think it would be good to assume that we might want to do that as
-something might appear in the not too distant future...
+Yes, packets should not be sent out until the neihbour is reachable.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> .
+> 
