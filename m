@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/2] net: systemport: couple fixes
-Date: Tue, 13 May 2014 12:48:08 -0400 (EDT)
-Message-ID: <20140513.124808.5372264136223193.davem@davemloft.net>
-References: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 1/3] net: add a sysctl to reflect the fwmark on
+ replies
+Date: Tue, 13 May 2014 12:52:36 -0400 (EDT)
+Message-ID: <20140513.125236.689947368922450038.davem@davemloft.net>
+References: <1399691298-2531-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, jpa@google.com, ja@ssi.bg,
+	hannes@stressinduktion.org, eric.dumazet@gmail.com
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43448 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43467 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbaEMQsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:48:10 -0400
-In-Reply-To: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1752689AbaEMQwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 12:52:38 -0400
+In-Reply-To: <1399691298-2531-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri,  9 May 2014 13:16:37 -0700
 
-> This patch set fixes a few minor issues found in the SYSTEMPORT
-> driver while doing some more testing with its switching hardware.
+These patches do not apply cleanly to net-next.
 
-Please address David Laight's feedback on patch #2 and resubmit.
-
-Thank you.
+Also, you did not provide a top level initial "[PATCH 0/N] " posting
+giving a high level overview of what these changes do, and why we
+should make these changes.
