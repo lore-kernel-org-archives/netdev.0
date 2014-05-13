@@ -1,103 +1,173 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
-Date: Tue, 13 May 2014 21:18:04 +0100
-Message-ID: <53727DFC.70107@citrix.com>
-References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com> <1399996028.21867.34.camel@kazak.uk.xensource.com>
+Subject: [PATCH net v2] xen-netback: Fix grant ref resolution in RX path
+Date: Tue, 13 May 2014 21:19:54 +0100
+Message-ID: <1400012394-16645-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
-	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<davem@davemloft.net>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain
+Cc: <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<david.vrabel@citrix.com>, <davem@davemloft.net>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:49747 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:59483 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752919AbaEMUSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 May 2014 16:18:09 -0400
-In-Reply-To: <1399996028.21867.34.camel@kazak.uk.xensource.com>
+	id S1752198AbaEMUUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 May 2014 16:20:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13/05/14 16:47, Ian Campbell wrote:
-> On Tue, 2014-05-13 at 15:31 +0100, Zoltan Kiss wrote:
->> The original series for reintroducing grant mapping for netback had a patch [1]
->> to handle receiving of packets from an another VIF. Grant copy on the receiving
->> side needs the grant ref of the page to set up the op.
->> The original patch assumed (wrongly) that the frags array haven't changed. In
->> the case reported by Sander, the sending guest sent a packet where the linear
->> buffer and the first frag were under PKT_PROT_LEN (=128) bytes.
->> xenvif_tx_submit() then pulled up the linear area to 128 bytes, and ditched the
->> first frag. The receiving side had an off-by-one problem when gathered the grant
->> refs.
->
-> The grant refs are gather here from the ubuf_info * link list stored in
-> skb->destructor_arg, is that right?
-Yes
->
-> And the issue is that pulling up can consume a frag (e.g. and shift
-> everything up) without adjusting that linked list?
-Yes. Or any kind of change on the frags list (expect changing size and 
-offset of an entry) breaks this part of the code at the moment.
+The original series for reintroducing grant mapping for netback had a patch [1]
+to handle receiving of packets from an another VIF. Grant copy on the receiving
+side needs the grant ref of the page to set up the op.
+The original patch assumed (wrongly) that the frags array haven't changed. In
+the case reported by Sander, the sending guest sent a packet where the linear
+buffer and the first frag were under PKT_PROT_LEN (=128) bytes.
+xenvif_tx_submit() then pulled up the linear area to 128 bytes, and ditched the
+first frag. The receiving side had an off-by-one problem when gathered the grant
+refs.
+This patch fixes that by checking whether the actual frag's page pointer is the
+same as the page in the original frag list. It can handle any kind of changes on
+the original frags array, like:
+- removing granted frags from the beginning or the end
+- adding local pages to the frags list
+- reordering the frags
+It's optimized to the most common case, when there is 1:1 relation between the
+frags and the list, plus works optimal when frags are removed from the end or
+the beginning.
 
->
-> I think the commit message should make explicit reference to this linked
-> list and where it lives and make the implications of doing a pull up on
-> that list clear.
-Ok, I'll add a reference to the description in common.h
->
-> So the fix is when walking the list instead of assuming a 1:1
-> relationship between frags and list elements you need to traverse the
-> list looking for one which matches?
-Yes.
->
-> The ubuf's themselves are part of pending_tx_info -- is it the case that
-> the pending entries are retained until the skb completes even when the
-> corresponding frag is pulled up?
-Yes. Pulling does remove the page from the frag list and put_page it, 
-and when the callback called, it'll make sure it is given back to the 
-sender.
->
-> I suppose the network stack does pull ups itself -- so we can't fix this
-> by just fixing up the ubuf list as we do the initial PKT_PROT_LEN pull
-> up because there will be other pull ups which we don't control?
-Yes. And I guess it's better to assume that other things can happen, 
-e.g. see pskb_trim
->
->> This patch fixes that by checking whether the actual frag's page pointer is the
->> same as the page in the original frag list. It can handle any kind of changes on
->> the original frags array, like:
->> - removing granted frags from the beginning or the end
->> - adding local pages to the frags list
->> To keep it optimized to the most common cases, it doesn't handle when the order
->> of the original frags changed. That would require ubuf to be reseted to the
->> beginning of the chain (skb_shinfo(skb)->destructor_arg), and reiterating
->> through the list every time.
->
-> Do we need to keep the ubuf list around after this operation or could it
-> be destructive? I ask because by removing the entries from the list as
-> they are consumed the optimal case will then always have the next frag
-> in the head but it will handle reordering.
-Yes, we need this chained list until the zerocopy callback walks through 
-it and add the pending_idx's to the dealloc queue. I was tinkering with 
-the idea of moving the not matching entries back to the head of the 
-list, as the callback doesn't really care about the order, and I guess 
-the guest neither. But that would look even scarier.
->
->> OPEN QUESTIONS:
->> - Is it a safe assumption that nothing changes the order of the original frags?
->>    Removing them from the array or injecting new pages anywhere is not a problem.
->> - I used UINT_MAX as a kind of INVALID_GRANT_REF, however there is no such thing
->>    in the grant mapping API. Should we codify this or is it better if we just
->>    find another way to distinguish whether a frag is local or not?
->
-> I think UINT_MAX is probably OK, but can't you avoid this by doing the
-> search in the existing loop over the frags which calls
-> xenvif_gop_frag_copy? If you do that then you can pass foreign_vif as
-> NULL in the cases where there is no ubuf entry.
-Yes, that sounds better! That would make a lot of things easier.
+[1]: 3e2234: xen-netback: Handle foreign mapped pages on the guest RX path
 
-I've reworked the patch to include frag reordering as well.
+Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+---
+v2:
+- rework to handle more scenarios
+- use const keyword more often
 
-Zoli
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7666540..d97af5c 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -104,7 +104,7 @@ static inline unsigned long idx_to_kaddr(struct xenvif *vif,
+ 
+ /* Find the containing VIF's structure from a pointer in pending_tx_info array
+  */
+-static inline struct xenvif* ubuf_to_vif(struct ubuf_info *ubuf)
++static inline struct xenvif *ubuf_to_vif(const struct ubuf_info *ubuf)
+ {
+ 	u16 pending_idx = ubuf->desc;
+ 	struct pending_tx_info *temp =
+@@ -323,6 +323,42 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+ }
+ 
+ /*
++ * Find the grant ref for a given frag in chained struct ubuf_info's
++ * skb: the skb itself
++ * i: the frag's number
++ * ubuf: a pointer to an element in the chain. It should not be NULL
++ *
++ * Returns a pointer to the element in the chain where the page were found. If
++ * not found, returns NULL.
++ * See the definition of callback_struct in common.h for more details about
++ * the chain.
++ */
++static const struct ubuf_info *xenvif_find_gref(const struct sk_buff *const skb,
++						const int i,
++						const struct ubuf_info *ubuf)
++{
++	struct xenvif *foreign_vif = ubuf_to_vif(ubuf);
++
++	do {
++		u16 pending_idx = ubuf->desc;
++
++		if (skb_shinfo(skb)->frags[i].page.p ==
++		    foreign_vif->mmap_pages[pending_idx])
++			break;
++		ubuf = (struct ubuf_info *) ubuf->ctx;
++	} while (ubuf);
++
++	return ubuf;
++}
++
++#define gref_found() {							\
++u16 pending_idx = ubuf->desc;						\
++foreign_vif = ubuf_to_vif(ubuf);					\
++foreign_gref = foreign_vif->pending_tx_info[pending_idx].req.gref;	\
++ubuf = ubuf->ctx ? (struct ubuf_info *) ubuf->ctx : head_ubuf;		\
++}
++
++/*
+  * Prepare an SKB to be transmitted to the frontend.
+  *
+  * This function is responsible for allocating grant operations, meta
+@@ -346,9 +382,9 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	int head = 1;
+ 	int old_meta_prod;
+ 	int gso_type;
+-	struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
+-	grant_ref_t foreign_grefs[MAX_SKB_FRAGS];
+-	struct xenvif *foreign_vif = NULL;
++	const struct ubuf_info *ubuf = skb_shinfo(skb)->destructor_arg;
++	const struct ubuf_info *const head_ubuf =
++					skb_shinfo(skb)->destructor_arg;
+ 
+ 	old_meta_prod = npo->meta_prod;
+ 
+@@ -386,19 +422,6 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	npo->copy_off = 0;
+ 	npo->copy_gref = req->gref;
+ 
+-	if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
+-		 (ubuf->callback == &xenvif_zerocopy_callback)) {
+-		int i = 0;
+-		foreign_vif = ubuf_to_vif(ubuf);
+-
+-		do {
+-			u16 pending_idx = ubuf->desc;
+-			foreign_grefs[i++] =
+-				foreign_vif->pending_tx_info[pending_idx].req.gref;
+-			ubuf = (struct ubuf_info *) ubuf->ctx;
+-		} while (ubuf);
+-	}
+-
+ 	data = skb->data;
+ 	while (data < skb_tail_pointer(skb)) {
+ 		unsigned int offset = offset_in_page(data);
+@@ -415,13 +438,35 @@ static int xenvif_gop_skb(struct sk_buff *skb,
+ 	}
+ 
+ 	for (i = 0; i < nr_frags; i++) {
++		grant_ref_t foreign_gref = UINT_MAX;
++		struct xenvif *foreign_vif = NULL;
++
++		if ((skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) &&
++			(ubuf->callback == &xenvif_zerocopy_callback)) {
++
++			ubuf = xenvif_find_gref(skb, i, ubuf);
++
++			if (likely(ubuf)) {
++				gref_found()
++			} else {
++				/* Try again from the beginning of the list */
++				ubuf = xenvif_find_gref(skb, i, head_ubuf);
++
++				if (ubuf)
++					gref_found()
++				else
++					ubuf = head_ubuf;
++			}
++
++
++		}
+ 		xenvif_gop_frag_copy(vif, skb, npo,
+ 				     skb_frag_page(&skb_shinfo(skb)->frags[i]),
+ 				     skb_frag_size(&skb_shinfo(skb)->frags[i]),
+ 				     skb_shinfo(skb)->frags[i].page_offset,
+ 				     &head,
+ 				     foreign_vif,
+-				     foreign_grefs[i]);
++				     foreign_gref);
+ 	}
+ 
+ 	return npo->meta_prod - old_meta_prod;
