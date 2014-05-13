@@ -1,65 +1,82 @@
-From: Zhangfei Gao <zhangfei.gao@linaro.org>
-Subject: [PATCH] net: phy: resume phydev when PHY_RESUMING
-Date: Tue, 13 May 2014 17:23:18 +0800
-Message-ID: <1399972998-21772-1-git-send-email-zhangfei.gao@linaro.org>
-Cc: netdev@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>,
-	Jiancheng Xue <xuejiancheng@huawei.com>
-To: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-	davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:56374 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559AbaEMJXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 05:23:31 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so62110pad.16
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 02:23:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net-next 01/11] net: cdc_ncm: split out rx_max/tx_max update of setup
+Date: Tue, 13 May 2014 11:25:28 +0200
+Message-ID: <87sioe114n.fsf@nemi.mork.no>
+References: <1399736509-1159-1-git-send-email-bjorn@mork.no>
+	<1399736509-1159-2-git-send-email-bjorn@mork.no>
+	<1399968546.8278.2.camel@linux-fkkt.site>
+	<871tvy2hcp.fsf@nemi.mork.no>
+	<1399972165.8278.11.camel@linux-fkkt.site>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399972165.8278.11.camel-B2T3B9s34ElbnMAlSieJcQ@public.gmane.org> (Oliver Neukum's
+	message of "Tue, 13 May 2014 11:09:25 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit be9dad1f9f26604fb suspend phydev when going to HALTED.
-However not to resume phydev when going to RESUMING.
-BMCR_PDOWN remains set "ifconfig eth0 down" -> "ifconfig eth0 up".
-Unless phy_attach_direct is called in open function.
+Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
 
-Fix the issue via phy_resume in PHY_RESUMING
+>> The reason I put that min_t() there instead was an attempt to deal w=
+ith
+>> the (not unlikely) event that some buggy device set dwNtbInMaxSize l=
+ower
+>> than this required minimum value.  We then have the choices:
+>>=20
+>>  a) fail to support the buggy device
+>>  b) attempt to set a larger buffer size than the device supports
+>>  c) accept the lower size
+>
+> My preference would be b) > a) > c)
+> It seems to me that would should respect the spec and if the spec set=
+s
+> a lower limit then we don't go lower.
+>
+>> So I chose c) in an attempt to be as gentle as possible.  But I am o=
+pen
+>> to go for a) instead if you think that is better. After all
+>> USB_CDC_NCM_NTB_MIN_IN_SIZE is as low as 2048, so it doesn't fit muc=
+h
+>> more than the headers and a single full size ethernet frame.  And I =
+see
+>> now that we fail to do further sanity checking after this.  What if
+>> dwNtbInMaxSize is 0? Or smaller than the necessary headers?
+>
+> Exactly. Some fool may simply overlook setting it at all.
+>
+>> Should I rewrite the above to do a) instead?  I.e.
+>>=20
+>> 	min =3D USB_CDC_NCM_NTB_MIN_IN_SIZE;
+>> 	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_pa=
+rm.dwNtbInMaxSize));
+>>         if (min > max)
+>>            fail;
+>>=20
+>> I don't think b) is a good idea.  It might work, but it might also f=
+ail
+>> in surprising ways making it hard to debug.
+>
+> Users may prefer working devices to clean failures, but
+> I primarily care about conforming to spec. We just shouldn't
+> do such violations in a general case.
 
-Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
-Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
----
- drivers/net/phy/phy.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+Yes, I agree.  Will change this. Let's try to go for b) then. I.e.
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 1b6d09a..be5d52e 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -715,7 +715,7 @@ void phy_state_machine(struct work_struct *work)
- 	struct delayed_work *dwork = to_delayed_work(work);
- 	struct phy_device *phydev =
- 			container_of(dwork, struct phy_device, state_queue);
--	int needs_aneg = 0, do_suspend = 0;
-+	int needs_aneg = 0, do_suspend = 0, do_resume = 0;
- 	int err = 0;
- 
- 	mutex_lock(&phydev->lock);
-@@ -865,6 +865,8 @@ void phy_state_machine(struct work_struct *work)
- 			}
- 			phydev->adjust_link(phydev->attached_dev);
- 		}
-+
-+		do_resume = 1;
- 		break;
- 	}
- 
-@@ -876,6 +878,9 @@ void phy_state_machine(struct work_struct *work)
- 	if (do_suspend)
- 		phy_suspend(phydev);
- 
-+	if (do_resume)
-+		phy_resume(phydev);
-+
- 	if (err < 0)
- 		phy_error(phydev);
- 
--- 
-1.7.9.5
+ 	min =3D USB_CDC_NCM_NTB_MIN_IN_SIZE;
+ 	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_RX, le32_to_cpu(ctx->ncm_parm=
+=2EdwNtbInMaxSize));
+        if (max < min)
+              max =3D min;
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
