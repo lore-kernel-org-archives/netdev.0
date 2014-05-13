@@ -1,46 +1,36 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH] be2net: enable interrupts in EEH resume
-Date: Tue, 13 May 2014 14:03:11 +0530
-Message-ID: <1399969991-22762-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:3323 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758786AbaEMI37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 04:29:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael Mueller <mimu@linux.vnet.ibm.com>
+Subject: [PATCH v1] vhost: avoid large order allocations
+Date: Tue, 13 May 2014 10:35:32 +0200
+Message-ID: <1399970133-46783-1-git-send-email-mimu@linux.vnet.ibm.com>
+Cc: borntraeger@de.ibm.com, cornelia.huck@de.ibm.com,
+	mimu@linux.vnet.ibm.com, ddongch@cn.ibm.com
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+A test case which generates memory pressure while performing guest administration
+fails with vhost triggering "page allocation failure" and guest not starting up.
 
-On some BE3 FW versions, after a HW reset, interrupts will remain disabled
-for each function. So, explicitly enable the interrupts in the eeh_resume
-handler, else after an eeh recovery interrupts wouldn't work.
+After some analysis we discovered the allocation order of vhost to be rensponsible
+for this behaviour. Thus we suggest patch 1/1 which dynamically allocates the
+required memory. Please see its description for details.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+Thanks,
+Michael 
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a186454..dc19bc5 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4949,6 +4949,12 @@ static void be_eeh_resume(struct pci_dev *pdev)
- 	if (status)
- 		goto err;
- 
-+	/* On some BE3 FW versions, after a HW reset,
-+	 * interrupts will remain disabled for each function.
-+	 * So, explicitly enable interrupts
-+	 */
-+	be_intr_set(adapter, true);
-+
- 	/* tell fw we're ready to fire cmds */
- 	status = be_cmd_fw_init(adapter);
- 	if (status)
+Dong Dong Chen (1):
+  vhost: avoid large order allocations
+
+ drivers/vhost/net.c   | 4 ++--
+ drivers/vhost/scsi.c  | 4 ++--
+ drivers/vhost/test.c  | 2 +-
+ drivers/vhost/vhost.c | 6 +++++-
+ drivers/vhost/vhost.h | 2 +-
+ 5 files changed, 11 insertions(+), 7 deletions(-)
+
 -- 
-1.7.1
+1.8.3.1
+
