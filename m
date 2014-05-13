@@ -1,90 +1,77 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: filter: x86: fix JIT address randomization
-Date: Tue, 13 May 2014 13:23:49 -0700
-Message-ID: <1400012629.7973.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1400007214-3236-1-git-send-email-ast@plumgrid.com>
+From: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: Re: [Linux-zigbee-devel] [PATCH net-next 4/5] ieee802154: don't
+ ignore "to" argument in unbound dgram sendmsg
+Date: Tue, 13 May 2014 22:25:06 +0200
+Message-ID: <b1cd7e87ad545c6f4c724b93051341ad.squirrel@webmail.itwm.fhg.de>
+References: <1400001846-5349-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+    <1400001846-5349-5-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+    <20140513201340.GB12817@ws>
+Reply-To: phoebe.buckheister@itwm.fraunhofer.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain;charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "Phoebe Buckheister" <phoebe.buckheister@itwm.fraunhofer.de>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-zigbee-devel@lists.sourceforge.net
+To: "Werner Almesberger" <werner@almesberger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:47182 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbaEMUXv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 16:23:51 -0400
-Received: by mail-pb0-f47.google.com with SMTP id un15so689742pbc.6
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 13:23:51 -0700 (PDT)
-In-Reply-To: <1400007214-3236-1-git-send-email-ast@plumgrid.com>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:51125 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754981AbaEMUZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 16:25:11 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s4DKP8AB022229
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 May 2014 22:25:09 +0200
+In-Reply-To: <20140513201340.GB12817@ws>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-05-13 at 11:53 -0700, Alexei Starovoitov wrote:
-> bpf_alloc_binary() adds 128 bytes of room to JITed program image
-> and rounds it up to the nearest page size. If image size is close
-> to page size (like 4000), it is rounded to two pages:
-> round_up(4000 + 4 + 128) == 8192
-> then 'hole' is computed as 8192 - (4000 + 4) = 4188
-> If prandom_u32() % hole selects a number >= 4096, then kernel will crash
-> during bpf_jit_free():
-> 
-> kernel BUG at arch/x86/mm/pageattr.c:887!
-> Call Trace:
->  [<ffffffff81037285>] change_page_attr_set_clr+0x135/0x460
->  [<ffffffff81694cc0>] ? _raw_spin_unlock_irq+0x30/0x50
->  [<ffffffff810378ff>] set_memory_rw+0x2f/0x40
->  [<ffffffffa01a0d8d>] bpf_jit_free_deferred+0x2d/0x60
->  [<ffffffff8106bf98>] process_one_work+0x1d8/0x6a0
->  [<ffffffff8106bf38>] ? process_one_work+0x178/0x6a0
->  [<ffffffff8106c90c>] worker_thread+0x11c/0x370
-> 
-> since bpf_jit_free() does:
->   unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
->   struct bpf_binary_header *header = (void *)addr;
-> to compute start address of 'bpf_binary_header'
-> and header->pages will pass junk to:
->   set_memory_rw(addr, header->pages);
-> 
-> Fix it by picking image offset always out of the first page.
+On Tue, May 13, 2014 10:13 pm, Werner Almesberger wrote:
+> Phoebe Buckheister wrote:
+>> For some reason, unconnected 802.15.4 dgram sockets ignore the
+>> destination
+>> argument of sendmsg(), while bound sockets use it. Instead, send packets
+>> to the destination given by the user, and default to the connected
+>> destination only if no explicit target is given.
+>
+> We discussed this a bit on IRC. Here's what I think happened and what
+> happens with your patch. Before:
+>
+> conn'ed	msg_nam	action
+> -------	-------	------------------------------------------
+> no	no	send to initialization value (= broadcast)
+> no	yes	idem
+> yes	no	send to connected address
+> yes	yes	idem
+>
+> After your patch:
+>
+> conn'ed	msg_nam	action
+> -------	-------	------------------------------------------
+> no	no	send to initialization value (= broadcast)
+> no	yes	send to msg_name
+> yes	no	send to connected address
+> yes	yes	send to msg_name
+>
+> This is certainly more correct. Blurting out a broadcast in the
+> no/no case isn't nice, though. It would be better to return either
+> ENOTCONN (POSIX [1]) or (even better, according to GNU libc [2])
+> EDESTADDRREQ.
+>
+> POSIX [1] says we may get EISCONN in the yes/yes case and the Linux
+> man page [3] says we either get EISCONN or the msg_name argument is
+> ignored. So that also doesn't look quite right yet.
 
-You mean, offset should be in first page ?
+You're completely right. I left the ENOTCONN case out on purpose and
+forgot EISCONN, but as you listed, sendmsg() really never worked except in
+one special case, and there's a bit of other nastiness going on in those
+sockets. I'll revise this patch and add another to fix the rest.
 
-> 
-> While at it make the offset to be within first half of the page,
-> so there is some room for CPU to run before it hits page miss.
-> 
-> Fixes: 314beb9bcabfd ("x86: bpf_jit_comp: secure bpf jit against spraying attacks")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> 
-> s390 commit aa2d2c73c21f ("s390/bpf,jit: address randomize and write protect jit code")
-> seems to have the same problem
-> 
->  arch/x86/net/bpf_jit_comp.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-> index dc01773..c6ab7a0 100644
-> --- a/arch/x86/net/bpf_jit_comp.c
-> +++ b/arch/x86/net/bpf_jit_comp.c
-> @@ -171,7 +171,7 @@ static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
->  	memset(header, 0xcc, sz); /* fill whole space with int3 instructions */
->  
->  	header->pages = sz / PAGE_SIZE;
-> -	hole = sz - (proglen + sizeof(*header));
-> +	hole = min(sz - (proglen + sizeof(*header)), PAGE_SIZE / 2);
->  
->  	/* insert a random number of int3 instructions before BPF code */
->  	*image_ptr = &header->image[prandom_u32() % hole];
-
-Good catch, but I am not sure about the PAGE_SIZE / 2
-
-The argument of not having code ending on (or being very close of) page
-boundary seems orthogonal to this bug fix.
-
-Thanks
+>
+> - Werner
+>
+> [1] http://pubs.opengroup.org/onlinepubs/007904975/
+> [2] http://www.gnu.org/software/libc/manual/html_node/Error-Codes.html
+> [3] man sendmsg
+>
