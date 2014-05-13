@@ -1,70 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] bridge: notify user space of fdb port
-	change
-Date: Tue, 13 May 2014 08:28:53 -0700
-Message-ID: <20140513082853.25e99c67@nehalam.linuxnetplumber.net>
-References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
-	<20140513151611.GA2966@minipsycho.orion>
+From: sowmini varadhan <sowmini05@gmail.com>
+Subject: Re: [PATCH 0/3] Make mark-based routing work better with multiple
+ separate networks.
+Date: Tue, 13 May 2014 11:38:14 -0400
+Message-ID: <CACP96tSF=3ogg+Gv6GiOuUxF=kL_6FE0f_P1Efcg7-RKWs++yA@mail.gmail.com>
+References: <1399657021-26082-1-git-send-email-lorenzo@google.com>
+	<CACP96tS0ikGfx85HX6t1w8+AENuiJu2N2-AyiJP+=VBohKjb4A@mail.gmail.com>
+	<CAKD1Yr1ey0j03OtO3_tD+AREQwnk1J9Mx60-TcEP9QwEy4tdAw@mail.gmail.com>
+	<CACP96tQO8PWyOKxR5gWWx4VvjjcTmkLhGHr_P2-WBCDEJpqL8Q@mail.gmail.com>
+	<CAKD1Yr0z40vY8ucGDuLo8rPDudtHeOeMPbN_vfSSS_K4KjCffg@mail.gmail.com>
+	<CACP96tTRQqvQM6UTuqtVonZJW3LaHkBZkkpH+zCZa=GjHAEy+Q@mail.gmail.com>
+	<CAKD1Yr2YtX9eGeFOeMb=s3_yqhhJgWEb+G0JH26UPRDPfZ5MgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	jmaxwell@redhat.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, Jon Maxwell <jmaxwell37@gmail.com>,
-	davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140513151611.GA2966@minipsycho.orion>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, JP Abgrall <jpa@google.com>,
+	David Miller <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:35913 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbaEMPiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 11:38:16 -0400
+Received: by mail-la0-f48.google.com with SMTP id mc6so426312lab.7
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 08:38:15 -0700 (PDT)
+In-Reply-To: <CAKD1Yr2YtX9eGeFOeMb=s3_yqhhJgWEb+G0JH26UPRDPfZ5MgQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 May 2014 17:16:11 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Tue, May 13, 2014 at 11:28 AM, Lorenzo Colitti <lorenzo@google.com> wrote:
 
-> Tue, May 13, 2014 at 09:55:08AM CEST, jmaxwell37@gmail.com wrote:
-> >From: Jon Maxwell <jmaxwell37@gmail.com>
-> >
-> >There has been a number incidents recently where customers running KVM have 
-> >reported that VM hosts on different Hypervisors are unreachable. Based on 
-> >pcap traces we found that the bridge was broadcasting the ARP request out 
-> >onto the network. However some NICs have an inbuilt switch which on occasions 
-> >were broadcasting the VMs ARP request back through the physical NIC on the 
-> >Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-> >that the VMs mac address was external. As a result the ARP reply was directed 
-> >back onto the external network and VM never updated it's ARP cache. This patch 
-> >will notify the bridge command to identify such port toggling.
-> >
-> >Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
-> >---
-> > net/bridge/br_fdb.c | 2 ++
-> > 1 file changed, 2 insertions(+)
-> >
-> >diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> >index 9203d5a..37742e2 100644
-> >--- a/net/bridge/br_fdb.c
-> >+++ b/net/bridge/br_fdb.c
-> >@@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
-> > 					source->dev->name);
-> > 		} else {
-> > 			/* fastpath: update of existing entry */
-> >+			if (source->port_no != fdb->dst->port_no)
-> >+				fdb_notify(br, fdb, RTM_NEWNEIGH);
-> > 			fdb->dst = source;
-> > 			fdb->updated = jiffies;
-> > 			if (unlikely(added_by_user))
-> >-- 
-> >1.8.3.1
-> 
-> 
-> Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+> You can't use macvlan if you're not using interfaces that don't have
+> MAC addresses such as tun devices, 4G interfaces, and so on.
 
-I like the patch, but please add unlikely() to this conditional.
-This is in the fast path code for bridge learning.
+So to repeat, "what problem do you need to solve?" You indicated
+that
+" As described in the patch cover letter, one of the things I'm trying
+  to do is have fwmarks select between multiple separate networks, which
+  may be on multiple physical interfaces. I also want applications to be
+  able to listen for connections from all networks using a single
+  listening socket. I don't care about network isolation."
+
+To do that, you just have to bind() the under-socket to the desired address,
+no need for macvlans etc.
+
+You'd only need macvlans to solve the rest of the problems in your
+list, such as getting ping to work right, which involves network isolation,
+aka vrf. (fwiw, the ping etc will JustWork with network-namespaces)
+
+
+> IMO forcing an application to open one socket per namespace, and
+> constantly be listening for any namespace changes as networks come and
+> go, is an unreasonable burden when all the application wants to do is
+
+your typical network app is going to have to open a netlink socket
+and listen for state changes (intf events, address events etc) anyway.
+And once you receive a packet on your wildcard socket, I suspect that
+youi need to do some extra work anyway to figure out which
+vrf/netns/sock-mark/whatever it came in on.
+
+But note that I'm not averse to optimizing some of this- it just
+seems odd to me that you have vrfs-with-namespaces,
+not-quite-vrfs-with-sock-marks,
+multiple-routing-tables-for-pbr-but-we-are-not-vrfs etc.
+
+ymmv.
+
+--Sowmini
