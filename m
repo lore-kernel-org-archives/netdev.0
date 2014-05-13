@@ -1,52 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/8] tipc: decrease connection flow control
- window
-Date: Tue, 13 May 2014 00:05:30 -0400 (EDT)
-Message-ID: <20140513.000530.154961879638643331.davem@davemloft.net>
-References: <1399641209-26112-1-git-send-email-jon.maloy@ericsson.com>
-	<1399641209-26112-2-git-send-email-jon.maloy@ericsson.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: linux-next: manual merge of the net-next tree with the ipsec tree
+Date: Mon, 12 May 2014 21:05:48 -0700
+Message-ID: <CAM_iQpWcH7TeBJ-NfdAvwuFqhe9U0ir=UO3f-P=E+znm54_Hag@mail.gmail.com>
+References: <20140513135322.3dfadb7c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34677 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248AbaEMEFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 00:05:34 -0400
-In-Reply-To: <1399641209-26112-2-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:45274 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751688AbaEMEFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 00:05:49 -0400
+In-Reply-To: <20140513135322.3dfadb7c@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri,  9 May 2014 09:13:22 -0400
+On Mon, May 12, 2014 at 8:53 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+> Hi all,
+>
+> Today's linux-next merge of the net-next tree got a conflict in
+> net/ipv6/xfrm6_output.c between commit 5596732fa8c1 ("xfrm: Fix crash
+> with ipv6 IPsec tunnel and NAT") from the ipsec tree and commit
+> 60ff746739bf ("net: rename local_df to ignore_df") from the net-next
+> tree.
+>
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
+>
 
-> Memory overhead when allocating big buffers for data transfer may
-> be quite significant. E.g., truesize of a 64 KB buffer turns out
-> to be 132 KB, 2 x the requested size.
-> 
-> This invalidates the "worst case" calculation we have been
-> using to determine the default socket receive buffer limit,
-> which is based on the assumption that 1024x64KB = 67MB buffers
-> may be queued up on a socket.
-> 
-> Since TIPC connections cannot survive hitting the buffer limit,
-> we have to compensate for this overhead.
-> 
-> We do that in this commit by dividing the fix connection flow
-> control window from 1024 (2*512) messages to 512 (2*256). Since
-> older version nodes send out acks at 512 message intervals,
-> compatibility with such nodes is guaranteed, although performance
-> may be non-optimal in such cases.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-> Reviewed-by: Ying Xue <ying.xue@windriver.com>
-
-So all I have to do is open 64 sockets to make TIPC commit to 4GB
-of ram at once?
-
-I really think you need to rethink this, the socket limits are
-there for a reason.
+Looks good. Thanks!
