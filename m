@@ -1,61 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Moving frags and SKBTX_DEV_ZEROCOPY skbs
-Date: Wed, 14 May 2014 07:23:52 -0700
-Message-ID: <1400077432.7973.85.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53737266.5040601@citrix.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH 2/5] ixgbe: increase default TX ring buffer to
+ 1024
+Date: Wed, 14 May 2014 14:28:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724483B@AcuExch.aculab.com>
+References: <20140514141545.20309.28343.stgit@dragon>
+ <20140514141748.20309.83121.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	kvm@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Florian Westphal" <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Stephen Hemminger" <shemminger@vyatta.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Robert Olsson <robert@herjulf.se>,
+	Ben Greear <greearb@candelatech.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"danieltt@kth.se" <danieltt@kth.se>,
+	"zhouzhouyi@gmail.com" <zhouzhouyi@gmail.com>
+To: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:34644 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbaENOXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 10:23:55 -0400
-In-Reply-To: <53737266.5040601@citrix.com>
+Received: from mx0.aculab.com ([213.249.233.131]:45454 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751620AbaENO2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 10:28:35 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 27522-07 for <netdev@vger.kernel.org>;
+ Wed, 14 May 2014 15:28:25 +0100 (BST)
+In-Reply-To: <20140514141748.20309.83121.stgit@dragon>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-14 at 14:40 +0100, Zoltan Kiss wrote:
-> Hi,
-> 
-> Recently I've investigated issues around SKBTX_DEV_ZEROCOPY skbs where 
-> the frags list were modified. I came across this function skb_shift(), 
-> which moves frags between skbs. And there are a lot more of such kind, 
-> skb_split or skb_try_coalesce, for example.
-> It could be a dangerous thing if a frag is referenced from an skb which 
-> doesn't have the original destructor_arg, and to avoid that 
-> skb_orphan_frags should be called. Although probably these functions are 
-> not normally touched in usual usecases, I think it would be useful to 
-> review core skb functions proactively and add an skb_orphan_frags 
-> everywhere where the frags could be referenced from other places.
-> Any opinion about this?
-
-
-For skb_shift(), it is currently used from tcp stack only, where
-this SKBTX_DEV_ZEROCOPY thing is not used, so I do not think there is a
-bug for the moment.
-
-I already gave a patch for skb_try_coalesce() : For this one we do not
-wan skb_orphan_frags() overhead. Its simply better in this case to
-abort.
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1b62343f5837..85995a14aafc 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3838,7 +3839,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
- 		return true;
- 	}
- 
--	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-+	if (skb_has_frag_list(to) ||
-+	    skb_has_frag_list(from) ||
-+	    (skb_shinfo(to)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
-+	    (skb_shinfo(from)->tx_flags & SKBTX_DEV_ZEROCOPY))
- 		return false;
- 
- 	if (skb_headlen(from) != 0) {
+RnJvbTogSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiBVc2luZyBwa3RnZW4gSSdtIHNlZWluZyB0
+aGUgaXhnYmUgZHJpdmVyICJwdXNoLWJhY2siLCBkdWUgVFggcmluZw0KPiBydW5uaW5nIGZ1bGwu
+ICBUaHVzLCB0aGUgVFggcmluZyBpcyBhcnRpZmljaWFsbHkgbGltaXRpbmcgcGt0Z2VuLg0KPiAN
+Cj4gRGlhZ25vc2UgdmlhICJldGh0b29sIC1TIiwgbG9vayBmb3IgInR4X3Jlc3RhcnRfcXVldWUi
+IG9yICJ0eF9idXN5Ig0KPiBjb3VudGVycy4NCg0KSGF2ZSB5b3UgdHJpZWQgcmVkdWNpbmcgdGhl
+IHR4IGludGVycnVwdCBtaXRpZ2F0aW9uIGRlbGF5Lg0KSXQgbWlnaHQganVzdCBiZSB0aGF0IHRo
+ZSBlbmQgb2YgdHggaW50ZXJydXB0IGlzIGRlbGF5ZWQgdG9vIGxvbmcuDQoNCglEYXZpZA0KDQo=
