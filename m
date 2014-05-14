@@ -1,86 +1,76 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH net-next v2 2/8] tipc: compensate for double accounting
- in socket rcv buffer
-Date: Wed, 14 May 2014 17:52:50 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C251554@eusaamb103.ericsson.se>
-References: <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
-	<1400068021.7973.78.camel@edumazet-glaptop2.roam.corp.google.com>
-	<A2BAEFC30C8FD34388F02C9B3121859D1C25134A@eusaamb103.ericsson.se>
- <20140514.133716.106221573887805156.davem@davemloft.net>
+From: dormando <dormando@rydia.net>
+Subject: Re: Multitude of dst obsolescense race conditions
+Date: Wed, 14 May 2014 10:59:41 -0700 (PDT)
+Message-ID: <alpine.DEB.2.10.1405141058570.9591@dinf>
+References: <alpine.DEB.2.02.1405140233210.16893@dtop> <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"paul.gortmaker@windriver.com" <paul.gortmaker@windriver.com>,
-	Erik Hugne <erik.hugne@ericsson.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"maloy@donjonn.com" <maloy@donjonn.com>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg20.ericsson.net ([198.24.6.45]:56749 "EHLO
-	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbaENRw4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 13:52:56 -0400
-In-Reply-To: <20140514.133716.106221573887805156.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+> On Wed, 2014-05-14 at 02:57 -0700, dormando wrote:
+> > Hi,
+> >
+> > Given a machine with frequently changing routes (ie; a router with an
+> > active internet BGP table and multiple interfaces), there're at least
+> > several places where obsolete dst's are handled improperly. If I pause the
+> > route changes, the crashes appear to stop. This first one has a crash
+> > utility we've made, so I was able to more quickly find a patch and test
+> > it. The others take time to reproduce.
+> >
+> > I'm testing against 3.10.39, but I think if these were fixed they'd be
+> > backported to stable? I've also had recent 3.12's running that have
+> > crashed in the same spots. Anyway correct me if I'm wrong...
+>
+> Is this a vanilla kernel ? I never had any issues like that.
+>
+> I wonder if you have some RCU issues.
+>
+> static inline struct dst_entry *
+> sk_dst_get(struct sock *sk)
+> {
+>         struct dst_entry *dst;
+>
+>         rcu_read_lock();
+>         dst = rcu_dereference(sk->sk_dst_cache);
+>         if (dst)
+>                 dst_hold(dst);
+>         rcu_read_unlock();
+>         return dst;
+> }
+>
+> static inline void
+> __sk_dst_set(struct sock *sk, struct dst_entry *dst)
+> {
+>         struct dst_entry *old_dst;
+>
+>         sk_tx_queue_clear(sk);
+>         /*
+>          * This can be called while sk is owned by the caller only,
+>          * with no state that can be checked in a rcu_dereference_check() cond
+>          */
+>         old_dst = rcu_dereference_raw(sk->sk_dst_cache);
+>         rcu_assign_pointer(sk->sk_dst_cache, dst);
+>         dst_release(old_dst);
+> }
+>
+> static inline void
+> sk_dst_set(struct sock *sk, struct dst_entry *dst)
+> {
+>         spin_lock(&sk->sk_dst_lock);
+>         __sk_dst_set(sk, dst);
+>         spin_unlock(&sk->sk_dst_lock);
+> }
+>
+>
+>
+>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: May-14-14 1:37 PM
-> To: Jon Maloy
-> Cc: eric.dumazet@gmail.com; netdev@vger.kernel.org;
-> paul.gortmaker@windriver.com; Erik Hugne; ying.xue@windriver.com;
-> maloy@donjonn.com; tipc-discussion@lists.sourceforge.net
-> Subject: Re: [PATCH net-next v2 2/8] tipc: compensate for double accounting
-> in socket rcv buffer
-> 
-> From: Jon Maloy <jon.maloy@ericsson.com>
-> Date: Wed, 14 May 2014 12:53:45 +0000
-> 
-> > Because TCP can throw away packet in such situations, and TIPC cannot.
-> 
-> Just want to state for the record that I consider any transport, even over
-> directly connected ethernet, that cannot retransmit at the socket level and
-> does not accomodate packet reordering, to be fundamentally flawed.
-
-When I say link level, I am not talking about Ethernet. I am talking about
-TIPC' own link layer that handles sequence ordering, retransmission,  
-packet bundling (~NAGLE), flow control (not the same as the one we were
-discussing) and   above all tight neighbor supervision and failover if one of
-several parallel links fail. This can be carried over Ethernet, Infiniband, and
-soon to come UDP.  We can detect neighbor loss within 50 ms in small
-clusters, and either do failover or report the failure. Or both.
-
-This worked flawlessly when we had 10 MB hubs with extreme loss rates,
-and it still works fine. 
-
-> 
-> Even if you can absolutely prove that ethernet is %100 drop free and will
-> never reorder your frames, some of those things can always happen in the
-> system itself since memory is not infinite and your protocol is not the only
-> consumer of kernel memory in the system.
-> 
-> You have to accomodate packet drops, at any level, and recover in some
-> reasonable way from this.
-> 
-> So even with byte based flow control, TIPC I think will still have fundamental
-> issues with data handling.
-
-I once presented TIPC for you,  although it is a while ago.  Maybe you don't remember,
-or I wasn't clear enough about this. All this is in place, and much more.
-
-Regards
-///jon
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+We have some minor patches, but I've removed them before and they still
+happen. I'd crashed a vanilla 3.12 + just the stable patches recently I
+think.
