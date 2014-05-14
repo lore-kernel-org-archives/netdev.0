@@ -1,44 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Non-promisc bidge ports support
-Date: Wed, 14 May 2014 15:29:53 -0400 (EDT)
-Message-ID: <20140514.152953.1992805646844184373.davem@davemloft.net>
-References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [Patch net-next] ipv4: make ip_local_reserved_ports per netns
+Date: Wed, 14 May 2014 15:32:02 -0400 (EDT)
+Message-ID: <20140514.153202.632022868786147086.davem@davemloft.net>
+References: <1399935893-15874-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	jhs@mojatatu.com, john.r.fastabend@intel.com, shemminger@vyatta.com
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53647 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750722AbaENTcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:32:03 -0400
+In-Reply-To: <1399935893-15874-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed, 14 May 2014 11:09:20 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 12 May 2014 16:04:53 -0700
 
-> This series adds functionality to the bridge device to enable
-> operations without setting all ports to promiscuous mode.
+> ip_local_port_range is already per netns, so should ip_local_reserved_ports
+> be. And since it is none by default we don't actually need it when we don't
+> enable CONFIG_SYSCTL.
+> 
+> By the way, rename inet_is_reserved_local_port() to inet_is_local_reserved_port()
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-I'm prepared to apply this, please address the minor stylistic
-feedback you've received and resubmit.
-
-Also, what does:
-
-====================
-Conflicts:
-	net/bridge/br_if.c
-	net/bridge/br_private.h
-====================
-
-exactly mean in patch #7?
-
-Thanks.
+This is fine, applied to net-next, thanks.
