@@ -1,44 +1,35 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/2] wlcore: Remove trailing semicolon from do {...} while (0) macro
-Date: Wed, 14 May 2014 12:15:14 -0700
-Message-ID: <a62dbcaa8438b3ee6cdf94d7681427c6f48f122a.1400094804.git.joe@perches.com>
-References: <cover.1400094804.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1400094804.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/8] tipc: bug fixes and improvements
+Date: Wed, 14 May 2014 15:20:41 -0400 (EDT)
+Message-ID: <20140514.152041.2010140945900814477.davem@davemloft.net>
+References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53529 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915AbaENTUo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:20:44 -0400
+In-Reply-To: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These should not have trailing semicolons so remove them.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 14 May 2014 05:39:07 -0400
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/wireless/ti/wlcore/debugfs.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> Intensive and extensive testing has revealed some rather infrequent
+> problems related to flow control, buffer handling and link
+> establishment. Commits ##1 to 4 deal with these problems.
+> 
+> The remaining four commits are just code improvments, aiming at
+> making the code more comprehensible and maintainable. There are
+> no functional enhancements in this series.
+> 
+> v2: Fixed a typo in commit log #2. Otherwise no changes from v1.
 
-diff --git a/drivers/net/wireless/ti/wlcore/debugfs.h b/drivers/net/wireless/ti/wlcore/debugfs.h
-index f7381dd..0f2cfb0 100644
---- a/drivers/net/wireless/ti/wlcore/debugfs.h
-+++ b/drivers/net/wireless/ti/wlcore/debugfs.h
-@@ -57,7 +57,7 @@ static const struct file_operations name## _ops = {			\
- 					    wl, &name## _ops);		\
- 		if (!entry || IS_ERR(entry))				\
- 			goto err;					\
--	} while (0);
-+	} while (0)
- 
- 
- #define DEBUGFS_ADD_PREFIX(prefix, name, parent)			\
-@@ -66,7 +66,7 @@ static const struct file_operations name## _ops = {			\
- 				    wl, &prefix## _## name## _ops);	\
- 		if (!entry || IS_ERR(entry))				\
- 			goto err;					\
--	} while (0);
-+	} while (0)
- 
- #define DEBUGFS_FWSTATS_FILE(sub, name, fmt, struct_type)		\
- static ssize_t sub## _ ##name## _read(struct file *file,		\
--- 
-1.8.1.2.459.gbcd45b4.dirty
+Series applied, thanks.
