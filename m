@@ -1,98 +1,48 @@
-From: Jon Maxwell <jmaxwell@redhat.com>
-Subject: Re: [PATCH net] bridge: notify user space of fdb port change
-Date: Wed, 14 May 2014 17:07:44 -0400 (EDT)
-Message-ID: <2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
-References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com> <5372BA1E.8000402@lab.ntt.co.jp>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Problem with iflink in netns
+Date: Wed, 14 May 2014 14:11:22 -0700
+Message-ID: <CAHA+R7M=8TnW-_R8kzkRgr0aX5y09ek7BAoiKT7+AVGtO=Y8gQ@mail.gmail.com>
+References: <20140513083945.062de6c3@nehalam.linuxnetplumber.net>
+	<CAHA+R7NX8BoXHkSZ97+op7Leg3nD_=TFjJ1K3wSr3pWQbF4Eug@mail.gmail.com>
+	<20140513130554.2e452af8@nehalam.linuxnetplumber.net>
+	<CAHA+R7P_MBrPLVqtvCnC+bPkQ7FHRiLgi0zHAQkz5-9_Z1MBJA@mail.gmail.com>
+	<20140513175118.1e6bc156@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org,
-	davem@davemloft.net, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5372BA1E.8000402@lab.ntt.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:47425 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbaENVLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 17:11:24 -0400
+Received: by mail-la0-f54.google.com with SMTP id pv20so108101lab.13
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 14:11:22 -0700 (PDT)
+In-Reply-To: <20140513175118.1e6bc156@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, May 13, 2014 at 5:51 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Tue, 13 May 2014 13:44:24 -0700
+> Cong Wang <cwang@twopensource.com> wrote:
+>
+>> On Tue, May 13, 2014 at 1:05 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>> >
+>> > That won't solve the problem.
+>> >  1. a pointer increase size of netns and requires refcount
+>>
+>> Yes.
+>>
+>> >  2. iflink is still exposed in kernel user API and has to be set
+>> >     otherwise the device is falsely reported.
+>>
+>> Then report 0 which is not a valid ifindex?
+>
+> But that is what devices without a parent report.
 
-
------ Original Message -----
-> From: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>
-> To: "Jon Maxwell" <jmaxwell37@gmail.com>, stephen@networkplumber.org
-> Cc: davem@davemloft.net, vyasevic@redhat.com, bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-> linux-kernel@vger.kernel.org, jpirko@redhat.com, jmaxwell@redhat.com
-> Sent: Wednesday, May 14, 2014 10:34:38 AM
-> Subject: Re: [PATCH net] bridge: notify user space of fdb port change
-> 
-> (2014/05/13 16:55), Jon Maxwell wrote:
-> > From: Jon Maxwell <jmaxwell37@gmail.com>
-> > 
-> > There has been a number incidents recently where customers running KVM have
-> > reported that VM hosts on different Hypervisors are unreachable. Based on
-> > pcap traces we found that the bridge was broadcasting the ARP request out
-> > onto the network. However some NICs have an inbuilt switch which on
-> > occasions
-> > were broadcasting the VMs ARP request back through the physical NIC on the
-> > Hypervisor. This resulted in the bridge changing ports and incorrectly
-> > learning
-> > that the VMs mac address was external. As a result the ARP reply was
-> > directed
-> > back onto the external network and VM never updated it's ARP cache. This
-> > patch
-> > will notify the bridge command to identify such port toggling.
-> > 
-> > Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
-> > ---
-> >  net/bridge/br_fdb.c | 2 ++
-> >  1 file changed, 2 insertions(+)
-> > 
-> > diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> > index 9203d5a..37742e2 100644
-> > --- a/net/bridge/br_fdb.c
-> > +++ b/net/bridge/br_fdb.c
-> > @@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct
-> > net_bridge_port *source,
-> >  					source->dev->name);
-> >  		} else {
-> >  			/* fastpath: update of existing entry */
-> > +			if (source->port_no != fdb->dst->port_no)
-> 
-> It seems that we don't need to fetch port_no and it is enough to compare
-> source and fdb->dst.
-
-It may save a few instructions but I have not tested it.
-
-> 
-> > +				fdb_notify(br, fdb, RTM_NEWNEIGH);
-> >  			fdb->dst = source;
-> >  			fdb->updated = jiffies;
-> >  			if (unlikely(added_by_user))
-> > 
-> 
-> This notifies fdb entry before updating existing entry. Is this on purpose?
-> I think we should notify the updated fdb entry.
-> Similar code fdb_add_entry() does after updating it.
-
-It was not on purpose but for this particular case there will be burst of notifies 
-so it probably does not matter. However I agree it should be after the update.
-I will do that along with adding the unlikely() conditional and resubmit.
-
-> 
-> Also, isn't it better to move update of dst into "if" block?
-
-I would prefer to leave this portion as alone and only use the if 
-statement for the notify.
-
-> 
-> 	if (source != fdb->dst) {
-> 		fdb->dst = source;
-> 		modified = true;
-> 	}
-> 	...
-> 	if (modified) ...
-> 
-> Thanks,
-> Toshiaki Makita
-> 
+Its parent of out of this netns, so this is expected. This is no way
+to express "it's in another netns" with just ifindex. Maybe a new flag
+would help.
