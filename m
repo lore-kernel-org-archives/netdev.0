@@ -1,78 +1,95 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: notify user space of fdb port
-	change
-Date: Wed, 14 May 2014 09:34:38 +0900
-Message-ID: <5372BA1E.8000402@lab.ntt.co.jp>
-References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v4 2/2] net: systemport: pad packets to a minimum
+ of 64 bytes
+Date: Tue, 13 May 2014 17:36:58 -0700
+Message-ID: <CAGVrzcYKVm8Pps_DHrXmZ6wd6d6A3k7FjkEn9sVDo1PwA1fZcw@mail.gmail.com>
+References: <1399666599-19398-1-git-send-email-f.fainelli@gmail.com>
+ <1399666599-19398-3-git-send-email-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D0F7116C2@AcuExch.aculab.com>
+ <CAGVrzcadcBzoLL9sxnuZ-rszpO-h4BircuWxNr4a7oFHbKxtXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	jmaxwell@redhat.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:44064 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750968AbaENAhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 20:37:45 -0400
+Received: by mail-qg0-f52.google.com with SMTP id a108so1635409qge.39
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 17:37:44 -0700 (PDT)
+In-Reply-To: <CAGVrzcadcBzoLL9sxnuZ-rszpO-h4BircuWxNr4a7oFHbKxtXA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/05/13 16:55), Jon Maxwell wrote:
-> From: Jon Maxwell <jmaxwell37@gmail.com>
-> 
-> There has been a number incidents recently where customers running KVM have 
-> reported that VM hosts on different Hypervisors are unreachable. Based on 
-> pcap traces we found that the bridge was broadcasting the ARP request out 
-> onto the network. However some NICs have an inbuilt switch which on occasions 
-> were broadcasting the VMs ARP request back through the physical NIC on the 
-> Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-> that the VMs mac address was external. As a result the ARP reply was directed 
-> back onto the external network and VM never updated it's ARP cache. This patch 
-> will notify the bridge command to identify such port toggling.
-> 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
-> ---
->  net/bridge/br_fdb.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 9203d5a..37742e2 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->  					source->dev->name);
->  		} else {
->  			/* fastpath: update of existing entry */
-> +			if (source->port_no != fdb->dst->port_no)
+2014-05-13 17:18 GMT-07:00 Florian Fainelli <f.fainelli@gmail.com>:
+> 2014-05-12 5:45 GMT-07:00 David Laight <David.Laight@aculab.com>:
+>> From: Florian Fainelli
+>>> The switch fabric which is used behind the Broadcom SYSTEMPORT Ethernet
+>>> controller will discard any incoming packet that is not 64 bytes or
+>>> more. Since the UniMAC hardware transmits up to the specified size, just
+>>> make sure that we properly pad the end of the packet with zeroes using
+>>> skb_padto() and set a minimum packet length of 64 bytes.
+>>
+>> Surely the above should just be:
+>>     "Pad transmit packets to the minimum length (64 bytes)."
+>> All ethernet packets should be padded to 64 bytes (including the CRC).
+>
+> Sure, I can definitively simplify the commit message.
+>
+>>
+>> ...
+>>> @@ -848,10 +849,22 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>>>               }
+>>>       }
+>>>
+>>> -     mapping = dma_map_single(kdev, skb->data, skb->len, DMA_TO_DEVICE);
+>>> +     /* The Ethernet switch we are interfaced with needs packets to be at
+>>> +      * least 64 bytes otherwise they will be discarded when they enter
+>>> +      * the switch port logic. The UniMAC hardware transmits up to the
+>>> +      * specified length.
+>>> +      */
+>>> +     if (skb_padto(skb, 64)) {
+>>
+>> Shouldn't that be 60?
+>
+> It should, absolutely, and that is ETH_ZLEN. Thanks!
 
-It seems that we don't need to fetch port_no and it is enough to compare
-source and fdb->dst.
+In fact, no, despite the Ethernet MAC appending the CRC, the minimum
+packet length from the DMA perspective really needs to be 64, as the
+hardware inserted CRC is not accounted for to generate the End of
+Packet signal. That just translates into ETH_ZLEN + ETH_FCS_LEN
+anyway.
 
-> +				fdb_notify(br, fdb, RTM_NEWNEIGH);
->  			fdb->dst = source;
->  			fdb->updated = jiffies;
->  			if (unlikely(added_by_user))
-> 
+>
+>> I presume there is an appropriate constant defined for it as well.
+>>
+>>> +             ret = NETDEV_TX_OK;
+>>> +             goto out;
+>>> +     }
+>>> +
+>>> +     skb_len = skb->len < 64 ? 64 : skb->len;
+>>> +
+>>> +     mapping = dma_map_single(kdev, skb->data, skb_len, DMA_TO_DEVICE);
+>>>       if (dma_mapping_error(kdev, mapping)) {
+>>>               netif_err(priv, tx_err, dev, "DMA map failed at %p (len=%d)\n",
+>>> -                             skb->data, skb->len);
+>>> +                             skb->data, skb_len);
+>>>               ret = NETDEV_TX_OK;
+>>>               goto out;
+>>>       }
+>> ...
+>>
+>>         david
+>>
+>>
+>
+>
+>
+> --
+> Florian
 
-This notifies fdb entry before updating existing entry. Is this on purpose?
-I think we should notify the updated fdb entry.
-Similar code fdb_add_entry() does after updating it.
 
-Also, isn't it better to move update of dst into "if" block?
 
-	if (source != fdb->dst) {
-		fdb->dst = source;
-		modified = true;
-	}
-	...
-	if (modified) ...
-
-Thanks,
-Toshiaki Makita
+-- 
+Florian
