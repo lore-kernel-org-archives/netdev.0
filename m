@@ -1,70 +1,67 @@
-From: =?UTF-8?B?5b6Q5rC45YGl?= <xuyongjiande@gmail.com>
-Subject: Re: [E1000-devel] [PATCH] e1000: remove the check: skb->len<=0
-Date: Wed, 14 May 2014 09:25:21 +0800
-Message-ID: <CABVvea3GLVqwg7xMG9KhMfqvLxLQ8cE1NDeHXMxoA2+ZG06w4w@mail.gmail.com>
-References: <1399957629-13536-1-git-send-email-xuyongjiande@gmail.com> <D38E8E86660E514AB505863C19C9287C73FBD0FE@ORSMSX102.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Ronciak, John" <john.ronciak@intel.com>
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Subject: [PATCH v1] net: phy: resume phydev when going to RESUMING
+Date: Wed, 14 May 2014 09:31:38 +0800
+Message-ID: <1400031098-19072-1-git-send-email-zhangfei.gao@linaro.org>
+Cc: netdev@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>,
+	Jiancheng Xue <xuejiancheng@huawei.com>
+To: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+	davem@davemloft.net, sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:48339 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751319AbaENBZm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 21:25:42 -0400
-In-Reply-To: <D38E8E86660E514AB505863C19C9287C73FBD0FE@ORSMSX102.amr.corp.intel.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:43121 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751444AbaENBbu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 21:31:50 -0400
+Received: by mail-pa0-f42.google.com with SMTP id rd3so970832pab.29
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 18:31:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The check is not right, it should be "(int)(skb->len) <= 0", or we
-just remove this check if "skb->len will never be negative or 0".
+"With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
+to HALTED"), an unused PHY device will be put in a low-power mode
+using BMCR_PDOWN. Some Ethernet drivers might be calling phy_start()
+and phy_stop() from ndo_open and ndo_close() respectively, while
+calling phy_connect() and phy_disconnect() from probe and remove.
+In such a case, the PHY will be powered down during the phy_stop()
+call, but will fail to be powered up in phy_start().
+This patch fixes the following scenario."
 
-2014-05-13 22:57 GMT+08:00 Ronciak, John <john.ronciak@intel.com>:
->> -----Original Message-----
->> From: xuyongjiande@gmail.com [mailto:xuyongjiande@gmail.com]
->> Sent: Monday, May 12, 2014 10:07 PM
->> To: eric.dumazet@gmail.com
->> Cc: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org; linux-
->> kernel@vger.kernel.org; Yongjian Xu
->> Subject: [E1000-devel] [PATCH] e1000: remove the check: skb->len<=0
->>
->> From: Yongjian Xu <xuyongjiande@gmail.com>
->>
->> There is no case skb->len would be 0 or 'negative'.
->> Remove the check.
->>
->> Signed-off-by: Yongjian Xu <xuyongjiande@gmail.com>
->> ---
->>  drivers/net/ethernet/intel/e1000/e1000_main.c | 5 -----
->>  1 file changed, 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c
->> b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> index 27058df..660971f 100644
->> --- a/drivers/net/ethernet/intel/e1000/e1000_main.c
->> +++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
->> @@ -3105,11 +3105,6 @@ static netdev_tx_t e1000_xmit_frame(struct
->> sk_buff *skb,
->>        */
->>       tx_ring = adapter->tx_ring;
->>
->> -     if (unlikely(skb->len <= 0)) {
->> -             dev_kfree_skb_any(skb);
->> -             return NETDEV_TX_OK;
->> -     }
->> -
->>       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->>        * packets may get corrupted during padding by HW.
->>        * To WA this issue, pad all small packets manually.
->> --
->> 1.9.1
-> What is the exact problem that this is fixing?  Did you have a test case that showed a problem with it?
->
-> Cheers,
-> John
->
->
+Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+---
+ drivers/net/phy/phy.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 1b6d09a..be5d52e 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -715,7 +715,7 @@ void phy_state_machine(struct work_struct *work)
+ 	struct delayed_work *dwork = to_delayed_work(work);
+ 	struct phy_device *phydev =
+ 			container_of(dwork, struct phy_device, state_queue);
+-	int needs_aneg = 0, do_suspend = 0;
++	int needs_aneg = 0, do_suspend = 0, do_resume = 0;
+ 	int err = 0;
+ 
+ 	mutex_lock(&phydev->lock);
+@@ -865,6 +865,8 @@ void phy_state_machine(struct work_struct *work)
+ 			}
+ 			phydev->adjust_link(phydev->attached_dev);
+ 		}
++
++		do_resume = 1;
+ 		break;
+ 	}
+ 
+@@ -876,6 +878,9 @@ void phy_state_machine(struct work_struct *work)
+ 	if (do_suspend)
+ 		phy_suspend(phydev);
+ 
++	if (do_resume)
++		phy_resume(phydev);
++
+ 	if (err < 0)
+ 		phy_error(phydev);
+ 
+-- 
+1.7.9.5
