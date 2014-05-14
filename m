@@ -1,61 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 3/8] bridge: Add functionality to sync
- static fdb entries to hw
-Date: Thu, 15 May 2014 00:47:43 +0400
-Message-ID: <5373D66F.4080801@cogentembedded.com>
-References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
-	<1400080168-16625-4-git-send-email-vyasevic@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Use a more standard macro for INET_ADDR_COOKIE
+Date: Wed, 14 May 2014 16:48:05 -0400 (EDT)
+Message-ID: <20140514.164805.1312198151357839253.davem@davemloft.net>
+References: <1400038207.24350.83.camel@joe-AO725>
+	<20140514.160845.214090653562722244.davem@redhat.com>
+	<1400100249.30384.32.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com, mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1400080168-16625-4-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400100249.30384.32.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/14/2014 07:09 PM, Vlad Yasevich wrote:
+From: Joe Perches <joe@perches.com>
+Date: Wed, 14 May 2014 13:44:09 -0700
 
-> Add code that allows static fdb entires to be synced to the
-> hw list for a specified port.  This will be used later to
-> program ports that can function in non-promiscuous mode.
+> On Wed, 2014-05-14 at 16:08 -0400, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> Date: Tue, 13 May 2014 20:30:07 -0700
+>> 
+>> > Missing a colon on definition use is a bit odd so
+>> > change the macro for the 32 bit case to declare an
+>> > __attribute__((unused)) and __deprecated variable.
+>> > 
+>> > The __deprecated attribute will cause gcc to emit
+>> > an error if the variable is actually used.
+>> > 
+>> > Signed-off-by: Joe Perches <joe@perches.com>
+>> 
+>> This is fine, applied, thanks Joe.
+>> 
+>> Perhaps it would have been nicer to make the macros be initializers,
+>> so that it still would look like a proper variable declaration at
+>> the use sites:
+>> 
+>> 	const __addrpair var = INET_ADDR_COOKIE(x, y, z);
+>> 
+>> or something like that.
+> 
+> Maybe so, but there's no way to add an __attribute__
+> before the = sign for the 32 bit case like that without
+> another #define and it would then always require
+> initialization too.
 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->   net/bridge/br_fdb.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++
->   net/bridge/br_private.h |  2 ++
->   2 files changed, 58 insertions(+)
-
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 9203d5a..9759b61 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -874,3 +874,59 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
->   out:
->   	return err;
->   }
-> +
-> +int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p)
-> +{
-> +	struct net_bridge_fdb_entry *fdb, *tmp = NULL;
-
-    Again, initializer doesn't seem to be needed.
-
-> +	int i;
-> +	int err = 0;
-
-    This one as well.
-
-[...]
-
-WBR, Sergei
+Good point.
