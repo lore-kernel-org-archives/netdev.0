@@ -1,80 +1,88 @@
-From: Darek Marcinkiewicz <reksio@newterm.pl>
-Subject: [PATCH] driver/net/ethernet/ec_bhf.c: fix sparse warnings
-Date: Wed, 14 May 2014 08:04:32 +0200
-Message-ID: <20140514060431.GA5641@newterm.pl>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [RFC v4 0/1]: Add minimum bandwidth support in IP tool.
+Date: Wed, 14 May 2014 01:55:05 -0400
+Message-ID: <1400046906-13929-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Dept-HSGLinuxNICDev@qlogic.com>, <ben@decadent.org.uk>,
+	<gregory.v.rose@intel.com>, <linux-net-drivers@solarflare.com>,
+	<Ariel.Elior@qlogic.com>, <amirv@mellanox.com>, <mkubecek@suse.cz>,
+	<stephen@networkplumber.org>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:58550 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750705AbaENGYY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 02:24:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sparse was reporting quite a few warnings for the driver.
-Those get fixed by this patch.
+Today IP tool allows configuring only maximum bandwidth.
+Likewise minimum bandwidth can also be configured for a VF. It puts
+lower limit on the VF bandwidth. VF is guaranteed to have a bandwidth
+of at least this value.
 
-Signed-off-by: Dariusz Marcinkiewicz <reksio@newterm.pl>
----
- drivers/net/ethernet/ec_bhf.c |   20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
+With this change, user can alter minimum bandwidth rate.
 
-diff --git a/drivers/net/ethernet/ec_bhf.c b/drivers/net/ethernet/ec_bhf.c
-index 4884205..056b44b 100644
---- a/drivers/net/ethernet/ec_bhf.c
-+++ b/drivers/net/ethernet/ec_bhf.c
-@@ -134,17 +134,17 @@ struct ec_bhf_priv {
- 
- 	struct pci_dev *dev;
- 
--	void * __iomem io;
--	void * __iomem dma_io;
-+	void __iomem *io;
-+	void __iomem *dma_io;
- 
- 	struct hrtimer hrtimer;
- 
- 	int tx_dma_chan;
- 	int rx_dma_chan;
--	void * __iomem ec_io;
--	void * __iomem fifo_io;
--	void * __iomem mii_io;
--	void * __iomem mac_io;
-+	void __iomem *ec_io;
-+	void __iomem *fifo_io;
-+	void __iomem *mii_io;
-+	void __iomem *mac_io;
- 
- 	struct bhf_dma rx_buf;
- 	struct rx_desc *rx_descs;
-@@ -297,7 +297,7 @@ static int ec_bhf_setup_offsets(struct ec_bhf_priv *priv)
- {
- 	struct device *dev = PRIV_TO_DEV(priv);
- 	unsigned block_count, i;
--	void * __iomem ec_info;
-+	void __iomem *ec_info;
- 
- 	dev_dbg(dev, "Info block:\n");
- 	dev_dbg(dev, "Type of function: %x\n", (unsigned)ioread16(priv->io));
-@@ -569,8 +569,8 @@ static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
- {
- 	struct net_device *net_dev;
- 	struct ec_bhf_priv *priv;
--	void * __iomem dma_io;
--	void * __iomem io;
-+	void __iomem *dma_io;
-+	void __iomem *io;
- 	int err = 0;
- 
- 	err = pci_enable_device(dev);
-@@ -615,7 +615,7 @@ static int ec_bhf_probe(struct pci_dev *dev, const struct pci_device_id *id)
- 	}
- 
- 	net_dev = alloc_etherdev(sizeof(struct ec_bhf_priv));
--	if (net_dev == 0) {
-+	if (net_dev == NULL) {
- 		err = -ENOMEM;
- 		goto err_unmap_dma_io;
- 	}
--- 
-1.7.10.4
+This patch series has 1 combined patch that adds required support in kernel
+and qlcnic driver changes for minimum bandwidth support.
+
+This change also requires changes in IP tool. I am sending that patch
+separately.
+
+Changes in v2 per suggestions from Ben Hutchings and Michal Kubecek:
+
+   net patch:
+        o Fixed enum index for IFLA_VF_RATE
+        o ndo_set_vf_rate replaces ndo_set_vf_tx_rate. Drivers that currently implement
+          ndo_set_vf_tx_rate is converted to implement ndo_set_vf_rate instead.
+        o If only IFLA_VF_TX_RATE is specified, the core should get the current minimum
+          before calling ndo_set_vf_rate.
+        o IFLA_VF_RATE should override if both IFLA_VF_RATE and IFLA_VF_TX_RATE are specified.
+        o Combined qlcnic patch to add support for minimum bandwidth with net patch
+
+Changes in v3 as per suggestions from Ben Hutchings
+
+    net patch:
+        o If user enters only one value out of min_tx_rate or max_tx_rate, the other
+          value will be read back in userspace for IFLA_VF_RATE.
+
+        o For IFLA_VF_TX_RATE, min rate will still be read in kernel space to preserve
+          compatibility:
+          (a) between old tool sends "rate" and kernel is new (expects "min" and "max")
+          (b) or, when new tool sends only "rate" and kernel is old (expects only "rate")
+
+Change in v4 as per suggestions from Stephen Hemminger:
+
+     No change in net patch. Change in Iproute patch w.r.t display of min_tx_rate and max_tx_rate.
+
+Please comment.
+
+Thanks,
+Sucheta.
+
+Sucheta Chakraborty (1):
+  net: Add support to configure SR-IOV VF minimum and maximum Tx
+    rate through ip tool.
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    3 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        |   20 +++++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |    6 ++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |    3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |   20 +++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   13 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   11 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +-
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   52 ++++++++++++++------
+ drivers/net/ethernet/sfc/siena_sriov.c             |    3 +-
+ include/linux/if_link.h                            |    3 +-
+ include/linux/netdevice.h                          |    8 ++-
+ include/uapi/linux/if_link.h                       |    9 +++-
+ net/core/rtnetlink.c                               |   38 ++++++++++++--
+ 20 files changed, 142 insertions(+), 60 deletions(-)
