@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [RFC net-next 11/11] net: dsa: bcm_sf2: enable Broadcom tags
-Date: Tue, 13 May 2014 22:00:37 -0700
-Message-ID: <1400043637-9799-12-git-send-email-f.fainelli@gmail.com>
+Subject: [RFC net-next 10/11] net: dsa: add Broadcom tag RX/TX handler
+Date: Tue, 13 May 2014 22:00:36 -0700
+Message-ID: <1400043637-9799-11-git-send-email-f.fainelli@gmail.com>
 References: <1400043637-9799-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	nhorman@tuxdriver.com, andy@greyhouse.net, tgraf@suug.ch,
@@ -17,137 +17,305 @@ Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	alexei.starovoitov@gmail.com, Neil.Jerram@metaswitch.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:41845 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754015AbaENFBi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 01:01:38 -0400
-Received: by mail-pb0-f52.google.com with SMTP id rr13so1189393pbb.39
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 22:01:37 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:43176 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754136AbaENFBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 01:01:36 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so1185679pad.9
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 22:01:35 -0700 (PDT)
 In-Reply-To: <1400043637-9799-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Select the Broadcom tag mangler/unmangler and configure the IMP port of
-the switch to dispatch the frames to/from the per-port network devices.
+Add support for the 4-bytes Broadcom tag that built-in switches such as
+the Starfighter 2 might insert when receiving packets, or that we need
+to insert while targetting specific switch ports.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/Kconfig        |  1 +
- drivers/net/dsa/bcm_sf2.c      | 19 +++++++++++++++++--
- drivers/net/dsa/bcm_sf2_regs.h | 40 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 58 insertions(+), 2 deletions(-)
+ net/dsa/Kconfig    |   3 +
+ net/dsa/Makefile   |   1 +
+ net/dsa/dsa.c      |   6 ++
+ net/dsa/dsa_priv.h |   4 ++
+ net/dsa/slave.c    |  17 ++++++
+ net/dsa/tag_brcm.c | 170 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 201 insertions(+)
+ create mode 100644 net/dsa/tag_brcm.c
 
-diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 9b51960a4227..d1d049682a8c 100644
---- a/drivers/net/dsa/Kconfig
-+++ b/drivers/net/dsa/Kconfig
-@@ -39,6 +39,7 @@ config NET_DSA_MV88E6123_61_65
- config NET_DSA_BCM_SF2
- 	tristate "Broadcom Starfighter 2 Ethernet switch support"
- 	select NET_DSA
-+	select NET_DSA_TAG_BRCM
- 	select FIXED_PHY
- 	select BCM7XXX_PHY
- 	select MDIO_UNIMAC
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 1f8ac8d45c90..110ea7993c3c 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -164,15 +164,30 @@ static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
- 		break;
- 	}
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index f5eede1d6cb8..a585fd6352eb 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -12,6 +12,9 @@ config NET_DSA
+ if NET_DSA
  
--	/* Disable Broadcom tags for IMP port */
-+	/* Enable Broadcom tags for IMP port */
- 	reg = core_readl(priv, CORE_BRCM_HDR_CTRL);
--	reg &= ~val;
-+	reg |= val;
- 	core_writel(priv, reg, CORE_BRCM_HDR_CTRL);
+ # tagging formats
++config NET_DSA_TAG_BRCM
++	bool
++
+ config NET_DSA_TAG_DSA
+ 	bool
  
-+	/* Enable reception Broadcom tag for CPU TX (switch RX) to
-+	 * allow us to tag outgoing frames
-+	 */
-+	reg = core_readl(priv, CORE_BRCM_HDR_RX_DIS);
-+	reg &= ~(1 << port);
-+	core_writel(priv, reg, CORE_BRCM_HDR_RX_DIS);
-+
-+	/* Enable transmission of Broadcom tags from the switch (CPU RX) to
-+	 * allow delivering frames to the per-port net_devices
-+	 */
-+	reg = core_readl(priv, CORE_BRCM_HDR_TX_DIS);
-+	reg &= ~(1 << port);
-+	core_writel(priv, reg, CORE_BRCM_HDR_TX_DIS);
-+
- 	/* Force link status for IMP port */
- 	reg = core_readl(priv, CORE_STS_OVERRIDE_IMP);
- 	reg |= (MII_SW_OR | LINK_STS);
- 	core_writel(priv, reg, CORE_STS_OVERRIDE_IMP);
-+
+diff --git a/net/dsa/Makefile b/net/dsa/Makefile
+index 7b9fcbbeda5d..da06ed1df620 100644
+--- a/net/dsa/Makefile
++++ b/net/dsa/Makefile
+@@ -3,6 +3,7 @@ obj-$(CONFIG_NET_DSA) += dsa_core.o
+ dsa_core-y += dsa.o slave.o
+ 
+ # tagging formats
++dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
+ dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index ac05d55dfdd3..d38570f7c6d8 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -645,6 +645,9 @@ static int __init dsa_init_module(void)
+ #ifdef CONFIG_NET_DSA_TAG_TRAILER
+ 	dev_add_pack(&trailer_packet_type);
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++	dev_add_pack(&brcm_tag_packet_type);
++#endif
+ 	return 0;
  }
+ module_init(dsa_init_module);
+@@ -660,6 +663,9 @@ static void __exit dsa_cleanup_module(void)
+ #ifdef CONFIG_NET_DSA_TAG_DSA
+ 	dev_remove_pack(&dsa_packet_type);
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++	dev_remove_pack(&brcm_tag_packet_type);
++#endif
+ 	platform_driver_unregister(&dsa_driver);
+ }
+ module_exit(dsa_cleanup_module);
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index a7f6f0c5fa31..8fb71da70dd6 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -60,5 +60,9 @@ extern struct packet_type edsa_packet_type;
+ netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev);
+ extern struct packet_type trailer_packet_type;
  
- static void bcm_sf2_port_setup(struct dsa_switch *ds, int port)
-diff --git a/drivers/net/dsa/bcm_sf2_regs.h b/drivers/net/dsa/bcm_sf2_regs.h
-index e183cac3d7c8..92a59fb4eec3 100644
---- a/drivers/net/dsa/bcm_sf2_regs.h
-+++ b/drivers/net/dsa/bcm_sf2_regs.h
-@@ -127,6 +127,19 @@
- #define  GMII_SPEED_UP_2G		(1 << 6)
- #define  MII_SW_OR			(1 << 7)
++/* tag_brcm.c */
++netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev);
++extern struct packet_type brcm_tag_packet_type;
++
  
-+#define CORE_NEW_CTRL			0x00084
-+#define  IP_MC				(1 << 0)
-+#define  OUTRANGEERR_DISCARD		(1 << 1)
-+#define  INRANGEERR_DISCARD		(1 << 2)
-+#define  CABLE_DIAG_LEN			(1 << 3)
-+#define  OVERRIDE_AUTO_PD_WAR		(1 << 4)
-+#define  EN_AUTO_PD_WAR			(1 << 5)
-+#define  UC_FWD_EN			(1 << 6)
-+#define  MC_FWD_EN			(1 << 7)
-+
-+#define CORE_SFT_LRN_CTRL		0x000f8
-+#define  SW_LEARN_CNTL(x)		(1 << (x))
-+
- #define CORE_STS_OVERRIDE_GMIIP_PORT(x)	(0x160 + (x) * 4)
- #define  LINK_STS			(1 << 0)
- #define  DUPLX_MODE			(1 << 1)
-@@ -152,11 +165,38 @@
- #define CORE_PAUSESTS			0x00428
- #define  PAUSESTS_TX_PAUSE_SHIFT	9
+ #endif
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 791b0899e7ee..e08d6664e882 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -295,6 +295,18 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
+ 	.get_sset_count		= dsa_slave_get_sset_count,
+ };
  
-+#define CORE_GMNCFGCFG			0x0800
-+#define  RST_MIB_CNT			(1 << 0)
-+#define  RXBPDU_EN			(1 << 1)
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++static const struct net_device_ops brcm_netdev_ops = {
++	.ndo_init		= dsa_slave_init,
++	.ndo_open	 	= dsa_slave_open,
++	.ndo_stop		= dsa_slave_close,
++	.ndo_start_xmit		= brcm_tag_xmit,
++	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
++	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
++	.ndo_set_mac_address	= dsa_slave_set_mac_address,
++	.ndo_do_ioctl		= dsa_slave_ioctl,
++};
++#endif
+ #ifdef CONFIG_NET_DSA_TAG_DSA
+ static const struct net_device_ops dsa_netdev_ops = {
+ 	.ndo_init		= dsa_slave_init,
+@@ -462,6 +474,11 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		slave_dev->netdev_ops = &trailer_netdev_ops;
+ 		break;
+ #endif
++#ifdef CONFIG_NET_DSA_TAG_BRCM
++	case htons(ETH_P_BRCMTAG):
++		slave_dev->netdev_ops = &brcm_netdev_ops;
++		break;
++#endif
+ 	default:
+ 		slave_dev->netdev_ops = &dummy_netdev_ops;
+ 		break;
+diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+new file mode 100644
+index 000000000000..f2a7c9244626
+--- /dev/null
++++ b/net/dsa/tag_brcm.c
+@@ -0,0 +1,170 @@
++/*
++ * Broadcom tag support
++ *
++ * Copyright (C) 2014 Broadcom Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
 +
- #define CORE_BRCM_HDR_CTRL		0x0080c
- #define  BRCM_HDR_EN_P8			(1 << 0)
- #define  BRCM_HDR_EN_P5			(1 << 1)
- #define  BRCM_HDR_EN_P7			(1 << 2)
- 
-+#define CORE_BRCM_HDR_CTRL2		0x0828
++#include <linux/etherdevice.h>
++#include <linux/list.h>
++#include <linux/netdevice.h>
++#include <linux/slab.h>
++#include "dsa_priv.h"
 +
-+#define CORE_HL_PRTC_CTRL		0x0940
-+#define  ARP_EN				(1 << 0)
-+#define  RARP_EN			(1 << 1)
-+#define  DHCP_EN			(1 << 2)
-+#define  ICMPV4_EN			(1 << 3)
-+#define  ICMPV6_EN			(1 << 4)
-+#define  ICMPV6_FWD_MODE		(1 << 5)
-+#define  IGMP_DIP_EN			(1 << 8)
-+#define  IGMP_RPTLVE_EN			(1 << 9)
-+#define  IGMP_RTPLVE_FWD_MODE		(1 << 10)
-+#define  IGMP_QRY_EN			(1 << 11)
-+#define  IGMP_QRY_FWD_MODE		(1 << 12)
-+#define  IGMP_UKN_EN			(1 << 13)
-+#define  IGMP_UKN_FWD_MODE		(1 << 14)
-+#define  MLD_RPTDONE_EN			(1 << 15)
-+#define  MLD_RPTDONE_FWD_MODE		(1 << 16)
-+#define  MLD_QRY_EN			(1 << 17)
-+#define  MLD_QRY_FWD_MODE		(1 << 18)
++/* This tag length is 4 bytes, older ones were 6 bytes, we do not
++ * handle them
++ */
++#define BRCM_TAG_LEN	4
 +
-+#define CORE_RST_MIB_CNT_EN		0x0950
++/* Tag is constructed and desconstructed using byte by byte access
++ * because the tag is placed after the MAC Source Address, which does
++ * not make it 4-bytes aligned, so this might cause unaligned accesses
++ * on most systems where this is used.
++ */
 +
- #define CORE_BRCM_HDR_RX_DIS		0x0980
- #define CORE_BRCM_HDR_TX_DIS		0x0988
- 
++/* Ingress and egress opcodes */
++#define BRCM_OPCODE_SHIFT	5
++#define BRCM_OPCODE_MASK	0x7
++
++/* Ingress fields */
++/* 1st byte in the tag */
++#define BRCM_IG_TC_SHIFT	2
++#define BRCM_IG_TC_MASK		0x7
++/* 2nd byte in the tag */
++#define BRCM_IG_TE_MASK		0x3
++#define BRCM_IG_TS_SHIFT	7
++/* 3rd byte in the tag */
++#define BRCM_IG_DSTMAP2_MASK	1
++#define BRCM_IG_DSTMAP1_MASK	0xff
++
++/* Egress fields */
++
++/* 2nd byte in the tag */
++#define BRCM_EG_CID_MASK	0xff
++
++/* 3rd byte in the tag */
++#define BRCM_EG_RC_MASK		0xff
++#define  BRCM_EG_RC_RSVD	(3 << 6)
++#define  BRCM_EG_RC_EXCEPTION	(1 << 5)
++#define  BRCM_EG_RC_PROT_SNOOP	(1 << 4)
++#define  BRCM_EG_RC_PROT_TERM	(1 << 3)
++#define  BRCM_EG_RC_SWITCH	(1 << 2)
++#define  BRCM_EG_RC_MAC_LEARN	(1 << 1)
++#define  BRCM_EG_RC_MIRROR	(1 << 0)
++#define BRCM_EG_TC_SHIFT	5
++#define BRCM_EG_TC_MASK		0x7
++#define BRCM_EG_PID_MASK	0x1f
++
++netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	u8 *brcm_tag;
++
++	dev->stats.tx_packets++;
++	dev->stats.tx_bytes += skb->len;
++
++	if (skb_cow_head(skb, BRCM_TAG_LEN) < 0)
++		goto out_free;
++
++	skb_push(skb, BRCM_TAG_LEN);
++
++	memmove(skb->data, skb->data + BRCM_TAG_LEN, 2 * ETH_ALEN);
++
++	/* Build the tag after the MAC Source Address */
++	brcm_tag = skb->data + 2 * ETH_ALEN;
++
++	/* Set the ingress opcode, traffic class, tag enforcment is
++	 * deprecated */
++	brcm_tag[0] = (1 << BRCM_OPCODE_SHIFT) |
++			((skb->priority << BRCM_IG_TC_SHIFT) & BRCM_IG_TC_MASK);
++	brcm_tag[1] = 0;
++	brcm_tag[2] = 0;
++	if (p->port == 8)
++		brcm_tag[2] = BRCM_IG_DSTMAP2_MASK;
++	brcm_tag[3] = (1 << p->port) & BRCM_IG_DSTMAP1_MASK;
++
++	/* Queue the SKB for transmission on the parent interface, but
++	 * do not modify its EtherType
++	 */
++	skb->protocol = htons(ETH_P_BRCMTAG);
++	skb->dev = p->parent->dst->master_netdev;
++	dev_queue_xmit(skb);
++
++	return NETDEV_TX_OK;
++
++out_free:
++	kfree_skb(skb);
++	return NETDEV_TX_OK;
++}
++
++static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
++			struct packet_type *pt, struct net_device *orig_dev)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_switch *ds = dst->ds[0];
++	int source_port;
++	u8 *brcm_tag;
++
++	if (unlikely(dst == NULL))
++		goto out_drop;
++
++	skb = skb_unshare(skb, GFP_ATOMIC);
++	if (skb == NULL)
++		goto out;
++
++	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
++		goto out_drop;
++
++	/* skb->data points to the EtherType, the tag is right before it */
++	brcm_tag = skb->data - 2;
++
++	/* The opcode should never be different than 0b000 */
++	if (unlikely((brcm_tag[0] >> BRCM_OPCODE_SHIFT) & BRCM_OPCODE_MASK))
++		goto out_drop;
++
++	/* We should never see a reserved reason code without knowing how to
++	 * handle it
++	 */
++	WARN_ON(brcm_tag[2] & BRCM_EG_RC_RSVD);
++
++	/* Locate which port this is coming from */
++	source_port = brcm_tag[3] & BRCM_EG_PID_MASK;
++
++	/* Validate port against switch setup, either the port is totally */
++	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
++		goto out_drop;
++
++	/* Remove Broadcom tag and update checksum */
++	skb_pull_rcsum(skb, BRCM_TAG_LEN);
++
++	/* Move the Ethernet DA and SA */
++	memmove(skb->data - ETH_HLEN,
++		skb->data - ETH_HLEN - BRCM_TAG_LEN,
++		2 * ETH_ALEN);
++
++	skb_push(skb, ETH_HLEN);
++	skb->pkt_type = PACKET_HOST;
++	skb->dev = ds->ports[source_port];
++	skb->protocol = eth_type_trans(skb, skb->dev);
++
++	skb->dev->stats.rx_packets++;
++	skb->dev->stats.rx_bytes += skb->len;
++
++	netif_receive_skb(skb);
++
++	return 0;
++
++out_drop:
++	kfree_skb(skb);
++out:
++	return 0;
++}
++
++struct packet_type brcm_tag_packet_type __read_mostly = {
++	.type	= cpu_to_be16(ETH_P_BRCMTAG),
++	.func	= brcm_tag_rcv,
++};
 -- 
 1.9.1
