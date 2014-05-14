@@ -1,44 +1,90 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
-Date: Wed, 14 May 2014 17:40:39 +0100
-Message-ID: <1400085639.26934.17.camel@kazak.uk.xensource.com>
-References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53734F9F.2010101@citrix.com>
-	 <1400067318.7973.69.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53736EBA.7050401@citrix.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 01/11] ixgbe: fix detection of SFP+ capable interfaces
+Date: Wed, 14 May 2014 16:59:56 +0000
+Message-ID: <87618083B2453E4A8714035B62D679924FF672BE@FMSMSX105.amr.corp.intel.com>
+References: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1400057663-4578-2-git-send-email-jeffrey.t.kirsher@intel.com>
+ <537360F3.9000000@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
-	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:20390 "EHLO SMTP.CITRIX.COM"
+Received: from mga01.intel.com ([192.55.52.88]:48471 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754318AbaENQkm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 12:40:42 -0400
-In-Reply-To: <53736EBA.7050401@citrix.com>
+	id S1756142AbaENRAn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 13:00:43 -0400
+In-Reply-To: <537360F3.9000000@cogentembedded.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: Sergei Shtylyov
+>[mailto:sergei.shtylyov@cogentembedded.com]
+>Sent: Wednesday, May 14, 2014 5:26 AM
+>To: Kirsher, Jeffrey T; davem@davemloft.net
+>Cc: Tantilov, Emil S; netdev@vger.kernel.org;
+>gospo@redhat.com; sassmann@redhat.com
+>Subject: Re: [net-next 01/11] ixgbe: fix detection of SFP+
+>capable interfaces
+>
+>Hello.
+>
+>On 14-05-2014 12:54, Jeff Kirsher wrote:
+>
+>> From: Emil Tantilov <emil.s.tantilov@intel.com>
+>
+>> In cases where the driver is loaded while there are no SFP+ modules in
+>> the cage the interface was not being detected as SFP capable. To account
+>> for this the driver called identify_sfp in ixgbe_get_settings to make
+>> sure the data is correct. However when there is no SFP+ module in the cage
+>> the driver waits for the I2C reads to time out which can take more than a
+>> second and will cause issues with tools (like net-snmp) that may poll
+>> for that information.
+>
+>> This patch resolves the issue by identifying 82599 based NIC with no PHY
+>> type set as SFP capable which allows the driver to detect the SFP module
+>> when the interface is brought up. As result of this we can also remove the
+>> identify_sfp call from ixgbe_get_settings.
+>
+>> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+>> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>
+>[...]
+>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 8089ea9..e44c42a 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -4660,6 +4660,10 @@ static inline bool
+>ixgbe_is_sfp(struct ixgbe_hw *hw)
+>>   	case ixgbe_phy_nl:
+>>   		if (hw->mac.type == ixgbe_mac_82598EB)
+>>   			return true;
+>> +	/* ixgbe_phy_none is set when no SFP module is present
+>*/
+>> +	case ixgbe_phy_none:
+>> +		if (hw->mac.type == ixgbe_mac_82599EB)
+>> +			return true;
+>
+>    Shouldn't it just be combined with the previous case?
 
-On Wed, 2014-05-14 at 14:25 +0100, Zoltan Kiss wrote:
+How can you combine them? The previous case is for ixgbe_phy_nl and 82598 macs this patch is for ixgbe_phy_none and 82599.
 
-> But of course it should be carefully checked that functions which place 
-> frags into another frags arrays should call orphan_frags, e.g. I guess 
-> skb_shift does such thing. That's what I intend to start another thread 
-> about.
+Thanks,
+Emil
 
-I see Eric has posted a fix for skb_try_coalesce(), but is that likely
-to be acceptable for 3.15? How many other similar patches are we
-expecting and/or how long do you think this careful checking will take?
-
-Given that we are now at 3.15-rc5 I think we need to decide how to
-proceed, either push ahead fixing all these issues or (partially) revert
-this netback feature and try again for 3.16.
-
-Ian.
+>
+>>   	default:
+>>   		return false;
+>>   	}
+>
+>WBR, Sergei
