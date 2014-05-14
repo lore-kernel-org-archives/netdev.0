@@ -1,25 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] TI CPSW Cleanup
-Date: Wed, 14 May 2014 00:47:58 -0400 (EDT)
-Message-ID: <20140514.004758.1002719194974082826.davem@davemloft.net>
-References: <1399870281-27200-1-git-send-email-george.cherian@ti.com>
+Subject: Re: [PATCH] use cond_resched() to replace udelay() when dump eeprom
+Date: Wed, 14 May 2014 00:53:30 -0400 (EDT)
+Message-ID: <20140514.005330.276486541596607753.davem@davemloft.net>
+References: <1399878384-4690-1-git-send-email-acho@suse.com>
+	<1399916910.7000.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	mugunthanvnm@ti.com, balbi@ti.com, zonque@gmail.com,
-	mpa@pengutronix.de, tklauser@distanz.ch
-To: george.cherian@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399870281-27200-1-git-send-email-george.cherian@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: acho@suse.com, netdev@vger.kernel.org, bpoirier@suse.de
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47957 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753037AbaENExb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 00:53:31 -0400
+In-Reply-To: <1399916910.7000.16.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: George Cherian <george.cherian@ti.com>
-Date: Mon, 12 May 2014 10:21:18 +0530
+From: Michael Chan <mchan@broadcom.com>
+Date: Mon, 12 May 2014 10:48:30 -0700
 
-> This series does some minimal cleanups.
-> 	-Conversion of pr_*() to dev_*()
-> 	-Convert kzalloc to devm_kzalloc.
+> We still need to time these commands.  Using cond_resched(), the timing
+> becomes unpredictable.  Perhaps we can reduce the NVRAM_CMD_TIMEOUT
+> counter by a factor of 100 and use msleep(1) instead of udelay(10).
 
-Series applied to net-next, thanks.
+That should work.
