@@ -1,97 +1,35 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next PATCH 2/5] ixgbe: increase default TX ring buffer to
- 1024
-Date: Wed, 14 May 2014 09:28:50 -0700
-Message-ID: <537399C2.8070908@intel.com>
-References: <20140514141545.20309.28343.stgit@dragon> <20140514141748.20309.83121.stgit@dragon>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 0/5] bonding: simple macro cleanup
+Date: Wed, 14 May 2014 09:29:43 -0700
+Message-ID: <1400084983.19788.15.camel@joe-AO725>
+References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
+	 <20140514132922.GA24104@mikrodark.usersys.redhat.com>
+	 <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Robert Olsson <robert@herjulf.se>,
-	Ben Greear <greearb@candelatech.com>,
-	John Fastabend <john.r.fastabend@intel.com>, danieltt@kth.se,
-	zhouzhouyi@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13221 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754434AbaENQ2v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 12:28:51 -0400
-In-Reply-To: <20140514141748.20309.83121.stgit@dragon>
+Received: from smtprelay0118.hostedemail.com ([216.40.44.118]:38023 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753279AbaENQ3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 12:29:49 -0400
+In-Reply-To: <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2014 07:17 AM, Jesper Dangaard Brouer wrote:
-> Using pktgen I'm seeing the ixgbe driver "push-back", due TX ring
-> running full.  Thus, the TX ring is artificially limiting pktgen.
-> 
-> Diagnose via "ethtool -S", look for "tx_restart_queue" or "tx_busy"
-> counters.
-> 
-> Increasing the TX ring buffer should be done carefully, as it comes at
-> a higher memory cost, which can also negatively influence performance.
-> E.g. ring buffer array of struct ixgbe_tx_buffer (current size 48bytes)
-> increase from 512*48=24576bytes to 1024*48=49152bytes which is larger
-> than the L1 data cache (32KB on my E5-2630), thus increasing the L1->L2
-> cache-references.
-> 
-> Adjusting the TX ring buffer (TXSZ) measured over 10 sec with ifpps
->  (single CPU performance, ixgbe 10Gbit/s, E5-2630)
->  * cmd: ethtool -G eth8 tx $TXSZ
->  * 3,930,065 pps -- TXSZ= 512
->  * 5,312,249 pps -- TXSZ= 768
->  * 5,362,722 pps -- TXSZ=1024
->  * 5,361,390 pps -- TXSZ=1536
->  * 5,362,439 pps -- TXSZ=2048
->  * 5,359,744 pps -- TXSZ=4096
-> 
-> Choosing size 1024 because for the next optimizations 768 is not
-> enough.
-> 
-> Notice after commit 6f25cd47d (pktgen: fix xmit test for BQL enabled
-> devices) pktgen uses netif_xmit_frozen_or_drv_stopped() and ignores
-> the BQL "stack" pause (QUEUE_STATE_STACK_XOFF) flag.  This allow us to put
-> more pressure on the TX ring buffers.
-> 
-> It is the ixgbe_maybe_stop_tx() call that stops the transmits, and
-> pktgen respecting this in the call to netif_xmit_frozen_or_drv_stopped(txq).
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
-> 
->  drivers/net/ethernet/intel/ixgbe/ixgbe.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> index c688c8a..bf078fe 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-> @@ -63,7 +63,7 @@
->  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
->  
->  /* TX/RX descriptor defines */
-> -#define IXGBE_DEFAULT_TXD		    512
-> +#define IXGBE_DEFAULT_TXD		   1024
->  #define IXGBE_DEFAULT_TX_WORK		    256
->  #define IXGBE_MAX_TXD			   4096
->  #define IXGBE_MIN_TXD			     64
-> 
+On Wed, 2014-05-14 at 09:10 -0700, Alexei Starovoitov wrote:
+> from compiler point of view it's actually easier to deal with inline functions
+> than macros. I'd suggest to do the full conversion the other way around:
+> convert all macros to static inline. Developers will enjoy better type safety
+> and compiler will enjoy more opportunities to optimize code.
 
-What is the point of optimizing ixgbe for a synthetic benchmark?  In my
-experience the full stack can only handle about 2Mpps at 60B packets
-with a single queue.  Updating the defaults for a pktgen test seems
-unrealistic as that isn't really a standard use case for the driver.
-
-I'd say that it might be better to just add a note to the documentation
-folder indicating what configuration is optimal for pktgen rather then
-changing everyone's defaults to support one specific test.
-
-Thanks,
-
-Alex
+Agree about the type safety, but sometimes a compiler will
+generate worse code with static inlines than #defines.
