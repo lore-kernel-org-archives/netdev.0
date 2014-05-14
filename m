@@ -1,39 +1,36 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
-Date: Wed, 14 May 2014 14:37:22 +0100
-Message-ID: <53737192.9050104@citrix.com>
-References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>	 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com> <1400056335.21829.2.camel@kazak.uk.xensource.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Moving frags and SKBTX_DEV_ZEROCOPY skbs
+Date: Wed, 14 May 2014 14:40:54 +0100
+Message-ID: <53737266.5040601@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
-	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Ian Campbell <Ian.Campbell@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	<kvm@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:17385 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751992AbaENNhZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 09:37:25 -0400
-In-Reply-To: <1400056335.21829.2.camel@kazak.uk.xensource.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:28842 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751899AbaENNk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 09:40:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/05/14 09:32, Ian Campbell wrote:
->> I am not saying your patch is wrong, only that it adds yet an obscure
->> thing with no comments. In two years, nobody will understand this.
-> 
-> Agreed.
+Hi,
 
-The long term solution is to make grant copy use the supplied VA to copy
-to/from which would mean we no longer need to pass the grant ref around
-to do the copy.
+Recently I've investigated issues around SKBTX_DEV_ZEROCOPY skbs where 
+the frags list were modified. I came across this function skb_shift(), 
+which moves frags between skbs. And there are a lot more of such kind, 
+skb_split or skb_try_coalesce, for example.
+It could be a dangerous thing if a frag is referenced from an skb which 
+doesn't have the original destructor_arg, and to avoid that 
+skb_orphan_frags should be called. Although probably these functions are 
+not normally touched in usual usecases, I think it would be useful to 
+review core skb functions proactively and add an skb_orphan_frags 
+everywhere where the frags could be referenced from other places.
+Any opinion about this?
 
-This is non-trivial and would required an updated Xen.
+Regards,
 
-It would also fix other use cases (such as a domU providing an iSCSI
-target which is used as the block device for a local blkback).
-
-David
+Zoltan
