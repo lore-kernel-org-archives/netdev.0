@@ -1,68 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Multitude of dst obsolescense race conditions
-Date: Wed, 14 May 2014 04:40:18 -0700
-Message-ID: <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1405140233210.16893@dtop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/1] net/xfrm/xfrm_output.c: move EXPORT_SYMBOL
+Date: Wed, 14 May 2014 13:45:38 +0200
+Message-ID: <20140514114538.GA32371@secunet.com>
+References: <20140512195434.ae5e323fe8394354b224a03e@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: dormando <dormando@rydia.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	akpm <akpm@linux-foundation.org>, <netdev@vger.kernel.org>
+To: Fabian Frederick <fabf@skynet.be>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1405140233210.16893@dtop>
+Content-Disposition: inline
+In-Reply-To: <20140512195434.ae5e323fe8394354b224a03e@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-05-14 at 02:57 -0700, dormando wrote:
-> Hi,
+Please Cc netdev@vger.kernel.org on all future networking patches.
+
+On Mon, May 12, 2014 at 07:54:34PM +0200, Fabian Frederick wrote:
+> Fix checkpatch warning:
+> "WARNING: EXPORT_SYMBOL(foo); should immediately follow its function/variable"
 > 
-> Given a machine with frequently changing routes (ie; a router with an
-> active internet BGP table and multiple interfaces), there're at least
-> several places where obsolete dst's are handled improperly. If I pause the
-> route changes, the crashes appear to stop. This first one has a crash
-> utility we've made, so I was able to more quickly find a patch and test
-> it. The others take time to reproduce.
-> 
-> I'm testing against 3.10.39, but I think if these were fixed they'd be
-> backported to stable? I've also had recent 3.12's running that have
-> crashed in the same spots. Anyway correct me if I'm wrong...
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-Is this a vanilla kernel ? I never had any issues like that.
-
-I wonder if you have some RCU issues.
-
-static inline struct dst_entry *
-sk_dst_get(struct sock *sk)
-{
-        struct dst_entry *dst;
-
-        rcu_read_lock();
-        dst = rcu_dereference(sk->sk_dst_cache);
-        if (dst)
-                dst_hold(dst);
-        rcu_read_unlock();
-        return dst;
-}
-
-static inline void
-__sk_dst_set(struct sock *sk, struct dst_entry *dst)
-{
-        struct dst_entry *old_dst;
-
-        sk_tx_queue_clear(sk);
-        /*
-         * This can be called while sk is owned by the caller only,
-         * with no state that can be checked in a rcu_dereference_check() cond
-         */
-        old_dst = rcu_dereference_raw(sk->sk_dst_cache);
-        rcu_assign_pointer(sk->sk_dst_cache, dst);
-        dst_release(old_dst);
-}
-
-static inline void
-sk_dst_set(struct sock *sk, struct dst_entry *dst)
-{
-        spin_lock(&sk->sk_dst_lock);
-        __sk_dst_set(sk, dst);
-        spin_unlock(&sk->sk_dst_lock);
-}
+Applied to ipsec-next, thanks!
