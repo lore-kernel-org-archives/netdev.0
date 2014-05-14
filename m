@@ -1,58 +1,75 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: [PATCH] ax88179_178a: don't send commands to detached device
-Date: Wed, 14 May 2014 17:02:10 +0200
-Message-ID: <1400079730-22424-1-git-send-email-emilgoode@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Emil Goode <emilgoode@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Freddy Xin <freddy@asix.com.tw>,
-	Eric Dumazet <edumazet@google.com>,
-	David Chang <dchang@suse.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Ming Lei <ming.lei@canonical.com>,
-	Gerry Demaret <gerry@tigron.be>,
-	Mathias Nyman <mathias.nyman@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net-next 1/8] bridge: Turn flag change macro into a
+	function.
+Date: Wed, 14 May 2014 11:09:21 -0400
+Message-ID: <1400080168-16625-2-git-send-email-vyasevic@redhat.com>
+References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, mst@redhat.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com,
+	john.r.fastabend@intel.com, shemminger@vyatta.com
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-The .stop and .unbind callbacks of struct driver_info are
-called even after a DETACH hot-plug event. In the case of
-the ax88179_178a minidriver we need to make sure we are not
-trying to send commands to a device that has been detached.
-This leads to failure messages like below.
+Turn the flag change macro into a function to allow
+easier updates and to reduce space.
 
-ax88179_178a 1-1.3:1.0 (unregistered net_device):
-	Failed to write reg index 0x0001: -19
-
-Signed-off-by: Emil Goode <emilgoode@gmail.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/usb/ax88179_178a.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ net/bridge/br_sysfs_if.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/usb/ax88179_178a.c b/drivers/net/usb/ax88179_178a.c
-index 054e59c..fe20ca8 100644
---- a/drivers/net/usb/ax88179_178a.c
-+++ b/drivers/net/usb/ax88179_178a.c
-@@ -1074,6 +1074,9 @@ static void ax88179_unbind(struct usbnet *dev, struct usb_interface *intf)
- {
- 	u16 tmp16;
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index dd595bd..112a25e 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -41,20 +41,27 @@ static ssize_t show_##_name(struct net_bridge_port *p, char *buf) \
+ }								\
+ static int store_##_name(struct net_bridge_port *p, unsigned long v) \
+ {								\
+-	unsigned long flags = p->flags;				\
+-	if (v)							\
+-		flags |= _mask;					\
+-	else							\
+-		flags &= ~_mask;				\
+-	if (flags != p->flags) {				\
+-		p->flags = flags;				\
+-		br_ifinfo_notify(RTM_NEWLINK, p);		\
+-	}							\
+-	return 0;						\
++	return store_flag(p, v, _mask);				\
+ }								\
+ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
+ 		   show_##_name, store_##_name)
  
-+	if (dev->udev->state == USB_STATE_NOTATTACHED)
-+		return;
++static int store_flag(struct net_bridge_port *p, unsigned long v,
++		     unsigned long mask)
++{
++	unsigned long flags = p->flags;
 +
- 	/* Configure RX control register => stop operation */
- 	tmp16 = AX_RX_CTL_STOP;
- 	ax88179_write_cmd(dev, AX_ACCESS_MAC, AX_RX_CTL, 2, 2, &tmp16);
-@@ -1352,6 +1355,9 @@ static int ax88179_stop(struct usbnet *dev)
- {
- 	u16 tmp16;
++	if (v)
++		flags |= mask;
++	else
++		flags &= ~mask;
++
++	if (flags != p->flags) {
++		p->flags = flags;
++		br_ifinfo_notify(RTM_NEWLINK, p);
++	}
++	return 0;
++}
  
-+	if (dev->udev->state == USB_STATE_NOTATTACHED)
-+		return 0;
-+
- 	ax88179_read_cmd(dev, AX_ACCESS_MAC, AX_MEDIUM_STATUS_MODE,
- 			 2, 2, &tmp16);
- 	tmp16 &= ~AX_MEDIUM_RECEIVE_EN;
+ static ssize_t show_path_cost(struct net_bridge_port *p, char *buf)
+ {
 -- 
-1.7.10.4
+1.9.0
