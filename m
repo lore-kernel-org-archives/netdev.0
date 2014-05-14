@@ -1,80 +1,67 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: set retransmit_high on loop exit
-Date: Wed, 14 May 2014 14:46:52 -0400
-Message-ID: <CADVnQy=s6mVpVzNKhSQw9ZULsomz=Qj9Xu-iOfREH3Z9gyMfbg@mail.gmail.com>
-References: <b1093d318477c57478b0b64475d9066710d7c75b.1399812676.git.panweiping3@gmail.com>
-	<20140514.140828.379626997254455792.davem@davemloft.net>
-	<1400092038.7973.111.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Chema Gonzalez <chema@google.com>
+Subject: Re: [PATCH net-next v2] net: filter: add insn for loading internal
+ transport header offset
+Date: Wed, 14 May 2014 11:51:18 -0700
+Message-ID: <CA+ZOOTPpmuCdF9kx7HT1E3E5tHevQ2wj6FicjAKeRZNupaL4xQ@mail.gmail.com>
+References: <CA+ZOOTP88BJ-keuR5NznCgbDVPyzugWkdsVYjKkk5yGOBbkddQ@mail.gmail.com>
+	<20140502.225252.1865694187680020950.davem@davemloft.net>
+	<CA+ZOOTNQJ59VrFhrtGT7EzhL7u0FnupuwOLqv-rJ0jQi2CP8Jg@mail.gmail.com>
+	<20140505.151200.705079679797479652.davem@davemloft.net>
+	<CA+ZOOTMxDnqVRFn52iKRBdM-KeNE=nk5Phnh1m4S1CwPaJQe+A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, panweiping3@gmail.com,
-	Netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:59752 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919AbaENSqy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:46:54 -0400
-Received: by mail-we0-f179.google.com with SMTP id q59so2344312wes.24
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:46:52 -0700 (PDT)
-In-Reply-To: <1400092038.7973.111.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:64446 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaENSvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:51:18 -0400
+Received: by mail-ie0-f176.google.com with SMTP id ar20so2300975iec.35
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:51:18 -0700 (PDT)
+In-Reply-To: <CA+ZOOTMxDnqVRFn52iKRBdM-KeNE=nk5Phnh1m4S1CwPaJQe+A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 2:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-05-14 at 14:08 -0400, David Miller wrote:
->> From: Weiping Pan <panweiping3@gmail.com>
->> Date: Sun, 11 May 2014 20:57:30 +0800
+Just realized flow_keys_init() returns a zero'ed flow_keys, which is
+not inited. I renamed the function flow_keys_reset(). Sending v3.
+
+-Chema
+
+
+On Wed, May 14, 2014 at 11:42 AM, Chema Gonzalez <chema@google.com> wrote:
+> On Mon, May 5, 2014 at 12:12 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Chema Gonzalez <chema@google.com>
+>> Date: Mon, 5 May 2014 11:42:00 -0700
 >>
->> > To save some CPU cycles slightly.
->> >
->> > Signed-off-by: Weiping Pan <panweiping3@gmail.com>
+>>> On Fri, May 2, 2014 at 7:52 PM, David Miller <davem@davemloft.net> wrote:
+>>>> We can probably add an extension to AF_PACKET which provides the flow
+>>>> key at the end of the tpacket3_hdr if a certain socket option is set.
+>>>>
+>>>> That would provide the transport header as well as a side effect, and
+>>>> be much more powerful and efficient than this particular BPF
+>>>> instruction.
+>>> I'm not sure whether I follow this. The goal is to be able to access
+>>> the inner-most headers inside BPF, not in userland by calling
+>>> getsockopt().
 >>
->> Can a TCP expert please review this?
+>> You're missing my entire point.
 >>
->> > ---
->> >  net/ipv4/tcp_input.c | 8 ++++++--
->> >  1 file changed, 6 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> > index d6b46eb..e431037 100644
->> > --- a/net/ipv4/tcp_input.c
->> > +++ b/net/ipv4/tcp_input.c
->> > @@ -1941,8 +1941,13 @@ void tcp_enter_loss(struct sock *sk, int how)
->> >     tcp_clear_all_retrans_hints(tp);
->> >
->> >     tcp_for_write_queue(skb, sk) {
->> > -           if (skb == tcp_send_head(sk))
->> > +           if (skb == tcp_send_head(sk)) {
->> > +                   if (skb != tcp_write_queue_head(sk)) {
->> > +                           skb = tcp_write_queue_prev(sk, skb);
->> > +                           tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
->> > +                   }
->> >                     break;
->> > +           }
->> >
->> >             if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
->> >                     tp->undo_marker = 0;
->> > @@ -1952,7 +1957,6 @@ void tcp_enter_loss(struct sock *sk, int how)
->> >                     TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
->> >                     TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
->> >                     tp->lost_out += tcp_skb_pcount(skb);
->> > -                   tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
->> >             }
->> >     }
->> >     tcp_verify_left_out(tp);
->> > --
+>> You can use AF_PACKET mmap() rings and in those ring entries all of the
+>> flow dissection information can be put in the ring entry headers before
+>> the packet contents.  Ports, header offsets, everything.
+> I added a flow_keys variable in the packet runner function
+> (__sk_run_filter()) stack, and modified __skb_get_poff() to try to get
+> the results from there instead of calling the flow dissector every
+> time you call it. That will allow the packet filter to only perform a
+> single call to the flow dissector per packet.
 >
-> Frankly I do not see the point here.
+> I reworked the toff patch to use the same flow dissector output
+> approach (and share it with the poff load), and added a tproto patch.
 >
-> This adds code and conditional jumps, while original code is 2
-> instructions with no cache line misses, and is cleaner IMHO.
-
-I very much agree with Eric that the original code is simpler,
-cleaner, and almost certainly just as fast as the code in the patch.
-
-In addition, the patch has at least one significant bug: it sets
-tp->retransmit_high to the end of the last skb even when the last skb
-has been SACKed. We don't want to do that. :-)
-
-neal
+> Patches coming now.
+>
+> -Chema
