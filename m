@@ -1,17 +1,17 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH net-next 3/5] bonding: rename {BOND_NO,MODE_NOT}_USES_ARP to better reflect its meaning
-Date: Wed, 14 May 2014 14:54:22 +0200
-Message-ID: <1400072064-26095-4-git-send-email-vfalico@gmail.com>
+Subject: [PATCH net-next 1/5] bonding: use macro instead of bond_is_lb()
+Date: Wed, 14 May 2014 14:54:20 +0200
+Message-ID: <1400072064-26095-2-git-send-email-vfalico@gmail.com>
 References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
 Cc: Veaceslav Falico <vfalico@redhat.com>,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24717 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:64344 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755536AbaENM7H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 08:59:07 -0400
+	id S1754688AbaENM7A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 08:59:00 -0400
 In-Reply-To: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,49 +22,132 @@ CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- drivers/net/bonding/bond_main.c    | 2 +-
- drivers/net/bonding/bond_options.c | 2 +-
- drivers/net/bonding/bonding.h      | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/bonding/bond_main.c | 18 +++++++++---------
+ drivers/net/bonding/bonding.h   | 13 ++++---------
+ 2 files changed, 13 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 4068c98..6d18876 100644
+index a1741cb..e6f1d02 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4084,7 +4084,7 @@ static int bond_check_params(struct bond_params *params)
+@@ -320,7 +320,7 @@ static int bond_vlan_rx_kill_vid(struct net_device *bond_dev,
+ 	bond_for_each_slave(bond, slave, iter)
+ 		vlan_vid_del(slave->dev, proto, vid);
+ 
+-	if (bond_is_lb(bond))
++	if (BOND_IS_LB(bond))
+ 		bond_alb_clear_vlan(bond, vid);
+ 
+ 	return 0;
+@@ -813,7 +813,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 			if (bond->params.mode == BOND_MODE_8023AD)
+ 				bond_3ad_handle_link_change(new_active, BOND_LINK_UP);
+ 
+-			if (bond_is_lb(bond))
++			if (BOND_IS_LB(bond))
+ 				bond_alb_handle_link_change(bond, new_active, BOND_LINK_UP);
+ 		} else {
+ 			if (USES_PRIMARY(bond->params.mode)) {
+@@ -826,7 +826,7 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 	if (USES_PRIMARY(bond->params.mode))
+ 		bond_hw_addr_swap(bond, new_active, old_active);
+ 
+-	if (bond_is_lb(bond)) {
++	if (BOND_IS_LB(bond)) {
+ 		bond_alb_handle_active_change(bond, new_active);
+ 		if (old_active)
+ 			bond_set_slave_inactive_flags(old_active,
+@@ -1342,7 +1342,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	new_slave->dev = slave_dev;
+ 	slave_dev->priv_flags |= IFF_BONDING;
+ 
+-	if (bond_is_lb(bond)) {
++	if (BOND_IS_LB(bond)) {
+ 		/* bond_alb_init_slave() must be called before all other stages since
+ 		 * it might fail and we do not want to have to undo everything
+ 		 */
+@@ -1694,7 +1694,7 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 		write_unlock_bh(&bond->curr_slave_lock);
  	}
  
- 	/* reset values for 802.3ad/TLB/ALB */
--	if (BOND_NO_USES_ARP(bond_mode)) {
-+	if (MODE_NOT_USES_ARP(bond_mode)) {
- 		if (!miimon) {
- 			pr_warn("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
- 			pr_warn("Forcing miimon to 100msec\n");
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 6dc49da..7219ce3 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -672,7 +672,7 @@ const struct bond_option *bond_opt_get(unsigned int option)
+-	if (bond_is_lb(bond)) {
++	if (BOND_IS_LB(bond)) {
+ 		/* Must be called only after the slave has been
+ 		 * detached from the list and the curr_active_slave
+ 		 * has been cleared (if our_slave == old_current),
+@@ -1988,7 +1988,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 			if (bond->params.mode == BOND_MODE_8023AD)
+ 				bond_3ad_handle_link_change(slave, BOND_LINK_UP);
  
- int bond_option_mode_set(struct bonding *bond, const struct bond_opt_value *newval)
- {
--	if (BOND_NO_USES_ARP(newval->value) && bond->params.arp_interval) {
-+	if (MODE_NOT_USES_ARP(newval->value) && bond->params.arp_interval) {
- 		pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
- 			bond->dev->name, newval->string);
- 		/* disable arp monitoring */
+-			if (bond_is_lb(bond))
++			if (BOND_IS_LB(bond))
+ 				bond_alb_handle_link_change(bond, slave,
+ 							    BOND_LINK_UP);
+ 
+@@ -2016,7 +2016,7 @@ static void bond_miimon_commit(struct bonding *bond)
+ 				bond_3ad_handle_link_change(slave,
+ 							    BOND_LINK_DOWN);
+ 
+-			if (bond_is_lb(bond))
++			if (BOND_IS_LB(bond))
+ 				bond_alb_handle_link_change(bond, slave,
+ 							    BOND_LINK_DOWN);
+ 
+@@ -3090,7 +3090,7 @@ static int bond_open(struct net_device *bond_dev)
+ 
+ 	bond_work_init_all(bond);
+ 
+-	if (bond_is_lb(bond)) {
++	if (BOND_IS_LB(bond)) {
+ 		/* bond_alb_initialize must be called before the timer
+ 		 * is started.
+ 		 */
+@@ -3124,7 +3124,7 @@ static int bond_close(struct net_device *bond_dev)
+ 
+ 	bond_work_cancel_all(bond);
+ 	bond->send_peer_notif = 0;
+-	if (bond_is_lb(bond))
++	if (BOND_IS_LB(bond))
+ 		bond_alb_deinitialize(bond);
+ 	bond->recv_probe = NULL;
+ 
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 28c20c5..cd057f0 100644
+index 1621226..29ddce5 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -60,7 +60,7 @@
- 		 ((mode) == BOND_MODE_TLB)          ||	\
- 		 ((mode) == BOND_MODE_ALB))
+@@ -69,9 +69,9 @@
+ 			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
+ 			 ((mode) == BOND_MODE_ROUNDROBIN))
  
--#define BOND_NO_USES_ARP(mode)				\
-+#define MODE_NOT_USES_ARP(mode)				\
- 		(((mode) == BOND_MODE_8023AD)	||	\
- 		 ((mode) == BOND_MODE_TLB)	||	\
- 		 ((mode) == BOND_MODE_ALB))
+-#define BOND_MODE_IS_LB(mode)			\
+-		(((mode) == BOND_MODE_TLB) ||	\
+-		 ((mode) == BOND_MODE_ALB))
++#define BOND_IS_LB(bond)			\
++		(((bond->params.mode) == BOND_MODE_TLB) ||	\
++		 ((bond->params.mode) == BOND_MODE_ALB))
+ 
+ #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
+ 	((htonl(INADDR_BROADCAST) == a) ||	\
+@@ -288,11 +288,6 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
+ 	return slave->bond;
+ }
+ 
+-static inline bool bond_is_lb(const struct bonding *bond)
+-{
+-	return BOND_MODE_IS_LB(bond->params.mode);
+-}
+-
+ static inline void bond_set_active_slave(struct slave *slave)
+ {
+ 	if (slave->backup) {
+@@ -443,7 +438,7 @@ static inline void bond_netpoll_send_skb(const struct slave *slave,
+ static inline void bond_set_slave_inactive_flags(struct slave *slave,
+ 						 bool notify)
+ {
+-	if (!bond_is_lb(slave->bond))
++	if (!BOND_IS_LB(slave->bond))
+ 		bond_set_slave_state(slave, BOND_STATE_BACKUP, notify);
+ 	if (!slave->bond->params.all_slaves_active)
+ 		slave->inactive = 1;
 -- 
 1.8.4
