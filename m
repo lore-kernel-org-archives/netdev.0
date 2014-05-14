@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: Propagate lowerdev MTU changes
-Date: Wed, 14 May 2014 15:37:34 -0400 (EDT)
-Message-ID: <20140514.153734.430140821321742795.davem@davemloft.net>
-References: <5371BE1F.7030508@huawei.com>
+Subject: Re: [PATCH net v1] af_iucv: wrong mapping of sent and confirmed
+ skbs
+Date: Wed, 14 May 2014 15:38:59 -0400 (EDT)
+Message-ID: <20140514.153859.1014576215594775653.davem@davemloft.net>
+References: <20140513123802.GA60198@tuxmaker.boeblingen.de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53710 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbaENThg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:37:36 -0400
-In-Reply-To: <5371BE1F.7030508@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	stable@vger.kernel.org
+To: blaschka@linux.vnet.ibm.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140513123802.GA60198@tuxmaker.boeblingen.de.ibm.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 13 May 2014 14:39:27 +0800
+From: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Date: Tue, 13 May 2014 14:38:02 +0200
 
-> When the physical MTU changes we should ensure that all existing MACVLAN
-> dev MTU do not exceed the new lowerdev MTU. This patch adds that
-> propagation.
+> From: Ursula Braun <ursula.braun@de.ibm.com>
 > 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> When sending data through IUCV a MESSAGE COMPLETE interrupt
+> signals that sent data memory can be freed or reused again.
+> With commit f9c41a62bba3f3f7ef3541b2a025e3371bcbba97
+> "af_iucv: fix recvmsg by replacing skb_pull() function" the
+> MESSAGE COMPLETE callback iucv_callback_txdone() identifies
+> the wrong skb as being confirmed, which leads to data corruption.
+> This patch fixes the skb mapping logic in iucv_callback_txdone().
+> 
+> Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-Applied, thanks.
+Applied, thank you.
