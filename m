@@ -1,78 +1,47 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}: Multiple transmit and receive queues
-Date: Wed, 14 May 2014 20:37:19 +0200
-Message-ID: <1296806729.20140514203719@eikelenboom.it>
-References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com> <526369072.20140514160923@eikelenboom.it> <20140514141347.GR6332@zion.uk.xensource.com> <53739757.5060905@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	<davem@davemloft.net>, <ian.campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <paul.durrant@citrix.com>,
-	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>
-To: Andrew Bennieston <andrew.bennieston@citrix.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] loopback: explicitly set pkt_type to PACKET_HOST
+Date: Wed, 14 May 2014 11:39:22 -0700
+Message-ID: <1400092762-23287-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:46492 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaENShW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:37:22 -0400
-In-Reply-To: <53739757.5060905@citrix.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:33934 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751770AbaENSjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:39:33 -0400
+Received: by mail-pa0-f41.google.com with SMTP id lj1so2017646pab.0
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:39:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <cwang@twopensource.com>
 
-Wednesday, May 14, 2014, 6:18:31 PM, you wrote:
+In a corner case where I redirect the packets from veth to lo,
+packets are dropped silently when entering IP stack. This is
+due to we have a different MAC addr on veth, so the packets are
+marked as PACKET_OTHERHOST. And after they are redirect to lo,
+this value is kept since lo has the same MAC addr with the packets.
+Loopback should explicitly set it to PACKET_HOST before calling
+eth_type_trans() for this specific case.
 
-> On 14/05/14 15:13, Wei Liu wrote:
->> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
->>>
->>> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
->>>
->>>> This patch series implements multiple transmit and receive queues (i.e.
->>>> multiple shared rings) for the xen virtual network interfaces.
->>>
->>>> The series is split up as follows:
->>>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
->>>>     preparation for multi-queue support. See the patch itself for more details.
->>>> - Patches 2 and 4 factor out the queue-specific data for netback and
->>>>    netfront respectively, and modify the rest of the code to use these
->>>>    as appropriate.
->>>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
->>>>    multiple shared rings and event channels, and code to connect these
->>>>    as appropriate.
->>>> - Patch 6 documents the XenStore keys required for the new feature
->>>>    in include/xen/interface/io/netif.h
->>>
->>>> All other transmit and receive processing remains unchanged, i.e. there
->>>> is a kthread per queue and a NAPI context per queue.
->>>
->>>> The performance of these patches has been analysed in detail, with
->>>> results available at:
->>>
->>> <snip>
->>>
->>> Would it be possible to also put these somewhere in a tree (or branch of the
->>> xen-tree), so it is more easy to pull and test ?
->>>
->>
->> I cannot speak for Andrew. FWIW you can save this thread and use 'git
->> am' to apply them to 'net-next'.
->>
->> Wei.
+Cc: David S. Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-> I don't currently have a public-facing git repo for this. If you'd 
-> prefer I can send you the patches directly in a tarball, which you may 
-> be able to apply more easily than grabbing them from email threads?
-
-Got the patches from the thread .. but as i expected they interfere with 
-Zoltan's v3 fix for 3.15.
-
-> - Andrew
->>
->>> --
->>> Sander
->>>
->>>> --
->>>> Andrew J. Bennieston
->>>
->>>
+---
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index bb96409..52b6625 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -81,6 +81,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+ 	 */
+ 	skb_dst_force(skb);
+ 
++	skb->pkt_type = PACKET_HOST;
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
+ 	/* it's OK to use per_cpu_ptr() because BHs are off */
