@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 2/8] tipc: compensate for
-	double accounting in socket rcv buffer
-Date: Wed, 14 May 2014 05:39:09 -0400
-Message-ID: <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 8/8] tipc: merge port message
+	reception into socket reception function
+Date: Wed, 14 May 2014 05:39:15 -0400
+Message-ID: <1400060355-26308-9-git-send-email-jon.maloy@ericsson.com>
 References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,153 +23,246 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function net/core/sock.c::__release_sock() runs a tight loop
-to move buffers from the socket backlog queue to the receive queue.
-
-As a security measure, sk_backlog.len of the receiving socket
-is not set to zero until after the loop is finished, i.e., until
-the whole backlog queue has been transferred to the receive queue.
-During this transfer, the data that has already been moved is counted
-both in the backlog queue and the receive queue, hence giving an
-incorrect picture of the available queue space for new arriving buffers.
-
-This leads to unnecessary rejection of buffers by sk_add_backlog(),
-which in TIPC leads to unnecessarily broken connections.
-
-In this commit, we compensate for this double accounting by adding
-a counter that keeps track of it. The function socket.c::backlog_rcv()
-receives buffers one by one from __release_sock(), and adds them to the
-socket receive queue. If the transfer is successful, it increases a new
-atomic counter 'tipc_sock::dupl_rcvcnt' with 'truesize' of the
-transferred buffer. If a new buffer arrives during this transfer and
-finds the socket busy (owned), we attempt to add it to the backlog.
-However, when sk_add_backlog() is called, we adjust the 'limit'
-parameter with the value of the new counter, so that the risk of
-inadvertent rejection is eliminated.
-
-It should be noted that this change does not invalidate the original
-purpose of zeroing 'sk_backlog.len' after the full transfer. We set an
-upper limit for dupl_rcvcnt, so that if a 'wild' sender (i.e., one that
-doesn't respect the send window) keeps pumping in buffers to
-sk_add_backlog(), he will eventually reach an upper limit,
-(2 x TIPC_CONN_OVERLOAD_LIMIT). After that, no messages can be added
-to the backlog, and the connection will be broken. Ordinary, well-
-behaved senders will never reach this buffer limit at all.
+In order to reduce complexity and save a call level during message
+reception at port/socket level, we remove the function tipc_port_rcv()
+and merge its functionality into tipc_sk_rcv().
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/socket.c |   28 +++++++++++++++++++---------
- net/tipc/socket.h |    2 ++
- 2 files changed, 21 insertions(+), 9 deletions(-)
+ net/tipc/link.c   |    3 ++-
+ net/tipc/net.c    |    3 ++-
+ net/tipc/port.c   |   39 ++++--------------------------------
+ net/tipc/port.h   |    1 -
+ net/tipc/socket.c |   57 ++++++++++++++++++++++++++++++++++-------------------
+ net/tipc/socket.h |    2 +-
+ 6 files changed, 46 insertions(+), 59 deletions(-)
 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 24d0587..ad2c57f 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -37,6 +37,7 @@
+ #include "core.h"
+ #include "link.h"
+ #include "port.h"
++#include "socket.h"
+ #include "name_distr.h"
+ #include "discover.h"
+ #include "config.h"
+@@ -1590,7 +1591,7 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 		case TIPC_HIGH_IMPORTANCE:
+ 		case TIPC_CRITICAL_IMPORTANCE:
+ 			tipc_node_unlock(n_ptr);
+-			tipc_port_rcv(buf);
++			tipc_sk_rcv(buf);
+ 			continue;
+ 		case MSG_BUNDLER:
+ 			l_ptr->stats.recv_bundles++;
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index f8fc95d..f64375e 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -39,6 +39,7 @@
+ #include "name_distr.h"
+ #include "subscr.h"
+ #include "port.h"
++#include "socket.h"
+ #include "node.h"
+ #include "config.h"
+ 
+@@ -141,7 +142,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
+ 			if (msg_mcast(msg))
+ 				tipc_port_mcast_rcv(buf, NULL);
+ 			else if (msg_destport(msg))
+-				tipc_port_rcv(buf);
++				tipc_sk_rcv(buf);
+ 			else
+ 				net_route_named_msg(buf);
+ 			return;
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 5c14c78..5fd7acc 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -165,7 +165,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
+ 		msg_set_destnode(msg, tipc_own_addr);
+ 		if (dp->count == 1) {
+ 			msg_set_destport(msg, dp->ports[0]);
+-			tipc_port_rcv(buf);
++			tipc_sk_rcv(buf);
+ 			tipc_port_list_free(dp);
+ 			return;
+ 		}
+@@ -180,7 +180,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
+ 			if ((index == 0) && (cnt != 0))
+ 				item = item->next;
+ 			msg_set_destport(buf_msg(b), item->ports[index]);
+-			tipc_port_rcv(b);
++			tipc_sk_rcv(b);
+ 		}
+ 	}
+ exit:
+@@ -343,7 +343,7 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
+ 	/* send returned message & dispose of rejected message */
+ 	src_node = msg_prevnode(msg);
+ 	if (in_own_node(src_node))
+-		tipc_port_rcv(rbuf);
++		tipc_sk_rcv(rbuf);
+ 	else
+ 		tipc_link_xmit(rbuf, src_node, msg_link_selector(rmsg));
+ exit:
+@@ -754,37 +754,6 @@ int tipc_port_shutdown(u32 ref)
+ 	return tipc_port_disconnect(ref);
+ }
+ 
+-/**
+- * tipc_port_rcv - receive message from lower layer and deliver to port user
+- */
+-int tipc_port_rcv(struct sk_buff *buf)
+-{
+-	struct tipc_port *p_ptr;
+-	struct tipc_msg *msg = buf_msg(buf);
+-	u32 destport = msg_destport(msg);
+-	u32 dsz = msg_data_sz(msg);
+-	u32 err;
+-
+-	/* forward unresolved named message */
+-	if (unlikely(!destport)) {
+-		tipc_net_route_msg(buf);
+-		return dsz;
+-	}
+-
+-	/* validate destination & pass to port, otherwise reject message */
+-	p_ptr = tipc_port_lock(destport);
+-	if (likely(p_ptr)) {
+-		err = tipc_sk_rcv(&tipc_port_to_sock(p_ptr)->sk, buf);
+-		tipc_port_unlock(p_ptr);
+-		if (likely(!err))
+-			return dsz;
+-	} else {
+-		err = TIPC_ERR_NO_PORT;
+-	}
+-
+-	return tipc_reject_msg(buf, err);
+-}
+-
+ /*
+  *  tipc_port_iovec_rcv: Concatenate and deliver sectioned
+  *                       message for this node.
+@@ -798,7 +767,7 @@ static int tipc_port_iovec_rcv(struct tipc_port *sender,
+ 
+ 	res = tipc_msg_build(&sender->phdr, msg_sect, len, MAX_MSG_SIZE, &buf);
+ 	if (likely(buf))
+-		tipc_port_rcv(buf);
++		tipc_sk_rcv(buf);
+ 	return res;
+ }
+ 
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index 5dfd165..cf4ca5b 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -135,7 +135,6 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
+ /*
+  * TIPC messaging routines
+  */
+-int tipc_port_rcv(struct sk_buff *buf);
+ 
+ int tipc_send(struct tipc_port *port,
+ 	      struct iovec const *msg_sect,
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8685daf..2495006 100644
+index 2495006..ac08966 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1,5 +1,5 @@
- /*
-- * net/tipc/socket.c: TIPC socket API
-+* net/tipc/socket.c: TIPC socket API
-  *
-  * Copyright (c) 2001-2007, 2012-2014, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-@@ -45,7 +45,7 @@
- 
- #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
- 
--static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
-+static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb);
- static void tipc_data_ready(struct sock *sk);
- static void tipc_write_space(struct sock *sk);
- static int tipc_release(struct socket *sock);
-@@ -196,11 +196,12 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
- 	sock->state = state;
- 
- 	sock_init_data(sock, sk);
--	sk->sk_backlog_rcv = backlog_rcv;
-+	sk->sk_backlog_rcv = tipc_backlog_rcv;
- 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
- 	sk->sk_data_ready = tipc_data_ready;
- 	sk->sk_write_space = tipc_write_space;
--	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
-+	tsk->conn_timeout = CONN_TIMEOUT_DEFAULT;
-+	atomic_set(&tsk->dupl_rcvcnt, 0);
- 	tipc_port_unlock(port);
- 
- 	if (sock->state == SS_READY) {
-@@ -1416,7 +1417,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- }
+@@ -1442,39 +1442,56 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
  
  /**
-- * backlog_rcv - handle incoming message from backlog queue
-+ * tipc_backlog_rcv - handle incoming message from backlog queue
-  * @sk: socket
-  * @buf: message
-  *
-@@ -1424,13 +1425,18 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
-  *
-  * Returns 0
+  * tipc_sk_rcv - handle incoming message
+- * @sk:  socket receiving message
+- * @buf: message
+- *
+- * Called with port lock already taken.
+- *
+- * Returns TIPC error status code (TIPC_OK if message is not to be rejected)
++ * @buf: buffer containing arriving message
++ * Consumes buffer
++ * Returns 0 if success, or errno: -EHOSTUNREACH
   */
--static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
-+static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
+-u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
++int tipc_sk_rcv(struct sk_buff *buf)
  {
- 	u32 res;
-+	struct tipc_sock *tsk = tipc_sk(sk);
+-	struct tipc_sock *tsk = tipc_sk(sk);
+-	u32 res;
++	struct tipc_sock *tsk;
++	struct tipc_port *port;
++	struct sock *sk;
++	u32 dport = msg_destport(buf_msg(buf));
++	int err = TIPC_OK;
+ 	uint limit;
+-	/*
+-	 * Process message if socket is unlocked; otherwise add to backlog queue
+-	 *
+-	 * This code is based on sk_receive_skb(), but must be distinct from it
+-	 * since a TIPC-specific filter/reject mechanism is utilized
+-	 */
++
++	/* Forward unresolved named message */
++	if (unlikely(!dport)) {
++		tipc_net_route_msg(buf);
++		return 0;
++	}
++
++	/* Validate destination */
++	port = tipc_port_lock(dport);
++	if (unlikely(!port)) {
++		err = TIPC_ERR_NO_PORT;
++		goto exit;
++	}
++
++	tsk = tipc_port_to_sock(port);
++	sk = &tsk->sk;
++
++	/* Queue message */
+ 	bh_lock_sock(sk);
++
+ 	if (!sock_owned_by_user(sk)) {
+-		res = filter_rcv(sk, buf);
++		err = filter_rcv(sk, buf);
+ 	} else {
+ 		if (sk->sk_backlog.len == 0)
+ 			atomic_set(&tsk->dupl_rcvcnt, 0);
+ 		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
+ 		if (sk_add_backlog(sk, buf, limit))
+-			res = TIPC_ERR_OVERLOAD;
+-		else
+-			res = TIPC_OK;
++			err = TIPC_ERR_OVERLOAD;
+ 	}
++
+ 	bh_unlock_sock(sk);
++	tipc_port_unlock(port);
  
- 	res = filter_rcv(sk, buf);
--	if (res)
-+	if (unlikely(res))
- 		tipc_reject_msg(buf, res);
-+
-+	if (atomic_read(&tsk->dupl_rcvcnt) < TIPC_CONN_OVERLOAD_LIMIT)
-+		atomic_add(buf->truesize, &tsk->dupl_rcvcnt);
-+
- 	return 0;
+-	return res;
++	if (likely(!err))
++		return 0;
++exit:
++	tipc_reject_msg(buf, err);
++	return -EHOSTUNREACH;
  }
  
-@@ -1445,8 +1451,9 @@ static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
-  */
- u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
- {
-+	struct tipc_sock *tsk = tipc_sk(sk);
- 	u32 res;
--
-+	uint limit;
- 	/*
- 	 * Process message if socket is unlocked; otherwise add to backlog queue
- 	 *
-@@ -1457,7 +1464,10 @@ u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
- 	if (!sock_owned_by_user(sk)) {
- 		res = filter_rcv(sk, buf);
- 	} else {
--		if (sk_add_backlog(sk, buf, rcvbuf_limit(sk, buf)))
-+		if (sk->sk_backlog.len == 0)
-+			atomic_set(&tsk->dupl_rcvcnt, 0);
-+		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
-+		if (sk_add_backlog(sk, buf, limit))
- 			res = TIPC_ERR_OVERLOAD;
- 		else
- 			res = TIPC_OK;
+ static int tipc_wait_for_connect(struct socket *sock, long *timeo_p)
 diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index 74e5c7f..86c27cc 100644
+index 86c27cc..3afcd2a 100644
 --- a/net/tipc/socket.h
 +++ b/net/tipc/socket.h
-@@ -44,12 +44,14 @@
-  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
-  * @peer_name: the peer of the connection, if any
-  * @conn_timeout: the time we can wait for an unresponded setup request
-+ * @dupl_rcvcnt: number of bytes counted twice, in both backlog and rcv queue
-  */
+@@ -69,6 +69,6 @@ static inline void tipc_sock_wakeup(struct tipc_sock *tsk)
+ 	tsk->sk.sk_write_space(&tsk->sk);
+ }
  
- struct tipc_sock {
- 	struct sock sk;
- 	struct tipc_port port;
- 	unsigned int conn_timeout;
-+	atomic_t dupl_rcvcnt;
- };
+-u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf);
++int tipc_sk_rcv(struct sk_buff *buf);
  
- static inline struct tipc_sock *tipc_sk(const struct sock *sk)
+ #endif
 -- 
 1.7.9.5
 
