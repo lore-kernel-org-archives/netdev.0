@@ -1,71 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: phy: Don't call phy_resume if phy_init_hw failed
-Date: Wed, 14 May 2014 13:21:52 -0700
-Message-ID: <CAGVrzca6WKSS9VxhLhs=n398exRxAKs4FK9-2DEc=srYNmx6-w@mail.gmail.com>
-References: <1400098369-13985-1-git-send-email-linux@roeck-us.net>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: Re: Socket receives packet to multicast group to which it was not
+ joined since kernel 3.13.10-1
+Date: Wed, 14 May 2014 15:40:10 -0500
+Message-ID: <20140514204010.GA5719@sbohrermbp13-local.rgmadvisors.com>
+References: <5370F8EB.2070009@oktetlabs.ru>
+ <1399915082.7973.27.camel@edumazet-glaptop2.roam.corp.google.com>
+ <5371BAE1.2090806@oktetlabs.ru>
+ <20140513213641.GA19087@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400098369-13985-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:63362 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044AbaENUkU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 16:40:20 -0400
+Received: by mail-ob0-f181.google.com with SMTP id wm4so119643obc.40
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 13:40:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140513213641.GA19087@sbohrermbp13-local.rgmadvisors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-05-14 13:12 GMT-07:00 Guenter Roeck <linux@roeck-us.net>:
-> After the call to phy_init_hw failed in phy_attach_direct, phy_detach is called
-> to detach the phy device from its network device. If the attached driver is a
-> generic phy driver, this also detaches the driver. Subsequently phy_resume
-> is called, which assumes without checking that a driver is attached to the
-> device. This will result in a crash such as
->
-> Unable to handle kernel paging request for data at address 0xffffffffffffff90
-> Faulting instruction address: 0xc0000000003a0e18
-> Oops: Kernel access of bad area, sig: 11 [#1]
-> ...
-> NIP [c0000000003a0e18] .phy_attach_direct+0x68/0x17c
-> LR [c0000000003a0e6c] .phy_attach_direct+0xbc/0x17c
-> Call Trace:
-> [c0000003fc0475d0] [c0000000003a0e6c] .phy_attach_direct+0xbc/0x17c (unreliable)
-> [c0000003fc047670] [c0000000003a0ff8] .phy_connect_direct+0x28/0x98
-> [c0000003fc047700] [c0000000003f0074] .of_phy_connect+0x4c/0xa4
->
-> Only call phy_resume if phy_init_hw was successful.
->
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+On Tue, May 13, 2014 at 04:36:41PM -0500, Shawn Bohrer wrote:
+> Eric can you (or someone) comment on if I actually broke something
+> here?  The example Yurij provided binds to INADDR_ANY and thus will
+> receive any packets destined to port 12345.  So for example even with
+> ip_early_demux disabled simply running a second instance of the
+> mult_recv example on the same host results in the same behavior, e.g.
+> 
+> ./mult_recv 225.168.2.9 7 >/dev/null 2>&1 &
+> ./mult_recv 224.168.2.9 7
+> 
+> Both programs will receive packets destined to 224.168.2.9 and
+> 225.168.2.9.  Specifically this works because of the IP_ADD_MEMBERSHIP
+> for 225.168.2.9, which leads to my next question.  When we _don't_ do
+> the IP_ADD_MEMBERSHIP for 225.168.2.9 why are they getting delivered
+> to the interface in the first place?  Shouldn't igmp be preventing
+> this?
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+Partially answering my own question here about why the 225.168.2.9
+packets arrive at the host in the first place without doing an
+IP_ADD_MEMBERSHIP.  Essentially the first 9 bits of the IP address do
+not map to the MAC-layer multicast address.  Thus only incrementing
+the first octect of the IP means they both have the same MAC-layer
+multicast address and are both delivered to the interface.  Here is a
+fine microsoft article explaining the mapping of IP multicast address
+to MAC-layer Multicast.
 
-Thanks!
+http://technet.microsoft.com/en-us/library/cc957928.aspx
 
-> ---
-> Another option might be to check in phy_detach if a driver is attached
-> to the device.
->
->  drivers/net/phy/phy_device.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 0ce6066..4987a1c 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -614,8 +614,8 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->         err = phy_init_hw(phydev);
->         if (err)
->                 phy_detach(phydev);
-> -
-> -       phy_resume(phydev);
-> +       else
-> +               phy_resume(phydev);
->
->         return err;
->  }
-> --
-> 1.9.1
->
+The Microsoft article mentions that the host may receive these packets
+for groups to which it does not belong, but they will be dropped once
+the destination IP is determined.  So it seems that I likely did
+indeed break things.
 
+> If I did "break" something here it appears to be because with
+> ip_early_demux we only call ip_check_mc_rcu() once on the initial
+> packet, and subsequent packets destined for that socket simply need to
+> pass the __udp_is_mcast_sock() test.  With ip_early_demux disaled we
+> call ip_check_mc_rcu() for every packet.
 
+So is the solution to effectively call ip_check_mc_rcu() inside
+udp_v4_early_demux()?
 
--- 
-Florian
+--
+Shawn
