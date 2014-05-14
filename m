@@ -1,45 +1,30 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/5] bonding: simple macro cleanup
-Date: Wed, 14 May 2014 13:08:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
-References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Bad checksum on bridge with IP options
+Date: Wed, 14 May 2014 22:38:28 +0930
+Message-ID: <53736ACC.9010902@davidnewall.com>
+References: <536F8C0F.4090206@davidnewall.com>,<5370CB47.4010400@davidnewall.com> <DUB123-W514EA0A4A29F520778F2FFED350@phx.gbl> <53715D67.8020803@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: 'Veaceslav Falico' <vfalico@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "fw@strlen.de" <fw@strlen.de>
+To: Lukas Tribus <luky-37@hotmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43807 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754683AbaENNI2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 09:08:28 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11355-10 for <netdev@vger.kernel.org>;
- Wed, 14 May 2014 14:08:19 +0100 (BST)
-In-Reply-To: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
-Content-Language: en-US
+Received: from hawking.rebel.net.au ([203.20.69.83]:60248 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932072AbaENNIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 09:08:32 -0400
+In-Reply-To: <53715D67.8020803@davidnewall.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico
-> Hi,
-> 
-> That's a trivial patchset that tries to unify the macro usage of bonding
-> modes. I've split it into two approaches - either BOND_*, which takes
-> bonding struct as a param, or MODE_*, which takes the mode itself. Also,
-> introduce BOND_MODE(bond) instead of ugly bond->params.mode.
+My thought of calling ip_forward_options to set RR and TS addresses (not 
+to mention checksum) is not working out, because skb_rtable returns 
+NULL.  I think I'm supposed to call skb_set_dst, but how
+I get dst is eluding me.
 
-I'm not sure these are improvements....
+Leaving broken values in the options, just recalculating the checksum, 
+is starting to look very attractive right now, but I'd rather not.
 
-I thought that netdev (in particular) preferred static inline functions
-to #defines - and especially #defines that expand their argument(s)
-more than once.
-
-IMHO Simple access functions are just a PITA when reading code since
-they cause the reader to go off somewhere and look up the definition.
-
-	David
+How do I proceed?
