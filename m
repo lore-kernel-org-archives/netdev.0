@@ -1,49 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Use a more standard macro for INET_ADDR_COOKIE
-Date: Wed, 14 May 2014 16:48:05 -0400 (EDT)
-Message-ID: <20140514.164805.1312198151357839253.davem@davemloft.net>
-References: <1400038207.24350.83.camel@joe-AO725>
-	<20140514.160845.214090653562722244.davem@redhat.com>
-	<1400100249.30384.32.camel@joe-AO725>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [net-next 02/11] ixgbe: clean up checkpatch warnings about
+ CODE_INDENT and LEADING_SPACE
+Date: Wed, 14 May 2014 20:48:08 +0000
+Message-ID: <1400100488.4788.3.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1400057663-4578-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1400084757.19788.12.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400100249.30384.32.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "joe@perches.com" <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:33173 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751124AbaENUsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 16:48:10 -0400
+In-Reply-To: <1400084757.19788.12.camel@joe-AO725>
+Content-Language: en-US
+Content-ID: <9BFED4448AC7A146A4CA6F13036D8606@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 14 May 2014 13:44:09 -0700
-
-> On Wed, 2014-05-14 at 16:08 -0400, David Miller wrote:
->> From: Joe Perches <joe@perches.com>
->> Date: Tue, 13 May 2014 20:30:07 -0700
->> 
->> > Missing a colon on definition use is a bit odd so
->> > change the macro for the 32 bit case to declare an
->> > __attribute__((unused)) and __deprecated variable.
->> > 
->> > The __deprecated attribute will cause gcc to emit
->> > an error if the variable is actually used.
->> > 
->> > Signed-off-by: Joe Perches <joe@perches.com>
->> 
->> This is fine, applied, thanks Joe.
->> 
->> Perhaps it would have been nicer to make the macros be initializers,
->> so that it still would look like a proper variable declaration at
->> the use sites:
->> 
->> 	const __addrpair var = INET_ADDR_COOKIE(x, y, z);
->> 
->> or something like that.
-> 
-> Maybe so, but there's no way to add an __attribute__
-> before the = sign for the 32 bit case like that without
-> another #define and it would then always require
-> initialization too.
-
-Good point.
+T24gV2VkLCAyMDE0LTA1LTE0IGF0IDA5OjI1IC0wNzAwLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4g
+T24gV2VkLCAyMDE0LTA1LTE0IGF0IDAxOjU0IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
+IA0KPiB0cml2aWFsIG5vdGU6DQo+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9peGdiZS9peGdiZS5oIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
+YmUvaXhnYmUuaA0KPiBbXQ0KPiA+IEBAIC0zNjIsNyArMzYyLDcgQEAgc3RydWN0IGl4Z2JlX3Jp
+bmdfY29udGFpbmVyIHsNCj4gPiAgCWZvciAocG9zID0gKGhlYWQpLnJpbmc7IHBvcyAhPSBOVUxM
+OyBwb3MgPSBwb3MtPm5leHQpDQo+ID4gIA0KPiA+ICAjZGVmaW5lIE1BWF9SWF9QQUNLRVRfQlVG
+RkVSUyAoKGFkYXB0ZXItPmZsYWdzICYgSVhHQkVfRkxBR19EQ0JfRU5BQkxFRCkgXA0KPiA+IC0g
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICA/IDggOiAxKQ0KPiA+ICsJCQkgICAgICA/IDgg
+OiAxKQ0KPiANCj4gTXkgcHJlZmVyZW5jZSB3b3VsZCBiZSB0byB1c2UgYSBmb3JtIHRoYXQga2Vl
+cHMgdGhlDQo+IGFjdHVhbCBzdGF0ZW1lbnQgb24gYSBzaW5nbGUgbGluZSBsaWtlOg0KPiANCj4g
+I2RlZmluZSBNQVhfUlhfUEFDS0VUX0JVRkZFUlMJCQkJCVwNCj4gCShhZGFwdGVyLT5mbGFncyAm
+IElYR0JFX0ZMQUdfRENCX0VOQUJMRUQgPyA4IDogMSkNCj4gDQo+IG9yIGlmIHlvdSByZWFsbHkg
+bGlrZSBwYXJlbnRoZXNlcw0KPiANCj4gI2RlZmluZSBNQVhfUlhfUEFDS0VUX0JVRkZFUlMJCQkJ
+CVwNCj4gCSgoYWRhcHRlci0+ZmxhZ3MgJiBJWEdCRV9GTEFHX0RDQl9FTkFCTEVEKSA/IDggOiAx
+KQ0KPiANCj4gDQo+IA0KDQpJIGFncmVlLCBidXQgdGhpcyBzaG91bGQgYmUgZml4ZWQgaW4gYSBm
+b2xsb3ctb24gcGF0Y2gsIGFzIEkgYWN0dWFsbHkNCmF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIHRo
+aXMgYnkgZml4aW5nIGxlYWRpbmcgc3BhY2UgY2hhcmFjdGVycy4NCg0KVGhhbmtzLA0KSmFrZQ0K
