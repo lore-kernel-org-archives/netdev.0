@@ -1,54 +1,72 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] ixgbe: fix function-like macro, remove semicolon
-Date: Wed, 14 May 2014 01:54:15 -0700
-Message-ID: <1400057663-4578-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next V2 0/8] Mellanox driver update 2014-05-12
+Date: Wed, 14 May 2014 12:15:09 +0300
+Message-ID: <1400058917-26313-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, saeedm@mellanox.com,
+	eyalpe@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6717 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753414AbaENIyg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 04:54:36 -0400
-In-Reply-To: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:51159 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752075AbaENJPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 05:15:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Hi Dave,
 
-This patch removes the semicolon from the end of the do-while(0)
-construct in two function-like macros.
+This patchset introduce some small bug fixes:
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Eyal fixed some compilation and syntactic checkers warnings. Ido fixed a
+coruption in user priority mapping when changing number of channels. Shani 
+fixed some other problems when modifying MAC address. Yuval fixed a problem 
+when changing IRQ affinity during high traffic - IRQ changes got effective 
+only after the first pause in traffic.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 48de859..323ecb1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -1453,7 +1453,7 @@ do { \
- 		bucket_hash ^= hi_hash_dword >> n; \
- 	else if (IXGBE_ATR_SIGNATURE_HASH_KEY & (0x01 << (n + 16))) \
- 		sig_hash ^= hi_hash_dword << (16 - n); \
--} while (0);
-+} while (0)
- 
- /**
-  *  ixgbe_atr_compute_sig_hash_82599 - Compute the signature hash
-@@ -1579,7 +1579,7 @@ do { \
- 		bucket_hash ^= lo_hash_dword >> n; \
- 	if (IXGBE_ATR_BUCKET_HASH_KEY & (0x01 << (n + 16))) \
- 		bucket_hash ^= hi_hash_dword >> n; \
--} while (0);
-+} while (0)
- 
- /**
-  *  ixgbe_atr_compute_perfect_hash_82599 - Compute the perfect filter hash
--- 
-1.9.0
+This patchset was tested and applied over commit 93dccc5: "mdio_bus: fix
+devm_mdiobus_alloc_size export"
+
+Changes from V1:
+- applied feedback from Dave to use true/false and not 0/1 in patch 1/9 
+- removed the patch from Noa which adddressed a bug in flow steering table 
+  when using a bond device, as the fix might need to be in the bonding driver,
+  this is now dicussed in the netdev thread "bonding directly changes 
+  underlying device address"
+
+Changes from V0:
+- Patch 1/9 - net/mlx4_core: Enforce irq affinity changes immediatly
+  - Moved the new members to a hot cache line as Eric suggested
+
+Thanks,
+
+Amir and Or
+
+Eyal Perry (4):
+  net/mlx4_core: Fix smatch error - possible access to a null variable
+  net/mlx4_core: Removed unnecessary bit operation condition
+  net/mlx4_en: Using positive error value for unsigned
+  net/mlx4_core: Fix inaccurate return value of mlx4_flow_attach()
+
+Ido Shamay (1):
+  net/mlx4_en: User prio mapping gets corrupted when changing number of
+    channels
+
+Shani Michaelli (2):
+  net/mlx4_en: Fix errors in MAC address changing when port is down
+  net/mlx4_en: Protect MAC address modification with the state_lock
+    mutex
+
+Yuval Atias (1):
+  net/mlx4_core: Enforce irq affinity changes immediatly
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c        |   14 +++++
+ drivers/net/ethernet/mellanox/mlx4/cq.c         |    3 +
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   12 ++--
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      |   11 +++-
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    6 ++
+ drivers/net/ethernet/mellanox/mlx4/eq.c         |   62 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/main.c       |    9 ++--
+ drivers/net/ethernet/mellanox/mlx4/mcg.c        |    2 +-
+ include/linux/mlx4/device.h                     |    3 +
+ 10 files changed, 110 insertions(+), 15 deletions(-)
