@@ -1,29 +1,31 @@
 From: Zhangfei Gao <zhangfei.gao@linaro.org>
 Subject: [PATCH v1] net: phy: resume phydev when going to RESUMING
-Date: Wed, 14 May 2014 09:31:38 +0800
-Message-ID: <1400031098-19072-1-git-send-email-zhangfei.gao@linaro.org>
+Date: Wed, 14 May 2014 09:40:16 +0800
+Message-ID: <1400031616-19287-1-git-send-email-zhangfei.gao@linaro.org>
+References: <1400031098-19072-1-git-send-email-zhangfei.gao@linaro.org>
 Cc: netdev@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>,
 	Jiancheng Xue <xuejiancheng@huawei.com>
 To: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
 	davem@davemloft.net, sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:43121 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751444AbaENBbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 21:31:50 -0400
-Received: by mail-pa0-f42.google.com with SMTP id rd3so970832pab.29
-        for <netdev@vger.kernel.org>; Tue, 13 May 2014 18:31:50 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:45339 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871AbaENBk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 21:40:27 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so976089pad.37
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 18:40:27 -0700 (PDT)
+In-Reply-To: <1400031098-19072-1-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
+With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
 to HALTED"), an unused PHY device will be put in a low-power mode
 using BMCR_PDOWN. Some Ethernet drivers might be calling phy_start()
 and phy_stop() from ndo_open and ndo_close() respectively, while
 calling phy_connect() and phy_disconnect() from probe and remove.
 In such a case, the PHY will be powered down during the phy_stop()
 call, but will fail to be powered up in phy_start().
-This patch fixes the following scenario."
+This patch fixes this scenario.
 
 Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
 Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
