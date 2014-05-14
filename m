@@ -1,46 +1,98 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [net-next 02/11] ixgbe: clean up checkpatch warnings about
- CODE_INDENT and LEADING_SPACE
-Date: Wed, 14 May 2014 20:48:08 +0000
-Message-ID: <1400100488.4788.3.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1400057663-4578-3-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1400084757.19788.12.camel@joe-AO725>
+From: Jon Maxwell <jmaxwell@redhat.com>
+Subject: Re: [PATCH net] bridge: notify user space of fdb port change
+Date: Wed, 14 May 2014 17:07:44 -0400 (EDT)
+Message-ID: <2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
+References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com> <5372BA1E.8000402@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "joe@perches.com" <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33173 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751124AbaENUsK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 16:48:10 -0400
-In-Reply-To: <1400084757.19788.12.camel@joe-AO725>
-Content-Language: en-US
-Content-ID: <9BFED4448AC7A146A4CA6F13036D8606@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org,
+	davem@davemloft.net, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jpirko@redhat.com
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5372BA1E.8000402@lab.ntt.co.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTA1LTE0IGF0IDA5OjI1IC0wNzAwLCBKb2UgUGVyY2hlcyB3cm90ZToNCj4g
-T24gV2VkLCAyMDE0LTA1LTE0IGF0IDAxOjU0IC0wNzAwLCBKZWZmIEtpcnNoZXIgd3JvdGU6DQo+
-IA0KPiB0cml2aWFsIG5vdGU6DQo+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9peGdiZS9peGdiZS5oIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhn
-YmUvaXhnYmUuaA0KPiBbXQ0KPiA+IEBAIC0zNjIsNyArMzYyLDcgQEAgc3RydWN0IGl4Z2JlX3Jp
-bmdfY29udGFpbmVyIHsNCj4gPiAgCWZvciAocG9zID0gKGhlYWQpLnJpbmc7IHBvcyAhPSBOVUxM
-OyBwb3MgPSBwb3MtPm5leHQpDQo+ID4gIA0KPiA+ICAjZGVmaW5lIE1BWF9SWF9QQUNLRVRfQlVG
-RkVSUyAoKGFkYXB0ZXItPmZsYWdzICYgSVhHQkVfRkxBR19EQ0JfRU5BQkxFRCkgXA0KPiA+IC0g
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICA/IDggOiAxKQ0KPiA+ICsJCQkgICAgICA/IDgg
-OiAxKQ0KPiANCj4gTXkgcHJlZmVyZW5jZSB3b3VsZCBiZSB0byB1c2UgYSBmb3JtIHRoYXQga2Vl
-cHMgdGhlDQo+IGFjdHVhbCBzdGF0ZW1lbnQgb24gYSBzaW5nbGUgbGluZSBsaWtlOg0KPiANCj4g
-I2RlZmluZSBNQVhfUlhfUEFDS0VUX0JVRkZFUlMJCQkJCVwNCj4gCShhZGFwdGVyLT5mbGFncyAm
-IElYR0JFX0ZMQUdfRENCX0VOQUJMRUQgPyA4IDogMSkNCj4gDQo+IG9yIGlmIHlvdSByZWFsbHkg
-bGlrZSBwYXJlbnRoZXNlcw0KPiANCj4gI2RlZmluZSBNQVhfUlhfUEFDS0VUX0JVRkZFUlMJCQkJ
-CVwNCj4gCSgoYWRhcHRlci0+ZmxhZ3MgJiBJWEdCRV9GTEFHX0RDQl9FTkFCTEVEKSA/IDggOiAx
-KQ0KPiANCj4gDQo+IA0KDQpJIGFncmVlLCBidXQgdGhpcyBzaG91bGQgYmUgZml4ZWQgaW4gYSBm
-b2xsb3ctb24gcGF0Y2gsIGFzIEkgYWN0dWFsbHkNCmF1dG9tYXRpY2FsbHkgZ2VuZXJhdGVkIHRo
-aXMgYnkgZml4aW5nIGxlYWRpbmcgc3BhY2UgY2hhcmFjdGVycy4NCg0KVGhhbmtzLA0KSmFrZQ0K
+
+
+----- Original Message -----
+> From: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>
+> To: "Jon Maxwell" <jmaxwell37@gmail.com>, stephen@networkplumber.org
+> Cc: davem@davemloft.net, vyasevic@redhat.com, bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+> linux-kernel@vger.kernel.org, jpirko@redhat.com, jmaxwell@redhat.com
+> Sent: Wednesday, May 14, 2014 10:34:38 AM
+> Subject: Re: [PATCH net] bridge: notify user space of fdb port change
+> 
+> (2014/05/13 16:55), Jon Maxwell wrote:
+> > From: Jon Maxwell <jmaxwell37@gmail.com>
+> > 
+> > There has been a number incidents recently where customers running KVM have
+> > reported that VM hosts on different Hypervisors are unreachable. Based on
+> > pcap traces we found that the bridge was broadcasting the ARP request out
+> > onto the network. However some NICs have an inbuilt switch which on
+> > occasions
+> > were broadcasting the VMs ARP request back through the physical NIC on the
+> > Hypervisor. This resulted in the bridge changing ports and incorrectly
+> > learning
+> > that the VMs mac address was external. As a result the ARP reply was
+> > directed
+> > back onto the external network and VM never updated it's ARP cache. This
+> > patch
+> > will notify the bridge command to identify such port toggling.
+> > 
+> > Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+> > ---
+> >  net/bridge/br_fdb.c | 2 ++
+> >  1 file changed, 2 insertions(+)
+> > 
+> > diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> > index 9203d5a..37742e2 100644
+> > --- a/net/bridge/br_fdb.c
+> > +++ b/net/bridge/br_fdb.c
+> > @@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct
+> > net_bridge_port *source,
+> >  					source->dev->name);
+> >  		} else {
+> >  			/* fastpath: update of existing entry */
+> > +			if (source->port_no != fdb->dst->port_no)
+> 
+> It seems that we don't need to fetch port_no and it is enough to compare
+> source and fdb->dst.
+
+It may save a few instructions but I have not tested it.
+
+> 
+> > +				fdb_notify(br, fdb, RTM_NEWNEIGH);
+> >  			fdb->dst = source;
+> >  			fdb->updated = jiffies;
+> >  			if (unlikely(added_by_user))
+> > 
+> 
+> This notifies fdb entry before updating existing entry. Is this on purpose?
+> I think we should notify the updated fdb entry.
+> Similar code fdb_add_entry() does after updating it.
+
+It was not on purpose but for this particular case there will be burst of notifies 
+so it probably does not matter. However I agree it should be after the update.
+I will do that along with adding the unlikely() conditional and resubmit.
+
+> 
+> Also, isn't it better to move update of dst into "if" block?
+
+I would prefer to leave this portion as alone and only use the if 
+statement for the notify.
+
+> 
+> 	if (source != fdb->dst) {
+> 		fdb->dst = source;
+> 		modified = true;
+> 	}
+> 	...
+> 	if (modified) ...
+> 
+> Thanks,
+> Toshiaki Makita
+> 
