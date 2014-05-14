@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] jme: Fix unmap loop counting error:
-Date: Wed, 14 May 2014 15:11:57 -0400 (EDT)
-Message-ID: <20140514.151157.333839321283028293.davem@davemloft.net>
-References: <1399905498-27691-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: net: unix: Align send data_len up to PAGE_SIZE
+Date: Wed, 14 May 2014 15:15:04 -0400 (EDT)
+Message-ID: <20140514.151504.1740922429122469259.davem@davemloft.net>
+References: <1399906332.31472.1.camel@tkhai>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk,
-	cooldavid@cooldavid.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: ktkhai@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53476 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53492 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752350AbaENTL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:11:59 -0400
-In-Reply-To: <1399905498-27691-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1751877AbaENTPG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:15:06 -0400
+In-Reply-To: <1399906332.31472.1.camel@tkhai>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 12 May 2014 10:38:18 -0400
+From: Kirill Tkhai <ktkhai@parallels.com>
+Date: Mon, 12 May 2014 18:52:12 +0400
 
-> In my recent fix (76a691d0a: fix dma unmap warning), Ben Hutchings noted that my
-> loop count was incorrect.  Where j started at startidx, it should have started
-> at zero, and gone on for count entries, not to endidx.  Additionally, a DMA
-> resource exhaustion should drop the frame and (for now), return
-> NETDEV_TX_OK, not NETEV_TX_BUSY.  This patch fixes both of those issues:
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>  		data_len = min_t(size_t,
+>  				 len - SKB_MAX_ALLOC,
+>  				 MAX_SKB_FRAGS * PAGE_SIZE);
+> +		data_len = min_t(size_t,
+> +				 len,
+> +				 PAGE_ALIGN(data_len));
+> +	}
 
-Applied, thanks Neil.
+When I see:
+
+		x = min(y - N, z1);
+		x = min(y, z2);
+
+I'm a bit suspicious.  Why are you not subtracting the constant
+factor out of the first variable in the second min() call?
