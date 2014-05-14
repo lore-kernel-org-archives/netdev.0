@@ -1,173 +1,48 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH v2 net-next 3/3] net: filter: add insn for loading internal transport header proto
-Date: Wed, 14 May 2014 11:42:49 -0700
-Message-ID: <1400092969-34481-3-git-send-email-chema@google.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com>
- <1400092969-34481-1-git-send-email-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>, dborkman@redhat.com
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
+Date: Wed, 14 May 2014 19:44:04 +0100
+Message-ID: <5373B974.6050808@citrix.com>
+References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>	 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>	 <53734F9F.2010101@citrix.com>	 <1400067318.7973.69.camel@edumazet-glaptop2.roam.corp.google.com>	 <53736EBA.7050401@citrix.com> <1400085639.26934.17.camel@kazak.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
+	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
+	<davem@davemloft.net>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:47609 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaENSmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:42:55 -0400
-Received: by mail-qc0-f202.google.com with SMTP id x3so385114qcv.5
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:42:54 -0700 (PDT)
-In-Reply-To: <1400092969-34481-1-git-send-email-chema@google.com>
+Received: from smtp.citrix.com ([66.165.176.89]:2554 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750750AbaENSo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 14:44:26 -0400
+In-Reply-To: <1400085639.26934.17.camel@kazak.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch adds an ANC_TRA_PROTOCOL insn that loads the protocol of
-the internal transport header of a packet ("internal" meaning after
-decapsulation by the flow dissector).
+On 14/05/14 17:40, Ian Campbell wrote:
+>
+> On Wed, 2014-05-14 at 14:25 +0100, Zoltan Kiss wrote:
+>
+>> But of course it should be carefully checked that functions which place
+>> frags into another frags arrays should call orphan_frags, e.g. I guess
+>> skb_shift does such thing. That's what I intend to start another thread
+>> about.
+>
+> I see Eric has posted a fix for skb_try_coalesce(), but is that likely
+> to be acceptable for 3.15? How many other similar patches are we
+> expecting and/or how long do you think this careful checking will take?
+>
+> Given that we are now at 3.15-rc5 I think we need to decide how to
+> proceed, either push ahead fixing all these issues or (partially) revert
+> this netback feature and try again for 3.16.
+I guess these problems apply to KVM as well, and it haven't caused them 
+problem so far, so I guess the problem shouldn't be that big. I assume 
+they are using this feature to send fragmented skbs out from a guest, 
+but I might be wrong.
+Anyway, I think I'll check tomorrow if there are further places to worry 
+about, but I don't think if there are any of them which are easily 
+reproducible.
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- include/linux/filter.h      |  1 +
- include/uapi/linux/filter.h |  3 ++-
- net/core/filter.c           | 17 +++++++++++++++++
- tools/net/bpf_exp.l         |  1 +
- tools/net/bpf_exp.y         | 11 ++++++++++-
- 5 files changed, 31 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 72b3e63..cc8e333 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -307,6 +307,7 @@ enum {
- 	BPF_S_ANC_PAY_OFFSET,
- 	BPF_S_ANC_RANDOM,
- 	BPF_S_ANC_TRA_OFFSET,
-+	BPF_S_ANC_TRA_PROTOCOL,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 9f1b8f1..e34d608 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -132,7 +132,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_PAY_OFFSET	52
- #define SKF_AD_RANDOM	56
- #define SKF_AD_TRA_OFFSET	60
--#define SKF_AD_MAX	64
-+#define SKF_AD_TRA_PROTOCOL	64
-+#define SKF_AD_MAX	68
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index c4ba8f9..c75eba6 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -626,6 +626,17 @@ static u64 __skb_get_tra_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- 	return context->flow->thoff;
- }
- 
-+static u64 __skb_get_tra_protocol(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
-+{
-+	struct sk_run_filter_ctx *context = (struct sk_run_filter_ctx *)
-+			(unsigned long) ctx;
-+	/* check whether the flow dissector has already been run */
-+	if (!__flow_keys_inited(context->flow))
-+		if (!skb_flow_dissect(context->skb, context->flow))
-+			return 0;
-+	return context->flow->ip_proto;
-+}
-+
- static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
-@@ -793,6 +804,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 	case SKF_AD_OFF + SKF_AD_CPU:
- 	case SKF_AD_OFF + SKF_AD_RANDOM:
- 	case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
-+	case SKF_AD_OFF + SKF_AD_TRA_PROTOCOL:
- 		/* arg1 = ctx */
- 		*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_ARG1, BPF_REG_CTX);
- 		insn++;
-@@ -826,6 +838,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- 		case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
- 			insn->imm = __skb_get_tra_offset - __bpf_call_base;
- 			break;
-+		case SKF_AD_OFF + SKF_AD_TRA_PROTOCOL:
-+			insn->imm = __skb_get_tra_protocol - __bpf_call_base;
-+			break;
- 		}
- 		break;
- 
-@@ -1364,6 +1379,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(PAY_OFFSET);
- 			ANCILLARY(RANDOM);
- 			ANCILLARY(TRA_OFFSET);
-+			ANCILLARY(TRA_PROTOCOL);
- 			}
- 
- 			/* ancillary operation unknown or unsupported */
-@@ -1750,6 +1766,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_ANC_TRA_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
-+		[BPF_S_ANC_TRA_PROTOCOL]	= BPF_LD|BPF_B|BPF_ABS,
- 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
- 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
- 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
-diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
-index 4e72934..c1b5958 100644
---- a/tools/net/bpf_exp.l
-+++ b/tools/net/bpf_exp.l
-@@ -94,6 +94,7 @@ extern void yyerror(const char *str);
- "#"?("vlan_pr")	{ return K_VLANP; }
- "#"?("rand")	{ return K_RAND; }
- "#"?("toff")	{ return K_TOFF; }
-+"#"?("tproto")	{ return K_TPROTO; }
- 
- ":"		{ return ':'; }
- ","		{ return ','; }
-diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
-index ced6949..71fef72 100644
---- a/tools/net/bpf_exp.y
-+++ b/tools/net/bpf_exp.y
-@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
- %token OP_LDXI
- 
- %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
--%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF
-+%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF K_TPROTO
- 
- %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
- 
-@@ -170,6 +170,9 @@ ldb
- 	| OP_LDB K_TOFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
-+	| OP_LDB K_TPROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
- 	;
- 
- ldh
-@@ -224,6 +227,9 @@ ldh
- 	| OP_LDH K_TOFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
-+	| OP_LDH K_TPROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
- 	;
- 
- ldi
-@@ -283,6 +289,9 @@ ld
- 	| OP_LD K_TOFF {
- 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
- 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
-+	| OP_LD K_TPROTO {
-+		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
-+				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
- 	| OP_LD 'M' '[' number ']' {
- 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
- 	| OP_LD '[' 'x' '+' number ']' {
--- 
-1.9.1.423.g4596e3a
+Zoli
