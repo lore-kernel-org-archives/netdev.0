@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 4/8] tipc: mark head of
-	reassembly buffer as non-linear
-Date: Wed, 14 May 2014 05:39:11 -0400
-Message-ID: <1400060355-26308-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 3/8] tipc: don't record link
+	RESET or ACTIVATE messages as traffic
+Date: Wed, 14 May 2014 05:39:10 -0400
+Message-ID: <1400060355-26308-4-git-send-email-jon.maloy@ericsson.com>
 References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,34 +23,66 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The message reassembly function does not update the 'len' and 'data_len'
-fields of the head skbuff correctly when fragments are chained to it.
-This may sometimes lead to obsure errors, such as fragment reordering
-when we receive fragments which are cloned buffers.
+In the current code, all incoming LINK_PROTOCOL messages, irrespective
+of type, nudge the "last message received" checkpoint, informing the
+link state machine that a message was received from the peer since last
+supervision timeout event. This inhibits the link from starting probing
+the peer unnecessarily.
 
-This commit fixes this, by ensuring that the two fields are updated
-correctly.
+However, not only STATE messages are recorded as legitimate incoming
+traffic this way, but even RESET and ACTIVATE messages, which in
+reality are there to inform the link that the peer endpoint has been
+reset. At the same time, some RESET messages may be dropped instead
+of causing a link reset. This happens when the link endpoint thinks
+it is fully up and working, and the session number of the RESET is
+lower than or equal to the current link session. In such cases the
+RESET is perceived as a delayed remnant from an earlier session, or
+the current one, and dropped.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Now, if a TIPC module is removed and then immediately reinserted, e.g.
+when using a script, RESET messages may arrive at the peer link endpoint
+before this one has had time to discover the failure. The RESET may be
+dropped because of the session number, but only after it has been
+recorded as a legitimate traffic event. Hence, the receiving link will
+not start probing, and not discover that the peer endpoint is down, at
+the same time ignoring the periodic RESET messages coming from that
+endpoint. We have ended up in a stale state where a failed link cannot
+be re-established.
+
+In this commit, we remedy this by nudging the checkpoint only for
+received STATE messages, not for RESET or ACTIVATE messages.
+
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |    2 ++
- 1 file changed, 2 insertions(+)
+ net/tipc/link.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 6cf7938..9272d4c 100644
+index 2140837..6cf7938 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -2341,6 +2341,8 @@ int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
- 			(*tail)->next = frag;
- 		*tail = frag;
- 		(*head)->truesize += frag->truesize;
-+		(*head)->data_len += frag->len;
-+		(*head)->len += frag->len;
- 	}
- 	if (fragid == LAST_FRAGMENT) {
- 		*fbuf = *head;
+@@ -1831,9 +1831,6 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	if (l_ptr->exp_msg_count)
+ 		goto exit;
+ 
+-	/* record unnumbered packet arrival (force mismatch on next timeout) */
+-	l_ptr->checkpoint--;
+-
+ 	if (l_ptr->net_plane != msg_net_plane(msg))
+ 		if (tipc_own_addr > msg_prevnode(msg))
+ 			l_ptr->net_plane = msg_net_plane(msg);
+@@ -1909,6 +1906,10 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 			tipc_link_reset(l_ptr); /* Enforce change to take effect */
+ 			break;
+ 		}
++
++		/* Record reception; force mismatch at next timeout: */
++		l_ptr->checkpoint--;
++
+ 		link_state_event(l_ptr, TRAFFIC_MSG_EVT);
+ 		l_ptr->stats.recv_states++;
+ 		if (link_reset_unknown(l_ptr))
 -- 
 1.7.9.5
 
