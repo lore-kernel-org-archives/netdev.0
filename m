@@ -1,60 +1,182 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net-next V2 6/8] net/mlx4_en: Protect MAC address modification with the state_lock mutex
-Date: Wed, 14 May 2014 12:15:15 +0300
-Message-ID: <1400058917-26313-7-git-send-email-ogerlitz@mellanox.com>
-References: <1400058917-26313-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, saeedm@mellanox.com,
-	eyalpe@mellanox.com, Shani Michaelli <shanim@mellanox.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 2/8] tipc: compensate for
+	double accounting in socket rcv buffer
+Date: Wed, 14 May 2014 05:39:09 -0400
+Message-ID: <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
+References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44621 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753665AbaENJYX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 05:24:23 -0400
-In-Reply-To: <1400058917-26313-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Shani Michaelli <shanim@mellanox.com>
+The function net/core/sock.c::__release_sock() runs a tight loop
+to move buffers from the socket backlog queue to the receive queue.
 
-This Patches solves an issue that could raise when modifying the
-device's MAC. It occurs due to a simultaneous access to priv->mac_hash
-from two contexts. The buggy scenario described below:
-Context 1: copy the new mac address to the dev->dev_addr field.
-Context 2: mlx4_en_do_uc_filter removes prev_mac entry from the mac_hash
-           db since it is not in dev->uc and not equal to dev->dev_addr.
-Context 1: mlx4_en_do_set_mac() calls mlx4_en_replace_mac() to replace
-           prev_mac with dev_addr but it fails to update the mac_hash db
-           since it no longer contains prev_mac, therefore it returns
-           with an error.
+As a security measure, sk_backlog.len of the receiving socket
+is not set to zero until after the loop is finished, i.e., until
+the whole backlog queue has been transferred to the receive queue.
+During this transfer, the data that has already been moved is counted
+both in the backlog queue and the receive queue, hence giving an
+incorrect picture of the available queue space for new arriving buffers.
 
-The fix is to prevent mlx4_en_do_uc_filter from being executed by both
-of the context 1 calls described above, This is done by putting them
-both under the mdev->state_lock lock, it will solve this issue since
-mlx4_en_do_uc_filter is already protected by the mdev->state_lock.
+This leads to unnecessary rejection of buffers by sk_add_backlog(),
+which in TIPC leads to unnecessarily broken connections.
 
+In this commit, we compensate for this double accounting by adding
+a counter that keeps track of it. The function socket.c::backlog_rcv()
+receives buffers one by one from __release_sock(), and adds them to the
+socket receive queue. If the transfer is successful, it increases a new
+atomic counter 'tipc_sock::dupl_rcvcnt' with 'truesize' of the
+transferred buffer. If a new buffer arrives during this transfer and
+finds the socket busy (owned), we attempt to add it to the backlog.
+However, when sk_add_backlog() is called, we adjust the 'limit'
+parameter with the value of the new counter, so that the risk of
+inadvertent rejection is eliminated.
 
-Reviewed-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Shani Michaeli <shanim@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+It should be noted that this change does not invalidate the original
+purpose of zeroing 'sk_backlog.len' after the full transfer. We set an
+upper limit for dupl_rcvcnt, so that if a 'wild' sender (i.e., one that
+doesn't respect the send window) keeps pumping in buffers to
+sk_add_backlog(), he will eventually reach an upper limit,
+(2 x TIPC_CONN_OVERLOAD_LIMIT). After that, no messages can be added
+to the backlog, and the connection will be broken. Ordinary, well-
+behaved senders will never reach this buffer limit at all.
+
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/tipc/socket.c |   28 +++++++++++++++++++---------
+ net/tipc/socket.h |    2 ++
+ 2 files changed, 21 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index eea7868..9090643 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -789,9 +789,8 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
- 	if (!is_valid_ether_addr(saddr->sa_data))
- 		return -EADDRNOTAVAIL;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 8685daf..2495006 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1,5 +1,5 @@
+ /*
+- * net/tipc/socket.c: TIPC socket API
++* net/tipc/socket.c: TIPC socket API
+  *
+  * Copyright (c) 2001-2007, 2012-2014, Ericsson AB
+  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
+@@ -45,7 +45,7 @@
  
--	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+ #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
+ 
+-static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
++static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *skb);
+ static void tipc_data_ready(struct sock *sk);
+ static void tipc_write_space(struct sock *sk);
+ static int tipc_release(struct socket *sock);
+@@ -196,11 +196,12 @@ static int tipc_sk_create(struct net *net, struct socket *sock,
+ 	sock->state = state;
+ 
+ 	sock_init_data(sock, sk);
+-	sk->sk_backlog_rcv = backlog_rcv;
++	sk->sk_backlog_rcv = tipc_backlog_rcv;
+ 	sk->sk_rcvbuf = sysctl_tipc_rmem[1];
+ 	sk->sk_data_ready = tipc_data_ready;
+ 	sk->sk_write_space = tipc_write_space;
+-	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
++	tsk->conn_timeout = CONN_TIMEOUT_DEFAULT;
++	atomic_set(&tsk->dupl_rcvcnt, 0);
+ 	tipc_port_unlock(port);
+ 
+ 	if (sock->state == SS_READY) {
+@@ -1416,7 +1417,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+ }
+ 
+ /**
+- * backlog_rcv - handle incoming message from backlog queue
++ * tipc_backlog_rcv - handle incoming message from backlog queue
+  * @sk: socket
+  * @buf: message
+  *
+@@ -1424,13 +1425,18 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+  *
+  * Returns 0
+  */
+-static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
++static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
+ {
+ 	u32 res;
++	struct tipc_sock *tsk = tipc_sk(sk);
+ 
+ 	res = filter_rcv(sk, buf);
+-	if (res)
++	if (unlikely(res))
+ 		tipc_reject_msg(buf, res);
++
++	if (atomic_read(&tsk->dupl_rcvcnt) < TIPC_CONN_OVERLOAD_LIMIT)
++		atomic_add(buf->truesize, &tsk->dupl_rcvcnt);
++
+ 	return 0;
+ }
+ 
+@@ -1445,8 +1451,9 @@ static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
+  */
+ u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
+ {
++	struct tipc_sock *tsk = tipc_sk(sk);
+ 	u32 res;
 -
- 	mutex_lock(&mdev->state_lock);
-+	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
- 	err = mlx4_en_do_set_mac(priv);
- 	mutex_unlock(&mdev->state_lock);
++	uint limit;
+ 	/*
+ 	 * Process message if socket is unlocked; otherwise add to backlog queue
+ 	 *
+@@ -1457,7 +1464,10 @@ u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
+ 	if (!sock_owned_by_user(sk)) {
+ 		res = filter_rcv(sk, buf);
+ 	} else {
+-		if (sk_add_backlog(sk, buf, rcvbuf_limit(sk, buf)))
++		if (sk->sk_backlog.len == 0)
++			atomic_set(&tsk->dupl_rcvcnt, 0);
++		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
++		if (sk_add_backlog(sk, buf, limit))
+ 			res = TIPC_ERR_OVERLOAD;
+ 		else
+ 			res = TIPC_OK;
+diff --git a/net/tipc/socket.h b/net/tipc/socket.h
+index 74e5c7f..86c27cc 100644
+--- a/net/tipc/socket.h
++++ b/net/tipc/socket.h
+@@ -44,12 +44,14 @@
+  * @port: port - interacts with 'sk' and with the rest of the TIPC stack
+  * @peer_name: the peer of the connection, if any
+  * @conn_timeout: the time we can wait for an unresponded setup request
++ * @dupl_rcvcnt: number of bytes counted twice, in both backlog and rcv queue
+  */
  
+ struct tipc_sock {
+ 	struct sock sk;
+ 	struct tipc_port port;
+ 	unsigned int conn_timeout;
++	atomic_t dupl_rcvcnt;
+ };
+ 
+ static inline struct tipc_sock *tipc_sk(const struct sock *sk)
 -- 
-1.7.1
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
+Instantly run your Selenium tests across 300+ browser/OS combos.
+Get unparalleled scalability from the best Selenium testing platform available
+Simple to use. Nothing to install. Get started now for free."
+http://p.sf.net/sfu/SauceLabs
