@@ -1,46 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Moving frags and SKBTX_DEV_ZEROCOPY skbs
-Date: Wed, 14 May 2014 13:42:47 -0400 (EDT)
-Message-ID: <20140514.134247.1863750484757866783.davem@davemloft.net>
-References: <53737266.5040601@citrix.com>
-	<1400077432.7973.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zoltan.kiss@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xenproject.org, kvm@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1400077432.7973.85.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 14 May 2014 07:23:52 -0700
+Subject: RE: [PATCH net-next v2 2/8] tipc: compensate for double accounting
+ in socket rcv buffer
+Date: Wed, 14 May 2014 10:45:42 -0700
+Message-ID: <1400089542.7973.104.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+	 <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
+	 <1400068021.7973.78.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <A2BAEFC30C8FD34388F02C9B3121859D1C25134A@eusaamb103.ericsson.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"maloy@donjonn.com" <maloy@donjonn.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:54194 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751302AbaENRpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 13:45:43 -0400
+Received: by mail-pb0-f41.google.com with SMTP id uo5so1591851pbc.14
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 10:45:43 -0700 (PDT)
+In-Reply-To: <A2BAEFC30C8FD34388F02C9B3121859D1C25134A@eusaamb103.ericsson.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Wed, 2014-05-14 at 14:40 +0100, Zoltan Kiss wrote:
->> Hi,
->> 
->> Recently I've investigated issues around SKBTX_DEV_ZEROCOPY skbs where 
->> the frags list were modified. I came across this function skb_shift(), 
->> which moves frags between skbs. And there are a lot more of such kind, 
->> skb_split or skb_try_coalesce, for example.
->> It could be a dangerous thing if a frag is referenced from an skb which 
->> doesn't have the original destructor_arg, and to avoid that 
->> skb_orphan_frags should be called. Although probably these functions are 
->> not normally touched in usual usecases, I think it would be useful to 
->> review core skb functions proactively and add an skb_orphan_frags 
->> everywhere where the frags could be referenced from other places.
->> Any opinion about this?
-> 
-> 
-> For skb_shift(), it is currently used from tcp stack only, where
-> this SKBTX_DEV_ZEROCOPY thing is not used, so I do not think there is a
-> bug for the moment.
-> 
-> I already gave a patch for skb_try_coalesce() : For this one we do not
-> wan skb_orphan_frags() overhead. Its simply better in this case to
-> abort.
+On Wed, 2014-05-14 at 12:53 +0000, Jon Maloy wrote:
 
-Eric can you please submit this formally?  It is second time I've seen
-it posted as RFC :-)
+> For us, the underlying problem is that sk_backlog.len does not
+> give correct information about the buffer situation.  There is a comment
+> in  _release_sock() trying to explain why.:
+> 
+> /*
+>   * Doing the zeroing here guarantee we can not loop forever
+>   * while a wild producer attempts to flood us.
+>   */
+> 
+> but I fail to understand how this scenario can happen even with TCP.
+> Yes, it can throw away packets, but not until the receive buffer is full,
+> and then sk_add_backlog() should start rejecting new messages anyway?
+> There is evidently something I have missed here.
+
+The following can happen :
+
+An innocent user thread does a socket system call.
+It owns the socket.
+
+Then a flood of incoming messages happen, constantly trying to push new
+packets for this socket. Note the packets can be spoofed ones.
+
+Softirq handler notices socket is owned by 'user', so queue packets into
+backlog, unless the sk_rcvbuf limit is hit.
+
+If we were releasing sk_backlog.len for every dequeued skb, we could
+have a deadlock for the innocent user thread, who could never exit from
+__release_sock()
+
+http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=8eae939f1400326b06d0c9afe53d2a484a326871
+
+So really you do not want to 'relax' this check.
+
+All you need to do is have a big enough sk_rcvbuf for the expected and
+reasonable amount of memory you allow to be stored in input queues for
+your socket.
