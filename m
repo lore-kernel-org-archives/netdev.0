@@ -1,43 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: Use a more standard macro for INET_ADDR_COOKIE
-Date: Wed, 14 May 2014 13:44:09 -0700
-Message-ID: <1400100249.30384.32.camel@joe-AO725>
-References: <1400038207.24350.83.camel@joe-AO725>
-	 <20140514.160845.214090653562722244.davem@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 5/8] bridge: Add addresses from static fdbs to
+ non-promisc ports
+Date: Thu, 15 May 2014 00:44:51 +0400
+Message-ID: <5373D5C3.60807@cogentembedded.com>
+References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com> <1400080168-16625-6-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140514.160845.214090653562722244.davem@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
+	mst@redhat.com, john.r.fastabend@intel.com, jhs@mojatatu.com
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:47817 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbaENUou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 16:44:50 -0400
+Received: by mail-lb0-f172.google.com with SMTP id l4so81557lbv.31
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 13:44:48 -0700 (PDT)
+In-Reply-To: <1400080168-16625-6-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-14 at 16:08 -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 13 May 2014 20:30:07 -0700
-> 
-> > Missing a colon on definition use is a bit odd so
-> > change the macro for the 32 bit case to declare an
-> > __attribute__((unused)) and __deprecated variable.
-> > 
-> > The __deprecated attribute will cause gcc to emit
-> > an error if the variable is actually used.
-> > 
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> 
-> This is fine, applied, thanks Joe.
-> 
-> Perhaps it would have been nicer to make the macros be initializers,
-> so that it still would look like a proper variable declaration at
-> the use sites:
-> 
-> 	const __addrpair var = INET_ADDR_COOKIE(x, y, z);
-> 
-> or something like that.
+On 05/14/2014 07:09 PM, Vlad Yasevich wrote:
 
-Maybe so, but there's no way to add an __attribute__
-before the = sign for the 32 bit case like that without
-another #define and it would then always require
-initialization too.
+> When a static fdb entry is created, add the mac address
+> from this fdb entry to any ports that are currently running
+> in non-promiscuous mode.  These ports need this data so that
+> they can receive traffic destined to these addresses.
+> By default ports start in promiscuous mode, so this feature
+> is disabled.
+
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>   net/bridge/br_fdb.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++-----
+>   1 file changed, 70 insertions(+), 6 deletions(-)
+
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 9759b61..958b68a 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -85,8 +85,58 @@ static void fdb_rcu_free(struct rcu_head *head)
+>   	kmem_cache_free(br_fdb_cache, ent);
+>   }
+>
+> +/* When a static FDB entry is added, the mac address from the entry is
+> + * added to the bridge private HW address list and all required ports
+> + * are then updated with the new information.
+> + * Called under RTNL.
+> + */
+> +static void fdb_add_hw(struct net_bridge *br, const unsigned char *addr)
+> +{
+> +	int err;
+> +	struct net_bridge_port *p, *tmp = NULL;
+
+    Initializer doesn't seem to be needed.
+
+[...]
+
+WBR, Sergei
