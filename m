@@ -1,75 +1,80 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: Moving frags and SKBTX_DEV_ZEROCOPY skbs
-Date: Wed, 14 May 2014 20:41:53 +0100
-Message-ID: <5373C701.1080301@citrix.com>
-References: <53737266.5040601@citrix.com> <1400077432.7973.85.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 2/8] tipc: compensate for double accounting
+ in socket rcv buffer
+Date: Wed, 14 May 2014 12:42:11 -0700
+Message-ID: <1400096531.7973.123.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
+		 <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
+		 <1400068021.7973.78.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <A2BAEFC30C8FD34388F02C9B3121859D1C25134A@eusaamb103.ericsson.se>
+	 <1400089542.7973.104.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5373BD5C.9030703@donjonn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	<kvm@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jon Maloy <jon.maloy@ericsson.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Jon Maloy <maloy@donjonn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:25381 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750750AbaENTl5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 15:41:57 -0400
-In-Reply-To: <1400077432.7973.85.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:61981 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361AbaENTmM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:42:12 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rq2so25620pbb.17
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 12:42:11 -0700 (PDT)
+In-Reply-To: <5373BD5C.9030703@donjonn.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/05/14 15:23, Eric Dumazet wrote:
-> On Wed, 2014-05-14 at 14:40 +0100, Zoltan Kiss wrote:
->> Hi,
->>
->> Recently I've investigated issues around SKBTX_DEV_ZEROCOPY skbs where
->> the frags list were modified. I came across this function skb_shift(),
->> which moves frags between skbs. And there are a lot more of such kind,
->> skb_split or skb_try_coalesce, for example.
->> It could be a dangerous thing if a frag is referenced from an skb which
->> doesn't have the original destructor_arg, and to avoid that
->> skb_orphan_frags should be called. Although probably these functions are
->> not normally touched in usual usecases, I think it would be useful to
->> review core skb functions proactively and add an skb_orphan_frags
->> everywhere where the frags could be referenced from other places.
->> Any opinion about this?
->
->
-> For skb_shift(), it is currently used from tcp stack only, where
-> this SKBTX_DEV_ZEROCOPY thing is not used, so I do not think there is a
-> bug for the moment.
-It is called from tcp_input.c, which suggests it can be called on 
-incoming TCP packets. If the backend domain communicates with the 
-frontend through sockets, zerocopy packets can turn up here.
-But here is the thing: deliver_skb calls orphan_frags for every packet 
-delivered to the local stack, so we are safe IF these functions are 
-called before the IP stack. So we are safe now, but things can go wrong, if:
-- such a frag-mangling function is called before deliver_skb, now or in 
-the future
-- if someone wants to take advantage of zerocopy in the guest<->backend path
+On Wed, 2014-05-14 at 15:00 -0400, Jon Maloy wrote:
 
->
-> I already gave a patch for skb_try_coalesce() : For this one we do not
-> wan skb_orphan_frags() overhead. Its simply better in this case to
-> abort.
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 1b62343f5837..85995a14aafc 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -3838,7 +3839,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
->   		return true;
->   	}
->
-> -	if (skb_has_frag_list(to) || skb_has_frag_list(from))
-> +	if (skb_has_frag_list(to) ||
-> +	    skb_has_frag_list(from) ||
-> +	    (skb_shinfo(to)->tx_flags & SKBTX_DEV_ZEROCOPY) ||
-> +	    (skb_shinfo(from)->tx_flags & SKBTX_DEV_ZEROCOPY))
->   		return false;
->
->   	if (skb_headlen(from) != 0) {
->
->
->
+> This is where I don't get it.
+> 
+> sk_add_backlog(limit) is (via sk_rcvqueues_full) testing for
+> 
+>  (sk_backlog.len + sk_rmem_alloc) > limit
+> 
+> But, if the receiving user is slow, sk_rmem_alloc will run full eventually, even if we
+> reduce sk_backlog.len with truesize of each transferred buffer, and sk_add_backlog
+> should then start throwing away packets. Why doesn't this happen?
+
+It definitely can happen if sender tries to send small packets, that
+have a high truesize/len ratio.
+
+$ nstat -a | egrep "TcpExtTCPBacklogDrop|IpInReceives|TcpExtTCPRcvCoalesce"
+IpInReceives                    8357544624         0.0
+TcpExtTCPBacklogDrop            13                 0.0
+TcpExtTCPRcvCoalesce            437826621          0.0
+
+You claim that "that sk_backlog.len does not
+give correct information about the buffer situation.", but really it
+does.
+
+Your problem seems that you do not use the appropriate 'limit',
+or assume very tight scheduling constraints (An incoming packet has to
+be immediately consumed by receiver, otherwise following packet might be
+dropped)
+
+If rcvbuf_limit(sk, buf) is the limit for normal packets (sk_rmem_alloc)
+in receive queue, then you need something bigger to allow bursts.
+
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 3f9912f87d0d..fe4f37d8029a 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1457,7 +1457,7 @@ u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
+ 	if (!sock_owned_by_user(sk)) {
+ 		res = filter_rcv(sk, buf);
+ 	} else {
+-		if (sk_add_backlog(sk, buf, rcvbuf_limit(sk, buf)))
++		if (sk_add_backlog(sk, buf, 2 * rcvbuf_limit(sk, buf)))
+ 			res = TIPC_ERR_OVERLOAD;
+ 		else
+ 			res = TIPC_OK;
