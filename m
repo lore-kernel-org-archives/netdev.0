@@ -1,57 +1,79 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: bonding directly changes underlying device address
-Date: Wed, 14 May 2014 11:08:41 +0300
-Message-ID: <53732489.3070204@mellanox.com>
-References: <5371FCD0.7050502@mellanox.com> <20140513115527.GC2910@minipsycho.orion> <20030.1399998641@localhost.localdomain> <CAJZOPZ+pOBw4M-ZFF2qsqNgGJcKcRRdhWFf4dy1FQ8Ngr-ZqRA@mail.gmail.com> <20140514080114.GA30960@mikrodark.usersys.redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: Problem with iflink in netns
+Date: Wed, 14 May 2014 10:23:13 +0200
+Message-ID: <537327F1.4060603@6wind.com>
+References: <20140513083945.062de6c3@nehalam.linuxnetplumber.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	"Eyal Perry" <eyalpe@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Noa Osherovich <noaos@mellanox.com>
-To: Veaceslav Falico <vfalico@gmail.com>,
-	Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:49142 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752815AbaENILx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 04:11:53 -0400
-In-Reply-To: <20140514080114.GA30960@mikrodark.usersys.redhat.com>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:63645 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492AbaENIXQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 04:23:16 -0400
+Received: by mail-wg0-f47.google.com with SMTP id x12so1544045wgg.30
+        for <netdev@vger.kernel.org>; Wed, 14 May 2014 01:23:15 -0700 (PDT)
+In-Reply-To: <20140513083945.062de6c3@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/05/2014 11:01, Veaceslav Falico wrote:
+Le 13/05/2014 17:39, Stephen Hemminger a =E9crit :
+> There have been a couple of bugzilla reports already about cases wher=
+e a macvlan
+> or vlan is moved into another namespace. In these cases the parent de=
+vice ifindex (iflink)
+> is no longer valid.
 >
-> I'd actually just drop support for non-ndo_set_mac_address NICs, as it'll
-> unify the RLB and TLB logic, and anyways dev_set_mac_address() is used in
-> SIOCSIFHWADDR and rtnl ops, and thus, if the NIC doesn't support it, it
-> can't change its mac address at all, and using it in *LB modes makes 
-> little sense.
-
-Avoid touching the slave device address directly and acting through 
-dev_set_mac_address() sounds good to me.
-
-Still, FWIW && just to make sure we see the whole picture, we noted that 
-the practiceof manually touching the slave device address is done in 
-another TLB code locationbesides alb_set_slave_mac_addr(), namely in 
-alb_set_mac_address().
-
 >
-> Other way of doing this would be to just move the dev_addr to the slave
-> struct, instead of using the net_device's dev_addr, cause in tlb we don't
-> usually need to set the NIC mac address (except when there's mac 
-> filtering,
-> I guess), but only need to set the packet's source mac. This way we'll 
-> omit
-> quite costy mac address setting (as, on some NICs, it resets the whole 
-> NIC
-> and takes seconds), still maintain compatibility with older NICs and 
-> won't
-> mess with NICs ->dev_addr.
+> Normally it is not a big issue, until another device is created using=
+ the ifindex
+> of the parent
+>
+> Does anyone have a suggested fix? Marking iflink as 0 won't work then=
+ the devices no
+> longer appear as slaves. Another possibility would be to make block c=
+reation of device
+> where ifindex matches existing iflink of other devices; but this woul=
+d slow down device
+> creation.
+The problem is that we to add an information about the netns where the =
+ifindex
+stands, we can currently use only a pid or a file descriptor, hence it'=
+s not
+possible to broadcast this information. The advantage of the file descr=
+iptor is
+that it's a local id not a global one.
 
-Interesting, so if Jay is OK with this design, any chance one of you can 
-come up
-with the proper patch to make that happen?
+On idea I'm thinking is that each netns manages its own set of UID for =
+peer
+netns, this means that these UID will be valid only in a spcecified net=
+ns.
+We may add a netlink message to help the user to associate an UID with =
+a file
+descriptor/pid (he gives the file descriptor/pid and the kernel returns=
+ the
+UID).
+These UID may be generated only the user requests them or when the kern=
+el sends
+an information about a peer netns.
+These UID will be provided in existing netlink message in a separate ne=
+tlink
+attribute.
 
-Or.
+If the idea is ok, I can help to work on this topic.
+
+
+Regards,
+Nicolas
+>
+>
+> The bugs come in as ip command bugs, but obviously the issue is in th=
+e kernel.
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D66691
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D75911
