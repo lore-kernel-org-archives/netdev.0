@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 8/8] tipc: merge port message
-	reception into socket reception function
-Date: Wed, 14 May 2014 05:39:15 -0400
-Message-ID: <1400060355-26308-9-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 7/8] tipc: clean up neigbor
+	discovery message reception
+Date: Wed, 14 May 2014 05:39:14 -0400
+Message-ID: <1400060355-26308-8-git-send-email-jon.maloy@ericsson.com>
 References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,246 +23,297 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In order to reduce complexity and save a call level during message
-reception at port/socket level, we remove the function tipc_port_rcv()
-and merge its functionality into tipc_sk_rcv().
+The function tipc_disc_rcv(), which is handling received neighbor
+discovery messages, is perceived as messy, and it is hard to verify
+its correctness by code inspection. The fact that the task it is set
+to resolve is fairly complex does not make the situation better.
+
+In this commit we try to take a more systematic approach to the
+problem. We define a decision machine which takes three state flags
+ as input, and produces three action flags as output. We then walk
+through all permutations of the state flags, and for each of them we
+describe verbally what is going on, plus that we set zero or more of
+the action flags. The action flags indicate what should be done once
+the decision machine has finished its job, while the last part of the
+function deals with performing those actions.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c   |    3 ++-
- net/tipc/net.c    |    3 ++-
- net/tipc/port.c   |   39 ++++--------------------------------
- net/tipc/port.h   |    1 -
- net/tipc/socket.c |   57 ++++++++++++++++++++++++++++++++++-------------------
- net/tipc/socket.h |    2 +-
- 6 files changed, 46 insertions(+), 59 deletions(-)
+ net/tipc/discover.c |  219 ++++++++++++++++++++++++++-------------------------
+ 1 file changed, 111 insertions(+), 108 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 24d0587..ad2c57f 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -37,6 +37,7 @@
- #include "core.h"
- #include "link.h"
- #include "port.h"
-+#include "socket.h"
- #include "name_distr.h"
- #include "discover.h"
- #include "config.h"
-@@ -1590,7 +1591,7 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		case TIPC_HIGH_IMPORTANCE:
- 		case TIPC_CRITICAL_IMPORTANCE:
- 			tipc_node_unlock(n_ptr);
--			tipc_port_rcv(buf);
-+			tipc_sk_rcv(buf);
- 			continue;
- 		case MSG_BUNDLER:
- 			l_ptr->stats.recv_bundles++;
-diff --git a/net/tipc/net.c b/net/tipc/net.c
-index f8fc95d..f64375e 100644
---- a/net/tipc/net.c
-+++ b/net/tipc/net.c
-@@ -39,6 +39,7 @@
- #include "name_distr.h"
- #include "subscr.h"
- #include "port.h"
-+#include "socket.h"
- #include "node.h"
- #include "config.h"
- 
-@@ -141,7 +142,7 @@ void tipc_net_route_msg(struct sk_buff *buf)
- 			if (msg_mcast(msg))
- 				tipc_port_mcast_rcv(buf, NULL);
- 			else if (msg_destport(msg))
--				tipc_port_rcv(buf);
-+				tipc_sk_rcv(buf);
- 			else
- 				net_route_named_msg(buf);
- 			return;
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 5c14c78..5fd7acc 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -165,7 +165,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
- 		msg_set_destnode(msg, tipc_own_addr);
- 		if (dp->count == 1) {
- 			msg_set_destport(msg, dp->ports[0]);
--			tipc_port_rcv(buf);
-+			tipc_sk_rcv(buf);
- 			tipc_port_list_free(dp);
- 			return;
- 		}
-@@ -180,7 +180,7 @@ void tipc_port_mcast_rcv(struct sk_buff *buf, struct tipc_port_list *dp)
- 			if ((index == 0) && (cnt != 0))
- 				item = item->next;
- 			msg_set_destport(buf_msg(b), item->ports[index]);
--			tipc_port_rcv(b);
-+			tipc_sk_rcv(b);
- 		}
- 	}
- exit:
-@@ -343,7 +343,7 @@ int tipc_reject_msg(struct sk_buff *buf, u32 err)
- 	/* send returned message & dispose of rejected message */
- 	src_node = msg_prevnode(msg);
- 	if (in_own_node(src_node))
--		tipc_port_rcv(rbuf);
-+		tipc_sk_rcv(rbuf);
- 	else
- 		tipc_link_xmit(rbuf, src_node, msg_link_selector(rmsg));
- exit:
-@@ -754,37 +754,6 @@ int tipc_port_shutdown(u32 ref)
- 	return tipc_port_disconnect(ref);
- }
- 
--/**
-- * tipc_port_rcv - receive message from lower layer and deliver to port user
-- */
--int tipc_port_rcv(struct sk_buff *buf)
--{
--	struct tipc_port *p_ptr;
--	struct tipc_msg *msg = buf_msg(buf);
--	u32 destport = msg_destport(msg);
--	u32 dsz = msg_data_sz(msg);
--	u32 err;
--
--	/* forward unresolved named message */
--	if (unlikely(!destport)) {
--		tipc_net_route_msg(buf);
--		return dsz;
--	}
--
--	/* validate destination & pass to port, otherwise reject message */
--	p_ptr = tipc_port_lock(destport);
--	if (likely(p_ptr)) {
--		err = tipc_sk_rcv(&tipc_port_to_sock(p_ptr)->sk, buf);
--		tipc_port_unlock(p_ptr);
--		if (likely(!err))
--			return dsz;
--	} else {
--		err = TIPC_ERR_NO_PORT;
--	}
--
--	return tipc_reject_msg(buf, err);
--}
--
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index b15cbed..aa722a4 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -1,7 +1,7 @@
  /*
-  *  tipc_port_iovec_rcv: Concatenate and deliver sectioned
-  *                       message for this node.
-@@ -798,7 +767,7 @@ static int tipc_port_iovec_rcv(struct tipc_port *sender,
- 
- 	res = tipc_msg_build(&sender->phdr, msg_sect, len, MAX_MSG_SIZE, &buf);
- 	if (likely(buf))
--		tipc_port_rcv(buf);
-+		tipc_sk_rcv(buf);
- 	return res;
+  * net/tipc/discover.c
+  *
+- * Copyright (c) 2003-2006, Ericsson AB
++ * Copyright (c) 2003-2006, 2014, Ericsson AB
+  * Copyright (c) 2005-2006, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -106,147 +106,150 @@ static void disc_dupl_alert(struct tipc_bearer *b_ptr, u32 node_addr,
  }
- 
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 5dfd165..cf4ca5b 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -135,7 +135,6 @@ int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
- /*
-  * TIPC messaging routines
-  */
--int tipc_port_rcv(struct sk_buff *buf);
- 
- int tipc_send(struct tipc_port *port,
- 	      struct iovec const *msg_sect,
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 2495006..ac08966 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1442,39 +1442,56 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
  
  /**
-  * tipc_sk_rcv - handle incoming message
-- * @sk:  socket receiving message
-- * @buf: message
-- *
-- * Called with port lock already taken.
-- *
-- * Returns TIPC error status code (TIPC_OK if message is not to be rejected)
-+ * @buf: buffer containing arriving message
-+ * Consumes buffer
-+ * Returns 0 if success, or errno: -EHOSTUNREACH
+- * tipc_disc_rcv - handle incoming link setup message (request or response)
++ * tipc_disc_rcv - handle incoming discovery message (request or response)
+  * @buf: buffer containing message
+- * @b_ptr: bearer that message arrived on
++ * @bearer: bearer that message arrived on
   */
--u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf)
-+int tipc_sk_rcv(struct sk_buff *buf)
+-void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *b_ptr)
++void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *bearer)
  {
--	struct tipc_sock *tsk = tipc_sk(sk);
--	u32 res;
-+	struct tipc_sock *tsk;
-+	struct tipc_port *port;
-+	struct sock *sk;
-+	u32 dport = msg_destport(buf_msg(buf));
-+	int err = TIPC_OK;
- 	uint limit;
--	/*
--	 * Process message if socket is unlocked; otherwise add to backlog queue
--	 *
--	 * This code is based on sk_receive_skb(), but must be distinct from it
--	 * since a TIPC-specific filter/reject mechanism is utilized
--	 */
+-	struct tipc_node *n_ptr;
++	struct tipc_node *node;
+ 	struct tipc_link *link;
+-	struct tipc_media_addr media_addr;
++	struct tipc_media_addr maddr;
+ 	struct sk_buff *rbuf;
+ 	struct tipc_msg *msg = buf_msg(buf);
+-	u32 dest = msg_dest_domain(msg);
+-	u32 orig = msg_prevnode(msg);
++	u32 ddom = msg_dest_domain(msg);
++	u32 onode = msg_prevnode(msg);
+ 	u32 net_id = msg_bc_netid(msg);
+-	u32 type = msg_type(msg);
++	u32 mtyp = msg_type(msg);
+ 	u32 signature = msg_node_sig(msg);
+-	int addr_mismatch;
+-	int link_fully_up;
+-
+-	media_addr.broadcast = 1;
+-	b_ptr->media->msg2addr(b_ptr, &media_addr, msg_media_addr(msg));
++	bool addr_match = false;
++	bool sign_match = false;
++	bool link_up = false;
++	bool accept_addr = false;
++	bool accept_sign = false;
++	bool respond = false;
 +
-+	/* Forward unresolved named message */
-+	if (unlikely(!dport)) {
-+		tipc_net_route_msg(buf);
-+		return 0;
-+	}
++	bearer->media->msg2addr(bearer, &maddr, msg_media_addr(msg));
+ 	kfree_skb(buf);
+ 
+ 	/* Ensure message from node is valid and communication is permitted */
+ 	if (net_id != tipc_net_id)
+ 		return;
+-	if (media_addr.broadcast)
++	if (maddr.broadcast)
+ 		return;
+-	if (!tipc_addr_domain_valid(dest))
++	if (!tipc_addr_domain_valid(ddom))
+ 		return;
+-	if (!tipc_addr_node_valid(orig))
++	if (!tipc_addr_node_valid(onode))
+ 		return;
+-	if (orig == tipc_own_addr) {
+-		if (memcmp(&media_addr, &b_ptr->addr, sizeof(media_addr)))
+-			disc_dupl_alert(b_ptr, tipc_own_addr, &media_addr);
 +
-+	/* Validate destination */
-+	port = tipc_port_lock(dport);
-+	if (unlikely(!port)) {
-+		err = TIPC_ERR_NO_PORT;
-+		goto exit;
-+	}
-+
-+	tsk = tipc_port_to_sock(port);
-+	sk = &tsk->sk;
-+
-+	/* Queue message */
- 	bh_lock_sock(sk);
-+
- 	if (!sock_owned_by_user(sk)) {
--		res = filter_rcv(sk, buf);
-+		err = filter_rcv(sk, buf);
- 	} else {
- 		if (sk->sk_backlog.len == 0)
- 			atomic_set(&tsk->dupl_rcvcnt, 0);
- 		limit = rcvbuf_limit(sk, buf) + atomic_read(&tsk->dupl_rcvcnt);
- 		if (sk_add_backlog(sk, buf, limit))
--			res = TIPC_ERR_OVERLOAD;
--		else
--			res = TIPC_OK;
-+			err = TIPC_ERR_OVERLOAD;
++	if (in_own_node(onode)) {
++		if (memcmp(&maddr, &bearer->addr, sizeof(maddr)))
++			disc_dupl_alert(bearer, tipc_own_addr, &maddr);
+ 		return;
  	}
+-	if (!tipc_in_scope(dest, tipc_own_addr))
++	if (!tipc_in_scope(ddom, tipc_own_addr))
+ 		return;
+-	if (!tipc_in_scope(b_ptr->domain, orig))
++	if (!tipc_in_scope(bearer->domain, onode))
+ 		return;
+ 
+-	/* Locate structure corresponding to requesting node */
+-	n_ptr = tipc_node_find(orig);
+-	if (!n_ptr) {
+-		n_ptr = tipc_node_create(orig);
+-		if (!n_ptr)
+-			return;
+-	}
+-	tipc_node_lock(n_ptr);
++	/* Locate, or if necessary, create, node: */
++	node = tipc_node_find(onode);
++	if (!node)
++		node = tipc_node_create(onode);
++	if (!node)
++		return;
+ 
+-	/* Prepare to validate requesting node's signature and media address */
+-	link = n_ptr->links[b_ptr->identity];
+-	addr_mismatch = (link != NULL) &&
+-		memcmp(&link->media_addr, &media_addr, sizeof(media_addr));
++	tipc_node_lock(node);
++	link = node->links[bearer->identity];
+ 
+-	/*
+-	 * Ensure discovery message's signature is correct
+-	 *
+-	 * If signature is incorrect and there is no working link to the node,
+-	 * accept the new signature but invalidate all existing links to the
+-	 * node so they won't re-activate without a new discovery message.
+-	 *
+-	 * If signature is incorrect and the requested link to the node is
+-	 * working, accept the new signature. (This is an instance of delayed
+-	 * rediscovery, where a link endpoint was able to re-establish contact
+-	 * with its peer endpoint on a node that rebooted before receiving a
+-	 * discovery message from that node.)
+-	 *
+-	 * If signature is incorrect and there is a working link to the node
+-	 * that is not the requested link, reject the request (must be from
+-	 * a duplicate node).
+-	 */
+-	if (signature != n_ptr->signature) {
+-		if (n_ptr->working_links == 0) {
+-			struct tipc_link *curr_link;
+-			int i;
+-
+-			for (i = 0; i < MAX_BEARERS; i++) {
+-				curr_link = n_ptr->links[i];
+-				if (curr_link) {
+-					memset(&curr_link->media_addr, 0,
+-					       sizeof(media_addr));
+-					tipc_link_reset(curr_link);
+-				}
+-			}
+-			addr_mismatch = (link != NULL);
+-		} else if (tipc_link_is_up(link) && !addr_mismatch) {
+-			/* delayed rediscovery */
+-		} else {
+-			disc_dupl_alert(b_ptr, orig, &media_addr);
+-			tipc_node_unlock(n_ptr);
+-			return;
+-		}
+-		n_ptr->signature = signature;
++	/* Prepare to validate requesting node's signature and media address */
++	sign_match = (signature == node->signature);
++	addr_match = link && !memcmp(&link->media_addr, &maddr, sizeof(maddr));
++	link_up = link && tipc_link_is_up(link);
 +
- 	bh_unlock_sock(sk);
-+	tipc_port_unlock(port);
++
++	/* These three flags give us eight permutations: */
++
++	if (sign_match && addr_match && link_up) {
++		/* All is fine. Do nothing. */
++	} else if (sign_match && addr_match && !link_up) {
++		/* Respond. The link will come up in due time */
++		respond = true;
++	} else if (sign_match && !addr_match && link_up) {
++		/* Peer has changed i/f address without rebooting.
++		 * If so, the link will reset soon, and the next
++		 * discovery will be accepted. So we can ignore it.
++		 * It may also be an cloned or malicious peer having
++		 * chosen the same node address and signature as an
++		 * existing one.
++		 * Ignore requests until the link goes down, if ever.
++		 */
++		disc_dupl_alert(bearer, onode, &maddr);
++	} else if (sign_match && !addr_match && !link_up) {
++		/* Peer link has changed i/f address without rebooting.
++		 * It may also be a cloned or malicious peer; we can't
++		 * distinguish between the two.
++		 * The signature is correct, so we must accept.
++		 */
++		accept_addr = true;
++		respond = true;
++	} else if (!sign_match && addr_match && link_up) {
++		/* Peer node rebooted. Two possibilities:
++		 *  - Delayed re-discovery; this link endpoint has already
++		 *    reset and re-established contact with the peer, before
++		 *    receiving a discovery message from that node.
++		 *    (The peer happened to receive one from this node first).
++		 *  - The peer came back so fast that our side has not
++		 *    discovered it yet. Probing from this side will soon
++		 *    reset the link, since there can be no working link
++		 *    endpoint at the peer end, and the link will re-establish.
++		 *  Accept the signature, since it comes from a known peer.
++		 */
++		accept_sign = true;
++	} else if (!sign_match && addr_match && !link_up) {
++		/*  The peer node has rebooted.
++		 *  Accept signature, since it is a known peer.
++		 */
++		accept_sign = true;
++		respond = true;
++	} else if (!sign_match && !addr_match && link_up) {
++		/* Peer rebooted with new address, or a new/duplicate peer.
++		 * Ignore until the link goes down, if ever.
++		 */
++		disc_dupl_alert(bearer, onode, &maddr);
++	} else if (!sign_match && !addr_match && !link_up) {
++		/* Peer rebooted with new address, or it is a new peer.
++		 * Accept signature and address.
++		*/
++		accept_sign = true;
++		accept_addr = true;
++		respond = true;
+ 	}
  
--	return res;
-+	if (likely(!err))
-+		return 0;
-+exit:
-+	tipc_reject_msg(buf, err);
-+	return -EHOSTUNREACH;
+-	/*
+-	 * Ensure requesting node's media address is correct
+-	 *
+-	 * If media address doesn't match and the link is working, reject the
+-	 * request (must be from a duplicate node).
+-	 *
+-	 * If media address doesn't match and the link is not working, accept
+-	 * the new media address and reset the link to ensure it starts up
+-	 * cleanly.
+-	 */
+-	if (addr_mismatch) {
+-		if (tipc_link_is_up(link)) {
+-			disc_dupl_alert(b_ptr, orig, &media_addr);
+-			tipc_node_unlock(n_ptr);
+-			return;
+-		} else {
+-			memcpy(&link->media_addr, &media_addr,
+-			       sizeof(media_addr));
+-			tipc_link_reset(link);
+-		}
+-	}
++	if (accept_sign)
++		node->signature = signature;
+ 
+-	/* Create a link endpoint for this bearer, if necessary */
+-	if (!link) {
+-		link = tipc_link_create(n_ptr, b_ptr, &media_addr);
+-		if (!link) {
+-			tipc_node_unlock(n_ptr);
+-			return;
++	if (accept_addr) {
++		if (!link)
++			link = tipc_link_create(node, bearer, &maddr);
++		if (link) {
++			memcpy(&link->media_addr, &maddr, sizeof(maddr));
++			tipc_link_reset(link);
++		} else {
++			respond = false;
+ 		}
+ 	}
+ 
+-	/* Accept discovery message & send response, if necessary */
+-	link_fully_up = link_working_working(link);
+-
+-	if ((type == DSC_REQ_MSG) && !link_fully_up) {
++	/* Send response, if necessary */
++	if (respond && (mtyp == DSC_REQ_MSG)) {
+ 		rbuf = tipc_buf_acquire(INT_H_SIZE);
+ 		if (rbuf) {
+-			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, b_ptr);
+-			tipc_bearer_send(b_ptr->identity, rbuf, &media_addr);
++			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, bearer);
++			tipc_bearer_send(bearer->identity, rbuf, &maddr);
+ 			kfree_skb(rbuf);
+ 		}
+ 	}
+-
+-	tipc_node_unlock(n_ptr);
++	tipc_node_unlock(node);
  }
  
- static int tipc_wait_for_connect(struct socket *sock, long *timeo_p)
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index 86c27cc..3afcd2a 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -69,6 +69,6 @@ static inline void tipc_sock_wakeup(struct tipc_sock *tsk)
- 	tsk->sk.sk_write_space(&tsk->sk);
- }
- 
--u32 tipc_sk_rcv(struct sock *sk, struct sk_buff *buf);
-+int tipc_sk_rcv(struct sk_buff *buf);
- 
- #endif
+ /**
 -- 
 1.7.9.5
 
