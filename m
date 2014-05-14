@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 7/8] tipc: clean up neigbor
-	discovery message reception
-Date: Wed, 14 May 2014 05:39:14 -0400
-Message-ID: <1400060355-26308-8-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 5/8] tipc: rename and move
+	message reassembly function
+Date: Wed, 14 May 2014 05:39:12 -0400
+Message-ID: <1400060355-26308-6-git-send-email-jon.maloy@ericsson.com>
 References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,297 +23,349 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The function tipc_disc_rcv(), which is handling received neighbor
-discovery messages, is perceived as messy, and it is hard to verify
-its correctness by code inspection. The fact that the task it is set
-to resolve is fairly complex does not make the situation better.
+The function tipc_link_frag_rcv() is in reality a re-entrant generic
+message reassemby function that has nothing in particular to do with
+the link, where it is defined now. This becomes obvious when we see
+the need to call the function from other places in the code.
 
-In this commit we try to take a more systematic approach to the
-problem. We define a decision machine which takes three state flags
- as input, and produces three action flags as output. We then walk
-through all permutations of the state flags, and for each of them we
-describe verbally what is going on, plus that we set zero or more of
-the action flags. The action flags indicate what should be done once
-the decision machine has finished its job, while the last part of the
-function deals with performing those actions.
+In this commit rename it to tipc_buf_append() and move it to the file
+msg.c. We also simplify its signature by moving the tail pointer to
+the control block of the head buffer, hence making the head buffer
+self-contained.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/discover.c |  219 ++++++++++++++++++++++++++-------------------------
- 1 file changed, 111 insertions(+), 108 deletions(-)
+ net/tipc/bcast.c |   10 +++-----
+ net/tipc/core.h  |    1 +
+ net/tipc/link.c  |   67 ++++--------------------------------------------------
+ net/tipc/link.h  |   14 ++----------
+ net/tipc/msg.c   |   55 +++++++++++++++++++++++++++++++++++++++++++-
+ net/tipc/msg.h   |    5 +++-
+ net/tipc/node.c  |    7 +++---
+ net/tipc/node.h  |    6 ++---
+ 8 files changed, 74 insertions(+), 91 deletions(-)
 
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index b15cbed..aa722a4 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index a0978d0..671f981 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -506,18 +506,14 @@ receive:
+ 			tipc_node_unlock(node);
+ 			tipc_link_bundle_rcv(buf);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
+-			int ret;
+-			ret = tipc_link_frag_rcv(&node->bclink.reasm_head,
+-						 &node->bclink.reasm_tail,
+-						 &buf);
+-			if (ret == LINK_REASM_ERROR)
++			tipc_buf_append(&node->bclink.reasm_buf, &buf);
++			if (unlikely(!buf && !node->bclink.reasm_buf))
+ 				goto unlock;
+ 			tipc_bclink_lock();
+ 			bclink_accept_pkt(node, seqno);
+ 			bcl->stats.recv_fragments++;
+-			if (ret == LINK_REASM_COMPLETE) {
++			if (buf) {
+ 				bcl->stats.recv_fragmented++;
+-				/* Point msg to inner header */
+ 				msg = buf_msg(buf);
+ 				tipc_bclink_unlock();
+ 				goto receive;
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index ae55d37..2e00682 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -187,6 +187,7 @@ static inline void k_term_timer(struct timer_list *timer)
+ struct tipc_skb_cb {
+ 	void *handle;
+ 	bool deferred;
++	struct sk_buff *tail;
+ };
+ 
+ #define TIPC_SKB_CB(__skb) ((struct tipc_skb_cb *)&((__skb)->cb[0]))
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 9272d4c..24d0587 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -398,9 +398,8 @@ static void link_release_outqueue(struct tipc_link *l_ptr)
+  */
+ void tipc_link_reset_fragments(struct tipc_link *l_ptr)
+ {
+-	kfree_skb(l_ptr->reasm_head);
+-	l_ptr->reasm_head = NULL;
+-	l_ptr->reasm_tail = NULL;
++	kfree_skb(l_ptr->reasm_buf);
++	l_ptr->reasm_buf = NULL;
+ }
+ 
+ /**
+@@ -1573,17 +1572,12 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
+ 			}
+ 			msg = buf_msg(buf);
+ 		} else if (msg_user(msg) == MSG_FRAGMENTER) {
+-			int rc;
+-
+ 			l_ptr->stats.recv_fragments++;
+-			rc = tipc_link_frag_rcv(&l_ptr->reasm_head,
+-						&l_ptr->reasm_tail,
+-						&buf);
+-			if (rc == LINK_REASM_COMPLETE) {
++			if (tipc_buf_append(&l_ptr->reasm_buf, &buf)) {
+ 				l_ptr->stats.recv_fragmented++;
+ 				msg = buf_msg(buf);
+ 			} else {
+-				if (rc == LINK_REASM_ERROR)
++				if (!l_ptr->reasm_buf)
+ 					tipc_link_reset(l_ptr);
+ 				tipc_node_unlock(n_ptr);
+ 				continue;
+@@ -2169,9 +2163,7 @@ static struct sk_buff *tipc_link_failover_rcv(struct tipc_link *l_ptr,
+ 		}
+ 		if (msg_user(msg) == MSG_FRAGMENTER) {
+ 			l_ptr->stats.recv_fragments++;
+-			tipc_link_frag_rcv(&l_ptr->reasm_head,
+-					   &l_ptr->reasm_tail,
+-					   &buf);
++			tipc_buf_append(&l_ptr->reasm_buf, &buf);
+ 		}
+ 	}
+ exit:
+@@ -2309,55 +2301,6 @@ static int tipc_link_frag_xmit(struct tipc_link *l_ptr, struct sk_buff *buf)
+ 	return dsz;
+ }
+ 
+-/* tipc_link_frag_rcv(): Called with node lock on. Returns
+- * the reassembled buffer if message is complete.
+- */
+-int tipc_link_frag_rcv(struct sk_buff **head, struct sk_buff **tail,
+-		       struct sk_buff **fbuf)
+-{
+-	struct sk_buff *frag = *fbuf;
+-	struct tipc_msg *msg = buf_msg(frag);
+-	u32 fragid = msg_type(msg);
+-	bool headstolen;
+-	int delta;
+-
+-	skb_pull(frag, msg_hdr_sz(msg));
+-	if (fragid == FIRST_FRAGMENT) {
+-		if (*head || skb_unclone(frag, GFP_ATOMIC))
+-			goto out_free;
+-		*head = frag;
+-		skb_frag_list_init(*head);
+-		*fbuf = NULL;
+-		return 0;
+-	} else if (*head &&
+-		   skb_try_coalesce(*head, frag, &headstolen, &delta)) {
+-		kfree_skb_partial(frag, headstolen);
+-	} else {
+-		if (!*head)
+-			goto out_free;
+-		if (!skb_has_frag_list(*head))
+-			skb_shinfo(*head)->frag_list = frag;
+-		else
+-			(*tail)->next = frag;
+-		*tail = frag;
+-		(*head)->truesize += frag->truesize;
+-		(*head)->data_len += frag->len;
+-		(*head)->len += frag->len;
+-	}
+-	if (fragid == LAST_FRAGMENT) {
+-		*fbuf = *head;
+-		*tail = *head = NULL;
+-		return LINK_REASM_COMPLETE;
+-	}
+-	*fbuf = NULL;
+-	return 0;
+-out_free:
+-	pr_warn_ratelimited("Link unable to reassemble fragmented message\n");
+-	kfree_skb(*fbuf);
+-	*fbuf = NULL;
+-	return LINK_REASM_ERROR;
+-}
+-
+ static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance)
+ {
+ 	if ((tolerance < TIPC_MIN_LINK_TOL) || (tolerance > TIPC_MAX_LINK_TOL))
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 7ba73fa..200d518 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -40,11 +40,6 @@
+ #include "msg.h"
+ #include "node.h"
+ 
+-/* Link reassembly status codes
+- */
+-#define LINK_REASM_ERROR	-1
+-#define LINK_REASM_COMPLETE	1
+-
+ /* Out-of-range value for link sequence numbers
+  */
+ #define INVALID_LINK_SEQ 0x10000
+@@ -140,8 +135,7 @@ struct tipc_stats {
+  * @next_out: ptr to first unsent outbound message in queue
+  * @waiting_ports: linked list of ports waiting for link congestion to abate
+  * @long_msg_seq_no: next identifier to use for outbound fragmented messages
+- * @reasm_head: list head of partially reassembled inbound message fragments
+- * @reasm_tail: last fragment received
++ * @reasm_buf: head of partially reassembled inbound message fragments
+  * @stats: collects statistics regarding link activity
+  */
+ struct tipc_link {
+@@ -204,8 +198,7 @@ struct tipc_link {
+ 
+ 	/* Fragmentation/reassembly */
+ 	u32 long_msg_seq_no;
+-	struct sk_buff *reasm_head;
+-	struct sk_buff *reasm_tail;
++	struct sk_buff *reasm_buf;
+ 
+ 	/* Statistics */
+ 	struct tipc_stats stats;
+@@ -242,9 +235,6 @@ int tipc_link_iovec_xmit_fast(struct tipc_port *sender,
+ 			      struct iovec const *msg_sect,
+ 			      unsigned int len, u32 destnode);
+ void tipc_link_bundle_rcv(struct sk_buff *buf);
+-int tipc_link_frag_rcv(struct sk_buff **reasm_head,
+-		       struct sk_buff **reasm_tail,
+-		       struct sk_buff **fbuf);
+ void tipc_link_proto_xmit(struct tipc_link *l_ptr, u32 msg_typ, int prob,
+ 			  u32 gap, u32 tolerance, u32 priority, u32 acked_mtu);
+ void tipc_link_push_queue(struct tipc_link *l_ptr);
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index e525f8c..8be6e94 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
 @@ -1,7 +1,7 @@
  /*
-  * net/tipc/discover.c
+  * net/tipc/msg.c: TIPC message header routines
   *
-- * Copyright (c) 2003-2006, Ericsson AB
-+ * Copyright (c) 2003-2006, 2014, Ericsson AB
-  * Copyright (c) 2005-2006, 2010-2011, Wind River Systems
+- * Copyright (c) 2000-2006, Ericsson AB
++ * Copyright (c) 2000-2006, 2014, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
   * All rights reserved.
   *
-@@ -106,147 +106,150 @@ static void disc_dupl_alert(struct tipc_bearer *b_ptr, u32 node_addr,
+@@ -99,3 +99,56 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
+ 	}
+ 	return dsz;
  }
++
++/* tipc_buf_append(): Append a buffer to the fragment list of another buffer
++ * Let first buffer become head buffer
++ * Returns 1 and sets *buf to headbuf if chain is complete, otherwise 0
++ * Leaves headbuf pointer at NULL if failure
++ */
++int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
++{
++	struct sk_buff *head = *headbuf;
++	struct sk_buff *frag = *buf;
++	struct sk_buff *tail;
++	struct tipc_msg *msg = buf_msg(frag);
++	u32 fragid = msg_type(msg);
++	bool headstolen;
++	int delta;
++
++	skb_pull(frag, msg_hdr_sz(msg));
++
++	if (fragid == FIRST_FRAGMENT) {
++		if (head || skb_unclone(frag, GFP_ATOMIC))
++			goto out_free;
++		head = *headbuf = frag;
++		skb_frag_list_init(head);
++		return 0;
++	}
++	if (!head)
++		goto out_free;
++	tail = TIPC_SKB_CB(head)->tail;
++	if (skb_try_coalesce(head, frag, &headstolen, &delta)) {
++		kfree_skb_partial(frag, headstolen);
++	} else {
++		if (!skb_has_frag_list(head))
++			skb_shinfo(head)->frag_list = frag;
++		else
++			tail->next = frag;
++		head->truesize += frag->truesize;
++		head->data_len += frag->len;
++		head->len += frag->len;
++		TIPC_SKB_CB(head)->tail = frag;
++	}
++	if (fragid == LAST_FRAGMENT) {
++		*buf = head;
++		TIPC_SKB_CB(head)->tail = NULL;
++		*headbuf = NULL;
++		return 1;
++	}
++	*buf = NULL;
++	return 0;
++out_free:
++	pr_warn_ratelimited("Unable to build fragment list\n");
++	kfree_skb(*buf);
++	return 0;
++}
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 76d1269..5035119 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/msg.h: Include file for TIPC message header routines
+  *
+- * Copyright (c) 2000-2007, Ericsson AB
++ * Copyright (c) 2000-2007, 2014, Ericsson AB
+  * Copyright (c) 2005-2008, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+@@ -711,4 +711,7 @@ void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
+ 		   u32 destnode);
+ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
+ 		   unsigned int len, int max_size, struct sk_buff **buf);
++
++int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf);
++
+ #endif
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index facd561..5b44c30 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -286,10 +286,9 @@ static void node_lost_contact(struct tipc_node *n_ptr)
+ 		kfree_skb_list(n_ptr->bclink.deferred_head);
+ 		n_ptr->bclink.deferred_size = 0;
  
- /**
-- * tipc_disc_rcv - handle incoming link setup message (request or response)
-+ * tipc_disc_rcv - handle incoming discovery message (request or response)
-  * @buf: buffer containing message
-- * @b_ptr: bearer that message arrived on
-+ * @bearer: bearer that message arrived on
+-		if (n_ptr->bclink.reasm_head) {
+-			kfree_skb(n_ptr->bclink.reasm_head);
+-			n_ptr->bclink.reasm_head = NULL;
+-			n_ptr->bclink.reasm_tail = NULL;
++		if (n_ptr->bclink.reasm_buf) {
++			kfree_skb(n_ptr->bclink.reasm_buf);
++			n_ptr->bclink.reasm_buf = NULL;
+ 		}
+ 
+ 		tipc_bclink_remove_node(n_ptr->addr);
+diff --git a/net/tipc/node.h b/net/tipc/node.h
+index 5454edf..9087063 100644
+--- a/net/tipc/node.h
++++ b/net/tipc/node.h
+@@ -69,8 +69,7 @@ enum {
+  * @deferred_size: number of OOS b'cast messages in deferred queue
+  * @deferred_head: oldest OOS b'cast message received from node
+  * @deferred_tail: newest OOS b'cast message received from node
+- * @reasm_head: broadcast reassembly queue head from node
+- * @reasm_tail: last broadcast fragment received from node
++ * @reasm_buf: broadcast reassembly queue head from node
+  * @recv_permitted: true if node is allowed to receive b'cast messages
   */
--void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *b_ptr)
-+void tipc_disc_rcv(struct sk_buff *buf, struct tipc_bearer *bearer)
- {
--	struct tipc_node *n_ptr;
-+	struct tipc_node *node;
- 	struct tipc_link *link;
--	struct tipc_media_addr media_addr;
-+	struct tipc_media_addr maddr;
- 	struct sk_buff *rbuf;
- 	struct tipc_msg *msg = buf_msg(buf);
--	u32 dest = msg_dest_domain(msg);
--	u32 orig = msg_prevnode(msg);
-+	u32 ddom = msg_dest_domain(msg);
-+	u32 onode = msg_prevnode(msg);
- 	u32 net_id = msg_bc_netid(msg);
--	u32 type = msg_type(msg);
-+	u32 mtyp = msg_type(msg);
- 	u32 signature = msg_node_sig(msg);
--	int addr_mismatch;
--	int link_fully_up;
--
--	media_addr.broadcast = 1;
--	b_ptr->media->msg2addr(b_ptr, &media_addr, msg_media_addr(msg));
-+	bool addr_match = false;
-+	bool sign_match = false;
-+	bool link_up = false;
-+	bool accept_addr = false;
-+	bool accept_sign = false;
-+	bool respond = false;
-+
-+	bearer->media->msg2addr(bearer, &maddr, msg_media_addr(msg));
- 	kfree_skb(buf);
+ struct tipc_node_bclink {
+@@ -81,8 +80,7 @@ struct tipc_node_bclink {
+ 	u32 deferred_size;
+ 	struct sk_buff *deferred_head;
+ 	struct sk_buff *deferred_tail;
+-	struct sk_buff *reasm_head;
+-	struct sk_buff *reasm_tail;
++	struct sk_buff *reasm_buf;
+ 	bool recv_permitted;
+ };
  
- 	/* Ensure message from node is valid and communication is permitted */
- 	if (net_id != tipc_net_id)
- 		return;
--	if (media_addr.broadcast)
-+	if (maddr.broadcast)
- 		return;
--	if (!tipc_addr_domain_valid(dest))
-+	if (!tipc_addr_domain_valid(ddom))
- 		return;
--	if (!tipc_addr_node_valid(orig))
-+	if (!tipc_addr_node_valid(onode))
- 		return;
--	if (orig == tipc_own_addr) {
--		if (memcmp(&media_addr, &b_ptr->addr, sizeof(media_addr)))
--			disc_dupl_alert(b_ptr, tipc_own_addr, &media_addr);
-+
-+	if (in_own_node(onode)) {
-+		if (memcmp(&maddr, &bearer->addr, sizeof(maddr)))
-+			disc_dupl_alert(bearer, tipc_own_addr, &maddr);
- 		return;
- 	}
--	if (!tipc_in_scope(dest, tipc_own_addr))
-+	if (!tipc_in_scope(ddom, tipc_own_addr))
- 		return;
--	if (!tipc_in_scope(b_ptr->domain, orig))
-+	if (!tipc_in_scope(bearer->domain, onode))
- 		return;
- 
--	/* Locate structure corresponding to requesting node */
--	n_ptr = tipc_node_find(orig);
--	if (!n_ptr) {
--		n_ptr = tipc_node_create(orig);
--		if (!n_ptr)
--			return;
--	}
--	tipc_node_lock(n_ptr);
-+	/* Locate, or if necessary, create, node: */
-+	node = tipc_node_find(onode);
-+	if (!node)
-+		node = tipc_node_create(onode);
-+	if (!node)
-+		return;
- 
--	/* Prepare to validate requesting node's signature and media address */
--	link = n_ptr->links[b_ptr->identity];
--	addr_mismatch = (link != NULL) &&
--		memcmp(&link->media_addr, &media_addr, sizeof(media_addr));
-+	tipc_node_lock(node);
-+	link = node->links[bearer->identity];
- 
--	/*
--	 * Ensure discovery message's signature is correct
--	 *
--	 * If signature is incorrect and there is no working link to the node,
--	 * accept the new signature but invalidate all existing links to the
--	 * node so they won't re-activate without a new discovery message.
--	 *
--	 * If signature is incorrect and the requested link to the node is
--	 * working, accept the new signature. (This is an instance of delayed
--	 * rediscovery, where a link endpoint was able to re-establish contact
--	 * with its peer endpoint on a node that rebooted before receiving a
--	 * discovery message from that node.)
--	 *
--	 * If signature is incorrect and there is a working link to the node
--	 * that is not the requested link, reject the request (must be from
--	 * a duplicate node).
--	 */
--	if (signature != n_ptr->signature) {
--		if (n_ptr->working_links == 0) {
--			struct tipc_link *curr_link;
--			int i;
--
--			for (i = 0; i < MAX_BEARERS; i++) {
--				curr_link = n_ptr->links[i];
--				if (curr_link) {
--					memset(&curr_link->media_addr, 0,
--					       sizeof(media_addr));
--					tipc_link_reset(curr_link);
--				}
--			}
--			addr_mismatch = (link != NULL);
--		} else if (tipc_link_is_up(link) && !addr_mismatch) {
--			/* delayed rediscovery */
--		} else {
--			disc_dupl_alert(b_ptr, orig, &media_addr);
--			tipc_node_unlock(n_ptr);
--			return;
--		}
--		n_ptr->signature = signature;
-+	/* Prepare to validate requesting node's signature and media address */
-+	sign_match = (signature == node->signature);
-+	addr_match = link && !memcmp(&link->media_addr, &maddr, sizeof(maddr));
-+	link_up = link && tipc_link_is_up(link);
-+
-+
-+	/* These three flags give us eight permutations: */
-+
-+	if (sign_match && addr_match && link_up) {
-+		/* All is fine. Do nothing. */
-+	} else if (sign_match && addr_match && !link_up) {
-+		/* Respond. The link will come up in due time */
-+		respond = true;
-+	} else if (sign_match && !addr_match && link_up) {
-+		/* Peer has changed i/f address without rebooting.
-+		 * If so, the link will reset soon, and the next
-+		 * discovery will be accepted. So we can ignore it.
-+		 * It may also be an cloned or malicious peer having
-+		 * chosen the same node address and signature as an
-+		 * existing one.
-+		 * Ignore requests until the link goes down, if ever.
-+		 */
-+		disc_dupl_alert(bearer, onode, &maddr);
-+	} else if (sign_match && !addr_match && !link_up) {
-+		/* Peer link has changed i/f address without rebooting.
-+		 * It may also be a cloned or malicious peer; we can't
-+		 * distinguish between the two.
-+		 * The signature is correct, so we must accept.
-+		 */
-+		accept_addr = true;
-+		respond = true;
-+	} else if (!sign_match && addr_match && link_up) {
-+		/* Peer node rebooted. Two possibilities:
-+		 *  - Delayed re-discovery; this link endpoint has already
-+		 *    reset and re-established contact with the peer, before
-+		 *    receiving a discovery message from that node.
-+		 *    (The peer happened to receive one from this node first).
-+		 *  - The peer came back so fast that our side has not
-+		 *    discovered it yet. Probing from this side will soon
-+		 *    reset the link, since there can be no working link
-+		 *    endpoint at the peer end, and the link will re-establish.
-+		 *  Accept the signature, since it comes from a known peer.
-+		 */
-+		accept_sign = true;
-+	} else if (!sign_match && addr_match && !link_up) {
-+		/*  The peer node has rebooted.
-+		 *  Accept signature, since it is a known peer.
-+		 */
-+		accept_sign = true;
-+		respond = true;
-+	} else if (!sign_match && !addr_match && link_up) {
-+		/* Peer rebooted with new address, or a new/duplicate peer.
-+		 * Ignore until the link goes down, if ever.
-+		 */
-+		disc_dupl_alert(bearer, onode, &maddr);
-+	} else if (!sign_match && !addr_match && !link_up) {
-+		/* Peer rebooted with new address, or it is a new peer.
-+		 * Accept signature and address.
-+		*/
-+		accept_sign = true;
-+		accept_addr = true;
-+		respond = true;
- 	}
- 
--	/*
--	 * Ensure requesting node's media address is correct
--	 *
--	 * If media address doesn't match and the link is working, reject the
--	 * request (must be from a duplicate node).
--	 *
--	 * If media address doesn't match and the link is not working, accept
--	 * the new media address and reset the link to ensure it starts up
--	 * cleanly.
--	 */
--	if (addr_mismatch) {
--		if (tipc_link_is_up(link)) {
--			disc_dupl_alert(b_ptr, orig, &media_addr);
--			tipc_node_unlock(n_ptr);
--			return;
--		} else {
--			memcpy(&link->media_addr, &media_addr,
--			       sizeof(media_addr));
--			tipc_link_reset(link);
--		}
--	}
-+	if (accept_sign)
-+		node->signature = signature;
- 
--	/* Create a link endpoint for this bearer, if necessary */
--	if (!link) {
--		link = tipc_link_create(n_ptr, b_ptr, &media_addr);
--		if (!link) {
--			tipc_node_unlock(n_ptr);
--			return;
-+	if (accept_addr) {
-+		if (!link)
-+			link = tipc_link_create(node, bearer, &maddr);
-+		if (link) {
-+			memcpy(&link->media_addr, &maddr, sizeof(maddr));
-+			tipc_link_reset(link);
-+		} else {
-+			respond = false;
- 		}
- 	}
- 
--	/* Accept discovery message & send response, if necessary */
--	link_fully_up = link_working_working(link);
--
--	if ((type == DSC_REQ_MSG) && !link_fully_up) {
-+	/* Send response, if necessary */
-+	if (respond && (mtyp == DSC_REQ_MSG)) {
- 		rbuf = tipc_buf_acquire(INT_H_SIZE);
- 		if (rbuf) {
--			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, b_ptr);
--			tipc_bearer_send(b_ptr->identity, rbuf, &media_addr);
-+			tipc_disc_init_msg(rbuf, DSC_RESP_MSG, bearer);
-+			tipc_bearer_send(bearer->identity, rbuf, &maddr);
- 			kfree_skb(rbuf);
- 		}
- 	}
--
--	tipc_node_unlock(n_ptr);
-+	tipc_node_unlock(node);
- }
- 
- /**
 -- 
 1.7.9.5
 
