@@ -1,47 +1,48 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] loopback: explicitly set pkt_type to PACKET_HOST
-Date: Wed, 14 May 2014 11:39:22 -0700
-Message-ID: <1400092762-23287-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33934 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbaENSjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:39:33 -0400
-Received: by mail-pa0-f41.google.com with SMTP id lj1so2017646pab.0
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:39:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: net/ && prepare_to_wait_exclusive()
+Date: Wed, 14 May 2014 20:40:59 +0200
+Message-ID: <20140514184059.GA9730@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <peterz@infradead.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <cwang@twopensource.com>
+Hello,
 
-In a corner case where I redirect the packets from veth to lo,
-packets are dropped silently when entering IP stack. This is
-due to we have a different MAC addr on veth, so the packets are
-marked as PACKET_OTHERHOST. And after they are redirect to lo,
-this value is kept since lo has the same MAC addr with the packets.
-Loopback should explicitly set it to PACKET_HOST before calling
-eth_type_trans() for this specific case.
+I know almost nothing about networking and of course I do not understand
+this code. So I can be easily wrong, but (at least) unix_wait_for_peer()
+looks wrong wrt prepare_to_wait_exclusive(), and ignoring the potential
+optimizations it needs
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
+	-	finish_wait(&u->peer_wait, &wait);
+	+	abort_exclusive_wait(..., TASK_INTERRUPTIBLE, NULL);
 
----
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index bb96409..52b6625 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -81,6 +81,7 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
- 	 */
- 	skb_dst_force(skb);
- 
-+	skb->pkt_type = PACKET_HOST;
- 	skb->protocol = eth_type_trans(skb, dev);
- 
- 	/* it's OK to use per_cpu_ptr() because BHs are off */
+change?
+
+Suppose that unix_recvq_full(X) == true and 2 threads, T1 and T2, are
+sleeping in unix_dgram_sendmsg().
+
+Another thread does read(X) and this empties ->sk_receive_queue so that
+the next read(X) will block. We should wake up at least one thread.
+
+The reader does wake_up_interruptible_sync_poll() and this is
+__wake_up_common(nr_exclusive => 1), so this (say) wakes T1 up.
+
+Suppose that this wake_up() races with (to simplify) SIGKILL and thus
+T1 writes nothing and exits.
+
+Now, the reader does another read(X) and blocks, ->sk_receive_queue is
+empty, we have the writer T2 but it is still blocked too?
+
+Or I completely misread this code?
+
+
+(On a related note... looks like ___wait_event() is not complicated^W
+ clever enough to implement wait_event_interruptible_exclusive_timeout)
+
+Oleg.
