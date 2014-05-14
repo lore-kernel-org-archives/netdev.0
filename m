@@ -1,58 +1,44 @@
-From: Julian Kirsch <kirschju@sec.in.tum.de>
-Subject: Collecting data to demonstrate TCP ISN-based port knocking
-Date: Wed, 14 May 2014 23:55:36 +0200
-Message-ID: <5373E658.2040701@sec.in.tum.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169/r8168 slow internet upload
+Date: Thu, 15 May 2014 00:03:04 +0200
+Message-ID: <20140514220304.GA7520@electric-eye.fr.zoreil.com>
+References: <20140511231946.GA12504@offline.be>
+ <20140512054447.GA17153@electric-eye.fr.zoreil.com>
+ <20140513005023.GA24091@offline.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Christian Grothoff <christian@grothoff.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Marc Duponcheel <marc@offline.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48743 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751770AbaENWDI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 18:03:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20140513005023.GA24091@offline.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Marc Duponcheel <marc@offline.be> :
+[...]
+> not something to do on a router)). That should be fine since r8168
+> gave better results.
 
-Hi list,
+Is r8169 unusable even at 100 ?
 
-some of you might remember the proposal of a patch which implements a
-variant of port-knocking that can be used to check the authenticity of
-arbitrary TCP connections and even can do integrity checking of TCP
-payload data by using a pre-shared key [0]. This patch, as well as a
-research paper describing its inner workings are available on
-gnunet.org under the name "Knock" [1].
+[...]
+> * case  100 (when router enp{2,3}s0 are  100Mbps)
+> interestingly enough, speed took off at expected 6Mbps but dropped to
+> stable 1.5Mbps
 
-As Knock uses two fields in the TCP header in order to hide
-information and we explicitly want to be compatible with machines
-sitting in typical home networks, we need to make sure that this
-information doesn't get corrupted by the majority of NAT boxes out
-there. The lack of hard data on this also was one of the objections
-when the patch was submitted last time. We thus created a program
-which tests if Knock could work in your environment. It would be
-greatly appreciated if some of you were able to execute the program on
-their machines in order to help us to get an estimation of if Knock
-one day could be used in a large scale.
+I haven't found a clear packet loss pattern yet.
 
-You can find sources, binaries and a more elaborate description here:
-https://gnunet.org/knock_nat_tester
+Can you take the *same* (100) capture at enp3s0 ?
 
+If the network speed test is fine as long as the client is near, I'd
+seriously question your (c*gent ?) transit.
 
-Best,
-Julian Kirsch
+mtr output from far client to server would be welcome.
 
-- ---
-[0] https://lkml.org/lkml/2013/12/10/1155
-[1] https://gnunet.org/knock
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQEcBAEBAgAGBQJTc+ZUAAoJENwkOWttRRA4iicH/RLvNrlI0SCkHp25RZ1e5/8B
-aBO/voua2a0Xw+F1E+60VKAv0Mm9arS1kpySkNuH+GEc2iVau6TmM7wDdZ5V7DaZ
-nGpEnx6cS5mVx01qvalWtTUq2XwoVYz9x5mvaZkIt41DjsFxO/EqAyXudwCILRpJ
-QMidYhpinjzfq1MgWIyOCLGmFzbUthIEtk/og9dHr8bg1r1bS8CQaQ42js7baa2n
-nujp529LMHx+eHZ/f0owkmx5ssoJtpHsgVQr/kTBmAuJwELlOiToMWMCa9uCBbuB
-KKjLcrQogX1OjeFPwE7r0hjckn7rQbu1f5GUIGvPV0kYlfUtmknTJ1kHW4FXJxA=
-=pW9x
------END PGP SIGNATURE-----
+-- 
+Ueimor
