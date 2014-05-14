@@ -1,44 +1,45 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169/r8168 slow internet upload
-Date: Thu, 15 May 2014 00:03:04 +0200
-Message-ID: <20140514220304.GA7520@electric-eye.fr.zoreil.com>
-References: <20140511231946.GA12504@offline.be>
- <20140512054447.GA17153@electric-eye.fr.zoreil.com>
- <20140513005023.GA24091@offline.be>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 0/5] bonding: simple macro cleanup
+Date: Wed, 14 May 2014 15:03:53 -0700
+Message-ID: <1400105033.30384.34.camel@joe-AO725>
+References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
+	 <20140514132922.GA24104@mikrodark.usersys.redhat.com>
+	 <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
+	 <1400084983.19788.15.camel@joe-AO725>
+	 <CAADnVQ+6-KQRRLS6Nos7u1J1BA9KoS6bJFAsnWE6d4vC010Djg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Marc Duponcheel <marc@offline.be>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	David Laight <David.Laight@aculab.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:48743 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbaENWDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 18:03:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20140513005023.GA24091@offline.be>
+Received: from smtprelay0214.hostedemail.com ([216.40.44.214]:43524 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751059AbaENWD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 18:03:56 -0400
+In-Reply-To: <CAADnVQ+6-KQRRLS6Nos7u1J1BA9KoS6bJFAsnWE6d4vC010Djg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marc Duponcheel <marc@offline.be> :
-[...]
-> not something to do on a router)). That should be fine since r8168
-> gave better results.
+On Wed, 2014-05-14 at 14:52 -0700, Alexei Starovoitov wrote:
+> I cannot imagine the case where macro would be faster than static inline
+> unless it wasn't inlined.
 
-Is r8169 unusable even at 100 ?
+For an example, look at commit 4153577a8d
+("tg3: Use different macros for pci_chip_rev_id accesses")
 
-[...]
-> * case  100 (when router enp{2,3}s0 are  100Mbps)
-> interestingly enough, speed took off at expected 6Mbps but dropped to
-> stable 1.5Mbps
+Converting these macros to static inline produces
+larger/slower code.  (at least with gcc 4.7.3)
 
-I haven't found a clear packet loss pattern yet.
-
-Can you take the *same* (100) capture at enp3s0 ?
-
-If the network speed test is fine as long as the client is near, I'd
-seriously question your (c*gent ?) transit.
-
-mtr output from far client to server would be welcome.
-
--- 
-Ueimor
++#define tg3_chip_rev_id(tp)                                    \
++       ((tp)->pci_chip_rev_id)
++#define tg3_asic_rev(tp)                                       \
++       ((tp)->pci_chip_rev_id >> 12)
++#define tg3_chip_rev(tp)                                       \
++       ((tp)->pci_chip_rev_id >> 8)
