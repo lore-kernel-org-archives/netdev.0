@@ -1,77 +1,40 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH net-next v2 2/8] tipc: compensate for double accounting
- in socket rcv buffer
-Date: Wed, 14 May 2014 12:53:45 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C25134A@eusaamb103.ericsson.se>
-References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
-	 <1400060355-26308-3-git-send-email-jon.maloy@ericsson.com>
- <1400068021.7973.78.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"Erik Hugne" <erik.hugne@ericsson.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"maloy@donjonn.com" <maloy@donjonn.com>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: [PATCH net-next 0/5] bonding: simple macro cleanup
+Date: Wed, 14 May 2014 14:54:19 +0200
+Message-ID: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg21.ericsson.net ([198.24.6.65]:52613 "EHLO
-	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753515AbaENMxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 08:53:47 -0400
-In-Reply-To: <1400068021.7973.78.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:50003 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754688AbaENM66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 08:58:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogTWF5LTE0LTE0IDc6NDcgQU0N
-Cj4gVG86IEpvbiBNYWxveQ0KPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgUGF1bCBHb3J0bWFrZXI7IEVyaWsNCj4gSHVnbmU7IHlpbmcueHVlQHdpbmRy
-aXZlci5jb207IG1hbG95QGRvbmpvbm4uY29tOyB0aXBjLQ0KPiBkaXNjdXNzaW9uQGxpc3RzLnNv
-dXJjZWZvcmdlLm5ldA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0IHYyIDIvOF0gdGlw
-YzogY29tcGVuc2F0ZSBmb3IgZG91YmxlIGFjY291bnRpbmcNCj4gaW4gc29ja2V0IHJjdiBidWZm
-ZXINCj4gDQo+IE9uIFdlZCwgMjAxNC0wNS0xNCBhdCAwNTozOSAtMDQwMCwgSm9uIE1hbG95IHdy
-b3RlOg0KPiA+IFRoZSBmdW5jdGlvbiBuZXQvY29yZS9zb2NrLmM6Ol9fcmVsZWFzZV9zb2NrKCkg
-cnVucyBhIHRpZ2h0IGxvb3AgdG8NCj4gPiBtb3ZlIGJ1ZmZlcnMgZnJvbSB0aGUgc29ja2V0IGJh
-Y2tsb2cgcXVldWUgdG8gdGhlIHJlY2VpdmUgcXVldWUuDQoNClsuLi5dDQoNCj4gDQo+IFRoaXMg
-bG9va3MgdmVyeSBjb21wbGljYXRlZCBhbmQgaGlkZXMgc29tZSB1bmRlcmx5aW5nIHByb2JsZW0u
-DQoNCkZvciB1cywgdGhlIHVuZGVybHlpbmcgcHJvYmxlbSBpcyB0aGF0IHNrX2JhY2tsb2cubGVu
-IGRvZXMgbm90DQpnaXZlIGNvcnJlY3QgaW5mb3JtYXRpb24gYWJvdXQgdGhlIGJ1ZmZlciBzaXR1
-YXRpb24uICBUaGVyZSBpcyBhIGNvbW1lbnQNCmluICBfcmVsZWFzZV9zb2NrKCkgdHJ5aW5nIHRv
-IGV4cGxhaW4gd2h5LjoNCg0KLyoNCiAgKiBEb2luZyB0aGUgemVyb2luZyBoZXJlIGd1YXJhbnRl
-ZSB3ZSBjYW4gbm90IGxvb3AgZm9yZXZlcg0KICAqIHdoaWxlIGEgd2lsZCBwcm9kdWNlciBhdHRl
-bXB0cyB0byBmbG9vZCB1cy4NCiAgKi8NCg0KYnV0IEkgZmFpbCB0byB1bmRlcnN0YW5kIGhvdyB0
-aGlzIHNjZW5hcmlvIGNhbiBoYXBwZW4gZXZlbiB3aXRoIFRDUC4NClllcywgaXQgY2FuIHRocm93
-IGF3YXkgcGFja2V0cywgYnV0IG5vdCB1bnRpbCB0aGUgcmVjZWl2ZSBidWZmZXIgaXMgZnVsbCwN
-CmFuZCB0aGVuIHNrX2FkZF9iYWNrbG9nKCkgc2hvdWxkIHN0YXJ0IHJlamVjdGluZyBuZXcgbWVz
-c2FnZXMgYW55d2F5Pw0KVGhlcmUgaXMgZXZpZGVudGx5IHNvbWV0aGluZyBJIGhhdmUgbWlzc2Vk
-IGhlcmUuDQoNCkkgY291bGQgYWxzbyBjbGFpbSB0aGF0IHRoZSB1bmRlcmx5aW5nIHByb2JsZW0g
-aXMgdGhhdCB0aGUgZ2VuZXJpYyBzb2NrZXQNCmxheWVyIGlzIGJ1aWx0IG9uIHNvbWUgYXNzdW1w
-dGlvbnMgdGhhdCBtYXkgYmUgdHJ1ZSBmb3IgVENQLCBidXQgbm90DQpuZWNlc3NhcmlseSBmb3Ig
-ZXZlcnlib2R5IGVsc2UuIEJ1dCB0aGVuIEkgZ3Vlc3MgSSByaXNrIGJlaW5nIGZsYW1lZC4uLg0K
-DQo+IA0KPiBXaHkgVENQIGhhcyBubyBwcm9ibGVtLCBidXQgVElQQyBoYXMgaXQgPw0KDQpCZWNh
-dXNlIFRDUCBjYW4gdGhyb3cgYXdheSBwYWNrZXQgaW4gc3VjaCBzaXR1YXRpb25zLCBhbmQgVElQ
-QyBjYW5ub3QuDQpXaGVuIGEgVElQQyBtZXNzYWdlIGhhcyByZWFjaGVkIHRoZSBzb2NrZXQgbGV2
-ZSwgaXQgaGFzIGFscmVhZHkgcGFzc2VkDQp0aHJvdWdoIHRoZSByZXRyYW5zbWlzc2lvbiBsZXZl
-bCAsIHdoaWNoIGluIFRJUEMgaXMgc2l0dWF0ZWQgaW4gdGhlIG5vZGUtdG8tbm9kZQ0KbGlua3Ms
-IGFuZCBtZXNzYWdlcyBhcmUgYXNzdW1lZCB0byBhcnJpdmUgbG9zcy1mcmVlIGFuZCBpbiBzZXF1
-ZW5jZS4gSGVuY2UsIA0KdGhlcmUgaXMgbm8gc2VxdWVuY2UgbnVtYmVyaW5nIG9yIHJldHJhbnNt
-aXNzaW9uIGF0IHRoZSBzb2NrZXQgbGV2ZWwgaW4gVElQQy4NCg0KPiANCj4gSXQgc2VlbXMgeW91
-IGhhdmUgdG9vIGxvdyBza19yY3ZidWYsIG9yIHlvdSBhZHZlcnRpc2UgdG9vIGJpZyB3aW5kb3dz
-IHRvDQo+IHNlbmRlcnMuDQoNClllcy4NCg0KPiANCj4gSWYgYmFja2xvZyBjb250ZW50IGlzIHNv
-IGJpZyBpdCBldmVudHVhbGx5IG1ha2VzIFRJUEMgZHJvcHMgaW5jb21pbmcgcGFja2V0cywNCj4g
-dGhlbiB5b3UgaGF2ZSBhIHNjaGVkdWxpbmcgaXNzdWUsIG9yIHVuZXhwZWN0ZWQgYnVmZmVyYmxv
-YXQuDQoNCkJ1ZmZlcmJsb2F0LCB5ZXMsIGJ1dCBub3QgdW5leHBlY3RlZC4gSXQgYWxsIGdvZXMg
-YmFjayB0byBvdXIgYWRtaXR0ZWRseQ0KaW5hZGVxdWF0ZSBtZXNzYWdlIGJhc2VkIGZsb3cgY29u
-dHJvbC4gQXMgSSBhbHJlYWR5IGV4cGxhaW5lZCB0byBEYXZpZA0KaW4gYW4gZWFybGllciBtYWls
-LCAgd2UgaGF2ZSBhbiBlbnRpcmVseSBuZXcsIGJ5dGUtYmFzZWQgZmxvdyBjb250cm9sIGluIHRo
-ZQ0KcGlwZSB0aGF0IHdpbGwgZml4IHRoZSBidWZmZXIgYmxvYXQuDQoNCkJ1dCB0aGUgYWJvdmUg
-ZHVwbGljYXRlIGNvdW50IHdpbGwgc3RpbGwgYmUgYSBpc3N1ZSwgdW5sZXNzIHdlIGp1c3QgY29t
-cGVuc2F0ZQ0KYnkgc2V0dGluZyB0aGUgYnVmZmVyIGxpbWl0IHRvIHR3aWNlIG9mIHdoYXQgaXQg
-cmVhbGx5IG5lZWRzIHRvIGJlLg0KDQo+IA0KPiBNYXliZSBUSVBDIGhvbGRzIHNvY2tldCBsb2Nr
-IHRvbyBsb25nIGluIHNvbWUgcGxhY2UgPw0KPiANCj4gDQoNCg==
+Hi,
+
+That's a trivial patchset that tries to unify the macro usage of bonding
+modes. I've split it into two approaches - either BOND_*, which takes
+bonding struct as a param, or MODE_*, which takes the mode itself. Also,
+introduce BOND_MODE(bond) instead of ugly bond->params.mode.
+
+
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+
+---
+ drivers/net/bonding/bond_alb.c         |   4 +-
+ drivers/net/bonding/bond_debugfs.c     |   2 +-
+ drivers/net/bonding/bond_main.c        | 114 ++++++++++++++++-----------------
+ drivers/net/bonding/bond_netlink.c     |   6 +-
+ drivers/net/bonding/bond_options.c     |   6 +-
+ drivers/net/bonding/bond_procfs.c      |  14 ++--
+ drivers/net/bonding/bond_sysfs.c       |  14 ++--
+ drivers/net/bonding/bond_sysfs_slave.c |   2 +-
+ drivers/net/bonding/bonding.h          |  24 +++----
+ 9 files changed, 91 insertions(+), 95 deletions(-)
