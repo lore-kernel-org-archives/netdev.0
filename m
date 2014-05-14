@@ -1,61 +1,39 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v1] net: phy: resume phydev when going to RESUMING
-Date: Tue, 13 May 2014 18:57:30 -0700
-Message-ID: <1400032650.24350.79.camel@joe-AO725>
-References: <1400031098-19072-1-git-send-email-zhangfei.gao@linaro.org>
-	 <1400031616-19287-1-git-send-email-zhangfei.gao@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
-	davem@davemloft.net, sergei.shtylyov@cogentembedded.com,
-	netdev@vger.kernel.org, Jiancheng Xue <xuejiancheng@huawei.com>
-To: Zhangfei Gao <zhangfei.gao@linaro.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next 0/3] internal BPF jit for x64 and JITed seccomp
+Date: Tue, 13 May 2014 19:50:44 -0700
+Message-ID: <1400035847-7730-1-git-send-email-ast@plumgrid.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@kernel.org>,
+	Chema Gonzalez <chema@google.com>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0204.hostedemail.com ([216.40.44.204]:47173 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751214AbaENB5e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 21:57:34 -0400
-In-Reply-To: <1400031616-19287-1-git-send-email-zhangfei.gao@linaro.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:39295 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbaENCu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 22:50:56 -0400
+Received: by mail-pa0-f52.google.com with SMTP id fa1so1062327pad.11
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 19:50:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-14 at 09:40 +0800, Zhangfei Gao wrote:
-> With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
-> to HALTED"), an unused PHY device will be put in a low-power mode
-> using BMCR_PDOWN. Some Ethernet drivers might be calling phy_start()
-> and phy_stop() from ndo_open and ndo_close() respectively, while
-> calling phy_connect() and phy_disconnect() from probe and remove.
-> In such a case, the PHY will be powered down during the phy_stop()
-> call, but will fail to be powered up in phy_start().
-> This patch fixes this scenario.
+Internal BPF JIT compiler for x86_64 replaces classic BPF JIT.
+Use it in seccomp and in tracing filters (sent as separate patch)
 
-trivial notes:
+Alexei Starovoitov (3):
+  net: filter: x86: split bpf_jit_compile()
+  net: filter: x86: internal BPF JIT
+  seccomp: JIT compile seccomp filter
 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-[]
-> @@ -715,7 +715,7 @@ void phy_state_machine(struct work_struct *work)
->  	struct delayed_work *dwork = to_delayed_work(work);
->  	struct phy_device *phydev =
->  			container_of(dwork, struct phy_device, state_queue);
-> -	int needs_aneg = 0, do_suspend = 0;
-> +	int needs_aneg = 0, do_suspend = 0, do_resume = 0;
+ arch/x86/net/bpf_jit.S      |   77 +--
+ arch/x86/net/bpf_jit_comp.c | 1399 ++++++++++++++++++++++++-------------------
+ include/linux/filter.h      |    3 +
+ kernel/seccomp.c            |   29 +-
+ net/core/filter.c           |    9 +-
+ 5 files changed, 824 insertions(+), 693 deletions(-)
 
-Perhaps these 3 vars should bool
-
-> @@ -876,6 +878,9 @@ void phy_state_machine(struct work_struct *work)
->  	if (do_suspend)
->  		phy_suspend(phydev);
->  
-> +	if (do_resume)
-> +		phy_resume(phydev);
-> +
-
-and these should be else if
-
-	if (needs_aneg)
-		...
-	else if (do_suspend)
-		...
-	else if (do_resume)
-		...
+-- 
+1.7.9.5
