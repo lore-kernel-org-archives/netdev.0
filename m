@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] snmp: fix some left over of snmp stats
-Date: Wed, 14 May 2014 15:34:36 -0400 (EDT)
-Message-ID: <20140514.153436.2150741508695034151.davem@davemloft.net>
-References: <1399938722-809-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] dccp: make the request_retries minimum is 1
+Date: Wed, 14 May 2014 15:34:43 -0400 (EDT)
+Message-ID: <20140514.153443.298271641580751103.davem@davemloft.net>
+References: <53718A36.1040907@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: gerrit@erg.abdn.ac.uk, dccp@vger.kernel.org, netdev@vger.kernel.org
+To: wangweidong1@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53681 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53684 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751068AbaENTei (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:34:38 -0400
-In-Reply-To: <1399938722-809-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1751068AbaENTep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 15:34:45 -0400
+In-Reply-To: <53718A36.1040907@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 12 May 2014 16:52:02 -0700
+From: Wang Weidong <wangweidong1@huawei.com>
+Date: Tue, 13 May 2014 10:57:58 +0800
 
-> Fengguang reported the following sparse warning:
+> In Documentation/networking/dccp.txt points that request_retries
+> should be greater than 0. So make the extra1 to be &one instead
+> of &zero.
 > 
->>> net/ipv6/proc.c:198:41: sparse: incorrect type in argument 1 (different address spaces)
->    net/ipv6/proc.c:198:41:    expected void [noderef] <asn:3>*mib
->    net/ipv6/proc.c:198:41:    got void [noderef] <asn:3>**pcpumib
-> 
-> Fixes: commit 698365fa1874aa7635d51667a3 (net: clean up snmp stats code)
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
 
-Applied.
+Applied, thank you.
