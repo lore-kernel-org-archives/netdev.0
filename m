@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 3/8] tipc: don't record link
-	RESET or ACTIVATE messages as traffic
-Date: Wed, 14 May 2014 05:39:10 -0400
-Message-ID: <1400060355-26308-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 1/8] tipc: decrease connection
+	flow control window
+Date: Wed, 14 May 2014 05:39:08 -0400
+Message-ID: <1400060355-26308-2-git-send-email-jon.maloy@ericsson.com>
 References: <1400060355-26308-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,66 +23,100 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In the current code, all incoming LINK_PROTOCOL messages, irrespective
-of type, nudge the "last message received" checkpoint, informing the
-link state machine that a message was received from the peer since last
-supervision timeout event. This inhibits the link from starting probing
-the peer unnecessarily.
+Memory overhead when allocating big buffers for data transfer may
+be quite significant. E.g., truesize of a 64 KB buffer turns out
+to be 132 KB, 2 x the requested size.
 
-However, not only STATE messages are recorded as legitimate incoming
-traffic this way, but even RESET and ACTIVATE messages, which in
-reality are there to inform the link that the peer endpoint has been
-reset. At the same time, some RESET messages may be dropped instead
-of causing a link reset. This happens when the link endpoint thinks
-it is fully up and working, and the session number of the RESET is
-lower than or equal to the current link session. In such cases the
-RESET is perceived as a delayed remnant from an earlier session, or
-the current one, and dropped.
+This invalidates the "worst case" calculation we have been
+using to determine the default socket receive buffer limit,
+which is based on the assumption that 1024x64KB = 67MB buffers
+may be queued up on a socket.
 
-Now, if a TIPC module is removed and then immediately reinserted, e.g.
-when using a script, RESET messages may arrive at the peer link endpoint
-before this one has had time to discover the failure. The RESET may be
-dropped because of the session number, but only after it has been
-recorded as a legitimate traffic event. Hence, the receiving link will
-not start probing, and not discover that the peer endpoint is down, at
-the same time ignoring the periodic RESET messages coming from that
-endpoint. We have ended up in a stale state where a failed link cannot
-be re-established.
+Since TIPC connections cannot survive hitting the buffer limit,
+we have to compensate for this overhead.
 
-In this commit, we remedy this by nudging the checkpoint only for
-received STATE messages, not for RESET or ACTIVATE messages.
+We do that in this commit by dividing the fix connection flow
+control window from 1024 (2*512) messages to 512 (2*256). Since
+older version nodes send out acks at 512 message intervals,
+compatibility with such nodes is guaranteed, although performance
+may be non-optimal in such cases.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/link.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ net/tipc/core.c   |    7 ++++---
+ net/tipc/port.h   |    9 +++++----
+ net/tipc/socket.c |    4 ++--
+ 3 files changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 2140837..6cf7938 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1831,9 +1831,6 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
- 	if (l_ptr->exp_msg_count)
- 		goto exit;
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 57f8ae9..676d180 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -154,10 +154,11 @@ static int __init tipc_init(void)
+ 	tipc_max_ports = CONFIG_TIPC_PORTS;
+ 	tipc_net_id = 4711;
  
--	/* record unnumbered packet arrival (force mismatch on next timeout) */
--	l_ptr->checkpoint--;
--
- 	if (l_ptr->net_plane != msg_net_plane(msg))
- 		if (tipc_own_addr > msg_prevnode(msg))
- 			l_ptr->net_plane = msg_net_plane(msg);
-@@ -1909,6 +1906,10 @@ static void tipc_link_proto_rcv(struct tipc_link *l_ptr, struct sk_buff *buf)
- 			tipc_link_reset(l_ptr); /* Enforce change to take effect */
- 			break;
- 		}
-+
-+		/* Record reception; force mismatch at next timeout: */
-+		l_ptr->checkpoint--;
-+
- 		link_state_event(l_ptr, TRAFFIC_MSG_EVT);
- 		l_ptr->stats.recv_states++;
- 		if (link_reset_unknown(l_ptr))
+-	sysctl_tipc_rmem[0] = CONN_OVERLOAD_LIMIT >> 4 << TIPC_LOW_IMPORTANCE;
+-	sysctl_tipc_rmem[1] = CONN_OVERLOAD_LIMIT >> 4 <<
++	sysctl_tipc_rmem[0] = TIPC_CONN_OVERLOAD_LIMIT >> 4 <<
++			      TIPC_LOW_IMPORTANCE;
++	sysctl_tipc_rmem[1] = TIPC_CONN_OVERLOAD_LIMIT >> 4 <<
+ 			      TIPC_CRITICAL_IMPORTANCE;
+-	sysctl_tipc_rmem[2] = CONN_OVERLOAD_LIMIT;
++	sysctl_tipc_rmem[2] = TIPC_CONN_OVERLOAD_LIMIT;
+ 
+ 	res = tipc_core_start();
+ 	if (res)
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index a003973..5dfd165 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
+@@ -42,9 +42,10 @@
+ #include "msg.h"
+ #include "node_subscr.h"
+ 
+-#define TIPC_FLOW_CONTROL_WIN 512
+-#define CONN_OVERLOAD_LIMIT	((TIPC_FLOW_CONTROL_WIN * 2 + 1) * \
+-				SKB_TRUESIZE(TIPC_MAX_USER_MSG_SIZE))
++#define TIPC_CONNACK_INTV         256
++#define TIPC_FLOWCTRL_WIN        (TIPC_CONNACK_INTV * 2)
++#define TIPC_CONN_OVERLOAD_LIMIT ((TIPC_FLOWCTRL_WIN * 2 + 1) * \
++				  SKB_TRUESIZE(TIPC_MAX_USER_MSG_SIZE))
+ 
+ /**
+  * struct tipc_port - TIPC port structure
+@@ -187,7 +188,7 @@ static inline void tipc_port_unlock(struct tipc_port *p_ptr)
+ 
+ static inline int tipc_port_congested(struct tipc_port *p_ptr)
+ {
+-	return (p_ptr->sent - p_ptr->acked) >= (TIPC_FLOW_CONTROL_WIN * 2);
++	return ((p_ptr->sent - p_ptr->acked) >= TIPC_FLOWCTRL_WIN);
+ }
+ 
+ 
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 3f9912f..8685daf 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1101,7 +1101,7 @@ restart:
+ 	/* Consume received message (optional) */
+ 	if (likely(!(flags & MSG_PEEK))) {
+ 		if ((sock->state != SS_READY) &&
+-		    (++port->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
++		    (++port->conn_unacked >= TIPC_CONNACK_INTV))
+ 			tipc_acknowledge(port->ref, port->conn_unacked);
+ 		advance_rx_queue(sk);
+ 	}
+@@ -1210,7 +1210,7 @@ restart:
+ 
+ 	/* Consume received message (optional) */
+ 	if (likely(!(flags & MSG_PEEK))) {
+-		if (unlikely(++port->conn_unacked >= TIPC_FLOW_CONTROL_WIN))
++		if (unlikely(++port->conn_unacked >= TIPC_CONNACK_INTV))
+ 			tipc_acknowledge(port->ref, port->conn_unacked);
+ 		advance_rx_queue(sk);
+ 	}
 -- 
 1.7.9.5
 
