@@ -1,69 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: set retransmit_high on loop exit
-Date: Wed, 14 May 2014 11:27:18 -0700
-Message-ID: <1400092038.7973.111.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <b1093d318477c57478b0b64475d9066710d7c75b.1399812676.git.panweiping3@gmail.com>
-	 <20140514.140828.379626997254455792.davem@davemloft.net>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}: Multiple transmit and receive queues
+Date: Wed, 14 May 2014 20:37:19 +0200
+Message-ID: <1296806729.20140514203719@eikelenboom.it>
+References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com> <526369072.20140514160923@eikelenboom.it> <20140514141347.GR6332@zion.uk.xensource.com> <53739757.5060905@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: panweiping3@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
+	<davem@davemloft.net>, <ian.campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <paul.durrant@citrix.com>,
+	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>
+To: Andrew Bennieston <andrew.bennieston@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:37409 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751118AbaENS1T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:27:19 -0400
-Received: by mail-pb0-f53.google.com with SMTP id md12so1987809pbc.26
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 11:27:18 -0700 (PDT)
-In-Reply-To: <20140514.140828.379626997254455792.davem@davemloft.net>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:46492 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaENShW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 14:37:22 -0400
+In-Reply-To: <53739757.5060905@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-14 at 14:08 -0400, David Miller wrote:
-> From: Weiping Pan <panweiping3@gmail.com>
-> Date: Sun, 11 May 2014 20:57:30 +0800
-> 
-> > To save some CPU cycles slightly.
-> > 
-> > Signed-off-by: Weiping Pan <panweiping3@gmail.com>
-> 
-> Can a TCP expert please review this?
-> 
-> > ---
-> >  net/ipv4/tcp_input.c | 8 ++++++--
-> >  1 file changed, 6 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> > index d6b46eb..e431037 100644
-> > --- a/net/ipv4/tcp_input.c
-> > +++ b/net/ipv4/tcp_input.c
-> > @@ -1941,8 +1941,13 @@ void tcp_enter_loss(struct sock *sk, int how)
-> >  	tcp_clear_all_retrans_hints(tp);
-> >  
-> >  	tcp_for_write_queue(skb, sk) {
-> > -		if (skb == tcp_send_head(sk))
-> > +		if (skb == tcp_send_head(sk)) {
-> > +			if (skb != tcp_write_queue_head(sk)) {
-> > +				skb = tcp_write_queue_prev(sk, skb);
-> > +				tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
-> > +			}
-> >  			break;
-> > +		}
-> >  
-> >  		if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
-> >  			tp->undo_marker = 0;
-> > @@ -1952,7 +1957,6 @@ void tcp_enter_loss(struct sock *sk, int how)
-> >  			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
-> >  			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-> >  			tp->lost_out += tcp_skb_pcount(skb);
-> > -			tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
-> >  		}
-> >  	}
-> >  	tcp_verify_left_out(tp);
-> > -- 
 
-Frankly I do not see the point here.
+Wednesday, May 14, 2014, 6:18:31 PM, you wrote:
 
-This adds code and conditional jumps, while original code is 2
-instructions with no cache line misses, and is cleaner IMHO.
+> On 14/05/14 15:13, Wei Liu wrote:
+>> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
+>>>
+>>> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
+>>>
+>>>> This patch series implements multiple transmit and receive queues (i.e.
+>>>> multiple shared rings) for the xen virtual network interfaces.
+>>>
+>>>> The series is split up as follows:
+>>>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
+>>>>     preparation for multi-queue support. See the patch itself for more details.
+>>>> - Patches 2 and 4 factor out the queue-specific data for netback and
+>>>>    netfront respectively, and modify the rest of the code to use these
+>>>>    as appropriate.
+>>>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
+>>>>    multiple shared rings and event channels, and code to connect these
+>>>>    as appropriate.
+>>>> - Patch 6 documents the XenStore keys required for the new feature
+>>>>    in include/xen/interface/io/netif.h
+>>>
+>>>> All other transmit and receive processing remains unchanged, i.e. there
+>>>> is a kthread per queue and a NAPI context per queue.
+>>>
+>>>> The performance of these patches has been analysed in detail, with
+>>>> results available at:
+>>>
+>>> <snip>
+>>>
+>>> Would it be possible to also put these somewhere in a tree (or branch of the
+>>> xen-tree), so it is more easy to pull and test ?
+>>>
+>>
+>> I cannot speak for Andrew. FWIW you can save this thread and use 'git
+>> am' to apply them to 'net-next'.
+>>
+>> Wei.
+
+> I don't currently have a public-facing git repo for this. If you'd 
+> prefer I can send you the patches directly in a tarball, which you may 
+> be able to apply more easily than grabbing them from email threads?
+
+Got the patches from the thread .. but as i expected they interfere with 
+Zoltan's v3 fix for 3.15.
+
+> - Andrew
+>>
+>>> --
+>>> Sander
+>>>
+>>>> --
+>>>> Andrew J. Bennieston
+>>>
+>>>
