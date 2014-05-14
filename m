@@ -1,7 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 3/5] pktgen: avoid atomic_inc per packet in xmit loop
-Date: Wed, 14 May 2014 16:17:53 +0200
-Message-ID: <20140514141753.20309.19785.stgit@dragon>
+Subject: [net-next PATCH 2/5] ixgbe: increase default TX ring buffer to 1024
+Date: Wed, 14 May 2014 16:17:48 +0200
+Message-ID: <20140514141748.20309.83121.stgit@dragon>
 References: <20140514141545.20309.28343.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,56 +19,64 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	zhouzhouyi@gmail.com
 To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27581 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51078 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752525AbaENOSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 10:18:20 -0400
+	id S1752525AbaENOSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 10:18:22 -0400
 In-Reply-To: <20140514141545.20309.28343.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid the expensive atomic refcnt increase in the pktgen xmit loop, by
-simply setting the refcnt only when a new SKB gets allocated. Setting
-it according to how many times we are spinning the same SKB (and
-handling the case of skb_clone=0).
+Using pktgen I'm seeing the ixgbe driver "push-back", due TX ring
+running full.  Thus, the TX ring is artificially limiting pktgen.
 
-Performance data with CLONE_SKB==100000 and TX ring buffer size=1024:
+Diagnose via "ethtool -S", look for "tx_restart_queue" or "tx_busy"
+counters.
+
+Increasing the TX ring buffer should be done carefully, as it comes at
+a higher memory cost, which can also negatively influence performance.
+E.g. ring buffer array of struct ixgbe_tx_buffer (current size 48bytes)
+increase from 512*48=24576bytes to 1024*48=49152bytes which is larger
+than the L1 data cache (32KB on my E5-2630), thus increasing the L1->L2
+cache-references.
+
+Adjusting the TX ring buffer (TXSZ) measured over 10 sec with ifpps
  (single CPU performance, ixgbe 10Gbit/s, E5-2630)
- * Before: 5,362,722 pps --> 186.47ns per pkt (1/5362722*10^9)
- * Now:    5,608,781 pps --> 178.29ns per pkt (1/5608781*10^9)
- * Diff:    +246,059 pps -->  -8.18ns
+ * cmd: ethtool -G eth8 tx $TXSZ
+ * 3,930,065 pps -- TXSZ= 512
+ * 5,312,249 pps -- TXSZ= 768
+ * 5,362,722 pps -- TXSZ=1024
+ * 5,361,390 pps -- TXSZ=1536
+ * 5,362,439 pps -- TXSZ=2048
+ * 5,359,744 pps -- TXSZ=4096
 
-The performance increase converted to nanoseconds (8.18ns), correspond
-well to the measured overhead of LOCK prefixed assembler instructions
-on my E5-2630 CPU which is measured to be 8.23ns.
+Choosing size 1024 because for the next optimizations 768 is not
+enough.
 
-Note, with TX ring size 768 I see some "tx_restart_queue" events.
+Notice after commit 6f25cd47d (pktgen: fix xmit test for BQL enabled
+devices) pktgen uses netif_xmit_frozen_or_drv_stopped() and ignores
+the BQL "stack" pause (QUEUE_STATE_STACK_XOFF) flag.  This allow us to put
+more pressure on the TX ring buffers.
+
+It is the ixgbe_maybe_stop_tx() call that stops the transmits, and
+pktgen respecting this in the call to netif_xmit_frozen_or_drv_stopped(txq).
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- net/core/pktgen.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 0304f98..7752806 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3327,6 +3327,9 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 			pkt_dev->clone_count--;	/* back out increment, OOM */
- 			return;
- 		}
-+		/* Avoid atomic inc for every packet before xmit call */
-+		atomic_set(&(pkt_dev->skb->users),
-+			   max(2,(pkt_dev->clone_skb+1)));
- 		pkt_dev->last_pkt_size = pkt_dev->skb->len;
- 		pkt_dev->allocated_skbs++;
- 		pkt_dev->clone_count = 0;	/* reset counter */
-@@ -3347,7 +3350,6 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		pkt_dev->last_ok = 0;
- 		goto unlock;
- 	}
--	atomic_inc(&(pkt_dev->skb->users));
- 	ret = (*xmit)(pkt_dev->skb, odev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index c688c8a..bf078fe 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -63,7 +63,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
  
- 	switch (ret) {
+ /* TX/RX descriptor defines */
+-#define IXGBE_DEFAULT_TXD		    512
++#define IXGBE_DEFAULT_TXD		   1024
+ #define IXGBE_DEFAULT_TX_WORK		    256
+ #define IXGBE_MAX_TXD			   4096
+ #define IXGBE_MIN_TXD			     64
