@@ -1,68 +1,74 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 0/5] bonding: simple macro cleanup
-Date: Wed, 14 May 2014 09:10:33 -0700
-Message-ID: <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
-References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
-	<20140514132922.GA24104@mikrodark.usersys.redhat.com>
+From: Andrew Bennieston <andrew.bennieston@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}: Multiple
+ transmit and receive queues
+Date: Wed, 14 May 2014 17:18:31 +0100
+Message-ID: <53739757.5060905@citrix.com>
+References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com> <526369072.20140514160923@eikelenboom.it> <20140514141347.GR6332@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Veaceslav Falico <vfalico@gmail.com>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
+	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<paul.durrant@citrix.com>, <david.vrabel@citrix.com>,
+	<zoltan.kiss@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:62745 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754328AbaENQKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 12:10:33 -0400
-Received: by mail-qc0-f176.google.com with SMTP id r5so3115604qcx.21
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 09:10:33 -0700 (PDT)
-In-Reply-To: <20140514132922.GA24104@mikrodark.usersys.redhat.com>
+Received: from smtp.citrix.com ([66.165.176.89]:6603 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755426AbaENQSe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 May 2014 12:18:34 -0400
+In-Reply-To: <20140514141347.GR6332@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 6:29 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
-> On Wed, May 14, 2014 at 01:08:19PM +0000, David Laight wrote:
+On 14/05/14 15:13, Wei Liu wrote:
+> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
 >>
->> From: Veaceslav Falico
->>>
->>> Hi,
->>>
->>> That's a trivial patchset that tries to unify the macro usage of bonding
->>> modes. I've split it into two approaches - either BOND_*, which takes
->>> bonding struct as a param, or MODE_*, which takes the mode itself. Also,
->>> introduce BOND_MODE(bond) instead of ugly bond->params.mode.
+>> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
 >>
+>>> This patch series implements multiple transmit and receive queues (i.e.
+>>> multiple shared rings) for the xen virtual network interfaces.
 >>
->> I'm not sure these are improvements....
+>>> The series is split up as follows:
+>>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
+>>>     preparation for multi-queue support. See the patch itself for more details.
+>>> - Patches 2 and 4 factor out the queue-specific data for netback and
+>>>    netfront respectively, and modify the rest of the code to use these
+>>>    as appropriate.
+>>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
+>>>    multiple shared rings and event channels, and code to connect these
+>>>    as appropriate.
+>>> - Patch 6 documents the XenStore keys required for the new feature
+>>>    in include/xen/interface/io/netif.h
 >>
->> I thought that netdev (in particular) preferred static inline functions
->> to #defines - and especially #defines that expand their argument(s)
->> more than once.
->
->
-> There's only one static inline function removal - which was completely
-> different from the usual macros (bond_is_lb()). Other macros are just
-> renames to quicker understand the code.
->
->
+>>> All other transmit and receive processing remains unchanged, i.e. there
+>>> is a kthread per queue and a NAPI context per queue.
 >>
->> IMHO Simple access functions are just a PITA when reading code since
->> they cause the reader to go off somewhere and look up the definition.
+>>> The performance of these patches has been analysed in detail, with
+>>> results available at:
+>>
+>> <snip>
+>>
+>> Would it be possible to also put these somewhere in a tree (or branch of the
+>> xen-tree), so it is more easy to pull and test ?
+>>
 >
+> I cannot speak for Andrew. FWIW you can save this thread and use 'git
+> am' to apply them to 'net-next'.
 >
-> I can make them either way, I've made this patchset while doing other
-> patchset, and the basic idea was that currently the usage of these macros
-> is quite illogical - some take bond as an argument, some the mode, and
-> there's a function that is a macro...
->
-> Anyway, I don't have a strong feeling either way, so if people think that
-> it's better the way it is - I'm ok with that.
+> Wei.
 
-from compiler point of view it's actually easier to deal with inline functions
-than macros. I'd suggest to do the full conversion the other way around:
-convert all macros to static inline. Developers will enjoy better type safety
-and compiler will enjoy more opportunities to optimize code.
+I don't currently have a public-facing git repo for this. If you'd 
+prefer I can send you the patches directly in a tarball, which you may 
+be able to apply more easily than grabbing them from email threads?
+
+- Andrew
+>
+>> --
+>> Sander
+>>
+>>> --
+>>> Andrew J. Bennieston
+>>
+>>
