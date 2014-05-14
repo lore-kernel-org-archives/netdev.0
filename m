@@ -1,97 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net: Use a more standard macro for INET_ADDR_COOKIE
-Date: Tue, 13 May 2014 20:30:07 -0700
-Message-ID: <1400038207.24350.83.camel@joe-AO725>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: systemport: Use devm_ioremap_resource()
+Date: Tue, 13 May 2014 21:05:21 -0700
+Message-ID: <CAGVrzcb5M-jZgZJnLKA8gzdnEV52aKtmuj1O9r5EbbOp=xuBmQ@mail.gmail.com>
+References: <001c01cf6f22$c9fe6f60$5dfb4e20$%han@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0199.hostedemail.com ([216.40.44.199]:42884 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752978AbaENDaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 May 2014 23:30:11 -0400
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:46619 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751189AbaENEGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 00:06:02 -0400
+Received: by mail-qg0-f50.google.com with SMTP id z60so1949848qgd.9
+        for <netdev@vger.kernel.org>; Tue, 13 May 2014 21:06:01 -0700 (PDT)
+In-Reply-To: <001c01cf6f22$c9fe6f60$5dfb4e20$%han@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Missing a colon on definition use is a bit odd so
-change the macro for the 32 bit case to declare an
-__attribute__((unused)) and __deprecated variable.
+2014-05-13 20:15 GMT-07:00 Jingoo Han <jg1.han@samsung.com>:
+> Use devm_ioremap_resource() because devm_request_and_ioremap() is
+> obsoleted by devm_ioremap_resource().
 
-The __deprecated attribute will cause gcc to emit
-an error if the variable is actually used.
+As of net-next of today, I see nothing that warns when using this
+function that it is obsolete, nor is it commented as such, how about
+it gets annotated with __deprecated so people stop using it even for
+new submissions?
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/inet_hashtables.h | 8 +++++---
- net/ipv4/inet_hashtables.c    | 4 ++--
- net/ipv4/udp.c                | 2 +-
- 3 files changed, 8 insertions(+), 6 deletions(-)
+>
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
-diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 1bdb477..dd1950a 100644
---- a/include/net/inet_hashtables.h
-+++ b/include/net/inet_hashtables.h
-@@ -292,12 +292,12 @@ static inline struct sock *inet_lookup_listener(struct net *net,
- #define INET_ADDR_COOKIE(__name, __saddr, __daddr) \
- 	const __addrpair __name = (__force __addrpair) ( \
- 				   (((__force __u64)(__be32)(__saddr)) << 32) | \
--				   ((__force __u64)(__be32)(__daddr)));
-+				   ((__force __u64)(__be32)(__daddr)))
- #else /* __LITTLE_ENDIAN */
- #define INET_ADDR_COOKIE(__name, __saddr, __daddr) \
- 	const __addrpair __name = (__force __addrpair) ( \
- 				   (((__force __u64)(__be32)(__daddr)) << 32) | \
--				   ((__force __u64)(__be32)(__saddr)));
-+				   ((__force __u64)(__be32)(__saddr)))
- #endif /* __BIG_ENDIAN */
- #define INET_MATCH(__sk, __net, __cookie, __saddr, __daddr, __ports, __dif)	\
- 	(((__sk)->sk_portpair == (__ports))			&&	\
-@@ -306,7 +306,9 @@ static inline struct sock *inet_lookup_listener(struct net *net,
- 	   ((__sk)->sk_bound_dev_if == (__dif))) 		&& 	\
- 	 net_eq(sock_net(__sk), (__net)))
- #else /* 32-bit arch */
--#define INET_ADDR_COOKIE(__name, __saddr, __daddr)
-+#define INET_ADDR_COOKIE(__name, __saddr, __daddr) \
-+	const int __name __deprecated __attribute__((unused))
-+
- #define INET_MATCH(__sk, __net, __cookie, __saddr, __daddr, __ports, __dif) \
- 	(((__sk)->sk_portpair == (__ports))		&&		\
- 	 ((__sk)->sk_daddr	== (__saddr))		&&		\
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index 8b9cf27..c080aef 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -274,7 +274,7 @@ struct sock *__inet_lookup_established(struct net *net,
- 				  const __be32 daddr, const u16 hnum,
- 				  const int dif)
- {
--	INET_ADDR_COOKIE(acookie, saddr, daddr)
-+	INET_ADDR_COOKIE(acookie, saddr, daddr);
- 	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
- 	struct sock *sk;
- 	const struct hlist_nulls_node *node;
-@@ -327,7 +327,7 @@ static int __inet_check_established(struct inet_timewait_death_row *death_row,
- 	__be32 daddr = inet->inet_rcv_saddr;
- 	__be32 saddr = inet->inet_daddr;
- 	int dif = sk->sk_bound_dev_if;
--	INET_ADDR_COOKIE(acookie, saddr, daddr)
-+	INET_ADDR_COOKIE(acookie, saddr, daddr);
- 	const __portpair ports = INET_COMBINED_PORTS(inet->inet_dport, lport);
- 	struct net *net = sock_net(sk);
- 	unsigned int hash = inet_ehashfn(net, daddr, lport,
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 54ea0a3..f3ce8d0 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1875,7 +1875,7 @@ static struct sock *__udp4_lib_demux_lookup(struct net *net,
- 	unsigned int hash2 = udp4_portaddr_hash(net, loc_addr, hnum);
- 	unsigned int slot2 = hash2 & udp_table.mask;
- 	struct udp_hslot *hslot2 = &udp_table.hash2[slot2];
--	INET_ADDR_COOKIE(acookie, rmt_addr, loc_addr)
-+	INET_ADDR_COOKIE(acookie, rmt_addr, loc_addr);
- 	const __portpair ports = INET_COMBINED_PORTS(rmt_port, hnum);
- 
- 	rcu_read_lock();
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+
+> ---
+>  drivers/net/ethernet/broadcom/bcmsysport.c |    7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+> index 4dc8d1e..1fa5205 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -1514,10 +1514,9 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+>                 goto err;
+>         }
+>
+> -       priv->base = devm_request_and_ioremap(&pdev->dev, r);
+> -       if (!priv->base) {
+> -               dev_err(&pdev->dev, "register remap failed\n");
+> -               ret = -ENOMEM;
+> +       priv->base = devm_ioremap_resource(&pdev->dev, r);
+> +       if (IS_ERR(priv->base)) {
+> +               ret = PTR_ERR(priv->base);
+>                 goto err;
+>         }
+>
+> --
+> 1.7.10.4
+>
+>
+
+
+
+-- 
+Florian
