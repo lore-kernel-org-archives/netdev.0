@@ -1,74 +1,45 @@
-From: Andrew Bennieston <andrew.bennieston@citrix.com>
-Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}: Multiple
- transmit and receive queues
-Date: Wed, 14 May 2014 17:18:31 +0100
-Message-ID: <53739757.5060905@citrix.com>
-References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com> <526369072.20140514160923@eikelenboom.it> <20140514141347.GR6332@zion.uk.xensource.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 02/11] ixgbe: clean up checkpatch warnings about
+ CODE_INDENT and LEADING_SPACE
+Date: Wed, 14 May 2014 09:25:57 -0700
+Message-ID: <1400084757.19788.12.camel@joe-AO725>
+References: <1400057663-4578-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1400057663-4578-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <davem@davemloft.net>,
-	<ian.campbell@citrix.com>, <netdev@vger.kernel.org>,
-	<paul.durrant@citrix.com>, <david.vrabel@citrix.com>,
-	<zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>
+Cc: davem@davemloft.net, Jacob Keller <jacob.e.keller@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:6603 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755426AbaENQSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 12:18:34 -0400
-In-Reply-To: <20140514141347.GR6332@zion.uk.xensource.com>
+Received: from smtprelay0215.hostedemail.com ([216.40.44.215]:41726 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754219AbaENQ0D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 12:26:03 -0400
+In-Reply-To: <1400057663-4578-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/05/14 15:13, Wei Liu wrote:
-> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
->>
->> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
->>
->>> This patch series implements multiple transmit and receive queues (i.e.
->>> multiple shared rings) for the xen virtual network interfaces.
->>
->>> The series is split up as follows:
->>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
->>>     preparation for multi-queue support. See the patch itself for more details.
->>> - Patches 2 and 4 factor out the queue-specific data for netback and
->>>    netfront respectively, and modify the rest of the code to use these
->>>    as appropriate.
->>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
->>>    multiple shared rings and event channels, and code to connect these
->>>    as appropriate.
->>> - Patch 6 documents the XenStore keys required for the new feature
->>>    in include/xen/interface/io/netif.h
->>
->>> All other transmit and receive processing remains unchanged, i.e. there
->>> is a kthread per queue and a NAPI context per queue.
->>
->>> The performance of these patches has been analysed in detail, with
->>> results available at:
->>
->> <snip>
->>
->> Would it be possible to also put these somewhere in a tree (or branch of the
->> xen-tree), so it is more easy to pull and test ?
->>
->
-> I cannot speak for Andrew. FWIW you can save this thread and use 'git
-> am' to apply them to 'net-next'.
->
-> Wei.
+On Wed, 2014-05-14 at 01:54 -0700, Jeff Kirsher wrote:
 
-I don't currently have a public-facing git repo for this. If you'd 
-prefer I can send you the patches directly in a tarball, which you may 
-be able to apply more easily than grabbing them from email threads?
+trivial note:
 
-- Andrew
->
->> --
->> Sander
->>
->>> --
->>> Andrew J. Bennieston
->>
->>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+[]
+> @@ -362,7 +362,7 @@ struct ixgbe_ring_container {
+>  	for (pos = (head).ring; pos != NULL; pos = pos->next)
+>  
+>  #define MAX_RX_PACKET_BUFFERS ((adapter->flags & IXGBE_FLAG_DCB_ENABLED) \
+> -                              ? 8 : 1)
+> +			      ? 8 : 1)
+
+My preference would be to use a form that keeps the
+actual statement on a single line like:
+
+#define MAX_RX_PACKET_BUFFERS					\
+	(adapter->flags & IXGBE_FLAG_DCB_ENABLED ? 8 : 1)
+
+or if you really like parentheses
+
+#define MAX_RX_PACKET_BUFFERS					\
+	((adapter->flags & IXGBE_FLAG_DCB_ENABLED) ? 8 : 1)
