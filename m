@@ -1,50 +1,56 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: Re: [PATCH net-next] dccp: make the request_retries minimum is 1
-Date: Wed, 14 May 2014 04:01:14 -0600
-Message-ID: <20140514040120.31c13b73@199-7-159-29.eng.wind.ca>
-References: <53718A36.1040907@huawei.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: Freescale FEC i.MX28 VLAN support?
+Date: Wed, 14 May 2014 10:37:47 +0000
+Message-ID: <af16d562c5674929a5d12f0625a5685a@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <5373418F.6090602@meduna.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <dccp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Wang Weidong <wangweidong1@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:38088 "EHLO
-	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752251AbaENKdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 06:33:32 -0400
-In-Reply-To: <53718A36.1040907@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Stanislav Meduna <stano@meduna.org>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, Linux ARM Kernel
+ <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <5373418F.6090602@meduna.org>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+Hi, Stano,
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+From: Stanislav Meduna <stano@meduna.org> Data: Wednesday, May 14, 2014 6:13 PM
+>To: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Linux ARM Kernel
+>Subject: Freescale FEC i.MX28 VLAN support?
+>
+>Hi,
+>
+>is there any particular reason why the FEC_QUIRK_HAS_VLAN is only set for imx6q-
+>fec ?
+>
+>According to the reference manual the VLAN support is also present in i.MX28 and
+>the DMA descriptors look the same in this regard, but this is from eyeballing only,
+>I did not try to play with it yet.
+>
+>The reason I am asking is that I am using a switch that can tag the frames
+>according to the port a packet is received from/sent to and I would like to use
+>that feature.
+>
+>Please Cc: me when replying.
+>
+>Thanks
+>--
+>                                Stano
 
+Imx28 also support the feature, you can enable it.
+HW only support detect VLAN packet. The function with the config just using software to remove VLAN tag while receiving one packet.
 
-> ---
->  net/dccp/sysctl.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/dccp/sysctl.c b/net/dccp/sysctl.c
-> index 607ab71..53731e4 100644
-> --- a/net/dccp/sysctl.c
-> +++ b/net/dccp/sysctl.c
-> @@ -20,6 +20,7 @@
->  
->  /* Boundary values */
->  static int		zero     = 0,
-> +			one      = 1,
->  			u8_max   = 0xFF;
->  static unsigned long	seqw_min = DCCPF_SEQ_WMIN,
->  			seqw_max = 0xFFFFFFFF;		/* maximum on 32 bit */
-> @@ -58,7 +59,7 @@ static struct ctl_table dccp_default_table[] = {
->  		.maxlen		= sizeof(sysctl_dccp_request_retries),
->  		.mode		= 0644,
->  		.proc_handler	= proc_dointvec_minmax,
-> -		.extra1		= &zero,
-> +		.extra1		= &one,
->  		.extra2		= &u8_max,
->  	},
->  	{
+Thanks,
+Andy
