@@ -1,141 +1,572 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 3/5] pktgen: avoid atomic_inc per packet in
- xmit loop
-Date: Wed, 14 May 2014 17:13:06 +0200
-Message-ID: <20140514171306.52980157@redhat.com>
-References: <20140514141545.20309.28343.stgit@dragon>
-	<20140514141753.20309.19785.stgit@dragon>
-	<1400078131.7973.90.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dean Nelson <dnelson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 4/4] drivers: net: Add APM X-Gene SoC ethernet driver
+ support.
+Date: Wed, 14 May 2014 10:18:31 -0500
+Message-ID: <53738947.7050204@redhat.com>
+References: <1399326447-2329-1-git-send-email-isubramanian@apm.com> <1399326447-2329-5-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Florian Westphal <fw@strlen.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Robert Olsson <robert@herjulf.se>,
-	Ben Greear <greearb@candelatech.com>,
-	John Fastabend <john.r.fastabend@intel.com>, danieltt@kth.se,
-	zhouzhouyi@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63969 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754106AbaENPNZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 May 2014 11:13:25 -0400
-In-Reply-To: <1400078131.7973.90.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1399326447-2329-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 14 May 2014 07:35:31 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 05/05/2014 04:47 PM, Iyappan Subramanian wrote:
+> This patch adds network driver for APM X-Gene SoC ethernet.
+>
+> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+> ---
+>   drivers/net/ethernet/Kconfig                     |    1 +
+>   drivers/net/ethernet/Makefile                    |    1 +
+>   drivers/net/ethernet/apm/Kconfig                 |    1 +
+>   drivers/net/ethernet/apm/Makefile                |    5 +
+>   drivers/net/ethernet/apm/xgene/Kconfig           |    9 +
+>   drivers/net/ethernet/apm/xgene/Makefile          |    6 +
+>   drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   |  807 +++++++++++++++++++
+>   drivers/net/ethernet/apm/xgene/xgene_enet_hw.h   |  353 ++++++++
+>   drivers/net/ethernet/apm/xgene/xgene_enet_main.c |  936 ++++++++++++++++++++++
+>   drivers/net/ethernet/apm/xgene/xgene_enet_main.h |  131 +++
+>   10 files changed, 2250 insertions(+)
+>   create mode 100644 drivers/net/ethernet/apm/Kconfig
+>   create mode 100644 drivers/net/ethernet/apm/Makefile
+>   create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
+>   create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
+>   create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+>   create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+>   create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+>   create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
 
-> On Wed, 2014-05-14 at 16:17 +0200, Jesper Dangaard Brouer wrote:
-> > Avoid the expensive atomic refcnt increase in the pktgen xmit loop, by
-> > simply setting the refcnt only when a new SKB gets allocated. Setting
-> > it according to how many times we are spinning the same SKB (and
-> > handling the case of skb_clone=0).
-> > 
-> > Performance data with CLONE_SKB==100000 and TX ring buffer size=1024:
-> >  (single CPU performance, ixgbe 10Gbit/s, E5-2630)
-> >  * Before: 5,362,722 pps --> 186.47ns per pkt (1/5362722*10^9)
-> >  * Now:    5,608,781 pps --> 178.29ns per pkt (1/5608781*10^9)
-> >  * Diff:    +246,059 pps -->  -8.18ns
-> > 
-> > The performance increase converted to nanoseconds (8.18ns), correspond
-> > well to the measured overhead of LOCK prefixed assembler instructions
-> > on my E5-2630 CPU which is measured to be 8.23ns.
-> > 
-> > Note, with TX ring size 768 I see some "tx_restart_queue" events.
-> > 
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> 
-> OK, but then you need to properly undo the refcnt at the end of pktgen
-> loop, otherwise you leak one skb ?
-> 
-> Say you run pktgen for 995 sends, and clone_count is 10.
+Below, you'll find some comments from my review (as far as I've
+gotten)...
 
-Ah I see, then pktgen gets stopped, I might leak a SKB.
+There's an inter-related piece centered on ring->id and RING_BUFNUM(),
+with comments scattered throughout. You may have to read all the
+comments related to it before what I'm trying to convey makes sense.
+If indeed anything of what I'm trying to say can make any sense at
+all. :-) For I might be missing the obvious.
+
+I'll continue my review as time permits, but thought it best to send
+what I've seen so far for your consideration.
+
+Dean
 
 
-> If done properly, you probably can avoid the kfree_skb(pkt_dev->skb) in
-> pktgen_xmit(), and set initial skb->users to max(1, pkt_dev->clone_skb);
+<snip>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+> new file mode 100644
+> index 0000000..421a841
+> --- /dev/null
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
 
-Just setting max(1, pkt_dev->clone_skb) killed my machine (and my
-netconsole didn't send the entire output before dying).
+<snip>
+> +
+> +struct xgene_enet_desc_ring *xgene_enet_setup_ring(
+> +					struct xgene_enet_desc_ring *ring)
+> +{
+> +	u32 size = ring->size;
+> +	u32 i, data;
+> +	u64 *desc;
+> +
+> +	xgene_enet_clr_ring_state(ring);
+> +	xgene_enet_set_ring_state(ring);
+> +	xgene_enet_set_ring_id(ring);
+> +
+> +	ring->slots = IS_FP(ring->id) ? size / 16 : size / 32;
+> +
+> +	if (IS_FP(ring->id) || RING_OWNER(ring) != RING_OWNER_CPU)
+> +		goto out;
 
-kernel:[91899.988338] skbuff: skb_under_panic: text:ffffffffa03a0b5f len:56 put:14 head:ffff88081bdeb400 data:ffff88081bdeb3f4 tail:0x2c end:0xc0 dev:eth8
- kernel:[91899.988505] ------------[ cut here ]------------
- kernel:[91899.988643] invalid opcode: 0000 [#1] SMP 
- kernel:[91899.988711] Modules linked in: pktgen netconsole ebtable_nat ebtables ipt_MASQUERADE iptable_nat nf_nat_ipv4 nf_nat xt_CHECKSUM iptable_mangle bridge stp llc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4
- kernel:[91899.988887] general protection fault: 0000 [#2] SMP 
- kernel:[91899.988888] Modules linked in: pktgen netconsole ebtable_nat ebtables ipt_MASQUERADE iptable_nat nf_nat_ipv4 nf_nat xt_CHECKSUM iptable_mangle bridge stp llc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4 iptable_filter ip_tables ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack ip6table_filter ip6_tables binfmt_misc vhost_net macvtap macvlan vhost tun kvm_intel kvm microcode pcspkr ipmi_si ipmi_msghandler hid_generic i2c_i801 sg ixgbe mlx4_en mdio vxlan mlx4_core igb i2c_algo_bit i2c_core ptp pps_core sd_mod crc_t10dif crct10dif_common ahci libahci libata dm_mirror dm_region_hash dm_log dm_mod [last unloaded: pktgen]
- kernel:[91899.988912] CPU: 0 PID: 21807 Comm: kpktgend_0 Tainted: G        W     3.15.0-rc1-dpaccel01-pktgen+ #469
- kernel:[91899.988913] Hardware name: Supermicro X9DR3-F/X9DR3-F, BIOS 3.0a 07/31/2013
- kernel:[91899.988914] task: ffff88081e1b6480 ti: ffff880807374000 task.ti: ffff880807374000
- kernel:[91899.988915] RIP: 0010:[<ffffffff8119ecdc>]  [<ffffffff8119ecdc>] __kmalloc_node_track_caller+0xdc/0x240
- kernel:[91899.988920] RSP: 0018:ffff880807375798  EFLAGS: 00010046
- kernel:[91899.988921] RAX: 0000000000000000 RBX: 0000000000000020 RCX: dc0a9af1def08800
- kernel:[91899.988922] RDX: 0000000000046786 RSI: 0000000000000000 RDI: 0000000000016340
- kernel:[91899.988922] RBP: ffff8808073757f8 R08: ffff88085fc16340 R09: ffffffff815a8367
- kernel:[91899.988923] R10: 0000000000000001 R11: 0000000000000001 R12: 0000000000010220
- kernel:[91899.988924] R13: ffff88085f803600 R14: 0000000000000180 R15: 00000000ffffffff
- kernel:[91899.988925] FS:  0000000000000000(0000) GS:ffff88085fc00000(0000) knlGS:0000000000000000
- kernel:[91899.988925] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
- kernel:[91899.988926] CR2: 00007f311af84000 CR3: 00000000019f0000 CR4: 00000000000407f0
- kernel:[91899.988926] Stack:
- kernel:[91899.988927]  00000020ffffffff ffff88081a78e800 ffff8808594c6800 ffff8808594c6000
- kernel:[91899.988928]  ffffffff815a839b dc0a9af1def08800 ffff8808073757e8 0000000000000020
- kernel:[91899.988930]  00000000ffffffff 0000000000000180 ffff880807375867 0000000000000180
- kernel:[91899.988931] Call Trace:
- kernel:[91899.988932]  [<ffffffff815a839b>] ? __alloc_skb+0x8b/0x1e0
- kernel:[91899.988936]  [<ffffffff815a805b>] __kmalloc_reserve+0x3b/0xa0
- kernel:[91899.988938]  [<ffffffff815a839b>] __alloc_skb+0x8b/0x1e0
- kernel:[91899.988940]  [<ffffffff815d508c>] netpoll_send_udp+0x8c/0x400
- kernel:[91899.988943]  [<ffffffffa03962c3>] write_msg+0xd3/0x130 [netconsole]
- kernel:[91899.988946]  [<ffffffff810b5e75>] call_console_drivers.clone.1+0xa5/0x110
- kernel:[91899.988950]  [<ffffffff810b5fc7>] console_cont_flush.clone.0+0xe7/0x1a0
- kernel:[91899.988952]  [<ffffffff810b60b2>] console_unlock+0x32/0x2a0
- kernel:[91899.988953]  [<ffffffff810b6805>] vprintk_emit+0x325/0x510
- kernel:[91899.988954]  [<ffffffff810b577c>] ? wake_up_klogd+0x3c/0x50
- kernel:[91899.988956]  [<ffffffff816be2a1>] printk+0x77/0x79
- kernel:[91899.988959]  [<ffffffff816c6e95>] ? notifier_call_chain+0x55/0x80
- kernel:[91899.988962]  [<ffffffff810d4547>] print_modules+0xb7/0xd0
- kernel:[91899.988965]  [<ffffffff816c6f3e>] ? notify_die+0x2e/0x30
- kernel:[91899.988966]  [<ffffffff816c3f7b>] __die+0xab/0x100
- kernel:[91899.988967]  [<ffffffff81005e78>] die+0x48/0x90
- kernel:[91899.988970]  [<ffffffff816c3b9b>] do_trap+0xcb/0x170
- kernel:[91899.988971]  [<ffffffff816c6eda>] ? __atomic_notifier_call_chain+0x1a/0x30
- kernel:[91899.988972]  [<ffffffff81003615>] do_invalid_op+0x95/0xb0
- kernel:[91899.988974]  [<ffffffff815a7f45>] ? skb_push+0x85/0x90
- kernel:[91899.988976]  [<ffffffff810b66c8>] ? vprintk_emit+0x1e8/0x510
- kernel:[91899.988977]  [<ffffffff816cd378>] invalid_op+0x18/0x20
- kernel:[91899.988979]  [<ffffffff815a7f45>] ? skb_push+0x85/0x90
- kernel:[91899.988981]  [<ffffffff815a7f45>] ? skb_push+0x85/0x90
- kernel:[91899.988982]  [<ffffffffa03a0b5f>] fill_packet_ipv4+0xaf/0x470 [pktgen]
- kernel:[91899.988985]  [<ffffffff815a8eff>] ? __kfree_skb+0x3f/0xc0
- kernel:[91899.988987]  [<ffffffffa0167ed0>] ? ixgbe_xmit_frame_ring+0x610/0x610 [ixgbe]
- kernel:[91899.988993]  [<ffffffffa03a1438>] pktgen_xmit+0x98/0x370 [pktgen]
- kernel:[91899.988995]  [<ffffffffa03a1540>] ? pktgen_xmit+0x1a0/0x370 [pktgen]
- kernel:[91899.988997]  [<ffffffffa03a1887>] pktgen_thread_worker+0x177/0x500 [pktgen]
- kernel:[91899.988999]  [<ffffffff810af2b0>] ? bit_waitqueue+0xd0/0xd0
- kernel:[91899.989001]  [<ffffffff810af2b0>] ? bit_waitqueue+0xd0/0xd0
- kernel:[91899.989002]  [<ffffffffa03a1710>] ? pktgen_xmit+0x370/0x370 [pktgen]
- kernel:[91899.989004]  [<ffffffff8108e7ae>] kthread+0xce/0xf0
- kernel:[91899.989006]  [<ffffffff8108e6e0>] ? kthread_worker_fn+0x120/0x120
- kernel:[91899.989008]  [<ffffffff816cbd6c>] ret_from_fork+0x7c/0xb0
- kernel:[91899.989011]  [<ffffffff8108e6e0>] ? kthread_worker_fn+0x120/0x120
- kernel:[91899.989012] Code: 48 8b 4d c0 44 89 fa 44 89 e6 4c 89 ef e8 4d c5 ff ff 48 89 45 c8 eb 37 0f 1f 80 00 00 00 00 49 63 45 20 48 8b 4d c8 49 8b 7d 00 <48> 8b 1c 01 48 8d 4a 01 48 8b 45 c8 65 48 0f c7 0f 0f 94 c0 3c 
- kernel:[91899.989030]  RSP <ffff880807375798>
+Since we will bail out here, if (ring->id & 0x20) is true...
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+> +
+> +	for (i = 0; i < ring->slots; i++) {
+> +		desc = (u64 *)&ring->desc[i];
+> +		desc[EMPTY_SLOT_INDEX] = EMPTY_SLOT;
+> +	}
+> +
+> +	xgene_enet_ring_rd32(ring, CSR_RING_NE_INT_MODE, &data);
+> +	data |= (1 << (31 - RING_BUFNUM(ring)));
+
+Then RING_BUFNUM(ring) should always be 0 here, since I don't see
+the 'bufnum' portion of ring->id being anything other than 0x20 or 0.
+So why bother?
+
+
+> +	xgene_enet_ring_wr32(ring, CSR_RING_NE_INT_MODE, data);
+> +
+> +out:
+> +	return ring;
+> +}
+> +
+> +void xgene_enet_clear_ring(struct xgene_enet_desc_ring *ring)
+> +{
+> +	u32 data;
+> +
+> +	if (IS_FP(ring->id) || RING_OWNER(ring) != RING_OWNER_CPU)
+> +		goto out;
+
+And again, since we will bail out here, if (ring->id & 0x20) is true...
+
+> +
+> +	xgene_enet_ring_rd32(ring, CSR_RING_NE_INT_MODE, &data);
+> +	data &= ~(u32) (1 << (31 - RING_BUFNUM(ring)));
+
+Then RING_BUFNUM(ring) should always be 0 here, since I don't see
+the 'bufnum' portion of ring->id being anything other than 0x20 or 0.
+So why bother?
+
+
+> +	xgene_enet_ring_wr32(ring, CSR_RING_NE_INT_MODE, data);
+> +
+> +out:
+> +	xgene_enet_clr_desc_ring_id(ring);
+> +	xgene_enet_clr_ring_state(ring);
+> +}
+> +
+
+
+<snip>
+> +
+> +static int xgene_enet_phy_connect(struct net_device *ndev)
+> +{
+> +	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+> +	struct device_node *phy_np;
+> +	struct phy_device *phy_dev;
+
+Initialize phy_dev to NULL here, to assist the addition of a 'goto'
+below.
+
+> +	int ret = 0;
+> +
+> +	struct device *dev = &pdata->pdev->dev;
+> +
+> +	phy_np = of_parse_phandle(dev->of_node, "phy-handle", 0);
+> +
+
+Please remove the preceding blank line.
+
+
+> +	if (!phy_np) {
+> +		netdev_dbg(ndev, "No phy-handle found\n");
+> +		ret = -ENODEV;
+
+The following line should be added here...
+
+                 goto out;
+> +	}
+> +
+> +	phy_dev = of_phy_connect(ndev, phy_np, &xgene_enet_adjust_link,
+> +				 0, pdata->phy_mode);
+> +	if (!phy_dev) {
+> +		netdev_err(ndev, "Could not connect to PHY\n");
+> +		ret = -ENODEV;
+> +		goto out;
+> +	}
+> +
+> +out:
+> +	pdata->phy_link = 0;
+> +	pdata->phy_speed = 0;
+> +	pdata->phy_dev = phy_dev;
+> +
+> +	return ret;
+> +}
+> +
+
+
+<snip>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+> new file mode 100644
+> index 0000000..a4c0a14
+> --- /dev/null
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+
+<snip>
+> +
+> +static inline u32 get_bits(u32 val, u32 start, u32 end)
+> +{
+> +	return (val & GENMASK(end, start)) >> start;
+> +}
+> +
+> +#define CSR_RING_ID		0x00000008
+> +#define OVERWRITE		BIT(31)
+> +#define IS_BUFFER_POOL		BIT(20)
+> +#define PREFETCH_BUF_EN		BIT(21)
+> +#define CSR_RING_ID_BUF		0x0000000c
+> +#define CSR_RING_NE_INT_MODE	0x0000017c
+> +#define CSR_RING_CONFIG		0x0000006c
+> +#define CSR_RING_WR_BASE	0x00000070
+> +#define NUM_RING_CONFIG		5
+> +#define BUFPOOL_MODE		3
+> +#define RM3			3
+> +#define INC_DEC_CMD_ADDR	0x2c
+> +#define IS_FP(x) ((x & 0x0020) ? 1 : 0)
+
+IS_FP() is only ever called with 'ring->id' as the argument 'x'.
+
+And this macro should really be defined as...
+
+     #define IS_FP(x)       (((x) & 0x0020) ? 1 : 0)
+
+with a parentheses around the argument x. (And this holds true for
+all your macros defined here, they should have parentheses around each
+of their arguments in the body of the macro.)
+
+
+> +#define UDP_HDR_SIZE		2
+> +
+> +#define CREATE_MASK(pos, len)		GENMASK(pos+len-1, pos)
+> +#define CREATE_MASK_ULL(pos, len)	GENMASK_ULL(pos+len-1, pos)
+
+Add parentheses around args in the above two macros.
+
+
+> +
+> +/* Empty slot soft signature */
+> +#define EMPTY_SLOT_INDEX	1
+> +#define EMPTY_SLOT		~0ULL
+> +
+> +#define RING_BUFNUM(q)		(q->id & 0x003F)
+> +#define RING_OWNER(q)		((q->id & 0x03C0) >> 6)
+
+Add parentheses around args...
+
+     #define RING_BUFNUM(q)      ((q)->id & 0x003F)
+     #define RING_OWNER(q)       (((q)->id & 0x3C0) >> 6)
+
+
+Taking IS_FP(), together with RING_BUFNUM() and RING_OWNER(), I gather
+that ring->id is...
+
+     0x03C0        owner
+     0x0020        buf_pool flag
+     0x001F        bufnum
+
+But I don't see bufnum ever being set to anything other than 0.
+Wherever RING_BUFNUM() is called, either a check for 0x0020 being set
+precedes it (and if true returns), or 0x0020 is subtracted from it. So
+that bit can't be playing a part in what one might consider the bufnum
+to be. Is this correct? Or am I missing something (perhaps the obvious)?
+
+
+> +#define BUF_LEN_CODE_2K		0x5000
+> +
+
+<snip>
+> diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+> new file mode 100644
+> index 0000000..0feb571
+> --- /dev/null
+> +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+
+
+<snip>
+> +
+> +static int xgene_enet_create_desc_rings(struct net_device *ndev)
+> +{
+> +	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+> +	struct device *dev = &pdata->pdev->dev;
+> +	struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
+> +	struct xgene_enet_desc_ring *buf_pool = NULL;
+> +	u32 ring_num = 0;
+> +	u32 ring_id;
+> +	int ret = 0;
+> +
+> +	/* allocate rx descriptor ring */
+> +	ring_id = (RING_OWNER_CPU << 6) | RING_BUFNUM_REGULAR;
+
+Here we see what will become the value of ring->id being set up
+RING_BUFNUM_REGULAR is 0. I don't see a non-zero bufnum being set
+here (or anywhere else).
+
+And this should be made into a macro and defined along side of
+RING_BUFNUM() and RING_OWNER(). Perhaps something like...
+
+      #define SET_RING_ID(owner, bufnum)  ((owner) << 6) | (bufnum))
+
+or some such. And you may consider changing these to functions for
+the advantage that has over macros. The compiler can inline them.
+
+
+> +	rx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
+> +					      RING_CFGSIZE_16KB, ring_id);
+> +	if (IS_ERR_OR_NULL(rx_ring)) {
+> +		ret = PTR_ERR(rx_ring);
+> +		goto err;
+> +	}
+> +
+> +	/* allocate buffer pool for receiving packets */
+> +	ring_id = (RING_OWNER_ETH0 << 6) | RING_BUFNUM_BUFPOOL;
+
+And again here, RING_BUFNUM_BUFPOOL is 0x20. But that's just a flag
+that indicates that this ring is a buf_pool. I don't see a non-zero
+bufnum being set here (or anywhere else).
+
+And a macro like 'SET_RING_ID()' as mentioned above, should be used
+here.
+
+
+> +	buf_pool = xgene_enet_create_desc_ring(ndev, ring_num++,
+> +					       RING_CFGSIZE_2KB, ring_id);
+> +	if (IS_ERR_OR_NULL(buf_pool)) {
+> +		ret = PTR_ERR(buf_pool);
+> +		goto err;
+> +	}
+> +
+> +	rx_ring->nbufpool = NUM_BUFPOOL;
+> +	rx_ring->buf_pool = buf_pool;
+> +	rx_ring->irq = pdata->rx_irq;
+> +	buf_pool->rx_skb = devm_kcalloc(dev, buf_pool->slots,
+> +				     sizeof(struct sk_buff *), GFP_KERNEL);
+> +	if (!buf_pool->rx_skb) {
+> +		ret = -ENOMEM;
+> +		goto err;
+> +	}
+> +
+> +	buf_pool->dst_ring_num = xgene_enet_dst_ring_num(buf_pool);
+> +	rx_ring->buf_pool = buf_pool;
+> +	pdata->rx_ring = rx_ring;
+> +
+> +	/* allocate tx descriptor ring */
+> +	ring_id = (RING_OWNER_ETH0 << 6) | RING_BUFNUM_REGULAR;
+
+And again here. same story as above.
+
+
+> +	tx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
+> +					      RING_CFGSIZE_16KB, ring_id);
+> +	if (IS_ERR_OR_NULL(tx_ring)) {
+> +		ret = PTR_ERR(tx_ring);
+> +		goto err;
+> +	}
+> +	pdata->tx_ring = tx_ring;
+> +
+> +	cp_ring = pdata->rx_ring;
+> +	cp_ring->cp_skb = devm_kcalloc(dev, tx_ring->slots,
+> +				     sizeof(struct sk_buff *), GFP_KERNEL);
+> +	if (!cp_ring->cp_skb) {
+> +		ret = -ENOMEM;
+> +		goto err;
+> +	}
+> +	pdata->tx_ring->cp_ring = cp_ring;
+> +	pdata->tx_ring->dst_ring_num = xgene_enet_dst_ring_num(cp_ring);
+> +
+> +	pdata->tx_qcnt_hi = pdata->tx_ring->slots / 2;
+> +	pdata->cp_qcnt_hi = pdata->rx_ring->slots / 2;
+> +	pdata->cp_qcnt_low = pdata->cp_qcnt_hi / 2;
+> +
+> +	return 0;
+> +
+> +err:
+> +	xgene_enet_delete_desc_rings(pdata);
+> +	return ret;
+> +}
+> +
+
+<snip>
+> +
+> +static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+> +{
+> +	struct platform_device *pdev;
+> +	struct net_device *ndev;
+> +	struct device *dev;
+> +	struct resource *res;
+> +	void *base_addr;
+> +	const char *mac;
+> +	int ret = 0;
+> +
+> +	pdev = pdata->pdev;
+> +	dev = &pdev->dev;
+> +	ndev = pdata->ndev;
+> +
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	if (!res) {
+> +		dev_err(dev, "Resource IORESOURCE_MEM 0 not defined\n");
+> +		ret = -ENODEV;
+> +		goto out;
+> +	}
+> +	pdata->base_addr = devm_ioremap_resource(dev, res);
+> +	if (IS_ERR(pdata->base_addr)) {
+> +		dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
+> +		return PTR_ERR(pdata->base_addr);
+> +	}
+> +
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> +	if (!res) {
+> +		dev_err(dev, "Resource IORESOURCE_MEM 1 not defined\n");
+> +		ret = -ENODEV;
+> +		goto out;
+> +	}
+> +	pdata->ring_csr_addr = devm_ioremap_resource(dev, res);
+> +	if (IS_ERR(pdata->ring_csr_addr)) {
+> +		dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
+> +		return PTR_ERR(pdata->ring_csr_addr);
+> +	}
+> +
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+> +	if (!res) {
+> +		dev_err(dev, "Resource IORESOURCE_MEM 2 not defined\n");
+> +		ret = -ENODEV;
+> +		goto out;
+> +	}
+> +	pdata->ring_cmd_addr = devm_ioremap_resource(dev, res);
+> +	if (IS_ERR(pdata->ring_cmd_addr)) {
+> +		dev_err(dev, "Unable to retrieve ENET Ring command region\n");
+> +		return PTR_ERR(pdata->ring_cmd_addr);
+> +	}
+> +
+> +	ret = platform_get_irq(pdev, 0);
+> +	if (ret <= 0) {
+
+If you return 0 as an error return value from this function, the caller
+will have no idea anything was amiss.
+
+
+> +		dev_err(dev, "Unable to get ENET Rx IRQ\n");
+
+So you need to at least convert the 0 to a sensible error return,
+leaving the others as is...
+
+                 ret = ret ? : -ENXIO;
+
+or just reset them all..
+
+                 ret = -ENXIO;
+
+You can chose the error return value that makes the most sense to you.
+I've seen others use: -ENXIO, -EINVAL, and -ENODEV.
+
+
+> +		goto out;
+> +	}
+> +	pdata->rx_irq = ret;
+> +
+> +	mac = of_get_mac_address(dev->of_node);
+> +	if (mac)
+> +		memcpy(ndev->dev_addr, mac, ndev->addr_len);
+> +	else
+> +		eth_hw_addr_random(ndev);
+> +	memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
+> +
+> +	pdata->phy_mode = of_get_phy_mode(pdev->dev.of_node);
+> +	if (pdata->phy_mode < 0) {
+> +		dev_err(dev, "Incorrect phy-connection-type in DTS\n");
+> +		ret = -EINVAL;
+> +		goto out;
+> +	}
+> +
+> +	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+> +	ret = IS_ERR(pdata->clk);
+
+IS_ERR() does not yield a proper return error value. For that one needs
+to use PTR_ERR(). So remove the preceding line, and change the following
+line...
+
+> +	if (ret) {
+
+to...
+
+         if (IS_ERR(pdata->clk)) {
+
+> +		dev_err(&pdev->dev, "can't get clock\n");
+
+And add the following line here...
+
+                 ret = PTR_ERR(info->clk);
+> +		goto out;
+> +	}
+> +
+> +	base_addr = pdata->base_addr;
+> +	pdata->eth_csr_addr = base_addr + BLOCK_ETH_CSR_OFFSET;
+> +	pdata->eth_ring_if_addr = base_addr + BLOCK_ETH_RING_IF_OFFSET;
+> +	pdata->eth_diag_csr_addr = base_addr + BLOCK_ETH_DIAG_CSR_OFFSET;
+> +	pdata->mcx_mac_addr = base_addr + BLOCK_ETH_MAC_OFFSET;
+> +	pdata->mcx_stats_addr = base_addr + BLOCK_ETH_STATS_OFFSET;
+> +	pdata->mcx_mac_csr_addr = base_addr + BLOCK_ETH_MAC_CSR_OFFSET;
+> +	pdata->rx_buff_cnt = NUM_PKT_BUF;
+> +out:
+> +	return ret;
+
+The mixture of 'goto' and 'return' usage in this function is confusing.
+I'd think it best if they were all the same. Because of the following,
+which is stated in Documentation/CodingStyle (chapter 7)...
+
+     The goto statement comes in handy when a function exits from multiple
+     locations and some common work such as cleanup has to be done.  If 
+there is no
+     cleanup needed then just return directly.
+
+And since you don't have any common work being done, my vote is with
+using returns and not gotos.
+
+I'd suggest you consider replacing gotos by returns in all functions
+which simply return without having any common work to be done.
+
+
+> +}
+> +
+> +static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
+> +{
+> +	struct net_device *ndev = pdata->ndev;
+> +	struct xgene_enet_desc_ring *buf_pool;
+> +	int ret = 0;
+> +
+> +	xgene_enet_reset(pdata);
+> +
+> +	xgene_gmac_tx_disable(pdata);
+> +	xgene_gmac_rx_disable(pdata);
+> +
+> +	ret = xgene_enet_create_desc_rings(ndev);
+> +	if (ret) {
+> +		netdev_err(ndev, "Error in ring configuration\n");
+> +		goto out;
+> +	}
+> +
+> +	/* setup buffer pool */
+> +	buf_pool = pdata->rx_ring->buf_pool;
+> +	xgene_enet_init_bufpool(buf_pool);
+> +	ret = xgene_enet_refill_bufpool(buf_pool, pdata->rx_buff_cnt);
+> +	if (ret)
+> +		goto out;
+> +
+> +	xgene_enet_cle_bypass(pdata, xgene_enet_dst_ring_num(pdata->rx_ring),
+> +			      RING_BUFNUM(buf_pool) - 0x20, 0);
+
+Subtracting an unidentified number (0x20) from RING_BUFNUM(buf_pool)
+doesn't seem to me to be the best approach here. If I'm not mistaken,
+it appears the 0x20 is a flag set in ring->id to indicate that this is
+a buf_pool. And here you're trying to grab just the non-flag portion
+of ring->id's 0x003f, which amounts to 0x001f.
+
+So maybe given the other things I've mentioned about RING_BUFNUM() in
+this review, if it is still needed, change it to be...
+
+     #define RING_BUFNUM(q)      ((q)->id & 0x001F)
+
+Or since the 3rd argument to xgene_enet_cle_bypass() is called fpsel,
+you might create a new macro called GET_FPSEL(), and make it like the
+one just mentioned.
+
+But again, as mentioned elsewhere, the value will always be zero for
+the driver as it is now. So is there a point to this?
+
+
+> +	xgene_gmac_init(pdata, SPEED_1000);
+> +out:
+> +	return ret;
+> +}
+
+<snip>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
