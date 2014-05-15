@@ -1,54 +1,43 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v2 net-next 1/9] bonding: remove BOND_MODE_IS_LB macro
-Date: Thu, 15 May 2014 14:29:19 +0200
-Message-ID: <1400156967-8231-2-git-send-email-vfalico@gmail.com>
-References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: bonding directly changes underlying device address
+Date: Thu, 15 May 2014 15:37:17 +0300
+Message-ID: <CAJZOPZKMWD+EM9NX22ttQNQdsir3Skqhm7Et0+_OFRyh4mwtcw@mail.gmail.com>
+References: <5371FCD0.7050502@mellanox.com>
+	<20140513115527.GC2910@minipsycho.orion>
+	<20030.1399998641@localhost.localdomain>
+	<CAJZOPZ+pOBw4M-ZFF2qsqNgGJcKcRRdhWFf4dy1FQ8Ngr-ZqRA@mail.gmail.com>
+	<20140514080114.GA30960@mikrodark.usersys.redhat.com>
+	<5046.1400117925@localhost.localdomain>
+	<20140515045524.GA27773@mikrodark.usersys.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Noa Osherovich <noaos@mellanox.com>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56429 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751361AbaEOMeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 08:34:05 -0400
-In-Reply-To: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:50199 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbaEOMhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 08:37:18 -0400
+Received: by mail-qg0-f42.google.com with SMTP id q107so1579513qgd.15
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 05:37:18 -0700 (PDT)
+In-Reply-To: <20140515045524.GA27773@mikrodark.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's used only in an inline function and is useless.
+On Thu, May 15, 2014 at 7:55 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
+> On Wed, May 14, 2014 at 06:38:45PM -0700, Jay Vosburgh wrote:
+> ...snip...
+>
+>>         So, I'd say "No" to conversion to dev_set_mac_address() and
+>> "show me the code" to the "stash it in the slave" plan.
+>
+>
+> Ok, got it, I will try to move it to struct slave.
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
----
- drivers/net/bonding/bonding.h | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index c51c433..16e57a1 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -69,10 +69,6 @@
- 			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
- 			 ((mode) == BOND_MODE_ROUNDROBIN))
- 
--#define BOND_MODE_IS_LB(mode)			\
--		(((mode) == BOND_MODE_TLB) ||	\
--		 ((mode) == BOND_MODE_ALB))
--
- #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
- 	((htonl(INADDR_BROADCAST) == a) ||	\
- 	 ipv4_is_zeronet(a))
-@@ -290,7 +286,8 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- 
- static inline bool bond_is_lb(const struct bonding *bond)
- {
--	return BOND_MODE_IS_LB(bond->params.mode);
-+	return bond->params.mode == BOND_MODE_TLB ||
-+	       bond->params.mode == BOND_MODE_ALB;
- }
- 
- static inline void bond_set_active_slave(struct slave *slave)
--- 
-1.8.4
+Good, and following that we'll see if/what remains on our mlx4_en/any
+driver plate to fix under the TLB use case (hopefully none..)
