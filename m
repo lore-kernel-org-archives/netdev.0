@@ -1,153 +1,216 @@
-From: Stefan Bader <stefan.bader@canonical.com>
-Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
-Date: Thu, 15 May 2014 14:14:00 +0200
-Message-ID: <5374AF88.2070608@canonical.com>
-References: <537262AB.5010408@canonical.com> <5373C8D4.2010803@citrix.com> <1400143605.1006.1.camel@kazak.uk.xensource.com> <20140515110410.GD1117@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="x723IHkWpHrDgjrvnPhI0FP12DtHpwvpB"
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	xen-devel@lists.xenproject.org, netdev <netdev@vger.kernel.org>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 2/2] IB/mlx4: Invoke UPDATE_QP for proxy QP1 on MAC changes
+Date: Thu, 15 May 2014 15:29:28 +0300
+Message-ID: <1400156968-29633-3-git-send-email-ogerlitz@mellanox.com>
+References: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, matanb@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:39037 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751520AbaEOMOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 08:14:05 -0400
-In-Reply-To: <20140515110410.GD1117@zion.uk.xensource.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:34978 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753982AbaEOM3e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 08:29:34 -0400
+In-Reply-To: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---x723IHkWpHrDgjrvnPhI0FP12DtHpwvpB
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Matan Barak <matanb@mellanox.com>
 
-On 15.05.2014 13:04, Wei Liu wrote:
-> On Thu, May 15, 2014 at 09:46:45AM +0100, Ian Campbell wrote:
->> On Wed, 2014-05-14 at 20:49 +0100, Zoltan Kiss wrote:
->>> On 13/05/14 19:21, Stefan Bader wrote:
->>>> We had reports about this message being seen on EC2 for a while but =
-finally a
->>>> reporter did notice some details about the guests and was able to pr=
-ovide a
->>>> simple way to reproduce[1].
->>>>
->>>> For my local experiments I use a Xen-4.2.2 based host (though I woul=
-d say the
->>>> host versions are not important). The host has one NIC which is used=
- as the
->>>> outgoing port of a Linux based (not openvswitch) bridge. And the PV =
-guests use
->>>> that bridge. I set the mtu to 9001 (which was seen on affected insta=
-nce types)
->>>> and also inside the guests. As described in the report one guests ru=
-ns
->>>> redis-server and the other nodejs through two scripts (for me I had =
-to do the
->>>> two sub.js calls in separate shells). After a bit the error messages=
- appear on
->>>> the guest running the redis-server.
->>>>
->>>> I added some debug printk's to show a bit more detail about the skb =
-and got the
->>>> following (<length>@<offset (after masking off complete pages)>):
->>>>
->>>> [ 698.108119] xen_netfront: xennet: skb rides the rocket: 19 slots
->>>> [ 698.108134] header 1490@238 -> 1 slots
->>>> [ 698.108139] frag #0 1614@2164 -> + 1 pages
->>>> [ 698.108143] frag #1 3038@1296 -> + 2 pages
->>>> [ 698.108147] frag #2 6076@1852 -> + 2 pages
->>>> [ 698.108151] frag #3 6076@292 -> + 2 pages
->>>> [ 698.108156] frag #4 6076@2828 -> + 3 pages
->>>> [ 698.108160] frag #5 3038@1268 -> + 2 pages
->>>> [ 698.108164] frag #6 2272@1824 -> + 1 pages
->>>> [ 698.108168] frag #7 3804@0 -> + 1 pages
->>>> [ 698.108172] frag #8 6076@264 -> + 2 pages
->>>> [ 698.108177] frag #9 3946@2800 -> + 2 pages
->>>> [ 698.108180] frags adding 18 slots
->>>>
->>>> Since I am not deeply familiar with the networking code, I wonder ab=
-out two things:
->>>> - is there something that should limit the skb data length from all =
-frags
->>>>    to stay below the 64K which the definition of MAX_SKB_FRAGS hints=
-?
->>> I think netfront should be able to handle 64K packets at most.
->>
->> Ah, maybe this relates to this fix from Wei?
->>
->=20
-> Yes, below patch limits SKB size to 64KB.  However the problem here is
-> not SKB exceeding 64KB. The said SKB is acutally 43KB in size. The
-> problem is that guest kernel is  using compound page so a frag which ca=
-n
-> be fit into one 4K page spans two 4K pages.  The fix seems to be
-> coalescing SKB in frontend, but it will degrade performance.
->=20
-> Wei.
->=20
-Reading more of the code I would agree. The definition of MAX_SKB_FRAGS (=
-at
-least now with compound pages) cannot be used in any way to derive the nu=
-mber of
-4k slots a transfer will require.
+When we receive a netdev event indicating a netdev change and/or
+a netdev address change, we must change the MAC index used by the
+proxy QP1 (in the QP context), otherwise RoCE CM packets sent by the
+VF will not carry the same source MAC address as the non-CM packets.
 
-Zoltan already commented on worst cases. Not sure it would get as bad as =
-that or
-"just" 16*4k frags all in the middle of compound pages. That would then e=
-nd in
-around 33 or 34 slots, depending on the header.
+We use the UPDATE_QP command to perform this change.
 
-Zoltan wrote:
-> I think the worst case scenario is when every frag and the linear buffe=
-r contains 2 bytes,
-> which are overlapping a page boundary (that's (17+1)*2=3D36 so far), pl=
-us 15 of
-them have a 4k
-> page in the middle of them, so, a 1+4096+1 byte buffer can span over 3 =
-page.
-> That's 51 individual pages.
+In order to avoid modifying a QP context based on netdev event,
+while the driver attempts to destroy this QP (e.g either the mlx4_ib
+or ib_mad modules are unloaded), we use mutex locking in both flows.
 
-I cannot claim to really know what to expect worst case. Somewhat I was t=
-hinking
-of a
-worst case of (16+1)*2, which would be inconvenient enough.
+Since the relevant mlx4 proxy GSI QP is created indirectly by the
+mad module when they create their GSI QP, the mlx4 didn't need to
+keep track on that QP prior to this change.
 
-So without knowing exactly how to do it, but as Ian said it sounds best t=
-o come
-up with some sort of exception coalescing in cases the slot count goes ov=
-er 18
-and we know the data size is below 64K.
+Now, when QP modifications are needed to this QP from within the
+driver, we added refernece to it.
 
--Stefan
+Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/infiniband/hw/mlx4/main.c    |   67 ++++++++++++++++++++++++++++++++--
+ drivers/infiniband/hw/mlx4/mlx4_ib.h |    3 ++
+ drivers/infiniband/hw/mlx4/qp.c      |    8 ++++
+ 3 files changed, 75 insertions(+), 3 deletions(-)
 
-
-
---x723IHkWpHrDgjrvnPhI0FP12DtHpwvpB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJTdK+IAAoJEOhnXe7L7s6j2AwP/i7ZH1U+JkBvrYqk2HqTapYV
-RjByc5k2fz+rbcUivzO5yArO4UFQ2qZ5S3dAoA8GrOhciKxGGAWzibx+65AzmsqV
-4iCGjaFLe3OVkXV29rxbeYbjcuYzRyQqI0JW/gDVJeLThuICa7iGUdUk8Lk9/hNu
-kFTDkK5mqvJJR9CygMYS78zLK6Na6N+7ZC0GzVFTMaagzKkKzDQ0Dho4gliLPkZh
-Zc6rQxWLBb8o+4avqLJtyY1Tfh09vTrojiDHnlMTNsrjE5nkfo31ZHhUANBpZTJ9
-mm+FrpMT9JxKxld9X06kofYUy5dWq0pkB0SubWJ6pIGDkAl0GR0ZLNh2oZwaIec2
-m+7W8qzrmpWonUayiQBOI1NYJcBuNXvY7zzliABQuOl5XxGxKP6uukxpnITHj//w
-3+WBOCngjgQNpMS6Nc7AT9Zfnjc8TI+3HhekOVHmhBC5mPXhyv8PIvHXq1KGC/XZ
-CCGCzHkfgYDkSnM238hXkSz8/1KOtPn/Zn4vkfLQOEU7wekWba/Ncf12KLJtsDuf
-IILC004xssM3iBPjH019tneGEK90FFsgwaukINRW+rfQiyU/4CsimK/K39E6v9c6
-I6TQ7ZiBevUB7UZLUjK7t3g798AOgn3RWa/QK2kVR6DMy7OdgvzYhnLK5GFN4zqr
-8FdniLX9eHIKjBU/zW6K
-=q0E6
------END PGP SIGNATURE-----
-
---x723IHkWpHrDgjrvnPhI0FP12DtHpwvpB--
+diff --git a/drivers/infiniband/hw/mlx4/main.c b/drivers/infiniband/hw/mlx4/main.c
+index 1b6dbe1..199c789 100644
+--- a/drivers/infiniband/hw/mlx4/main.c
++++ b/drivers/infiniband/hw/mlx4/main.c
+@@ -48,6 +48,7 @@
+ 
+ #include <linux/mlx4/driver.h>
+ #include <linux/mlx4/cmd.h>
++#include <linux/mlx4/qp.h>
+ 
+ #include "mlx4_ib.h"
+ #include "user.h"
+@@ -1614,6 +1615,53 @@ static int mlx4_ib_inet6_event(struct notifier_block *this, unsigned long event,
+ }
+ #endif
+ 
++#define MLX4_IB_INVALID_MAC	((u64)-1)
++static void mlx4_ib_update_qps(struct mlx4_ib_dev *ibdev,
++			       struct net_device *dev,
++			       int port)
++{
++	u64 new_smac = 0;
++	u64 release_mac = MLX4_IB_INVALID_MAC;
++	struct mlx4_ib_qp *qp;
++
++	read_lock(&dev_base_lock);
++	new_smac = mlx4_mac_to_u64(dev->dev_addr);
++	read_unlock(&dev_base_lock);
++
++	mutex_lock(&ibdev->qp1_proxy_lock[port - 1]);
++	qp = ibdev->qp1_proxy[port - 1];
++	if (qp) {
++		int new_smac_index;
++		u64 old_smac = qp->pri.smac;
++		struct mlx4_update_qp_params update_params;
++
++		if (new_smac == old_smac)
++			goto unlock;
++
++		new_smac_index = mlx4_register_mac(ibdev->dev, port, new_smac);
++
++		if (new_smac_index < 0)
++			goto unlock;
++
++		update_params.smac_index = new_smac_index;
++		if (mlx4_update_qp(ibdev->dev, &qp->mqp, MLX4_UPDATE_QP_SMAC,
++				   &update_params)) {
++			release_mac = new_smac;
++			goto unlock;
++		}
++
++		qp->pri.smac = new_smac;
++		qp->pri.smac_index = new_smac_index;
++
++		release_mac = old_smac;
++	}
++
++unlock:
++	mutex_unlock(&ibdev->qp1_proxy_lock[port - 1]);
++	if (release_mac != MLX4_IB_INVALID_MAC)
++		mlx4_unregister_mac(ibdev->dev, port, release_mac);
++}
++
+ static void mlx4_ib_get_dev_addr(struct net_device *dev,
+ 				 struct mlx4_ib_dev *ibdev, u8 port)
+ {
+@@ -1689,9 +1737,13 @@ static int mlx4_ib_init_gid_table(struct mlx4_ib_dev *ibdev)
+ 	return 0;
+ }
+ 
+-static void mlx4_ib_scan_netdevs(struct mlx4_ib_dev *ibdev)
++static void mlx4_ib_scan_netdevs(struct mlx4_ib_dev *ibdev,
++				 struct net_device *dev,
++				 unsigned long event)
++
+ {
+ 	struct mlx4_ib_iboe *iboe;
++	int update_qps_port = -1;
+ 	int port;
+ 
+ 	iboe = &ibdev->iboe;
+@@ -1719,6 +1771,11 @@ static void mlx4_ib_scan_netdevs(struct mlx4_ib_dev *ibdev)
+ 		}
+ 		curr_master = iboe->masters[port - 1];
+ 
++		if (dev == iboe->netdevs[port - 1] &&
++		    (event == NETDEV_CHANGEADDR || event == NETDEV_REGISTER ||
++		     event == NETDEV_UP || event == NETDEV_CHANGE))
++			update_qps_port = port;
++
+ 		if (curr_netdev) {
+ 			port_state = (netif_running(curr_netdev) && netif_carrier_ok(curr_netdev)) ?
+ 						IB_PORT_ACTIVE : IB_PORT_DOWN;
+@@ -1752,6 +1809,9 @@ static void mlx4_ib_scan_netdevs(struct mlx4_ib_dev *ibdev)
+ 	}
+ 
+ 	spin_unlock(&iboe->lock);
++
++	if (update_qps_port > 0)
++		mlx4_ib_update_qps(ibdev, dev, update_qps_port);
+ }
+ 
+ static int mlx4_ib_netdev_event(struct notifier_block *this,
+@@ -1764,7 +1824,7 @@ static int mlx4_ib_netdev_event(struct notifier_block *this,
+ 		return NOTIFY_DONE;
+ 
+ 	ibdev = container_of(this, struct mlx4_ib_dev, iboe.nb);
+-	mlx4_ib_scan_netdevs(ibdev);
++	mlx4_ib_scan_netdevs(ibdev, dev, event);
+ 
+ 	return NOTIFY_DONE;
+ }
+@@ -2043,6 +2103,7 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 		goto err_map;
+ 
+ 	for (i = 0; i < ibdev->num_ports; ++i) {
++		mutex_init(&ibdev->qp1_proxy_lock[i]);
+ 		if (mlx4_ib_port_link_layer(&ibdev->ib_dev, i + 1) ==
+ 						IB_LINK_LAYER_ETHERNET) {
+ 			err = mlx4_counter_alloc(ibdev->dev, &ibdev->counters[i]);
+@@ -2126,7 +2187,7 @@ static void *mlx4_ib_add(struct mlx4_dev *dev)
+ 		for (i = 1 ; i <= ibdev->num_ports ; ++i)
+ 			reset_gid_table(ibdev, i);
+ 		rtnl_lock();
+-		mlx4_ib_scan_netdevs(ibdev);
++		mlx4_ib_scan_netdevs(ibdev, NULL, 0);
+ 		rtnl_unlock();
+ 		mlx4_ib_init_gid_table(ibdev);
+ 	}
+diff --git a/drivers/infiniband/hw/mlx4/mlx4_ib.h b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+index f589522..66b0b7d 100644
+--- a/drivers/infiniband/hw/mlx4/mlx4_ib.h
++++ b/drivers/infiniband/hw/mlx4/mlx4_ib.h
+@@ -522,6 +522,9 @@ struct mlx4_ib_dev {
+ 	int steer_qpn_count;
+ 	int steer_qpn_base;
+ 	int steering_support;
++	struct mlx4_ib_qp      *qp1_proxy[MLX4_MAX_PORTS];
++	/* lock when destroying qp1_proxy and getting netdev events */
++	struct mutex		qp1_proxy_lock[MLX4_MAX_PORTS];
+ };
+ 
+ struct ib_event_work {
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index 41308af..dc57482 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -1132,6 +1132,12 @@ int mlx4_ib_destroy_qp(struct ib_qp *qp)
+ 	if (is_qp0(dev, mqp))
+ 		mlx4_CLOSE_PORT(dev->dev, mqp->port);
+ 
++	if (dev->qp1_proxy[mqp->port - 1] == mqp) {
++		mutex_lock(&dev->qp1_proxy_lock[mqp->port - 1]);
++		dev->qp1_proxy[mqp->port - 1] = NULL;
++		mutex_unlock(&dev->qp1_proxy_lock[mqp->port - 1]);
++	}
++
+ 	pd = get_pd(mqp);
+ 	destroy_qp_common(dev, mqp, !!pd->ibpd.uobject);
+ 
+@@ -1646,6 +1652,8 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 				err = handle_eth_ud_smac_index(dev, qp, (u8 *)attr->smac, context);
+ 				if (err)
+ 					return -EINVAL;
++				if (qp->mlx4_ib_qp_type == MLX4_IB_QPT_PROXY_GSI)
++					dev->qp1_proxy[qp->port - 1] = qp;
+ 			}
+ 		}
+ 	}
+-- 
+1.7.1
