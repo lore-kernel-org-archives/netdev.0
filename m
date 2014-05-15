@@ -1,56 +1,57 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/9] bonding: make BOND_NO_USES_ARP an inline
- function
-Date: Thu, 15 May 2014 17:45:27 +0200
-Message-ID: <20140515154527.GA2789@mikrodark.usersys.redhat.com>
-References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
- <1400156967-8231-4-git-send-email-vfalico@gmail.com>
- <CAADnVQKMKZ4dMvUXpCQiKc839+UTa7hjBh71WzADXD6vH1B48Q@mail.gmail.com>
+From: Kirill Tkhai <ktkhai@parallels.com>
+Subject: [PATCH net-next v3] net: unix: Align send data_len up to PAGE_SIZE
+Date: Thu, 15 May 2014 19:56:28 +0400
+Message-ID: <1400169388.3782.35.camel@tkhai>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:44392 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbaEOPpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 11:45:51 -0400
-Received: by mail-wg0-f46.google.com with SMTP id n12so3703356wgh.29
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 08:45:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAADnVQKMKZ4dMvUXpCQiKc839+UTa7hjBh71WzADXD6vH1B48Q@mail.gmail.com>
+Received: from relay.parallels.com ([195.214.232.42]:39545 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751927AbaEOP4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 11:56:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 08:35:47AM -0700, Alexei Starovoitov wrote:
->On Thu, May 15, 2014 at 5:29 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
-...snip...
->> -       if (BOND_NO_USES_ARP(bond_mode)) {
->> +       if (!bond_mode_uses_arp(bond_mode)) {
->
->looks like condition becomes inverted.
->Did you mean to add '!' inside bond_mode_uses_arp() as well?
+Using whole of allocated pages reduces requested skb->data size.
+This is just a little more thriftily allocation.
+    
+netperf does not show difference with the current performance.
+    
+Signed-off-by: Kirill Tkhai <ktkhai@parallels.com>
+---
+ net/unix/af_unix.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Right, good catch. Easy to miss with this amount of mechanical work :(.
-
-I'll wait for more feedback and resubmit v3.
-
-Thanks!
-
->
-...snip...
->> -#define BOND_NO_USES_ARP(mode)                         \
->> -               (((mode) == BOND_MODE_8023AD)   ||      \
->> -                ((mode) == BOND_MODE_TLB)      ||      \
->> -                ((mode) == BOND_MODE_ALB))
->> -
-...snip...
->> +static inline bool bond_mode_uses_arp(int mode)
->> +{
->> +       return mode == BOND_MODE_8023AD || mode == BOND_MODE_TLB ||
->> +              mode == BOND_MODE_ALB;
->> +}
->> +
-...snip...
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 749f80c..e968843 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1492,10 +1492,14 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (len > sk->sk_sndbuf - 32)
+ 		goto out;
+ 
+-	if (len > SKB_MAX_ALLOC)
++	if (len > SKB_MAX_ALLOC) {
+ 		data_len = min_t(size_t,
+ 				 len - SKB_MAX_ALLOC,
+ 				 MAX_SKB_FRAGS * PAGE_SIZE);
++		data_len = PAGE_ALIGN(data_len);
++
++		BUILD_BUG_ON(SKB_MAX_ALLOC < PAGE_SIZE);
++	}
+ 
+ 	skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
+ 				   msg->msg_flags & MSG_DONTWAIT, &err,
+@@ -1670,6 +1674,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 
+ 		data_len = max_t(int, 0, size - SKB_MAX_HEAD(0));
+ 
++		data_len = min_t(size_t, size, PAGE_ALIGN(data_len));
++
+ 		skb = sock_alloc_send_pskb(sk, size - data_len, data_len,
+ 					   msg->msg_flags & MSG_DONTWAIT, &err,
+ 					   get_order(UNIX_SKB_FRAGS_SZ));
