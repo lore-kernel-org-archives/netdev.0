@@ -1,27 +1,73 @@
-From: Mrs Teresa <Au@notice.org>
-Subject: Hello
-Date: Thu, 15 May 2014 07:14:11 +0100
-Message-ID: <20140515063410.BA49B6F8B97__40366.6648701348$1400143865$gmane$org@ckgshmail.ckgsh.ntpc.edu.tw>
-Reply-To: msteresa.au1@qq.com
+From: Kirill Tkhai <ktkhai@parallels.com>
+Subject: Re: net: unix: Align send data_len up to PAGE_SIZE
+Date: Thu, 15 May 2014 12:54:40 +0400
+Message-ID: <1400144080.3782.23.camel@tkhai>
+References: <1399906332.31472.1.camel@tkhai>
+	 <20140514.151504.1740922429122469259.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <Au@notice.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [203.71.70.2] ([203.71.70.2]:58353 "HELO
-	ckgshmail.ckgsh.ntpc.edu.tw" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1751874AbaEOIuQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 04:50:16 -0400
-Content-Description: Mail message body
+Received: from relay.parallels.com ([195.214.232.42]:37777 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750786AbaEOIyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 04:54:44 -0400
+In-Reply-To: <20140514.151504.1740922429122469259.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+=D0=92 =D0=A1=D1=80, 14/05/2014 =D0=B2 15:15 -0400, David Miller =D0=BF=
+=D0=B8=D1=88=D0=B5=D1=82:
+> From: Kirill Tkhai <ktkhai@parallels.com>
+> Date: Mon, 12 May 2014 18:52:12 +0400
+>=20
+> >  		data_len =3D min_t(size_t,
+> >  				 len - SKB_MAX_ALLOC,
+> >  				 MAX_SKB_FRAGS * PAGE_SIZE);
+> > +		data_len =3D min_t(size_t,
+> > +				 len,
+> > +				 PAGE_ALIGN(data_len));
+> > +	}
+>=20
+> When I see:
+>=20
+> 		x =3D min(y - N, z1);
+> 		x =3D min(y, z2);
+>=20
+> I'm a bit suspicious.  Why are you not subtracting the constant
+> factor out of the first variable in the second min() call?
 
-Please can you help me reprofile fund? I am Ms Teresa Au, HSBC Hong Kong, head of corporate sustainability Asia pacific region. A sum of (USD$23,200,000.00) (Twenty three million, two Hundred Thousand dollars) Million was deposited by our Late customer who died without declaring any next of kin before his death in 2006. 
+Because, in the most cases (len - SKB_MAX_ALLOC) < PAGE_ALIGN(data_len)=
+,
+and the only payload of the patch is it tries to fix that :)
+We use unused space of allocated page. For mem cache it's easier
+to allocate
 
-My suggestion to you is to stand as the next of kin to Fadel Ahmed. We shall share in the ratio of 50% for me, 50% for you. Please contact me via this e-mail: msteresa.au1@qq.com . Thanks
+(len - PAGE_ALIGN(x)) than (len - x).
 
-Regards
-Mrs Teresa Au.
+
+Here really should be=20
+
+ 		data_len =3D min_t(size_t,
+ 				 len - SKB_MAX_ALLOC,
+ 				 MAX_SKB_FRAGS * PAGE_SIZE);
++		data_len =3D PAGE_ALIGN(data_len));
+
+
+I added the second min, because I was afraid somebody plays with
+SKB_MAX_ALLOC size in debug purposes. Not sure now.
+
+Ok, yes, simple PAGE_ALIGN is much better :)
+
++ data_len =3D PAGE_ALIGN(data_len));
+
+And I assumed it's OK to allocate skbs with zero header size like this:
+
+sock_alloc_send_pskb(sk, 0, data_len)
+
+Please say, if it's wrong.
+
+Thanks!
+Kirill
