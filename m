@@ -1,51 +1,51 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH] net: tunnels - enable module autoloading
-Date: Thu, 15 May 2014 23:42:58 +0200
-Message-ID: <CAG-2HqWeJKbipVm+1oxKQYQfFyqu4SdSH15BP-4OAaUbJBCVdg@mail.gmail.com>
-References: <1399970908-9973-1-git-send-email-teg@jklm.no> <20140515143202.53ca8033@nehalam.linuxnetplumber.net>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: =?UTF-8?q?=5BPATCH=5D=20Fix=20for=20possible=20null=20pointer=20dereference=20in=20auth=2Ec?=
+Date: Thu, 15 May 2014 23:56:38 +0200
+Message-ID: <1400190998-28153-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
-	jmorris@namei.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140515143202.53ca8033@nehalam.linuxnetplumber.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 15, 2014 at 11:32 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Tue, 13 May 2014 10:48:28 +0200
-> Tom Gundersen <teg@jklm.no> wrote:
->
->> Enable the module alias hookup to allow tunnel modules to be autoloaded on demand.
->>
->> This is in line with how most other netdev kinds work, and will allow userspace
->> to create tunnels without having CAP_SYS_MODULE.
->>
->> Signed-off-by: Tom Gundersen <teg@jklm.no>
->> Tested-by: Susant Sahani <susant@redhat.com>
->> ---
->>  net/ipv4/ipip.c       | 1 +
->>  net/ipv6/ip6_tunnel.c | 1 +
->>  net/ipv6/sit.c        | 1 +
->>  3 files changed, 3 insertions(+)
->
-> But tunnel modules are autoloaded now.
-> If I create a tunnel with ip tunnel based on the existing MODULE_ALIAS_NETDEV().
+There is otherwise a risk of a possible null pointer dereference.
 
-Hm, please correct me if I'm wrong, but this only works if you create
-a tunnel with one of the hardcoded tunnel names, right? And also, if I
-read the code correctly, it only works if you use the ioctl interface
-and not the rtnl interface?
+Was largely found by using a static code analysis program called cppche=
+ck.
 
-What we'd like to do is to use the rtnl interface to create tunnels
-with arbitrary names, is there a way this can already be done that I
-have missed?
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital=
+=2Ese>
+---
+ net/sunrpc/auth.c |   10 +++++++---
+ 1 fil =C3=A4ndrad, 7 till=C3=A4gg(+), 3 borttagningar(-)
 
-Cheers,
-
-Tom
+diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
+index 5285ead..3a55698 100644
+--- a/net/sunrpc/auth.c
++++ b/net/sunrpc/auth.c
+@@ -801,10 +801,14 @@ rpcauth_invalcred(struct rpc_task *task)
+ {
+ 	struct rpc_cred *cred =3D task->tk_rqstp->rq_cred;
+=20
+-	dprintk("RPC: %5u invalidating %s cred %p\n",
+-		task->tk_pid, cred->cr_auth->au_ops->au_name, cred);
+-	if (cred)
++	if (cred) {
++		dprintk("RPC: %5u invalidating %s cred %p\n",
++			task->tk_pid, cred->cr_auth->au_ops->au_name, cred);
++
+ 		clear_bit(RPCAUTH_CRED_UPTODATE, &cred->cr_flags);
++	}
++	else
++		dprintk("RPC: %5u invalidating is NULL\n", task->tk_pid);
+ }
+=20
+ int
+--=20
+1.7.10.4
