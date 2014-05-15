@@ -1,56 +1,75 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net] bonding: fix out of range parameters for
- bond_intmax_tbl
-Date: Thu, 15 May 2014 13:44:52 +0200
-Message-ID: <20140515114452.GA28950@mikrodark.usersys.redhat.com>
-References: <1400153723-8031-1-git-send-email-nikolay@redhat.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
+Date: Thu, 15 May 2014 12:47:31 +0100
+Message-ID: <1400154451.11632.0.camel@kazak.uk.xensource.com>
+References: <537262AB.5010408@canonical.com> <5373C8D4.2010803@citrix.com>
+	 <1400143605.1006.1.camel@kazak.uk.xensource.com>
+	 <20140515110410.GD1117@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	<xen-devel@lists.xenproject.org>, netdev <netdev@vger.kernel.org>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:61083 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752744AbaEOLpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 07:45:14 -0400
-Received: by mail-we0-f176.google.com with SMTP id q59so910957wes.7
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 04:45:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1400153723-8031-1-git-send-email-nikolay@redhat.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:11587 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751691AbaEOLrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 07:47:33 -0400
+In-Reply-To: <20140515110410.GD1117@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 01:35:23PM +0200, Nikolay Aleksandrov wrote:
->I've missed to add a NULL entry to the bond_intmax_tbl when I introduced
->it with the conversion of arp_interval so add it now.
->
->CC: Jay Vosburgh <j.vosburgh@gmail.com>
->CC: Veaceslav Falico <vfalico@gmail.com>
+On Thu, 2014-05-15 at 12:04 +0100, Wei Liu wrote:
+> On Thu, May 15, 2014 at 09:46:45AM +0100, Ian Campbell wrote:
+> > On Wed, 2014-05-14 at 20:49 +0100, Zoltan Kiss wrote:
+> > > On 13/05/14 19:21, Stefan Bader wrote:
+> > > > We had reports about this message being seen on EC2 for a while but finally a
+> > > > reporter did notice some details about the guests and was able to provide a
+> > > > simple way to reproduce[1].
+> > > >
+> > > > For my local experiments I use a Xen-4.2.2 based host (though I would say the
+> > > > host versions are not important). The host has one NIC which is used as the
+> > > > outgoing port of a Linux based (not openvswitch) bridge. And the PV guests use
+> > > > that bridge. I set the mtu to 9001 (which was seen on affected instance types)
+> > > > and also inside the guests. As described in the report one guests runs
+> > > > redis-server and the other nodejs through two scripts (for me I had to do the
+> > > > two sub.js calls in separate shells). After a bit the error messages appear on
+> > > > the guest running the redis-server.
+> > > >
+> > > > I added some debug printk's to show a bit more detail about the skb and got the
+> > > > following (<length>@<offset (after masking off complete pages)>):
+> > > >
+> > > > [ 698.108119] xen_netfront: xennet: skb rides the rocket: 19 slots
+> > > > [ 698.108134] header 1490@238 -> 1 slots
+> > > > [ 698.108139] frag #0 1614@2164 -> + 1 pages
+> > > > [ 698.108143] frag #1 3038@1296 -> + 2 pages
+> > > > [ 698.108147] frag #2 6076@1852 -> + 2 pages
+> > > > [ 698.108151] frag #3 6076@292 -> + 2 pages
+> > > > [ 698.108156] frag #4 6076@2828 -> + 3 pages
+> > > > [ 698.108160] frag #5 3038@1268 -> + 2 pages
+> > > > [ 698.108164] frag #6 2272@1824 -> + 1 pages
+> > > > [ 698.108168] frag #7 3804@0 -> + 1 pages
+> > > > [ 698.108172] frag #8 6076@264 -> + 2 pages
+> > > > [ 698.108177] frag #9 3946@2800 -> + 2 pages
+> > > > [ 698.108180] frags adding 18 slots
+> > > >
+> > > > Since I am not deeply familiar with the networking code, I wonder about two things:
+> > > > - is there something that should limit the skb data length from all frags
+> > > >    to stay below the 64K which the definition of MAX_SKB_FRAGS hints?
+> > > I think netfront should be able to handle 64K packets at most.
+> > 
+> > Ah, maybe this relates to this fix from Wei?
+> > 
+> 
+> Yes, below patch limits SKB size to 64KB.  However the problem here is
+> not SKB exceeding 64KB. The said SKB is acutally 43KB in size. The
+> problem is that guest kernel is  using compound page so a frag which can
+> be fit into one 4K page spans two 4K pages.  The fix seems to be
+> coalescing SKB in frontend, but it will degrade performance.
 
-Acked-by: Veaceslav Falico <vfalico@gmail.com>
+So long as it only happens when this scenario occurs a performance
+degradation would seem preferable to dropping the skb altogether.
 
->CC: Andy Gospodarek <andy@greyhouse.net>
->
->Fixes: 7bdb04ed0dbf ("bonding: convert arp_interval to use the new
->option API")
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> drivers/net/bonding/bond_options.c | 1 +
-> 1 file changed, 1 insertion(+)
->
->diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
->index 724e30fa20b9..832070298446 100644
->--- a/drivers/net/bonding/bond_options.c
->+++ b/drivers/net/bonding/bond_options.c
->@@ -125,6 +125,7 @@ static const struct bond_opt_value bond_fail_over_mac_tbl[] = {
-> static const struct bond_opt_value bond_intmax_tbl[] = {
-> 	{ "off",     0,       BOND_VALFLAG_DEFAULT},
-> 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
->+	{ NULL,      -1,      0}
-> };
->
-> static const struct bond_opt_value bond_lacp_rate_tbl[] = {
->-- 
->1.8.5.3
->
+Ian.
