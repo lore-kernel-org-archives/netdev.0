@@ -1,55 +1,59 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next 0/8] Non-promisc bidge ports support
-Date: Thu, 15 May 2014 22:02:25 +0900
-Message-ID: <5374BAE1.1050607@lab.ntt.co.jp>
-References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
-	<5374B934.1060902@lab.ntt.co.jp>
+From: Jacek Konieczny <jajcus@jajcus.net>
+Subject: Re: [PATCH net V2] xen-netback: don't move event
+ pointer in TX credit timeout callback
+Date: Thu, 15 May 2014 15:04:36 +0200
+Message-ID: <5374BB64.1080407@jajcus.net>
+References: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, jhs@mojatatu.com, mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5374B934.1060902@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: Paul Durrant <paul.durrant@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-(2014/05/15 21:55), Toshiaki Makita wrote:
-> (2014/05/15 0:09), Vlad Yasevich wrote:
->> This series adds functionality to the bridge device to enable
->> operations without setting all ports to promiscuous mode.
->>
->> The basic concept is this.  The bridge keeps track of the ports
->> that support learning and flooding packets to unknown destinations.
->> We call these ports auto-discovery ports since they automatically
->> discover who is behind them through learning and flooding.  
->>
->> If flooding and learning are disabled via flags, then the port
->> requires static configuration to tell it which mac addresses
->> are behind it.  This is accomplished through adding of fdbs.
->> These fdbs should be static as dynamic fdbs can expire and systems
->> will become unreachable due to lack of flooding.
+On 05/15/14 13:59, Wei Liu wrote:
+> ... otherwise the frontend will try to send TX event all the time, even
+> if no progress can be made. The pointer should only be advanced by the
+> routine that actually processes the ring (that is, xenvif_poll).
 > 
-> Hi Vlad,
+> Reported-by: Jacek Konieczny <jajcus@jajcus.net>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Paul Durrant <paul.durrant@citrix.com>
+> ---
+>  drivers/net/xen-netback/netback.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> This is not a comment for this patch set, but I have a question.
-> 
-> I'm trying to use bridge command to turn off flood/learning but couldn't
-> find the corresponding command.
-> I'm expecting something like "bridge link set br0 flood/learning".
-> 
-> Are there any other userspace commands that can set flood/learning flag?
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 7666540..8e2cbeb 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -658,7 +658,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif)
+>  {
+>  	int more_to_do;
+>  
+> -	RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+> +	more_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
 > 
 
-I've just found them in sysfs. Sorry for noise, thanks.
+Unfortunately, this seems not enough to fix the problem I have reported
+here:
+http://lists.xenproject.org/archives/html/xen-devel/2014-05/msg01183.html
 
-Toshiaki Makita.
+The dom0 network still stalls when using rate limiting on a VIF
+interface after applying this patch to my 3.14.3 kernel (100% CPU#1
+usage in the 'soft interrupts').
+
+Greets,
+	Jacek
