@@ -1,71 +1,53 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH v2 net-next 5/9] bonding: create a macro for bond mode
- and use it
-Date: Thu, 15 May 2014 21:18:07 +0200
-Message-ID: <20140515191806.GB25181@mikrodark.usersys.redhat.com>
-References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
- <1400156967-8231-6-git-send-email-vfalico@gmail.com>
- <10028.1400176311@localhost.localdomain>
- <20140515181436.GA25181@mikrodark.usersys.redhat.com>
- <10534.1400178761@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] rtnetlink: wait for unregistering devices in
+ rtnl_link_unregister()
+Date: Thu, 15 May 2014 15:31:21 -0400 (EDT)
+Message-ID: <20140515.153121.1605947735072984728.davem@davemloft.net>
+References: <20140515.143242.2060472577881743700.davem@davemloft.net>
+	<CAM_iQpVu+X7tM43QD23BpE9bNemVFcPznOmTFQb_pQ2gA=c9Qg@mail.gmail.com>
+	<20140515.145043.2164782223537934866.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	cwang@twopensource.com, ebiederm@xmission.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:38702 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752025AbaEOTS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 15:18:29 -0400
-Received: by mail-we0-f174.google.com with SMTP id k48so1537712wev.19
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 12:18:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <10534.1400178761@localhost.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35422 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654AbaEOTb2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 15:31:28 -0400
+In-Reply-To: <20140515.145043.2164782223537934866.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 11:32:41AM -0700, Jay Vosburgh wrote:
->Veaceslav Falico <vfalico@gmail.com> wrote:
->
->>On Thu, May 15, 2014 at 10:51:51AM -0700, Jay Vosburgh wrote:
->>>Veaceslav Falico <vfalico@gmail.com> wrote:
+From: David Miller <davem@davemloft.net>
+Date: Thu, 15 May 2014 14:50:43 -0400 (EDT)
+
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Thu, 15 May 2014 11:43:26 -0700
+> 
+>> On Thu, May 15, 2014 at 11:32 AM, David Miller <davem@davemloft.net> wrote:
+>>> From: Cong Wang <xiyou.wangcong@gmail.com>
+>>> Date: Mon, 12 May 2014 15:11:20 -0700
 >>>
->>>>CC: Jay Vosburgh <j.vosburgh@gmail.com>
->>>>CC: Andy Gospodarek <andy@greyhouse.net>
->>>>Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->>>>---
->>...snip...
->>>	Would it be better to use "bond_uses_primary(struct bonding *)"
->>>instead of the above?  That would simplify the above calling pattern,
->>>and shorten the calls elsewhere.  Maybe I missed one, but it looks like
->>>all of the calls to _uses_primary have BOND_MODE(bond) as the argument.
->>
->>There's at least one call, when checking the params, where it checks the
->>int:
->>
->>bond_main.c:
->>4271         if (primary && !bond_mode_uses_primary(bond_mode)) {
->>
->>so, either we'll use something else here, or leave it with BOND_MODE()...
->
->	The something else isn't so bad, and would look better for most
->callers:
->
->static inline bool bond_uses_primary(struct bonding *bond)
->{
->	return bond_mode_uses_primary(bond->params.mode);
->}
->
->	This ends up replacing "USES_PRIMARY(bond->params.mode)" with
->"bond_uses_primary(bond)" for most call sites, which actually looks like
->an improvement (it's even shorter).
+>>>> +static void rtnl_lock_unregistering_all(void)
+>>>
+>>> This is just:
+>>>
+>>>         rtnl_lock_unregistering(&net_namespace_list);
+>>>
+>>> There is no need to reimplement the entire thing.
+>> 
+>> This is exactly what I did in v0 (never sent out) locally,
+>> I spent few hours to debug the problem. The problem
+>> is net_namespace_list links netns by net->list,
+>> while rtnl_lock_unregistering() uses net->exit_list.
+>> Thus I used an ugly macro in v1.
+>> 
+>> There seems no other choice than  between
+>> an ugly macro and duplicated code.
+> 
+> Thanks for explaining (again), I'll look at this some more.
 
-Yeah, good idea, will do and resubmit.
-
-Thank you!
-
->
->	-J
->
->---
->	-Jay Vosburgh, jay.vosburgh@canonical.com
+Ok, applied and queued up for -stable, thanks.
