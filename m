@@ -1,167 +1,92 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v3 net-next 7/9] bonding: convert IS_UP(slave->dev) to inline function
-Date: Thu, 15 May 2014 21:39:57 +0200
-Message-ID: <1400182799-22737-8-git-send-email-vfalico@gmail.com>
+Subject: [PATCH v3 net-next 6/9] bonding: make IS_IP_TARGET_UNUSABLE_ADDRESS an inline function
+Date: Thu, 15 May 2014 21:39:56 +0200
+Message-ID: <1400182799-22737-7-git-send-email-vfalico@gmail.com>
 References: <1400182799-22737-1-git-send-email-vfalico@gmail.com>
 Cc: Veaceslav Falico <vfalico@gmail.com>,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2126 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46998 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754949AbaEOToo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 15:44:44 -0400
+	id S1755839AbaEOTon (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 15:44:43 -0400
 In-Reply-To: <1400182799-22737-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, remove the IFF_UP verification cause we can't be netif_running() with
-being also IFF_UP.
+Also, use standard IP primitives to check the address.
 
 CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 ---
- drivers/net/bonding/bond_3ad.c     |  2 +-
- drivers/net/bonding/bond_main.c    | 16 ++++++++--------
- drivers/net/bonding/bond_options.c |  2 +-
- drivers/net/bonding/bonding.h      | 12 ++++++------
- 4 files changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/bonding/bond_main.c    | 2 +-
+ drivers/net/bonding/bond_options.c | 4 ++--
+ drivers/net/bonding/bonding.h      | 8 +++++---
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 24faddd..7997a1e 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -192,7 +192,7 @@ static inline void __enable_port(struct port *port)
- {
- 	struct slave *slave = port->slave;
- 
--	if ((slave->link == BOND_LINK_UP) && IS_UP(slave->dev))
-+	if ((slave->link == BOND_LINK_UP) && bond_slave_is_up(slave))
- 		bond_set_slave_active_flags(slave, BOND_SLAVE_NOTIFY_LATER);
- }
- 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1af2be5..db323e6 100644
+index 744c471..1af2be5 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -747,7 +747,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
- 	bond_for_each_slave(bond, slave, iter) {
- 		if (slave->link == BOND_LINK_UP)
- 			return slave;
--		if (slave->link == BOND_LINK_BACK && IS_UP(slave->dev) &&
-+		if (slave->link == BOND_LINK_BACK && bond_slave_is_up(slave) &&
- 		    slave->delay < mintime) {
- 			mintime = slave->delay;
- 			bestslave = slave;
-@@ -958,7 +958,7 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
- 	struct slave *slave;
- 
- 	bond_for_each_slave(bond, slave, iter)
--		if (IS_UP(slave->dev))
-+		if (bond_slave_is_up(slave))
- 			slave_disable_netpoll(slave);
- }
- 
-@@ -2490,7 +2490,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
- 		 * do - all replies will be rx'ed on same link causing slaves
- 		 * to be unstable during low/no traffic periods
- 		 */
--		if (IS_UP(slave->dev))
-+		if (bond_slave_is_up(slave))
- 			bond_arp_send_all(bond, slave);
- 	}
- 
-@@ -2712,10 +2712,10 @@ static bool bond_ab_arp_probe(struct bonding *bond)
- 	bond_set_slave_inactive_flags(curr_arp_slave, BOND_SLAVE_NOTIFY_LATER);
- 
- 	bond_for_each_slave_rcu(bond, slave, iter) {
--		if (!found && !before && IS_UP(slave->dev))
-+		if (!found && !before && bond_slave_is_up(slave))
- 			before = slave;
- 
--		if (found && !new_slave && IS_UP(slave->dev))
-+		if (found && !new_slave && bond_slave_is_up(slave))
- 			new_slave = slave;
- 		/* if the link state is up at this point, we
- 		 * mark it down - this can happen if we have
-@@ -2724,7 +2724,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
- 		 * one the current slave so it is still marked
- 		 * up when it is actually down
- 		 */
--		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
-+		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
- 			slave->link = BOND_LINK_DOWN;
- 			if (slave->link_failure_count < UINT_MAX)
- 				slave->link_failure_count++;
-@@ -3710,7 +3710,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- 	bond_for_each_slave_rcu(bond, slave, iter) {
- 		if (bond_is_last_slave(bond, slave))
- 			break;
--		if (IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
-+		if (bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
- 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 
- 			if (!skb2) {
-@@ -3722,7 +3722,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
- 			bond_dev_queue_xmit(bond, skb2, slave->dev);
- 		}
- 	}
--	if (slave && IS_UP(slave->dev) && slave->link == BOND_LINK_UP)
-+	if (slave && bond_slave_is_up(slave) && slave->link == BOND_LINK_UP)
- 		bond_dev_queue_xmit(bond, skb, slave->dev);
- 	else
- 		dev_kfree_skb_any(skb);
+@@ -4195,7 +4195,7 @@ static int bond_check_params(struct bond_params *params)
+ 		   catch mistakes */
+ 		__be32 ip;
+ 		if (!in4_pton(arp_ip_target[i], -1, (u8 *)&ip, -1, NULL) ||
+-		    IS_IP_TARGET_UNUSABLE_ADDRESS(ip)) {
++		    !bond_is_ip_target_ok(ip)) {
+ 			pr_warn("Warning: bad arp_ip_target module parameter (%s), ARP monitoring will not be performed\n",
+ 				arp_ip_target[i]);
+ 			arp_interval = 0;
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 0cf4c1a..94094b3 100644
+index dd7292f..0cf4c1a 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -758,7 +758,7 @@ static int bond_option_active_slave_set(struct bonding *bond,
- 				bond->dev->name, new_active->dev->name);
- 		} else {
- 			if (old_active && (new_active->link == BOND_LINK_UP) &&
--			    IS_UP(new_active->dev)) {
-+			    bond_slave_is_up(new_active)) {
- 				pr_info("%s: Setting %s as active slave\n",
- 					bond->dev->name, new_active->dev->name);
- 				bond_change_active_slave(bond, new_active);
+@@ -942,7 +942,7 @@ static int _bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
+ 	__be32 *targets = bond->params.arp_targets;
+ 	int ind;
+ 
+-	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
++	if (!bond_is_ip_target_ok(target)) {
+ 		pr_err("%s: invalid ARP target %pI4 specified for addition\n",
+ 		       bond->dev->name, &target);
+ 		return -EINVAL;
+@@ -987,7 +987,7 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+ 	unsigned long *targets_rx;
+ 	int ind, i;
+ 
+-	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
++	if (!bond_is_ip_target_ok(target)) {
+ 		pr_err("%s: invalid ARP target %pI4 specified for removal\n",
+ 		       bond->dev->name, &target);
+ 		return -EINVAL;
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ac75b0f..6a5393b 100644
+index bb663a4..ac75b0f 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -40,11 +40,6 @@
+@@ -54,9 +54,6 @@
+ 		     ((slave)->link == BOND_LINK_UP) && \
+ 		     bond_is_active_slave(slave))
  
- #define BOND_DEFAULT_MIIMON	100
- 
--#define IS_UP(dev)					   \
--	      ((((dev)->flags & IFF_UP) == IFF_UP)	&& \
--	       netif_running(dev)			&& \
--	       netif_carrier_ok(dev))
--
+-#define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
+-	((htonl(INADDR_BROADCAST) == a) ||	\
+-	 ipv4_is_zeronet(a))
  /*
-  * Checks whether slave is ready for transmit.
-  */
-@@ -297,6 +292,11 @@ static inline bool bond_uses_primary(struct bonding *bond)
- 	return bond_mode_uses_primary(BOND_MODE(bond));
+  * Less bad way to call ioctl from within the kernel; this needs to be
+  * done some other way to get the call out of interrupt context.
+@@ -406,6 +403,11 @@ static inline int slave_do_arp_validate_only(struct bonding *bond)
+ 	return bond->params.arp_validate & BOND_ARP_FILTER;
  }
  
-+static inline bool bond_slave_is_up(struct slave *slave)
++static inline int bond_is_ip_target_ok(__be32 addr)
 +{
-+	return netif_running(slave->dev) && netif_carrier_ok(slave->dev);
++	return !ipv4_is_lbcast(addr) && !ipv4_is_zeronet(addr);
 +}
 +
- static inline void bond_set_active_slave(struct slave *slave)
- {
- 	if (slave->backup) {
-@@ -487,7 +487,7 @@ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be3
- 
- static inline bool slave_can_tx(struct slave *slave)
- {
--	if (IS_UP(slave->dev) && slave->link == BOND_LINK_UP &&
-+	if (bond_slave_is_up(slave) && slave->link == BOND_LINK_UP &&
- 	    bond_is_active_slave(slave))
- 		return true;
- 	else
+ /* Get the oldest arp which we've received on this slave for bond's
+  * arp_targets.
+  */
 -- 
 1.8.4
