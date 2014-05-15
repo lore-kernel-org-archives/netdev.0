@@ -1,53 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] rtnetlink: wait for unregistering devices in
- rtnl_link_unregister()
-Date: Thu, 15 May 2014 15:31:21 -0400 (EDT)
-Message-ID: <20140515.153121.1605947735072984728.davem@davemloft.net>
-References: <20140515.143242.2060472577881743700.davem@davemloft.net>
-	<CAM_iQpVu+X7tM43QD23BpE9bNemVFcPznOmTFQb_pQ2gA=c9Qg@mail.gmail.com>
-	<20140515.145043.2164782223537934866.davem@davemloft.net>
+Subject: Re: [PATCH] net: tunnels - enable module autoloading
+Date: Thu, 15 May 2014 15:37:21 -0400 (EDT)
+Message-ID: <20140515.153721.2222505094570361361.davem@davemloft.net>
+References: <1399970908-9973-1-git-send-email-teg@jklm.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	cwang@twopensource.com, ebiederm@xmission.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35422 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654AbaEOTb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 15:31:28 -0400
-In-Reply-To: <20140515.145043.2164782223537934866.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
+	kuznet@ms2.inr.ac.ru
+To: teg@jklm.no
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1399970908-9973-1-git-send-email-teg@jklm.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 15 May 2014 14:50:43 -0400 (EDT)
-
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Thu, 15 May 2014 11:43:26 -0700
-> 
->> On Thu, May 15, 2014 at 11:32 AM, David Miller <davem@davemloft.net> wrote:
->>> From: Cong Wang <xiyou.wangcong@gmail.com>
->>> Date: Mon, 12 May 2014 15:11:20 -0700
->>>
->>>> +static void rtnl_lock_unregistering_all(void)
->>>
->>> This is just:
->>>
->>>         rtnl_lock_unregistering(&net_namespace_list);
->>>
->>> There is no need to reimplement the entire thing.
->> 
->> This is exactly what I did in v0 (never sent out) locally,
->> I spent few hours to debug the problem. The problem
->> is net_namespace_list links netns by net->list,
->> while rtnl_lock_unregistering() uses net->exit_list.
->> Thus I used an ugly macro in v1.
->> 
->> There seems no other choice than  between
->> an ugly macro and duplicated code.
-> 
-> Thanks for explaining (again), I'll look at this some more.
-
-Ok, applied and queued up for -stable, thanks.
+RnJvbTogVG9tIEd1bmRlcnNlbiA8dGVnQGprbG0ubm8+DQpEYXRlOiBUdWUsIDEzIE1heSAyMDE0
+IDEwOjQ4OjI4ICswMjAwDQoNCj4gRW5hYmxlIHRoZSBtb2R1bGUgYWxpYXMgaG9va3VwIHRvIGFs
+bG93IHR1bm5lbCBtb2R1bGVzIHRvIGJlIGF1dG9sb2FkZWQgb24gZGVtYW5kLg0KPiANCj4gVGhp
+cyBpcyBpbiBsaW5lIHdpdGggaG93IG1vc3Qgb3RoZXIgbmV0ZGV2IGtpbmRzIHdvcmssIGFuZCB3
+aWxsIGFsbG93IHVzZXJzcGFjZQ0KPiB0byBjcmVhdGUgdHVubmVscyB3aXRob3V0IGhhdmluZyBD
+QVBfU1lTX01PRFVMRS4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFRvbSBHdW5kZXJzZW4gPHRlZ0Bq
+a2xtLm5vPg0KPiBUZXN0ZWQtYnk6IFN1c2FudCBTYWhhbmkgPHN1c2FudEByZWRoYXQuY29tPg0K
+DQpUaGlzIGRvZXNuJ3QgZXZlbiBjb21waWxlOg0KDQogIENDIFtNXSAgbmV0L2lwdjQvaXBpcC5v
+DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9tb2R1bGUuaDoxNzowLA0KICAg
+ICAgICAgICAgICAgICBmcm9tIG5ldC9pcHY0L2lwaXAuYzo5NToNCmluY2x1ZGUvbGludXgvbW9k
+dWxlcGFyYW0uaDoyMToxOiBlcnJvcjogZXhwZWN0ZWQgoSyiIG9yIKE7oiBiZWZvcmUgoXN0YXRp
+Y6INCiBzdGF0aWMgY29uc3QgY2hhciBfX1VOSVFVRV9JRChuYW1lKVtdICAgICAgIFwNCiBeDQpp
+bmNsdWRlL2xpbnV4L21vZHVsZS5oOjg2OjMyOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8g
+oV9fTU9EVUxFX0lORk+iDQogI2RlZmluZSBNT0RVTEVfSU5GTyh0YWcsIGluZm8pIF9fTU9EVUxF
+X0lORk8odGFnLCB0YWcsIGluZm8pDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4N
+CmluY2x1ZGUvbGludXgvbW9kdWxlLmg6ODk6MzA6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNy
+byChTU9EVUxFX0lORk+iDQogI2RlZmluZSBNT0RVTEVfQUxJQVMoX2FsaWFzKSBNT0RVTEVfSU5G
+TyhhbGlhcywgX2FsaWFzKQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KaW5jbHVk
+ZS9saW51eC9uZXRkZXZpY2UuaDozMjgzOjI6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNybyCh
+TU9EVUxFX0FMSUFTog0KICBNT0RVTEVfQUxJQVMoIm5ldGRldi0iIGRldmljZSkNCiAgXg0KbmV0
+L2lwdjQvaXBpcC5jOjQ5MDoxOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8goU1PRFVMRV9B
+TElBU19ORVRERVaiDQogTU9EVUxFX0FMSUFTX05FVERFVigidHVubDAiKTsNCiBeDQo=
