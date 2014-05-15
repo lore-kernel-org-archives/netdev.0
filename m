@@ -1,139 +1,75 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net-next 5/8] bridge: Add addresses from static fdbs to non-promisc ports
-Date: Thu, 15 May 2014 12:56:53 -0400
-Message-ID: <1400173016-8952-6-git-send-email-vyasevic@redhat.com>
-References: <1400173016-8952-1-git-send-email-vyasevic@redhat.com>
-Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
-	mst@redhat.com, john.r.fastabend@intel.com, jhs@mojatatu.com,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net V2] xen-netback: don't move event pointer in TX credit
+ timeout callback
+Date: Thu, 15 May 2014 18:03:14 +0100
+Message-ID: <5374F352.9050302@citrix.com>
+References: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com> <5374BB64.1080407@jajcus.net> <20140515141322.GI1117@zion.uk.xensource.com> <5374D38A.2070709@citrix.com> <20140515153051.GJ1117@zion.uk.xensource.com> <5374EC81.1070808@citrix.com> <20140515165358.GA10525@zion.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jacek Konieczny <jajcus@jajcus.net>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, Paul Durrant <paul.durrant@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15685 "EHLO mx1.redhat.com"
+Received: from smtp.citrix.com ([66.165.176.89]:36584 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754605AbaEOQ5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 12:57:12 -0400
-In-Reply-To: <1400173016-8952-1-git-send-email-vyasevic@redhat.com>
+	id S1753002AbaEORDS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 13:03:18 -0400
+In-Reply-To: <20140515165358.GA10525@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a static fdb entry is created, add the mac address
-from this fdb entry to any ports that are currently running
-in non-promiscuous mode.  These ports need this data so that
-they can receive traffic destined to these addresses.
-By default ports start in promiscuous mode, so this feature
-is disabled.
-
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_fdb.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 70 insertions(+), 6 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index fe124e5..834ca8c 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -85,8 +85,58 @@ static void fdb_rcu_free(struct rcu_head *head)
- 	kmem_cache_free(br_fdb_cache, ent);
- }
- 
-+/* When a static FDB entry is added, the mac address from the entry is
-+ * added to the bridge private HW address list and all required ports
-+ * are then updated with the new information.
-+ * Called under RTNL.
-+ */
-+static void fdb_add_hw(struct net_bridge *br, const unsigned char *addr)
-+{
-+	int err;
-+	struct net_bridge_port *p, *tmp;
-+
-+	ASSERT_RTNL();
-+
-+	list_for_each_entry(p, &br->port_list, list) {
-+		if (!br_promisc_port(p)) {
-+			err = dev_uc_add(p->dev, addr);
-+			if (err)
-+				goto undo;
-+		}
-+	}
-+
-+	return;
-+undo:
-+	list_for_each_entry(tmp, &br->port_list, list) {
-+		if (tmp == p)
-+			break;
-+		if (!br_promisc_port(tmp))
-+			dev_uc_del(tmp->dev, addr);
-+	}
-+}
-+
-+/* When a static FDB entry is deleted, the HW address from that entry is
-+ * also removed from the bridge private HW address list and updates all
-+ * the ports with needed information.
-+ * Called under RTNL.
-+ */
-+static void fdb_del_hw(struct net_bridge *br, const unsigned char *addr)
-+{
-+	struct net_bridge_port *p;
-+
-+	ASSERT_RTNL();
-+
-+	list_for_each_entry(p, &br->port_list, list) {
-+		if (!br_promisc_port(p))
-+			dev_uc_del(p->dev, addr);
-+	}
-+}
-+
- static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
- {
-+	if (f->is_static)
-+		fdb_del_hw(br, f->addr.addr);
-+
- 	hlist_del_rcu(&f->hlist);
- 	fdb_notify(br, f, RTM_DELNEIGH);
- 	call_rcu(&f->rcu, fdb_rcu_free);
-@@ -466,6 +516,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
- 		return -ENOMEM;
- 
- 	fdb->is_local = fdb->is_static = 1;
-+	fdb_add_hw(br, addr);
- 	fdb_notify(br, fdb, RTM_NEWNEIGH);
- 	return 0;
- }
-@@ -678,16 +729,29 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 	}
- 
- 	if (fdb_to_nud(fdb) != state) {
--		if (state & NUD_PERMANENT)
--			fdb->is_local = fdb->is_static = 1;
--		else if (state & NUD_NOARP) {
-+		if (state & NUD_PERMANENT) {
-+			fdb->is_local = 1;
-+			if (!fdb->is_static) {
-+				fdb->is_static = 1;
-+				fdb_add_hw(br, addr);
-+			}
-+		} else if (state & NUD_NOARP) {
-+			fdb->is_local = 0;
-+			if (!fdb->is_static) {
-+				fdb->is_static = 1;
-+				fdb_add_hw(br, addr);
-+			}
-+		} else {
- 			fdb->is_local = 0;
--			fdb->is_static = 1;
--		} else
--			fdb->is_local = fdb->is_static = 0;
-+			if (fdb->is_static) {
-+				fdb->is_static = 0;
-+				fdb_del_hw(br, addr);
-+			}
-+		}
- 
- 		modified = true;
- 	}
-+
- 	fdb->added_by_user = 1;
- 
- 	fdb->used = jiffies;
--- 
-1.9.0
+On 15/05/14 17:53, Wei Liu wrote:
+> On Thu, May 15, 2014 at 05:34:09PM +0100, Zoltan Kiss wrote:
+> [...]
+>>>>>
+>>>>>   		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+>>>>> -		if (!more_to_do)
+>>>>> +		if (!more_to_do || rate_limited)
+>>>> How about calling timer_pending(&vif->credit_timeout) instead?
+>>>
+>>> timer_pending(&vif->credit_timeout) covers only one of two senarios of
+>>> "credit exceeded", see tx_credit_exceeded.
+>> The other scenario is when the packet size exceeds the credit. There is no
+>> packet here actually, we just want to know if this vif ran out of credit and
+>> waiting for the timer to fire.
+>>
+>>>
+>
+> Which place are you referring to? There's packet in the ring, right? So
+> you're saying in xenvif_poll "more_to_do" is true and "timer_pending" is
+> also true when we come to xenvif_poll again?
+The goal of this patch to deschedule NAPI if the vif ran out of credit. 
+Either you can carry that information from build_gops via a bool, or you 
+can check whether the timer is pending. That's what tx_credit_exceeded 
+does as well, and then it checks if the actual packet fits in. But in 
+xenvif_poll you don't want to know whether an actual packet fits in, you 
+only need the information whether tx_credit_exceeded started the timer 
+or not.
+If it is, you can be sure there is no more credit. If not, you can keep 
+the instance running.
+>
+>>>> Also, can this __napi_complete and the callback's napi_schedule race with
+>>>> each other? When napi_complete is between removing from the list and
+>>>> clearing the bit, and napi_schedule is just test&set the bit, the latter
+>>>> won't add the instance to the list again
+>>>>
+>>>
+>>> I think it should be fine. How is it different from what we already have
+>>> now? Is this something similar to what David once posted?
+>>>
+>>>    <1395756505-21573-1-git-send-email-david.vrabel@citrix.com>
+>> Unfortunately that discussion stalled, and my question were not answered, so
+>> I bumped it again. But that's different a bit: it was about racing between
+>> the NAPI instance (running in softirq context) and the interrupt. Here the
+>> danger is that the NAPI instance and the softirq can race. They both run in
+>> softirq context, and even if they were originally on the same CPU, I'm sure
+>> if the instance move somewhere else, the timer doesn't follow it.
+>>
+>
+> This comes back to that original question, doesn't it? That's NAPI
+> running on CPU A and raised by CPU B.
+>
+> Wei.
+>
+>> Zoli
