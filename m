@@ -1,44 +1,48 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: bonding directly changes underlying device address
-Date: Thu, 15 May 2014 06:55:25 +0200
-Message-ID: <20140515045524.GA27773@mikrodark.usersys.redhat.com>
-References: <5371FCD0.7050502@mellanox.com>
- <20140513115527.GC2910@minipsycho.orion>
- <20030.1399998641@localhost.localdomain>
- <CAJZOPZ+pOBw4M-ZFF2qsqNgGJcKcRRdhWFf4dy1FQ8Ngr-ZqRA@mail.gmail.com>
- <20140514080114.GA30960@mikrodark.usersys.redhat.com>
- <5046.1400117925@localhost.localdomain>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH net-next] ip_tunnel: don't add tunnel twice
+Date: Thu, 15 May 2014 13:07:02 +0800
+Message-ID: <53744B76.3080101@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Or Gerlitz <or.gerlitz@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Noa Osherovich <noaos@mellanox.com>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset="GB2312"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: <kaber@trash.net>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:55298 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751278AbaEOEzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 00:55:47 -0400
-Received: by mail-we0-f176.google.com with SMTP id q59so485411wes.7
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 21:55:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5046.1400117925@localhost.localdomain>
+Received: from cn.fujitsu.com ([59.151.112.132]:63454 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751178AbaEOFJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 01:09:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 06:38:45PM -0700, Jay Vosburgh wrote:
-...snip...
->	So, I'd say "No" to conversion to dev_set_mac_address() and
->"show me the code" to the "stash it in the slave" plan.
 
-Ok, got it, I will try to move it to struct slave.
+When using command "ip tunnel add" to add a tunnel, the tunnel will be added twice,
+through ip_tunnel_create() and ip_tunnel_update().
 
-Thank you!
+Because the second is unnecessary, so we can just break after adding tunnel
+through ip_tunnel_create().
 
->
->	-J
->
->---
->	-Jay Vosburgh, jay.vosburgh@canonical.com
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/ip_tunnel.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index b3f8597..e83af0f 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -755,10 +755,8 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+ 
+ 		if (!t && (cmd == SIOCADDTUNNEL)) {
+ 			t = ip_tunnel_create(net, itn, p);
+-			if (IS_ERR(t)) {
+-				err = PTR_ERR(t);
+-				break;
+-			}
++			err = PTR_ERR_OR_ZERO(t);
++			break;
+ 		}
+ 		if (dev != itn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
+ 			if (t != NULL) {
+-- 
+1.8.3.1
