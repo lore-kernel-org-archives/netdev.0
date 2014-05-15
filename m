@@ -1,92 +1,77 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v2 net-next 6/9] bonding: make IS_IP_TARGET_UNUSABLE_ADDRESS an inline function
-Date: Thu, 15 May 2014 14:29:24 +0200
-Message-ID: <1400156967-8231-7-git-send-email-vfalico@gmail.com>
+Subject: [PATCH v2 net-next 2/9] bonding: make TX_QUEUE_OVERRIDE() macro an inline function
+Date: Thu, 15 May 2014 14:29:20 +0200
+Message-ID: <1400156967-8231-3-git-send-email-vfalico@gmail.com>
 References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Cc: Veaceslav Falico <vfalico@gmail.com>,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7305 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26481 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbaEOMeM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 08:34:12 -0400
+	id S1754218AbaEOMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 08:34:13 -0400
 In-Reply-To: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, use standard IP primitives to check the address.
+Also, make it accept bonding as a parameter and change the name a bit to
+better reflect its scope.
 
 CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 ---
- drivers/net/bonding/bond_main.c    | 2 +-
- drivers/net/bonding/bond_options.c | 4 ++--
- drivers/net/bonding/bonding.h      | 8 +++++---
- 3 files changed, 8 insertions(+), 6 deletions(-)
+ drivers/net/bonding/bond_main.c |  7 +++----
+ drivers/net/bonding/bonding.h   | 10 ++++++----
+ 2 files changed, 9 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 7b8e121..42d9c92 100644
+index 90ebed6..5c88c11 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4195,7 +4195,7 @@ static int bond_check_params(struct bond_params *params)
- 		   catch mistakes */
- 		__be32 ip;
- 		if (!in4_pton(arp_ip_target[i], -1, (u8 *)&ip, -1, NULL) ||
--		    IS_IP_TARGET_UNUSABLE_ADDRESS(ip)) {
-+		    !bond_is_ip_target_ok(ip)) {
- 			pr_warn("Warning: bad arp_ip_target module parameter (%s), ARP monitoring will not be performed\n",
- 				arp_ip_target[i]);
- 			arp_interval = 0;
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index ed11c6f..eb2683f 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -942,7 +942,7 @@ static int _bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
- 	__be32 *targets = bond->params.arp_targets;
- 	int ind;
+@@ -3788,10 +3788,9 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+ {
+ 	struct bonding *bond = netdev_priv(dev);
  
--	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
-+	if (!bond_is_ip_target_ok(target)) {
- 		pr_err("%s: invalid ARP target %pI4 specified for addition\n",
- 		       bond->dev->name, &target);
- 		return -EINVAL;
-@@ -987,7 +987,7 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
- 	unsigned long *targets_rx;
- 	int ind, i;
+-	if (TX_QUEUE_OVERRIDE(bond->params.mode)) {
+-		if (!bond_slave_override(bond, skb))
+-			return NETDEV_TX_OK;
+-	}
++	if (bond_should_override_tx_queue(bond) &&
++	    !bond_slave_override(bond, skb))
++		return NETDEV_TX_OK;
  
--	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
-+	if (!bond_is_ip_target_ok(target)) {
- 		pr_err("%s: invalid ARP target %pI4 specified for removal\n",
- 		       bond->dev->name, &target);
- 		return -EINVAL;
+ 	switch (bond->params.mode) {
+ 	case BOND_MODE_ROUNDROBIN:
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 4494fb9..425e83c 100644
+index 16e57a1..dca3dfd 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -54,9 +54,6 @@
- 		     ((slave)->link == BOND_LINK_UP) && \
- 		     bond_is_active_slave(slave))
+@@ -65,10 +65,6 @@
+ 		 ((mode) == BOND_MODE_TLB)	||	\
+ 		 ((mode) == BOND_MODE_ALB))
  
--#define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
--	((htonl(INADDR_BROADCAST) == a) ||	\
--	 ipv4_is_zeronet(a))
- /*
-  * Less bad way to call ioctl from within the kernel; this needs to be
-  * done some other way to get the call out of interrupt context.
-@@ -401,6 +398,11 @@ static inline int slave_do_arp_validate_only(struct bonding *bond)
- 	return bond->params.arp_validate & BOND_ARP_FILTER;
+-#define TX_QUEUE_OVERRIDE(mode)				\
+-			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
+-			 ((mode) == BOND_MODE_ROUNDROBIN))
+-
+ #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
+ 	((htonl(INADDR_BROADCAST) == a) ||	\
+ 	 ipv4_is_zeronet(a))
+@@ -284,6 +280,12 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
+ 	return slave->bond;
  }
  
-+static inline int bond_is_ip_target_ok(__be32 addr)
++static inline bool bond_should_override_tx_queue(struct bonding *bond)
 +{
-+	return !ipv4_is_lbcast(addr) && !ipv4_is_zeronet(addr);
++	return bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
++	       bond->params.mode == BOND_MODE_ROUNDROBIN;
 +}
 +
- /* Get the oldest arp which we've received on this slave for bond's
-  * arp_targets.
-  */
+ static inline bool bond_is_lb(const struct bonding *bond)
+ {
+ 	return bond->params.mode == BOND_MODE_TLB ||
 -- 
 1.8.4
