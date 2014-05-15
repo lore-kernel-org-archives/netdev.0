@@ -1,40 +1,27 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH net] ip_tunnel: Initialize the fallback device properly
-Date: Thu, 15 May 2014 09:43:11 +0200
-Message-ID: <20140515074311.GB32371@secunet.com>
+From: Mrs Teresa Au <Au@notice.org>
+Subject: Hello
+Date: Thu, 15 May 2014 07:32:59 +0100
+Message-ID: <20140515065258.DB18F6D9EA9__44199.5641486303$1400140150$gmane$org@ckgshmail.ckgsh.ntpc.edu.tw>
+Reply-To: msteresa.au1@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <Au@notice.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:45569 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751345AbaEOHnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 03:43:19 -0400
-Content-Disposition: inline
+Received: from [203.71.70.2] ([203.71.70.2]:37788 "HELO
+	ckgshmail.ckgsh.ntpc.edu.tw" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1754093AbaEOHsh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 03:48:37 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to initialize the fallback device to have a correct mtu
-set on this device. Otherwise the mtu is set to null and the device
-is unusable.
+Hello,
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/ip_tunnel.c |    1 +
- 1 file changed, 1 insertion(+)
+Please can you help me reprofile fund? I am Ms Teresa Au, HSBC Hong Kong, head of corporate sustainability Asia pacific region. A sum of (USD$23,200,000.00) (Twenty three million, two Hundred Thousand dollars) Million was deposited by our Late customer who died without declaring any next of kin before his death in 2006. 
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index b3f8597..25b8997 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -882,6 +882,7 @@ int ip_tunnel_init_net(struct net *net, int ip_tnl_net_id,
- 	 */
- 	if (!IS_ERR(itn->fb_tunnel_dev)) {
- 		itn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
-+		itn->fb_tunnel_dev->mtu = ip_tunnel_bind_dev(itn->fb_tunnel_dev);
- 		ip_tunnel_add(itn, netdev_priv(itn->fb_tunnel_dev));
- 	}
- 	rtnl_unlock();
--- 
-1.7.9.5
+My suggestion to you is to stand as the next of kin to Fadel Ahmed. We shall share in the ratio of 50% for me, 50% for you. Please contact me via this e-mail: msteresa.au1@qq.com . Thanks
+
+Regards
+Mrs Teresa Au.
