@@ -1,139 +1,102 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net V2] xen-netback: don't move event pointer in TX
- credit timeout callback
-Date: Thu, 15 May 2014 16:30:52 +0100
-Message-ID: <20140515153051.GJ1117@zion.uk.xensource.com>
-References: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
- <5374BB64.1080407@jajcus.net>
- <20140515141322.GI1117@zion.uk.xensource.com>
- <5374D38A.2070709@citrix.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/9] bonding: make BOND_NO_USES_ARP an inline function
+Date: Thu, 15 May 2014 08:35:47 -0700
+Message-ID: <CAADnVQKMKZ4dMvUXpCQiKc839+UTa7hjBh71WzADXD6vH1B48Q@mail.gmail.com>
+References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
+	<1400156967-8231-4-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, Jacek Konieczny <jajcus@jajcus.net>,
-	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:36863 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751847AbaEOPaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 11:30:55 -0400
-Content-Disposition: inline
-In-Reply-To: <5374D38A.2070709@citrix.com>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:54618 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754059AbaEOPfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 11:35:48 -0400
+Received: by mail-qc0-f180.google.com with SMTP id i17so2035422qcy.25
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 08:35:47 -0700 (PDT)
+In-Reply-To: <1400156967-8231-4-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 03:47:38PM +0100, Zoltan Kiss wrote:
-> On 15/05/14 15:13, Wei Liu wrote:
-> >On Thu, May 15, 2014 at 03:04:36PM +0200, Jacek Konieczny wrote:
-> >>On 05/15/14 13:59, Wei Liu wrote:
-> >>>... otherwise the frontend will try to send TX event all the time, even
-> >>>if no progress can be made. The pointer should only be advanced by the
-> >>>routine that actually processes the ring (that is, xenvif_poll).
-> >>>
-> >>>Reported-by: Jacek Konieczny <jajcus@jajcus.net>
-> >>>Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> >>>Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> >>>Cc: Paul Durrant <paul.durrant@citrix.com>
-> >>>---
-> >>>  drivers/net/xen-netback/netback.c |    2 +-
-> >>>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>>
-> >>>diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> >>>index 7666540..8e2cbeb 100644
-> >>>--- a/drivers/net/xen-netback/netback.c
-> >>>+++ b/drivers/net/xen-netback/netback.c
-> >>>@@ -658,7 +658,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif)
-> >>>  {
-> >>>  	int more_to_do;
-> >>>
-> >>>-	RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
-> >>>+	more_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
-> >>>
-> >>
-> >>Unfortunately, this seems not enough to fix the problem I have reported
-> >>here:
-> >>http://lists.xenproject.org/archives/html/xen-devel/2014-05/msg01183.html
-> >>
-> >>The dom0 network still stalls when using rate limiting on a VIF
-> >>interface after applying this patch to my 3.14.3 kernel (100% CPU#1
-> >>usage in the 'soft interrupts').
-> >>
-> >
-> >This is a patch for 3.14.4. I've tested it myself (and looking at the
-> >right stats!) to confirm it works.
-> >
-> >---8<---
-> > From a4afed6c44027afff82d6fa7503faef83b01fffe Mon Sep 17 00:00:00 2001
-> >From: Wei Liu <wei.liu2@citrix.com>
-> >Date: Thu, 15 May 2014 15:02:55 +0100
-> >Subject: [PATCH] xen-netback: call napi_complete if vif is rate limited
-> >
-> >Reported-by: Jacek Konieczny <jajcus@jajcus.net>
-> >Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> >Cc: Ian Campbell <ian.campbell@citrix.com>
-> >Cc: Paul Durrant <paul.durrant@citrix.com>
-> >Cc: David Vrabel <david.vrabel@citrix.com>
-> >---
-> >  drivers/net/xen-netback/common.h    |    2 +-
-> >  drivers/net/xen-netback/interface.c |    5 +++--
-> >  drivers/net/xen-netback/netback.c   |   12 ++++++++----
-> >  3 files changed, 12 insertions(+), 7 deletions(-)
-> >
-> >diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-> >index 4bf5b33..4c018de 100644
-> >--- a/drivers/net/xen-netback/common.h
-> >+++ b/drivers/net/xen-netback/common.h
-> >@@ -219,7 +219,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif);
-> >  /* Prevent the device from generating any further traffic. */
-> >  void xenvif_carrier_off(struct xenvif *vif);
-> >
-> >-int xenvif_tx_action(struct xenvif *vif, int budget);
-> >+int xenvif_tx_action(struct xenvif *vif, int budget, bool *rate_limited);
-> >
-> >  int xenvif_kthread(void *data);
-> >  void xenvif_kick_thread(struct xenvif *vif);
-> >diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> >index 2e92d52..03cfbd6 100644
-> >--- a/drivers/net/xen-netback/interface.c
-> >+++ b/drivers/net/xen-netback/interface.c
-> >@@ -61,6 +61,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
-> >  {
-> >  	struct xenvif *vif = container_of(napi, struct xenvif, napi);
-> >  	int work_done;
-> >+	bool rate_limited;
-> >
-> >  	/* This vif is rogue, we pretend we've there is nothing to do
-> >  	 * for this vif to deschedule it from NAPI. But this interface
-> >@@ -71,7 +72,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
-> >  		return 0;
-> >  	}
-> >
-> >-	work_done = xenvif_tx_action(vif, budget);
-> >+	work_done = xenvif_tx_action(vif, budget, &rate_limited);
-> >
-> >  	if (work_done < budget) {
-> >  		int more_to_do = 0;
-> >@@ -96,7 +97,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
-> >  		local_irq_save(flags);
-> >
-> >  		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
-> >-		if (!more_to_do)
-> >+		if (!more_to_do || rate_limited)
-> How about calling timer_pending(&vif->credit_timeout) instead?
+On Thu, May 15, 2014 at 5:29 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
+> Also, change its name to better reflect its scope, and skip the "no"
+> part.
+>
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
+>  drivers/net/bonding/bond_main.c    |  2 +-
+>  drivers/net/bonding/bond_options.c |  2 +-
+>  drivers/net/bonding/bonding.h      | 11 ++++++-----
+>  3 files changed, 8 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 5c88c11..2448e28 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4113,7 +4113,7 @@ static int bond_check_params(struct bond_params *params)
+>         }
+>
+>         /* reset values for 802.3ad/TLB/ALB */
+> -       if (BOND_NO_USES_ARP(bond_mode)) {
+> +       if (!bond_mode_uses_arp(bond_mode)) {
 
-timer_pending(&vif->credit_timeout) covers only one of two senarios of
-"credit exceeded", see tx_credit_exceeded.
+looks like condition becomes inverted.
+Did you mean to add '!' inside bond_mode_uses_arp() as well?
 
-> Also, can this __napi_complete and the callback's napi_schedule race with
-> each other? When napi_complete is between removing from the list and
-> clearing the bit, and napi_schedule is just test&set the bit, the latter
-> won't add the instance to the list again
-> 
-
-I think it should be fine. How is it different from what we already have
-now? Is this something similar to what David once posted?
-
-  <1395756505-21573-1-git-send-email-david.vrabel@citrix.com>
-
-Wei.
+>                 if (!miimon) {
+>                         pr_warn("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
+>                         pr_warn("Forcing miimon to 100msec\n");
+> diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+> index 6dc49da..98c8801 100644
+> --- a/drivers/net/bonding/bond_options.c
+> +++ b/drivers/net/bonding/bond_options.c
+> @@ -672,7 +672,7 @@ const struct bond_option *bond_opt_get(unsigned int option)
+>
+>  int bond_option_mode_set(struct bonding *bond, const struct bond_opt_value *newval)
+>  {
+> -       if (BOND_NO_USES_ARP(newval->value) && bond->params.arp_interval) {
+> +       if (!bond_mode_uses_arp(newval->value) && bond->params.arp_interval) {
+>                 pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
+>                         bond->dev->name, newval->string);
+>                 /* disable arp monitoring */
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index dca3dfd..8f9f0df 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -60,11 +60,6 @@
+>                  ((mode) == BOND_MODE_TLB)          ||  \
+>                  ((mode) == BOND_MODE_ALB))
+>
+> -#define BOND_NO_USES_ARP(mode)                         \
+> -               (((mode) == BOND_MODE_8023AD)   ||      \
+> -                ((mode) == BOND_MODE_TLB)      ||      \
+> -                ((mode) == BOND_MODE_ALB))
+> -
+>  #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)       \
+>         ((htonl(INADDR_BROADCAST) == a) ||      \
+>          ipv4_is_zeronet(a))
+> @@ -292,6 +287,12 @@ static inline bool bond_is_lb(const struct bonding *bond)
+>                bond->params.mode == BOND_MODE_ALB;
+>  }
+>
+> +static inline bool bond_mode_uses_arp(int mode)
+> +{
+> +       return mode == BOND_MODE_8023AD || mode == BOND_MODE_TLB ||
+> +              mode == BOND_MODE_ALB;
+> +}
+> +
+>  static inline void bond_set_active_slave(struct slave *slave)
+>  {
+>         if (slave->backup) {
+> --
+> 1.8.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
