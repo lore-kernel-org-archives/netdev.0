@@ -1,48 +1,61 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next 2/2] xfrm: configure policy hash table
- thresholds by /proc
-Date: Thu, 15 May 2014 10:34:47 +0200
-Message-ID: <20140515083447.GC32371@secunet.com>
-References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
- <1399902325-1788-3-git-send-email-christophe.gouault@6wind.com>
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Subject: [PATCH] ipv4: ip_tunnels: disable dst cache for nbma gre tunnels
+Date: Thu, 15 May 2014 11:35:17 +0300
+Message-ID: <1400142917-1849-1-git-send-email-timo.teras@iki.fi>
+References: <20140424151647.2a917ff1@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
+	Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:46605 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752107AbaEOIe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 04:34:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1399902325-1788-3-git-send-email-christophe.gouault@6wind.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:44183 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167AbaEOIfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 04:35:12 -0400
+Received: by mail-lb0-f179.google.com with SMTP id c11so519320lbj.24
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 01:35:10 -0700 (PDT)
+In-Reply-To: <20140424151647.2a917ff1@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 12, 2014 at 03:45:25PM +0200, Christophe Gouault wrote:
-> Enable to specify local and remote prefix length thresholds
-> for the policy hash table via /proc entries. Example:
-> 
-> echo 0 24 > /proc/sys/net/ipv4/xfrm4_policy_hash_tresh
-> echo 0 56 > /proc/sys/net/ipv6/xfrm6_policy_hash_tresh
+The connected check fails to check for ip_gre nbma mode tunnels
+properly. ip_gre creates temporary tnl_params with daddr specified
+to pass-in the actual target on per-packet basis from neighbor
+layer. Detect these tunnels by inspecting the actual tunnel
+configuration instead.
 
-I would not like to have this configurable from userspace.
-Fist of all, a good threshold depends on the IPsec configuration
-and can change during runtime. So it is not obvious for a user
-which values are good for his configuration. Most users will
-just leave the default, so they will not benefit from your
-changes.
+=46ixes: 7d442fab0a67 ("ipv4: Cache dst in tunnels")
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+Should go to 3.14-stable too.
 
-Second, on the long run we have to remove the IPsec flowcache
-as this has the same limitation as our routing cache had.
-To do this, we need to replace the hashlist based policy and
-state lookups by a well performing lookup algorithm and I
-would like to do that without any user visible changes.
+(This does not fix all NBMA GRE regressions in 3.14.
+ I'm also getting weird oopses from GRO; will post soon more info.)
 
-Can't we tune the hash threshold internally? We could maintain
-a per hashlist policy counter. If we have 'many' policies and
-most of these policies are in the same hashlist we could change
-the hash threshold. We could check this when we add policies
-and update the hash threshold if needed.
+ net/ipv4/ip_tunnel.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Everything else looks pretty good, thanks!
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index e77381d..100caf5 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -538,9 +538,10 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct ne=
+t_device *dev,
+ 	unsigned int max_headroom;	/* The extra header space needed */
+ 	__be32 dst;
+ 	int err;
+-	bool connected =3D true;
++	bool connected;
+=20
+ 	inner_iph =3D (const struct iphdr *)skb_inner_network_header(skb);
++	connected =3D (tunnel->daddr !=3D 0);
+=20
+ 	dst =3D tnl_params->daddr;
+ 	if (dst =3D=3D 0) {
+--=20
+1.9.3
