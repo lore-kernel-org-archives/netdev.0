@@ -1,48 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/2] net: systemport: fix dma_unmap_single() len
-Date: Thu, 15 May 2014 14:33:52 -0700
-Message-ID: <1400189633-7602-2-git-send-email-f.fainelli@gmail.com>
-References: <1400189633-7602-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] ipv6: update Destination Cache entries when gateway turn
+ into host
+Date: Thu, 15 May 2014 14:34:41 -0700
+Message-ID: <1400189681.32241.117927421.599F7994@webmail.messagingengine.com>
+References: <5374731E.3040608@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:61883 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752392AbaEOVe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 17:34:26 -0400
-Received: by mail-ig0-f174.google.com with SMTP id h3so8493575igd.13
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 14:34:26 -0700 (PDT)
-In-Reply-To: <1400189633-7602-1-git-send-email-f.fainelli@gmail.com>
+Received: from new2-smtp.messagingengine.com ([66.111.4.224]:47085 "EHLO
+	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755717AbaEOVem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 17:34:42 -0400
+In-Reply-To: <5374731E.3040608@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dma_unmap_single() was called with dma_unmap_len(cb, dma_len),
-unfortunately we failed to assign this length field in
-bcm_sysport_rx_refill() or bcm_sysport_alloc_rx_bufs() using
-dma_unmap_len_set().
+On Thu, May 15, 2014, at 0:56, Duan Jiong wrote:
+> 
+> RFC 4861 states in 7.2.5:
+> 
+> 	The IsRouter flag in the cache entry MUST be set based on the
+>          Router flag in the received advertisement.  In those cases
+>          where the IsRouter flag changes from TRUE to FALSE as a result
+>          of this update, the node MUST remove that router from the
+>          Default Router List and update the Destination Cache entries
+>          for all destinations using that neighbor as a router as
+>          specified in Section 7.3.3.  This is needed to detect when a
+>          node that is used as a router stops forwarding packets due to
+>          being configured as a host.
+> 
+> Currently, when dealing with NA Message which IsRouter flag changes from
+> TRUE to FALSE, the kernel only removes router from the Default Router
+> List,
+> and don't update the Destination Cache entries.
+> 
+> Now in order to update those Destination Cache entries, i introduce
+> function rt6_clean_tohost().
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-This causes packet contents corruption because are we not invoking the
-cache invalidation routines with the proper length.  Fix this by using
-the full RX buffer size (RX_BUF_LENGTH) because the mappings for the RX
-bufers are created with that size.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 8edc0980cdf5..26030d67518b 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -479,7 +479,7 @@ static unsigned int bcm_sysport_desc_rx(struct bcm_sysport_priv *priv,
- 		cb = &priv->rx_cbs[priv->rx_read_ptr];
- 		skb = cb->skb;
- 		dma_unmap_single(kdev, dma_unmap_addr(cb, dma_addr),
--				dma_unmap_len(cb, dma_len), DMA_FROM_DEVICE);
-+				RX_BUF_LENGTH, DMA_FROM_DEVICE);
- 
- 		/* Extract the Receive Status Block prepended */
- 		rsb = (struct rsb *)skb->data;
--- 
-1.9.1
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
