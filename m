@@ -1,46 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] ipv6: update Destination Cache entries when gateway turn
- into host
-Date: Thu, 15 May 2014 14:34:41 -0700
-Message-ID: <1400189681.32241.117927421.599F7994@webmail.messagingengine.com>
-References: <5374731E.3040608@cn.fujitsu.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH] net: tunnels - enable module autoloading
+Date: Thu, 15 May 2014 23:42:58 +0200
+Message-ID: <CAG-2HqWeJKbipVm+1oxKQYQfFyqu4SdSH15BP-4OAaUbJBCVdg@mail.gmail.com>
+References: <1399970908-9973-1-git-send-email-teg@jklm.no> <20140515143202.53ca8033@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, yoshfuji@linux-ipv6.org,
+	jmorris@namei.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from new2-smtp.messagingengine.com ([66.111.4.224]:47085 "EHLO
-	new2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755717AbaEOVem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 17:34:42 -0400
-In-Reply-To: <5374731E.3040608@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140515143202.53ca8033@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 15, 2014, at 0:56, Duan Jiong wrote:
-> 
-> RFC 4861 states in 7.2.5:
-> 
-> 	The IsRouter flag in the cache entry MUST be set based on the
->          Router flag in the received advertisement.  In those cases
->          where the IsRouter flag changes from TRUE to FALSE as a result
->          of this update, the node MUST remove that router from the
->          Default Router List and update the Destination Cache entries
->          for all destinations using that neighbor as a router as
->          specified in Section 7.3.3.  This is needed to detect when a
->          node that is used as a router stops forwarding packets due to
->          being configured as a host.
-> 
-> Currently, when dealing with NA Message which IsRouter flag changes from
-> TRUE to FALSE, the kernel only removes router from the Default Router
-> List,
-> and don't update the Destination Cache entries.
-> 
-> Now in order to update those Destination Cache entries, i introduce
-> function rt6_clean_tohost().
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+On Thu, May 15, 2014 at 11:32 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Tue, 13 May 2014 10:48:28 +0200
+> Tom Gundersen <teg@jklm.no> wrote:
+>
+>> Enable the module alias hookup to allow tunnel modules to be autoloaded on demand.
+>>
+>> This is in line with how most other netdev kinds work, and will allow userspace
+>> to create tunnels without having CAP_SYS_MODULE.
+>>
+>> Signed-off-by: Tom Gundersen <teg@jklm.no>
+>> Tested-by: Susant Sahani <susant@redhat.com>
+>> ---
+>>  net/ipv4/ipip.c       | 1 +
+>>  net/ipv6/ip6_tunnel.c | 1 +
+>>  net/ipv6/sit.c        | 1 +
+>>  3 files changed, 3 insertions(+)
+>
+> But tunnel modules are autoloaded now.
+> If I create a tunnel with ip tunnel based on the existing MODULE_ALIAS_NETDEV().
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Hm, please correct me if I'm wrong, but this only works if you create
+a tunnel with one of the hardcoded tunnel names, right? And also, if I
+read the code correctly, it only works if you use the ioctl interface
+and not the rtnl interface?
+
+What we'd like to do is to use the rtnl interface to create tunnels
+with arbitrary names, is there a way this can already be done that I
+have missed?
+
+Cheers,
+
+Tom
