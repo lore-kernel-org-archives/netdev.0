@@ -1,14 +1,16 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/4] ip_tunnel: delete unneeded call to netdev_priv
-Date: Thu, 15 May 2014 05:43:20 +0200
-Message-ID: <1400125401-15512-3-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 4/4] vti6: delete unneeded call to netdev_priv
+Date: Thu, 15 May 2014 05:43:21 +0200
+Message-ID: <1400125401-15512-4-git-send-email-Julia.Lawall@lip6.fr>
 Cc: kernel-janitors@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -30,23 +32,26 @@ follows: (http://coccinelle.lip6.fr/)
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/ipv4/ip_tunnel.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/ipv6/ip6_vti.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index b3f8597..059176d 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -395,11 +395,10 @@ static struct ip_tunnel *ip_tunnel_create(struct net *net,
- 					  struct ip_tunnel_net *itn,
- 					  struct ip_tunnel_parm *parms)
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 6cc9f93..9aaa6bb 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -795,15 +795,12 @@ static const struct net_device_ops vti6_netdev_ops = {
+  **/
+ static void vti6_dev_setup(struct net_device *dev)
  {
--	struct ip_tunnel *nt, *fbt;
-+	struct ip_tunnel *nt;
- 	struct net_device *dev;
+-	struct ip6_tnl *t;
+-
+ 	dev->netdev_ops = &vti6_netdev_ops;
+ 	dev->destructor = vti6_dev_free;
  
- 	BUG_ON(!itn->fb_tunnel_dev);
--	fbt = netdev_priv(itn->fb_tunnel_dev);
- 	dev = __ip_tunnel_create(net, itn->fb_tunnel_dev->rtnl_link_ops, parms);
- 	if (IS_ERR(dev))
- 		return ERR_CAST(dev);
+ 	dev->type = ARPHRD_TUNNEL6;
+ 	dev->hard_header_len = LL_MAX_HEADER + sizeof(struct ipv6hdr);
+ 	dev->mtu = ETH_DATA_LEN;
+-	t = netdev_priv(dev);
+ 	dev->flags |= IFF_NOARP;
+ 	dev->addr_len = sizeof(struct in6_addr);
+ 	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
