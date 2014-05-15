@@ -1,48 +1,69 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] ip_tunnel: don't add tunnel twice
-Date: Thu, 15 May 2014 13:07:02 +0800
-Message-ID: <53744B76.3080101@cn.fujitsu.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC net-next] tracing: accelerate tracing filters with BPF
+Date: Wed, 14 May 2014 22:19:37 -0700
+Message-ID: <CAMEtUux=StoEADDrJSqQ4p_GMDDq+MjVjHnQsBaLRST5xRLbKA@mail.gmail.com>
+References: <1400036111-7803-1-git-send-email-ast@plumgrid.com>
+	<20140513231708.7eb39a38@gandalf.local.home>
+	<CAMEtUuzct=k_9f4QTqRf2TG6mFCjpnfTjo+JkHYQDHKj_i2b+A@mail.gmail.com>
+	<20140514050958.GB9448@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: <kaber@trash.net>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:63454 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751178AbaEOFJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 01:09:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140514050958.GB9448@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, May 13, 2014 at 10:09 PM, Ingo Molnar <mingo@kernel.org> wrote:
+>
+> * Alexei Starovoitov <ast@plumgrid.com> wrote:
+>
+>> On Tue, May 13, 2014 at 8:17 PM, Steven Rostedt <rostedt@goodmis.org> wrote:
+>> > On Tue, 13 May 2014 19:55:11 -0700
+>> > Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> >
+>> >> Tracing filters are parsing user supplied character string and constructing
+>> >> a predicate tree. filter_match_preds() was used to walk nodes of the tree to
+>> >> simulate matching of boolean expression.
+>> >>
+>> >
+>> > I applied this on top of net-next, from:
+>> >
+>> >  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+>> >  (master branch)
+>> >
+>> > and got this compile error:
+>>
+>> Sorry I wasn't clear in the log.
+>> This patch depends on JIT patches that were posted separately.
+>> Since this one is RFC, I didn't want to mix them.
+>> JIT patches:
+>> http://patchwork.ozlabs.org/patch/348558/
+>> http://patchwork.ozlabs.org/patch/348559/
+>> http://patchwork.ozlabs.org/patch/348560/
+>
+> Might make sense for you to get a korg account and stick such bits
+> into Git trees, to ease testing.
 
-When using command "ip tunnel add" to add a tunnel, the tunnel will be added twice,
-through ip_tunnel_create() and ip_tunnel_update().
+it would be an honor. Thank you.
 
-Because the second is unnecessary, so we can just break after adding tunnel
-through ip_tunnel_create().
-
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv4/ip_tunnel.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index b3f8597..e83af0f 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -755,10 +755,8 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
- 
- 		if (!t && (cmd == SIOCADDTUNNEL)) {
- 			t = ip_tunnel_create(net, itn, p);
--			if (IS_ERR(t)) {
--				err = PTR_ERR(t);
--				break;
--			}
-+			err = PTR_ERR_OR_ZERO(t);
-+			break;
- 		}
- 		if (dev != itn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
- 			if (t != NULL) {
--- 
-1.8.3.1
+What is the next step for this particular patch?
+Sounds like dependency on full net is a showstopper.
+I think splitting bpf into small component will clean up
+dependency for seccomp as well.
+bpf can move into net/bpf/ dir and go via net-next tree.
+If Dave is ok with this, I can start hacking.
+It looks to be more or less straight forward.
+There are few ways to split it. The only contentious piece
+is skb_copy_bits(). I think we can come up with something.
