@@ -1,77 +1,167 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v2 net-next 2/9] bonding: make TX_QUEUE_OVERRIDE() macro an inline function
-Date: Thu, 15 May 2014 14:29:20 +0200
-Message-ID: <1400156967-8231-3-git-send-email-vfalico@gmail.com>
+Subject: [PATCH v2 net-next 7/9] bonding: convert IS_UP(slave->dev) to inline function
+Date: Thu, 15 May 2014 14:29:25 +0200
+Message-ID: <1400156967-8231-8-git-send-email-vfalico@gmail.com>
 References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Cc: Veaceslav Falico <vfalico@gmail.com>,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26481 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23462 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754218AbaEOMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751287AbaEOMeN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 May 2014 08:34:13 -0400
 In-Reply-To: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, make it accept bonding as a parameter and change the name a bit to
-better reflect its scope.
+Also, remove the IFF_UP verification cause we can't be netif_running() with
+being also IFF_UP.
 
 CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 ---
- drivers/net/bonding/bond_main.c |  7 +++----
- drivers/net/bonding/bonding.h   | 10 ++++++----
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/bonding/bond_3ad.c     |  2 +-
+ drivers/net/bonding/bond_main.c    | 16 ++++++++--------
+ drivers/net/bonding/bond_options.c |  2 +-
+ drivers/net/bonding/bonding.h      | 12 ++++++------
+ 4 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 90ebed6..5c88c11 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -3788,10 +3788,9 @@ static netdev_tx_t __bond_start_xmit(struct sk_buff *skb, struct net_device *dev
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index 24faddd..7997a1e 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -192,7 +192,7 @@ static inline void __enable_port(struct port *port)
  {
- 	struct bonding *bond = netdev_priv(dev);
+ 	struct slave *slave = port->slave;
  
--	if (TX_QUEUE_OVERRIDE(bond->params.mode)) {
--		if (!bond_slave_override(bond, skb))
--			return NETDEV_TX_OK;
--	}
-+	if (bond_should_override_tx_queue(bond) &&
-+	    !bond_slave_override(bond, skb))
-+		return NETDEV_TX_OK;
- 
- 	switch (bond->params.mode) {
- 	case BOND_MODE_ROUNDROBIN:
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 16e57a1..dca3dfd 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -65,10 +65,6 @@
- 		 ((mode) == BOND_MODE_TLB)	||	\
- 		 ((mode) == BOND_MODE_ALB))
- 
--#define TX_QUEUE_OVERRIDE(mode)				\
--			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
--			 ((mode) == BOND_MODE_ROUNDROBIN))
--
- #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
- 	((htonl(INADDR_BROADCAST) == a) ||	\
- 	 ipv4_is_zeronet(a))
-@@ -284,6 +280,12 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- 	return slave->bond;
+-	if ((slave->link == BOND_LINK_UP) && IS_UP(slave->dev))
++	if ((slave->link == BOND_LINK_UP) && bond_slave_is_up(slave))
+ 		bond_set_slave_active_flags(slave, BOND_SLAVE_NOTIFY_LATER);
  }
  
-+static inline bool bond_should_override_tx_queue(struct bonding *bond)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 42d9c92..5502ea6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -747,7 +747,7 @@ static struct slave *bond_find_best_slave(struct bonding *bond)
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		if (slave->link == BOND_LINK_UP)
+ 			return slave;
+-		if (slave->link == BOND_LINK_BACK && IS_UP(slave->dev) &&
++		if (slave->link == BOND_LINK_BACK && bond_slave_is_up(slave) &&
+ 		    slave->delay < mintime) {
+ 			mintime = slave->delay;
+ 			bestslave = slave;
+@@ -958,7 +958,7 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+ 	struct slave *slave;
+ 
+ 	bond_for_each_slave(bond, slave, iter)
+-		if (IS_UP(slave->dev))
++		if (bond_slave_is_up(slave))
+ 			slave_disable_netpoll(slave);
+ }
+ 
+@@ -2490,7 +2490,7 @@ static void bond_loadbalance_arp_mon(struct work_struct *work)
+ 		 * do - all replies will be rx'ed on same link causing slaves
+ 		 * to be unstable during low/no traffic periods
+ 		 */
+-		if (IS_UP(slave->dev))
++		if (bond_slave_is_up(slave))
+ 			bond_arp_send_all(bond, slave);
+ 	}
+ 
+@@ -2712,10 +2712,10 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 	bond_set_slave_inactive_flags(curr_arp_slave, BOND_SLAVE_NOTIFY_LATER);
+ 
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+-		if (!found && !before && IS_UP(slave->dev))
++		if (!found && !before && bond_slave_is_up(slave))
+ 			before = slave;
+ 
+-		if (found && !new_slave && IS_UP(slave->dev))
++		if (found && !new_slave && bond_slave_is_up(slave))
+ 			new_slave = slave;
+ 		/* if the link state is up at this point, we
+ 		 * mark it down - this can happen if we have
+@@ -2724,7 +2724,7 @@ static bool bond_ab_arp_probe(struct bonding *bond)
+ 		 * one the current slave so it is still marked
+ 		 * up when it is actually down
+ 		 */
+-		if (!IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
++		if (!bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
+ 			slave->link = BOND_LINK_DOWN;
+ 			if (slave->link_failure_count < UINT_MAX)
+ 				slave->link_failure_count++;
+@@ -3710,7 +3710,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		if (bond_is_last_slave(bond, slave))
+ 			break;
+-		if (IS_UP(slave->dev) && slave->link == BOND_LINK_UP) {
++		if (bond_slave_is_up(slave) && slave->link == BOND_LINK_UP) {
+ 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 
+ 			if (!skb2) {
+@@ -3722,7 +3722,7 @@ static int bond_xmit_broadcast(struct sk_buff *skb, struct net_device *bond_dev)
+ 			bond_dev_queue_xmit(bond, skb2, slave->dev);
+ 		}
+ 	}
+-	if (slave && IS_UP(slave->dev) && slave->link == BOND_LINK_UP)
++	if (slave && bond_slave_is_up(slave) && slave->link == BOND_LINK_UP)
+ 		bond_dev_queue_xmit(bond, skb, slave->dev);
+ 	else
+ 		dev_kfree_skb_any(skb);
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index eb2683f..b5c42e3 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -758,7 +758,7 @@ static int bond_option_active_slave_set(struct bonding *bond,
+ 				bond->dev->name, new_active->dev->name);
+ 		} else {
+ 			if (old_active && (new_active->link == BOND_LINK_UP) &&
+-			    IS_UP(new_active->dev)) {
++			    bond_slave_is_up(new_active)) {
+ 				pr_info("%s: Setting %s as active slave\n",
+ 					bond->dev->name, new_active->dev->name);
+ 				bond_change_active_slave(bond, new_active);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 425e83c..d1f45cd 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -40,11 +40,6 @@
+ 
+ #define BOND_DEFAULT_MIIMON	100
+ 
+-#define IS_UP(dev)					   \
+-	      ((((dev)->flags & IFF_UP) == IFF_UP)	&& \
+-	       netif_running(dev)			&& \
+-	       netif_carrier_ok(dev))
+-
+ /*
+  * Checks whether slave is ready for transmit.
+  */
+@@ -292,6 +287,11 @@ static inline bool bond_mode_uses_primary(int mode)
+ 	       mode == BOND_MODE_ALB;
+ }
+ 
++static inline bool bond_slave_is_up(struct slave *slave)
 +{
-+	return bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
-+	       bond->params.mode == BOND_MODE_ROUNDROBIN;
++	return netif_running(slave->dev) && netif_carrier_ok(slave->dev);
 +}
 +
- static inline bool bond_is_lb(const struct bonding *bond)
+ static inline void bond_set_active_slave(struct slave *slave)
  {
- 	return bond->params.mode == BOND_MODE_TLB ||
+ 	if (slave->backup) {
+@@ -482,7 +482,7 @@ static inline __be32 bond_confirm_addr(struct net_device *dev, __be32 dst, __be3
+ 
+ static inline bool slave_can_tx(struct slave *slave)
+ {
+-	if (IS_UP(slave->dev) && slave->link == BOND_LINK_UP &&
++	if (bond_slave_is_up(slave) && slave->link == BOND_LINK_UP &&
+ 	    bond_is_active_slave(slave))
+ 		return true;
+ 	else
 -- 
 1.8.4
