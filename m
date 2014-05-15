@@ -1,18 +1,19 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next 0/8] Non-promisc bidge ports support
-Date: Thu, 15 May 2014 12:09:06 -0400
-Message-ID: <5374E6A2.7000102@redhat.com>
-References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
-	<20140514.152953.1992805646844184373.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/8] bridge: Keep track of ports
+ capable of automatic discovery.
+Date: Thu, 15 May 2014 12:04:14 -0400
+Message-ID: <5374E57E.8010708@redhat.com>
+References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>	<1400080168-16625-3-git-send-email-vyasevic@redhat.com>
+	<20140514084251.317ed026@nehalam.linuxnetplumber.net>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: mst@redhat.com, netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	jhs@mojatatu.com, john.r.fastabend@intel.com, shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140514.152953.1992805646844184373.davem@davemloft.net>
+In-Reply-To: <20140514084251.317ed026@nehalam.linuxnetplumber.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -24,32 +25,35 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 05/14/2014 03:29 PM, David Miller wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> Date: Wed, 14 May 2014 11:09:20 -0400
+On 05/14/2014 11:42 AM, Stephen Hemminger wrote:
+> On Wed, 14 May 2014 11:09:22 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
 > 
->> This series adds functionality to the bridge device to enable
->> operations without setting all ports to promiscuous mode.
+>> @@ -58,6 +61,7 @@ static int store_flag(struct net_bridge_port *p, unsigned long v,
+>>  
+>>  	if (flags != p->flags) {
+>>  		p->flags = flags;
+>> +		br_port_flags_change(p, old_flags ^ flags);
 > 
-> I'm prepared to apply this, please address the minor stylistic
-> feedback you've received and resubmit.
+> You are also xoring twice.
 > 
-> Also, what does:
-> 
-> ====================
-> Conflicts:
-> 	net/bridge/br_if.c
-> 	net/bridge/br_private.h
-> ====================
-> 
-> exactly mean in patch #7?
-> 
-> Thanks.
->
 
-Looks like left-overs after a few rebases...  I'll remove.
+That's wrong...  I've take care of that.
 
-Will resubmit shortly with corrections.
+> Why not:
+> 
+> store_flag()
+> 	if (flags != p->flags) {
+> 		br_port_flags_change(p, flags);
+> 		p->flags = flags;
+> 		br_ifinfo_notify(RTM_NEWLINK, p);
+> 
+
+This doesn't really make sense as flags_change handler will use current
+flag value and that would be wrong.  We'd have to pass the new flags
+along, but that doesn't make sense either.
+
+I'll send the update shortly.
 
 Thanks
 -vlad
