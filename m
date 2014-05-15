@@ -1,115 +1,105 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] tg3: Use static inlines not macros
-Date: Wed, 14 May 2014 17:04:11 -0700
-Message-ID: <1400112251.12666.14.camel@joe-AO725>
-References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
-	 <20140514132922.GA24104@mikrodark.usersys.redhat.com>
-	 <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
-	 <1400084983.19788.15.camel@joe-AO725>
-	 <CAADnVQ+6-KQRRLS6Nos7u1J1BA9KoS6bJFAsnWE6d4vC010Djg@mail.gmail.com>
-	 <1400105033.30384.34.camel@joe-AO725>
-	 <CAADnVQKvrL+eKNbV=OWP3h2qPmHDm5ixt_4qNDtw-DZeR8US-w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	David Laight <David.Laight@aculab.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: bonding directly changes underlying device address
+Date: Wed, 14 May 2014 18:38:45 -0700
+Message-ID: <5046.1400117925@localhost.localdomain>
+References: <5371FCD0.7050502@mellanox.com> <20140513115527.GC2910@minipsycho.orion> <20030.1399998641@localhost.localdomain> <CAJZOPZ+pOBw4M-ZFF2qsqNgGJcKcRRdhWFf4dy1FQ8Ngr-ZqRA@mail.gmail.com> <20140514080114.GA30960@mikrodark.usersys.redhat.com>
+Cc: Or Gerlitz <or.gerlitz@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	netdev <netdev@vger.kernel.org>,
+	Noa Osherovich <noaos@mellanox.com>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0249.hostedemail.com ([216.40.44.249]:45906 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751721AbaEOAEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 20:04:15 -0400
-In-Reply-To: <CAADnVQKvrL+eKNbV=OWP3h2qPmHDm5ixt_4qNDtw-DZeR8US-w@mail.gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:36319 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751126AbaEOBiw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 May 2014 21:38:52 -0400
+In-reply-to: <20140514080114.GA30960@mikrodark.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newer versions of gcc produce better code
-so convert some macros to static inlines.
+Veaceslav Falico <vfalico@gmail.com> wrote:
 
-$ gcc --version
-gcc (Ubuntu 4.8.2-19ubuntu1) 4.8.2
-Copyright (C) 2013 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+>On Tue, May 13, 2014 at 08:38:01PM +0300, Or Gerlitz wrote:
+>>On Tue, May 13, 2014 at 7:30 PM, Jay Vosburgh
+>><jay.vosburgh@canonical.com> wrote:
+>>>>Tue, May 13, 2014 at 01:06:56PM CEST, ogerlitz@mellanox.com wrote:
+>>
+>>[...]
+>>
+>>>>>I suspect this can lead to funny (or actually sad) bugs in networking
+>>>>>drivers, can we avoid that?
+>>
+>>>         Changing this would also remove support for the tlb mode from
+>>> any device that cannot change their MAC while open.  I don't know how
+>>> many devices that is (it's probably a small number nowadays), but if
+>>> it's not zero then an assessment on losing that support has to be made.
+>>
+>>Focusing on the last part of your reply, are you OK with a patch that
+>>branches on whether that device supports ndo_set_mac_address and if
+>>this is the case we will call dev_set_mac_address, else do the current
+>>practice of setting dev_addr directly?
+>
+>I'd actually just drop support for non-ndo_set_mac_address NICs, as it'll
+>unify the RLB and TLB logic, and anyways dev_set_mac_address() is used in
+>SIOCSIFHWADDR and rtnl ops, and thus, if the NIC doesn't support it, it
+>can't change its mac address at all, and using it in *LB modes makes little
+>sense.
 
-(x86/defconfig)
+	It's not that the device drivers lack ndo_set_mac_address, it's
+that the MAC can only be changed while the device is down.  The hardware
+is programmed with the MAC only when the device transitions from down to
+up.
 
-$ size drivers/net/ethernet/broadcom/tg3.o.*
-   text	   data	    bss	    dec	    hex	filename
- 134282	    963	      0	 135245	  2104d	drivers/net/ethernet/broadcom/tg3.o.new
- 134613	    963	      0	 135576	  21198	drivers/net/ethernet/broadcom/tg3.o.old
+	I looked, and a large number (~140) of device drivers use
+eth_mac_addr as the ndo_set_mac_address function and do not set
+IFF_LIVE_ADDR_CHANGE in priv_flags.  All eth_mac_addr does is copy the
+MAC address into dev->dev_addr after checking that the device isn't up.
+The actual programming of the hardware happens in the device's ndo_open
+function.  These are the devices that the odd balance-tlb dev_addr MAC
+address handling is meant for.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+	Now, just skimming the list of those drivers, it looks like the
+vast majority are old 10/100 only chipsets.  Probably a good chunk of
+them cannot actually be used today due to a lack of hardware.  A few are
+funky things that nobody is likely to run bonding on (ibmveth, for
+example).  A few, though, are gigabit chipsets and appear to have
+relatively recent work being done on them.  I suppose it's possible that
+there are users on 10/100 chipsets as well.
+
+>Other way of doing this would be to just move the dev_addr to the slave
+>struct, instead of using the net_device's dev_addr, cause in tlb we don't
+>usually need to set the NIC mac address (except when there's mac filtering,
+>I guess), but only need to set the packet's source mac. This way we'll omit
+>quite costy mac address setting (as, on some NICs, it resets the whole NIC
+>and takes seconds), still maintain compatibility with older NICs and won't
+>mess with NICs ->dev_addr.
+
+	By this you mean to, basically, stash the MAC in the struct
+slave somewhere instead of in dev->dev_addr, and then in bond_tlb_xmit
+change the Ethernet destination?  Without having actually tried it, I
+can't think of a reason why this wouldn't work.  That's really all
+that's happening now, except the stash is dev_addr, and the Ethernet
+destination is set for us by dev_hard_header.  So, in principle, I don't
+see any problems with this.
+
+>Anyway, I'll let Jay decide.
+
+	Well, my general thought here is that, yes, this is icky, and
+it's even been behind a bug not too long ago, when some device went down
+then up and programmed the dev_addr into its hardware and ended up with
+a duplicate MAC address on the network.  So, I'm not automatically
+against changing this to make it "better."
+
+	On the other hand, I do not feel that I have a good grasp as to
+how many users are out there that rely on this property of balance-tlb
+(that the device need be able to not change its MAC while open).
+Therefore, I'm not in favor of a change that would break that support.
+
+	So, I'd say "No" to conversion to dev_set_mac_address() and
+"show me the code" to the "stash it in the slave" plan.
+
+	-J
+
 ---
-On Wed, 2014-05-14 at 16:37 -0700, Alexei Starovoitov wrote:
-> On Wed, May 14, 2014 at 3:03 PM, Joe Perches <joe@perches.com> wrote:
-> > On Wed, 2014-05-14 at 14:52 -0700, Alexei Starovoitov wrote:
-> >> I cannot imagine the case where macro would be faster than static inline
-> >> unless it wasn't inlined.
-> >
-> > For an example, look at commit 4153577a8d
-> > ("tg3: Use different macros for pci_chip_rev_id accesses")
-> >
-> > Converting these macros to static inline produces
-> > larger/slower code.  (at least with gcc 4.7.3)
-> >
-> > +#define tg3_chip_rev_id(tp)                                    \
-> > +       ((tp)->pci_chip_rev_id)
-> > +#define tg3_asic_rev(tp)                                       \
-> > +       ((tp)->pci_chip_rev_id >> 12)
-> > +#define tg3_chip_rev(tp)                                       \
-> > +       ((tp)->pci_chip_rev_id >> 8)
-> >
-> 
-> hmm. interesting.
-> Using gcc 4.7.2 object file size is larger with 'static inline'
-> 2893016 vs 2868112
-> but that's due to larger debug info.
-> .text is actually smaller 000207c4 vs 00020824
-> and these three calls were inlined (even without __always_inline),
-> so I suspect it's better optimized..
-> though better optimized can very well mean slower.
-
-Compiler optimizers change with every version too.
-
- drivers/net/ethernet/broadcom/tg3.h | 20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 461acca..3d0cf6b 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3416,11 +3416,19 @@ struct tg3 {
-  *     Using statement expression macros to check tp with
-  *     typecheck(struct tg3 *, tp) also creates larger objects.
-  */
--#define tg3_chip_rev_id(tp)					\
--	((tp)->pci_chip_rev_id)
--#define tg3_asic_rev(tp)					\
--	((tp)->pci_chip_rev_id >> 12)
--#define tg3_chip_rev(tp)					\
--	((tp)->pci_chip_rev_id >> 8)
-+static inline u32 tg3_chip_rev_id(const struct tg3 *tp)
-+{
-+	return tp->pci_chip_rev_id;
-+}
-+
-+static inline u32 tg3_asic_rev(const struct tg3 *tp)
-+{
-+	return tp->pci_chip_rev_id >> 12;
-+}
-+
-+static inline u32 tg3_chip_rev(const struct tg3 *tp)
-+{
-+	return tp->pci_chip_rev_id >> 8;
-+}
- 
- #endif /* !(_T3_H) */
+	-Jay Vosburgh, jay.vosburgh@canonical.com
