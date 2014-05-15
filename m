@@ -1,87 +1,92 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v2 net-next 3/9] bonding: make BOND_NO_USES_ARP an inline function
-Date: Thu, 15 May 2014 14:29:21 +0200
-Message-ID: <1400156967-8231-4-git-send-email-vfalico@gmail.com>
+Subject: [PATCH v2 net-next 6/9] bonding: make IS_IP_TARGET_UNUSABLE_ADDRESS an inline function
+Date: Thu, 15 May 2014 14:29:24 +0200
+Message-ID: <1400156967-8231-7-git-send-email-vfalico@gmail.com>
 References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Cc: Veaceslav Falico <vfalico@gmail.com>,
 	Jay Vosburgh <j.vosburgh@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17563 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7305 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751287AbaEOMeJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 08:34:09 -0400
+	id S1751287AbaEOMeM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 08:34:12 -0400
 In-Reply-To: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, change its name to better reflect its scope, and skip the "no"
-part.
+Also, use standard IP primitives to check the address.
 
 CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 ---
- drivers/net/bonding/bond_main.c    |  2 +-
- drivers/net/bonding/bond_options.c |  2 +-
- drivers/net/bonding/bonding.h      | 11 ++++++-----
- 3 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/bonding/bond_main.c    | 2 +-
+ drivers/net/bonding/bond_options.c | 4 ++--
+ drivers/net/bonding/bonding.h      | 8 +++++---
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5c88c11..2448e28 100644
+index 7b8e121..42d9c92 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -4113,7 +4113,7 @@ static int bond_check_params(struct bond_params *params)
- 	}
- 
- 	/* reset values for 802.3ad/TLB/ALB */
--	if (BOND_NO_USES_ARP(bond_mode)) {
-+	if (!bond_mode_uses_arp(bond_mode)) {
- 		if (!miimon) {
- 			pr_warn("Warning: miimon must be specified, otherwise bonding will not detect link failure, speed and duplex which are essential for 802.3ad operation\n");
- 			pr_warn("Forcing miimon to 100msec\n");
+@@ -4195,7 +4195,7 @@ static int bond_check_params(struct bond_params *params)
+ 		   catch mistakes */
+ 		__be32 ip;
+ 		if (!in4_pton(arp_ip_target[i], -1, (u8 *)&ip, -1, NULL) ||
+-		    IS_IP_TARGET_UNUSABLE_ADDRESS(ip)) {
++		    !bond_is_ip_target_ok(ip)) {
+ 			pr_warn("Warning: bad arp_ip_target module parameter (%s), ARP monitoring will not be performed\n",
+ 				arp_ip_target[i]);
+ 			arp_interval = 0;
 diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 6dc49da..98c8801 100644
+index ed11c6f..eb2683f 100644
 --- a/drivers/net/bonding/bond_options.c
 +++ b/drivers/net/bonding/bond_options.c
-@@ -672,7 +672,7 @@ const struct bond_option *bond_opt_get(unsigned int option)
+@@ -942,7 +942,7 @@ static int _bond_option_arp_ip_target_add(struct bonding *bond, __be32 target)
+ 	__be32 *targets = bond->params.arp_targets;
+ 	int ind;
  
- int bond_option_mode_set(struct bonding *bond, const struct bond_opt_value *newval)
- {
--	if (BOND_NO_USES_ARP(newval->value) && bond->params.arp_interval) {
-+	if (!bond_mode_uses_arp(newval->value) && bond->params.arp_interval) {
- 		pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
- 			bond->dev->name, newval->string);
- 		/* disable arp monitoring */
+-	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
++	if (!bond_is_ip_target_ok(target)) {
+ 		pr_err("%s: invalid ARP target %pI4 specified for addition\n",
+ 		       bond->dev->name, &target);
+ 		return -EINVAL;
+@@ -987,7 +987,7 @@ static int bond_option_arp_ip_target_rem(struct bonding *bond, __be32 target)
+ 	unsigned long *targets_rx;
+ 	int ind, i;
+ 
+-	if (IS_IP_TARGET_UNUSABLE_ADDRESS(target)) {
++	if (!bond_is_ip_target_ok(target)) {
+ 		pr_err("%s: invalid ARP target %pI4 specified for removal\n",
+ 		       bond->dev->name, &target);
+ 		return -EINVAL;
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index dca3dfd..8f9f0df 100644
+index 4494fb9..425e83c 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -60,11 +60,6 @@
- 		 ((mode) == BOND_MODE_TLB)          ||	\
- 		 ((mode) == BOND_MODE_ALB))
+@@ -54,9 +54,6 @@
+ 		     ((slave)->link == BOND_LINK_UP) && \
+ 		     bond_is_active_slave(slave))
  
--#define BOND_NO_USES_ARP(mode)				\
--		(((mode) == BOND_MODE_8023AD)	||	\
--		 ((mode) == BOND_MODE_TLB)	||	\
--		 ((mode) == BOND_MODE_ALB))
--
- #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
- 	((htonl(INADDR_BROADCAST) == a) ||	\
- 	 ipv4_is_zeronet(a))
-@@ -292,6 +287,12 @@ static inline bool bond_is_lb(const struct bonding *bond)
- 	       bond->params.mode == BOND_MODE_ALB;
+-#define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
+-	((htonl(INADDR_BROADCAST) == a) ||	\
+-	 ipv4_is_zeronet(a))
+ /*
+  * Less bad way to call ioctl from within the kernel; this needs to be
+  * done some other way to get the call out of interrupt context.
+@@ -401,6 +398,11 @@ static inline int slave_do_arp_validate_only(struct bonding *bond)
+ 	return bond->params.arp_validate & BOND_ARP_FILTER;
  }
  
-+static inline bool bond_mode_uses_arp(int mode)
++static inline int bond_is_ip_target_ok(__be32 addr)
 +{
-+	return mode == BOND_MODE_8023AD || mode == BOND_MODE_TLB ||
-+	       mode == BOND_MODE_ALB;
++	return !ipv4_is_lbcast(addr) && !ipv4_is_zeronet(addr);
 +}
 +
- static inline void bond_set_active_slave(struct slave *slave)
- {
- 	if (slave->backup) {
+ /* Get the oldest arp which we've received on this slave for bond's
+  * arp_targets.
+  */
 -- 
 1.8.4
