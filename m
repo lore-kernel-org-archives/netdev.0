@@ -1,54 +1,47 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v3 net-next 1/9] bonding: remove BOND_MODE_IS_LB macro
-Date: Thu, 15 May 2014 21:39:51 +0200
-Message-ID: <1400182799-22737-2-git-send-email-vfalico@gmail.com>
-References: <1400182799-22737-1-git-send-email-vfalico@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Subject: [PATCH v3 net-next 0/9] bonding: simple macro cleanup
+Date: Thu, 15 May 2014 21:39:50 +0200
+Message-ID: <1400182799-22737-1-git-send-email-vfalico@gmail.com>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61808 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52728 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752291AbaEOToh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 15:44:37 -0400
-In-Reply-To: <1400182799-22737-1-git-send-email-vfalico@gmail.com>
+	id S1755870AbaEOTot (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 15:44:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's used only in an inline function and is useless.
+Hi,
+
+Trivial patchset that converts most of the bonding's macros into inline
+functions. It introduces only one macro, BOND_MODE(), which is just
+bond->params.mode, better to write/understand/remember.
+
+The only real change is the removal of IFF_UP verification, which always
+came in pair with && netif_running(), and is though useless, as it's always
+IFF_UP when LINK_STATE_RUNNING.
+
+v2->v3: fix 3/9 to actually invert bond_mode_uses_arp() and add
+	bond_uses_arp() alongside bond_mode_uses_arp()
+v1->v2: use inlined functions instead of macros.
 
 CC: Jay Vosburgh <j.vosburgh@gmail.com>
 CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
----
- drivers/net/bonding/bonding.h | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index c51c433..16e57a1 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -69,10 +69,6 @@
- 			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
- 			 ((mode) == BOND_MODE_ROUNDROBIN))
- 
--#define BOND_MODE_IS_LB(mode)			\
--		(((mode) == BOND_MODE_TLB) ||	\
--		 ((mode) == BOND_MODE_ALB))
--
- #define IS_IP_TARGET_UNUSABLE_ADDRESS(a)	\
- 	((htonl(INADDR_BROADCAST) == a) ||	\
- 	 ipv4_is_zeronet(a))
-@@ -290,7 +286,8 @@ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- 
- static inline bool bond_is_lb(const struct bonding *bond)
- {
--	return BOND_MODE_IS_LB(bond->params.mode);
-+	return bond->params.mode == BOND_MODE_TLB ||
-+	       bond->params.mode == BOND_MODE_ALB;
- }
- 
- static inline void bond_set_active_slave(struct slave *slave)
--- 
-1.8.4
+---
+ drivers/net/bonding/bond_3ad.c         |   6 +-
+ drivers/net/bonding/bond_alb.c         |  18 ++---
+ drivers/net/bonding/bond_debugfs.c     |   2 +-
+ drivers/net/bonding/bond_main.c        | 143 ++++++++++++++++-----------------
+ drivers/net/bonding/bond_netlink.c     |   6 +-
+ drivers/net/bonding/bond_options.c     |  10 +--
+ drivers/net/bonding/bond_procfs.c      |  14 ++--
+ drivers/net/bonding/bond_sysfs.c       |  14 ++--
+ drivers/net/bonding/bond_sysfs_slave.c |   2 +-
+ drivers/net/bonding/bonding.h          |  89 ++++++++++----------
+ 10 files changed, 150 insertions(+), 154 deletions(-)
