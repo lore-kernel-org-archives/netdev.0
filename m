@@ -1,51 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v5 2/2] net: systemport: pad packets to a minimum
- of 68 bytes
-Date: Thu, 15 May 2014 09:45:04 -0700
-Message-ID: <CAGVrzcZq=GEyBG47xphCi5EVDs64xjYkAZjLiefJkewVDb1jJQ@mail.gmail.com>
-References: <1400121134-6088-1-git-send-email-f.fainelli@gmail.com>
- <1400121134-6088-3-git-send-email-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D17246361@AcuExch.aculab.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
+ ll_addr_n2a
+Date: Thu, 15 May 2014 18:50:51 +0200
+Message-ID: <20140515165051.GA2939@minipsycho.orion>
+References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
+ <1400159422-11797-2-git-send-email-jiri@resnulli.us>
+ <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mschmidt@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:64528 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbaEOQpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 12:45:45 -0400
-Received: by mail-qg0-f46.google.com with SMTP id q108so2173504qgd.33
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 09:45:45 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17246361@AcuExch.aculab.com>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:54011 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751689AbaEOQuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 12:50:55 -0400
+Received: by mail-ee0-f43.google.com with SMTP id d17so836494eek.16
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 09:50:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-15 2:28 GMT-07:00 David Laight <David.Laight@aculab.com>:
-> From: Florian Fainelli
->> With packets having Broadcom tags, the 4-bytes tag is first stripped
->> off the packet, and the packet length is then checked, so we need to
->> make sure that the packet length with FCS is at least 64 bytes.
+Thu, May 15, 2014 at 05:43:42PM CEST, stephen@networkplumber.org wrote:
+>On Thu, 15 May 2014 15:10:20 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
 >
-> Ah - finally an explanation!
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  misc/arpd.c | 6 +++---
+>>  1 file changed, 3 insertions(+), 3 deletions(-)
+>> 
 >
-> I think you should only do that when the Broadcom Tags are enabled.
+>Why not use more standard ether_ntoa ?
 
-I thought about that, and could not make my mind about doing something like:
-
-min_pad_len = ETH_ZLEN;
-if (netdev_uses_brcm_tag(dev))
-           min_pad_len += ENET_BRCM_TAG_LEN;
-
-or doing the padding unconditionally like this.
-
-The switch driver has been submitted for review on netdev, and that
-includes the netdev_uses_brcm_tag() helper function to tell us whether
-Broadcom tags are enabled or not on that particular interface.
-
-One of the argument that I have against that, is that it makes our
-driver a little more special, and that would make it the only one (for
-now at least). I sort of wanted the fix to be independent from
-eventually other non-DSA switch implementations.
--- 
-Florian
+Because the rest of the code uses ll_addr_n2a. There is no user of
+ether_ntoa in iproute2.
