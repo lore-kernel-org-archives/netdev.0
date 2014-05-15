@@ -1,45 +1,45 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net] xen-netback: don't move event pointer in TX credit timeout callback
-Date: Thu, 15 May 2014 12:24:16 +0100
-Message-ID: <1400153056-12793-1-git-send-email-wei.liu2@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jajcus@jajcus.net>, Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Paul Durrant <paul.durrant@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net] bonding: fix out of range parameters for bond_intmax_tbl
+Date: Thu, 15 May 2014 13:35:23 +0200
+Message-ID: <1400153723-8031-1-git-send-email-nikolay@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:33657 "EHLO SMTP.CITRIX.COM"
+Received: from mx1.redhat.com ([209.132.183.28]:14159 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751376AbaEOLYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 07:24:18 -0400
+	id S1751967AbaEOLkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 07:40:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-... otherwise the frontend will try to send TX event all the time, even
-if no progress can be made. The pointer should only be advanced by the
-routine that actually processes the ring.
+I've missed to add a NULL entry to the bond_intmax_tbl when I introduced
+it with the conversion of arp_interval so add it now.
 
-Reported-by: Jacek Konieczny <jajcus@jajcus.net>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Paul Durrant <paul.durrant@citrix.com>
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+
+Fixes: 7bdb04ed0dbf ("bonding: convert arp_interval to use the new
+option API")
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/xen-netback/netback.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_options.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 7666540..8e2cbeb 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -658,7 +658,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif)
- {
- 	int more_to_do;
+diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
+index 724e30fa20b9..832070298446 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -125,6 +125,7 @@ static const struct bond_opt_value bond_fail_over_mac_tbl[] = {
+ static const struct bond_opt_value bond_intmax_tbl[] = {
+ 	{ "off",     0,       BOND_VALFLAG_DEFAULT},
+ 	{ "maxval",  INT_MAX, BOND_VALFLAG_MAX},
++	{ NULL,      -1,      0}
+ };
  
--	RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
-+	more_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
- 
- 	if (more_to_do)
- 		napi_schedule(&vif->napi);
+ static const struct bond_opt_value bond_lacp_rate_tbl[] = {
 -- 
-1.7.10.4
+1.8.5.3
