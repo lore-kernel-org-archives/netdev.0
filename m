@@ -1,207 +1,99 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net-next 6/8] bridge: Automatically manage port promiscuous mode.
-Date: Thu, 15 May 2014 12:56:54 -0400
-Message-ID: <1400173016-8952-7-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 net-next 8/8] bridge: Automatically manage promisc mode when vlan filtering is on.
+Date: Thu, 15 May 2014 12:56:56 -0400
+Message-ID: <1400173016-8952-9-git-send-email-vyasevic@redhat.com>
 References: <1400173016-8952-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
 	mst@redhat.com, john.r.fastabend@intel.com, jhs@mojatatu.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61351 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11778 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753073AbaEOQ5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 12:57:15 -0400
+	id S1754867AbaEOQ5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 12:57:17 -0400
 In-Reply-To: <1400173016-8952-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There exist configurations where the administrator or another management
-entity has the foreknowledge of all the mac addresses of end systems
-that are being bridged together.
+If the user doesn't enable vlan filtering, we have to place all
+bridge ports in promsic mode so that we retain the capability of
+of receiving tagged frames.
+When vlan filtering is enabled, the each port will be provided with
+necessary vlan configuration and would be able to receive tagged
+traffic without promiscuous mode set, thus allowing us to automatically
+turn promiscuity on or off depending on the configuration.
 
-In these environments, the administrator can statically configure known
-addresses in the bridge FDB and disable flooding and learning on ports.
-This makes it possible to turn off promiscuous mode on the interfaces
-connected to the bridge.
-
-Here is why disabling flooding and learning allows us to control
-promiscuity:
- Consider port X.  All traffic coming into this port from outside the
-bridge (ingress) will be either forwarded through other ports of the
-bridge (egress) or dropped.  Forwarding (egress) is defined by FDB
-entries and by flooding in the event that no FDB entry exists.
-In the event that flooding is disabled, only FDB entries define
-the egress.  Once learning is disabled, only static FDB entries
-provided by a management entity define the egress.  If we provide
-information from these static FDBs to the ingress port X, then we'll
-be able to accept all traffic that can be successfully forwarded and
-drop all the other traffic sooner without spending CPU cycles to
-process it.
- Another way to define the above is as following equations:
-    ingress = egress + drop
- expanding egress
-    ingress = static FDB + learned FDB + flooding + drop
- disabling flooding and learning we a left with
-    ingress = static FDB + drop
-
-By adding addresses from the static FDB entries to the MAC address
-filter of an ingress port X, we fully define what the bridge can
-process without dropping and can thus turn off promiscuous mode,
-thus dropping packets sooner.
-
-There have been suggestions that we may want to allow learning
-and update the filters with learned addresses as well.  This
-would require mac-level authentication similar to 802.1x to
-prevent attacks against the hw filters as they are limited
-resource.
-
-Suggested-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_if.c | 93 ++++++++++++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 86 insertions(+), 7 deletions(-)
+ net/bridge/br_if.c      | 12 ++++++++----
+ net/bridge/br_private.h |  9 +++++++++
+ net/bridge/br_vlan.c    |  1 +
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 3fefff9..e3bc5a6 100644
+index 1a3638e..33a83ea 100644
 --- a/net/bridge/br_if.c
 +++ b/net/bridge/br_if.c
-@@ -85,6 +85,70 @@ void br_port_carrier_check(struct net_bridge_port *p)
- 	spin_unlock_bh(&br->lock);
- }
- 
-+static void br_port_set_promisc(struct net_bridge_port *p)
-+{
-+	int err = 0;
-+
-+	if (br_promisc_port(p))
-+		return;
-+
-+	err = dev_set_promiscuity(p->dev, 1);
-+	if (err)
-+		return;
-+
-+	br_fdb_unsync_static(p->br, p);
-+	p->flags |= BR_PROMISC;
-+}
-+
-+static void br_port_clear_promisc(struct net_bridge_port *p)
-+{
-+	int err;
-+
-+	/* Check if the port is already non-promisc or if it doesn't
-+	 * support UNICAST filtering.  Without unicast filtering support
-+	 * we'll end up re-enabling promisc mode anyway, so just check for
-+	 * it here.
-+	 */
-+	if (!br_promisc_port(p) || !(p->dev->priv_flags & IFF_UNICAST_FLT))
-+		return;
-+
-+	/* Since we'll be clearing the promisc mode, program the port
-+	 * first so that we don't have interruption in traffic.
-+	 */
-+	err = br_fdb_sync_static(p->br, p);
-+	if (err)
-+		return;
-+
-+	dev_set_promiscuity(p->dev, -1);
-+	p->flags &= ~BR_PROMISC;
-+}
-+
-+/* When a port is added or removed or when certain port flags
-+ * change, this function is called to automatically mange
-+ * promiscuity setting of all the bridge ports.  We are always called
-+ * under RTNL so can skip using rcu primitives.
-+ */
-+static void br_manage_promisc(struct net_bridge *br)
-+{
-+	struct net_bridge_port *p;
-+
-+	list_for_each_entry(p, &br->port_list, list) {
-+		/* If the number of auto-ports is <= 1, then all other
-+		 * ports will have their output configuration statically
-+		 * specified through fdbs.  Since ingress on the auto-port
-+		 * becomes forwarding/egress to other ports and egress
-+		 * configuration is statically known, we can say that ingress
-+		 * configuration of the auto-port is also statically known.
-+		 * This lets us disable promiscuous mode and write this config
-+		 * to hw.
-+		 */
-+		if (br->auto_cnt <= br_auto_port(p))
-+			br_port_clear_promisc(p);
-+		else
-+			br_port_set_promisc(p);
-+	}
-+}
-+
- static void nbp_update_port_count(struct net_bridge *br)
+@@ -131,12 +131,16 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
+ void br_manage_promisc(struct net_bridge *br)
  {
  	struct net_bridge_port *p;
-@@ -94,7 +158,23 @@ static void nbp_update_port_count(struct net_bridge *br)
- 		if (br_auto_port(p))
- 			cnt++;
- 	}
--	br->auto_cnt = cnt;
-+	if (br->auto_cnt != cnt) {
-+		br->auto_cnt = cnt;
-+		br_manage_promisc(br);
-+	}
-+}
++	bool set_all = false;
 +
-+static void nbp_delete_promisc(struct net_bridge_port *p)
-+{
-+	/* If port is currently promiscous, unset promiscuity.
-+	 * Otherwise, it is a static port so remove all addresses
-+	 * from it.
++	/* If vlan filtering is disabled or bridge interface is placed
++	 * into promiscuous mode, place all ports in promiscuous mode.
 +	 */
-+	dev_set_allmulti(p->dev, -1);
-+	if (br_promisc_port(p))
-+		dev_set_promiscuity(p->dev, -1);
-+	else
-+		br_fdb_unsync_static(p->br, p);
++	if ((br->dev->flags & IFF_PROMISC) || !br_vlan_enabled(br))
++		set_all = true;
+ 
+ 	list_for_each_entry(p, &br->port_list, list) {
+-		if (br->dev->flags & IFF_PROMISC) {
+-			/* PROMISC flag has been turned on for the bridge
+-			 * itself.  Turn on promisc on all ports.
+-			 */
++		if (set_all) {
+ 			br_port_set_promisc(p);
+ 		} else {
+ 			/* If the number of auto-ports is <= 1, then all other
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 06976af..2b2286d 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -642,6 +642,10 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ 	return v->pvid ?: VLAN_N_VID;
  }
  
- static void release_nbp(struct kobject *kobj)
-@@ -145,7 +225,7 @@ static void del_nbp(struct net_bridge_port *p)
++static inline int br_vlan_enabled(struct net_bridge *br)
++{
++	return br->vlan_enabled;
++}
+ #else
+ static inline bool br_allowed_ingress(struct net_bridge *br,
+ 				      struct net_port_vlans *v,
+@@ -722,6 +726,11 @@ static inline u16 br_get_pvid(const struct net_port_vlans *v)
+ {
+ 	return VLAN_N_VID;	/* Returns invalid vid */
+ }
++
++static inline int br_vlan_enabled(struct net_bridge *br);
++{
++	return 0;
++}
+ #endif
  
- 	sysfs_remove_link(br->ifobj, p->dev->name);
+ /* br_netfilter.c */
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 4a37161..24c5cc5 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -332,6 +332,7 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
+ 		goto unlock;
  
--	dev_set_promiscuity(dev, -1);
-+	nbp_delete_promisc(p);
+ 	br->vlan_enabled = val;
++	br_manage_promisc(br);
  
- 	spin_lock_bh(&br->lock);
- 	br_stp_disable_port(p);
-@@ -153,11 +233,10 @@ static void del_nbp(struct net_bridge_port *p)
- 
- 	br_ifinfo_notify(RTM_DELLINK, p);
- 
--	nbp_vlan_flush(p);
--	br_fdb_delete_by_port(br, p, 1);
--
- 	list_del_rcu(&p->list);
- 
-+	nbp_vlan_flush(p);
-+	br_fdb_delete_by_port(br, p, 1);
- 	nbp_update_port_count(br);
- 
- 	dev->priv_flags &= ~IFF_BRIDGE_PORT;
-@@ -238,7 +317,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
- 	p->path_cost = port_cost(dev);
- 	p->priority = 0x8000 >> BR_PORT_BITS;
- 	p->port_no = index;
--	p->flags = BR_LEARNING | BR_FLOOD | BR_PROMISC;
-+	p->flags = BR_LEARNING | BR_FLOOD;
- 	br_init_port(p);
- 	p->state = BR_STATE_DISABLED;
- 	br_stp_port_timer_init(p);
-@@ -367,7 +446,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 
- 	call_netdevice_notifiers(NETDEV_JOIN, dev);
- 
--	err = dev_set_promiscuity(dev, 1);
-+	err = dev_set_allmulti(dev, 1);
- 	if (err)
- 		goto put_back;
- 
+ unlock:
+ 	rtnl_unlock();
 -- 
 1.9.0
