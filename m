@@ -1,33 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
- ll_addr_n2a
-Date: Thu, 15 May 2014 08:43:42 -0700
-Message-ID: <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
-References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
-	<1400159422-11797-2-git-send-email-jiri@resnulli.us>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/9] bonding: make BOND_NO_USES_ARP an inline
+ function
+Date: Thu, 15 May 2014 17:45:27 +0200
+Message-ID: <20140515154527.GA2789@mikrodark.usersys.redhat.com>
+References: <1400156967-8231-1-git-send-email-vfalico@gmail.com>
+ <1400156967-8231-4-git-send-email-vfalico@gmail.com>
+ <CAADnVQKMKZ4dMvUXpCQiKc839+UTa7hjBh71WzADXD6vH1B48Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mschmidt@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:46253 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751764AbaEOPnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 11:43:46 -0400
-Received: by mail-pb0-f45.google.com with SMTP id um1so1257553pbc.32
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 08:43:46 -0700 (PDT)
-In-Reply-To: <1400159422-11797-2-git-send-email-jiri@resnulli.us>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:44392 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730AbaEOPpv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 11:45:51 -0400
+Received: by mail-wg0-f46.google.com with SMTP id n12so3703356wgh.29
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 08:45:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAADnVQKMKZ4dMvUXpCQiKc839+UTa7hjBh71WzADXD6vH1B48Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 May 2014 15:10:20 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Thu, May 15, 2014 at 08:35:47AM -0700, Alexei Starovoitov wrote:
+>On Thu, May 15, 2014 at 5:29 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
+...snip...
+>> -       if (BOND_NO_USES_ARP(bond_mode)) {
+>> +       if (!bond_mode_uses_arp(bond_mode)) {
+>
+>looks like condition becomes inverted.
+>Did you mean to add '!' inside bond_mode_uses_arp() as well?
 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  misc/arpd.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
-> 
+Right, good catch. Easy to miss with this amount of mechanical work :(.
 
-Why not use more standard ether_ntoa ?
+I'll wait for more feedback and resubmit v3.
+
+Thanks!
+
+>
+...snip...
+>> -#define BOND_NO_USES_ARP(mode)                         \
+>> -               (((mode) == BOND_MODE_8023AD)   ||      \
+>> -                ((mode) == BOND_MODE_TLB)      ||      \
+>> -                ((mode) == BOND_MODE_ALB))
+>> -
+...snip...
+>> +static inline bool bond_mode_uses_arp(int mode)
+>> +{
+>> +       return mode == BOND_MODE_8023AD || mode == BOND_MODE_TLB ||
+>> +              mode == BOND_MODE_ALB;
+>> +}
+>> +
+...snip...
