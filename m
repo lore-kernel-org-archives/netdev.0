@@ -1,139 +1,101 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCHv3 3/4] of: provide a binding for fixed link PHYs
-Date: Thu, 15 May 2014 09:54:32 -0700
-Message-ID: <CAGVrzcZ1h_Cm=b2aKEAcXYJyVOhoRZLcpXFh0oBB-wodMJnB8Q@mail.gmail.com>
-References: <20140308055033.BE0F2C405B0@trevor.secretlab.ca> <20140515153957.75a8aa2a@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	Lior Amsalem <alior@marvell.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:43424 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751587AbaEOQzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 12:55:14 -0400
-In-Reply-To: <20140515153957.75a8aa2a@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v2 net-next 0/8] Non-promisc bidge ports support
+Date: Thu, 15 May 2014 12:56:48 -0400
+Message-ID: <1400173016-8952-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, mst@redhat.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com,
+	john.r.fastabend@intel.com, shemminger@vyatta.com
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Thomas,
+This series adds functionality to the bridge device to enable
+operations without setting all ports to promiscuous mode.
 
-2014-05-15 6:39 GMT-07:00 Thomas Petazzoni
-<thomas.petazzoni@free-electrons.com>:
-> Dear Grant Likely,
->
-> Sorry for bringing back this old topic, but I'm working on this again,
-> hopefully reaching an acceptable solution this time. One question for
-> you below.
->
-> On Sat, 08 Mar 2014 05:50:33 +0000, Grant Likely wrote:
->
->> > +Example:
->> > +
->> > +ethernet@0 {
->> > +   ...
->> > +   phy = <&phy0>;
->> > +   phy0: phy@0 {
->> > +         fixed-link;
->> > +         speed = <1000>;
->> > +         full-duplex;
->> > +   };
->>
->> The phy phandle to a child node is superfluous. A phandle to a fixed
->> child node doesn't make a whole lot of sense.
->
-> [...]
->
->> There should be no address portion in the node name. It isn't a child
->> device, the node is merely more configuration data for the parent.
->>
->> Example:
->>
->> ethernet@0 {
->>       ...
->>       fixed-link {
->>             speed = <1000>;
->>             full-duplex;
->>       };
->
-> For my current use case, I'm personally fine with that. But that
-> doesn't work well with Florian Fainelli's which to potentially have the
-> "fixed-link" node as part of another node in the DT, in the case the
-> PHY is configurable through some separate SPI/I2C bus. See his comment
-> in http://article.gmane.org/gmane.linux.network/306789:
+The basic concept is this.  The bridge keeps track of the ports
+that support learning and flooding packets to unknown destinations.
+We call these ports auto-discovery ports since they automatically
+discover who is behind them through learning and flooding.  
 
-I just re-read Grant's comments, and I don't think we contradict with
-each other here. Since the data-path is symetrical by nature, whether
-you place the 'fixed-link' property on one end (Ethernet MAC) or the
-other (SPI/I2C/GPIO node) does make a huge difference, except you want
-it to be placed where it makes the most sense: in the Ethernet MAC
-node. Properties like the speed, duplex, pause are definitively
-Ethernet MAC only properties.
+If flooding and learning are disabled via flags, then the port
+requires static configuration to tell it which mac addresses
+are behind it.  This is accomplished through adding of fdbs.
+These fdbs should be static as dynamic fdbs can expire and systems
+will become unreachable due to lack of flooding.
 
-In case we need to specifically associate these two nodes with each
-other, a phandle property to the Ethernet MAC node, or e.g: the SPI
-node can be used.
+If the user marks all ports as needing static configuration then
+we can safely make them non-promiscuous since we will know all the
+information about them.
 
-That said, I think we should go with Grant's proposal of having the
-following representation:
+If the user leaves only 1 port as automatic, then we can mark
+that port as not-promiscuous as well.  One could think of
+this a edge relay similar to what's support by embedded switches
+in SRIOV devices.  Since we have all the information about the
+other ports, we can just program the mac addresses into the
+single automatic port to receive all necessary traffic.
+More information about this is patch 6.
 
-ethernet@0 {
-      ...
-       fixed-link {
-             speed = <1000>;
-             full-duplex;
-       };
+In other cases, we keep all ports promiscuous as before.
 
-we might want to use 'max-speed' instead of speed, but that's debatable.
+There are some other cases when promiscuous mode has to be turned
+back on.  One is when the bridge itself if placed in promiscuous
+mode (user sets promisc flag).  The other is if vlan filtering is
+turned off.  Since this is the default configuration, the default
+bridge operation is not changed.
 
->
-> """
-> Another problem with that "old" 'fixed-link' property is that we are
-> not properly capturing and representing Ethernet switches/PHYs whose
-> data-path are isolated from the control path. For instance such
-> devices will traditionally expose their control path as a
-> MMIO/GPIO/I2C/SPI interface. Using the 5-digit 'fixed-link' property
-> we are not representing this, on one side the Ethernet MAC is just
-> told to hardcode the link parameters with some parameters, and on
-> other side, any MMIO/GPIO/I2C/SPI device is not equipped with the
-> correct properties to express the fact that is also has a data-path
-> connected to an Ethernet MAC.
->
-> What I like about this new binding is that we could place the
-> 'fixed-link' related properties in e.g: a SPI slave node, and have the
-> Ethernet MAC be pointed at it by a phandle to tell it: look this is
-> your PHY, it might not be one you could address on a MDIO bus, so I
-> have been providing additional properties to help you with the link
-> configuration.
-> """
->
-> What is your opinion about this?
->
-> Thanks,
->
-> Thomas
-> --
-> Thomas Petazzoni, CTO, Free Electrons
-> Embedded Linux, Kernel and Android engineering
-> http://free-electrons.com
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Changes since v1:
+ - Address issues rasied by Stephen Heminger
+ - Address initializer comments raised by Sergey Shtylyov
+ - Rebased recent net-next.
 
+Changes since rfc v2:
+ - Better description of in the commit logs
+ - Leave port in promiscuous mode if IFF_UNICAST_FLT is disabled on the
+   device.
+ - Fix issue with flag masking
+ - Rework patch ordering a bit.
 
+Changes since rfc v1:
+ - Removed private list.  We now traverse the fdb hashtable itself
+   to write necessary addresses to the ports (Stephen's concern)
+ - Add learning flag to the mask for flags that decides if the port
+   is 'auto' or not (suggest by MST and Jamal).
+ - Simplified tracking of such ports at the cost of a loop over all
+   ports (suggested by MST)
+
+I've played with quite a large number of ports and the current approach
+seems to work fairly well.
+
+Thanks
+-vlad
+
+Vlad Yasevich (8):
+  bridge: Turn flag change macro into a function.
+  bridge: Keep track of ports capable of automatic discovery.
+  bridge: Add functionality to sync static fdb entries to hw
+  bridge: Introduce BR_PROMISC flag
+  bridge: Add addresses from static fdbs to non-promisc ports
+  bridge: Automatically manage port promiscuous mode.
+  bridge: Correctly manage promiscuity when user requested it.
+  bridge: Automatically manage promisc mode when vlan filtering is on.
+
+ net/bridge/br_device.c   |   7 +++
+ net/bridge/br_fdb.c      | 132 ++++++++++++++++++++++++++++++++++++++++++++---
+ net/bridge/br_if.c       | 123 +++++++++++++++++++++++++++++++++++++++++--
+ net/bridge/br_netlink.c  |   3 ++
+ net/bridge/br_private.h  |  19 +++++++
+ net/bridge/br_sysfs_if.c |  30 +++++++----
+ net/bridge/br_vlan.c     |   1 +
+ 7 files changed, 295 insertions(+), 20 deletions(-)
 
 -- 
-Florian
+1.9.0
