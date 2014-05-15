@@ -1,43 +1,51 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: bonding directly changes underlying device address
-Date: Thu, 15 May 2014 15:37:17 +0300
-Message-ID: <CAJZOPZKMWD+EM9NX22ttQNQdsir3Skqhm7Et0+_OFRyh4mwtcw@mail.gmail.com>
-References: <5371FCD0.7050502@mellanox.com>
-	<20140513115527.GC2910@minipsycho.orion>
-	<20030.1399998641@localhost.localdomain>
-	<CAJZOPZ+pOBw4M-ZFF2qsqNgGJcKcRRdhWFf4dy1FQ8Ngr-ZqRA@mail.gmail.com>
-	<20140514080114.GA30960@mikrodark.usersys.redhat.com>
-	<5046.1400117925@localhost.localdomain>
-	<20140515045524.GA27773@mikrodark.usersys.redhat.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next 0/8] Non-promisc bidge ports support
+Date: Thu, 15 May 2014 21:55:16 +0900
+Message-ID: <5374B934.1060902@lab.ntt.co.jp>
+References: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	netdev <netdev@vger.kernel.org>,
-	Noa Osherovich <noaos@mellanox.com>
-To: Veaceslav Falico <vfalico@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f42.google.com ([209.85.192.42]:50199 "EHLO
-	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298AbaEOMhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 08:37:18 -0400
-Received: by mail-qg0-f42.google.com with SMTP id q107so1579513qgd.15
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 05:37:18 -0700 (PDT)
-In-Reply-To: <20140515045524.GA27773@mikrodark.usersys.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, jhs@mojatatu.com, mst@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1400080168-16625-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 15, 2014 at 7:55 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
-> On Wed, May 14, 2014 at 06:38:45PM -0700, Jay Vosburgh wrote:
-> ...snip...
->
->>         So, I'd say "No" to conversion to dev_set_mac_address() and
->> "show me the code" to the "stash it in the slave" plan.
->
->
-> Ok, got it, I will try to move it to struct slave.
+(2014/05/15 0:09), Vlad Yasevich wrote:
+> This series adds functionality to the bridge device to enable
+> operations without setting all ports to promiscuous mode.
+> 
+> The basic concept is this.  The bridge keeps track of the ports
+> that support learning and flooding packets to unknown destinations.
+> We call these ports auto-discovery ports since they automatically
+> discover who is behind them through learning and flooding.  
+> 
+> If flooding and learning are disabled via flags, then the port
+> requires static configuration to tell it which mac addresses
+> are behind it.  This is accomplished through adding of fdbs.
+> These fdbs should be static as dynamic fdbs can expire and systems
+> will become unreachable due to lack of flooding.
 
-Good, and following that we'll see if/what remains on our mlx4_en/any
-driver plate to fix under the TLB use case (hopefully none..)
+Hi Vlad,
+
+This is not a comment for this patch set, but I have a question.
+
+I'm trying to use bridge command to turn off flood/learning but couldn't
+find the corresponding command.
+I'm expecting something like "bridge link set br0 flood/learning".
+
+Are there any other userspace commands that can set flood/learning flag?
+
+Thanks,
+Toshiaki Makita
