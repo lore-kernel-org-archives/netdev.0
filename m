@@ -1,44 +1,50 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
-Date: Thu, 15 May 2014 11:14:25 +0100
-Message-ID: <53749381.7010301@citrix.com>
-References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>	 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>	 <53734F9F.2010101@citrix.com> <1400142682.30687.3.camel@kazak.uk.xensource.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net v4] xen-netback: Fix grant ref resolution in RX path
+Date: Thu, 15 May 2014 11:37:49 +0100
+Message-ID: <1400150269.4386.30.camel@kazak.uk.xensource.com>
+References: <1400148514-2921-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
 	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
 	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
 	<davem@davemloft.net>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:20786 "EHLO SMTP.CITRIX.COM"
+Received: from smtp02.citrix.com ([66.165.176.63]:7039 "EHLO SMTP02.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951AbaEOKO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 06:14:29 -0400
-In-Reply-To: <1400142682.30687.3.camel@kazak.uk.xensource.com>
+	id S1752396AbaEOKhw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 06:37:52 -0400
+In-Reply-To: <1400148514-2921-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/05/14 09:31, Ian Campbell wrote:
-> On Wed, 2014-05-14 at 12:12 +0100, Zoltan Kiss wrote:
->>> The 'cleanup' of stale ubufs should be right after __pskb_pull_tail().
->> We can't fix every place in the kernel where frags might be changed,
->> especially with a netback specific stuff, so unfortunately that won't work
->
-> Is it worth fixing up the ones in netback though so that the things
-> injected into the stack are consistent when we hand them over? It would
-> avoid some search overhead on the rx path at the other end I guess?
-> Perhaps not significant though.
+On Thu, 2014-05-15 at 11:08 +0100, Zoltan Kiss wrote:
+> The original series for reintroducing grant mapping for netback had a patch [1]
+> to handle receiving of packets from an another VIF. Grant copy on the receiving
+> side needs the grant ref of the page to set up the op.
+> The original patch assumed (wrongly) that the frags array haven't changed. In
+> the case reported by Sander, the sending guest sent a packet where the linear
+> buffer and the first frag were under PKT_PROT_LEN (=128) bytes.
+> xenvif_tx_submit() then pulled up the linear area to 128 bytes, and ditched the
+> first frag. The receiving side had an off-by-one problem when gathered the grant
+> refs.
+> This patch fixes that by checking whether the actual frag's page pointer is the
+> same as the page in the original frag list. It can handle any kind of changes on
+> the original frags array, like:
+> - removing granted frags from the array at any point
+> - adding local pages to the frags list anywhere
+> - reordering the frags
+> It's optimized to the most common case, when there is 1:1 relation between the
+> frags and the list, plus works optimal when frags are removed from the end or
+> the beginning.
+> 
+> [1]: 3e2234: xen-netback: Handle foreign mapped pages on the guest RX path
+> 
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-There are plans to remove that unconditional pull, as it damages 
-performance. It is better to use during checksum setup maybe_pull_tail, 
-and pull up whatever is needed for checksum setup (this is already done, 
-partially). A sensible netfront would send the header in the first slot 
-anyway, so netback won't pull, and it definitely won't pull the whole 
-first frag.
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Regards,
-
-Zoli
+(Remind me, do we need both this and Eric's fix, or is it either/or?)
