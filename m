@@ -1,37 +1,56 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net-next 0/5] bonding: simple macro cleanup
-Date: Thu, 15 May 2014 08:34:22 +0200
-Message-ID: <20140515063422.GB27773@mikrodark.usersys.redhat.com>
-References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
- <20140514132922.GA24104@mikrodark.usersys.redhat.com>
- <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
+From: =?UTF-8?B?44Kr44Kq44CA44Of44Oz44CA44OS44Kn44OD44OX?=
+	<cm-hiep@jinso.co.jp>
+Subject: Ethernet bug at Upstream-v3.15-rcx on Lager.
+Date: Thu, 15 May 2014 15:28:24 +0900
+Message-ID: <53745E88.7040108@jinso.co.jp>
+Reply-To: cm-hiep@jinso.co.jp
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: David Laight <David.Laight@aculab.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Simon Horman <horms@verge.net.au>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:43184 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752390AbaEOGep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 02:34:45 -0400
-Received: by mail-we0-f172.google.com with SMTP id k48so584508wev.31
-        for <netdev@vger.kernel.org>; Wed, 14 May 2014 23:34:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
+Received: from qecsay241.secure.ne.jp ([158.199.161.241]:39940 "HELO
+	m119.secure.ne.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with SMTP id S1753886AbaEOGfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 02:35:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 09:10:33AM -0700, Alexei Starovoitov wrote:
->from compiler point of view it's actually easier to deal with inline functions
->than macros. I'd suggest to do the full conversion the other way around:
->convert all macros to static inline. Developers will enjoy better type safety
->and compiler will enjoy more opportunities to optimize code.
+Hi Sergei
 
-Ok, will move everything into inline functions.
+I am Hiep from JINZAI SOLUTION (a Japanese Company).
+Now, I am testing a upstream-v3.15-rc2 on Lager for Renesas RSO.
+I found a problem about Ethernet Driver so I would like to report to yo=
+u.
+The problem is losing data when sending data by UDP:
 
-Thanks for an interesting discussion :)
+     - From Lager board to PC:
+     BANDWIDTH from 10M to 70M are good,  but they suddenly  down 51.2=20
+Mbits/sec at 80M
+     and 57.8 Mbits/sec at 90 M and 64.2 Mbits/sec at 100M.
+
+     - From PC to Lager board:
+    Some time when the message of "sh-eth r8a7790-ether eth0: Receive=20
+=46IFO Overflow" occurs,
+    some of datagrams will be lost as the logs show below:
+     =E3=80=8C$ iperf -c 172.16.1.36 -u -b 90M
+     .....
+     [  3] Server Report:
+     [  3]  0.0-10.0 sec   108 MBytes  90.4 Mbits/sec   0.000 ms=20
+36/76923 (0.047%)
+     .....
+     # iperf -s -u
+     [ ID] Interval       Transfer     Bandwidth        Jitter=20
+Lost/Total Datagrams
+     sh-eth r8a7790-ether eth0: Receive FIFO Overflow
+     [  3]  0.0-10.0 sec   108 MBytes  90.4 Mbits/sec   0.001 ms=20
+36/76923 (0.047%)
+
+Please review it when you have time.
+
+Bests Regards,
+Cao Minh Hiep.
