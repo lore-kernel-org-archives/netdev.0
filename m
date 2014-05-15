@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tunnels - enable module autoloading
-Date: Thu, 15 May 2014 15:37:21 -0400 (EDT)
-Message-ID: <20140515.153721.2222505094570361361.davem@davemloft.net>
-References: <1399970908-9973-1-git-send-email-teg@jklm.no>
+Subject: Re: [PATCH] net:v4: Add support to configure SR-IOV VF minimum and
+ maximum Tx rate through ip tool.
+Date: Thu, 15 May 2014 15:42:54 -0400 (EDT)
+Message-ID: <20140515.154254.1931991235981700711.davem@davemloft.net>
+References: <1400046906-13929-1-git-send-email-sucheta.chakraborty@qlogic.com>
+	<1400046906-13929-2-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kaber@trash.net, yoshfuji@linux-ipv6.org, jmorris@namei.org,
-	kuznet@ms2.inr.ac.ru
-To: teg@jklm.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1399970908-9973-1-git-send-email-teg@jklm.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com,
+	ben@decadent.org.uk, gregory.v.rose@intel.com,
+	linux-net-drivers@solarflare.com, Ariel.Elior@qlogic.com,
+	amirv@mellanox.com, mkubecek@suse.cz, stephen@networkplumber.org
+To: sucheta.chakraborty@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35511 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753379AbaEOTm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 15:42:57 -0400
+In-Reply-To: <1400046906-13929-2-git-send-email-sucheta.chakraborty@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogVG9tIEd1bmRlcnNlbiA8dGVnQGprbG0ubm8+DQpEYXRlOiBUdWUsIDEzIE1heSAyMDE0
-IDEwOjQ4OjI4ICswMjAwDQoNCj4gRW5hYmxlIHRoZSBtb2R1bGUgYWxpYXMgaG9va3VwIHRvIGFs
-bG93IHR1bm5lbCBtb2R1bGVzIHRvIGJlIGF1dG9sb2FkZWQgb24gZGVtYW5kLg0KPiANCj4gVGhp
-cyBpcyBpbiBsaW5lIHdpdGggaG93IG1vc3Qgb3RoZXIgbmV0ZGV2IGtpbmRzIHdvcmssIGFuZCB3
-aWxsIGFsbG93IHVzZXJzcGFjZQ0KPiB0byBjcmVhdGUgdHVubmVscyB3aXRob3V0IGhhdmluZyBD
-QVBfU1lTX01PRFVMRS4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IFRvbSBHdW5kZXJzZW4gPHRlZ0Bq
-a2xtLm5vPg0KPiBUZXN0ZWQtYnk6IFN1c2FudCBTYWhhbmkgPHN1c2FudEByZWRoYXQuY29tPg0K
-DQpUaGlzIGRvZXNuJ3QgZXZlbiBjb21waWxlOg0KDQogIENDIFtNXSAgbmV0L2lwdjQvaXBpcC5v
-DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gaW5jbHVkZS9saW51eC9tb2R1bGUuaDoxNzowLA0KICAg
-ICAgICAgICAgICAgICBmcm9tIG5ldC9pcHY0L2lwaXAuYzo5NToNCmluY2x1ZGUvbGludXgvbW9k
-dWxlcGFyYW0uaDoyMToxOiBlcnJvcjogZXhwZWN0ZWQgoSyiIG9yIKE7oiBiZWZvcmUgoXN0YXRp
-Y6INCiBzdGF0aWMgY29uc3QgY2hhciBfX1VOSVFVRV9JRChuYW1lKVtdICAgICAgIFwNCiBeDQpp
-bmNsdWRlL2xpbnV4L21vZHVsZS5oOjg2OjMyOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8g
-oV9fTU9EVUxFX0lORk+iDQogI2RlZmluZSBNT0RVTEVfSU5GTyh0YWcsIGluZm8pIF9fTU9EVUxF
-X0lORk8odGFnLCB0YWcsIGluZm8pDQogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF4N
-CmluY2x1ZGUvbGludXgvbW9kdWxlLmg6ODk6MzA6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNy
-byChTU9EVUxFX0lORk+iDQogI2RlZmluZSBNT0RVTEVfQUxJQVMoX2FsaWFzKSBNT0RVTEVfSU5G
-TyhhbGlhcywgX2FsaWFzKQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXg0KaW5jbHVk
-ZS9saW51eC9uZXRkZXZpY2UuaDozMjgzOjI6IG5vdGU6IGluIGV4cGFuc2lvbiBvZiBtYWNybyCh
-TU9EVUxFX0FMSUFTog0KICBNT0RVTEVfQUxJQVMoIm5ldGRldi0iIGRldmljZSkNCiAgXg0KbmV0
-L2lwdjQvaXBpcC5jOjQ5MDoxOiBub3RlOiBpbiBleHBhbnNpb24gb2YgbWFjcm8goU1PRFVMRV9B
-TElBU19ORVRERVaiDQogTU9EVUxFX0FMSUFTX05FVERFVigidHVubDAiKTsNCiBeDQo=
+
+This does not apply to net-next, please respin.
+
+Thank you.
