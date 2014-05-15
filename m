@@ -1,61 +1,36 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: [PATCH] iplink: can: fix help text and man page
-Date: Thu, 15 May 2014 19:52:19 +0200
-Message-ID: <1400176339-2801-1-git-send-email-socketcan@hartkopp.net>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	Oliver Hartkopp <socketcan@hartkopp.net>
-To: stephen@networkplumber.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCHv2 net-next] xen-netback: fix race between napi_complete()
+ and interrupt handler
+Date: Thu, 15 May 2014 19:07:39 +0100
+Message-ID: <20140515180739.GF10525@zion.uk.xensource.com>
+References: <1400174228-16572-1-git-send-email-david.vrabel@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:54066 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754959AbaEOSIB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 14:08:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1400174228-16572-1-git-send-email-david.vrabel@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Controller Area Network (CAN) interfaces are physical network interfaces.
-They can't be 'created' like software devices by 'ip link add type can'.
+On Thu, May 15, 2014 at 06:17:08PM +0100, David Vrabel wrote:
+> When the NAPI budget was not all used, xenvif_poll() would call
+> napi_complete() /after/ enabling the interrupt.  This resulted in a
+> race between the napi_complete() and the napi_schedule() in the
+> interrupt handler.  The use of local_irq_save/restore() avoided by
+> race iff the handler is running on the same CPU but not if it was
+> running on a different CPU.
+> 
+> Fix this properly by calling napi_complete() before reenabling
+> interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
----
- ip/iplink.c           | 4 ++--
- man/man8/ip-link.8.in | 5 +----
- 2 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 0134d6e..c94261a 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -86,8 +86,8 @@ void iplink_usage(void)
- 	if (iplink_have_newlink()) {
- 		fprintf(stderr, "\n");
- 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
--		fprintf(stderr, "          can | bridge | bond | ipoib | ip6tnl | ipip | sit |\n");
--		fprintf(stderr, "          vxlan | gre | gretap | ip6gre | ip6gretap | vti }\n");
-+		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
-+		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti }\n");
- 	}
- 	exit(-1);
- }
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 9b555b0..e126046 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -163,9 +163,6 @@ Link types:
- .B bond
- - Bonding device
- .sp
--.B can
--- Controller Area Network interface
--.sp
- .B dummy
- - Dummy network interface
- .sp
-@@ -179,7 +176,7 @@ Link types:
- - Virtual interface base on link layer address (MAC)
- .sp
- .B vcan
--- Virtual Local CAN interface
-+- Virtual Controller Area Network interface
- .sp
- .B veth
- - Virtual ethernet interface
--- 
-2.0.0.rc2
-
+Acked-by: Wei Liu <wei.liu2@citrix.com>
