@@ -1,100 +1,60 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCHv3 3/4] of: provide a binding for fixed link PHYs
-Date: Thu, 15 May 2014 15:39:57 +0200
-Message-ID: <20140515153957.75a8aa2a@free-electrons.com>
-References: <1393930704-24374-1-git-send-email-thomas.petazzoni@ free-electrons.com>
-	<1393930704-24374-4-git-send-email-thomas.petazzoni@ free-electrons.com>
-	<20140308055033.BE0F2C405B0@trevor.secretlab.ca>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net V2] xen-netback: don't move event pointer
+ in TX credit timeout callback
+Date: Thu, 15 May 2014 14:40:58 +0100
+Message-ID: <5374C3EA.1080807@citrix.com>
+References: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, Lior Amsalem <alior@marvell.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Florian Fainelli <florian@openwrt.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Grant Likely <grant.likely@secretlab.ca>
+Cc: Paul Durrant <paul.durrant@citrix.com>, <jajcus@jajcus.net>
+To: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:56251 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752826AbaEONkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 09:40:00 -0400
-In-Reply-To: <20140308055033.BE0F2C405B0@trevor.secretlab.ca>
+Received: from smtp.citrix.com ([66.165.176.89]:4133 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752107AbaEONlA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 09:41:00 -0400
+In-Reply-To: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Grant Likely,
+On 15/05/14 12:59, Wei Liu wrote:
+> ... otherwise the frontend will try to send TX event all the time, even
+> if no progress can be made. The pointer should only be advanced by the
+> routine that actually processes the ring (that is, xenvif_poll).
 
-Sorry for bringing back this old topic, but I'm working on this again,
-hopefully reaching an acceptable solution this time. One question for
-you below.
+No it does not.  RING_FINAL_CHECK_FOR_REQUESTS() only advances the event
+index if the ring is empty.
 
-On Sat, 08 Mar 2014 05:50:33 +0000, Grant Likely wrote:
+This will also result in xenvif_up() failing to properly enable the event.
 
-> > +Example:
-> > +
-> > +ethernet@0 {
-> > +	...
-> > +	phy = <&phy0>;
-> > +	phy0: phy@0 {
-> > +	      fixed-link;
-> > +	      speed = <1000>;
-> > +	      full-duplex;
-> > +	};
+I think Jacek's bug may be that netback fails to call napi_complete()
+when credit is exceeded and there still outstanding requests on the
+from-guest ring and thus napi repeatedly polls.
+
+David
+
 > 
-> The phy phandle to a child node is superfluous. A phandle to a fixed
-> child node doesn't make a whole lot of sense.
-
-[...]
-
-> There should be no address portion in the node name. It isn't a child
-> device, the node is merely more configuration data for the parent.
+> Reported-by: Jacek Konieczny <jajcus@jajcus.net>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Paul Durrant <paul.durrant@citrix.com>
+> ---
+>  drivers/net/xen-netback/netback.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Example:
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 7666540..8e2cbeb 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -658,7 +658,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif)
+>  {
+>  	int more_to_do;
+>  
+> -	RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+> +	more_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
+>  
+>  	if (more_to_do)
+>  		napi_schedule(&vif->napi);
 > 
-> ethernet@0 {
-> 	...
-> 	fixed-link {
-> 	      speed = <1000>;
-> 	      full-duplex;
-> 	};
-
-For my current use case, I'm personally fine with that. But that
-doesn't work well with Florian Fainelli's which to potentially have the
-"fixed-link" node as part of another node in the DT, in the case the
-PHY is configurable through some separate SPI/I2C bus. See his comment
-in http://article.gmane.org/gmane.linux.network/306789:
-
-"""
-Another problem with that "old" 'fixed-link' property is that we are
-not properly capturing and representing Ethernet switches/PHYs whose
-data-path are isolated from the control path. For instance such
-devices will traditionally expose their control path as a
-MMIO/GPIO/I2C/SPI interface. Using the 5-digit 'fixed-link' property
-we are not representing this, on one side the Ethernet MAC is just
-told to hardcode the link parameters with some parameters, and on
-other side, any MMIO/GPIO/I2C/SPI device is not equipped with the
-correct properties to express the fact that is also has a data-path
-connected to an Ethernet MAC.
-
-What I like about this new binding is that we could place the
-'fixed-link' related properties in e.g: a SPI slave node, and have the
-Ethernet MAC be pointed at it by a phandle to tell it: look this is
-your PHY, it might not be one you could address on a MDIO bus, so I
-have been providing additional properties to help you with the link
-configuration.
-"""
-
-What is your opinion about this?
-
-Thanks,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
