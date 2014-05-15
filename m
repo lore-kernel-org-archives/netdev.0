@@ -1,156 +1,176 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH net 2/3] pktgen: give user result when disable vlan/svlan
-Date: Thu, 15 May 2014 22:12:10 +0800
-Message-ID: <20140515141210.GR25631@localhost.localdomain>
-References: <1400147197-22445-1-git-send-email-liuhangbin@gmail.com>
- <1400147197-22445-2-git-send-email-liuhangbin@gmail.com>
- <5374903F.6040202@redhat.com>
- <20140515110556.GO25631@localhost.localdomain>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net V2] xen-netback: don't move event pointer in TX
+ credit timeout callback
+Date: Thu, 15 May 2014 15:13:22 +0100
+Message-ID: <20140515141322.GI1117@zion.uk.xensource.com>
+References: <1400155158-13527-1-git-send-email-wei.liu2@citrix.com>
+ <5374BB64.1080407@jajcus.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Francesco Fondelli <francesco.fondelli@gmail.com>,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, Paul Durrant <paul.durrant@citrix.com>
+To: Jacek Konieczny <jajcus@jajcus.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48518 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaEOOMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 10:12:17 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so1147310pbb.5
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 07:12:17 -0700 (PDT)
+Received: from smtp.citrix.com ([66.165.176.89]:61380 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751689AbaEOONq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 10:13:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20140515110556.GO25631@localhost.localdomain>
+In-Reply-To: <5374BB64.1080407@jajcus.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 07:05:56PM +0800, Hangbin Liu wrote:
-> On Thu, May 15, 2014 at 12:00:31PM +0200, Daniel Borkmann wrote:
-> > On 05/15/2014 11:46 AM, Hangbin Liu wrote:
-> > >Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> > >---
-> > >  net/core/pktgen.c | 6 ++----
-> > >  1 file changed, 2 insertions(+), 4 deletions(-)
-> > >
-> > >diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> > >index dcf367f..1809bdf 100644
-> > >--- a/net/core/pktgen.c
-> > >+++ b/net/core/pktgen.c
-> > >@@ -1573,8 +1573,7 @@ static ssize_t pktgen_if_write(struct file *file,
-> > >  			pkt_dev->vlan_id = 0xffff; /* turn off VLAN/SVLAN */
-> > >  			pkt_dev->svlan_id = 0xffff;
-> > >
-> > >-			if (debug)
-> > >-				pr_debug("VLAN/SVLAN turned off\n");
-> > >+			sprintf(pg_result, "OK: VLAN/SVLAN turned off");
+On Thu, May 15, 2014 at 03:04:36PM +0200, Jacek Konieczny wrote:
+> On 05/15/14 13:59, Wei Liu wrote:
+> > ... otherwise the frontend will try to send TX event all the time, even
+> > if no progress can be made. The pointer should only be advanced by the
+> > routine that actually processes the ring (that is, xenvif_poll).
 > > 
-> > I think that might break user scripts as pg_result is copied to user
-> > space, and currently only expected to return 'OK: svlan_id=%u' if it
-> > was actually successful. Unfortunately, scripts that might only check
-> > for 'OK' in the string could make wrong assumptions later on.
-
-or maybe we can return 0xffff when disabled vlan? like
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index fabd17e..64afb91 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -1580,7 +1580,10 @@ static ssize_t pktgen_if_write(struct file *file,
-                        pkt_dev->vlan_id = 0xffff; /* turn off VLAN/SVLAN */
-                        pkt_dev->svlan_id = 0xffff;
-
--                       sprintf(pg_result, "OK: VLAN/SVLAN turned off");
-+                       sprintf(pg_result, "OK: vlan_id=0x%x", pkt_dev->vlan_id);
-+
-+                       if (debug)
-+                               pr_debug("VLAN/SVLAN turned off\n");
-                }
-                return count;
-        }
-
-But I saw dst_mac, src_mac and clear_counters also didn't use the OK: param=value
-format.
-sprintf(pg_result, "OK: dstmac %pM", pkt_dev->dst_mac);
-sprintf(pg_result, "OK: srcmac %pM", pkt_dev->src_mac);
-sprintf(pg_result, "OK: Clearing counters.\n");
-
-We can change src_mac and dst_mac to "srcmac=%pM" easily, but I don't know how
-to edit counters. return OK: counters=0 ?
-
-> 
-> But the original behavior will keep the last return value, which may make user
-> confused. e.g.
-> 
-> # echo vlan_id 10 > /proc/net/pktgen/eno4
-> # cat /proc/net/pktgen/eno4
-> Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
->      frags: 0  delay: 0  clone_skb: 0  ifname: eno4
->      flows: 0 flowlen: 0
->      queue_map_min: 0  queue_map_max: 0
->      dst_min:   dst_max:
->         src_min:   src_max:
->      src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
->      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
->      src_mac_count: 0  dst_mac_count: 0
->      vlan_id: 10  vlan_p: 0  vlan_cfi: 0
->      Flags:
-> Current:
->      pkts-sofar: 0  errors: 0
->      started: 0us  stopped: 0us idle: 0us
->      seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
->      cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
->      cur_udp_dst: 0  cur_udp_src: 0
->      cur_queue_map: 0
->      flows: 0
-> Result: OK: vlan_id=10
-> 
-> # echo vlan_id 9999 > /proc/net/pktgen/eno4
-> # cat /proc/net/pktgen/eno4
-> Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
->      frags: 0  delay: 0  clone_skb: 0  ifname: eno4
->      flows: 0 flowlen: 0
->      queue_map_min: 0  queue_map_max: 0
->      dst_min:   dst_max:
->         src_min:   src_max:
->      src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
->      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
->      src_mac_count: 0  dst_mac_count: 0
->      Flags:
-> Current:
->      pkts-sofar: 0  errors: 0
->      started: 0us  stopped: 0us idle: 0us
->      seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
->      cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
->      cur_udp_dst: 0  cur_udp_src: 0
->      cur_queue_map: 0
->      flows: 0
-> Result: OK: vlan_id=10
-> 
+> > Reported-by: Jacek Konieczny <jajcus@jajcus.net>
+> > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: Paul Durrant <paul.durrant@citrix.com>
+> > ---
+> >  drivers/net/xen-netback/netback.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
 > > 
-> > >  		}
-> > >  		return count;
-> > >  	}
-> > >@@ -1629,8 +1628,7 @@ static ssize_t pktgen_if_write(struct file *file,
-> > >  		} else {
-> > >  			pkt_dev->svlan_id = 0xffff;
-> > >
-> > >-			if (debug)
-> > >-				pr_debug("SVLAN turned off\n");
-> > >+			sprintf(pg_result, "OK: SVLAN turned off");
+> > diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> > index 7666540..8e2cbeb 100644
+> > --- a/drivers/net/xen-netback/netback.c
+> > +++ b/drivers/net/xen-netback/netback.c
+> > @@ -658,7 +658,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif)
+> >  {
+> >  	int more_to_do;
+> >  
+> > -	RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+> > +	more_to_do = RING_HAS_UNCONSUMED_REQUESTS(&vif->tx);
 > > 
-> > Ditto.
-> > 
-> > >  		}
-> > >  		return count;
-> > >  	}
-> > >
 > 
-> -- 
+> Unfortunately, this seems not enough to fix the problem I have reported
+> here:
+> http://lists.xenproject.org/archives/html/xen-devel/2014-05/msg01183.html
 > 
-> Thanks & Best Regards
-> Hangbin Liu <liuhangbin@gmail.com>
+> The dom0 network still stalls when using rate limiting on a VIF
+> interface after applying this patch to my 3.14.3 kernel (100% CPU#1
+> usage in the 'soft interrupts').
+> 
 
+This is a patch for 3.14.4. I've tested it myself (and looking at the
+right stats!) to confirm it works.
+
+---8<---
+>From a4afed6c44027afff82d6fa7503faef83b01fffe Mon Sep 17 00:00:00 2001
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Thu, 15 May 2014 15:02:55 +0100
+Subject: [PATCH] xen-netback: call napi_complete if vif is rate limited
+
+Reported-by: Jacek Konieczny <jajcus@jajcus.net>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Paul Durrant <paul.durrant@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netback/common.h    |    2 +-
+ drivers/net/xen-netback/interface.c |    5 +++--
+ drivers/net/xen-netback/netback.c   |   12 ++++++++----
+ 3 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 4bf5b33..4c018de 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -219,7 +219,7 @@ void xenvif_check_rx_xenvif(struct xenvif *vif);
+ /* Prevent the device from generating any further traffic. */
+ void xenvif_carrier_off(struct xenvif *vif);
+ 
+-int xenvif_tx_action(struct xenvif *vif, int budget);
++int xenvif_tx_action(struct xenvif *vif, int budget, bool *rate_limited);
+ 
+ int xenvif_kthread(void *data);
+ void xenvif_kick_thread(struct xenvif *vif);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 2e92d52..03cfbd6 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -61,6 +61,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct xenvif *vif = container_of(napi, struct xenvif, napi);
+ 	int work_done;
++	bool rate_limited;
+ 
+ 	/* This vif is rogue, we pretend we've there is nothing to do
+ 	 * for this vif to deschedule it from NAPI. But this interface
+@@ -71,7 +72,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ 		return 0;
+ 	}
+ 
+-	work_done = xenvif_tx_action(vif, budget);
++	work_done = xenvif_tx_action(vif, budget, &rate_limited);
+ 
+ 	if (work_done < budget) {
+ 		int more_to_do = 0;
+@@ -96,7 +97,7 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ 		local_irq_save(flags);
+ 
+ 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+-		if (!more_to_do)
++		if (!more_to_do || rate_limited)
+ 			__napi_complete(napi);
+ 
+ 		local_irq_restore(flags);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 97030c1..fa7d5da 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1125,12 +1125,14 @@ static bool tx_credit_exceeded(struct xenvif *vif, unsigned size)
+ 	return false;
+ }
+ 
+-static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
++static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget,
++				     bool *rate_limited)
+ {
+ 	struct gnttab_copy *gop = vif->tx_copy_ops, *request_gop;
+ 	struct sk_buff *skb;
+ 	int ret;
+ 
++	*rate_limited = false;
+ 	while ((nr_pending_reqs(vif) + XEN_NETBK_LEGACY_SLOTS_MAX
+ 		< MAX_PENDING_REQS) &&
+ 	       (skb_queue_len(&vif->tx_queue) < budget)) {
+@@ -1165,8 +1167,10 @@ static unsigned xenvif_tx_build_gops(struct xenvif *vif, int budget)
+ 
+ 		/* Credit-based scheduling. */
+ 		if (txreq.size > vif->remaining_credit &&
+-		    tx_credit_exceeded(vif, txreq.size))
++		    tx_credit_exceeded(vif, txreq.size)) {
++			*rate_limited = true;
+ 			break;
++		}
+ 
+ 		vif->remaining_credit -= txreq.size;
+ 
+@@ -1382,7 +1386,7 @@ static int xenvif_tx_submit(struct xenvif *vif)
+ }
+ 
+ /* Called after netfront has transmitted */
+-int xenvif_tx_action(struct xenvif *vif, int budget)
++int xenvif_tx_action(struct xenvif *vif, int budget, bool *rate_limited)
+ {
+ 	unsigned nr_gops;
+ 	int work_done;
+@@ -1390,7 +1394,7 @@ int xenvif_tx_action(struct xenvif *vif, int budget)
+ 	if (unlikely(!tx_work_todo(vif)))
+ 		return 0;
+ 
+-	nr_gops = xenvif_tx_build_gops(vif, budget);
++	nr_gops = xenvif_tx_build_gops(vif, budget, rate_limited);
+ 
+ 	if (nr_gops == 0)
+ 		return 0;
 -- 
+1.7.10.4
 
-Thanks & Best Regards
-Hangbin Liu <liuhangbin@gmail.com>
+
+> Greets,
+> 	Jacek
