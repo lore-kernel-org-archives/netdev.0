@@ -1,63 +1,71 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Subject: Re: [PATCH v2 net] net: filter: x86: fix JIT address randomization
-Date: Thu, 15 May 2014 08:53:41 +0200
-Message-ID: <20140515065341.GB10217@osiris>
-References: <1400018755-3049-1-git-send-email-ast@plumgrid.com>
- <20140513.183145.1568789082256942703.davem@davemloft.net>
- <20140514080557.GB9848@osiris>
- <20140514.161038.604524051618558919.davem@redhat.com>
- <5373D4BF.1040002@zytor.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 4/6] xfrm6: Properly handle unsupported protocols
+Date: Thu, 15 May 2014 09:07:54 +0200
+Message-ID: <1400137676-27565-5-git-send-email-steffen.klassert@secunet.com>
+References: <1400137676-27565-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@redhat.com>, ast@plumgrid.com,
-	edumazet@google.com, dborkman@redhat.com, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, "H. Peter Anvin" <hpa@linux.intel.com>
-To: "H. Peter Anvin" <hpa@zytor.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:38447 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753484AbaEOGxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 02:53:47 -0400
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <heiko.carstens@de.ibm.com>;
-	Thu, 15 May 2014 07:53:46 +0100
-Received: from b06cxnps3074.portsmouth.uk.ibm.com (d06relay09.portsmouth.uk.ibm.com [9.149.109.194])
-	by d06dlp02.portsmouth.uk.ibm.com (Postfix) with ESMTP id 249B62190042
-	for <netdev@vger.kernel.org>; Thu, 15 May 2014 07:53:35 +0100 (BST)
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s4F6rhT660096756
-	for <netdev@vger.kernel.org>; Thu, 15 May 2014 06:53:43 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (localhost [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s4F6rgpp018708
-	for <netdev@vger.kernel.org>; Thu, 15 May 2014 00:53:43 -0600
-Content-Disposition: inline
-In-Reply-To: <5373D4BF.1040002@zytor.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:44773 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753792AbaEOHIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 03:08:09 -0400
+In-Reply-To: <1400137676-27565-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 01:40:31PM -0700, H. Peter Anvin wrote:
-> On 05/14/2014 01:10 PM, David Miller wrote:
-> > From: Heiko Carstens <heiko.carstens@de.ibm.com>
-> > Date: Wed, 14 May 2014 10:05:57 +0200
-> > 
-> >> Dave, can you route this via -net?
-> > 
-> 
-> Pardon for being a bit confused, but it would seem x86 or net would be
-> the logical routes for this -- I don't mind at all it being routed
-> through net, but that would seem to be between myself (and the other x86
-> maintainers) and Dave...
+We don't catch the case if an unsupported protocol is submitted
+to the xfrm6 protocol handlers, this can lead to NULL pointer
+dereferences. Fix this by adding the appropriate checks.
 
-[resending - and this time really added hpa's Intel email address]
+Fixes: 7e14ea15 ("xfrm6: Add IPsec protocol multiplexer")
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/xfrm6_protocol.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
-Hi Peter,
-
-you missed the s390 version of Alexei's patch which I sent as reply to this
-thread. As usual I got a delivery failure for your zytor.com email address
-(added your Intel address this time).
-
-So the question was if Dave could add the s390 version of the patch to -net.
-
-Thanks,
-Heiko
+diff --git a/net/ipv6/xfrm6_protocol.c b/net/ipv6/xfrm6_protocol.c
+index 6ab989c..54d13f8 100644
+--- a/net/ipv6/xfrm6_protocol.c
++++ b/net/ipv6/xfrm6_protocol.c
+@@ -50,6 +50,10 @@ int xfrm6_rcv_cb(struct sk_buff *skb, u8 protocol, int err)
+ {
+ 	int ret;
+ 	struct xfrm6_protocol *handler;
++	struct xfrm6_protocol __rcu **head = proto_handlers(protocol);
++
++	if (!head)
++		return 0;
+ 
+ 	for_each_protocol_rcu(*proto_handlers(protocol), handler)
+ 		if ((ret = handler->cb_handler(skb, err)) <= 0)
+@@ -184,10 +188,12 @@ int xfrm6_protocol_register(struct xfrm6_protocol *handler,
+ 	struct xfrm6_protocol __rcu **pprev;
+ 	struct xfrm6_protocol *t;
+ 	bool add_netproto = false;
+-
+ 	int ret = -EEXIST;
+ 	int priority = handler->priority;
+ 
++	if (!proto_handlers(protocol) || !netproto(protocol))
++		return -EINVAL;
++
+ 	mutex_lock(&xfrm6_protocol_mutex);
+ 
+ 	if (!rcu_dereference_protected(*proto_handlers(protocol),
+@@ -230,6 +236,9 @@ int xfrm6_protocol_deregister(struct xfrm6_protocol *handler,
+ 	struct xfrm6_protocol *t;
+ 	int ret = -ENOENT;
+ 
++	if (!proto_handlers(protocol) || !netproto(protocol))
++		return -EINVAL;
++
+ 	mutex_lock(&xfrm6_protocol_mutex);
+ 
+ 	for (pprev = proto_handlers(protocol);
+-- 
+1.7.9.5
