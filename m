@@ -1,36 +1,48 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
-Date: Thu, 15 May 2014 09:31:22 +0100
-Message-ID: <1400142682.30687.3.camel@kazak.uk.xensource.com>
-References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53734F9F.2010101@citrix.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec-next 2/2] xfrm: configure policy hash table
+ thresholds by /proc
+Date: Thu, 15 May 2014 10:34:47 +0200
+Message-ID: <20140515083447.GC32371@secunet.com>
+References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
+ <1399902325-1788-3-git-send-email-christophe.gouault@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
-	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Christophe Gouault <christophe.gouault@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:35065 "EHLO SMTP.CITRIX.COM"
+Received: from a.mx.secunet.com ([195.81.216.161]:46605 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843AbaEOIbq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 04:31:46 -0400
-In-Reply-To: <53734F9F.2010101@citrix.com>
+	id S1752107AbaEOIe6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 04:34:58 -0400
+Content-Disposition: inline
+In-Reply-To: <1399902325-1788-3-git-send-email-christophe.gouault@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-14 at 12:12 +0100, Zoltan Kiss wrote:
-> > The 'cleanup' of stale ubufs should be right after __pskb_pull_tail().
-> We can't fix every place in the kernel where frags might be changed, 
-> especially with a netback specific stuff, so unfortunately that won't work
+On Mon, May 12, 2014 at 03:45:25PM +0200, Christophe Gouault wrote:
+> Enable to specify local and remote prefix length thresholds
+> for the policy hash table via /proc entries. Example:
+> 
+> echo 0 24 > /proc/sys/net/ipv4/xfrm4_policy_hash_tresh
+> echo 0 56 > /proc/sys/net/ipv6/xfrm6_policy_hash_tresh
 
-Is it worth fixing up the ones in netback though so that the things
-injected into the stack are consistent when we hand them over? It would
-avoid some search overhead on the rx path at the other end I guess?
-Perhaps not significant though.
+I would not like to have this configurable from userspace.
+Fist of all, a good threshold depends on the IPsec configuration
+and can change during runtime. So it is not obvious for a user
+which values are good for his configuration. Most users will
+just leave the default, so they will not benefit from your
+changes.
 
-Ian.
+Second, on the long run we have to remove the IPsec flowcache
+as this has the same limitation as our routing cache had.
+To do this, we need to replace the hashlist based policy and
+state lookups by a well performing lookup algorithm and I
+would like to do that without any user visible changes.
+
+Can't we tune the hash threshold internally? We could maintain
+a per hashlist policy counter. If we have 'many' policies and
+most of these policies are in the same hashlist we could change
+the hash threshold. We could check this when we add policies
+and update the hash threshold if needed.
+
+Everything else looks pretty good, thanks!
