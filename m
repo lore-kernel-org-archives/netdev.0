@@ -1,28 +1,26 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
 Subject: Re: [PATCH net v4] xen-netback: Fix grant ref resolution in RX path
-Date: Thu, 15 May 2014 12:46:50 +0200
-Message-ID: <1341966175.20140515124650@eikelenboom.it>
+Date: Thu, 15 May 2014 11:53:10 +0100
+Message-ID: <53749C96.2030102@citrix.com>
 References: <1400148514-2921-1-git-send-email-zoltan.kiss@citrix.com> <1400150269.4386.30.camel@kazak.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	xen-devel@lists.xenproject.org, <wei.liu2@citrix.com>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<david.vrabel@citrix.com>, <davem@davemloft.net>
+Cc: <xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
+	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
+	<davem@davemloft.net>
 To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:53903 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843AbaEOKq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 06:46:59 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:20208 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751098AbaEOKxP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 06:53:15 -0400
 In-Reply-To: <1400150269.4386.30.camel@kazak.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Thursday, May 15, 2014, 12:37:49 PM, you wrote:
-
+On 15/05/14 11:37, Ian Campbell wrote:
 > On Thu, 2014-05-15 at 11:08 +0100, Zoltan Kiss wrote:
 >> The original series for reintroducing grant mapping for netback had a patch [1]
 >> to handle receiving of packets from an another VIF. Grant copy on the receiving
@@ -42,23 +40,19 @@ Thursday, May 15, 2014, 12:37:49 PM, you wrote:
 >> It's optimized to the most common case, when there is 1:1 relation between the
 >> frags and the list, plus works optimal when frags are removed from the end or
 >> the beginning.
->> 
+>>
 >> [1]: 3e2234: xen-netback: Handle foreign mapped pages on the guest RX path
->> 
+>>
 >> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
 >> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-
+>
 > Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
+>
 > (Remind me, do we need both this and Eric's fix, or is it either/or?)
 
-The regression i reported goes away with Zoltan's fix alone (I tested Zoltan's 
-fix v3, without Eric's patch, pulled onto 3.15-rc5).
+When you say Eric's fix, which one do you talk about? The one for 
+skb_try_coalesce? That's not too burning, at the moment it is only used 
+from the IP layer and above, as far as I can tell, and zerocopy skbs get 
+copied to local pages in deliver_skb.
 
-In earlier tests Eric's patch didn't make a difference in my testcase.
-
-So Zoltan's patch fixes the reported regression.
-Eric's patch is a additional correctness fix, independent of the reported regression.
-
---
-Sander
+Zoli
