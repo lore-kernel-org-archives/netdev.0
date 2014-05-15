@@ -1,131 +1,77 @@
-From: Stefan Bader <stefan.bader@canonical.com>
-Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
-Date: Thu, 15 May 2014 11:03:01 +0200
-Message-ID: <537482C5.4060602@canonical.com>
-References: <537262AB.5010408@canonical.com> <5373C8D4.2010803@citrix.com>	<5373CCD1.4050509@citrix.com> <1721040118.20140515103816@eikelenboom.it>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 0/5] bonding: simple macro cleanup
+Date: Thu, 15 May 2014 09:04:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172462C9@AcuExch.aculab.com>
+References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
+	 <20140514132922.GA24104@mikrodark.usersys.redhat.com>
+	 <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
+ <1400084983.19788.15.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="6PC0qKsm7iOpkMG0tJehurv3XuDCVDxiO"
-Cc: xen-devel@lists.xenproject.org, netdev <netdev@vger.kernel.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	"Andy Gospodarek" <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@redhat.com>
+To: 'Joe Perches' <joe@perches.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:38109 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751828AbaEOJDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 05:03:04 -0400
-In-Reply-To: <1721040118.20140515103816@eikelenboom.it>
+Received: from mx0.aculab.com ([213.249.233.131]:58417 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751000AbaEOJEV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 05:04:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10092-09 for <netdev@vger.kernel.org>;
+ Thu, 15 May 2014 10:04:10 +0100 (BST)
+In-Reply-To: <1400084983.19788.15.camel@joe-AO725>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---6PC0qKsm7iOpkMG0tJehurv3XuDCVDxiO
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Joe Perches
+> On Wed, 2014-05-14 at 09:10 -0700, Alexei Starovoitov wrote:
+> > from compiler point of view it's actually easier to deal with inline functions
+> > than macros. I'd suggest to do the full conversion the other way around:
+> > convert all macros to static inline. Developers will enjoy better type safety
+> > and compiler will enjoy more opportunities to optimize code.
+> 
+> Agree about the type safety, but sometimes a compiler will
+> generate worse code with static inlines than #defines.
 
-On 15.05.2014 10:38, Sander Eikelenboom wrote:
->=20
-> Wednesday, May 14, 2014, 10:06:41 PM, you wrote:
->=20
->> On 14/05/14 20:49, Zoltan Kiss wrote:
->>> On 13/05/14 19:21, Stefan Bader wrote:
->>>> Since I am not deeply familiar with the networking code, I wonder
->>>> about two things:
->>>> - is there something that should limit the skb data length from all =
-frags
->>>>    to stay below the 64K which the definition of MAX_SKB_FRAGS hints=
-?
->>> I think netfront should be able to handle 64K packets at most.
->>>> - is multiple frags having offsets expected?
->>> Yes, since compound pages a frag could over the 4K page boundary. The=
+Sometimes yes - mainly because the #define version happens
+at a much earlier stage in the compilation so is subject
+to additional optimisations.
+For most functions it either has no effect, or doesn't matter.
 
->>> problem is, that in the netback/front protocol the assumption is that=
+If you are trying to squeeze out every last unwanted clock cycle
+then #defines can help.
+Take the following real example:
 
->>> every slot is a single page, because grant operations could be done o=
-nly
->>> on a 4K page. And every slot ends up as a frag (expect maybe the firs=
-t,
->>> it can happen it is grant copied straight to the linear buffer),
->>> therefore the frontend cannot send an skb which occupies more than
->>> MAX_SKB_FRAGS individual 4k page.
->>> The problem is known for a while, the solution is not, unfortunately.=
+#define ASM_COMMENT(text) asm volatile( "#" text " line " STR(__LINE__) :: )
+#define hdlc_put_ind(rx_hdlc) do { \
+        (++hdlc_ind_next - 1)->hi_rqst = rx_hdlc; \
+        if (predict_false(hdlc_ind_next == hdlc_ind_last)) { \
+            hdlc_ind_next = hdlc_ind; \
+            ASM_COMMENT("ring wrapped"); \
+        } \
+    } while (0)
 
->=20
->> I think the worst case scenario is when every frag and the linear buff=
-er=20
->> contains 2 bytes, which are overlapping a page boundary (that's=20
->> (17+1)*2=3D36 so far), plus 15 of them have a 4k page in the middle of=
-=20
->> them, so, a 1+4096+1 byte buffer can span over 3 page. That's 51=20
->> individual pages.
->> With the previous grant copy implementation there would be the option =
-to=20
->> modify backend and coalesce everything into a well formed skb. That=20
->> would be a minor change there. But with grant mapping it's harder.
->> Slots of compound pages could be mapped to adjacent pages to Dom0, may=
-be=20
->> somehow you can present them as compound pages in Dom0 as well. But in=
-=20
->> MFN space they wouldn't be contiguous, you need SWIOTLB or use IOMMU t=
-o=20
->> hide that from the devices. Plus, what happens when you can't find=20
->> adjacent pending slots?
->> I think we would be better off at the moment with trying to compact=20
->> these skbs a bit. Usually they overflow the limit by one or two, which=
-=20
->> means we should reallocate one or two frag, or the linear buffer to=20
->> decrease the number of 4K pages used.
->=20
-> How does virtio-net handle this, the would probably have ran into the s=
-ame problems ?
+The ASM_COMMENT here is important - it stops gcc tail merging the
+call in code like:
+	if (foo) {
+		...
+		hdlc_put_ind(bar);
+	} else {
+		...
+		hdlc_put_ind(baz);
+	}
+	continue;
 
-Maybe, though it seems not too many things cause this kind of traffic and=
- then I
-could not say whether they have to handle a limited set of ring pages, to=
-o. But
-its something to keep in mind when digging deeper into it.
+With an inline function you can't force two copies be generated.
 
--Stefan
->=20
-> --
-> Sander
->=20
->> Zoli
->=20
->=20
->=20
->=20
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
->=20
+But most of the network stack isn't optimised to that level!
 
-
-
---6PC0qKsm7iOpkMG0tJehurv3XuDCVDxiO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJTdILFAAoJEOhnXe7L7s6jph4P/2WCcKOoeE/fYjgAS2D3PNDn
-XaVxjUPrBzRGtMiX+ttFT+Nx1x2u3uhAjxcs9IOkxBifzQ3hdRn5CLdlXotQYpFn
-3QN3r2+exvuTocBiJBGmVhZjRUS0B6wOVPHhyhtvjfrty3iZF3rSGTkkFyLO/fFO
-wKDzNtm2g6sLB4XOFGMjjwtV5f4IbqKLDkka2KEAoPeA2DTImyO05vJ+5gSW1QZO
-vEOMnR6yEB86OoUTo7OlZwyb3sOkDGQNoTFqPiNwMPJCr+cV2lgm/WY1HwHmq/zM
-akEywhVN3FhdvdItCQ2Mygv9JvmIsvLUleXjKBYrOw1wIA2TmALuXVpsZAU9DkdC
-urBKVf+Fk7p2Vf3ZpLTdOQ74VDFOxy5Wd32bVZlexluibSzMyPl0+t3RhXN4y04S
-TrLtwVegye6WYFVSZ2pM8630OPPLyvjr0fQ/RuT9u5hEk5z/ZFPPvR+H9YL99R2j
-bTT32WuSod4pQI7Rc3p+cgEVIPtKsCHcKWQwk6sgJQwY4asCyvmPNf3BsjNSGTlP
-vpxZLhpskTEWnHbbeb1/kX/6RQ71GxGquTiwknnWK2eMMlQe9gR9b8Ur2K2sG8Wp
-wCqPsz/28Cy/PFcqsGhesDdosKyxI38peWQ25otE+qa/1IBulqzfTYYlhWgccSx7
-0aOtXlidkYzyMkpoHaTq
-=rGjx
------END PGP SIGNATURE-----
-
---6PC0qKsm7iOpkMG0tJehurv3XuDCVDxiO--
+	David
