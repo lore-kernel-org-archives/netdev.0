@@ -1,64 +1,58 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
-Date: Thu, 15 May 2014 10:38:16 +0200
-Message-ID: <1721040118.20140515103816@eikelenboom.it>
-References: <537262AB.5010408@canonical.com> <5373C8D4.2010803@citrix.com> <5373CCD1.4050509@citrix.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net RFC] xen-netback: Fix grant ref resolution in RX path
+Date: Thu, 15 May 2014 09:41:29 +0100
+Message-ID: <1400143289.1006.0.camel@kazak.uk.xensource.com>
+References: <1399991500-4432-1-git-send-email-zoltan.kiss@citrix.com>
+		 <1399997635.7973.56.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <53734F9F.2010101@citrix.com>
+		 <1400067318.7973.69.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <53736EBA.7050401@citrix.com>
+	 <1400085639.26934.17.camel@kazak.uk.xensource.com>
+	 <5373B974.6050808@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Bader <stefan.bader@canonical.com>,
-	xen-devel@lists.xenproject.org, netdev <netdev@vger.kernel.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	<xen-devel@lists.xenproject.org>, <wei.liu2@citrix.com>,
+	<linux@eikelenboom.it>, <paul.durrant@citrix.com>,
+	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
+	<davem@davemloft.net>
 To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:52781 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbaEOIiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 04:38:21 -0400
-In-Reply-To: <5373CCD1.4050509@citrix.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:15295 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbaEOIl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 04:41:56 -0400
+In-Reply-To: <5373B974.6050808@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2014-05-14 at 19:44 +0100, Zoltan Kiss wrote:
+> On 14/05/14 17:40, Ian Campbell wrote:
+> >
+> > On Wed, 2014-05-14 at 14:25 +0100, Zoltan Kiss wrote:
+> >
+> >> But of course it should be carefully checked that functions which place
+> >> frags into another frags arrays should call orphan_frags, e.g. I guess
+> >> skb_shift does such thing. That's what I intend to start another thread
+> >> about.
+> >
+> > I see Eric has posted a fix for skb_try_coalesce(), but is that likely
+> > to be acceptable for 3.15? How many other similar patches are we
+> > expecting and/or how long do you think this careful checking will take?
+> >
+> > Given that we are now at 3.15-rc5 I think we need to decide how to
+> > proceed, either push ahead fixing all these issues or (partially) revert
+> > this netback feature and try again for 3.16.
+> I guess these problems apply to KVM as well, and it haven't caused them 
+> problem so far, so I guess the problem shouldn't be that big. I assume 
+> they are using this feature to send fragmented skbs out from a guest, 
+> but I might be wrong.
+> Anyway, I think I'll check tomorrow if there are further places to worry 
+> about, but I don't think if there are any of them which are easily 
+> reproducible.
 
-Wednesday, May 14, 2014, 10:06:41 PM, you wrote:
+OK, thanks. Assuming Eric's patch is acceptable for 3.15 it sounds like
+that is the way to go.
 
-> On 14/05/14 20:49, Zoltan Kiss wrote:
->> On 13/05/14 19:21, Stefan Bader wrote:
->>> Since I am not deeply familiar with the networking code, I wonder
->>> about two things:
->>> - is there something that should limit the skb data length from all frags
->>>    to stay below the 64K which the definition of MAX_SKB_FRAGS hints?
->> I think netfront should be able to handle 64K packets at most.
->>> - is multiple frags having offsets expected?
->> Yes, since compound pages a frag could over the 4K page boundary. The
->> problem is, that in the netback/front protocol the assumption is that
->> every slot is a single page, because grant operations could be done only
->> on a 4K page. And every slot ends up as a frag (expect maybe the first,
->> it can happen it is grant copied straight to the linear buffer),
->> therefore the frontend cannot send an skb which occupies more than
->> MAX_SKB_FRAGS individual 4k page.
->> The problem is known for a while, the solution is not, unfortunately.
-
-> I think the worst case scenario is when every frag and the linear buffer 
-> contains 2 bytes, which are overlapping a page boundary (that's 
-> (17+1)*2=36 so far), plus 15 of them have a 4k page in the middle of 
-> them, so, a 1+4096+1 byte buffer can span over 3 page. That's 51 
-> individual pages.
-> With the previous grant copy implementation there would be the option to 
-> modify backend and coalesce everything into a well formed skb. That 
-> would be a minor change there. But with grant mapping it's harder.
-> Slots of compound pages could be mapped to adjacent pages to Dom0, maybe 
-> somehow you can present them as compound pages in Dom0 as well. But in 
-> MFN space they wouldn't be contiguous, you need SWIOTLB or use IOMMU to 
-> hide that from the devices. Plus, what happens when you can't find 
-> adjacent pending slots?
-> I think we would be better off at the moment with trying to compact 
-> these skbs a bit. Usually they overflow the limit by one or two, which 
-> means we should reallocate one or two frag, or the linear buffer to 
-> decrease the number of 4K pages used.
-
-How does virtio-net handle this, the would probably have ran into the same problems ?
-
---
-Sander
-
-> Zoli
+Ian.
