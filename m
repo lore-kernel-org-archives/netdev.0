@@ -1,98 +1,156 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: randconfig build error with next-20140515, in drivers/net/ethernet/mellanox/mlx4/eq.c
-Date: Thu, 15 May 2014 17:10:44 +0300
-Message-ID: <5374CAE4.2080305@mellanox.com>
-References: <CA+r1Zhg2eT=MxzTmrv=mrhRMRgmFQx3FETLSf42-gGQUxqLOaw@mail.gmail.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH net 2/3] pktgen: give user result when disable vlan/svlan
+Date: Thu, 15 May 2014 22:12:10 +0800
+Message-ID: <20140515141210.GR25631@localhost.localdomain>
+References: <1400147197-22445-1-git-send-email-liuhangbin@gmail.com>
+ <1400147197-22445-2-git-send-email-liuhangbin@gmail.com>
+ <5374903F.6040202@redhat.com>
+ <20140515110556.GO25631@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuval Atias <yuvala@mellanox.com>, Amir Vadai <amirv@mellanox.com>
-To: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Francesco Fondelli <francesco.fondelli@gmail.com>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:33260 "EHLO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752107AbaEOOLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 10:11:15 -0400
-In-Reply-To: <CA+r1Zhg2eT=MxzTmrv=mrhRMRgmFQx3FETLSf42-gGQUxqLOaw@mail.gmail.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:48518 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbaEOOMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 10:12:17 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so1147310pbb.5
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 07:12:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140515110556.GO25631@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15/05/2014 16:48, Jim Davis wrote:
-> Building with the attached random configuration file,
->
-> drivers/net/ethernet/mellanox/mlx4/eq.c:58:29: error: field =91notify=
-=92
-> has incomplete type
->    struct irq_affinity_notify notify;
->                               ^
-> In file included from include/linux/interrupt.h:5:0,
->                   from drivers/net/ethernet/mellanox/mlx4/eq.c:34:
-> drivers/net/ethernet/mellanox/mlx4/eq.c: In function =91mlx4_irq_noti=
-fier_notify=92:
-> include/linux/kernel.h:834:48: warning: initialization from
-> incompatible pointer type [enabled by default]
->    const typeof( ((type *)0)->member ) *__mptr =3D (ptr); \
->                                                  ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1094:30: note: in expansion o=
-f
-> macro =91container_of=92
->    struct mlx4_irq_notify *n =3D container_of(notify,
->                                ^
-> include/linux/kernel.h:834:48: warning: (near initialization for =91n=
-=92)
-> [enabled by default]
->    const typeof( ((type *)0)->member ) *__mptr =3D (ptr); \
->                                                  ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1094:30: note: in expansion o=
-f
-> macro =91container_of=92
->    struct mlx4_irq_notify *n =3D container_of(notify,
->                                ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1104:24: error: dereferencing
-> pointer to incomplete type
->     if (cq->irq =3D=3D notify->irq)
->                          ^
-> In file included from include/linux/interrupt.h:5:0,
->                   from drivers/net/ethernet/mellanox/mlx4/eq.c:34:
-> drivers/net/ethernet/mellanox/mlx4/eq.c: In function
-> =91mlx4_release_irq_notifier=92:
-> include/linux/kernel.h:834:48: warning: initialization from
-> incompatible pointer type [enabled by default]
->    const typeof( ((type *)0)->member ) *__mptr =3D (ptr); \
->                                                  ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1111:30: note: in expansion o=
-f
-> macro =91container_of=92
->    struct mlx4_irq_notify *n =3D container_of(ref, struct mlx4_irq_no=
-tify,
->                                ^
-> include/linux/kernel.h:834:48: warning: (near initialization for =91n=
-=92)
-> [enabled by default]
->    const typeof( ((type *)0)->member ) *__mptr =3D (ptr); \
->                                                  ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1111:30: note: in expansion o=
-f
-> macro =91container_of=92
->    struct mlx4_irq_notify *n =3D container_of(ref, struct mlx4_irq_no=
-tify,
->                                ^
-> drivers/net/ethernet/mellanox/mlx4/eq.c: In function =91mlx4_assign_i=
-rq_notifier=92:
-> drivers/net/ethernet/mellanox/mlx4/eq.c:1133:2: error: implicit
-> declaration of function =91irq_set_affinity_notifier=92
-> [-Werror=3Dimplicit-function-declaration]
->    err =3D irq_set_affinity_notifier(irq, &irq_notifier->notify);
->    ^
-> cc1: some warnings being treated as errors
+On Thu, May 15, 2014 at 07:05:56PM +0800, Hangbin Liu wrote:
+> On Thu, May 15, 2014 at 12:00:31PM +0200, Daniel Borkmann wrote:
+> > On 05/15/2014 11:46 AM, Hangbin Liu wrote:
+> > >Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> > >---
+> > >  net/core/pktgen.c | 6 ++----
+> > >  1 file changed, 2 insertions(+), 4 deletions(-)
+> > >
+> > >diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> > >index dcf367f..1809bdf 100644
+> > >--- a/net/core/pktgen.c
+> > >+++ b/net/core/pktgen.c
+> > >@@ -1573,8 +1573,7 @@ static ssize_t pktgen_if_write(struct file *file,
+> > >  			pkt_dev->vlan_id = 0xffff; /* turn off VLAN/SVLAN */
+> > >  			pkt_dev->svlan_id = 0xffff;
+> > >
+> > >-			if (debug)
+> > >-				pr_debug("VLAN/SVLAN turned off\n");
+> > >+			sprintf(pg_result, "OK: VLAN/SVLAN turned off");
+> > 
+> > I think that might break user scripts as pg_result is copied to user
+> > space, and currently only expected to return 'OK: svlan_id=%u' if it
+> > was actually successful. Unfortunately, scripts that might only check
+> > for 'OK' in the string could make wrong assumptions later on.
 
-I can see the problem, irq_set_affinity_notifier isn't defined when CON=
-=46IG_SMP isn't set, I am copying here the developer and he would work =
-on a fix.
+or maybe we can return 0xffff when disabled vlan? like
 
-Or.
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index fabd17e..64afb91 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1580,7 +1580,10 @@ static ssize_t pktgen_if_write(struct file *file,
+                        pkt_dev->vlan_id = 0xffff; /* turn off VLAN/SVLAN */
+                        pkt_dev->svlan_id = 0xffff;
+
+-                       sprintf(pg_result, "OK: VLAN/SVLAN turned off");
++                       sprintf(pg_result, "OK: vlan_id=0x%x", pkt_dev->vlan_id);
++
++                       if (debug)
++                               pr_debug("VLAN/SVLAN turned off\n");
+                }
+                return count;
+        }
+
+But I saw dst_mac, src_mac and clear_counters also didn't use the OK: param=value
+format.
+sprintf(pg_result, "OK: dstmac %pM", pkt_dev->dst_mac);
+sprintf(pg_result, "OK: srcmac %pM", pkt_dev->src_mac);
+sprintf(pg_result, "OK: Clearing counters.\n");
+
+We can change src_mac and dst_mac to "srcmac=%pM" easily, but I don't know how
+to edit counters. return OK: counters=0 ?
+
+> 
+> But the original behavior will keep the last return value, which may make user
+> confused. e.g.
+> 
+> # echo vlan_id 10 > /proc/net/pktgen/eno4
+> # cat /proc/net/pktgen/eno4
+> Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
+>      frags: 0  delay: 0  clone_skb: 0  ifname: eno4
+>      flows: 0 flowlen: 0
+>      queue_map_min: 0  queue_map_max: 0
+>      dst_min:   dst_max:
+>         src_min:   src_max:
+>      src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
+>      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+>      src_mac_count: 0  dst_mac_count: 0
+>      vlan_id: 10  vlan_p: 0  vlan_cfi: 0
+>      Flags:
+> Current:
+>      pkts-sofar: 0  errors: 0
+>      started: 0us  stopped: 0us idle: 0us
+>      seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+>      cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
+>      cur_udp_dst: 0  cur_udp_src: 0
+>      cur_queue_map: 0
+>      flows: 0
+> Result: OK: vlan_id=10
+> 
+> # echo vlan_id 9999 > /proc/net/pktgen/eno4
+> # cat /proc/net/pktgen/eno4
+> Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
+>      frags: 0  delay: 0  clone_skb: 0  ifname: eno4
+>      flows: 0 flowlen: 0
+>      queue_map_min: 0  queue_map_max: 0
+>      dst_min:   dst_max:
+>         src_min:   src_max:
+>      src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
+>      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+>      src_mac_count: 0  dst_mac_count: 0
+>      Flags:
+> Current:
+>      pkts-sofar: 0  errors: 0
+>      started: 0us  stopped: 0us idle: 0us
+>      seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+>      cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
+>      cur_udp_dst: 0  cur_udp_src: 0
+>      cur_queue_map: 0
+>      flows: 0
+> Result: OK: vlan_id=10
+> 
+> > 
+> > >  		}
+> > >  		return count;
+> > >  	}
+> > >@@ -1629,8 +1628,7 @@ static ssize_t pktgen_if_write(struct file *file,
+> > >  		} else {
+> > >  			pkt_dev->svlan_id = 0xffff;
+> > >
+> > >-			if (debug)
+> > >-				pr_debug("SVLAN turned off\n");
+> > >+			sprintf(pg_result, "OK: SVLAN turned off");
+> > 
+> > Ditto.
+> > 
+> > >  		}
+> > >  		return count;
+> > >  	}
+> > >
+> 
+> -- 
+> 
+> Thanks & Best Regards
+> Hangbin Liu <liuhangbin@gmail.com>
+
+-- 
+
+Thanks & Best Regards
+Hangbin Liu <liuhangbin@gmail.com>
