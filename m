@@ -1,77 +1,74 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/5] bonding: simple macro cleanup
-Date: Thu, 15 May 2014 09:04:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172462C9@AcuExch.aculab.com>
-References: <1400072064-26095-1-git-send-email-vfalico@gmail.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1724466A@AcuExch.aculab.com>
-	 <20140514132922.GA24104@mikrodark.usersys.redhat.com>
-	 <CAADnVQKw3npBoeuQbVf4FtDiqiZuc7+1z7fwUL_6Vru-p3BwDQ@mail.gmail.com>
- <1400084983.19788.15.camel@joe-AO725>
+Subject: RE: [net-next PATCH 2/5] ixgbe: increase default TX ring buffer to
+ 1024
+Date: Thu, 15 May 2014 09:16:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17246334@AcuExch.aculab.com>
+References: <20140514141545.20309.28343.stgit@dragon>
+	<20140514141748.20309.83121.stgit@dragon>	<537399C2.8070908@intel.com>
+	<20140514.134950.1208688313542719676.davem@davemloft.net>
+ <20140514210935.5fc80c79@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: Veaceslav Falico <vfalico@gmail.com>,
+Cc: "alexander.h.duyck@intel.com" <alexander.h.duyck@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	"Andy Gospodarek" <andy@greyhouse.net>,
-	Veaceslav Falico <vfalico@redhat.com>
-To: 'Joe Perches' <joe@perches.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"robert@herjulf.se" <robert@herjulf.se>,
+	"greearb@candelatech.com" <greearb@candelatech.com>,
+	"john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"danieltt@kth.se" <danieltt@kth.se>,
+	"zhouzhouyi@gmail.com" <zhouzhouyi@gmail.com>
+To: 'Jesper Dangaard Brouer' <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58417 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:58739 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751000AbaEOJEV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 05:04:21 -0400
+	id S1752556AbaEOJRK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 05:17:10 -0400
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10092-09 for <netdev@vger.kernel.org>;
- Thu, 15 May 2014 10:04:10 +0100 (BST)
-In-Reply-To: <1400084983.19788.15.camel@joe-AO725>
+ id 12829-04 for <netdev@vger.kernel.org>;
+ Thu, 15 May 2014 10:17:00 +0100 (BST)
+In-Reply-To: <20140514210935.5fc80c79@redhat.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches
-> On Wed, 2014-05-14 at 09:10 -0700, Alexei Starovoitov wrote:
-> > from compiler point of view it's actually easier to deal with inline functions
-> > than macros. I'd suggest to do the full conversion the other way around:
-> > convert all macros to static inline. Developers will enjoy better type safety
-> > and compiler will enjoy more opportunities to optimize code.
+From: Jesper Dangaard Brouer
+> On Wed, 14 May 2014 13:49:50 -0400 (EDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> Agree about the type safety, but sometimes a compiler will
-> generate worse code with static inlines than #defines.
+> > From: Alexander Duyck <alexander.h.duyck@intel.com>
+> > Date: Wed, 14 May 2014 09:28:50 -0700
+> >
+> > > I'd say that it might be better to just add a note to the documentation
+> > > folder indicating what configuration is optimal for pktgen rather then
+> > > changing everyone's defaults to support one specific test.
+> >
+> > We could have drivers provide a pktgen config adjustment mechanism,
+> > so if someone starts pktgen then the device auto-adjusts to a pktgen
+> > optimal configuration (whatever that may entail).
+> 
+> That might be problematic because changing the TX queue size cause the
+> ixgbe driver to reset the link.
+> 
+> Notice that pktgen is ignoring BQL.  I'm sort of hoping that BQL will
+> push back for real use-cases, to avoid the bad effects of increasing
+> the TX size.
+> 
+> One of the bad effects, I'm hoping BQL will mitigate, is the case of
+> filling the TX queue with large frames.  Consider 9K jumbo frames, how
+> long time will it take to empty 1024 jumbo frames on a 10G link:
+> 
+> (9000*8)/(10000*10^6)*1000*1024 = 7.37ms
 
-Sometimes yes - mainly because the #define version happens
-at a much earlier stage in the compilation so is subject
-to additional optimisations.
-For most functions it either has no effect, or doesn't matter.
-
-If you are trying to squeeze out every last unwanted clock cycle
-then #defines can help.
-Take the following real example:
-
-#define ASM_COMMENT(text) asm volatile( "#" text " line " STR(__LINE__) :: )
-#define hdlc_put_ind(rx_hdlc) do { \
-        (++hdlc_ind_next - 1)->hi_rqst = rx_hdlc; \
-        if (predict_false(hdlc_ind_next == hdlc_ind_last)) { \
-            hdlc_ind_next = hdlc_ind; \
-            ASM_COMMENT("ring wrapped"); \
-        } \
-    } while (0)
-
-The ASM_COMMENT here is important - it stops gcc tail merging the
-call in code like:
-	if (foo) {
-		...
-		hdlc_put_ind(bar);
-	} else {
-		...
-		hdlc_put_ind(baz);
-	}
-	continue;
-
-With an inline function you can't force two copies be generated.
-
-But most of the network stack isn't optimised to that level!
+Never mind 9k 'jumbo' frames, I'm pretty sure ixgbe supports TCP segmentation
+offload - so you can have 64k frames in the tx ring.
+Since each takes (about) 44 ethernet frames that is about 55ms
+to clear the queue.
 
 	David
