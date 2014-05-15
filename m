@@ -1,72 +1,120 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
-Date: Thu, 15 May 2014 12:04:10 +0100
-Message-ID: <20140515110410.GD1117@zion.uk.xensource.com>
-References: <537262AB.5010408@canonical.com>
- <5373C8D4.2010803@citrix.com>
- <1400143605.1006.1.camel@kazak.uk.xensource.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH net 2/3] pktgen: give user result when disable vlan/svlan
+Date: Thu, 15 May 2014 19:05:56 +0800
+Message-ID: <20140515110556.GO25631@localhost.localdomain>
+References: <1400147197-22445-1-git-send-email-liuhangbin@gmail.com>
+ <1400147197-22445-2-git-send-email-liuhangbin@gmail.com>
+ <5374903F.6040202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	<xen-devel@lists.xenproject.org>, netdev <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Francesco Fondelli <francesco.fondelli@gmail.com>,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:37660 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751098AbaEOLEL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 07:04:11 -0400
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:44227 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbaEOLGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 07:06:05 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz1so947827pad.30
+        for <netdev@vger.kernel.org>; Thu, 15 May 2014 04:06:04 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1400143605.1006.1.camel@kazak.uk.xensource.com>
+In-Reply-To: <5374903F.6040202@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 09:46:45AM +0100, Ian Campbell wrote:
-> On Wed, 2014-05-14 at 20:49 +0100, Zoltan Kiss wrote:
-> > On 13/05/14 19:21, Stefan Bader wrote:
-> > > We had reports about this message being seen on EC2 for a while but finally a
-> > > reporter did notice some details about the guests and was able to provide a
-> > > simple way to reproduce[1].
-> > >
-> > > For my local experiments I use a Xen-4.2.2 based host (though I would say the
-> > > host versions are not important). The host has one NIC which is used as the
-> > > outgoing port of a Linux based (not openvswitch) bridge. And the PV guests use
-> > > that bridge. I set the mtu to 9001 (which was seen on affected instance types)
-> > > and also inside the guests. As described in the report one guests runs
-> > > redis-server and the other nodejs through two scripts (for me I had to do the
-> > > two sub.js calls in separate shells). After a bit the error messages appear on
-> > > the guest running the redis-server.
-> > >
-> > > I added some debug printk's to show a bit more detail about the skb and got the
-> > > following (<length>@<offset (after masking off complete pages)>):
-> > >
-> > > [ 698.108119] xen_netfront: xennet: skb rides the rocket: 19 slots
-> > > [ 698.108134] header 1490@238 -> 1 slots
-> > > [ 698.108139] frag #0 1614@2164 -> + 1 pages
-> > > [ 698.108143] frag #1 3038@1296 -> + 2 pages
-> > > [ 698.108147] frag #2 6076@1852 -> + 2 pages
-> > > [ 698.108151] frag #3 6076@292 -> + 2 pages
-> > > [ 698.108156] frag #4 6076@2828 -> + 3 pages
-> > > [ 698.108160] frag #5 3038@1268 -> + 2 pages
-> > > [ 698.108164] frag #6 2272@1824 -> + 1 pages
-> > > [ 698.108168] frag #7 3804@0 -> + 1 pages
-> > > [ 698.108172] frag #8 6076@264 -> + 2 pages
-> > > [ 698.108177] frag #9 3946@2800 -> + 2 pages
-> > > [ 698.108180] frags adding 18 slots
-> > >
-> > > Since I am not deeply familiar with the networking code, I wonder about two things:
-> > > - is there something that should limit the skb data length from all frags
-> > >    to stay below the 64K which the definition of MAX_SKB_FRAGS hints?
-> > I think netfront should be able to handle 64K packets at most.
+On Thu, May 15, 2014 at 12:00:31PM +0200, Daniel Borkmann wrote:
+> On 05/15/2014 11:46 AM, Hangbin Liu wrote:
+> >Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> >---
+> >  net/core/pktgen.c | 6 ++----
+> >  1 file changed, 2 insertions(+), 4 deletions(-)
+> >
+> >diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> >index dcf367f..1809bdf 100644
+> >--- a/net/core/pktgen.c
+> >+++ b/net/core/pktgen.c
+> >@@ -1573,8 +1573,7 @@ static ssize_t pktgen_if_write(struct file *file,
+> >  			pkt_dev->vlan_id = 0xffff; /* turn off VLAN/SVLAN */
+> >  			pkt_dev->svlan_id = 0xffff;
+> >
+> >-			if (debug)
+> >-				pr_debug("VLAN/SVLAN turned off\n");
+> >+			sprintf(pg_result, "OK: VLAN/SVLAN turned off");
 > 
-> Ah, maybe this relates to this fix from Wei?
+> I think that might break user scripts as pg_result is copied to user
+> space, and currently only expected to return 'OK: svlan_id=%u' if it
+> was actually successful. Unfortunately, scripts that might only check
+> for 'OK' in the string could make wrong assumptions later on.
+
+But the original behavior will keep the last return value, which may make user
+confused. e.g.
+
+# echo vlan_id 10 > /proc/net/pktgen/eno4
+# cat /proc/net/pktgen/eno4
+Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
+     frags: 0  delay: 0  clone_skb: 0  ifname: eno4
+     flows: 0 flowlen: 0
+     queue_map_min: 0  queue_map_max: 0
+     dst_min:   dst_max:
+        src_min:   src_max:
+     src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
+     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+     src_mac_count: 0  dst_mac_count: 0
+     vlan_id: 10  vlan_p: 0  vlan_cfi: 0
+     Flags:
+Current:
+     pkts-sofar: 0  errors: 0
+     started: 0us  stopped: 0us idle: 0us
+     seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+     cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
+     cur_udp_dst: 0  cur_udp_src: 0
+     cur_queue_map: 0
+     flows: 0
+Result: OK: vlan_id=10
+
+# echo vlan_id 9999 > /proc/net/pktgen/eno4
+# cat /proc/net/pktgen/eno4
+Params: count 1000  min_pkt_size: 0  max_pkt_size: 0
+     frags: 0  delay: 0  clone_skb: 0  ifname: eno4
+     flows: 0 flowlen: 0
+     queue_map_min: 0  queue_map_max: 0
+     dst_min:   dst_max:
+        src_min:   src_max:
+     src_mac: 6c:ae:8b:20:7b:cc dst_mac: 00:00:00:00:00:00
+     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+     src_mac_count: 0  dst_mac_count: 0
+     Flags:
+Current:
+     pkts-sofar: 0  errors: 0
+     started: 0us  stopped: 0us idle: 0us
+     seq_num: 0  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+     cur_saddr: 0.0.0.0  cur_daddr: 0.0.0.0
+     cur_udp_dst: 0  cur_udp_src: 0
+     cur_queue_map: 0
+     flows: 0
+Result: OK: vlan_id=10
+
 > 
+> >  		}
+> >  		return count;
+> >  	}
+> >@@ -1629,8 +1628,7 @@ static ssize_t pktgen_if_write(struct file *file,
+> >  		} else {
+> >  			pkt_dev->svlan_id = 0xffff;
+> >
+> >-			if (debug)
+> >-				pr_debug("SVLAN turned off\n");
+> >+			sprintf(pg_result, "OK: SVLAN turned off");
+> 
+> Ditto.
+> 
+> >  		}
+> >  		return count;
+> >  	}
+> >
 
-Yes, below patch limits SKB size to 64KB.  However the problem here is
-not SKB exceeding 64KB. The said SKB is acutally 43KB in size. The
-problem is that guest kernel is  using compound page so a frag which can
-be fit into one 4K page spans two 4K pages.  The fix seems to be
-coalescing SKB in frontend, but it will degrade performance.
+-- 
 
-Wei.
+Thanks & Best Regards
+Hangbin Liu <liuhangbin@gmail.com>
