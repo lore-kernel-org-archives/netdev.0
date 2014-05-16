@@ -1,28 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: Use seq_puts() where seq_printf() is
- not needed
-Date: Fri, 16 May 2014 17:02:15 -0400 (EDT)
-Message-ID: <20140516.170215.1654993200108983563.davem@davemloft.net>
-References: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v3 2/4] net: Allow for more then a single subclass for netif_addr_lock
+Date: Fri, 16 May 2014 17:04:54 -0400
+Message-ID: <1400274296-14765-3-git-send-email-vyasevic@redhat.com>
+References: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>
+Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
+	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49360 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755616AbaEPVCQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:02:16 -0400
-In-Reply-To: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:16176 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754419AbaEPVFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 17:05:12 -0400
+In-Reply-To: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 16 May 2014 12:53:20 +0200
+Currently netif_addr_lock_nested assumes that there can be only
+a single nesting level between 2 devices.  However, if we
+have multiple devices of the same type stacked, this fails.
+For example:
+ eth0 <-- vlan0.10 <-- vlan0.10.20
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+A more complicated configuration may stack more then one type of
+device in different order.
+Ex:
+  eth0 <-- vlan0.10 <-- macvlan0 <-- vlan1.10.20 <-- macvlan1
 
-Thomas, this doesn't apply cleanly to net-next, please respin.
+This patch adds an ndo_* function that allows each stackable
+device to report its nesting level.  If the device doesn't
+provide this function default subclass of 1 is used.
 
-Thank you.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ include/linux/netdevice.h | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fb912e8..9d4b1f1 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1144,6 +1144,7 @@ struct net_device_ops {
+ 	netdev_tx_t		(*ndo_dfwd_start_xmit) (struct sk_buff *skb,
+ 							struct net_device *dev,
+ 							void *priv);
++	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+ };
+ 
+ /**
+@@ -2950,7 +2951,12 @@ static inline void netif_addr_lock(struct net_device *dev)
+ 
+ static inline void netif_addr_lock_nested(struct net_device *dev)
+ {
+-	spin_lock_nested(&dev->addr_list_lock, SINGLE_DEPTH_NESTING);
++	int subclass = SINGLE_DEPTH_NESTING;
++
++	if (dev->netdev_ops->ndo_get_lock_subclass)
++		subclass = dev->netdev_ops->ndo_get_lock_subclass(dev);
++
++	spin_lock_nested(&dev->addr_list_lock, subclass);
+ }
+ 
+ static inline void netif_addr_lock_bh(struct net_device *dev)
+-- 
+1.9.0
