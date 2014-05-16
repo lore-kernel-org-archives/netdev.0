@@ -1,108 +1,71 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v3 net-next 3/6] bridge: Add functionality to sync static fdb entries to hw
-Date: Fri, 16 May 2014 09:59:17 -0400
-Message-ID: <1400248760-20672-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v3 net-next 1/6] bridge: Turn flag change macro into a function.
+Date: Fri, 16 May 2014 09:59:15 -0400
+Message-ID: <1400248760-20672-2-git-send-email-vyasevic@redhat.com>
 References: <1400248760-20672-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
 	mst@redhat.com, john.r.fastabend@intel.com,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44374 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:25875 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932684AbaEPN7a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 09:59:30 -0400
+	id S932449AbaEPN72 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 09:59:28 -0400
 In-Reply-To: <1400248760-20672-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add code that allows static fdb entires to be synced to the
-hw list for a specified port.  This will be used later to
-program ports that can function in non-promiscuous mode.
+Turn the flag change macro into a function to allow
+easier updates and to reduce space.
 
 Acked-by: Michael S. Tsirkin <mst@redhat.com>
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/br_fdb.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++
- net/bridge/br_private.h |  2 ++
- 2 files changed, 58 insertions(+)
+ net/bridge/br_sysfs_if.c | 27 +++++++++++++++++----------
+ 1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..fe124e5 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -874,3 +874,59 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- out:
- 	return err;
- }
-+
-+int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p)
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index dd595bd..351af6b 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -41,20 +41,27 @@ static ssize_t show_##_name(struct net_bridge_port *p, char *buf) \
+ }								\
+ static int store_##_name(struct net_bridge_port *p, unsigned long v) \
+ {								\
+-	unsigned long flags = p->flags;				\
+-	if (v)							\
+-		flags |= _mask;					\
+-	else							\
+-		flags &= ~_mask;				\
+-	if (flags != p->flags) {				\
+-		p->flags = flags;				\
+-		br_ifinfo_notify(RTM_NEWLINK, p);		\
+-	}							\
+-	return 0;						\
++	return store_flag(p, v, _mask);				\
+ }								\
+ static BRPORT_ATTR(_name, S_IRUGO | S_IWUSR,			\
+ 		   show_##_name, store_##_name)
+ 
++static int store_flag(struct net_bridge_port *p, unsigned long v,
++		      unsigned long mask)
 +{
-+	struct net_bridge_fdb_entry *fdb, *tmp;
-+	int i;
-+	int err;
++	unsigned long flags = p->flags;
 +
-+	ASSERT_RTNL();
++	if (v)
++		flags |= mask;
++	else
++		flags &= ~mask;
 +
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry(fdb, &br->hash[i], hlist) {
-+			/* We only care for static entries */
-+			if (!fdb->is_static)
-+				continue;
-+
-+			err = dev_uc_add(p->dev, fdb->addr.addr);
-+			if (err)
-+				goto rollback;
-+		}
++	if (flags != p->flags) {
++		p->flags = flags;
++		br_ifinfo_notify(RTM_NEWLINK, p);
 +	}
 +	return 0;
-+
-+rollback:
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry(tmp, &br->hash[i], hlist) {
-+			/* If we reached the fdb that failed, we can stop */
-+			if (tmp == fdb)
-+				break;
-+
-+			/* We only care for static entries */
-+			if (!tmp->is_static)
-+				continue;
-+
-+			dev_uc_del(p->dev, tmp->addr.addr);
-+		}
-+	}
-+	return err;
 +}
-+
-+void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
-+{
-+	struct net_bridge_fdb_entry *fdb;
-+	int i;
-+
-+	ASSERT_RTNL();
-+
-+	for (i = 0; i < BR_HASH_SIZE; i++) {
-+		hlist_for_each_entry_rcu(fdb, &br->hash[i], hlist) {
-+			/* We only care for static entries */
-+			if (!fdb->is_static)
-+				continue;
-+
-+			dev_uc_del(p->dev, fdb->addr.addr);
-+		}
-+	}
-+}
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 5ce3191..c0a804b 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -399,6 +399,8 @@ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
- 	       const unsigned char *addr, u16 nlh_flags);
- int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
- 		struct net_device *dev, int idx);
-+int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
-+void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
  
- /* br_forward.c */
- void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
+ static ssize_t show_path_cost(struct net_bridge_port *p, char *buf)
+ {
 -- 
 1.9.0
