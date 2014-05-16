@@ -1,53 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
- uninitialized
-Date: Fri, 16 May 2014 16:39:02 +0100
-Message-ID: <20140516153902.GG8346@casper.infradead.org>
-References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
- <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
- <53761286.2040505@candelatech.com>
- <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516145032.GD8346@casper.infradead.org>
- <1400252935.7973.176.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516152035.GE8346@casper.infradead.org>
- <1400253971.7973.186.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 02/11] mac802154: update Kconfig
+Date: Fri, 16 May 2014 17:46:36 +0200
+Message-ID: <1400255205-9031-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:40297 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932646AbaEPPjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:39:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1400253971.7973.186.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:39840 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbaEPPrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:47:04 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s4GFl09N031615
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 16 May 2014 17:47:00 +0200
+In-Reply-To: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/16/14 at 08:26am, Eric Dumazet wrote:
-> On Fri, 2014-05-16 at 16:20 +0100, Thomas Graf wrote:
-> 
-> > I'm aware of the work and I agree. That is perfectly fine if the
-> > produced skbs do not get enqueued and modified. Otherwise the clone
-> > and COW will undo the gain again. I need pktgen to produce large,
-> > linear skbs with a unique flow for each individual packet. Hence this
-> > optimization ;-)
-> 
-> pktgen is a tool for us kernel net developers.
-> 
-> I doubt more than 20 people on this planet used it in the last 12
-> months, expecting crazy numbers out of one core, while a simple user
-> space program can outperform pktgen these days.
-> 
-> So if you need a very specific hack, you can do it on your local tree ;)
+Link-layer security requires AES CCM for authenticated modes and AES CTR
+for the unauthenticated encryption mode.
 
-Which I already stated I'd be fine with ;)
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+---
+ net/mac802154/Kconfig |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-But for the sake of the argument... Since you mention that pktgen is
-clearly a tool for us kernel net developers. That would (hopefully)
-imply that everybody using it knows what they are doing. Just like
-somebody running kgdb, dumping kernel memory with kdump, or running
-perf. I don't see why the choice of deliberately exposing kernel memory
-in either of these cases is an issue.
+diff --git a/net/mac802154/Kconfig b/net/mac802154/Kconfig
+index b33dd76..1818a99 100644
+--- a/net/mac802154/Kconfig
++++ b/net/mac802154/Kconfig
+@@ -2,6 +2,10 @@ config MAC802154
+ 	tristate "Generic IEEE 802.15.4 Soft Networking Stack (mac802154)"
+ 	depends on IEEE802154
+ 	select CRC_CCITT
++	select CRYPTO_AUTHENC
++	select CRYPTO_CCM
++	select CRYPTO_CTR
++	select CRYPTO_AES
+ 	---help---
+ 	  This option enables the hardware independent IEEE 802.15.4
+ 	  networking stack for SoftMAC devices (the ones implementing
+-- 
+1.7.9.5
