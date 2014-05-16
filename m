@@ -1,146 +1,91 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCHv4 1/5] net: phy: decouple PHY id and PHY address in fixed
- PHY driver
-Date: Fri, 16 May 2014 11:30:36 -0700
-Message-ID: <CAGVrzcYFjROVwHsSTyO-+PAb9G9y55h93AsMk2Viui5Sb4jBpQ@mail.gmail.com>
-References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1400249647-4643-2-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: gro: make sure skb->cb[] initial content has not to be
+ zero
+Date: Fri, 16 May 2014 11:34:37 -0700
+Message-ID: <1400265277.5367.13.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140516104014.607d2d0f@vostro>
+	 <1400245157.7973.150.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516173443.0b40157e@vostro>
+	 <1400257768.7973.204.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516194037.4486cd63@vostro>
+	 <1400259027.7973.211.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516200112.114cf1bb@vostro>
+	 <1400260430.7973.222.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516203835.5941ea3f@vostro>
+	 <1400263479.5367.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:45268 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755068AbaEPSbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 14:31:17 -0400
-In-Reply-To: <1400249647-4643-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:37387 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755068AbaEPSek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 14:34:40 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kp14so2890506pab.12
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 11:34:39 -0700 (PDT)
+In-Reply-To: <1400263479.5367.1.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-05-16 7:14 GMT-07:00 Thomas Petazzoni
-<thomas.petazzoni@free-electrons.com>:
-> Until now, the fixed_phy_add() function was taking as argument
-> 'phy_id', which was used both as the PHY address on the fake fixed
-> MDIO bus, and as the PHY id, as available in the MII_PHYSID1 and
-> MII_PHYSID2 registers. However, those two informations are completely
-> unrelated.
->
-> This patch decouples them. The PHY id of fixed PHYs is hardcoded to be
-> 0x0. Ideally, a really reserved value would be nicer, but there
-> doesn't seem to be an easy of making sure a dummy value can be
-> assigned to the Linux kernel for such usage.
->
-> The PHY address remains passed by the caller of phy_fixed_add().
->
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+Starting from linux-3.13, GRO attempts to build full size skbs.
 
-> ---
->  drivers/net/phy/fixed.c | 20 ++++++++++----------
->  1 file changed, 10 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-> index ba55adf..e41546d 100644
-> --- a/drivers/net/phy/fixed.c
-> +++ b/drivers/net/phy/fixed.c
-> @@ -31,7 +31,7 @@ struct fixed_mdio_bus {
->  };
->
->  struct fixed_phy {
-> -       int id;
-> +       int addr;
->         u16 regs[MII_REGS_NUM];
->         struct phy_device *phydev;
->         struct fixed_phy_status status;
-> @@ -104,8 +104,8 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->         if (fp->status.asym_pause)
->                 lpa |= LPA_PAUSE_ASYM;
->
-> -       fp->regs[MII_PHYSID1] = fp->id >> 16;
-> -       fp->regs[MII_PHYSID2] = fp->id;
-> +       fp->regs[MII_PHYSID1] = 0;
-> +       fp->regs[MII_PHYSID2] = 0;
->
->         fp->regs[MII_BMSR] = bmsr;
->         fp->regs[MII_BMCR] = bmcr;
-> @@ -115,7 +115,7 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
->         return 0;
->  }
->
-> -static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
-> +static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
->  {
->         struct fixed_mdio_bus *fmb = bus->priv;
->         struct fixed_phy *fp;
-> @@ -124,7 +124,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
->                 return -1;
->
->         list_for_each_entry(fp, &fmb->phys, node) {
-> -               if (fp->id == phy_id) {
-> +               if (fp->addr == phy_addr) {
->                         /* Issue callback if user registered it. */
->                         if (fp->link_update) {
->                                 fp->link_update(fp->phydev->attached_dev,
-> @@ -138,7 +138,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
->         return 0xFFFF;
->  }
->
-> -static int fixed_mdio_write(struct mii_bus *bus, int phy_id, int reg_num,
-> +static int fixed_mdio_write(struct mii_bus *bus, int phy_addr, int reg_num,
->                             u16 val)
->  {
->         return 0;
-> @@ -160,7 +160,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
->                 return -EINVAL;
->
->         list_for_each_entry(fp, &fmb->phys, node) {
-> -               if (fp->id == phydev->phy_id) {
-> +               if (fp->addr == phydev->addr) {
->                         fp->link_update = link_update;
->                         fp->phydev = phydev;
->                         return 0;
-> @@ -171,7 +171,7 @@ int fixed_phy_set_link_update(struct phy_device *phydev,
->  }
->  EXPORT_SYMBOL_GPL(fixed_phy_set_link_update);
->
-> -int fixed_phy_add(unsigned int irq, int phy_id,
-> +int fixed_phy_add(unsigned int irq, int phy_addr,
->                   struct fixed_phy_status *status)
->  {
->         int ret;
-> @@ -184,9 +184,9 @@ int fixed_phy_add(unsigned int irq, int phy_id,
->
->         memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
->
-> -       fmb->irqs[phy_id] = irq;
-> +       fmb->irqs[phy_addr] = irq;
->
-> -       fp->id = phy_id;
-> +       fp->addr = phy_addr;
->         fp->status = *status;
->
->         ret = fixed_phy_update_regs(fp);
-> --
-> 1.9.3
+Problem is the commit assumed one particular field in skb->cb[]
+was clean, but it is not the case on some stacked devices.
 
+Timo reported a crash in case traffic is decrypted before
+reaching a GRE device.
 
+Fix this by initializing NAPI_GRO_CB(skb)->last at the right place,
+this also removes one conditional.
 
--- 
-Florian
+Thanks a lot to Timo for providing full reports and bisecting this.
+
+Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
+Bisected-by: Timo Teras <timo.teras@iki.fi>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Please Timo test this patch so that we confirm it fixes the bug for you.
+
+ net/core/dev.c    |    1 +
+ net/core/skbuff.c |    4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6da649bde4f7..ed928e846559 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3951,6 +3951,7 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	}
+ 	NAPI_GRO_CB(skb)->count = 1;
+ 	NAPI_GRO_CB(skb)->age = jiffies;
++	NAPI_GRO_CB(skb)->last = skb;
+ 	skb_shinfo(skb)->gso_size = skb_gro_len(skb);
+ 	skb->next = napi->gro_list;
+ 	napi->gro_list = skb;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 1b62343f5837..8383b2bddeb9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3076,7 +3076,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	if (unlikely(p->len + len >= 65536))
+ 		return -E2BIG;
+ 
+-	lp = NAPI_GRO_CB(p)->last ?: p;
++	lp = NAPI_GRO_CB(p)->last;
+ 	pinfo = skb_shinfo(lp);
+ 
+ 	if (headlen <= offset) {
+@@ -3192,7 +3192,7 @@ merge:
+ 
+ 	__skb_pull(skb, offset);
+ 
+-	if (!NAPI_GRO_CB(p)->last)
++	if (NAPI_GRO_CB(p)->last == p)
+ 		skb_shinfo(p)->frag_list = skb;
+ 	else
+ 		NAPI_GRO_CB(p)->last->next = skb;
