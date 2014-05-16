@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] i40evf: Use is_multicast_ether_addr helper
-Date: Fri, 16 May 2014 17:00:38 -0400 (EDT)
-Message-ID: <20140516.170038.69306345944763152.davem@davemloft.net>
-References: <1400227234-13383-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH] net: pch_gbe depends on x86_32
+Date: Fri, 16 May 2014 17:01:22 -0400 (EDT)
+Message-ID: <20140516.170122.2194249516724862833.davem@davemloft.net>
+References: <20140516112904.7072da0f@endymion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Cc: netdev@vger.kernel.org, jslaby@suse.cz
+To: jdelvare@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49350 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753048AbaEPVAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:00:39 -0400
-In-Reply-To: <1400227234-13383-1-git-send-email-tklauser@distanz.ch>
+	with ESMTP id S1755467AbaEPVBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:01:24 -0400
+In-Reply-To: <20140516112904.7072da0f@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Fri, 16 May 2014 10:00:34 +0200
+From: Jean Delvare <jdelvare@suse.de>
+Date: Fri, 16 May 2014 11:29:04 +0200
 
-> Use the is_multicast_ether_addr helper function from linux/etherdevice.h
-> instead of open coding the multicast address check.
+> The pch_gbe driver is for a companion chip to the Intel Atom E600
+> series processors. These are 32-bit x86 processors so the driver is
+> only needed on X86_32.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
 
-Likewise, I'll let Jeff Kirsher take this via his tree.
+Applied to net-next, thanks.
