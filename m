@@ -1,14 +1,13 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 04/12] openvswitch: Added (unsigned long
-	long) cast in printf
-Date: Fri, 16 May 2014 14:07:31 -0700
-Message-ID: <1400274459-56304-5-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 05/12] openvswitch: Use net_ratelimit in
+	OVS_NLERR
+Date: Fri, 16 May 2014 14:07:32 -0700
+Message-ID: <1400274459-56304-6-git-send-email-jesse@nicira.com>
 References: <1400274459-56304-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1400274459-56304-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -23,37 +22,36 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-This is necessary, since u64 is not unsigned long long
-in all architectures: u64 could be also uint64_t.
+Each use of pr_<level>_once has a per-site flag.
 
-Signed-off-by: Daniele Di Proietto <daniele.di.proietto-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Some of the OVS_NLERR messages look as if seeing them
+multiple times could be useful, so use net_ratelimit()
+instead of pr_info_once.
+
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow_netlink.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/datapath.h | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 5517bd6..1b22ad2 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -216,14 +216,14 @@ static bool match_validate(const struct sw_flow_match *match,
- 	if ((key_attrs & key_expected) != key_expected) {
- 		/* Key attributes check failed. */
- 		OVS_NLERR("Missing expected key attributes (key_attrs=%llx, expected=%llx).\n",
--				key_attrs, key_expected);
-+				(unsigned long long)key_attrs, (unsigned long long)key_expected);
- 		return false;
- 	}
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 0531738..7ede507 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -194,7 +194,9 @@ struct sk_buff *ovs_vport_cmd_build_info(struct vport *, u32 pid, u32 seq,
+ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb);
+ void ovs_dp_notify_wq(struct work_struct *work);
  
- 	if ((mask_attrs & mask_allowed) != mask_attrs) {
- 		/* Mask attributes check failed. */
- 		OVS_NLERR("Contain more than allowed mask fields (mask_attrs=%llx, mask_allowed=%llx).\n",
--				mask_attrs, mask_allowed);
-+				(unsigned long long)mask_attrs, (unsigned long long)mask_allowed);
- 		return false;
- 	}
- 
+-#define OVS_NLERR(fmt, ...) \
+-	pr_info_once("netlink: " fmt, ##__VA_ARGS__)
+-
++#define OVS_NLERR(fmt, ...)					\
++do {								\
++	if (net_ratelimit())					\
++		pr_info("netlink: " fmt, ##__VA_ARGS__);	\
++} while (0)
+ #endif /* datapath.h */
 -- 
 1.9.1
