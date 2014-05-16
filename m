@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: pch_gbe depends on x86_32
-Date: Fri, 16 May 2014 17:01:22 -0400 (EDT)
-Message-ID: <20140516.170122.2194249516724862833.davem@davemloft.net>
-References: <20140516112904.7072da0f@endymion.delvare>
+Subject: Re: [PATCH net-next] pktgen: Use seq_puts() where seq_printf() is
+ not needed
+Date: Fri, 16 May 2014 17:02:15 -0400 (EDT)
+Message-ID: <20140516.170215.1654993200108983563.davem@davemloft.net>
+References: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jslaby@suse.cz
-To: jdelvare@suse.de
+Cc: netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49355 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49360 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755467AbaEPVBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:01:24 -0400
-In-Reply-To: <20140516112904.7072da0f@endymion.delvare>
+	with ESMTP id S1755616AbaEPVCQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:02:16 -0400
+In-Reply-To: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Fri, 16 May 2014 11:29:04 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 16 May 2014 12:53:20 +0200
 
-> The pch_gbe driver is for a companion chip to the Intel Atom E600
-> series processors. These are 32-bit x86 processors so the driver is
-> only needed on X86_32.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Applied to net-next, thanks.
+Thomas, this doesn't apply cleanly to net-next, please respin.
+
+Thank you.
