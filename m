@@ -1,39 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: Add support for device specific address
- syncing
-Date: Fri, 16 May 2014 16:47:28 -0400 (EDT)
-Message-ID: <20140516.164728.2297526772904518777.davem@davemloft.net>
-References: <53765D5D.9040207@intel.com>
-	<20140516.150115.1106293449904617860.davem@davemloft.net>
-	<53766D3E.4080904@intel.com>
+Subject: Re: cassini: possible recursive locking detected
+Date: Fri, 16 May 2014 16:48:06 -0400 (EDT)
+Message-ID: <20140516.164806.1913707776973163361.davem@davemloft.net>
+References: <20140509090642.GA4267@lianli>
+	<20140509.163330.1112297139498899531.davem@davemloft.net>
+	<87vbt5pjog.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com
-To: alexander.h.duyck@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: emilgoode@gmail.com, mroos@linux.ee, netdev@vger.kernel.org
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49193 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49197 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670AbaEPUra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:47:30 -0400
-In-Reply-To: <53766D3E.4080904@intel.com>
+	with ESMTP id S1754854AbaEPUsH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:48:07 -0400
+In-Reply-To: <87vbt5pjog.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Fri, 16 May 2014 12:55:42 -0700
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri, 16 May 2014 22:12:15 +0200
 
-> I can understand going into promisc on a sync failure, but why would you
-> do it on an unsync failure, or are you saying that we would be clearing
-> the flag in unsync?
+> David Miller <davem@davemloft.net> writes:
+>> From: Emil Goode <emilgoode@gmail.com>
+>> Date: Fri, 9 May 2014 11:06:42 +0200
+>>
+>>> I searched the net a bit and found these old threads:
+>>>=20
+>>> http://lists.freebsd.org/pipermail/freebsd-sparc64/2010-January/006=
+935.html
+>>>=20
+>>> "FreeBSD currently crashes on older models of V480 when attempting
+>>>  to use an on-board NIC due to what appears to be a CPU bug which
+>>>  needs to be worked around."
+>>
+>> I wish I still had a copy of that Schizo chip errata document refere=
+nced
+>> at the end of that posting, it's not accessible any longer.
+>=20
+> The wayback machine saved it for you:
+> https://web.archive.org/web/20090701005954/http://www.sun.com/process=
+ors/manuals/External_Schizo_Errata.pdf
 
-We should clear the promisc flag on unsync if the limitations are no
-longer exceeded.
-
-> In general I intended for this to be called in set_rx_mode so if
-> __dev_uc_sync returns an error indicating insufficient resources we have
-> to force IFF_PROMISC on because adding a new address failed.  We could
-> also do the same thing for __dev_mc_sync and IFF_ALLMULTI.
-
-Right.
+Thanks, Meelis pointed out something similar to me in private correspon=
+dance :)
