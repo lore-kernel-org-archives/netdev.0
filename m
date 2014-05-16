@@ -1,46 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] mlx4: Fix VF MAC address change under RoCE
- usage
-Date: Thu, 15 May 2014 23:39:58 -0400 (EDT)
-Message-ID: <20140515.233958.2173839819606514748.davem@davemloft.net>
-References: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [PATCH v2 net] net: filter: x86: fix JIT address randomization
+Date: Thu, 15 May 2014 21:16:42 -0700
+Message-ID: <5375912A.6090302@zytor.com>
+References: <1400018755-3049-1-git-send-email-ast@plumgrid.com> <20140513.183145.1568789082256942703.davem@davemloft.net> <20140514080557.GB9848@osiris> <20140514.161038.604524051618558919.davem@redhat.com> <5373D4BF.1040002@zytor.com> <20140515065341.GB10217@osiris>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, matanb@mellanox.com,
-	roland@kernel.org
-To: ogerlitz@mellanox.com
+Cc: David Miller <davem@redhat.com>, ast@plumgrid.com,
+	edumazet@google.com, dborkman@redhat.com, netdev@vger.kernel.org,
+	schwidefsky@de.ibm.com, "H. Peter Anvin" <hpa@linux.intel.com>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39049 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752616AbaEPDkA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 23:40:00 -0400
-In-Reply-To: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
+Received: from terminus.zytor.com ([198.137.202.10]:48972 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751106AbaEPERI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 00:17:08 -0400
+In-Reply-To: <20140515065341.GB10217@osiris>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 15 May 2014 15:29:26 +0300
-
-> Hi Dave, Roland
-
-I don't see Roland Dreier on the CC: list, I have added him.
-
-> This short series provides proper handling for the case where a 
-> VF netdevice change their MAC address under a RoCE use case. The code
-> it deals with was introduced in 3.15-rc1
+On 05/14/2014 11:53 PM, Heiko Carstens wrote:
+> On Wed, May 14, 2014 at 01:40:31PM -0700, H. Peter Anvin wrote:
+>> On 05/14/2014 01:10 PM, David Miller wrote:
+>>> From: Heiko Carstens <heiko.carstens@de.ibm.com>
+>>> Date: Wed, 14 May 2014 10:05:57 +0200
+>>>
+>>>> Dave, can you route this via -net?
+>>>
+>>
+>> Pardon for being a bit confused, but it would seem x86 or net would be
+>> the logical routes for this -- I don't mind at all it being routed
+>> through net, but that would seem to be between myself (and the other x86
+>> maintainers) and Dave...
 > 
-> Prior to this series the source MAC used for the VM RoCE CM
-> packets remains as before the MAC modification. Hence RoCE CM 
-> packets sent by the VF will not carry the same source MAC 
-> address as the non-CM packets.
+> [resending - and this time really added hpa's Intel email address]
 > 
-> Earlier 3.15-rc commit f24f790 "net/mlx4_core: Load the Eth driver 
-> first" handled just one instance of the problem, but this one 
-> provides a more generic and proper solution which covers all 
-> cases of VF mac change.
+> Hi Peter,
 > 
-> Matan and Or.
+> you missed the s390 version of Alexei's patch which I sent as reply to this
+> thread. As usual I got a delivery failure for your zytor.com email address
+> (added your Intel address this time).
+> 
+> So the question was if Dave could add the s390 version of the patch to -net.
+> 
 
-Do you guys want this to go via my 'net' tree or via Roland's
-'infiniband' tree?
+OK, weird.  It seems IBM's mail server doesn't like me.  I wonder if it
+is because of my using StartSSL for my TLS certificate.
+
+	-hpa
