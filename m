@@ -1,48 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: gro: make sure skb->cb[] initial content has not
- to be zero
-Date: Fri, 16 May 2014 17:25:46 -0400 (EDT)
-Message-ID: <20140516.172546.1197385833815835361.davem@davemloft.net>
-References: <20140516203835.5941ea3f@vostro>
-	<1400263479.5367.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1400265277.5367.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net] net-gro: reset skb->truesize in napi_reuse_skb()
+Date: Fri, 16 May 2014 14:27:00 -0700
+Message-ID: <CAHA+R7MZEHhqLrxdcp-M3pWEC_wVkm5W5v8HUDSc_w10HYg5aQ@mail.gmail.com>
+References: <1396542490.12330.17.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140403.161834.1232262926542795326.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, edumazet@google.com, netdev@vger.kernel.org,
-	herbert@gondor.apana.org.au
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49613 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751527AbaEPVZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:25:48 -0400
-In-Reply-To: <1400265277.5367.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-lb0-f169.google.com ([209.85.217.169]:38979 "EHLO
+	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755468AbaEPV1C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:27:02 -0400
+Received: by mail-lb0-f169.google.com with SMTP id s7so2390946lbd.28
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 14:27:00 -0700 (PDT)
+In-Reply-To: <20140403.161834.1232262926542795326.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 16 May 2014 11:34:37 -0700
+On Thu, Apr 3, 2014 at 1:18 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 03 Apr 2014 09:28:10 -0700
+>
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> Recycling skb always had been very tough...
+>>
+>> This time it appears GRO layer can accumulate skb->truesize
+>> adjustments made by drivers when they attach a fragment to skb.
+>>
+>> skb_gro_receive() can only subtract from skb->truesize the used part
+>> of a fragment.
+>>
+>> I spotted this problem seeing TcpExtPruneCalled and
+>> TcpExtTCPRcvCollapsed that were unexpected with a recent kernel, where
+>> TCP receive window should be sized properly to accept traffic coming
+>> from a driver not overshooting skb->truesize.
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>
+> Nasty...
+>
+> Applied, thanks Eric.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Starting from linux-3.13, GRO attempts to build full size skbs.
-> 
-> Problem is the commit assumed one particular field in skb->cb[]
-> was clean, but it is not the case on some stacked devices.
-> 
-> Timo reported a crash in case traffic is decrypted before
-> reaching a GRE device.
-> 
-> Fix this by initializing NAPI_GRO_CB(skb)->last at the right place,
-> this also removes one conditional.
-> 
-> Thanks a lot to Timo for providing full reports and bisecting this.
-> 
-> Fixes: 8a29111c7ca6 ("net: gro: allow to build full sized skb")
-> Bisected-by: Timo Teras <timo.teras@iki.fi>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> Please Timo test this patch so that we confirm it fixes the bug for you.
+I think this patch should be queued for -stable as well?
+Looking at your stable queue [1], it's not there. :)
 
-Applied and queued up for -stable, thanks everyone.
+Thanks!
+
+1. http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
