@@ -1,273 +1,143 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 2/2] tlan: Enable link monitoring
-Date: Fri, 16 May 2014 20:00:30 +0200
-Message-ID: <1400263230-2599-2-git-send-email-linux@rainbow-software.org>
-References: <1400263230-2599-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Samuel Chessman <chessman@tux.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400263230-2599-1-git-send-email-linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
+Date: Fri, 16 May 2014 11:27:36 -0700
+Message-ID: <CAGVrzca7xi4_sGgF0FyFcM0Zo3-mMENP0-aoU=qoV9qshxNzsw@mail.gmail.com>
+References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tawfik Bayouk <tawfik-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1400249647-4643-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Enable old link monitoring code and modify it:
- - control LINK LED
- - use separate timer so it does not interfere with ACT LED
- - reset adapter on link loss to restart autonegotiation
-   (required to switch between 10/100 Mbps on OC-2326)
+Hi Thomas,
 
-Tested with Olicom OC-2326.
+2014-05-16 7:14 GMT-07:00 Thomas Petazzoni
+<thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>:
+> Subject: Add DT support for fixed PHYs
+>
+> Hello,
+>
+> Here is a fourth version of the patch set that adds a Device Tree
+> binding and the related code to support fixed PHYs. I'm hoping to get
+> this merged in 3.16.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
----
- drivers/net/ethernet/ti/tlan.c |  115 +++++++++++++++++-----------------------
- drivers/net/ethernet/ti/tlan.h |    3 +-
- 2 files changed, 50 insertions(+), 68 deletions(-)
+Thanks for being persistent on this and coming back with these
+patches, that is really appreciated.
 
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index e7449cb..43aa904 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -69,10 +69,6 @@ MODULE_AUTHOR("Maintainer: Samuel Chessman <chessman@tux.org>");
- MODULE_DESCRIPTION("Driver for TI ThunderLAN based ethernet PCI adapters");
- MODULE_LICENSE("GPL");
- 
--
--/* Define this to enable Link beat monitoring */
--#undef MONITOR
--
- /* Turn on debugging. See Documentation/networking/tlan.txt for details */
- static  int		debug;
- module_param(debug, int, 0);
-@@ -194,9 +190,7 @@ static void	tlan_phy_power_up(struct net_device *);
- static void	tlan_phy_reset(struct net_device *);
- static void	tlan_phy_start_link(struct net_device *);
- static void	tlan_phy_finish_auto_neg(struct net_device *);
--#ifdef MONITOR
--static void     tlan_phy_monitor(struct net_device *);
--#endif
-+static void     tlan_phy_monitor(unsigned long);
- 
- /*
-   static int	tlan_phy_nop(struct net_device *);
-@@ -340,6 +334,7 @@ static void tlan_stop(struct net_device *dev)
- {
- 	struct tlan_priv *priv = netdev_priv(dev);
- 
-+	del_timer_sync(&priv->media_timer);
- 	tlan_read_and_clear_stats(dev, TLAN_RECORD);
- 	outl(TLAN_HC_AD_RST, dev->base_addr + TLAN_HOST_CMD);
- 	/* Reset and power down phy */
-@@ -889,6 +884,7 @@ static int tlan_open(struct net_device *dev)
- 	}
- 
- 	init_timer(&priv->timer);
-+	init_timer(&priv->media_timer);
- 
- 	tlan_start(dev);
- 
-@@ -1811,11 +1807,6 @@ static void tlan_timer(unsigned long data)
- 	priv->timer.function = NULL;
- 
- 	switch (priv->timer_type) {
--#ifdef MONITOR
--	case TLAN_TIMER_LINK_BEAT:
--		tlan_phy_monitor(dev);
--		break;
--#endif
- 	case TLAN_TIMER_PHY_PDOWN:
- 		tlan_phy_power_down(dev);
- 		break;
-@@ -1859,8 +1850,6 @@ static void tlan_timer(unsigned long data)
- }
- 
- 
--
--
- /*****************************************************************************
- ******************************************************************************
- 
-@@ -2258,42 +2247,39 @@ tlan_finish_reset(struct net_device *dev)
- 		tlan_mii_read_reg(dev, phy, MII_GEN_STS, &status);
- 		udelay(1000);
- 		tlan_mii_read_reg(dev, phy, MII_GEN_STS, &status);
--		if ((status & MII_GS_LINK) &&
--		    /* We only support link info on Nat.Sem. PHY's */
--		    (tlphy_id1 == NAT_SEM_ID1) &&
--		    (tlphy_id2 == NAT_SEM_ID2)) {
--			tlan_mii_read_reg(dev, phy, MII_AN_LPA, &partner);
--			tlan_mii_read_reg(dev, phy, TLAN_TLPHY_PAR, &tlphy_par);
--
--			netdev_info(dev,
--				    "Link active with %s %uMbps %s-Duplex\n",
--				    !(tlphy_par & TLAN_PHY_AN_EN_STAT)
--				    ? "forced" : "Autonegotiation enabled,",
--				    tlphy_par & TLAN_PHY_SPEED_100
--				    ? 100 : 10,
--				    tlphy_par & TLAN_PHY_DUPLEX_FULL
--				    ? "Full" : "Half");
--
--			if (tlphy_par & TLAN_PHY_AN_EN_STAT) {
--				netdev_info(dev, "Partner capability:");
--				for (i = 5; i < 10; i++)
--					if (partner & (1 << i))
--						pr_cont(" %s", media[i-5]);
--				pr_cont("\n");
--			}
--
--			tlan_dio_write8(dev->base_addr, TLAN_LED_REG,
--					TLAN_LED_LINK);
--#ifdef MONITOR
--			/* We have link beat..for now anyway */
--			priv->link = 1;
--			/*Enabling link beat monitoring */
--			tlan_set_timer(dev, (10*HZ), TLAN_TIMER_LINK_BEAT);
--#endif
--		} else if (status & MII_GS_LINK)  {
--			netdev_info(dev, "Link active\n");
--			tlan_dio_write8(dev->base_addr, TLAN_LED_REG,
--					TLAN_LED_LINK);
-+		if (status & MII_GS_LINK) {
-+			/* We only support link info on Nat.Sem. PHY's */
-+			if ((tlphy_id1 == NAT_SEM_ID1) &&
-+			    (tlphy_id2 == NAT_SEM_ID2)) {
-+				tlan_mii_read_reg(dev, phy, MII_AN_LPA,
-+					&partner);
-+				tlan_mii_read_reg(dev, phy, TLAN_TLPHY_PAR,
-+					&tlphy_par);
-+
-+				netdev_info(dev,
-+					"Link active, %s %uMbps %s-Duplex\n",
-+					!(tlphy_par & TLAN_PHY_AN_EN_STAT)
-+					? "forced" : "Autonegotiation enabled,",
-+					tlphy_par & TLAN_PHY_SPEED_100
-+					? 100 : 10,
-+					tlphy_par & TLAN_PHY_DUPLEX_FULL
-+					? "Full" : "Half");
-+
-+				if (tlphy_par & TLAN_PHY_AN_EN_STAT) {
-+					netdev_info(dev, "Partner capability:");
-+					for (i = 5; i < 10; i++)
-+						if (partner & (1 << i))
-+							pr_cont(" %s",
-+								media[i-5]);
-+					pr_cont("\n");
-+				}
-+			} else
-+				netdev_info(dev, "Link active\n");
-+			/* Enabling link beat monitoring */
-+			priv->media_timer.function = tlan_phy_monitor;
-+			priv->media_timer.data = (unsigned long) dev;
-+			priv->media_timer.expires = jiffies + HZ;
-+			add_timer(&priv->media_timer);
- 		}
- 	}
- 
-@@ -2315,6 +2301,7 @@ tlan_finish_reset(struct net_device *dev)
- 			     dev->base_addr + TLAN_HOST_CMD + 1);
- 		outl(priv->rx_list_dma, dev->base_addr + TLAN_CH_PARM);
- 		outl(TLAN_HC_GO | TLAN_HC_RT, dev->base_addr + TLAN_HOST_CMD);
-+		tlan_dio_write8(dev->base_addr, TLAN_LED_REG, TLAN_LED_LINK);
- 		netif_carrier_on(dev);
- 	} else {
- 		netdev_info(dev, "Link inactive, will retry in 10 secs...\n");
-@@ -2720,7 +2707,6 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
- 
- }
- 
--#ifdef MONITOR
- 
- /*********************************************************************
-  *
-@@ -2730,18 +2716,18 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
-  *	      None
-  *
-  *     Params:
-- *	      dev	     The device structure of this device.
-+ *	      data	     The device structure of this device.
-  *
-  *
-  *     This function monitors PHY condition by reading the status
-- *     register via the MII bus. This can be used to give info
-- *     about link changes (up/down), and possible switch to alternate
-- *     media.
-+ *     register via the MII bus, controls LINK LED and notifies the
-+ *     kernel about link state.
-  *
-  *******************************************************************/
- 
--void tlan_phy_monitor(struct net_device *dev)
-+static void tlan_phy_monitor(unsigned long data)
- {
-+	struct net_device *dev = (struct net_device *) data;
- 	struct tlan_priv *priv = netdev_priv(dev);
- 	u16     phy;
- 	u16     phy_status;
-@@ -2753,30 +2739,27 @@ void tlan_phy_monitor(struct net_device *dev)
- 
- 	/* Check if link has been lost */
- 	if (!(phy_status & MII_GS_LINK)) {
--		if (priv->link) {
--			priv->link = 0;
-+		if (netif_carrier_ok(dev)) {
- 			printk(KERN_DEBUG "TLAN: %s has lost link\n",
- 			       dev->name);
-+			tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
- 			netif_carrier_off(dev);
--			tlan_set_timer(dev, (2*HZ), TLAN_TIMER_LINK_BEAT);
-+			tlan_reset_adapter(dev);
- 			return;
- 		}
- 	}
- 
- 	/* Link restablished? */
--	if ((phy_status & MII_GS_LINK) && !priv->link) {
--		priv->link = 1;
-+	if ((phy_status & MII_GS_LINK) && !netif_carrier_ok(dev)) {
-+		tlan_dio_write8(dev->base_addr, TLAN_LED_REG, TLAN_LED_LINK);
- 		printk(KERN_DEBUG "TLAN: %s has reestablished link\n",
- 		       dev->name);
- 		netif_carrier_on(dev);
- 	}
--
--	/* Setup a new monitor */
--	tlan_set_timer(dev, (2*HZ), TLAN_TIMER_LINK_BEAT);
-+	priv->media_timer.expires = jiffies + HZ;
-+	add_timer(&priv->media_timer);
- }
- 
--#endif /* MONITOR */
--
- 
- /*****************************************************************************
- ******************************************************************************
-diff --git a/drivers/net/ethernet/ti/tlan.h b/drivers/net/ethernet/ti/tlan.h
-index 2eb33a2..4ced905 100644
---- a/drivers/net/ethernet/ti/tlan.h
-+++ b/drivers/net/ethernet/ti/tlan.h
-@@ -195,6 +195,7 @@ struct tlan_priv {
- 	u32			timer_set_at;
- 	u32			timer_type;
- 	struct timer_list	timer;
-+	struct timer_list	media_timer;
- 	struct board		*adapter;
- 	u32			adapter_rev;
- 	u32			aui;
-@@ -206,7 +207,6 @@ struct tlan_priv {
- 	u8			tlan_rev;
- 	u8			tlan_full_duplex;
- 	spinlock_t		lock;
--	u8			link;
- 	struct work_struct			tlan_tqueue;
- 	u8			neg_be_verbose;
- };
-@@ -219,7 +219,6 @@ struct tlan_priv {
- 	 *
- 	 ****************************************************************/
- 
--#define TLAN_TIMER_LINK_BEAT		1
- #define TLAN_TIMER_ACTIVITY		2
- #define TLAN_TIMER_PHY_PDOWN		3
- #define TLAN_TIMER_PHY_PUP		4
+I gave this patch set a try on a brcmstb system with SYSTEMPORT and my
+latest changes to net/dsa/ to allow for different PHY setups to be
+used with the SoC integrated switch. This switch has a mix of fixed
+and real PHYs. This works like a charm, so long as you consistently
+use the "new" functions, and not the old ones, which is totally
+expected. This is excellent work!
+
+As we discussed offline, I think we need to progressively get rid of
+of_phy_connect_fixed() to avoid having to debug situations where the
+old 'fixed-link' property used some sparse addressing scheme, which is
+now incompatible with the dynamic address allocation scheme.
+
+>
+> Changes since v3:
+>
+>  * Rebased on top of v3.15-rc5
+>
+>  * In patch "net: phy: decouple PHY id and PHY address in fixed PHY
+>    driver", changed the PHY ID of fixed PHYs from 0xdeadbeef to 0x0,
+>    as suggested by Grant Likely.
+>
+>  * Fixed the !CONFIG_PHY_FIXED case in patch "net: phy: extend fixed
+>    driver with fixed_phy_register()". Noticed by Florian Fainelli.
+>
+>  * Added Acked-by from Grant Likely and Florian Fainelli on patch
+>    "net: phy: extend fixed driver with fixed_phy_register()".
+>
+>  * Reworked the new fixed-link DT binding to be just a sub-node of the
+>    Ethernet MAC node, and not a node referenced by the 'phy'
+>    property. This was requested by Grant Likely.
+>
+>  * Reworked the code implementing the new DT binding to also make it
+>    accept the old, single property based, DT binding.
+>
+>  * Added a patch that actually uses the new fixed link DT binding for
+>    the Armada XP Matrix board.
+>
+> Changes since v2:
+>
+>  * Rebased on top of v3.14-rc1, and re-tested on hardware.
+>
+>  * Removed the RFC tag, since there seems to be some real interest in
+>    this feature, and the code has gone through several iterations
+>    already.
+>
+>  * The error handling in fixed_phy_register() has been fixed.
+>
+> Changes since v1:
+>
+>  * Instead of using a 'fixed-link' property inside the Ethernet device
+>    DT node, with a fairly cryptic succession of integer values, we now
+>    use a PHY subnode under the Ethernet device DT node, with explicit
+>    properties to configure the duplex, speed, pause and other PHY
+>    properties.
+>
+>  * The PHY address is automatically allocated by the kernel and no
+>    longer visible in the Device Tree binding.
+>
+>  * The PHY device is created directly when the network driver calls
+>    of_phy_connect_fixed_link(), and associated to the PHY DT node,
+>    which allows the existing of_phy_connect() function to work,
+>    without the need to use the deprecated of_phy_connect_fixed_link().
+>
+> Posts of previous versions:
+>
+>   RFCv1:   http://www.spinics.net/lists/netdev/msg243253.html
+>   RFCv2:   http://lists.infradead.org/pipermail/linux-arm-kernel/2013-September/196919.html
+>   PATCHv3: http://www.spinics.net/lists/netdev/msg273117.html
+>
+> Thanks,
+>
+> Thomas
+>
+> Thomas Petazzoni (5):
+>   net: phy: decouple PHY id and PHY address in fixed PHY driver
+>   net: phy: extend fixed driver with fixed_phy_register()
+>   of: provide a binding for fixed link PHYs
+>   net: mvneta: add support for fixed links
+>   ARM: mvebu: use the fixed-link PHY DT binding for the Armada XP Matrix
+>     board
+>
+>  .../devicetree/bindings/net/fixed-link.txt         | 31 +++++++++
+>  arch/arm/boot/dts/armada-xp-matrix.dts             |  4 ++
+>  drivers/net/ethernet/marvell/mvneta.c              | 19 ++++-
+>  drivers/net/phy/fixed.c                            | 81 +++++++++++++++++++---
+>  drivers/of/of_mdio.c                               | 67 ++++++++++++++++++
+>  include/linux/of_mdio.h                            | 15 ++++
+>  include/linux/phy_fixed.h                          | 11 +++
+>  7 files changed, 215 insertions(+), 13 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+>
+> --
+> 1.9.3
+
 -- 
-Ondrej Zary
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
