@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: Add support for device specific address
- syncing
-Date: Thu, 15 May 2014 23:05:40 -0400 (EDT)
-Message-ID: <20140515.230540.466419985495775051.davem@davemloft.net>
-References: <20140514233444.29822.45400.stgit@ahduyck-cp2.jf.intel.com>
+Subject: Re: [PATCH net-next] ip_tunnel: don't add tunnel twice
+Date: Thu, 15 May 2014 23:10:51 -0400 (EDT)
+Message-ID: <20140515.231051.1178432224326720292.davem@davemloft.net>
+References: <53744B76.3080101@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com
-To: alexander.h.duyck@intel.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38847 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38867 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138AbaEPDFl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 23:05:41 -0400
-In-Reply-To: <20140514233444.29822.45400.stgit@ahduyck-cp2.jf.intel.com>
+	with ESMTP id S1752689AbaEPDKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 23:10:53 -0400
+In-Reply-To: <53744B76.3080101@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Wed, 14 May 2014 16:37:27 -0700
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 15 May 2014 13:07:02 +0800
 
-> This change provides a function to be used in order to break the
-> ndo_set_rx_mode call into a set of address add and remove calls.  The code
-> is based on the implementation of dev_uc_sync/dev_mc_sync.  Since they
-> essentially do the same thing but with only one dev I simply named my
-> functions __dev_uc_sync/__dev_mc_sync.
 > 
-> I also implemented an unsync version of the functions as well to allow for
-> cleanup on close.
+> When using command "ip tunnel add" to add a tunnel, the tunnel will be added twice,
+> through ip_tunnel_create() and ip_tunnel_update().
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
+> Because the second is unnecessary, so we can just break after adding tunnel
+> through ip_tunnel_create().
 > 
-> I still have to do some testing on this patch, but I am looking to see if
-> this is the correct approach or if the community would prefer I take a
-> different one.
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 
-I just wonder about error handling.
+ip_tunnel_update() seems to do some things tha ip_tunnel_create()
+does not.
 
-The code just seems to stop trying to sync() if one intermediate
-sync() fails.
+For example, setting dev->dev_addr[] and dev->broadcast[] from the
+ipv4 parms if appropriate.
 
-Shouldn't we unwind or signal errors to the caller?
-
-Is the idea that the driver has internal state which will track if
-something goes wrong and take care of error recovery itself?  If so,
-that kind of indirect error handling doesn't sit too well with me.
+I think you need to rethink this change.
