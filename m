@@ -1,143 +1,182 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
-Date: Fri, 16 May 2014 11:27:36 -0700
-Message-ID: <CAGVrzca7xi4_sGgF0FyFcM0Zo3-mMENP0-aoU=qoV9qshxNzsw@mail.gmail.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCHv4 2/5] net: phy: extend fixed driver with fixed_phy_register()
+Date: Fri, 16 May 2014 11:28:17 -0700
+Message-ID: <CAGVrzcadkx5r68FOdGT=AhFEe-nMdkJu9Nib6dH1PogFe-Hm4Q@mail.gmail.com>
 References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1400249647-4643-3-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Tawfik Bayouk <tawfik-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Lior Amsalem <alior-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Ezequiel Garcia <ezequiel.garcia-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Christian Gmeiner <christian.gmeiner-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1400249647-4643-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <robh+dt@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:59100 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756626AbaEPS26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 14:28:58 -0400
+In-Reply-To: <1400249647-4643-3-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Thomas,
 
 2014-05-16 7:14 GMT-07:00 Thomas Petazzoni
-<thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>:
-> Subject: Add DT support for fixed PHYs
+<thomas.petazzoni@free-electrons.com>:
+> The existing fixed_phy_add() function has several drawbacks that
+> prevents it from being used as is for OF-based declaration of fixed
+> PHYs:
 >
-> Hello,
+>  * The address of the PHY on the fake bus needs to be passed, while a
+>    dynamic allocation is desired.
 >
-> Here is a fourth version of the patch set that adds a Device Tree
-> binding and the related code to support fixed PHYs. I'm hoping to get
-> this merged in 3.16.
+>  * Since the phy_device instantiation is post-poned until the next
+>    mdiobus scan, there is no way to associate the fixed PHY with its
+>    OF node, which later prevents of_phy_connect() from finding this
+>    fixed PHY from a given OF node.
+>
+> To solve this, this commit introduces fixed_phy_register(), which will
+> allocate an available PHY address, add the PHY using fixed_phy_add()
+> and instantiate the phy_device structure associated with the provided
+> OF node.
+>
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> Acked-by: Grant Likely <grant.likely@linaro.org>
 
-Thanks for being persistent on this and coming back with these
-patches, that is really appreciated.
+Tested-by: Florian Fainelli <f.fainelli@gmail.com>
 
-I gave this patch set a try on a brcmstb system with SYSTEMPORT and my
-latest changes to net/dsa/ to allow for different PHY setups to be
-used with the SoC integrated switch. This switch has a mix of fixed
-and real PHYs. This works like a charm, so long as you consistently
-use the "new" functions, and not the old ones, which is totally
-expected. This is excellent work!
-
-As we discussed offline, I think we need to progressively get rid of
-of_phy_connect_fixed() to avoid having to debug situations where the
-old 'fixed-link' property used some sparse addressing scheme, which is
-now incompatible with the dynamic address allocation scheme.
-
+> ---
+>  drivers/net/phy/fixed.c   | 61 +++++++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/phy_fixed.h | 11 +++++++++
+>  2 files changed, 72 insertions(+)
 >
-> Changes since v3:
+> diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+> index e41546d..d60d875 100644
+> --- a/drivers/net/phy/fixed.c
+> +++ b/drivers/net/phy/fixed.c
+> @@ -21,6 +21,7 @@
+>  #include <linux/phy_fixed.h>
+>  #include <linux/err.h>
+>  #include <linux/slab.h>
+> +#include <linux/of.h>
 >
->  * Rebased on top of v3.15-rc5
+>  #define MII_REGS_NUM 29
 >
->  * In patch "net: phy: decouple PHY id and PHY address in fixed PHY
->    driver", changed the PHY ID of fixed PHYs from 0xdeadbeef to 0x0,
->    as suggested by Grant Likely.
+> @@ -203,6 +204,66 @@ err_regs:
+>  }
+>  EXPORT_SYMBOL_GPL(fixed_phy_add);
 >
->  * Fixed the !CONFIG_PHY_FIXED case in patch "net: phy: extend fixed
->    driver with fixed_phy_register()". Noticed by Florian Fainelli.
+> +void fixed_phy_del(int phy_addr)
+> +{
+> +       struct fixed_mdio_bus *fmb = &platform_fmb;
+> +       struct fixed_phy *fp, *tmp;
+> +
+> +       list_for_each_entry_safe(fp, tmp, &fmb->phys, node) {
+> +               if (fp->addr == phy_addr) {
+> +                       list_del(&fp->node);
+> +                       kfree(fp);
+> +                       return;
+> +               }
+> +       }
+> +}
+> +EXPORT_SYMBOL_GPL(fixed_phy_del);
+> +
+> +static int phy_fixed_addr;
+> +static DEFINE_SPINLOCK(phy_fixed_addr_lock);
+> +
+> +int fixed_phy_register(unsigned int irq,
+> +                      struct fixed_phy_status *status,
+> +                      struct device_node *np)
+> +{
+> +       struct fixed_mdio_bus *fmb = &platform_fmb;
+> +       struct phy_device *phy;
+> +       int phy_addr;
+> +       int ret;
+> +
+> +       /* Get the next available PHY address, up to PHY_MAX_ADDR */
+> +       spin_lock(&phy_fixed_addr_lock);
+> +       if (phy_fixed_addr == PHY_MAX_ADDR) {
+> +               spin_unlock(&phy_fixed_addr_lock);
+> +               return -ENOSPC;
+> +       }
+> +       phy_addr = phy_fixed_addr++;
+> +       spin_unlock(&phy_fixed_addr_lock);
+> +
+> +       ret = fixed_phy_add(PHY_POLL, phy_addr, status);
+> +       if (ret < 0)
+> +               return ret;
+> +
+> +       phy = get_phy_device(fmb->mii_bus, phy_addr, false);
+> +       if (!phy || IS_ERR(phy)) {
+> +               fixed_phy_del(phy_addr);
+> +               return -EINVAL;
+> +       }
+> +
+> +       of_node_get(np);
+> +       phy->dev.of_node = np;
+> +
+> +       ret = phy_device_register(phy);
+> +       if (ret) {
+> +               phy_device_free(phy);
+> +               of_node_put(np);
+> +               fixed_phy_del(phy_addr);
+> +               return ret;
+> +       }
+> +
+> +       return 0;
+> +}
+> +
+>  static int __init fixed_mdio_bus_init(void)
+>  {
+>         struct fixed_mdio_bus *fmb = &platform_fmb;
+> diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+> index 509d8f5..4f2478b 100644
+> --- a/include/linux/phy_fixed.h
+> +++ b/include/linux/phy_fixed.h
+> @@ -9,15 +9,26 @@ struct fixed_phy_status {
+>         int asym_pause;
+>  };
 >
->  * Added Acked-by from Grant Likely and Florian Fainelli on patch
->    "net: phy: extend fixed driver with fixed_phy_register()".
+> +struct device_node;
+> +
+>  #ifdef CONFIG_FIXED_PHY
+>  extern int fixed_phy_add(unsigned int irq, int phy_id,
+>                          struct fixed_phy_status *status);
+> +extern int fixed_phy_register(unsigned int irq,
+> +                             struct fixed_phy_status *status,
+> +                             struct device_node *np);
+>  #else
+>  static inline int fixed_phy_add(unsigned int irq, int phy_id,
+>                                 struct fixed_phy_status *status)
+>  {
+>         return -ENODEV;
+>  }
+> +static inline int fixed_phy_register(unsigned int irq,
+> +                                    struct fixed_phy_status *status,
+> +                                    struct device_node *np)
+> +{
+> +       return -ENODEV;
+> +}
+>  #endif /* CONFIG_FIXED_PHY */
 >
->  * Reworked the new fixed-link DT binding to be just a sub-node of the
->    Ethernet MAC node, and not a node referenced by the 'phy'
->    property. This was requested by Grant Likely.
->
->  * Reworked the code implementing the new DT binding to also make it
->    accept the old, single property based, DT binding.
->
->  * Added a patch that actually uses the new fixed link DT binding for
->    the Armada XP Matrix board.
->
-> Changes since v2:
->
->  * Rebased on top of v3.14-rc1, and re-tested on hardware.
->
->  * Removed the RFC tag, since there seems to be some real interest in
->    this feature, and the code has gone through several iterations
->    already.
->
->  * The error handling in fixed_phy_register() has been fixed.
->
-> Changes since v1:
->
->  * Instead of using a 'fixed-link' property inside the Ethernet device
->    DT node, with a fairly cryptic succession of integer values, we now
->    use a PHY subnode under the Ethernet device DT node, with explicit
->    properties to configure the duplex, speed, pause and other PHY
->    properties.
->
->  * The PHY address is automatically allocated by the kernel and no
->    longer visible in the Device Tree binding.
->
->  * The PHY device is created directly when the network driver calls
->    of_phy_connect_fixed_link(), and associated to the PHY DT node,
->    which allows the existing of_phy_connect() function to work,
->    without the need to use the deprecated of_phy_connect_fixed_link().
->
-> Posts of previous versions:
->
->   RFCv1:   http://www.spinics.net/lists/netdev/msg243253.html
->   RFCv2:   http://lists.infradead.org/pipermail/linux-arm-kernel/2013-September/196919.html
->   PATCHv3: http://www.spinics.net/lists/netdev/msg273117.html
->
-> Thanks,
->
-> Thomas
->
-> Thomas Petazzoni (5):
->   net: phy: decouple PHY id and PHY address in fixed PHY driver
->   net: phy: extend fixed driver with fixed_phy_register()
->   of: provide a binding for fixed link PHYs
->   net: mvneta: add support for fixed links
->   ARM: mvebu: use the fixed-link PHY DT binding for the Armada XP Matrix
->     board
->
->  .../devicetree/bindings/net/fixed-link.txt         | 31 +++++++++
->  arch/arm/boot/dts/armada-xp-matrix.dts             |  4 ++
->  drivers/net/ethernet/marvell/mvneta.c              | 19 ++++-
->  drivers/net/phy/fixed.c                            | 81 +++++++++++++++++++---
->  drivers/of/of_mdio.c                               | 67 ++++++++++++++++++
->  include/linux/of_mdio.h                            | 15 ++++
->  include/linux/phy_fixed.h                          | 11 +++
->  7 files changed, 215 insertions(+), 13 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
->
+>  /*
 > --
 > 1.9.3
 
+
+
 -- 
 Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
