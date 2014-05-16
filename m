@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: Convert return 0 to return rc
-Date: Fri, 16 May 2014 16:49:48 -0400 (EDT)
-Message-ID: <20140516.164948.2294567280337873976.davem@davemloft.net>
-References: <1400223103.30884.5.camel@joe-AO725>
-	<87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
-	<1400271144.12373.21.camel@joe-AO725>
+Subject: Re: [PATCH] net: ipv6: make "ip -6 route get mark xyz" work.
+Date: Fri, 16 May 2014 16:50:46 -0400 (EDT)
+Message-ID: <20140516.165046.2258846078359656118.davem@davemloft.net>
+References: <1400197121-16033-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry.Kravkov@qlogic.com, julia.lawall@lip6.fr,
-	ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400271144.12373.21.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: lorenzo@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49232 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207AbaEPUus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:50:48 -0400
+In-Reply-To: <1400197121-16033-1-git-send-email-lorenzo@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 16 May 2014 13:12:24 -0700
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Thu, 15 May 2014 16:38:41 -0700
 
-> Couple things actually:
-> o Could you please update the MAINTAINER entry for
->   BNX2X?  Ariel Elior's email address is still listed
->   as @broadcom and that seems to bounce.
+> Currently, "ip -6 route get mark xyz" ignores the mark passed in
+> by userspace. Make it honour the mark, just like IPv4 does.
+> 
+> Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 
-Let's please give the Broadcom folks a reasonable opportunity to update
-the MAINTAINERS entry, thanks.
+Applied, thanks for fixing this.
