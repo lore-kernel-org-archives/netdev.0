@@ -1,111 +1,100 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next v2 03/12] net: cdc_ncm: split .bind device initialization
-Date: Fri, 16 May 2014 21:48:20 +0200
-Message-ID: <1400269709-18854-4-git-send-email-bjorn@mork.no>
-References: <1400269709-18854-1-git-send-email-bjorn@mork.no>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] netdev: add support for interface name retrieval from DT aliases
+Date: Fri, 16 May 2014 12:49:50 -0700
+Message-ID: <CAGVrzcaFHYtavBp52mkm0aTQtkxpPwty6M6P7J2-FAnuT7Wdwg@mail.gmail.com>
+References: <1399390594-1409-1-git-send-email-boris.brezillon@free-electrons.com>
+ <20140508.224252.1337086843732451389.davem@davemloft.net> <536C9146.2060007@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52164 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757306AbaEPTss (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 15:48:48 -0400
-In-Reply-To: <1400269709-18854-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Olof Johansson <olof@lixom.net>,
+	netdev <netdev@vger.kernel.org>, nicolas.ferre@atmel.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Boris BREZILLON <boris.brezillon@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <536C9146.2060007@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that we have split out the part of the device setup
-which MUST be done with the data interface in altsetting 0,
-we can delay the rest of the initialization. This allows us
-to move some of post-init buffer size config from bind to
-the appropriate setup function.
+2014-05-09 1:26 GMT-07:00 Boris BREZILLON <boris.brezillon@free-electrons.com>:
+> Hi David,
+>
+> On 09/05/2014 04:42, David Miller wrote:
+>> From: Boris BREZILLON <boris.brezillon@free-electrons.com>
+>> Date: Tue,  6 May 2014 17:36:34 +0200
+>>
+>>> There is currently no proper way to bind a net interface to a specific
+>>> name. The interface name is chosen based on the interface type (eth,
+>>> wlan, ...) and the interfaces already registered (the core codes takes
+>>> the first unused interface id of the given type).
+>>>
+>>> Add support for DT retrieval of the interface id based on DT aliases.
+>>> The alias name must match the interface type (e.g. ethX if you're defining
+>>> an ethernet dev alias).
+>>>
+>>> Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
+>> This really isn't kosher at all.
+>
+> Just for my personal knowledge, what is wrong with this code ?
+> Is it because I'm using "of_" functions in the core code, and you want
+> to keep it DT agnostic ?
+> Or is it something else ?
 
-The purpose of this refactoring is to collect all code
-adjusting the rx_max and tx_max buffers in one place, so
-that it is easier to call it from multiple call sites.
+I think the major problem is that you are using DT to name interfaces
+and enforcing a naming policy within the kernel, while this should be
+left solely to user-space. I know that coming from an embedded
+use-case this might sound appealing, but the interface naming policy
+had better remain in user-space to avoid mixing policy with
+mechanisms.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/cdc_ncm.c | 36 +++++++++++++++++++-----------------
- 1 file changed, 19 insertions(+), 17 deletions(-)
+>
+>>
+>> And there absolutely is a proper way to bind a net interface to
+>> a specific name, udev has provided this facility for years.
+>
+> Thanks for pointing this out.
+>
+> But, what if the system does not use udev (this is often the case on
+> embedded systems where udev is replaced by mdev) ?
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index b70e061e3473..7a3de73c8ded 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -118,6 +118,21 @@ static void cdc_ncm_update_rxtx_max(struct usbnet =
-*dev, u32 new_rx, u32 new_tx)
- 	if (val !=3D ctx->tx_max)
- 		dev_info(&dev->intf->dev, "setting tx_max =3D %u\n", val);
- 	ctx->tx_max =3D val;
-+
-+	/* Adding a pad byte here if necessary simplifies the handling
-+	 * in cdc_ncm_fill_tx_frame, making tx_max always represent
-+	 * the real skb max size.
-+	 *
-+	 * We cannot use dev->maxpacket here because this is called from
-+	 * .bind which is called before usbnet sets up dev->maxpacket
-+	 */
-+	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
-+	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
-+		ctx->tx_max++;
-+
-+	/* usbnet use these values for sizing tx/rx queues */
-+	dev->hard_mtu =3D ctx->tx_max;
-+	dev->rx_urb_size =3D ctx->rx_max;
- }
-=20
- /* helpers for NCM and MBIM differences */
-@@ -323,9 +338,6 @@ static int cdc_ncm_setup(struct usbnet *dev)
- {
- 	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
-=20
--	/* initialize basic device settings */
--	cdc_ncm_init(dev);
--
- 	/* clamp rx_max and tx_max and inform device */
- 	cdc_ncm_update_rxtx_max(dev, le32_to_cpu(ctx->ncm_parm.dwNtbInMaxSize=
-),
- 				le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize));
-@@ -532,8 +544,8 @@ advance:
- 		goto error2;
- 	}
-=20
--	/* initialize data interface */
--	if (cdc_ncm_setup(dev))
-+	/* initialize basic device settings */
-+	if (cdc_ncm_init(dev))
- 		goto error2;
-=20
- 	/* configure data interface */
-@@ -562,18 +574,8 @@ advance:
- 		dev_info(&intf->dev, "MAC-Address: %pM\n", dev->net->dev_addr);
- 	}
-=20
--	/* usbnet use these values for sizing tx/rx queues */
--	dev->hard_mtu =3D ctx->tx_max;
--	dev->rx_urb_size =3D ctx->rx_max;
--
--	/* cdc_ncm_setup will override dwNtbOutMaxSize if it is
--	 * outside the sane range. Adding a pad byte here if necessary
--	 * simplifies the handling in cdc_ncm_fill_tx_frame, making
--	 * tx_max always represent the real skb max size.
--	 */
--	if (ctx->tx_max !=3D le32_to_cpu(ctx->ncm_parm.dwNtbOutMaxSize) &&
--	    ctx->tx_max % usb_maxpacket(dev->udev, dev->out, 1) =3D=3D 0)
--		ctx->tx_max++;
-+	/* finish setting up the device specific data */
-+	cdc_ncm_setup(dev);
-=20
- 	return 0;
-=20
---=20
-2.0.0.rc2
+Traditional embedded systems are also using a lot of custom software,
+why not write a small device mapper program that looks at aliases in
+the device-tree and matches it with sysfs entries for these
+corresponding network interfaces?
+
+> Moreover, on embedded systems, most users rely on the default interface
+> name provided by the kernel.
+>
+> IIRC (tell me if I'm wrong), before moving to DT we could control the
+> probe order of net interfaces derived from platform devices by modifying
+> the platform dev registration order (okay, this is only true if the
+> platform devices are controlled by the same driver, which is often the
+> case when a SoC provides several net interfaces).
+
+I do not quite agree with this, before moving to DT, we were mostly
+relying on the linking order imposed by the lines in the Makefile,
+which is still the case for a few things. It is sometimes fragile, and
+it is sometimes very convenient, and it also provides some perceived
+probing order stability, but that's no longer true with e.g: deffered
+probing which can happen regardless of DT.
+
+> With DT we can't know for sure the exact probe order because it depends
+> on the net interface node position in the DT, and this node position
+> might change over the time (or at least it used to change, now that
+> we're enforced to declare DT nodes in strict memory @ order it should
+> not change that much).
+
+Which is precisely where aliases are coming handy, and I understand
+why it is tempting to use them, but aliases are nothing more than the
+mechanism to help you, not the policy.
+
+>
+> Another issue: what if I want to rename eth0 into eth1 and eth1 into eth0 ?
+> I guess I'll have to execute this sequence: eth1 -> eth2, eth0 -> eth1,
+> eth2 -> eth0, otherwise the SIOCSIFNAME ioctl will return an error.
+
+Just like you swap two variables, use a temporary name.
+-- 
+Florian
