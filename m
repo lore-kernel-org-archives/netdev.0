@@ -1,61 +1,57 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net 0/2] mlx4: Fix VF MAC address change under RoCE usage
-Date: Fri, 16 May 2014 07:58:27 +0300
-Message-ID: <CAJZOPZJqqsheFBqcqM8mKYb8o9Ac2vUSRW6bkN6iZQinQwbssA@mail.gmail.com>
-References: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
-	<20140515.233958.2173839819606514748.davem@davemloft.net>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] ip_tunnel: don't add tunnel twice
+Date: Fri, 16 May 2014 13:06:47 +0800
+Message-ID: <53759CE7.8000207@cn.fujitsu.com>
+References: <53744B76.3080101@cn.fujitsu.com> <20140515.231051.1178432224326720292.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>,
-	Matan Barak <matanb@mellanox.com>,
-	Roland Dreier <roland@kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kaber@trash.net>, <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:44784 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753746AbaEPE62 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 00:58:28 -0400
-Received: by mail-qc0-f174.google.com with SMTP id x13so3487889qcv.33
-        for <netdev@vger.kernel.org>; Thu, 15 May 2014 21:58:27 -0700 (PDT)
-In-Reply-To: <20140515.233958.2173839819606514748.davem@davemloft.net>
+Received: from cn.fujitsu.com ([59.151.112.132]:2328 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752725AbaEPFJO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 01:09:14 -0400
+In-Reply-To: <20140515.231051.1178432224326720292.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2014 at 6:39 AM, David Miller <davem@davemloft.net> wrote:
->
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-> Date: Thu, 15 May 2014 15:29:26 +0300
->
-> > Hi Dave, Roland
->
-> I don't see Roland Dreier on the CC: list, I have added him.
+=E4=BA=8E 2014=E5=B9=B405=E6=9C=8816=E6=97=A5 11:10, David Miller =E5=86=
+=99=E9=81=93:
+> From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Date: Thu, 15 May 2014 13:07:02 +0800
+>=20
+>>
+>> When using command "ip tunnel add" to add a tunnel, the tunnel will =
+be added twice,
+>> through ip_tunnel_create() and ip_tunnel_update().
+>>
+>> Because the second is unnecessary, so we can just break after adding=
+ tunnel
+>> through ip_tunnel_create().
+>>
+>> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+>=20
+> ip_tunnel_update() seems to do some things tha ip_tunnel_create()
+> does not.
+>=20
+> For example, setting dev->dev_addr[] and dev->broadcast[] from the
+> ipv4 parms if appropriate.
+>=20
+> I think you need to rethink this change.
 
+When registering tunnel link, function register_netdevice() will call=20
+dev->netdev_ops->ndo_init, actually the virtual function ndo_init will
+do some same things  the ip_tunnel_update() does, such as the=20
+above you mentioned.
 
+So i think you don't need to worry about that.
 
-thanks
-
->
->
-> > This short series provides proper handling for the case where a
-> > VF netdevice change their MAC address under a RoCE use case. The code
-> > it deals with was introduced in 3.15-rc1
-> >
-> > Prior to this series the source MAC used for the VM RoCE CM
-> > packets remains as before the MAC modification. Hence RoCE CM
-> > packets sent by the VF will not carry the same source MAC
-> > address as the non-CM packets.
-> >
-> > Earlier 3.15-rc commit f24f790 "net/mlx4_core: Load the Eth driver
-> > first" handled just one instance of the problem, but this one
-> > provides a more generic and proper solution which covers all
-> > cases of VF mac change.
-> >
-> > Matan and Or.
->
-> Do you guys want this to go via my 'net' tree or via Roland's
-> 'infiniband' tree?
-
-
-net, since the relevant feature went into 3.15-rc1 through net-next
+Thanks,
+   Duan
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
