@@ -1,50 +1,47 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH v2 net] net: filter: x86: fix JIT address randomization
-Date: Thu, 15 May 2014 21:16:42 -0700
-Message-ID: <5375912A.6090302@zytor.com>
-References: <1400018755-3049-1-git-send-email-ast@plumgrid.com> <20140513.183145.1568789082256942703.davem@davemloft.net> <20140514080557.GB9848@osiris> <20140514.161038.604524051618558919.davem@redhat.com> <5373D4BF.1040002@zytor.com> <20140515065341.GB10217@osiris>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@redhat.com>, ast@plumgrid.com,
-	edumazet@google.com, dborkman@redhat.com, netdev@vger.kernel.org,
-	schwidefsky@de.ibm.com, "H. Peter Anvin" <hpa@linux.intel.com>
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
+From: Fabian Godehardt <fg@emlix.com>
+Subject: [PATCH] net/dsa/dsa.c: increment chip_index during of_node handling on dsa_of_probe()
+Date: Fri, 16 May 2014 06:21:44 +0200
+Message-ID: <1400214104-27699-1-git-send-email-fg@emlix.com>
+Cc: Fabian Godehardt <fg@emlix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from terminus.zytor.com ([198.137.202.10]:48972 "EHLO mail.zytor.com"
+Received: from mx1.emlix.com ([88.198.240.195]:47889 "EHLO mx1.emlix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751106AbaEPERI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 00:17:08 -0400
-In-Reply-To: <20140515065341.GB10217@osiris>
+	id S1752719AbaEPE1r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 00:27:47 -0400
+Received: from mx1.emlix.com (localhost [127.0.0.1])
+	by mx1.emlix.com (Postfix) with ESMTP id 51C1520659
+	for <netdev@vger.kernel.org>; Fri, 16 May 2014 06:21:13 +0200 (CEST)
+Received: from mailer.emlix.com (gate.emlix.com [80.150.94.234])
+	(using TLSv1.2 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mx1.emlix.com (Postfix) with ESMTPS id 2938C20215
+	for <netdev@vger.kernel.org>; Fri, 16 May 2014 06:21:13 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2014 11:53 PM, Heiko Carstens wrote:
-> On Wed, May 14, 2014 at 01:40:31PM -0700, H. Peter Anvin wrote:
->> On 05/14/2014 01:10 PM, David Miller wrote:
->>> From: Heiko Carstens <heiko.carstens@de.ibm.com>
->>> Date: Wed, 14 May 2014 10:05:57 +0200
->>>
->>>> Dave, can you route this via -net?
->>>
->>
->> Pardon for being a bit confused, but it would seem x86 or net would be
->> the logical routes for this -- I don't mind at all it being routed
->> through net, but that would seem to be between myself (and the other x86
->> maintainers) and Dave...
-> 
-> [resending - and this time really added hpa's Intel email address]
-> 
-> Hi Peter,
-> 
-> you missed the s390 version of Alexei's patch which I sent as reply to this
-> thread. As usual I got a delivery failure for your zytor.com email address
-> (added your Intel address this time).
-> 
-> So the question was if Dave could add the s390 version of the patch to -net.
-> 
+Adding more than one chip on device-tree currently causes the probing 
+routine to always use the first chips data pointer.
 
-OK, weird.  It seems IBM's mail server doesn't like me.  I wonder if it
-is because of my using StartSSL for my TLS certificate.
+Signed-off-by: Fabian Godehardt <fg@emlix.com>
+---
+ net/dsa/dsa.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-	-hpa
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 0eb5d5e..5db37ce 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -406,8 +406,9 @@ static int dsa_of_probe(struct platform_device *pdev)
+ 		goto out_free;
+ 	}
+ 
+-	chip_index = 0;
++	chip_index = -1;
+ 	for_each_available_child_of_node(np, child) {
++		chip_index++;
+ 		cd = &pd->chip[chip_index];
+ 
+ 		cd->mii_bus = &mdio_bus->dev;
+-- 
+1.8.2.61.g7b9a419
