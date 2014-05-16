@@ -1,36 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] pktgen: Use seq_puts() where seq_printf() is
- not needed
-Date: Fri, 16 May 2014 15:08:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724771A@AcuExch.aculab.com>
-References: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
- <CAADnVQJfmDqeayQUaL7KZLjnQQu8QTiYKJ5wkrMxWdgvKNx8ug@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
+ uninitialized
+Date: Fri, 16 May 2014 08:08:55 -0700
+Message-ID: <1400252935.7973.176.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
+	 <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53761286.2040505@candelatech.com>
+	 <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516145032.GD8346@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
-	Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55491 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1757366AbaEPPIY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 11:08:24 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 00862-09 for <netdev@vger.kernel.org>;
- Fri, 16 May 2014 16:08:15 +0100 (BST)
-In-Reply-To: <CAADnVQJfmDqeayQUaL7KZLjnQQu8QTiYKJ5wkrMxWdgvKNx8ug@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:37175 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932190AbaEPPI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:08:59 -0400
+Received: by mail-pb0-f48.google.com with SMTP id rr13so2705269pbb.7
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 08:08:58 -0700 (PDT)
+In-Reply-To: <20140516145032.GD8346@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQWxleGVpIFN0YXJvdm9pdG92DQo+ID4gLSAgICAgICBzZXFfcHJpbnRmKHNlcSwgImRz
-dF9tYWM6ICIpOw0KPiA+ICsgICAgICAgc2VxX3B1dHMoc2VxLCAiZHN0X21hYzogIik7DQo+IA0K
-PiB0b3VnaCBsdWNrIG9mIGtlcm5lbCBkZXZlbG9wZXJzLi4uIDspDQo+IE5vcm1hbCBwcmludGYo
-KSBHQ0Mgb3B0aW1pemVzIGludG8gcHV0cygpIGF1dG9tYXRpY2FsbHkuDQoNClllcyAtIGEgUElU
-QSB3aGVuIHlvdSBhcmUgY29tcGlsaW5nIGZvciBhbiBlbWJlZGRlZCBzeXN0ZW0NCndpdGggYSB2
-ZXJ5IGxpbWl0ZWQgJ2xpYmMnLg0KDQpVbmxlc3MgSSB3YXMgYWN0dWFsbHkgd29ycmllZCBhYm91
-dCB0aGUgZXhlY3V0aW9uIHRpbWUgSSdkDQpsZWF2ZSB0aGVtIGFzIHNlcV9wcmludGYoKSBmb3Ig
-Y29uc2lzdGVuY3kgdGhyb3VnaCB0aGUgZnVuY3Rpb24uDQoNCglEYXZpZA0KDQo=
+On Fri, 2014-05-16 at 15:50 +0100, Thomas Graf wrote:
+> On 05/16/14 at 07:23am, Eric Dumazet wrote:
+> > pktgen has already a way to send fragments which are not memset for
+> > every packet. We share a 'zero' page for that.
+> > 
+> > So only headers need to be really built for each packet.
+> 
+> Right, F_NOINIT is exclusively for cases where a linear buffer is
+> desired. I don't fully understand the argument of exposing kernel
+> memory as root considering the presence of /dev/mem though.
+> 
+> That said, I understand that this is a special case and that the
+> objective is reachable with non linear skbs already so I'm fine
+> with ignoring this patch and have it linger outside of the tree for
+> whoever has use for it.
+
+Note that if you really want to save cpu cycles, you might simply avoid
+kfree_skb()/alloc_skb() pair, and reuse the previous skb.
+
+Yes, pktgen can vary the skb->len, but this doesn't mean we can
+allocate/reserve a big skb->head. Then the cost of initial memset() for
+this skb is peanuts.
+
+Synch with Jesper because he is trying to save the atomic on skb->users.
