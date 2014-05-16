@@ -1,90 +1,59 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
-Date: Fri, 16 May 2014 22:48:06 +0100
-Message-ID: <20140516214806.GH8346@casper.infradead.org>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au>
- <20140516084809.GA18920@verge.net.au>
- <CAEP_g=-BQJTthV3JbgiiMtCEwM+-YX_sN5VpGkiPQLUVOKP0cg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Jesse Gross <jesse@nicira.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v3 0/4]  Fix lockdep issues with stacked devices
+Date: Fri, 16 May 2014 17:04:52 -0400
+Message-ID: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>
+Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
+	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:42625 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115AbaEPVsK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:48:10 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-BQJTthV3JbgiiMtCEwM+-YX_sN5VpGkiPQLUVOKP0cg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35218 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752143AbaEPV5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 17:57:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/16/14 at 02:29pm, Jesse Gross wrote:
-> On Fri, May 16, 2014 at 1:48 AM, Simon Horman <horms@verge.net.au> wrote:
-> > On Fri, May 16, 2014 at 08:07:07AM +0900, Simon Horman wrote:
-> >> Allow datapath to recognize and extract MPLS labels into flow keys
-> >> and execute actions which push, pop, and set labels on packets.
-> >
-> > [snip]
-> >
-> >> diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
-> >> index b83a4c3..98b2aba 100644
-> >> --- a/datapath/linux/compat/gso.h
-> >> +++ b/datapath/linux/compat/gso.h
-> >> @@ -4,6 +4,7 @@
-> >>  #include <linux/version.h>
-> >>  #if LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)
-> >>
-> >> +#include <linux/netdevice.h>
-> >>  #include <linux/skbuff.h>
-> >>  #include <net/protocol.h>
-> >>
-> >> @@ -14,6 +15,9 @@ struct ovs_gso_cb {
-> >>       sk_buff_data_t  inner_network_header;
-> >>       sk_buff_data_t  inner_mac_header;
-> >>       void (*fix_segment)(struct sk_buff *);
-> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
-> >> +     __be16                  inner_protocol;
-> >> +#endif
-> >>  };
-> >>  #define OVS_GSO_CB(skb) ((struct ovs_gso_cb *)(skb)->cb)
-> >
-> > Unfortunately it seems that at least for v3.11 on x86_64 the above now
-> > results in struct ovs_gso_cb being larger than the cb field of struct
-> > skb_buff.
-> >
-> > (It also seems that the call to ovs_skb_set_inner_protocol() is
-> >  missing from push_mpls() so it is likely that GSO segmentation
-> >  is broken.)
-> >
-> > I apologise for not noticing this earlier.
-> >
-> > One idea I had is so make inner_protocol union of some other member of
-> > either struct ovs_gso_cb or struct ovs_skb_cb. But its not clear to me that
-> > would fly.
-> >
-> > Another possibility is to simply drop compatibility for segmentation of GSO
-> > packets that become MPLS.  But I gather that is not the preferred way for
-> > datapath features.
-> >
-> > Any suggestions would be much appreciated.
-> 
-> Argh, I didn't realize that we were completely at the limit here...
-> 
-> This is a little nasty but for the compatibility code maybe we could
-> make the inner offsets be 16 bits. I think this is unlikely to ever
-> cause a problem in practice and so it might be OK for the compat code.
+Recent commit dc8eaaa006350d24030502a4521542e74b5cb39f
+    vlan: Fix lockdep warning when vlan dev handle notification
 
-We actually hit the 16bit overflow issue with collapsed TCP frames
-on IB when the headroom grew beyond 64K. See commit 50bceae9bd
-''tcp: Reallocate headroom if it would overflow csum_start''
-for additional details.
- 
-What about keeping the mac offset 32bit and basing a 16bit net offset
-on the mac offset. That would give 16 spare bits.
+attempted to solve lockdep issues with vlans where multiple
+vlans were stacked.  However, the code does not work correctly
+when the vlan stack is interspersed with other devices in between
+the vlans.  Additionally, similar lockdep issues show up with other
+devices.
+
+This series provides a generic way to solve these issue for any
+devices that can be stacked.  It also addresses the concern for
+vlan and macvlan devices.  I am not sure whether it makes sense
+to do so for other types like team, vxlan, and bond.
+
+Thanks
+-vlad
+
+Since v2:
+  - Remove rcu variants from patch1, since that function is called
+    only under rtnl.
+  - Fix whitespace problems reported by checkpatch
+
+Since v1:
+  - Fixed up a goofed-up rebase.
+    * is_vlan_dev() should be bool and that change belongs in patch3.
+    * patch4 should not have any vlan changes in it.
+
+Vlad Yasevich (4):
+  net: Find the nesting level of a given device by type.
+  net: Allow for more then a single subclass for netif_addr_lock
+  vlan: Fix lockdep warning with stacked vlan devices.
+  macvlan: Fix lockdep warnings with stacked macvlan devices
+
+ drivers/net/macvlan.c      | 12 +++++++++--
+ include/linux/if_macvlan.h |  1 +
+ include/linux/if_vlan.h    |  3 ++-
+ include/linux/netdevice.h  | 18 +++++++++++++++-
+ net/8021q/vlan.c           |  1 +
+ net/8021q/vlan_dev.c       | 52 ++++++++--------------------------------------
+ net/core/dev.c             | 49 ++++++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 88 insertions(+), 48 deletions(-)
+
+-- 
+1.9.0
