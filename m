@@ -1,54 +1,45 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next] pkt_sched: return NET_XMIT_DROP when packet is dropped
-Date: Fri, 16 May 2014 17:19:50 +0800
-Message-ID: <1400231990-10404-1-git-send-email-yangyingliang@huawei.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] net: pch_gbe depends on x86_32
+Date: Fri, 16 May 2014 11:29:04 +0200
+Message-ID: <20140516112904.7072da0f@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <vtlam@google.com>,
-	<nanditad@google.com>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jslaby@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:32489 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbaEPJT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 05:19:57 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:35537 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756522AbaEPJ3I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 05:29:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If packets are dropped in enqueue(), it should not return
-NET_XMIT_SUCCESS but NET_XMIT_DROP.
+The pch_gbe driver is for a companion chip to the Intel Atom E600
+series processors. These are 32-bit x86 processors so the driver is
+only needed on X86_32.
 
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Jiri Slaby <jslaby@suse.cz>
+Cc: David S. Miller <davem@davemloft.net>
 ---
- net/sched/sch_fq_codel.c | 2 +-
- net/sched/sch_hhf.c      | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 0bf432c782c1..303ab0ce23ab 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -207,7 +207,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+--- linux-3.15-rc5.orig/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-03-31 05:40:15.000000000 +0200
++++ linux-3.15-rc5/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-05-16 11:20:28.453261606 +0200
+@@ -4,7 +4,7 @@
  
- 	/* As we dropped a packet, better let upper stack know this */
- 	qdisc_tree_decrease_qlen(sch, 1);
--	return NET_XMIT_SUCCESS;
-+	return NET_XMIT_DROP;
- }
- 
- /* This is the specific function called from codel_dequeue()
-diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-index 6aab8619bbb0..a13d1d78ded1 100644
---- a/net/sched/sch_hhf.c
-+++ b/net/sched/sch_hhf.c
-@@ -426,7 +426,7 @@ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 
- 	/* As we dropped a packet, better let upper stack know this. */
- 	qdisc_tree_decrease_qlen(sch, 1);
--	return NET_XMIT_SUCCESS;
-+	return NET_XMIT_DROP;
- }
- 
- static struct sk_buff *hhf_dequeue(struct Qdisc *sch)
+ config PCH_GBE
+ 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
+-	depends on PCI && (X86 || COMPILE_TEST)
++	depends on PCI && (X86_32 || COMPILE_TEST)
+ 	select MII
+ 	select PTP_1588_CLOCK_PCH
+ 	---help---
+
+
 -- 
-1.8.0
+Jean Delvare
+SUSE L3 Support
