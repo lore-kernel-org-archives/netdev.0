@@ -1,110 +1,165 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] pktgen: Add NOINIT option to leave packet data uninitialized
-Date: Fri, 16 May 2014 12:34:01 +0200
-Message-ID: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
+Subject: [PATCH net-next] pktgen: Use seq_puts() where seq_printf() is not needed
+Date: Fri, 16 May 2014 12:53:20 +0200
+Message-ID: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:38171 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756938AbaEPKeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 06:34:04 -0400
+Received: from bombadil.infradead.org ([198.137.202.9]:48932 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932302AbaEPKxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 06:53:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The memset() on the packet data is expensive and severely limiting
-the pps throughput for large frame sizes.
-
-Considering that pktgen requires root privileges to run it is safe
-to introduce an option to optionally avoid the memset() and leave
-the packet data uninitialized.
-
-VM test results, 2 VCPU, 2 threads, pkt_size=9K:
-
-    12.44%  -11.15%  [kernel.kallsyms]   [k] memset
-     4.84%   +1.58%  [kernel.kallsyms]   [k] get_page_from_freelist
-
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- Documentation/networking/pktgen.txt |  3 +++
- net/core/pktgen.c                   | 16 ++++++++++++++--
- 2 files changed, 17 insertions(+), 2 deletions(-)
+ net/core/pktgen.c | 50 +++++++++++++++++++++++++-------------------------
+ 1 file changed, 25 insertions(+), 25 deletions(-)
 
-diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
-index 0e30c78..349b9d2 100644
---- a/Documentation/networking/pktgen.txt
-+++ b/Documentation/networking/pktgen.txt
-@@ -114,6 +114,8 @@ Examples:
-                               UDPCSUM,
-                               IPSEC # IPsec encapsulation (needs CONFIG_XFRM)
-                               NODE_ALLOC # node specific memory allocation
-+			      NOINIT # leave packet data uninitialized
-+			             # (BEWARE! May expose kernel memory!)
- 
-  pgset spi SPI_VALUE     Set specific SA used to transform packet.
- 
-@@ -254,6 +256,7 @@ flag
-   UDPCSUM
-   IPSEC
-   NODE_ALLOC
-+  NOINIT
- 
- dst_min
- dst_max
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 0304f98..8278df8 100644
+index 8278df8..038c46f 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -201,6 +201,7 @@
- #define F_QUEUE_MAP_CPU (1<<14)	/* queue map mirrors smp_processor_id() */
- #define F_NODE          (1<<15)	/* Node memory alloc*/
- #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
-+#define F_NOINIT        (1<<17)	/* Keep packet data uninitialized */
+@@ -574,7 +574,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 		   is_zero_ether_addr(pkt_dev->src_mac) ?
+ 			     pkt_dev->odev->dev_addr : pkt_dev->src_mac);
  
- /* Thread control flag bits */
- #define T_STOP        (1<<0)	/* Stop run */
-@@ -675,6 +676,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+-	seq_printf(seq, "dst_mac: ");
++	seq_puts(seq, "dst_mac: ");
+ 	seq_printf(seq, "%pM\n", pkt_dev->dst_mac);
+ 
+ 	seq_printf(seq,
+@@ -589,7 +589,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 
+ 	if (pkt_dev->nr_labels) {
+ 		unsigned int i;
+-		seq_printf(seq, "     mpls: ");
++		seq_puts(seq, "     mpls: ");
+ 		for (i = 0; i < pkt_dev->nr_labels; i++)
+ 			seq_printf(seq, "%08x%s", ntohl(pkt_dev->labels[i]),
+ 				   i == pkt_dev->nr_labels-1 ? "\n" : ", ");
+@@ -614,67 +614,67 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	if (pkt_dev->node >= 0)
+ 		seq_printf(seq, "     node: %d\n", pkt_dev->node);
+ 
+-	seq_printf(seq, "     Flags: ");
++	seq_puts(seq, "     Flags: ");
+ 
+ 	if (pkt_dev->flags & F_IPV6)
+-		seq_printf(seq, "IPV6  ");
++		seq_puts(seq, "IPV6  ");
+ 
+ 	if (pkt_dev->flags & F_IPSRC_RND)
+-		seq_printf(seq, "IPSRC_RND  ");
++		seq_puts(seq, "IPSRC_RND  ");
+ 
+ 	if (pkt_dev->flags & F_IPDST_RND)
+-		seq_printf(seq, "IPDST_RND  ");
++		seq_puts(seq, "IPDST_RND  ");
+ 
+ 	if (pkt_dev->flags & F_TXSIZE_RND)
+-		seq_printf(seq, "TXSIZE_RND  ");
++		seq_puts(seq, "TXSIZE_RND  ");
+ 
+ 	if (pkt_dev->flags & F_UDPSRC_RND)
+-		seq_printf(seq, "UDPSRC_RND  ");
++		seq_puts(seq, "UDPSRC_RND  ");
+ 
+ 	if (pkt_dev->flags & F_UDPDST_RND)
+-		seq_printf(seq, "UDPDST_RND  ");
++		seq_puts(seq, "UDPDST_RND  ");
+ 
+ 	if (pkt_dev->flags & F_UDPCSUM)
+-		seq_printf(seq, "UDPCSUM  ");
++		seq_puts(seq, "UDPCSUM  ");
+ 
+ 	if (pkt_dev->flags & F_MPLS_RND)
+-		seq_printf(seq,  "MPLS_RND  ");
++		seq_puts(seq,  "MPLS_RND  ");
+ 
+ 	if (pkt_dev->flags & F_QUEUE_MAP_RND)
+-		seq_printf(seq,  "QUEUE_MAP_RND  ");
++		seq_puts(seq,  "QUEUE_MAP_RND  ");
+ 
+ 	if (pkt_dev->flags & F_QUEUE_MAP_CPU)
+-		seq_printf(seq,  "QUEUE_MAP_CPU  ");
++		seq_puts(seq,  "QUEUE_MAP_CPU  ");
+ 
+ 	if (pkt_dev->cflows) {
+ 		if (pkt_dev->flags & F_FLOW_SEQ)
+-			seq_printf(seq,  "FLOW_SEQ  "); /*in sequence flows*/
++			seq_puts(seq,  "FLOW_SEQ  "); /*in sequence flows*/
+ 		else
+-			seq_printf(seq,  "FLOW_RND  ");
++			seq_puts(seq,  "FLOW_RND  ");
+ 	}
+ 
+ #ifdef CONFIG_XFRM
+ 	if (pkt_dev->flags & F_IPSEC_ON) {
+-		seq_printf(seq,  "IPSEC  ");
++		seq_puts(seq,  "IPSEC  ");
+ 		if (pkt_dev->spi)
+ 			seq_printf(seq, "spi:%u", pkt_dev->spi);
+ 	}
+ #endif
+ 
+ 	if (pkt_dev->flags & F_MACSRC_RND)
+-		seq_printf(seq, "MACSRC_RND  ");
++		seq_puts(seq, "MACSRC_RND  ");
+ 
+ 	if (pkt_dev->flags & F_MACDST_RND)
+-		seq_printf(seq, "MACDST_RND  ");
++		seq_puts(seq, "MACDST_RND  ");
+ 
+ 	if (pkt_dev->flags & F_VID_RND)
+-		seq_printf(seq, "VID_RND  ");
++		seq_puts(seq, "VID_RND  ");
+ 
+ 	if (pkt_dev->flags & F_SVID_RND)
+-		seq_printf(seq, "SVID_RND  ");
++		seq_puts(seq, "SVID_RND  ");
+ 
  	if (pkt_dev->flags & F_NODE)
- 		seq_printf(seq, "NODE_ALLOC  ");
+-		seq_printf(seq, "NODE_ALLOC  ");
++		seq_puts(seq, "NODE_ALLOC  ");
  
-+	if (pkt_dev->flags & F_NOINIT)
-+		seq_puts(seq, "NOINIT  ");
-+
- 	seq_puts(seq, "\n");
+ 	if (pkt_dev->flags & F_NOINIT)
+ 		seq_puts(seq, "NOINIT  ");
+@@ -720,7 +720,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	if (pkt_dev->result[0])
+ 		seq_printf(seq, "Result: %s\n", pkt_dev->result);
+ 	else
+-		seq_printf(seq, "Result: Idle\n");
++		seq_puts(seq, "Result: Idle\n");
  
- 	/* not really stopped, more like last-running-at */
-@@ -1242,6 +1246,12 @@ static ssize_t pktgen_if_write(struct file *file,
- 		else if (strcmp(f, "!UDPCSUM") == 0)
- 			pkt_dev->flags &= ~F_UDPCSUM;
+ 	return 0;
+ }
+@@ -1745,14 +1745,14 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
  
-+		else if (strcmp(f, "NOINIT") == 0)
-+			pkt_dev->flags |= F_NOINIT;
-+
-+		else if (strcmp(f, "!NOINIT") == 0)
-+			pkt_dev->flags &= ~F_NOINIT;
-+
- 		else {
- 			sprintf(pg_result,
- 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
-@@ -2633,7 +2643,8 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 	datalen -= sizeof(*pgh);
+ 	BUG_ON(!t);
  
- 	if (pkt_dev->nfrags <= 0) {
--		memset(skb_put(skb, datalen), 0, datalen);
-+		if (!(pkt_dev->flags & F_NOINIT))
-+			memset(skb_put(skb, datalen), 0, datalen);
- 	} else {
- 		int frags = pkt_dev->nfrags;
- 		int i, len;
-@@ -2644,7 +2655,8 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 			frags = MAX_SKB_FRAGS;
- 		len = datalen - frags * PAGE_SIZE;
- 		if (len > 0) {
--			memset(skb_put(skb, len), 0, len);
-+			if (!(pkt_dev->flags & F_NOINIT))
-+				memset(skb_put(skb, len), 0, len);
- 			datalen = frags * PAGE_SIZE;
- 		}
+-	seq_printf(seq, "Running: ");
++	seq_puts(seq, "Running: ");
+ 
+ 	if_lock(t);
+ 	list_for_each_entry(pkt_dev, &t->if_list, list)
+ 		if (pkt_dev->running)
+ 			seq_printf(seq, "%s ", pkt_dev->odevname);
+ 
+-	seq_printf(seq, "\nStopped: ");
++	seq_puts(seq, "\nStopped: ");
+ 
+ 	list_for_each_entry(pkt_dev, &t->if_list, list)
+ 		if (!pkt_dev->running)
+@@ -1761,7 +1761,7 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
+ 	if (t->result[0])
+ 		seq_printf(seq, "\nResult: %s\n", t->result);
+ 	else
+-		seq_printf(seq, "\nResult: NA\n");
++		seq_puts(seq, "\nResult: NA\n");
+ 
+ 	if_unlock(t);
  
 -- 
 1.8.3.1
