@@ -1,54 +1,28 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 0/4]  Fix lockdep issues with stacked devices
-Date: Fri, 16 May 2014 13:18:13 -0400
-Message-ID: <1400260697-32601-1-git-send-email-vyasevic@redhat.com>
-Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
-	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: pch_gbe depends on x86_32
+Date: Fri, 16 May 2014 10:26:24 -0700
+Message-ID: <1400261184.7973.223.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140516112904.7072da0f@endymion.delvare>
+	 <1400246161.7973.162.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140516.130558.261976058112825591.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jdelvare@suse.de, netdev@vger.kernel.org, jslaby@suse.cz
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31058 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756948AbaEPRSv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 13:18:51 -0400
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33835 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbaEPR01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 13:26:27 -0400
+Received: by mail-pa0-f45.google.com with SMTP id ey11so2819901pad.32
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 10:26:27 -0700 (PDT)
+In-Reply-To: <20140516.130558.261976058112825591.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent commit dc8eaaa006350d24030502a4521542e74b5cb39f
-    vlan: Fix lockdep warning when vlan dev handle notification
+On Fri, 2014-05-16 at 13:05 -0400, David Miller wrote:
 
-attempted to solve lockdep issues with vlans where multiple
-vlans were stacked.  However, the code does not work correctly
-when the vlan stack is interspersed with other devices in between
-the vlans.  Additionally, similar lockdep issues show up with other
-devices.
+> That's what COMPILE_TEST is supposed to be for and it's still there :)
 
-This series provides a generic way to solve these issue for any
-devices that can be stacked.  It also addresses the concern for
-vlan and macvlan devices.  I am not sure whether it makes sense
-to do so for other types like team, vxlan, and bond.
-
-Thanks
--vlad
-
-Since v1:
-  - Fixed up a goofed-up rebase.
-    * is_vlan_dev() should be bool and that change belongs in patch3.
-    * patch4 should not have any vlan changes in it.
-
-Vlad Yasevich (4):
-  net: Find the nesting level of a given device by type.
-  net: Allow for more then a single subclass for netif_addr_lock
-  vlan: Fix lockdep warning with stacked vlan devices.
-  macvlan: Fix lockdep warnings with stacked macvlan devices
-
- drivers/net/macvlan.c      | 12 +++++++++--
- include/linux/if_macvlan.h |  1 +
- include/linux/if_vlan.h    |  3 ++-
- include/linux/netdevice.h  | 18 +++++++++++++++-
- net/8021q/vlan.c           |  1 +
- net/8021q/vlan_dev.c       | 52 ++++++++--------------------------------------
- net/core/dev.c             | 49 ++++++++++++++++++++++++++++++++++++++++++-
- 7 files changed, 88 insertions(+), 48 deletions(-)
-
--- 
-1.9.0
+Ah nice, I missed this feature, thanks ;)
