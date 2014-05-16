@@ -1,205 +1,142 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Sat, 17 May 2014 00:03:16 +0930
-Message-ID: <537621AC.1060409@davidnewall.com>
-References: <536F8C0F.4090206@davidnewall.com>,<5370CB47.4010400@davidnewall.com> <DUB123-W514EA0A4A29F520778F2FFED350@phx.gbl> <53715D67.8020803@davidnewall.com> <53736ACC.9010902@davidnewall.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [bisected] [oops] gre/gro oops in skb_gro_receive+0x118/0x453
+Date: Fri, 16 May 2014 17:34:43 +0300
+Message-ID: <20140516173443.0b40157e@vostro>
+References: <20140516104014.607d2d0f@vostro>
+	<1400245157.7973.150.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "fw@strlen.de" <fw@strlen.de>
-To: Lukas Tribus <luky-37@hotmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hawking.rebel.net.au ([203.20.69.83]:35517 "EHLO
-	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754381AbaEPOd0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:33:26 -0400
-In-Reply-To: <53736ACC.9010902@davidnewall.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:47198 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755567AbaEPOe3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:34:29 -0400
+Received: by mail-la0-f50.google.com with SMTP id b8so2042713lan.9
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 07:34:27 -0700 (PDT)
+In-Reply-To: <1400245157.7973.150.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should revert commit 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge 
-: Sanitize skb before it enters the IP stack) because it corrupts IP 
-packets with RR or TS options set, only partially updating the IP header 
-and leaving an incorrect checksum.
+On Fri, 16 May 2014 05:59:17 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-The argument for introducing the change is at lkml.org/lkml/2010/8/30/391:
+> On Fri, 2014-05-16 at 10:40 +0300, Timo Teras wrote:
+> > The oops happens when forwarding traffic between ethX <-> gre. Where
+> > the GRE tunnel is an NBMA tunnel and the GRE traffic is IPsec'ed in
+> > transport mode. It seems that locally originating traffic to gre is
+> > not affected.
+> > 
+> > The oops also goes away if GRO is turned off for gre tunnel device.
+> > 
+> > I have bisected this always reproducible oops to commit:
+> > 
+> > 8a29111c7ca68d928dfab58636f3f6acf0ac04f7 is the first bad commit
+> > 
+> > commit 8a29111c7ca68d928dfab58636f3f6acf0ac04f7
+> > Author: Eric Dumazet <edumazet@google.com>
+> > Date: Oct 8 09:02:23 2013 -0700
+> > net: gro: allow to build full sized skb
+> > 
+> > This oops backtrace is from vanilla 3.14.4 kernel, but it is
+> > identical up to the offending commit.
+> > 
+> > [  286.927713] BUG: unable to handle kernel paging request at
+> > 2b90bdc8 [  286.930813] IP: [<c120fc88>] skb_gro_receive+0x118/0x453
+> > [  286.930813] *pde = 00000000 
+> > [  286.930813] Oops: 0000 [#1] SMP 
+> > [  286.930813] Modules linked in: sha1_generic authenc esp4
+> > xfrm4_mode_transport deflate ctr twofish_generic twofish_i586
+> > twofish_common camellia_generic serpent_sse2_i586 xts lrw gf128mul
+> > serpent_generic glue_helper ablk_helper cryptd blowfish_generic
+> > blowfish_common cast5_generic cast_common des_generic cbc cmac xcbc
+> > rmd160 sha512_generic hmac crypto_null af_key xfrm_algo ip_gre
+> > ip_tunnel nf_conntrack_netbios_ns nf_conntrack_broadcast
+> > iptable_raw ipt_MASQUERADE iptable_nat nf_nat_ipv4 nf_nat
+> > ipt_REJECT xt_helper nf_conntrack_ipv4 nf_defrag_ipv4
+> > iptable_filter ip_tables nf_conntrack_ftp nf_conntrack_sip xt_CT
+> > ip6table_raw xt_LOG xt_limit xt_policy xt_tcpudp nf_conntrack_ipv6
+> > nf_defrag_ipv6 xt_recent xt_multiport xt_conntrack nf_conntrack
+> > ip6table_filter ip6_tables x_tables ipv6 af_packet mousedev via_rng
+> > rng_core via_cputemp hwmon hwmon_vid padlock_aes padlock_sha
+> > serio_raw psmouse pcspkr shpchp i2c_viapro i2c_core via_rhine
+> > snd_via82xx snd_ac97_codec snd_pcm snd_timer ac97_bus
+> > snd_mpu401_uart snd_rawmidi snd_seq_device snd soundcore
+> > firewire_ohci firewire_core crc_itu_t via_agp agpgart r8169
+> > firmware_class mii fan evdev parport_pc parport thermal button
+> > acpi_cpufreq processor nls_utf8 nls_cp437 vfat fat sata_via
+> > ehci_pci ehci_hcd uhci_hcd pata_via pata_acpi ata_generic libata
+> > usb_storage usbcore usb_common sd_mod scsi_mod crc_t10dif
+> > crct10dif_common squashfs loop [  286.930813] CPU: 0 PID: 0 Comm:
+> > swapper/0 Not tainted 3.14.4 #1-fragbisect [  286.930813] Hardware
+> > name:    /CN700-8237, BIOS 6.00 PG 08/06/2008 [  286.930813] task:
+> > c13e8930 ti: f6408000 task.ti: c13de000 [  286.930813] EIP:
+> > 0060:[<c120fc88>] EFLAGS: 00210202 CPU: 0 [  286.930813] EIP is at
+> > skb_gro_receive+0x118/0x453 [  286.930813] EAX: 2b90bdc8 EBX:
+> > e9f669c0 ECX: 00000034 EDX: 00000596 [  286.930813] ESI: e9f669c0
+> > EDI: f648f134 EBP: f6409eb4 ESP: f6409e7c [  286.930813]  DS: 007b
+> > ES: 007b FS: 00d8 GS: 00e0 SS: 0068 [  286.930813] CR0: 8005003b
+> > CR2: 2b90bdc8 CR3: 2a731000 CR4: 00000690 [  286.930813] Stack:
+> > [  286.930813]  c120df4b e9f4f796 00000046 00000000 f648f134
+> > c013a600 0000007a e9f4fd40 [  286.930813]  2b90bdc8 00000034
+> > e9f663c0 e9f663c0 e9f669c0 f648f134 f6409ee0 c125cc6f
+> > [  286.930813]  00000000 00000020 00000046 2e001080 e9f4ed96
+> > 00000562 e9f663c0 e9f4f782 [  286.930813] Call Trace:
+> > [  286.930813]  [<c120df4b>] ? csum_partial_ext+0x16/0x18
+> > [  286.930813]  [<c125cc6f>] tcp_gro_receive+0x1a8/0x218
+> > [  286.930813]  [<c125cd9f>] tcp4_gro_receive+0xc0/0xc8
+> > [  286.930813]  [<c1268439>] inet_gro_receive+0x1c5/0x1df
+> > [  286.930813]  [<c1219a15>] dev_gro_receive+0x231/0x393
+> > [  286.930813]  [<f80e006b>] ? rh_timer_func+0x8/0xa [usbcore]
+> > [  286.930813]  [<c1219c1c>] napi_gro_receive+0xb/0x5e
+> > [  286.930813]  [<f8650056>] gro_cell_poll+0x56/0x73 [ip_tunnel]
+> > [  286.930813]  [<c121a2da>] net_rx_action+0xb0/0x14d
+> > [  286.930813]  [<c1030d43>] __do_softirq+0xb8/0x1a5
+> > [  286.930813]  [<c1030c8b>] ? cpu_callback+0xec/0xec
+> > [  286.930813]  <IRQ> [  286.930813]  [<c1030fa5>] ?
+> > irq_exit+0x44/0x81 [  286.930813]  [<c1002da0>] ? do_IRQ+0x9f/0xb3
+> > [  286.930813]  [<c106e642>] ? clockevents_notify+0x10f/0x116
+> > [  286.930813]  [<c1298d33>] ? common_interrupt+0x33/0x40
+> > [  286.930813]  [<c11f0292>] ? cpuidle_enter_state+0x39/0xa3
+> > [  286.930813]  [<c11f03a5>] ? cpuidle_idle_call+0xa9/0xe6
+> > [  286.930813]  [<c1007f8f>] ? arch_cpu_idle+0x8/0x1c
+> > [  286.930813]  [<c1060542>] ? cpu_startup_entry+0xf3/0x159
+> > [  286.930813]  [<c128b36b>] ? rest_init+0x5d/0x5f [  286.930813]
+> > [<c1415a17>] ? start_kernel+0x3b2/0x3b8 [  286.930813]
+> > [<c141549b>] ? repair_env_string+0x51/0x51 [  286.930813]
+> > [<c14152d0>] ? i386_start_kernel+0x7a/0x7e [  286.930813] Code: 54
+> > 29 56 50 c7 46 54 00 00 00 00 29 d1 89 8e b4 00 00 00 e9 09 03 00
+> > 00 8b 45 f0 f6 80 87 00 00 00 01 8b 45 e8 0f 84 cf 00 00 00 <8a> 00
+> > 88 45 d8 0f b6 d0 8b 45 f0 8b 80 ac 00 00 00 89 45 d4 05
+> > [  286.930813] EIP: [<c120fc88>] skb_gro_receive+0x118/0x453 SS:ESP
+> > 0068:f6409e7c [  286.930813] CR2: 000000002b90bdc8 [  286.930813]
+> > ---[ end trace ac04411e60d3534c ]--- [  286.930813] Kernel panic -
+> > not syncing: Fatal exception in interrupt [  286.930813] Kernel
+> > Offset: 0x0 from 0xc1000000 (relocation range:
+> > 0xc0000000-0xf7ffdfff) --
+> 
+> Unffortunately bisecting wont help a lot, as we knew the commit was
+> faulty.
+> 
+> Please check 9d8506cc2d7ea1f911c72c100193a3677f6668c3
 
-The bridge layer can overwrite the IPCB using the
-BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,
-if we recieve a packet greater in size than the bridge
-device MTU, we call ip_fragment which in turn will lead to
-icmp_send calling ip_options_echo if the DF flag is set.
-ip_options_echo will then incorrectly try to parse the IPCB as
-IP options resulting in a buffer overflow.
-This change refills the CB area back with IP
-options before ip_fragment calls icmp_send. If we fail parsing,
-we zero out the IPCB area to guarantee that the stack does
-not get corrupted.
+Ah, did not notice that one. So I'm adding Herbert as explicit cc.
 
-A bridge should not fragment packets; an *ethernet* bridge should not 
-need to.  Fragmenting packets is the job of higher level protocol.
+$ git describe --contains 9d8506cc2d7ea1f911c72c100193a3677f6668c3
+v3.13-rc1~7^2
 
---- br_netfilter.c	2014-01-20 13:10:07.000000000 +1030
-+++ br_netfilter.c.prop	2014-05-16 23:07:57.975386905 +0930
-@@ -253,73 +253,6 @@
-  		skb->protocol = htons(ETH_P_PPP_SES);
-  }
-  
--/* When handing a packet over to the IP layer
-- * check whether we have a skb that is in the
-- * expected format
-- */
--
--static int br_parse_ip_options(struct sk_buff *skb)
--{
--	struct ip_options *opt;
--	const struct iphdr *iph;
--	struct net_device *dev = skb->dev;
--	u32 len;
--
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	opt = &(IPCB(skb)->opt);
--
--	/* Basic sanity checks */
--	if (iph->ihl < 5 || iph->version != 4)
--		goto inhdr_error;
--
--	if (!pskb_may_pull(skb, iph->ihl*4))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
--		goto inhdr_error;
--
--	len = ntohs(iph->tot_len);
--	if (skb->len < len) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
--		goto drop;
--	} else if (len < (iph->ihl*4))
--		goto inhdr_error;
--
--	if (pskb_trim_rcsum(skb, len)) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
--		goto drop;
--	}
--
--	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--	if (iph->ihl == 5)
--		return 0;
--
--	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
--	if (ip_options_compile(dev_net(dev), opt, skb))
--		goto inhdr_error;
--
--	/* Check correct handling of SRR option */
--	if (unlikely(opt->srr)) {
--		struct in_device *in_dev = __in_dev_get_rcu(dev);
--		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
--			goto drop;
--
--		if (ip_options_rcv_srr(skb))
--			goto drop;
--	}
--
--	return 0;
--
--inhdr_error:
--	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
--drop:
--	return -1;
--}
--
-  /* Fill in the header for fragmented IP packets handled by
-   * the IPv4 connection tracking code.
-   */
-@@ -679,6 +612,7 @@
-  {
-  	struct net_bridge_port *p;
-  	struct net_bridge *br;
-+	const struct iphdr *iph;
-  	__u32 len = nf_bridge_encap_header_len(skb);
-  
-  	if (unlikely(!pskb_may_pull(skb, len)))
-@@ -704,9 +638,29 @@
-  		return NF_ACCEPT;
-  
-  	nf_bridge_pull_encap_header_rcsum(skb);
-+
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-+		goto inhdr_error;
-  
--	if (br_parse_ip_options(skb))
--		return NF_DROP;
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		goto inhdr_error;
-+
-+	if (!pskb_may_pull(skb, 4 * iph->ihl))
-+		goto inhdr_error;
-+
-+	iph = ip_hdr(skb);
-+	if (ip_fast_csum((__u8 *) iph, iph->ihl) != 0)
-+		goto inhdr_error;
-+
-+	len = ntohs(iph->tot_len);
-+	if (skb->len < len || len < 4 * iph->ihl)
-+		goto inhdr_error;
-+
-+	pskb_trim_rcsum(skb, len);
-+
-+	/* BUG: Should really parse the IP options here. */
-+	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-  
-  	nf_bridge_put(skb->nf_bridge);
-  	if (!nf_bridge_alloc(skb))
-@@ -720,6 +674,10 @@
-  		br_nf_pre_routing_finish);
-  
-  	return NF_STOLEN;
-+
-+inhdr_error:
-+//      IP_INC_STATS_BH(IpInHdrErrors);
-+	return NF_DROP;
-  }
-  
-  
-@@ -806,9 +764,6 @@
-  		nf_bridge->mask |= BRNF_PKT_TYPE;
-  	}
-  
--	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
--		return NF_DROP;
--
-  	/* The physdev module checks on this */
-  	nf_bridge->mask |= BRNF_BRIDGED;
-  	nf_bridge->physoutdev = skb->dev;
-@@ -862,19 +817,14 @@
-  #if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
-  {
--	int ret;
--
-  	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
-  	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
-  	    !skb_is_gso(skb)) {
--		if (br_parse_ip_options(skb))
--			/* Drop invalid packet */
--			return NF_DROP;
--		ret = ip_fragment(skb, br_dev_queue_push_xmit);
-+		/* BUG: Should really parse the IP options here. */
-+		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+		return ip_fragment(skb, br_dev_queue_push_xmit);
-  	} else
--		ret = br_dev_queue_push_xmit(skb);
--
--	return ret;
-+		return br_dev_queue_push_xmit(skb);
-  }
-  #else
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+But as you may have noticed, the attached oops is from 3.14.4 that
+includes the fix commit. While bisecting, I tested multiple versions
+between 3.12 and 3.14. Bisecting clearly points this is the commit that
+introduces this oops, and it is not fixed in any version up until
+3.14.4.
+
+Also the forward path from gre->ethX goes to eth that does not have
+TSO/GSO support. So I'd assume that the fix commit is not that
+relevant in my specific test case.
+
+The faulty commit must be introducing additional bug, and the commit
+you refer did not fix it.
