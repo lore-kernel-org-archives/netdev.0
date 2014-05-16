@@ -1,69 +1,51 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it
- occupies too many slots
-Date: Fri, 16 May 2014 14:11:45 +0100
-Message-ID: <20140516131145.GK18551@zion.uk.xensource.com>
-References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
- <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: pch_gbe depends on x86_32
+Date: Fri, 16 May 2014 06:16:01 -0700
+Message-ID: <1400246161.7973.162.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140516112904.7072da0f@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:44859 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751732AbaEPNLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 09:11:47 -0400
-Content-Disposition: inline
-In-Reply-To: <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:40826 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752763AbaEPNQE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 09:16:04 -0400
+Received: by mail-pb0-f42.google.com with SMTP id md12so2624118pbc.1
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 06:16:03 -0700 (PDT)
+In-Reply-To: <20140516112904.7072da0f@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2014 at 06:04:34AM -0700, Eric Dumazet wrote:
-> On Fri, 2014-05-16 at 12:08 +0100, Wei Liu wrote:
-> > Some workload, such as Redis can generate SKBs which make use of
-> > compound pages. Netfront doesn't quite like that because it doesn't want
-> > to send packet that occupies exessive slots to the backend as backend
-> > might deem it malicious. On the flip side these packets are actually
-> > legit, the size check at the beginning of xennet_start_xmit ensures that
-> > packet size is below 64K.
-> > 
-> > So we linearize SKB if it occupies too many slots. If the linearization
-> > fails then the SKB is dropped.
-> > 
-> > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > Cc: David Vrabel <david.vrabel@citrix.com>
-> > Cc: Konrad Wilk <konrad.wilk@oracle.com>
-> > Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> > Cc: Stefan Bader <stefan.bader@canonical.com>
-> > Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-> > ---
-> >  drivers/net/xen-netfront.c |   17 ++++++++++++++---
-> >  1 file changed, 14 insertions(+), 3 deletions(-)
+On Fri, 2014-05-16 at 11:29 +0200, Jean Delvare wrote:
+> The pch_gbe driver is for a companion chip to the Intel Atom E600
+> series processors. These are 32-bit x86 processors so the driver is
+> only needed on X86_32.
 > 
-> This is likely to fail on typical host.
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Cc: Jiri Slaby <jslaby@suse.cz>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-
-It's not that common to trigger this, I only saw a few reports. In fact
-Stefan's report is the first one that comes with a method to reproduce
-it.
-
-I tested with redis-benchmark on a guest with 256MB RAM and only saw a
-few "failed to linearize", never saw a single one with 1GB guest.
-
-> What about adding a smart helper trying to aggregate consecutive
-> smallest fragments into a single frag ?
+> --- linux-3.15-rc5.orig/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-03-31 05:40:15.000000000 +0200
+> +++ linux-3.15-rc5/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-05-16 11:20:28.453261606 +0200
+> @@ -4,7 +4,7 @@
+>  
+>  config PCH_GBE
+>  	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
+> -	depends on PCI && (X86 || COMPILE_TEST)
+> +	depends on PCI && (X86_32 || COMPILE_TEST)
+>  	select MII
+>  	select PTP_1588_CLOCK_PCH
+>  	---help---
+> 
 > 
 
-Ideally this is a better apporach, but I'm afraid I won't be able to
-look into this until early / mid June.
-
-Wei.
-
-> This would be needed for bnx2x for example as well.
-> 
+Although its always nice to be able to compile it with x86_64 host,
+to make sure we do not add regressions when we change something in a
+core networking part.
