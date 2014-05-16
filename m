@@ -1,16 +1,14 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 01/11] ieee802154: add types
-	for link-layer security
-Date: Fri, 16 May 2014 17:46:35 +0200
-Message-ID: <1400255205-9031-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-References: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 00/11] 802154: implement
+	link-layer security
+Date: Fri, 16 May 2014 17:46:34 +0200
+Message-ID: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1400255205-9031-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -21,135 +19,76 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The added structures match 802.15.4-2011 link-layer security PIBs as
-closely as is reasonable. Some lists required by the standard were
-modeled as bitmaps (frame_types and command_frame_ids in *llsec_key,
-802.15.4-2011 7.5/Table 61), since using lists for those seems a bit
-excessive and not particularly useful. The DeviceDescriptorHandleList
-was inverted and is here a per-device list, since operations on this
-list are likely to have both a key and a device at hand, and per-device
-lists of keys are shorter than per-key lists of devices.
+This patch series implements 802.15.4-2011 link layer security.
 
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Patches 1 and 2 prepare for llsec by adding data structures to represent the
+llsec PIB as specified in 802.15.4-2011. I've changed some structures from
+their specification to be more sensible, since 802.15.4 specifies some
+structures in not-exactly-useful ways. Nested lists are common, but not very
+accessible for netlink methods, and not very fast to traverse when searching
+for specific elements either.
+
+Patch 3 implements backends for these structures in mac802154.
+
+Patch 4 and 5 implement the encryption and decryption methods, split from patch
+3 to ease review. The encryption and decryption methods are almost entirely
+compliant with the specified outgoing/incoming frame procedures. Decryption
+deviates from the specification slightly where the specification makes no
+sense, i.e. encrypted frames with security level 0 may be sent, but must be
+dropped an reception - but transforms for processing such frames are given a
+few lines in the standard. I've opted to not drop these frames instead of not
+implementing the transforms that wouldn't be used if they were dropped.
+
+Patch 6 links the mac802154 llsec with the SoftMAC devices. This is mainly
+init//fini code for llsec context, handling of security subheaders and calling
+the encryption/decryption methods.
+
+Patch 7 adds sockopts to 802.15.4 dgram sockets to modifiy outgoing security
+parameters on a per-socket basis. Ideally, this would also be available for
+sockets on 6lowpan devices, but I'm not sure how to do that nicely.
+
+Patch 8 adds forwarders to the llsec configuration methods for netlink, patch
+10 implements these netlink accessors. This is mainly mechanical.
+
+Patch 11, implements a key tracking option for devices that previous patches
+haven't, because I'm not entirely sure whether this is the best approach to the
+problem. It performs reasonably well though, so I decided to include it as a
+separate patch in this series instead of sending an RFC just for this one
+option.
+
 ---
- include/net/ieee802154_netdev.h |   95 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 95 insertions(+)
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index bc9a747..6f8f9c2 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -242,6 +242,88 @@ static inline struct ieee802154_mac_cb *mac_cb_init(struct sk_buff *skb)
- 	return mac_cb(skb);
- }
- 
-+#define IEEE802154_LLSEC_KEY_SIZE 16
-+
-+struct ieee802154_llsec_key_id {
-+	u8 mode;
-+	u8 id;
-+	union {
-+		struct ieee802154_addr device_addr;
-+		__le32 short_source;
-+		__le64 extended_source;
-+	};
-+};
-+
-+struct ieee802154_llsec_key {
-+	u8 frame_types;
-+	u32 cmd_frame_ids;
-+	u8 key[IEEE802154_LLSEC_KEY_SIZE];
-+};
-+
-+struct ieee802154_llsec_key_entry {
-+	struct list_head list;
-+
-+	struct ieee802154_llsec_key_id id;
-+	struct ieee802154_llsec_key *key;
-+};
-+
-+struct ieee802154_llsec_device_key {
-+	struct list_head list;
-+
-+	struct ieee802154_llsec_key_id key_id;
-+	u32 frame_counter;
-+};
-+
-+enum {
-+	IEEE802154_LLSEC_DEVKEY_IGNORE,
-+	IEEE802154_LLSEC_DEVKEY_RESTRICT,
-+
-+	__IEEE802154_LLSEC_DEVKEY_MAX,
-+};
-+
-+struct ieee802154_llsec_device {
-+	struct list_head list;
-+
-+	__le16 pan_id;
-+	__le16 short_addr;
-+	__le64 hwaddr;
-+	u32 frame_counter;
-+	bool seclevel_exempt;
-+
-+	u8 key_mode;
-+	struct list_head keys;
-+};
-+
-+struct ieee802154_llsec_seclevel {
-+	struct list_head list;
-+
-+	u8 frame_type;
-+	u8 cmd_frame_id;
-+	bool device_override;
-+	u32 sec_levels;
-+};
-+
-+struct ieee802154_llsec_params {
-+	bool enabled;
-+
-+	__be32 frame_counter;
-+	u8 out_level;
-+	struct ieee802154_llsec_key_id out_key;
-+
-+	__le64 default_key_source;
-+
-+	__le16 pan_id;
-+	__le64 hwaddr;
-+	__le64 coord_hwaddr;
-+	__le16 coord_shortaddr;
-+};
-+
-+struct ieee802154_llsec_table {
-+	struct list_head keys;
-+	struct list_head devices;
-+	struct list_head security_levels;
-+};
-+
- #define IEEE802154_MAC_SCAN_ED		0
- #define IEEE802154_MAC_SCAN_ACTIVE	1
- #define IEEE802154_MAC_SCAN_PASSIVE	2
-@@ -260,6 +342,19 @@ struct ieee802154_mac_params {
- };
- 
- struct wpan_phy;
-+
-+enum {
-+	IEEE802154_LLSEC_PARAM_ENABLED = 1 << 0,
-+	IEEE802154_LLSEC_PARAM_FRAME_COUNTER = 1 << 1,
-+	IEEE802154_LLSEC_PARAM_OUT_LEVEL = 1 << 2,
-+	IEEE802154_LLSEC_PARAM_OUT_KEY = 1 << 3,
-+	IEEE802154_LLSEC_PARAM_KEY_SOURCE = 1 << 4,
-+	IEEE802154_LLSEC_PARAM_PAN_ID = 1 << 5,
-+	IEEE802154_LLSEC_PARAM_HWADDR = 1 << 6,
-+	IEEE802154_LLSEC_PARAM_COORD_HWADDR = 1 << 7,
-+	IEEE802154_LLSEC_PARAM_COORD_SHORTADDR = 1 << 8,
-+};
-+
- /*
-  * This should be located at net_device->ml_priv
-  *
--- 
-1.7.9.5
+Phoebe Buckheister (11):
+      ieee802154: add types for link-layer security
+      mac802154: update Kconfig
+      mac802154: add llsec structures and mutators
+      mac802154: add llsec encryption method
+      mac802154: add llsec decryption method
+      mac802154: integrate llsec with wpan devices
+      ieee802154: add dgram sockopts for security control
+      mac802154: add llsec configuration functions
+      mac802154: propagate device address changes to llsec
+      ieee802154: add netlink interfaces for llsec
+      ieee802154, mac802154: implement devkey record option
+
+
+ include/linux/nl802154.h        |   31 ++
+ include/net/af_ieee802154.h     |   10 +-
+ include/net/ieee802154_netdev.h |  135 +++++
+ net/ieee802154/dgram.c          |   66 +++
+ net/ieee802154/ieee802154.h     |   19 +
+ net/ieee802154/netlink.c        |   20 +
+ net/ieee802154/nl-mac.c         |  807 +++++++++++++++++++++++++++++
+ net/ieee802154/nl_policy.c      |   16 +
+ net/mac802154/Kconfig           |    4 +
+ net/mac802154/Makefile          |    3 +-
+ net/mac802154/llsec.c           | 1067 +++++++++++++++++++++++++++++++++++++++
+ net/mac802154/llsec.h           |  108 ++++
+ net/mac802154/mac802154.h       |   44 ++
+ net/mac802154/mac_cmd.c         |   42 +-
+ net/mac802154/mib.c             |  187 +++++++
+ net/mac802154/wpan.c            |  144 ++++--
+ 16 files changed, 2670 insertions(+), 33 deletions(-)
 
 
 ------------------------------------------------------------------------------
