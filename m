@@ -1,56 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] loopback: explicitly set pkt_type to PACKET_HOST
-Date: Fri, 16 May 2014 15:17:01 -0400 (EDT)
-Message-ID: <20140516.151701.1642109390027874890.davem@davemloft.net>
-References: <1400092762-23287-1-git-send-email-xiyou.wangcong@gmail.com>
-	<20140515.163400.1536463708975272927.davem@davemloft.net>
-	<CAM_iQpVGG92NMYTJuCXg3yhCkVDyL3Tf=5HJy6n2V1Z89yySzw@mail.gmail.com>
+Subject: Re: [PATCH v2] net: phy: resume phydev when going to RESUMING
+Date: Fri, 16 May 2014 15:18:40 -0400 (EDT)
+Message-ID: <20140516.151840.1337260559187267551.davem@davemloft.net>
+References: <1400132134-19490-1-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Cc: sebastian.hesselbarth@gmail.com, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, joe@perches.com,
+	netdev@vger.kernel.org, xuejiancheng@huawei.com
+To: zhangfei.gao@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48464 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48487 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932317AbaEPTRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 15:17:04 -0400
-In-Reply-To: <CAM_iQpVGG92NMYTJuCXg3yhCkVDyL3Tf=5HJy6n2V1Z89yySzw@mail.gmail.com>
+	with ESMTP id S1756626AbaEPTSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 15:18:43 -0400
+In-Reply-To: <1400132134-19490-1-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 16 May 2014 10:52:09 -0700
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Date: Thu, 15 May 2014 13:35:34 +0800
 
-> On Thu, May 15, 2014 at 1:34 PM, David Miller <davem@davemloft.net> wrote:
->> From: Cong Wang <xiyou.wangcong@gmail.com>
->> Date: Wed, 14 May 2014 11:39:22 -0700
->>
->>> From: Cong Wang <cwang@twopensource.com>
->>>
->>> In a corner case where I redirect the packets from veth to lo,
->>> packets are dropped silently when entering IP stack. This is
->>> due to we have a different MAC addr on veth, so the packets are
->>> marked as PACKET_OTHERHOST. And after they are redirect to lo,
->>> this value is kept since lo has the same MAC addr with the packets.
->>> Loopback should explicitly set it to PACKET_HOST before calling
->>> eth_type_trans() for this specific case.
->>>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Cc: "Eric W. Biederman" <ebiederm@xmission.com>
->>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->>> Signed-off-by: Cong Wang <cwang@twopensource.com>
->>
->> How exactly are you performing this redirection?
+> With commit be9dad1f9f26604fb ("net: phy: suspend phydev when going
+> to HALTED"), an unused PHY device will be put in a low-power mode
+> using BMCR_PDOWN. Some Ethernet drivers might be calling phy_start()
+> and phy_stop() from ndo_open and ndo_close() respectively, while
+> calling phy_connect() and phy_disconnect() from probe and remove.
+> In such a case, the PHY will be powered down during the phy_stop()
+> call, but will fail to be powered up in phy_start().
+> This patch fixes this scenario.
 > 
-> Oh, I meant using tc mirred action to redirect packets from vethX to lo.
-> Sorry for confusing.
+> Signed-off-by: Jiancheng Xue <xuejiancheng@huawei.com>
+> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
 
-I think you can't expect arbitrary redirection of packets from an outgoing
-interface back into the stack via loopback to work like that.
-
-The is never any legitimate reason in this type of flow to override the
-decisions made by eth_type_trans() as to the disposition of the packet type.
-
-I'm not applying this, sorry.
+Applied, thanks.
