@@ -1,38 +1,85 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCHv2 net-next] xen-netback: fix race between napi_complete()
- and interrupt handler
-Date: Fri, 16 May 2014 10:01:46 +0100
-Message-ID: <20140516090146.GA18268@zion.uk.xensource.com>
-References: <1400174228-16572-1-git-send-email-david.vrabel@citrix.com>
+From: Yang Yingliang <yangyingliang@huawei.com>
+Subject: Re: [PATCH net-next] net_sched: increase drop count when packets
+ are dropped
+Date: Fri, 16 May 2014 17:07:24 +0800
+Message-ID: <5375D54C.4040108@huawei.com>
+References: <1399974163-8788-1-git-send-email-yangyingliang@huawei.com> <1399988959.7973.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <vtlam@google.com>,
+	<nanditad@google.com>, <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:53394 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754556AbaEPJBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 05:01:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1400174228-16572-1-git-send-email-david.vrabel@citrix.com>
+Received: from [119.145.14.66] ([119.145.14.66]:29762 "EHLO
+	szxga03-in.huawei.com" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754258AbaEPJIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 05:08:13 -0400
+In-Reply-To: <1399988959.7973.46.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 06:17:08PM +0100, David Vrabel wrote:
-> When the NAPI budget was not all used, xenvif_poll() would call
-> napi_complete() /after/ enabling the interrupt.  This resulted in a
-> race between the napi_complete() and the napi_schedule() in the
-> interrupt handler.  The use of local_irq_save/restore() avoided by
-> race iff the handler is running on the same CPU but not if it was
-> running on a different CPU.
+On 2014/5/13 21:49, Eric Dumazet wrote:
+> On Tue, 2014-05-13 at 17:42 +0800, Yang Yingliang wrote:
+>> When packets are dropped because of overlimit, the drop count
+>> should be increased. Replace kfree_skb() with qdisc_drop() for
+>> increasing drop count.
+>>
+>> Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+>> ---
+>>  net/sched/sch_fq.c       | 2 +-
+>>  net/sched/sch_fq_codel.c | 3 ++-
+>>  net/sched/sch_hhf.c      | 3 ++-
+>>  3 files changed, 5 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
+>> index 23c682b42f99..958ef7d4b825 100644
+>> --- a/net/sched/sch_fq.c
+>> +++ b/net/sched/sch_fq.c
+>> @@ -714,7 +714,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
+>>  
+>>  		if (!skb)
+>>  			break;
+>> -		kfree_skb(skb);
+>> +		qdisc_drop(skb, sch);
+>>  		drop_count++;
+>>  	}
+>>  	qdisc_tree_decrease_qlen(sch, drop_count);
+>> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+>> index 0bf432c782c1..bcfe4594470f 100644
+>> --- a/net/sched/sch_fq_codel.c
+>> +++ b/net/sched/sch_fq_codel.c
+>> @@ -344,7 +344,8 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
+>>  	while (sch->q.qlen > sch->limit) {
+>>  		struct sk_buff *skb = fq_codel_dequeue(sch);
+>>  
+>> -		kfree_skb(skb);
+>> +		qdisc_drop(skb, sch);
+>> +		q->drop_overlimit++;
+>>  		q->cstats.drop_count++;
+>>  	}
 > 
-> Fix this properly by calling napi_complete() before reenabling
-> interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
+> Could you please refrain from adding random stuff in packet schedulers ?
+OK :)
+
 > 
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> overlimit has a special meaning for HTB like qdisc, having a shapers.
+I don't really catch up with you here. What's special meaning ?
 
-I think this patch should be applied to 'net' tree.
+> 
+> fq_codel or hhf do not shape, there is no reason to increment
+> 'overlimit' when they _drop_ a packet.
 
-Wei.
+Do you mean 'drop_overlimit' or 'overlimit' ?
+
+fq_codel has both 'overlimits' and 'drop_overlimit' :
+
+qdisc fq_codel 1: dev eth4 root refcnt 2 limit 10240p flows 1024 quantum 1514 target 5.0ms interval 100.0ms ecn 
+ Sent 834 bytes 5 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0 
+  maxpacket 256 drop_overlimit 0 new_flow_count 0 ecn_mark 0
+  new_flows_len 0 old_flows_len 0
+
+Could you please explain more explicitly ?
+
+Thanks very much!
