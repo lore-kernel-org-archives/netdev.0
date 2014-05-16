@@ -1,165 +1,71 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next] pktgen: Use seq_puts() where seq_printf() is not needed
-Date: Fri, 16 May 2014 12:53:20 +0200
-Message-ID: <090215cd09d88cd79c4e37ff2cc9f7da58205f76.1400237005.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net-next] xen-netfront: try linearizing SKB if it occupies too many slots
+Date: Fri, 16 May 2014 12:08:16 +0100
+Message-ID: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:48932 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932302AbaEPKxY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 06:53:24 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:32711 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756870AbaEPLIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 07:08:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- net/core/pktgen.c | 50 +++++++++++++++++++++++++-------------------------
- 1 file changed, 25 insertions(+), 25 deletions(-)
+Some workload, such as Redis can generate SKBs which make use of
+compound pages. Netfront doesn't quite like that because it doesn't want
+to send packet that occupies exessive slots to the backend as backend
+might deem it malicious. On the flip side these packets are actually
+legit, the size check at the beginning of xennet_start_xmit ensures that
+packet size is below 64K.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8278df8..038c46f 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -574,7 +574,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 		   is_zero_ether_addr(pkt_dev->src_mac) ?
- 			     pkt_dev->odev->dev_addr : pkt_dev->src_mac);
- 
--	seq_printf(seq, "dst_mac: ");
-+	seq_puts(seq, "dst_mac: ");
- 	seq_printf(seq, "%pM\n", pkt_dev->dst_mac);
- 
- 	seq_printf(seq,
-@@ -589,7 +589,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 
- 	if (pkt_dev->nr_labels) {
- 		unsigned int i;
--		seq_printf(seq, "     mpls: ");
-+		seq_puts(seq, "     mpls: ");
- 		for (i = 0; i < pkt_dev->nr_labels; i++)
- 			seq_printf(seq, "%08x%s", ntohl(pkt_dev->labels[i]),
- 				   i == pkt_dev->nr_labels-1 ? "\n" : ", ");
-@@ -614,67 +614,67 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	if (pkt_dev->node >= 0)
- 		seq_printf(seq, "     node: %d\n", pkt_dev->node);
- 
--	seq_printf(seq, "     Flags: ");
-+	seq_puts(seq, "     Flags: ");
- 
- 	if (pkt_dev->flags & F_IPV6)
--		seq_printf(seq, "IPV6  ");
-+		seq_puts(seq, "IPV6  ");
- 
- 	if (pkt_dev->flags & F_IPSRC_RND)
--		seq_printf(seq, "IPSRC_RND  ");
-+		seq_puts(seq, "IPSRC_RND  ");
- 
- 	if (pkt_dev->flags & F_IPDST_RND)
--		seq_printf(seq, "IPDST_RND  ");
-+		seq_puts(seq, "IPDST_RND  ");
- 
- 	if (pkt_dev->flags & F_TXSIZE_RND)
--		seq_printf(seq, "TXSIZE_RND  ");
-+		seq_puts(seq, "TXSIZE_RND  ");
- 
- 	if (pkt_dev->flags & F_UDPSRC_RND)
--		seq_printf(seq, "UDPSRC_RND  ");
-+		seq_puts(seq, "UDPSRC_RND  ");
- 
- 	if (pkt_dev->flags & F_UDPDST_RND)
--		seq_printf(seq, "UDPDST_RND  ");
-+		seq_puts(seq, "UDPDST_RND  ");
- 
- 	if (pkt_dev->flags & F_UDPCSUM)
--		seq_printf(seq, "UDPCSUM  ");
-+		seq_puts(seq, "UDPCSUM  ");
- 
- 	if (pkt_dev->flags & F_MPLS_RND)
--		seq_printf(seq,  "MPLS_RND  ");
-+		seq_puts(seq,  "MPLS_RND  ");
- 
- 	if (pkt_dev->flags & F_QUEUE_MAP_RND)
--		seq_printf(seq,  "QUEUE_MAP_RND  ");
-+		seq_puts(seq,  "QUEUE_MAP_RND  ");
- 
- 	if (pkt_dev->flags & F_QUEUE_MAP_CPU)
--		seq_printf(seq,  "QUEUE_MAP_CPU  ");
-+		seq_puts(seq,  "QUEUE_MAP_CPU  ");
- 
- 	if (pkt_dev->cflows) {
- 		if (pkt_dev->flags & F_FLOW_SEQ)
--			seq_printf(seq,  "FLOW_SEQ  "); /*in sequence flows*/
-+			seq_puts(seq,  "FLOW_SEQ  "); /*in sequence flows*/
- 		else
--			seq_printf(seq,  "FLOW_RND  ");
-+			seq_puts(seq,  "FLOW_RND  ");
+So we linearize SKB if it occupies too many slots. If the linearization
+fails then the SKB is dropped.
+
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>
+Cc: Konrad Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: Stefan Bader <stefan.bader@canonical.com>
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+---
+ drivers/net/xen-netfront.c |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 895355d..b378dcd 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -573,9 +573,20 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+ 		xennet_count_skb_frag_slots(skb);
+ 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+-		net_alert_ratelimited(
+-			"xennet: skb rides the rocket: %d slots\n", slots);
+-		goto drop;
++		if (skb_linearize(skb)) {
++			net_alert_ratelimited(
++				"xennet: failed to linearize skb, skb dropped\n");
++			goto drop;
++		}
++		data = skb->data;
++		offset = offset_in_page(data);
++		len = skb_headlen(skb);
++		slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
++		if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
++			net_alert_ratelimited(
++				"xennet: still too many slots after linerization: %d", slots);
++			goto drop;
++		}
  	}
  
- #ifdef CONFIG_XFRM
- 	if (pkt_dev->flags & F_IPSEC_ON) {
--		seq_printf(seq,  "IPSEC  ");
-+		seq_puts(seq,  "IPSEC  ");
- 		if (pkt_dev->spi)
- 			seq_printf(seq, "spi:%u", pkt_dev->spi);
- 	}
- #endif
- 
- 	if (pkt_dev->flags & F_MACSRC_RND)
--		seq_printf(seq, "MACSRC_RND  ");
-+		seq_puts(seq, "MACSRC_RND  ");
- 
- 	if (pkt_dev->flags & F_MACDST_RND)
--		seq_printf(seq, "MACDST_RND  ");
-+		seq_puts(seq, "MACDST_RND  ");
- 
- 	if (pkt_dev->flags & F_VID_RND)
--		seq_printf(seq, "VID_RND  ");
-+		seq_puts(seq, "VID_RND  ");
- 
- 	if (pkt_dev->flags & F_SVID_RND)
--		seq_printf(seq, "SVID_RND  ");
-+		seq_puts(seq, "SVID_RND  ");
- 
- 	if (pkt_dev->flags & F_NODE)
--		seq_printf(seq, "NODE_ALLOC  ");
-+		seq_puts(seq, "NODE_ALLOC  ");
- 
- 	if (pkt_dev->flags & F_NOINIT)
- 		seq_puts(seq, "NOINIT  ");
-@@ -720,7 +720,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	if (pkt_dev->result[0])
- 		seq_printf(seq, "Result: %s\n", pkt_dev->result);
- 	else
--		seq_printf(seq, "Result: Idle\n");
-+		seq_puts(seq, "Result: Idle\n");
- 
- 	return 0;
- }
-@@ -1745,14 +1745,14 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
- 
- 	BUG_ON(!t);
- 
--	seq_printf(seq, "Running: ");
-+	seq_puts(seq, "Running: ");
- 
- 	if_lock(t);
- 	list_for_each_entry(pkt_dev, &t->if_list, list)
- 		if (pkt_dev->running)
- 			seq_printf(seq, "%s ", pkt_dev->odevname);
- 
--	seq_printf(seq, "\nStopped: ");
-+	seq_puts(seq, "\nStopped: ");
- 
- 	list_for_each_entry(pkt_dev, &t->if_list, list)
- 		if (!pkt_dev->running)
-@@ -1761,7 +1761,7 @@ static int pktgen_thread_show(struct seq_file *seq, void *v)
- 	if (t->result[0])
- 		seq_printf(seq, "\nResult: %s\n", t->result);
- 	else
--		seq_printf(seq, "\nResult: NA\n");
-+		seq_puts(seq, "\nResult: NA\n");
- 
- 	if_unlock(t);
- 
+ 	spin_lock_irqsave(&np->tx_lock, flags);
 -- 
-1.8.3.1
+1.7.10.4
