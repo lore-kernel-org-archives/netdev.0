@@ -1,157 +1,98 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCHv3 net] xen-netback: fix race between napi_complete() and
- interrupt handler
-Date: Fri, 16 May 2014 12:26:04 +0100
-Message-ID: <5375F5CC.6000000@citrix.com>
-References: <1400239202-10308-1-git-send-email-david.vrabel@citrix.com> <20140516112157.GI18551@zion.uk.xensource.com>
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: RE: [PATCH] bnx2x: Convert return 0 to return rc
+Date: Fri, 16 May 2014 12:02:14 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
+References: <1400223103.30884.5.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	Ian Campbell <ian.campbell@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:35694 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932343AbaEPL03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 07:26:29 -0400
-In-Reply-To: <20140516112157.GI18551@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>, Ariel Elior <ariele@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400223103.30884.5.camel@joe-AO725>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/05/14 12:21, Wei Liu wrote:
-> On Fri, May 16, 2014 at 12:20:02PM +0100, David Vrabel wrote:
->> When the NAPI budget was not all used, xenvif_poll() would call
->> napi_complete() /after/ enabling the interrupt.  This resulted in a
->> race between the napi_complete() and the napi_schedule() in the
->> interrupt handler.  The use of local_irq_save/restore() avoided by
->> race iff the handler is running on the same CPU but not if it was
->> running on a different CPU.
->>
->> Fix this properly by calling napi_complete() before reenabling
->> interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
->>
->> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
->> Acked-by: Wei Lui <wei.lui2@citrix.com>
-> 
-> It's "Liu". ;-)
 
-Sorry!
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Joe Perches
+> Sent: Friday, May 16, 2014 9:52 AM
+> To: Ariel Elior; Dmitry Kravkov
+> Cc: netdev; linux-kernel
+> Subject: [PATCH] bnx2x: Convert return 0 to return rc
+>
+> These "return 0;" uses seem wrong as there are
+> rc variables where error return values are set
+> but unused.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>
+> Hey Ariel/Dmitry
+>
+> I've no idea what's right here, but the current
+> code seems wrong. (or at least under-commented)
+>
+> It seems Dmitry changed these, perhaps to make
+> it more readable, but the commit log isn't very
+> instructive.
+>
+> commit 1d6f3cd8988822c7bdc3c685fac0a99315e83400
+> Author: Dmitry Kravkov <dmitry@broadcom.com>
+> Date:   Wed Mar 27 01:05:17 2013 +0000
+>
+>     bnx2x: Prevent VF race
+>
+>     The mail box containing the Vf-Pf messages is susceptible
+>     to a race - it's possible for 2 flows to try and write commands,
+>     causing one to override the other's message.
+>     Use a mutex to synchronize the access, preventing said race.
+>
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 2 +-
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> index 81cc2d9..b8078d5 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> @@ -2695,7 +2695,7 @@ out:
+>               bnx2x_unlock_vf_pf_channel(bp, vf,
+> CHANNEL_TLV_PF_SET_MAC);
+>       }
+>
+> -     return 0;
+> +     return rc;
+>  }
+>
+>  int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> index 0c067e8..784c715 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+> @@ -747,7 +747,7 @@ int bnx2x_vfpf_config_mac(struct bnx2x *bp, u8
+> *addr, u8 vf_qid, bool set)
+>  out:
+>       bnx2x_vfpf_finalize(bp, &req->first_tlv);
+>
+> -     return 0;
+> +     return rc;
+>  }
+>
+>  /* request pf to config rss table for vf queues*/
+>
 
-Dave, can you take this instead:
+Thanks Joe for catching this!
 
-8<--------------
-xen-netback: fix race between napi_complete() and interrupt handler
+Acked-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 
-When the NAPI budget was not all used, xenvif_poll() would call
-napi_complete() /after/ enabling the interrupt.  This resulted in a
-race between the napi_complete() and the napi_schedule() in the
-interrupt handler.  The use of local_irq_save/restore() avoided by
-race iff the handler is running on the same CPU but not if it was
-running on a different CPU.
 
-Fix this properly by calling napi_complete() before reenabling
-interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
+________________________________
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Acked-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
----
-v3:
-- new name is xenvif_napi_schedule_or_enable_events().
-
-v2:
-- Rename xenvif_check_rx_xenvif() to
-  xenvif_napi_schedule_or_enable_irq() to make it more obvious what it
-  does.
----
- drivers/net/xen-netback/common.h    |    2 +-
- drivers/net/xen-netback/interface.c |   30 +++---------------------------
- drivers/net/xen-netback/netback.c   |    4 ++--
- 3 files changed, 6 insertions(+), 30 deletions(-)
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ae413a2..d66de9a 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -209,7 +209,7 @@ int xenvif_map_frontend_rings(struct xenvif *vif,
- 			      grant_ref_t rx_ring_ref);
- 
- /* Check for SKBs from frontend and schedule backend processing */
--void xenvif_check_rx_xenvif(struct xenvif *vif);
-+void xenvif_napi_schedule_or_enable_events(struct xenvif *vif);
- 
- /* Prevent the device from generating any further traffic. */
- void xenvif_carrier_off(struct xenvif *vif);
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 7669d49..0200de2 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -65,32 +65,8 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
- 	work_done = xenvif_tx_action(vif, budget);
- 
- 	if (work_done < budget) {
--		int more_to_do = 0;
--		unsigned long flags;
--
--		/* It is necessary to disable IRQ before calling
--		 * RING_HAS_UNCONSUMED_REQUESTS. Otherwise we might
--		 * lose event from the frontend.
--		 *
--		 * Consider:
--		 *   RING_HAS_UNCONSUMED_REQUESTS
--		 *   <frontend generates event to trigger napi_schedule>
--		 *   __napi_complete
--		 *
--		 * This handler is still in scheduled state so the
--		 * event has no effect at all. After __napi_complete
--		 * this handler is descheduled and cannot get
--		 * scheduled again. We lose event in this case and the ring
--		 * will be completely stalled.
--		 */
--
--		local_irq_save(flags);
--
--		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
--		if (!more_to_do)
--			__napi_complete(napi);
--
--		local_irq_restore(flags);
-+		napi_complete(napi);
-+		xenvif_napi_schedule_or_enable_events(vif);
- 	}
- 
- 	return work_done;
-@@ -166,7 +142,7 @@ static void xenvif_up(struct xenvif *vif)
- 	enable_irq(vif->tx_irq);
- 	if (vif->tx_irq != vif->rx_irq)
- 		enable_irq(vif->rx_irq);
--	xenvif_check_rx_xenvif(vif);
-+	xenvif_napi_schedule_or_enable_events(vif);
- }
- 
- static void xenvif_down(struct xenvif *vif)
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index e5284bc..0efda31 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -604,7 +604,7 @@ done:
- 		notify_remote_via_irq(vif->rx_irq);
- }
- 
--void xenvif_check_rx_xenvif(struct xenvif *vif)
-+void xenvif_napi_schedule_or_enable_events(struct xenvif *vif)
- {
- 	int more_to_do;
- 
-@@ -638,7 +638,7 @@ static void tx_credit_callback(unsigned long data)
- {
- 	struct xenvif *vif = (struct xenvif *)data;
- 	tx_add_credit(vif);
--	xenvif_check_rx_xenvif(vif);
-+	xenvif_napi_schedule_or_enable_events(vif);
- }
- 
- static void xenvif_tx_err(struct xenvif *vif,
--- 
-1.7.10.4
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
