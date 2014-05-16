@@ -1,49 +1,72 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCHv2 net-next] xen-netback: fix race between
- napi_complete() and interrupt handler
-Date: Fri, 16 May 2014 10:53:59 +0100
-Message-ID: <5375E037.1050103@citrix.com>
-References: <1400174228-16572-1-git-send-email-david.vrabel@citrix.com> <1400229009.883.37.camel@kazak.uk.xensource.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] xen-netfront possibly rides the rocket too often
+Date: Fri, 16 May 2014 10:57:18 +0100
+Message-ID: <20140516095717.GB18551@zion.uk.xensource.com>
+References: <537262AB.5010408@canonical.com>
+ <5373C8D4.2010803@citrix.com>
+ <1400143605.1006.1.camel@kazak.uk.xensource.com>
+ <20140515110410.GD1117@zion.uk.xensource.com>
+ <5374AF88.2070608@canonical.com>
+ <20140516094842.GA18551@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Wei Liu <wei.liu2@citrix.com>,
-	<xen-devel@lists.xenproject.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	<xen-devel@lists.xenproject.org>, netdev <netdev@vger.kernel.org>
+To: Stefan Bader <stefan.bader@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:14132 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756702AbaEPJyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 05:54:01 -0400
-In-Reply-To: <1400229009.883.37.camel@kazak.uk.xensource.com>
+Received: from smtp.citrix.com ([66.165.176.89]:54642 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751475AbaEPJ5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 05:57:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20140516094842.GA18551@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/05/14 09:30, Ian Campbell wrote:
-> On Thu, 2014-05-15 at 18:17 +0100, David Vrabel wrote:
->> When the NAPI budget was not all used, xenvif_poll() would call
->> napi_complete() /after/ enabling the interrupt.  This resulted in a
->> race between the napi_complete() and the napi_schedule() in the
->> interrupt handler.  The use of local_irq_save/restore() avoided by
->> race iff the handler is running on the same CPU but not if it was
->> running on a different CPU.
->>
->> Fix this properly by calling napi_complete() before reenabling
->> interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
->>
->> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
->> ---
->> v2:
->> - Rename xenvif_check_rx_xenvif() to
->>   xenvif_napi_schedule_or_enable_irq() to make it more obvious what it
->>   does.
+On Fri, May 16, 2014 at 10:48:42AM +0100, Wei Liu wrote:
+> On Thu, May 15, 2014 at 02:14:00PM +0200, Stefan Bader wrote:
+> [...]
+> > > Wei.
+> > > 
+> > Reading more of the code I would agree. The definition of MAX_SKB_FRAGS (at
+> > least now with compound pages) cannot be used in any way to derive the number of
+> > 4k slots a transfer will require.
+> > 
+> > Zoltan already commented on worst cases. Not sure it would get as bad as that or
+> > "just" 16*4k frags all in the middle of compound pages. That would then end in
+> > around 33 or 34 slots, depending on the header.
+> > 
+> > Zoltan wrote:
+> > > I think the worst case scenario is when every frag and the linear buffer contains 2 bytes,
+> > > which are overlapping a page boundary (that's (17+1)*2=36 so far), plus 15 of
+> > them have a 4k
+> > > page in the middle of them, so, a 1+4096+1 byte buffer can span over 3 page.
+> > > That's 51 individual pages.
+> > 
+> > I cannot claim to really know what to expect worst case. Somewhat I was thinking
+> > of a
+> > worst case of (16+1)*2, which would be inconvenient enough.
+> > 
+> > So without knowing exactly how to do it, but as Ian said it sounds best to come
+> > up with some sort of exception coalescing in cases the slot count goes over 18
+> > and we know the data size is below 64K.
+> > 
 > 
-> Which is to update the event pointer such that IRQs are generated again
-> rather than enabling IRQs as such (enable_irq makes me think of
-> EFLAGS.IF). But given that I can't think of a better way to describe it:
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> I took a stab at it this morning and came up with this patch. Ran
+> redis-benchmark, it seemed to fix that for me -- only saw one "failed to
+> linearize skb" during
+> 
+>   redis-benchmark -h XXX -d 1000 -t lrange
+> 
+> And before this change, a lot of "rides rocket" were triggered.
+> 
+> Thought?
+> 
 
-Would xenvif_napi_schedule_or_enable_event() be better?
+And don't take this as a formal patch because I haven't tested it
+thoroughly. It's just an idea to coalesce SKBs. We can certainly code
+up a loop to do so by ourself.
 
-David
+Wei.
