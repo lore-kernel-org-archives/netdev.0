@@ -1,44 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
- uninitialized
-Date: Fri, 16 May 2014 08:26:11 -0700
-Message-ID: <1400253971.7973.186.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
-	 <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53761286.2040505@candelatech.com>
-	 <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140516145032.GD8346@casper.infradead.org>
-	 <1400252935.7973.176.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140516152035.GE8346@casper.infradead.org>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it
+ occupies too many slots
+Date: Fri, 16 May 2014 16:34:52 +0100
+Message-ID: <20140516153452.GM18551@zion.uk.xensource.com>
+References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
+ <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140516131145.GK18551@zion.uk.xensource.com>
+ <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140516143653.GL18551@zion.uk.xensource.com>
+ <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, David Vrabel <david.vrabel@citrix.com>,
+	Konrad Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:55867 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932283AbaEPP0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:26:13 -0400
-Received: by mail-pa0-f45.google.com with SMTP id ey11so2697607pad.4
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 08:26:13 -0700 (PDT)
-In-Reply-To: <20140516152035.GE8346@casper.infradead.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:22902 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932509AbaEPPfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:35:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-05-16 at 16:20 +0100, Thomas Graf wrote:
+On Fri, May 16, 2014 at 08:22:19AM -0700, Eric Dumazet wrote:
+> On Fri, 2014-05-16 at 15:36 +0100, Wei Liu wrote:
+> > On Fri, May 16, 2014 at 07:21:08AM -0700, Eric Dumazet wrote:
+> > > On Fri, 2014-05-16 at 14:11 +0100, Wei Liu wrote:
+> > > 
+> > > > It's not that common to trigger this, I only saw a few reports. In fact
+> > > > Stefan's report is the first one that comes with a method to reproduce
+> > > > it.
+> > > > 
+> > > > I tested with redis-benchmark on a guest with 256MB RAM and only saw a
+> > > > few "failed to linearize", never saw a single one with 1GB guest.
+> > > 
+> > > Well, I am just saying. This is asking order-5 allocations, and yes,
+> > > this is going to fail after few days of uptime, no matter what you try.
+> > > 
+> > 
+> > Hmm... I see what you mean -- memory fragmentation leads to allocation
+> > failure. Thanks.
+> 
+> In the mean time, have you tried to lower gso_max_size ?
+> 
+> Setting it witk netif_set_gso_max_size() to something like 56000 might
+> avoid the problem.
+> 
+> (Not sure if it is applicable in your case)
+> 
 
-> I'm aware of the work and I agree. That is perfectly fine if the
-> produced skbs do not get enqueued and modified. Otherwise the clone
-> and COW will undo the gain again. I need pktgen to produce large,
-> linear skbs with a unique flow for each individual packet. Hence this
-> optimization ;-)
+It works, at least in this Redis testcase. Could you explain a bit where
+this 56000 magic number comes from? :-)
 
-pktgen is a tool for us kernel net developers.
+Presumably I can derive it from some constant in core network code?
 
-I doubt more than 20 people on this planet used it in the last 12
-months, expecting crazy numbers out of one core, while a simple user
-space program can outperform pktgen these days.
+Wei.
 
-So if you need a very specific hack, you can do it on your local tree ;)
+> 
