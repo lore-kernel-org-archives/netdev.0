@@ -1,35 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: fix out of range parameters for
- bond_intmax_tbl
-Date: Thu, 15 May 2014 23:37:14 -0400 (EDT)
-Message-ID: <20140515.233714.289856779016047091.davem@davemloft.net>
-References: <1400153723-8031-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH net 0/2] mlx4: Fix VF MAC address change under RoCE
+ usage
+Date: Thu, 15 May 2014 23:39:58 -0400 (EDT)
+Message-ID: <20140515.233958.2173839819606514748.davem@davemloft.net>
+References: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: nikolay@redhat.com
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, matanb@mellanox.com,
+	roland@kernel.org
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39020 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39049 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752616AbaEPDhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 23:37:16 -0400
-In-Reply-To: <1400153723-8031-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1752616AbaEPDkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 May 2014 23:40:00 -0400
+In-Reply-To: <1400156968-29633-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Thu, 15 May 2014 13:35:23 +0200
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Thu, 15 May 2014 15:29:26 +0300
 
-> I've missed to add a NULL entry to the bond_intmax_tbl when I introduced
-> it with the conversion of arp_interval so add it now.
-> 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> 
-> Fixes: 7bdb04ed0dbf ("bonding: convert arp_interval to use the new option API")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> Hi Dave, Roland
 
-Applied and queued up for -stable, thanks.
+I don't see Roland Dreier on the CC: list, I have added him.
+
+> This short series provides proper handling for the case where a 
+> VF netdevice change their MAC address under a RoCE use case. The code
+> it deals with was introduced in 3.15-rc1
+> 
+> Prior to this series the source MAC used for the VM RoCE CM
+> packets remains as before the MAC modification. Hence RoCE CM 
+> packets sent by the VF will not carry the same source MAC 
+> address as the non-CM packets.
+> 
+> Earlier 3.15-rc commit f24f790 "net/mlx4_core: Load the Eth driver 
+> first" handled just one instance of the problem, but this one 
+> provides a more generic and proper solution which covers all 
+> cases of VF mac change.
+> 
+> Matan and Or.
+
+Do you guys want this to go via my 'net' tree or via Roland's
+'infiniband' tree?
