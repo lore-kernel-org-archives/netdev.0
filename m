@@ -1,71 +1,131 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next] xen-netfront: try linearizing SKB if it occupies too many slots
-Date: Fri, 16 May 2014 12:08:16 +0100
-Message-ID: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCHv3 net] xen-netback: fix race between napi_complete() and interrupt handler
+Date: Fri, 16 May 2014 12:20:02 +0100
+Message-ID: <1400239202-10308-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Cc: <xen-devel@lists.xenproject.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:32711 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756870AbaEPLIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 07:08:18 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:7042 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932308AbaEPLUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 07:20:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some workload, such as Redis can generate SKBs which make use of
-compound pages. Netfront doesn't quite like that because it doesn't want
-to send packet that occupies exessive slots to the backend as backend
-might deem it malicious. On the flip side these packets are actually
-legit, the size check at the beginning of xennet_start_xmit ensures that
-packet size is below 64K.
+When the NAPI budget was not all used, xenvif_poll() would call
+napi_complete() /after/ enabling the interrupt.  This resulted in a
+race between the napi_complete() and the napi_schedule() in the
+interrupt handler.  The use of local_irq_save/restore() avoided by
+race iff the handler is running on the same CPU but not if it was
+running on a different CPU.
 
-So we linearize SKB if it occupies too many slots. If the linearization
-fails then the SKB is dropped.
+Fix this properly by calling napi_complete() before reenabling
+interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: David Vrabel <david.vrabel@citrix.com>
-Cc: Konrad Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Stefan Bader <stefan.bader@canonical.com>
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Acked-by: Wei Lui <wei.lui2@citrix.com>
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
 ---
- drivers/net/xen-netfront.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+v3:
+- new name is xenvif_napi_schedule_or_enable_events().
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 895355d..b378dcd 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -573,9 +573,20 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
- 		xennet_count_skb_frag_slots(skb);
- 	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
--		net_alert_ratelimited(
--			"xennet: skb rides the rocket: %d slots\n", slots);
--		goto drop;
-+		if (skb_linearize(skb)) {
-+			net_alert_ratelimited(
-+				"xennet: failed to linearize skb, skb dropped\n");
-+			goto drop;
-+		}
-+		data = skb->data;
-+		offset = offset_in_page(data);
-+		len = skb_headlen(skb);
-+		slots = DIV_ROUND_UP(offset + len, PAGE_SIZE);
-+		if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
-+			net_alert_ratelimited(
-+				"xennet: still too many slots after linerization: %d", slots);
-+			goto drop;
-+		}
+v2:
+- Rename xenvif_check_rx_xenvif() to
+  xenvif_napi_schedule_or_enable_irq() to make it more obvious what it
+  does.
+---
+ drivers/net/xen-netback/common.h    |    2 +-
+ drivers/net/xen-netback/interface.c |   30 +++---------------------------
+ drivers/net/xen-netback/netback.c   |    4 ++--
+ 3 files changed, 6 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index ae413a2..d66de9a 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -209,7 +209,7 @@ int xenvif_map_frontend_rings(struct xenvif *vif,
+ 			      grant_ref_t rx_ring_ref);
+ 
+ /* Check for SKBs from frontend and schedule backend processing */
+-void xenvif_check_rx_xenvif(struct xenvif *vif);
++void xenvif_napi_schedule_or_enable_events(struct xenvif *vif);
+ 
+ /* Prevent the device from generating any further traffic. */
+ void xenvif_carrier_off(struct xenvif *vif);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 7669d49..0200de2 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -65,32 +65,8 @@ static int xenvif_poll(struct napi_struct *napi, int budget)
+ 	work_done = xenvif_tx_action(vif, budget);
+ 
+ 	if (work_done < budget) {
+-		int more_to_do = 0;
+-		unsigned long flags;
+-
+-		/* It is necessary to disable IRQ before calling
+-		 * RING_HAS_UNCONSUMED_REQUESTS. Otherwise we might
+-		 * lose event from the frontend.
+-		 *
+-		 * Consider:
+-		 *   RING_HAS_UNCONSUMED_REQUESTS
+-		 *   <frontend generates event to trigger napi_schedule>
+-		 *   __napi_complete
+-		 *
+-		 * This handler is still in scheduled state so the
+-		 * event has no effect at all. After __napi_complete
+-		 * this handler is descheduled and cannot get
+-		 * scheduled again. We lose event in this case and the ring
+-		 * will be completely stalled.
+-		 */
+-
+-		local_irq_save(flags);
+-
+-		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, more_to_do);
+-		if (!more_to_do)
+-			__napi_complete(napi);
+-
+-		local_irq_restore(flags);
++		napi_complete(napi);
++		xenvif_napi_schedule_or_enable_events(vif);
  	}
  
- 	spin_lock_irqsave(&np->tx_lock, flags);
+ 	return work_done;
+@@ -166,7 +142,7 @@ static void xenvif_up(struct xenvif *vif)
+ 	enable_irq(vif->tx_irq);
+ 	if (vif->tx_irq != vif->rx_irq)
+ 		enable_irq(vif->rx_irq);
+-	xenvif_check_rx_xenvif(vif);
++	xenvif_napi_schedule_or_enable_events(vif);
+ }
+ 
+ static void xenvif_down(struct xenvif *vif)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index e5284bc..0efda31 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -604,7 +604,7 @@ done:
+ 		notify_remote_via_irq(vif->rx_irq);
+ }
+ 
+-void xenvif_check_rx_xenvif(struct xenvif *vif)
++void xenvif_napi_schedule_or_enable_events(struct xenvif *vif)
+ {
+ 	int more_to_do;
+ 
+@@ -638,7 +638,7 @@ static void tx_credit_callback(unsigned long data)
+ {
+ 	struct xenvif *vif = (struct xenvif *)data;
+ 	tx_add_credit(vif);
+-	xenvif_check_rx_xenvif(vif);
++	xenvif_napi_schedule_or_enable_events(vif);
+ }
+ 
+ static void xenvif_tx_err(struct xenvif *vif,
 -- 
 1.7.10.4
