@@ -1,728 +1,328 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 03/11] mac802154: add llsec
-	structures and mutators
-Date: Fri, 16 May 2014 17:46:37 +0200
-Message-ID: <1400255205-9031-4-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 06/11] mac802154: integrate llsec with wpan devices
+Date: Fri, 16 May 2014 17:46:40 +0200
+Message-ID: <1400255205-9031-7-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1400255205-9031-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:39851 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756833AbaEPPrL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:47:11 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.3/8.14.3/Debian-9.4) with ESMTP id s4GFl1W3031667
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 16 May 2014 17:47:01 +0200
+In-Reply-To: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds containers and mutators for the major ieee802154_llsec
-structures to mac802154. Most of the (rather simple) ieee802154_llsec
-structs are wrapped only to provide an rcu_head for orderly disposal,
-but some structs - llsec keys notably - require more complex
-bookkeeping.
-
-Since each llsec key may be referenced by a number of llsec key table
-entries (with differing key ids, but the same actual key), we want to
-save memory and not allocate crypto transforms for each entry in the
-table. Thus, the mac802154 llsec key is reference-counted instead.
-Further, each key will have four associated crypto transforms - three
-CCM transforms for the authsizes 4/8/16 and one CTR transform for
-unauthenticated encryption. If we had a CCM* transform that allowed
-authsize 0, and authsize as part of requests instead of transforms, this
-would not be necessary.
-
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
 ---
- net/mac802154/Makefile    |    3 +-
- net/mac802154/llsec.c     |  529 +++++++++++++++++++++++++++++++++++++++++++++
- net/mac802154/llsec.h     |  105 +++++++++
- net/mac802154/mac802154.h |    1 +
- 4 files changed, 637 insertions(+), 1 deletion(-)
- create mode 100644 net/mac802154/llsec.c
- create mode 100644 net/mac802154/llsec.h
+ include/net/ieee802154_netdev.h |    3 +
+ net/mac802154/mac802154.h       |   10 ++++
+ net/mac802154/wpan.c            |  118 +++++++++++++++++++++++++++++----------
+ 3 files changed, 103 insertions(+), 28 deletions(-)
 
-diff --git a/net/mac802154/Makefile b/net/mac802154/Makefile
-index 15d62df5..9723d6f 100644
---- a/net/mac802154/Makefile
-+++ b/net/mac802154/Makefile
-@@ -1,4 +1,5 @@
- obj-$(CONFIG_MAC802154)	+= mac802154.o
--mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o monitor.o wpan.o
-+mac802154-objs		:= ieee802154_dev.o rx.o tx.o mac_cmd.o mib.o \
-+			   monitor.o wpan.o llsec.o
- 
- ccflags-y += -D__CHECK_ENDIAN__
-diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
-new file mode 100644
-index 0000000..a210d1e
---- /dev/null
-+++ b/net/mac802154/llsec.c
-@@ -0,0 +1,529 @@
-+/*
-+ * Copyright (C) 2014 Fraunhofer ITWM
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * Written by:
-+ * Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-+ */
-+
-+#include <linux/err.h>
-+#include <linux/bug.h>
-+#include <linux/completion.h>
-+#include <net/ieee802154.h>
-+
-+#include "mac802154.h"
-+#include "llsec.h"
-+
-+static void llsec_key_put(struct mac802154_llsec_key *key);
-+static bool llsec_key_id_equal(const struct ieee802154_llsec_key_id *a,
-+			       const struct ieee802154_llsec_key_id *b);
-+
-+static void llsec_dev_free(struct mac802154_llsec_device *dev);
-+
-+void mac802154_llsec_init(struct mac802154_llsec *sec)
-+{
-+	memset(sec, 0, sizeof(*sec));
-+
-+	memset(&sec->params.default_key_source, 0xFF, IEEE802154_ADDR_LEN);
-+
-+	INIT_LIST_HEAD(&sec->table.security_levels);
-+	INIT_LIST_HEAD(&sec->table.devices);
-+	INIT_LIST_HEAD(&sec->table.keys);
-+	hash_init(sec->devices_short);
-+	hash_init(sec->devices_hw);
-+	rwlock_init(&sec->lock);
-+}
-+
-+void mac802154_llsec_destroy(struct mac802154_llsec *sec)
-+{
-+	struct ieee802154_llsec_seclevel *sl, *sn;
-+	struct ieee802154_llsec_device *dev, *dn;
-+	struct ieee802154_llsec_key_entry *key, *kn;
-+
-+	list_for_each_entry_safe(sl, sn, &sec->table.security_levels, list) {
-+		struct mac802154_llsec_seclevel *msl;
-+
-+		msl = container_of(sl, struct mac802154_llsec_seclevel, level);
-+		list_del(&sl->list);
-+		kfree(msl);
-+	}
-+
-+	list_for_each_entry_safe(dev, dn, &sec->table.devices, list) {
-+		struct mac802154_llsec_device *mdev;
-+
-+		mdev = container_of(dev, struct mac802154_llsec_device, dev);
-+		list_del(&dev->list);
-+		llsec_dev_free(mdev);
-+	}
-+
-+	list_for_each_entry_safe(key, kn, &sec->table.keys, list) {
-+		struct mac802154_llsec_key *mkey;
-+
-+		mkey = container_of(key->key, struct mac802154_llsec_key, key);
-+		list_del(&key->list);
-+		llsec_key_put(mkey);
-+		kfree(key);
-+	}
-+}
-+
-+
-+
-+int mac802154_llsec_get_params(struct mac802154_llsec *sec,
-+			       struct ieee802154_llsec_params *params)
-+{
-+	read_lock_bh(&sec->lock);
-+	*params = sec->params;
-+	read_unlock_bh(&sec->lock);
-+
-+	return 0;
-+}
-+
-+int mac802154_llsec_set_params(struct mac802154_llsec *sec,
-+			       const struct ieee802154_llsec_params *params,
-+			       int changed)
-+{
-+	write_lock_bh(&sec->lock);
-+
-+	if (changed & IEEE802154_LLSEC_PARAM_ENABLED)
-+		sec->params.enabled = params->enabled;
-+	if (changed & IEEE802154_LLSEC_PARAM_FRAME_COUNTER)
-+		sec->params.frame_counter = params->frame_counter;
-+	if (changed & IEEE802154_LLSEC_PARAM_OUT_LEVEL)
-+		sec->params.out_level = params->out_level;
-+	if (changed & IEEE802154_LLSEC_PARAM_OUT_KEY)
-+		sec->params.out_key = params->out_key;
-+	if (changed & IEEE802154_LLSEC_PARAM_KEY_SOURCE)
-+		sec->params.default_key_source = params->default_key_source;
-+	if (changed & IEEE802154_LLSEC_PARAM_PAN_ID)
-+		sec->params.pan_id = params->pan_id;
-+	if (changed & IEEE802154_LLSEC_PARAM_HWADDR)
-+		sec->params.hwaddr = params->hwaddr;
-+	if (changed & IEEE802154_LLSEC_PARAM_COORD_HWADDR)
-+		sec->params.coord_hwaddr = params->coord_hwaddr;
-+	if (changed & IEEE802154_LLSEC_PARAM_COORD_SHORTADDR)
-+		sec->params.coord_shortaddr = params->coord_shortaddr;
-+
-+	write_unlock_bh(&sec->lock);
-+
-+	return 0;
-+}
-+
-+
-+
-+static struct mac802154_llsec_key*
-+llsec_key_alloc(const struct ieee802154_llsec_key *template)
-+{
-+	const int authsizes[3] = { 4, 8, 16 };
-+	struct mac802154_llsec_key *key;
-+	int i;
-+
-+	key = kzalloc(sizeof(*key), GFP_KERNEL);
-+	if (!key)
-+		return NULL;
-+
-+	kref_init(&key->ref);
-+	key->key = *template;
-+
-+	BUILD_BUG_ON(ARRAY_SIZE(authsizes) != ARRAY_SIZE(key->tfm));
-+
-+	for (i = 0; i < ARRAY_SIZE(key->tfm); i++) {
-+		key->tfm[i] = crypto_alloc_aead("ccm(aes)", 0,
-+						CRYPTO_ALG_ASYNC);
-+		if (!key->tfm[i])
-+			goto err_tfm;
-+		if (crypto_aead_setkey(key->tfm[i], template->key,
-+				       IEEE802154_LLSEC_KEY_SIZE))
-+			goto err_tfm;
-+		if (crypto_aead_setauthsize(key->tfm[i], authsizes[i]))
-+			goto err_tfm;
-+	}
-+
-+	key->tfm0 = crypto_alloc_blkcipher("ctr(aes)", 0, CRYPTO_ALG_ASYNC);
-+	if (!key->tfm0)
-+		goto err_tfm;
-+
-+	if (crypto_blkcipher_setkey(key->tfm0, template->key,
-+				    IEEE802154_LLSEC_KEY_SIZE))
-+		goto err_tfm0;
-+
-+	return key;
-+
-+err_tfm0:
-+	crypto_free_blkcipher(key->tfm0);
-+err_tfm:
-+	for (i = 0; i < ARRAY_SIZE(key->tfm); i++)
-+		if (key->tfm[i])
-+			crypto_free_aead(key->tfm[i]);
-+
-+	kfree(key);
-+	return NULL;
-+}
-+
-+static void llsec_key_release(struct kref *ref)
-+{
-+	struct mac802154_llsec_key *key;
-+	int i;
-+
-+	key = container_of(ref, struct mac802154_llsec_key, ref);
-+
-+	for (i = 0; i < ARRAY_SIZE(key->tfm); i++)
-+		crypto_free_aead(key->tfm[i]);
-+
-+	crypto_free_blkcipher(key->tfm0);
-+	kfree(key);
-+}
-+
-+static struct mac802154_llsec_key*
-+llsec_key_get(struct mac802154_llsec_key *key)
-+{
-+	kref_get(&key->ref);
-+	return key;
-+}
-+
-+static void llsec_key_put(struct mac802154_llsec_key *key)
-+{
-+	kref_put(&key->ref, llsec_key_release);
-+}
-+
-+static bool llsec_key_id_equal(const struct ieee802154_llsec_key_id *a,
-+			       const struct ieee802154_llsec_key_id *b)
-+{
-+	if (a->mode != b->mode)
-+		return false;
-+
-+	if (a->mode == IEEE802154_SCF_KEY_IMPLICIT)
-+		return ieee802154_addr_equal(&a->device_addr, &b->device_addr);
-+
-+	if (a->id != b->id)
-+		return false;
-+
-+	switch (a->mode) {
-+	case IEEE802154_SCF_KEY_SHORT_INDEX:
-+		return a->short_source == b->short_source;
-+	case IEEE802154_SCF_KEY_HW_INDEX:
-+		return a->extended_source == b->extended_source;
-+	}
-+
-+	return false;
-+}
-+
-+int mac802154_llsec_key_add(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_key_id *id,
-+			    const struct ieee802154_llsec_key *key)
-+{
-+	struct mac802154_llsec_key *mkey = NULL;
-+	struct ieee802154_llsec_key_entry *pos, *new;
-+
-+	if (!(key->frame_types & (1 << IEEE802154_FC_TYPE_MAC_CMD)) &&
-+	    key->cmd_frame_ids)
-+		return -EINVAL;
-+
-+	list_for_each_entry(pos, &sec->table.keys, list) {
-+		if (llsec_key_id_equal(&pos->id, id))
-+			return -EEXIST;
-+
-+		if (memcmp(pos->key->key, key->key,
-+			   IEEE802154_LLSEC_KEY_SIZE))
-+			continue;
-+
-+		mkey = container_of(pos->key, struct mac802154_llsec_key, key);
-+
-+		/* Don't allow multiple instances of the same AES key to have
-+		 * different allowed frame types/command frame ids, as this is
-+		 * not possible in the 802.15.4 PIB.
-+		 */
-+		if (pos->key->frame_types != key->frame_types ||
-+		    pos->key->cmd_frame_ids != key->cmd_frame_ids)
-+			return -EEXIST;
-+
-+		break;
-+	}
-+
-+	new = kzalloc(sizeof(*new), GFP_KERNEL);
-+	if (!new)
-+		return -ENOMEM;
-+
-+	if (!mkey)
-+		mkey = llsec_key_alloc(key);
-+	else
-+		mkey = llsec_key_get(mkey);
-+
-+	if (!mkey)
-+		goto fail;
-+
-+	new->id = *id;
-+	new->key = &mkey->key;
-+
-+	list_add_rcu(&new->list, &sec->table.keys);
-+
-+	return 0;
-+
-+fail:
-+	kfree(new);
-+	return -ENOMEM;
-+}
-+
-+int mac802154_llsec_key_del(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_key_id *key)
-+{
-+	struct ieee802154_llsec_key_entry *pos;
-+
-+	list_for_each_entry(pos, &sec->table.keys, list) {
-+		struct mac802154_llsec_key *mkey;
-+
-+		mkey = container_of(pos->key, struct mac802154_llsec_key, key);
-+
-+		if (llsec_key_id_equal(&pos->id, key)) {
-+			llsec_key_put(mkey);
-+			return 0;
-+		}
-+	}
-+
-+	return -ENOENT;
-+}
-+
-+
-+
-+static bool llsec_dev_use_shortaddr(__le16 short_addr)
-+{
-+	return short_addr != cpu_to_le16(IEEE802154_ADDR_UNDEF) &&
-+		short_addr != cpu_to_le16(0xffff);
-+}
-+
-+static u32 llsec_dev_hash_short(__le16 short_addr, __le16 pan_id)
-+{
-+	return ((__force u16) short_addr) << 16 | (__force u16) pan_id;
-+}
-+
-+static u64 llsec_dev_hash_long(__le64 hwaddr)
-+{
-+	return (__force u64) hwaddr;
-+}
-+
-+static struct mac802154_llsec_device*
-+llsec_dev_find_short(struct mac802154_llsec *sec, __le16 short_addr,
-+		     __le16 pan_id)
-+{
-+	struct mac802154_llsec_device *dev;
-+	u32 key = llsec_dev_hash_short(short_addr, pan_id);
-+
-+	hash_for_each_possible_rcu(sec->devices_short, dev, bucket_s, key) {
-+		if (dev->dev.short_addr == short_addr &&
-+		    dev->dev.pan_id == pan_id)
-+			return dev;
-+	}
-+
-+	return NULL;
-+}
-+
-+static struct mac802154_llsec_device*
-+llsec_dev_find_long(struct mac802154_llsec *sec, __le64 hwaddr)
-+{
-+	struct mac802154_llsec_device *dev;
-+	u64 key = llsec_dev_hash_long(hwaddr);
-+
-+	hash_for_each_possible_rcu(sec->devices_hw, dev, bucket_hw, key) {
-+		if (dev->dev.hwaddr == hwaddr)
-+			return dev;
-+	}
-+
-+	return NULL;
-+}
-+
-+static void llsec_dev_free(struct mac802154_llsec_device *dev)
-+{
-+	struct ieee802154_llsec_device_key *pos, *pn;
-+	struct mac802154_llsec_device_key *devkey;
-+
-+	list_for_each_entry_safe(pos, pn, &dev->dev.keys, list) {
-+		devkey = container_of(pos, struct mac802154_llsec_device_key,
-+				      devkey);
-+
-+		list_del(&pos->list);
-+		kfree(devkey);
-+	}
-+
-+	kfree(dev);
-+}
-+
-+int mac802154_llsec_dev_add(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_device *dev)
-+{
-+	struct mac802154_llsec_device *entry;
-+	u32 skey = llsec_dev_hash_short(dev->short_addr, dev->pan_id);
-+	u64 hwkey = llsec_dev_hash_long(dev->hwaddr);
-+
-+	BUILD_BUG_ON(sizeof(hwkey) != IEEE802154_ADDR_LEN);
-+
-+	if ((llsec_dev_use_shortaddr(dev->short_addr) &&
-+	     llsec_dev_find_short(sec, dev->short_addr, dev->pan_id)) ||
-+	     llsec_dev_find_long(sec, dev->hwaddr))
-+		return -EEXIST;
-+
-+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!entry)
-+		return -ENOMEM;
-+
-+	entry->dev = *dev;
-+	spin_lock_init(&entry->lock);
-+	INIT_LIST_HEAD(&entry->dev.keys);
-+
-+	if (llsec_dev_use_shortaddr(dev->short_addr))
-+		hash_add_rcu(sec->devices_short, &entry->bucket_s, skey);
-+	else
-+		INIT_HLIST_NODE(&entry->bucket_s);
-+
-+	hash_add_rcu(sec->devices_hw, &entry->bucket_hw, hwkey);
-+	list_add_tail_rcu(&entry->dev.list, &sec->table.devices);
-+
-+	return 0;
-+}
-+
-+static void llsec_dev_free_rcu(struct rcu_head *rcu)
-+{
-+	llsec_dev_free(container_of(rcu, struct mac802154_llsec_device, rcu));
-+}
-+
-+int mac802154_llsec_dev_del(struct mac802154_llsec *sec, __le64 device_addr)
-+{
-+	struct mac802154_llsec_device *pos;
-+
-+	pos = llsec_dev_find_long(sec, device_addr);
-+	if (!pos)
-+		return -ENOENT;
-+
-+	hash_del_rcu(&pos->bucket_s);
-+	hash_del_rcu(&pos->bucket_hw);
-+	call_rcu(&pos->rcu, llsec_dev_free_rcu);
-+
-+	return 0;
-+}
-+
-+
-+
-+static struct mac802154_llsec_device_key*
-+llsec_devkey_find(struct mac802154_llsec_device *dev,
-+		  const struct ieee802154_llsec_key_id *key)
-+{
-+	struct ieee802154_llsec_device_key *devkey;
-+
-+	list_for_each_entry_rcu(devkey, &dev->dev.keys, list) {
-+		if (!llsec_key_id_equal(key, &devkey->key_id))
-+			continue;
-+
-+		return container_of(devkey, struct mac802154_llsec_device_key,
-+				    devkey);
-+	}
-+
-+	return NULL;
-+}
-+
-+int mac802154_llsec_devkey_add(struct mac802154_llsec *sec,
-+			       __le64 dev_addr,
-+			       const struct ieee802154_llsec_device_key *key)
-+{
-+	struct mac802154_llsec_device *dev;
-+	struct mac802154_llsec_device_key *devkey;
-+
-+	dev = llsec_dev_find_long(sec, dev_addr);
-+
-+	if (!dev)
-+		return -ENOENT;
-+
-+	if (llsec_devkey_find(dev, &key->key_id))
-+		return -EEXIST;
-+
-+	devkey = kmalloc(sizeof(*devkey), GFP_KERNEL);
-+	if (!devkey)
-+		return -ENOMEM;
-+
-+	devkey->devkey = *key;
-+	list_add_tail_rcu(&devkey->devkey.list, &dev->dev.keys);
-+	return 0;
-+}
-+
-+int mac802154_llsec_devkey_del(struct mac802154_llsec *sec,
-+			       __le64 dev_addr,
-+			       const struct ieee802154_llsec_device_key *key)
-+{
-+	struct mac802154_llsec_device *dev;
-+	struct mac802154_llsec_device_key *devkey;
-+
-+	dev = llsec_dev_find_long(sec, dev_addr);
-+
-+	if (!dev)
-+		return -ENOENT;
-+
-+	devkey = llsec_devkey_find(dev, &key->key_id);
-+	if (!devkey)
-+		return -ENOENT;
-+
-+	list_del_rcu(&devkey->devkey.list);
-+	kfree_rcu(devkey, rcu);
-+	return 0;
-+}
-+
-+
-+
-+static struct mac802154_llsec_seclevel*
-+llsec_find_seclevel(const struct mac802154_llsec *sec,
-+		    const struct ieee802154_llsec_seclevel *sl)
-+{
-+	struct ieee802154_llsec_seclevel *pos;
-+
-+	list_for_each_entry(pos, &sec->table.security_levels, list) {
-+		if (pos->frame_type != sl->frame_type ||
-+		    (pos->frame_type == IEEE802154_FC_TYPE_MAC_CMD &&
-+		     pos->cmd_frame_id != sl->cmd_frame_id) ||
-+		    pos->device_override != sl->device_override ||
-+		    pos->sec_levels != sl->sec_levels)
-+			continue;
-+
-+		return container_of(pos, struct mac802154_llsec_seclevel,
-+				    level);
-+	}
-+
-+	return NULL;
-+}
-+
-+int mac802154_llsec_seclevel_add(struct mac802154_llsec *sec,
-+				 const struct ieee802154_llsec_seclevel *sl)
-+{
-+	struct mac802154_llsec_seclevel *entry;
-+
-+	if (llsec_find_seclevel(sec, sl))
-+		return -EEXIST;
-+
-+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!entry)
-+		return -ENOMEM;
-+
-+	entry->level = *sl;
-+
-+	list_add_tail_rcu(&entry->level.list, &sec->table.security_levels);
-+
-+	return 0;
-+}
-+
-+int mac802154_llsec_seclevel_del(struct mac802154_llsec *sec,
-+				 const struct ieee802154_llsec_seclevel *sl)
-+{
-+	struct mac802154_llsec_seclevel *pos;
-+
-+	pos = llsec_find_seclevel(sec, sl);
-+	if (!pos)
-+		return -ENOENT;
-+
-+	list_del_rcu(&pos->level.list);
-+	kfree_rcu(pos, rcu);
-+
-+	return 0;
-+}
-diff --git a/net/mac802154/llsec.h b/net/mac802154/llsec.h
-new file mode 100644
-index 0000000..65c1dd4
---- /dev/null
-+++ b/net/mac802154/llsec.h
-@@ -0,0 +1,105 @@
-+/*
-+ * Copyright (C) 2014 Fraunhofer ITWM
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * Written by:
-+ * Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-+ */
-+
-+#ifndef MAC802154_LLSEC_H
-+#define MAC802154_LLSEC_H
-+
-+#include <linux/slab.h>
-+#include <linux/hashtable.h>
-+#include <linux/crypto.h>
-+#include <linux/kref.h>
-+#include <linux/spinlock.h>
-+#include <net/af_ieee802154.h>
-+#include <net/ieee802154_netdev.h>
-+
-+struct mac802154_llsec_key {
-+	struct ieee802154_llsec_key key;
-+
-+	/* one tfm for each authsize (4/8/16) */
-+	struct crypto_aead *tfm[3];
-+	struct crypto_blkcipher *tfm0;
-+
-+	struct kref ref;
-+};
-+
-+struct mac802154_llsec_device_key {
-+	struct ieee802154_llsec_device_key devkey;
-+
-+	struct rcu_head rcu;
-+};
-+
-+struct mac802154_llsec_device {
-+	struct ieee802154_llsec_device dev;
-+
-+	struct hlist_node bucket_s;
-+	struct hlist_node bucket_hw;
-+
-+	/* protects dev.frame_counter and the elements of dev.keys */
-+	spinlock_t lock;
-+
-+	struct rcu_head rcu;
-+};
-+
-+struct mac802154_llsec_seclevel {
-+	struct ieee802154_llsec_seclevel level;
-+
-+	struct rcu_head rcu;
-+};
-+
-+struct mac802154_llsec {
-+	struct ieee802154_llsec_params params;
-+	struct ieee802154_llsec_table table;
-+
-+	DECLARE_HASHTABLE(devices_short, 6);
-+	DECLARE_HASHTABLE(devices_hw, 6);
-+
-+	/* protects params, all other fields are fine with RCU */
-+	rwlock_t lock;
-+};
-+
-+void mac802154_llsec_init(struct mac802154_llsec *sec);
-+void mac802154_llsec_destroy(struct mac802154_llsec *sec);
-+
-+int mac802154_llsec_get_params(struct mac802154_llsec *sec,
-+			       struct ieee802154_llsec_params *params);
-+int mac802154_llsec_set_params(struct mac802154_llsec *sec,
-+			       const struct ieee802154_llsec_params *params,
-+			       int changed);
-+
-+int mac802154_llsec_key_add(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_key_id *id,
-+			    const struct ieee802154_llsec_key *key);
-+int mac802154_llsec_key_del(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_key_id *key);
-+
-+int mac802154_llsec_dev_add(struct mac802154_llsec *sec,
-+			    const struct ieee802154_llsec_device *dev);
-+int mac802154_llsec_dev_del(struct mac802154_llsec *sec,
-+			    __le64 device_addr);
-+
-+int mac802154_llsec_devkey_add(struct mac802154_llsec *sec,
-+			       __le64 dev_addr,
-+			       const struct ieee802154_llsec_device_key *key);
-+int mac802154_llsec_devkey_del(struct mac802154_llsec *sec,
-+			       __le64 dev_addr,
-+			       const struct ieee802154_llsec_device_key *key);
-+
-+int mac802154_llsec_seclevel_add(struct mac802154_llsec *sec,
-+				 const struct ieee802154_llsec_seclevel *sl);
-+int mac802154_llsec_seclevel_del(struct mac802154_llsec *sec,
-+				 const struct ieee802154_llsec_seclevel *sl);
-+
-+#endif /* MAC802154_LLSEC_H */
+diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
+index 6f8f9c2..000c855 100644
+--- a/include/net/ieee802154_netdev.h
++++ b/include/net/ieee802154_netdev.h
+@@ -225,6 +225,9 @@ struct ieee802154_mac_cb {
+ 	u8 type;
+ 	bool ackreq;
+ 	bool secen;
++	bool secen_override;
++	u8 seclevel;
++	bool seclevel_override;
+ 	struct ieee802154_addr source;
+ 	struct ieee802154_addr dest;
+ };
 diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index 28ef59c..e05f66e 100644
+index e05f66e..a8d7cbc 100644
 --- a/net/mac802154/mac802154.h
 +++ b/net/mac802154/mac802154.h
-@@ -23,6 +23,7 @@
+@@ -23,9 +23,12 @@
  #ifndef MAC802154_H
  #define MAC802154_H
  
-+#include <net/mac802154.h>
++#include <linux/mutex.h>
+ #include <net/mac802154.h>
  #include <net/ieee802154_netdev.h>
  
++#include "llsec.h"
++
  /* mac802154 device private data */
+ struct mac802154_priv {
+ 	struct ieee802154_dev hw;
+@@ -91,6 +94,13 @@ struct mac802154_sub_if_data {
+ 	u8 bsn;
+ 	/* MAC DSN field */
+ 	u8 dsn;
++
++	/* protects sec from concurrent access by netlink. access by
++	 * encrypt/decrypt/header_create safe without additional protection.
++	 */
++	struct mutex sec_mtx;
++
++	struct mac802154_llsec sec;
+ };
+ 
+ #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, hw)
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index ed10577..00729ca 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -183,6 +183,38 @@ out:
+ 	return rc;
+ }
+ 
++static int mac802154_set_header_security(struct mac802154_sub_if_data *priv,
++					 struct ieee802154_hdr *hdr,
++					 const struct ieee802154_mac_cb *cb)
++{
++	struct ieee802154_llsec_params params;
++	u8 level;
++
++	mac802154_llsec_get_params(&priv->sec, &params);
++
++	if (!params.enabled && cb->secen_override && cb->secen)
++		return -EINVAL;
++	if (!params.enabled ||
++	    (cb->secen_override && !cb->secen) ||
++	    !params.out_level)
++		return 0;
++	if (cb->seclevel_override && !cb->seclevel)
++		return -EINVAL;
++
++	level = cb->seclevel_override ? cb->seclevel : params.out_level;
++
++	hdr->fc.security_enabled = 1;
++	hdr->sec.level = level;
++	hdr->sec.key_id_mode = params.out_key.mode;
++	if (params.out_key.mode == IEEE802154_SCF_KEY_SHORT_INDEX)
++		hdr->sec.short_src = params.out_key.short_source;
++	else if (params.out_key.mode == IEEE802154_SCF_KEY_HW_INDEX)
++		hdr->sec.extended_src = params.out_key.extended_source;
++	hdr->sec.key_id = params.out_key.id;
++
++	return 0;
++}
++
+ static int mac802154_header_create(struct sk_buff *skb,
+ 				   struct net_device *dev,
+ 				   unsigned short type,
+@@ -204,6 +236,9 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	hdr.fc.ack_request = cb->ackreq;
+ 	hdr.seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+ 
++	if (mac802154_set_header_security(priv, &hdr, cb) < 0)
++		return -EINVAL;
++
+ 	if (!saddr) {
+ 		spin_lock_bh(&priv->mib_lock);
+ 
+@@ -259,6 +294,7 @@ mac802154_wpan_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mac802154_sub_if_data *priv;
+ 	u8 chan, page;
++	int rc;
+ 
+ 	priv = netdev_priv(dev);
+ 
+@@ -274,6 +310,13 @@ mac802154_wpan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	rc = mac802154_llsec_encrypt(&priv->sec, skb);
++	if (rc) {
++		pr_warn("encryption failed: %i\n", rc);
++		kfree_skb(skb);
++		return NETDEV_TX_OK;
++	}
++
+ 	skb->skb_iif = dev->ifindex;
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes += skb->len;
+@@ -294,6 +337,15 @@ static const struct net_device_ops mac802154_wpan_ops = {
+ 	.ndo_set_mac_address	= mac802154_wpan_mac_addr,
+ };
+ 
++static void mac802154_wpan_free(struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++
++	mac802154_llsec_destroy(&priv->sec);
++
++	free_netdev(dev);
++}
++
+ void mac802154_wpan_setup(struct net_device *dev)
+ {
+ 	struct mac802154_sub_if_data *priv;
+@@ -303,14 +355,14 @@ void mac802154_wpan_setup(struct net_device *dev)
+ 
+ 	dev->hard_header_len	= MAC802154_FRAME_HARD_HEADER_LEN;
+ 	dev->header_ops		= &mac802154_header_ops;
+-	dev->needed_tailroom	= 2; /* FCS */
++	dev->needed_tailroom	= 2 + 16; /* FCS + MIC */
+ 	dev->mtu		= IEEE802154_MTU;
+ 	dev->tx_queue_len	= 300;
+ 	dev->type		= ARPHRD_IEEE802154;
+ 	dev->flags		= IFF_NOARP | IFF_BROADCAST;
+ 	dev->watchdog_timeo	= 0;
+ 
+-	dev->destructor		= free_netdev;
++	dev->destructor		= mac802154_wpan_free;
+ 	dev->netdev_ops		= &mac802154_wpan_ops;
+ 	dev->ml_priv		= &mac802154_mlme_wpan;
+ 
+@@ -321,6 +373,7 @@ void mac802154_wpan_setup(struct net_device *dev)
+ 	priv->page = 0;
+ 
+ 	spin_lock_init(&priv->mib_lock);
++	mutex_init(&priv->sec_mtx);
+ 
+ 	get_random_bytes(&priv->bsn, 1);
+ 	get_random_bytes(&priv->dsn, 1);
+@@ -333,6 +386,8 @@ void mac802154_wpan_setup(struct net_device *dev)
+ 
+ 	priv->pan_id = cpu_to_le16(IEEE802154_PANID_BROADCAST);
+ 	priv->short_addr = cpu_to_le16(IEEE802154_ADDR_BROADCAST);
++
++	mac802154_llsec_init(&priv->sec);
+ }
+ 
+ static int mac802154_process_data(struct net_device *dev, struct sk_buff *skb)
+@@ -341,9 +396,11 @@ static int mac802154_process_data(struct net_device *dev, struct sk_buff *skb)
+ }
+ 
+ static int
+-mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb)
++mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb,
++		      const struct ieee802154_hdr *hdr)
+ {
+ 	__le16 span, sshort;
++	int rc;
+ 
+ 	pr_debug("getting packet via slave interface %s\n", sdata->dev->name);
+ 
+@@ -390,6 +447,12 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb)
+ 
+ 	skb->dev = sdata->dev;
+ 
++	rc = mac802154_llsec_decrypt(&sdata->sec, skb);
++	if (rc) {
++		pr_debug("decryption failed: %i\n", rc);
++		return NET_RX_DROP;
++	}
++
+ 	sdata->dev->stats.rx_packets++;
+ 	sdata->dev->stats.rx_bytes += skb->len;
+ 
+@@ -421,60 +484,58 @@ static void mac802154_print_addr(const char *name,
+ 	}
+ }
+ 
+-static int mac802154_parse_frame_start(struct sk_buff *skb)
++static int mac802154_parse_frame_start(struct sk_buff *skb,
++				       struct ieee802154_hdr *hdr)
+ {
+ 	int hlen;
+-	struct ieee802154_hdr hdr;
+ 	struct ieee802154_mac_cb *cb = mac_cb_init(skb);
+ 
+-	hlen = ieee802154_hdr_pull(skb, &hdr);
++	hlen = ieee802154_hdr_pull(skb, hdr);
+ 	if (hlen < 0)
+ 		return -EINVAL;
+ 
+ 	skb->mac_len = hlen;
+ 
+-	pr_debug("fc: %04x dsn: %02x\n", le16_to_cpup((__le16 *)&hdr.fc),
+-		 hdr.seq);
++	pr_debug("fc: %04x dsn: %02x\n", le16_to_cpup((__le16 *)&hdr->fc),
++		 hdr->seq);
+ 
+-	cb->type = hdr.fc.type;
+-	cb->ackreq = hdr.fc.ack_request;
+-	cb->secen = hdr.fc.security_enabled;
++	cb->type = hdr->fc.type;
++	cb->ackreq = hdr->fc.ack_request;
++	cb->secen = hdr->fc.security_enabled;
+ 
+-	mac802154_print_addr("destination", &hdr.dest);
+-	mac802154_print_addr("source", &hdr.source);
++	mac802154_print_addr("destination", &hdr->dest);
++	mac802154_print_addr("source", &hdr->source);
+ 
+-	cb->source = hdr.source;
+-	cb->dest = hdr.dest;
++	cb->source = hdr->source;
++	cb->dest = hdr->dest;
+ 
+-	if (hdr.fc.security_enabled) {
++	if (hdr->fc.security_enabled) {
+ 		u64 key;
+ 
+-		pr_debug("seclevel %i\n", hdr.sec.level);
++		pr_debug("seclevel %i\n", hdr->sec.level);
+ 
+-		switch (hdr.sec.key_id_mode) {
++		switch (hdr->sec.key_id_mode) {
+ 		case IEEE802154_SCF_KEY_IMPLICIT:
+ 			pr_debug("implicit key\n");
+ 			break;
+ 
+ 		case IEEE802154_SCF_KEY_INDEX:
+-			pr_debug("key %02x\n", hdr.sec.key_id);
++			pr_debug("key %02x\n", hdr->sec.key_id);
+ 			break;
+ 
+ 		case IEEE802154_SCF_KEY_SHORT_INDEX:
+ 			pr_debug("key %04x:%04x %02x\n",
+-				 le32_to_cpu(hdr.sec.short_src) >> 16,
+-				 le32_to_cpu(hdr.sec.short_src) & 0xffff,
+-				 hdr.sec.key_id);
++				 le32_to_cpu(hdr->sec.short_src) >> 16,
++				 le32_to_cpu(hdr->sec.short_src) & 0xffff,
++				 hdr->sec.key_id);
+ 			break;
+ 
+ 		case IEEE802154_SCF_KEY_HW_INDEX:
+-			key = swab64((__force u64) hdr.sec.extended_src);
++			key = swab64((__force u64) hdr->sec.extended_src);
+ 			pr_debug("key source %8phC %02x\n", &key,
+-				 hdr.sec.key_id);
++				 hdr->sec.key_id);
+ 			break;
+ 		}
+-
+-		return -EINVAL;
+ 	}
+ 
+ 	return 0;
+@@ -485,8 +546,9 @@ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+ 	int ret;
+ 	struct sk_buff *sskb;
+ 	struct mac802154_sub_if_data *sdata;
++	struct ieee802154_hdr hdr;
+ 
+-	ret = mac802154_parse_frame_start(skb);
++	ret = mac802154_parse_frame_start(skb, &hdr);
+ 	if (ret) {
+ 		pr_debug("got invalid frame\n");
+ 		return;
+@@ -499,7 +561,7 @@ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+ 
+ 		sskb = skb_clone(skb, GFP_ATOMIC);
+ 		if (sskb)
+-			mac802154_subif_frame(sdata, sskb);
++			mac802154_subif_frame(sdata, sskb, &hdr);
+ 	}
+ 	rcu_read_unlock();
+ }
 -- 
 1.7.9.5
-
-
-------------------------------------------------------------------------------
-"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
-Instantly run your Selenium tests across 300+ browser/OS combos.
-Get unparalleled scalability from the best Selenium testing platform available
-Simple to use. Nothing to install. Get started now for free."
-http://p.sf.net/sfu/SauceLabs
