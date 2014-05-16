@@ -1,47 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: cassini: possible recursive locking detected
-Date: Fri, 16 May 2014 16:48:06 -0400 (EDT)
-Message-ID: <20140516.164806.1913707776973163361.davem@davemloft.net>
-References: <20140509090642.GA4267@lianli>
-	<20140509.163330.1112297139498899531.davem@davemloft.net>
-	<87vbt5pjog.fsf@nemi.mork.no>
+Subject: Re: [PATCH] bnx2x: Convert return 0 to return rc
+Date: Fri, 16 May 2014 16:49:48 -0400 (EDT)
+Message-ID: <20140516.164948.2294567280337873976.davem@davemloft.net>
+References: <1400223103.30884.5.camel@joe-AO725>
+	<87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
+	<1400271144.12373.21.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: emilgoode@gmail.com, mroos@linux.ee, netdev@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49197 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754854AbaEPUsH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:48:07 -0400
-In-Reply-To: <87vbt5pjog.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry.Kravkov@qlogic.com, julia.lawall@lip6.fr,
+	ariel.elior@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400271144.12373.21.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri, 16 May 2014 22:12:15 +0200
+From: Joe Perches <joe@perches.com>
+Date: Fri, 16 May 2014 13:12:24 -0700
 
-> David Miller <davem@davemloft.net> writes:
->> From: Emil Goode <emilgoode@gmail.com>
->> Date: Fri, 9 May 2014 11:06:42 +0200
->>
->>> I searched the net a bit and found these old threads:
->>>=20
->>> http://lists.freebsd.org/pipermail/freebsd-sparc64/2010-January/006=
-935.html
->>>=20
->>> "FreeBSD currently crashes on older models of V480 when attempting
->>>  to use an on-board NIC due to what appears to be a CPU bug which
->>>  needs to be worked around."
->>
->> I wish I still had a copy of that Schizo chip errata document refere=
-nced
->> at the end of that posting, it's not accessible any longer.
->=20
-> The wayback machine saved it for you:
-> https://web.archive.org/web/20090701005954/http://www.sun.com/process=
-ors/manuals/External_Schizo_Errata.pdf
+> Couple things actually:
+> o Could you please update the MAINTAINER entry for
+>   BNX2X?  Ariel Elior's email address is still listed
+>   as @broadcom and that seems to bounce.
 
-Thanks, Meelis pointed out something similar to me in private correspon=
-dance :)
+Let's please give the Broadcom folks a reasonable opportunity to update
+the MAINTAINERS entry, thanks.
