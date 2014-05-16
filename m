@@ -1,30 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_rxrpc: Fix XDR length check in rxrpc key
- demarshalling.
-Date: Fri, 16 May 2014 15:25:20 -0400 (EDT)
-Message-ID: <20140516.152520.1325547885798958983.davem@davemloft.net>
-References: <20140515145122.29177.65285.stgit@warthog.procyon.org.uk>
+From: KM <k_mansour@aol.com>
+Subject: Hello From KM
+Date: Fri, 16 May 2014 21:30:35 +0200
+Message-ID: <201405161930.s4GJUZ3p018367@Linuxweb.lansystems.it>
+Reply-To: groll_3@rediffmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nwf@cs.jhu.edu,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140515145122.29177.65285.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host47-2-static.238-77-b.business.telecomitalia.it ([77.238.2.47]:51155
+	"EHLO ironport-bo3.lansystems.it" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757109AbaEPTdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 15:33:20 -0400
+Received: from Linuxweb.lansystems.it (localhost.localdomain [127.0.0.1])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by portale.confesercenti.it (Postfix) with ESMTP id 696612395F7
+	for <netdev@vger.kernel.org>; Fri, 16 May 2014 21:30:35 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 15 May 2014 15:51:22 +0100
+Good Day,
 
-> From: Nathaniel W Filardo <nwf@cs.jhu.edu>
-> 
-> There may be padding on the ticket contained in the key payload, so just ensure
-> that the claimed token length is large enough, rather than exactly the right
-> size.
-> 
-> Signed-off-by: Nathaniel Wesley Filardo <nwf@cs.jhu.edu>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+Please let=E2=80=99s talk and see if we can partner together to achieve=
+ our various future goals.
+Lets talk about real business deal.
 
-Applied, thanks.
+Regards,
+KM
