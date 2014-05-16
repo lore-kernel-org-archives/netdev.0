@@ -1,45 +1,52 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC PATCH] net: Add support for device specific address syncing
-Date: Fri, 16 May 2014 15:24:27 -0700
-Message-ID: <5376901B.7040700@intel.com>
-References: <53765D5D.9040207@intel.com>	<20140516.150115.1106293449904617860.davem@davemloft.net>	<53766D3E.4080904@intel.com> <20140516.164728.2297526772904518777.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH] MAINTAINERS: Pravin Shelar is Open vSwitch maintainer.
+Date: Fri, 16 May 2014 15:57:59 -0700
+Message-ID: <1400281079-57610-1-git-send-email-jesse@nicira.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+	Pravin Shelar <pshelar@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42546 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752758AbaEPWY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 18:24:28 -0400
-In-Reply-To: <20140516.164728.2297526772904518777.davem@davemloft.net>
+Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:59624 "HELO
+	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755445AbaEPW6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 18:58:06 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so3101583pab.8
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 15:58:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/16/2014 01:47 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Fri, 16 May 2014 12:55:42 -0700
-> 
->> I can understand going into promisc on a sync failure, but why would you
->> do it on an unsync failure, or are you saying that we would be clearing
->> the flag in unsync?
-> 
-> We should clear the promisc flag on unsync if the limitations are no
-> longer exceeded.
-> 
->> In general I intended for this to be called in set_rx_mode so if
->> __dev_uc_sync returns an error indicating insufficient resources we have
->> to force IFF_PROMISC on because adding a new address failed.  We could
->> also do the same thing for __dev_mc_sync and IFF_ALLMULTI.
-> 
-> Right.
-> 
+Pravin will be maintaining Open vSwitch going forward.
 
-Okay, I think that all works.  I'll probably resubmit it next week after
-it has gone though a bit more testing.
+CC: Pravin Shelar <pshelar@nicira.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+I'll continue to be very much involved (especially with the outstanding
+patchsets). However, Pravin has been doing a significant amount of the
+work involved in maintaining OVS already in addition to his technical
+contributions so I think it makes sense to formally recognize him.
 
-Thanks,
+I appreciate everyone's help and support over the last few years and
+look forward to continuing with this.
+---
+ MAINTAINERS | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Alex
+diff --git a/MAINTAINERS b/MAINTAINERS
+index bde15ff..eb92cd1 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6517,10 +6517,10 @@ T:	git git://openrisc.net/~jonas/linux
+ F:	arch/openrisc/
+ 
+ OPENVSWITCH
+-M:	Jesse Gross <jesse@nicira.com>
++M:	Pravin Shelar <pshelar@nicira.com>
+ L:	dev@openvswitch.org
+ W:	http://openvswitch.org
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git
+ S:	Maintained
+ F:	net/openvswitch/
+ 
+-- 
+1.9.1
