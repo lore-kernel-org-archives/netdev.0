@@ -1,42 +1,109 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 2/2] bonding: Fix alb mode to only use first level vlans.
-Date: Fri, 16 May 2014 17:20:39 -0400
-Message-ID: <1400275239-15419-3-git-send-email-vyasevic@redhat.com>
-References: <1400275239-15419-1-git-send-email-vyasevic@redhat.com>
-Cc: vfalico@gmail.com, kaber@trash.net, j.vosburgh@gmail.com,
-	andy@greyhouse.net, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: RE: tipc timeout handling.
+Date: Fri, 16 May 2014 21:22:08 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D1C255C8F@eusaamb103.ericsson.se>
+References: <20140516134253.GD4223@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Allan Stephens <allan.stephens@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46627 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752884AbaEPVUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 17:20:53 -0400
-In-Reply-To: <1400275239-15419-1-git-send-email-vyasevic@redhat.com>
+Received: from usevmg21.ericsson.net ([198.24.6.65]:57734 "EHLO
+	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753822AbaEPVWK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:22:10 -0400
+In-Reply-To: <20140516134253.GD4223@kernel.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ALB/TLB learning packets use all vlans configured on top
-of the bond.  This ends up being incorrect if we have a stack
-of vlans on top of the bond.  ALB/TLB should only use
-first level/outer most vlans in its announcements.
+Hi Arnaldo,
+Reviewed and tested. No problem.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/bonding/bond_alb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Regards
+///jon
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 9f69e81..e538478 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1045,7 +1045,7 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- 	/* loop through vlans and send one packet for each */
- 	rcu_read_lock();
- 	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
--		if (upper->priv_flags & IFF_802_1Q_VLAN)
-+		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0)
- 			alb_send_lp_vid(slave, mac_addr,
- 					vlan_dev_vlan_id(upper));
- 	}
--- 
-1.9.0
+
+> -----Original Message-----
+> From: Arnaldo Carvalho de Melo [mailto:acme@kernel.org]
+> Sent: May-16-14 9:43 AM
+> To: Jon Maloy; Allan Stephens
+> Cc: netdev@vger.kernel.org; David Miller
+> Subject: tipc timeout handling.
+> 
+> Hi Jon, Allan,
+> 
+> 	While working on a fix for the per recvmmsg syscall timeout handling
+> I found this issue, can you take a look if this is acceptable?
+> 
+> Thanks,
+> 
+> - Arnaldo
+> 
+> commit 592bb2a330427750d323b1362bf0822db1695e29
+> Author: Arnaldo Carvalho de Melo <acme@redhat.com>
+> Date:   Fri May 16 10:33:02 2014 -0300
+> 
+>     tipc: Don't reset the timeout when restarting
+> 
+>     As it may then take longer than what the user specified using
+>     setsockopt(SO_RCVTIMEO).
+> 
+>     Cc: Allan Stephens <allan.stephens@windriver.com>
+>     Cc: David Miller <davem@davemloft.net>
+>     To: Jon Maloy <jon.maloy@ericsson.com>,
+>     Link: http://lkml.kernel.org/n/tip-@git.kernel.org
+>     Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> 
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c index
+> 3f9912f87d0d..083c672a2a39 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -984,10 +984,11 @@ static int anc_data_recv(struct msghdr *m, struct
+> tipc_msg *msg,
+>  	return 0;
+>  }
+> 
+> -static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
+> +static int tipc_wait_for_rcvmsg(struct socket *sock, long *timeop)
+>  {
+>  	struct sock *sk = sock->sk;
+>  	DEFINE_WAIT(wait);
+> +	long timeo = *timeop;
+>  	int err;
+> 
+>  	for (;;) {
+> @@ -1012,6 +1013,7 @@ static int tipc_wait_for_rcvmsg(struct socket *sock,
+> long timeo)
+>  			break;
+>  	}
+>  	finish_wait(sk_sleep(sk), &wait);
+> +	*timeop = timeo;
+>  	return err;
+>  }
+> 
+> @@ -1055,7 +1057,7 @@ static int tipc_recvmsg(struct kiocb *iocb, struct
+> socket *sock,
+>  restart:
+> 
+>  	/* Look for a message in receive queue; wait if necessary */
+> -	res = tipc_wait_for_rcvmsg(sock, timeo);
+> +	res = tipc_wait_for_rcvmsg(sock, &timeo);
+>  	if (res)
+>  		goto exit;
+> 
+> @@ -1153,7 +1155,7 @@ static int tipc_recv_stream(struct kiocb *iocb, struct
+> socket *sock,
+> 
+>  restart:
+>  	/* Look for a message in receive queue; wait if necessary */
+> -	res = tipc_wait_for_rcvmsg(sock, timeo);
+> +	res = tipc_wait_for_rcvmsg(sock, &timeo);
+>  	if (res)
+>  		goto exit;
+> 
