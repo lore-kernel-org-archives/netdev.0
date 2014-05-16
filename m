@@ -1,48 +1,48 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: Ethernet bug at Upstream-v3.15-rcx on Lager.
-Date: Fri, 16 May 2014 14:56:07 +0900
-Message-ID: <5375A877.1090606@renesas.com>
-References: <53745E88.7040108@jinso.co.jp> <5374F753.70203@cogentembedded.com> <537564FC.4090905@jinso.co.jp>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: RE: [PATCH] net:v4: Add support to configure SR-IOV VF minimum and
+ maximum Tx rate through ip tool.
+Date: Fri, 16 May 2014 06:49:48 +0000
+Message-ID: <290BEC245535C3449143D5D84900EEF78CE21083@avmb3.qlogic.org>
+References: <1400046906-13929-1-git-send-email-sucheta.chakraborty@qlogic.com>
+	<1400046906-13929-2-git-send-email-sucheta.chakraborty@qlogic.com>
+ <20140515.154254.1931991235981700711.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>, <linux-sh@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: <cm-hiep@jinso.co.jp>, <ben.dooks@codethink.co.uk>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <537564FC.4090905@jinso.co.jp>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
+	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>,
+	"Ariel Elior" <Ariel.Elior@qlogic.com>,
+	"amirv@mellanox.com" <amirv@mellanox.com>,
+	"mkubecek@suse.cz" <mkubecek@suse.cz>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:21681 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753894AbaEPGuM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 02:50:12 -0400
+In-Reply-To: <20140515.154254.1931991235981700711.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Hiep-san,
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net] 
+> Sent: Friday, May 16, 2014 1:13 AM
+> To: Sucheta Chakraborty
+> Cc: netdev; Dept-HSG Linux NIC Dev; ben@decadent.org.uk; gregory.v.rose@intel.com; linux-net-drivers@solarflare.com; Ariel Elior; amirv@mellanox.com; mkubecek@suse.cz;
+> stephen@networkplumber.org
+> Subject: Re: [PATCH] net:v4: Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool.
+>
+>
+> This does not apply to net-next, please respin.
+>
+> Thank you.
 
-(2014/05/16 10:08), =E3=82=AB=E3=82=AA=E3=80=80=E3=83=9F=E3=83=B3=E3=80=
-=80=E3=83=92=E3=82=A7=E3=83=83=E3=83=97 wrote:
->>
->>> Please review it when you have time.
->>
->>    Please try this patch:
->>
->> http://marc.info/?l=3Dlinux-netdev&m=3D139602519809181
->>
-> I have tested this patch on v3.15.0-rc5-00077-g14186fe, and results a=
-re the message of
-> "sh-eth r8a7790-ether eth0: Receive FIFO Overflow" has disappeared an=
-d sending datagrams is good.
-> (Bandwidth 10M to 100M: Test with 5/5 times by script and by hand are=
- good)
->=20
+I will respin the patch. Thanks.
 
-It's nice!
-So, I hope the patch is merged in upstream.
-However, the patch's change log mentioned r8a7790 only.
-The r8a7791's ethernet controller also has this bit.
-
-To Ben,
-
-So, would you update your patch and resubmit it?
-
-Best regards,
-Yoshihiro Shimoda
+- Sucheta.
