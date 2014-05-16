@@ -1,8 +1,8 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 08/11] mac802154: add llsec
-	configuration functions
-Date: Fri, 16 May 2014 17:46:42 +0200
-Message-ID: <1400255205-9031-9-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 05/11] mac802154: add llsec
+	decryption method
+Date: Fri, 16 May 2014 17:46:39 +0200
+Message-ID: <1400255205-9031-6-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,339 +23,283 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
- include/net/ieee802154_netdev.h |   36 ++++++++
- net/mac802154/mac802154.h       |   33 +++++++
- net/mac802154/mac_cmd.c         |   18 ++++
- net/mac802154/mib.c             |  187 +++++++++++++++++++++++++++++++++++++++
- 4 files changed, 274 insertions(+)
+ net/mac802154/llsec.c |  247 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/mac802154/llsec.h |    1 +
+ 2 files changed, 248 insertions(+)
 
-diff --git a/include/net/ieee802154_netdev.h b/include/net/ieee802154_netdev.h
-index 000c855..eb9f850 100644
---- a/include/net/ieee802154_netdev.h
-+++ b/include/net/ieee802154_netdev.h
-@@ -358,6 +358,40 @@ enum {
- 	IEEE802154_LLSEC_PARAM_COORD_SHORTADDR = 1 << 8,
- };
+diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
+index 2a4b68e..392653b 100644
+--- a/net/mac802154/llsec.c
++++ b/net/mac802154/llsec.c
+@@ -18,6 +18,7 @@
+ #include <linux/bug.h>
+ #include <linux/completion.h>
+ #include <net/ieee802154.h>
++#include <crypto/algapi.h>
  
-+struct ieee802154_llsec_ops {
-+	int (*get_params)(struct net_device *dev,
-+			  struct ieee802154_llsec_params *params);
-+	int (*set_params)(struct net_device *dev,
-+			  const struct ieee802154_llsec_params *params,
-+			  int changed);
-+
-+	int (*add_key)(struct net_device *dev,
-+		       const struct ieee802154_llsec_key_id *id,
-+		       const struct ieee802154_llsec_key *key);
-+	int (*del_key)(struct net_device *dev,
-+		       const struct ieee802154_llsec_key_id *id);
-+
-+	int (*add_dev)(struct net_device *dev,
-+		       const struct ieee802154_llsec_device *llsec_dev);
-+	int (*del_dev)(struct net_device *dev, __le64 dev_addr);
-+
-+	int (*add_devkey)(struct net_device *dev,
-+			  __le64 device_addr,
-+			  const struct ieee802154_llsec_device_key *key);
-+	int (*del_devkey)(struct net_device *dev,
-+			  __le64 device_addr,
-+			  const struct ieee802154_llsec_device_key *key);
-+
-+	int (*add_seclevel)(struct net_device *dev,
-+			    const struct ieee802154_llsec_seclevel *sl);
-+	int (*del_seclevel)(struct net_device *dev,
-+			    const struct ieee802154_llsec_seclevel *sl);
-+
-+	void (*lock_table)(struct net_device *dev);
-+	void (*get_table)(struct net_device *dev,
-+			  struct ieee802154_llsec_table **t);
-+	void (*unlock_table)(struct net_device *dev);
-+};
- /*
-  * This should be located at net_device->ml_priv
-  *
-@@ -388,6 +422,8 @@ struct ieee802154_mlme_ops {
- 	void (*get_mac_params)(struct net_device *dev,
- 			       struct ieee802154_mac_params *params);
- 
-+	struct ieee802154_llsec_ops *llsec;
-+
- 	/* The fields below are required. */
- 
- 	struct wpan_phy *(*get_phy)(const struct net_device *dev);
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index a8d7cbc..762a6f8 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -136,4 +136,37 @@ int mac802154_set_mac_params(struct net_device *dev,
- void mac802154_get_mac_params(struct net_device *dev,
- 			      struct ieee802154_mac_params *params);
- 
-+int mac802154_get_params(struct net_device *dev,
-+			 struct ieee802154_llsec_params *params);
-+int mac802154_set_params(struct net_device *dev,
-+			 const struct ieee802154_llsec_params *params,
-+			 int changed);
-+
-+int mac802154_add_key(struct net_device *dev,
-+		      const struct ieee802154_llsec_key_id *id,
-+		      const struct ieee802154_llsec_key *key);
-+int mac802154_del_key(struct net_device *dev,
-+		      const struct ieee802154_llsec_key_id *id);
-+
-+int mac802154_add_dev(struct net_device *dev,
-+		      const struct ieee802154_llsec_device *llsec_dev);
-+int mac802154_del_dev(struct net_device *dev, __le64 dev_addr);
-+
-+int mac802154_add_devkey(struct net_device *dev,
-+			 __le64 device_addr,
-+			 const struct ieee802154_llsec_device_key *key);
-+int mac802154_del_devkey(struct net_device *dev,
-+			 __le64 device_addr,
-+			 const struct ieee802154_llsec_device_key *key);
-+
-+int mac802154_add_seclevel(struct net_device *dev,
-+			   const struct ieee802154_llsec_seclevel *sl);
-+int mac802154_del_seclevel(struct net_device *dev,
-+			   const struct ieee802154_llsec_seclevel *sl);
-+
-+void mac802154_lock_table(struct net_device *dev);
-+void mac802154_get_table(struct net_device *dev,
-+			 struct ieee802154_llsec_table **t);
-+void mac802154_unlock_table(struct net_device *dev);
-+
- #endif /* MAC802154_H */
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-index d40c092..afb4e2c 100644
---- a/net/mac802154/mac_cmd.c
-+++ b/net/mac802154/mac_cmd.c
-@@ -64,6 +64,22 @@ static struct wpan_phy *mac802154_get_phy(const struct net_device *dev)
- 	return to_phy(get_device(&priv->hw->phy->dev));
- }
- 
-+static struct ieee802154_llsec_ops mac802154_llsec_ops = {
-+	.get_params = mac802154_get_params,
-+	.set_params = mac802154_set_params,
-+	.add_key = mac802154_add_key,
-+	.del_key = mac802154_del_key,
-+	.add_dev = mac802154_add_dev,
-+	.del_dev = mac802154_del_dev,
-+	.add_devkey = mac802154_add_devkey,
-+	.del_devkey = mac802154_del_devkey,
-+	.add_seclevel = mac802154_add_seclevel,
-+	.del_seclevel = mac802154_del_seclevel,
-+	.lock_table = mac802154_lock_table,
-+	.get_table = mac802154_get_table,
-+	.unlock_table = mac802154_unlock_table,
-+};
-+
- struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
- 	.get_phy = mac802154_get_phy,
- };
-@@ -75,6 +91,8 @@ struct ieee802154_mlme_ops mac802154_mlme_wpan = {
- 	.get_short_addr = mac802154_dev_get_short_addr,
- 	.get_dsn = mac802154_dev_get_dsn,
- 
-+	.llsec = &mac802154_llsec_ops,
-+
- 	.set_mac_params = mac802154_set_mac_params,
- 	.get_mac_params = mac802154_get_mac_params,
- };
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index 153bd1d..18a2faa 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -214,3 +214,190 @@ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan)
- 	} else
- 		mutex_unlock(&priv->hw->phy->pib_lock);
+ #include "mac802154.h"
+ #include "llsec.h"
+@@ -780,3 +781,249 @@ fail:
+ 	rcu_read_unlock();
+ 	return rc;
  }
 +
 +
-+int mac802154_get_params(struct net_device *dev,
-+			 struct ieee802154_llsec_params *params)
++
++static struct mac802154_llsec_device*
++llsec_lookup_dev(struct mac802154_llsec *sec,
++		 const struct ieee802154_addr *addr)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	struct ieee802154_addr devaddr = *addr;
++	struct mac802154_llsec_device *dev = NULL;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	if (devaddr.mode == IEEE802154_ADDR_NONE &&
++	    llsec_recover_addr(sec, &devaddr) < 0)
++		return NULL;
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_get_params(&priv->sec, params);
-+	mutex_unlock(&priv->sec_mtx);
++	if (devaddr.mode == IEEE802154_ADDR_SHORT) {
++		u32 key = llsec_dev_hash_short(devaddr.short_addr,
++					       devaddr.pan_id);
 +
-+	return res;
++		hash_for_each_possible_rcu(sec->devices_short, dev,
++					   bucket_s, key) {
++			if (dev->dev.pan_id == devaddr.pan_id &&
++			    dev->dev.short_addr == devaddr.short_addr)
++				return dev;
++		}
++	} else {
++		u64 key = llsec_dev_hash_long(devaddr.extended_addr);
++
++		hash_for_each_possible_rcu(sec->devices_hw, dev,
++					   bucket_hw, key) {
++			if (dev->dev.hwaddr == devaddr.extended_addr)
++				return dev;
++		}
++	}
++
++	return NULL;
 +}
 +
-+int mac802154_set_params(struct net_device *dev,
-+			 const struct ieee802154_llsec_params *params,
-+			 int changed)
++static int
++llsec_lookup_seclevel(const struct mac802154_llsec *sec,
++		      u8 frame_type, u8 cmd_frame_id,
++		      struct ieee802154_llsec_seclevel *rlevel)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	struct ieee802154_llsec_seclevel *level;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	list_for_each_entry_rcu(level, &sec->table.security_levels, list) {
++		if (level->frame_type == frame_type &&
++		    (frame_type != IEEE802154_FC_TYPE_MAC_CMD ||
++		     level->cmd_frame_id == cmd_frame_id)) {
++			*rlevel = *level;
++			return 0;
++		}
++	}
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_set_params(&priv->sec, params, changed);
-+	mutex_unlock(&priv->sec_mtx);
-+
-+	return res;
++	return -EINVAL;
 +}
 +
-+
-+int mac802154_add_key(struct net_device *dev,
-+		      const struct ieee802154_llsec_key_id *id,
-+		      const struct ieee802154_llsec_key *key)
++static int
++llsec_do_decrypt_unauth(struct sk_buff *skb, const struct mac802154_llsec *sec,
++			const struct ieee802154_hdr *hdr,
++			struct mac802154_llsec_key *key, __le64 dev_addr)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	u8 iv[16];
++	unsigned char *data;
++	int datalen;
++	struct scatterlist src;
++	struct blkcipher_desc req = {
++		.tfm = key->tfm0,
++		.info = iv,
++		.flags = 0,
++	};
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	llsec_geniv(iv, dev_addr, &hdr->sec);
++	data = skb_mac_header(skb) + skb->mac_len;
++	datalen = skb_tail_pointer(skb) - data;
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_key_add(&priv->sec, id, key);
-+	mutex_unlock(&priv->sec_mtx);
++	sg_init_one(&src, data, datalen);
 +
-+	return res;
++	return crypto_blkcipher_decrypt_iv(&req, &src, &src, datalen);
 +}
 +
-+int mac802154_del_key(struct net_device *dev,
-+		      const struct ieee802154_llsec_key_id *id)
++static int
++llsec_do_decrypt_auth(struct sk_buff *skb, const struct mac802154_llsec *sec,
++		      const struct ieee802154_hdr *hdr,
++		      struct mac802154_llsec_key *key, __le64 dev_addr)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	u8 iv[16];
++	unsigned char *data;
++	int authlen, datalen, assoclen, rc;
++	struct scatterlist src, assoc[2];
++	struct aead_request *req;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	authlen = ieee802154_sechdr_authtag_len(&hdr->sec);
++	llsec_geniv(iv, dev_addr, &hdr->sec);
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_key_del(&priv->sec, id);
-+	mutex_unlock(&priv->sec_mtx);
++	req = aead_request_alloc(llsec_tfm_by_len(key, authlen), GFP_ATOMIC);
++	if (!req)
++		return -ENOMEM;
 +
-+	return res;
++	sg_init_table(assoc, 2);
++	sg_set_buf(&assoc[0], skb_mac_header(skb), skb->mac_len);
++	assoclen = skb->mac_len;
++
++	data = skb_mac_header(skb) + skb->mac_len;
++	datalen = skb_tail_pointer(skb) - data;
++
++	if (hdr->sec.level & IEEE802154_SCF_SECLEVEL_ENC) {
++		sg_set_buf(&assoc[1], data, 0);
++	} else {
++		sg_set_buf(&assoc[1], data, datalen - authlen);
++		assoclen += datalen - authlen;
++		data += datalen - authlen;
++		datalen = authlen;
++	}
++
++	sg_init_one(&src, data, datalen);
++
++	aead_request_set_callback(req, 0, NULL, NULL);
++	aead_request_set_assoc(req, assoc, assoclen);
++	aead_request_set_crypt(req, &src, &src, datalen, iv);
++
++	rc = crypto_aead_decrypt(req);
++
++	kfree(req);
++	skb_trim(skb, skb->len - authlen);
++
++	return rc;
 +}
 +
-+
-+int mac802154_add_dev(struct net_device *dev,
-+		      const struct ieee802154_llsec_device *llsec_dev)
++static int
++llsec_do_decrypt(struct sk_buff *skb, const struct mac802154_llsec *sec,
++		 const struct ieee802154_hdr *hdr,
++		 struct mac802154_llsec_key *key, __le64 dev_addr)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_dev_add(&priv->sec, llsec_dev);
-+	mutex_unlock(&priv->sec_mtx);
-+
-+	return res;
++	if (hdr->sec.level == IEEE802154_SCF_SECLEVEL_ENC)
++		return llsec_do_decrypt_unauth(skb, sec, hdr, key, dev_addr);
++	else
++		return llsec_do_decrypt_auth(skb, sec, hdr, key, dev_addr);
 +}
 +
-+int mac802154_del_dev(struct net_device *dev, __le64 dev_addr)
++static int
++llsec_update_devkey_info(struct mac802154_llsec_device *dev,
++			 const struct ieee802154_llsec_key_id *in_key,
++			 u32 frame_counter)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	struct mac802154_llsec_device_key *devkey = NULL;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	if (dev->dev.key_mode == IEEE802154_LLSEC_DEVKEY_RESTRICT) {
++		devkey = llsec_devkey_find(dev, in_key);
++		if (!devkey)
++			return -ENOENT;
++	}
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_dev_del(&priv->sec, dev_addr);
-+	mutex_unlock(&priv->sec_mtx);
++	spin_lock_bh(&dev->lock);
 +
-+	return res;
++	if ((!devkey && frame_counter < dev->dev.frame_counter) ||
++	    (devkey && frame_counter < devkey->devkey.frame_counter)) {
++		spin_unlock_bh(&dev->lock);
++		return -EINVAL;
++	}
++
++	if (devkey)
++		devkey->devkey.frame_counter = frame_counter + 1;
++	else
++		dev->dev.frame_counter = frame_counter + 1;
++
++	spin_unlock_bh(&dev->lock);
++
++	return 0;
 +}
 +
-+
-+int mac802154_add_devkey(struct net_device *dev,
-+			 __le64 device_addr,
-+			 const struct ieee802154_llsec_device_key *key)
++int mac802154_llsec_decrypt(struct mac802154_llsec *sec, struct sk_buff *skb)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
++	struct ieee802154_hdr hdr;
++	struct mac802154_llsec_key *key;
++	struct ieee802154_llsec_key_id key_id;
++	struct mac802154_llsec_device *dev;
++	struct ieee802154_llsec_seclevel seclevel;
++	int err;
++	__le64 dev_addr;
++	u32 frame_ctr;
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	if (ieee802154_hdr_peek(skb, &hdr) < 0)
++		return -EINVAL;
++	if (!hdr.fc.security_enabled)
++		return 0;
++	if (hdr.fc.version == 0)
++		return -EINVAL;
 +
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_devkey_add(&priv->sec, device_addr, key);
-+	mutex_unlock(&priv->sec_mtx);
++	read_lock_bh(&sec->lock);
++	if (!sec->params.enabled) {
++		read_unlock_bh(&sec->lock);
++		return -EINVAL;
++	}
++	read_unlock_bh(&sec->lock);
 +
-+	return res;
++	rcu_read_lock();
++
++	key = llsec_lookup_key(sec, &hdr, &hdr.source, &key_id);
++	if (!key) {
++		err = -ENOKEY;
++		goto fail;
++	}
++
++	dev = llsec_lookup_dev(sec, &hdr.source);
++	if (!dev) {
++		err = -EINVAL;
++		goto fail_dev;
++	}
++
++	if (llsec_lookup_seclevel(sec, hdr.fc.type, 0, &seclevel) < 0) {
++		err = -EINVAL;
++		goto fail_dev;
++	}
++
++	if (!(seclevel.sec_levels & BIT(hdr.sec.level)) &&
++	    (hdr.sec.level == 0 && seclevel.device_override &&
++	     !dev->dev.seclevel_exempt)) {
++		err = -EINVAL;
++		goto fail_dev;
++	}
++
++	frame_ctr = le32_to_cpu(hdr.sec.frame_counter);
++
++	if (frame_ctr == 0xffffffff) {
++		err = -EOVERFLOW;
++		goto fail_dev;
++	}
++
++	err = llsec_update_devkey_info(dev, &key_id, frame_ctr);
++	if (err)
++		goto fail_dev;
++
++	dev_addr = dev->dev.hwaddr;
++
++	rcu_read_unlock();
++
++	err = llsec_do_decrypt(skb, sec, &hdr, key, dev_addr);
++	llsec_key_put(key);
++	return err;
++
++fail_dev:
++	llsec_key_put(key);
++fail:
++	rcu_read_unlock();
++	return err;
 +}
-+
-+int mac802154_del_devkey(struct net_device *dev,
-+			 __le64 device_addr,
-+			 const struct ieee802154_llsec_device_key *key)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_devkey_del(&priv->sec, device_addr, key);
-+	mutex_unlock(&priv->sec_mtx);
-+
-+	return res;
-+}
-+
-+
-+int mac802154_add_seclevel(struct net_device *dev,
-+			   const struct ieee802154_llsec_seclevel *sl)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_seclevel_add(&priv->sec, sl);
-+	mutex_unlock(&priv->sec_mtx);
-+
-+	return res;
-+}
-+
-+int mac802154_del_seclevel(struct net_device *dev,
-+			   const struct ieee802154_llsec_seclevel *sl)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+	int res;
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_lock(&priv->sec_mtx);
-+	res = mac802154_llsec_seclevel_del(&priv->sec, sl);
-+	mutex_unlock(&priv->sec_mtx);
-+
-+	return res;
-+}
-+
-+
-+void mac802154_lock_table(struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_lock(&priv->sec_mtx);
-+}
-+
-+void mac802154_get_table(struct net_device *dev,
-+			 struct ieee802154_llsec_table **t)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	*t = &priv->sec.table;
-+}
-+
-+void mac802154_unlock_table(struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	mutex_unlock(&priv->sec_mtx);
-+}
+diff --git a/net/mac802154/llsec.h b/net/mac802154/llsec.h
+index 083055b..950578e 100644
+--- a/net/mac802154/llsec.h
++++ b/net/mac802154/llsec.h
+@@ -103,5 +103,6 @@ int mac802154_llsec_seclevel_del(struct mac802154_llsec *sec,
+ 				 const struct ieee802154_llsec_seclevel *sl);
+ 
+ int mac802154_llsec_encrypt(struct mac802154_llsec *sec, struct sk_buff *skb);
++int mac802154_llsec_decrypt(struct mac802154_llsec *sec, struct sk_buff *skb);
+ 
+ #endif /* MAC802154_LLSEC_H */
 -- 
 1.7.9.5
 
