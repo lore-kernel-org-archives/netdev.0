@@ -1,10 +1,10 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH 1/8] ixgbe: Out of line ixgbe_read/write_reg
-Date: Fri, 16 May 2014 14:43:08 -0700
-Message-ID: <1400276595-6965-2-git-send-email-andi@firstfloor.org>
+Subject: [PATCH 4/8] e1000e: Out of line __ew32_prepare/__ew32
+Date: Fri, 16 May 2014 14:43:11 -0700
+Message-ID: <1400276595-6965-5-git-send-email-andi@firstfloor.org>
 References: <1400276595-6965-1-git-send-email-andi@firstfloor.org>
 Cc: akpm@linux-foundation.org, Andi Kleen <ak@linux.intel.com>,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1400276595-6965-1-git-send-email-andi@firstfloor.org>
@@ -13,90 +13,102 @@ List-Id: netdev.vger.kernel.org
 
 From: Andi Kleen <ak@linux.intel.com>
 
-ixgbe_read_reg and ixgbe_write_reg are frequently called and are very big
-because they have complex error handling code.
+Out of lining these two common inlines saves about 30k text size,
+due to their errata workarounds.
 
-Moving them out of line saves ~27k text in the ixgbe driver.
+14131431	2008136	1507328	17646895	10d452f	vmlinux-before-e1000e
+14101415	2004040	1507328	17612783	10cbfef	vmlinux-e1000e
 
-   text	   data	    bss	    dec	    hex	filename
-14220873	2008072	1507328	17736273	10ea251	vmlinux-before-ixgbe
-14193673	2003976	1507328	17704977	10e2811	vmlinux-ixgbe
-
+Cc: jeffrey.t.kirsher@intel.com
 Cc: netdev@vger.kernel.org
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Signed-off-by: Andi Kleen <ak@linux.intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 22 ++--------------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 22 ++++++++++++++++++++++
- 2 files changed, 24 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h  | 31 ++----------------------------
+ drivers/net/ethernet/intel/e1000e/netdev.c | 30 +++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index f12c40f..05f094d 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -162,28 +162,10 @@ static inline void writeq(u64 val, void __iomem *addr)
- }
- #endif
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 1471c54..cbe25bb 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -573,35 +573,8 @@ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
  
--static inline void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
+ #define er32(reg)	__er32(hw, E1000_##reg)
+ 
+-/**
+- * __ew32_prepare - prepare to write to MAC CSR register on certain parts
+- * @hw: pointer to the HW structure
+- *
+- * When updating the MAC CSR registers, the Manageability Engine (ME) could
+- * be accessing the registers at the same time.  Normally, this is handled in
+- * h/w by an arbiter but on some parts there is a bug that acknowledges Host
+- * accesses later than it should which could result in the register to have
+- * an incorrect value.  Workaround this by checking the FWSM register which
+- * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
+- * and try again a number of times.
+- **/
+-static inline s32 __ew32_prepare(struct e1000_hw *hw)
 -{
--	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-+void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value);
-+u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg);
- 
--	if (ixgbe_removed(reg_addr))
--		return;
--	writeq(value, reg_addr + reg);
--}
- #define IXGBE_WRITE_REG64(a, reg, value) ixgbe_write_reg64((a), (reg), (value))
+-	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
 -
--static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
+-	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
+-		udelay(50);
+-
+-	return i;
+-}
+-
+-static inline void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
 -{
--	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
--	u32 value;
+-	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
+-		__ew32_prepare(hw);
 -
--	if (ixgbe_removed(reg_addr))
--		return IXGBE_FAILED_READ_REG;
--	value = readl(reg_addr + reg);
--	if (unlikely(value == IXGBE_FAILED_READ_REG))
--		ixgbe_check_remove(hw, reg);
--	return value;
+-	writel(val, hw->hw_addr + reg);
 -}
- #define IXGBE_READ_REG(a, reg) ixgbe_read_reg((a), (reg))
++s32 __ew32_prepare(struct e1000_hw *hw);
++void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val);
  
- #define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) \
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d62e7a2..5f81f62 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -371,6 +371,28 @@ void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
- 	pci_write_config_word(adapter->pdev, reg, value);
- }
+ #define ew32(reg, val)	__ew32(hw, E1000_##reg, (val))
  
-+void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 3e69386..9b6cd9a 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -124,6 +124,36 @@ static const struct e1000_reg_info e1000_reg_info_tbl[] = {
+ };
+ 
+ /**
++ * __ew32_prepare - prepare to write to MAC CSR register on certain parts
++ * @hw: pointer to the HW structure
++ *
++ * When updating the MAC CSR registers, the Manageability Engine (ME) could
++ * be accessing the registers at the same time.  Normally, this is handled in
++ * h/w by an arbiter but on some parts there is a bug that acknowledges Host
++ * accesses later than it should which could result in the register to have
++ * an incorrect value.  Workaround this by checking the FWSM register which
++ * has bit 24 set while ME is accessing MAC CSR registers, wait if it is set
++ * and try again a number of times.
++ **/
++s32 __ew32_prepare(struct e1000_hw *hw)
 +{
-+	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
++	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
 +
-+	if (ixgbe_removed(reg_addr))
-+		return;
-+	writeq(value, reg_addr + reg);
++	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
++		udelay(50);
++
++	return i;
 +}
 +
-+u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
++void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
 +{
-+	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-+	u32 value;
++	if (hw->adapter->flags2 & FLAG2_PCIM2PCI_ARBITER_WA)
++		__ew32_prepare(hw);
 +
-+	if (ixgbe_removed(reg_addr))
-+		return IXGBE_FAILED_READ_REG;
-+	value = readl(reg_addr + reg);
-+	if (unlikely(value == IXGBE_FAILED_READ_REG))
-+		ixgbe_check_remove(hw, reg);
-+	return value;
++	writel(val, hw->hw_addr + reg);
 +}
 +
- static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
- {
- 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
++/**
+  * e1000_regdump - register printout routine
+  * @hw: pointer to the HW structure
+  * @reginfo: pointer to the register info table
 -- 
 1.9.0
