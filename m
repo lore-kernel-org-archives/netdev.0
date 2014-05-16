@@ -1,56 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] bnx2x: Convert return 0 to return rc
-Date: Fri, 16 May 2014 13:12:24 -0700
-Message-ID: <1400271144.12373.21.camel@joe-AO725>
-References: <1400223103.30884.5.camel@joe-AO725>
-	 <87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net] xen-netback: fix race between napi_complete()
+ and interrupt handler
+Date: Fri, 16 May 2014 16:27:59 -0400 (EDT)
+Message-ID: <20140516.162759.1966063113769346927.davem@davemloft.net>
+References: <1400239202-10308-1-git-send-email-david.vrabel@citrix.com>
+	<20140516112157.GI18551@zion.uk.xensource.com>
+	<5375F5CC.6000000@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ariel Elior <ariel.elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: wei.liu2@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org, ian.campbell@citrix.com
+To: david.vrabel@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49087 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbaEPU2B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:28:01 -0400
+In-Reply-To: <5375F5CC.6000000@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-05-16 at 12:02 +0000, Dmitry Kravkov wrote:
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-
-> > owner@vger.kernel.org] On Behalf Of Joe Perches
-> > Sent: Friday, May 16, 2014 9:52 AM
-> > To: Ariel Elior; Dmitry Kravkov
-> > Cc: netdev; linux-kernel
-> > Subject: [PATCH] bnx2x: Convert return 0 to return rc
-> >
-> > These "return 0;" uses seem wrong as there are
-> > rc variables where error return values are set
-> > but unused.
-[]
-> Thanks Joe for catching this!
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Fri, 16 May 2014 12:26:04 +0100
+
+> Dave, can you take this instead:
 > 
-> Acked-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+> 8<--------------
+> xen-netback: fix race between napi_complete() and interrupt handler
+> 
+> When the NAPI budget was not all used, xenvif_poll() would call
+> napi_complete() /after/ enabling the interrupt.  This resulted in a
+> race between the napi_complete() and the napi_schedule() in the
+> interrupt handler.  The use of local_irq_save/restore() avoided by
+> race iff the handler is running on the same CPU but not if it was
+> running on a different CPU.
+> 
+> Fix this properly by calling napi_complete() before reenabling
+> interrupts (in the xenvif_napi_schedule_or_enable_irq() call).
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Hello Dmitry.
-
-Couple things actually:
-o Could you please update the MAINTAINER entry for
-  BNX2X?  Ariel Elior's email address is still listed
-  as @broadcom and that seems to bounce.
-
-o I found this via coccinelle actually.
-  Julia Lawall submitted a patch to remove unused
-  netdev_priv calls.  I modified that to check for
-  any expression that returns an unused value and
-  found this and many others.  There are a lot of
-  false positives though.
-
-@@
-local idexpression x;
-expression E;
-@@
--x = E;
-    ... when != x
+Applied, thanks everyone.
