@@ -1,65 +1,49 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it
- occupies too many slots
-Date: Fri, 16 May 2014 16:34:52 +0100
-Message-ID: <20140516153452.GM18551@zion.uk.xensource.com>
-References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
- <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516131145.GK18551@zion.uk.xensource.com>
- <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516143653.GL18551@zion.uk.xensource.com>
- <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH 0/4] Fix lockdep issues with stacked devices
+Date: Fri, 16 May 2014 11:36:40 -0400
+Message-ID: <1400254604-23910-1-git-send-email-vyasevic@redhat.com>
+Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
+	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:22902 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932509AbaEPPfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:35:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30942 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932283AbaEPPg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 11:36:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2014 at 08:22:19AM -0700, Eric Dumazet wrote:
-> On Fri, 2014-05-16 at 15:36 +0100, Wei Liu wrote:
-> > On Fri, May 16, 2014 at 07:21:08AM -0700, Eric Dumazet wrote:
-> > > On Fri, 2014-05-16 at 14:11 +0100, Wei Liu wrote:
-> > > 
-> > > > It's not that common to trigger this, I only saw a few reports. In fact
-> > > > Stefan's report is the first one that comes with a method to reproduce
-> > > > it.
-> > > > 
-> > > > I tested with redis-benchmark on a guest with 256MB RAM and only saw a
-> > > > few "failed to linearize", never saw a single one with 1GB guest.
-> > > 
-> > > Well, I am just saying. This is asking order-5 allocations, and yes,
-> > > this is going to fail after few days of uptime, no matter what you try.
-> > > 
-> > 
-> > Hmm... I see what you mean -- memory fragmentation leads to allocation
-> > failure. Thanks.
-> 
-> In the mean time, have you tried to lower gso_max_size ?
-> 
-> Setting it witk netif_set_gso_max_size() to something like 56000 might
-> avoid the problem.
-> 
-> (Not sure if it is applicable in your case)
-> 
+Recent commit dc8eaaa006350d24030502a4521542e74b5cb39f
+    vlan: Fix lockdep warning when vlan dev handle notification
 
-It works, at least in this Redis testcase. Could you explain a bit where
-this 56000 magic number comes from? :-)
+attempted to solve lockdep issues with vlans where multiple
+vlans were stacked.  However, the code does not work correctly
+when the vlan stack is interspersed with other devices in between
+the vlans.  Additionally, similar lockdep issues show up with other
+devices.
 
-Presumably I can derive it from some constant in core network code?
+This series provides a generic way to solve these issue for any
+devices that can be stacked.  It also addresses the concern for
+vlan and macvlan devices.  I am not sure whether it makes sense
+to do so for other types like team, vxlan, and bond.
 
-Wei.
+Thanks
+-vlad
 
-> 
+Vlad Yasevich (4):
+  net: Find the nesting level of a given device by type.
+  net: Allow for more then a single subclass for netif_addr_lock
+  vlan: Fix lockdep warning with stacked vlan devices.
+  macvlan: Fix lockdep warnings with stacked macvlan devices
+
+ drivers/net/macvlan.c      | 12 +++++++++--
+ include/linux/if_macvlan.h |  1 +
+ include/linux/if_vlan.h    |  1 +
+ include/linux/netdevice.h  | 18 +++++++++++++++-
+ net/8021q/vlan.c           |  1 +
+ net/8021q/vlan_dev.c       | 52 ++++++++--------------------------------------
+ net/core/dev.c             | 49 ++++++++++++++++++++++++++++++++++++++++++-
+ 7 files changed, 87 insertions(+), 47 deletions(-)
+
+-- 
+1.9.0
