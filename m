@@ -1,52 +1,35 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH] MAINTAINERS: Pravin Shelar is Open vSwitch maintainer.
-Date: Fri, 16 May 2014 15:57:59 -0700
-Message-ID: <1400281079-57610-1-git-send-email-jesse@nicira.com>
-Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Pravin Shelar <pshelar@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:59624 "HELO
-	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755445AbaEPW6G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 18:58:06 -0400
-Received: by mail-pa0-f49.google.com with SMTP id lj1so3101583pab.8
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 15:58:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [BUG] might sleep functions in atomic context in stmmac_resume()
+Date: Sat, 17 May 2014 03:15:54 +0400
+Message-ID: <53769C2A.8050803@ispras.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	ldv-project@linuxtesting.org
+To: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: 1384774256-10039-1-git-send-email-srinivas.kandagatla@st.com
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pravin will be maintaining Open vSwitch going forward.
+There are calls to might sleep functions in atomic context in
+stmmac_resume():
+- the first one is clk_prepare_enable(priv->stmmac_clk);
+- the second one is stmmac_hw_setup()
+-> init_dma_desc_rings()
+  -> =EF=BB=BFstmmac_init_rx_buffers()
+    -> __netdev_alloc_skb(GFP_KERNEL)
 
-CC: Pravin Shelar <pshelar@nicira.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
----
-I'll continue to be very much involved (especially with the outstanding
-patchsets). However, Pravin has been doing a significant amount of the
-work involved in maintaining OVS already in addition to his technical
-contributions so I think it makes sense to formally recognize him.
+What is the purpose of spin_lock_irqsave(&priv->lock, flags) section?
+What does it protect against?
 
-I appreciate everyone's help and support over the last few years and
-look forward to continuing with this.
----
- MAINTAINERS | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+=46ound by Linux Driver Verification project (linuxtesting.org).
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index bde15ff..eb92cd1 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -6517,10 +6517,10 @@ T:	git git://openrisc.net/~jonas/linux
- F:	arch/openrisc/
- 
- OPENVSWITCH
--M:	Jesse Gross <jesse@nicira.com>
-+M:	Pravin Shelar <pshelar@nicira.com>
- L:	dev@openvswitch.org
- W:	http://openvswitch.org
--T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git
-+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git
- S:	Maintained
- F:	net/openvswitch/
- 
--- 
-1.9.1
+--
+Alexey Khoroshilov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
