@@ -1,171 +1,97 @@
-From: Xi Wang <xii@google.com>
-Subject: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup efficiency
-Date: Fri, 16 May 2014 15:11:48 -0700
-Message-ID: <1400278308-25372-1-git-send-email-xii@google.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>, Xi Wang <xii@google.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:48296 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751766AbaEPWMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 18:12:23 -0400
-Received: by mail-vc0-f202.google.com with SMTP id hr9so946200vcb.5
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 15:12:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to
+	kernel
+Date: Fri, 16 May 2014 15:17:18 -0700
+Message-ID: <CAEP_g=9JQAqm0oMpVAK-6V-0wtqPw=cRMasJhCG1T5n-AdaLVg@mail.gmail.com>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
+ <1400195227-21265-2-git-send-email-horms@verge.net.au>
+ <20140516084809.GA18920@verge.net.au>
+ <CAEP_g=-BQJTthV3JbgiiMtCEwM+-YX_sN5VpGkiPQLUVOKP0cg@mail.gmail.com>
+ <20140516214806.GH8346@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140516214806.GH8346-FZi0V3Vbi30CUdFEqe4BF2D2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-tun_do_read always adds current thread to wait queue, even if a packet
-is ready to read. This is inefficient because both sleeper and waker
-want to acquire the wait queue spin lock when packet rate is high.
+On Fri, May 16, 2014 at 2:48 PM, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
+> On 05/16/14 at 02:29pm, Jesse Gross wrote:
+>> On Fri, May 16, 2014 at 1:48 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+>> > On Fri, May 16, 2014 at 08:07:07AM +0900, Simon Horman wrote:
+>> >> Allow datapath to recognize and extract MPLS labels into flow keys
+>> >> and execute actions which push, pop, and set labels on packets.
+>> >
+>> > [snip]
+>> >
+>> >> diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
+>> >> index b83a4c3..98b2aba 100644
+>> >> --- a/datapath/linux/compat/gso.h
+>> >> +++ b/datapath/linux/compat/gso.h
+>> >> @@ -4,6 +4,7 @@
+>> >>  #include <linux/version.h>
+>> >>  #if LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)
+>> >>
+>> >> +#include <linux/netdevice.h>
+>> >>  #include <linux/skbuff.h>
+>> >>  #include <net/protocol.h>
+>> >>
+>> >> @@ -14,6 +15,9 @@ struct ovs_gso_cb {
+>> >>       sk_buff_data_t  inner_network_header;
+>> >>       sk_buff_data_t  inner_mac_header;
+>> >>       void (*fix_segment)(struct sk_buff *);
+>> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
+>> >> +     __be16                  inner_protocol;
+>> >> +#endif
+>> >>  };
+>> >>  #define OVS_GSO_CB(skb) ((struct ovs_gso_cb *)(skb)->cb)
+>> >
+>> > Unfortunately it seems that at least for v3.11 on x86_64 the above now
+>> > results in struct ovs_gso_cb being larger than the cb field of struct
+>> > skb_buff.
+>> >
+>> > (It also seems that the call to ovs_skb_set_inner_protocol() is
+>> >  missing from push_mpls() so it is likely that GSO segmentation
+>> >  is broken.)
+>> >
+>> > I apologise for not noticing this earlier.
+>> >
+>> > One idea I had is so make inner_protocol union of some other member of
+>> > either struct ovs_gso_cb or struct ovs_skb_cb. But its not clear to me that
+>> > would fly.
+>> >
+>> > Another possibility is to simply drop compatibility for segmentation of GSO
+>> > packets that become MPLS.  But I gather that is not the preferred way for
+>> > datapath features.
+>> >
+>> > Any suggestions would be much appreciated.
+>>
+>> Argh, I didn't realize that we were completely at the limit here...
+>>
+>> This is a little nasty but for the compatibility code maybe we could
+>> make the inner offsets be 16 bits. I think this is unlikely to ever
+>> cause a problem in practice and so it might be OK for the compat code.
+>
+> We actually hit the 16bit overflow issue with collapsed TCP frames
+> on IB when the headroom grew beyond 64K. See commit 50bceae9bd
+> ''tcp: Reallocate headroom if it would overflow csum_start''
+> for additional details.
 
-We restructure the read function and use common kernel networking
-routines to handle receive, sleep and wakeup. With the change
-available packets are checked first before the reading thread is added
-to the wait queue.
+Good point, thanks.
 
-Ran performance tests with the following configuration:
+> What about keeping the mac offset 32bit and basing a 16bit net offset
+> on the mac offset. That would give 16 spare bits.
 
- - my packet generator -> tap1 -> br0 -> tap0 -> my packet consumer
- - sender pinned to one core and receiver pinned to another core
- - sender send small UDP packets (64 bytes total) as fast as it can
- - sandy bridge cores
- - throughput are receiver side goodput numbers
-
-The results are
-
-baseline: 731k pkts/sec, cpu utilization at 1.50 cpus
- changed: 783k pkts/sec, cpu utilization at 1.53 cpus
-
-The performance difference is largely determined by packet rate and
-inter-cpu communication cost. For example, if the sender and
-receiver are pinned to different cpu sockets, the results are
-
-baseline: 558k pkts/sec, cpu utilization at 1.71 cpus
- changed: 690k pkts/sec, cpu utilization at 1.67 cpus
-
-Co-authored-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Xi Wang <xii@google.com>
----
-
-Changelog since v1:
- - Added back error code. NETREG_REGISTERED behavior is different but
-   should be compatible with the previous implementation
- - Removed non essential changes
-
-
- drivers/net/tun.c | 54 ++++++++++++++++--------------------------------------
- 1 file changed, 16 insertions(+), 38 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index ee328ba..98bad1f 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -498,12 +498,12 @@ static void tun_detach_all(struct net_device *dev)
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
--		wake_up_all(&tfile->wq.wait);
-+		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 		--tun->numqueues;
- 	}
- 	list_for_each_entry(tfile, &tun->disabled, next) {
--		wake_up_all(&tfile->wq.wait);
-+		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
- 	}
- 	BUG_ON(tun->numqueues != 0);
-@@ -807,8 +807,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	/* Notify and wake up reader process */
- 	if (tfile->flags & TUN_FASYNC)
- 		kill_fasync(&tfile->fasync, SIGIO, POLL_IN);
--	wake_up_interruptible_poll(&tfile->wq.wait, POLLIN |
--				   POLLRDNORM | POLLRDBAND);
-+	tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 
- 	rcu_read_unlock();
- 	return NETDEV_TX_OK;
-@@ -965,7 +964,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
- 
- 	tun_debug(KERN_INFO, tun, "tun_chr_poll\n");
- 
--	poll_wait(file, &tfile->wq.wait, wait);
-+	poll_wait(file, sk_sleep(sk), wait);
- 
- 	if (!skb_queue_empty(&sk->sk_receive_queue))
- 		mask |= POLLIN | POLLRDNORM;
-@@ -1330,47 +1329,26 @@ done:
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 			   const struct iovec *iv, ssize_t len, int noblock)
- {
--	DECLARE_WAITQUEUE(wait, current);
- 	struct sk_buff *skb;
- 	ssize_t ret = 0;
-+	int peeked, err, off = 0;
- 
- 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
- 
--	if (unlikely(!noblock))
--		add_wait_queue(&tfile->wq.wait, &wait);
--	while (len) {
--		if (unlikely(!noblock))
--			current->state = TASK_INTERRUPTIBLE;
-+	if (!len)
-+		return ret;
- 
--		/* Read frames from the queue */
--		if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
--			if (noblock) {
--				ret = -EAGAIN;
--				break;
--			}
--			if (signal_pending(current)) {
--				ret = -ERESTARTSYS;
--				break;
--			}
--			if (tun->dev->reg_state != NETREG_REGISTERED) {
--				ret = -EIO;
--				break;
--			}
--
--			/* Nothing to read, let's sleep */
--			schedule();
--			continue;
--		}
-+	if (tun->dev->reg_state != NETREG_REGISTERED)
-+		return -EIO;
- 
-+	/* Read frames from queue */
-+	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
-+				  &peeked, &off, &err);
-+	if (skb) {
- 		ret = tun_put_user(tun, tfile, skb, iv, len);
- 		kfree_skb(skb);
--		break;
--	}
--
--	if (unlikely(!noblock)) {
--		current->state = TASK_RUNNING;
--		remove_wait_queue(&tfile->wq.wait, &wait);
--	}
-+	} else
-+		ret = err;
- 
- 	return ret;
- }
-@@ -2199,8 +2177,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	tfile->flags = 0;
- 	tfile->ifindex = 0;
- 
--	rcu_assign_pointer(tfile->socket.wq, &tfile->wq);
- 	init_waitqueue_head(&tfile->wq.wait);
-+	RCU_INIT_POINTER(tfile->socket.wq, &tfile->wq);
- 
- 	tfile->socket.file = file;
- 	tfile->socket.ops = &tun_socket_ops;
--- 
-1.9.1.423.g4596e3a
+I think that could work since we always set both at the same time.
