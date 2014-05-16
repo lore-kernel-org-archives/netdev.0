@@ -1,11 +1,14 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] ehea: Introduce the use of the managed version of kzalloc
-Date: Fri, 16 May 2014 23:37:25 +0530
-Message-ID: <20140516180725.GA12976@himangi-Dell>
+Subject: [PATCH] ieee802154: Introduce the use of the managed version of
+ kzalloc
+Date: Fri, 16 May 2014 23:39:35 +0530
+Message-ID: <20140516180935.GA13004@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: julia.lawall@lip6.fr
-To: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -52,39 +55,38 @@ removefn(...) {
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
-Not compile tested due to incompatible architecture.
+ drivers/net/ieee802154/fakelb.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
- drivers/net/ethernet/ibm/ehea/ehea_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-index 538903b..4dda3d1 100644
---- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -3273,7 +3273,7 @@ static int ehea_probe_adapter(struct platform_device *dev)
- 		return -EINVAL;
- 	}
+diff --git a/drivers/net/ieee802154/fakelb.c b/drivers/net/ieee802154/fakelb.c
+index b8d2217..0bddcde 100644
+--- a/drivers/net/ieee802154/fakelb.c
++++ b/drivers/net/ieee802154/fakelb.c
+@@ -228,7 +228,8 @@ static int fakelb_probe(struct platform_device *pdev)
+ 	int err = -ENOMEM;
+ 	int i;
  
--	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
-+	adapter = devm_kzalloc(&dev->dev, sizeof(*adapter), GFP_KERNEL);
- 	if (!adapter) {
- 		ret = -ENOMEM;
- 		dev_err(&dev->dev, "no mem for ehea_adapter\n");
-@@ -3359,7 +3359,6 @@ out_kill_eq:
+-	priv = kzalloc(sizeof(struct fakelb_priv), GFP_KERNEL);
++	priv = devm_kzalloc(&pdev->dev, sizeof(struct fakelb_priv),
++			    GFP_KERNEL);
+ 	if (!priv)
+ 		goto err_alloc;
  
- out_free_ad:
- 	list_del(&adapter->list);
--	kfree(adapter);
+@@ -248,7 +249,6 @@ static int fakelb_probe(struct platform_device *pdev)
+ err_slave:
+ 	list_for_each_entry(dp, &priv->list, list)
+ 		fakelb_del(dp);
+-	kfree(priv);
+ err_alloc:
+ 	return err;
+ }
+@@ -260,7 +260,6 @@ static int fakelb_remove(struct platform_device *pdev)
  
- out:
- 	ehea_update_firmware_handles();
-@@ -3386,7 +3385,6 @@ static int ehea_remove(struct platform_device *dev)
- 	ehea_destroy_eq(adapter->neq);
- 	ehea_remove_adapter_mr(adapter);
- 	list_del(&adapter->list);
--	kfree(adapter);
+ 	list_for_each_entry_safe(dp, temp, &priv->list, list)
+ 		fakelb_del(dp);
+-	kfree(priv);
  
- 	ehea_update_firmware_handles();
- 
+ 	return 0;
+ }
 -- 
 1.9.1
