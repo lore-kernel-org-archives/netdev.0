@@ -1,71 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
- Sanitize skb before it enters the IP stack)
-Date: Fri, 16 May 2014 08:19:59 -0700
-Message-ID: <1400253599.7973.181.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <536F8C0F.4090206@davidnewall.com>
-	,<5370CB47.4010400@davidnewall.com>
-	 <DUB123-W514EA0A4A29F520778F2FFED350@phx.gbl>
-	 <53715D67.8020803@davidnewall.com> <53736ACC.9010902@davidnewall.com>
-	 <537621AC.1060409@davidnewall.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
+ uninitialized
+Date: Fri, 16 May 2014 16:20:35 +0100
+Message-ID: <20140516152035.GE8346@casper.infradead.org>
+References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
+ <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
+ <53761286.2040505@candelatech.com>
+ <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140516145032.GD8346@casper.infradead.org>
+ <1400252935.7973.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Lukas Tribus <luky-37@hotmail.com>,
-	Netdev <netdev@vger.kernel.org>, "fw@strlen.de" <fw@strlen.de>
-To: David Newall <davidn@davidnewall.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:55855 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755757AbaEPPUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:20:03 -0400
-Received: by mail-pa0-f45.google.com with SMTP id ey11so2689935pad.18
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 08:20:02 -0700 (PDT)
-In-Reply-To: <537621AC.1060409@davidnewall.com>
+Received: from casper.infradead.org ([85.118.1.10]:40157 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757134AbaEPPUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 11:20:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1400252935.7973.176.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-05-17 at 00:03 +0930, David Newall wrote:
-> We should revert commit 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge 
-> : Sanitize skb before it enters the IP stack) because it corrupts IP 
-> packets with RR or TS options set, only partially updating the IP header 
-> and leaving an incorrect checksum.
+On 05/16/14 at 08:08am, Eric Dumazet wrote:
+> On Fri, 2014-05-16 at 15:50 +0100, Thomas Graf wrote:
+> > On 05/16/14 at 07:23am, Eric Dumazet wrote:
+> > > pktgen has already a way to send fragments which are not memset for
+> > > every packet. We share a 'zero' page for that.
+> > > 
+> > > So only headers need to be really built for each packet.
+> > 
+> > Right, F_NOINIT is exclusively for cases where a linear buffer is
+> > desired. I don't fully understand the argument of exposing kernel
+> > memory as root considering the presence of /dev/mem though.
+> > 
+> > That said, I understand that this is a special case and that the
+> > objective is reachable with non linear skbs already so I'm fine
+> > with ignoring this patch and have it linger outside of the tree for
+> > whoever has use for it.
 > 
-> The argument for introducing the change is at lkml.org/lkml/2010/8/30/391:
+> Note that if you really want to save cpu cycles, you might simply avoid
+> kfree_skb()/alloc_skb() pair, and reuse the previous skb.
 > 
-> The bridge layer can overwrite the IPCB using the
-> BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,
-> if we recieve a packet greater in size than the bridge
-> device MTU, we call ip_fragment which in turn will lead to
-> icmp_send calling ip_options_echo if the DF flag is set.
-> ip_options_echo will then incorrectly try to parse the IPCB as
-> IP options resulting in a buffer overflow.
-> This change refills the CB area back with IP
-> options before ip_fragment calls icmp_send. If we fail parsing,
-> we zero out the IPCB area to guarantee that the stack does
-> not get corrupted.
+> Yes, pktgen can vary the skb->len, but this doesn't mean we can
+> allocate/reserve a big skb->head. Then the cost of initial memset() for
+> this skb is peanuts.
 > 
-> A bridge should not fragment packets; an *ethernet* bridge should not 
-> need to.  Fragmenting packets is the job of higher level protocol.
-> 
-> --- br_netfilter.c	2014-01-20 13:10:07.000000000 +1030
-> +++ br_netfilter.c.prop	2014-05-16 23:07:57.975386905 +0930
+> Synch with Jesper because he is trying to save the atomic on skb->users.
 
-
-Is this meant to be an official patch ?
-
-Please 
-
-1) CC patch author (Bandan Das <bandan.das@stratus.com>) so he has a way
-to comment if he no longer follows netdev ?
-
-2) Read Documentation/SubmittingPatches 
-
->   	return NF_STOLEN;
-> +
-> +inhdr_error:
-> +//      IP_INC_STATS_BH(IpInHdrErrors);
-
-Don't leave this // 
-
-Thanks
+I'm aware of the work and I agree. That is perfectly fine if the
+produced skbs do not get enqueued and modified. Otherwise the clone
+and COW will undo the gain again. I need pktgen to produce large,
+linear skbs with a unique flow for each individual packet. Hence this
+optimization ;-)
