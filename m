@@ -1,40 +1,60 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it
- occupies too many slots
-Date: Fri, 16 May 2014 07:21:08 -0700
-Message-ID: <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
-	 <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140516131145.GK18551@zion.uk.xensource.com>
+Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
+ uninitialized
+Date: Fri, 16 May 2014 07:23:23 -0700
+Message-ID: <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
+	 <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53761286.2040505@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:34245 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754594AbaEPOVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:21:11 -0400
-Received: by mail-pb0-f54.google.com with SMTP id jt11so2685551pbb.27
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 07:21:10 -0700 (PDT)
-In-Reply-To: <20140516131145.GK18551@zion.uk.xensource.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:48891 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913AbaEPOX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:23:26 -0400
+Received: by mail-pb0-f48.google.com with SMTP id rr13so2671401pbb.35
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 07:23:25 -0700 (PDT)
+In-Reply-To: <53761286.2040505@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-05-16 at 14:11 +0100, Wei Liu wrote:
-
-> It's not that common to trigger this, I only saw a few reports. In fact
-> Stefan's report is the first one that comes with a method to reproduce
-> it.
+On Fri, 2014-05-16 at 06:28 -0700, Ben Greear wrote:
 > 
-> I tested with redis-benchmark on a guest with 256MB RAM and only saw a
-> few "failed to linearize", never saw a single one with 1GB guest.
+> On 05/16/2014 06:16 AM, Eric Dumazet wrote:
+> > On Fri, 2014-05-16 at 12:34 +0200, Thomas Graf wrote:
+> >> The memset() on the packet data is expensive and severely limiting
+> >> the pps throughput for large frame sizes.
+> >>
+> >> Considering that pktgen requires root privileges to run it is safe
+> >> to introduce an option to optionally avoid the memset() and leave
+> >> the packet data uninitialized.
+> >>
+> >> VM test results, 2 VCPU, 2 threads, pkt_size=9K:
+> >>
+> >>      12.44%  -11.15%  [kernel.kallsyms]   [k] memset
+> >>       4.84%   +1.58%  [kernel.kallsyms]   [k] get_page_from_freelist
+> >>
+> >> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >> ---
+> >>   Documentation/networking/pktgen.txt |  3 +++
+> >>   net/core/pktgen.c                   | 16 ++++++++++++++--
+> >>   2 files changed, 17 insertions(+), 2 deletions(-)
+> >
+> > We do not want to leak content of memory, even if 'root' is willing to.
+> >
+> > Sorry, you need to do something else if you really care.
+> 
+> Is there currently no other way for root to grab memory contents and
+> send them over the network?
+> 
+> I mean, it could load it's own module and do bad things if nothing else?
 
-Well, I am just saying. This is asking order-5 allocations, and yes,
-this is going to fail after few days of uptime, no matter what you try.
+pktgen has already a way to send fragments which are not memset for
+every packet. We share a 'zero' page for that.
+
+So only headers need to be really built for each packet.
