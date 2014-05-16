@@ -1,70 +1,39 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
-Date: Fri, 16 May 2014 22:46:47 +0200
-Message-ID: <20140516224647.1a76edac@free-electrons.com>
-References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<CAGVrzca7xi4_sGgF0FyFcM0Zo3-mMENP0-aoU=qoV9qshxNzsw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: Add support for device specific address
+ syncing
+Date: Fri, 16 May 2014 16:47:28 -0400 (EDT)
+Message-ID: <20140516.164728.2297526772904518777.davem@davemloft.net>
+References: <53765D5D.9040207@intel.com>
+	<20140516.150115.1106293449904617860.davem@davemloft.net>
+	<53766D3E.4080904@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jpirko@redhat.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:43062 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751670AbaEPUqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:46:51 -0400
-In-Reply-To: <CAGVrzca7xi4_sGgF0FyFcM0Zo3-mMENP0-aoU=qoV9qshxNzsw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670AbaEPUra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:47:30 -0400
+In-Reply-To: <53766D3E.4080904@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Florian Fainelli,
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 16 May 2014 12:55:42 -0700
 
-On Fri, 16 May 2014 11:27:36 -0700, Florian Fainelli wrote:
+> I can understand going into promisc on a sync failure, but why would you
+> do it on an unsync failure, or are you saying that we would be clearing
+> the flag in unsync?
 
-> > Here is a fourth version of the patch set that adds a Device Tree
-> > binding and the related code to support fixed PHYs. I'm hoping to get
-> > this merged in 3.16.
-> 
-> Thanks for being persistent on this and coming back with these
-> patches, that is really appreciated.
-> 
-> I gave this patch set a try on a brcmstb system with SYSTEMPORT and my
-> latest changes to net/dsa/ to allow for different PHY setups to be
-> used with the SoC integrated switch. This switch has a mix of fixed
-> and real PHYs. This works like a charm, so long as you consistently
-> use the "new" functions, and not the old ones, which is totally
-> expected. This is excellent work!
+We should clear the promisc flag on unsync if the limitations are no
+longer exceeded.
 
-Thanks a lot for your review and testing.
+> In general I intended for this to be called in set_rx_mode so if
+> __dev_uc_sync returns an error indicating insufficient resources we have
+> to force IFF_PROMISC on because adding a new address failed.  We could
+> also do the same thing for __dev_mc_sync and IFF_ALLMULTI.
 
-> As we discussed offline, I think we need to progressively get rid of
-> of_phy_connect_fixed() to avoid having to debug situations where the
-> old 'fixed-link' property used some sparse addressing scheme, which is
-> now incompatible with the dynamic address allocation scheme.
-
-Yes, agreed. As we discussed, my plan is to send a followup patch
-series to fix the users of the old API to finally remove it. But I'd
-like to do this once this series gets accepted and applied.
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Right.
