@@ -1,60 +1,205 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pktgen: Add NOINIT option to leave packet data
- uninitialized
-Date: Fri, 16 May 2014 07:23:23 -0700
-Message-ID: <1400250203.7973.173.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <01eda9d1e9de457f72e0b48e22633c05cca5146f.1400236390.git.tgraf@suug.ch>
-	 <1400246202.7973.163.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53761286.2040505@candelatech.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
+ skb before it enters the IP stack)
+Date: Sat, 17 May 2014 00:03:16 +0930
+Message-ID: <537621AC.1060409@davidnewall.com>
+References: <536F8C0F.4090206@davidnewall.com>,<5370CB47.4010400@davidnewall.com> <DUB123-W514EA0A4A29F520778F2FFED350@phx.gbl> <53715D67.8020803@davidnewall.com> <53736ACC.9010902@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Cc: "fw@strlen.de" <fw@strlen.de>
+To: Lukas Tribus <luky-37@hotmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:48891 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913AbaEPOX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:23:26 -0400
-Received: by mail-pb0-f48.google.com with SMTP id rr13so2671401pbb.35
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 07:23:25 -0700 (PDT)
-In-Reply-To: <53761286.2040505@candelatech.com>
+Received: from hawking.rebel.net.au ([203.20.69.83]:35517 "EHLO
+	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754381AbaEPOd0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 10:33:26 -0400
+In-Reply-To: <53736ACC.9010902@davidnewall.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-05-16 at 06:28 -0700, Ben Greear wrote:
-> 
-> On 05/16/2014 06:16 AM, Eric Dumazet wrote:
-> > On Fri, 2014-05-16 at 12:34 +0200, Thomas Graf wrote:
-> >> The memset() on the packet data is expensive and severely limiting
-> >> the pps throughput for large frame sizes.
-> >>
-> >> Considering that pktgen requires root privileges to run it is safe
-> >> to introduce an option to optionally avoid the memset() and leave
-> >> the packet data uninitialized.
-> >>
-> >> VM test results, 2 VCPU, 2 threads, pkt_size=9K:
-> >>
-> >>      12.44%  -11.15%  [kernel.kallsyms]   [k] memset
-> >>       4.84%   +1.58%  [kernel.kallsyms]   [k] get_page_from_freelist
-> >>
-> >> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> >> ---
-> >>   Documentation/networking/pktgen.txt |  3 +++
-> >>   net/core/pktgen.c                   | 16 ++++++++++++++--
-> >>   2 files changed, 17 insertions(+), 2 deletions(-)
-> >
-> > We do not want to leak content of memory, even if 'root' is willing to.
-> >
-> > Sorry, you need to do something else if you really care.
-> 
-> Is there currently no other way for root to grab memory contents and
-> send them over the network?
-> 
-> I mean, it could load it's own module and do bad things if nothing else?
+We should revert commit 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge 
+: Sanitize skb before it enters the IP stack) because it corrupts IP 
+packets with RR or TS options set, only partially updating the IP header 
+and leaving an incorrect checksum.
 
-pktgen has already a way to send fragments which are not memset for
-every packet. We share a 'zero' page for that.
+The argument for introducing the change is at lkml.org/lkml/2010/8/30/391:
 
-So only headers need to be really built for each packet.
+The bridge layer can overwrite the IPCB using the
+BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,
+if we recieve a packet greater in size than the bridge
+device MTU, we call ip_fragment which in turn will lead to
+icmp_send calling ip_options_echo if the DF flag is set.
+ip_options_echo will then incorrectly try to parse the IPCB as
+IP options resulting in a buffer overflow.
+This change refills the CB area back with IP
+options before ip_fragment calls icmp_send. If we fail parsing,
+we zero out the IPCB area to guarantee that the stack does
+not get corrupted.
+
+A bridge should not fragment packets; an *ethernet* bridge should not 
+need to.  Fragmenting packets is the job of higher level protocol.
+
+--- br_netfilter.c	2014-01-20 13:10:07.000000000 +1030
++++ br_netfilter.c.prop	2014-05-16 23:07:57.975386905 +0930
+@@ -253,73 +253,6 @@
+  		skb->protocol = htons(ETH_P_PPP_SES);
+  }
+  
+-/* When handing a packet over to the IP layer
+- * check whether we have a skb that is in the
+- * expected format
+- */
+-
+-static int br_parse_ip_options(struct sk_buff *skb)
+-{
+-	struct ip_options *opt;
+-	const struct iphdr *iph;
+-	struct net_device *dev = skb->dev;
+-	u32 len;
+-
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-		goto inhdr_error;
+-
+-	iph = ip_hdr(skb);
+-	opt = &(IPCB(skb)->opt);
+-
+-	/* Basic sanity checks */
+-	if (iph->ihl < 5 || iph->version != 4)
+-		goto inhdr_error;
+-
+-	if (!pskb_may_pull(skb, iph->ihl*4))
+-		goto inhdr_error;
+-
+-	iph = ip_hdr(skb);
+-	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+-		goto inhdr_error;
+-
+-	len = ntohs(iph->tot_len);
+-	if (skb->len < len) {
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
+-		goto drop;
+-	} else if (len < (iph->ihl*4))
+-		goto inhdr_error;
+-
+-	if (pskb_trim_rcsum(skb, len)) {
+-		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
+-		goto drop;
+-	}
+-
+-	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+-	if (iph->ihl == 5)
+-		return 0;
+-
+-	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
+-	if (ip_options_compile(dev_net(dev), opt, skb))
+-		goto inhdr_error;
+-
+-	/* Check correct handling of SRR option */
+-	if (unlikely(opt->srr)) {
+-		struct in_device *in_dev = __in_dev_get_rcu(dev);
+-		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
+-			goto drop;
+-
+-		if (ip_options_rcv_srr(skb))
+-			goto drop;
+-	}
+-
+-	return 0;
+-
+-inhdr_error:
+-	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
+-drop:
+-	return -1;
+-}
+-
+  /* Fill in the header for fragmented IP packets handled by
+   * the IPv4 connection tracking code.
+   */
+@@ -679,6 +612,7 @@
+  {
+  	struct net_bridge_port *p;
+  	struct net_bridge *br;
++	const struct iphdr *iph;
+  	__u32 len = nf_bridge_encap_header_len(skb);
+  
+  	if (unlikely(!pskb_may_pull(skb, len)))
+@@ -704,9 +638,29 @@
+  		return NF_ACCEPT;
+  
+  	nf_bridge_pull_encap_header_rcsum(skb);
++
++	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++		goto inhdr_error;
+  
+-	if (br_parse_ip_options(skb))
+-		return NF_DROP;
++	iph = ip_hdr(skb);
++	if (iph->ihl < 5 || iph->version != 4)
++		goto inhdr_error;
++
++	if (!pskb_may_pull(skb, 4 * iph->ihl))
++		goto inhdr_error;
++
++	iph = ip_hdr(skb);
++	if (ip_fast_csum((__u8 *) iph, iph->ihl) != 0)
++		goto inhdr_error;
++
++	len = ntohs(iph->tot_len);
++	if (skb->len < len || len < 4 * iph->ihl)
++		goto inhdr_error;
++
++	pskb_trim_rcsum(skb, len);
++
++	/* BUG: Should really parse the IP options here. */
++	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+  
+  	nf_bridge_put(skb->nf_bridge);
+  	if (!nf_bridge_alloc(skb))
+@@ -720,6 +674,10 @@
+  		br_nf_pre_routing_finish);
+  
+  	return NF_STOLEN;
++
++inhdr_error:
++//      IP_INC_STATS_BH(IpInHdrErrors);
++	return NF_DROP;
+  }
+  
+  
+@@ -806,9 +764,6 @@
+  		nf_bridge->mask |= BRNF_PKT_TYPE;
+  	}
+  
+-	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
+-		return NF_DROP;
+-
+  	/* The physdev module checks on this */
+  	nf_bridge->mask |= BRNF_BRIDGED;
+  	nf_bridge->physoutdev = skb->dev;
+@@ -862,19 +817,14 @@
+  #if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
+  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+  {
+-	int ret;
+-
+  	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
+  	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
+  	    !skb_is_gso(skb)) {
+-		if (br_parse_ip_options(skb))
+-			/* Drop invalid packet */
+-			return NF_DROP;
+-		ret = ip_fragment(skb, br_dev_queue_push_xmit);
++		/* BUG: Should really parse the IP options here. */
++		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
++		return ip_fragment(skb, br_dev_queue_push_xmit);
+  	} else
+-		ret = br_dev_queue_push_xmit(skb);
+-
+-	return ret;
++		return br_dev_queue_push_xmit(skb);
+  }
+  #else
+  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
