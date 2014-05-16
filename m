@@ -1,102 +1,108 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v3 net-next 0/6] Non-promisc bidge ports support
-Date: Fri, 16 May 2014 09:59:14 -0400
-Message-ID: <1400248760-20672-1-git-send-email-vyasevic@redhat.com>
-Cc: john.r.fastabend@intel.com, Vlad Yasevich <vyasevic@redhat.com>,
-	shemminger@vyatta.com, bridge@lists.linux-foundation.org, mst@redhat.com
+Subject: [PATCH v3 net-next 3/6] bridge: Add functionality to sync static fdb entries to hw
+Date: Fri, 16 May 2014 09:59:17 -0400
+Message-ID: <1400248760-20672-4-git-send-email-vyasevic@redhat.com>
+References: <1400248760-20672-1-git-send-email-vyasevic@redhat.com>
+Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
+	mst@redhat.com, john.r.fastabend@intel.com,
+	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44374 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932684AbaEPN7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 09:59:30 -0400
+In-Reply-To: <1400248760-20672-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series adds functionality to the bridge device to enable
-operations without setting all ports to promiscuous mode.
+Add code that allows static fdb entires to be synced to the
+hw list for a specified port.  This will be used later to
+program ports that can function in non-promiscuous mode.
 
-The basic concept is this.  The bridge keeps track of the ports
-that support learning and flooding packets to unknown destinations.
-We call these ports auto-discovery ports since they automatically
-discover who is behind them through learning and flooding.  
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_fdb.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h |  2 ++
+ 2 files changed, 58 insertions(+)
 
-If flooding and learning are disabled via flags, then the port
-requires static configuration to tell it which mac addresses
-are behind it.  This is accomplished through adding of fdbs.
-These fdbs should be static as dynamic fdbs can expire and systems
-will become unreachable due to lack of flooding.
-
-If the user marks all ports as needing static configuration then
-we can safely make them non-promiscuous since we will know all the
-information about them.
-
-If the user leaves only 1 port as automatic, then we can mark
-that port as not-promiscuous as well.  One could think of
-this a edge relay similar to what's support by embedded switches
-in SRIOV devices.  Since we have all the information about the
-other ports, we can just program the mac addresses into the
-single automatic port to receive all necessary traffic.
-More information about this is patch 6.
-
-In other cases, we keep all ports promiscuous as before.
-
-There are some other cases when promiscuous mode has to be turned
-back on.  One is when the bridge itself if placed in promiscuous
-mode (user sets promisc flag).  The other is if vlan filtering is
-turned off.  Since this is the default configuration, the default
-bridge operation is not changed.
-
-Changes since v2:
- - White space and spelling fixes from Michael Tsirkin
- - Squash patches 6, 7 and 8 to prevent bisect breakage.
-
-Changes since v1:
- - Address issues rasied by Stephen Heminger
- - Address initializer comments raised by Sergey Shtylyov
- - Rebased recent net-next.
-
-Changes since rfc v2:
- - Better description of in the commit logs
- - Leave port in promiscuous mode if IFF_UNICAST_FLT is disabled on the
-   device.
- - Fix issue with flag masking
- - Rework patch ordering a bit.
-
-Changes since rfc v1:
- - Removed private list.  We now traverse the fdb hashtable itself
-   to write necessary addresses to the ports (Stephen's concern)
- - Add learning flag to the mask for flags that decides if the port
-   is 'auto' or not (suggest by MST and Jamal).
- - Simplified tracking of such ports at the cost of a loop over all
-   ports (suggested by MST)
-
-I've played with quite a large number of ports and the current approach
-seems to work fairly well.
-
-Thanks
--vlad
-
-Vlad Yasevich (6):
-  bridge: Turn flag change macro into a function.
-  bridge: Keep track of ports capable of automatic discovery.
-  bridge: Add functionality to sync static fdb entries to hw
-  bridge: Introduce BR_PROMISC flag
-  bridge: Add addresses from static fdbs to non-promisc ports
-  bridge: Automatically manage port promiscuous mode.
-
- net/bridge/br_device.c   |   7 +++
- net/bridge/br_fdb.c      | 131 ++++++++++++++++++++++++++++++++++++++++++++---
- net/bridge/br_if.c       | 123 ++++++++++++++++++++++++++++++++++++++++++--
- net/bridge/br_netlink.c  |   3 ++
- net/bridge/br_private.h  |  19 +++++++
- net/bridge/br_sysfs_if.c |  30 +++++++----
- net/bridge/br_vlan.c     |   1 +
- 7 files changed, 294 insertions(+), 20 deletions(-)
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 9203d5a..fe124e5 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -874,3 +874,59 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ out:
+ 	return err;
+ }
++
++int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p)
++{
++	struct net_bridge_fdb_entry *fdb, *tmp;
++	int i;
++	int err;
++
++	ASSERT_RTNL();
++
++	for (i = 0; i < BR_HASH_SIZE; i++) {
++		hlist_for_each_entry(fdb, &br->hash[i], hlist) {
++			/* We only care for static entries */
++			if (!fdb->is_static)
++				continue;
++
++			err = dev_uc_add(p->dev, fdb->addr.addr);
++			if (err)
++				goto rollback;
++		}
++	}
++	return 0;
++
++rollback:
++	for (i = 0; i < BR_HASH_SIZE; i++) {
++		hlist_for_each_entry(tmp, &br->hash[i], hlist) {
++			/* If we reached the fdb that failed, we can stop */
++			if (tmp == fdb)
++				break;
++
++			/* We only care for static entries */
++			if (!tmp->is_static)
++				continue;
++
++			dev_uc_del(p->dev, tmp->addr.addr);
++		}
++	}
++	return err;
++}
++
++void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p)
++{
++	struct net_bridge_fdb_entry *fdb;
++	int i;
++
++	ASSERT_RTNL();
++
++	for (i = 0; i < BR_HASH_SIZE; i++) {
++		hlist_for_each_entry_rcu(fdb, &br->hash[i], hlist) {
++			/* We only care for static entries */
++			if (!fdb->is_static)
++				continue;
++
++			dev_uc_del(p->dev, fdb->addr.addr);
++		}
++	}
++}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 5ce3191..c0a804b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -399,6 +399,8 @@ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
+ 	       const unsigned char *addr, u16 nlh_flags);
+ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		struct net_device *dev, int idx);
++int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
++void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
+ 
+ /* br_forward.c */
+ void br_deliver(const struct net_bridge_port *to, struct sk_buff *skb);
 -- 
 1.9.0
