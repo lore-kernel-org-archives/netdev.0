@@ -1,33 +1,25 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Fri, 16 May 2014 17:22:07 -0400 (EDT)
-Message-ID: <20140516.172207.2238722405000266414.davem@davemloft.net>
-References: <1400274459-56304-1-git-send-email-jesse@nicira.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] 802154: implement link-layer security
+Date: Fri, 16 May 2014 17:24:14 -0400 (EDT)
+Message-ID: <20140516.172414.1819188963436749434.davem@davemloft.net>
+References: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1400274459-56304-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net
+To: phoebe.buckheister@itwm.fraunhofer.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49603 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbaEPVYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 17:24:17 -0400
+In-Reply-To: <1400255205-9031-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 16 May 2014 14:07:27 -0700
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Date: Fri, 16 May 2014 17:46:34 +0200
 
-> A set of OVS changes for net-next/3.16.
-> 
-> The major change here is a switch from per-CPU to per-NUMA flow
-> statistics. This improves scalability by reducing kernel overhead
-> in flow setup and maintenance.
+> This patch series implements 802.15.4-2011 link layer security.
 
-Pulled, thanks Jesse.
+Series applied, thank you.
