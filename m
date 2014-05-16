@@ -1,13 +1,12 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 08/12] openvswitch: Remove 5-tuple
-	optimization.
-Date: Fri, 16 May 2014 14:07:35 -0700
-Message-ID: <1400274459-56304-9-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 07/12] openvswitch: Use ether_addr_copy
+Date: Fri, 16 May 2014 14:07:34 -0700
+Message-ID: <1400274459-56304-8-git-send-email-jesse@nicira.com>
 References: <1400274459-56304-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 In-Reply-To: <1400274459-56304-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
@@ -22,384 +21,114 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-The 5-tuple optimization becomes unnecessary with a later per-NUMA
-node stats patch.  Remove it first to make the changes easier to
-grasp.
+It's slightly smaller/faster for some architectures.
 
-Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c     | 11 ++++----
- net/openvswitch/flow.c         | 32 +++++++++--------------
- net/openvswitch/flow.h         | 10 +-------
- net/openvswitch/flow_netlink.c | 58 +++---------------------------------------
- net/openvswitch/flow_netlink.h |  1 -
- net/openvswitch/flow_table.c   | 31 +++++++---------------
- net/openvswitch/flow_table.h   |  2 +-
- 7 files changed, 32 insertions(+), 113 deletions(-)
+ net/openvswitch/actions.c      |  4 ++--
+ net/openvswitch/flow.c         | 16 ++++++++--------
+ net/openvswitch/flow_netlink.c | 12 ++++++------
+ 3 files changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index a3276e3..8867d7e 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -524,7 +524,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 		packet->protocol = htons(ETH_P_802_2);
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 2c77e7b..c36856a 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -134,8 +134,8 @@ static int set_eth_addr(struct sk_buff *skb,
  
- 	/* Build an sw_flow for sending this packet. */
--	flow = ovs_flow_alloc(false);
-+	flow = ovs_flow_alloc();
- 	err = PTR_ERR(flow);
- 	if (IS_ERR(flow))
- 		goto err_kfree_skb;
-@@ -782,7 +782,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 	struct datapath *dp;
- 	struct sw_flow_actions *acts = NULL;
- 	struct sw_flow_match match;
--	bool exact_5tuple;
- 	int error;
+ 	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
  
- 	/* Extract key. */
-@@ -791,7 +790,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		goto error;
+-	memcpy(eth_hdr(skb)->h_source, eth_key->eth_src, ETH_ALEN);
+-	memcpy(eth_hdr(skb)->h_dest, eth_key->eth_dst, ETH_ALEN);
++	ether_addr_copy(eth_hdr(skb)->h_source, eth_key->eth_src);
++	ether_addr_copy(eth_hdr(skb)->h_dest, eth_key->eth_dst);
  
- 	ovs_match_init(&match, &key, &mask);
--	error = ovs_nla_get_match(&match, &exact_5tuple,
-+	error = ovs_nla_get_match(&match,
- 				  a[OVS_FLOW_ATTR_KEY], a[OVS_FLOW_ATTR_MASK]);
- 	if (error)
- 		goto error;
-@@ -830,7 +829,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			goto err_unlock_ovs;
- 
- 		/* Allocate flow. */
--		flow = ovs_flow_alloc(!exact_5tuple);
-+		flow = ovs_flow_alloc();
- 		if (IS_ERR(flow)) {
- 			error = PTR_ERR(flow);
- 			goto err_unlock_ovs;
-@@ -914,7 +913,7 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	}
- 
- 	ovs_match_init(&match, &key, NULL);
--	err = ovs_nla_get_match(&match, NULL, a[OVS_FLOW_ATTR_KEY], NULL);
-+	err = ovs_nla_get_match(&match, a[OVS_FLOW_ATTR_KEY], NULL);
- 	if (err)
- 		return err;
- 
-@@ -968,7 +967,7 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 	}
- 
- 	ovs_match_init(&match, &key, NULL);
--	err = ovs_nla_get_match(&match, NULL, a[OVS_FLOW_ATTR_KEY], NULL);
-+	err = ovs_nla_get_match(&match, a[OVS_FLOW_ATTR_KEY], NULL);
- 	if (err)
- 		goto unlock;
+ 	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
  
 diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 332aa01..aad7a8d 100644
+index 2998989..332aa01 100644
 --- a/net/openvswitch/flow.c
 +++ b/net/openvswitch/flow.c
-@@ -66,10 +66,7 @@ void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
- 	struct flow_stats *stats;
- 	__be16 tcp_flags = 0;
+@@ -372,14 +372,14 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
+ 			    && opt_len == 8) {
+ 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
+ 					goto invalid;
+-				memcpy(key->ipv6.nd.sll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++				ether_addr_copy(key->ipv6.nd.sll,
++						&nd->opt[offset+sizeof(*nd_opt)]);
+ 			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
+ 				   && opt_len == 8) {
+ 				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
+ 					goto invalid;
+-				memcpy(key->ipv6.nd.tll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++				ether_addr_copy(key->ipv6.nd.tll,
++						&nd->opt[offset+sizeof(*nd_opt)]);
+ 			}
  
--	if (!flow->stats.is_percpu)
--		stats = flow->stats.stat;
--	else
--		stats = this_cpu_ptr(flow->stats.cpu_stats);
-+	stats = this_cpu_ptr(flow->stats);
+ 			icmp_len -= opt_len;
+@@ -439,8 +439,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
+ 	 * header in the linear data area.
+ 	 */
+ 	eth = eth_hdr(skb);
+-	memcpy(key->eth.src, eth->h_source, ETH_ALEN);
+-	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
++	ether_addr_copy(key->eth.src, eth->h_source);
++	ether_addr_copy(key->eth.dst, eth->h_dest);
  
- 	if ((flow->key.eth.type == htons(ETH_P_IP) ||
- 	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
-@@ -110,16 +107,14 @@ void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
- 	memset(ovs_stats, 0, sizeof(*ovs_stats));
- 
- 	local_bh_disable();
--	if (!flow->stats.is_percpu) {
--		stats_read(flow->stats.stat, ovs_stats, used, tcp_flags);
--	} else {
--		for_each_possible_cpu(cpu) {
--			struct flow_stats *stats;
--
--			stats = per_cpu_ptr(flow->stats.cpu_stats, cpu);
--			stats_read(stats, ovs_stats, used, tcp_flags);
--		}
-+
-+	for_each_possible_cpu(cpu) {
-+		struct flow_stats *stats;
-+
-+		stats = per_cpu_ptr(flow->stats.cpu_stats, cpu);
-+		stats_read(stats, ovs_stats, used, tcp_flags);
- 	}
-+
- 	local_bh_enable();
- }
- 
-@@ -138,13 +133,10 @@ void ovs_flow_stats_clear(struct sw_flow *flow)
- 	int cpu;
- 
- 	local_bh_disable();
--	if (!flow->stats.is_percpu) {
--		stats_reset(flow->stats.stat);
--	} else {
--		for_each_possible_cpu(cpu) {
--			stats_reset(per_cpu_ptr(flow->stats.cpu_stats, cpu));
--		}
--	}
-+
-+	for_each_possible_cpu(cpu)
-+		stats_reset(per_cpu_ptr(flow->stats, cpu));
-+
- 	local_bh_enable();
- }
- 
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 2d770e2..9c0dd8a 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -155,14 +155,6 @@ struct flow_stats {
- 	__be16 tcp_flags;		/* Union of seen TCP flags. */
- };
- 
--struct sw_flow_stats {
--	bool is_percpu;
--	union {
--		struct flow_stats *stat;
--		struct flow_stats __percpu *cpu_stats;
--	};
--};
--
- struct sw_flow {
- 	struct rcu_head rcu;
- 	struct hlist_node hash_node[2];
-@@ -172,7 +164,7 @@ struct sw_flow {
- 	struct sw_flow_key unmasked_key;
- 	struct sw_flow_mask *mask;
- 	struct sw_flow_actions __rcu *sf_acts;
--	struct sw_flow_stats stats;
-+	struct flow_stats __percpu *stats;
- };
- 
- struct arp_eth_header {
+ 	__skb_pull(skb, 2 * ETH_ALEN);
+ 	/* We are going to push all headers that we pull, so no need to
+@@ -538,8 +538,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
+ 				key->ip.proto = ntohs(arp->ar_op);
+ 			memcpy(&key->ipv4.addr.src, arp->ar_sip, sizeof(key->ipv4.addr.src));
+ 			memcpy(&key->ipv4.addr.dst, arp->ar_tip, sizeof(key->ipv4.addr.dst));
+-			memcpy(key->ipv4.arp.sha, arp->ar_sha, ETH_ALEN);
+-			memcpy(key->ipv4.arp.tha, arp->ar_tha, ETH_ALEN);
++			ether_addr_copy(key->ipv4.arp.sha, arp->ar_sha);
++			ether_addr_copy(key->ipv4.arp.tha, arp->ar_tha);
+ 		}
+ 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		int nh_len;             /* IPv6 Header + Extensions */
 diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 5511ad1..84caa99 100644
+index 7bd09b7..5511ad1 100644
 --- a/net/openvswitch/flow_netlink.c
 +++ b/net/openvswitch/flow_netlink.c
-@@ -268,20 +268,6 @@ static bool is_all_zero(const u8 *fp, size_t size)
- 	return true;
- }
+@@ -986,8 +986,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		goto nla_put_failure;
  
--static bool is_all_set(const u8 *fp, size_t size)
--{
--	int i;
--
--	if (!fp)
--		return false;
--
--	for (i = 0; i < size; i++)
--		if (fp[i] != 0xff)
--			return false;
--
--	return true;
--}
--
- static int __parse_flow_nlattrs(const struct nlattr *attr,
- 				const struct nlattr *a[],
- 				u64 *attrsp, bool nz)
-@@ -503,9 +489,8 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 	return 0;
- }
+ 	eth_key = nla_data(nla);
+-	memcpy(eth_key->eth_src, output->eth.src, ETH_ALEN);
+-	memcpy(eth_key->eth_dst, output->eth.dst, ETH_ALEN);
++	ether_addr_copy(eth_key->eth_src, output->eth.src);
++	ether_addr_copy(eth_key->eth_dst, output->eth.dst);
  
--static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple,
--				u64 attrs, const struct nlattr **a,
--				bool is_mask)
-+static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
-+				const struct nlattr **a, bool is_mask)
- {
- 	int err;
- 	u64 orig_attrs = attrs;
-@@ -562,11 +547,6 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple
- 		SW_FLOW_KEY_PUT(match, eth.type, htons(ETH_P_802_2), is_mask);
+ 	if (swkey->eth.tci || swkey->eth.type == htons(ETH_P_8021Q)) {
+ 		__be16 eth_type;
+@@ -1059,8 +1059,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 		arp_key->arp_sip = output->ipv4.addr.src;
+ 		arp_key->arp_tip = output->ipv4.addr.dst;
+ 		arp_key->arp_op = htons(output->ip.proto);
+-		memcpy(arp_key->arp_sha, output->ipv4.arp.sha, ETH_ALEN);
+-		memcpy(arp_key->arp_tha, output->ipv4.arp.tha, ETH_ALEN);
++		ether_addr_copy(arp_key->arp_sha, output->ipv4.arp.sha);
++		ether_addr_copy(arp_key->arp_tha, output->ipv4.arp.tha);
  	}
  
--	if (is_mask && exact_5tuple) {
--		if (match->mask->key.eth.type != htons(0xffff))
--			*exact_5tuple = false;
--	}
--
- 	if (attrs & (1 << OVS_KEY_ATTR_IPV4)) {
- 		const struct ovs_key_ipv4 *ipv4_key;
- 
-@@ -589,13 +569,6 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple
- 		SW_FLOW_KEY_PUT(match, ipv4.addr.dst,
- 				ipv4_key->ipv4_dst, is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_IPV4);
--
--		if (is_mask && exact_5tuple && *exact_5tuple) {
--			if (ipv4_key->ipv4_proto != 0xff ||
--			    ipv4_key->ipv4_src != htonl(0xffffffff) ||
--			    ipv4_key->ipv4_dst != htonl(0xffffffff))
--				*exact_5tuple = false;
--		}
- 	}
- 
- 	if (attrs & (1 << OVS_KEY_ATTR_IPV6)) {
-@@ -627,15 +600,6 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple
- 				is_mask);
- 
- 		attrs &= ~(1 << OVS_KEY_ATTR_IPV6);
--
--		if (is_mask && exact_5tuple && *exact_5tuple) {
--			if (ipv6_key->ipv6_proto != 0xff ||
--			    !is_all_set((const u8 *)ipv6_key->ipv6_src,
--					sizeof(match->key->ipv6.addr.src)) ||
--			    !is_all_set((const u8 *)ipv6_key->ipv6_dst,
--					sizeof(match->key->ipv6.addr.dst)))
--				*exact_5tuple = false;
--		}
- 	}
- 
- 	if (attrs & (1 << OVS_KEY_ATTR_ARP)) {
-@@ -678,11 +642,6 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple
- 					tcp_key->tcp_dst, is_mask);
- 		}
- 		attrs &= ~(1 << OVS_KEY_ATTR_TCP);
--
--		if (is_mask && exact_5tuple && *exact_5tuple &&
--		    (tcp_key->tcp_src != htons(0xffff) ||
--		     tcp_key->tcp_dst != htons(0xffff)))
--			*exact_5tuple = false;
- 	}
- 
- 	if (attrs & (1 << OVS_KEY_ATTR_TCP_FLAGS)) {
-@@ -714,11 +673,6 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match,  bool *exact_5tuple
- 					udp_key->udp_dst, is_mask);
- 		}
- 		attrs &= ~(1 << OVS_KEY_ATTR_UDP);
--
--		if (is_mask && exact_5tuple && *exact_5tuple &&
--		    (udp_key->udp_src != htons(0xffff) ||
--		     udp_key->udp_dst != htons(0xffff)))
--			*exact_5tuple = false;
- 	}
- 
- 	if (attrs & (1 << OVS_KEY_ATTR_SCTP)) {
-@@ -804,7 +758,6 @@ static void sw_flow_mask_set(struct sw_flow_mask *mask,
-  * attribute specifies the mask field of the wildcarded flow.
-  */
- int ovs_nla_get_match(struct sw_flow_match *match,
--		      bool *exact_5tuple,
- 		      const struct nlattr *key,
- 		      const struct nlattr *mask)
- {
-@@ -852,13 +805,10 @@ int ovs_nla_get_match(struct sw_flow_match *match,
- 		}
- 	}
- 
--	err = ovs_key_from_nlattrs(match, NULL, key_attrs, a, false);
-+	err = ovs_key_from_nlattrs(match, key_attrs, a, false);
- 	if (err)
- 		return err;
- 
--	if (exact_5tuple)
--		*exact_5tuple = true;
--
- 	if (mask) {
- 		err = parse_flow_mask_nlattrs(mask, a, &mask_attrs);
- 		if (err)
-@@ -896,7 +846,7 @@ int ovs_nla_get_match(struct sw_flow_match *match,
+ 	if ((swkey->eth.type == htons(ETH_P_IP) ||
+@@ -1147,8 +1147,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 				nd_key = nla_data(nla);
+ 				memcpy(nd_key->nd_target, &output->ipv6.nd.target,
+ 							sizeof(nd_key->nd_target));
+-				memcpy(nd_key->nd_sll, output->ipv6.nd.sll, ETH_ALEN);
+-				memcpy(nd_key->nd_tll, output->ipv6.nd.tll, ETH_ALEN);
++				ether_addr_copy(nd_key->nd_sll, output->ipv6.nd.sll);
++				ether_addr_copy(nd_key->nd_tll, output->ipv6.nd.tll);
  			}
  		}
- 
--		err = ovs_key_from_nlattrs(match, exact_5tuple, mask_attrs, a, true);
-+		err = ovs_key_from_nlattrs(match, mask_attrs, a, true);
- 		if (err)
- 			return err;
- 	} else {
-diff --git a/net/openvswitch/flow_netlink.h b/net/openvswitch/flow_netlink.h
-index b31fbe2..4401510 100644
---- a/net/openvswitch/flow_netlink.h
-+++ b/net/openvswitch/flow_netlink.h
-@@ -45,7 +45,6 @@ int ovs_nla_put_flow(const struct sw_flow_key *,
- int ovs_nla_get_flow_metadata(struct sw_flow *flow,
- 			      const struct nlattr *attr);
- int ovs_nla_get_match(struct sw_flow_match *match,
--		      bool *exact_5tuple,
- 		      const struct nlattr *,
- 		      const struct nlattr *);
- 
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index 1ba1e0b..aa92da2 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -72,7 +72,7 @@ void ovs_flow_mask_key(struct sw_flow_key *dst, const struct sw_flow_key *src,
- 		*d++ = *s++ & *m++;
- }
- 
--struct sw_flow *ovs_flow_alloc(bool percpu_stats)
-+struct sw_flow *ovs_flow_alloc(void)
- {
- 	struct sw_flow *flow;
- 	int cpu;
-@@ -84,25 +84,15 @@ struct sw_flow *ovs_flow_alloc(bool percpu_stats)
- 	flow->sf_acts = NULL;
- 	flow->mask = NULL;
- 
--	flow->stats.is_percpu = percpu_stats;
-+	flow->stats = alloc_percpu(struct flow_stats);
-+	if (!flow->stats)
-+		goto err;
- 
--	if (!percpu_stats) {
--		flow->stats.stat = kzalloc(sizeof(*flow->stats.stat), GFP_KERNEL);
--		if (!flow->stats.stat)
--			goto err;
-+	for_each_possible_cpu(cpu) {
-+		struct flow_stats *cpu_stats;
- 
--		spin_lock_init(&flow->stats.stat->lock);
--	} else {
--		flow->stats.cpu_stats = alloc_percpu(struct flow_stats);
--		if (!flow->stats.cpu_stats)
--			goto err;
--
--		for_each_possible_cpu(cpu) {
--			struct flow_stats *cpu_stats;
--
--			cpu_stats = per_cpu_ptr(flow->stats.cpu_stats, cpu);
--			spin_lock_init(&cpu_stats->lock);
--		}
-+		cpu_stats = per_cpu_ptr(flow->stats, cpu);
-+		spin_lock_init(&cpu_stats->lock);
  	}
- 	return flow;
- err:
-@@ -141,10 +131,7 @@ static struct flex_array *alloc_buckets(unsigned int n_buckets)
- static void flow_free(struct sw_flow *flow)
- {
- 	kfree((struct sf_flow_acts __force *)flow->sf_acts);
--	if (flow->stats.is_percpu)
--		free_percpu(flow->stats.cpu_stats);
--	else
--		kfree(flow->stats.stat);
-+	free_percpu(flow->stats);
- 	kmem_cache_free(flow_cache, flow);
- }
- 
-diff --git a/net/openvswitch/flow_table.h b/net/openvswitch/flow_table.h
-index baaeb10..c26c59a 100644
---- a/net/openvswitch/flow_table.h
-+++ b/net/openvswitch/flow_table.h
-@@ -55,7 +55,7 @@ struct flow_table {
- int ovs_flow_init(void);
- void ovs_flow_exit(void);
- 
--struct sw_flow *ovs_flow_alloc(bool percpu_stats);
-+struct sw_flow *ovs_flow_alloc(void);
- void ovs_flow_free(struct sw_flow *, bool deferred);
- 
- int ovs_flow_tbl_init(struct flow_table *);
 -- 
 1.9.1
