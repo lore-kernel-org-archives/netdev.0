@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next v2 12/12] net: cdc_ncm: do not start timer on an empty skb
-Date: Fri, 16 May 2014 21:48:29 +0200
-Message-ID: <1400269709-18854-13-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next v2 06/12] net: cdc_ncm: use true max dgram count for header estimates
+Date: Fri, 16 May 2014 21:48:23 +0200
+Message-ID: <1400269709-18854-7-git-send-email-bjorn@mork.no>
 References: <1400269709-18854-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -14,39 +14,109 @@ Cc: <linux-usb@vger.kernel.org>,
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52179 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:52162 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754787AbaEPTsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 15:48:51 -0400
+	id S1756718AbaEPTss (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 15:48:48 -0400
 In-Reply-To: <1400269709-18854-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We can end up with a freshly allocated tx_curr_skb with no frames
-in it.  In this case it does not make any sense to start the timer.
-This avoids the timer periodically trying to start tx when there
-is nothing in the queue.
+Many newer NCM and MBIM devices will request a maximum tx
+datagram count which is much smaller than our hard-coded
+absolute max. We can reduce the overhead without sacrificing
+any of the simplicity for these devices, by simply using the
+true negotiated count in when calculated the maximum NTH and
+NDP header sizes.
 
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/usb/cdc_ncm.c   |  9 ++++++---
+ include/linux/usb/cdc_ncm.h | 10 +---------
+ 2 files changed, 7 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 783c4ed96395..2d0caf1eea25 100644
+index 141dbec912be..b9b562b9128a 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -1069,8 +1069,8 @@ cdc_ncm_fill_tx_frame(struct usbnet *dev, struct =
-sk_buff *skb, __le32 sign)
- 	return skb_out;
+@@ -174,7 +174,7 @@ static void cdc_ncm_update_rxtx_max(struct usbnet *=
+dev, u32 new_rx, u32 new_tx)
+ 	}
 =20
- exit_no_skb:
--	/* Start timer, if there is a remaining skb */
--	if (ctx->tx_curr_skb !=3D NULL)
-+	/* Start timer, if there is a remaining non-empty skb */
-+	if (ctx->tx_curr_skb !=3D NULL && n > 0)
- 		cdc_ncm_tx_timeout_start(ctx);
- 	return NULL;
- }
+ 	/* clamp new_tx to sane values */
+-	min =3D CDC_NCM_MIN_HDR_SIZE + ctx->max_datagram_size;
++	min =3D ctx->max_datagram_size + ctx->max_ndp_size + sizeof(struct us=
+b_cdc_ncm_nth16);
+ 	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_TX, le32_to_cpu(ctx->ncm_parm=
+=2EdwNtbOutMaxSize));
+=20
+ 	/* some devices set dwNtbOutMaxSize too low for the above default */
+@@ -318,6 +318,9 @@ static int cdc_ncm_init(struct usbnet *dev)
+ 			(ctx->tx_max_datagrams > CDC_NCM_DPT_DATAGRAMS_MAX))
+ 		ctx->tx_max_datagrams =3D CDC_NCM_DPT_DATAGRAMS_MAX;
+=20
++	/* set up maximum NDP size */
++	ctx->max_ndp_size =3D sizeof(struct usb_cdc_ncm_ndp16) + (ctx->tx_max=
+_datagrams + 1) * sizeof(struct usb_cdc_ncm_dpe16);
++
+ 	/* initial coalescing timer interval */
+ 	ctx->timer_interval =3D CDC_NCM_TIMER_INTERVAL_USEC * NSEC_PER_USEC;
+=20
+@@ -800,7 +803,7 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct=
+ cdc_ncm_ctx *ctx, struct sk_
+ 	cdc_ncm_align_tail(skb, ctx->tx_ndp_modulus, 0, ctx->tx_max);
+=20
+ 	/* verify that there is room for the NDP and the datagram (reserve) *=
+/
+-	if ((ctx->tx_max - skb->len - reserve) < CDC_NCM_NDP_SIZE)
++	if ((ctx->tx_max - skb->len - reserve) < ctx->max_ndp_size)
+ 		return NULL;
+=20
+ 	/* link to it */
+@@ -810,7 +813,7 @@ static struct usb_cdc_ncm_ndp16 *cdc_ncm_ndp(struct=
+ cdc_ncm_ctx *ctx, struct sk_
+ 		nth16->wNdpIndex =3D cpu_to_le16(skb->len);
+=20
+ 	/* push a new empty NDP */
+-	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, CDC_NCM_NDP=
+_SIZE), 0, CDC_NCM_NDP_SIZE);
++	ndp16 =3D (struct usb_cdc_ncm_ndp16 *)memset(skb_put(skb, ctx->max_nd=
+p_size), 0, ctx->max_ndp_size);
+ 	ndp16->dwSignature =3D sign;
+ 	ndp16->wLength =3D cpu_to_le16(sizeof(struct usb_cdc_ncm_ndp16) + siz=
+eof(struct usb_cdc_ncm_dpe16));
+ 	return ndp16;
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 5c1066b4dc41..60a44b8a464e 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -76,15 +76,6 @@
+ #define CDC_NCM_TIMER_INTERVAL_MIN		5UL
+ #define CDC_NCM_TIMER_INTERVAL_MAX		(15UL * USEC_PER_SEC)
+=20
+-/* The following macro defines the minimum header space */
+-#define	CDC_NCM_MIN_HDR_SIZE \
+-	(sizeof(struct usb_cdc_ncm_nth16) + sizeof(struct usb_cdc_ncm_ndp16) =
++ \
+-	(CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe16))
+-
+-#define CDC_NCM_NDP_SIZE \
+-	(sizeof(struct usb_cdc_ncm_ndp16) +				\
+-	      (CDC_NCM_DPT_DATAGRAMS_MAX + 1) * sizeof(struct usb_cdc_ncm_dpe=
+16))
+-
+ #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass =3D=
+=3D USB_CDC_SUBCLASS_MBIM && \
+ 				       (x)->desc.bInterfaceProtocol =3D=3D USB_CDC_PROTO_NONE)
+ #define cdc_ncm_data_intf_is_mbim(x)  ((x)->desc.bInterfaceProtocol =3D=
+=3D USB_CDC_MBIM_PROTO_NTB)
+@@ -110,6 +101,7 @@ struct cdc_ncm_ctx {
+ 	atomic_t stop;
+=20
+ 	u64 timer_interval;
++	u32 max_ndp_size;
+=20
+ 	u32 tx_timer_pending;
+ 	u32 tx_curr_frame_num;
 --=20
 2.0.0.rc2
