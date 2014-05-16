@@ -1,45 +1,33 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: [PATCH] net: pch_gbe depends on x86_32
-Date: Fri, 16 May 2014 11:29:04 +0200
-Message-ID: <20140516112904.7072da0f@endymion.delvare>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] tools: bpf_jit_disasm: ignore image address
+ for disasm
+Date: Fri, 16 May 2014 11:34:58 +0200
+Message-ID: <5375DBC2.4040307@redhat.com>
+References: <1400194599-5247-1-git-send-email-ast@plumgrid.com> <1400194599-5247-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jslaby@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:35537 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:47600 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756522AbaEPJ3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 05:29:08 -0400
+	id S932191AbaEPJfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 05:35:03 -0400
+In-Reply-To: <1400194599-5247-2-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The pch_gbe driver is for a companion chip to the Intel Atom E600
-series processors. These are 32-bit x86 processors so the driver is
-only needed on X86_32.
+On 05/16/2014 12:56 AM, Alexei Starovoitov wrote:
+> seccomp filters use kernel JIT image addresses, so bpf_jit_enable=2 prints
+> [ 20.146438] flen=3 proglen=82 pass=0 image=0000000000000000
+> [ 20.146442] JIT code: 00000000: 55 48 89 e5 48 81 ec 28 02 00 00 ...
+>
+> ignore image address, so that seccomp filters can be disassembled
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-Signed-off-by: Jean Delvare <jdelvare@suse.de>
-Cc: Jiri Slaby <jslaby@suse.cz>
-Cc: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Looks good to me! Thanks for using bpf_jit_disasm, hope it was of
+great help. ;)
 
---- linux-3.15-rc5.orig/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-03-31 05:40:15.000000000 +0200
-+++ linux-3.15-rc5/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig	2014-05-16 11:20:28.453261606 +0200
-@@ -4,7 +4,7 @@
- 
- config PCH_GBE
- 	tristate "OKI SEMICONDUCTOR IOH(ML7223/ML7831) GbE"
--	depends on PCI && (X86 || COMPILE_TEST)
-+	depends on PCI && (X86_32 || COMPILE_TEST)
- 	select MII
- 	select PTP_1588_CLOCK_PCH
- 	---help---
-
-
--- 
-Jean Delvare
-SUSE L3 Support
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
