@@ -1,95 +1,41 @@
-From: Marc Duponcheel <marc@offline.be>
-Subject: Re: r8169/r8168 slow internet upload
-Date: Fri, 16 May 2014 04:55:27 +0200
-Message-ID: <20140516025527.GA27212@offline.be>
-References: <20140511231946.GA12504@offline.be>
- <20140512054447.GA17153@electric-eye.fr.zoreil.com>
- <20140513005023.GA24091@offline.be>
- <20140514220304.GA7520@electric-eye.fr.zoreil.com>
- <20140516020441.GB25757@offline.be>
-Reply-To: Marc Duponcheel <marc@offline.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: Don't call phy_resume if phy_init_hw failed
+Date: Thu, 15 May 2014 22:57:15 -0400 (EDT)
+Message-ID: <20140515.225715.1311338998569156758.davem@davemloft.net>
+References: <1400098369-13985-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.offline.be ([79.132.231.86]:36975 "EHLO mail.offline.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752588AbaEPCzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 22:55:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20140516020441.GB25757@offline.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400098369-13985-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Here is TCP nstat after some time (days) of normal. mixed user traffic
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Wed, 14 May 2014 13:12:49 -0700
 
- are TcpRetransSegs and TcpOutRsts reasonable ?
+> After the call to phy_init_hw failed in phy_attach_direct, phy_detach is called
+> to detach the phy device from its network device. If the attached driver is a
+> generic phy driver, this also detaches the driver. Subsequently phy_resume
+> is called, which assumes without checking that a driver is attached to the
+> device. This will result in a crash such as
+> 
+> Unable to handle kernel paging request for data at address 0xffffffffffffff90
+> Faulting instruction address: 0xc0000000003a0e18
+> Oops: Kernel access of bad area, sig: 11 [#1]
+> ...
+> NIP [c0000000003a0e18] .phy_attach_direct+0x68/0x17c
+> LR [c0000000003a0e6c] .phy_attach_direct+0xbc/0x17c
+> Call Trace:
+> [c0000003fc0475d0] [c0000000003a0e6c] .phy_attach_direct+0xbc/0x17c (unreliable)
+> [c0000003fc047670] [c0000000003a0ff8] .phy_connect_direct+0x28/0x98
+> [c0000003fc047700] [c0000000003f0074] .of_phy_connect+0x4c/0xa4
+> 
+> Only call phy_resume if phy_init_hw was successful.
+> 
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
-Thanks
-
-opteron ~ # nstat | grep ^Tcp
-TcpActiveOpens                  218771             0.0
-TcpPassiveOpens                 245187             0.0
-TcpAttemptFails                 961                0.0
-TcpEstabResets                  1803               0.0
-TcpInSegs                       5539041            0.0
-TcpOutSegs                      5883556            0.0
-TcpRetransSegs                  38828              0.0
-TcpOutRsts                      369036             0.0
-TcpExtSyncookiesFailed          112                0.0
-TcpExtEmbryonicRsts             802                0.0
-TcpExtTW                        218409             0.0
-TcpExtPAWSEstab                 5                  0.0
-TcpExtDelayedACKs               32173              0.0
-TcpExtDelayedACKLocked          50                 0.0
-TcpExtDelayedACKLost            1052               0.0
-TcpExtListenDrops               7                  0.0
-TcpExtTCPPrequeued              216710             0.0
-TcpExtTCPDirectCopyFromBacklog  2218150            0.0
-TcpExtTCPDirectCopyFromPrequeue 31007060           0.0
-TcpExtTCPHPHits                 1189383            0.0
-TcpExtTCPHPHitsToUser           23700              0.0
-TcpExtTCPPureAcks               1265234            0.0
-TcpExtTCPHPAcks                 1373386            0.0
-TcpExtTCPSackRecovery           10161              0.0
-TcpExtTCPSACKReneging           1                  0.0
-TcpExtTCPFullUndo               2                  0.0
-TcpExtTCPDSACKUndo              4                  0.0
-TcpExtTCPLossUndo               103                0.0
-TcpExtTCPLostRetransmit         23                 0.0
-TcpExtTCPSackFailures           7                  0.0
-TcpExtTCPLossFailures           46                 0.0
-TcpExtTCPFastRetrans            29705              0.0
-TcpExtTCPForwardRetrans         144                0.0
-TcpExtTCPSlowStartRetrans       186                0.0
-TcpExtTCPTimeouts               914                0.0
-TcpExtTCPLossProbes             2094               0.0
-TcpExtTCPLossProbeRecovery      250                0.0
-TcpExtTCPSackRecoveryFail       63                 0.0
-TcpExtTCPSchedulerFailed        1                  0.0
-TcpExtTCPDSACKOldSent           1041               0.0
-TcpExtTCPDSACKOfoSent           55                 0.0
-TcpExtTCPDSACKRecv              967                0.0
-TcpExtTCPAbortOnData            1520               0.0
-TcpExtTCPAbortOnClose           185                0.0
-TcpExtTCPAbortOnTimeout         256                0.0
-TcpExtTCPDSACKIgnoredNoUndo     85                 0.0
-TcpExtTCPSpuriousRTOs           11                 0.0
-TcpExtTCPSackShifted            28438              0.0
-TcpExtTCPSackMerged             26733              0.0
-TcpExtTCPSackShiftFallback      32560              0.0
-TcpExtTCPDeferAcceptDrop        335                0.0
-TcpExtIPReversePathFilter       24                 0.0
-TcpExtTCPRetransFail            114                0.0
-TcpExtTCPRcvCoalesce            338862             0.0
-TcpExtTCPOFOQueue               5712               0.0
-TcpExtTCPOFOMerge               55                 0.0
-TcpExtTCPChallengeACK           20                 0.0
-TcpExtTCPSpuriousRtxHostQueues  463                0.0
-TcpExtTCPAutoCorking            48213              0.0
-
---
- Marc Duponcheel
- Velodroomstraat 74 - 2600 Berchem - Belgium
- +32 (0)478 68.10.91 - marc@offline.be
+Applied and queued up for -stable, thanks.
