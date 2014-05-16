@@ -1,131 +1,65 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 1/4] net: Find the nesting level of a given device by type.
-Date: Fri, 16 May 2014 11:36:41 -0400
-Message-ID: <1400254604-23910-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 2/4] net: Allow for more then a single subclass for netif_addr_lock
+Date: Fri, 16 May 2014 11:36:42 -0400
+Message-ID: <1400254604-23910-3-git-send-email-vyasevic@redhat.com>
 References: <1400254604-23910-1-git-send-email-vyasevic@redhat.com>
 Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
 	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14126 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40908 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932694AbaEPPg6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 11:36:58 -0400
+	id S932580AbaEPPhB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 11:37:01 -0400
 In-Reply-To: <1400254604-23910-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Multiple devices in the kernel can be stacked/nested and they
-need to know their nesting level for the purposes of lockdep.
-This patch provides a generic function that determines a nesting
-level of a particular device by its type (ex: vlan, macvlan, etc).
-We only care about nesting of the same type of devices.
-
+Currently netif_addr_lock_nested assumes that there can be only
+a single nesting level between 2 devices.  However, if we
+have multiple devices of the same type stacked, this fails.
 For example:
-  eth0 <- vlan0.10 <- macvlan0 <- vlan1.20
+ eth0 <-- vlan0.10 <-- vlan0.10.20
 
-The nesting level of vlan1.20 would be 1, since there is another vlan
-in the stack under it.
+A more complicated configuration may stack more then one type of
+device in different order.
+Ex:
+  eth0 <-- vlan0.10 <-- macvlan0 <-- vlan1.10.20 <-- macvlan1
+
+This patch adds an ndo_* function that allows each stackable
+device to report its nesting level.  If the device doesn't
+provide this function default subclass of 1 is used.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/netdevice.h | 10 ++++++++++
- net/core/dev.c            | 48 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+)
+ include/linux/netdevice.h | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 20e99ef..e32d313 100644
+index e32d313..edafa7d 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -3077,6 +3077,14 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- 	     priv; \
- 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
- 
-+void *netdev_lower_get_next_rcu(struct net_device *dev,
-+				struct list_head **iter);
-+#define netdev_for_each_lower_dev_rcu(dev, priv, iter) \
-+	for (iter = &(dev)->adj_list.lower, \
-+	     priv = netdev_lower_get_next_rcu(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_rcu(dev, &(iter)))
-+
- void *netdev_adjacent_get_private(struct list_head *adj_list);
- void *netdev_lower_get_first_private_rcu(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
-@@ -3092,6 +3100,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev);
-+int dev_get_nest_level(struct net_device *dev,
-+		       bool (*type_check)(struct net_device *dev));
- int skb_checksum_help(struct sk_buff *skb);
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6da649b..fd0d139 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4622,6 +4622,32 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
+@@ -1144,6 +1144,7 @@ struct net_device_ops {
+ 	netdev_tx_t		(*ndo_dfwd_start_xmit) (struct sk_buff *skb,
+ 							struct net_device *dev,
+ 							void *priv);
++	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+ };
  
  /**
-+ * netdev_lower_get_next_rcu - Get the next device from the lower neighbour
-+ *                             list, RCU variant
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold RCU read lock.
-+ */
-+void *netdev_lower_get_next_rcu(struct net_device *dev, struct list_head **iter)
-+{
-+	struct netdev_adjacent *lower;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	*iter = &lower->list;
-+
-+	return lower->dev;
-+}
-+EXPORT_SYMBOL(netdev_lower_get_next_rcu);
-+
-+/**
-  * netdev_lower_get_first_private_rcu - Get the first ->private from the
-  *				       lower neighbour list, RCU
-  *				       variant
-@@ -5071,6 +5097,28 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_lower_dev_get_private);
+@@ -2950,7 +2951,12 @@ static inline void netif_addr_lock(struct net_device *dev)
  
-+
-+int dev_get_nest_level(struct net_device *dev,
-+		       bool (*type_check)(struct net_device *dev))
-+{
-+	struct net_device *lower = NULL;
-+	struct list_head *iter;
-+	int max_nest = -1;
-+	int nest;
-+
-+	netdev_for_each_lower_dev_rcu(dev, lower, iter) {
-+		nest = dev_get_nest_level(lower, type_check);
-+		if (max_nest < nest)
-+			max_nest = nest;
-+	}
-+
-+	if (type_check(dev))
-+		max_nest++;
-+
-+	return max_nest;
-+}
-+EXPORT_SYMBOL(dev_get_nest_level);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
+ static inline void netif_addr_lock_nested(struct net_device *dev)
  {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+-	spin_lock_nested(&dev->addr_list_lock, SINGLE_DEPTH_NESTING);
++	int subclass = SINGLE_DEPTH_NESTING;
++
++	if (dev->netdev_ops->ndo_get_lock_subclass)
++		subclass = dev->netdev_ops->ndo_get_lock_subclass(dev);
++
++	spin_lock_nested(&dev->addr_list_lock, subclass);
+ }
+ 
+ static inline void netif_addr_lock_bh(struct net_device *dev)
 -- 
 1.9.0
