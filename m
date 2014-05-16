@@ -1,47 +1,56 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: cassini: possible recursive locking detected
-Date: Fri, 16 May 2014 22:12:15 +0200
-Message-ID: <87vbt5pjog.fsf@nemi.mork.no>
-References: <20140508223833.GB4385@lianli>
-	<alpine.SOC.1.00.1405090726190.12382@math.ut.ee>
-	<20140509090642.GA4267@lianli>
-	<20140509.163330.1112297139498899531.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bnx2x: Convert return 0 to return rc
+Date: Fri, 16 May 2014 13:12:24 -0700
+Message-ID: <1400271144.12373.21.camel@joe-AO725>
+References: <1400223103.30884.5.camel@joe-AO725>
+	 <87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: emilgoode@gmail.com, mroos@linux.ee, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52619 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756403AbaEPUMY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 16:12:24 -0400
-In-Reply-To: <20140509.163330.1112297139498899531.davem@davemloft.net> (David
-	Miller's message of "Fri, 09 May 2014 16:33:30 -0400 (EDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ariel Elior <ariel.elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87B4DDAD5EAFA041BDC28F314593782D0172ECD7@avmb3.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
-> From: Emil Goode <emilgoode@gmail.com>
-> Date: Fri, 9 May 2014 11:06:42 +0200
->
->> I searched the net a bit and found these old threads:
->>=20
->> http://lists.freebsd.org/pipermail/freebsd-sparc64/2010-January/0069=
-35.html
->>=20
->> "FreeBSD currently crashes on older models of V480 when attempting
->>  to use an on-board NIC due to what appears to be a CPU bug which
->>  needs to be worked around."
->
-> I wish I still had a copy of that Schizo chip errata document referen=
-ced
-> at the end of that posting, it's not accessible any longer.
+On Fri, 2014-05-16 at 12:02 +0000, Dmitry Kravkov wrote:
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-
+> > owner@vger.kernel.org] On Behalf Of Joe Perches
+> > Sent: Friday, May 16, 2014 9:52 AM
+> > To: Ariel Elior; Dmitry Kravkov
+> > Cc: netdev; linux-kernel
+> > Subject: [PATCH] bnx2x: Convert return 0 to return rc
+> >
+> > These "return 0;" uses seem wrong as there are
+> > rc variables where error return values are set
+> > but unused.
+[]
+> Thanks Joe for catching this!
+> 
+> Acked-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 
-The wayback machine saved it for you:
-https://web.archive.org/web/20090701005954/http://www.sun.com/processor=
-s/manuals/External_Schizo_Errata.pdf
+Hello Dmitry.
 
+Couple things actually:
+o Could you please update the MAINTAINER entry for
+  BNX2X?  Ariel Elior's email address is still listed
+  as @broadcom and that seems to bounce.
 
+o I found this via coccinelle actually.
+  Julia Lawall submitted a patch to remove unused
+  netdev_priv calls.  I modified that to check for
+  any expression that returns an unused value and
+  found this and many others.  There are a lot of
+  false positives though.
 
-Bj=C3=B8rn
+@@
+local idexpression x;
+expression E;
+@@
+-x = E;
+    ... when != x
