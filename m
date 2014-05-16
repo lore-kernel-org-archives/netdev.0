@@ -1,90 +1,95 @@
-From: Steven Haigh <netwiz@crc.id.au>
-Subject: Re: [3.15-rc3] Bisected: xen-netback mangles packets between two
- guests on a bridge since merge of "TX grant mapping with SKBTX_DEV_ZEROCOPY
- instead of copy" series.
-Date: Fri, 16 May 2014 12:13:45 +1000
-Message-ID: <53757459.4030107@crc.id.au>
-References: <395225650.20140430124506@eikelenboom.it>	<536162D3.5080307@citrix.com>	<94755525.20140501002553@eikelenboom.it>	<53624E25.8040404@citrix.com>	<1810270947.20140501155911@eikelenboom.it>	<53626C39.3030304@citrix.com>	<928229683.20140501193936@eikelenboom.it>	<198418193.20140501213951@eikelenboom.it>	<5363A508.1000602@citrix.com>	<653156457.20140502160632@eikelenboom.it>	<5363AFED.5080601@citrix.com>	<1399044073.29914.237.camel@edumazet-glaptop2.roam.corp.google.com>	<5363B929.1000502@citrix.com>	<35970097.20140502182818@eikelenboom.it>	<5363CBB0.6050804@citrix.com>	<15602339.20140505121912@eikelenboom.it>	<536916E9.7010509@crc.id.au>	<53691848.5010809@citrix.com>	<437888929.20140506193723@eikelenboom.it>	<536924DC.9080606@crc.id.au> <5369EBF9.20304@citrix.com>
+From: Marc Duponcheel <marc@offline.be>
+Subject: Re: r8169/r8168 slow internet upload
+Date: Fri, 16 May 2014 04:55:27 +0200
+Message-ID: <20140516025527.GA27212@offline.be>
+References: <20140511231946.GA12504@offline.be>
+ <20140512054447.GA17153@electric-eye.fr.zoreil.com>
+ <20140513005023.GA24091@offline.be>
+ <20140514220304.GA7520@electric-eye.fr.zoreil.com>
+ <20140516020441.GB25757@offline.be>
+Reply-To: Marc Duponcheel <marc@offline.be>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="2GERVc1LbwsbrhbO7AALJOwe2lFqwGwUh"
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.crc.id.au ([203.56.246.92]:37105 "EHLO mail.crc.id.au"
+Received: from server.offline.be ([79.132.231.86]:36975 "EHLO mail.offline.be"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752233AbaEPCNp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 May 2014 22:13:45 -0400
-In-Reply-To: <5369EBF9.20304@citrix.com>
+	id S1752588AbaEPCzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 May 2014 22:55:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20140516020441.GB25757@offline.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---2GERVc1LbwsbrhbO7AALJOwe2lFqwGwUh
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Here is TCP nstat after some time (days) of normal. mixed user traffic
 
-On 07/05/14 18:16, David Vrabel wrote:
-> On 06/05/14 19:07, Steven Haigh wrote:
->> Well, I'm trying to get a test together - although I don't have webdav=
+ are TcpRetransSegs and TcpOutRsts reasonable ?
 
->> anywhere... I was going to try it via FTP, however I'm hitting another=
+Thanks
 
->> MM bug in Xen:
->> 	https://bugs.archlinux.org/task/38596
->>
->> This references:
->> 	https://lkml.org/lkml/2014/1/23/596
->>
->> It says that should be fixed in 3.15-rc3 (if I understand properly) -
->> but I'm also hitting that on 3.14.2. Did these changes get ported back=
+opteron ~ # nstat | grep ^Tcp
+TcpActiveOpens                  218771             0.0
+TcpPassiveOpens                 245187             0.0
+TcpAttemptFails                 961                0.0
+TcpEstabResets                  1803               0.0
+TcpInSegs                       5539041            0.0
+TcpOutSegs                      5883556            0.0
+TcpRetransSegs                  38828              0.0
+TcpOutRsts                      369036             0.0
+TcpExtSyncookiesFailed          112                0.0
+TcpExtEmbryonicRsts             802                0.0
+TcpExtTW                        218409             0.0
+TcpExtPAWSEstab                 5                  0.0
+TcpExtDelayedACKs               32173              0.0
+TcpExtDelayedACKLocked          50                 0.0
+TcpExtDelayedACKLost            1052               0.0
+TcpExtListenDrops               7                  0.0
+TcpExtTCPPrequeued              216710             0.0
+TcpExtTCPDirectCopyFromBacklog  2218150            0.0
+TcpExtTCPDirectCopyFromPrequeue 31007060           0.0
+TcpExtTCPHPHits                 1189383            0.0
+TcpExtTCPHPHitsToUser           23700              0.0
+TcpExtTCPPureAcks               1265234            0.0
+TcpExtTCPHPAcks                 1373386            0.0
+TcpExtTCPSackRecovery           10161              0.0
+TcpExtTCPSACKReneging           1                  0.0
+TcpExtTCPFullUndo               2                  0.0
+TcpExtTCPDSACKUndo              4                  0.0
+TcpExtTCPLossUndo               103                0.0
+TcpExtTCPLostRetransmit         23                 0.0
+TcpExtTCPSackFailures           7                  0.0
+TcpExtTCPLossFailures           46                 0.0
+TcpExtTCPFastRetrans            29705              0.0
+TcpExtTCPForwardRetrans         144                0.0
+TcpExtTCPSlowStartRetrans       186                0.0
+TcpExtTCPTimeouts               914                0.0
+TcpExtTCPLossProbes             2094               0.0
+TcpExtTCPLossProbeRecovery      250                0.0
+TcpExtTCPSackRecoveryFail       63                 0.0
+TcpExtTCPSchedulerFailed        1                  0.0
+TcpExtTCPDSACKOldSent           1041               0.0
+TcpExtTCPDSACKOfoSent           55                 0.0
+TcpExtTCPDSACKRecv              967                0.0
+TcpExtTCPAbortOnData            1520               0.0
+TcpExtTCPAbortOnClose           185                0.0
+TcpExtTCPAbortOnTimeout         256                0.0
+TcpExtTCPDSACKIgnoredNoUndo     85                 0.0
+TcpExtTCPSpuriousRTOs           11                 0.0
+TcpExtTCPSackShifted            28438              0.0
+TcpExtTCPSackMerged             26733              0.0
+TcpExtTCPSackShiftFallback      32560              0.0
+TcpExtTCPDeferAcceptDrop        335                0.0
+TcpExtIPReversePathFilter       24                 0.0
+TcpExtTCPRetransFail            114                0.0
+TcpExtTCPRcvCoalesce            338862             0.0
+TcpExtTCPOFOQueue               5712               0.0
+TcpExtTCPOFOMerge               55                 0.0
+TcpExtTCPChallengeACK           20                 0.0
+TcpExtTCPSpuriousRtxHostQueues  463                0.0
+TcpExtTCPAutoCorking            48213              0.0
 
->> to the 3.14 tree?
->=20
-> This is fixed by 29c7787075 (mm: use paravirt friendly ops for NUMA
-> hinting ptes) which is tagged for stable but hasn't yet been picked up
-> for 3.14.y.
->=20
-> You can also work around it by disabling CONFIG_NUMA_BALANCING which
-> doesn't work with Xen PV guests anyway.
-
-Hi David,
-
-Just wondering if there has been any movement in getting this into
-3.14.y. I see we've now just hit 3.14.4 with no mention of the patch for
-issue.
-
---=20
-Steven Haigh
-
-Email: netwiz@crc.id.au
-Web: http://www.crc.id.au
-Phone: (03) 9001 6090 - 0412 935 897
-Fax: (03) 8338 0299
-
-
---2GERVc1LbwsbrhbO7AALJOwe2lFqwGwUh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTdXRZAAoJEEGvNdV6fTHcevUQAIdbZIJEO9uTzyo3atzrbIr4
-1ZUPd4v3tikhYVdGXkNiM6tPUytXNh0W+A2US4Ovu0YdJj6L4tlS61rudpAz62b1
-xen45jDqktc0iw3iGPlPf3oeHqPQej4n6lBdbiX8UX2r8bJawYmt5G72+7kXYkFK
-VQnLu96MfECveFyFAnTzhCwF1X9sJE1C4AfKZeTyfs0ZwGAfe/ve26gVUK9vYwuk
-gaX1R5fXSymFFl6/w1x4ytoMyiKvSBT993kCZxpfqIABB1QTq/odKkbK2mvl3Zxx
-LvzYUX0IGFpXE8ywgw1yNkT7H9rrWIvXs/WZi9Jq8TmWdhz2zMRwW0R+ifsbfi8J
-5n/B8Wvgy+cE0sEYJeKdW2rf5QtZltt6L8eFdWiQr/0XpcRYu7oVebvuLyvJefvb
-KT98i0xprQWQ0A4nPdCGNUnwNkXIFyLqUOdoDOLwGQB0DmBlveFHPqBvR4CzFSLY
-6iMMhzo+mO1+tz13oV0QXDSTh4+/HlmpCwKCaQv6+Xvm+wPM92EyYrwcu61D054p
-ROclU+6AyuRysX6nx3UCqBTamNHUb2fXUcSco6HT0zUnNrgTAK8UwUQ01VK959gN
-6z77oURQ0oloxEBSDsxXqGFEJBVGaVP84U17tFa2nnMQDSiNRIbhDR7nRnPwC8Jl
-mK391E9DwY/TZvqcPHBw
-=VMhn
------END PGP SIGNATURE-----
-
---2GERVc1LbwsbrhbO7AALJOwe2lFqwGwUh--
+--
+ Marc Duponcheel
+ Velodroomstraat 74 - 2600 Berchem - Belgium
+ +32 (0)478 68.10.91 - marc@offline.be
