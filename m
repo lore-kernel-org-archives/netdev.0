@@ -1,173 +1,131 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 3/4] vlan: Fix lockdep warning with stacked vlan devices.
-Date: Fri, 16 May 2014 13:18:16 -0400
-Message-ID: <1400260697-32601-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 1/4] net: Find the nesting level of a given device by type.
+Date: Fri, 16 May 2014 13:18:14 -0400
+Message-ID: <1400260697-32601-2-git-send-email-vyasevic@redhat.com>
 References: <1400260697-32601-1-git-send-email-vyasevic@redhat.com>
 Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
 	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20715 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35008 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757886AbaEPRSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 13:18:34 -0400
+	id S1756924AbaEPRSj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 13:18:39 -0400
 In-Reply-To: <1400260697-32601-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit dc8eaaa006350d24030502a4521542e74b5cb39f.
-	vlan: Fix lockdep warning when vlan dev handle notification
+Multiple devices in the kernel can be stacked/nested and they
+need to know their nesting level for the purposes of lockdep.
+This patch provides a generic function that determines a nesting
+level of a particular device by its type (ex: vlan, macvlan, etc).
+We only care about nesting of the same type of devices.
 
-Instead we use the new new API to find the lock subclass of
-our vlan device.  This way we can support configurations where
-vlans are interspersed with other devices:
-  bond -> vlan -> macvlan -> vlan
+For example:
+  eth0 <- vlan0.10 <- macvlan0 <- vlan1.20
+
+The nesting level of vlan1.20 would be 1, since there is another vlan
+in the stack under it.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/if_vlan.h |  3 ++-
- net/8021q/vlan.c        |  1 +
- net/8021q/vlan_dev.c    | 52 +++++++++----------------------------------------
- net/core/dev.c          |  1 -
- 4 files changed, 12 insertions(+), 45 deletions(-)
+ include/linux/netdevice.h | 10 ++++++++++
+ net/core/dev.c            | 48 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+)
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 13bbbde..724bde8 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -73,7 +73,7 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
- /* found in socket.c */
- extern void vlan_ioctl_set(int (*hook)(struct net *, void __user *));
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 20e99ef..e32d313 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3077,6 +3077,14 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 	     priv; \
+ 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
  
--static inline int is_vlan_dev(struct net_device *dev)
-+static inline bool is_vlan_dev(struct net_device *dev)
- {
-         return dev->priv_flags & IFF_802_1Q_VLAN;
- }
-@@ -159,6 +159,7 @@ struct vlan_dev_priv {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll				*netpoll;
- #endif
-+	unsigned int				nest_level;
- };
- 
- static inline struct vlan_dev_priv *vlan_dev_priv(const struct net_device *dev)
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 175273f..44ebd5c 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -169,6 +169,7 @@ int register_vlan_dev(struct net_device *dev)
- 	if (err < 0)
- 		goto out_uninit_mvrp;
- 
-+	vlan->nest_level = dev_get_nest_level(real_dev, is_vlan_dev) + 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto out_uninit_mvrp;
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 733ec28..019efb7 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -493,48 +493,10 @@ static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
- 	}
- }
- 
--static int vlan_calculate_locking_subclass(struct net_device *real_dev)
--{
--	int subclass = 0;
--
--	while (is_vlan_dev(real_dev)) {
--		subclass++;
--		real_dev = vlan_dev_priv(real_dev)->real_dev;
--	}
--
--	return subclass;
--}
--
--static void vlan_dev_mc_sync(struct net_device *to, struct net_device *from)
--{
--	int err = 0, subclass;
--
--	subclass = vlan_calculate_locking_subclass(to);
--
--	spin_lock_nested(&to->addr_list_lock, subclass);
--	err = __hw_addr_sync(&to->mc, &from->mc, to->addr_len);
--	if (!err)
--		__dev_set_rx_mode(to);
--	spin_unlock(&to->addr_list_lock);
--}
--
--static void vlan_dev_uc_sync(struct net_device *to, struct net_device *from)
--{
--	int err = 0, subclass;
--
--	subclass = vlan_calculate_locking_subclass(to);
--
--	spin_lock_nested(&to->addr_list_lock, subclass);
--	err = __hw_addr_sync(&to->uc, &from->uc, to->addr_len);
--	if (!err)
--		__dev_set_rx_mode(to);
--	spin_unlock(&to->addr_list_lock);
--}
--
- static void vlan_dev_set_rx_mode(struct net_device *vlan_dev)
- {
--	vlan_dev_mc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
--	vlan_dev_uc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
-+	dev_mc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
-+	dev_uc_sync(vlan_dev_priv(vlan_dev)->real_dev, vlan_dev);
- }
- 
- /*
-@@ -562,6 +524,11 @@ static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)
- 	netdev_for_each_tx_queue(dev, vlan_dev_set_lockdep_one, &subclass);
- }
- 
-+static int vlan_dev_get_lock_subclass(struct net_device *dev)
-+{
-+	return vlan_dev_priv(dev)->nest_level;
-+}
++void *netdev_lower_get_next_rcu(struct net_device *dev,
++				struct list_head **iter);
++#define netdev_for_each_lower_dev_rcu(dev, priv, iter) \
++	for (iter = &(dev)->adj_list.lower, \
++	     priv = netdev_lower_get_next_rcu(dev, &(iter)); \
++	     priv; \
++	     priv = netdev_lower_get_next_rcu(dev, &(iter)))
 +
- static const struct header_ops vlan_header_ops = {
- 	.create	 = vlan_dev_hard_header,
- 	.rebuild = vlan_dev_rebuild_header,
-@@ -597,7 +564,6 @@ static const struct net_device_ops vlan_netdev_ops;
- static int vlan_dev_init(struct net_device *dev)
- {
- 	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
--	int subclass = 0;
- 
- 	netif_carrier_off(dev);
- 
-@@ -646,8 +612,7 @@ static int vlan_dev_init(struct net_device *dev)
- 
- 	SET_NETDEV_DEVTYPE(dev, &vlan_type);
- 
--	subclass = vlan_calculate_locking_subclass(dev);
--	vlan_dev_set_lockdep_class(dev, subclass);
-+	vlan_dev_set_lockdep_class(dev, vlan_dev_get_lock_subclass(dev));
- 
- 	vlan_dev_priv(dev)->vlan_pcpu_stats = netdev_alloc_pcpu_stats(struct vlan_pcpu_stats);
- 	if (!vlan_dev_priv(dev)->vlan_pcpu_stats)
-@@ -819,6 +784,7 @@ static const struct net_device_ops vlan_netdev_ops = {
- 	.ndo_netpoll_cleanup	= vlan_dev_netpoll_cleanup,
- #endif
- 	.ndo_fix_features	= vlan_dev_fix_features,
-+	.ndo_get_lock_subclass  = vlan_dev_get_lock_subclass,
- };
- 
- void vlan_setup(struct net_device *dev)
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
+ void *netdev_lower_get_first_private_rcu(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+@@ -3092,6 +3100,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
+ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
+ void *netdev_lower_dev_get_private(struct net_device *dev,
+ 				   struct net_device *lower_dev);
++int dev_get_nest_level(struct net_device *dev,
++		       bool (*type_check)(struct net_device *dev));
+ int skb_checksum_help(struct sk_buff *skb);
+ struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+ 				  netdev_features_t features, bool tx_path);
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 9f7c2c2..035f6a7 100644
+index 6da649b..9f7c2c2 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5284,7 +5284,6 @@ void __dev_set_rx_mode(struct net_device *dev)
- 	if (ops->ndo_set_rx_mode)
- 		ops->ndo_set_rx_mode(dev);
- }
--EXPORT_SYMBOL(__dev_set_rx_mode);
+@@ -4622,6 +4622,32 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
  
- void dev_set_rx_mode(struct net_device *dev)
+ /**
++ * netdev_lower_get_next_rcu - Get the next device from the lower neighbour
++ *                             list, RCU variant
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent from the dev's lower neighbour
++ * list, starting from iter position. The caller must hold RCU read lock.
++ */
++void *netdev_lower_get_next_rcu(struct net_device *dev, struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->adj_list.lower)
++		return NULL;
++
++	*iter = &lower->list;
++
++	return lower->dev;
++}
++EXPORT_SYMBOL(netdev_lower_get_next_rcu);
++
++/**
+  * netdev_lower_get_first_private_rcu - Get the first ->private from the
+  *				       lower neighbour list, RCU
+  *				       variant
+@@ -5071,6 +5097,28 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(netdev_lower_dev_get_private);
+ 
++
++int dev_get_nest_level(struct net_device *dev,
++		       bool (*type_check)(struct net_device *dev))
++{
++	struct net_device *lower = NULL;
++	struct list_head *iter;
++	int max_nest = -1;
++	int nest;
++
++	netdev_for_each_lower_dev_rcu(dev, lower, iter) {
++		nest = dev_get_nest_level(lower, type_check);
++		if (max_nest < nest)
++			max_nest = nest;
++	}
++	
++	if (type_check(dev))
++		max_nest++;
++
++	return max_nest;
++}
++EXPORT_SYMBOL(dev_get_nest_level);
++
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
  {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
 -- 
 1.9.0
