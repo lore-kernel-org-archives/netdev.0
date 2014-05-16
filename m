@@ -1,131 +1,220 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 1/4] net: Find the nesting level of a given device by type.
-Date: Fri, 16 May 2014 13:18:14 -0400
-Message-ID: <1400260697-32601-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 4/4] macvlan: Fix lockdep warnings with stacked macvlan devices
+Date: Fri, 16 May 2014 13:18:17 -0400
+Message-ID: <1400260697-32601-5-git-send-email-vyasevic@redhat.com>
 References: <1400260697-32601-1-git-send-email-vyasevic@redhat.com>
 Cc: dingtianhong@huawei.com, kaber@trash.net, vfalico@gmail.com,
 	jiri@resnulli.us, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35008 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:5982 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756924AbaEPRSj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 13:18:39 -0400
+	id S1757889AbaEPRSe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 13:18:34 -0400
 In-Reply-To: <1400260697-32601-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Multiple devices in the kernel can be stacked/nested and they
-need to know their nesting level for the purposes of lockdep.
-This patch provides a generic function that determines a nesting
-level of a particular device by its type (ex: vlan, macvlan, etc).
-We only care about nesting of the same type of devices.
+Macvlan devices try to avoid stacking, but that's not always
+successfull or even desired.  As an example, the following
+configuration is perefectly legal and valid:
 
-For example:
-  eth0 <- vlan0.10 <- macvlan0 <- vlan1.20
+eth0 <--- macvlan0 <---- vlan0.10 <--- macvlan1
 
-The nesting level of vlan1.20 would be 1, since there is another vlan
-in the stack under it.
+However, this configuration produces the following lockdep
+trace:
+[  115.620418] ======================================================
+[  115.620477] [ INFO: possible circular locking dependency detected ]
+[  115.620516] 3.15.0-rc1+ #24 Not tainted
+[  115.620540] -------------------------------------------------------
+[  115.620577] ip/1704 is trying to acquire lock:
+[  115.620604]  (&vlan_netdev_addr_lock_key/1){+.....}, at: [<ffffffff815df49c>] dev_uc_sync+0x3c/0x80
+[  115.620686]
+but task is already holding lock:
+[  115.620723]  (&macvlan_netdev_addr_lock_key){+.....}, at: [<ffffffff815da5be>] dev_set_rx_mode+0x1e/0x40
+[  115.620795]
+which lock already depends on the new lock.
+
+[  115.620853]
+the existing dependency chain (in reverse order) is:
+[  115.620894]
+-> #1 (&macvlan_netdev_addr_lock_key){+.....}:
+[  115.620935]        [<ffffffff810d57f2>] lock_acquire+0xa2/0x130
+[  115.620974]        [<ffffffff816f62e7>] _raw_spin_lock_nested+0x37/0x50
+[  115.621019]        [<ffffffffa07296c3>] vlan_dev_set_rx_mode+0x53/0x110 [8021q]
+[  115.621066]        [<ffffffff815da557>] __dev_set_rx_mode+0x57/0xa0
+[  115.621105]        [<ffffffff815da5c6>] dev_set_rx_mode+0x26/0x40
+[  115.621143]        [<ffffffff815da6be>] __dev_open+0xde/0x140
+[  115.621174]        [<ffffffff815da9ad>] __dev_change_flags+0x9d/0x170
+[  115.621174]        [<ffffffff815daaa9>] dev_change_flags+0x29/0x60
+[  115.621174]        [<ffffffff815e7f11>] do_setlink+0x321/0x9a0
+[  115.621174]        [<ffffffff815ea59f>] rtnl_newlink+0x51f/0x730
+[  115.621174]        [<ffffffff815e6e75>] rtnetlink_rcv_msg+0x95/0x250
+[  115.621174]        [<ffffffff81608b19>] netlink_rcv_skb+0xa9/0xc0
+[  115.621174]        [<ffffffff815e6dca>] rtnetlink_rcv+0x2a/0x40
+[  115.621174]        [<ffffffff81608150>] netlink_unicast+0xf0/0x1c0
+[  115.621174]        [<ffffffff8160851f>] netlink_sendmsg+0x2ff/0x740
+[  115.621174]        [<ffffffff815bc9db>] sock_sendmsg+0x8b/0xc0
+[  115.621174]        [<ffffffff815bd4b9>] ___sys_sendmsg+0x369/0x380
+[  115.621174]        [<ffffffff815bdbb2>] __sys_sendmsg+0x42/0x80
+[  115.621174]        [<ffffffff815bdc02>] SyS_sendmsg+0x12/0x20
+[  115.621174]        [<ffffffff816ffd69>] system_call_fastpath+0x16/0x1b
+[  115.621174]
+-> #0 (&vlan_netdev_addr_lock_key/1){+.....}:
+[  115.621174]        [<ffffffff810d4d43>] __lock_acquire+0x1773/0x1a60
+[  115.621174]        [<ffffffff810d57f2>] lock_acquire+0xa2/0x130
+[  115.621174]        [<ffffffff816f62e7>] _raw_spin_lock_nested+0x37/0x50
+[  115.621174]        [<ffffffff815df49c>] dev_uc_sync+0x3c/0x80
+[  115.621174]        [<ffffffffa0696d2a>] macvlan_set_mac_lists+0xca/0x110 [macvlan]
+[  115.621174]        [<ffffffff815da557>] __dev_set_rx_mode+0x57/0xa0
+[  115.621174]        [<ffffffff815da5c6>] dev_set_rx_mode+0x26/0x40
+[  115.621174]        [<ffffffff815da6be>] __dev_open+0xde/0x140
+[  115.621174]        [<ffffffff815da9ad>] __dev_change_flags+0x9d/0x170
+[  115.621174]        [<ffffffff815daaa9>] dev_change_flags+0x29/0x60
+[  115.621174]        [<ffffffff815e7f11>] do_setlink+0x321/0x9a0
+[  115.621174]        [<ffffffff815ea59f>] rtnl_newlink+0x51f/0x730
+[  115.621174]        [<ffffffff815e6e75>] rtnetlink_rcv_msg+0x95/0x250
+[  115.621174]        [<ffffffff81608b19>] netlink_rcv_skb+0xa9/0xc0
+[  115.621174]        [<ffffffff815e6dca>] rtnetlink_rcv+0x2a/0x40
+[  115.621174]        [<ffffffff81608150>] netlink_unicast+0xf0/0x1c0
+[  115.621174]        [<ffffffff8160851f>] netlink_sendmsg+0x2ff/0x740
+[  115.621174]        [<ffffffff815bc9db>] sock_sendmsg+0x8b/0xc0
+[  115.621174]        [<ffffffff815bd4b9>] ___sys_sendmsg+0x369/0x380
+[  115.621174]        [<ffffffff815bdbb2>] __sys_sendmsg+0x42/0x80
+[  115.621174]        [<ffffffff815bdc02>] SyS_sendmsg+0x12/0x20
+[  115.621174]        [<ffffffff816ffd69>] system_call_fastpath+0x16/0x1b
+[  115.621174]
+other info that might help us debug this:
+
+[  115.621174]  Possible unsafe locking scenario:
+
+[  115.621174]        CPU0                    CPU1
+[  115.621174]        ----                    ----
+[  115.621174]   lock(&macvlan_netdev_addr_lock_key);
+[  115.621174]                                lock(&vlan_netdev_addr_lock_key/1);
+[  115.621174]                                lock(&macvlan_netdev_addr_lock_key);
+[  115.621174]   lock(&vlan_netdev_addr_lock_key/1);
+[  115.621174]
+ *** DEADLOCK ***
+
+[  115.621174] 2 locks held by ip/1704:
+[  115.621174]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff815e6dbb>] rtnetlink_rcv+0x1b/0x40
+[  115.621174]  #1:  (&macvlan_netdev_addr_lock_key){+.....}, at: [<ffffffff815da5be>] dev_set_rx_mode+0x1e/0x40
+[  115.621174]
+stack backtrace:
+[  115.621174] CPU: 3 PID: 1704 Comm: ip Not tainted 3.15.0-rc1+ #24
+[  115.621174] Hardware name: Hewlett-Packard HP xw8400 Workstation/0A08h, BIOS 786D5 v02.38 10/25/2010
+[  115.621174]  ffffffff82339ae0 ffff880465f79568 ffffffff816ee20c ffffffff82339ae0
+[  115.621174]  ffff880465f795a8 ffffffff816e9e1b ffff880465f79600 ffff880465b019c8
+[  115.621174]  0000000000000001 0000000000000002 ffff880465b019c8 ffff880465b01230
+[  115.621174] Call Trace:
+[  115.621174]  [<ffffffff816ee20c>] dump_stack+0x4d/0x66
+[  115.621174]  [<ffffffff816e9e1b>] print_circular_bug+0x200/0x20e
+[  115.621174]  [<ffffffff810d4d43>] __lock_acquire+0x1773/0x1a60
+[  115.621174]  [<ffffffff810d3172>] ? trace_hardirqs_on_caller+0xb2/0x1d0
+[  115.621174]  [<ffffffff810d57f2>] lock_acquire+0xa2/0x130
+[  115.621174]  [<ffffffff815df49c>] ? dev_uc_sync+0x3c/0x80
+[  115.621174]  [<ffffffff816f62e7>] _raw_spin_lock_nested+0x37/0x50
+[  115.621174]  [<ffffffff815df49c>] ? dev_uc_sync+0x3c/0x80
+[  115.621174]  [<ffffffff815df49c>] dev_uc_sync+0x3c/0x80
+[  115.621174]  [<ffffffffa0696d2a>] macvlan_set_mac_lists+0xca/0x110 [macvlan]
+[  115.621174]  [<ffffffff815da557>] __dev_set_rx_mode+0x57/0xa0
+[  115.621174]  [<ffffffff815da5c6>] dev_set_rx_mode+0x26/0x40
+[  115.621174]  [<ffffffff815da6be>] __dev_open+0xde/0x140
+[  115.621174]  [<ffffffff815da9ad>] __dev_change_flags+0x9d/0x170
+[  115.621174]  [<ffffffff815daaa9>] dev_change_flags+0x29/0x60
+[  115.621174]  [<ffffffff811e1db1>] ? mem_cgroup_bad_page_check+0x21/0x30
+[  115.621174]  [<ffffffff815e7f11>] do_setlink+0x321/0x9a0
+[  115.621174]  [<ffffffff810d394c>] ? __lock_acquire+0x37c/0x1a60
+[  115.621174]  [<ffffffff815ea59f>] rtnl_newlink+0x51f/0x730
+[  115.621174]  [<ffffffff815ea169>] ? rtnl_newlink+0xe9/0x730
+[  115.621174]  [<ffffffff815e6e75>] rtnetlink_rcv_msg+0x95/0x250
+[  115.621174]  [<ffffffff810d329d>] ? trace_hardirqs_on+0xd/0x10
+[  115.621174]  [<ffffffff815e6dbb>] ? rtnetlink_rcv+0x1b/0x40
+[  115.621174]  [<ffffffff815e6de0>] ? rtnetlink_rcv+0x40/0x40
+[  115.621174]  [<ffffffff81608b19>] netlink_rcv_skb+0xa9/0xc0
+[  115.621174]  [<ffffffff815e6dca>] rtnetlink_rcv+0x2a/0x40
+[  115.621174]  [<ffffffff81608150>] netlink_unicast+0xf0/0x1c0
+[  115.621174]  [<ffffffff8160851f>] netlink_sendmsg+0x2ff/0x740
+[  115.621174]  [<ffffffff815bc9db>] sock_sendmsg+0x8b/0xc0
+[  115.621174]  [<ffffffff8119d4af>] ? might_fault+0x5f/0xb0
+[  115.621174]  [<ffffffff8119d4f8>] ? might_fault+0xa8/0xb0
+[  115.621174]  [<ffffffff8119d4af>] ? might_fault+0x5f/0xb0
+[  115.621174]  [<ffffffff815cb51e>] ? verify_iovec+0x5e/0xe0
+[  115.621174]  [<ffffffff815bd4b9>] ___sys_sendmsg+0x369/0x380
+[  115.621174]  [<ffffffff816faa0d>] ? __do_page_fault+0x11d/0x570
+[  115.621174]  [<ffffffff810cfe9f>] ? up_read+0x1f/0x40
+[  115.621174]  [<ffffffff816fab04>] ? __do_page_fault+0x214/0x570
+[  115.621174]  [<ffffffff8120a10b>] ? mntput_no_expire+0x6b/0x1c0
+[  115.621174]  [<ffffffff8120a0b7>] ? mntput_no_expire+0x17/0x1c0
+[  115.621174]  [<ffffffff8120a284>] ? mntput+0x24/0x40
+[  115.621174]  [<ffffffff815bdbb2>] __sys_sendmsg+0x42/0x80
+[  115.621174]  [<ffffffff815bdc02>] SyS_sendmsg+0x12/0x20
+[  115.621174]  [<ffffffff816ffd69>] system_call_fastpath+0x16/0x1b
+
+Fix this by correctly providing macvlan lockdep class.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/netdevice.h | 10 ++++++++++
- net/core/dev.c            | 48 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+)
+ drivers/net/macvlan.c      | 12 ++++++++++--
+ include/linux/if_macvlan.h |  1 +
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 20e99ef..e32d313 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3077,6 +3077,14 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- 	     priv; \
- 	     priv = netdev_lower_get_next_private_rcu(dev, &(iter)))
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index c5fb9cf..0019569 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -517,6 +517,11 @@ static struct lock_class_key macvlan_netdev_addr_lock_key;
+ #define MACVLAN_STATE_MASK \
+ 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
  
-+void *netdev_lower_get_next_rcu(struct net_device *dev,
-+				struct list_head **iter);
-+#define netdev_for_each_lower_dev_rcu(dev, priv, iter) \
-+	for (iter = &(dev)->adj_list.lower, \
-+	     priv = netdev_lower_get_next_rcu(dev, &(iter)); \
-+	     priv; \
-+	     priv = netdev_lower_get_next_rcu(dev, &(iter)))
-+
- void *netdev_adjacent_get_private(struct list_head *adj_list);
- void *netdev_lower_get_first_private_rcu(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
-@@ -3092,6 +3100,8 @@ void netdev_upper_dev_unlink(struct net_device *dev,
- void netdev_adjacent_rename_links(struct net_device *dev, char *oldname);
- void *netdev_lower_dev_get_private(struct net_device *dev,
- 				   struct net_device *lower_dev);
-+int dev_get_nest_level(struct net_device *dev,
-+		       bool (*type_check)(struct net_device *dev));
- int skb_checksum_help(struct sk_buff *skb);
- struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
- 				  netdev_features_t features, bool tx_path);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6da649b..9f7c2c2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4622,6 +4622,32 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
- EXPORT_SYMBOL(netdev_lower_get_next_private_rcu);
- 
- /**
-+ * netdev_lower_get_next_rcu - Get the next device from the lower neighbour
-+ *                             list, RCU variant
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent from the dev's lower neighbour
-+ * list, starting from iter position. The caller must hold RCU read lock.
-+ */
-+void *netdev_lower_get_next_rcu(struct net_device *dev, struct list_head **iter)
++static int macvlan_get_nest_level(struct net_device *dev)
 +{
-+	struct netdev_adjacent *lower;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	lower = list_entry_rcu((*iter)->next, struct netdev_adjacent, list);
-+
-+	if (&lower->list == &dev->adj_list.lower)
-+		return NULL;
-+
-+	*iter = &lower->list;
-+
-+	return lower->dev;
++	return ((struct macvlan_dev *)netdev_priv(dev))->nest_level;
 +}
-+EXPORT_SYMBOL(netdev_lower_get_next_rcu);
 +
-+/**
-  * netdev_lower_get_first_private_rcu - Get the first ->private from the
-  *				       lower neighbour list, RCU
-  *				       variant
-@@ -5071,6 +5097,28 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
- }
- EXPORT_SYMBOL(netdev_lower_dev_get_private);
+ static void macvlan_set_lockdep_class_one(struct net_device *dev,
+ 					  struct netdev_queue *txq,
+ 					  void *_unused)
+@@ -527,8 +532,9 @@ static void macvlan_set_lockdep_class_one(struct net_device *dev,
  
-+
-+int dev_get_nest_level(struct net_device *dev,
-+		       bool (*type_check)(struct net_device *dev))
-+{
-+	struct net_device *lower = NULL;
-+	struct list_head *iter;
-+	int max_nest = -1;
-+	int nest;
-+
-+	netdev_for_each_lower_dev_rcu(dev, lower, iter) {
-+		nest = dev_get_nest_level(lower, type_check);
-+		if (max_nest < nest)
-+			max_nest = nest;
-+	}
-+	
-+	if (type_check(dev))
-+		max_nest++;
-+
-+	return max_nest;
-+}
-+EXPORT_SYMBOL(dev_get_nest_level);
-+
- static void dev_change_rx_flags(struct net_device *dev, int flags)
+ static void macvlan_set_lockdep_class(struct net_device *dev)
  {
- 	const struct net_device_ops *ops = dev->netdev_ops;
+-	lockdep_set_class(&dev->addr_list_lock,
+-			  &macvlan_netdev_addr_lock_key);
++	lockdep_set_class_and_subclass(&dev->addr_list_lock,
++			  	       &macvlan_netdev_addr_lock_key,
++				       macvlan_get_nest_level(dev));
+ 	netdev_for_each_tx_queue(dev, macvlan_set_lockdep_class_one, NULL);
+ }
+ 
+@@ -723,6 +729,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+ 	.ndo_fdb_add		= macvlan_fdb_add,
+ 	.ndo_fdb_del		= macvlan_fdb_del,
+ 	.ndo_fdb_dump		= ndo_dflt_fdb_dump,
++	.ndo_get_lock_subclass  = macvlan_get_nest_level,
+ };
+ 
+ void macvlan_common_setup(struct net_device *dev)
+@@ -851,6 +858,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 	vlan->dev      = dev;
+ 	vlan->port     = port;
+ 	vlan->set_features = MACVLAN_FEATURES;
++	vlan->nest_level = dev_get_nest_level(lowerdev, netif_is_macvlan) + 1;
+ 
+ 	vlan->mode     = MACVLAN_MODE_VEPA;
+ 	if (data && data[IFLA_MACVLAN_MODE])
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index 7c8b20b..a9a53b1 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -56,6 +56,7 @@ struct macvlan_dev {
+ 	int			numqueues;
+ 	netdev_features_t	tap_features;
+ 	int			minor;
++	int			nest_level;
+ };
+ 
+ static inline void macvlan_count_rx(const struct macvlan_dev *vlan,
 -- 
 1.9.0
