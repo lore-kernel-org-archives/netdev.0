@@ -1,8 +1,8 @@
 From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 11/12] openvswitch: Use TCP flags in the
-	flow key for stats.
-Date: Fri, 16 May 2014 14:07:38 -0700
-Message-ID: <1400274459-56304-12-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 10/12] openvswitch: Fix output of SCTP
+	mask.
+Date: Fri, 16 May 2014 14:07:37 -0700
+Message-ID: <1400274459-56304-11-git-send-email-jesse@nicira.com>
 References: <1400274459-56304-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,39 +24,38 @@ List-Id: netdev.vger.kernel.org
 
 From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-We already extract the TCP flags for the key, might as well use that
-for stats.
+The 'output' argument of the ovs_nla_put_flow() is the one from which
+the bits are written to the netlink attributes.  For SCTP we
+accidentally used the bits from the 'swkey' instead.  This caused the
+mask attributes to include the bits from the actual flow key instead
+of the mask.
 
 Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Acked-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ net/openvswitch/flow_netlink.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 432f04d..e0fc12b 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -69,14 +69,12 @@ void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
- 
- 	stats = rcu_dereference(flow->stats[node]);
- 
--	if ((flow->key.eth.type == htons(ETH_P_IP) ||
--	     flow->key.eth.type == htons(ETH_P_IPV6)) &&
--	    flow->key.ip.frag != OVS_FRAG_TYPE_LATER &&
--	    flow->key.ip.proto == IPPROTO_TCP &&
--	    likely(skb->len >= skb_transport_offset(skb) + sizeof(struct tcphdr))) {
--		tcp_flags = TCP_FLAGS_BE16(tcp_hdr(skb));
-+	if (likely(flow->key.ip.proto == IPPROTO_TCP)) {
-+		if (likely(flow->key.eth.type == htons(ETH_P_IP)))
-+			tcp_flags = flow->key.ipv4.tp.flags;
-+		else if (likely(flow->key.eth.type == htons(ETH_P_IPV6)))
-+			tcp_flags = flow->key.ipv6.tp.flags;
- 	}
--
- 	/* Check if already have node-specific stats. */
- 	if (likely(stats)) {
- 		spin_lock(&stats->lock);
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index 84caa99..32a725c 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1059,11 +1059,11 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 				goto nla_put_failure;
+ 			sctp_key = nla_data(nla);
+ 			if (swkey->eth.type == htons(ETH_P_IP)) {
+-				sctp_key->sctp_src = swkey->ipv4.tp.src;
+-				sctp_key->sctp_dst = swkey->ipv4.tp.dst;
++				sctp_key->sctp_src = output->ipv4.tp.src;
++				sctp_key->sctp_dst = output->ipv4.tp.dst;
+ 			} else if (swkey->eth.type == htons(ETH_P_IPV6)) {
+-				sctp_key->sctp_src = swkey->ipv6.tp.src;
+-				sctp_key->sctp_dst = swkey->ipv6.tp.dst;
++				sctp_key->sctp_src = output->ipv6.tp.src;
++				sctp_key->sctp_dst = output->ipv6.tp.dst;
+ 			}
+ 		} else if (swkey->eth.type == htons(ETH_P_IP) &&
+ 			   swkey->ip.proto == IPPROTO_ICMP) {
 -- 
 1.9.1
