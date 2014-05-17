@@ -1,49 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats using ethtool
-Date: Sat, 17 May 2014 08:46:45 +0200
-Message-ID: <87d2fcoqay.fsf@nemi.mork.no>
-References: <1400269709-18854-1-git-send-email-bjorn@mork.no>
-	<20140516.224032.2301577488192248796.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
+ ll_addr_n2a
+Date: Sat, 17 May 2014 10:50:31 +0200
+Message-ID: <20140517085031.GA3006@minipsycho.orion>
+References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
+ <1400159422-11797-2-git-send-email-jiri@resnulli.us>
+ <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
+ <20140515165051.GA2939@minipsycho.orion>
+ <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140516.224032.2301577488192248796.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (David
-	Miller's message of "Fri, 16 May 2014 22:40:32 -0400 (EDT)")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mschmidt@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:51531 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757260AbaEQIuf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2014 04:50:35 -0400
+Received: by mail-ee0-f44.google.com with SMTP id c41so2093805eek.31
+        for <netdev@vger.kernel.org>; Sat, 17 May 2014 01:50:33 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> writes:
-
-> From: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-> Date: Fri, 16 May 2014 21:48:17 +0200
+Sat, May 17, 2014 at 05:58:16AM CEST, stephen@networkplumber.org wrote:
+>On Thu, 15 May 2014 18:50:51 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
 >
->> Quoting the previous description of this series (skip to the
->> changelog below if you only want a summary of the changes):
+>> Thu, May 15, 2014 at 05:43:42PM CEST, stephen@networkplumber.org wrote:
+>> >On Thu, 15 May 2014 15:10:20 +0200
+>> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >
+>> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> >> ---
+>> >>  misc/arpd.c | 6 +++---
+>> >>  1 file changed, 3 insertions(+), 3 deletions(-)
+>> >> 
+>> >
+>> >Why not use more standard ether_ntoa ?
+>> 
+>> Because the rest of the code uses ll_addr_n2a. There is no user of
+>> ether_ntoa in iproute2.
 >
-> Ok I'm fine with this, applied to net-next.
+>arpd is more of a standalone program.
 
-Thanks.
+I know but it is a part of the package (git tree). The other instances
+use ll_addr_n2a. I'm ok with using ether_ntoa, I just wanted to follow
+what is already there.
 
-> Just make doubly sure that you will be ok, for a long time, with usin=
-g
-> the ethtool coalescing interface for configuring this because you'll
-> really be stuck with this forever.
-
-Yes, I am painfull aware of that.  So I was hoping someone would jump a=
-t
-this and say something like "That's not the way to do it.  Use the foo
-interface instead. It's made for stuff like this".
-
-Let's see if having it in net-next makes anyone react.
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I can change it and post v2 it you want. I can also change other instances
+of usage ll_addr_n2a to ether_ntoa.
