@@ -1,53 +1,123 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
- ll_addr_n2a
-Date: Sat, 17 May 2014 10:50:31 +0200
-Message-ID: <20140517085031.GA3006@minipsycho.orion>
-References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
- <1400159422-11797-2-git-send-email-jiri@resnulli.us>
- <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
- <20140515165051.GA2939@minipsycho.orion>
- <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH] Fix for possible null pointer dereference in auth.c
+Date: Sat, 17 May 2014 18:36:13 +0200
+Message-ID: <CAFo99gatLzLpOu92N23bMQ=a25BTnK3QK2rAzoQJcU3oxMuMgA@mail.gmail.com>
+References: <1400190998-28153-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<5376025B.6010202@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mschmidt@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:51531 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757260AbaEQIuf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2014 04:50:35 -0400
-Received: by mail-ee0-f44.google.com with SMTP id c41so2093805eek.31
-        for <netdev@vger.kernel.org>; Sat, 17 May 2014 01:50:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary=089e013cba44e2c78304f99b2078
+Cc: "J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5376025B.6010202@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, May 17, 2014 at 05:58:16AM CEST, stephen@networkplumber.org wrote:
->On Thu, 15 May 2014 18:50:51 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
+--089e013cba44e2c78304f99b2078
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Hi
+
+I have made a new patch according Sergei specification.
+
+But there remains Tronds question though.
+
+Best regards
+Rickard Strandqvist
+
+
+2014-05-16 14:19 GMT+02:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.=
+com>:
+> Hello.
 >
->> Thu, May 15, 2014 at 05:43:42PM CEST, stephen@networkplumber.org wrote:
->> >On Thu, 15 May 2014 15:10:20 +0200
->> >Jiri Pirko <jiri@resnulli.us> wrote:
->> >
->> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> >> ---
->> >>  misc/arpd.c | 6 +++---
->> >>  1 file changed, 3 insertions(+), 3 deletions(-)
->> >> 
->> >
->> >Why not use more standard ether_ntoa ?
->> 
->> Because the rest of the code uses ll_addr_n2a. There is no user of
->> ether_ntoa in iproute2.
 >
->arpd is more of a standalone program.
+> On 16-05-2014 1:56, Rickard Strandqvist wrote:
+>
+>> There is otherwise a risk of a possible null pointer dereference.
+>
+>
+>> Was largely found by using a static code analysis program called cppchec=
+k.
+>
+>
+>> Signed-off-by: Rickard Strandqvist
+>> <rickard_strandqvist@spectrumdigital.se>
+>> ---
+>>   net/sunrpc/auth.c |   10 +++++++---
+>>   1 fil =C3=A4ndrad, 7 till=C3=A4gg(+), 3 borttagningar(-)
+>
+>
+>> diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
+>> index 5285ead..3a55698 100644
+>> --- a/net/sunrpc/auth.c
+>> +++ b/net/sunrpc/auth.c
+>> @@ -801,10 +801,14 @@ rpcauth_invalcred(struct rpc_task *task)
+>>   {
+>>         struct rpc_cred *cred =3D task->tk_rqstp->rq_cred;
+>>
+>> -       dprintk("RPC: %5u invalidating %s cred %p\n",
+>> -               task->tk_pid, cred->cr_auth->au_ops->au_name, cred);
+>> -       if (cred)
+>> +       if (cred) {
+>> +               dprintk("RPC: %5u invalidating %s cred %p\n",
+>> +                       task->tk_pid, cred->cr_auth->au_ops->au_name,
+>> cred);
+>> +
+>>                 clear_bit(RPCAUTH_CRED_UPTODATE, &cred->cr_flags);
+>> +       }
+>> +       else
+>
+>
+>    } and *else* should be on the same line, and there should be {} in the
+> *else* arm since there's {} in the *if* arm already, according to
+> Documentation/CodingStyle.
+>
+>
+>> +               dprintk("RPC: %5u invalidating is NULL\n", task->tk_pid)=
+;
+>
+>
+>    That's not a proper English, I'm afraid.
+>
+>>   }
+>
+>
+> WBR, Sergei
+>
+>
 
-I know but it is a part of the package (git tree). The other instances
-use ll_addr_n2a. I'm ok with using ether_ntoa, I just wanted to follow
-what is already there.
+--089e013cba44e2c78304f99b2078
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0001-Fix-for-possible-null-pointer-dereferenc.patch"
+Content-Disposition: attachment;
+	filename="0001-Fix-for-possible-null-pointer-dereferenc.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hvb4zt2z0
 
-I can change it and post v2 it you want. I can also change other instances
-of usage ll_addr_n2a to ether_ntoa.
+RnJvbSAyMTA5OTQ5MDVmN2Y3YjEzZjZjNjIxZjExMDY5OWYyOGZkMTM0OTgwIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBSaWNrYXJkIFN0cmFuZHF2aXN0IDxyaWNrYXJkX3N0cmFuZHF2
+aXN0QHNwZWN0cnVtZGlnaXRhbC5zZT4KRGF0ZTogU3VuLCAxMSBNYXkgMjAxNCAxODo1MTo0MiAr
+MDIwMApTdWJqZWN0OiBbUEFUQ0hdIG5ldDogc3VucnBjOiBhdXRoLmM6IEZpeCBmb3IgcG9zc2li
+bGUgbnVsbCBwb2ludGVyIGRlcmVmZXJlbmNlCgpUaGVyZSBpcyBvdGhlcndpc2UgYSByaXNrIG9m
+IGEgcG9zc2libGUgbnVsbCBwb2ludGVyIGRlcmVmZXJlbmNlLgoKV2FzIGxhcmdlbHkgZm91bmQg
+YnkgdXNpbmcgYSBzdGF0aWMgY29kZSBhbmFseXNpcyBwcm9ncmFtIGNhbGxlZCBjcHBjaGVjay4K
+ClNpZ25lZC1vZmYtYnk6IFJpY2thcmQgU3RyYW5kcXZpc3QgPHJpY2thcmRfc3RyYW5kcXZpc3RA
+c3BlY3RydW1kaWdpdGFsLnNlPgotLS0KIG5ldC9zdW5ycGMvYXV0aC5jIHwgICAxMCArKysrKysr
+LS0tCiAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQoKZGlm
+ZiAtLWdpdCBhL25ldC9zdW5ycGMvYXV0aC5jIGIvbmV0L3N1bnJwYy9hdXRoLmMKaW5kZXggNTI4
+NWVhZC4uYTllMTg2NiAxMDA2NDQKLS0tIGEvbmV0L3N1bnJwYy9hdXRoLmMKKysrIGIvbmV0L3N1
+bnJwYy9hdXRoLmMKQEAgLTgwMSwxMCArODAxLDE0IEBAIHJwY2F1dGhfaW52YWxjcmVkKHN0cnVj
+dCBycGNfdGFzayAqdGFzaykKIHsKIAlzdHJ1Y3QgcnBjX2NyZWQgKmNyZWQgPSB0YXNrLT50a19y
+cXN0cC0+cnFfY3JlZDsKIAotCWRwcmludGsoIlJQQzogJTV1IGludmFsaWRhdGluZyAlcyBjcmVk
+ICVwXG4iLAotCQl0YXNrLT50a19waWQsIGNyZWQtPmNyX2F1dGgtPmF1X29wcy0+YXVfbmFtZSwg
+Y3JlZCk7Ci0JaWYgKGNyZWQpCisJaWYgKGNyZWQpIHsKKwkJZHByaW50aygiUlBDOiAlNXUgaW52
+YWxpZGF0aW5nICVzIGNyZWQgJXBcbiIsCisJCQl0YXNrLT50a19waWQsIGNyZWQtPmNyX2F1dGgt
+PmF1X29wcy0+YXVfbmFtZSwgY3JlZCk7CisKIAkJY2xlYXJfYml0KFJQQ0FVVEhfQ1JFRF9VUFRP
+REFURSwgJmNyZWQtPmNyX2ZsYWdzKTsKKwl9IGVsc2UgeworCQlkcHJpbnRrKCJSUEM6ICU1dSBj
+cmVkIHBvaW50ZXIgaXMgMCIsIHRhc2stPnRrX3BpZCk7CisJfQogfQogCiBpbnQKLS0gCjEuNy4x
+MC40Cgo=
+--089e013cba44e2c78304f99b2078--
