@@ -1,41 +1,34 @@
-From: Kelly Anderson <kelly@xilka.com>
-Subject: Re: 3.14 tc oops
-Date: Fri, 16 May 2014 21:28:16 -0600
-Message-ID: <2501516.A9ihW45TvK@comer>
-References: <1592838.91HrDxMk9i@comer> <3222104.QGqslXqjVx@comer> <CAM_iQpVVwE6+SgYKr5kiHhv0yE3-eRynxo5AkPSL5ZQ=aA5aJw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] bridge: fix spelling of promiscuous
+Date: Fri, 16 May 2014 20:46:17 -0700
+Message-ID: <20140516204617.7bddc581@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ar100.montanavision.com ([216.146.103.100]:55957 "EHLO
-	xilka.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754887AbaEQDaU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 May 2014 23:30:20 -0400
-In-Reply-To: <CAM_iQpVVwE6+SgYKr5kiHhv0yE3-eRynxo5AkPSL5ZQ=aA5aJw@mail.gmail.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:60743 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755035AbaEQDqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 23:46:20 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so3335985pab.19
+        for <netdev@vger.kernel.org>; Fri, 16 May 2014 20:46:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, May 16, 2014 17:18:52 Cong Wang wrote:
-> On Mon, Apr 7, 2014 at 1:00 AM, Kelly Anderson <kelly@xilka.com> wrote:
-> > Cong,
-> > 
-> > The patch did not fix the problem.
-> > 
-> > For your convenience, I've attached tc filter show for eth0 and eth1, as
-> > well as a mangled version of my tcng input file.
-> 
-> Sorry that I totally forgot this thread....
-> 
-> I just tested a new patch (attached), it works for me, please verify it.
-> 
-> Thanks for the report anyway.
 
-Great, the new patch seems to work fine with 3.14.4.  If you haven't done it 
-yet, you should probably get that patch pulled into 3.14 stable.
 
-Regards,
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Kelly Anderson
+
+--- a/net/bridge/br_if.c	2014-05-16 20:27:32.487420011 -0700
++++ b/net/bridge/br_if.c	2014-05-16 20:36:45.860301171 -0700
+@@ -178,7 +178,7 @@ static void nbp_update_port_count(struct
+ 
+ static void nbp_delete_promisc(struct net_bridge_port *p)
+ {
+-	/* If port is currently promiscous, unset promiscuity.
++	/* If port is currently promiscuous, unset promiscuity.
+ 	 * Otherwise, it is a static port so remove all addresses
+ 	 * from it.
+ 	 */
