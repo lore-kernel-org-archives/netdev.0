@@ -1,41 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] e1000: Use
- is_broadcast_ether_addr/is_multicast_ether_addr helpers
-Date: Fri, 16 May 2014 22:59:29 -0700
-Message-ID: <1400306369.8175.87.camel@jtkirshe-mobl>
-References: <1400227238-13428-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH net-next] i40evf: Use
+	is_multicast_ether_addr helper
+Date: Fri, 16 May 2014 22:59:41 -0700
+Message-ID: <1400306381.8175.88.camel@jtkirshe-mobl>
+References: <1400227234-13383-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YbRq9eXOFwA2AxxbzRHv"
+Content-Type: multipart/mixed; boundary="===============4022118439090786748=="
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 To: Tobias Klauser <tklauser@distanz.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:51694 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756223AbaEQF7a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 May 2014 01:59:30 -0400
-In-Reply-To: <1400227238-13428-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1400227234-13383-1-git-send-email-tklauser@distanz.ch>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 
---=-YbRq9eXOFwA2AxxbzRHv
+--===============4022118439090786748==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Xfu2phONP/Uy7q91xP1Q"
+
+
+--=-Xfu2phONP/Uy7q91xP1Q
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Fri, 2014-05-16 at 10:00 +0200, Tobias Klauser wrote:
-> Use the is_broadcast_ether_addr/is_multicast_ether_addr helper
-> functions
-> from linux/etherdevice.h instead of open coding them.
+> Use the is_multicast_ether_addr helper function from
+> linux/etherdevice.h
+> instead of open coding the multicast address check.
 >=20
 > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 > ---
->  drivers/net/ethernet/intel/e1000/e1000_hw.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/intel/i40evf/i40evf_main.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
 Thanks Tobias, I have added this to my queue.
 
---=-YbRq9eXOFwA2AxxbzRHv
+--=-Xfu2phONP/Uy7q91xP1Q
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -43,19 +50,47 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAABCgAGBQJTdvrBAAoJEOVv75VaS+3OLq0P/R+/tIdC1Uawd8FE5R+vYQEz
-3S4ERkW/Q5ux6JDOzpuvyFJ6K0o4GXQp9Q3enrVINdsKz6YQI1/nrXKHUNN54fJJ
-bAzA3EOIRDH7V4JT52SR7h2RmPSYFCbnHbNXTbB9reMS3svTL/EVtQeopjdyZatZ
-F+GByR2h0/9t16m0QEexpdoRZGp8mSoOqADjyRgS2UT4Ai+Sgvm54GTrQKZHbvj0
-XuKX877mNBr8Of0M4cV38zm+joTPOAe0xs2uu8MjlmguawV+gbtj8h18deZYdZQE
-PgIb4hwiJhb5sJgOlOBvk3hfv+vGWI7muFZdASP6GRUwSjfhUOR7HILbXhgczGn8
-/2ZdN71P6cFlBNw1LzprGaLGb3qMaCHf+frs+XFZnNKTHFw/UxwZKmUumhg39gmm
-NiS0qZBy6eKpReJjo5Xdo647gxNBEQCi7IPOn4aWmuU3+YBbJIIr1i9vLI4dMs1U
-4gufcyy7UlCePbgcVXb2cPEktDnMan3dzlyvTclzPu2IHFaeWFXdYDGfzK0KMKYY
-g2BExXUUCPDrIMJDWUdrEY0+Z23O/pTypij8aRLpG3APiwpzC6kOdTdVwTDo81Mb
-Wm+DCURDOH5xXcK33YSm5kearYdDNWJMTbvaYFsxFFrcMLjS4LiwTGDD5Sp8+MF+
-1ysv5DEBaWlyyro7YgKM
-=pcek
+iQIcBAABCgAGBQJTdvrNAAoJEOVv75VaS+3O/DMP/2x+3BbxkrGTduWctFIKGbw6
+LMWkl9A9UWPskXMqUXnm57PAICpHczEKot/t2Qck+vxZLq8wquNkwQqSR/fkn35m
+lxKhH6ukMs4wZRVHF6yx98ts4rg/4zH9qZCnwr9EOdzcr0ePsEHYAWI9sacdB8MR
+YNYhhTS8/SntX9Q291IDip7EEEP8CUZqn/BBF80kqb9GqcvJqjMCH7AJF4gzo2LJ
+WlNPZckYme191oxyDiwUgtZIRq6cp3UxE+VmQwC3BoiaorNIhRdv8ksD1kgZ/MZG
+Ap/SIFvpZuScxMNnQBYwcSDMp2qKXqURvgDdsWnWS/mR/XWDc3+alv6nqHIJ7Rjz
+Cbk/PeSzdQcFX+nu4RnFdpJp49yIQ9BEtXWnHCf3qLuhJGSGLhlyiSPdJkhj4dGD
+3KubWQbBbRaKs2k0Kq3gG5yTEKXmOmf6GhNdO3uo3hE6ihW//4kyEYkLiShl6G1z
+ku+/KQEbEyaYtYtz3nkpyoWGV3TB2D12UcldVewCdan1dRXfo7qkgh6yZ+Jx8TcC
+to0SyOursII2/PheB7s+mql8xmg/2OpueDhGmvYThYsZu+WBFfuiQhzddQFlXK74
+a0ja9hUo9IIBIFjVS30yFzCZOqpHKmoSiGgoaXsysePySij48KIr+XpZfQdCA7mn
+L5cy6DDcK/rpImf1xvzf
+=2FJB
 -----END PGP SIGNATURE-----
 
---=-YbRq9eXOFwA2AxxbzRHv--
+--=-Xfu2phONP/Uy7q91xP1Q--
+
+
+
+--===============4022118439090786748==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
+Instantly run your Selenium tests across 300+ browser/OS combos.
+Get unparalleled scalability from the best Selenium testing platform available
+Simple to use. Nothing to install. Get started now for free."
+http://p.sf.net/sfu/SauceLabs
+--===============4022118439090786748==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4022118439090786748==--
