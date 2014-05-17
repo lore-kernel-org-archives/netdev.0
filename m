@@ -1,76 +1,48 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 1/9] net/mlx4_core: Enforce irq affinity
- changes immediatly
-Date: Sat, 17 May 2014 21:33:07 +0100
-Message-ID: <1400358787.2647.65.camel@deadeye.wl.decadent.org.uk>
-References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
-	 <1399880605-28772-2-git-send-email-amirv@mellanox.com>
+From: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected
+ mode TX path
+Date: Sat, 17 May 2014 23:52:10 +0300
+Message-ID: <CAJZOPZJVxF6A-3s16feqoWCb5gOLTjyUmB3F+st1+1QWp+bJnQ@mail.gmail.com>
+References: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com>
+	<alpine.LNX.2.00.1405131338030.16459@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-YmaTi4/OU78Xmk39r0+8"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:53709 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751461AbaEQUdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 May 2014 16:33:18 -0400
-In-Reply-To: <1399880605-28772-2-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LNX.2.00.1405131338030.16459-ztGlSCb7Y1iN3ZZ/Hiejyg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, May 13, 2014 at 2:38 PM, Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org> wrote:
+> On Sun, 11 May 2014, Or Gerlitz wrote:
 
---=-YmaTi4/OU78Xmk39r0+8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+>> This series is a refactored form of the one posted by Jiri Kosina
+>> to LKML and netdev according to the discussion that followed
+>> and the guidelines you provided here https://lkml.org/lkml/2014/3/5/250
 
-On Mon, 2014-05-12 at 10:43 +0300, Amir Vadai wrote:
-> From: Yuval Atias <yuvala@mellanox.com>
->=20
-> During heavy traffic, napi is constatntly polling the complition queue
-> and no interrupt is fired. Because of that, changes to irq affinity are
-> ignored until traffic is stopped and resumed.
->=20
-> By registering to the irq notifier mechanism, and forcing interrupt when
-> affinity is changed, irq affinity changes will be immediatly enforced.
-[...]
+>> Basically, the functionality changes introduced by this series fully
+>> reside on the IB side of things, so I am only posting the actual patches
+>> to linux-rdma with CC on the cover-letter to the lists that were on V0.
 
-This somewhat breaks ARFS in your driver, as that depends on IRQ
-affinity notification.
+> Thanks, I am fine with my Signoff on that.
+> Roland, is this going to be merged by you, or should this go to DaveM directly?
 
-It is also not safe to put an IRQ affinity notification function in a
-module currently, as the work item for notification doesn't carry a
-module reference and could be called after the module is removed.
+Roland, we're soon on -rc6 and there's no reason for this to miss
+3.16, could you please comment whether you want it to go through your
+tree or net-next?
 
-Ben.
-
---=20
-Ben Hutchings
-I'm not a reverse psychological virus.  Please don't copy me into your sig.
-
---=-YmaTi4/OU78Xmk39r0+8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUAU3fHh+e/yOyVhhEJAQqO4g//ZMWfEW9Ik5Vs1ur+te/yE7Fwt8DJFhx4
-QnetsZP3jkOB9gYYJJ1xSLcNmpJyVRM47rzZXTP1Rr5LS64v16j1MqTpQHxMwewo
-g7gPDLxcMlitc7Z3gJaLN1aYe+B4FromDVHrPXwltSGxjmtfvxnkLnAqUMxU4jGI
-Jq0OoveaBmvlXYoPSwTwLjaRFlOMUxleSjCF0DGfP3Aicot+crKTklgP6sogG+sH
-G2agtZkvC4zalIKdIPkqVtzA4GXDRuMDTax1LYM2VC0yS5CeQqny+AtmjYb1uEVR
-BQZAi51oxihaasNxOXngueXrNIuvl2iDikmUL67TGb44TsQJDas2FApvgXZ1Jm4n
-wAyOMjPVaV1iSfEoO3ihjd8OwI5hOq2duX/n5RRzcmXN+2G9zvsJIzP9fzPXhY2F
-8SwIiqOuWE65df27om5xKyhb4z9p1C73gqtFEIqgTVmB1L8uNtfTCutYSUjr/Noa
-nYe8DM0KLjU/IntZaAb89exqhVYH2wKt9i1Rm9Xd4Ydt5HU4/RwmuFZm3UxTakRt
-B/r3Yfw6Ka0P1MI5dD0M2rM9rtejszkcQNtQ/sA4JYdAWU0SLOebR5VuquIweaXm
-CTCh7u89vmqo/di5y4zmXVDCm0T4QrlJqs5vTJPa3XfddGB9JxDwwi14FOX4NG33
-AYB2BqdeoOc=
-=krIK
------END PGP SIGNATURE-----
-
---=-YmaTi4/OU78Xmk39r0+8--
+> Jiri Kosina
+> SUSE Labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
