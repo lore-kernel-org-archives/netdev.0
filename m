@@ -1,41 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 4/8] e1000e: Out of line __ew32_prepare/__ew32
-Date: Fri, 16 May 2014 20:23:41 -0700
-Message-ID: <20140516202341.4b402aa6@nehalam.linuxnetplumber.net>
-References: <1400276595-6965-1-git-send-email-andi@firstfloor.org>
-	<1400276595-6965-5-git-send-email-andi@firstfloor.org>
+From: Kelly Anderson <kelly@xilka.com>
+Subject: Re: 3.14 tc oops
+Date: Fri, 16 May 2014 21:28:16 -0600
+Message-ID: <2501516.A9ihW45TvK@comer>
+References: <1592838.91HrDxMk9i@comer> <3222104.QGqslXqjVx@comer> <CAM_iQpVVwE6+SgYKr5kiHhv0yE3-eRynxo5AkPSL5ZQ=aA5aJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Andi Kleen <ak@linux.intel.com>, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:59200 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754817AbaEQDXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 May 2014 23:23:44 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rp16so3390218pbb.20
-        for <netdev@vger.kernel.org>; Fri, 16 May 2014 20:23:44 -0700 (PDT)
-In-Reply-To: <1400276595-6965-5-git-send-email-andi@firstfloor.org>
+Received: from ar100.montanavision.com ([216.146.103.100]:55957 "EHLO
+	xilka.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754887AbaEQDaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 May 2014 23:30:20 -0400
+In-Reply-To: <CAM_iQpVVwE6+SgYKr5kiHhv0yE3-eRynxo5AkPSL5ZQ=aA5aJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 May 2014 14:43:11 -0700
-Andi Kleen <andi@firstfloor.org> wrote:
+On Friday, May 16, 2014 17:18:52 Cong Wang wrote:
+> On Mon, Apr 7, 2014 at 1:00 AM, Kelly Anderson <kelly@xilka.com> wrote:
+> > Cong,
+> > 
+> > The patch did not fix the problem.
+> > 
+> > For your convenience, I've attached tc filter show for eth0 and eth1, as
+> > well as a mangled version of my tcng input file.
+> 
+> Sorry that I totally forgot this thread....
+> 
+> I just tested a new patch (attached), it works for me, please verify it.
+> 
+> Thanks for the report anyway.
 
-> From: Andi Kleen <ak@linux.intel.com>
-> 
-> Out of lining these two common inlines saves about 30k text size,
-> due to their errata workarounds.
-> 
-> 14131431	2008136	1507328	17646895	10d452f	vmlinux-before-e1000e
-> 14101415	2004040	1507328	17612783	10cbfef	vmlinux-e1000e
-> 
-> Cc: jeffrey.t.kirsher@intel.com
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Great, the new patch seems to work fine with 3.14.4.  If you haven't done it 
+yet, you should probably get that patch pulled into 3.14 stable.
 
-Since you are making a formerly private function global, the name
-should be unique. I.e prefix it with e1000_
+Regards,
+
+Kelly Anderson
