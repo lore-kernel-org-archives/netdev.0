@@ -1,66 +1,82 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: Modular arithmetic
-Date: Sun, 18 May 2014 11:26:46 -0700
-Message-ID: <A58D120A-C942-4E06-8D41-CB7607B02AE0@alum.mit.edu>
-References: <20120905213941.03c85968@arrowsmith>
- <C71A36A8-08D2-4D3D-AF2B-EF89FEECE1A6@alum.mit.edu>
- <20120906073615.693d14e0@arrowsmith>
- <46AB14E3-73F4-41FA-8086-F1D663AF4549@alum.mit.edu>
- <20120907074910.2df46817@arrowsmith>
- <20120908030311.GM17289@tassilo.jf.intel.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6FE4@saturn3.aculab.com>
- <1347269124.1234.1326.camel@edumazet-glaptop>
- <AE90C24D6B3A694183C094C60CF0A2F6026B6FE5@saturn3.aculab.com>
- <2B555EBC-A130-476B-9E29-DB75E668904E@alum.mit.edu>
-Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@linux.intel.com>, Eric Dumazet <eric.dumazet@gmail.com>,
- netdev@vger.kernel.org, tcpdump-workers@lists.tcpdump.org,
- Jay Schulist <jschlst@samba.org>
-To: Guy Harris <guy@alum.mit.edu>
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-In-Reply-To: <2B555EBC-A130-476B-9E29-DB75E668904E@alum.mit.edu>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
- <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers/>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
- <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
-Sender: "tcpdump-workers" <tcpdump-workers-bounces@lists.tcpdump.org>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] net: rds: Use time_after() for time comparison
+Date: Sun, 18 May 2014 23:32:49 +0200
+Message-ID: <1400448769-5945-1-git-send-email-manuel.schoelling@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: chien.yen@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+To be future-proof and for better readability the time comparisons are =
+modified
+to use time_after() instead of raw math.
 
-On Sep 10, 2012, at 10:50 AM, Guy Harris <guy@alum.mit.edu> wrote:
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
+---
+ net/rds/ib_send.c |    4 ++--
+ net/rds/iw_send.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-> 
-> On Sep 10, 2012, at 3:41 AM, "David Laight" <David.Laight@ACULAB.COM> wrote:
-> 
->>>> What about the other OS - eg all the BSDs?
->>>> I had a vague idea that BPF was supposed to be reasonable portable.
->>> 
->>> Yes, does it mean BPF is frozen ?
->>> 
->>> Or is BSD so hard to update these days ?
->> 
->> Not really - but it some other places that need updating in order
->> to make this useful for cross-platform tools (like tcpdump).
->> 
->> The 'real fun (tm)' happens when NetBSD tries to run Linux binaries
->> that include the Linux libpcap.
-> 
-> Additional fun happens when a Linux system with a kernel that doesn't have the mod instruction tries to run Linux binaries that include a Linux libpcap that generates code using the mod instruction; this is not a BSD-vs.-Linux issue, it's a "kernel that lacks the mod instruction vs. libpcap that generates code that includes the mod instruction" issue.
-> 
-> BSD/OS X, Linux, Solaris, and the WinPcap driver need, if they adopt new BPF instructions, to have a mechanism by which libpcap (or anything else using BPF filtering) can inquire about the capabilities of the OS BPF interpreter; libpcap would use that to determine what code to generate if generating code for the in-kernel BPF interpreter.
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index 37be6e2..1dde91e 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -298,7 +298,7 @@ void rds_ib_send_cq_comp_handler(struct ib_cq *cq, =
+void *context)
+ 		rds_ib_stats_inc(s_ib_tx_cq_event);
+=20
+ 		if (wc.wr_id =3D=3D RDS_IB_ACK_WR_ID) {
+-			if (ic->i_ack_queued + HZ/2 < jiffies)
++			if (time_after(jiffies, ic->i_ack_queued + HZ/2))
+ 				rds_ib_stats_inc(s_ib_tx_stalled);
+ 			rds_ib_ack_send_complete(ic);
+ 			continue;
+@@ -315,7 +315,7 @@ void rds_ib_send_cq_comp_handler(struct ib_cq *cq, =
+void *context)
+=20
+ 			rm =3D rds_ib_send_unmap_op(ic, send, wc.status);
+=20
+-			if (send->s_queued + HZ/2 < jiffies)
++			if (time_after(jiffies, send->s_queued + HZ/2))
+ 				rds_ib_stats_inc(s_ib_tx_stalled);
+=20
+ 			if (send->s_op) {
+diff --git a/net/rds/iw_send.c b/net/rds/iw_send.c
+index e40c3c5..9105ea0 100644
+--- a/net/rds/iw_send.c
++++ b/net/rds/iw_send.c
+@@ -232,7 +232,7 @@ void rds_iw_send_cq_comp_handler(struct ib_cq *cq, =
+void *context)
+ 		}
+=20
+ 		if (wc.wr_id =3D=3D RDS_IW_ACK_WR_ID) {
+-			if (ic->i_ack_queued + HZ/2 < jiffies)
++			if (time_after(jiffies, ic->i_ack_queued + HZ/2))
+ 				rds_iw_stats_inc(s_iw_tx_stalled);
+ 			rds_iw_ack_send_complete(ic);
+ 			continue;
+@@ -267,7 +267,7 @@ void rds_iw_send_cq_comp_handler(struct ib_cq *cq, =
+void *context)
+=20
+ 			send->s_wr.opcode =3D 0xdead;
+ 			send->s_wr.num_sge =3D 1;
+-			if (send->s_queued + HZ/2 < jiffies)
++			if (time_after(jiffies, send->s_queued + HZ/2))
+ 				rds_iw_stats_inc(s_iw_tx_stalled);
+=20
+ 			/* If a RDMA operation produced an error, signal this right
+--=20
+1.7.10.4
 
-In this particular case, there's no choice about what to generate - either you have mod and XOR instructions or you don't.
-
-Furthermore, if the kernel rejects a particular BPF program, libpcap just falls back on filtering in userland, so we can support % and ^ operators in libpcap on all platforms, albeit with a performance hit on Linux prior to 3.7 and, currently, on other platforms.  I don't think there's anything inherently troublesome about BPF_MOD and BPF_XOR, so I'll file bugs against the various BSDs and OS X suggesting that they be added.
-
-So I've checked in a change to libpcap to implement BPF_MOD and BPF_XOR and to add % and ^ operators (yes, the same zero-divide checks in bpf_validate() done for BPF_DIV are done for BPF_MOD, and the optimizer was updated to handle BPF_MOD like BPF_DIV and to handle BPF_XOR like BPF_OR).  The pcap-filter man page documents it, but warns that filters using them might be run in userland on pre-3.7 Linux and non-Linux platforms.
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+--
+To unsubscribe from this list: send the line "unsubscribe kernel-janito=
+rs" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
