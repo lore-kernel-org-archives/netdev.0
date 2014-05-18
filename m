@@ -1,8 +1,8 @@
 From: Chen Gang <gang.chen.5i5j@gmail.com>
 Subject: Re: [PATCH] drivers: net: ethernet: mellanox: mlx4: let mlx4 depend
  on SMP
-Date: Sun, 18 May 2014 18:08:16 +0800
-Message-ID: <53788690.3010804@gmail.com>
+Date: Sun, 18 May 2014 18:08:27 +0800
+Message-ID: <5378869B.2070102@gmail.com>
 References: <5376F2F8.3010603@gmail.com> <20140517.013655.349586284786993619.davem@davemloft.net> <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -21,10 +21,10 @@ Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:41246 "EHLO
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:57826 "EHLO
 	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbaERKII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 06:08:08 -0400
+	with ESMTP id S1751159AbaERKIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 06:08:19 -0400
 In-Reply-To: <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
