@@ -1,40 +1,40 @@
-From: Christian Engelmayer <cengelma@gmx.at>
-Subject: [PATCH] net/mlx4_en: Fix uninitialized use of 'port_up' in mlx4_en_set_channels()
-Date: Sat, 17 May 2014 23:52:03 +0200
-Message-ID: <1400363523-18371-1-git-send-email-cengelma@gmx.at>
-Cc: amirv@mellanox.com, linux-kernel@vger.kernel.org,
-	Christian Engelmayer <cengelma@gmx.at>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>
+Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats
+	using ethtool
+Date: Sun, 18 May 2014 03:19:17 +0200
+Message-ID: <20140518011917.11270.qmail@stuge.se>
+References: <1400269709-18854-1-git-send-email-bjorn@mork.no> <20140516.224032.2301577488192248796.davem@davemloft.net> <87d2fcoqay.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org
+To: =?utf-8?B?QmrDuHJu?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87d2fcoqay.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Function mlx4_en_set_channels() stops running ports before performing the
-requested action. In that case local variable 'port_up' is set so that the
-port is restarted at the end of the function, however, in case the port was
-not stopped, variable 'port_up' is left uninitialized and the behaviour is
-undetermined. Detected by Coverity - CID 751497.
+Bj=C3=B8rn Mork wrote:
+> > Just make doubly sure that you will be ok, for a long time, with us=
+ing
+> > the ethtool coalescing interface for configuring this because you'l=
+l
+> > really be stuck with this forever.
+>=20
+> Yes, I am painfull aware of that.  So I was hoping someone would jump=
+ at
+> this and say something like "That's not the way to do it.  Use the fo=
+o
+> interface instead. It's made for stuff like this".
 
-Signed-off-by: Christian Engelmayer <cengelma@gmx.at>
----
-Compile tested. Applies against branch master in tree
-git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+sysfs?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index a72d99f..7ba3df3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1121,7 +1121,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
--	int port_up;
-+	int port_up = 0;
- 	int err = 0;
- 
- 	if (channel->other_count || channel->combined_count ||
--- 
-1.9.1
+
+//Peter
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
