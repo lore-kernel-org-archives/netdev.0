@@ -1,59 +1,48 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] drivers: net: ethernet: mellanox: mlx4: let mlx4 depend
- on SMP
-Date: Sun, 18 May 2014 18:08:27 +0800
-Message-ID: <5378869B.2070102@gmail.com>
-References: <5376F2F8.3010603@gmail.com> <20140517.013655.349586284786993619.davem@davemloft.net> <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
+Date: Sun, 18 May 2014 12:18:54 +0200
+Message-ID: <20140518121854.3b4a17fa@free-electrons.com>
+References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20140516.172009.632611701865367987.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>, gxt@mprc.pku.edu.cn,
-	Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Shawn Bohrer <sbohrer@rgmadvisors.com>,
-	linux-rdma <linux-rdma@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	florian@openwrt.org, tawfik@marvell.com, nadavh@marvell.com,
+	alior@marvell.com, gregory.clement@free-electrons.com,
+	ezequiel.garcia@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org, grant.likely@secretlab.ca,
+	robh+dt@kernel.org, mark.rutland@arm.com, s.hauer@pengutronix.de,
+	christian.gmeiner@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:57826 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751159AbaERKIT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 06:08:19 -0400
-In-Reply-To: <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:46430 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750743AbaERKS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 06:18:57 -0400
+In-Reply-To: <20140516.172009.632611701865367987.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2014 03:55 AM, Or Gerlitz wrote:
-> On Sat, May 17, 2014 at 8:36 AM, David Miller <davem@davemloft.net> wrote:
->>
->> From: Chen Gang <gang.chen.5i5j@gmail.com>
->> Date: Sat, 17 May 2014 13:26:16 +0800
->>
->>> 'struct irq_affinity_notify' and the related functions are only defined
->>> when SMP enabled, so at present, mlx4 has to only run under SMP.
->>>
->>> The related error (allmodconfig under unicore32):
->>
->> Making the entire driver depend upon SMP is not the answer,
+Dear David Miller,
+
+On Fri, 16 May 2014 17:20:09 -0400 (EDT), David Miller wrote:
+> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Date: Fri, 16 May 2014 16:14:02 +0200
 > 
+> > Here is a fourth version of the patch set that adds a Device Tree
+> > binding and the related code to support fixed PHYs. I'm hoping to get
+> > this merged in 3.16.
 > 
-> Indeed, we would do that just for the relevant portion,
-> 
+> Series applied, thanks Thomas.
 
-Thank you for your work.
+Thanks! Did you also pull PATCH 5/5, which changes the Armada XP Matrix
+Device Tree file?
 
-And next, when I meet the case like this again, instead of sending
-patch, I shall send suggestion message to the related members/experts.
+Thanks,
 
-
-Thanks.
+Thomas
 -- 
-Chen Gang
-
-Open, share and attitude like air, water and life which God blessed
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
