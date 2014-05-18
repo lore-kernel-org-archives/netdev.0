@@ -1,86 +1,77 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/4] tty: allow tty drivers to rename their device nodes
-Date: Sun, 18 May 2014 23:26:08 +0200
-Message-ID: <243519fa733359d22ce008b795f5686411e6038a.1400448372.git.tilman@imap.cc>
-References: <cover.1400448368.git.tilman@imap.cc>
-Cc: Paul Bolle <pebolle@tiscali.nl>, isdn4linux@listserv.isdn4linux.de,
-	"Keil, Karsten" <isdn@linux-pingi.de>, Jiri Slaby <jslaby@suse.cz>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: netdev@vger.kernel.org
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
+Date: Sun, 18 May 2014 19:07:25 -0400
+Message-ID: <20140518230725.GY27822@titan.lakedaemon.net>
+References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20140516.172009.632611701865367987.davem@davemloft.net>
+ <20140518121854.3b4a17fa@free-electrons.com>
+ <CAGVrzcYN1-0zM0pVSFZkD5HVAwq6rXEQOBN29x+vBn9hpbmOcA@mail.gmail.com>
+ <20140518194628.0d0c308d@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <robh+dt@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:43908 "EHLO mail.pxnet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752397AbaERWnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 May 2014 18:43:23 -0400
-In-Reply-To: <cover.1400448368.git.tilman@imap.cc>
+Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:17897 "EHLO
+	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752100AbaERXIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 19:08:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20140518194628.0d0c308d@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Bolle <pebolle@tiscali.nl>
+On Sun, May 18, 2014 at 07:46:28PM +0200, Thomas Petazzoni wrote:
+> Dear Florian Fainelli,
+> 
+> On Sun, 18 May 2014 10:21:10 -0700, Florian Fainelli wrote:
+> 
+> > > On Fri, 16 May 2014 17:20:09 -0400 (EDT), David Miller wrote:
+> > >> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> > >> Date: Fri, 16 May 2014 16:14:02 +0200
+> > >>
+> > >> > Here is a fourth version of the patch set that adds a Device Tree
+> > >> > binding and the related code to support fixed PHYs. I'm hoping to get
+> > >> > this merged in 3.16.
+> > >>
+> > >> Series applied, thanks Thomas.
+> > >
+> > > Thanks! Did you also pull PATCH 5/5, which changes the Armada XP Matrix
+> > > Device Tree file?
+> > 
+> > It has been applied:
+> > http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=84f6e11f21d40025ae9b0ebbf1c9b3be91ea8e1a
+> 
+> I think it should have been routed through the mvebu tree, or at least
+> get the hack of the mvebu maintainers. That being said, I don't think
+> we have other patches for armada-xp-matrix.dts in this cycle, so maybe
+> having this patch go through David's tree will be OK. I'll let Jason
+> Cooper (Cc'ed) answer on this.
 
-The device nodes for tty drivers are named using a straightforward
-scheme: tty_driver->name with an (increasing) digit appended. But the
-capi driver (a part of one of the current ISDN subsystems) requires a
-different naming scheme for its "capi_nc" tty_driver:
-    /dev/capi/0
-    /dev/capi/1
-    [...]
+There's just one patch:
 
-So add a devnode() callback to struct tty_driver to allow tty drivers
-to use a more elaborate naming scheme. And let tty_devnode(), the
-devnode() callback for the "tty" class, call that new callback if a tty
-driver uses one. This allows the capi driver to add a callback to
-enable its scheme.
+  0d9179fb3369 ARM: mvebu: remove clock-frequency of serial port Device Tree nodes
 
-Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/tty/tty_io.c       | 16 ++++++++++++++--
- include/linux/tty_driver.h |  1 +
- 2 files changed, 15 insertions(+), 2 deletions(-)
+Which removes a single line.  So it should be trivial to resolve any conflict.
 
-diff --git a/drivers/tty/tty_io.c b/drivers/tty/tty_io.c
-index 3411071..32d7878 100644
---- a/drivers/tty/tty_io.c
-+++ b/drivers/tty/tty_io.c
-@@ -3504,12 +3504,24 @@ void __init console_init(void)
- 
- static char *tty_devnode(struct device *dev, umode_t *mode)
- {
-+	struct tty_driver *driver = NULL;
-+	int unused;
-+	char *ret = NULL;
-+
-+	mutex_lock(&tty_mutex);
-+	driver = get_tty_driver(dev->devt, &unused);
-+	mutex_unlock(&tty_mutex);
-+	if (driver && driver->devnode)
-+		ret = driver->devnode(dev, mode);
-+	if (driver)
-+		tty_driver_kref_put(driver);
-+
- 	if (!mode)
--		return NULL;
-+		return ret;
- 	if (dev->devt == MKDEV(TTYAUX_MAJOR, 0) ||
- 	    dev->devt == MKDEV(TTYAUX_MAJOR, 2))
- 		*mode = 0666;
--	return NULL;
-+	return ret;
- }
- 
- static int __init tty_class_init(void)
-diff --git a/include/linux/tty_driver.h b/include/linux/tty_driver.h
-index 756a609..91265bf 100644
---- a/include/linux/tty_driver.h
-+++ b/include/linux/tty_driver.h
-@@ -294,6 +294,7 @@ struct tty_driver {
- 	struct module	*owner;
- 	const char	*driver_name;
- 	const char	*name;
-+	char *(*devnode)(struct device *dev, umode_t *mode);
- 	int	name_base;	/* offset of printed name */
- 	int	major;		/* major device number */
- 	int	minor_start;	/* start of minor device number */
--- 
-1.9.2.459.g68773ac
+In the future: Yes, we prefer to take the dts file changes.  But I don't
+see a problem here.  Thanks for the heads up, though.
+
+thx,
+
+Jason.
