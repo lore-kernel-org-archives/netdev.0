@@ -1,69 +1,54 @@
-From: Lars Melin <larsm17@gmail.com>
-Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats
- using ethtool
-Date: Mon, 19 May 2014 00:10:29 +0700
-Message-ID: <5378E985.1040206@gmail.com>
-References: <1400269709-18854-1-git-send-email-bjorn@mork.no>	<20140516.224032.2301577488192248796.davem@davemloft.net>	<87d2fcoqay.fsf@nemi.mork.no> <20140518011917.11270.qmail@stuge.se>	<alpine.LNX.2.03.1405181155310.7743@gmail.com> <87vbt3m98p.fsf@nemi.mork.no>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
+Date: Sun, 18 May 2014 10:21:10 -0700
+Message-ID: <CAGVrzcYN1-0zM0pVSFZkD5HVAwq6rXEQOBN29x+vBn9hpbmOcA@mail.gmail.com>
+References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20140516.172009.632611701865367987.davem@davemloft.net> <20140518121854.3b4a17fa@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, alexey.orishko@gmail.com,
-	oliver@neukum.org, David.Laight@aculab.com
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	Peter Stuge <peter@stuge.se>,
-	Enrico Mioso <mrkiko.rs@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <robh+dt@kernel.org>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Christian Gmeiner <christian.gmeiner@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:44374 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752121AbaERRKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 13:10:43 -0400
-In-Reply-To: <87vbt3m98p.fsf@nemi.mork.no>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:57138 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752378AbaERRVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 13:21:51 -0400
+In-Reply-To: <20140518121854.3b4a17fa@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-05-18 21:50, Bj=C3=B8rn Mork wrote:
-> I could be wrong, but my impression is that the userspace API
-> preferences for network devices are
+2014-05-18 3:18 GMT-07:00 Thomas Petazzoni
+<thomas.petazzoni@free-electrons.com>:
+> Dear David Miller,
 >
->   1. ethtool
->   2. sysfs
->   3. module param
->   ..
->   99. ioctl
+> On Fri, 16 May 2014 17:20:09 -0400 (EDT), David Miller wrote:
+>> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+>> Date: Fri, 16 May 2014 16:14:02 +0200
+>>
+>> > Here is a fourth version of the patch set that adds a Device Tree
+>> > binding and the related code to support fixed PHYs. I'm hoping to get
+>> > this merged in 3.16.
+>>
+>> Series applied, thanks Thomas.
 >
-> This is the primary reason why I was looking for someplace to put thi=
-s
-> within the existing ethtool API.  Using sysfs would have worked fine
-> too, I guess.  But is there any real advantage, making it worth a
-> switch?  I am all open to change to sysfs instead before v3.16 is
-> released, *if* there are good reasons to do it. And no objections.  B=
-ut
-> I do want more of a reason than the fact that it can be done.  Maybe =
-I
-> got the preferred order wrong?
->
-> I ruled out module parameters early because I believe there are real =
-use
-> cases requiring different settings per device.  The limited host syst=
-em
-> resources will of course affect all devices on a single host the same
-> way.  But not all devices can cope with the reduced buffers. So there
-> should be some way to tune two devices connected to the same host
-> differently.
->
-> I am not going to say anything about ioctls :-)
->
->
-> Bj=C3=B8rn
-> --
+> Thanks! Did you also pull PATCH 5/5, which changes the Armada XP Matrix
+> Device Tree file?
 
-Your target audience is embedded systems with limited cpu power and=20
-buffer memory, right?
-If so, then you can't expect them to have ethtool included and their=20
-developers are not likely to be happy over having to "waste" another=20
-100KB in order to tune a 20KB driver.
-My vote goes for sysfs.
-
-/Lars
+It has been applied:
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=84f6e11f21d40025ae9b0ebbf1c9b3be91ea8e1a
+-- 
+Florian
