@@ -1,62 +1,59 @@
-From: Enrico Mioso <mrkiko.rs@gmail.com>
-Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats
- using ethtool
-Date: Sun, 18 May 2014 11:57:05 +0200 (CEST)
-Message-ID: <alpine.LNX.2.03.1405181155310.7743@gmail.com>
-References: <1400269709-18854-1-git-send-email-bjorn@mork.no> <20140516.224032.2301577488192248796.davem@davemloft.net> <87d2fcoqay.fsf@nemi.mork.no> <20140518011917.11270.qmail@stuge.se>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH] drivers: net: ethernet: mellanox: mlx4: let mlx4 depend
+ on SMP
+Date: Sun, 18 May 2014 18:08:16 +0800
+Message-ID: <53788690.3010804@gmail.com>
+References: <5376F2F8.3010603@gmail.com> <20140517.013655.349586284786993619.davem@davemloft.net> <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-526419943-1400407026=:7743"
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, alexey.orishko@gmail.com,
-	oliver@neukum.org, David.Laight@aculab.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>, gxt@mprc.pku.edu.cn,
+	Matan Barak <matanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Shawn Bohrer <sbohrer@rgmadvisors.com>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:56636 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbaERJ5D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 05:57:03 -0400
-In-Reply-To: <20140518011917.11270.qmail@stuge.se>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:41246 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729AbaERKII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 06:08:08 -0400
+In-Reply-To: <CAJZOPZJN9YG2uAw0rSDkU0rQG=0FFDgSMnFDHpWS6hwZEqdwfA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On 05/18/2014 03:55 AM, Or Gerlitz wrote:
+> On Sat, May 17, 2014 at 8:36 AM, David Miller <davem@davemloft.net> wrote:
+>>
+>> From: Chen Gang <gang.chen.5i5j@gmail.com>
+>> Date: Sat, 17 May 2014 13:26:16 +0800
+>>
+>>> 'struct irq_affinity_notify' and the related functions are only defined
+>>> when SMP enabled, so at present, mlx4 has to only run under SMP.
+>>>
+>>> The related error (allmodconfig under unicore32):
+>>
+>> Making the entire driver depend upon SMP is not the answer,
+> 
+> 
+> Indeed, we would do that just for the relevant portion,
+> 
 
---8323328-526419943-1400407026=:7743
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: 8BIT
+Thank you for your work.
 
-Or a set of module parameters, allowing them to be tuned at run-time via (e.g.) 
-the param directory of the module in sysfs?
-Yes, I imagine it's not the best solution.
+And next, when I meet the case like this again, instead of sending
+patch, I shall send suggestion message to the related members/experts.
 
-On Sun, 18 May 2014, Peter Stuge wrote:
 
-==Date: Sun, 18 May 2014 03:19:17
-==From: Peter Stuge <peter@stuge.se>
-==Reply-To: Bjørn Mork <bjorn@mork.no>, David Miller <davem@davemloft.net>,
-==    netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-==    alexey.orishko@gmail.com, oliver@neukum.org, mrkiko.rs@gmail.com,
-==    David.Laight@aculab.com
-==To: Bjørn Mork <bjorn@mork.no>
-==Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-==    linux-usb@vger.kernel.org, alexey.orishko@gmail.com, oliver@neukum.org,
-==    mrkiko.rs@gmail.com, David.Laight@aculab.com
-==Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats
-==    using ethtool
-==
-==Bjørn Mork wrote:
-==> > Just make doubly sure that you will be ok, for a long time, with using
-==> > the ethtool coalescing interface for configuring this because you'll
-==> > really be stuck with this forever.
-==> 
-==> Yes, I am painfull aware of that.  So I was hoping someone would jump at
-==> this and say something like "That's not the way to do it.  Use the foo
-==> interface instead. It's made for stuff like this".
-==
-==sysfs?
-==
-==
-==//Peter
-==
---8323328-526419943-1400407026=:7743--
+Thanks.
+-- 
+Chen Gang
+
+Open, share and attitude like air, water and life which God blessed
