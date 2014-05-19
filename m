@@ -1,56 +1,103 @@
-From: Manuel Schoelling <manuel.schoelling@gmx.de>
-Subject: Re: [PATCH 1/3] net: vxge: Use time_is_before_jiffies() for time
- comparison
-Date: Mon, 19 May 2014 18:53:42 +0200
-Message-ID: <1400518422.4698.8.camel@schoellingm.dzne.de>
-References: <1400518056-12089-1-git-send-email-manuel.schoelling@gmx.de>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH v2] ieee802154: Introduce the use of the managed version of
+ kzalloc
+Date: Mon, 19 May 2014 22:25:11 +0530
+Message-ID: <20140519165511.GA8966@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400518056-12089-1-git-send-email-manuel.schoelling@gmx.de>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, contrary to the subject of this mail, this is a single file
-patch.
-Patches 2-3 do not exist.
+This patch moves data allocated using kzalloc to managed data allocated
+using devm_kzalloc and cleans now unnecessary kfrees in probe and remove
+functions. An explicit linux/device.h include is added to make sure
+the devm_*() routine declarations are unambiguously available.
 
-On Mo, 2014-05-19 at 18:47 +0200, Manuel Sch=C3=B6lling wrote:
-> To be future-proof and for better readability the time comparisons ar=
-e modified
-> to use time_is_before_jiffies() instead of plain, error-prone math.
->=20
-> Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
-> ---
->  drivers/net/ethernet/neterion/vxge/vxge-main.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers=
-/net/ethernet/neterion/vxge/vxge-main.c
-> index d107bcb..79f42db 100644
-> --- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> +++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> @@ -2122,7 +2122,7 @@ static int vxge_open_vpaths(struct vxgedev *vde=
-v)
->  static void adaptive_coalesce_tx_interrupts(struct vxge_fifo *fifo)
->  {
->  	fifo->interrupt_count++;
-> -	if (jiffies > fifo->jiffies + HZ / 100) {
-> +	if (time_is_before_jiffies(fifo->jiffies + HZ / 100)) {
->  		struct __vxge_hw_fifo *hw_fifo =3D fifo->handle;
-> =20
->  		fifo->jiffies =3D jiffies;
-> @@ -2150,7 +2150,7 @@ static void adaptive_coalesce_tx_interrupts(str=
-uct vxge_fifo *fifo)
->  static void adaptive_coalesce_rx_interrupts(struct vxge_ring *ring)
->  {
->  	ring->interrupt_count++;
-> -	if (jiffies > ring->jiffies + HZ / 100) {
-> +	if (time_is_before_jiffies(ring->jiffies + HZ / 100)) {
->  		struct __vxge_hw_ring *hw_ring =3D ring->handle;
-> =20
->  		ring->jiffies =3D jiffies;
+The following Coccinelle semantic patch was used for making the change:
+
+@platform@
+identifier p, probefn, removefn;
+@@
+struct platform_driver p = {
+  .probe = probefn,
+  .remove = removefn,
+};
+
+@prb@
+identifier platform.probefn, pdev;
+expression e, e1, e2;
+@@
+probefn(struct platform_device *pdev, ...) {
+  <+...
+- e = kzalloc(e1, e2)
++ e = devm_kzalloc(&pdev->dev, e1, e2)
+  ...
+?-kfree(e);
+  ...+>
+}
+
+@rem depends on prb@
+identifier platform.removefn;
+expression e;
+@@
+removefn(...) {
+  <...
+- kfree(e);
+  ...>
+}
+
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+v2: add explicit include for linux/device.h
+
+ drivers/net/ieee802154/fakelb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ieee802154/fakelb.c b/drivers/net/ieee802154/fakelb.c
+index b8d2217..27d8320 100644
+--- a/drivers/net/ieee802154/fakelb.c
++++ b/drivers/net/ieee802154/fakelb.c
+@@ -26,6 +26,7 @@
+ #include <linux/timer.h>
+ #include <linux/platform_device.h>
+ #include <linux/netdevice.h>
++#include <linux/device.h>
+ #include <linux/spinlock.h>
+ #include <net/mac802154.h>
+ #include <net/wpan-phy.h>
+@@ -228,7 +229,8 @@ static int fakelb_probe(struct platform_device *pdev)
+ 	int err = -ENOMEM;
+ 	int i;
+ 
+-	priv = kzalloc(sizeof(struct fakelb_priv), GFP_KERNEL);
++	priv = devm_kzalloc(&pdev->dev, sizeof(struct fakelb_priv),
++			    GFP_KERNEL);
+ 	if (!priv)
+ 		goto err_alloc;
+ 
+@@ -248,7 +250,6 @@ static int fakelb_probe(struct platform_device *pdev)
+ err_slave:
+ 	list_for_each_entry(dp, &priv->list, list)
+ 		fakelb_del(dp);
+-	kfree(priv);
+ err_alloc:
+ 	return err;
+ }
+@@ -260,7 +261,6 @@ static int fakelb_remove(struct platform_device *pdev)
+ 
+ 	list_for_each_entry_safe(dp, temp, &priv->list, list)
+ 		fakelb_del(dp);
+-	kfree(priv);
+ 
+ 	return 0;
+ }
+-- 
+1.9.1
