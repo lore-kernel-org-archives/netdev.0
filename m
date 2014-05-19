@@ -1,83 +1,118 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/2] net/mlx4_core: Deprecate use_prio module parameter
-Date: Mon, 19 May 2014 11:37:41 +0300
-Message-ID: <1400488662-5657-2-git-send-email-amirv@mellanox.com>
-References: <1400488662-5657-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Carol Soto <clsoto@linux.vnet.ibm.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Yegor Yefremov <yegorslists@googlemail.com>
+Subject: Re: [net PATCH 1/1] drivers: net: cpsw: Add default vlan for dual
+ emac case also
+Date: Mon, 19 May 2014 10:46:46 +0200
+Message-ID: <CAGm1_kszjSKqxUONX6OodgEs4V=dV5KZRM32LhiMV44u-+AZYw@mail.gmail.com>
+References: <1397023480-4181-1-git-send-email-mugunthanvnm@ti.com>
+ <20140409.145624.1000792872429500740.davem@davemloft.net> <CAGm1_ktmygGNWqEvO=59ZVFbTprUHLuXAmSM3UXfVrShPJsz_g@mail.gmail.com>
+ <534E1BD2.5050809@ti.com> <CAGm1_ktSCZLa2-vyeP2nygcKwrXgkyoXs94TSx=tY-HrOsZmKQ@mail.gmail.com>
+ <CAGm1_kvHRx61i1fKywAdySOB0vk03E+PDsD23W89UHihoRmM7g@mail.gmail.com> <53679E48.4030909@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44179 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752775AbaESIiA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 May 2014 04:38:00 -0400
-In-Reply-To: <1400488662-5657-1-git-send-email-amirv@mellanox.com>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:59183 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaESIrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 04:47:09 -0400
+Received: by mail-la0-f53.google.com with SMTP id ec20so3826220lab.12
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 01:47:07 -0700 (PDT)
+In-Reply-To: <53679E48.4030909@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was used for steering by user priority for A0 steering. A0 mode is
-not supported anymore. Printing a message and ignoring the parameter.
+On Mon, May 5, 2014 at 4:20 PM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+> On Friday 02 May 2014 02:28 PM, Yegor Yefremov wrote:
+>> On Wed, Apr 16, 2014 at 3:58 PM, Yegor Yefremov
+>> <yegorslists@googlemail.com> wrote:
+>>> On Wed, Apr 16, 2014 at 7:57 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
+>>>> On Tuesday 15 April 2014 07:16 PM, Yegor Yefremov wrote:
+>>>>> On Wed, Apr 9, 2014 at 8:56 PM, David Miller <davem@davemloft.net> wrote:
+>>>>>> From: Mugunthan V N <mugunthanvnm@ti.com>
+>>>>>> Date: Wed, 9 Apr 2014 11:34:40 +0530
+>>>>>>
+>>>>>>> Dual EMAC works with VLAN segregation of the ports, so default vlan needs
+>>>>>>> to be added in dual EMAC case else default vlan will be tagged for all
+>>>>>>> egress packets and vlan unaware switches/servers will drop packets
+>>>>>>> from the EVM.
+>>>>> Hi Mugunthan,
+>>>>>
+>>>>> though this patch fixes drop packets issue, it introduces another
+>>>>> issue. Just connect both interfaces to one switch and configure
+>>>>> different subnets. As soon as you get a broadcast you have an endless
+>>>>> loop and network communication is not possible at all. Before this
+>>>>> patch you could operate as if you had really two independent NICs.
+>>>>>
+>>>>>
+>>>> This patch doesn't add any multicast or unicast entry in the ALE table,
+>>>> so there is no possible way that a broadcast packet is switched within
+>>>> the two external ports, and this patch removes the encapsulation of the
+>>>> default vlan id which is used for internal packet switching inside CPSW
+>>>> switch from host and any packet received from external port will be
+>>>> tagged with port vlan so internal switching will happen with that port
+>>>> vlan-id which will be only that physical port and host port. so the
+>>>> scenario which you mentioned cannot happen theoretically untill you
+>>>> enable bridge between the dual ethernet interface and connect both to
+>>>> the same interface.
+>>> Have you tried the described setup? My system is Buildroot on
+>>> am335x-evmsk with almost empty /etc/network/interfaces
+>>>
+>>> # Configure Loopback
+>>> auto lo
+>>> iface lo inet loopback
+>>>
+>>> No bridges:
+>>>
+>>> # brctl show
+>>> bridge name     bridge id               STP enabled     interfaces
+>>>
+>>> And following address setup made manually:
+>>>
+>>> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN
+>>> group default
+>>>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+>>>     inet 127.0.0.1/8 scope host lo
+>>>        valid_lft forever preferred_lft forever
+>>> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+>>> state UP group default qlen 1000
+>>>     link/ether 00:18:31:93:f6:49 brd ff:ff:ff:ff:ff:ff
+>>>     inet 192.168.1.234/24 brd 192.168.1.255 scope global eth0
+>>>        valid_lft forever preferred_lft forever
+>>> 3: eth1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast
+>>> state DOWN group default qlen 1000
+>>>     link/ether 56:90:76:5b:b5:f3 brd ff:ff:ff:ff:ff:ff
+>>>     inet 192.168.4.234/24 brd 192.168.4.255 scope global eth1
+>>>        valid_lft forever preferred_lft forever
+>>> 4: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN group
+>>> default qlen 1000
+>>>     link/ether de:ad:be:ef:00:00 brd ff:ff:ff:ff:ff:ff
+>>>
+>>> Routing table:
+>>>
+>>> # ip route show
+>>> 192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.234
+>>> 192.168.4.0/24 dev eth1  proto kernel  scope link  src 192.168.4.234
+>>>
+>>> Same behavior on 3.14.0-rc4-12740-gcc09039-dirty and 3.15.0-rc1-00002-ge0f8779
+>>>
+>>> As soon as insert the cable into eth1, my switch shows very high
+>>> activity and the whole LAN in the company is dead till I remove the
+>>> cable. I have no problems with the version before the fix. I don't
+>>> really know, what happens inside the driver, but could make the same
+>>> setup (best of all in a LAN with many Windows PCs, that send lots of
+>>> broadcast) and let me know if you see the same behavior.
+>> This bug seems to be in 3.12 too. See this thread
+>> (http://e2e.ti.com/support/arm/sitara_arm/f/791/p/338292/1180954.aspx#1180954).
+>>
+>> Thanks.
+>>
+>> Yegor
+>
+> Will check this in this week.
 
-CC: Carol Soto <clsoto@linux.vnet.ibm.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 8 ++++----
- include/linux/mlx4/device.h               | 1 -
- 2 files changed, 4 insertions(+), 5 deletions(-)
+Any news concerning this issue?
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index a56f601..08ff5dd 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -132,8 +132,7 @@ MODULE_PARM_DESC(log_num_vlan, "Log2 max number of VLANs per ETH port (0-7)");
- 
- static bool use_prio;
- module_param_named(use_prio, use_prio, bool, 0444);
--MODULE_PARM_DESC(use_prio, "Enable steering by VLAN priority on ETH ports "
--		  "(0/1, default 0)");
-+MODULE_PARM_DESC(use_prio, "Enable steering by VLAN priority on ETH ports (deprecated)");
- 
- int log_mtts_per_seg = ilog2(MLX4_MTT_ENTRY_PER_SEG);
- module_param_named(log_mtts_per_seg, log_mtts_per_seg, int, 0444);
-@@ -290,7 +289,6 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 
- 	dev->caps.log_num_macs  = log_num_mac;
- 	dev->caps.log_num_vlans = MLX4_LOG_NUM_VLANS;
--	dev->caps.log_num_prios = use_prio ? 3 : 0;
- 
- 	for (i = 1; i <= dev->caps.num_ports; ++i) {
- 		dev->caps.port_type[i] = MLX4_PORT_TYPE_NONE;
-@@ -358,7 +356,6 @@ static int mlx4_dev_cap(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FC_ADDR] =
- 		(1 << dev->caps.log_num_macs) *
- 		(1 << dev->caps.log_num_vlans) *
--		(1 << dev->caps.log_num_prios) *
- 		dev->caps.num_ports;
- 	dev->caps.reserved_qps_cnt[MLX4_QP_REGION_FC_EXCH] = MLX4_NUM_FEXCH;
- 
-@@ -2775,6 +2772,9 @@ static int __init mlx4_verify_params(void)
- 		pr_warning("mlx4_core: log_num_vlan - obsolete module param, using %d\n",
- 			   MLX4_LOG_NUM_VLANS);
- 
-+	if (use_prio != 0)
-+		pr_warn("mlx4_core: use_prio - obsolete module param, ignored\n");
-+
- 	if ((log_mtts_per_seg < 1) || (log_mtts_per_seg > 7)) {
- 		pr_warning("mlx4_core: bad log_mtts_per_seg: %d\n", log_mtts_per_seg);
- 		return -1;
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index c0468e6..ca38871 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -449,7 +449,6 @@ struct mlx4_caps {
- 	int                     reserved_qps_base[MLX4_NUM_QP_REGION];
- 	int                     log_num_macs;
- 	int                     log_num_vlans;
--	int                     log_num_prios;
- 	enum mlx4_port_type	port_type[MLX4_MAX_PORTS + 1];
- 	u8			supported_type[MLX4_MAX_PORTS + 1];
- 	u8                      suggested_type[MLX4_MAX_PORTS + 1];
--- 
-1.8.3.4
+Thanks.
+
+Yegor
