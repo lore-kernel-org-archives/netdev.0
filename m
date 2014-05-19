@@ -1,77 +1,29 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCHv4 0/5] Add DT support for fixed PHYs
-Date: Sun, 18 May 2014 19:07:25 -0400
-Message-ID: <20140518230725.GY27822@titan.lakedaemon.net>
-References: <1400249647-4643-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20140516.172009.632611701865367987.davem@davemloft.net>
- <20140518121854.3b4a17fa@free-electrons.com>
- <CAGVrzcYN1-0zM0pVSFZkD5HVAwq6rXEQOBN29x+vBn9hpbmOcA@mail.gmail.com>
- <20140518194628.0d0c308d@free-electrons.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: bridge: fix build
+Date: Sun, 18 May 2014 20:10:51 -0400 (EDT)
+Message-ID: <20140518.201051.6736475563141408.davem@davemloft.net>
+References: <1400434228-3971-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <robh+dt@kernel.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	Christian Gmeiner <christian.gmeiner@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, mst@redhat.com, netdev@vger.kernel.org
+To: ast@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:17897 "EHLO
-	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752100AbaERXIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 19:08:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20140518194628.0d0c308d@free-electrons.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43932 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752447AbaESAKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 20:10:55 -0400
+In-Reply-To: <1400434228-3971-1-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 18, 2014 at 07:46:28PM +0200, Thomas Petazzoni wrote:
-> Dear Florian Fainelli,
+From: Alexei Starovoitov <ast@plumgrid.com>
+Date: Sun, 18 May 2014 10:30:28 -0700
+
+> fix build when BRIDGE_VLAN_FILTERING is not set
 > 
-> On Sun, 18 May 2014 10:21:10 -0700, Florian Fainelli wrote:
+> Fixes: 2796d0c648c94 ("bridge: Automatically manage port promiscuous mode")
 > 
-> > > On Fri, 16 May 2014 17:20:09 -0400 (EDT), David Miller wrote:
-> > >> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > >> Date: Fri, 16 May 2014 16:14:02 +0200
-> > >>
-> > >> > Here is a fourth version of the patch set that adds a Device Tree
-> > >> > binding and the related code to support fixed PHYs. I'm hoping to get
-> > >> > this merged in 3.16.
-> > >>
-> > >> Series applied, thanks Thomas.
-> > >
-> > > Thanks! Did you also pull PATCH 5/5, which changes the Armada XP Matrix
-> > > Device Tree file?
-> > 
-> > It has been applied:
-> > http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=84f6e11f21d40025ae9b0ebbf1c9b3be91ea8e1a
-> 
-> I think it should have been routed through the mvebu tree, or at least
-> get the hack of the mvebu maintainers. That being said, I don't think
-> we have other patches for armada-xp-matrix.dts in this cycle, so maybe
-> having this patch go through David's tree will be OK. I'll let Jason
-> Cooper (Cc'ed) answer on this.
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-There's just one patch:
-
-  0d9179fb3369 ARM: mvebu: remove clock-frequency of serial port Device Tree nodes
-
-Which removes a single line.  So it should be trivial to resolve any conflict.
-
-In the future: Yes, we prefer to take the dts file changes.  But I don't
-see a problem here.  Thanks for the heads up, though.
-
-thx,
-
-Jason.
+Applied, thanks.
