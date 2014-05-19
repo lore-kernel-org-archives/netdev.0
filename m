@@ -1,433 +1,290 @@
-From: Milos Vyletel <milos.vyletel@gmail.com>
-Subject: [patch net-next] net: ipv6: trigger action when setting conf.all sysctls
-Date: Mon, 19 May 2014 13:09:31 -0400
-Message-ID: <1400519372-5703-1-git-send-email-milos.vyletel@gmail.com>
-Cc: Milos Vyletel <milos.vyletel@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev@vger.kernel.org (open list:NETWORKING [IPv4/...),
-	linux-kernel@vger.kernel.org (open list)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 2/5 v2] net: Eliminate no_check from protosw
+Date: Mon, 19 May 2014 10:10:08 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405190959490.31589@tomh.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f202.google.com ([209.85.214.202]:61953 "EHLO
+	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932338AbaESRKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:10:11 -0400
+Received: by mail-ob0-f202.google.com with SMTP id wm4so1148921obc.3
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 10:10:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As it is right now most of these tunables don't do anything - they don't
-set any interface specific settings to the desired value and they don't
-take precedence before device specific settings in most cases.
+It doesn't seem like an protocols are setting anything other
+than the default, and allowing to arbitrarily disable checksums
+for a whole protocol seems dangerous. This can be done on a per
+socket basis.
 
-Documentation/networking/ip-sysctl.txt defines them to be:
-conf/all/*:
-        Change all the interface-specific settings.
-
-but that is not really the case.
-
-Following patch will, when any net.ipv6.conf.all settings are set,
-trigger action that will change default as well as all interface
-specific settings of same procname. Only sysctls handled by default
-proc_dointvec* are being changed. Per device changes are still allowed
-and work as before.
-
-Setting accept_dad (just as an example) with this patch looks like this
-[root@linux ~]# uname -r
-3.15.0-rc5+
-[root@linux ~]# sysctl net.ipv6.conf | grep accept_dad
-net.ipv6.conf.all.accept_dad = 0
-net.ipv6.conf.default.accept_dad = 0
-net.ipv6.conf.eth0.accept_dad = 0
-net.ipv6.conf.lo.accept_dad = 0
-[root@linux ~]# sysctl net.ipv6.conf.all.accept_dad=1
-net.ipv6.conf.all.accept_dad = 1
-[root@linux ~]# sysctl net.ipv6.conf | grep accept_dad
-net.ipv6.conf.all.accept_dad = 1
-net.ipv6.conf.default.accept_dad = 1
-net.ipv6.conf.eth0.accept_dad = 1
-net.ipv6.conf.lo.accept_dad = 1
-[root@linux ~]# sysctl net.ipv6.conf.eth0.accept_dad=0
-net.ipv6.conf.eth0.accept_dad = 0
-[root@linux ~]# sysctl net.ipv6.conf | grep accept_dad
-net.ipv6.conf.all.accept_dad = 1
-net.ipv6.conf.default.accept_dad = 1
-net.ipv6.conf.eth0.accept_dad = 0
-net.ipv6.conf.lo.accept_dad = 1
-
-Signed-off-by: Milos Vyletel <milos.vyletel@gmail.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv6/addrconf.c | 157 ++++++++++++++++++++++++++++++++++++++++++----------
- 1 file changed, 127 insertions(+), 30 deletions(-)
+ include/net/protocol.h | 1 -
+ net/dccp/ipv4.c        | 1 -
+ net/ipv4/af_inet.c     | 7 -------
+ net/ipv4/udplite.c     | 1 -
+ net/ipv6/af_inet6.c    | 3 ---
+ net/ipv6/ping.c        | 1 -
+ net/ipv6/raw.c         | 1 -
+ net/ipv6/tcp_ipv6.c    | 1 -
+ net/ipv6/udp.c         | 1 -
+ net/ipv6/udplite.c     | 1 -
+ net/l2tp/l2tp_ip.c     | 1 -
+ net/l2tp/l2tp_ip6.c    | 1 -
+ net/sctp/ipv6.c        | 2 --
+ net/sctp/protocol.c    | 2 --
+ 14 files changed, 24 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6c7fa08..f4a1eaa 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -110,6 +110,7 @@ static inline u32 cstamp_delta(unsigned long cstamp)
- #ifdef CONFIG_SYSCTL
- static void addrconf_sysctl_register(struct inet6_dev *idev);
- static void addrconf_sysctl_unregister(struct inet6_dev *idev);
-+static int __addrconf_sysctl_all_trigger(struct net *, void *);
- #else
- static inline void addrconf_sysctl_register(struct inet6_dev *idev)
- {
-@@ -4922,6 +4923,56 @@ int addrconf_sysctl_proxy_ndp(struct ctl_table *ctl, int write,
- 	return ret;
- }
- 
-+static
-+int addrconf_proc_dointvec(struct ctl_table *ctl, int write,
-+			   void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int *valp = ctl->data;
-+	struct inet6_dev *idev = ctl->extra1;
-+	struct net *net = ctl->extra2;
-+	int ret;
-+
-+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-+
-+	if (write && idev == NULL)
-+		ret = __addrconf_sysctl_all_trigger(net, valp);
-+
-+	return ret;
-+}
-+
-+static
-+int addrconf_proc_dointvec_jiffies(struct ctl_table *ctl, int write,
-+			   void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int *valp = ctl->data;
-+	struct inet6_dev *idev = ctl->extra1;
-+	struct net *net = ctl->extra2;
-+	int ret;
-+
-+	ret = proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-+
-+	if (write && idev == NULL)
-+		ret = __addrconf_sysctl_all_trigger(net, valp);
-+
-+	return ret;
-+}
-+
-+static
-+int addrconf_proc_dointvec_ms_jiffies(struct ctl_table *ctl, int write,
-+			   void __user *buffer, size_t *lenp, loff_t *ppos)
-+{
-+	int *valp = ctl->data;
-+	struct inet6_dev *idev = ctl->extra1;
-+	struct net *net = ctl->extra2;
-+	int ret;
-+
-+	ret = proc_dointvec_ms_jiffies(ctl, write, buffer, lenp, ppos);
-+
-+	if (write && idev == NULL)
-+		ret = __addrconf_sysctl_all_trigger(net, valp);
-+
-+	return ret;
-+}
- 
- static struct addrconf_sysctl_table
- {
-@@ -4942,70 +4993,70 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.hop_limit,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "mtu",
- 			.data		= &ipv6_devconf.mtu6,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "accept_ra",
- 			.data		= &ipv6_devconf.accept_ra,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "accept_redirects",
- 			.data		= &ipv6_devconf.accept_redirects,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "autoconf",
- 			.data		= &ipv6_devconf.autoconf,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "dad_transmits",
- 			.data		= &ipv6_devconf.dad_transmits,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "router_solicitations",
- 			.data		= &ipv6_devconf.rtr_solicits,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "router_solicitation_interval",
- 			.data		= &ipv6_devconf.rtr_solicit_interval,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec_jiffies,
-+			.proc_handler	= addrconf_proc_dointvec_jiffies,
- 		},
- 		{
- 			.procname	= "router_solicitation_delay",
- 			.data		= &ipv6_devconf.rtr_solicit_delay,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec_jiffies,
-+			.proc_handler	= addrconf_proc_dointvec_jiffies,
- 		},
- 		{
- 			.procname	= "force_mld_version",
- 			.data		= &ipv6_devconf.force_mld_version,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "mldv1_unsolicited_report_interval",
-@@ -5013,7 +5064,7 @@ static struct addrconf_sysctl_table
- 				&ipv6_devconf.mldv1_unsolicited_report_interval,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec_ms_jiffies,
-+			.proc_handler	= addrconf_proc_dointvec_ms_jiffies,
- 		},
- 		{
- 			.procname	= "mldv2_unsolicited_report_interval",
-@@ -5021,63 +5072,63 @@ static struct addrconf_sysctl_table
- 				&ipv6_devconf.mldv2_unsolicited_report_interval,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec_ms_jiffies,
-+			.proc_handler	= addrconf_proc_dointvec_ms_jiffies,
- 		},
- 		{
- 			.procname	= "use_tempaddr",
- 			.data		= &ipv6_devconf.use_tempaddr,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "temp_valid_lft",
- 			.data		= &ipv6_devconf.temp_valid_lft,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "temp_prefered_lft",
- 			.data		= &ipv6_devconf.temp_prefered_lft,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "regen_max_retry",
- 			.data		= &ipv6_devconf.regen_max_retry,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "max_desync_factor",
- 			.data		= &ipv6_devconf.max_desync_factor,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "max_addresses",
- 			.data		= &ipv6_devconf.max_addresses,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "accept_ra_defrtr",
- 			.data		= &ipv6_devconf.accept_ra_defrtr,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "accept_ra_pinfo",
- 			.data		= &ipv6_devconf.accept_ra_pinfo,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 		{
-@@ -5085,14 +5136,14 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.accept_ra_rtr_pref,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname	= "router_probe_interval",
- 			.data		= &ipv6_devconf.rtr_probe_interval,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec_jiffies,
-+			.proc_handler	= addrconf_proc_dointvec_jiffies,
- 		},
- #ifdef CONFIG_IPV6_ROUTE_INFO
- 		{
-@@ -5100,7 +5151,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.accept_ra_rt_info_max_plen,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- #endif
- #endif
-@@ -5116,7 +5167,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.accept_source_route,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 		{
-@@ -5124,7 +5175,7 @@ static struct addrconf_sysctl_table
- 			.data           = &ipv6_devconf.optimistic_dad,
- 			.maxlen         = sizeof(int),
- 			.mode           = 0644,
--			.proc_handler   = proc_dointvec,
-+			.proc_handler   = addrconf_proc_dointvec,
- 
- 		},
- #endif
-@@ -5134,7 +5185,7 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.mc_forwarding,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0444,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- #endif
- 		{
-@@ -5149,28 +5200,28 @@ static struct addrconf_sysctl_table
- 			.data		= &ipv6_devconf.accept_dad,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec,
-+			.proc_handler	= addrconf_proc_dointvec,
- 		},
- 		{
- 			.procname       = "force_tllao",
- 			.data           = &ipv6_devconf.force_tllao,
- 			.maxlen         = sizeof(int),
- 			.mode           = 0644,
--			.proc_handler   = proc_dointvec
-+			.proc_handler   = addrconf_proc_dointvec
- 		},
- 		{
- 			.procname       = "ndisc_notify",
- 			.data           = &ipv6_devconf.ndisc_notify,
- 			.maxlen         = sizeof(int),
- 			.mode           = 0644,
--			.proc_handler   = proc_dointvec
-+			.proc_handler   = addrconf_proc_dointvec
- 		},
- 		{
- 			.procname	= "suppress_frag_ndisc",
- 			.data		= &ipv6_devconf.suppress_frag_ndisc,
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
--			.proc_handler	= proc_dointvec
-+			.proc_handler	= addrconf_proc_dointvec
- 		},
- 		{
- 			/* sentinel */
-@@ -5178,6 +5229,52 @@ static struct addrconf_sysctl_table
- 	},
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index a7e986b..d6fcc1f 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -86,7 +86,6 @@ struct inet_protosw {
+ 	struct proto	 *prot;
+ 	const struct proto_ops *ops;
+   
+-	char             no_check;   /* checksum on rcv/xmit/none? */
+ 	unsigned char	 flags;      /* See INET_PROTOSW_* below.  */
+ };
+ #define INET_PROTOSW_REUSE 0x01	     /* Are ports automatically reusable? */
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 22b5d81..6ca645c 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -1024,7 +1024,6 @@ static struct inet_protosw dccp_v4_protosw = {
+ 	.protocol	= IPPROTO_DCCP,
+ 	.prot		= &dccp_v4_prot,
+ 	.ops		= &inet_dccp_ops,
+-	.no_check	= 0,
+ 	.flags		= INET_PROTOSW_ICSK,
  };
  
-+static int __addrconf_sysctl_all_trigger(struct net *net, void *p)
-+{
-+	int i;
-+	int size;
-+	int *data;
-+	struct net_device *dev;
-+	struct inet6_dev *idev;
-+	struct addrconf_sysctl_table *t;
-+
-+	BUG_ON(net == NULL);
-+	BUG_ON(p == NULL);
-+
-+	/* locate index in devconf_all sysctl table */
-+	t = net->ipv6.devconf_all->sysctl;
-+	for (i = 0; (data = t->addrconf_vars[i].data); i++)
-+		if (data == p)
-+			break;
-+	if (data == NULL)
-+		return 0;
-+
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	/* change default */
-+	t = net->ipv6.devconf_dflt->sysctl;
-+	data = t->addrconf_vars[i].data;
-+	size = t->addrconf_vars[i].maxlen;
-+	if (data)
-+		memcpy(data, p, size);
-+
-+	/* change all devices */
-+	for_each_netdev(net, dev) {
-+		idev = __in6_dev_get(dev);
-+		if (idev) {
-+			t = idev->cnf.sysctl;
-+			data = t->addrconf_vars[i].data;
-+			size = t->addrconf_vars[i].maxlen;
-+			if (data)
-+				memcpy(data, p, size);
-+		}
-+	}
-+
-+	rtnl_unlock();
-+	return 0;
-+}
-+
- static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 		struct inet6_dev *idev, struct ipv6_devconf *p)
- {
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 279132b..0e9bb08 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -254,7 +254,6 @@ static int inet_create(struct net *net, struct socket *sock, int protocol,
+ 	struct inet_sock *inet;
+ 	struct proto *answer_prot;
+ 	unsigned char answer_flags;
+-	char answer_no_check;
+ 	int try_loading_module = 0;
+ 	int err;
+ 
+@@ -312,7 +311,6 @@ lookup_protocol:
+ 
+ 	sock->ops = answer->ops;
+ 	answer_prot = answer->prot;
+-	answer_no_check = answer->no_check;
+ 	answer_flags = answer->flags;
+ 	rcu_read_unlock();
+ 
+@@ -324,7 +322,6 @@ lookup_protocol:
+ 		goto out;
+ 
+ 	err = 0;
+-	sk->sk_no_check = answer_no_check;
+ 	if (INET_PROTOSW_REUSE & answer_flags)
+ 		sk->sk_reuse = SK_CAN_REUSE;
+ 
+@@ -1002,7 +999,6 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_TCP,
+ 		.prot =       &tcp_prot,
+ 		.ops =        &inet_stream_ops,
+-		.no_check =   0,
+ 		.flags =      INET_PROTOSW_PERMANENT |
+ 			      INET_PROTOSW_ICSK,
+ 	},
+@@ -1012,7 +1008,6 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_UDP,
+ 		.prot =       &udp_prot,
+ 		.ops =        &inet_dgram_ops,
+-		.no_check =   UDP_CSUM_DEFAULT,
+ 		.flags =      INET_PROTOSW_PERMANENT,
+        },
+ 
+@@ -1021,7 +1016,6 @@ static struct inet_protosw inetsw_array[] =
+ 		.protocol =   IPPROTO_ICMP,
+ 		.prot =       &ping_prot,
+ 		.ops =        &inet_dgram_ops,
+-		.no_check =   UDP_CSUM_DEFAULT,
+ 		.flags =      INET_PROTOSW_REUSE,
+        },
+ 
+@@ -1030,7 +1024,6 @@ static struct inet_protosw inetsw_array[] =
+ 	       .protocol =   IPPROTO_IP,	/* wild card */
+ 	       .prot =       &raw_prot,
+ 	       .ops =        &inet_sockraw_ops,
+-	       .no_check =   UDP_CSUM_DEFAULT,
+ 	       .flags =      INET_PROTOSW_REUSE,
+        }
+ };
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index 2c46acd..3b3efbd 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -70,7 +70,6 @@ static struct inet_protosw udplite4_protosw = {
+ 	.protocol	=  IPPROTO_UDPLITE,
+ 	.prot		=  &udplite_prot,
+ 	.ops		=  &inet_dgram_ops,
+-	.no_check	=  0,		/* must checksum (RFC 3828) */
+ 	.flags		=  INET_PROTOSW_PERMANENT,
+ };
+ 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index dc47cc7..7cb4392 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -106,7 +106,6 @@ static int inet6_create(struct net *net, struct socket *sock, int protocol,
+ 	struct inet_protosw *answer;
+ 	struct proto *answer_prot;
+ 	unsigned char answer_flags;
+-	char answer_no_check;
+ 	int try_loading_module = 0;
+ 	int err;
+ 
+@@ -162,7 +161,6 @@ lookup_protocol:
+ 
+ 	sock->ops = answer->ops;
+ 	answer_prot = answer->prot;
+-	answer_no_check = answer->no_check;
+ 	answer_flags = answer->flags;
+ 	rcu_read_unlock();
+ 
+@@ -176,7 +174,6 @@ lookup_protocol:
+ 	sock_init_data(sock, sk);
+ 
+ 	err = 0;
+-	sk->sk_no_check = answer_no_check;
+ 	if (INET_PROTOSW_REUSE & answer_flags)
+ 		sk->sk_reuse = SK_CAN_REUSE;
+ 
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index a2a1d80..5b7a1ed 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -51,7 +51,6 @@ static struct inet_protosw pingv6_protosw = {
+ 	.protocol =  IPPROTO_ICMPV6,
+ 	.prot =      &pingv6_prot,
+ 	.ops =       &inet6_dgram_ops,
+-	.no_check =  UDP_CSUM_DEFAULT,
+ 	.flags =     INET_PROTOSW_REUSE,
+ };
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index dddfb5f..b2dc60b 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1322,7 +1322,6 @@ static struct inet_protosw rawv6_protosw = {
+ 	.protocol	= IPPROTO_IP,	/* wild card */
+ 	.prot		= &rawv6_prot,
+ 	.ops		= &inet6_sockraw_ops,
+-	.no_check	= UDP_CSUM_DEFAULT,
+ 	.flags		= INET_PROTOSW_REUSE,
+ };
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f07b2ab..229239a 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1992,7 +1992,6 @@ static struct inet_protosw tcpv6_protosw = {
+ 	.protocol	=	IPPROTO_TCP,
+ 	.prot		=	&tcpv6_prot,
+ 	.ops		=	&inet6_stream_ops,
+-	.no_check	=	0,
+ 	.flags		=	INET_PROTOSW_PERMANENT |
+ 				INET_PROTOSW_ICSK,
+ };
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 7edf096..c7ed47b 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1507,7 +1507,6 @@ static struct inet_protosw udpv6_protosw = {
+ 	.protocol =  IPPROTO_UDP,
+ 	.prot =      &udpv6_prot,
+ 	.ops =       &inet6_dgram_ops,
+-	.no_check =  UDP_CSUM_DEFAULT,
+ 	.flags =     INET_PROTOSW_PERMANENT,
+ };
+ 
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index dfcc4be..9cf097e 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -64,7 +64,6 @@ static struct inet_protosw udplite6_protosw = {
+ 	.protocol	= IPPROTO_UDPLITE,
+ 	.prot		= &udplitev6_prot,
+ 	.ops		= &inet6_dgram_ops,
+-	.no_check	= 0,
+ 	.flags		= INET_PROTOSW_PERMANENT,
+ };
+ 
+diff --git a/net/l2tp/l2tp_ip.c b/net/l2tp/l2tp_ip.c
+index 3397fe6..369a982 100644
+--- a/net/l2tp/l2tp_ip.c
++++ b/net/l2tp/l2tp_ip.c
+@@ -606,7 +606,6 @@ static struct inet_protosw l2tp_ip_protosw = {
+ 	.protocol	= IPPROTO_L2TP,
+ 	.prot		= &l2tp_ip_prot,
+ 	.ops		= &l2tp_ip_ops,
+-	.no_check	= 0,
+ };
+ 
+ static struct net_protocol l2tp_ip_protocol __read_mostly = {
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index e472d44..f3f98a1 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -755,7 +755,6 @@ static struct inet_protosw l2tp_ip6_protosw = {
+ 	.protocol	= IPPROTO_L2TP,
+ 	.prot		= &l2tp_ip6_prot,
+ 	.ops		= &l2tp_ip6_ops,
+-	.no_check	= 0,
+ };
+ 
+ static struct inet6_protocol l2tp_ip6_protocol __read_mostly = {
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 4dc5d9e..1999592 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -943,7 +943,6 @@ static struct inet_protosw sctpv6_seqpacket_protosw = {
+ 	.protocol      = IPPROTO_SCTP,
+ 	.prot 	       = &sctpv6_prot,
+ 	.ops           = &inet6_seqpacket_ops,
+-	.no_check      = 0,
+ 	.flags         = SCTP_PROTOSW_FLAG
+ };
+ static struct inet_protosw sctpv6_stream_protosw = {
+@@ -951,7 +950,6 @@ static struct inet_protosw sctpv6_stream_protosw = {
+ 	.protocol      = IPPROTO_SCTP,
+ 	.prot 	       = &sctpv6_prot,
+ 	.ops           = &inet6_seqpacket_ops,
+-	.no_check      = 0,
+ 	.flags         = SCTP_PROTOSW_FLAG,
+ };
+ 
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index af5afca..6789d785 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1017,7 +1017,6 @@ static struct inet_protosw sctp_seqpacket_protosw = {
+ 	.protocol   = IPPROTO_SCTP,
+ 	.prot       = &sctp_prot,
+ 	.ops        = &inet_seqpacket_ops,
+-	.no_check   = 0,
+ 	.flags      = SCTP_PROTOSW_FLAG
+ };
+ static struct inet_protosw sctp_stream_protosw = {
+@@ -1025,7 +1024,6 @@ static struct inet_protosw sctp_stream_protosw = {
+ 	.protocol   = IPPROTO_SCTP,
+ 	.prot       = &sctp_prot,
+ 	.ops        = &inet_seqpacket_ops,
+-	.no_check   = 0,
+ 	.flags      = SCTP_PROTOSW_FLAG
+ };
+ 
 -- 
-1.9.0
+1.9.1.423.g4596e3a
