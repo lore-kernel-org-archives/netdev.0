@@ -1,7 +1,7 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 1/9] net: Add a software TSO helper API
-Date: Mon, 19 May 2014 13:59:52 -0300
-Message-ID: <1400518800-6111-2-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 2/9] net: mvneta: Factorize feature setting
+Date: Mon, 19 May 2014 13:59:53 -0300
+Message-ID: <1400518800-6111-3-git-send-email-ezequiel.garcia@free-electrons.com>
 References: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
@@ -13,143 +13,36 @@ Cc: Willy Tarreau <w@1wt.eu>,
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53586 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:53591 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932566AbaESRAy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:00:54 -0400
+	with ESMTP id S932566AbaESRA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:00:58 -0400
 In-Reply-To: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Although the implementation probably needs a lot of work, this initial API
-allows to implement software TSO in mvneta and mv643xx_eth drivers in a not
-so intrusive way.
+In order to ease the addition of new features, let's factorize the
+feature list.
 
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
- include/net/tso.h | 20 ++++++++++++++++
- net/core/Makefile |  2 +-
- net/core/tso.c    | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 93 insertions(+), 1 deletion(-)
- create mode 100644 include/net/tso.h
- create mode 100644 net/core/tso.c
+ drivers/net/ethernet/marvell/mvneta.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/tso.h b/include/net/tso.h
-new file mode 100644
-index 0000000..47e5444
---- /dev/null
-+++ b/include/net/tso.h
-@@ -0,0 +1,20 @@
-+#ifndef _TSO_H
-+#define _TSO_H
-+
-+#include <net/ip.h>
-+
-+struct tso_t {
-+	int next_frag_idx;
-+	void *data;
-+	size_t size;
-+	u16 ip_id;
-+	u32 tcp_seq;
-+};
-+
-+int tso_count_descs(struct sk_buff *skb);
-+void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
-+		   int size, bool is_last);
-+void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size);
-+void tso_start(struct sk_buff *skb, struct tso_t *tso);
-+
-+#endif	/* _TSO_H */
-diff --git a/net/core/Makefile b/net/core/Makefile
-index 826b925..71093d9 100644
---- a/net/core/Makefile
-+++ b/net/core/Makefile
-@@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index c7cbaf3..ed7f924 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2896,8 +2896,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	netif_napi_add(dev, &pp->napi, mvneta_poll, pp->weight);
  
- obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
- 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
--			sock_diag.o dev_ioctl.o
-+			sock_diag.o dev_ioctl.o tso.o
+ 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
+-	dev->hw_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+-	dev->vlan_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
++	dev->hw_features |= dev->features;
++	dev->vlan_features |= dev->features;
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
  
- obj-$(CONFIG_XFRM) += flow.o
- obj-y += net-sysfs.o
-diff --git a/net/core/tso.c b/net/core/tso.c
-new file mode 100644
-index 0000000..097821d
---- /dev/null
-+++ b/net/core/tso.c
-@@ -0,0 +1,72 @@
-+#include <net/ip.h>
-+#include <net/tso.h>
-+
-+/* Calculate expected number of TX descriptors */
-+int tso_count_descs(struct sk_buff *skb)
-+{
-+	/* The Marvell Way */
-+	return skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
-+}
-+
-+void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
-+		   int size, bool is_last)
-+{
-+	struct iphdr *iph;
-+	struct tcphdr *tcph;
-+	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	int mac_hdr_len = skb_network_offset(skb);
-+
-+	memcpy(hdr, skb->data, hdr_len);
-+	iph = (struct iphdr *)(hdr + mac_hdr_len);
-+	iph->id = htons(tso->ip_id);
-+	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
-+	tcph = (struct tcphdr *)(hdr + skb_transport_offset(skb));
-+	tcph->seq = htonl(tso->tcp_seq);
-+	tso->ip_id++;
-+
-+	if (!is_last) {
-+		/* Clear all special flags for not last packet */
-+		tcph->psh = 0;
-+		tcph->fin = 0;
-+		tcph->rst = 0;
-+	}
-+}
-+
-+void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size)
-+{
-+	tso->tcp_seq += size;
-+	tso->size -= size;
-+	tso->data += size;
-+
-+	if ((tso->size == 0) &&
-+	    (tso->next_frag_idx < skb_shinfo(skb)->nr_frags)) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[tso->next_frag_idx];
-+
-+		/* Move to next segment */
-+		tso->size = frag->size;
-+		tso->data = page_address(frag->page.p) + frag->page_offset;
-+		tso->next_frag_idx++;
-+	}
-+}
-+
-+void tso_start(struct sk_buff *skb, struct tso_t *tso)
-+{
-+	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+
-+	tso->ip_id = ntohs(ip_hdr(skb)->id);
-+	tso->tcp_seq = ntohl(tcp_hdr(skb)->seq);
-+	tso->next_frag_idx = 0;
-+
-+	/* Build first data */
-+	tso->size = skb_headlen(skb) - hdr_len;
-+	tso->data = skb->data + hdr_len;
-+	if ((tso->size == 0) &&
-+	    (tso->next_frag_idx < skb_shinfo(skb)->nr_frags)) {
-+		skb_frag_t *frag = &skb_shinfo(skb)->frags[tso->next_frag_idx];
-+
-+		/* Move to next segment */
-+		tso->size = frag->size;
-+		tso->data = page_address(frag->page.p) + frag->page_offset;
-+		tso->next_frag_idx++;
-+	}
-+}
+ 	err = register_netdev(dev);
 -- 
 1.9.1
