@@ -1,59 +1,54 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v9] can: add Renesas R-Car CAN driver
-Date: Mon, 19 May 2014 08:18:27 +0200
-Message-ID: <5379A233.6010007@pengutronix.de>
-References: <201405170003.55177.sergei.shtylyov@cogentembedded.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [BUG] might sleep functions in atomic context in stmmac_resume()
+Date: Mon, 19 May 2014 08:57:25 +0200
+Message-ID: <5379AB55.2050003@st.com>
+References: <53769C2A.8050803@ispras.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="GIHxqXP8IGIQ7sVx7miern0rApgP09C5a"
-Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, wg@grandegger.com,
-	linux-can@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56068 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937AbaESGSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 02:18:38 -0400
-In-Reply-To: <201405170003.55177.sergei.shtylyov@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	<ldv-project@linuxtesting.org>
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53769C2A.8050803@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---GIHxqXP8IGIQ7sVx7miern0rApgP09C5a
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hello Alexey
 
-On 05/16/2014 10:03 PM, Sergei Shtylyov wrote:
-> Add support for the CAN controller found in Renesas R-Car SoCs.=20
->=20
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+On 5/17/2014 1:15 AM, Alexey Khoroshilov wrote:
+> There are calls to might sleep functions in atomic context in
+> stmmac_resume():
+> - the first one is clk_prepare_enable(priv->stmmac_clk);
+> - the second one is stmmac_hw_setup()
+> -> init_dma_desc_rings()
+>    -> =EF=BB=BFstmmac_init_rx_buffers()
+>      -> __netdev_alloc_skb(GFP_KERNEL)
+>
+> What is the purpose of spin_lock_irqsave(&priv->lock, flags) section?
+> What does it protect against?
 
-Applied to can-next.
+Some part of this driver, especially on PM stuff, has been reworked
+time ago.
+I have in plan to do further tests and investigations
+also to understand and try to solve this kind of issues. I do not
+want to see this kind of BUGs. Also I have some other patches on
+other pending problem I will submit to be reviewed.
+I hope to start doing this task in the incoming days.
 
-Tnx,
-Marc
+BR
+peppe
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---GIHxqXP8IGIQ7sVx7miern0rApgP09C5a
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEUEARECAAYFAlN5ojMACgkQjTAFq1RaXHPDFACY6QhJlaPzvh/e48GZrVERZPfa
-qgCgix5WNhTimcRHtUOaukJDyOuS5XY=
-=WW62
------END PGP SIGNATURE-----
-
---GIHxqXP8IGIQ7sVx7miern0rApgP09C5a--
+>
+> Found by Linux Driver Verification project (linuxtesting.org).
+>
+> --
+> Alexey Khoroshilov
+> Linux Verification Center, ISPRAS
+> web: http://linuxtesting.org
+>
+>
