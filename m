@@ -1,68 +1,80 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH net-next 3/4] Documentation: devicetree: add old and
- deprecated 'fixed-link'
-Date: Mon, 19 May 2014 22:22:48 +0200
-Message-ID: <20140519222248.5694cf62@free-electrons.com>
-References: <1400528625-32744-1-git-send-email-f.fainelli@gmail.com>
-	<1400528625-32744-4-git-send-email-f.fainelli@gmail.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0
+ (bridge : Sanitize skb before it enters the IP stack)
+Date: Mon, 19 May 2014 22:49:32 +0200
+Message-ID: <537A6E5C.6090602@pandora.be>
+References: <537621AC.1060409@davidnewall.com>
+	<5379FFFD.1050705@davidnewall.com>
+	<20140519140119.GA24523@breakpoint.cc>
+	<537A12EA.4060604@davidnewall.com>
+	<20140519170915.GB24523@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	devicetree@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:54830 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932478AbaESUWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 16:22:51 -0400
-In-Reply-To: <1400528625-32744-4-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org,
+	netfilter-devel@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>,
+ David Newall <davidn@davidnewall.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140519170915.GB24523@breakpoint.cc>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Dear Florian Fainelli,
+Florian Westphal schreef op 19/05/2014 19:09:
+> David Newall <davidn@davidnewall.com> wrote:
+>
+> [ remove lkml and cc nf-devel ]
+>
+>> I tried to persevere with the commit: I recalculated checksum, which
+>> left routes and times improperly updated in options.  Then I tried
+>> calling ip_forward_options, which looks like it would correctly
+>> update RR and TS (not to mention checksum)m but that bombed because
+>> skb_rtable returned NULL.
+>
+> Yes.  bridge<->netfilter wiring is pure duct tape.
+> The glue code will set up a fake rtable for the skb after the
+> prerouting hook. [ see br_nf_pre_routing_finish() ].
+>
+>> I see three ways to progress:
+>>
+>> 1. Possibly call ip_forward_option, but that requires somebody who
+>> understands this code to help;
+>> 2. Just recalculate the checksum, leaving crap in the options; or
+>> 3. Revert the commit.
+>
+> I think none of these are an option.
+>
+> I fail to understand why a bridge should honor/modifiy IP options.
+>
+> For the 'local delivery' case the ip stack will take care of
+> option parsing, for forwarding it should be sufficient to do
+> sanity tests (for netfilters sake).
+>
+>>From a quick glance, it should be sufficient to edit
+> br_parse_ip_options() and remove everything after
+>
+> memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+>
+> A 2nd step would be to move a copy of ip_options_compile()
+> into br_netfilter.c and trim it down to only validate the
+> ipv4 header without modifying it.
 
-On Mon, 19 May 2014 12:43:44 -0700, Florian Fainelli wrote:
-> Update the fixed-link Device Tree binding documentation to contain
-> information about the old and deprecated 5-digit 'fixed-link' property.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  Documentation/devicetree/bindings/net/fixed-link.txt | 7 +++++++
->  1 file changed, 7 insertions(+)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
-> index e956de1be935..a87e28b68dee 100644
-> --- a/Documentation/devicetree/bindings/net/fixed-link.txt
-> +++ b/Documentation/devicetree/bindings/net/fixed-link.txt
-> @@ -18,6 +18,13 @@ properties:
->  * 'asym-pause' (boolean, optional), to indicate that asym_pause should
->    be enabled.
->  
-> +Old, deprecated 'fixed-link' binding:
-> +
-> +* 'fixed-link' : <a b c d e> where a is emulated phy id - choose any,
-> +  but unique to the all specified fixed-links, b is duplex - 0 half,
-> +  1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
-> +  pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
+Perhaps it's possible to call ip_options_compile with a skb == NULL, 
+like ip_options.c::ip_options_get_finish does. That way we don't need to 
+duplicate code.
+An alternative would be to make sure that the data pointed to by IPCB 
+and BR_INPUT_SKB_CB don't overlap. If this were the case, we could 
+indeed just revert the commit that was referred to.
 
-I know it's copy/pasted from a previous binding document, but I find
-the explanation here rather difficult to read, especially the
-d#10/d#100/d#1000 thing. Could we have something more readable, like:
 
- * A 'fixed-link' property in the Ethernet MAC node, with 5 cells, of
-   the form <a b c d e>:
-   - a: emulated phy id, choose any but unique to all specified
-     fixed-links
-   - b: duplex configuration: 0 for half duplex, 1 for full duplex
-   - c: link speed in Mbit/s, accepted values are: 10, 100 and 1000
-   - d: pause configuration: 0 for no pause, 1 for pause
-   - e: asym_pause configuration: 0 for no asym_pause, 1 for asym_pause
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+cheers,
+Bart
