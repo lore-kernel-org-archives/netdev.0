@@ -1,227 +1,286 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Mon, 19 May 2014 22:28:37 +0930
-Message-ID: <5379FFFD.1050705@davidnewall.com>
-References: <537621AC.1060409@davidnewall.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/3] hix5hd2-clock: add complex clk
+Date: Mon, 19 May 2014 13:11:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724924B@AcuExch.aculab.com>
+References: <1400504227-12047-1-git-send-email-zhangfei.gao@linaro.org>
+ <1400504227-12047-2-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Jiancheng Xue <xuejiancheng@huawei.com>
+To: 'Zhangfei Gao' <zhangfei.gao@linaro.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"mark.rutland@arm.com" <mark.rutland@arm.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"haifeng.yan@linaro.org" <haifeng.yan@linaro.org>,
+	"jchxue@gmail.com" <jchxue@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hawking.rebel.net.au ([203.20.69.83]:56248 "EHLO
-	hawking.rebel.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754553AbaESM6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 08:58:43 -0400
-In-Reply-To: <537621AC.1060409@davidnewall.com>
+Received: from mx0.aculab.com ([213.249.233.131]:36016 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754863AbaESNLk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 09:11:40 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01945-08 for <netdev@vger.kernel.org>;
+ Mon, 19 May 2014 14:11:38 +0100 (BST)
+In-Reply-To: <1400504227-12047-2-git-send-email-zhangfei.gao@linaro.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Having received no feedback of substance from netdev, I now address my 
-previous email to a wider audience for discussion and in preparation for 
-submitting a patch based closely on that below.
+From: Zhangfei Gao
+...
+> diff --git a/drivers/clk/hisilicon/clk-hix5hd2.c b/drivers/clk/hisilicon/clk-hix5hd2.c
+> index e5fcfb4..1b1347f 100644
+> --- a/drivers/clk/hisilicon/clk-hix5hd2.c
+> +++ b/drivers/clk/hisilicon/clk-hix5hd2.c
+> @@ -9,6 +9,8 @@
+> 
+>  #include <linux/of_address.h>
+>  #include <dt-bindings/clock/hix5hd2-clock.h>
+> +#include <linux/slab.h>
+> +#include <linux/delay.h>
+>  #include "clk.h"
+> 
+>  static struct hisi_fixed_rate_clock hix5hd2_fixed_rate_clks[] __initdata = {
+> @@ -79,8 +81,186 @@ static struct hisi_gate_clock hix5hd2_gate_clks[] __initdata = {
+>  		CLK_SET_RATE_PARENT, 0xa0, 1, 0, },
+>  	{ HIX5HD2_MMC_CIU_RST, "rst_mmc_ciu", "clk_mmc_ciu",
+>  		CLK_SET_RATE_PARENT, 0xa0, 4, CLK_GATE_SET_TO_DISABLE, },
+> +	/*gsf*/
+> +	{ HIX5HD2_FWD_BUS_CLK, "clk_fwd_bus", NULL, 0, 0xcc, 0, 0, },
+> +	{ HIX5HD2_FWD_SYS_CLK, "clk_fwd_sys", "clk_fwd_bus", 0, 0xcc, 5, 0, },
+> +	{ HIX5HD2_MAC0_PHY_CLK, "clk_fephy", "clk_fwd_sys",
+> +		 CLK_SET_RATE_PARENT, 0x120, 0, 0, },
+>  };
+> 
+> +enum {TYPE_COMPLEX, TYPE_ETHER};
 
-This email is not addressed to Bandan Das <bandan.das@stratus.com>, who 
-is the author of the commit I propose reverting, as his email address is 
-no longer current.  I believe I have otherwise addressed all appropriate 
-recipients and will circulate a formal patch to the same recipients if 
-no adverse comments are received.  (That would surprise me.)
+Shouldn't this be a named enum to make it more obvious
+where the values should be used?
 
+> +
+> +struct hix5hd2_complex_clock {
+> +	unsigned int	id;
 
--------- Original Message --------
-Subject: 	Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : 
-Sanitize skb before it enters the IP stack)
-Date: 	Sat, 17 May 2014 00:03:16 +0930
-From: 	David Newall <davidn@davidnewall.com>
-To: 	Lukas Tribus <luky-37@hotmail.com>, Eric Dumazet 
-<eric.dumazet@gmail.com>, Netdev <netdev@vger.kernel.org>
-CC: 	fw@strlen.de <fw@strlen.de>
+Reorder the fields to avoid the implicit pad here.
 
+> +	const char	*name;
+> +	const char	*parent_name;
+> +	u32		ctrl_reg;
+> +	u32		ctrl_clk_mask;
+> +	u32		ctrl_rst_mask;
+> +	u32		phy_reg;
+> +	u32		phy_clk_mask;
+> +	u32		phy_rst_mask;
+> +	u32		type;
+> +};
+> +
+> +struct hix5hd2_clk_complex {
+> +	struct clk_hw	hw;
+> +	u32		id;
+> +	void __iomem	*ctrl_reg;
+> +	u32		ctrl_clk_mask;
+> +	u32		ctrl_rst_mask;
+> +	void __iomem	*phy_reg;
+> +	u32		phy_clk_mask;
+> +	u32		phy_rst_mask;
+> +};
+> +
+> +static struct hix5hd2_complex_clock hix5hd2_complex_clks[] __initdata = {
+> +	{HIX5HD2_MAC0_CLK, "clk_mac0", "clk_fephy",
+> +		0xcc, 0xa, 0x500, 0x120, 0, 0x10, TYPE_ETHER},
+> +	{HIX5HD2_MAC1_CLK, "clk_mac1", "clk_fwd_sys",
+> +		0xcc, 0x14, 0xa00, 0x168, 0x2, 0, TYPE_ETHER},
+> +	{HIX5HD2_SATA_CLK, "clk_sata", NULL,
+> +		0xa8, 0x1f, 0x300, 0xac, 0x1, 0x0, TYPE_COMPLEX},
+> +	{HIX5HD2_USB_CLK, "clk_usb", NULL,
+> +		0xb8, 0xff, 0x3f00, 0xbc, 0x7, 0x3f00, TYPE_COMPLEX},
+> +};
+> +
+> +#define to_complex_clk(_hw) container_of(_hw, struct hix5hd2_clk_complex, hw)
+> +
+> +static int clk_ether_enable(struct clk_hw *hw)
+> +{
+> +	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
+> +	u32 val;
+> +
+> +	val = readl(clk->ctrl_reg);
+> +	val |= clk->ctrl_clk_mask | clk->ctrl_rst_mask;
+> +	writel(val, clk->ctrl_reg);
+> +	udelay(50);
+> +	val &= ~(clk->ctrl_rst_mask);
+> +	writel(val, clk->ctrl_reg);
 
+I'd need to be convinced that the udelay() has the desired effect.
+I suspect you are trying to assert reset for a minimum period.
+However the first write can be 'posted' by all sorts of hardware
+for all sorts of reasons - so the writes can actually be back to back.
 
-We should revert commit 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge
-: Sanitize skb before it enters the IP stack) because it corrupts IP
-packets with RR or TS options set, only partially updating the IP header
-and leaving an incorrect checksum.
+	David
 
-The argument for introducing the change is at lkml.org/lkml/2010/8/30/391:
-
-The bridge layer can overwrite the IPCB using the
-BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,
-if we recieve a packet greater in size than the bridge
-device MTU, we call ip_fragment which in turn will lead to
-icmp_send calling ip_options_echo if the DF flag is set.
-ip_options_echo will then incorrectly try to parse the IPCB as
-IP options resulting in a buffer overflow.
-This change refills the CB area back with IP
-options before ip_fragment calls icmp_send. If we fail parsing,
-we zero out the IPCB area to guarantee that the stack does
-not get corrupted.
-
-A bridge should not fragment packets; an *ethernet* bridge should not
-need to.  Fragmenting packets is the job of higher level protocol.
-
---- br_netfilter.c	2014-01-20 13:10:07.000000000 +1030
-+++ br_netfilter.c.prop	2014-05-16 23:07:57.975386905 +0930
-@@ -253,73 +253,6 @@
-  		skb->protocol = htons(ETH_P_PPP_SES);
-  }
-  
--/* When handing a packet over to the IP layer
-- * check whether we have a skb that is in the
-- * expected format
-- */
--
--static int br_parse_ip_options(struct sk_buff *skb)
--{
--	struct ip_options *opt;
--	const struct iphdr *iph;
--	struct net_device *dev = skb->dev;
--	u32 len;
--
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	opt = &(IPCB(skb)->opt);
--
--	/* Basic sanity checks */
--	if (iph->ihl < 5 || iph->version != 4)
--		goto inhdr_error;
--
--	if (!pskb_may_pull(skb, iph->ihl*4))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
--		goto inhdr_error;
--
--	len = ntohs(iph->tot_len);
--	if (skb->len < len) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
--		goto drop;
--	} else if (len < (iph->ihl*4))
--		goto inhdr_error;
--
--	if (pskb_trim_rcsum(skb, len)) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
--		goto drop;
--	}
--
--	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--	if (iph->ihl == 5)
--		return 0;
--
--	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
--	if (ip_options_compile(dev_net(dev), opt, skb))
--		goto inhdr_error;
--
--	/* Check correct handling of SRR option */
--	if (unlikely(opt->srr)) {
--		struct in_device *in_dev = __in_dev_get_rcu(dev);
--		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
--			goto drop;
--
--		if (ip_options_rcv_srr(skb))
--			goto drop;
--	}
--
--	return 0;
--
--inhdr_error:
--	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
--drop:
--	return -1;
--}
--
-  /* Fill in the header for fragmented IP packets handled by
-   * the IPv4 connection tracking code.
-   */
-@@ -679,6 +612,7 @@
-  {
-  	struct net_bridge_port *p;
-  	struct net_bridge *br;
-+	const struct iphdr *iph;
-  	__u32 len = nf_bridge_encap_header_len(skb);
-  
-  	if (unlikely(!pskb_may_pull(skb, len)))
-@@ -704,9 +638,29 @@
-  		return NF_ACCEPT;
-  
-  	nf_bridge_pull_encap_header_rcsum(skb);
-+
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-+		goto inhdr_error;
-  
--	if (br_parse_ip_options(skb))
--		return NF_DROP;
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		goto inhdr_error;
-+
-+	if (!pskb_may_pull(skb, 4 * iph->ihl))
-+		goto inhdr_error;
-+
-+	iph = ip_hdr(skb);
-+	if (ip_fast_csum((__u8 *) iph, iph->ihl) != 0)
-+		goto inhdr_error;
-+
-+	len = ntohs(iph->tot_len);
-+	if (skb->len < len || len < 4 * iph->ihl)
-+		goto inhdr_error;
-+
-+	pskb_trim_rcsum(skb, len);
-+
-+	/* BUG: Should really parse the IP options here. */
-+	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-  
-  	nf_bridge_put(skb->nf_bridge);
-  	if (!nf_bridge_alloc(skb))
-@@ -720,6 +674,10 @@
-  		br_nf_pre_routing_finish);
-  
-  	return NF_STOLEN;
-+
-+inhdr_error:
-+//      IP_INC_STATS_BH(IpInHdrErrors);
-+	return NF_DROP;
-  }
-  
-  
-@@ -806,9 +764,6 @@
-  		nf_bridge->mask |= BRNF_PKT_TYPE;
-  	}
-  
--	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
--		return NF_DROP;
--
-  	/* The physdev module checks on this */
-  	nf_bridge->mask |= BRNF_BRIDGED;
-  	nf_bridge->physoutdev = skb->dev;
-@@ -862,19 +817,14 @@
-  #if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
-  {
--	int ret;
--
-  	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
-  	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
-  	    !skb_is_gso(skb)) {
--		if (br_parse_ip_options(skb))
--			/* Drop invalid packet */
--			return NF_DROP;
--		ret = ip_fragment(skb, br_dev_queue_push_xmit);
-+		/* BUG: Should really parse the IP options here. */
-+		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+		return ip_fragment(skb, br_dev_queue_push_xmit);
-  	} else
--		ret = br_dev_queue_push_xmit(skb);
--
--	return ret;
-+		return br_dev_queue_push_xmit(skb);
-  }
-  #else
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
+> +
+> +	val = readl(clk->phy_reg);
+> +	val |= clk->phy_clk_mask;
+> +	val &= ~(clk->phy_rst_mask);
+> +	writel(val, clk->phy_reg);
+> +	mdelay(10);
+> +
+> +	val &= ~(clk->phy_clk_mask);
+> +	val |= clk->phy_rst_mask;
+> +	writel(val, clk->phy_reg);
+> +	mdelay(10);
+> +
+> +	val |= clk->phy_clk_mask;
+> +	val &= ~(clk->phy_rst_mask);
+> +	writel(val, clk->phy_reg);
+> +	mdelay(30);
+> +	return 0;
+> +}
+> +
+> +static void clk_ether_disable(struct clk_hw *hw)
+> +{
+> +	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
+> +	u32 val;
+> +
+> +	val = readl(clk->ctrl_reg);
+> +	val &= ~(clk->ctrl_clk_mask);
+> +	writel(val, clk->ctrl_reg);
+> +}
+> +
+> +static struct clk_ops clk_ether_ops = {
+> +	.enable = clk_ether_enable,
+> +	.disable = clk_ether_disable,
+> +};
+> +
+> +static int clk_complex_enable(struct clk_hw *hw)
+> +{
+> +	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
+> +	u32 val;
+> +
+> +	val = readl(clk->ctrl_reg);
+> +	val |= clk->ctrl_clk_mask;
+> +	val &= ~(clk->ctrl_rst_mask);
+> +	writel(val, clk->ctrl_reg);
+> +
+> +	val = readl(clk->phy_reg);
+> +	val |= clk->phy_clk_mask;
+> +	val &= ~(clk->phy_rst_mask);
+> +	writel(val, clk->phy_reg);
+> +
+> +	return 0;
+> +}
+> +
+> +static void clk_complex_disable(struct clk_hw *hw)
+> +{
+> +	struct hix5hd2_clk_complex *clk = to_complex_clk(hw);
+> +	u32 val;
+> +
+> +	val = readl(clk->ctrl_reg);
+> +	val |= clk->ctrl_rst_mask;
+> +	val &= ~(clk->ctrl_clk_mask);
+> +	writel(val, clk->ctrl_reg);
+> +
+> +	val = readl(clk->phy_reg);
+> +	val |= clk->phy_rst_mask;
+> +	val &= ~(clk->phy_clk_mask);
+> +	writel(val, clk->phy_reg);
+> +
+> +	return;
+> +}
+> +
+> +static struct clk_ops clk_complex_ops = {
+> +	.enable = clk_complex_enable,
+> +	.disable = clk_complex_disable,
+> +};
+> +
+> +void __init hix5hd2_clk_register_complex_clk(struct hix5hd2_complex_clock *clks,
+> +				       int nums, struct hisi_clock_data *data)
+> +{
+> +	void __iomem *base = data->base;
+> +	int i;
+> +
+> +	for (i = 0; i < nums; i++) {
+> +		struct hix5hd2_clk_complex *p_clk;
+> +		struct clk *clk;
+> +		struct clk_init_data init;
+> +
+> +		p_clk = kzalloc(sizeof(*p_clk), GFP_KERNEL);
+> +		if (!p_clk) {
+> +			pr_err("%s: fail to allocate clk\n", __func__);
+> +			return;
+> +		}
+> +
+> +		init.name = clks[i].name;
+> +		if (clks[i].type == TYPE_ETHER)
+> +			init.ops = &clk_ether_ops;
+> +		else
+> +			init.ops = &clk_complex_ops;
+> +
+> +		init.flags = CLK_IS_BASIC;
+> +		init.parent_names =
+> +			(clks[i].parent_name ? &clks[i].parent_name : NULL);
+> +		init.num_parents = (clks[i].parent_name ? 1 : 0);
+> +
+> +		p_clk->ctrl_reg = base + clks[i].ctrl_reg;
+> +		p_clk->ctrl_clk_mask = clks[i].ctrl_clk_mask;
+> +		p_clk->ctrl_rst_mask = clks[i].ctrl_rst_mask;
+> +		p_clk->phy_reg = base + clks[i].phy_reg;
+> +		p_clk->phy_clk_mask = clks[i].phy_clk_mask;
+> +		p_clk->phy_rst_mask = clks[i].phy_rst_mask;
+> +		p_clk->hw.init = &init;
+> +
+> +		clk = clk_register(NULL, &p_clk->hw);
+> +		if (IS_ERR(clk)) {
+> +			kfree(p_clk);
+> +			pr_err("%s: failed to register clock %s\n",
+> +			       __func__, clks[i].name);
+> +			continue;
+> +		}
+> +
+> +		data->clk_data.clks[clks[i].id] = clk;
+> +	}
+> +}
+> +
+>  static void __init hix5hd2_clk_init(struct device_node *np)
+>  {
+>  	struct hisi_clock_data *clk_data;
+> @@ -96,6 +276,8 @@ static void __init hix5hd2_clk_init(struct device_node *np)
+>  					clk_data);
+>  	hisi_clk_register_gate(hix5hd2_gate_clks,
+>  			ARRAY_SIZE(hix5hd2_gate_clks), clk_data);
+> +	hix5hd2_clk_register_complex_clk(hix5hd2_complex_clks,
+> +			ARRAY_SIZE(hix5hd2_complex_clks), clk_data);
+>  }
+> 
+>  CLK_OF_DECLARE(hix5hd2_clk, "hisilicon,hix5hd2-clock", hix5hd2_clk_init);
+> diff --git a/include/dt-bindings/clock/hix5hd2-clock.h b/include/dt-bindings/clock/hix5hd2-clock.h
+> index aad579a..e328669 100644
+> --- a/include/dt-bindings/clock/hix5hd2-clock.h
+> +++ b/include/dt-bindings/clock/hix5hd2-clock.h
+> @@ -53,6 +53,15 @@
+>  #define HIX5HD2_MMC_CIU_CLK		130
+>  #define HIX5HD2_MMC_BIU_CLK		131
+>  #define HIX5HD2_MMC_CIU_RST		132
+> +#define HIX5HD2_FWD_BUS_CLK		133
+> +#define HIX5HD2_FWD_SYS_CLK		134
+> +#define HIX5HD2_MAC0_PHY_CLK		135
+> +
+> +/* complex */
+> +#define HIX5HD2_MAC0_CLK		192
+> +#define HIX5HD2_MAC1_CLK		193
+> +#define HIX5HD2_SATA_CLK		194
+> +#define HIX5HD2_USB_CLK			195
+> 
+>  #define HIX5HD2_NR_CLKS			256
+>  #endif	/* __DTS_HIX5HD2_CLOCK_H */
+> --
+> 1.7.9.5
