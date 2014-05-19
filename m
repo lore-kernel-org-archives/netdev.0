@@ -1,47 +1,51 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] macvlan: Fix checksum errors when ip_summed is CHECKSUM_PARTIAL
-Date: Mon, 19 May 2014 17:24:09 -0400
-Message-ID: <537A7679.5040102@gmail.com>
-References: <1400520254-5142-1-git-send-email-spang@chromium.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] isdn: hisax: l3dss1.c:  Fix for possible null pointer
+ dereference
+Date: Tue, 20 May 2014 01:24:28 +0400
+Message-ID: <537A768C.8080807@cogentembedded.com>
+References: <1400347101-25476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	stable@vger.kernel.org
-To: Michael Spang <spang@chromium.org>,
-	Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400520254-5142-1-git-send-email-spang@chromium.org>
+In-Reply-To: <1400347101-25476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/19/2014 01:24 PM, Michael Spang wrote:
-> Changing ip_summed from CHECKSUM_PARTIAL to CHECKSUM_UNNECESSARY
-> will result in an incorrect checksum if the packet is sent off the box.
-> 
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Michael Spang <spang@chromium.org>
+Hello.
+
+On 05/17/2014 09:18 PM, Rickard Strandqvist wrote:
+
+> There is otherwise a risk of a possible null pointer dereference.
+
+> Was largely found by using a static code analysis program called cppcheck.
+
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 > ---
->  drivers/net/macvlan.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 753a8c2..806b56a 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -267,7 +267,9 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
->  		const struct ethhdr *eth = (void *)skb->data;
-> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
+>   drivers/isdn/hisax/l3dss1.c |    8 ++++++--
+>   1 file changed, 6 insertions(+), 2 deletions(-)
+
+> diff --git a/drivers/isdn/hisax/l3dss1.c b/drivers/isdn/hisax/l3dss1.c
+> index cda7006..3ea6257 100644
+> --- a/drivers/isdn/hisax/l3dss1.c
+> +++ b/drivers/isdn/hisax/l3dss1.c
+> @@ -2208,8 +2208,12 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
+>   				{ free_invoke_id(st, id);
+>   					return (-2);
+>   				}
+> -			pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
+> -			pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
 > +
-> +		if (skb->ip_summed == CHECKSUM_NONE)
-> +			skb->ip_summed = CHECKSUM_UNNECESSARY;
->  
->  		/* send to other bridge ports directly */
->  		if (is_multicast_ether_addr(eth->h_dest)) {
-> 
+> +			if (pc)
+> +			{
 
-Already done.  See commit f114890cdf84d753f6b41cd0cc44ba51d16313da
+    { sould be on the same line as *if*.
 
--vlad
+> +				pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
+> +				pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
+> +			}
+
+WBR, Sergei
