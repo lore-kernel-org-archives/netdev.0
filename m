@@ -1,12 +1,18 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 1/13] libertas: make return of 0 explicit
-Date: Mon, 19 May 2014 06:31:03 +0200
-Message-ID: <1400473875-22228-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 6/13] [NETFILTER]: arp_tables: make return of 0 explicit
+Date: Mon, 19 May 2014 06:31:08 +0200
+Message-ID: <1400473875-22228-7-git-send-email-Julia.Lawall@lip6.fr>
 References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+Cc: kernel-janitors@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -38,42 +44,30 @@ return
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
-Alternatively, was an error code intended in the bad length case, as is
-done in process_brxed_802_11_packet?
+ net/ipv4/netfilter/arp_tables.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
- drivers/net/wireless/libertas/rx.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
-index c7366b0..807c5b8 100644
---- a/drivers/net/wireless/libertas/rx.c
-+++ b/drivers/net/wireless/libertas/rx.c
-@@ -55,7 +55,6 @@ static int process_rxed_802_11_packet(struct lbs_private *priv,
-  */
- int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- {
--	int ret = 0;
- 	struct net_device *dev = priv->dev;
- 	struct rxpackethdr *p_rx_pkt;
- 	struct rxpd *p_rx_pd;
-@@ -86,7 +85,6 @@ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- 	if (skb->len < (ETH_HLEN + 8 + sizeof(struct rxpd))) {
- 		lbs_deb_rx("rx err: frame received with bad length\n");
- 		dev->stats.rx_length_errors++;
--		ret = 0;
- 		dev_kfree_skb(skb);
- 		goto done;
- 	}
-@@ -154,10 +152,9 @@ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
- 	else
- 		netif_rx_ni(skb);
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index f95b6f9..89f6737 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -1289,9 +1289,8 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
+ 	struct xt_target *target;
+ 	struct arpt_entry *de;
+ 	unsigned int origsize;
+-	int ret, h;
++	int h;
  
 -	ret = 0;
- done:
--	lbs_deb_leave_args(LBS_DEB_RX, "ret %d", ret);
+ 	origsize = *size;
+ 	de = (struct arpt_entry *)*dstptr;
+ 	memcpy(de, e, sizeof(struct arpt_entry));
+@@ -1312,7 +1311,7 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
+ 		if ((unsigned char *)de - base < newinfo->underflow[h])
+ 			newinfo->underflow[h] -= origsize - *size;
+ 	}
 -	return ret;
-+	lbs_deb_leave_args(LBS_DEB_RX, "ret %d", 0);
 +	return 0;
  }
- EXPORT_SYMBOL_GPL(lbs_process_rxed_packet);
  
+ static int translate_compat_table(const char *name,
