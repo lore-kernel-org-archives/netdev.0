@@ -1,61 +1,140 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Mon, 19 May 2014 13:38:28 +1000
-Message-ID: <20140519133828.0ee2992b@canb.auug.org.au>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 0/13] make return of 0 explicit
+Date: Mon, 19 May 2014 06:31:02 +0200
+Message-ID: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/ByXZn7gcZulq9kSNygyJuXt"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?UTF-8?B?QmrDuHJu?= Mork <bjorn@mork.no>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, linux-s390@vger.kernel.org,
+ alsa-devel@alsa-project.org, linux-scsi@vger.kernel.org,
+ libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+ linux-usb@vger.kernel.org, kernel-janitors@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-raid@vger.kernel.org,
+ coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+ netdev@vger.kernel.org, oprofile-list@lists.sf.net, netfilter@vger.kernel.org
+To: brcm80211-dev-list@broadcom.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/ByXZn7gcZulq9kSNygyJuXt
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Sometimes a local variable is used as a return value in a case where the
+return value is always 0.  The result is more apparent if this variable is
+just replaced by 0.  This is done by the following semantic patch, although
+some cleanups may be needed. (http://coccinelle.lip6.fr/)
 
-Hi all,
+// <smpl>
+@r exists@
+local idexpression ret;
+identifier reti;
+expression e;
+position p;
+@@
 
-After merging the net-next tree, today's linux-next build (arm
-multi_v7_defconfig, gcc 4.6.3) failed like this:
+ret@reti = 0;
+... when != \(ret = e\|ret &= e\|ret |= e\|ret += e\|ret -= e\|ret *= e\|ret ^= e\)
+    when != \(++ret\|--ret\|ret++\|ret--\)
+    when != &ret
+return ret;@p
 
-drivers/built-in.o: In function `cdc_ncm_get_coalesce':
-ak8975.c:(.text+0x1ac994): undefined reference to `__aeabi_uldivmod'
+@bad1 exists@
+expression e != 0;
+local idexpression r.ret;
+position r.p;
+@@
 
-(The file name above seems to be rubbish, the above function is in
-drivers/net/usb/cdc_ncm.c)
+ \(ret = e\|ret &= e\|ret |= e\|ret += e\|ret -= e\|ret *= e\|ret ^= e\|++ret\|--ret\|ret++\|ret--\|&ret\)
+ ...
+ return ret;@p
 
-Probably caused by commit 6c4e548ff366 ("net: cdc_ncm: use ethtool to
-tune coalescing settings").  I assume that there are some 64 bit
-divides in that function.
+@bad2 exists@
+identifier r.reti;
+position r.p;
+identifier f;
+type T;
+@@
 
-I have used the net-next tree from next-20140516 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+f(...,T reti,...) {
+ ...
+ return reti;@p
+}
 
---Sig_/ByXZn7gcZulq9kSNygyJuXt
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+@change depends on !bad1 && !bad2@
+position r.p;
+local idexpression r.ret;
+identifier f;
+@@
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+f(...) { <+...
+return 
+-ret
++0
+;@p
+...+> }
 
-iQIcBAEBCAAGBQJTeXy5AAoJEMDTa8Ir7ZwVrAEP/1Dz8DE4XmPD5bCWS/3Rs3Cn
-oIKgMh87rI+ibwqz4e1HYBUypFZbd9+qO11KqwqsxdolW72HjWy9DKSx92uN+DtI
-znvW0wSgiWZeDuOjEGxjCY0dxZ01S6I2ReO7r7T9dH6jivb/1rQSPVR8NCinex8b
-pCO1kvsk/dj3JT27xUQe16wrUPSBh72+BW6S58VGCP8V/169QUxf9w1LeF47lgbI
-oYdKYK2icK+HwpBsGFHkClwE0dmpzY8CVNHr3nyeHQRYe0RCHK+ZPO+x8LMeHT3u
-qc+9MqYWxQXuwUa46iCJ2n7dTXaI7jzM3hMTkG4+V2wn92fD5K38qIwSqZ5dX0Nb
-RfDW0tN+UpUQSEVB7i5NunNB6PHezrD1GdCl0krJmgNPUq2XOE6BRpeaN1gWfKV1
-LznibdU80bzd3lLQr7H+zsQIUvwhvI/WrUQxjA0vmMlepGeHCMgPcH97opy7NkQw
-B5SXEsLRFaTKDIIypb6mXRc8to6BiwndJpoddJ5SxTAulfc4NqeiiK6zVHPs/z3U
-30WMfvhM9ED+QSeZhks9/jfku8/SXcPwJUhPW8FzLCMijuNeaNCbp4VEwtlQo8XO
-aBQQBggJ9S4YOu/Xwhjs02nvDbVL1ZmwJTOoD7thj41tqqJia4Yuaouvg8eJ2xVN
-sha1izeViRyy99ZSoQVk
-=Zzfd
------END PGP SIGNATURE-----
+@rewrite@
+local idexpression r.ret;
+expression e;
+position p;
+identifier change.f;
+@@
 
---Sig_/ByXZn7gcZulq9kSNygyJuXt--
+f(...) { <+...
+ \(ret@p = e\|&ret@p\)
+...+> }
+
+@depends on change@
+local idexpression r.ret;
+position p != rewrite.p;
+identifier change.f;
+@@
+
+f(...) { <+...
+(
+break;
+|
+ret = 0;
+... when exists
+ret@p
+... when any
+|
+- ret = 0;
+)
+...+> }
+
+@depends on change@
+identifier r.reti;
+type T;
+constant C;
+identifier change.f;
+@@
+
+f(...) { ... when any
+-T reti = C;
+ ... when != reti
+     when strict
+ }
+
+@depends on change@
+identifier r.reti;
+type T;
+identifier change.f;
+@@
+
+f(...) { ... when any
+-T reti;
+ ... when != reti
+     when strict
+ }
+// </smpl>
+
+The first four rules detect cases where only 0 reaches a return.  The
+remaining rules clean up any variable initializations or declarations that
+are made unnecessary by this change.
