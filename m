@@ -1,69 +1,65 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
- Sanitize skb before it enters the IP stack)
-Date: Mon, 19 May 2014 16:01:19 +0200
-Message-ID: <20140519140119.GA24523@breakpoint.cc>
-References: <537621AC.1060409@davidnewall.com>
- <5379FFFD.1050705@davidnewall.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
+ sleep/wakeup efficiency
+Date: Mon, 19 May 2014 07:09:47 -0700
+Message-ID: <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com>
+	 <5379CE8D.2030405@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: David Newall <davidn@davidnewall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5379FFFD.1050705@davidnewall.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:33717 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751630AbaESOJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 10:09:49 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rp16so5878852pbb.6
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 07:09:49 -0700 (PDT)
+In-Reply-To: <5379CE8D.2030405@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Newall <davidn@davidnewall.com> wrote:
-> Having received no feedback of substance from netdev, I now address
-> my previous email to a wider audience for discussion and in
-> preparation for submitting a patch based closely on that below.
-> 
-> This email is not addressed to Bandan Das <bandan.das@stratus.com>,
-> who is the author of the commit I propose reverting, as his email
-> address is no longer current.  I believe I have otherwise addressed
-> all appropriate recipients and will circulate a formal patch to the
-> same recipients if no adverse comments are received.  (That would
-> surprise me.)
-> 
-> -------- Original Message --------
-> Subject: 	Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
-> Sanitize skb before it enters the IP stack)
-> Date: 	Sat, 17 May 2014 00:03:16 +0930
-> From: 	David Newall <davidn@davidnewall.com>
-> To: 	Lukas Tribus <luky-37@hotmail.com>, Eric Dumazet
-> <eric.dumazet@gmail.com>, Netdev <netdev@vger.kernel.org>
-> CC: 	fw@strlen.de <fw@strlen.de>
-> 
-> 
-> 
-> We should revert commit 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge
-> : Sanitize skb before it enters the IP stack) because it corrupts IP
-> packets with RR or TS options set, only partially updating the IP header
-> and leaving an incorrect checksum.
-> 
-> The argument for introducing the change is at lkml.org/lkml/2010/8/30/391:
-> 
-> The bridge layer can overwrite the IPCB using the
-> BR_INPUT_SKB_CB macro. In br_nf_dev_queue_xmit,
-> if we recieve a packet greater in size than the bridge
-> device MTU, we call ip_fragment which in turn will lead to
-> icmp_send calling ip_options_echo if the DF flag is set.
-> ip_options_echo will then incorrectly try to parse the IPCB as
-> IP options resulting in a buffer overflow.
-> This change refills the CB area back with IP
-> options before ip_fragment calls icmp_send. If we fail parsing,
-> we zero out the IPCB area to guarantee that the stack does
-> not get corrupted.
->
-> A bridge should not fragment packets; an *ethernet* bridge should not
-> need to.  Fragmenting packets is the job of higher level protocol.
+On Mon, 2014-05-19 at 17:27 +0800, Jason Wang wrote:
 
-Well, did you test what happens if we try to refrag a packet
-containing ip options after the revert?
+> Still a little bit difference. We check the reg_state after we're sure
+> there's nothing left in sk_receive_queue. But this patch returns -EIO
+> before trying to dequeue skb.
 
-can happen e.g. when using netfilter conntrack on top of a bridge.
+Do you think its a problem, other than a simple difference of behavior ?
+
+Is this -EIO thing a hard requirement, or a side effect ?
+
+Either we try to converge things, or we keep this driver a pile of
+copy/pasted stuff from other locations, missing improvements we did
+in core networking stack, because of some supposed differences.
+
+About the sk_data_ready() and wake_up_all(), you missed the whole part
+of the patch I think.
+
+Check how sock_def_readable() does everything properly and efficiently,
+including the async part.
+
+static void sock_def_readable(struct sock *sk)
+{
+        struct socket_wq *wq;
+
+        rcu_read_lock();
+        wq = rcu_dereference(sk->sk_wq);
+        if (wq_has_sleeper(wq))
+                wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
+                                                POLLRDNORM | POLLRDBAND);
+        sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+        rcu_read_unlock();
+}
+
+Using sk_data_ready() is the way to reach sock_def_readable()
+as its not an EXPORT_SYMBOL.
+
+If this driver was using the common interface, we would not have
+these false sharing problems, that were solved a long time ago.
