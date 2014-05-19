@@ -1,35 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: hisax: l3ni1.c: Fix for possible null pointer
- dereference
-Date: Sun, 18 May 2014 21:13:19 -0400 (EDT)
-Message-ID: <20140518.211319.776876380782689458.davem@davemloft.net>
-References: <1400347180-25553-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH 3/4] atm: idt77252: Remove redundant error check
+Date: Sun, 18 May 2014 21:14:12 -0400 (EDT)
+Message-ID: <20140518.211412.1525385415713413915.davem@davemloft.net>
+References: <1400350980-30455-3-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rickard_strandqvist@spectrumdigital.se
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: peter.senna@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400347180-25553-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+In-Reply-To: <1400350980-30455-3-git-send-email-peter.senna@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Sat, 17 May 2014 19:19:40 +0200
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Date: Sat, 17 May 2014 20:22:59 +0200
 
-> @@ -2064,8 +2064,12 @@ static int l3ni1_cmd_global(struct PStack *st, isdn_ctrl *ic)
->  				{ free_invoke_id(st, id);
->  					return (-2);
->  				}
-> -			pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id; /* remember id */
-> -			pc->prot.ni1.proc = ic->parm.ni1_io.proc; /* and procedure */
-> +
-> +			if (pc)
-> +			{
-> +				pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id; /* remember id */
-> +				pc->prot.ni1.proc = ic->parm.ni1_io.proc; /* and procedure */
-> +			}
+> Remove double checks, and move the call to printk to the
+> first check. Also adds KERN_WARNING to printk. The simplified version
+> of the coccinelle semantic patch that fixes this issue is as follows:
 
-Like I said for your other patch, you should fix this by putting these
-assignments in the timeout > 0 code block.
+The appropriate thing to use is pr_warning() rather than add
+KERN_WARNING.
