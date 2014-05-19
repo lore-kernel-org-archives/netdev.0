@@ -1,233 +1,125 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net-next] net: filter: cleanup invocation of internal BPF
-Date: Mon, 19 May 2014 14:56:14 -0700
-Message-ID: <1400536574-4485-1-git-send-email-ast@plumgrid.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:58894 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbaESV4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 17:56:21 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz1so6325431pad.2
-        for <netdev@vger.kernel.org>; Mon, 19 May 2014 14:56:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Rustad, Mark D" <mark.d.rustad@intel.com>
+Subject: Re: [PATCH 1/8] ixgbe: Out of line ixgbe_read/write_reg
+Date: Mon, 19 May 2014 22:00:52 +0000
+Message-ID: <7477F573-2AED-4D26-8D5F-DB80DFA7EDEF@intel.com>
+References: <1400276595-6965-1-git-send-email-andi@firstfloor.org>
+ <1400276595-6965-2-git-send-email-andi@firstfloor.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "<linux-kernel@vger.kernel.org>" <linux-kernel@vger.kernel.org>,
+	"akpm@linux-foundation.org" <akpm@linux-foundation.org>,
+	Andi Kleen <ak@linux.intel.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400276595-6965-2-git-send-email-andi@firstfloor.org>
+Content-Language: en-US
+Content-ID: <5E2FA198A0EE724CAE7A735130867AB2@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kernel API for classic BPF socket filters is:
+On May 16, 2014, at 2:43 PM, Andi Kleen <andi@firstfloor.org> wrote:
 
-sk_unattached_filter_create() - validate classic BPF, convert, JIT
-SK_RUN_FILTER() - run it
-sk_unattached_filter_destroy() - destroy socket filter
+> From: Andi Kleen <ak@linux.intel.com>
+> 
+> ixgbe_read_reg and ixgbe_write_reg are frequently called and are very big
+> because they have complex error handling code.
 
-Cleanup internal BPF kernel API as following:
+Actually, this patch doesn't do anything to ixgbe_write_reg, which would almost certainly be very bad for performance, but instead changes ixgbe_write_reg64. The latter is not in a performance-sensitive path, but is only called from one site, so there is little reason to take it out-of-line.
 
-sk_filter_select_runtime() - final step of internal BPF creation.
-  Try to JIT internal BPF program, if JIT is not available select interpreter
-SK_RUN_FILTER() - run it
-sk_filter_free() - free internal BPF program
+I already have a patch in queue to make ixgbe_read_reg out-of-line, because it does have a very costly memory footprint inline, as you have found.
 
-Disallow direct calls to BPF interpreter. Execution of the BPF program should
-be done with SK_RUN_FILTER() macro.
+> Moving them out of line saves ~27k text in the ixgbe driver.
+> 
+>   text	   data	    bss	    dec	    hex	filename
+> 14220873	2008072	1507328	17736273	10ea251	vmlinux-before-ixgbe
+> 14193673	2003976	1507328	17704977	10e2811	vmlinux-ixgbe
+> 
+> Cc: netdev@vger.kernel.org
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> ---
+> drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 22 ++--------------------
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 22 ++++++++++++++++++++++
+> 2 files changed, 24 insertions(+), 20 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+> index f12c40f..05f094d 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+> @@ -162,28 +162,10 @@ static inline void writeq(u64 val, void __iomem *addr)
+> }
+> #endif
+> 
+> -static inline void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
+> -{
+> -	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
+> +void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value);
+> +u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg);
+> 
+> -	if (ixgbe_removed(reg_addr))
+> -		return;
+> -	writeq(value, reg_addr + reg);
+> -}
+> #define IXGBE_WRITE_REG64(a, reg, value) ixgbe_write_reg64((a), (reg), (value))
+> -
+> -static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
+> -{
+> -	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
+> -	u32 value;
+> -
+> -	if (ixgbe_removed(reg_addr))
+> -		return IXGBE_FAILED_READ_REG;
+> -	value = readl(reg_addr + reg);
+> -	if (unlikely(value == IXGBE_FAILED_READ_REG))
+> -		ixgbe_check_remove(hw, reg);
+> -	return value;
+> -}
+> #define IXGBE_READ_REG(a, reg) ixgbe_read_reg((a), (reg))
+> 
+> #define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) \
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index d62e7a2..5f81f62 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -371,6 +371,28 @@ void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
+> 	pci_write_config_word(adapter->pdev, reg, value);
+> }
+> 
+> +void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
+> +{
+> +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
+> +
+> +	if (ixgbe_removed(reg_addr))
+> +		return;
+> +	writeq(value, reg_addr + reg);
+> +}
+> +
+> +u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
+> +{
+> +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
+> +	u32 value;
+> +
+> +	if (ixgbe_removed(reg_addr))
+> +		return IXGBE_FAILED_READ_REG;
+> +	value = readl(reg_addr + reg);
+> +	if (unlikely(value == IXGBE_FAILED_READ_REG))
+> +		ixgbe_check_remove(hw, reg);
+> +	return value;
+> +}
+> +
+> static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
+> {
+> 	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
+> -- 
+> 1.9.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Example of internal BPF create, run, destroy:
-
-  struct sk_filter *fp;
-
-  fp = kzalloc(sk_filter_size(prog_len), GFP_KERNEL);
-  memcpy(fp->insni, prog, prog_len * sizeof(fp->insni[0]));
-  fp->len = prog_len;
-
-  sk_filter_select_runtime(fp);
-
-  SK_RUN_FILTER(fp, ctx);
-
-  sk_filter_free(fp);
-
-Sockets, seccomp, testsuite, tracing are using different ways to populate
-sk_filter, so first steps of program creation are not common.
-
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
-
-This patch blurs the line between BPF program running in interpeter and JITed
-program. The 'jited' flag in 'struct sk_filter' indicates to the caller whether
-program was JITed or not, but that shouldn't matter to the caller. JITed program
-must be equivalent.
-Another alternative is to export bpf_int_jit_compile()/bpf_jit_free() and let
-the users decide whether to use interpreter or JIT, but that seems ugly.
-We already have net.core.bpf_jit_enable for that.
-
- include/linux/filter.h |    6 ++----
- kernel/seccomp.c       |    6 ++----
- lib/test_bpf.c         |    4 ++--
- net/core/filter.c      |   44 ++++++++++++++++++++++++++++----------------
- 4 files changed, 34 insertions(+), 26 deletions(-)
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 9d5ae0a2c954..7977b3958e25 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -184,10 +184,8 @@ static inline unsigned int sk_filter_size(unsigned int proglen)
- 
- int sk_filter(struct sock *sk, struct sk_buff *skb);
- 
--u32 sk_run_filter_int_seccomp(const struct seccomp_data *ctx,
--			      const struct sock_filter_int *insni);
--u32 sk_run_filter_int_skb(const struct sk_buff *ctx,
--			  const struct sock_filter_int *insni);
-+void sk_filter_select_runtime(struct sk_filter *fp);
-+void sk_filter_free(struct sk_filter *fp);
- 
- int sk_convert_filter(struct sock_filter *prog, int len,
- 		      struct sock_filter_int *new_prog, int *new_len);
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index 7e02d624cc50..1036b6f2fded 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -273,10 +273,8 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 
- 	atomic_set(&filter->usage, 1);
- 	filter->prog->len = new_len;
--	filter->prog->bpf_func = (void *)sk_run_filter_int_seccomp;
- 
--	/* JIT internal BPF into native HW instructions */
--	bpf_int_jit_compile(filter->prog);
-+	sk_filter_select_runtime(filter->prog);
- 
- 	/*
- 	 * If there is an existing filter, make it the prev and don't drop its
-@@ -340,7 +338,7 @@ void put_seccomp_filter(struct task_struct *tsk)
- 	while (orig && atomic_dec_and_test(&orig->usage)) {
- 		struct seccomp_filter *freeme = orig;
- 		orig = orig->prev;
--		bpf_jit_free(freeme->prog);
-+		sk_filter_free(freeme->prog);
- 		kfree(freeme);
- 	}
- }
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index 3603ebcd5d65..e160934430eb 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -1489,7 +1489,7 @@ static __init int test_bpf(void)
- 			memcpy(fp_ext->insns, tests[i].insns_int,
- 			       fprog.len * 8);
- 			fp->len = fprog.len;
--			fp->bpf_func = sk_run_filter_int_skb;
-+			sk_filter_select_runtime(fp);
- 		} else {
- 			err = sk_unattached_filter_create(&fp, &fprog);
- 			if (tests[i].data_type == EXPECTED_FAIL) {
-@@ -1516,7 +1516,7 @@ static __init int test_bpf(void)
- 		if (tests[i].data_type != SKB_INT)
- 			sk_unattached_filter_destroy(fp);
- 		else
--			kfree(fp);
-+			sk_filter_free(fp);
- 
- 		if (err) {
- 			pr_cont("FAIL %d\n", err);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 32c5b44c537e..7067cb240d3e 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -153,7 +153,7 @@ noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-  * keep, 0 for none. @ctx is the data we are operating on, @insn is the
-  * array of filter instructions.
-  */
--unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
-+static unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
- {
- 	u64 stack[MAX_BPF_STACK / sizeof(u64)];
- 	u64 regs[MAX_BPF_REG], tmp;
-@@ -571,15 +571,6 @@ load_byte:
- 		return 0;
- }
- 
--u32 sk_run_filter_int_seccomp(const struct seccomp_data *ctx,
--			      const struct sock_filter_int *insni)
--    __attribute__ ((alias ("__sk_run_filter")));
--
--u32 sk_run_filter_int_skb(const struct sk_buff *ctx,
--			  const struct sock_filter_int *insni)
--    __attribute__ ((alias ("__sk_run_filter")));
--EXPORT_SYMBOL_GPL(sk_run_filter_int_skb);
--
- /* Helper to find the offset of pkt_type in sk_buff structure. We want
-  * to make sure its still a 3bit field starting at a byte boundary;
-  * taken from arch/x86/net/bpf_jit_comp.c.
-@@ -1397,7 +1388,7 @@ static void sk_filter_release_rcu(struct rcu_head *rcu)
- 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
- 
- 	sk_release_orig_filter(fp);
--	bpf_jit_free(fp);
-+	sk_filter_free(fp);
- }
- 
- /**
-@@ -1497,7 +1488,6 @@ static struct sk_filter *__sk_migrate_filter(struct sk_filter *fp,
- 		goto out_err_free;
- 	}
- 
--	fp->bpf_func = sk_run_filter_int_skb;
- 	fp->len = new_len;
- 
- 	/* 2nd pass: remap sock_filter insns into sock_filter_int insns. */
-@@ -1510,6 +1500,8 @@ static struct sk_filter *__sk_migrate_filter(struct sk_filter *fp,
- 		 */
- 		goto out_err_free;
- 
-+	sk_filter_select_runtime(fp);
-+
- 	kfree(old_prog);
- 	return fp;
- 
-@@ -1528,6 +1520,29 @@ void __weak bpf_int_jit_compile(struct sk_filter *prog)
- {
- }
- 
-+/**
-+ *	sk_filter_select_runtime - select execution runtime for BPF program
-+ *	@fp: sk_filter populated with internal BPF program
-+ *
-+ * try to JIT internal BPF program, if JIT is not available select interpreter
-+ * BPF program will be executed via SK_RUN_FILTER() macro
-+ */
-+void sk_filter_select_runtime(struct sk_filter *fp)
-+{
-+	fp->bpf_func = (void *) __sk_run_filter;
-+
-+	/* Probe if internal BPF can be JITed */
-+	bpf_int_jit_compile(fp);
-+}
-+EXPORT_SYMBOL_GPL(sk_filter_select_runtime);
-+
-+/* free internal BPF program */
-+void sk_filter_free(struct sk_filter *fp)
-+{
-+	bpf_jit_free(fp);
-+}
-+EXPORT_SYMBOL_GPL(sk_filter_free);
-+
- static struct sk_filter *__sk_prepare_filter(struct sk_filter *fp,
- 					     struct sock *sk)
- {
-@@ -1548,12 +1563,9 @@ static struct sk_filter *__sk_prepare_filter(struct sk_filter *fp,
- 	/* JIT compiler couldn't process this filter, so do the
- 	 * internal BPF translation for the optimized interpreter.
- 	 */
--	if (!fp->jited) {
-+	if (!fp->jited)
- 		fp = __sk_migrate_filter(fp, sk);
- 
--		/* Probe if internal BPF can be jit-ed */
--		bpf_int_jit_compile(fp);
--	}
- 	return fp;
- }
- 
 -- 
-1.7.9.5
+Mark Rustad, Networking Division, Intel Corporation
