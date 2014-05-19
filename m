@@ -1,103 +1,175 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 5/5 v2] l2tp: Add support for zero IPv6 checksums
-Date: Mon, 19 May 2014 10:10:50 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405191007050.31941@tomh.mtv.corp.google.com>
+Subject: [PATCH 4/5 v2] net: Make enabling of zero UDP6 csums more
+ restrictive
+Date: Mon, 19 May 2014 10:10:37 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405191000190.31945@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:60923 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932478AbaESRKv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:10:51 -0400
-Received: by mail-ob0-f201.google.com with SMTP id wn1so1150304obc.2
-        for <netdev@vger.kernel.org>; Mon, 19 May 2014 10:10:50 -0700 (PDT)
+Received: from mail-ve0-f202.google.com ([209.85.128.202]:56590 "EHLO
+	mail-ve0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932527AbaESRP6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:15:58 -0400
+Received: by mail-ve0-f202.google.com with SMTP id pa12so981515veb.5
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 10:15:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-/Users/therbert Added new L2TP configuration options to allow TX and RX of
-zero checksums in IPv6. Default is not to use them.
+RFC 6935 permits zero checksums to be used in IPv6 however this is
+recommended only for certain tunnel protocols, it does not make
+checksums completely optional like they are in IPv4.
+
+This patch restricts the use of IPv6 zero checksums that was previously
+intoduced. no_check6_tx and no_check6_rx have been added to control
+the use of checksums in UDP6 RX and TX path. The normal
+sk_no_check_{rx,tx} settings are not used (this avoids ambiguity when
+dealing with a dual stack socket).
+
+A helper function has been added (udp_set_no_check6) which can be
+called by tunnel impelmentations to all zero checksums (send on the
+socket, and accept them as valid).
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/uapi/linux/l2tp.h | 2 ++
- net/l2tp/l2tp_core.c      | 9 ++++++++-
- net/l2tp/l2tp_core.h      | 4 +++-
- net/l2tp/l2tp_netlink.c   | 7 +++++++
- 4 files changed, 20 insertions(+), 2 deletions(-)
+ include/linux/udp.h      | 24 +++++++++++++++++++++++-
+ include/uapi/linux/udp.h |  2 ++
+ net/ipv4/udp.c           | 20 +++++++++++++++++++-
+ net/ipv6/udp.c           |  6 +++---
+ 4 files changed, 47 insertions(+), 5 deletions(-)
 
-diff --git a/include/uapi/linux/l2tp.h b/include/uapi/linux/l2tp.h
-index 8adb681..21caa26 100644
---- a/include/uapi/linux/l2tp.h
-+++ b/include/uapi/linux/l2tp.h
-@@ -124,6 +124,8 @@ enum {
- 	L2TP_ATTR_STATS,		/* nested */
- 	L2TP_ATTR_IP6_SADDR,		/* struct in6_addr */
- 	L2TP_ATTR_IP6_DADDR,		/* struct in6_addr */
-+	L2TP_ATTR_UDP_ZERO_CSUM6_TX,	/* u8 */
-+	L2TP_ATTR_UDP_ZERO_CSUM6_RX,	/* u8 */
- 	__L2TP_ATTR_MAX,
- };
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 42278bb..247cfdc 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -47,7 +47,9 @@ struct udp_sock {
+ #define udp_portaddr_node	inet.sk.__sk_common.skc_portaddr_node
+ 	int		 pending;	/* Any pending frames ? */
+ 	unsigned int	 corkflag;	/* Cork is required */
+-  	__u16		 encap_type;	/* Is this an Encapsulation socket? */
++	__u8		 encap_type;	/* Is this an Encapsulation socket? */
++	unsigned char	 no_check6_tx:1,/* Send zero UDP6 checksums on TX? */
++			 no_check6_rx:1;/* Allow zero UDP6 checksums on RX? */
+ 	/*
+ 	 * Following member retains the information to create a UDP header
+ 	 * when the socket is uncorked.
+@@ -76,6 +78,26 @@ static inline struct udp_sock *udp_sk(const struct sock *sk)
+ 	return (struct udp_sock *)sk;
+ }
  
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index a118610..6955bb9 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1102,7 +1102,9 @@ static void l2tp_xmit_ipv6_csum(struct sock *sk, struct sk_buff *skb,
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct udphdr *uh = udp_hdr(skb);
- 
--	if (!skb_dst(skb) || !skb_dst(skb)->dev ||
-+	if (udp_get_no_check6_tx(sk))
-+		skb->ip_summed = CHECKSUM_NONE;
-+	else if (!skb_dst(skb) || !skb_dst(skb)->dev ||
- 	    !(skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
- 		__wsum csum = skb_checksum(skb, 0, udp_len, 0);
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -1435,6 +1437,11 @@ static int l2tp_tunnel_sock_create(struct net *net,
- 					     sizeof(udp6_addr), 0);
- 			if (err < 0)
- 				goto out;
++static inline void udp_set_no_check6_tx(struct sock *sk, bool val)
++{
++	udp_sk(sk)->no_check6_tx = val;
++}
 +
-+			if (!cfg->udp6_zero_tx_checksums)
-+				udp_set_no_check6_tx(sock->sk, true);
-+			if (!cfg->udp6_zero_rx_checksums)
-+				udp_set_no_check6_rx(sock->sk, true);
- 		} else
- #endif
- 		{
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 3f93ccd..68aa9ff 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -162,7 +162,9 @@ struct l2tp_tunnel_cfg {
- #endif
- 	u16			local_udp_port;
- 	u16			peer_udp_port;
--	unsigned int		use_udp_checksums:1;
-+	unsigned int		use_udp_checksums:1,
-+				udp6_zero_tx_checksums:1,
-+				udp6_zero_rx_checksums:1;
- };
- 
- struct l2tp_tunnel {
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index f3d331b..0ac907a 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -161,6 +161,13 @@ static int l2tp_nl_cmd_tunnel_create(struct sk_buff *skb, struct genl_info *info
- 			cfg.peer_udp_port = nla_get_u16(info->attrs[L2TP_ATTR_UDP_DPORT]);
- 		if (info->attrs[L2TP_ATTR_UDP_CSUM])
- 			cfg.use_udp_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_CSUM]);
++static inline void udp_set_no_check6_rx(struct sock *sk, bool val)
++{
++	udp_sk(sk)->no_check6_rx = val;
++}
 +
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX])
-+			cfg.udp6_zero_tx_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX]);
-+		if (info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX])
-+			cfg.udp6_zero_rx_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX]);
-+#endif
- 	}
++static inline bool udp_get_no_check6_tx(struct sock *sk)
++{
++	return udp_sk(sk)->no_check6_tx;
++}
++
++static inline bool udp_get_no_check6_rx(struct sock *sk)
++{
++	return udp_sk(sk)->no_check6_rx;
++}
++
+ #define udp_portaddr_for_each_entry(__sk, node, list) \
+ 	hlist_nulls_for_each_entry(__sk, node, list, __sk_common.skc_portaddr_node)
  
- 	if (info->attrs[L2TP_ATTR_DEBUG])
+diff --git a/include/uapi/linux/udp.h b/include/uapi/linux/udp.h
+index e2bcfd7..16574ea 100644
+--- a/include/uapi/linux/udp.h
++++ b/include/uapi/linux/udp.h
+@@ -29,6 +29,8 @@ struct udphdr {
+ /* UDP socket options */
+ #define UDP_CORK	1	/* Never send partially complete segments */
+ #define UDP_ENCAP	100	/* Set the socket to accept encapsulated packets */
++#define UDP_NO_CHECK6_TX 101	/* Disable sending checksum for UDP6X */
++#define UDP_NO_CHECK6_RX 102	/* Disable accpeting checksum for UDP6 */
+ 
+ /* UDP encapsulation types */
+ #define UDP_ENCAP_ESPINUDP_NON_IKE	1 /* draft-ietf-ipsec-nat-t-ike-00/01 */
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 12c6175..e07d52b 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1968,7 +1968,7 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 		       int (*push_pending_frames)(struct sock *))
+ {
+ 	struct udp_sock *up = udp_sk(sk);
+-	int val;
++	int val, valbool;
+ 	int err = 0;
+ 	int is_udplite = IS_UDPLITE(sk);
+ 
+@@ -1978,6 +1978,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 	if (get_user(val, (int __user *)optval))
+ 		return -EFAULT;
+ 
++	valbool = val ? 1 : 0;
++
+ 	switch (optname) {
+ 	case UDP_CORK:
+ 		if (val != 0) {
+@@ -2007,6 +2009,14 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 		}
+ 		break;
+ 
++	case UDP_NO_CHECK6_TX:
++		up->no_check6_tx = valbool;
++		break;
++
++	case UDP_NO_CHECK6_RX:
++		up->no_check6_rx = valbool;
++		break;
++
+ 	/*
+ 	 * 	UDP-Lite's partial checksum coverage (RFC 3828).
+ 	 */
+@@ -2089,6 +2099,14 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
+ 		val = up->encap_type;
+ 		break;
+ 
++	case UDP_NO_CHECK6_TX:
++		val = up->no_check6_tx;
++		break;
++
++	case UDP_NO_CHECK6_RX:
++		val = up->no_check6_rx;
++		break;
++
+ 	/* The following two cannot be changed on UDP sockets, the return is
+ 	 * always 0 (which corresponds to the full checksum coverage of UDP). */
+ 	case UDPLITE_SEND_CSCOV:
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index b8db453..37de9c3 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -794,10 +794,10 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 	dif = inet6_iif(skb);
+ 	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+ 	while (sk) {
+-		/* If zero checksum and sk_no_check is not on for
++		/* If zero checksum and no_check is not on for
+ 		 * the socket then skip it.
+ 		 */
+-		if (uh->check || sk->sk_no_check_rx)
++		if (uh->check || udp_sk(sk)->no_check6_rx)
+ 			stack[count++] = sk;
+ 
+ 		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+@@ -1037,7 +1037,7 @@ static int udp_v6_push_pending_frames(struct sock *sk)
+ 
+ 	if (is_udplite)
+ 		csum = udplite_csum_outgoing(sk, skb);
+-	else if (sk->sk_no_check_tx) {   /* UDP csum disabled */
++	else if (up->no_check6_tx) {   /* UDP csum disabled */
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		goto send;
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) { /* UDP hardware csum */
 -- 
 1.9.1.423.g4596e3a
