@@ -1,55 +1,52 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 1/9] net/mlx4_core: Enforce irq affinity changes
- immediatly
-Date: Mon, 19 May 2014 14:33:32 +0300
-Message-ID: <5379EC0C.5070004@mellanox.com>
-References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>	 <1399880605-28772-2-git-send-email-amirv@mellanox.com> <1400358787.2647.65.camel@deadeye.wl.decadent.org.uk>
+From: =?UTF-8?q?Toralf=20F=C3=B6rster?= <toralf.foerster@gmx.de>
+Subject: [PATCH] fix format mismatch in drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+Date: Mon, 19 May 2014 14:04:50 +0200
+Message-ID: <1400501090-315-1-git-send-email-toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	=?UTF-8?q?Toralf=20F=C3=B6rster?= <toralf.foerster@gmx.de>
+To: shannon.nelson@intel.com, jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:36549 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752269AbaESLdj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 07:33:39 -0400
-In-Reply-To: <1400358787.2647.65.camel@deadeye.wl.decadent.org.uk>
+Received: from mout.gmx.net ([212.227.15.15]:53322 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750758AbaESME4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2014 08:04:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/17/2014 11:33 PM, Ben Hutchings wrote:
-> On Mon, 2014-05-12 at 10:43 +0300, Amir Vadai wrote:
->> From: Yuval Atias <yuvala@mellanox.com>
->>
->> During heavy traffic, napi is constatntly polling the complition queue
->> and no interrupt is fired. Because of that, changes to irq affinity are
->> ignored until traffic is stopped and resumed.
->>
->> By registering to the irq notifier mechanism, and forcing interrupt when
->> affinity is changed, irq affinity changes will be immediatly enforced.
-> [...]
->
-> This somewhat breaks ARFS in your driver, as that depends on IRQ
-> affinity notification.
-Interesting...
-I missed the fact that irq_set_affinity_notifier is 'set' and not 'add'.
-So, do you have objection if I change the API to have a list of 
-notifiers instead of only one?
+spotted by cppcheck
 
->
-> It is also not safe to put an IRQ affinity notification function in a
-> module currently, as the work item for notification doesn't carry a
-> module reference and could be called after the module is removed.
-I can get a module reference when a notifier is added and put it when 
-the notifier is removed.
+Signed-off-by: Toralf F=C3=B6rster <toralf.foerster@gmx.de>
+---
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks,
-Amir
-
->
-> Ben.
->
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/n=
+et/ethernet/intel/i40e/i40e_debugfs.c
+index 3c37386..1bc35a2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1239,7 +1239,7 @@ static ssize_t i40e_dbg_command_write(struct file=
+ *filp,
+ 	} else if (strncmp(cmd_buf, "add pvid", 8) =3D=3D 0) {
+ 		i40e_status ret;
+ 		u16 vid;
+-		int v;
++		unsigned int v;
+=20
+ 		cnt =3D sscanf(&cmd_buf[8], "%i %u", &vsi_seid, &v);
+ 		if (cnt !=3D 2) {
+@@ -1255,7 +1255,7 @@ static ssize_t i40e_dbg_command_write(struct file=
+ *filp,
+ 			goto command_write_done;
+ 		}
+=20
+-		vid =3D (unsigned)v;
++		vid =3D v;
+ 		ret =3D i40e_vsi_add_pvid(vsi, vid);
+ 		if (!ret)
+ 			dev_info(&pf->pdev->dev,
+--=20
+1.9.3
