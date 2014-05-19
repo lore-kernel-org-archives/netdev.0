@@ -1,124 +1,192 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/8] ixgbe: Out of line ixgbe_read/write_reg
-Date: Mon, 19 May 2014 09:14:57 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17248D76@AcuExch.aculab.com>
-References: <1400276595-6965-1-git-send-email-andi@firstfloor.org>
- <1400276595-6965-2-git-send-email-andi@firstfloor.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
+ efficiency
+Date: Mon, 19 May 2014 17:27:41 +0800
+Message-ID: <5379CE8D.2030405@redhat.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-	Andi Kleen <ak@linux.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Jeff Kirsher" <jeffrey.t.kirsher@intel.com>
-To: 'Andi Kleen' <andi@firstfloor.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400276595-6965-2-git-send-email-andi@firstfloor.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:14311 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751266AbaESJ1q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2014 05:27:46 -0400
+In-Reply-To: <1400278308-25372-1-git-send-email-xii@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen
-> ixgbe_read_reg and ixgbe_write_reg are frequently called and are very big
-> because they have complex error handling code.
-
-Have you measured the performance impact?
-I suspect that it might me measurable.
-
-Clearly the calls during initialisation don't need to be inline,
-but there will be some in the normal tx and rx paths.
-
-	David
-
-> Moving them out of line saves ~27k text in the ixgbe driver.
-> 
->    text	   data	    bss	    dec	    hex	filename
-> 14220873	2008072	1507328	17736273	10ea251	vmlinux-before-ixgbe
-> 14193673	2003976	1507328	17704977	10e2811	vmlinux-ixgbe
-> 
-> Cc: netdev@vger.kernel.org
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Signed-off-by: Andi Kleen <ak@linux.intel.com>
+On 05/17/2014 06:11 AM, Xi Wang wrote:
+> tun_do_read always adds current thread to wait queue, even if a packet
+> is ready to read. This is inefficient because both sleeper and waker
+> want to acquire the wait queue spin lock when packet rate is high.
+>
+> We restructure the read function and use common kernel networking
+> routines to handle receive, sleep and wakeup. With the change
+> available packets are checked first before the reading thread is added
+> to the wait queue.
+>
+> Ran performance tests with the following configuration:
+>
+>  - my packet generator -> tap1 -> br0 -> tap0 -> my packet consumer
+>  - sender pinned to one core and receiver pinned to another core
+>  - sender send small UDP packets (64 bytes total) as fast as it can
+>  - sandy bridge cores
+>  - throughput are receiver side goodput numbers
+>
+> The results are
+>
+> baseline: 731k pkts/sec, cpu utilization at 1.50 cpus
+>  changed: 783k pkts/sec, cpu utilization at 1.53 cpus
+>
+> The performance difference is largely determined by packet rate and
+> inter-cpu communication cost. For example, if the sender and
+> receiver are pinned to different cpu sockets, the results are
+>
+> baseline: 558k pkts/sec, cpu utilization at 1.71 cpus
+>  changed: 690k pkts/sec, cpu utilization at 1.67 cpus
+>
+> Co-authored-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Xi Wang <xii@google.com>
 > ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_common.h | 22 ++--------------------
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   | 22 ++++++++++++++++++++++
->  2 files changed, 24 insertions(+), 20 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> index f12c40f..05f094d 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-> @@ -162,28 +162,10 @@ static inline void writeq(u64 val, void __iomem *addr)
->  }
->  #endif
-> 
-> -static inline void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
-> -{
-> -	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-> +void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value);
-> +u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg);
-> 
-> -	if (ixgbe_removed(reg_addr))
-> -		return;
-> -	writeq(value, reg_addr + reg);
-> -}
->  #define IXGBE_WRITE_REG64(a, reg, value) ixgbe_write_reg64((a), (reg), (value))
-> -
-> -static inline u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
-> -{
-> -	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-> -	u32 value;
-> -
-> -	if (ixgbe_removed(reg_addr))
-> -		return IXGBE_FAILED_READ_REG;
-> -	value = readl(reg_addr + reg);
-> -	if (unlikely(value == IXGBE_FAILED_READ_REG))
-> -		ixgbe_check_remove(hw, reg);
-> -	return value;
-> -}
->  #define IXGBE_READ_REG(a, reg) ixgbe_read_reg((a), (reg))
-> 
->  #define IXGBE_WRITE_REG_ARRAY(a, reg, offset, value) \
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index d62e7a2..5f81f62 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -371,6 +371,28 @@ void ixgbe_write_pci_cfg_word(struct ixgbe_hw *hw, u32 reg, u16 value)
->  	pci_write_config_word(adapter->pdev, reg, value);
->  }
-> 
-> +void ixgbe_write_reg64(struct ixgbe_hw *hw, u32 reg, u64 value)
-> +{
-> +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-> +
-> +	if (ixgbe_removed(reg_addr))
-> +		return;
-> +	writeq(value, reg_addr + reg);
-> +}
-> +
-> +u32 ixgbe_read_reg(struct ixgbe_hw *hw, u32 reg)
-> +{
-> +	u8 __iomem *reg_addr = ACCESS_ONCE(hw->hw_addr);
-> +	u32 value;
-> +
-> +	if (ixgbe_removed(reg_addr))
-> +		return IXGBE_FAILED_READ_REG;
-> +	value = readl(reg_addr + reg);
-> +	if (unlikely(value == IXGBE_FAILED_READ_REG))
-> +		ixgbe_check_remove(hw, reg);
-> +	return value;
-> +}
-> +
->  static void ixgbe_service_event_complete(struct ixgbe_adapter *adapter)
+>
+> Changelog since v1:
+>  - Added back error code. NETREG_REGISTERED behavior is different but
+>    should be compatible with the previous implementation
+>  - Removed non essential changes
+>
+>
+>  drivers/net/tun.c | 54 ++++++++++++++++--------------------------------------
+>  1 file changed, 16 insertions(+), 38 deletions(-)
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index ee328ba..98bad1f 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -498,12 +498,12 @@ static void tun_detach_all(struct net_device *dev)
+>  	for (i = 0; i < n; i++) {
+>  		tfile = rtnl_dereference(tun->tfiles[i]);
+>  		BUG_ON(!tfile);
+> -		wake_up_all(&tfile->wq.wait);
+> +		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
+
+Looks like wake_up_all() works pretty good here. Is there any reason to
+switch to use sk_data_ready()?
+
+wake_up_all() will wake up task of both TASK_INTERRUPTIBLE and
+TASK_UNINTERRUPTIBLE while sock_def_readable() only wakes up
+interruptible task. Is this a possible issue? Even if not, looks like a
+cleanup not relate to the topic.
+
+
+>  		RCU_INIT_POINTER(tfile->tun, NULL);
+>  		--tun->numqueues;
+>  	}
+>  	list_for_each_entry(tfile, &tun->disabled, next) {
+> -		wake_up_all(&tfile->wq.wait);
+> +		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
+>  		RCU_INIT_POINTER(tfile->tun, NULL);
+>  	}
+>  	BUG_ON(tun->numqueues != 0);
+> @@ -807,8 +807,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	/* Notify and wake up reader process */
+>  	if (tfile->flags & TUN_FASYNC)
+>  		kill_fasync(&tfile->fasync, SIGIO, POLL_IN);
+> -	wake_up_interruptible_poll(&tfile->wq.wait, POLLIN |
+> -				   POLLRDNORM | POLLRDBAND);
+> +	tfile->socket.sk->sk_data_ready(tfile->socket.sk);
+>  
+>  	rcu_read_unlock();
+>  	return NETDEV_TX_OK;
+> @@ -965,7 +964,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+>  
+>  	tun_debug(KERN_INFO, tun, "tun_chr_poll\n");
+>  
+> -	poll_wait(file, &tfile->wq.wait, wait);
+> +	poll_wait(file, sk_sleep(sk), wait);
+
+Same here.
+>  
+>  	if (!skb_queue_empty(&sk->sk_receive_queue))
+>  		mask |= POLLIN | POLLRDNORM;
+> @@ -1330,47 +1329,26 @@ done:
+>  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+>  			   const struct iovec *iv, ssize_t len, int noblock)
 >  {
->  	BUG_ON(!test_bit(__IXGBE_SERVICE_SCHED, &adapter->state));
-> --
-> 1.9.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -	DECLARE_WAITQUEUE(wait, current);
+>  	struct sk_buff *skb;
+>  	ssize_t ret = 0;
+> +	int peeked, err, off = 0;
+>  
+>  	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+>  
+> -	if (unlikely(!noblock))
+> -		add_wait_queue(&tfile->wq.wait, &wait);
+> -	while (len) {
+> -		if (unlikely(!noblock))
+> -			current->state = TASK_INTERRUPTIBLE;
+> +	if (!len)
+> +		return ret;
+>  
+> -		/* Read frames from the queue */
+> -		if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
+> -			if (noblock) {
+> -				ret = -EAGAIN;
+> -				break;
+> -			}
+> -			if (signal_pending(current)) {
+> -				ret = -ERESTARTSYS;
+> -				break;
+> -			}
+> -			if (tun->dev->reg_state != NETREG_REGISTERED) {
+> -				ret = -EIO;
+> -				break;
+> -			}
+> -
+> -			/* Nothing to read, let's sleep */
+> -			schedule();
+> -			continue;
+> -		}
+> +	if (tun->dev->reg_state != NETREG_REGISTERED)
+> +		return -EIO;
+>  
+> +	/* Read frames from queue */
+> +	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+> +				  &peeked, &off, &err);
+> +	if (skb) {
+
+Still a little bit difference. We check the reg_state after we're sure
+there's nothing left in sk_receive_queue. But this patch returns -EIO
+before trying to dequeue skb.
+>  		ret = tun_put_user(tun, tfile, skb, iv, len);
+>  		kfree_skb(skb);
+> -		break;
+> -	}
+> -
+> -	if (unlikely(!noblock)) {
+> -		current->state = TASK_RUNNING;
+> -		remove_wait_queue(&tfile->wq.wait, &wait);
+> -	}
+> +	} else
+> +		ret = err;
+>  
+>  	return ret;
+>  }
+> @@ -2199,8 +2177,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+>  	tfile->flags = 0;
+>  	tfile->ifindex = 0;
+>  
+> -	rcu_assign_pointer(tfile->socket.wq, &tfile->wq);
+>  	init_waitqueue_head(&tfile->wq.wait);
+> +	RCU_INIT_POINTER(tfile->socket.wq, &tfile->wq);
+>  
+
+And here
+>  	tfile->socket.file = file;
+>  	tfile->socket.ops = &tun_socket_ops;
