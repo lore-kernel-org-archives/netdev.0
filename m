@@ -1,7 +1,8 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 0/9] net: Introduce a software TSO helper API
-Date: Mon, 19 May 2014 13:59:51 -0300
-Message-ID: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 1/9] net: Add a software TSO helper API
+Date: Mon, 19 May 2014 13:59:52 -0300
+Message-ID: <1400518800-6111-2-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
@@ -12,76 +13,143 @@ Cc: Willy Tarreau <w@1wt.eu>,
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53579 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:53586 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751596AbaESRAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:00:51 -0400
+	with ESMTP id S932566AbaESRAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:00:54 -0400
+In-Reply-To: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here's a first proposal for a generic software TSO helper API, following
-David's suggestion.
+Although the implementation probably needs a lot of work, this initial API
+allows to implement software TSO in mvneta and mv643xx_eth drivers in a not
+so intrusive way.
 
-There are at least two drivers that currently implement some form of software
-TSO: Solarflare network driver (drivers/net/ethernet/sfc) and Tilera GX
-network driver (drivers/net/ethernet/tile/tilegx.c).
-
-The rationale behind adding a generic API is to provide a boiler plate with the
-segmentation and other common tasks, making this support easier to add in other
-drivers.
-
-When designing the API, I've considered mainly two design choices:
-
-  1. Implement a series of callbacks that each driver would implement
-     and the net core code would call to fill in descriptors and egress
-     that data.
-
-  2. Implement an API for drivers to use in a driver's specific tx_tso
-     function. This functions would exhaust a sk_buff payload, and use the
-     API as helper for building the headers and segmented data.
-
-I've chosen (2), to avoid function pointers (which was Willy's concern) and
-because it seemed less fragile. Of course, this is argueable.
-
-The API is by no means complete, and lacks some features, however it allows
-to support TSO in mv643xx_eth and mvneta network drivers with some very
-good performance results. I've added this support as an example of the API
-in action.
-
-In particular the following needs some revisiting:
-
-  1. IPv6 support is lacking.
-
-  2. The required descriptor counting needs some verification. The current
-     implementation might be too "sketchy". The tilegx one can be a good
-     starting point.
-
-  3. The implemenation assumes the hardware can compute the TCP and IP
-     checksums for the built headers. However, some controllers may need
-     some initial calculation (such as tilegx, for instance).
-
-Despite this, I hope this proposal is good enough to trigger some discussion
-and to check if I'm on the right track. Feedback is much appreciated!
-
-Ezequiel Garcia (9):
-  net: Add a software TSO helper API
-  net: mvneta: Factorize feature setting
-  net: mvneta: Clean mvneta_tx() sk_buff handling
-  net: mvneta: Implement software TSO
-  net: mv643xx_eth: Factorize initial checksum and command preparation
-  net: mv643xx_eth: Avoid setting the initial TCP checksum
-  net: mv643xx_eth: Factorize feature setting
-  net: mv643xx_eth: Use dma_map_single() to map the skb fragments
-  net: mv643xx_eth: Implement software TSO
-
- drivers/net/ethernet/marvell/mv643xx_eth.c | 304 ++++++++++++++++++++++-------
- drivers/net/ethernet/marvell/mvneta.c      | 172 ++++++++++++++--
- include/net/tso.h                          |  20 ++
- net/core/Makefile                          |   2 +-
- net/core/tso.c                             |  72 +++++++
- 5 files changed, 492 insertions(+), 78 deletions(-)
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
+ include/net/tso.h | 20 ++++++++++++++++
+ net/core/Makefile |  2 +-
+ net/core/tso.c    | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 93 insertions(+), 1 deletion(-)
  create mode 100644 include/net/tso.h
  create mode 100644 net/core/tso.c
 
+diff --git a/include/net/tso.h b/include/net/tso.h
+new file mode 100644
+index 0000000..47e5444
+--- /dev/null
++++ b/include/net/tso.h
+@@ -0,0 +1,20 @@
++#ifndef _TSO_H
++#define _TSO_H
++
++#include <net/ip.h>
++
++struct tso_t {
++	int next_frag_idx;
++	void *data;
++	size_t size;
++	u16 ip_id;
++	u32 tcp_seq;
++};
++
++int tso_count_descs(struct sk_buff *skb);
++void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
++		   int size, bool is_last);
++void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size);
++void tso_start(struct sk_buff *skb, struct tso_t *tso);
++
++#endif	/* _TSO_H */
+diff --git a/net/core/Makefile b/net/core/Makefile
+index 826b925..71093d9 100644
+--- a/net/core/Makefile
++++ b/net/core/Makefile
+@@ -9,7 +9,7 @@ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
+ obj-y		     += dev.o ethtool.o dev_addr_lists.o dst.o netevent.o \
+ 			neighbour.o rtnetlink.o utils.o link_watch.o filter.o \
+-			sock_diag.o dev_ioctl.o
++			sock_diag.o dev_ioctl.o tso.o
+ 
+ obj-$(CONFIG_XFRM) += flow.o
+ obj-y += net-sysfs.o
+diff --git a/net/core/tso.c b/net/core/tso.c
+new file mode 100644
+index 0000000..097821d
+--- /dev/null
++++ b/net/core/tso.c
+@@ -0,0 +1,72 @@
++#include <net/ip.h>
++#include <net/tso.h>
++
++/* Calculate expected number of TX descriptors */
++int tso_count_descs(struct sk_buff *skb)
++{
++	/* The Marvell Way */
++	return skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
++}
++
++void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
++		   int size, bool is_last)
++{
++	struct iphdr *iph;
++	struct tcphdr *tcph;
++	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++	int mac_hdr_len = skb_network_offset(skb);
++
++	memcpy(hdr, skb->data, hdr_len);
++	iph = (struct iphdr *)(hdr + mac_hdr_len);
++	iph->id = htons(tso->ip_id);
++	iph->tot_len = htons(size + hdr_len - mac_hdr_len);
++	tcph = (struct tcphdr *)(hdr + skb_transport_offset(skb));
++	tcph->seq = htonl(tso->tcp_seq);
++	tso->ip_id++;
++
++	if (!is_last) {
++		/* Clear all special flags for not last packet */
++		tcph->psh = 0;
++		tcph->fin = 0;
++		tcph->rst = 0;
++	}
++}
++
++void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size)
++{
++	tso->tcp_seq += size;
++	tso->size -= size;
++	tso->data += size;
++
++	if ((tso->size == 0) &&
++	    (tso->next_frag_idx < skb_shinfo(skb)->nr_frags)) {
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[tso->next_frag_idx];
++
++		/* Move to next segment */
++		tso->size = frag->size;
++		tso->data = page_address(frag->page.p) + frag->page_offset;
++		tso->next_frag_idx++;
++	}
++}
++
++void tso_start(struct sk_buff *skb, struct tso_t *tso)
++{
++	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
++
++	tso->ip_id = ntohs(ip_hdr(skb)->id);
++	tso->tcp_seq = ntohl(tcp_hdr(skb)->seq);
++	tso->next_frag_idx = 0;
++
++	/* Build first data */
++	tso->size = skb_headlen(skb) - hdr_len;
++	tso->data = skb->data + hdr_len;
++	if ((tso->size == 0) &&
++	    (tso->next_frag_idx < skb_shinfo(skb)->nr_frags)) {
++		skb_frag_t *frag = &skb_shinfo(skb)->frags[tso->next_frag_idx];
++
++		/* Move to next segment */
++		tso->size = frag->size;
++		tso->data = page_address(frag->page.p) + frag->page_offset;
++		tso->next_frag_idx++;
++	}
++}
 -- 
 1.9.1
