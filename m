@@ -1,62 +1,38 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
- Sanitize skb before it enters the IP stack)
-Date: Mon, 19 May 2014 19:09:15 +0200
-Message-ID: <20140519170915.GB24523@breakpoint.cc>
-References: <537621AC.1060409@davidnewall.com>
- <5379FFFD.1050705@davidnewall.com>
- <20140519140119.GA24523@breakpoint.cc>
- <537A12EA.4060604@davidnewall.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/5 v2] net: Checksum offload changes - Part III
+Date: Mon, 19 May 2014 10:09:47 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1405190959170.31459@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: David Newall <davidn@davidnewall.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <537A12EA.4060604@davidnewall.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f73.google.com ([209.85.160.73]:65079 "EHLO
+	mail-pb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932372AbaESRJs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:09:48 -0400
+Received: by mail-pb0-f73.google.com with SMTP id ma3so989747pbc.2
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 10:09:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Newall <davidn@davidnewall.com> wrote:
+I am working on overhauling RX checksum offload. Goals of this effort
+are:
 
-[ remove lkml and cc nf-devel ]
+- Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
+- Preserve CHECKSUM_COMPLETE through encapsulation layers
+- Don't do skb_checksum more than once per packet
+- Unify GRO and non-GRO csum verification as much as possible
+- Unify the checksum functions (checksum_init)
+- Simply code
 
-> I tried to persevere with the commit: I recalculated checksum, which
-> left routes and times improperly updated in options.  Then I tried
-> calling ip_forward_options, which looks like it would correctly
-> update RR and TS (not to mention checksum)m but that bombed because
-> skb_rtable returned NULL.
+What is in this third patch set:
 
-Yes.  bridge<->netfilter wiring is pure duct tape.
-The glue code will set up a fake rtable for the skb after the
-prerouting hook. [ see br_nf_pre_routing_finish() ].
+- Remove sk_no_check from sunrpc (doesn't seem to have any effect)
+- Eliminate no_check from protosw. All protocols are using default of
+  zero for this
+- Split sk_no_check into sk_no_check_tx and sk_no_check_rx
+- Make enabling of UDP6 more restrictive and explicit
+- Support zero UDP6 checksums in l2tp
 
-> I see three ways to progress:
-> 
-> 1. Possibly call ip_forward_option, but that requires somebody who
-> understands this code to help;
-> 2. Just recalculate the checksum, leaving crap in the options; or
-> 3. Revert the commit.
-
-I think none of these are an option.
-
-I fail to understand why a bridge should honor/modifiy IP options.
-
-For the 'local delivery' case the ip stack will take care of
-option parsing, for forwarding it should be sufficient to do
-sanity tests (for netfilters sake).
-
->From a quick glance, it should be sufficient to edit
-br_parse_ip_options() and remove everything after
-
-memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-
-A 2nd step would be to move a copy of ip_options_compile()
-into br_netfilter.c and trim it down to only validate the
-ipv4 header without modifying it.
-
-If there is a good reason to mangle options on a bridge i'd
-prefer a comment explaining them...
+Please review carefully and test if possible, mucking with basic
+checksum functions is always a little precarious :-)
