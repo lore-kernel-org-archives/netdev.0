@@ -1,85 +1,116 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
- sleep/wakeup efficiency
-Date: Mon, 19 May 2014 19:06:52 +0300
-Message-ID: <20140519160652.GE31595@redhat.com>
-References: <1400278308-25372-1-git-send-email-xii@google.com>
- <5379CE8D.2030405@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH iproute2] bridge: Add learning and flood support
+Date: Mon, 19 May 2014 12:08:25 -0400
+Message-ID: <1400515705-20343-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60925 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51556 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751895AbaESQIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 May 2014 12:08:09 -0400
-Content-Disposition: inline
-In-Reply-To: <5379CE8D.2030405@redhat.com>
+	id S1751790AbaESQI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2014 12:08:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 19, 2014 at 05:27:41PM +0800, Jason Wang wrote:
-> > @@ -1330,47 +1329,26 @@ done:
-> >  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
-> >  			   const struct iovec *iv, ssize_t len, int noblock)
-> >  {
-> > -	DECLARE_WAITQUEUE(wait, current);
-> >  	struct sk_buff *skb;
-> >  	ssize_t ret = 0;
-> > +	int peeked, err, off = 0;
-> >  
-> >  	tun_debug(KERN_INFO, tun, "tun_do_read\n");
-> >  
-> > -	if (unlikely(!noblock))
-> > -		add_wait_queue(&tfile->wq.wait, &wait);
-> > -	while (len) {
-> > -		if (unlikely(!noblock))
-> > -			current->state = TASK_INTERRUPTIBLE;
-> > +	if (!len)
-> > +		return ret;
-> >  
-> > -		/* Read frames from the queue */
-> > -		if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
-> > -			if (noblock) {
-> > -				ret = -EAGAIN;
-> > -				break;
-> > -			}
-> > -			if (signal_pending(current)) {
-> > -				ret = -ERESTARTSYS;
-> > -				break;
-> > -			}
-> > -			if (tun->dev->reg_state != NETREG_REGISTERED) {
-> > -				ret = -EIO;
-> > -				break;
-> > -			}
-> > -
-> > -			/* Nothing to read, let's sleep */
-> > -			schedule();
-> > -			continue;
-> > -		}
-> > +	if (tun->dev->reg_state != NETREG_REGISTERED)
-> > +		return -EIO;
-> >  
-> > +	/* Read frames from queue */
-> > +	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
-> > +				  &peeked, &off, &err);
-> > +	if (skb) {
-> 
-> Still a little bit difference. We check the reg_state after we're sure
-> there's nothing left in sk_receive_queue. But this patch returns -EIO
-> before trying to dequeue skb.
+Add support to control learning and flood flags on bridge
+ports.
 
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ bridge/link.c     | 22 ++++++++++++++++++++++
+ man/man8/bridge.8 | 12 ++++++++++++
+ 2 files changed, 34 insertions(+)
 
-Yes but what's the concern here? What does userspace do
-to notice the change in behaviour?
-tun_detach calls tun_queue_purge before unregister_netdevice
-so apparently there's never anything in queue when
-state isn't registered.
-Did I miss something?
-
+diff --git a/bridge/link.c b/bridge/link.c
+index 38dfaea..e3fd6e6 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -185,6 +185,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 				if (prtb[IFLA_BRPORT_FAST_LEAVE])
+ 					print_onoff(fp, "fastleave",
+ 						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
++				if (prtb[IFLA_BRPORT_LEARNING])
++					print_onoff(fp, "learning",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
++				if (prtb[IFLA_BRPORT_UNICAST_FLOOD])
++					print_onoff(fp, "flood",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_UNICAST_FLOOD]));
+ 			}
+ 		} else
+ 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+@@ -214,6 +220,8 @@ static void usage(void)
+ 	fprintf(stderr, "                               [ hairpin {on | off} ] \n");
+ 	fprintf(stderr, "                               [ fastleave {on | off} ]\n");
+ 	fprintf(stderr,	"                               [ root_block {on | off} ]\n");
++	fprintf(stderr,	"                               [ learning {on | off} ]\n");
++	fprintf(stderr,	"                               [ flood {on | off} ]\n");
+ 	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
+ 	fprintf(stderr, "       bridge link show [dev DEV]\n");
+ 	exit(-1);
+@@ -243,6 +251,8 @@ static int brlink_modify(int argc, char **argv)
+ 		char             buf[512];
+ 	} req;
+ 	char *d = NULL;
++	__s8 learning = -1;
++	__s8 flood = -1;
+ 	__s8 hairpin = -1;
+ 	__s8 bpdu_guard = -1;
+ 	__s8 fast_leave = -1;
+@@ -281,6 +291,14 @@ static int brlink_modify(int argc, char **argv)
+ 			NEXT_ARG();
+ 			if (!on_off("root_block", &root_block, *argv))
+ 				exit(-1);
++		} else if (strcmp(*argv, "learning") == 0) {
++			NEXT_ARG();
++			if (!on_off("learning", &learning, *argv))
++				exit(-1);
++		} else if (strcmp(*argv, "flood") == 0) {
++			NEXT_ARG();
++			if (!on_off("flood", &flood, *argv))
++				exit(-1);
+ 		} else if (strcmp(*argv, "cost") == 0) {
+ 			NEXT_ARG();
+ 			cost = atoi(*argv);
+@@ -335,6 +353,10 @@ static int brlink_modify(int argc, char **argv)
+ 			 fast_leave);
+ 	if (root_block >= 0)
+ 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_PROTECT, root_block);
++	if (flood >= 0)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, flood);
++	if (learning >= 0)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING, learning);
+ 
+ 	if (cost > 0)
+ 		addattr32(&req.n, sizeof(req), IFLA_BRPORT_COST, cost);
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 9a34804..29da904 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -36,6 +36,8 @@ bridge \- show / manipulate bridge addresses and devices
+ .BR hairpin " { " on " | " off " } ] [ "
+ .BR fastleave " { " on " | " off " } ] [ "
+ .BR root_block " { " on " | " off " } ] [ "
++.BR learning " { " on " | " off " } ] [ "
++.BR flood " { " on " | " off " } ] [ "
+ .BR hwmode " { " vepa " | " veb " } ] "
+ 
+ .ti -8
+@@ -234,6 +236,16 @@ Controls whether a given port is allowed to become root port or not.  Only used
+ when STP is enabled on the bridge.  By default the flag is off.
+ 
+ .TP
++.BR "learning on " or " learning off "
++Controls whether a given port will learn MAC addresses from received traffic or
++not.  If learning if off, the bridge will end up flooding any traffic for which
++it has no FDB entry.  By default this flag is on.
++
++.TP
++.BR "floodig on " or " flooding off "
++Controls whether a given port will flood traffic for which there is no FDB entry.  By default this flag is on.
++
++.TP
+ .BI hwmode
+ Some network interface cards support HW bridge functionality and they may be
+ configured in different modes.  Currently support modes are:
 -- 
-MST
+1.9.0
