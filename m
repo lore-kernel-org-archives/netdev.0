@@ -1,48 +1,176 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: 3.14 tc oops
-Date: Mon, 19 May 2014 12:14:26 -0700
-Message-ID: <CAM_iQpVseFM9aHhOd-SRFUPtsxjdaAv2cpJ-BwwLotirB9rH_A@mail.gmail.com>
-References: <1592838.91HrDxMk9i@comer>
-	<3222104.QGqslXqjVx@comer>
-	<CAM_iQpVVwE6+SgYKr5kiHhv0yE3-eRynxo5AkPSL5ZQ=aA5aJw@mail.gmail.com>
-	<2501516.A9ihW45TvK@comer>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Kelly Anderson <kelly@xilka.com>
+Subject: [Patch net] net_sched: fix an oops in tcindex filter
+Date: Mon, 19 May 2014 12:15:49 -0700
+Message-ID: <1400526949-1344-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, dborkman@redhat.com,
+	kelly@xilka.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:55484 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964803AbaESTO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 15:14:27 -0400
-Received: by mail-oa0-f53.google.com with SMTP id m1so6604011oag.26
-        for <netdev@vger.kernel.org>; Mon, 19 May 2014 12:14:26 -0700 (PDT)
-In-Reply-To: <2501516.A9ihW45TvK@comer>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:52352 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932425AbaESTQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 15:16:09 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so6169699pad.37
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 12:16:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 16, 2014 at 8:28 PM, Kelly Anderson <kelly@xilka.com> wrote:
-> On Friday, May 16, 2014 17:18:52 Cong Wang wrote:
->> On Mon, Apr 7, 2014 at 1:00 AM, Kelly Anderson <kelly@xilka.com> wrote:
->> > Cong,
->> >
->> > The patch did not fix the problem.
->> >
->> > For your convenience, I've attached tc filter show for eth0 and eth1, as
->> > well as a mangled version of my tcng input file.
->>
->> Sorry that I totally forgot this thread....
->>
->> I just tested a new patch (attached), it works for me, please verify it.
->>
->> Thanks for the report anyway.
->
-> Great, the new patch seems to work fine with 3.14.4.  If you haven't done it
-> yet, you should probably get that patch pulled into 3.14 stable.
->
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-OK. I will send a formal patch and I believe David will queue it for
-3.14 stable.
+Kelly reported the following crash:
 
-Thanks!
+        IP: [<ffffffff817a993d>] tcf_action_exec+0x46/0x90
+        PGD 3009067 PUD 300c067 PMD 11ff30067 PTE 800000011634b060
+        Oops: 0000 [#1] SMP DEBUG_PAGEALLOC
+        CPU: 1 PID: 639 Comm: dhclient Not tainted 3.15.0-rc4+ #342
+        Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+        task: ffff8801169ecd00 ti: ffff8800d21b8000 task.ti: ffff8800d21b8000
+        RIP: 0010:[<ffffffff817a993d>]  [<ffffffff817a993d>] tcf_action_exec+0x46/0x90
+        RSP: 0018:ffff8800d21b9b90  EFLAGS: 00010283
+        RAX: 00000000ffffffff RBX: ffff88011634b8e8 RCX: ffff8800cf7133d8
+        RDX: ffff88011634b900 RSI: ffff8800cf7133e0 RDI: ffff8800d210f840
+        RBP: ffff8800d21b9bb0 R08: ffffffff8287bf60 R09: 0000000000000001
+        R10: ffff8800d2b22b24 R11: 0000000000000001 R12: ffff8800d210f840
+        R13: ffff8800d21b9c50 R14: ffff8800cf7133e0 R15: ffff8800cad433d8
+        FS:  00007f49723e1840(0000) GS:ffff88011a800000(0000) knlGS:0000000000000000
+        CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+        CR2: ffff88011634b8f0 CR3: 00000000ce469000 CR4: 00000000000006e0
+        Stack:
+         ffff8800d2170188 ffff8800d210f840 ffff8800d2171b90 0000000000000000
+         ffff8800d21b9be8 ffffffff817c55bb ffff8800d21b9c50 ffff8800d2171b90
+         ffff8800d210f840 ffff8800d21b0300 ffff8800d21b9c50 ffff8800d21b9c18
+        Call Trace:
+         [<ffffffff817c55bb>] tcindex_classify+0x88/0x9b
+         [<ffffffff817a7f7d>] tc_classify_compat+0x3e/0x7b
+         [<ffffffff817a7fdf>] tc_classify+0x25/0x9f
+         [<ffffffff817b0e68>] htb_enqueue+0x55/0x27a
+         [<ffffffff817b6c2e>] dsmark_enqueue+0x165/0x1a4
+         [<ffffffff81775642>] __dev_queue_xmit+0x35e/0x536
+         [<ffffffff8177582a>] dev_queue_xmit+0x10/0x12
+         [<ffffffff818f8ecd>] packet_sendmsg+0xb26/0xb9a
+         [<ffffffff810b1507>] ? __lock_acquire+0x3ae/0xdf3
+         [<ffffffff8175cf08>] __sock_sendmsg_nosec+0x25/0x27
+         [<ffffffff8175d916>] sock_aio_write+0xd0/0xe7
+         [<ffffffff8117d6b8>] do_sync_write+0x59/0x78
+         [<ffffffff8117d84d>] vfs_write+0xb5/0x10a
+         [<ffffffff8117d96a>] SyS_write+0x49/0x7f
+         [<ffffffff8198e212>] system_call_fastpath+0x16/0x1b
+
+This is because we memcpy struct tcindex_filter_result which contains
+struct tcf_exts, obviously struct list_head can not be simply copied.
+This is a regression introduced by commit 33be627159913b094bb578
+(net_sched: act: use standard struct list_head).
+
+It's not very easy to fix it as the code is a mess:
+
+       if (old_r)
+               memcpy(&cr, r, sizeof(cr));
+       else {
+               memset(&cr, 0, sizeof(cr));
+               tcf_exts_init(&cr.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
+       }
+       ...
+       tcf_exts_change(tp, &cr.exts, &e);
+       ...
+       memcpy(r, &cr, sizeof(cr));
+
+the above code should equal to:
+
+        tcindex_filter_result_init(&cr);
+        if (old_r)
+               cr.res = r->res;
+        ...
+        if (old_r)
+               tcf_exts_change(tp, &r->exts, &e);
+        else
+               tcf_exts_change(tp, &cr.exts, &e);
+        ...
+        r->res = cr.res;
+
+after this change, since there is no need to copy struct tcf_exts.
+
+And it also fixes other places zero'ing struct's contains struct tcf_exts.
+
+Fixes: commit 33be627159913b0 (net_sched: act: use standard struct list_head)
+Reported-by: Kelly Anderson <kelly@xilka.com>
+Tested-by: Kelly Anderson <kelly@xilka.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/cls_tcindex.c | 30 ++++++++++++++++++++----------
+ 1 file changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/net/sched/cls_tcindex.c b/net/sched/cls_tcindex.c
+index eed8404..f435a88 100644
+--- a/net/sched/cls_tcindex.c
++++ b/net/sched/cls_tcindex.c
+@@ -188,6 +188,12 @@ static const struct nla_policy tcindex_policy[TCA_TCINDEX_MAX + 1] = {
+ 	[TCA_TCINDEX_CLASSID]		= { .type = NLA_U32 },
+ };
+ 
++static void tcindex_filter_result_init(struct tcindex_filter_result *r)
++{
++	memset(r, 0, sizeof(*r));
++	tcf_exts_init(&r->exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
++}
++
+ static int
+ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		  u32 handle, struct tcindex_data *p,
+@@ -207,15 +213,11 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		return err;
+ 
+ 	memcpy(&cp, p, sizeof(cp));
+-	memset(&new_filter_result, 0, sizeof(new_filter_result));
+-	tcf_exts_init(&new_filter_result.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
++	tcindex_filter_result_init(&new_filter_result);
+ 
++	tcindex_filter_result_init(&cr);
+ 	if (old_r)
+-		memcpy(&cr, r, sizeof(cr));
+-	else {
+-		memset(&cr, 0, sizeof(cr));
+-		tcf_exts_init(&cr.exts, TCA_TCINDEX_ACT, TCA_TCINDEX_POLICE);
+-	}
++		cr.res = r->res;
+ 
+ 	if (tb[TCA_TCINDEX_HASH])
+ 		cp.hash = nla_get_u32(tb[TCA_TCINDEX_HASH]);
+@@ -267,9 +269,14 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 	err = -ENOMEM;
+ 	if (!cp.perfect && !cp.h) {
+ 		if (valid_perfect_hash(&cp)) {
++			int i;
++
+ 			cp.perfect = kcalloc(cp.hash, sizeof(*r), GFP_KERNEL);
+ 			if (!cp.perfect)
+ 				goto errout;
++			for (i = 0; i < cp.hash; i++)
++				tcf_exts_init(&cp.perfect[i].exts, TCA_TCINDEX_ACT,
++					      TCA_TCINDEX_POLICE);
+ 			balloc = 1;
+ 		} else {
+ 			cp.h = kcalloc(cp.hash, sizeof(f), GFP_KERNEL);
+@@ -295,14 +302,17 @@ tcindex_set_parms(struct net *net, struct tcf_proto *tp, unsigned long base,
+ 		tcf_bind_filter(tp, &cr.res, base);
+ 	}
+ 
+-	tcf_exts_change(tp, &cr.exts, &e);
++	if (old_r)
++		tcf_exts_change(tp, &r->exts, &e);
++	else
++		tcf_exts_change(tp, &cr.exts, &e);
+ 
+ 	tcf_tree_lock(tp);
+ 	if (old_r && old_r != r)
+-		memset(old_r, 0, sizeof(*old_r));
++		tcindex_filter_result_init(old_r);
+ 
+ 	memcpy(p, &cp, sizeof(cp));
+-	memcpy(r, &cr, sizeof(cr));
++	r->res = cr.res;
+ 
+ 	if (r == &new_filter_result) {
+ 		struct tcindex_filter **fp;
+-- 
+1.8.3.1
