@@ -1,116 +1,103 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH iproute2] bridge: Add learning and flood support
-Date: Mon, 19 May 2014 12:08:25 -0400
-Message-ID: <1400515705-20343-1-git-send-email-vyasevic@redhat.com>
-Cc: shemminger@vyatta.com, Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51556 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751790AbaESQI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 May 2014 12:08:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 2/3] Documentation: add Device tree bindings for Hisilicon
+ hix5hd2 ethernet
+Date: Mon, 19 May 2014 20:26:18 +0400
+Message-ID: <537A30AA.8080107@cogentembedded.com>
+References: <1400504227-12047-1-git-send-email-zhangfei.gao@linaro.org> <1400504227-12047-3-git-send-email-zhangfei.gao@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	arnd-r2nGTMty4D4@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	haifeng.yan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, jchxue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1400504227-12047-3-git-send-email-zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add support to control learning and flood flags on bridge
-ports.
+Hello.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- bridge/link.c     | 22 ++++++++++++++++++++++
- man/man8/bridge.8 | 12 ++++++++++++
- 2 files changed, 34 insertions(+)
+On 05/19/2014 04:57 PM, Zhangfei Gao wrote:
 
-diff --git a/bridge/link.c b/bridge/link.c
-index 38dfaea..e3fd6e6 100644
---- a/bridge/link.c
-+++ b/bridge/link.c
-@@ -185,6 +185,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 				if (prtb[IFLA_BRPORT_FAST_LEAVE])
- 					print_onoff(fp, "fastleave",
- 						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
-+				if (prtb[IFLA_BRPORT_LEARNING])
-+					print_onoff(fp, "learning",
-+						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
-+				if (prtb[IFLA_BRPORT_UNICAST_FLOOD])
-+					print_onoff(fp, "flood",
-+						    rta_getattr_u8(prtb[IFLA_BRPORT_UNICAST_FLOOD]));
- 			}
- 		} else
- 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
-@@ -214,6 +220,8 @@ static void usage(void)
- 	fprintf(stderr, "                               [ hairpin {on | off} ] \n");
- 	fprintf(stderr, "                               [ fastleave {on | off} ]\n");
- 	fprintf(stderr,	"                               [ root_block {on | off} ]\n");
-+	fprintf(stderr,	"                               [ learning {on | off} ]\n");
-+	fprintf(stderr,	"                               [ flood {on | off} ]\n");
- 	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
- 	fprintf(stderr, "       bridge link show [dev DEV]\n");
- 	exit(-1);
-@@ -243,6 +251,8 @@ static int brlink_modify(int argc, char **argv)
- 		char             buf[512];
- 	} req;
- 	char *d = NULL;
-+	__s8 learning = -1;
-+	__s8 flood = -1;
- 	__s8 hairpin = -1;
- 	__s8 bpdu_guard = -1;
- 	__s8 fast_leave = -1;
-@@ -281,6 +291,14 @@ static int brlink_modify(int argc, char **argv)
- 			NEXT_ARG();
- 			if (!on_off("root_block", &root_block, *argv))
- 				exit(-1);
-+		} else if (strcmp(*argv, "learning") == 0) {
-+			NEXT_ARG();
-+			if (!on_off("learning", &learning, *argv))
-+				exit(-1);
-+		} else if (strcmp(*argv, "flood") == 0) {
-+			NEXT_ARG();
-+			if (!on_off("flood", &flood, *argv))
-+				exit(-1);
- 		} else if (strcmp(*argv, "cost") == 0) {
- 			NEXT_ARG();
- 			cost = atoi(*argv);
-@@ -335,6 +353,10 @@ static int brlink_modify(int argc, char **argv)
- 			 fast_leave);
- 	if (root_block >= 0)
- 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_PROTECT, root_block);
-+	if (flood >= 0)
-+		addattr8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, flood);
-+	if (learning >= 0)
-+		addattr8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING, learning);
- 
- 	if (cost > 0)
- 		addattr32(&req.n, sizeof(req), IFLA_BRPORT_COST, cost);
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 9a34804..29da904 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -36,6 +36,8 @@ bridge \- show / manipulate bridge addresses and devices
- .BR hairpin " { " on " | " off " } ] [ "
- .BR fastleave " { " on " | " off " } ] [ "
- .BR root_block " { " on " | " off " } ] [ "
-+.BR learning " { " on " | " off " } ] [ "
-+.BR flood " { " on " | " off " } ] [ "
- .BR hwmode " { " vepa " | " veb " } ] "
- 
- .ti -8
-@@ -234,6 +236,16 @@ Controls whether a given port is allowed to become root port or not.  Only used
- when STP is enabled on the bridge.  By default the flag is off.
- 
- .TP
-+.BR "learning on " or " learning off "
-+Controls whether a given port will learn MAC addresses from received traffic or
-+not.  If learning if off, the bridge will end up flooding any traffic for which
-+it has no FDB entry.  By default this flag is on.
-+
-+.TP
-+.BR "floodig on " or " flooding off "
-+Controls whether a given port will flood traffic for which there is no FDB entry.  By default this flag is on.
-+
-+.TP
- .BI hwmode
- Some network interface cards support HW bridge functionality and they may be
- configured in different modes.  Currently support modes are:
--- 
-1.9.0
+> Signed-off-by: Zhangfei Gao <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>   .../bindings/net/hisilicon-hix5hd2-net.txt         |   37 ++++++++++++++++++++
+>   1 file changed, 37 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hix5hd2-net.txt
+
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-net.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-net.txt
+> new file mode 100644
+> index 0000000..16b1f0e
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-net.txt
+> @@ -0,0 +1,37 @@
+> +Hisilicon hix5hd2 Ethernet Controller
+> +
+> +Required properties:
+> +- compatible: should be "hisilicon,hix5hd2-mac".
+> +- reg : Specifies base physical address(s) and size of the device registers.
+
+    Er, I must note that the colon style here is not consistent with the rest 
+of the properties, i.e. there's space before the colon here, while in other 
+cases there's none.
+
+> +  The first region is the mac register base and size.
+
+    s/mac/MAC/.
+
+> +  The second region is external interface control register.
+> +- interrupts: Should contain the MAC interrupts
+> +- #address-cells: Must be <1>.
+> +- #size-cells: Must be <0>.
+
+    Descriptions should consistently start with a lower case, I think...
+
+> +- phy-mode: see ethernet.txt [1].
+> +- phy-handle: see ethernet.txt [1].
+> +- mac-address: see ethernet.txt [1].
+> +- clocks: clock phandle and specifier pair.
+> +
+> +- phy subnode: inherits from phy binding [2]
+
+    s/phy/PHY/.
+
+> +
+> +[1] Documentation/devicetree/bindings/net/ethernet.txt
+> +[2] Documentation/devicetree/bindings/net/phy.txt
+> +
+> +Example:
+> +	gmac0: ethernet@f9840000 {
+> +		compatible = "hisilicon,hix5hd2-mac";
+> +		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		phy-handle = <&phy0>;
+> +		phy-mode = "mii";
+> +		mac-address = [00 00 00 00 00 00];
+
+    Don't think that's a good value, unless this is only a placeholder.
+
+> +		interrupts = <0 71 4>;
+> +		clocks = <&clock HIX5HD2_MAC0_CLK>;
+> +
+> +		phy0: ethernet-phy@2 {
+
+    I'd rather label ut phy2...
+
+> +			reg = <2>;
+> +			compatible = "ethernet-phy-ieee802.3-c22";
+
+    This is the default "compatible", i.e. there's no need to specify it, IIRC.
+
+> +		};
+> +	};
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
