@@ -1,53 +1,51 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: Re: [PATCH] isdn: hisax: l3dss1.c: Fix for possible null pointer dereference
-Date: Mon, 19 May 2014 23:18:36 +0200
-Message-ID: <CAFo99gZwnvtResqq12LJk-g0AVrZDwyAjOehvWhEnHkUx6o42g@mail.gmail.com>
-References: <1400347101-25476-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<20140518.211237.1637671513066247487.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/4] net: bcmgenet: use the new fixed PHY helpers
+Date: Tue, 20 May 2014 01:22:16 +0400
+Message-ID: <537A7608.4000906@cogentembedded.com>
+References: <1400528625-32744-1-git-send-email-f.fainelli@gmail.com> <1400528625-32744-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140518.211237.1637671513066247487.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, thomas.petazzoni@free-electrons.com,
+	devicetree@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:60043 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752539AbaESVWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 17:22:17 -0400
+Received: by mail-lb0-f174.google.com with SMTP id n15so4556331lbi.33
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 14:22:16 -0700 (PDT)
+In-Reply-To: <1400528625-32744-2-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+Hello.
 
-Ahh, yes. That's niecer..
-I am sending a new patch. If it is as you intended, I do the same with
-the l3ni1.c file.
+On 05/19/2014 11:43 PM, Florian Fainelli wrote:
 
+> of_phy_connect_fixed_link() is becoming obsolete, and also required
+> platform code to register the fixed PHYs at the specified addresses for
+> those to be usable. Get rid of it and use the new of_phy_is_fixed_link()
+> plus of_phy_register_fixed_link() helpers to transition over the new
+> scheme.
 
-Best regards
-Rickard Strandqvist
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>   drivers/net/ethernet/broadcom/genet/bcmmii.c | 22 ++++++++++++++--------
+>   1 file changed, 14 insertions(+), 8 deletions(-)
 
+> diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+> index 4608673beaff..69bc69f86638 100644
+> --- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
+> +++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+[...]
+> @@ -307,15 +308,20 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+[...]
+> +	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup, 0,
+> +					priv->phy_interface);
 
-2014-05-19 3:12 GMT+02:00 David Miller <davem@davemloft.net>:
-> From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> Date: Sat, 17 May 2014 19:18:21 +0200
->
->> There is otherwise a risk of a possible null pointer dereference.
->>
->> Was largely found by using a static code analysis program called cppcheck.
->>
->> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
->  ...
->
->> @@ -2208,8 +2208,12 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
->>                               { free_invoke_id(st, id);
->>                                       return (-2);
->>                               }
->> -                     pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
->> -                     pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
->> +
->> +                     if (pc)
->> +                     {
->> +                             pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
->> +                             pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
->> +                     }
->
-> I think rather the intention was to put these pc-> assignments in the
-> timeout > 0 code block.
+    The continuation line is indented incorrectly, you should have started it 
+right under 'dev' on the previous line.
+
+WBR, Sergei
