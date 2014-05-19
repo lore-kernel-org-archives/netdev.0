@@ -1,80 +1,37 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0
- (bridge : Sanitize skb before it enters the IP stack)
-Date: Mon, 19 May 2014 22:49:32 +0200
-Message-ID: <537A6E5C.6090602@pandora.be>
-References: <537621AC.1060409@davidnewall.com>
-	<5379FFFD.1050705@davidnewall.com>
-	<20140519140119.GA24523@breakpoint.cc>
-	<537A12EA.4060604@davidnewall.com>
-	<20140519170915.GB24523@breakpoint.cc>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] macvlan: Fix checksum errors when ip_summed is CHECKSUM_PARTIAL
+Date: Mon, 19 May 2014 13:36:21 -0700
+Message-ID: <CAHA+R7PKPRkC5hvsS=M3muo4pzH8XrvP2c7=qR1Yo_dS5Yh-yA@mail.gmail.com>
+References: <1400520254-5142-1-git-send-email-spang@chromium.org>
+	<1400521493.5367.61.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAC5F_1mrXgEtx7sx1ihdm5EA6cxP7cA7mOjVmP8HvWxatgAcRA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>, bridge@lists.linux-foundation.org,
-	netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>,
- David Newall <davidn@davidnewall.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140519170915.GB24523@breakpoint.cc>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Daniel Lezcano <daniel.lezcano@free.fr>
+To: Michael Spang <spang@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAC5F_1mrXgEtx7sx1ihdm5EA6cxP7cA7mOjVmP8HvWxatgAcRA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Florian Westphal schreef op 19/05/2014 19:09:
-> David Newall <davidn@davidnewall.com> wrote:
->
-> [ remove lkml and cc nf-devel ]
->
->> I tried to persevere with the commit: I recalculated checksum, which
->> left routes and times improperly updated in options.  Then I tried
->> calling ip_forward_options, which looks like it would correctly
->> update RR and TS (not to mention checksum)m but that bombed because
->> skb_rtable returned NULL.
->
-> Yes.  bridge<->netfilter wiring is pure duct tape.
-> The glue code will set up a fake rtable for the skb after the
-> prerouting hook. [ see br_nf_pre_routing_finish() ].
->
->> I see three ways to progress:
+On Mon, May 19, 2014 at 1:05 PM, Michael Spang <spang@chromium.org> wrote:
+> On Mon, May 19, 2014 at 1:44 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >>
->> 1. Possibly call ip_forward_option, but that requires somebody who
->> understands this code to help;
->> 2. Just recalculate the checksum, leaving crap in the options; or
->> 3. Revert the commit.
+>> I removed stable@ , as stable submissions are not done like that.
+>>
 >
-> I think none of these are an option.
+> Perhaps I've misunderstood something, but this suggestion is right
+> from https://www.kernel.org/doc/Documentation/stable_kernel_rules.txt
 >
-> I fail to understand why a bridge should honor/modifiy IP options.
->
-> For the 'local delivery' case the ip stack will take care of
-> option parsing, for forwarding it should be sufficient to do
-> sanity tests (for netfilters sake).
->
->>From a quick glance, it should be sufficient to edit
-> br_parse_ip_options() and remove everything after
->
-> memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
->
-> A 2nd step would be to move a copy of ip_options_compile()
-> into br_netfilter.c and trim it down to only validate the
-> ipv4 header without modifying it.
+>  - To have the patch automatically included in the stable tree, add the tag
+>      Cc: stable@vger.kernel.org
+>    in the sign-off area. Once the patch is merged it will be applied to
+>    the stable tree without anything else needing to be done by the author
+>    or subsystem maintainer.
 
-Perhaps it's possible to call ip_options_compile with a skb == NULL, 
-like ip_options.c::ip_options_get_finish does. That way we don't need to 
-duplicate code.
-An alternative would be to make sure that the data pointed to by IPCB 
-and BR_INPUT_SKB_CB don't overlap. If this were the case, we could 
-indeed just revert the commit that was referred to.
-
-
-cheers,
-Bart
+netdev has different rules, you need to check
+Documentation/networking/netdev-FAQ.txt.
