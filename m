@@ -1,54 +1,104 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [BUG] might sleep functions in atomic context in stmmac_resume()
-Date: Mon, 19 May 2014 08:57:25 +0200
-Message-ID: <5379AB55.2050003@st.com>
-References: <53769C2A.8050803@ispras.ru>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH net-next] net: cdc_ncm: fix 64bit division build error
+Date: Mon, 19 May 2014 09:21:09 +0200
+Message-ID: <1400484069-13702-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	<ldv-project@linuxtesting.org>
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Srinivas Kandagatla <srinivas.kandagatla@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53769C2A.8050803@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:40130 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750993AbaESHVa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2014 03:21:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Alexey
+The upper timer_interval limit is arbitrary and much higher
+than anything usable in the real world.  Reducing it from 15s
+to ~4s to make the timer_interval fit in an u32 does not make
+much difference.  The limit is still outside the practical
+bounds.
 
-On 5/17/2014 1:15 AM, Alexey Khoroshilov wrote:
-> There are calls to might sleep functions in atomic context in
-> stmmac_resume():
-> - the first one is clk_prepare_enable(priv->stmmac_clk);
-> - the second one is stmmac_hw_setup()
-> -> init_dma_desc_rings()
->    -> =EF=BB=BFstmmac_init_rx_buffers()
->      -> __netdev_alloc_skb(GFP_KERNEL)
->
-> What is the purpose of spin_lock_irqsave(&priv->lock, flags) section?
-> What does it protect against?
+This eliminates the need for a 64bit timer_interval, fixing a
+build error related to 64bit division:
 
-Some part of this driver, especially on PM stuff, has been reworked
-time ago.
-I have in plan to do further tests and investigations
-also to understand and try to solve this kind of issues. I do not
-want to see this kind of BUGs. Also I have some other patches on
-other pending problem I will submit to be reviewed.
-I hope to start doing this task in the incoming days.
+ drivers/built-in.o: In function `cdc_ncm_get_coalesce':
+ ak8975.c:(.text+0x1ac994): undefined reference to `__aeabi_uldivmod'
 
-BR
-peppe
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
 
->
-> Found by Linux Driver Verification project (linuxtesting.org).
->
-> --
-> Alexey Khoroshilov
-> Linux Verification Center, ISPRAS
-> web: http://linuxtesting.org
->
->
+Thanks a lot for reporting this! I believe it makes more sense to chang=
+e
+to a u32 than using do_div here.
+
+
+Bj=C3=B8rn
+
+
+ drivers/net/usb/cdc_ncm.c   | 4 ++--
+ include/linux/usb/cdc_ncm.h | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 2d0caf1eea25..ad2a386a6e92 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -138,7 +138,7 @@ static int cdc_ncm_get_coalesce(struct net_device *=
+netdev,
+ 	ec->tx_max_coalesced_frames =3D ctx->tx_max / ctx->max_datagram_size;
+=20
+ 	/* the timer will fire CDC_NCM_TIMER_PENDING_CNT times in a row */
+-	ec->tx_coalesce_usecs =3D (ctx->timer_interval * CDC_NCM_TIMER_PENDIN=
+G_CNT) / NSEC_PER_USEC;
++	ec->tx_coalesce_usecs =3D ctx->timer_interval / (NSEC_PER_USEC / CDC_=
+NCM_TIMER_PENDING_CNT);
+ 	return 0;
+ }
+=20
+@@ -164,7 +164,7 @@ static int cdc_ncm_set_coalesce(struct net_device *=
+netdev,
+ 		return -EINVAL;
+=20
+ 	spin_lock_bh(&ctx->mtx);
+-	ctx->timer_interval =3D ec->tx_coalesce_usecs * NSEC_PER_USEC / CDC_N=
+CM_TIMER_PENDING_CNT;
++	ctx->timer_interval =3D ec->tx_coalesce_usecs * (NSEC_PER_USEC / CDC_=
+NCM_TIMER_PENDING_CNT);
+ 	if (!ctx->timer_interval)
+ 		ctx->tx_timer_pending =3D 0;
+ 	spin_unlock_bh(&ctx->mtx);
+diff --git a/include/linux/usb/cdc_ncm.h b/include/linux/usb/cdc_ncm.h
+index 8c5e38819828..7c9b484735c5 100644
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -78,7 +78,7 @@
+ #define	CDC_NCM_TIMER_PENDING_CNT		2
+ #define CDC_NCM_TIMER_INTERVAL_USEC		400UL
+ #define CDC_NCM_TIMER_INTERVAL_MIN		5UL
+-#define CDC_NCM_TIMER_INTERVAL_MAX		(15UL * USEC_PER_SEC)
++#define CDC_NCM_TIMER_INTERVAL_MAX		(U32_MAX / NSEC_PER_USEC)
+=20
+ #define cdc_ncm_comm_intf_is_mbim(x)  ((x)->desc.bInterfaceSubClass =3D=
+=3D USB_CDC_SUBCLASS_MBIM && \
+ 				       (x)->desc.bInterfaceProtocol =3D=3D USB_CDC_PROTO_NONE)
+@@ -104,7 +104,7 @@ struct cdc_ncm_ctx {
+ 	spinlock_t mtx;
+ 	atomic_t stop;
+=20
+-	u64 timer_interval;
++	u32 timer_interval;
+ 	u32 max_ndp_size;
+=20
+ 	u32 tx_timer_pending;
+--=20
+2.0.0.rc2
