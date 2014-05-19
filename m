@@ -1,76 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: vxge: Use time_is_before_jiffies() for time
- comparison
-Date: Mon, 19 May 2014 10:35:28 -0700
-Message-ID: <1400520928.30820.23.camel@joe-AO725>
-References: <1400518056-12089-1-git-send-email-manuel.schoelling@gmx.de>
-	 <1400518318-12386-1-git-send-email-manuel.schoelling@gmx.de>
-	 <1400518318-12386-2-git-send-email-manuel.schoelling@gmx.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] macvlan: Fix checksum errors when ip_summed is
+ CHECKSUM_PARTIAL
+Date: Mon, 19 May 2014 10:44:53 -0700
+Message-ID: <1400521493.5367.61.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400520254-5142-1-git-send-email-spang@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Manuel =?ISO-8859-1?Q?Sch=F6lling?= <manuel.schoelling@gmx.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1400518318-12386-2-git-send-email-manuel.schoelling@gmx.de>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Daniel Lezcano <daniel.lezcano@free.fr>
+To: Michael Spang <spang@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400520254-5142-1-git-send-email-spang@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-05-19 at 18:51 +0200, Manuel Sch=F6lling wrote:
-> To be future-proof and for better readability the time comparisons ar=
-e modified
-> to use time_is_before_jiffies() instead of plain, error-prone math.
+On Mon, 2014-05-19 at 13:24 -0400, Michael Spang wrote:
+> Changing ip_summed from CHECKSUM_PARTIAL to CHECKSUM_UNNECESSARY
+> will result in an incorrect checksum if the packet is sent off the box.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Michael Spang <spang@chromium.org>
+> ---
+>  drivers/net/macvlan.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 753a8c2..806b56a 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -267,7 +267,9 @@ static int macvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+>  		const struct ethhdr *eth = (void *)skb->data;
+> -		skb->ip_summed = CHECKSUM_UNNECESSARY;
+> +
+> +		if (skb->ip_summed == CHECKSUM_NONE)
+> +			skb->ip_summed = CHECKSUM_UNNECESSARY;
+>  
+>  		/* send to other bridge ports directly */
+>  		if (is_multicast_ether_addr(eth->h_dest)) {
 
-Hi again Manuel.
+Hi Michael
 
-Just a couple of FYIs/nits:
+Any idea why commit 12a2856b604476c27d85a5f9a57ae1661fc46019
+added this stuff then ?
 
-The "net: " prefix in your patch subject is a little
-misleading.  One reading might be that the patch is
-to the net/ subsystem but it's for a driver.
+You should give more infos of your use case.
 
-It might be better as:
+CC Daniel Lezcano <daniel.lezcano@free.fr>
 
-[PATCH] vxge: Use time_is_before_jiffies
-
-Generally, just use the last directory name
-for the subject prefix.
-
-ie:  patching: foo/bar/baz/qux.c
-
-subject prefix is generally:
-
-[PATCH] baz: whatever changed...
-
-and a single patch to a number of different files
-in foo/bar/baz/*.[ch] is still
-
-[PATCH] baz: etc...
-
-Also, the time_is_(before|after)_jiffies variants
-are not used particularly often in the kernel.
-
-The form using of time_<foo>(jiffies, ...)
-is used _far_ more often (and it saves a little
-typing too).
-
-time_before(<foo>, jiffies)
-time_is_before_jiffies(<foo>)
-
-$ git grep -E -w "time_is_(before|after|before_eq|after_eq)_jiffies" | =
-wc -l
-93
-$ git grep -E "\btime_(before|after|before_eq|after_eq)+\s*\(.*jiffies"=
- | wc -l
-1695
-
-<shrug>  Maybe there's some reading clarity using
-the time_is_(before|after)_jiffies variants.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I removed stable@ , as stable submissions are not done like that.
