@@ -1,77 +1,59 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/13] wimax/i2400m: make return of 0 explicit
-Date: Mon, 19 May 2014 06:31:06 +0200
-Message-ID: <1400473875-22228-5-git-send-email-Julia.Lawall@lip6.fr>
-References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, linux-wimax@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v9] can: add Renesas R-Car CAN driver
+Date: Mon, 19 May 2014 08:18:27 +0200
+Message-ID: <5379A233.6010007@pengutronix.de>
+References: <201405170003.55177.sergei.shtylyov@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="GIHxqXP8IGIQ7sVx7miern0rApgP09C5a"
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56068 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752937AbaESGSi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 02:18:38 -0400
+In-Reply-To: <201405170003.55177.sergei.shtylyov@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--GIHxqXP8IGIQ7sVx7miern0rApgP09C5a
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Delete unnecessary local variable whose value is always 0 and that hides
-the fact that the result is always 0.
+On 05/16/2014 10:03 PM, Sergei Shtylyov wrote:
+> Add support for the CAN controller found in Renesas R-Car SoCs.=20
+>=20
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-A simplified version of the semantic patch that fixes this problem is as
-follows: (http://coccinelle.lip6.fr/)
+Applied to can-next.
 
-// <smpl>
-@r exists@
-local idexpression ret;
-expression e;
-position p;
-@@
+Tnx,
+Marc
 
--ret = 0;
-... when != ret = e
-return 
-- ret
-+ 0
-  ;
-// </smpl>
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
----
-Alternatively, is an error code wanted under the if?
+--GIHxqXP8IGIQ7sVx7miern0rApgP09C5a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
- drivers/net/wimax/i2400m/driver.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 9c34d2f..901a534 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -500,26 +500,23 @@ int i2400m_pm_notifier(struct notifier_block *notifier,
-  */
- int i2400m_pre_reset(struct i2400m *i2400m)
- {
--	int result;
- 	struct device *dev = i2400m_dev(i2400m);
- 
- 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
- 	d_printf(1, dev, "pre-reset shut down\n");
- 
--	result = 0;
- 	mutex_lock(&i2400m->init_mutex);
- 	if (i2400m->updown) {
- 		netif_tx_disable(i2400m->wimax_dev.net_dev);
- 		__i2400m_dev_stop(i2400m);
--		result = 0;
- 		/* down't set updown to zero -- this way
- 		 * post_reset can restore properly */
- 	}
- 	mutex_unlock(&i2400m->init_mutex);
- 	if (i2400m->bus_release)
- 		i2400m->bus_release(i2400m);
--	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
--	return result;
-+	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, 0);
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(i2400m_pre_reset);
- 
+iEUEARECAAYFAlN5ojMACgkQjTAFq1RaXHPDFACY6QhJlaPzvh/e48GZrVERZPfa
+qgCgix5WNhTimcRHtUOaukJDyOuS5XY=
+=WW62
+-----END PGP SIGNATURE-----
+
+--GIHxqXP8IGIQ7sVx7miern0rApgP09C5a--
