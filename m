@@ -1,54 +1,98 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Mon, 19 May 2014 23:49:22 +0930
-Message-ID: <537A12EA.4060604@davidnewall.com>
-References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc>
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: [RFC] Support for Multipath TCP in the Linux kernel
+Date: Mon, 19 May 2014 17:23:01 +0300
+Message-ID: <CAE1zot+kBdDbYrZ9m2oCg12yUBAZvToPeDeB4aZmD65xg4e0Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140519140119.GA24523@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Christoph Paasch <christoph.paasch@uclouvain.be>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:47410 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681AbaESOXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 10:23:03 -0400
+Received: by mail-we0-f169.google.com with SMTP id u56so5656560wes.14
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 07:23:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for the reply.  I've been hanging out for it!
+Multipath TCP is a new protocol and Experimental RFC [1] that
+extends TCP with the purpose of allowing (simultaneous) connectivity
+across multiple physical links. Its main use-cases are in mobility
+(e.g. 3G/WiFi aggregation or handover) and datacenter and there
+already are commercial implementations available [2] [3] [4].
 
-On 19/05/14 23:31, Florian Westphal wrote:
-> Well, did you test what happens if we try to refrag a packet
-> containing ip options after the revert?
->
-> can happen e.g. when using netfilter conntrack on top of a bridge.
+An out-of-tree MPTCP implementation for the Linux kernel [5] exists
+for some time now and I think it is a good time to start discussing
+about including MPTCP in the Linux kernel and what is the best
+approach to do so.
 
-No.  I expect it would panic, as was reported prior to the commit.
+I know that some people think that MPTCP is not mature enough to
+justify increasing the complexity of the TCP stack and hence I will
+open up the discussion with a few approaches to get MPTCP supported in
+Linux.
 
-I tried to persevere with the commit: I recalculated checksum, which 
-left routes and times improperly updated in options.  Then I tried 
-calling ip_forward_options, which looks like it would correctly update 
-RR and TS (not to mention checksum)m but that bombed because skb_rtable 
-returned NULL.  I think calling skb_set_dst would answer that, but I 
-don't know how to get a valid dst.  (I asked for help but no answer.)
+1. Implementation at the TCP level
+----------------------------------
 
-I see three ways to progress:
+This is the approach that current out-of-tree implementation took. It
+is the most flexible approach and can probably offer the best
+performance and it is quite mature, but at the cost of increased
+complexity in the TCP stack.
 
-1. Possibly call ip_forward_option, but that requires somebody who 
-understands this code to help;
-2. Just recalculate the checksum, leaving crap in the options; or
-3. Revert the commit.
+The main source of that cost comes from the fact that in the case of
+MPTCP the original TCP socket is cloned to create a master socket (a
+special case of subflow) then modified to be a meta_socket with its
+own sk_backlog_rcv callback. Subsequent sub-flows sockets are created
+as TCP sockets and linked to the meta socket.
 
-Option 1 doesn't look like it's going to happen; option 2 is stupid; 
-leaving option 3, and I begin to think that's the right way to go if 
-bridge is supposed to be a bridge and not a router.  The idea that 
-bridge is doing too much seems to have quite a lot of currency, so think 
-of reversion as chopping off a canker.  Or we keep fixing bugs, adding 
-to bridge, until it replicates all of IP.
+Then various places in the TCP stack are checked to see if processing
+is done for either a subflow socket, a meta socket or a plain TCP
+socket.
 
-How does a packet get fragmented in this case?  Does it only happen when 
-bridging to a device with smaller MTU?  That scenario sounds quite 
-un-bridge-like.  It also sounds like something that can be handled by 
-real routing.
+2. Implementation on top of the TCP level
+-----------------------------------------
+
+In this approach a new socket family is created that will implement
+the MPTCP logic and uses plain TCP sockets for the sub-flows. In order
+for this to work we will need to implement in the TCP stack a way of
+passing new TCP options.
+
+We will also need a mechanism to redirect the TCP socket() API to the
+MPTCP layer, in certain conditions (e.g. for a particular application,
+system wide, etc.) to conform with MPTCP requirements that the changes
+should be invisible to the application.
+
+In order to allow for fallback to TCP (also required by MPTCP) we
+propose a mechanism that allows switching between sockets at the file
+level (e.g. from the MPTCP socket to the subflow TCP socket).
+
+This has the potential of reducing the complexity impact to the
+existing TCP stack, but we do not have an implementation (except some
+prof-of-concept hacks) and probably more changes will be required in
+the TCP stack to support MPTCP congestion. The MPTCP performance will
+also probably not be on par with the previous approach.
+
+3. Implementation in userspace
+------------------------------
+
+Eric Dumazet proposed to implement MPTCP and other experimental TCP
+extensions in userspace. Due to MPTCP requirements, that no changes to
+the application must be done, this is difficult to do without the
+equivalent of a FUSE like solution for networking (which would be an
+interesting project).
+
+In addition, without the ability to send new TCP options at the socket
+API level, it would mean that basic TCP handling will need to be
+implemented as well ending up with a duplicated TCP stack.
+
+IMHO, leaving the performance issues aside, MPTCP in userspace without
+NUSE and the ability to pass new TCP options at the socket level is
+not something worth doing at the moment, it offers no benefits to an
+out of tree implementation.
+
+[1] http://tools.ietf.org/html/rfc6824
+[2] http://blogs.citrix.com/2013/08/30/mptcp-netscaler-way/
+[3] http://appleinsider.com/articles/13/09/20/apple-found-to-be-using-advanced-multipath-tcp-networking-in-ios-7
+[4] https://devcentral.f5.com/articles/mptcp-improving-the-mobile-user-experience
+[5] https://github.com/multipath-tcp/mptcp
