@@ -1,58 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] isdn: hisax: l3dss1.c:  Fix for possible null pointer
- dereference
-Date: Tue, 20 May 2014 01:26:52 +0400
-Message-ID: <537A771C.2050808@cogentembedded.com>
-References: <1400534662-5729-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400534662-5729-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH v2 net-next 0/2] enic: Add adaptive coalescing interrupt support
+Date: Tue, 20 May 2014 03:12:42 +0530
+Message-ID: <1400535762-13318-1-git-send-email-_govind@gmx.com>
+Cc: benve@cisco.com, neepatel@cisco.com, ssujith@cisco.com,
+	_govind@gmx.com
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.201]:61041 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751026AbaESVoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 May 2014 17:44:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2014 01:24 AM, Rickard Strandqvist wrote:
+This series add support for adaptive coalescing interrupt and updates 
+enic Maintainers.
 
-> There is otherwise a risk of a possible null pointer dereference.
+v1->v2:
+	* Add commit log
+	* do vnic_intr_coalescing_timer_set only while enabling intr
+	* use ktime_get instead of hrtimer
+	* make enic_set_rx_coal_setting return type void
+	* change func name enic_apply_int_moderation to enic_calc_int_moderation
 
-> Was largely found by using a static code analysis program called cppcheck.
+Govindarajulu Varadarajan (1):
+  MAINTAINERS: Update enic maintainers
 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
->   drivers/isdn/hisax/l3dss1.c |   11 ++++++-----
->   1 file changed, 6 insertions(+), 5 deletions(-)
+Sujith Sankar (1):
+  enic: Add support for adaptive interrupt coalescing
 
-> diff --git a/drivers/isdn/hisax/l3dss1.c b/drivers/isdn/hisax/l3dss1.c
-> index cda7006..9ea7377 100644
-> --- a/drivers/isdn/hisax/l3dss1.c
-> +++ b/drivers/isdn/hisax/l3dss1.c
-> @@ -2203,13 +2203,14 @@ static int l3dss1_cmd_global(struct PStack *st, isdn_ctrl *ic)
->   			memcpy(p, ic->parm.dss1_io.data, ic->parm.dss1_io.datalen); /* copy data */
->   			l = (p - temp) + ic->parm.dss1_io.datalen; /* total length */
->
-> -			if (ic->parm.dss1_io.timeout > 0)
-> -				if (!(pc = dss1_new_l3_process(st, -1)))
-> -				{ free_invoke_id(st, id);
-> +			if (ic->parm.dss1_io.timeout > 0) {
-> +				if (!(pc = dss1_new_l3_process(st, -1))) {
+ MAINTAINERS                                    |   3 +-
+ drivers/net/ethernet/cisco/enic/enic.h         |  30 +++++
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |  61 +++++++++-
+ drivers/net/ethernet/cisco/enic/enic_main.c    | 150 +++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/vnic_cq.h      |   9 ++
+ 5 files changed, 245 insertions(+), 8 deletions(-)
 
-    Assignments shouldn't be put into *if* statement. If you did run the patch 
-thru scripts/checkpatch.pl, it would have told you.
-
-> +					free_invoke_id(st, id);
->   					return (-2);
-
-    Parens not needed. Could as well fix it here...
-
->   				}
-> -			pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
-> -			pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
-> +				pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
-> +				pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
-> +			}
-
-WBR, Sergei
+-- 
+1.9.2
