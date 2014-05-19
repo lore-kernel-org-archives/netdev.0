@@ -1,7 +1,7 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 8/9] net: mv643xx_eth: Use dma_map_single() to map the skb fragments
-Date: Mon, 19 May 2014 13:59:59 -0300
-Message-ID: <1400518800-6111-9-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 6/9] net: mv643xx_eth: Avoid setting the initial TCP checksum
+Date: Mon, 19 May 2014 13:59:57 -0300
+Message-ID: <1400518800-6111-7-git-send-email-ezequiel.garcia@free-electrons.com>
 References: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Willy Tarreau <w@1wt.eu>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
@@ -13,67 +13,61 @@ Cc: Willy Tarreau <w@1wt.eu>,
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:53627 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:53617 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S964813AbaESRBV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:01:21 -0400
+	with ESMTP id S964772AbaESRBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 13:01:13 -0400
 In-Reply-To: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using dma_map_single() instead of skb_frag_dma_map() allows to unmap
-all the descriptors using dma_unmap_single(). This change allows
-to introduce software TSO in a less intrusive way.
+As specified in the datasheet, the driver can set the "L4Chk_Mode" flag
+(bit 10) in the Tx descriptor command/status to specify that a frame is not
+IP fragmented and that the controller is in charge of generating the TCP/IP
+checksum. This must be used together with the "GL4chk" flag (bit 17).
+
+These two flags allow to avoid setting the initial TCP checksum in the l4i_chk
+field of the Tx descriptor, which is needed to support software TSO.
 
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 01fde2c..8854751 100644
+index 14a0dbb..5ad19d2 100644
 --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
 +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -732,8 +732,10 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
- 		skb_frag_t *this_frag;
- 		int tx_index;
- 		struct tx_desc *desc;
-+		void *addr;
+@@ -250,6 +250,7 @@ struct tx_desc {
+ #define GEN_TCP_UDP_CHECKSUM		0x00020000
+ #define UDP_FRAME			0x00010000
+ #define MAC_HDR_EXTRA_4_BYTES		0x00008000
++#define GEN_TCP_UDP_CHK_FULL		0x00000400
+ #define MAC_HDR_EXTRA_8_BYTES		0x00000200
  
- 		this_frag = &skb_shinfo(skb)->frags[frag];
-+		addr = page_address(this_frag->page.p) + this_frag->page_offset;
- 		tx_index = txq->tx_curr_desc++;
- 		if (txq->tx_curr_desc == txq->tx_ring_size)
- 			txq->tx_curr_desc = 0;
-@@ -753,10 +755,8 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+ #define TX_IHL_SHIFT			11
+@@ -695,17 +696,19 @@ static int skb_tx_csum(struct mv643xx_eth_private *mp, struct sk_buff *skb,
+ 		if (tag_bytes & 8)
+ 			cmd |= MAC_HDR_EXTRA_8_BYTES;
  
- 		desc->l4i_chk = 0;
- 		desc->byte_cnt = skb_frag_size(this_frag);
--		desc->buf_ptr = skb_frag_dma_map(mp->dev->dev.parent,
--						 this_frag, 0,
--						 skb_frag_size(this_frag),
--						 DMA_TO_DEVICE);
-+		desc->buf_ptr = dma_map_single(mp->dev->dev.parent, addr,
-+					       desc->byte_cnt, DMA_TO_DEVICE);
- 	}
- }
+-		cmd |= GEN_TCP_UDP_CHECKSUM |
++		cmd |= GEN_TCP_UDP_CHECKSUM | GEN_TCP_UDP_CHK_FULL |
+ 			   GEN_IP_V4_CHECKSUM   |
+ 			   ip_hdr(skb)->ihl << TX_IHL_SHIFT;
  
-@@ -927,14 +927,8 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 			mp->dev->stats.tx_errors++;
- 		}
- 
--		if (cmd_sts & TX_FIRST_DESC) {
--			dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
--					 desc->byte_cnt, DMA_TO_DEVICE);
--		} else {
--			dma_unmap_page(mp->dev->dev.parent, desc->buf_ptr,
--				       desc->byte_cnt, DMA_TO_DEVICE);
--		}
--
-+		dma_unmap_single(mp->dev->dev.parent, desc->buf_ptr,
-+				 desc->byte_cnt, DMA_TO_DEVICE);
- 		dev_kfree_skb(skb);
- 	}
- 
++		/* TODO: Revisit this. With the usage of GEN_TCP_UDP_CHK_FULL
++		 * it seems we don't need to pass the initial checksum. */
+ 		switch (ip_hdr(skb)->protocol) {
+ 		case IPPROTO_UDP:
+ 			cmd |= UDP_FRAME;
+-			*l4i_chk = ntohs(sum16_as_be(udp_hdr(skb)->check));
++			*l4i_chk = 0;
+ 			break;
+ 		case IPPROTO_TCP:
+-			*l4i_chk = ntohs(sum16_as_be(tcp_hdr(skb)->check));
++			*l4i_chk = 0;
+ 			break;
+ 		default:
+ 			WARN(1, "protocol not supported");
 -- 
 1.9.1
