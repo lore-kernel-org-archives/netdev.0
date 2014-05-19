@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ibm: ehea: ehea_qmr.c: Fix for possible
- null pointer dereference
-Date: Sun, 18 May 2014 21:26:28 -0400 (EDT)
-Message-ID: <20140518.212628.857663264573601256.davem@davemloft.net>
-References: <1400428881-10310-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: Re: pull request: batman-adv 20140518
+Date: Sun, 18 May 2014 21:27:35 -0400 (EDT)
+Message-ID: <20140518.212735.905674991343290713.davem@davemloft.net>
+References: <1400435890-6667-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rickard_strandqvist@spectrumdigital.se
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400428881-10310-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44455 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbaESB1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 May 2014 21:27:36 -0400
+In-Reply-To: <1400435890-6667-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Sun, 18 May 2014 18:01:21 +0200
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Sun, 18 May 2014 19:58:07 +0200
 
-> There is otherwise a risk of a possible null pointer dereference.
+> here you have our pull request for net-next.
 > 
-> Was largely found by using a static code analysis program called cppcheck.
+> Unfortunately this time we have nothing exciting for you (as you may have seen
+> we preferred to focus on bug fixing during the last period).
 > 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> Patch 1 and 2 slightly improve our codestyle in order to respect two new
+> checks that have been recently introduced in checkpatch.
+> 
+> Patch 3 is just increasing our internal version number.
 
-Applied, thanks.
+Pulled, thanks Antonio.
