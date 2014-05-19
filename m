@@ -1,18 +1,11 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 6/13] [NETFILTER]: arp_tables: make return of 0 explicit
-Date: Mon, 19 May 2014 06:31:08 +0200
-Message-ID: <1400473875-22228-7-git-send-email-Julia.Lawall@lip6.fr>
+Subject: [PATCH 4/13] wimax/i2400m: make return of 0 explicit
+Date: Mon, 19 May 2014 06:31:06 +0200
+Message-ID: <1400473875-22228-5-git-send-email-Julia.Lawall@lip6.fr>
 References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: kernel-janitors@vger.kernel.org, linux-wimax@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
@@ -44,30 +37,41 @@ return
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- net/ipv4/netfilter/arp_tables.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Alternatively, is an error code wanted under the if?
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index f95b6f9..89f6737 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -1289,9 +1289,8 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
- 	struct xt_target *target;
- 	struct arpt_entry *de;
- 	unsigned int origsize;
--	int ret, h;
-+	int h;
+ drivers/net/wimax/i2400m/driver.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
+index 9c34d2f..901a534 100644
+--- a/drivers/net/wimax/i2400m/driver.c
++++ b/drivers/net/wimax/i2400m/driver.c
+@@ -500,26 +500,23 @@ int i2400m_pm_notifier(struct notifier_block *notifier,
+  */
+ int i2400m_pre_reset(struct i2400m *i2400m)
+ {
+-	int result;
+ 	struct device *dev = i2400m_dev(i2400m);
  
--	ret = 0;
- 	origsize = *size;
- 	de = (struct arpt_entry *)*dstptr;
- 	memcpy(de, e, sizeof(struct arpt_entry));
-@@ -1312,7 +1311,7 @@ compat_copy_entry_from_user(struct compat_arpt_entry *e, void **dstptr,
- 		if ((unsigned char *)de - base < newinfo->underflow[h])
- 			newinfo->underflow[h] -= origsize - *size;
+ 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
+ 	d_printf(1, dev, "pre-reset shut down\n");
+ 
+-	result = 0;
+ 	mutex_lock(&i2400m->init_mutex);
+ 	if (i2400m->updown) {
+ 		netif_tx_disable(i2400m->wimax_dev.net_dev);
+ 		__i2400m_dev_stop(i2400m);
+-		result = 0;
+ 		/* down't set updown to zero -- this way
+ 		 * post_reset can restore properly */
  	}
--	return ret;
+ 	mutex_unlock(&i2400m->init_mutex);
+ 	if (i2400m->bus_release)
+ 		i2400m->bus_release(i2400m);
+-	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
+-	return result;
++	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, 0);
 +	return 0;
  }
+ EXPORT_SYMBOL_GPL(i2400m_pre_reset);
  
- static int translate_compat_table(const char *name,
