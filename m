@@ -1,12 +1,11 @@
 From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 02/13] openvswitch: Avoid assigning a
-	NULL pointer to flow actions.
-Date: Tue, 20 May 2014 01:59:53 -0700
-Message-ID: <1400576393-2229-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 03/13] openvswitch: Clarify locking.
+Date: Tue, 20 May 2014 01:59:58 -0700
+Message-ID: <1400576398-2258-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
@@ -22,74 +21,120 @@ List-Id: netdev.vger.kernel.org
 
 From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Flow SET can accept an empty set of actions, with the intended
-semantics of leaving existing actions unmodified.  This seems to have
-been brokin after OVS 1.7, as we have assigned the flow's actions
-pointer to NULL in this case, but we never check for the NULL pointer
-later on.  This patch restores the intended behavior and documents it
-in the include/linux/openvswitch.h.
+Remove unnecessary locking from functions that are always called with
+appropriate locking.
 
 Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Thomas Graf <tgraf-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- include/uapi/linux/openvswitch.h |  4 +++-
- net/openvswitch/datapath.c       | 14 ++++++++------
- 2 files changed, 11 insertions(+), 7 deletions(-)
+ net/openvswitch/datapath.c | 13 +++++++------
+ net/openvswitch/flow.c     |  3 ++-
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 970553c..0b979ee 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -395,7 +395,9 @@ struct ovs_key_nd {
-  * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
-  * the actions to take for packets that match the key.  Always present in
-  * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
-- * %OVS_FLOW_CMD_SET requests.
-+ * %OVS_FLOW_CMD_SET requests.  An %OVS_FLOW_CMD_SET without
-+ * %OVS_FLOW_ATTR_ACTIONS will not modify the actions.  To clear the actions,
-+ * an %OVS_FLOW_ATTR_ACTIONS without any nested attributes must be given.
-  * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
-  * flow.  Present in notifications if the stats would be nonzero.  Ignored in
-  * requests.
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 8867d7e..90a1e5e 100644
+index 90a1e5e..138ea0c 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -810,6 +810,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			goto err_kfree;
- 		}
- 	} else if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW) {
-+		/* OVS_FLOW_CMD_NEW must have actions. */
- 		error = -EINVAL;
- 		goto error;
+@@ -173,6 +173,7 @@ static struct hlist_head *vport_hash_bucket(const struct datapath *dp,
+ 	return &dp->ports[port_no & (DP_VPORT_HASH_BUCKETS - 1)];
+ }
+ 
++/* Called with ovs_mutex or RCU read lock. */
+ struct vport *ovs_lookup_vport(const struct datapath *dp, u16 port_no)
+ {
+ 	struct vport *vport;
+@@ -652,7 +653,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
+ 		+ nla_total_size(acts->actions_len); /* OVS_FLOW_ATTR_ACTIONS */
+ }
+ 
+-/* Called with ovs_mutex. */
++/* Called with ovs_mutex or RCU read lock. */
+ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
+ 				  struct sk_buff *skb, u32 portid,
+ 				  u32 seq, u32 flags, u8 cmd)
+@@ -743,6 +744,7 @@ error:
+ 	return err;
+ }
+ 
++/* Must be called with ovs_mutex. */
+ static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow,
+ 					       struct genl_info *info)
+ {
+@@ -753,6 +755,7 @@ static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow,
+ 	return genlmsg_new_unicast(len, info, GFP_KERNEL);
+ }
+ 
++/* Must be called with ovs_mutex. */
+ static struct sk_buff *ovs_flow_cmd_build_info(struct sw_flow *flow,
+ 					       struct datapath *dp,
+ 					       struct genl_info *info,
+@@ -1094,6 +1097,7 @@ static size_t ovs_dp_cmd_msg_size(void)
+ 	return msgsize;
+ }
+ 
++/* Called with ovs_mutex or RCU read lock. */
+ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
+ 				u32 portid, u32 seq, u32 flags, u8 cmd)
+ {
+@@ -1109,9 +1113,7 @@ static int ovs_dp_cmd_fill_info(struct datapath *dp, struct sk_buff *skb,
+ 
+ 	ovs_header->dp_ifindex = get_dpifindex(dp);
+ 
+-	rcu_read_lock();
+ 	err = nla_put_string(skb, OVS_DP_ATTR_NAME, ovs_dp_name(dp));
+-	rcu_read_unlock();
+ 	if (err)
+ 		goto nla_put_failure;
+ 
+@@ -1136,6 +1138,7 @@ error:
+ 	return -EMSGSIZE;
+ }
+ 
++/* Must be called with ovs_mutex. */
+ static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp,
+ 					     struct genl_info *info, u8 cmd)
+ {
+@@ -1154,7 +1157,7 @@ static struct sk_buff *ovs_dp_cmd_build_info(struct datapath *dp,
+ 	return skb;
+ }
+ 
+-/* Called with ovs_mutex. */
++/* Called with rcu_read_lock or ovs_mutex. */
+ static struct datapath *lookup_datapath(struct net *net,
+ 					struct ovs_header *ovs_header,
+ 					struct nlattr *a[OVS_DP_ATTR_MAX + 1])
+@@ -1166,10 +1169,8 @@ static struct datapath *lookup_datapath(struct net *net,
+ 	else {
+ 		struct vport *vport;
+ 
+-		rcu_read_lock();
+ 		vport = ovs_vport_locate(net, nla_data(a[OVS_DP_ATTR_NAME]));
+ 		dp = vport && vport->port_no == OVSP_LOCAL ? vport->dp : NULL;
+-		rcu_read_unlock();
  	}
-@@ -849,8 +850,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
- 	} else {
- 		/* We found a matching flow. */
--		struct sw_flow_actions *old_acts;
--
- 		/* Bail out if we're not allowed to modify an existing flow.
- 		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
- 		 * because Generic Netlink treats the latter as a dump
-@@ -866,11 +865,14 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		if (!ovs_flow_cmp_unmasked_key(flow, &match))
- 			goto err_unlock_ovs;
+ 	return dp ? dp : ERR_PTR(-ENODEV);
+ }
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 6d8d2da..1019fc1 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -122,6 +122,7 @@ unlock:
+ 	spin_unlock(&stats->lock);
+ }
  
--		/* Update actions. */
--		old_acts = ovsl_dereference(flow->sf_acts);
--		rcu_assign_pointer(flow->sf_acts, acts);
--		ovs_nla_free_flow_actions(old_acts);
-+		/* Update actions, if present. */
-+		if (acts) {
-+			struct sw_flow_actions *old_acts;
++/* Called with ovs_mutex. */
+ void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
+ 			unsigned long *used, __be16 *tcp_flags)
+ {
+@@ -132,7 +133,7 @@ void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
+ 	memset(ovs_stats, 0, sizeof(*ovs_stats));
  
-+			old_acts = ovsl_dereference(flow->sf_acts);
-+			rcu_assign_pointer(flow->sf_acts, acts);
-+			ovs_nla_free_flow_actions(old_acts);
-+		}
- 		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	for_each_node(node) {
+-		struct flow_stats *stats = rcu_dereference(flow->stats[node]);
++		struct flow_stats *stats = ovsl_dereference(flow->stats[node]);
  
- 		/* Clear stats. */
+ 		if (stats) {
+ 			/* Local CPU may write on non-local stats, so we must
 -- 
 1.9.0
