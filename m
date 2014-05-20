@@ -1,72 +1,234 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Tue, 20 May 2014 10:59:52 +1000
-Message-ID: <20140520105952.73f6adab@canb.auug.org.au>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH 1/2] net: fec: optimize the clock management to save power
+Date: Tue, 20 May 2014 13:22:51 +0800
+Message-ID: <1400563371-3359-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/KnBHmZDs9tZ6Gey/dRoMe6q"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
+	<bhutchings@solarflare.com>, <stephen@networkplumber.org>
+To: <b20596@freescale.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:17750
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751158AbaETGlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:41:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/KnBHmZDs9tZ6Gey/dRoMe6q
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Add below clock management to save fec power:
+- After probe, disable all clocks incluing ipg, ahb, enet_out, ptp clock.
+- Open ethx interface enable necessary clocks.
+  Close ethx interface disable all clocks.
 
-Hi all,
+The patch also encapsulates the all enet clocks enable/disable to
+.fec_enet_clk_enable(), which can reduce the repetitional code in
+driver.
 
-After merging the net tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |  120 +++++++++++++---------------
+ 1 files changed, 56 insertions(+), 64 deletions(-)
 
-
-In file included from arch/powerpc/net/bpf_jit_comp.c:16:0:
-include/linux/if_vlan.h: In function 'vlan_get_encap_level':
-include/linux/if_vlan.h:491:2: error: implicit declaration of function 'vla=
-n_dev_priv' [-Werror=3Dimplicit-function-declaration]
-  return vlan_dev_priv(dev)->nest_level;
-  ^
-include/linux/if_vlan.h:491:27: error: invalid type argument of '->' (have =
-'int')
-  return vlan_dev_priv(dev)->nest_level;
-                           ^
-
-Caused by commit 44a4085538c8 ("bonding: Fix stacked device detection
-in arp monitoring").
-
-vlan_dev_priv() is protected by:
-
-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-
-but the newly added call in vlan_get_encap_level() is not.
-
-I have used the net tree from next-20140519 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/KnBHmZDs9tZ6Gey/dRoMe6q
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTeqkNAAoJEMDTa8Ir7ZwVO4oP/3oXziwWreT3K+Tf7FiZ9HaH
-Kfj3b1sJYFkyn5eRNoBs5I0YncwYyufq3LfBP/LNrlWum7ZfaXw2cjdjSkRKt/vZ
-hZizhlGPix5AmfJCIGvxyHej1ib4lwpG/Kmrrqzn4AaweMflLD8Aq2aIQ+X02LaH
-7Tpy+xAvdsUoBXgjIBt+mFKk+DCeOb3NyZa2q7lgv3k4JmVREYOaG/x6t65yBhea
-4GFeobaHiTBAAyBhuilrQWV7pHFndUKkKTr9eZqKtAecrOueSR44x8AJlKO36E7V
-hYOYc9GrtYq87DzT+v+IFqNNER40Ua1VwvTXh8UTHNUpKoHp0CEwYkUsv3esJfCO
-1kEmnAHFTTy9e+esO7rJEV627u/RIN9hik+LAGdD35vOZKr8nzeuVIDQdW8GyQY9
-Npuzo5WNOqCISOWXULeKVDjiQdsqsjzFjGhffbX1M/piKxNwgC2M68xthFwfX9En
-MQs9gCrhlI0+aQSzeIedMWZzyDTm8ZW4ELzgI0ocHVNA+I0y7c5kwzBsbjWerVmo
-fKZxSPv/ovx1FKskpq2wQcneH8Jd67ZcxIu+kVvh/dxfmSx4VnNDAVHp+nI6GV4p
-fUHVElRkFGTTcmYTa0gN8vrbh5dAfTkgUux3Ykea3FwKFUjs90Keur/YX8McgMWX
-kCc9LgwIlXtRipx+43dy
-=upfj
------END PGP SIGNATURE-----
-
---Sig_/KnBHmZDs9tZ6Gey/dRoMe6q--
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 8d69e43..99fb0dc 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1255,6 +1255,49 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	return 0;
+ }
+ 
++static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	int ret;
++
++	if (enable) {
++		ret = clk_prepare_enable(fep->clk_ahb);
++		if (ret)
++			return ret;
++		ret = clk_prepare_enable(fep->clk_ipg);
++		if (ret)
++			goto failed_clk_ipg;
++		if (fep->clk_enet_out) {
++			ret = clk_prepare_enable(fep->clk_enet_out);
++			if (ret)
++				goto failed_clk_enet_out;
++		}
++		if (fep->clk_ptp) {
++			ret = clk_prepare_enable(fep->clk_ptp);
++			if (ret)
++				goto failed_clk_ptp;
++		}
++	} else {
++		clk_disable_unprepare(fep->clk_ahb);
++		clk_disable_unprepare(fep->clk_ipg);
++		if (fep->clk_enet_out)
++			clk_disable_unprepare(fep->clk_enet_out);
++		if (fep->clk_ptp)
++			clk_disable_unprepare(fep->clk_ptp);
++	}
++
++	return 0;
++failed_clk_ptp:
++	if (fep->clk_enet_out)
++		clk_disable_unprepare(fep->clk_enet_out);
++failed_clk_enet_out:
++		clk_disable_unprepare(fep->clk_ipg);
++failed_clk_ipg:
++		clk_disable_unprepare(fep->clk_ahb);
++
++	return ret;
++}
++
+ static int fec_enet_mii_probe(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+@@ -1773,6 +1816,10 @@ fec_enet_open(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
++	ret = fec_enet_clk_enable(ndev, true);
++	if (ret)
++		return ret;
++
+ 	/* I should reset the ring buffers here, but I don't yet know
+ 	 * a simple way to do that.
+ 	 */
+@@ -1811,6 +1858,7 @@ fec_enet_close(struct net_device *ndev)
+ 		phy_disconnect(fep->phy_dev);
+ 	}
+ 
++	fec_enet_clk_enable(ndev, false);
+ 	fec_enet_free_buffers(ndev);
+ 
+ 	return 0;
+@@ -2164,26 +2212,10 @@ fec_probe(struct platform_device *pdev)
+ 		fep->bufdesc_ex = 0;
+ 	}
+ 
+-	ret = clk_prepare_enable(fep->clk_ahb);
++	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+ 		goto failed_clk;
+ 
+-	ret = clk_prepare_enable(fep->clk_ipg);
+-	if (ret)
+-		goto failed_clk_ipg;
+-
+-	if (fep->clk_enet_out) {
+-		ret = clk_prepare_enable(fep->clk_enet_out);
+-		if (ret)
+-			goto failed_clk_enet_out;
+-	}
+-
+-	if (fep->clk_ptp) {
+-		ret = clk_prepare_enable(fep->clk_ptp);
+-		if (ret)
+-			goto failed_clk_ptp;
+-	}
+-
+ 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
+ 	if (!IS_ERR(fep->reg_phy)) {
+ 		ret = regulator_enable(fep->reg_phy);
+@@ -2225,6 +2257,7 @@ fec_probe(struct platform_device *pdev)
+ 
+ 	/* Carrier starts down, phylib will bring it up */
+ 	netif_carrier_off(ndev);
++	fec_enet_clk_enable(ndev, false);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -2244,15 +2277,7 @@ failed_init:
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ failed_regulator:
+-	if (fep->clk_ptp)
+-		clk_disable_unprepare(fep->clk_ptp);
+-failed_clk_ptp:
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-failed_clk_enet_out:
+-	clk_disable_unprepare(fep->clk_ipg);
+-failed_clk_ipg:
+-	clk_disable_unprepare(fep->clk_ahb);
++	fec_enet_clk_enable(ndev, false);
+ failed_clk:
+ failed_ioremap:
+ 	free_netdev(ndev);
+@@ -2272,14 +2297,9 @@ fec_drv_remove(struct platform_device *pdev)
+ 	del_timer_sync(&fep->time_keep);
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+-	if (fep->clk_ptp)
+-		clk_disable_unprepare(fep->clk_ptp);
+ 	if (fep->ptp_clock)
+ 		ptp_clock_unregister(fep->ptp_clock);
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-	clk_disable_unprepare(fep->clk_ipg);
+-	clk_disable_unprepare(fep->clk_ahb);
++	fec_enet_clk_enable(ndev, false);
+ 	free_netdev(ndev);
+ 
+ 	return 0;
+@@ -2296,12 +2316,7 @@ fec_suspend(struct device *dev)
+ 		fec_stop(ndev);
+ 		netif_device_detach(ndev);
+ 	}
+-	if (fep->clk_ptp)
+-		clk_disable_unprepare(fep->clk_ptp);
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-	clk_disable_unprepare(fep->clk_ipg);
+-	clk_disable_unprepare(fep->clk_ahb);
++	fec_enet_clk_enable(ndev, false);
+ 
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+@@ -2322,25 +2337,9 @@ fec_resume(struct device *dev)
+ 			return ret;
+ 	}
+ 
+-	ret = clk_prepare_enable(fep->clk_ahb);
+-	if (ret)
+-		goto failed_clk_ahb;
+-
+-	ret = clk_prepare_enable(fep->clk_ipg);
++	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+-		goto failed_clk_ipg;
+-
+-	if (fep->clk_enet_out) {
+-		ret = clk_prepare_enable(fep->clk_enet_out);
+-		if (ret)
+-			goto failed_clk_enet_out;
+-	}
+-
+-	if (fep->clk_ptp) {
+-		ret = clk_prepare_enable(fep->clk_ptp);
+-		if (ret)
+-			goto failed_clk_ptp;
+-	}
++		goto failed_clk;
+ 
+ 	if (netif_running(ndev)) {
+ 		fec_restart(ndev, fep->full_duplex);
+@@ -2349,14 +2348,7 @@ fec_resume(struct device *dev)
+ 
+ 	return 0;
+ 
+-failed_clk_ptp:
+-	if (fep->clk_enet_out)
+-		clk_disable_unprepare(fep->clk_enet_out);
+-failed_clk_enet_out:
+-	clk_disable_unprepare(fep->clk_ipg);
+-failed_clk_ipg:
+-	clk_disable_unprepare(fep->clk_ahb);
+-failed_clk_ahb:
++failed_clk:
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 	return ret;
+-- 
+1.7.8
