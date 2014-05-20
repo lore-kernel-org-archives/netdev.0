@@ -1,79 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] Fixed zero copy GSO without orphaning the fragments
-Date: Tue, 20 May 2014 07:28:56 -0700
-Message-ID: <1400596136.5367.125.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1400585062-13580-1-git-send-email-igorr@swortex.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [BUG]ethtool: NIC blink
+Date: Tue, 20 May 2014 15:39:00 +0100
+Message-ID: <1400596740.17377.50.camel@deadeye.wl.decadent.org.uk>
+References: <CFA0BA5E.2E2E6%shawn.warren@rackspace.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-7ESEvhr8J6eqxxgrrnMd"
+Cc: netdev <netdev@vger.kernel.org>
+To: Shawn Warren <shawn.warren@rackspace.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35510 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752085AbaETOjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 10:39:06 -0400
+In-Reply-To: <CFA0BA5E.2E2E6%shawn.warren@rackspace.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-7ESEvhr8J6eqxxgrrnMd
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Simon Horman <horms@verge.net.au>,
-	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
-	Florian Westphal <fw@strlen.de>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Anton Nayshtut <anton@swortex.com>
-To: Igor Royzis <igorr@swortex.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400585062-13580-1-git-send-email-igorr@swortex.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2014-05-20 at 14:24 +0300, Igor Royzis wrote:
-> Fix accessing GSO fragments memory (and a possible corruption therefore) after
-> reporting completion in a zero copy callback. The previous fix in the commit 1fd819ec
-> orphaned frags which eliminates zero copy advantages. The fix makes the completion
-> called after all the fragments were processed avoiding unnecessary orphaning/copying
-> from userspace.
-> 
-> The GSO fragments corruption issue was observed in a typical QEMU/KVM VM setup that
-> hosts a Windows guest (since QEMU virtio-net Windows driver doesn't support GRO).
-> The fix has been verified by running the HCK OffloadLSO test.
-> 
-> Signed-off-by: Igor Royzis <igorr@swortex.com>
-> Signed-off-by: Anton Nayshtut <anton@swortex.com>
-> ---
->  include/linux/skbuff.h |    1 +
->  net/core/skbuff.c      |   18 +++++++++++++-----
->  2 files changed, 14 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 08074a8..8c49edc 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -287,6 +287,7 @@ struct skb_shared_info {
->  	struct sk_buff	*frag_list;
->  	struct skb_shared_hwtstamps hwtstamps;
->  	__be32          ip6_frag_id;
-> +	struct sk_buff  *zcopy_src;
->  
+[Re-sending with cc to netdev]
 
-Before your patch :
+On Tue, 2014-05-20 at 12:53 +0000, Shawn Warren wrote:
+> Hello Ben and NetDev,
+>=20
+>=20
+> I am curious how exactly the ethtool =E2=80=93p flag works when blinking
+> interface lights. I ran into an issue on a DELL R820 with an Intel
+> proc that when I blinked an interface and put ethtool in the
+> background, the load on the server began steadily increasing. I ran
+> the following command to reproduce the issue:
+>=20
+>=20
+> # ethtool =E2=80=93p eth2 3600 &
+>=20
+>=20
+> The load increased until the ethtool process was halted. Is this a
+> known bug/issue?
 
-sizeof(struct skb_shared_info)=0x140
-offsetof(struct skb_shared_info, frags[1])=0x40
+It's not a bug in the ethtool utility.
 
-SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x140
+Perhaps you have run into the problem explained in
+<https://git.kernel.org/linus/68f512f21a64c9b264df6c61a9333e7890faf74b>.
+The load will increase as processes wait (uninterruptibly) to obtain the
+RTNL lock.  They will appear as being in D state.
 
-After your patch :
+This was fixed in Linux 3.0, but older versions can't practically be
+fixed as it required an incompatible change to the driver API.
 
-sizeof(struct skb_shared_info)=0x148
-offsetof(struct skb_shared_info, frags[1])=0x48
+Ben.
 
-SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x180
+--=20
+Ben Hutchings
+Life would be so much easier if we could look at the source code.
 
-Thats a serious bump, because it increases all skb truesizes, and
-typical skb with one fragment will use 2 cache lines instead of one in
-struct skb_shared_info, so this adds memory pressure in fast path.
+--=-7ESEvhr8J6eqxxgrrnMd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-So while this patch might increase performance for some workloads,
-it generally decreases performance on many others.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU3tpBee/yOyVhhEJAQr9qhAAu+grPsXaQ7IgIQxE+l0ZtHjfWh4McHp2
+4e9lLhiX/fWHPsC6pBdQzpIwz1LE3uGKn5wLbkFl8Pm669uGg9ej82hUSCtKdETU
+BsZMEfeBKJDfFCZY9FWtHPATC7ZjxNnmSiTOZTe66Qaf0Y5ufTljobF0vT7Lw8bn
+dBhqJLp6RD/zF125O2uC3GKsBc1f+45NnKPsc2M8VZKwawoaa1i+ETBq0M2GfTay
+XkD1Ui5GGeCJajLnKgFDAtFP5PRTM+eyS221uanu2MowZgeR7Txn1ekqD1YvBJND
+BCtHH+KU9DVgYnpm24KPSu/V/mdm4TFc53E+dA46gwoH8IWi6wwk0jXqJotPM12B
+pMYdDfN7JAkHcQ6Algm74HUFMQfscOzyUrHLkaS07fUIfEVgKIKKusdEzgmNAWd6
+Fq0A+AleysWZ+STJaiMo35P5EnqjCTFtrOzcUvFoGIqt/5zT+kjmYhiI7iskBDNj
+u/AGjjGUUM6hVovDcccPdel+tdMuY0pNUtr1qoMbUn1qQS7hdXrAldC4C2Xxx34p
+kJNoMJI07yu9VG7h4sKqz3kc8RWgdsc4IiIpYvklwILgM9OUJan/svLKEqpNlH1Q
+8dmMl2TuNd7w31vkewxgWvR0a79BbNE256bNiPhbQ5FCUOe7jI8g2yNhsHCCF/9x
+10rXLI5YNK8=
+=t1T8
+-----END PGP SIGNATURE-----
+
+--=-7ESEvhr8J6eqxxgrrnMd--
