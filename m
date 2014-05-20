@@ -1,56 +1,84 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: Remove unbalanced clk_disable call
-Date: Tue, 20 May 2014 12:08:36 +0200
-Message-ID: <537B29A4.1010100@st.com>
-References: <1400578698-6407-1-git-send-email-hdegoede@redhat.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: [PATCH] net: davinci_emac: fix oops caused by uninitialized ndev->dev
+Date: Tue, 20 May 2014 15:41:37 +0530
+Message-ID: <1400580697-24994-1-git-send-email-nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chen-Yu Tsai <wens@csie.org>, <netdev@vger.kernel.org>
-To: Hans de Goede <hdegoede@redhat.com>
+Content-Type: text/plain
+Cc: Kevin Hilman <khilman@linaro.org>,
+	Linux DaVinci Mailing List
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	Linux netdev Mailing List <netdev@vger.kernel.org>,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Sekhar Nori <nsekhar@ti.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:34107 "EHLO
-	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750771AbaETKI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 06:08:59 -0400
-In-Reply-To: <1400578698-6407-1-git-send-email-hdegoede@redhat.com>
+Received: from comal.ext.ti.com ([198.47.26.152]:38835 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751755AbaETKMK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 06:12:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/20/2014 11:38 AM, Hans de Goede wrote:
-> The stmmac_open call was calling clk_disable_unprepare on phy init
-> failure, but it never calls clk_prepare_enable, this causes
-> a WARN_ON in the clk framework to trigger if for some reason phy init
-> fails.
->
-> Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+Commit e194312854edc22a2faf1931b3c0608fe20cb969 (drivers: net:
+davinci_cpdma: Convert kzalloc() to devm_kzalloc()) triggered
+a bug in emac_probe() wherein dev member of net_device is used
+for devres allocations even before it is initialized.
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+This patch fixes that by using the struct device in platform_device
+instead.
 
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
->   1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index d940034..0f4841d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1704,7 +1704,7 @@ static int stmmac_open(struct net_device *dev)
->   		if (ret) {
->   			pr_err("%s: Cannot attach to PHY (error: %d)\n",
->   			       __func__, ret);
-> -			goto phy_error;
-> +			return ret;
->   		}
->   	}
->
-> @@ -1779,8 +1779,6 @@ init_error:
->   dma_desc_error:
->   	if (priv->phydev)
->   		phy_disconnect(priv->phydev);
-> -phy_error:
-> -	clk_disable_unprepare(priv->stmmac_clk);
->
->   	return ret;
->   }
->
+While at it, use &pdev->dev consistently for console messages instead
+of using ndev->dev for just one case and remove an unnecessary line
+continuation.
+
+Reported-by: Kevin Hilman <khilman@linaro.org>
+Helped-by: George Cherian <george.cherian@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+---
+This patch fixes a bug in linux-next so it can wait for
+v3.16
+
+ drivers/net/ethernet/ti/davinci_emac.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index e76eae5..f32d730 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1865,7 +1865,6 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	struct emac_priv *priv;
+ 	unsigned long hw_ram_addr;
+ 	struct emac_platform_data *pdata;
+-	struct device *emac_dev;
+ 	struct cpdma_params dma_params;
+ 	struct clk *emac_clk;
+ 	unsigned long emac_bus_frequency;
+@@ -1911,7 +1910,6 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	priv->coal_intvl = 0;
+ 	priv->bus_freq_mhz = (u32)(emac_bus_frequency / 1000000);
+ 
+-	emac_dev = &ndev->dev;
+ 	/* Get EMAC platform data */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	priv->emac_base_phys = res->start + pdata->ctrl_reg_offset;
+@@ -1930,7 +1928,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 		hw_ram_addr = (u32 __force)res->start + pdata->ctrl_ram_offset;
+ 
+ 	memset(&dma_params, 0, sizeof(dma_params));
+-	dma_params.dev			= emac_dev;
++	dma_params.dev			= &pdev->dev;
+ 	dma_params.dmaregs		= priv->emac_base;
+ 	dma_params.rxthresh		= priv->emac_base + 0x120;
+ 	dma_params.rxfree		= priv->emac_base + 0x140;
+@@ -1994,7 +1992,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 
+ 
+ 	if (netif_msg_probe(priv)) {
+-		dev_notice(emac_dev, "DaVinci EMAC Probe found device "\
++		dev_notice(&pdev->dev, "DaVinci EMAC Probe found device "
+ 			   "(regs: %p, irq: %d)\n",
+ 			   (void *)priv->emac_base_phys, ndev->irq);
+ 	}
+-- 
+1.7.10.1
