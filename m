@@ -1,272 +1,120 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 11/13] openvswitch: Split ovs_flow_cmd_new_or_set().
-Date: Tue, 20 May 2014 02:00:45 -0700
-Message-ID: <1400576445-2493-1-git-send-email-pshelar@nicira.com>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:51551 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753718AbaEWRGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 13:06:45 -0400
-Received: by mail-pb0-f43.google.com with SMTP id up15so4412441pbc.2
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 10:06:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 10/13] openvswitch: Minimize
+	ovs_flow_cmd_del critical section.
+Date: Tue, 20 May 2014 02:00:40 -0700
+Message-ID: <1400576440-2464-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme@nicira.com>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Following patch will be easier to reason about with separate
-ovs_flow_cmd_new() and ovs_flow_cmd_set() functions.
+ovs_flow_cmd_del() now allocates reply (if needed) after the flow has
+already been removed from the flow table.  If the reply allocation
+fails, a netlink error is signaled with netlink_set_err(), as is
+already done in ovs_flow_cmd_new_or_set() in the similar situation.
 
-Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/datapath.c | 160 ++++++++++++++++++++++++++++++++-------------
- 1 file changed, 116 insertions(+), 44 deletions(-)
+ net/openvswitch/datapath.c | 53 ++++++++++++++++++++++++----------------------
+ 1 file changed, 28 insertions(+), 25 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index f28beda..22665a6 100644
+index 949fc7f..f28beda 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -792,16 +792,16 @@ static struct sk_buff *ovs_flow_cmd_build_info(const struct sw_flow *flow,
- 	return skb;
- }
- 
--static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
-+static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
- {
- 	struct nlattr **a = info->attrs;
- 	struct ovs_header *ovs_header = info->userhdr;
- 	struct sw_flow_key key, masked_key;
--	struct sw_flow *flow = NULL;
-+	struct sw_flow *flow;
- 	struct sw_flow_mask mask;
- 	struct sk_buff *reply;
- 	struct datapath *dp;
--	struct sw_flow_actions *acts = NULL;
-+	struct sw_flow_actions *acts;
+@@ -984,50 +984,53 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
  	struct sw_flow_match match;
- 	int error;
+ 	int err;
  
-@@ -817,23 +817,21 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		goto error;
- 
- 	/* Validate actions. */
--	if (a[OVS_FLOW_ATTR_ACTIONS]) {
--		acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
--		error = PTR_ERR(acts);
--		if (IS_ERR(acts))
--			goto error;
-+	error = -EINVAL;
-+	if (!a[OVS_FLOW_ATTR_ACTIONS])
-+		goto error;
- 
--		ovs_flow_mask_key(&masked_key, &key, &mask);
--		error = ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS],
--					     &masked_key, 0, &acts);
--		if (error) {
--			OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
--			goto err_kfree;
--		}
--	} else if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW) {
--		/* OVS_FLOW_CMD_NEW must have actions. */
--		error = -EINVAL;
-+	acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
-+	error = PTR_ERR(acts);
-+	if (IS_ERR(acts))
- 		goto error;
++	if (likely(a[OVS_FLOW_ATTR_KEY])) {
++		ovs_match_init(&match, &key, NULL);
++		err = ovs_nla_get_match(&match, a[OVS_FLOW_ATTR_KEY], NULL);
++		if (unlikely(err))
++			return err;
++	}
 +
-+	ovs_flow_mask_key(&masked_key, &key, &mask);
-+	error = ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS],
-+				     &masked_key, 0, &acts);
-+	if (error) {
-+		OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
-+		goto err_kfree;
- 	}
- 
  	ovs_lock();
-@@ -845,11 +843,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 	/* Check if this is a duplicate flow */
- 	flow = ovs_flow_tbl_lookup(&dp->table, &key);
- 	if (!flow) {
--		/* Bail out if we're not allowed to create a new flow. */
--		error = -ENOENT;
--		if (info->genlhdr->cmd == OVS_FLOW_CMD_SET)
--			goto err_unlock_ovs;
--
- 		/* Allocate flow. */
- 		flow = ovs_flow_alloc();
- 		if (IS_ERR(flow)) {
-@@ -867,11 +860,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 			acts = NULL;
- 			goto err_flow_free;
- 		}
--
--		reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
--						info, OVS_FLOW_CMD_NEW, false);
- 	} else {
--		/* We found a matching flow. */
-+		struct sw_flow_actions *old_acts;
-+
- 		/* Bail out if we're not allowed to modify an existing flow.
- 		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
- 		 * because Generic Netlink treats the latter as a dump
-@@ -879,30 +870,113 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		 * gets fixed.
- 		 */
- 		error = -EEXIST;
--		if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW &&
--		    info->nlhdr->nlmsg_flags & (NLM_F_CREATE | NLM_F_EXCL))
-+		if (info->nlhdr->nlmsg_flags & (NLM_F_CREATE | NLM_F_EXCL))
- 			goto err_unlock_ovs;
- 
- 		/* The unmasked key has to be the same for flow updates. */
- 		if (!ovs_flow_cmp_unmasked_key(flow, &match))
- 			goto err_unlock_ovs;
- 
--		/* Update actions, if present. */
--		if (acts) {
--			struct sw_flow_actions *old_acts;
-+		/* Update actions. */
-+		old_acts = ovsl_dereference(flow->sf_acts);
-+		rcu_assign_pointer(flow->sf_acts, acts);
-+		ovs_nla_free_flow_actions(old_acts);
-+	}
-+
-+	reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
-+					info, OVS_FLOW_CMD_NEW, false);
-+	ovs_unlock();
-+
-+	if (reply) {
-+		if (!IS_ERR(reply))
-+			ovs_notify(&dp_flow_genl_family, reply, info);
-+		else
-+			netlink_set_err(sock_net(skb->sk)->genl_sock, 0, 0,
-+					PTR_ERR(reply));
-+	}
-+	return 0;
-+
-+err_flow_free:
-+	ovs_flow_free(flow, false);
-+err_unlock_ovs:
-+	ovs_unlock();
-+err_kfree:
-+	kfree(acts);
-+error:
-+	return error;
-+}
- 
--			old_acts = ovsl_dereference(flow->sf_acts);
--			rcu_assign_pointer(flow->sf_acts, acts);
--			ovs_nla_free_flow_actions(old_acts);
-+static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
-+{
-+	struct nlattr **a = info->attrs;
-+	struct ovs_header *ovs_header = info->userhdr;
-+	struct sw_flow_key key, masked_key;
-+	struct sw_flow *flow;
-+	struct sw_flow_mask mask;
-+	struct sk_buff *reply = NULL;
-+	struct datapath *dp;
-+	struct sw_flow_actions *acts = NULL;
-+	struct sw_flow_match match;
-+	int error;
-+
-+	/* Extract key. */
-+	error = -EINVAL;
-+	if (!a[OVS_FLOW_ATTR_KEY])
-+		goto error;
-+
-+	ovs_match_init(&match, &key, &mask);
-+	error = ovs_nla_get_match(&match,
-+				  a[OVS_FLOW_ATTR_KEY], a[OVS_FLOW_ATTR_MASK]);
-+	if (error)
-+		goto error;
-+
-+	/* Validate actions. */
-+	if (a[OVS_FLOW_ATTR_ACTIONS]) {
-+		acts = ovs_nla_alloc_flow_actions(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
-+		error = PTR_ERR(acts);
-+		if (IS_ERR(acts))
-+			goto error;
-+
-+		ovs_flow_mask_key(&masked_key, &key, &mask);
-+		error = ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS],
-+					     &masked_key, 0, &acts);
-+		if (error) {
-+			OVS_NLERR("Flow actions may not be safe on all matching packets.\n");
-+			goto err_kfree;
- 		}
-+	}
- 
--		reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
--						info, OVS_FLOW_CMD_NEW, false);
-+	ovs_lock();
-+	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
-+	error = -ENODEV;
-+	if (!dp)
-+		goto err_unlock_ovs;
-+
-+	/* Check that the flow exists. */
-+	flow = ovs_flow_tbl_lookup(&dp->table, &key);
-+	error = -ENOENT;
-+	if (!flow)
-+		goto err_unlock_ovs;
-+
-+	/* The unmasked key has to be the same for flow updates. */
-+	error = -EEXIST;
-+	if (!ovs_flow_cmp_unmasked_key(flow, &match))
-+		goto err_unlock_ovs;
- 
--		/* Clear stats. */
--		if (a[OVS_FLOW_ATTR_CLEAR])
--			ovs_flow_stats_clear(flow);
-+	/* Update actions, if present. */
-+	if (acts) {
-+		struct sw_flow_actions *old_acts;
-+
-+		old_acts = ovsl_dereference(flow->sf_acts);
-+		rcu_assign_pointer(flow->sf_acts, acts);
-+		ovs_nla_free_flow_actions(old_acts);
+ 	dp = get_dp(sock_net(skb->sk), ovs_header->dp_ifindex);
+-	if (!dp) {
++	if (unlikely(!dp)) {
+ 		err = -ENODEV;
+ 		goto unlock;
  	}
+ 
+-	if (!a[OVS_FLOW_ATTR_KEY]) {
++	if (unlikely(!a[OVS_FLOW_ATTR_KEY])) {
+ 		err = ovs_flow_tbl_flush(&dp->table);
+ 		goto unlock;
+ 	}
+ 
+-	ovs_match_init(&match, &key, NULL);
+-	err = ovs_nla_get_match(&match, a[OVS_FLOW_ATTR_KEY], NULL);
+-	if (err)
+-		goto unlock;
+-
+ 	flow = ovs_flow_tbl_lookup(&dp->table, &key);
+-	if (!flow || !ovs_flow_cmp_unmasked_key(flow, &match)) {
++	if (unlikely(!flow || !ovs_flow_cmp_unmasked_key(flow, &match))) {
+ 		err = -ENOENT;
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_alloc_info(ovsl_dereference(flow->sf_acts), info,
+-					false);
+-	if (IS_ERR(reply)) {
+-		err = PTR_ERR(reply);
+-		goto unlock;
+-	}
+-
+ 	ovs_flow_tbl_remove(&dp->table, flow);
++	ovs_unlock();
+ 
+-	if (reply) {
+-		err = ovs_flow_cmd_fill_info(flow, ovs_header->dp_ifindex,
+-					     reply, info->snd_portid,
+-					     info->snd_seq, 0,
+-					     OVS_FLOW_CMD_DEL);
+-		BUG_ON(err < 0);
++	reply = ovs_flow_cmd_alloc_info((const struct sw_flow_actions __force *) flow->sf_acts,
++					info, false);
++	if (likely(reply)) {
++		if (likely(!IS_ERR(reply))) {
++			rcu_read_lock();	/*To keep RCU checker happy. */
++			err = ovs_flow_cmd_fill_info(flow, ovs_header->dp_ifindex,
++						     reply, info->snd_portid,
++						     info->snd_seq, 0,
++						     OVS_FLOW_CMD_DEL);
++			rcu_read_unlock();
++			BUG_ON(err < 0);
 +
-+	reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
-+					info, OVS_FLOW_CMD_NEW, false);
-+	/* Clear stats. */
-+	if (a[OVS_FLOW_ATTR_CLEAR])
-+		ovs_flow_stats_clear(flow);
- 	ovs_unlock();
++			ovs_notify(&dp_flow_genl_family, reply, info);
++		} else {
++			netlink_set_err(sock_net(skb->sk)->genl_sock, 0, 0, PTR_ERR(reply));
++		}
+ 	}
+-	ovs_flow_free(flow, true);
+-	ovs_unlock();
  
- 	if (reply) {
-@@ -915,8 +989,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 
+-	if (reply)
+-		ovs_notify(&dp_flow_genl_family, reply, info);
++	ovs_flow_free(flow, true);
  	return 0;
- 
--err_flow_free:
--	ovs_flow_free(flow, false);
- err_unlock_ovs:
+ unlock:
  	ovs_unlock();
- err_kfree:
-@@ -1078,7 +1150,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
- 	{ .cmd = OVS_FLOW_CMD_NEW,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
--	  .doit = ovs_flow_cmd_new_or_set
-+	  .doit = ovs_flow_cmd_new
- 	},
- 	{ .cmd = OVS_FLOW_CMD_DEL,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
-@@ -1094,7 +1166,7 @@ static const struct genl_ops dp_flow_genl_ops[] = {
- 	{ .cmd = OVS_FLOW_CMD_SET,
- 	  .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
- 	  .policy = flow_policy,
--	  .doit = ovs_flow_cmd_new_or_set,
-+	  .doit = ovs_flow_cmd_set,
- 	},
- };
- 
 -- 
 1.9.0
