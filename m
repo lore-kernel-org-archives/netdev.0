@@ -1,35 +1,49 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 1/2] bridge: display IFLA_BRPORT_LEARNING value
-Date: Tue, 20 May 2014 11:37:29 +0200
-Message-ID: <1400578650-6917-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Hans de Goede <hdegoede@redhat.com>
+Subject: [PATCH] stmmac: Remove unbalanced clk_disable call
+Date: Tue, 20 May 2014 11:38:18 +0200
+Message-ID: <1400578698-6407-1-git-send-email-hdegoede@redhat.com>
+Cc: Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	Hans de Goede <hdegoede@redhat.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:45244 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751562AbaETJht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 05:37:49 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:3804 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751870AbaETJiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 05:38:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- bridge/link.c | 3 +++
- 1 file changed, 3 insertions(+)
+The stmmac_open call was calling clk_disable_unprepare on phy init
+failure, but it never calls clk_prepare_enable, this causes
+a WARN_ON in the clk framework to trigger if for some reason phy init
+fails.
 
-diff --git a/bridge/link.c b/bridge/link.c
-index 38dfaea2e180..1632bc16803f 100644
---- a/bridge/link.c
-+++ b/bridge/link.c
-@@ -185,6 +185,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 				if (prtb[IFLA_BRPORT_FAST_LEAVE])
- 					print_onoff(fp, "fastleave",
- 						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
-+				if (prtb[IFLA_BRPORT_LEARNING])
-+					print_onoff(fp, "learning",
-+						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
- 			}
- 		} else
- 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+Signed-off-by: Hans de Goede <hdegoede@redhat.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index d940034..0f4841d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1704,7 +1704,7 @@ static int stmmac_open(struct net_device *dev)
+ 		if (ret) {
+ 			pr_err("%s: Cannot attach to PHY (error: %d)\n",
+ 			       __func__, ret);
+-			goto phy_error;
++			return ret;
+ 		}
+ 	}
+ 
+@@ -1779,8 +1779,6 @@ init_error:
+ dma_desc_error:
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
+-phy_error:
+-	clk_disable_unprepare(priv->stmmac_clk);
+ 
+ 	return ret;
+ }
 -- 
 1.9.0
