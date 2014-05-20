@@ -1,48 +1,106 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 20 May 2014 10:50:58 -0400
-Message-ID: <537B6BD2.3060204@gmail.com>
-References: <20140520105952.73f6adab@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next] genirq: Eliminate explicit dependency between IRQ affinity notifiers and CONFIG_SMP
+Date: Tue, 20 May 2014 17:57:00 +0300
+Message-ID: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140520105952.73f6adab@canb.auug.org.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/19/2014 08:59 PM, Stephen Rothwell wrote:
-> Hi all,
-> 
-> After merging the net tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> 
-> In file included from arch/powerpc/net/bpf_jit_comp.c:16:0:
-> include/linux/if_vlan.h: In function 'vlan_get_encap_level':
-> include/linux/if_vlan.h:491:2: error: implicit declaration of function 'vlan_dev_priv' [-Werror=implicit-function-declaration]
->   return vlan_dev_priv(dev)->nest_level;
->   ^
-> include/linux/if_vlan.h:491:27: error: invalid type argument of '->' (have 'int')
->   return vlan_dev_priv(dev)->nest_level;
->                            ^
-> 
-> Caused by commit 44a4085538c8 ("bonding: Fix stacked device detection
-> in arp monitoring").
-> 
-> vlan_dev_priv() is protected by:
-> 
-> #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-> 
-> but the newly added call in vlan_get_encap_level() is not.
-> 
-> I have used the net tree from next-20140519 for today.
-> 
+From: Eyal Perry <eyalpe@mellanox.com>
 
-Right.  Apologies.  I missed the above fact.  Fix forthcoming.
+Instead of requiring each consumer of the IRQ affinity notifier to have
+themselves be explicitly dependent on CONFIG_SMP, make the definition of
+struct irq_affinity_notify to exist independently of that config option
+and introduce a stub for irq_set_affinity_notifier() under non SMP
+configuration.
 
--vlad
+Fixes: 2eacc23 ("net/mlx4_core: Enforce irq affinity changes
+immediatly")
+
+Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/interrupt.h | 46 ++++++++++++++++++++++++++--------------------
+ 1 file changed, 26 insertions(+), 20 deletions(-)
+
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index 97ac926..3f74c059 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -199,6 +199,26 @@ extern int check_wakeup_irqs(void);
+ static inline int check_wakeup_irqs(void) { return 0; }
+ #endif
+ 
++/**
++ * struct irq_affinity_notify - context for notification of IRQ affinity changes
++ * @irq:		Interrupt to which notification applies
++ * @kref:		Reference count, for internal use
++ * @work:		Work item, for internal use
++ * @notify:		Function to be called on change.  This will be
++ *			called in process context.
++ * @release:		Function to be called on release.  This will be
++ *			called in process context.  Once registered, the
++ *			structure must only be freed when this function is
++ *			called or later.
++ */
++struct irq_affinity_notify {
++	unsigned int irq;
++	struct kref kref;
++	struct work_struct work;
++	void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
++	void (*release)(struct kref *ref);
++};
++
+ #if defined(CONFIG_SMP)
+ 
+ extern cpumask_var_t irq_default_affinity;
+@@ -242,26 +262,6 @@ extern int irq_select_affinity(unsigned int irq);
+ 
+ extern int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m);
+ 
+-/**
+- * struct irq_affinity_notify - context for notification of IRQ affinity changes
+- * @irq:		Interrupt to which notification applies
+- * @kref:		Reference count, for internal use
+- * @work:		Work item, for internal use
+- * @notify:		Function to be called on change.  This will be
+- *			called in process context.
+- * @release:		Function to be called on release.  This will be
+- *			called in process context.  Once registered, the
+- *			structure must only be freed when this function is
+- *			called or later.
+- */
+-struct irq_affinity_notify {
+-	unsigned int irq;
+-	struct kref kref;
+-	struct work_struct work;
+-	void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
+-	void (*release)(struct kref *ref);
+-};
+-
+ extern int
+ irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify);
+ 
+@@ -284,6 +284,12 @@ static inline int irq_set_affinity_hint(unsigned int irq,
+ {
+ 	return -EINVAL;
+ }
++
++static inline int
++irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
++{
++	return 0;
++}
+ #endif /* CONFIG_SMP */
+ 
+ /*
+-- 
+1.8.3.4
