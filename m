@@ -1,82 +1,76 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: [PATCH 4/13 v2] wimax/i2400m: make return of 0 explicit
-Date: Tue, 20 May 2014 08:44:49 +0800 (SGT)
-Message-ID: <alpine.DEB.2.10.1405200844010.2723@hadrien>
-References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr> <1400473875-22228-5-git-send-email-Julia.Lawall@lip6.fr> <5379FD39.7020605@cogentembedded.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 0/9 net-next] net: of_phy_connect_fixed_link removal
+Date: Mon, 19 May 2014 17:56:15 -0700
+Message-ID: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	kernel-janitors@vger.kernel.org, linux-wimax@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <5379FD39.7020605@cogentembedded.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
+ Paul Mackerras <paulus@samba.org>, Florian Fainelli <f.fainelli@gmail.com>,
+ Claudiu Manoil <claudiu.manoil@freescale.com>,
+ Grant Likely <grant.likely@linaro.org>,
+ "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Richard Cochran <richardcochran@gmail.com>, Rob Herring <robh+dt@kernel.org>,
+ Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ Randy Dunlap <rdunlap@infradead.org>, open list <linux-kernel@vger.kernel.org>,
+ davem@davemlof.net, Vitaly Bordug <vbordug@ru.mvista.com>,
+ Kumar Gala <galak@codeaurora.org>,
+ "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
+ "David S.
+To: netdev@vger.kernel.org
+Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-
-Delete unnecessary local variable whose value is always 0 and that hides
-the fact that the result is always 0.
-
-A simplified version of the semantic patch that fixes this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@r exists@
-local idexpression ret;
-expression e;
-position p;
-@@
-
--ret = 0;
-... when != ret = e
-return
-- ret
-+ 0
-  ;
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
-Alternatively, is an error code wanted under the if?
-
-v2: remove the use of 0 as an argument in the call to d_fnend
-
- drivers/net/wimax/i2400m/driver.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 9c34d2f..9c78090 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -500,26 +500,23 @@ int i2400m_pm_notifier(struct notifier_block *notifier,
-  */
- int i2400m_pre_reset(struct i2400m *i2400m)
- {
--	int result;
- 	struct device *dev = i2400m_dev(i2400m);
-
- 	d_fnstart(3, dev, "(i2400m %p)\n", i2400m);
- 	d_printf(1, dev, "pre-reset shut down\n");
-
--	result = 0;
- 	mutex_lock(&i2400m->init_mutex);
- 	if (i2400m->updown) {
- 		netif_tx_disable(i2400m->wimax_dev.net_dev);
- 		__i2400m_dev_stop(i2400m);
--		result = 0;
- 		/* down't set updown to zero -- this way
- 		 * post_reset can restore properly */
- 	}
- 	mutex_unlock(&i2400m->init_mutex);
- 	if (i2400m->bus_release)
- 		i2400m->bus_release(i2400m);
--	d_fnend(3, dev, "(i2400m %p) = %d\n", i2400m, result);
--	return result;
-+	d_fnend(3, dev, "(i2400m %p) = 0\n", i2400m);
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(i2400m_pre_reset);
-
+SGkgYWxsLAoKVGhpcyBwYXRjaCBzZXQgcmVtb3ZlcyBvZl9waHlfY29ubmVjdF9maXhlZF9saW5r
+KCkgZnJvbSB0aGUgdHJlZSBub3cgdGhhdAp3ZSBoYXZlIGEgYmV0dGVyIHNvbHV0aW9uIGZvciBk
+ZWFsaW5nIHdpdGggZml4ZWQgUEhZIChlbXVsYXRlZCBQSFkpIGRldmljZXMKZm9yIGRyaXZlcnMg
+dGhhdCByZXF1aXJlIHRoZW0uCgpGaXJzdCB0d28gcGF0Y2hlcyB1cGRhdGUgdGhlICdmaXhlZC1s
+aW5rJyBEZXZpY2UgVHJlZSBiaW5kaW5nIGFuZCBkcml2ZXJzIHRvCnJlZmVyZSB0byBpdC4KClBh
+dGNoZXMgMyB0byA3IHVwZGF0ZSB0aGUgaW4tdHJlZSBuZXR3b3JrIGRyaXZlcnMgdGhhdCB1c2UK
+b2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluaygpCgpQYXRjaCA4IHJlbW92ZXMgb2ZfcGh5X2Nvbm5l
+Y3RfZml4ZWRfbGluawoKUGF0Y2ggOSByZW1vdmVzIHRoZSBQb3dlclBDIGNvZGUgdGhhdCBwYXJz
+ZWQgdGhlICdmaXhlZC1saW5rJyBwcm9wZXJ0eS4KClBhdGNoIDkgY2FuIGJlIG1lcmdlZCB2aWEg
+dGhlIG5ldC1uZXh0IHRyZWUgaWYgdGhlIFBvd2VyUEMgZm9sa3MgYWNrIGl0LApidXQgaXQgcmVh
+bGx5IGhhcyB0byBiZSBtZXJnZWQgYWZ0ZXIgdGhlIGZpcnN0IDggcGF0Y2hlcyBpbiBvcmRlciB0
+byBhdm9pZApicmVha2FnZS4KCkZsb3JpYW4gRmFpbmVsbGkgKDkpOgogIERvY3VtZW50YXRpb246
+IGRldmljZXRyZWU6IGFkZCBvbGQgYW5kIGRlcHJlY2F0ZWQgJ2ZpeGVkLWxpbmsnCiAgRG9jdW1l
+bnRhdGlvbjogZGV2aWNldHJlZTogbmV0OiByZWZlciB0byBmaXhlZC1saW5rLnR4dAogIG5ldDog
+YmNtZ2VuZXQ6IHVzZSB0aGUgbmV3IGZpeGVkIFBIWSBoZWxwZXJzCiAgbmV0OiBzeXN0ZW1wb3J0
+OiB1c2UgdGhlIG5ldyBmaXhlZCBQSFkgaGVscGVycwogIGZzX2VuZXQ6IHVzZSB0aGUgbmV3IGZp
+eGVkIFBIWSBoZWxwZXJzCiAgZ2lhbmZhcjogdXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMK
+ICB1Y2NfZ2V0aDogdXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMKICBvZjogbWRpbzogcmVt
+b3ZlIG9mX3BoeV9jb25uZWN0X2ZpeGVkX2xpbmsKICBwb3dlcnBjL2ZzbDogZnNsX3NvYzogcmVt
+b3ZlICdmaXhlZC1saW5rJyBwYXJzaW5nIGNvZGUKCiAuLi4vZGV2aWNldHJlZS9iaW5kaW5ncy9u
+ZXQvYnJvYWRjb20tYmNtZ2VuZXQudHh0ICB8ICAyICstCiAuLi4vYmluZGluZ3MvbmV0L2Jyb2Fk
+Y29tLXN5c3RlbXBvcnQudHh0ICAgICAgICAgICB8ICAyICstCiAuLi4vZGV2aWNldHJlZS9iaW5k
+aW5ncy9uZXQvZml4ZWQtbGluay50eHQgICAgICAgICB8IDEyICsrKysrKysKIC4uLi9kZXZpY2V0
+cmVlL2JpbmRpbmdzL25ldC9mc2wtdHNlYy1waHkudHh0ICAgICAgIHwgIDUgKy0tCiBhcmNoL3Bv
+d2VycGMvc3lzZGV2L2ZzbF9zb2MuYyAgICAgICAgICAgICAgICAgICAgICB8IDMyIC0tLS0tLS0t
+LS0tLS0tLS0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lzcG9ydC5jICAg
+ICAgICAgfCAxNyArKysrKysrKy0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21z
+eXNwb3J0LmggICAgICAgICB8ICAxICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2dl
+bmV0L2JjbW1paS5jICAgICAgIHwgMjEgKysrKysrKy0tLS0tCiAuLi4vbmV0L2V0aGVybmV0L2Zy
+ZWVzY2FsZS9mc19lbmV0L2ZzX2VuZXQtbWFpbi5jICB8IDE2ICsrKysrLS0tLQogZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2dpYW5mYXIuYyAgICAgICAgICAgfCAxNCArKysrKystLQog
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgICAgICAgICAgfCAxNCAr
+KysrKystLQogZHJpdmVycy9vZi9vZl9tZGlvLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgfCAzOCAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBpbmNsdWRlL2xpbnV4L29mX21kaW8uaCAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICB8IDEwIC0tLS0tLQogMTMgZmlsZXMgY2hhbmdlZCwg
+NzUgaW5zZXJ0aW9ucygrKSwgMTA5IGRlbGV0aW9ucygtKQoKLS0gCjEuOS4xCgpfX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGlu
+ZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJz
+Lm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
