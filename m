@@ -1,97 +1,79 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
- sleep/wakeup efficiency
-Date: Tue, 20 May 2014 06:59:09 -0700
-Message-ID: <1400594349.5367.114.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1400278308-25372-1-git-send-email-xii@google.com>
-			 <5379CE8D.2030405@redhat.com>
-		 <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
-		 <537ADD91.4000609@redhat.com>
-	 <1400562668.5367.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <537AF036.7010005@redhat.com>
+Subject: Re: [PATCH] Fixed zero copy GSO without orphaning the fragments
+Date: Tue, 20 May 2014 07:28:56 -0700
+Message-ID: <1400596136.5367.125.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400585062-13580-1-git-send-email-igorr@swortex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:60423 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753868AbaETN7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 09:59:13 -0400
-Received: by mail-pb0-f51.google.com with SMTP id ma3so347654pbc.38
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 06:59:13 -0700 (PDT)
-In-Reply-To: <537AF036.7010005@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Simon Horman <horms@verge.net.au>,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
+	Florian Westphal <fw@strlen.de>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Anton Nayshtut <anton@swortex.com>
+To: Igor Royzis <igorr@swortex.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400585062-13580-1-git-send-email-igorr@swortex.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-05-20 at 14:03 +0800, Jason Wang wrote:
-> On 05/20/2014 01:11 PM, Eric Dumazet wrote:
-> > On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
-> >> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
-> >>> About the sk_data_ready() and wake_up_all(), you missed the whole part
-> >>> of the patch I think.
-> >>>
-> >>> Check how sock_def_readable() does everything properly and efficiently,
-> >>> including the async part.
-> >> But this changes (sk_data_ready()) has nothing related to switching to
-> >> use __skb_recv_datagram()
-> >>
-> > This is totally related.
-> >
-> > I think you did not yet understood this patch
+On Tue, 2014-05-20 at 14:24 +0300, Igor Royzis wrote:
+> Fix accessing GSO fragments memory (and a possible corruption therefore) after
+> reporting completion in a zero copy callback. The previous fix in the commit 1fd819ec
+> orphaned frags which eliminates zero copy advantages. The fix makes the completion
+> called after all the fragments were processed avoiding unnecessary orphaning/copying
+> from userspace.
 > 
-> Sorry for being unclear, but I think you misunderstand my meaning.
-> >
-> > Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
-> >
-> > You should ask to yourself : Why do we use wq_has_sleeper() in
-> > networking stacks ?
+> The GSO fragments corruption issue was observed in a typical QEMU/KVM VM setup that
+> hosts a Windows guest (since QEMU virtio-net Windows driver doesn't support GRO).
+> The fix has been verified by running the HCK OffloadLSO test.
 > 
-> See my first reply, I don't have objection that uses sk_data_ready() in
-> tun_net_xmit(). My only concern is using sk_data_ready() in
-> tun_detach_all():
+> Signed-off-by: Igor Royzis <igorr@swortex.com>
+> Signed-off-by: Anton Nayshtut <anton@swortex.com>
+> ---
+>  include/linux/skbuff.h |    1 +
+>  net/core/skbuff.c      |   18 +++++++++++++-----
+>  2 files changed, 14 insertions(+), 5 deletions(-)
 > 
-> - It was only called during tun destroying, so I believe we don't care
-> about the performance in this condition.
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 08074a8..8c49edc 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -287,6 +287,7 @@ struct skb_shared_info {
+>  	struct sk_buff	*frag_list;
+>  	struct skb_shared_hwtstamps hwtstamps;
+>  	__be32          ip6_frag_id;
+> +	struct sk_buff  *zcopy_src;
+>  
 
-Its there for symmetry, and so far our tests just work.
+Before your patch :
 
-Have you run into any problems ?
+sizeof(struct skb_shared_info)=0x140
+offsetof(struct skb_shared_info, frags[1])=0x40
 
-> - sk_data_ready() was usually called when there's something new to be
-> processed which is not case in tun_detach_all()
+SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x140
 
-sk_data_ready() will wakeup waiters exactly like wake_up_all()
+After your patch :
 
-We do not use wake_up_all() in net/ipv4 & net/ipv6, have you seen any
-bug because of this ?
+sizeof(struct skb_shared_info)=0x148
+offsetof(struct skb_shared_info, frags[1])=0x48
 
-wake_up_all() is a lazy call, when an author cannot be careful enough to
-use a better way.
+SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x180
 
-Your resistance shows that you think the _existing_ code might be racy.
+Thats a serious bump, because it increases all skb truesizes, and
+typical skb with one fragment will use 2 cache lines instead of one in
+struct skb_shared_info, so this adds memory pressure in fast path.
 
-Care to elaborate instead ?
-
-> - Not sure it was a problem but sock_def_readable() will not wake up
-> uninterruptible task during tun destroying.
-
-Thats irrelevant. We are supposed to unblock threads that are waiting on
-the tun device, not threads doing uninterruptible stuff somewhere else
-in the kernel.
-
-Eventually they will later reach tun device and will detect device is
-gone/dismantled.
-
-> - If we make sock_fasync() works for tun in the future, it may send
-> SIGIO to user process during tun destroying which is not expected.
-
-SOCK_FASYNC is not set on the tun socket.
-
-sk_wake_async() does nothing in this case. As for 99.9999 % of TCP
-sockets and nobody ever noticed this code path was almost dead.
+So while this patch might increase performance for some workloads,
+it generally decreases performance on many others.
