@@ -1,86 +1,39 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
- efficiency
-Date: Tue, 20 May 2014 12:44:01 +0800
-Message-ID: <537ADD91.4000609@redhat.com>
-References: <1400278308-25372-1-git-send-email-xii@google.com>	 <5379CE8D.2030405@redhat.com> <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
+ skb before it enters the IP stack)
+Date: Tue, 20 May 2014 13:27:32 +0930
+Message-ID: <537AD2AC.4050009@davidnewall.com>
+References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc> <537A12EA.4060604@davidnewall.com> <20140519170915.GB24523@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6150 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750706AbaETEoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 00:44:14 -0400
-In-Reply-To: <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140519170915.GB24523@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/19/2014 10:09 PM, Eric Dumazet wrote:
-> On Mon, 2014-05-19 at 17:27 +0800, Jason Wang wrote:
+On 20/05/14 02:39, Florian Westphal wrote:
+>  From a quick glance, it should be sufficient to edit
+> br_parse_ip_options() and remove everything after
 >
->> Still a little bit difference. We check the reg_state after we're sure
->> there's nothing left in sk_receive_queue. But this patch returns -EIO
->> before trying to dequeue skb.
-> Do you think its a problem, other than a simple difference of behavior ?
+> memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
 
- I just point out the possible issues.
->
-> Is this -EIO thing a hard requirement, or a side effect ?
+Yes.  That's the way it used to be, and how it would return with the 
+change I'm proposing.  The br_parse_ip_option function would be removed 
+and its remaining code moved back from whence it came.
 
-Probably not, but it's really not hard to keep this.
->
-> Either we try to converge things, or we keep this driver a pile of
-> copy/pasted stuff from other locations, missing improvements we did
-> in core networking stack, because of some supposed differences.
 
-Agree, but we'd better separate the unrelated changes into other patches
-to simplify review and speed up convergence.
->
-> About the sk_data_ready() and wake_up_all(), you missed the whole part
-> of the patch I think.
->
-> Check how sock_def_readable() does everything properly and efficiently,
-> including the async part.
+> A 2nd step would be to move a copy of ip_options_compile()
+> into br_netfilter.c and trim it down to only validate the
+> ipv4 header without modifying it.
 
-But this changes (sk_data_ready()) has nothing related to switching to
-use __skb_recv_datagram()
-
-The async part may not work since tun has its own implementation of fasync.
->
-> static void sock_def_readable(struct sock *sk)
-> {
->         struct socket_wq *wq;
->
->         rcu_read_lock();
->         wq = rcu_dereference(sk->sk_wq);
->         if (wq_has_sleeper(wq))
->                 wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
->                                                 POLLRDNORM | POLLRDBAND);
->         sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
->         rcu_read_unlock();
-> }
->
-> Using sk_data_ready() is the way to reach sock_def_readable()
-> as its not an EXPORT_SYMBOL.
->
-> If this driver was using the common interface, we would not have
-> these false sharing problems, that were solved a long time ago.
-
-Yes, but better with a separate patch.
-
-We can probably rework the tun_fasync() to use sock_fasync(), but using
-sk_data_ready() in tun_detach_all() is still questionable. We may not
-want to send EIO to userspace when tun device is destroying.
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The bridge sounds like the wrong place to validate an IPv4 header, 
+unless it also validates every type of header; and that can't be right.  
+That we need to zero the cb area seems like a big clue that IP's 
+treatment of the area is lame.  I think that's where the problem lies, 
+and that the right thing to do is to yank out the crap from bridge that 
+papers over IP's weakness.
