@@ -1,106 +1,69 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] genirq: Eliminate explicit dependency between IRQ affinity notifiers and CONFIG_SMP
-Date: Tue, 20 May 2014 17:57:00 +0300
-Message-ID: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eyal Perry <eyalpe@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net] vlan: Fix build error wth vlan_get_encap_level()
+Date: Tue, 20 May 2014 10:59:26 -0400
+Message-ID: <1400597966-2825-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23606 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752976AbaETO7c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 10:59:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eyal Perry <eyalpe@mellanox.com>
+The new function vlan_get_encap_level() uses vlan_dev_priv()
+which is only conditionally avaialble when VLAN support is
+enabled.  Make vlan_get_encap_level() conditionally available
+as well.
 
-Instead of requiring each consumer of the IRQ affinity notifier to have
-themselves be explicitly dependent on CONFIG_SMP, make the definition of
-struct irq_affinity_notify to exist independently of that config option
-and introduce a stub for irq_set_affinity_notifier() under non SMP
-configuration.
-
-Fixes: 2eacc23 ("net/mlx4_core: Enforce irq affinity changes
-immediatly")
-
-Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Fixes: 44a4085538c8 ("bonding: Fix stacked device detection in arp monitoring")
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+CC: Stephen Rothwell <sfr@canb.auug.org.au>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/interrupt.h | 46 ++++++++++++++++++++++++++--------------------
- 1 file changed, 26 insertions(+), 20 deletions(-)
+ include/linux/if_vlan.h | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 97ac926..3f74c059 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -199,6 +199,26 @@ extern int check_wakeup_irqs(void);
- static inline int check_wakeup_irqs(void) { return 0; }
- #endif
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index c901b13..b2acc4a 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -198,6 +198,12 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
+ 				 const struct net_device *by_dev);
  
-+/**
-+ * struct irq_affinity_notify - context for notification of IRQ affinity changes
-+ * @irq:		Interrupt to which notification applies
-+ * @kref:		Reference count, for internal use
-+ * @work:		Work item, for internal use
-+ * @notify:		Function to be called on change.  This will be
-+ *			called in process context.
-+ * @release:		Function to be called on release.  This will be
-+ *			called in process context.  Once registered, the
-+ *			structure must only be freed when this function is
-+ *			called or later.
-+ */
-+struct irq_affinity_notify {
-+	unsigned int irq;
-+	struct kref kref;
-+	struct work_struct work;
-+	void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
-+	void (*release)(struct kref *ref);
-+};
+ extern bool vlan_uses_dev(const struct net_device *dev);
 +
- #if defined(CONFIG_SMP)
- 
- extern cpumask_var_t irq_default_affinity;
-@@ -242,26 +262,6 @@ extern int irq_select_affinity(unsigned int irq);
- 
- extern int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m);
- 
--/**
-- * struct irq_affinity_notify - context for notification of IRQ affinity changes
-- * @irq:		Interrupt to which notification applies
-- * @kref:		Reference count, for internal use
-- * @work:		Work item, for internal use
-- * @notify:		Function to be called on change.  This will be
-- *			called in process context.
-- * @release:		Function to be called on release.  This will be
-- *			called in process context.  Once registered, the
-- *			structure must only be freed when this function is
-- *			called or later.
-- */
--struct irq_affinity_notify {
--	unsigned int irq;
--	struct kref kref;
--	struct work_struct work;
--	void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
--	void (*release)(struct kref *ref);
--};
--
- extern int
- irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify);
- 
-@@ -284,6 +284,12 @@ static inline int irq_set_affinity_hint(unsigned int irq,
- {
- 	return -EINVAL;
- }
-+
-+static inline int
-+irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
++static inline int vlan_get_encap_level(struct net_device *dev)
 +{
++	BUG_ON(!is_vlan_dev(dev));
++	return vlan_dev_priv(dev)->nest_level;
++}
+ #else
+ static inline struct net_device *
+ __vlan_find_dev_deep(struct net_device *real_dev,
+@@ -264,6 +270,11 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
+ {
+ 	return false;
+ }
++static inline int vlan_get_encap_level(struct net_device *dev)
++{
++	BUG();
 +	return 0;
 +}
- #endif /* CONFIG_SMP */
+ #endif
  
- /*
+ static inline bool vlan_hw_offload_capable(netdev_features_t features,
+@@ -485,9 +496,4 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
+ 		skb->protocol = htons(ETH_P_802_2);
+ }
+ 
+-static inline int vlan_get_encap_level(struct net_device *dev)
+-{
+-	BUG_ON(!is_vlan_dev(dev));
+-	return vlan_dev_priv(dev)->nest_level;
+-}
+ #endif /* !(_LINUX_IF_VLAN_H_) */
 -- 
-1.8.3.4
+1.9.0
