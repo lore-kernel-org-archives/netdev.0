@@ -1,76 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 0/9 net-next] net: of_phy_connect_fixed_link removal
-Date: Mon, 19 May 2014 17:56:15 -0700
-Message-ID: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
+Date: Mon, 19 May 2014 18:34:05 -0700
+Message-ID: <CAEP_g=-X=T2hJoXTV5ptZRvf1WPgYa1xusczwSR1bUYAZ5yaqA@mail.gmail.com>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au> <1400195227-21265-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
- Paul Mackerras <paulus@samba.org>, Florian Fainelli <f.fainelli@gmail.com>,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- Grant Likely <grant.likely@linaro.org>,
- "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Richard Cochran <richardcochran@gmail.com>, Rob Herring <robh+dt@kernel.org>,
- Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- Randy Dunlap <rdunlap@infradead.org>, open list <linux-kernel@vger.kernel.org>,
- davem@davemlof.net, Vitaly Bordug <vbordug@ru.mvista.com>,
- Kumar Gala <galak@codeaurora.org>,
- "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
- "David S.
-To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:45277 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750894AbaETBe2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 May 2014 21:34:28 -0400
+Received: by mail-qg0-f41.google.com with SMTP id j5so10215176qga.28
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 18:34:27 -0700 (PDT)
+In-Reply-To: <1400195227-21265-2-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgYWxsLAoKVGhpcyBwYXRjaCBzZXQgcmVtb3ZlcyBvZl9waHlfY29ubmVjdF9maXhlZF9saW5r
-KCkgZnJvbSB0aGUgdHJlZSBub3cgdGhhdAp3ZSBoYXZlIGEgYmV0dGVyIHNvbHV0aW9uIGZvciBk
-ZWFsaW5nIHdpdGggZml4ZWQgUEhZIChlbXVsYXRlZCBQSFkpIGRldmljZXMKZm9yIGRyaXZlcnMg
-dGhhdCByZXF1aXJlIHRoZW0uCgpGaXJzdCB0d28gcGF0Y2hlcyB1cGRhdGUgdGhlICdmaXhlZC1s
-aW5rJyBEZXZpY2UgVHJlZSBiaW5kaW5nIGFuZCBkcml2ZXJzIHRvCnJlZmVyZSB0byBpdC4KClBh
-dGNoZXMgMyB0byA3IHVwZGF0ZSB0aGUgaW4tdHJlZSBuZXR3b3JrIGRyaXZlcnMgdGhhdCB1c2UK
-b2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluaygpCgpQYXRjaCA4IHJlbW92ZXMgb2ZfcGh5X2Nvbm5l
-Y3RfZml4ZWRfbGluawoKUGF0Y2ggOSByZW1vdmVzIHRoZSBQb3dlclBDIGNvZGUgdGhhdCBwYXJz
-ZWQgdGhlICdmaXhlZC1saW5rJyBwcm9wZXJ0eS4KClBhdGNoIDkgY2FuIGJlIG1lcmdlZCB2aWEg
-dGhlIG5ldC1uZXh0IHRyZWUgaWYgdGhlIFBvd2VyUEMgZm9sa3MgYWNrIGl0LApidXQgaXQgcmVh
-bGx5IGhhcyB0byBiZSBtZXJnZWQgYWZ0ZXIgdGhlIGZpcnN0IDggcGF0Y2hlcyBpbiBvcmRlciB0
-byBhdm9pZApicmVha2FnZS4KCkZsb3JpYW4gRmFpbmVsbGkgKDkpOgogIERvY3VtZW50YXRpb246
-IGRldmljZXRyZWU6IGFkZCBvbGQgYW5kIGRlcHJlY2F0ZWQgJ2ZpeGVkLWxpbmsnCiAgRG9jdW1l
-bnRhdGlvbjogZGV2aWNldHJlZTogbmV0OiByZWZlciB0byBmaXhlZC1saW5rLnR4dAogIG5ldDog
-YmNtZ2VuZXQ6IHVzZSB0aGUgbmV3IGZpeGVkIFBIWSBoZWxwZXJzCiAgbmV0OiBzeXN0ZW1wb3J0
-OiB1c2UgdGhlIG5ldyBmaXhlZCBQSFkgaGVscGVycwogIGZzX2VuZXQ6IHVzZSB0aGUgbmV3IGZp
-eGVkIFBIWSBoZWxwZXJzCiAgZ2lhbmZhcjogdXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMK
-ICB1Y2NfZ2V0aDogdXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMKICBvZjogbWRpbzogcmVt
-b3ZlIG9mX3BoeV9jb25uZWN0X2ZpeGVkX2xpbmsKICBwb3dlcnBjL2ZzbDogZnNsX3NvYzogcmVt
-b3ZlICdmaXhlZC1saW5rJyBwYXJzaW5nIGNvZGUKCiAuLi4vZGV2aWNldHJlZS9iaW5kaW5ncy9u
-ZXQvYnJvYWRjb20tYmNtZ2VuZXQudHh0ICB8ICAyICstCiAuLi4vYmluZGluZ3MvbmV0L2Jyb2Fk
-Y29tLXN5c3RlbXBvcnQudHh0ICAgICAgICAgICB8ICAyICstCiAuLi4vZGV2aWNldHJlZS9iaW5k
-aW5ncy9uZXQvZml4ZWQtbGluay50eHQgICAgICAgICB8IDEyICsrKysrKysKIC4uLi9kZXZpY2V0
-cmVlL2JpbmRpbmdzL25ldC9mc2wtdHNlYy1waHkudHh0ICAgICAgIHwgIDUgKy0tCiBhcmNoL3Bv
-d2VycGMvc3lzZGV2L2ZzbF9zb2MuYyAgICAgICAgICAgICAgICAgICAgICB8IDMyIC0tLS0tLS0t
-LS0tLS0tLS0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lzcG9ydC5jICAg
-ICAgICAgfCAxNyArKysrKysrKy0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21z
-eXNwb3J0LmggICAgICAgICB8ICAxICsKIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2dl
-bmV0L2JjbW1paS5jICAgICAgIHwgMjEgKysrKysrKy0tLS0tCiAuLi4vbmV0L2V0aGVybmV0L2Zy
-ZWVzY2FsZS9mc19lbmV0L2ZzX2VuZXQtbWFpbi5jICB8IDE2ICsrKysrLS0tLQogZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvZnJlZXNjYWxlL2dpYW5mYXIuYyAgICAgICAgICAgfCAxNCArKysrKystLQog
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMgICAgICAgICAgfCAxNCAr
-KysrKystLQogZHJpdmVycy9vZi9vZl9tZGlvLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAzOCAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tCiBpbmNsdWRlL2xpbnV4L29mX21kaW8uaCAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8IDEwIC0tLS0tLQogMTMgZmlsZXMgY2hhbmdlZCwg
-NzUgaW5zZXJ0aW9ucygrKSwgMTA5IGRlbGV0aW9ucygtKQoKLS0gCjEuOS4xCgpfX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGlu
-ZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJz
-Lm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+I have some miscellaneous comments on things that I noticed, all of
+which are pretty small. I will probably have a few more tomorrow but
+my hope is that we can get this in soon.
+
+On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
+> diff --git a/datapath/actions.c b/datapath/actions.c
+> index 603c7cb..7c3ae0c 100644
+> --- a/datapath/actions.c
+> +++ b/datapath/actions.c
+> +static int push_mpls(struct sk_buff *skb,
+> +                    const struct ovs_action_push_mpls *mpls)
+> +{
+> +       __be32 *new_mpls_lse;
+> +       struct ethhdr *hdr;
+> +
+> +       if (skb_cow_head(skb, MPLS_HLEN) < 0) {
+> +               kfree_skb(skb);
+> +               return -ENOMEM;
+> +       }
+
+I think it would be better to not free the skb on error here - it
+introduces an exception case in the call to push_mpls() that would be
+otherwise handled if we didn't free it.
+
+When we set the EtherType at the bottom of the function, I don't think
+that it is correct in the presence of VLAN tags because it will set
+the outer EtherType.
+
+> +static int pop_mpls(struct sk_buff *skb, const __be16 ethertype)
+> +{
+> +       struct ethhdr *hdr;
+> +       int err;
+> +
+> +       if (unlikely(skb->len < skb->mac_len + MPLS_HLEN))
+> +               return -EINVAL;
+
+I don't think this check is necessary since we would have rejected
+such packets at flow validation time.
+
+> +static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
+> +{
+> +       __be32 *stack = (__be32 *)mac_header_end(skb);
+> +       int err;
+> +
+> +       err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> +       if (unlikely(err))
+> +               return err;
+> +
+> +       if (skb->ip_summed == CHECKSUM_COMPLETE) {
+> +               __be32 diff[] = { ~(*stack), *mpls_lse };
+> +               skb->csum = ~csum_partial((char *)diff, sizeof(diff),
+> +                                         ~skb->csum);
+> +       }
+
+Is it possible to use csum_replace4() to simplify this?
+
+> @@ -701,6 +815,8 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb, bool recirc)
+>                 goto out_loop;
+>         }
+>
+> +       ovs_skb_init_inner_protocol(skb);
+
+I think we talked about some time ago but it seems like this will get
+reset by recirculation (although maybe it's unlikely that
+recirculation will get used on output).
+
+Also, maybe I'm missing something but I don't see where we actually
+set the inner protocol.
