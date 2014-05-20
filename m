@@ -1,81 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
- efficiency
-Date: Tue, 20 May 2014 14:55:13 +0800
-Message-ID: <537AFC51.30103@redhat.com>
-References: <537AF036.7010005@redhat.com> <20140520063403.GB6653@redhat.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize skb before it enters the IP stack)
+Date: Tue, 20 May 2014 00:55:49 -0400
+Message-ID: <14456.1400561749@turing-police.cc.vt.edu>
+References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc>
+            <537A12EA.4060604@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed; boundary="==_Exmh_1400561749_1944P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Xi Wang <xii@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Florian Westphal <fw@strlen.de>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: David Newall <davidn@davidnewall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33435 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751685AbaETGzU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:55:20 -0400
-In-Reply-To: <20140520063403.GB6653@redhat.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:41393 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbaETE7D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 00:59:03 -0400
+In-Reply-To: Your message of "Mon, 19 May 2014 23:49:22 +0930."
+             <537A12EA.4060604@davidnewall.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2014 02:34 PM, Michael S. Tsirkin wrote:
-> On Tue, May 20, 2014 at 02:03:34PM +0800, Jason Wang wrote:
->> On 05/20/2014 01:11 PM, Eric Dumazet wrote:
->>> On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
->>>> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
->>>>> About the sk_data_ready() and wake_up_all(), you missed the whole part
->>>>> of the patch I think.
->>>>>
->>>>> Check how sock_def_readable() does everything properly and efficiently,
->>>>> including the async part.
->>>> But this changes (sk_data_ready()) has nothing related to switching to
->>>> use __skb_recv_datagram()
->>>>
->>> This is totally related.
->>>
->>> I think you did not yet understood this patch
->> Sorry for being unclear, but I think you misunderstand my meaning.
->>> Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
->>>
->>> You should ask to yourself : Why do we use wq_has_sleeper() in
->>> networking stacks ?
->> See my first reply, I don't have objection that uses sk_data_ready() in
->> tun_net_xmit(). My only concern is using sk_data_ready() in
->> tun_detach_all():
->>
->> - It was only called during tun destroying, so I believe we don't care
->> about the performance in this condition.
->> - sk_data_ready() was usually called when there's something new to be
->> processed which is not case in tun_detach_all()
-> OK so what does userspace do to notice change in behaviour?
-> I don't ask that you write a test but can you show us in
-> pseudo-code?
->
->
+--==_Exmh_1400561749_1944P
+Content-Type: text/plain; charset=us-ascii
 
-Not currently but possible in the future.
->> - Not sure it was a problem but sock_def_readable() will not wake up
->> uninterruptible task during tun destroying.
-> But task_uninterruptible here would really mean some in-kernel caller
-> hooking into this function? 
+On Mon, 19 May 2014 23:49:22 +0930, David Newall said:
 
-Yes.
-> is there a way to create this from
-> userspace? If not we don't care.
- 
-I think not.
->> - If we make sock_fasync() works for tun in the future, it may send
->> SIGIO to user process during tun destroying which is not expected.
->>
->> Thanks
-> I don't get this last comment. The patch does not touch fasync paths
-> at all. How can it break them?
+> How does a packet get fragmented in this case?  Does it only happen when
+> bridging to a device with smaller MTU?  That scenario sounds quite
+> un-bridge-like.  It also sounds like something that can be handled by
+> real routing.
 
-sock_def_readable() will call sk_wake_async() which may send SIGIO to
-userspace if SOCK_FASYNC were set for socket. But currently tun has its
-own implementation of fasync, so this can not happen. But if we want to
-switch to use sock_fasync() for tun in the future, this issue may appear.
+Which doesn't change the fact that you *will* get clowns who take a box that
+has a 10G card on a jumbogram-enabled subnet that's running with an MTU of
+9000, and a 1G at MTU 1500 on the other, and try to bridge rather than route.
+(Did you know that you can actually mount an NFS filesystem across that? And
+that ls and cat and friends will work *just fine*? Until you hit a file that's
+more than 1.5 in size, that is. And when you do a traceroute to the wedged
+client, it tells you it's on the 10G network, so you have no idea why you're
+seeing an MTU issue.  Don't ask how I know this - let's just say that
+supporting HPC users is never boring. :)
+
+So yes, we *do* need to do something sensible there - either frag the packet
+on the way out, or something.  It *would* be nice if we could drop the
+packet and send an ICMP Frag Needed back - except it's unclear what IP
+you use as the source address for the ICMP....
+
+
+--==_Exmh_1400561749_1944P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBU3rgVQdmEQWDXROgAQKQfw/9GcqjwTRblsTMBAzRms+9859yNW++iOKG
+N4cYN4Y1eip5ygc7ijvkiUOtTBq4UwwG+9rNkj0UwD1ZWCWiA9glN/n5bGvPY8qX
+brWW9QJAitZwN3yVJDc7+S6KyP62j+0q0f0xlFlfDNvEwNJ17d2v9ZG8PpzTJpfk
+bqxIIuTJzLY5UUjXM5RXGkDiw62eqb4e7aGL+nKOH52C/r8byEjY0yl2AmiqCAQD
+aFM8kLAITz/f2UB/KaTtu3i9b1Kv0Um/sRTHxULqN1jYHW1MqnenuAYw+ushoBTZ
+jRjpN2KdUDW7xGYz5Lx8bVnMxU8kJs5kmMVjnjbRsYmDA5v1jcoac+mGDLiQ8O6K
+6VuJIrZ8e5pnJWFa2kcg1Syi2ca+Mi+pFRJGboMZQYw9KTQzx5lfQtgFdsyme40N
+0A+MUc6eVeSCXITjmwhCmYanxLeEpOw4xlwYANoBWRXlUGCj4knB6zW5s6JwLrsu
+9eGhag+t3mCYbM1cRN/Jru2Y7IB7bApnnKZsUdWkg0RoJJLX2WHF/26/u2Edi9He
+FawVStF76ZWtWNtZElrdFy1FPvg+jBjVPuzZs+tjyH5LW11Qlmt757ISSn/vnbCX
+sL4LNv8SXioBZenMMH4+sYh9Wh/LvyIn7egggzdvAzzYDU7Tm+niWnFJm2HLGETi
+svyoYnJozT4=
+=KX4i
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1400561749_1944P--
