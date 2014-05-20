@@ -1,39 +1,36 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Tue, 20 May 2014 13:27:32 +0930
-Message-ID: <537AD2AC.4050009@davidnewall.com>
-References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc> <537A12EA.4060604@davidnewall.com> <20140519170915.GB24523@breakpoint.cc>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
+ sleep/wakeup efficiency
+Date: Mon, 19 May 2014 21:52:39 -0700
+Message-ID: <1400561559.5367.87.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com>
+		 <5379CE8D.2030405@redhat.com>
+	 <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <537ADD91.4000609@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140519170915.GB24523@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:40218 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699AbaETEwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 00:52:41 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz1so6727918pad.30
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 21:52:40 -0700 (PDT)
+In-Reply-To: <537ADD91.4000609@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/05/14 02:39, Florian Westphal wrote:
->  From a quick glance, it should be sufficient to edit
-> br_parse_ip_options() and remove everything after
->
-> memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
 
-Yes.  That's the way it used to be, and how it would return with the 
-change I'm proposing.  The br_parse_ip_option function would be removed 
-and its remaining code moved back from whence it came.
+> But this changes (sk_data_ready()) has nothing related to switching to
+> use __skb_recv_datagram()
 
-
-> A 2nd step would be to move a copy of ip_options_compile()
-> into br_netfilter.c and trim it down to only validate the
-> ipv4 header without modifying it.
-
-The bridge sounds like the wrong place to validate an IPv4 header, 
-unless it also validates every type of header; and that can't be right.  
-That we need to zero the cb area seems like a big clue that IP's 
-treatment of the area is lame.  I think that's where the problem lies, 
-and that the right thing to do is to yank out the crap from bridge that 
-papers over IP's weakness.
+I think I will give up at this point, this is becoming too much time to
+gain only 15% of cpu.
