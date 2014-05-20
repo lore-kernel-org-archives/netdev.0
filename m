@@ -1,44 +1,217 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 07/13] openvswitch: Fix typo.
-Date: Tue, 20 May 2014 02:00:24 -0700
-Message-ID: <1400576424-2377-1-git-send-email-pshelar@nicira.com>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:56495 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753573AbaEWRGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 13:06:24 -0400
-Received: by mail-pa0-f54.google.com with SMTP id bj1so4373616pad.13
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 10:06:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 09/13] openvswitch: Reduce locking
+	requirements.
+Date: Tue, 20 May 2014 02:00:35 -0700
+Message-ID: <1400576435-2435-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme@nicira.com>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Incorrect struct name was confusing, even though otherwise
-inconsequental.
+Reduce and clarify locking requirements for ovs_flow_cmd_alloc_info(),
+ovs_flow_cmd_fill_info() and ovs_flow_cmd_build_info().
 
-Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+A datapath pointer is available only when holding a lock.  Change
+ovs_flow_cmd_fill_info() and ovs_flow_cmd_build_info() to take a
+dp_ifindex directly, rather than a datapath pointer that is then
+(only) used to get the dp_ifindex.  This is useful, since the
+dp_ifindex is available even when the datapath pointer is not, both
+before and after taking a lock, which makes further critical section
+reduction possible.
+
+Make ovs_flow_cmd_alloc_info() take an 'acts' argument instead a
+'flow' pointer.  This allows some future patches to do the allocation
+before acquiring the flow pointer.
+
+The locking requirements after this patch are:
+
+ovs_flow_cmd_alloc_info(): May be called without locking, must not be
+called while holding the RCU read lock (due to memory allocation).
+If 'acts' belong to a flow in the flow table, however, then the
+caller must hold ovs_mutex.
+
+ovs_flow_cmd_fill_info(): Either ovs_mutex or RCU read lock must be held.
+
+ovs_flow_cmd_build_info(): This calls both of the above, so the caller
+must hold ovs_mutex.
+
+Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow_table.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/openvswitch/datapath.c | 54 +++++++++++++++++++++++++---------------------
+ 1 file changed, 29 insertions(+), 25 deletions(-)
 
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index c80df6f..574c3ab 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -139,7 +139,7 @@ static void flow_free(struct sw_flow *flow)
- {
- 	int node;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index f3bcdac..949fc7f 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -663,7 +663,7 @@ static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
+ }
  
--	kfree((struct sf_flow_acts __force *)flow->sf_acts);
-+	kfree((struct sw_flow_actions __force *)flow->sf_acts);
- 	for_each_node(node)
- 		if (flow->stats[node])
- 			kmem_cache_free(flow_stats_cache,
+ /* Called with ovs_mutex or RCU read lock. */
+-static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
++static int ovs_flow_cmd_fill_info(const struct sw_flow *flow, int dp_ifindex,
+ 				  struct sk_buff *skb, u32 portid,
+ 				  u32 seq, u32 flags, u8 cmd)
+ {
+@@ -680,7 +680,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
+ 	if (!ovs_header)
+ 		return -EMSGSIZE;
+ 
+-	ovs_header->dp_ifindex = get_dpifindex(dp);
++	ovs_header->dp_ifindex = dp_ifindex;
+ 
+ 	/* Fill flow key. */
+ 	nla = nla_nest_start(skb, OVS_FLOW_ATTR_KEY);
+@@ -703,6 +703,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
+ 	nla_nest_end(skb, nla);
+ 
+ 	ovs_flow_stats_get(flow, &stats, &used, &tcp_flags);
++
+ 	if (used &&
+ 	    nla_put_u64(skb, OVS_FLOW_ATTR_USED, ovs_flow_used_time(used)))
+ 		goto nla_put_failure;
+@@ -730,9 +731,9 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
+ 		const struct sw_flow_actions *sf_acts;
+ 
+ 		sf_acts = rcu_dereference_ovsl(flow->sf_acts);
+-
+ 		err = ovs_nla_put_actions(sf_acts->actions,
+ 					  sf_acts->actions_len, skb);
++
+ 		if (!err)
+ 			nla_nest_end(skb, start);
+ 		else {
+@@ -753,41 +754,40 @@ error:
+ 	return err;
+ }
+ 
+-/* Must be called with ovs_mutex. */
+-static struct sk_buff *ovs_flow_cmd_alloc_info(struct sw_flow *flow,
++/* May not be called with RCU read lock. */
++static struct sk_buff *ovs_flow_cmd_alloc_info(const struct sw_flow_actions *acts,
+ 					       struct genl_info *info,
+ 					       bool always)
+ {
+ 	struct sk_buff *skb;
+-	size_t len;
+ 
+ 	if (!always && !ovs_must_notify(info, &ovs_dp_flow_multicast_group))
+ 		return NULL;
+ 
+-	len = ovs_flow_cmd_msg_size(ovsl_dereference(flow->sf_acts));
+-
+-	skb = genlmsg_new_unicast(len, info, GFP_KERNEL);
++	skb = genlmsg_new_unicast(ovs_flow_cmd_msg_size(acts), info, GFP_KERNEL);
+ 	if (!skb)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	return skb;
+ }
+ 
+-/* Must be called with ovs_mutex. */
+-static struct sk_buff *ovs_flow_cmd_build_info(struct sw_flow *flow,
+-					       struct datapath *dp,
+-					       struct genl_info *info,
+-					       u8 cmd, bool always)
++/* Called with ovs_mutex. */
++static struct sk_buff *ovs_flow_cmd_build_info(const struct sw_flow *flow,
++					       int dp_ifindex,
++					       struct genl_info *info, u8 cmd,
++					       bool always)
+ {
+ 	struct sk_buff *skb;
+ 	int retval;
+ 
+-	skb = ovs_flow_cmd_alloc_info(flow, info, always);
++	skb = ovs_flow_cmd_alloc_info(ovsl_dereference(flow->sf_acts), info,
++				      always);
+ 	if (!skb || IS_ERR(skb))
+ 		return skb;
+ 
+-	retval = ovs_flow_cmd_fill_info(flow, dp, skb, info->snd_portid,
+-					info->snd_seq, 0, cmd);
++	retval = ovs_flow_cmd_fill_info(flow, dp_ifindex, skb,
++					info->snd_portid, info->snd_seq, 0,
++					cmd);
+ 	BUG_ON(retval < 0);
+ 	return skb;
+ }
+@@ -868,8 +868,8 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			goto err_flow_free;
+ 		}
+ 
+-		reply = ovs_flow_cmd_build_info(flow, dp, info,
+-						OVS_FLOW_CMD_NEW, false);
++		reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
++						info, OVS_FLOW_CMD_NEW, false);
+ 	} else {
+ 		/* We found a matching flow. */
+ 		/* Bail out if we're not allowed to modify an existing flow.
+@@ -895,8 +895,9 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			rcu_assign_pointer(flow->sf_acts, acts);
+ 			ovs_nla_free_flow_actions(old_acts);
+ 		}
+-		reply = ovs_flow_cmd_build_info(flow, dp, info,
+-						OVS_FLOW_CMD_NEW, false);
++
++		reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex,
++						info, OVS_FLOW_CMD_NEW, false);
+ 
+ 		/* Clear stats. */
+ 		if (a[OVS_FLOW_ATTR_CLEAR])
+@@ -958,7 +959,8 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW, true);
++	reply = ovs_flow_cmd_build_info(flow, ovs_header->dp_ifindex, info,
++					OVS_FLOW_CMD_NEW, true);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
+@@ -1005,7 +1007,8 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
+ 
+-	reply = ovs_flow_cmd_alloc_info(flow, info, false);
++	reply = ovs_flow_cmd_alloc_info(ovsl_dereference(flow->sf_acts), info,
++					false);
+ 	if (IS_ERR(reply)) {
+ 		err = PTR_ERR(reply);
+ 		goto unlock;
+@@ -1014,7 +1017,8 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 	ovs_flow_tbl_remove(&dp->table, flow);
+ 
+ 	if (reply) {
+-		err = ovs_flow_cmd_fill_info(flow, dp, reply, info->snd_portid,
++		err = ovs_flow_cmd_fill_info(flow, ovs_header->dp_ifindex,
++					     reply, info->snd_portid,
+ 					     info->snd_seq, 0,
+ 					     OVS_FLOW_CMD_DEL);
+ 		BUG_ON(err < 0);
+@@ -1054,7 +1058,7 @@ static int ovs_flow_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (!flow)
+ 			break;
+ 
+-		if (ovs_flow_cmd_fill_info(flow, dp, skb,
++		if (ovs_flow_cmd_fill_info(flow, ovs_header->dp_ifindex, skb,
+ 					   NETLINK_CB(cb->skb).portid,
+ 					   cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 					   OVS_FLOW_CMD_NEW) < 0)
 -- 
 1.9.0
