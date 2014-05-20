@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/6] netfilter: nf_tables: reset rule number counter after jump and goto
-Date: Tue, 20 May 2014 11:45:21 +0200
-Message-ID: <1400579126-6451-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: nf_tables: fix bogus rulenum after goto action
+Date: Tue, 20 May 2014 11:45:24 +0200
+Message-ID: <1400579126-6451-5-git-send-email-pablo@netfilter.org>
 References: <1400579126-6451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,35 +10,33 @@ In-Reply-To: <1400579126-6451-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Otherwise we start incrementing the rule number counter from the
-previous chain iteration.
+After returning from the chain that we just went to with no matchings,
+we get a bogus rule number in the trace. To fix this, we would need
+to iterate over the list of remaining rules in the chain to update the
+rule number counter.
+
+Patrick suggested to set this to the maximum value since the default
+base chain policy is the very last action when the processing the base
+chain is over.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_core.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/netfilter/nf_tables_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
-index 8041053..4368c58 100644
+index f55fb28..be08a96 100644
 --- a/net/netfilter/nf_tables_core.c
 +++ b/net/netfilter/nf_tables_core.c
-@@ -123,7 +123,7 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
- 	struct nft_data data[NFT_REG_MAX + 1];
- 	unsigned int stackptr = 0;
- 	struct nft_jumpstack jumpstack[NFT_JUMP_STACK_SIZE];
--	int rulenum = 0;
-+	int rulenum;
- 	/*
- 	 * Cache cursor to avoid problems in case that the cursor is updated
- 	 * while traversing the ruleset.
-@@ -131,6 +131,7 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
- 	unsigned int gencursor = ACCESS_ONCE(chain->net->nft.gencursor);
+@@ -202,7 +202,7 @@ next_rule:
+ 	}
  
- do_chain:
-+	rulenum = 0;
- 	rule = list_entry(&chain->rules, struct nft_rule, list);
- next_rule:
- 	data[NFT_REG_VERDICT].verdict = NFT_CONTINUE;
+ 	if (unlikely(pkt->skb->nf_trace))
+-		nft_trace_packet(pkt, basechain, ++rulenum, NFT_TRACE_POLICY);
++		nft_trace_packet(pkt, basechain, -1, NFT_TRACE_POLICY);
+ 
+ 	rcu_read_lock_bh();
+ 	stats = rcu_dereference(nft_base_chain(basechain)->stats);
 -- 
 1.7.10.4
 
