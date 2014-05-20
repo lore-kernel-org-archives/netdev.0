@@ -1,435 +1,95 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 01/13] openvswitch: Compact sw_flow_key.
-Date: Tue, 20 May 2014 01:59:47 -0700
-Message-ID: <1400576387-2200-1-git-send-email-pshelar@nicira.com>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	Jarno Rajahalme <jrajahalme@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:51101 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751822AbaEWRFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 13:05:46 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so4410292pbb.19
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 10:05:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 02/13] openvswitch: Avoid assigning a
+	NULL pointer to flow actions.
+Date: Tue, 20 May 2014 01:59:53 -0700
+Message-ID: <1400576393-2229-1-git-send-email-pshelar@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jarno Rajahalme <jrajahalme@nicira.com>
+From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Minimize padding in sw_flow_key and move 'tp' top the main struct.
-These changes simplify code when accessing the transport port numbers
-and the tcp flags, and makes the sw_flow_key 8 bytes smaller on 64-bit
-systems (128->120 bytes).  These changes also make the keys for IPv4
-packets to fit in one cache line.
+Flow SET can accept an empty set of actions, with the intended
+semantics of leaving existing actions unmodified.  This seems to have
+been brokin after OVS 1.7, as we have assigned the flow's actions
+pointer to NULL in this case, but we never check for the NULL pointer
+later on.  This patch restores the intended behavior and documents it
+in the include/linux/openvswitch.h.
 
-There is a valid concern for safety of packing the struct
-ovs_key_ipv4_tunnel, as it would be possible to take the address of
-the tun_id member as a __be64 * which could result in unaligned access
-in some systems. However:
-
-- sw_flow_key itself is 64-bit aligned, so the tun_id within is
-  always
-  64-bit aligned.
-- We never make arrays of ovs_key_ipv4_tunnel (which would force
-  every
-  second tun_key to be misaligned).
-- We never take the address of the tun_id in to a __be64 *.
-- Whereever we use struct ovs_key_ipv4_tunnel outside the
-  sw_flow_key,
-  it is in stack (on tunnel input functions), where compiler has full
-  control of the alignment.
-
-Signed-off-by: Jarno Rajahalme <jrajahalme@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow.c         |  44 +++++++---------
- net/openvswitch/flow.h         |  29 ++++-------
- net/openvswitch/flow_netlink.c | 112 ++++++++++++-----------------------------
- 3 files changed, 62 insertions(+), 123 deletions(-)
+ include/uapi/linux/openvswitch.h |  4 +++-
+ net/openvswitch/datapath.c       | 14 ++++++++------
+ 2 files changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index e0fc12b..6d8d2da 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -64,17 +64,11 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
- void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
- {
- 	struct flow_stats *stats;
--	__be16 tcp_flags = 0;
-+	__be16 tcp_flags = flow->key.tp.flags;
- 	int node = numa_node_id();
- 
- 	stats = rcu_dereference(flow->stats[node]);
- 
--	if (likely(flow->key.ip.proto == IPPROTO_TCP)) {
--		if (likely(flow->key.eth.type == htons(ETH_P_IP)))
--			tcp_flags = flow->key.ipv4.tp.flags;
--		else if (likely(flow->key.eth.type == htons(ETH_P_IPV6)))
--			tcp_flags = flow->key.ipv6.tp.flags;
--	}
- 	/* Check if already have node-specific stats. */
- 	if (likely(stats)) {
- 		spin_lock(&stats->lock);
-@@ -357,8 +351,8 @@ static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
- 	/* The ICMPv6 type and code fields use the 16-bit transport port
- 	 * fields, so we need to store them in 16-bit network byte order.
- 	 */
--	key->ipv6.tp.src = htons(icmp->icmp6_type);
--	key->ipv6.tp.dst = htons(icmp->icmp6_code);
-+	key->tp.src = htons(icmp->icmp6_type);
-+	key->tp.dst = htons(icmp->icmp6_code);
- 
- 	if (icmp->icmp6_code == 0 &&
- 	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
-@@ -520,21 +514,21 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
- 		if (key->ip.proto == IPPROTO_TCP) {
- 			if (tcphdr_ok(skb)) {
- 				struct tcphdr *tcp = tcp_hdr(skb);
--				key->ipv4.tp.src = tcp->source;
--				key->ipv4.tp.dst = tcp->dest;
--				key->ipv4.tp.flags = TCP_FLAGS_BE16(tcp);
-+				key->tp.src = tcp->source;
-+				key->tp.dst = tcp->dest;
-+				key->tp.flags = TCP_FLAGS_BE16(tcp);
- 			}
- 		} else if (key->ip.proto == IPPROTO_UDP) {
- 			if (udphdr_ok(skb)) {
- 				struct udphdr *udp = udp_hdr(skb);
--				key->ipv4.tp.src = udp->source;
--				key->ipv4.tp.dst = udp->dest;
-+				key->tp.src = udp->source;
-+				key->tp.dst = udp->dest;
- 			}
- 		} else if (key->ip.proto == IPPROTO_SCTP) {
- 			if (sctphdr_ok(skb)) {
- 				struct sctphdr *sctp = sctp_hdr(skb);
--				key->ipv4.tp.src = sctp->source;
--				key->ipv4.tp.dst = sctp->dest;
-+				key->tp.src = sctp->source;
-+				key->tp.dst = sctp->dest;
- 			}
- 		} else if (key->ip.proto == IPPROTO_ICMP) {
- 			if (icmphdr_ok(skb)) {
-@@ -542,8 +536,8 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
- 				/* The ICMP type and code fields use the 16-bit
- 				 * transport port fields, so we need to store
- 				 * them in 16-bit network byte order. */
--				key->ipv4.tp.src = htons(icmp->type);
--				key->ipv4.tp.dst = htons(icmp->code);
-+				key->tp.src = htons(icmp->type);
-+				key->tp.dst = htons(icmp->code);
- 			}
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 970553c..0b979ee 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -395,7 +395,9 @@ struct ovs_key_nd {
+  * @OVS_FLOW_ATTR_ACTIONS: Nested %OVS_ACTION_ATTR_* attributes specifying
+  * the actions to take for packets that match the key.  Always present in
+  * notifications.  Required for %OVS_FLOW_CMD_NEW requests, optional for
+- * %OVS_FLOW_CMD_SET requests.
++ * %OVS_FLOW_CMD_SET requests.  An %OVS_FLOW_CMD_SET without
++ * %OVS_FLOW_ATTR_ACTIONS will not modify the actions.  To clear the actions,
++ * an %OVS_FLOW_ATTR_ACTIONS without any nested attributes must be given.
+  * @OVS_FLOW_ATTR_STATS: &struct ovs_flow_stats giving statistics for this
+  * flow.  Present in notifications if the stats would be nonzero.  Ignored in
+  * requests.
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 8867d7e..90a1e5e 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -810,6 +810,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			goto err_kfree;
  		}
- 
-@@ -589,21 +583,21 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
- 		if (key->ip.proto == NEXTHDR_TCP) {
- 			if (tcphdr_ok(skb)) {
- 				struct tcphdr *tcp = tcp_hdr(skb);
--				key->ipv6.tp.src = tcp->source;
--				key->ipv6.tp.dst = tcp->dest;
--				key->ipv6.tp.flags = TCP_FLAGS_BE16(tcp);
-+				key->tp.src = tcp->source;
-+				key->tp.dst = tcp->dest;
-+				key->tp.flags = TCP_FLAGS_BE16(tcp);
- 			}
- 		} else if (key->ip.proto == NEXTHDR_UDP) {
- 			if (udphdr_ok(skb)) {
- 				struct udphdr *udp = udp_hdr(skb);
--				key->ipv6.tp.src = udp->source;
--				key->ipv6.tp.dst = udp->dest;
-+				key->tp.src = udp->source;
-+				key->tp.dst = udp->dest;
- 			}
- 		} else if (key->ip.proto == NEXTHDR_SCTP) {
- 			if (sctphdr_ok(skb)) {
- 				struct sctphdr *sctp = sctp_hdr(skb);
--				key->ipv6.tp.src = sctp->source;
--				key->ipv6.tp.dst = sctp->dest;
-+				key->tp.src = sctp->source;
-+				key->tp.dst = sctp->dest;
- 			}
- 		} else if (key->ip.proto == NEXTHDR_ICMP) {
- 			if (icmp6hdr_ok(skb)) {
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index ddcebc5..a292bf8 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -47,7 +47,7 @@ struct ovs_key_ipv4_tunnel {
- 	__be16 tun_flags;
- 	u8   ipv4_tos;
- 	u8   ipv4_ttl;
--};
-+} __packed __aligned(4); /* Minimize padding. */
- 
- static inline void ovs_flow_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
- 					 const struct iphdr *iph, __be64 tun_id,
-@@ -71,7 +71,7 @@ struct sw_flow_key {
- 		u32	priority;	/* Packet QoS priority. */
- 		u32	skb_mark;	/* SKB mark. */
- 		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
--	} phy;
-+	} __packed phy; /* Safe when right after 'tun_key'. */
- 	struct {
- 		u8     src[ETH_ALEN];	/* Ethernet source address. */
- 		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
-@@ -84,23 +84,21 @@ struct sw_flow_key {
- 		u8     ttl;		/* IP TTL/hop limit. */
- 		u8     frag;		/* One of OVS_FRAG_TYPE_*. */
- 	} ip;
-+	struct {
-+		__be16 src;		/* TCP/UDP/SCTP source port. */
-+		__be16 dst;		/* TCP/UDP/SCTP destination port. */
-+		__be16 flags;		/* TCP flags. */
-+	} tp;
- 	union {
- 		struct {
- 			struct {
- 				__be32 src;	/* IP source address. */
- 				__be32 dst;	/* IP destination address. */
- 			} addr;
--			union {
--				struct {
--					__be16 src;		/* TCP/UDP/SCTP source port. */
--					__be16 dst;		/* TCP/UDP/SCTP destination port. */
--					__be16 flags;		/* TCP flags. */
--				} tp;
--				struct {
--					u8 sha[ETH_ALEN];	/* ARP source hardware address. */
--					u8 tha[ETH_ALEN];	/* ARP target hardware address. */
--				} arp;
--			};
-+			struct {
-+				u8 sha[ETH_ALEN];	/* ARP source hardware address. */
-+				u8 tha[ETH_ALEN];	/* ARP target hardware address. */
-+			} arp;
- 		} ipv4;
- 		struct {
- 			struct {
-@@ -109,11 +107,6 @@ struct sw_flow_key {
- 			} addr;
- 			__be32 label;			/* IPv6 flow label. */
- 			struct {
--				__be16 src;		/* TCP/UDP/SCTP source port. */
--				__be16 dst;		/* TCP/UDP/SCTP destination port. */
--				__be16 flags;		/* TCP flags. */
--			} tp;
--			struct {
- 				struct in6_addr target;	/* ND target address. */
- 				u8 sll[ETH_ALEN];	/* ND source link layer address. */
- 				u8 tll[ETH_ALEN];	/* ND target link layer address. */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 32a725c..d757848 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -204,11 +204,11 @@ static bool match_validate(const struct sw_flow_match *match,
- 				if (match->mask && (match->mask->key.ip.proto == 0xff))
- 					mask_allowed |= 1 << OVS_KEY_ATTR_ICMPV6;
- 
--				if (match->key->ipv6.tp.src ==
-+				if (match->key->tp.src ==
- 						htons(NDISC_NEIGHBOUR_SOLICITATION) ||
--				    match->key->ipv6.tp.src == htons(NDISC_NEIGHBOUR_ADVERTISEMENT)) {
-+				    match->key->tp.src == htons(NDISC_NEIGHBOUR_ADVERTISEMENT)) {
- 					key_expected |= 1 << OVS_KEY_ATTR_ND;
--					if (match->mask && (match->mask->key.ipv6.tp.src == htons(0xffff)))
-+					if (match->mask && (match->mask->key.tp.src == htons(0xffff)))
- 						mask_allowed |= 1 << OVS_KEY_ATTR_ND;
- 				}
- 			}
-@@ -630,27 +630,18 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		const struct ovs_key_tcp *tcp_key;
- 
- 		tcp_key = nla_data(a[OVS_KEY_ATTR_TCP]);
--		if (orig_attrs & (1 << OVS_KEY_ATTR_IPV4)) {
--			SW_FLOW_KEY_PUT(match, ipv4.tp.src,
--					tcp_key->tcp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv4.tp.dst,
--					tcp_key->tcp_dst, is_mask);
--		} else {
--			SW_FLOW_KEY_PUT(match, ipv6.tp.src,
--					tcp_key->tcp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv6.tp.dst,
--					tcp_key->tcp_dst, is_mask);
--		}
-+		SW_FLOW_KEY_PUT(match, tp.src, tcp_key->tcp_src, is_mask);
-+		SW_FLOW_KEY_PUT(match, tp.dst, tcp_key->tcp_dst, is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_TCP);
+ 	} else if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW) {
++		/* OVS_FLOW_CMD_NEW must have actions. */
+ 		error = -EINVAL;
+ 		goto error;
  	}
+@@ -849,8 +850,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
+ 	} else {
+ 		/* We found a matching flow. */
+-		struct sw_flow_actions *old_acts;
+-
+ 		/* Bail out if we're not allowed to modify an existing flow.
+ 		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
+ 		 * because Generic Netlink treats the latter as a dump
+@@ -866,11 +865,14 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 		if (!ovs_flow_cmp_unmasked_key(flow, &match))
+ 			goto err_unlock_ovs;
  
- 	if (attrs & (1 << OVS_KEY_ATTR_TCP_FLAGS)) {
- 		if (orig_attrs & (1 << OVS_KEY_ATTR_IPV4)) {
--			SW_FLOW_KEY_PUT(match, ipv4.tp.flags,
-+			SW_FLOW_KEY_PUT(match, tp.flags,
- 					nla_get_be16(a[OVS_KEY_ATTR_TCP_FLAGS]),
- 					is_mask);
- 		} else {
--			SW_FLOW_KEY_PUT(match, ipv6.tp.flags,
-+			SW_FLOW_KEY_PUT(match, tp.flags,
- 					nla_get_be16(a[OVS_KEY_ATTR_TCP_FLAGS]),
- 					is_mask);
- 		}
-@@ -661,17 +652,8 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		const struct ovs_key_udp *udp_key;
+-		/* Update actions. */
+-		old_acts = ovsl_dereference(flow->sf_acts);
+-		rcu_assign_pointer(flow->sf_acts, acts);
+-		ovs_nla_free_flow_actions(old_acts);
++		/* Update actions, if present. */
++		if (acts) {
++			struct sw_flow_actions *old_acts;
  
- 		udp_key = nla_data(a[OVS_KEY_ATTR_UDP]);
--		if (orig_attrs & (1 << OVS_KEY_ATTR_IPV4)) {
--			SW_FLOW_KEY_PUT(match, ipv4.tp.src,
--					udp_key->udp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv4.tp.dst,
--					udp_key->udp_dst, is_mask);
--		} else {
--			SW_FLOW_KEY_PUT(match, ipv6.tp.src,
--					udp_key->udp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv6.tp.dst,
--					udp_key->udp_dst, is_mask);
--		}
-+		SW_FLOW_KEY_PUT(match, tp.src, udp_key->udp_src, is_mask);
-+		SW_FLOW_KEY_PUT(match, tp.dst, udp_key->udp_dst, is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_UDP);
- 	}
++			old_acts = ovsl_dereference(flow->sf_acts);
++			rcu_assign_pointer(flow->sf_acts, acts);
++			ovs_nla_free_flow_actions(old_acts);
++		}
+ 		reply = ovs_flow_cmd_build_info(flow, dp, info, OVS_FLOW_CMD_NEW);
  
-@@ -679,17 +661,8 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		const struct ovs_key_sctp *sctp_key;
- 
- 		sctp_key = nla_data(a[OVS_KEY_ATTR_SCTP]);
--		if (orig_attrs & (1 << OVS_KEY_ATTR_IPV4)) {
--			SW_FLOW_KEY_PUT(match, ipv4.tp.src,
--					sctp_key->sctp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv4.tp.dst,
--					sctp_key->sctp_dst, is_mask);
--		} else {
--			SW_FLOW_KEY_PUT(match, ipv6.tp.src,
--					sctp_key->sctp_src, is_mask);
--			SW_FLOW_KEY_PUT(match, ipv6.tp.dst,
--					sctp_key->sctp_dst, is_mask);
--		}
-+		SW_FLOW_KEY_PUT(match, tp.src, sctp_key->sctp_src, is_mask);
-+		SW_FLOW_KEY_PUT(match, tp.dst, sctp_key->sctp_dst, is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_SCTP);
- 	}
- 
-@@ -697,9 +670,9 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		const struct ovs_key_icmp *icmp_key;
- 
- 		icmp_key = nla_data(a[OVS_KEY_ATTR_ICMP]);
--		SW_FLOW_KEY_PUT(match, ipv4.tp.src,
-+		SW_FLOW_KEY_PUT(match, tp.src,
- 				htons(icmp_key->icmp_type), is_mask);
--		SW_FLOW_KEY_PUT(match, ipv4.tp.dst,
-+		SW_FLOW_KEY_PUT(match, tp.dst,
- 				htons(icmp_key->icmp_code), is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_ICMP);
- 	}
-@@ -708,9 +681,9 @@ static int ovs_key_from_nlattrs(struct sw_flow_match *match, u64 attrs,
- 		const struct ovs_key_icmpv6 *icmpv6_key;
- 
- 		icmpv6_key = nla_data(a[OVS_KEY_ATTR_ICMPV6]);
--		SW_FLOW_KEY_PUT(match, ipv6.tp.src,
-+		SW_FLOW_KEY_PUT(match, tp.src,
- 				htons(icmpv6_key->icmpv6_type), is_mask);
--		SW_FLOW_KEY_PUT(match, ipv6.tp.dst,
-+		SW_FLOW_KEY_PUT(match, tp.dst,
- 				htons(icmpv6_key->icmpv6_code), is_mask);
- 		attrs &= ~(1 << OVS_KEY_ATTR_ICMPV6);
- 	}
-@@ -1024,19 +997,11 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 			if (!nla)
- 				goto nla_put_failure;
- 			tcp_key = nla_data(nla);
--			if (swkey->eth.type == htons(ETH_P_IP)) {
--				tcp_key->tcp_src = output->ipv4.tp.src;
--				tcp_key->tcp_dst = output->ipv4.tp.dst;
--				if (nla_put_be16(skb, OVS_KEY_ATTR_TCP_FLAGS,
--						 output->ipv4.tp.flags))
--					goto nla_put_failure;
--			} else if (swkey->eth.type == htons(ETH_P_IPV6)) {
--				tcp_key->tcp_src = output->ipv6.tp.src;
--				tcp_key->tcp_dst = output->ipv6.tp.dst;
--				if (nla_put_be16(skb, OVS_KEY_ATTR_TCP_FLAGS,
--						 output->ipv6.tp.flags))
--					goto nla_put_failure;
--			}
-+			tcp_key->tcp_src = output->tp.src;
-+			tcp_key->tcp_dst = output->tp.dst;
-+			if (nla_put_be16(skb, OVS_KEY_ATTR_TCP_FLAGS,
-+					 output->tp.flags))
-+				goto nla_put_failure;
- 		} else if (swkey->ip.proto == IPPROTO_UDP) {
- 			struct ovs_key_udp *udp_key;
- 
-@@ -1044,13 +1009,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 			if (!nla)
- 				goto nla_put_failure;
- 			udp_key = nla_data(nla);
--			if (swkey->eth.type == htons(ETH_P_IP)) {
--				udp_key->udp_src = output->ipv4.tp.src;
--				udp_key->udp_dst = output->ipv4.tp.dst;
--			} else if (swkey->eth.type == htons(ETH_P_IPV6)) {
--				udp_key->udp_src = output->ipv6.tp.src;
--				udp_key->udp_dst = output->ipv6.tp.dst;
--			}
-+			udp_key->udp_src = output->tp.src;
-+			udp_key->udp_dst = output->tp.dst;
- 		} else if (swkey->ip.proto == IPPROTO_SCTP) {
- 			struct ovs_key_sctp *sctp_key;
- 
-@@ -1058,13 +1018,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 			if (!nla)
- 				goto nla_put_failure;
- 			sctp_key = nla_data(nla);
--			if (swkey->eth.type == htons(ETH_P_IP)) {
--				sctp_key->sctp_src = output->ipv4.tp.src;
--				sctp_key->sctp_dst = output->ipv4.tp.dst;
--			} else if (swkey->eth.type == htons(ETH_P_IPV6)) {
--				sctp_key->sctp_src = output->ipv6.tp.src;
--				sctp_key->sctp_dst = output->ipv6.tp.dst;
--			}
-+			sctp_key->sctp_src = output->tp.src;
-+			sctp_key->sctp_dst = output->tp.dst;
- 		} else if (swkey->eth.type == htons(ETH_P_IP) &&
- 			   swkey->ip.proto == IPPROTO_ICMP) {
- 			struct ovs_key_icmp *icmp_key;
-@@ -1073,8 +1028,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 			if (!nla)
- 				goto nla_put_failure;
- 			icmp_key = nla_data(nla);
--			icmp_key->icmp_type = ntohs(output->ipv4.tp.src);
--			icmp_key->icmp_code = ntohs(output->ipv4.tp.dst);
-+			icmp_key->icmp_type = ntohs(output->tp.src);
-+			icmp_key->icmp_code = ntohs(output->tp.dst);
- 		} else if (swkey->eth.type == htons(ETH_P_IPV6) &&
- 			   swkey->ip.proto == IPPROTO_ICMPV6) {
- 			struct ovs_key_icmpv6 *icmpv6_key;
-@@ -1084,8 +1039,8 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 			if (!nla)
- 				goto nla_put_failure;
- 			icmpv6_key = nla_data(nla);
--			icmpv6_key->icmpv6_type = ntohs(output->ipv6.tp.src);
--			icmpv6_key->icmpv6_code = ntohs(output->ipv6.tp.dst);
-+			icmpv6_key->icmpv6_type = ntohs(output->tp.src);
-+			icmpv6_key->icmpv6_code = ntohs(output->tp.dst);
- 
- 			if (icmpv6_key->icmpv6_type == NDISC_NEIGHBOUR_SOLICITATION ||
- 			    icmpv6_key->icmpv6_type == NDISC_NEIGHBOUR_ADVERTISEMENT) {
-@@ -1263,13 +1218,10 @@ static int validate_and_copy_sample(const struct nlattr *attr,
- 
- static int validate_tp_port(const struct sw_flow_key *flow_key)
- {
--	if (flow_key->eth.type == htons(ETH_P_IP)) {
--		if (flow_key->ipv4.tp.src || flow_key->ipv4.tp.dst)
--			return 0;
--	} else if (flow_key->eth.type == htons(ETH_P_IPV6)) {
--		if (flow_key->ipv6.tp.src || flow_key->ipv6.tp.dst)
--			return 0;
--	}
-+	if ((flow_key->eth.type == htons(ETH_P_IP) ||
-+	     flow_key->eth.type == htons(ETH_P_IPV6)) &&
-+	    (flow_key->tp.src || flow_key->tp.dst))
-+		return 0;
- 
- 	return -EINVAL;
- }
+ 		/* Clear stats. */
 -- 
 1.9.0
