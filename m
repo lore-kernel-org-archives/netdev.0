@@ -1,67 +1,68 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net 2/2] sfc: Restrict PIO to 64-bit architectures
-Date: Tue, 20 May 2014 08:48:29 +0100
-Message-ID: <537B08CD.90607@solarflare.com>
-References: <537B07ED.4080104@solarflare.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v1 1/2] ARM: dts: imx6sl: add fec sleep pinctrl for pin PM state
+Date: Tue, 20 May 2014 14:50:44 +0800
+Message-ID: <1400568645-10214-2-git-send-email-b38611@freescale.com>
+References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<kernel@pengutronix.de>, <B38611@freescale.com>,
+	<b20596@freescale.com>
+To: <davem@davemloft.net>, <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11130 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034AbaETHsd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 03:48:33 -0400
-In-Reply-To: <537B07ED.4080104@solarflare.com>
+Received: from mail-by2lp0241.outbound.protection.outlook.com ([207.46.163.241]:6834
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751988AbaETIJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 04:09:03 -0400
+In-Reply-To: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Cooper <jcooper@solarflare.com>
+when system suspend, need to set pins to low power state to
+save IO power consumption, there are three states of pinctrl:
+"default", "idle" and "sleep". Currently enet supports default
+and sleep state.
 
-The linux net driver uses memcpy_toio() in order to copy into
-the PIO buffers.
-Even on a 64bit machine this causes 32bit accesses to a write-
-combined memory region.
-There are hardware limitations that mean that only
-64bit naturally aligned accesses are safe in all cases. Due to being
-write-combined memory region two 32bit accesses may be coalesced to
-form a 64bit non 64bit aligned access.
-Solution was to open-code the memory copy routines using pointers
-and to only enable PIO for x86_64 machines.
-
-Enable PIO for x86_64 architecture only.
-Not tested on platforms other than x86_64.
-
-Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
-
-orig-hg-hash: 53dc43553d9bbe1c5a64c49e580ca571ddc470ae
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
- drivers/net/ethernet/sfc/io.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/arm/boot/dts/imx6sl-evk.dts |   16 +++++++++++++++-
+ 1 files changed, 15 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
-index 4d3f119..adadcf0 100644
---- a/drivers/net/ethernet/sfc/io.h
-+++ b/drivers/net/ethernet/sfc/io.h
-@@ -66,10 +66,18 @@
- #define EFX_USE_QWORD_IO 1
- #endif
-
-+/* PIO only works on 64-bit architectures */
-+#if BITS_PER_LONG == 64
-+/* not strictly necessary to restrict to x86 arch, but done for safety
-+ * since unusual write combining behaviour can break PIO.
-+ */
-+#ifdef CONFIG_X86_64
- /* PIO is a win only if write-combining is possible */
- #ifdef ARCH_HAS_IOREMAP_WC
- #define EFX_USE_PIO 1
- #endif
-+#endif
-+#endif
-
- #ifdef EFX_USE_QWORD_IO
- static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
-The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+diff --git a/arch/arm/boot/dts/imx6sl-evk.dts b/arch/arm/boot/dts/imx6sl-evk.dts
+index a8d9a93..050786d 100644
+--- a/arch/arm/boot/dts/imx6sl-evk.dts
++++ b/arch/arm/boot/dts/imx6sl-evk.dts
+@@ -116,8 +116,9 @@
+ };
+ 
+ &fec {
+-	pinctrl-names = "default";
++	pinctrl-names = "default", "sleep";
+ 	pinctrl-0 = <&pinctrl_fec>;
++	pinctrl-1 = <&pinctrl_fec_sleep>;
+ 	phy-mode = "rmii";
+ 	status = "okay";
+ };
+@@ -300,6 +301,19 @@
+ 			>;
+ 		};
+ 
++		pinctrl_fec_sleep: fecgrp-sleep {
++			fsl,pins = <
++				MX6SL_PAD_FEC_MDC__GPIO4_IO23      0x3080
++				MX6SL_PAD_FEC_CRS_DV__GPIO4_IO25   0x3080
++				MX6SL_PAD_FEC_RXD0__GPIO4_IO17     0x3080
++				MX6SL_PAD_FEC_RXD1__GPIO4_IO18     0x3080
++				MX6SL_PAD_FEC_TX_EN__GPIO4_IO22    0x3080
++				MX6SL_PAD_FEC_TXD0__GPIO4_IO24     0x3080
++				MX6SL_PAD_FEC_TXD1__GPIO4_IO16     0x3080
++				MX6SL_PAD_FEC_REF_CLK__GPIO4_IO26  0x3080
++			>;
++		};
++
+ 		pinctrl_i2c1: i2c1grp {
+ 			fsl,pins = <
+ 				MX6SL_PAD_I2C1_SCL__I2C1_SCL	0x4001b8b1
+-- 
+1.7.8
