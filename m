@@ -1,58 +1,55 @@
-From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to
-	kernel
-Date: Tue, 20 May 2014 13:18:37 +0100
-Message-ID: <20140520121837.GC23328@casper.infradead.org>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au>
- <20140516084809.GA18920@verge.net.au>
- <CAEP_g=-BQJTthV3JbgiiMtCEwM+-YX_sN5VpGkiPQLUVOKP0cg@mail.gmail.com>
- <20140516214806.GH8346@casper.infradead.org>
- <CAEP_g=9JQAqm0oMpVAK-6V-0wtqPw=cRMasJhCG1T5n-AdaLVg@mail.gmail.com>
- <20140517013224.GA25978@verge.net.au>
- <20140519220219.GA20590@verge.net.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] isdn: hisax: l3dss1.c: Fix for possible null pointer
+ dereference
+Date: Tue, 20 May 2014 16:23:23 +0400
+Message-ID: <537B493B.8020008@cogentembedded.com>
+References: <1400534662-5729-1-git-send-email-rickard_strandqvist@spectrumdigital.se>	<537A771C.2050808@cogentembedded.com> <CAFo99gb3fOq=kXwiG=LsvRXHdgazQWv3t6XZqDOtRHc+FLxCbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140519220219.GA20590-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFo99gb3fOq=kXwiG=LsvRXHdgazQWv3t6XZqDOtRHc+FLxCbw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/20/14 at 07:02am, Simon Horman wrote:
-> [PATCH] datapath: 16bit inner_network_header field in struct ovs_gso_cb
-> 
-> The motivation for this is to create a 16bit hole in struct ovs_gso_cb
-> which may be used for the inner_protocol field which is needed
-> for the proposed implementation of compatibility for MPLS GSO segmentation.
-> 
-> This should be safe as inner_network_header is now an offset to
-> the inner_mac_header rather than skb->head.
-> 
-> As pointed out by Thomas Graf simply making both inner offsets 16bis is not
-> safe as there have been cases of overflow with "with collapsed TCP frames
-> on IB when the headroom grew beyond 64K. See commit 50bceae9bd ``tcp:
-> Reallocate headroom if it would overflow csum_start'' for additional
-> details."
-> 
-> This patch is based on suggestions by Thomas Graf and Jesse Gross.
-> 
-> Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Hello.
 
-LGTM
+On 20-05-2014 1:56, Rickard Strandqvist wrote:
 
-Reviewed-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> Hi  Sergei
+
+> I did not put the assignment in the if statement.
+
+    You didn't but you changed the line it's on (which wasn't required BTW).
+
+> Is it meant for me
+> to change all the code around the parts I fix?
+
+    No, the patch just needs to be checkpatch.pl-clean.
+
+> There are many assignments in if in the l3dss1_cmd_global() funktion.
+
+    You can leave them alone for now. You can also leave alone the line I was 
+referring to.
+
+> It's late and I'm tired, but I still can not see which of these pairs
+> of features that I can remove ...?
+
+>              if (ic->parm.dss1_io.timeout > 0) {
+>                  if (!(pc = dss1_new_l3_process(st, -1))) {
+>                      free_invoke_id(st, id);
+>                      return (-2);
+>                  }
+>                  pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
+>                  pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
+>              }
+
+    I didn't quite get the question, if you were asking me.
+
+> Best regards
+> Rickard Strandqvist
+
+WBR, Sergei
