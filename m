@@ -1,108 +1,54 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net 1/2] sfc: use 64-bit writes for PIO.
-Date: Tue, 20 May 2014 08:48:14 +0100
-Message-ID: <537B08BE.4080807@solarflare.com>
-References: <537B07ED.4080104@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next v2 3/3] teaming: fix vlan_features computing
+Date: Tue, 20 May 2014 08:29:45 +0200 (CEST)
+Message-ID: <0a5534b35e7fffcb3fa0b25fc9a179b7c45b19ee.1400565116.git.mkubecek@suse.cz>
+References: <20140507.140846.1449010184057650775.davem@davemloft.net>
+	<cover.1400565116.git.mkubecek@suse.cz>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11121 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751377AbaETHsR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 03:48:17 -0400
-In-Reply-To: <537B07ED.4080104@solarflare.com>
+Received: from cantor2.suse.de ([195.135.220.15]:44358 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750879AbaETG3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:29:46 -0400
+In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Cooper <jcooper@solarflare.com>
+__team_compute_features() uses netdev_increment_features() to
+combine vlan_features of slaves into vlan_features of the team.
+As netdev_increment_features() only adds most features and we
+start with TEAM_VLAN_FEATURES, we can end up with features none
+of the slaves provided.
 
-The linux net driver uses memcpy_toio() in order to copy into
-the PIO buffers.
-Even on a 64bit machine this causes 32bit accesses to a write-
-combined memory region.
-There are hardware limitations that mean that only
-64bit naturally aligned accesses are safe in all cases. Due to being
-write-combined memory region two 32bit accesses may be coalesced to
-form a 64bit non 64bit aligned access.
-Solution was to open-code the memory copy routines using pointers
-and to only enable PIO for x86_64 machines.
+Initialize vlan_features only with the flags which are both in
+TEAM_VLAN_FEATURES and NETIF_F_ALL_FOR_ALL. Right now there is
+no such feature so that we actually initialize vlan_features
+with zero but stating it explicitely will make the code more
+future proof.
 
-Patch to open-code the memory copy routines.
-32bit writes over the PCI bus causes data corruption.
-
-Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
-
-orig-hg-hash: 853f313def1e5e9c733f980f2b4e6330a7d063ef
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
+ drivers/net/team/team.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index fa94753..bd6a4b8 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
-        u8 buf[L1_CACHE_BYTES];
- };
-
-+/* Copy in explicit 64-bit writes. */
-+static void efx_memcpy_64(void *dest, void *src, size_t len)
-+{
-+       uint64_t *src64 = src, *dest64 = dest;
-+       size_t i, l64 = len / 8;
-+
-+       WARN_ON_ONCE(len % 8 != 0);
-+       WARN_ON_ONCE(((u8 *)dest - (u8 *) 0) % 8 != 0);
-+       BUILD_BUG_ON(sizeof(uint64_t) != 8);
-+
-+       for(i = 0; i < l64; ++i)
-+               dest64[i] = src64[i];
-+}
-+
- /* Copy to PIO, respecting that writes to PIO buffers must be dword aligned.
-  * Advances piobuf pointer. Leaves additional data in the copy buffer.
-  */
-@@ -198,7 +212,7 @@ static void efx_memcpy_toio_aligned(struct efx_nic *efx, u8 __iomem **piobuf,
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 767fe61..9a9ce8d 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -968,7 +968,7 @@ static void team_port_disable(struct team *team,
+ static void __team_compute_features(struct team *team)
  {
-        int block_len = len & ~(sizeof(copy_buf->buf) - 1);
-
--       memcpy_toio(*piobuf, data, block_len);
-+       efx_memcpy_64(*piobuf, data, block_len);
-        *piobuf += block_len;
-        len -= block_len;
-
-@@ -230,7 +244,7 @@ static void efx_memcpy_toio_aligned_cb(struct efx_nic *efx, u8 __iomem **piobuf,
-                if (copy_buf->used < sizeof(copy_buf->buf))
-                        return;
-
--               memcpy_toio(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-+               efx_memcpy_64(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-                *piobuf += sizeof(copy_buf->buf);
-                data += copy_to_buf;
-                len -= copy_to_buf;
-@@ -245,7 +259,7 @@ static void efx_flush_copy_buffer(struct efx_nic *efx, u8 __iomem *piobuf,
- {
-        /* if there's anything in it, write the whole buffer, including junk */
-        if (copy_buf->used)
--               memcpy_toio(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-+               efx_memcpy_64(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
- }
-
- /* Traverse skb structure and copy fragments in to PIO buffer.
-@@ -304,8 +318,8 @@ efx_enqueue_skb_pio(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
-                 */
-                BUILD_BUG_ON(L1_CACHE_BYTES >
-                             SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
--               memcpy_toio(tx_queue->piobuf, skb->data,
--                           ALIGN(skb->len, L1_CACHE_BYTES));
-+               efx_memcpy_64(tx_queue->piobuf, skb->data,
-+                             ALIGN(skb->len, L1_CACHE_BYTES));
-        }
-
-        EFX_POPULATE_QWORD_5(buffer->option,
-
-The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
+ 	struct team_port *port;
+-	u32 vlan_features = TEAM_VLAN_FEATURES;
++	u32 vlan_features = TEAM_VLAN_FEATURES & NETIF_F_ALL_FOR_ALL;
+ 	unsigned short max_hard_header_len = ETH_HLEN;
+ 	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
+ 
+-- 
+1.8.1.4
