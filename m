@@ -1,82 +1,72 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/9] net: systemport: use the new fixed PHY helpers
-Date: Mon, 19 May 2014 17:56:19 -0700
-Message-ID: <1400547384-11363-5-git-send-email-f.fainelli@gmail.com>
-References: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net tree
+Date: Tue, 20 May 2014 10:59:52 +1000
+Message-ID: <20140520105952.73f6adab@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mark Rutland <mark.rutland@arm.com>,
- "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
- Paul Mackerras <paulus@samba.org>, Florian Fainelli <f.fainelli@gmail.com>,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- Grant Likely <grant.likely@linaro.org>,
- "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Richard Cochran <richardcochran@gmail.com>, Rob Herring <robh+dt@kernel.org>,
- Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- Randy Dunlap <rdunlap@infradead.org>, open list <linux-kernel@vger.kernel.org>,
- davem@davemlof.net, Vitaly Bordug <vbordug@ru.mvista.com>,
- Kumar Gala <galak@codeaurora.org>,
- "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
- "David S.
-To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppd-linuxppc64-dev=m.gmane.org@lists.ozlabs.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/KnBHmZDs9tZ6Gey/dRoMe6q"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-b2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluaygpIGlzIGJlY29taW5nIG9ic29sZXRlLCBhbmQgYWxz
-byByZXF1aXJlZApwbGF0Zm9ybSBjb2RlIHRvIHJlZ2lzdGVyIHRoZSBmaXhlZCBQSFlzIGF0IHRo
-ZSBzcGVjaWZpZWQgYWRkcmVzc2VzIGZvcgp0aG9zZSB0byBiZSB1c2FibGUuIEdldCByaWQgb2Yg
-aXQgYW5kIHVzZSB0aGUgbmV3IG9mX3BoeV9pc19maXhlZF9saW5rKCkKcGx1cyBvZl9waHlfcmVn
-aXN0ZXJfZml4ZWRfbGluaygpIGhlbHBlcnMgdG8gdHJhbnNpdGlvbiBvdmVyIHRoZSBuZXcKc2No
-ZW1lLgoKU2lnbmVkLW9mZi1ieTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5j
-b20+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lzcG9ydC5jIHwgMTcg
-KysrKysrKysrKysrKysrLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3Bv
-cnQuaCB8ICAxICsKIDIgZmlsZXMgY2hhbmdlZCwgMTYgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlv
-bnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21zeXNw
-b3J0LmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21zeXNwb3J0LmMKaW5kZXgg
-ZDQwYzViOTY5ZTllLi5kYzcwOGE4ODhmODAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuYworKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9h
-ZGNvbS9iY21zeXNwb3J0LmMKQEAgLTEzMjcsOCArMTMyNyw4IEBAIHN0YXRpYyBpbnQgYmNtX3N5
-c3BvcnRfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCS8qIFJlYWQgQ1JDIGZvcndhcmQg
-Ki8KIAlwcml2LT5jcmNfZndkID0gISEodW1hY19yZWFkbChwcml2LCBVTUFDX0NNRCkgJiBDTURf
-Q1JDX0ZXRCk7CiAKLQlwcml2LT5waHlkZXYgPSBvZl9waHlfY29ubmVjdF9maXhlZF9saW5rKGRl
-diwgYmNtX3N5c3BvcnRfYWRqX2xpbmssCi0JCQkJCQkJcHJpdi0+cGh5X2ludGVyZmFjZSk7CisJ
-cHJpdi0+cGh5ZGV2ID0gb2ZfcGh5X2Nvbm5lY3QoZGV2LCBwcml2LT5waHlfZG4sIGJjbV9zeXNw
-b3J0X2Fkal9saW5rLAorCQkJCQkwLCBwcml2LT5waHlfaW50ZXJmYWNlKTsKIAlpZiAoIXByaXYt
-PnBoeWRldikgewogCQluZXRkZXZfZXJyKGRldiwgImNvdWxkIG5vdCBhdHRhY2ggdG8gUEhZXG4i
-KTsKIAkJcmV0dXJuIC1FTk9ERVY7CkBAIC0xNTUxLDYgKzE1NTEsMTkgQEAgc3RhdGljIGludCBi
-Y21fc3lzcG9ydF9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpwZGV2KQogCWlmIChwcml2
-LT5waHlfaW50ZXJmYWNlIDwgMCkKIAkJcHJpdi0+cGh5X2ludGVyZmFjZSA9IFBIWV9JTlRFUkZB
-Q0VfTU9ERV9HTUlJOwogCisJLyogSW4gdGhlIGNhc2Ugb2YgYSBmaXhlZCBQSFksIHRoZSBEVCBu
-b2RlIGFzc29jaWF0ZWQKKwkgKiB0byB0aGUgUEhZIGlzIHRoZSBFdGhlcm5ldCBNQUMgRFQgbm9k
-ZS4KKwkgKi8KKwlpZiAob2ZfcGh5X2lzX2ZpeGVkX2xpbmsoZG4pKSB7CisJCXJldCA9IG9mX3Bo
-eV9yZWdpc3Rlcl9maXhlZF9saW5rKGRuKTsKKwkJaWYgKHJldCkgeworCQkJZGV2X2VycigmcGRl
-di0+ZGV2LCAiZmFpbGVkIHRvIHJlZ2lzdGVyIGZpeGVkIFBIWVxuIik7CisJCQlnb3RvIGVycjsK
-KwkJfQorCisJCXByaXYtPnBoeV9kbiA9IGRuOworCX0KKwogCS8qIEluaXRpYWxpemUgbmV0ZGV2
-aWNlIG1lbWJlcnMgKi8KIAltYWNhZGRyID0gb2ZfZ2V0X21hY19hZGRyZXNzKGRuKTsKIAlpZiAo
-IW1hY2FkZHIgfHwgIWlzX3ZhbGlkX2V0aGVyX2FkZHIobWFjYWRkcikpIHsKZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuaCBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuaAppbmRleCBhYmRlYjYyNjE2ZGYuLjczZmQw
-NGE5NDc5NyAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYmNtc3lz
-cG9ydC5oCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuaApA
-QCAtNjU2LDYgKzY1Niw3IEBAIHN0cnVjdCBiY21fc3lzcG9ydF9wcml2IHsKIAl1bnNpZ25lZCBp
-bnQJCXJ4X2NfaW5kZXg7CiAKIAkvKiBQSFkgZGV2aWNlICovCisJc3RydWN0IGRldmljZV9ub2Rl
-CSpwaHlfZG47CiAJc3RydWN0IHBoeV9kZXZpY2UJKnBoeWRldjsKIAlwaHlfaW50ZXJmYWNlX3QJ
-CXBoeV9pbnRlcmZhY2U7CiAJaW50CQkJb2xkX3BhdXNlOwotLSAKMS45LjEKCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5n
-IGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMu
-b3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+--Sig_/KnBHmZDs9tZ6Gey/dRoMe6q
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+After merging the net tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
+
+
+In file included from arch/powerpc/net/bpf_jit_comp.c:16:0:
+include/linux/if_vlan.h: In function 'vlan_get_encap_level':
+include/linux/if_vlan.h:491:2: error: implicit declaration of function 'vla=
+n_dev_priv' [-Werror=3Dimplicit-function-declaration]
+  return vlan_dev_priv(dev)->nest_level;
+  ^
+include/linux/if_vlan.h:491:27: error: invalid type argument of '->' (have =
+'int')
+  return vlan_dev_priv(dev)->nest_level;
+                           ^
+
+Caused by commit 44a4085538c8 ("bonding: Fix stacked device detection
+in arp monitoring").
+
+vlan_dev_priv() is protected by:
+
+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+
+but the newly added call in vlan_get_encap_level() is not.
+
+I have used the net tree from next-20140519 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/KnBHmZDs9tZ6Gey/dRoMe6q
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTeqkNAAoJEMDTa8Ir7ZwVO4oP/3oXziwWreT3K+Tf7FiZ9HaH
+Kfj3b1sJYFkyn5eRNoBs5I0YncwYyufq3LfBP/LNrlWum7ZfaXw2cjdjSkRKt/vZ
+hZizhlGPix5AmfJCIGvxyHej1ib4lwpG/Kmrrqzn4AaweMflLD8Aq2aIQ+X02LaH
+7Tpy+xAvdsUoBXgjIBt+mFKk+DCeOb3NyZa2q7lgv3k4JmVREYOaG/x6t65yBhea
+4GFeobaHiTBAAyBhuilrQWV7pHFndUKkKTr9eZqKtAecrOueSR44x8AJlKO36E7V
+hYOYc9GrtYq87DzT+v+IFqNNER40Ua1VwvTXh8UTHNUpKoHp0CEwYkUsv3esJfCO
+1kEmnAHFTTy9e+esO7rJEV627u/RIN9hik+LAGdD35vOZKr8nzeuVIDQdW8GyQY9
+Npuzo5WNOqCISOWXULeKVDjiQdsqsjzFjGhffbX1M/piKxNwgC2M68xthFwfX9En
+MQs9gCrhlI0+aQSzeIedMWZzyDTm8ZW4ELzgI0ocHVNA+I0y7c5kwzBsbjWerVmo
+fKZxSPv/ovx1FKskpq2wQcneH8Jd67ZcxIu+kVvh/dxfmSx4VnNDAVHp+nI6GV4p
+fUHVElRkFGTTcmYTa0gN8vrbh5dAfTkgUux3Ykea3FwKFUjs90Keur/YX8McgMWX
+kCc9LgwIlXtRipx+43dy
+=upfj
+-----END PGP SIGNATURE-----
+
+--Sig_/KnBHmZDs9tZ6Gey/dRoMe6q--
