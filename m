@@ -1,42 +1,64 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH 2/2] net: fec: correct the MDIO clock source
-Date: Tue, 20 May 2014 13:23:09 +0800
-Message-ID: <1400563389-3599-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<bhutchings@solarflare.com>, <stephen@networkplumber.org>
-To: <b20596@freescale.com>, <davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next v2 0/3] net: device features handling fixes
+Date: Tue, 20 May 2014 08:29:15 +0200 (CEST)
+Message-ID: <cover.1400565116.git.mkubecek@suse.cz>
+References: <20140507.140846.1449010184057650775.davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:29888
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751547AbaETGlS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:41:18 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:44335 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750699AbaETG3S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:29:18 -0400
+In-Reply-To: <20140507.140846.1449010184057650775.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since imx serials FEC/ENET MDIO clock source is internal ipg clock,
-and "ahb" clock is defined as FEC/ENET bus clock, so the patch just
-correct the fec driver MDIO clock source.
+> I think we need to think more about what exact behavior is desired in
+> mixed csum feature set cases.  Probably whatever csum offload type is
+> the most prevelant should be the one advertised by the master.  It
+> means we will do that software checksum fixup for the oddball slaves,
+> but it seems the best we can do.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I've been thinking about it some more and I believe what I proposed is
+correct: features that are or-ed (ONE_FOR_ALL) should start with 0,
+those which are and-ed (ALL_FOR_ALL) with 1.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 99fb0dc..cb5c987 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1407,7 +1407,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
- 	 * document.
- 	 */
--	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ahb), 5000000);
-+	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
- 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
- 		fep->phy_speed--;
- 	fep->phy_speed <<= 1;
+But once we do that, we have to fix another problem in vlan module:
+features of a vlan device are mostly computed as bitwise AND of features
+and vlan_features of its underlying device. The problem is checksumming
+features don't really behave like independent flags as their main
+purpose is to be used in can_checksum_protocol() whose logic is that
+HW_CSUM (GEN_CSUM) means "can checksum everything" so that it kind of
+contains IP(V6)_CSUM functionality. Therefore intersection of HW_CSUM
+and IP(V6)_CSUM should result in the latter.
+
+An alternative approach would be to always set IP(V6)_CSUM once HW_CSUM
+(any of GEN_CSUM) is set but as for long time people were taught not to
+do that and we even have a warning for it, switching to the exact
+opposite could cause a lot of problems.
+
+> Also, like Jay, I agree that whatever we do in bonding needs to be
+> done in team too and I'd like the bug fixed at the same time in both
+> places.
+
+Agreed. Added a similar patch for teaming driver.
+
+Michal Kubecek (3):
+  vlan: more careful checksum features handling
+  bonding: fix vlan_features computing
+  teaming: fix vlan_features computing
+
+ drivers/net/bonding/bond_main.c |  1 +
+ drivers/net/team/team.c         |  2 +-
+ include/linux/netdevice.h       | 14 ++++++++++++++
+ net/8021q/vlan_dev.c            |  4 ++--
+ 4 files changed, 18 insertions(+), 3 deletions(-)
+
 -- 
-1.7.8
+1.8.1.4
