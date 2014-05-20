@@ -1,83 +1,67 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next v2 1/3] vlan: more careful checksum features handling
-Date: Tue, 20 May 2014 08:29:25 +0200 (CEST)
-Message-ID: <106e1cfaa47e489460375596e41005f8da4d0d06.1400565116.git.mkubecek@suse.cz>
-References: <20140507.140846.1449010184057650775.davem@davemloft.net>
-	<cover.1400565116.git.mkubecek@suse.cz>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-To: "David S. Miller" <davem@davemloft.net>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net 2/2] sfc: Restrict PIO to 64-bit architectures
+Date: Tue, 20 May 2014 08:48:29 +0100
+Message-ID: <537B08CD.90607@solarflare.com>
+References: <537B07ED.4080104@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44342 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751417AbaETG30 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:29:26 -0400
-In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
+Received: from webmail.solarflare.com ([12.187.104.25]:11130 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752034AbaETHsd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 03:48:33 -0400
+In-Reply-To: <537B07ED.4080104@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When combining real_dev's features and vlan_features, simple
-bitwise AND is used. This doesn't work well for checksum
-offloading features as if one set has NETIF_F_HW_CSUM and the
-other NETIF_F_IP_CSUM and/or NETIF_F_IPV6_CSUM, we end up with
-no checksum offloading. However, from the logical point of view
-(how can_checksum_protocol() works), NETIF_F_HW_CSUM contains
-the functionality of NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM so
-that the result should be IP/IPV6.
+From: Jon Cooper <jcooper@solarflare.com>
 
-Add helper function netdev_intersect_features() implementing
-this logic and use it in vlan_dev_fix_features().
+The linux net driver uses memcpy_toio() in order to copy into
+the PIO buffers.
+Even on a 64bit machine this causes 32bit accesses to a write-
+combined memory region.
+There are hardware limitations that mean that only
+64bit naturally aligned accesses are safe in all cases. Due to being
+write-combined memory region two 32bit accesses may be coalesced to
+form a 64bit non 64bit aligned access.
+Solution was to open-code the memory copy routines using pointers
+and to only enable PIO for x86_64 machines.
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Enable PIO for x86_64 architecture only.
+Not tested on platforms other than x86_64.
+
+Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
+
+orig-hg-hash: 53dc43553d9bbe1c5a64c49e580ca571ddc470ae
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- include/linux/netdevice.h | 14 ++++++++++++++
- net/8021q/vlan_dev.c      |  4 ++--
- 2 files changed, 16 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/io.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2dea98c..f4ad247 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3153,6 +3153,20 @@ const char *netdev_drivername(const struct net_device *dev);
- 
- void linkwatch_run_queue(void);
- 
-+static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
-+							  netdev_features_t f2)
-+{
-+	if (f1 & NETIF_F_GEN_CSUM)
-+		f1 |= (NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
-+	if (f2 & NETIF_F_GEN_CSUM)
-+		f2 |= (NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
-+	f1 &= f2;
-+	if (f1 & NETIF_F_GEN_CSUM)
-+		f1 &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
-+
-+	return f1;
-+}
-+
- static inline netdev_features_t netdev_get_wanted_features(
- 	struct net_device *dev)
- {
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 8f025af..4181fb7 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -678,9 +678,9 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
- 	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
- 	netdev_features_t old_features = features;
- 
--	features &= real_dev->vlan_features;
-+	features = netdev_intersect_features(features, real_dev->vlan_features);
- 	features |= NETIF_F_RXCSUM;
--	features &= real_dev->features;
-+	features = netdev_intersect_features(features, real_dev->features);
- 
- 	features |= old_features & NETIF_F_SOFT_FEATURES;
- 	features |= NETIF_F_LLTX;
--- 
-1.8.1.4
+diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
+index 4d3f119..adadcf0 100644
+--- a/drivers/net/ethernet/sfc/io.h
++++ b/drivers/net/ethernet/sfc/io.h
+@@ -66,10 +66,18 @@
+ #define EFX_USE_QWORD_IO 1
+ #endif
+
++/* PIO only works on 64-bit architectures */
++#if BITS_PER_LONG == 64
++/* not strictly necessary to restrict to x86 arch, but done for safety
++ * since unusual write combining behaviour can break PIO.
++ */
++#ifdef CONFIG_X86_64
+ /* PIO is a win only if write-combining is possible */
+ #ifdef ARCH_HAS_IOREMAP_WC
+ #define EFX_USE_PIO 1
+ #endif
++#endif
++#endif
+
+ #ifdef EFX_USE_QWORD_IO
+ static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
+The information contained in this message is confidential and is intended for the addressee(s) only. If you have received this message in error, please notify the sender immediately and delete the message. Unless you are an addressee (or authorized to receive for an addressee), you may not use, copy or disclose to anyone this message or any information contained in this message. The unauthorized use, disclosure, copying or alteration of this message is strictly prohibited.
