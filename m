@@ -1,69 +1,48 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] vlan: Fix build error wth vlan_get_encap_level()
-Date: Tue, 20 May 2014 10:59:26 -0400
-Message-ID: <1400597966-2825-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH iproute2 1/2] bridge: display IFLA_BRPORT_LEARNING value
+Date: Tue, 20 May 2014 11:13:52 -0400
+Message-ID: <537B7130.2050504@gmail.com>
+References: <1400578650-6917-1-git-send-email-nicolas.dichtel@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23606 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976AbaETO7c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 10:59:32 -0400
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:49240 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbaETPNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 11:13:55 -0400
+Received: by mail-qg0-f52.google.com with SMTP id a108so953664qge.39
+        for <netdev@vger.kernel.org>; Tue, 20 May 2014 08:13:54 -0700 (PDT)
+In-Reply-To: <1400578650-6917-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new function vlan_get_encap_level() uses vlan_dev_priv()
-which is only conditionally avaialble when VLAN support is
-enabled.  Make vlan_get_encap_level() conditionally available
-as well.
+Hi Nicolas
 
-Fixes: 44a4085538c8 ("bonding: Fix stacked device detection in arp monitoring")
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-CC: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- include/linux/if_vlan.h | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+On 05/20/2014 05:37 AM, Nicolas Dichtel wrote:
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  bridge/link.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/bridge/link.c b/bridge/link.c
+> index 38dfaea2e180..1632bc16803f 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -185,6 +185,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+>  				if (prtb[IFLA_BRPORT_FAST_LEAVE])
+>  					print_onoff(fp, "fastleave",
+>  						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
+> +				if (prtb[IFLA_BRPORT_LEARNING])
+> +					print_onoff(fp, "learning",
+> +						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
+>  			}
+>  		} else
+>  			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+> 
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index c901b13..b2acc4a 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -198,6 +198,12 @@ extern void vlan_vids_del_by_dev(struct net_device *dev,
- 				 const struct net_device *by_dev);
- 
- extern bool vlan_uses_dev(const struct net_device *dev);
-+
-+static inline int vlan_get_encap_level(struct net_device *dev)
-+{
-+	BUG_ON(!is_vlan_dev(dev));
-+	return vlan_dev_priv(dev)->nest_level;
-+}
- #else
- static inline struct net_device *
- __vlan_find_dev_deep(struct net_device *real_dev,
-@@ -264,6 +270,11 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
- {
- 	return false;
- }
-+static inline int vlan_get_encap_level(struct net_device *dev)
-+{
-+	BUG();
-+	return 0;
-+}
- #endif
- 
- static inline bool vlan_hw_offload_capable(netdev_features_t features,
-@@ -485,9 +496,4 @@ static inline void vlan_set_encap_proto(struct sk_buff *skb,
- 		skb->protocol = htons(ETH_P_802_2);
- }
- 
--static inline int vlan_get_encap_level(struct net_device *dev)
--{
--	BUG_ON(!is_vlan_dev(dev));
--	return vlan_dev_priv(dev)->nest_level;
--}
- #endif /* !(_LINUX_IF_VLAN_H_) */
--- 
-1.9.0
+Already proposed. See http://patchwork.ozlabs.org/patch/350291/
+
+-vlad
