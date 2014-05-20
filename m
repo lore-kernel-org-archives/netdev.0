@@ -1,70 +1,156 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 76521] New: no-blocking socket can send data through
- non-existent local port
-Date: Wed, 21 May 2014 06:56:05 +0900
-Message-ID: <20140521065605.0955afb7@samsung-9>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] net: modify tunnel's name when changing link's name
+Date: Tue, 20 May 2014 16:20:31 -0700
+Message-ID: <CAHA+R7Oc6qwd82riF8T+wXyopfMP9RquKUXty6WUpGs-n5ac5Q@mail.gmail.com>
+References: <537AE7D1.4090702@cn.fujitsu.com>
+	<CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary=089e011609cc4f8fc704f9dd2079
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	stephen hemminger <stephen@networkplumber.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:54874 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766AbaETWAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 18:00:12 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kq14so713391pab.5
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 15:00:11 -0700 (PDT)
-Received: from samsung-9 ([61.215.197.74])
-        by mx.google.com with ESMTPSA id ry10sm95315105pab.38.2014.05.20.15.00.10
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 20 May 2014 15:00:11 -0700 (PDT)
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:33497 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072AbaETXUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 19:20:33 -0400
+Received: by mail-lb0-f176.google.com with SMTP id p9so967105lbv.35
+        for <netdev@vger.kernel.org>; Tue, 20 May 2014 16:20:32 -0700 (PDT)
+In-Reply-To: <CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+--089e011609cc4f8fc704f9dd2079
+Content-Type: text/plain; charset=UTF-8
 
+On Tue, May 20, 2014 at 12:21 PM, Cong Wang <cwang@twopensource.com> wrote:
+>
+> I am working on a patch.
 
-Begin forwarded message:
+For now, I think we just fix the renaming issue.
+Please try this patch below (I already tested it actually).
 
-Date: Mon, 19 May 2014 18:21:19 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 76521] New: no-blocking socket can send data through non-existent local port
+IPv6 part is on the way.
 
+--089e011609cc4f8fc704f9dd2079
+Content-Type: text/plain; charset=US-ASCII; name="ip_tunnel.diff"
+Content-Disposition: attachment; filename="ip_tunnel.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hvftqfky0
 
-https://bugzilla.kernel.org/show_bug.cgi?id=76521
-
-            Bug ID: 76521
-           Summary: no-blocking socket can send data through non-existent
-                    local port
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.11.0-15
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: high
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: billhong1998@gmail.com
-        Regression: No
-
-Created attachment 136811
-  --> https://bugzilla.kernel.org/attachment.cgi?id=136811&action=edit
-Run code to reproduce the issue
-
-The attached code is a epoll network client supposed to test a network server
-in high traffic case. Multiple threads create non-blocking sockets to simulate
-heavy network load. Most sockets work well, but occasionally some sockets can
-send data via non-existent local port, and can read data from the port as well.
-Maybe I am not acquainted enough with epoll networking programming, and even
-not sure if it is a bug in no-blocking i/o or epoll, and also not certain which
-websites are the right place to discuss epoll or no-blocking i/o technologies.  
-
-Anyone has any ideas would be greatly appreciated. Thanks.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Y29tbWl0IDY4MjViNzgyNzk2MjE1YTRjNzAxYzQ0Y2RiMDI1M2U5MzZjZjI5NTcKQXV0aG9yOiBD
+b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBUdWUgTWF5IDIwIDE1
+OjI0OjQzIDIwMTQgLTA3MDAKCiAgICBpcHY0LCB0dW5uZWw6IHVwZGF0ZSB0dW5uZWwgbmFtZSB3
+aGVuIG5ldGRldiBuYW1lIGlzIGNoYW5nZWQKICAgIAogICAgU2lnbmVkLW9mZi1ieTogQ29uZyBX
+YW5nIDx4aXlvdS53YW5nY29uZ0BnbWFpbC5jb20+CgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQv
+aXBfdHVubmVscy5oIGIvaW5jbHVkZS9uZXQvaXBfdHVubmVscy5oCmluZGV4IGE0ZGFmOWUuLjBm
+NjgwNWYgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L2lwX3R1bm5lbHMuaAorKysgYi9pbmNsdWRl
+L25ldC9pcF90dW5uZWxzLmgKQEAgLTEzMCw2ICsxMzAsNyBAQCBpbnQgaXBfdHVubmVsX25ld2xp
+bmsoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IG5sYXR0ciAqdGJbXSwKIAkJICAgICAg
+c3RydWN0IGlwX3R1bm5lbF9wYXJtICpwKTsKIHZvaWQgaXBfdHVubmVsX3NldHVwKHN0cnVjdCBu
+ZXRfZGV2aWNlICpkZXYsIGludCBuZXRfaWQpOwogdm9pZCBpcF90dW5uZWxfZHN0X3Jlc2V0X2Fs
+bChzdHJ1Y3QgaXBfdHVubmVsICp0KTsKK3N0cnVjdCBpcF90dW5uZWwgKmlwX3R1bm5lbF9nZXRf
+YnlfZGV2KHN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG4sIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYp
+OwogCiAvKiBFeHRyYWN0IGRzZmllbGQgZnJvbSBpbm5lciBwcm90b2NvbCAqLwogc3RhdGljIGlu
+bGluZSB1OCBpcF90dW5uZWxfZ2V0X2RzZmllbGQoY29uc3Qgc3RydWN0IGlwaGRyICppcGgsCmRp
+ZmYgLS1naXQgYS9uZXQvaXB2NC9pcF9ncmUuYyBiL25ldC9pcHY0L2lwX2dyZS5jCmluZGV4IGM1
+YTU1N2EuLjcyNTVlZGYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2lwX2dyZS5jCisrKyBiL25ldC9p
+cHY0L2lwX2dyZS5jCkBAIC03NzgsNiArNzc4LDM3IEBAIHN0YXRpYyBzdHJ1Y3QgcGVybmV0X29w
+ZXJhdGlvbnMgaXBncmVfdGFwX25ldF9vcHMgPSB7CiAJLnNpemUgPSBzaXplb2Yoc3RydWN0IGlw
+X3R1bm5lbF9uZXQpLAogfTsKIAorc3RhdGljIGludCBpcF9ncmVfZXZlbnQoc3RydWN0IG5vdGlm
+aWVyX2Jsb2NrICp1bnVzZWQsIHVuc2lnbmVkIGxvbmcgZXZlbnQsCisJCQl2b2lkICpwdHIpCit7
+CisJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3RvX2Rldihw
+dHIpOworCXN0cnVjdCBuZXQgKm5ldCA9IGRldl9uZXQoZGV2KTsKKwlzdHJ1Y3QgaXBfdHVubmVs
+ICp0OworCXN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG47CisKKwlpZiAoZXZlbnQgIT0gTkVUREVW
+X0NIQU5HRU5BTUUpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWl0biA9IG5ldF9nZW5lcmlj
+KG5ldCwgaXBncmVfbmV0X2lkKTsKKwl0ID0gaXBfdHVubmVsX2dldF9ieV9kZXYoaXRuLCBkZXYp
+OworCWlmICghdCkgeworCQlpdG4gPSBuZXRfZ2VuZXJpYyhuZXQsIGdyZV90YXBfbmV0X2lkKTsK
+KwkJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwgZGV2KTsKKwl9CisKKwlpZiAoIXQpCisJ
+CXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5uYW1lWzBdKQorCQlzdHJsY3B5
+KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOworCisJcmV0dXJuIE5PVElGWV9E
+T05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2NrIGlwX2dyZV9ub3RpZmllciA9
+IHsKKwkubm90aWZpZXJfY2FsbCA9IGlwX2dyZV9ldmVudAorfTsKKwogc3RhdGljIGludCBfX2lu
+aXQgaXBncmVfaW5pdCh2b2lkKQogewogCWludCBlcnI7CkBAIC04MDYsOCArODM3LDEzIEBAIHN0
+YXRpYyBpbnQgX19pbml0IGlwZ3JlX2luaXQodm9pZCkKIAlpZiAoZXJyIDwgMCkKIAkJZ290byB0
+YXBfb3BzX2ZhaWxlZDsKIAotCXJldHVybiAwOworCWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9u
+b3RpZmllcigmaXBfZ3JlX25vdGlmaWVyKTsKKwlpZiAoZXJyIDwgMCkKKwkJZ290byBuZXRkZXZf
+bm90aWZ5X2ZhaWxlZDsKIAorCXJldHVybiAwOworbmV0ZGV2X25vdGlmeV9mYWlsZWQ6CisJcnRu
+bF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX3RhcF9vcHMpOwogdGFwX29wc19mYWlsZWQ6CiAJcnRu
+bF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX2xpbmtfb3BzKTsKIHJ0bmxfbGlua19mYWlsZWQ6CkBA
+IC04MjEsNiArODU3LDcgQEAgcG5ldF90YXBfZmFpZWQ6CiAKIHN0YXRpYyB2b2lkIF9fZXhpdCBp
+cGdyZV9maW5pKHZvaWQpCiB7CisJdW5yZWdpc3Rlcl9uZXRkZXZpY2Vfbm90aWZpZXIoJmlwX2dy
+ZV9ub3RpZmllcik7CiAJcnRubF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX3RhcF9vcHMpOwogCXJ0
+bmxfbGlua191bnJlZ2lzdGVyKCZpcGdyZV9saW5rX29wcyk7CiAJZ3JlX2Npc2NvX3VucmVnaXN0
+ZXIoJmlwZ3JlX3Byb3RvY29sKTsKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX3R1bm5lbC5jIGIv
+bmV0L2lwdjQvaXBfdHVubmVsLmMKaW5kZXggMjg5YzZlZS4uYTUwNzBlYSAxMDA2NDQKLS0tIGEv
+bmV0L2lwdjQvaXBfdHVubmVsLmMKKysrIGIvbmV0L2lwdjQvaXBfdHVubmVsLmMKQEAgLTEwNTMs
+NCArMTA1MywyMiBAQCB2b2lkIGlwX3R1bm5lbF9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
+LCBpbnQgbmV0X2lkKQogfQogRVhQT1JUX1NZTUJPTF9HUEwoaXBfdHVubmVsX3NldHVwKTsKIAor
+c3RydWN0IGlwX3R1bm5lbCAqaXBfdHVubmVsX2dldF9ieV9kZXYoc3RydWN0IGlwX3R1bm5lbF9u
+ZXQgKml0biwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKK3sKKwlpbnQgaDsKKworCWZvciAoaCA9
+IDA7IGggPCBJUF9UTkxfSEFTSF9TSVpFOyBoKyspIHsKKwkJc3RydWN0IGhsaXN0X2hlYWQgKnRo
+ZWFkID0gJml0bi0+dHVubmVsc1toXTsKKwkJc3RydWN0IGlwX3R1bm5lbCAqdDsKKworCQlobGlz
+dF9mb3JfZWFjaF9lbnRyeV9yY3UodCwgdGhlYWQsIGhhc2hfbm9kZSkgeworCQkJaWYgKHQtPmRl
+diA9PSBkZXYpCisJCQkJcmV0dXJuIHQ7CisJCX0KKwl9CisKKwlyZXR1cm4gTlVMTDsKK30KK0VY
+UE9SVF9TWU1CT0xfR1BMKGlwX3R1bm5lbF9nZXRfYnlfZGV2KTsKKwogTU9EVUxFX0xJQ0VOU0Uo
+IkdQTCIpOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaXBfdnRpLmMgYi9uZXQvaXB2NC9pcF92dGku
+YwppbmRleCBhZmNlZTUxLi41ZTBhNDk1IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9pcF92dGkuYwor
+KysgYi9uZXQvaXB2NC9pcF92dGkuYwpAQCAtNTIzLDYgKzUyMywzMiBAQCBzdGF0aWMgc3RydWN0
+IHJ0bmxfbGlua19vcHMgdnRpX2xpbmtfb3BzIF9fcmVhZF9tb3N0bHkgPSB7CiAJLmZpbGxfaW5m
+bwk9IHZ0aV9maWxsX2luZm8sCiB9OwogCitzdGF0aWMgaW50IHZ0aV9ldmVudChzdHJ1Y3Qgbm90
+aWZpZXJfYmxvY2sgKnVudXNlZCwgdW5zaWduZWQgbG9uZyBldmVudCwKKwkJICAgICB2b2lkICpw
+dHIpCit7CisJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3Rv
+X2RldihwdHIpOworCXN0cnVjdCBpcF90dW5uZWwgKnQ7CisJc3RydWN0IG5ldCAqbmV0ID0gZGV2
+X25ldChkZXYpOworCXN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG47CisKKwlpZiAoZXZlbnQgIT0g
+TkVUREVWX0NIQU5HRU5BTUUpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWl0biA9IG5ldF9n
+ZW5lcmljKG5ldCwgdnRpX25ldF9pZCk7CisJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwg
+ZGV2KTsKKwlpZiAoIXQpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5u
+YW1lWzBdKQorCQlzdHJsY3B5KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOwor
+CisJcmV0dXJuIE5PVElGWV9ET05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2Nr
+IHZ0aV9ub3RpZmllciA9IHsKKwkubm90aWZpZXJfY2FsbCA9IHZ0aV9ldmVudAorfTsKKwogc3Rh
+dGljIGludCBfX2luaXQgdnRpX2luaXQodm9pZCkKIHsKIAlpbnQgZXJyOwpAQCAtNTYyLDkgKzU4
+OCwxNCBAQCBzdGF0aWMgaW50IF9faW5pdCB2dGlfaW5pdCh2b2lkKQogCWVyciA9IHJ0bmxfbGlu
+a19yZWdpc3RlcigmdnRpX2xpbmtfb3BzKTsKIAlpZiAoZXJyIDwgMCkKIAkJZ290byBydG5sX2xp
+bmtfZmFpbGVkOworCWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmdnRpX25vdGlm
+aWVyKTsKKwlpZiAoZXJyIDwgMCkKKwkJZ290byBuZXRkZXZfbm90aWZ5X2ZhaWxlZDsKIAogCXJl
+dHVybiBlcnI7CiAKK25ldGRldl9ub3RpZnlfZmFpbGVkOgorCXJ0bmxfbGlua191bnJlZ2lzdGVy
+KCZ2dGlfbGlua19vcHMpOwogcnRubF9saW5rX2ZhaWxlZDoKIAl4ZnJtNF9wcm90b2NvbF9kZXJl
+Z2lzdGVyKCZ2dGlfaXBjb21wNF9wcm90b2NvbCwgSVBQUk9UT19DT01QKTsKIAl4ZnJtNF9wcm90
+b2NvbF9kZXJlZ2lzdGVyKCZ2dGlfYWg0X3Byb3RvY29sLCBJUFBST1RPX0FIKTsKQEAgLTU3NSw2
+ICs2MDYsNyBAQCBydG5sX2xpbmtfZmFpbGVkOgogCiBzdGF0aWMgdm9pZCBfX2V4aXQgdnRpX2Zp
+bmkodm9pZCkKIHsKKwl1bnJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmdnRpX25vdGlmaWVy
+KTsKIAlydG5sX2xpbmtfdW5yZWdpc3RlcigmdnRpX2xpbmtfb3BzKTsKIAlpZiAoeGZybTRfcHJv
+dG9jb2xfZGVyZWdpc3RlcigmdnRpX2lwY29tcDRfcHJvdG9jb2wsIElQUFJPVE9fQ09NUCkpCiAJ
+CXByX2luZm8oInZ0aSBjbG9zZTogY2FuJ3QgZGVyZWdpc3RlciB0dW5uZWxcbiIpOwpkaWZmIC0t
+Z2l0IGEvbmV0L2lwdjQvaXBpcC5jIGIvbmV0L2lwdjQvaXBpcC5jCmluZGV4IDgxMmIxODMuLmNj
+ZDJiNzVmYSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBpcC5jCisrKyBiL25ldC9pcHY0L2lwaXAu
+YwpAQCAtNDQ2LDYgKzQ0NiwzMiBAQCBzdGF0aWMgc3RydWN0IHBlcm5ldF9vcGVyYXRpb25zIGlw
+aXBfbmV0X29wcyA9IHsKIAkuc2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXBfdHVubmVsX25ldCksCiB9
+OwogCitzdGF0aWMgaW50IGlwaXBfZXZlbnQoc3RydWN0IG5vdGlmaWVyX2Jsb2NrICp1bnVzZWQs
+IHVuc2lnbmVkIGxvbmcgZXZlbnQsCisJCSAgICAgIHZvaWQgKnB0cikKK3sKKwlzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2ID0gbmV0ZGV2X25vdGlmaWVyX2luZm9fdG9fZGV2KHB0cik7CisJc3RydWN0
+IGlwX3R1bm5lbCAqdDsKKwlzdHJ1Y3QgbmV0ICpuZXQgPSBkZXZfbmV0KGRldik7CisJc3RydWN0
+IGlwX3R1bm5lbF9uZXQgKml0bjsKKworCWlmIChldmVudCAhPSBORVRERVZfQ0hBTkdFTkFNRSkK
+KwkJcmV0dXJuIE5PVElGWV9ET05FOworCisJaXRuID0gbmV0X2dlbmVyaWMobmV0LCBpcGlwX25l
+dF9pZCk7CisJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwgZGV2KTsKKwlpZiAoIXQpCisJ
+CXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5uYW1lWzBdKQorCQlzdHJsY3B5
+KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOworCisJcmV0dXJuIE5PVElGWV9E
+T05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2NrIGlwaXBfbm90aWZpZXIgPSB7
+CisJLm5vdGlmaWVyX2NhbGwgPSBpcGlwX2V2ZW50Cit9OworCiBzdGF0aWMgaW50IF9faW5pdCBp
+cGlwX2luaXQodm9pZCkKIHsKIAlpbnQgZXJyOwpAQCAtNDYzLDEwICs0ODksMTUgQEAgc3RhdGlj
+IGludCBfX2luaXQgaXBpcF9pbml0KHZvaWQpCiAJZXJyID0gcnRubF9saW5rX3JlZ2lzdGVyKCZp
+cGlwX2xpbmtfb3BzKTsKIAlpZiAoZXJyIDwgMCkKIAkJZ290byBydG5sX2xpbmtfZmFpbGVkOwor
+CWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmaXBpcF9ub3RpZmllcik7CisJaWYg
+KGVyciA8IDApCisJCWdvdG8gbmV0ZGV2X25vdGlmeV9mYWlsZWQ7CiAKIG91dDoKIAlyZXR1cm4g
+ZXJyOwogCituZXRkZXZfbm90aWZ5X2ZhaWxlZDoKKwlydG5sX2xpbmtfdW5yZWdpc3RlcigmaXBp
+cF9saW5rX29wcyk7CiBydG5sX2xpbmtfZmFpbGVkOgogCXhmcm00X3R1bm5lbF9kZXJlZ2lzdGVy
+KCZpcGlwX2hhbmRsZXIsIEFGX0lORVQpOwogeGZybV90dW5uZWxfZmFpbGVkOgpAQCAtNDc2LDYg
+KzUwNyw3IEBAIHhmcm1fdHVubmVsX2ZhaWxlZDoKIAogc3RhdGljIHZvaWQgX19leGl0IGlwaXBf
+ZmluaSh2b2lkKQogeworCXVucmVnaXN0ZXJfbmV0ZGV2aWNlX25vdGlmaWVyKCZpcGlwX25vdGlm
+aWVyKTsKIAlydG5sX2xpbmtfdW5yZWdpc3RlcigmaXBpcF9saW5rX29wcyk7CiAJaWYgKHhmcm00
+X3R1bm5lbF9kZXJlZ2lzdGVyKCZpcGlwX2hhbmRsZXIsIEFGX0lORVQpKQogCQlwcl9pbmZvKCIl
+czogY2FuJ3QgZGVyZWdpc3RlciB0dW5uZWxcbiIsIF9fZnVuY19fKTsK
+--089e011609cc4f8fc704f9dd2079--
