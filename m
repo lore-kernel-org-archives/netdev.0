@@ -1,56 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v5 net-next 1/3] net: flow_dissector: avoid multiple calls
- in BPF
-Date: Tue, 20 May 2014 11:58:59 +0200
-Message-ID: <537B2763.5090402@redhat.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com> <1400265701-10333-1-git-send-email-chema@google.com> <CAMEtUuxBCNqbYctdxvWiJbp0mY__dKjP-RU8Ao-x3osVbFkxVg@mail.gmail.com> <CA+ZOOTPmSPeBrSHAsJtyxkAUnZDpgdhhw2PkrCJ3LhmG+ZSRYA@mail.gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] stmmac: Remove unbalanced clk_disable call
+Date: Tue, 20 May 2014 12:08:36 +0200
+Message-ID: <537B29A4.1010100@st.com>
+References: <1400578698-6407-1-git-send-email-hdegoede@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Chema Gonzalez <chema@google.com>
+Cc: Chen-Yu Tsai <wens@csie.org>, <netdev@vger.kernel.org>
+To: Hans de Goede <hdegoede@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13981 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750808AbaETJ7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 05:59:06 -0400
-In-Reply-To: <CA+ZOOTPmSPeBrSHAsJtyxkAUnZDpgdhhw2PkrCJ3LhmG+ZSRYA@mail.gmail.com>
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:34107 "EHLO
+	mx08-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750771AbaETKI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 06:08:59 -0400
+In-Reply-To: <1400578698-6407-1-git-send-email-hdegoede@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/20/2014 12:23 AM, Chema Gonzalez wrote:
-> On Fri, May 16, 2014 at 3:00 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-...
->> Other than design issue there is technical problem too.
->> You're not updating eBPF JIT and context->flow_initted will have junk,
->> so ld_poff will be returning junk too.
->> JITs and interpreter must match. That was always the case even in
->> old days of classic BPF. Interpreter initialized A and X to zero,
->> JITs had to do the same. If you add stuff like this to interpreter,
->> JITs would have to follow. Fast forward few years and this is not scalable.
->> You have several JITs around and adding custom stuff to interpreter
->> may not even be possible to do in JITs.
-> This is a fair point. In fact my patch is breaking "ld poff."
+On 5/20/2014 11:38 AM, Hans de Goede wrote:
+> The stmmac_open call was calling clk_disable_unprepare on phy init
+> failure, but it never calls clk_prepare_enable, this causes
+> a WARN_ON in the clk framework to trigger if for some reason phy init
+> fails.
 >
-> I think the previous mechanism where a new insn added to BPF would
-> cause the BPF JIT engine to refuse to run was a more scalable: New
-> stuff always went in the non-jitted runner, and people interested in
-> the jitted version will port when they needed it. We definitely not
-> want to require people adding new features to provide 6 versions of
-> the code.
+> Signed-off-by: Hans de Goede <hdegoede@redhat.com>
 
-Absolutely, "we definitely not want to require people adding new features
-to provide 6 versions of the code". I agree with this statement and that
-is exactly one of the goals of the new BPF mechanism. You might have seen
-how the internal conversion function performs this task for all current
-BPF extensions, and that is exactly so that JITs, once they are in place,
-do not need to be upgraded 6 times anymore (in contrast to your previous
-statement -- as people who want to use one of the extensions, needed to
-port them to each of their arch-specific JITs before).
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Best,
-
-Daniel
+> ---
+>   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
+>   1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index d940034..0f4841d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1704,7 +1704,7 @@ static int stmmac_open(struct net_device *dev)
+>   		if (ret) {
+>   			pr_err("%s: Cannot attach to PHY (error: %d)\n",
+>   			       __func__, ret);
+> -			goto phy_error;
+> +			return ret;
+>   		}
+>   	}
+>
+> @@ -1779,8 +1779,6 @@ init_error:
+>   dma_desc_error:
+>   	if (priv->phydev)
+>   		phy_disconnect(priv->phydev);
+> -phy_error:
+> -	clk_disable_unprepare(priv->stmmac_clk);
+>
+>   	return ret;
+>   }
+>
