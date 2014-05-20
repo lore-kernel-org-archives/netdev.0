@@ -1,33 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vlan: Fix build error wth vlan_get_encap_level()
-Date: Tue, 20 May 2014 11:24:54 -0400 (EDT)
-Message-ID: <20140520.112454.996974201972683580.davem@davemloft.net>
-References: <1400597966-2825-1-git-send-email-vyasevic@redhat.com>
+From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: [PATCH net-next] mac802154: llsec: correctly
+	lookup implicit-indexed keys
+Date: Tue, 20 May 2014 17:51:31 +0200
+Message-ID: <1400601091-26366-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37686 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753752AbaETPVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 11:21:24 -0400
-In-Reply-To: <1400597966-2825-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Tue, 20 May 2014 10:59:26 -0400
+Key id comparison for type 1 keys (implicit source, with index) should
+return true if mode and id are equal, not false.
 
-> The new function vlan_get_encap_level() uses vlan_dev_priv()
-> which is only conditionally avaialble when VLAN support is
-> enabled.  Make vlan_get_encap_level() conditionally available
-> as well.
-> 
-> Fixes: 44a4085538c8 ("bonding: Fix stacked device detection in arp monitoring")
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> CC: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+---
+ net/mac802154/llsec.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Applied, thanks Vlad.
+diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
+index 08d08cb..e4a2558 100644
+--- a/net/mac802154/llsec.c
++++ b/net/mac802154/llsec.c
+@@ -207,6 +207,8 @@ static bool llsec_key_id_equal(const struct ieee802154_llsec_key_id *a,
+ 		return false;
+ 
+ 	switch (a->mode) {
++	case IEEE802154_SCF_KEY_INDEX:
++		return true;
+ 	case IEEE802154_SCF_KEY_SHORT_INDEX:
+ 		return a->short_source == b->short_source;
+ 	case IEEE802154_SCF_KEY_HW_INDEX:
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
+Instantly run your Selenium tests across 300+ browser/OS combos.
+Get unparalleled scalability from the best Selenium testing platform available
+Simple to use. Nothing to install. Get started now for free."
+http://p.sf.net/sfu/SauceLabs
