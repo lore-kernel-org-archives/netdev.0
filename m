@@ -1,156 +1,159 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: modify tunnel's name when changing link's name
-Date: Tue, 20 May 2014 16:20:31 -0700
-Message-ID: <CAHA+R7Oc6qwd82riF8T+wXyopfMP9RquKUXty6WUpGs-n5ac5Q@mail.gmail.com>
-References: <537AE7D1.4090702@cn.fujitsu.com>
-	<CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] datapath: 16bit inner_network_header field in struct
+ ovs_gso_cb
+Date: Wed, 21 May 2014 08:31:47 +0900
+Message-ID: <20140520233145.GA30260@verge.net.au>
+References: <1400582464-2917-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=-1OfxGfRt58TtamGC955f7fG4z9tti3j0crYM73mJ2ug@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=089e011609cc4f8fc704f9dd2079
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	stephen hemminger <stephen@networkplumber.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:33497 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072AbaETXUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 19:20:33 -0400
-Received: by mail-lb0-f176.google.com with SMTP id p9so967105lbv.35
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 16:20:32 -0700 (PDT)
-In-Reply-To: <CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43497 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbaETXbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 19:31:52 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-1OfxGfRt58TtamGC955f7fG4z9tti3j0crYM73mJ2ug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---089e011609cc4f8fc704f9dd2079
-Content-Type: text/plain; charset=UTF-8
+On Tue, May 20, 2014 at 12:54:32PM -0700, Jesse Gross wrote:
+> On Tue, May 20, 2014 at 3:41 AM, Simon Horman <horms@verge.net.au> wrote:
+> > diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
+> > index b83a4c3..f459c18 100644
+> > --- a/datapath/linux/compat/gso.h
+> > +++ b/datapath/linux/compat/gso.h
+> >  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> > -#define skb_inner_network_header rpl_skb_inner_network_header
+> > -static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+> > -{
+> > -       return skb->head + OVS_GSO_CB(skb)->inner_network_header;
+> > -}
+> > -
+> >  #define skb_inner_mac_header rpl_skb_inner_mac_header
+> >  static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+> >  {
+> >         return skb->head + OVS_GSO_CB(skb)->inner_mac_header;
+> >  }
+> >
+> > +#define skb_inner_network_header rpl_skb_inner_network_header
+> > +static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+> > +{
+> > +       return skb_inner_mac_header(skb) +
+> > +               OVS_GSO_CB(skb)->inner_network_header;
+> > +}
+> > +
+> >  #else
+> 
+> This looks mostly fine to me but doesn't this need to be outside the
+> #ifdef NET_SKBUFF_DATA_USES_OFFSET block? Otherwise we will treat the
+> offset as a pointer on 32 bit kernels.
 
-On Tue, May 20, 2014 at 12:21 PM, Cong Wang <cwang@twopensource.com> wrote:
->
-> I am working on a patch.
+Thanks, Somehow I completely missed that.
+How about this?
 
-For now, I think we just fix the renaming issue.
-Please try this patch below (I already tested it actually).
 
-IPv6 part is on the way.
+From: Simon Horman <horms@verge.net.au>
 
---089e011609cc4f8fc704f9dd2079
-Content-Type: text/plain; charset=US-ASCII; name="ip_tunnel.diff"
-Content-Disposition: attachment; filename="ip_tunnel.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hvftqfky0
+[PATCH v1.1] datapath: 16bit inner_network_header field in struct ovs_gso_cb
 
-Y29tbWl0IDY4MjViNzgyNzk2MjE1YTRjNzAxYzQ0Y2RiMDI1M2U5MzZjZjI5NTcKQXV0aG9yOiBD
-b25nIFdhbmcgPHhpeW91Lndhbmdjb25nQGdtYWlsLmNvbT4KRGF0ZTogICBUdWUgTWF5IDIwIDE1
-OjI0OjQzIDIwMTQgLTA3MDAKCiAgICBpcHY0LCB0dW5uZWw6IHVwZGF0ZSB0dW5uZWwgbmFtZSB3
-aGVuIG5ldGRldiBuYW1lIGlzIGNoYW5nZWQKICAgIAogICAgU2lnbmVkLW9mZi1ieTogQ29uZyBX
-YW5nIDx4aXlvdS53YW5nY29uZ0BnbWFpbC5jb20+CgpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9uZXQv
-aXBfdHVubmVscy5oIGIvaW5jbHVkZS9uZXQvaXBfdHVubmVscy5oCmluZGV4IGE0ZGFmOWUuLjBm
-NjgwNWYgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L2lwX3R1bm5lbHMuaAorKysgYi9pbmNsdWRl
-L25ldC9pcF90dW5uZWxzLmgKQEAgLTEzMCw2ICsxMzAsNyBAQCBpbnQgaXBfdHVubmVsX25ld2xp
-bmsoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IG5sYXR0ciAqdGJbXSwKIAkJICAgICAg
-c3RydWN0IGlwX3R1bm5lbF9wYXJtICpwKTsKIHZvaWQgaXBfdHVubmVsX3NldHVwKHN0cnVjdCBu
-ZXRfZGV2aWNlICpkZXYsIGludCBuZXRfaWQpOwogdm9pZCBpcF90dW5uZWxfZHN0X3Jlc2V0X2Fs
-bChzdHJ1Y3QgaXBfdHVubmVsICp0KTsKK3N0cnVjdCBpcF90dW5uZWwgKmlwX3R1bm5lbF9nZXRf
-YnlfZGV2KHN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG4sIHN0cnVjdCBuZXRfZGV2aWNlICpkZXYp
-OwogCiAvKiBFeHRyYWN0IGRzZmllbGQgZnJvbSBpbm5lciBwcm90b2NvbCAqLwogc3RhdGljIGlu
-bGluZSB1OCBpcF90dW5uZWxfZ2V0X2RzZmllbGQoY29uc3Qgc3RydWN0IGlwaGRyICppcGgsCmRp
-ZmYgLS1naXQgYS9uZXQvaXB2NC9pcF9ncmUuYyBiL25ldC9pcHY0L2lwX2dyZS5jCmluZGV4IGM1
-YTU1N2EuLjcyNTVlZGYgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2lwX2dyZS5jCisrKyBiL25ldC9p
-cHY0L2lwX2dyZS5jCkBAIC03NzgsNiArNzc4LDM3IEBAIHN0YXRpYyBzdHJ1Y3QgcGVybmV0X29w
-ZXJhdGlvbnMgaXBncmVfdGFwX25ldF9vcHMgPSB7CiAJLnNpemUgPSBzaXplb2Yoc3RydWN0IGlw
-X3R1bm5lbF9uZXQpLAogfTsKIAorc3RhdGljIGludCBpcF9ncmVfZXZlbnQoc3RydWN0IG5vdGlm
-aWVyX2Jsb2NrICp1bnVzZWQsIHVuc2lnbmVkIGxvbmcgZXZlbnQsCisJCQl2b2lkICpwdHIpCit7
-CisJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3RvX2Rldihw
-dHIpOworCXN0cnVjdCBuZXQgKm5ldCA9IGRldl9uZXQoZGV2KTsKKwlzdHJ1Y3QgaXBfdHVubmVs
-ICp0OworCXN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG47CisKKwlpZiAoZXZlbnQgIT0gTkVUREVW
-X0NIQU5HRU5BTUUpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWl0biA9IG5ldF9nZW5lcmlj
-KG5ldCwgaXBncmVfbmV0X2lkKTsKKwl0ID0gaXBfdHVubmVsX2dldF9ieV9kZXYoaXRuLCBkZXYp
-OworCWlmICghdCkgeworCQlpdG4gPSBuZXRfZ2VuZXJpYyhuZXQsIGdyZV90YXBfbmV0X2lkKTsK
-KwkJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwgZGV2KTsKKwl9CisKKwlpZiAoIXQpCisJ
-CXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5uYW1lWzBdKQorCQlzdHJsY3B5
-KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOworCisJcmV0dXJuIE5PVElGWV9E
-T05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2NrIGlwX2dyZV9ub3RpZmllciA9
-IHsKKwkubm90aWZpZXJfY2FsbCA9IGlwX2dyZV9ldmVudAorfTsKKwogc3RhdGljIGludCBfX2lu
-aXQgaXBncmVfaW5pdCh2b2lkKQogewogCWludCBlcnI7CkBAIC04MDYsOCArODM3LDEzIEBAIHN0
-YXRpYyBpbnQgX19pbml0IGlwZ3JlX2luaXQodm9pZCkKIAlpZiAoZXJyIDwgMCkKIAkJZ290byB0
-YXBfb3BzX2ZhaWxlZDsKIAotCXJldHVybiAwOworCWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9u
-b3RpZmllcigmaXBfZ3JlX25vdGlmaWVyKTsKKwlpZiAoZXJyIDwgMCkKKwkJZ290byBuZXRkZXZf
-bm90aWZ5X2ZhaWxlZDsKIAorCXJldHVybiAwOworbmV0ZGV2X25vdGlmeV9mYWlsZWQ6CisJcnRu
-bF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX3RhcF9vcHMpOwogdGFwX29wc19mYWlsZWQ6CiAJcnRu
-bF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX2xpbmtfb3BzKTsKIHJ0bmxfbGlua19mYWlsZWQ6CkBA
-IC04MjEsNiArODU3LDcgQEAgcG5ldF90YXBfZmFpZWQ6CiAKIHN0YXRpYyB2b2lkIF9fZXhpdCBp
-cGdyZV9maW5pKHZvaWQpCiB7CisJdW5yZWdpc3Rlcl9uZXRkZXZpY2Vfbm90aWZpZXIoJmlwX2dy
-ZV9ub3RpZmllcik7CiAJcnRubF9saW5rX3VucmVnaXN0ZXIoJmlwZ3JlX3RhcF9vcHMpOwogCXJ0
-bmxfbGlua191bnJlZ2lzdGVyKCZpcGdyZV9saW5rX29wcyk7CiAJZ3JlX2Npc2NvX3VucmVnaXN0
-ZXIoJmlwZ3JlX3Byb3RvY29sKTsKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX3R1bm5lbC5jIGIv
-bmV0L2lwdjQvaXBfdHVubmVsLmMKaW5kZXggMjg5YzZlZS4uYTUwNzBlYSAxMDA2NDQKLS0tIGEv
-bmV0L2lwdjQvaXBfdHVubmVsLmMKKysrIGIvbmV0L2lwdjQvaXBfdHVubmVsLmMKQEAgLTEwNTMs
-NCArMTA1MywyMiBAQCB2b2lkIGlwX3R1bm5lbF9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-LCBpbnQgbmV0X2lkKQogfQogRVhQT1JUX1NZTUJPTF9HUEwoaXBfdHVubmVsX3NldHVwKTsKIAor
-c3RydWN0IGlwX3R1bm5lbCAqaXBfdHVubmVsX2dldF9ieV9kZXYoc3RydWN0IGlwX3R1bm5lbF9u
-ZXQgKml0biwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKK3sKKwlpbnQgaDsKKworCWZvciAoaCA9
-IDA7IGggPCBJUF9UTkxfSEFTSF9TSVpFOyBoKyspIHsKKwkJc3RydWN0IGhsaXN0X2hlYWQgKnRo
-ZWFkID0gJml0bi0+dHVubmVsc1toXTsKKwkJc3RydWN0IGlwX3R1bm5lbCAqdDsKKworCQlobGlz
-dF9mb3JfZWFjaF9lbnRyeV9yY3UodCwgdGhlYWQsIGhhc2hfbm9kZSkgeworCQkJaWYgKHQtPmRl
-diA9PSBkZXYpCisJCQkJcmV0dXJuIHQ7CisJCX0KKwl9CisKKwlyZXR1cm4gTlVMTDsKK30KK0VY
-UE9SVF9TWU1CT0xfR1BMKGlwX3R1bm5lbF9nZXRfYnlfZGV2KTsKKwogTU9EVUxFX0xJQ0VOU0Uo
-IkdQTCIpOwpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaXBfdnRpLmMgYi9uZXQvaXB2NC9pcF92dGku
-YwppbmRleCBhZmNlZTUxLi41ZTBhNDk1IDEwMDY0NAotLS0gYS9uZXQvaXB2NC9pcF92dGkuYwor
-KysgYi9uZXQvaXB2NC9pcF92dGkuYwpAQCAtNTIzLDYgKzUyMywzMiBAQCBzdGF0aWMgc3RydWN0
-IHJ0bmxfbGlua19vcHMgdnRpX2xpbmtfb3BzIF9fcmVhZF9tb3N0bHkgPSB7CiAJLmZpbGxfaW5m
-bwk9IHZ0aV9maWxsX2luZm8sCiB9OwogCitzdGF0aWMgaW50IHZ0aV9ldmVudChzdHJ1Y3Qgbm90
-aWZpZXJfYmxvY2sgKnVudXNlZCwgdW5zaWduZWQgbG9uZyBldmVudCwKKwkJICAgICB2b2lkICpw
-dHIpCit7CisJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IG5ldGRldl9ub3RpZmllcl9pbmZvX3Rv
-X2RldihwdHIpOworCXN0cnVjdCBpcF90dW5uZWwgKnQ7CisJc3RydWN0IG5ldCAqbmV0ID0gZGV2
-X25ldChkZXYpOworCXN0cnVjdCBpcF90dW5uZWxfbmV0ICppdG47CisKKwlpZiAoZXZlbnQgIT0g
-TkVUREVWX0NIQU5HRU5BTUUpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWl0biA9IG5ldF9n
-ZW5lcmljKG5ldCwgdnRpX25ldF9pZCk7CisJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwg
-ZGV2KTsKKwlpZiAoIXQpCisJCXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5u
-YW1lWzBdKQorCQlzdHJsY3B5KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOwor
-CisJcmV0dXJuIE5PVElGWV9ET05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2Nr
-IHZ0aV9ub3RpZmllciA9IHsKKwkubm90aWZpZXJfY2FsbCA9IHZ0aV9ldmVudAorfTsKKwogc3Rh
-dGljIGludCBfX2luaXQgdnRpX2luaXQodm9pZCkKIHsKIAlpbnQgZXJyOwpAQCAtNTYyLDkgKzU4
-OCwxNCBAQCBzdGF0aWMgaW50IF9faW5pdCB2dGlfaW5pdCh2b2lkKQogCWVyciA9IHJ0bmxfbGlu
-a19yZWdpc3RlcigmdnRpX2xpbmtfb3BzKTsKIAlpZiAoZXJyIDwgMCkKIAkJZ290byBydG5sX2xp
-bmtfZmFpbGVkOworCWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmdnRpX25vdGlm
-aWVyKTsKKwlpZiAoZXJyIDwgMCkKKwkJZ290byBuZXRkZXZfbm90aWZ5X2ZhaWxlZDsKIAogCXJl
-dHVybiBlcnI7CiAKK25ldGRldl9ub3RpZnlfZmFpbGVkOgorCXJ0bmxfbGlua191bnJlZ2lzdGVy
-KCZ2dGlfbGlua19vcHMpOwogcnRubF9saW5rX2ZhaWxlZDoKIAl4ZnJtNF9wcm90b2NvbF9kZXJl
-Z2lzdGVyKCZ2dGlfaXBjb21wNF9wcm90b2NvbCwgSVBQUk9UT19DT01QKTsKIAl4ZnJtNF9wcm90
-b2NvbF9kZXJlZ2lzdGVyKCZ2dGlfYWg0X3Byb3RvY29sLCBJUFBST1RPX0FIKTsKQEAgLTU3NSw2
-ICs2MDYsNyBAQCBydG5sX2xpbmtfZmFpbGVkOgogCiBzdGF0aWMgdm9pZCBfX2V4aXQgdnRpX2Zp
-bmkodm9pZCkKIHsKKwl1bnJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmdnRpX25vdGlmaWVy
-KTsKIAlydG5sX2xpbmtfdW5yZWdpc3RlcigmdnRpX2xpbmtfb3BzKTsKIAlpZiAoeGZybTRfcHJv
-dG9jb2xfZGVyZWdpc3RlcigmdnRpX2lwY29tcDRfcHJvdG9jb2wsIElQUFJPVE9fQ09NUCkpCiAJ
-CXByX2luZm8oInZ0aSBjbG9zZTogY2FuJ3QgZGVyZWdpc3RlciB0dW5uZWxcbiIpOwpkaWZmIC0t
-Z2l0IGEvbmV0L2lwdjQvaXBpcC5jIGIvbmV0L2lwdjQvaXBpcC5jCmluZGV4IDgxMmIxODMuLmNj
-ZDJiNzVmYSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBpcC5jCisrKyBiL25ldC9pcHY0L2lwaXAu
-YwpAQCAtNDQ2LDYgKzQ0NiwzMiBAQCBzdGF0aWMgc3RydWN0IHBlcm5ldF9vcGVyYXRpb25zIGlw
-aXBfbmV0X29wcyA9IHsKIAkuc2l6ZSA9IHNpemVvZihzdHJ1Y3QgaXBfdHVubmVsX25ldCksCiB9
-OwogCitzdGF0aWMgaW50IGlwaXBfZXZlbnQoc3RydWN0IG5vdGlmaWVyX2Jsb2NrICp1bnVzZWQs
-IHVuc2lnbmVkIGxvbmcgZXZlbnQsCisJCSAgICAgIHZvaWQgKnB0cikKK3sKKwlzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2ID0gbmV0ZGV2X25vdGlmaWVyX2luZm9fdG9fZGV2KHB0cik7CisJc3RydWN0
-IGlwX3R1bm5lbCAqdDsKKwlzdHJ1Y3QgbmV0ICpuZXQgPSBkZXZfbmV0KGRldik7CisJc3RydWN0
-IGlwX3R1bm5lbF9uZXQgKml0bjsKKworCWlmIChldmVudCAhPSBORVRERVZfQ0hBTkdFTkFNRSkK
-KwkJcmV0dXJuIE5PVElGWV9ET05FOworCisJaXRuID0gbmV0X2dlbmVyaWMobmV0LCBpcGlwX25l
-dF9pZCk7CisJdCA9IGlwX3R1bm5lbF9nZXRfYnlfZGV2KGl0biwgZGV2KTsKKwlpZiAoIXQpCisJ
-CXJldHVybiBOT1RJRllfRE9ORTsKKworCWlmICh0LT5wYXJtcy5uYW1lWzBdKQorCQlzdHJsY3B5
-KHQtPnBhcm1zLm5hbWUsIGRldi0+bmFtZSwgSUZOQU1TSVopOworCisJcmV0dXJuIE5PVElGWV9E
-T05FOworfQorCitzdGF0aWMgc3RydWN0IG5vdGlmaWVyX2Jsb2NrIGlwaXBfbm90aWZpZXIgPSB7
-CisJLm5vdGlmaWVyX2NhbGwgPSBpcGlwX2V2ZW50Cit9OworCiBzdGF0aWMgaW50IF9faW5pdCBp
-cGlwX2luaXQodm9pZCkKIHsKIAlpbnQgZXJyOwpAQCAtNDYzLDEwICs0ODksMTUgQEAgc3RhdGlj
-IGludCBfX2luaXQgaXBpcF9pbml0KHZvaWQpCiAJZXJyID0gcnRubF9saW5rX3JlZ2lzdGVyKCZp
-cGlwX2xpbmtfb3BzKTsKIAlpZiAoZXJyIDwgMCkKIAkJZ290byBydG5sX2xpbmtfZmFpbGVkOwor
-CWVyciA9IHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcigmaXBpcF9ub3RpZmllcik7CisJaWYg
-KGVyciA8IDApCisJCWdvdG8gbmV0ZGV2X25vdGlmeV9mYWlsZWQ7CiAKIG91dDoKIAlyZXR1cm4g
-ZXJyOwogCituZXRkZXZfbm90aWZ5X2ZhaWxlZDoKKwlydG5sX2xpbmtfdW5yZWdpc3RlcigmaXBp
-cF9saW5rX29wcyk7CiBydG5sX2xpbmtfZmFpbGVkOgogCXhmcm00X3R1bm5lbF9kZXJlZ2lzdGVy
-KCZpcGlwX2hhbmRsZXIsIEFGX0lORVQpOwogeGZybV90dW5uZWxfZmFpbGVkOgpAQCAtNDc2LDYg
-KzUwNyw3IEBAIHhmcm1fdHVubmVsX2ZhaWxlZDoKIAogc3RhdGljIHZvaWQgX19leGl0IGlwaXBf
-ZmluaSh2b2lkKQogeworCXVucmVnaXN0ZXJfbmV0ZGV2aWNlX25vdGlmaWVyKCZpcGlwX25vdGlm
-aWVyKTsKIAlydG5sX2xpbmtfdW5yZWdpc3RlcigmaXBpcF9saW5rX29wcyk7CiAJaWYgKHhmcm00
-X3R1bm5lbF9kZXJlZ2lzdGVyKCZpcGlwX2hhbmRsZXIsIEFGX0lORVQpKQogCQlwcl9pbmZvKCIl
-czogY2FuJ3QgZGVyZWdpc3RlciB0dW5uZWxcbiIsIF9fZnVuY19fKTsK
---089e011609cc4f8fc704f9dd2079--
+The motivation for this is to create a 16bit hole in struct ovs_gso_cb
+which may be used for the inner_protocol field which is needed
+for the proposed implementation of compatibility for MPLS GSO segmentation.
+
+This should be safe as inner_network_header is now an offset to
+the inner_mac_header rather than skb->head.
+
+As pointed out by Thomas Graf simply making both inner offsets 16bis is not
+safe as there have been cases of overflow with "with collapsed TCP frames
+on IB when the headroom grew beyond 64K. See commit 50bceae9bd ``tcp:
+Reallocate headroom if it would overflow csum_start'' for additional
+details."
+
+This patch is based on suggestions by Thomas Graf and Jesse Gross.
+
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+v1.1
+* Move skb_inner_network_header outside #ifdef NET_SKBUFF_DATA_USES_OFFSET
+  block so that the 16bit offset is not treated as a pointer on
+  32bit kernels.
+---
+ datapath/linux/compat/gso.h | 28 +++++++++++++---------------
+ 1 file changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
+index b83a4c3..3041e88 100644
+--- a/datapath/linux/compat/gso.h
++++ b/datapath/linux/compat/gso.h
+@@ -11,8 +11,10 @@
+ 
+ struct ovs_gso_cb {
+ 	struct ovs_skb_cb dp_cb;
+-	sk_buff_data_t	inner_network_header;
+-	sk_buff_data_t	inner_mac_header;
++	u16		inner_network_header;	/* Offset from
++						 * inner_mac_header */
++	/* 16bit hole */
++	sk_buff_data_t	inner_mac_header;	/* Offset from skb->head */
+ 	void (*fix_segment)(struct sk_buff *);
+ };
+ #define OVS_GSO_CB(skb) ((struct ovs_gso_cb *)(skb)->cb)
+@@ -20,12 +22,6 @@ struct ovs_gso_cb {
+ #define skb_inner_network_header rpl_skb_inner_network_header
+ 
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-#define skb_inner_network_header rpl_skb_inner_network_header
+-static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+-{
+-	return skb->head + OVS_GSO_CB(skb)->inner_network_header;
+-}
+-
+ #define skb_inner_mac_header rpl_skb_inner_mac_header
+ static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+ {
+@@ -34,12 +30,6 @@ static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+ 
+ #else
+ 
+-#define skb_inner_network_header rpl_skb_inner_network_header
+-static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+-{
+-	return OVS_GSO_CB(skb)->inner_network_header;
+-}
+-
+ #define skb_inner_mac_header rpl_skb_inner_mac_header
+ static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+ {
+@@ -48,6 +38,13 @@ static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+ 
+ #endif
+ 
++#define skb_inner_network_header rpl_skb_inner_network_header
++static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
++{
++	return skb_inner_mac_header(skb) +
++		OVS_GSO_CB(skb)->inner_network_header;
++}
++
+ #define skb_inner_network_offset rpl_skb_inner_network_offset
+ static inline int skb_inner_network_offset(const struct sk_buff *skb)
+ {
+@@ -64,7 +61,8 @@ static inline int skb_inner_mac_offset(const struct sk_buff *skb)
+ static inline void skb_reset_inner_headers(struct sk_buff *skb)
+ {
+ 	BUILD_BUG_ON(sizeof(struct ovs_gso_cb) > FIELD_SIZEOF(struct sk_buff, cb));
+-	OVS_GSO_CB(skb)->inner_network_header = skb->network_header;
++	OVS_GSO_CB(skb)->inner_network_header = skb->network_header -
++		skb->mac_header;
+ 	OVS_GSO_CB(skb)->inner_mac_header = skb->mac_header;
+ 
+ 	OVS_GSO_CB(skb)->fix_segment = NULL;
+-- 
+1.8.4
