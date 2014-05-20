@@ -1,8 +1,8 @@
 From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH net-next 05/13] openvswitch: Make flow mask
-	removal symmetric.
-Date: Tue, 20 May 2014 02:00:13 -0700
-Message-ID: <1400576413-2319-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 08/13] openvswitch: Fix
+	ovs_flow_stats_get/clear RCU dereference.
+Date: Tue, 20 May 2014 02:00:29 -0700
+Message-ID: <1400576429-2406-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,94 +22,79 @@ List-Id: netdev.vger.kernel.org
 
 From: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Masks are inserted when flows are inserted to the table, so it is
-logical to correspondingly remove masks when flows are removed from
-the table, in ovs_flow_table_remove().
+For ovs_flow_stats_get() using ovsl_dereference() was wrong, since
+flow dumps call this with RCU read lock.
 
-This allows ovs_flow_free() to be called without locking, which will
-be used by later patches.
+ovs_flow_stats_clear() is always called with ovs_mutex, so can use
+ovsl_dereference().
+
+Also, make the ovs_flow_stats_get() 'flow' argument const to make
+later patches cleaner.
 
 Signed-off-by: Jarno Rajahalme <jrajahalme-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow_table.c | 44 +++++++++++++++++++++++++-------------------
- 1 file changed, 25 insertions(+), 19 deletions(-)
+ net/openvswitch/flow.c | 10 ++++++----
+ net/openvswitch/flow.h |  6 +++---
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index d8ef37b..c80df6f 100644
---- a/net/openvswitch/flow_table.c
-+++ b/net/openvswitch/flow_table.c
-@@ -159,25 +159,6 @@ void ovs_flow_free(struct sw_flow *flow, bool deferred)
- 	if (!flow)
- 		return;
- 
--	if (flow->mask) {
--		struct sw_flow_mask *mask = flow->mask;
--
--		/* ovs-lock is required to protect mask-refcount and
--		 * mask list.
--		 */
--		ASSERT_OVSL();
--		BUG_ON(!mask->ref_count);
--		mask->ref_count--;
--
--		if (!mask->ref_count) {
--			list_del_rcu(&mask->list);
--			if (deferred)
--				kfree_rcu(mask, rcu);
--			else
--				kfree(mask);
--		}
--	}
--
- 	if (deferred)
- 		call_rcu(&flow->rcu, rcu_free_flow_callback);
- 	else
-@@ -491,6 +472,25 @@ static struct table_instance *table_instance_expand(struct table_instance *ti)
- 	return table_instance_rehash(ti, ti->n_buckets * 2);
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 1019fc1..334751c 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -122,8 +122,9 @@ unlock:
+ 	spin_unlock(&stats->lock);
  }
  
-+/* Remove 'mask' from the mask list, if it is not needed any more. */
-+static void flow_mask_remove(struct flow_table *tbl, struct sw_flow_mask *mask)
-+{
-+	if (mask) {
-+		/* ovs-lock is required to protect mask-refcount and
-+		 * mask list.
-+		 */
-+		ASSERT_OVSL();
-+		BUG_ON(!mask->ref_count);
-+		mask->ref_count--;
-+
-+		if (!mask->ref_count) {
-+			list_del_rcu(&mask->list);
-+			kfree_rcu(mask, rcu);
-+		}
-+	}
-+}
-+
-+/* Must be called with OVS mutex held. */
- void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)
+-/* Called with ovs_mutex. */
+-void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
++/* Must be called with rcu_read_lock or ovs_mutex. */
++void ovs_flow_stats_get(const struct sw_flow *flow,
++			struct ovs_flow_stats *ovs_stats,
+ 			unsigned long *used, __be16 *tcp_flags)
  {
- 	struct table_instance *ti = ovsl_dereference(table->ti);
-@@ -498,6 +498,11 @@ void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)
- 	BUG_ON(table->count == 0);
- 	hlist_del_rcu(&flow->hash_node[ti->node_ver]);
- 	table->count--;
-+
-+	/* RCU delete the mask. 'flow->mask' is not NULLed, as it should be
-+	 * accessible as long as the RCU read lock is held.
-+	 */
-+	flow_mask_remove(table, flow->mask);
+ 	int node;
+@@ -133,7 +134,7 @@ void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
+ 	memset(ovs_stats, 0, sizeof(*ovs_stats));
+ 
+ 	for_each_node(node) {
+-		struct flow_stats *stats = ovsl_dereference(flow->stats[node]);
++		struct flow_stats *stats = rcu_dereference_ovsl(flow->stats[node]);
+ 
+ 		if (stats) {
+ 			/* Local CPU may write on non-local stats, so we must
+@@ -150,12 +151,13 @@ void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *ovs_stats,
+ 	}
  }
  
- static struct sw_flow_mask *mask_alloc(void)
-@@ -560,6 +565,7 @@ static int flow_mask_insert(struct flow_table *tbl, struct sw_flow *flow,
- 	return 0;
- }
- 
-+/* Must be called with OVS mutex held. */
- int ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
- 			struct sw_flow_mask *mask)
++/* Called with ovs_mutex. */
+ void ovs_flow_stats_clear(struct sw_flow *flow)
  {
+ 	int node;
+ 
+ 	for_each_node(node) {
+-		struct flow_stats *stats = rcu_dereference(flow->stats[node]);
++		struct flow_stats *stats = ovsl_dereference(flow->stats[node]);
+ 
+ 		if (stats) {
+ 			spin_lock_bh(&stats->lock);
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index a292bf8..ac395d2 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -180,10 +180,10 @@ struct arp_eth_header {
+ 	unsigned char       ar_tip[4];		/* target IP address        */
+ } __packed;
+ 
+-void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb);
+-void ovs_flow_stats_get(struct sw_flow *flow, struct ovs_flow_stats *stats,
++void ovs_flow_stats_update(struct sw_flow *, struct sk_buff *);
++void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
+ 			unsigned long *used, __be16 *tcp_flags);
+-void ovs_flow_stats_clear(struct sw_flow *flow);
++void ovs_flow_stats_clear(struct sw_flow *);
+ u64 ovs_flow_used_time(unsigned long flow_jiffies);
+ 
+ int ovs_flow_extract(struct sk_buff *, u16 in_port, struct sw_flow_key *);
 -- 
 1.9.0
