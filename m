@@ -1,65 +1,44 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/6] Netfilter/nftables fixes for net
-Date: Tue, 20 May 2014 11:45:20 +0200
-Message-ID: <1400579126-6451-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/6] netfilter: nf_tables: reset rule number counter after jump and goto
+Date: Tue, 20 May 2014 11:45:21 +0200
+Message-ID: <1400579126-6451-2-git-send-email-pablo@netfilter.org>
+References: <1400579126-6451-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40860 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750706AbaETJpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 05:45:39 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1400579126-6451-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Otherwise we start incrementing the rule number counter from the
+previous chain iteration.
 
-The following patchset contains nftables fixes for your net tree, they
-are:
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_tables_core.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-1) Fix crash when using the goto action in a rule by making sure that
-   we always fall back on the base chain. Otherwise, this may try to
-   access the counter memory area of non-base chains, which does not
-   exists.
+diff --git a/net/netfilter/nf_tables_core.c b/net/netfilter/nf_tables_core.c
+index 8041053..4368c58 100644
+--- a/net/netfilter/nf_tables_core.c
++++ b/net/netfilter/nf_tables_core.c
+@@ -123,7 +123,7 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ 	struct nft_data data[NFT_REG_MAX + 1];
+ 	unsigned int stackptr = 0;
+ 	struct nft_jumpstack jumpstack[NFT_JUMP_STACK_SIZE];
+-	int rulenum = 0;
++	int rulenum;
+ 	/*
+ 	 * Cache cursor to avoid problems in case that the cursor is updated
+ 	 * while traversing the ruleset.
+@@ -131,6 +131,7 @@ nft_do_chain(struct nft_pktinfo *pkt, const struct nf_hook_ops *ops)
+ 	unsigned int gencursor = ACCESS_ONCE(chain->net->nft.gencursor);
+ 
+ do_chain:
++	rulenum = 0;
+ 	rule = list_entry(&chain->rules, struct nft_rule, list);
+ next_rule:
+ 	data[NFT_REG_VERDICT].verdict = NFT_CONTINUE;
+-- 
+1.7.10.4
 
-2) Fix several aspects of the rule tracing that are currently broken:
-
-   * Reset rule number counter after goto/jump action, otherwise the
-     tracing reports a bogus rule number.
-   * Fix tracing of the goto action.
-   * Fix bogus rule number counter after goto.
-   * Fix missing return trace after finishing the walk through the
-     non-base chain.
-   * Fix missing trace when matching non-terminal rule.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit a8951d5814e1373807a94f79f7ccec7041325470:
-
-  netfilter: Fix potential use after free in ip6_route_me_harder() (2014-05-09 02:36:39 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to 3b084e99a3fabaeb0f9c65a0806cde30f0b2835e:
-
-  netfilter: nf_tables: fix trace of matching non-terminal rule (2014-05-15 19:44:20 +0200)
-
-----------------------------------------------------------------
-Pablo Neira Ayuso (6):
-      netfilter: nf_tables: reset rule number counter after jump and goto
-      netfilter: nf_tables: fix goto action
-      netfilter: nf_tables: fix tracing of the goto action
-      netfilter: nf_tables: fix bogus rulenum after goto action
-      netfilter: nf_tables: fix missing return trace at the end of non-base chain
-      netfilter: nf_tables: fix trace of matching non-terminal rule
-
- net/netfilter/nf_tables_core.c |   49 +++++++++++++++++++---------------------
- 1 file changed, 23 insertions(+), 26 deletions(-)
