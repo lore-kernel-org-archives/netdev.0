@@ -1,172 +1,58 @@
-From: Anton Nayshtut <anton@swortex.com>
-Subject: Re: [PATCH] Fixed zero copy GSO without orphaning the fragments
-Date: Tue, 20 May 2014 15:07:03 +0300
-Message-ID: <537B4567.4080603@swortex.com>
-References: <1400585062-13580-1-git-send-email-igorr@swortex.com> <20140520115047.GB29805@redhat.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to
+	kernel
+Date: Tue, 20 May 2014 13:18:37 +0100
+Message-ID: <20140520121837.GC23328@casper.infradead.org>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
+ <1400195227-21265-2-git-send-email-horms@verge.net.au>
+ <20140516084809.GA18920@verge.net.au>
+ <CAEP_g=-BQJTthV3JbgiiMtCEwM+-YX_sN5VpGkiPQLUVOKP0cg@mail.gmail.com>
+ <20140516214806.GH8346@casper.infradead.org>
+ <CAEP_g=9JQAqm0oMpVAK-6V-0wtqPw=cRMasJhCG1T5n-AdaLVg@mail.gmail.com>
+ <20140517013224.GA25978@verge.net.au>
+ <20140519220219.GA20590@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Simon Horman <horms@verge.net.au>,
-	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
-	Florian Westphal <fw@strlen.de>,
-	Paul Durrant <Paul.Durrant@citrix.com>,
-	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Miklos Szeredi <mszeredi@suse.cz>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Igor Royzis <igorr@swortex.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140520115047.GB29805@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140519220219.GA20590-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Michael,
-
-You're absolutely right.
-
-We detected the actual corruption running MS HCK on earlier kernels,
-before the 1fd819ec, so the patch was developed as a fix for this issue.
-
-However, 1fd819ec fixes the corruption and now it's only an optimization
-that re-enables the zero copy for this case.
-
-We're collecting the numbers right now and will post them as soon as
-possible.
-
-Best Regards,
-Anton
-
-On 5/20/2014 2:50 PM, Michael S. Tsirkin wrote:
-> On Tue, May 20, 2014 at 02:24:21PM +0300, Igor Royzis wrote:
->> Fix accessing GSO fragments memory (and a possible corruption therefore) after
->> reporting completion in a zero copy callback. The previous fix in the commit 1fd819ec
->> orphaned frags which eliminates zero copy advantages. The fix makes the completion
->> called after all the fragments were processed avoiding unnecessary orphaning/copying
->> from userspace.
->>
->> The GSO fragments corruption issue was observed in a typical QEMU/KVM VM setup that
->> hosts a Windows guest (since QEMU virtio-net Windows driver doesn't support GRO).
->> The fix has been verified by running the HCK OffloadLSO test.
->>
->> Signed-off-by: Igor Royzis <igorr@swortex.com>
->> Signed-off-by: Anton Nayshtut <anton@swortex.com>
+On 05/20/14 at 07:02am, Simon Horman wrote:
+> [PATCH] datapath: 16bit inner_network_header field in struct ovs_gso_cb
 > 
-> OK but with 1fd819ec there's no corruption, correct?
-> So this patch is in fact an optimization?
-> If true, I'd like to see some performance numbers please.
+> The motivation for this is to create a 16bit hole in struct ovs_gso_cb
+> which may be used for the inner_protocol field which is needed
+> for the proposed implementation of compatibility for MPLS GSO segmentation.
 > 
-> Thanks!
+> This should be safe as inner_network_header is now an offset to
+> the inner_mac_header rather than skb->head.
 > 
->> ---
->>  include/linux/skbuff.h |    1 +
->>  net/core/skbuff.c      |   18 +++++++++++++-----
->>  2 files changed, 14 insertions(+), 5 deletions(-)
->>
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 08074a8..8c49edc 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -287,6 +287,7 @@ struct skb_shared_info {
->>  	struct sk_buff	*frag_list;
->>  	struct skb_shared_hwtstamps hwtstamps;
->>  	__be32          ip6_frag_id;
->> +	struct sk_buff  *zcopy_src;
->>  
->>  	/*
->>  	 * Warning : all fields before dataref are cleared in __alloc_skb()
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 1b62343..6fa6342 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -610,14 +610,18 @@ EXPORT_SYMBOL(__kfree_skb);
->>   */
->>  void kfree_skb(struct sk_buff *skb)
->>  {
->> +	struct sk_buff *zcopy_src;
->>  	if (unlikely(!skb))
->>  		return;
->>  	if (likely(atomic_read(&skb->users) == 1))
->>  		smp_rmb();
->>  	else if (likely(!atomic_dec_and_test(&skb->users)))
->>  		return;
->> +	zcopy_src = skb_shinfo(skb)->zcopy_src;
->>  	trace_kfree_skb(skb, __builtin_return_address(0));
->>  	__kfree_skb(skb);
->> +	if (unlikely(zcopy_src))
->> +		kfree_skb(zcopy_src);
->>  }
->>  EXPORT_SYMBOL(kfree_skb);
->>  
->> @@ -662,14 +666,18 @@ EXPORT_SYMBOL(skb_tx_error);
->>   */
->>  void consume_skb(struct sk_buff *skb)
->>  {
->> +	struct sk_buff *zcopy_src;
->>  	if (unlikely(!skb))
->>  		return;
->>  	if (likely(atomic_read(&skb->users) == 1))
->>  		smp_rmb();
->>  	else if (likely(!atomic_dec_and_test(&skb->users)))
->>  		return;
->> +	zcopy_src = skb_shinfo(skb)->zcopy_src;
->>  	trace_consume_skb(skb);
->>  	__kfree_skb(skb);
->> +	if (unlikely(zcopy_src))
->> +		consume_skb(zcopy_src);
->>  }
->>  EXPORT_SYMBOL(consume_skb);
->>  
->> @@ -2867,7 +2875,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  	skb_frag_t *frag = skb_shinfo(head_skb)->frags;
->>  	unsigned int mss = skb_shinfo(head_skb)->gso_size;
->>  	unsigned int doffset = head_skb->data - skb_mac_header(head_skb);
->> -	struct sk_buff *frag_skb = head_skb;
->>  	unsigned int offset = doffset;
->>  	unsigned int tnl_hlen = skb_tnl_header_len(head_skb);
->>  	unsigned int headroom;
->> @@ -2913,7 +2920,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  			i = 0;
->>  			nfrags = skb_shinfo(list_skb)->nr_frags;
->>  			frag = skb_shinfo(list_skb)->frags;
->> -			frag_skb = list_skb;
->>  			pos += skb_headlen(list_skb);
->>  
->>  			while (pos < offset + len) {
->> @@ -2975,6 +2981,11 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  						 nskb->data - tnl_hlen,
->>  						 doffset + tnl_hlen);
->>  
->> +		if (skb_shinfo(head_skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
->> +			skb_shinfo(nskb)->zcopy_src = head_skb;
->> +			atomic_inc(&head_skb->users);
->> +		}
->> +
->>  		if (nskb->len == len + doffset)
->>  			goto perform_csum_check;
->>  
->> @@ -3001,7 +3012,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  				i = 0;
->>  				nfrags = skb_shinfo(list_skb)->nr_frags;
->>  				frag = skb_shinfo(list_skb)->frags;
->> -				frag_skb = list_skb;
->>  
->>  				BUG_ON(!nfrags);
->>  
->> @@ -3016,8 +3026,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->>  				goto err;
->>  			}
->>  
->> -			if (unlikely(skb_orphan_frags(frag_skb, GFP_ATOMIC)))
->> -				goto err;
->>  
->>  			*nskb_frag = *frag;
->>  			__skb_frag_ref(nskb_frag);
->> -- 
->> 1.7.9.5
+> As pointed out by Thomas Graf simply making both inner offsets 16bis is not
+> safe as there have been cases of overflow with "with collapsed TCP frames
+> on IB when the headroom grew beyond 64K. See commit 50bceae9bd ``tcp:
+> Reallocate headroom if it would overflow csum_start'' for additional
+> details."
+> 
+> This patch is based on suggestions by Thomas Graf and Jesse Gross.
+> 
+> Cc: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+
+LGTM
+
+Reviewed-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
