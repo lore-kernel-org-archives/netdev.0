@@ -1,75 +1,51 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize skb before it enters the IP stack)
-Date: Tue, 20 May 2014 00:55:49 -0400
-Message-ID: <14456.1400561749@turing-police.cc.vt.edu>
-References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc>
-            <537A12EA.4060604@davidnewall.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
+ sleep/wakeup efficiency
+Date: Mon, 19 May 2014 22:11:08 -0700
+Message-ID: <1400562668.5367.96.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com>
+		 <5379CE8D.2030405@redhat.com>
+	 <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <537ADD91.4000609@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1400561749_1944P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: David Newall <davidn@davidnewall.com>
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lennier.cc.vt.edu ([198.82.162.213]:41393 "EHLO
-	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbaETE7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 00:59:03 -0400
-In-Reply-To: Your message of "Mon, 19 May 2014 23:49:22 +0930."
-             <537A12EA.4060604@davidnewall.com>
+Received: from mail-yh0-f48.google.com ([209.85.213.48]:54973 "EHLO
+	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751396AbaETFLQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 01:11:16 -0400
+Received: by mail-yh0-f48.google.com with SMTP id a41so7690207yho.7
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 22:11:15 -0700 (PDT)
+In-Reply-To: <537ADD91.4000609@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1400561749_1944P
-Content-Type: text/plain; charset=us-ascii
+On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
+> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
 
-On Mon, 19 May 2014 23:49:22 +0930, David Newall said:
+> >
+> > About the sk_data_ready() and wake_up_all(), you missed the whole part
+> > of the patch I think.
+> >
+> > Check how sock_def_readable() does everything properly and efficiently,
+> > including the async part.
+> 
+> But this changes (sk_data_ready()) has nothing related to switching to
+> use __skb_recv_datagram()
+> 
 
-> How does a packet get fragmented in this case?  Does it only happen when
-> bridging to a device with smaller MTU?  That scenario sounds quite
-> un-bridge-like.  It also sounds like something that can be handled by
-> real routing.
+This is totally related.
 
-Which doesn't change the fact that you *will* get clowns who take a box that
-has a 10G card on a jumbogram-enabled subnet that's running with an MTU of
-9000, and a 1G at MTU 1500 on the other, and try to bridge rather than route.
-(Did you know that you can actually mount an NFS filesystem across that? And
-that ls and cat and friends will work *just fine*? Until you hit a file that's
-more than 1.5 in size, that is. And when you do a traceroute to the wedged
-client, it tells you it's on the 10G network, so you have no idea why you're
-seeing an MTU issue.  Don't ask how I know this - let's just say that
-supporting HPC users is never boring. :)
+I think you did not yet understood this patch
 
-So yes, we *do* need to do something sensible there - either frag the packet
-on the way out, or something.  It *would* be nice if we could drop the
-packet and send an ICMP Frag Needed back - except it's unclear what IP
-you use as the source address for the ICMP....
+Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
 
-
---==_Exmh_1400561749_1944P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBU3rgVQdmEQWDXROgAQKQfw/9GcqjwTRblsTMBAzRms+9859yNW++iOKG
-N4cYN4Y1eip5ygc7ijvkiUOtTBq4UwwG+9rNkj0UwD1ZWCWiA9glN/n5bGvPY8qX
-brWW9QJAitZwN3yVJDc7+S6KyP62j+0q0f0xlFlfDNvEwNJ17d2v9ZG8PpzTJpfk
-bqxIIuTJzLY5UUjXM5RXGkDiw62eqb4e7aGL+nKOH52C/r8byEjY0yl2AmiqCAQD
-aFM8kLAITz/f2UB/KaTtu3i9b1Kv0Um/sRTHxULqN1jYHW1MqnenuAYw+ushoBTZ
-jRjpN2KdUDW7xGYz5Lx8bVnMxU8kJs5kmMVjnjbRsYmDA5v1jcoac+mGDLiQ8O6K
-6VuJIrZ8e5pnJWFa2kcg1Syi2ca+Mi+pFRJGboMZQYw9KTQzx5lfQtgFdsyme40N
-0A+MUc6eVeSCXITjmwhCmYanxLeEpOw4xlwYANoBWRXlUGCj4knB6zW5s6JwLrsu
-9eGhag+t3mCYbM1cRN/Jru2Y7IB7bApnnKZsUdWkg0RoJJLX2WHF/26/u2Edi9He
-FawVStF76ZWtWNtZElrdFy1FPvg+jBjVPuzZs+tjyH5LW11Qlmt757ISSn/vnbCX
-sL4LNv8SXioBZenMMH4+sYh9Wh/LvyIn7egggzdvAzzYDU7Tm+niWnFJm2HLGETi
-svyoYnJozT4=
-=KX4i
------END PGP SIGNATURE-----
-
---==_Exmh_1400561749_1944P--
+You should ask to yourself : Why do we use wq_has_sleeper() in
+networking stacks ?
