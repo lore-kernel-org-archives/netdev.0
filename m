@@ -1,55 +1,23 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] datapath: 16bit inner_network_header field in
-	struct ovs_gso_cb
-Date: Tue, 20 May 2014 12:54:32 -0700
-Message-ID: <CAEP_g=-1OfxGfRt58TtamGC955f7fG4z9tti3j0crYM73mJ2ug@mail.gmail.com>
-References: <1400582464-2917-1-git-send-email-horms@verge.net.au>
+From: Osbornes Solicitors LLP <court@cox.net>
+Subject: PRIVATE MESSAGE
+Date: Tue, 20 May 2014 22:06:50 +0100
+Message-ID: <4eef694ec7e4502d681f8937bf8e35d6@uevora.pt>
+Reply-To: <Freedmanlawoffice@mail2world.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1400582464-2917-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from evunix.uevora.pt ([193.136.216.1]:34935 "EHLO evunix.uevora.pt"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750706AbaETVVm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 17:21:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2014 at 3:41 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
-> index b83a4c3..f459c18 100644
-> --- a/datapath/linux/compat/gso.h
-> +++ b/datapath/linux/compat/gso.h
->  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -#define skb_inner_network_header rpl_skb_inner_network_header
-> -static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
-> -{
-> -       return skb->head + OVS_GSO_CB(skb)->inner_network_header;
-> -}
-> -
->  #define skb_inner_mac_header rpl_skb_inner_mac_header
->  static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
->  {
->         return skb->head + OVS_GSO_CB(skb)->inner_mac_header;
->  }
->
-> +#define skb_inner_network_header rpl_skb_inner_network_header
-> +static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
-> +{
-> +       return skb_inner_mac_header(skb) +
-> +               OVS_GSO_CB(skb)->inner_network_header;
-> +}
-> +
->  #else
+My late client made his last will and testament in your favour, i sent 
+letters to you but got no response, i advise you contact me immediately.
 
-This looks mostly fine to me but doesn't this need to be outside the
-#ifdef NET_SKBUFF_DATA_USES_OFFSET block? Otherwise we will treat the
-offset as a pointer on 32 bit kernels.
+Barr Mark Freedman
