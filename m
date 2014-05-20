@@ -1,99 +1,89 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
- sleep/wakeup efficiency
-Date: Tue, 20 May 2014 09:22:32 +0300
-Message-ID: <20140520062232.GA6653@redhat.com>
-References: <1400278308-25372-1-git-send-email-xii@google.com>
- <5379CE8D.2030405@redhat.com>
- <20140519160652.GE31595@redhat.com>
- <537ADF5C.6040803@redhat.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v1 2/2] net: fec: use pinctrl PM helpers
+Date: Tue, 20 May 2014 14:50:45 +0800
+Message-ID: <1400568645-10214-3-git-send-email-b38611@freescale.com>
+References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<kernel@pengutronix.de>, <B38611@freescale.com>,
+	<b20596@freescale.com>
+To: <davem@davemloft.net>, <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39126 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699AbaETGXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:23:42 -0400
-Content-Disposition: inline
-In-Reply-To: <537ADF5C.6040803@redhat.com>
+Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:2307
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751966AbaETIMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 04:12:14 -0400
+In-Reply-To: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2014 at 12:51:40PM +0800, Jason Wang wrote:
-> On 05/20/2014 12:06 AM, Michael S. Tsirkin wrote:
-> > On Mon, May 19, 2014 at 05:27:41PM +0800, Jason Wang wrote:
-> >>> @@ -1330,47 +1329,26 @@ done:
-> >>>  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
-> >>>  			   const struct iovec *iv, ssize_t len, int noblock)
-> >>>  {
-> >>> -	DECLARE_WAITQUEUE(wait, current);
-> >>>  	struct sk_buff *skb;
-> >>>  	ssize_t ret = 0;
-> >>> +	int peeked, err, off = 0;
-> >>>  
-> >>>  	tun_debug(KERN_INFO, tun, "tun_do_read\n");
-> >>>  
-> >>> -	if (unlikely(!noblock))
-> >>> -		add_wait_queue(&tfile->wq.wait, &wait);
-> >>> -	while (len) {
-> >>> -		if (unlikely(!noblock))
-> >>> -			current->state = TASK_INTERRUPTIBLE;
-> >>> +	if (!len)
-> >>> +		return ret;
-> >>>  
-> >>> -		/* Read frames from the queue */
-> >>> -		if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
-> >>> -			if (noblock) {
-> >>> -				ret = -EAGAIN;
-> >>> -				break;
-> >>> -			}
-> >>> -			if (signal_pending(current)) {
-> >>> -				ret = -ERESTARTSYS;
-> >>> -				break;
-> >>> -			}
-> >>> -			if (tun->dev->reg_state != NETREG_REGISTERED) {
-> >>> -				ret = -EIO;
-> >>> -				break;
-> >>> -			}
-> >>> -
-> >>> -			/* Nothing to read, let's sleep */
-> >>> -			schedule();
-> >>> -			continue;
-> >>> -		}
-> >>> +	if (tun->dev->reg_state != NETREG_REGISTERED)
-> >>> +		return -EIO;
-> >>>  
-> >>> +	/* Read frames from queue */
-> >>> +	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
-> >>> +				  &peeked, &off, &err);
-> >>> +	if (skb) {
-> >> Still a little bit difference. We check the reg_state after we're sure
-> >> there's nothing left in sk_receive_queue. But this patch returns -EIO
-> >> before trying to dequeue skb.
-> >
-> > Yes but what's the concern here? What does userspace do
-> > to notice the change in behaviour?
-> > tun_detach calls tun_queue_purge before unregister_netdevice
-> > so apparently there's never anything in queue when
-> > state isn't registered.
-> > Did I miss something?
-> >
-> 
-> >From rollback_registered_many(), ndo_uninit() was called after reg_state
-> was changed to NETREG_UNREGISTERING. So userspace could read something
-> in the small window. Not sure it was a problem, but it does have minor
-> difference.
+when system suspend, need to set pins to low power state to
+save IO power consumption, there are three states of pinctrl:
+"default", "idle" and "sleep". Currently enet supports default
+and sleep state.
 
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-OK so userspace reads the fd when it's destroyed.
-Previously it could get EIO, now it can get EIO.
-Previously packets could get dropped, now packets could get dropped.
-Sure timing changed but can the change break some userspace? How?
-
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index cb5c987..2053dac 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1816,6 +1816,7 @@ fec_enet_open(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
++	pinctrl_pm_select_default_state(&fep->pdev->dev);
+ 	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+ 		return ret;
+@@ -1859,6 +1860,7 @@ fec_enet_close(struct net_device *ndev)
+ 	}
+ 
+ 	fec_enet_clk_enable(ndev, false);
++	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	fec_enet_free_buffers(ndev);
+ 
+ 	return 0;
+@@ -2162,6 +2164,9 @@ fec_probe(struct platform_device *pdev)
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
+ #endif
+ 
++	/* Select default pin state */
++	pinctrl_pm_select_default_state(&pdev->dev);
++
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	fep->hwp = devm_ioremap_resource(&pdev->dev, r);
+ 	if (IS_ERR(fep->hwp)) {
+@@ -2258,6 +2263,7 @@ fec_probe(struct platform_device *pdev)
+ 	/* Carrier starts down, phylib will bring it up */
+ 	netif_carrier_off(ndev);
+ 	fec_enet_clk_enable(ndev, false);
++	pinctrl_pm_select_sleep_state(&pdev->dev);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -2321,6 +2327,8 @@ fec_suspend(struct device *dev)
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+ 
++	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
++
+ 	return 0;
+ }
+ 
+@@ -2331,6 +2339,8 @@ fec_resume(struct device *dev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
++	pinctrl_pm_select_default_state(&fep->pdev->dev);
++
+ 	if (fep->reg_phy) {
+ 		ret = regulator_enable(fep->reg_phy);
+ 		if (ret)
 -- 
-MSt
+1.7.8
