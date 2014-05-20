@@ -1,84 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net v2] ipv6: gro: fix CHECKSUM_COMPLETE support
-Date: Mon, 19 May 2014 21:56:34 -0700
-Message-ID: <1400561794.5367.89.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1400548164.5367.80.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
+ efficiency
+Date: Tue, 20 May 2014 14:55:13 +0800
+Message-ID: <537AFC51.30103@redhat.com>
+References: <537AF036.7010005@redhat.com> <20140520063403.GB6653@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jerry Chu <hkchu@google.com>, netdev <netdev@vger.kernel.org>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, Xi Wang <xii@google.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
 	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:45502 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbaETE4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 00:56:36 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so6681578pbb.22
-        for <netdev@vger.kernel.org>; Mon, 19 May 2014 21:56:35 -0700 (PDT)
-In-Reply-To: <1400548164.5367.80.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33435 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751685AbaETGzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:55:20 -0400
+In-Reply-To: <20140520063403.GB6653@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 05/20/2014 02:34 PM, Michael S. Tsirkin wrote:
+> On Tue, May 20, 2014 at 02:03:34PM +0800, Jason Wang wrote:
+>> On 05/20/2014 01:11 PM, Eric Dumazet wrote:
+>>> On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
+>>>> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
+>>>>> About the sk_data_ready() and wake_up_all(), you missed the whole part
+>>>>> of the patch I think.
+>>>>>
+>>>>> Check how sock_def_readable() does everything properly and efficiently,
+>>>>> including the async part.
+>>>> But this changes (sk_data_ready()) has nothing related to switching to
+>>>> use __skb_recv_datagram()
+>>>>
+>>> This is totally related.
+>>>
+>>> I think you did not yet understood this patch
+>> Sorry for being unclear, but I think you misunderstand my meaning.
+>>> Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
+>>>
+>>> You should ask to yourself : Why do we use wq_has_sleeper() in
+>>> networking stacks ?
+>> See my first reply, I don't have objection that uses sk_data_ready() in
+>> tun_net_xmit(). My only concern is using sk_data_ready() in
+>> tun_detach_all():
+>>
+>> - It was only called during tun destroying, so I believe we don't care
+>> about the performance in this condition.
+>> - sk_data_ready() was usually called when there's something new to be
+>> processed which is not case in tun_detach_all()
+> OK so what does userspace do to notice change in behaviour?
+> I don't ask that you write a test but can you show us in
+> pseudo-code?
+>
+>
 
-When GRE support was added in linux-3.14, CHECKSUM_COMPLETE handling
-broke on GRE+IPv6 because we did not update/use the appropriate csum :
+Not currently but possible in the future.
+>> - Not sure it was a problem but sock_def_readable() will not wake up
+>> uninterruptible task during tun destroying.
+> But task_uninterruptible here would really mean some in-kernel caller
+> hooking into this function? 
 
-GRO layer is supposed to use/update NAPI_GRO_CB(skb)->csum instead of
-skb->csum
+Yes.
+> is there a way to create this from
+> userspace? If not we don't care.
+ 
+I think not.
+>> - If we make sock_fasync() works for tun in the future, it may send
+>> SIGIO to user process during tun destroying which is not expected.
+>>
+>> Thanks
+> I don't get this last comment. The patch does not touch fasync paths
+> at all. How can it break them?
 
-Tested using a GRE tunnel and IPv6 traffic. GRO aggregation now happens
-at the first level (ethernet device) instead of being done in gre
-tunnel. Native IPv6+TCP is still properly aggregated.
-
-Fixes: bf5a755f5e918 ("net-gre-gro: Add GRE support to the GRO stack")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jerry Chu <hkchu@google.com>
----
-v2: use nlen instead of sizeof(*iph) to support extension headers
-
- net/ipv6/ip6_offload.c   |    6 +-----
- net/ipv6/tcpv6_offload.c |    2 +-
- 2 files changed, 2 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 59f95affceb0..b2f091566f88 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -196,7 +196,6 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	unsigned int off;
- 	u16 flush = 1;
- 	int proto;
--	__wsum csum;
- 
- 	off = skb_gro_offset(skb);
- 	hlen = off + sizeof(*iph);
-@@ -264,13 +263,10 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 
- 	NAPI_GRO_CB(skb)->flush |= flush;
- 
--	csum = skb->csum;
--	skb_postpull_rcsum(skb, iph, skb_network_header_len(skb));
-+	skb_gro_postpull_rcsum(skb, iph, nlen);
- 
- 	pp = ops->callbacks.gro_receive(head, skb);
- 
--	skb->csum = csum;
--
- out_unlock:
- 	rcu_read_unlock();
- 
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 0d78132ff18a..8517d3cd1aed 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -42,7 +42,7 @@ static struct sk_buff **tcp6_gro_receive(struct sk_buff **head,
- 	if (NAPI_GRO_CB(skb)->flush)
- 		goto skip_csum;
- 
--	wsum = skb->csum;
-+	wsum = NAPI_GRO_CB(skb)->csum;
- 
- 	switch (skb->ip_summed) {
- 	case CHECKSUM_NONE:
+sock_def_readable() will call sk_wake_async() which may send SIGIO to
+userspace if SOCK_FASYNC were set for socket. But currently tun has its
+own implementation of fasync, so this can not happen. But if we want to
+switch to use sock_fasync() for tun in the future, this issue may appear.
