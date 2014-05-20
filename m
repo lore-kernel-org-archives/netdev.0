@@ -1,49 +1,55 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH] net: modify tunnel's name when changing link's name
-Date: Tue, 20 May 2014 12:21:56 -0700
-Message-ID: <CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
-References: <537AE7D1.4090702@cn.fujitsu.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] datapath: 16bit inner_network_header field in
+	struct ovs_gso_cb
+Date: Tue, 20 May 2014 12:54:32 -0700
+Message-ID: <CAEP_g=-1OfxGfRt58TtamGC955f7fG4z9tti3j0crYM73mJ2ug@mail.gmail.com>
+References: <1400582464-2917-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	stephen hemminger <stephen@networkplumber.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:47164 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766AbaETTV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 15:21:57 -0400
-Received: by mail-lb0-f182.google.com with SMTP id z11so786519lbi.13
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 12:21:56 -0700 (PDT)
-In-Reply-To: <537AE7D1.4090702@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1400582464-2917-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 19, 2014 at 10:27 PM, Duan Jiong <duanj.fnst@cn.fujitsu.com> wrote:
+On Tue, May 20, 2014 at 3:41 AM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
+> index b83a4c3..f459c18 100644
+> --- a/datapath/linux/compat/gso.h
+> +++ b/datapath/linux/compat/gso.h
+>  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> -#define skb_inner_network_header rpl_skb_inner_network_header
+> -static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+> -{
+> -       return skb->head + OVS_GSO_CB(skb)->inner_network_header;
+> -}
+> -
+>  #define skb_inner_mac_header rpl_skb_inner_mac_header
+>  static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
+>  {
+>         return skb->head + OVS_GSO_CB(skb)->inner_mac_header;
+>  }
 >
-> After executing command "ip tunnel add before local 192.168.0.19 mode gre",
-> the tunnel "before" and the link "before" are created.
->
-> Now if user executes command "ip link set dev before name after",
-> the tunnel's name is still "before", but the link's name is
-> "after". At last, user executes command "ip tunnel del before",
-> and error "No such device" will arise.
->
-> ip-tunnel uses ioctl to handle command. It firstly gets link through
-> tunnel name, but because link has a different name with tunnel, so
-> the error "No such device" arised.
->
-> In order to handle this situation, tunnel's name should be modified
-> when changing link's name.
->
+> +#define skb_inner_network_header rpl_skb_inner_network_header
+> +static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
+> +{
+> +       return skb_inner_mac_header(skb) +
+> +               OVS_GSO_CB(skb)->inner_network_header;
+> +}
+> +
+>  #else
 
-NACK.
-
-Renaming is just one of the events we miss for tunnels, you obviously
-don't want add one netops for each of these events. Instead, we should have
-a netdev notifier for every such tunnel devices.
-
-I am working on a patch.
+This looks mostly fine to me but doesn't this need to be outside the
+#ifdef NET_SKBUFF_DATA_USES_OFFSET block? Otherwise we will treat the
+offset as a pointer on 32 bit kernels.
