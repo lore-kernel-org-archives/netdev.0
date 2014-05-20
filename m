@@ -1,55 +1,84 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 1/2] bridge: display IFLA_BRPORT_LEARNING value
-Date: Tue, 20 May 2014 18:11:59 +0200
-Message-ID: <537B7ECF.2020207@6wind.com>
-References: <1400578650-6917-1-git-send-email-nicolas.dichtel@6wind.com> <537B7130.2050504@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/9 net-next] net: of_phy_connect_fixed_link removal
+Date: Tue, 20 May 2014 09:13:39 -0700
+Message-ID: <CAGVrzcZ98LbqzgpLxsyNvXiZ35oMq9xw76X7BUjHCwd3oEjAdA@mail.gmail.com>
+References: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:65104 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754027AbaETQMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 12:12:03 -0400
-Received: by mail-we0-f176.google.com with SMTP id q59so740997wes.7
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 09:12:01 -0700 (PDT)
-In-Reply-To: <537B7130.2050504@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,
+ Paul Mackerras <paulus@samba.org>, Florian Fainelli <f.fainelli@gmail.com>,
+ Claudiu Manoil <claudiu.manoil@freescale.com>,
+ Grant Likely <grant.likely@linaro.org>,
+ "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Richard Cochran <richardcochran@gmail.com>, Rob Herring <robh+dt@kernel.org>,
+ Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ Randy Dunlap <rdunlap@infradead.org>, open list <linux-kernel@vger.kernel.org>,
+ Vitaly Bordug <vbordug@ru.mvista.com>, Kumar Gala <galak@codeaurora.org>,
+ "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
+ "David S. Miller" <davem@daveml
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1400547384-11363-1-git-send-email-f.fainelli@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Le 20/05/2014 17:13, Vlad Yasevich a =E9crit :
-> Hi Nicolas
->
-> On 05/20/2014 05:37 AM, Nicolas Dichtel wrote:
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>   bridge/link.c | 3 +++
->>   1 file changed, 3 insertions(+)
->>
->> diff --git a/bridge/link.c b/bridge/link.c
->> index 38dfaea2e180..1632bc16803f 100644
->> --- a/bridge/link.c
->> +++ b/bridge/link.c
->> @@ -185,6 +185,9 @@ int print_linkinfo(const struct sockaddr_nl *who=
-,
->>   				if (prtb[IFLA_BRPORT_FAST_LEAVE])
->>   					print_onoff(fp, "fastleave",
->>   						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
->> +				if (prtb[IFLA_BRPORT_LEARNING])
->> +					print_onoff(fp, "learning",
->> +						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
->>   			}
->>   		} else
->>   			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
->>
->
-> Already proposed. See http://patchwork.ozlabs.org/patch/350291/
-Sorry for the noise, I've looked too quickly the patchwork.
-
-
-Regards,
-Nicolas
+MjAxNC0wNS0xOSAxNzo1NiBHTVQtMDc6MDAgRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBn
+bWFpbC5jb20+Ogo+IEhpIGFsbCwKPgo+IFRoaXMgcGF0Y2ggc2V0IHJlbW92ZXMgb2ZfcGh5X2Nv
+bm5lY3RfZml4ZWRfbGluaygpIGZyb20gdGhlIHRyZWUgbm93IHRoYXQKPiB3ZSBoYXZlIGEgYmV0
+dGVyIHNvbHV0aW9uIGZvciBkZWFsaW5nIHdpdGggZml4ZWQgUEhZIChlbXVsYXRlZCBQSFkpIGRl
+dmljZXMKPiBmb3IgZHJpdmVycyB0aGF0IHJlcXVpcmUgdGhlbS4KPgo+IEZpcnN0IHR3byBwYXRj
+aGVzIHVwZGF0ZSB0aGUgJ2ZpeGVkLWxpbmsnIERldmljZSBUcmVlIGJpbmRpbmcgYW5kIGRyaXZl
+cnMgdG8KPiByZWZlcmUgdG8gaXQuCj4KPiBQYXRjaGVzIDMgdG8gNyB1cGRhdGUgdGhlIGluLXRy
+ZWUgbmV0d29yayBkcml2ZXJzIHRoYXQgdXNlCj4gb2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluaygp
+Cj4KPiBQYXRjaCA4IHJlbW92ZXMgb2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluawo+Cj4gUGF0Y2gg
+OSByZW1vdmVzIHRoZSBQb3dlclBDIGNvZGUgdGhhdCBwYXJzZWQgdGhlICdmaXhlZC1saW5rJyBw
+cm9wZXJ0eS4KPgo+IFBhdGNoIDkgY2FuIGJlIG1lcmdlZCB2aWEgdGhlIG5ldC1uZXh0IHRyZWUg
+aWYgdGhlIFBvd2VyUEMgZm9sa3MgYWNrIGl0LAo+IGJ1dCBpdCByZWFsbHkgaGFzIHRvIGJlIG1l
+cmdlZCBhZnRlciB0aGUgZmlyc3QgOCBwYXRjaGVzIGluIG9yZGVyIHRvIGF2b2lkCj4gYnJlYWth
+Z2UuCgpGb3Igc29tZSByZWFzb24gdGhlc2UgcGF0Y2hlcyBkaWQgbm90IG1ha2UgaXQgdG8gdGhl
+IG5ldGRldiBwYXRjaHdvcmsKaW5zdGFuY2UsIGFsdG91Z2ggbmV0ZGV2IGlzIGluIENDLCBJIHdp
+bGwgcHJvYmFibHkgcmVzZW5kIHRoZW4gd2l0aCBhCnRyaW1tZWQgQ0MgbGlzdCBhbmQganVzdCBr
+ZWVwIGRldmljZXRyZWVAdmdlci5rZXJuZWwub3JnIGZvciBpbnN0YW5jZS4KCj4KPiBGbG9yaWFu
+IEZhaW5lbGxpICg5KToKPiAgIERvY3VtZW50YXRpb246IGRldmljZXRyZWU6IGFkZCBvbGQgYW5k
+IGRlcHJlY2F0ZWQgJ2ZpeGVkLWxpbmsnCj4gICBEb2N1bWVudGF0aW9uOiBkZXZpY2V0cmVlOiBu
+ZXQ6IHJlZmVyIHRvIGZpeGVkLWxpbmsudHh0Cj4gICBuZXQ6IGJjbWdlbmV0OiB1c2UgdGhlIG5l
+dyBmaXhlZCBQSFkgaGVscGVycwo+ICAgbmV0OiBzeXN0ZW1wb3J0OiB1c2UgdGhlIG5ldyBmaXhl
+ZCBQSFkgaGVscGVycwo+ICAgZnNfZW5ldDogdXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMK
+PiAgIGdpYW5mYXI6IHVzZSB0aGUgbmV3IGZpeGVkIFBIWSBoZWxwZXJzCj4gICB1Y2NfZ2V0aDog
+dXNlIHRoZSBuZXcgZml4ZWQgUEhZIGhlbHBlcnMKPiAgIG9mOiBtZGlvOiByZW1vdmUgb2ZfcGh5
+X2Nvbm5lY3RfZml4ZWRfbGluawo+ICAgcG93ZXJwYy9mc2w6IGZzbF9zb2M6IHJlbW92ZSAnZml4
+ZWQtbGluaycgcGFyc2luZyBjb2RlCj4KPiAgLi4uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2Jy
+b2FkY29tLWJjbWdlbmV0LnR4dCAgfCAgMiArLQo+ICAuLi4vYmluZGluZ3MvbmV0L2Jyb2FkY29t
+LXN5c3RlbXBvcnQudHh0ICAgICAgICAgICB8ICAyICstCj4gIC4uLi9kZXZpY2V0cmVlL2JpbmRp
+bmdzL25ldC9maXhlZC1saW5rLnR4dCAgICAgICAgIHwgMTIgKysrKysrKwo+ICAuLi4vZGV2aWNl
+dHJlZS9iaW5kaW5ncy9uZXQvZnNsLXRzZWMtcGh5LnR4dCAgICAgICB8ICA1ICstLQo+ICBhcmNo
+L3Bvd2VycGMvc3lzZGV2L2ZzbF9zb2MuYyAgICAgICAgICAgICAgICAgICAgICB8IDMyIC0tLS0t
+LS0tLS0tLS0tLS0tLQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21zeXNwb3J0
+LmMgICAgICAgICB8IDE3ICsrKysrKysrLS0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
+b20vYmNtc3lzcG9ydC5oICAgICAgICAgfCAgMSArCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jy
+b2FkY29tL2dlbmV0L2JjbW1paS5jICAgICAgIHwgMjEgKysrKysrKy0tLS0tCj4gIC4uLi9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL2ZzX2VuZXQvZnNfZW5ldC1tYWluLmMgIHwgMTYgKysrKystLS0t
+Cj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9naWFuZmFyLmMgICAgICAgICAgIHwg
+MTQgKysrKysrLS0KPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMg
+ICAgICAgICAgfCAxNCArKysrKystLQo+ICBkcml2ZXJzL29mL29mX21kaW8uYyAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICB8IDM4IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KPiAgaW5jbHVk
+ZS9saW51eC9vZl9tZGlvLmggICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxMCAtLS0tLS0K
+PiAgMTMgZmlsZXMgY2hhbmdlZCwgNzUgaW5zZXJ0aW9ucygrKSwgMTA5IGRlbGV0aW9ucygtKQo+
+Cj4gLS0KPiAxLjkuMQo+CgoKCi0tIApGbG9yaWFuCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMt
+ZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xp
+bnV4cHBjLWRldg==
