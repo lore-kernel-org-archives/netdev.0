@@ -1,55 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] isdn: hisax: l3dss1.c: Fix for possible null pointer
- dereference
-Date: Tue, 20 May 2014 16:23:23 +0400
-Message-ID: <537B493B.8020008@cogentembedded.com>
-References: <1400534662-5729-1-git-send-email-rickard_strandqvist@spectrumdigital.se>	<537A771C.2050808@cogentembedded.com> <CAFo99gb3fOq=kXwiG=LsvRXHdgazQWv3t6XZqDOtRHc+FLxCbw@mail.gmail.com>
+From: "Frank.Li@freescale.com" <Frank.Li@freescale.com>
+Subject: RE: [PATCH 2/2] net: fec: correct the MDIO clock source
+Date: Tue, 20 May 2014 13:13:18 +0000
+Message-ID: <406c6a63a9b246f7a9a9fc4b9026796d@BLUPR03MB486.namprd03.prod.outlook.com>
+References: <1400563389-3599-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFo99gb3fOq=kXwiG=LsvRXHdgazQWv3t6XZqDOtRHc+FLxCbw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0205.outbound.protection.outlook.com ([207.46.163.205]:39362
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753668AbaETNNc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 09:13:32 -0400
+In-Reply-To: <1400563389-3599-1-git-send-email-b38611@freescale.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 20-05-2014 1:56, Rickard Strandqvist wrote:
 
-> Hi  Sergei
+> -----Original Message-----
+> From: Fugang Duan [mailto:b38611@freescale.com]
+> Sent: Tuesday, May 20, 2014 12:23 AM
+> To: Li Frank-B20596; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; Duan Fugang-B38611; bhutchings@solarflare.com;
+> stephen@networkplumber.org
+> Subject: [PATCH 2/2] net: fec: correct the MDIO clock source
+> 
+> Since imx serials FEC/ENET MDIO clock source is internal ipg clock, and
+> "ahb" clock is defined as FEC/ENET bus clock, so the patch just correct
+> the fec driver MDIO clock source.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-> I did not put the assignment in the if statement.
+Acked-by: Frank Li <frank.li@freescale.com>
 
-    You didn't but you changed the line it's on (which wasn't required BTW).
-
-> Is it meant for me
-> to change all the code around the parts I fix?
-
-    No, the patch just needs to be checkpatch.pl-clean.
-
-> There are many assignments in if in the l3dss1_cmd_global() funktion.
-
-    You can leave them alone for now. You can also leave alone the line I was 
-referring to.
-
-> It's late and I'm tired, but I still can not see which of these pairs
-> of features that I can remove ...?
-
->              if (ic->parm.dss1_io.timeout > 0) {
->                  if (!(pc = dss1_new_l3_process(st, -1))) {
->                      free_invoke_id(st, id);
->                      return (-2);
->                  }
->                  pc->prot.dss1.ll_id = ic->parm.dss1_io.ll_id; /* remember id */
->                  pc->prot.dss1.proc = ic->parm.dss1_io.proc; /* and procedure */
->              }
-
-    I didn't quite get the question, if you were asking me.
-
-> Best regards
-> Rickard Strandqvist
-
-WBR, Sergei
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> b/drivers/net/ethernet/freescale/fec_main.c
+> index 99fb0dc..cb5c987 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1407,7 +1407,7 @@ static int fec_enet_mii_init(struct platform_device
+> *pdev)
+>  	 * Reference Manual has an error on this, and gets fixed on i.MX6Q
+>  	 * document.
+>  	 */
+> -	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ahb), 5000000);
+> +	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
+>  	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC)
+>  		fep->phy_speed--;
+>  	fep->phy_speed <<= 1;
+> --
+> 1.7.8
