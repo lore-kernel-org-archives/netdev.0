@@ -1,234 +1,36 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH 1/2] net: fec: optimize the clock management to save power
-Date: Tue, 20 May 2014 13:22:51 +0800
-Message-ID: <1400563371-3359-1-git-send-email-b38611@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipv6: gro: fix CHECKSUM_COMPLETE support
+Date: Mon, 19 May 2014 21:41:53 -0700
+Message-ID: <1400560913.5367.83.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1400548164.5367.80.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<bhutchings@solarflare.com>, <stephen@networkplumber.org>
-To: <b20596@freescale.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jerry Chu <hkchu@google.com>, netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:17750
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751158AbaETGlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:41:06 -0400
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:39688 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750706AbaETElz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 00:41:55 -0400
+Received: by mail-pd0-f178.google.com with SMTP id v10so197963pde.23
+        for <netdev@vger.kernel.org>; Mon, 19 May 2014 21:41:55 -0700 (PDT)
+In-Reply-To: <1400548164.5367.80.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add below clock management to save fec power:
-- After probe, disable all clocks incluing ipg, ahb, enet_out, ptp clock.
-- Open ethx interface enable necessary clocks.
-  Close ethx interface disable all clocks.
+On Mon, 2014-05-19 at 18:09 -0700, Eric Dumazet wrote:
 
-The patch also encapsulates the all enet clocks enable/disable to
-.fec_enet_clk_enable(), which can reduce the repetitional code in
-driver.
+> @@ -264,13 +263,10 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+>  
+>  	NAPI_GRO_CB(skb)->flush |= flush;
+>  
+> -	csum = skb->csum;
+> -	skb_postpull_rcsum(skb, iph, skb_network_header_len(skb));
+> +	skb_gro_postpull_rcsum(skb, iph, sizeof(*iph));
+>  
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |  120 +++++++++++++---------------
- 1 files changed, 56 insertions(+), 64 deletions(-)
+sizeof(*iph) doesn't support extension headers. nlen is more appropriate
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 8d69e43..99fb0dc 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1255,6 +1255,49 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	return 0;
- }
- 
-+static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int ret;
-+
-+	if (enable) {
-+		ret = clk_prepare_enable(fep->clk_ahb);
-+		if (ret)
-+			return ret;
-+		ret = clk_prepare_enable(fep->clk_ipg);
-+		if (ret)
-+			goto failed_clk_ipg;
-+		if (fep->clk_enet_out) {
-+			ret = clk_prepare_enable(fep->clk_enet_out);
-+			if (ret)
-+				goto failed_clk_enet_out;
-+		}
-+		if (fep->clk_ptp) {
-+			ret = clk_prepare_enable(fep->clk_ptp);
-+			if (ret)
-+				goto failed_clk_ptp;
-+		}
-+	} else {
-+		clk_disable_unprepare(fep->clk_ahb);
-+		clk_disable_unprepare(fep->clk_ipg);
-+		if (fep->clk_enet_out)
-+			clk_disable_unprepare(fep->clk_enet_out);
-+		if (fep->clk_ptp)
-+			clk_disable_unprepare(fep->clk_ptp);
-+	}
-+
-+	return 0;
-+failed_clk_ptp:
-+	if (fep->clk_enet_out)
-+		clk_disable_unprepare(fep->clk_enet_out);
-+failed_clk_enet_out:
-+		clk_disable_unprepare(fep->clk_ipg);
-+failed_clk_ipg:
-+		clk_disable_unprepare(fep->clk_ahb);
-+
-+	return ret;
-+}
-+
- static int fec_enet_mii_probe(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
-@@ -1773,6 +1816,10 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
- 
-+	ret = fec_enet_clk_enable(ndev, true);
-+	if (ret)
-+		return ret;
-+
- 	/* I should reset the ring buffers here, but I don't yet know
- 	 * a simple way to do that.
- 	 */
-@@ -1811,6 +1858,7 @@ fec_enet_close(struct net_device *ndev)
- 		phy_disconnect(fep->phy_dev);
- 	}
- 
-+	fec_enet_clk_enable(ndev, false);
- 	fec_enet_free_buffers(ndev);
- 
- 	return 0;
-@@ -2164,26 +2212,10 @@ fec_probe(struct platform_device *pdev)
- 		fep->bufdesc_ex = 0;
- 	}
- 
--	ret = clk_prepare_enable(fep->clk_ahb);
-+	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
- 		goto failed_clk;
- 
--	ret = clk_prepare_enable(fep->clk_ipg);
--	if (ret)
--		goto failed_clk_ipg;
--
--	if (fep->clk_enet_out) {
--		ret = clk_prepare_enable(fep->clk_enet_out);
--		if (ret)
--			goto failed_clk_enet_out;
--	}
--
--	if (fep->clk_ptp) {
--		ret = clk_prepare_enable(fep->clk_ptp);
--		if (ret)
--			goto failed_clk_ptp;
--	}
--
- 	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
- 	if (!IS_ERR(fep->reg_phy)) {
- 		ret = regulator_enable(fep->reg_phy);
-@@ -2225,6 +2257,7 @@ fec_probe(struct platform_device *pdev)
- 
- 	/* Carrier starts down, phylib will bring it up */
- 	netif_carrier_off(ndev);
-+	fec_enet_clk_enable(ndev, false);
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
-@@ -2244,15 +2277,7 @@ failed_init:
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- failed_regulator:
--	if (fep->clk_ptp)
--		clk_disable_unprepare(fep->clk_ptp);
--failed_clk_ptp:
--	if (fep->clk_enet_out)
--		clk_disable_unprepare(fep->clk_enet_out);
--failed_clk_enet_out:
--	clk_disable_unprepare(fep->clk_ipg);
--failed_clk_ipg:
--	clk_disable_unprepare(fep->clk_ahb);
-+	fec_enet_clk_enable(ndev, false);
- failed_clk:
- failed_ioremap:
- 	free_netdev(ndev);
-@@ -2272,14 +2297,9 @@ fec_drv_remove(struct platform_device *pdev)
- 	del_timer_sync(&fep->time_keep);
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
--	if (fep->clk_ptp)
--		clk_disable_unprepare(fep->clk_ptp);
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
--	if (fep->clk_enet_out)
--		clk_disable_unprepare(fep->clk_enet_out);
--	clk_disable_unprepare(fep->clk_ipg);
--	clk_disable_unprepare(fep->clk_ahb);
-+	fec_enet_clk_enable(ndev, false);
- 	free_netdev(ndev);
- 
- 	return 0;
-@@ -2296,12 +2316,7 @@ fec_suspend(struct device *dev)
- 		fec_stop(ndev);
- 		netif_device_detach(ndev);
- 	}
--	if (fep->clk_ptp)
--		clk_disable_unprepare(fep->clk_ptp);
--	if (fep->clk_enet_out)
--		clk_disable_unprepare(fep->clk_enet_out);
--	clk_disable_unprepare(fep->clk_ipg);
--	clk_disable_unprepare(fep->clk_ahb);
-+	fec_enet_clk_enable(ndev, false);
- 
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
-@@ -2322,25 +2337,9 @@ fec_resume(struct device *dev)
- 			return ret;
- 	}
- 
--	ret = clk_prepare_enable(fep->clk_ahb);
--	if (ret)
--		goto failed_clk_ahb;
--
--	ret = clk_prepare_enable(fep->clk_ipg);
-+	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
--		goto failed_clk_ipg;
--
--	if (fep->clk_enet_out) {
--		ret = clk_prepare_enable(fep->clk_enet_out);
--		if (ret)
--			goto failed_clk_enet_out;
--	}
--
--	if (fep->clk_ptp) {
--		ret = clk_prepare_enable(fep->clk_ptp);
--		if (ret)
--			goto failed_clk_ptp;
--	}
-+		goto failed_clk;
- 
- 	if (netif_running(ndev)) {
- 		fec_restart(ndev, fep->full_duplex);
-@@ -2349,14 +2348,7 @@ fec_resume(struct device *dev)
- 
- 	return 0;
- 
--failed_clk_ptp:
--	if (fep->clk_enet_out)
--		clk_disable_unprepare(fep->clk_enet_out);
--failed_clk_enet_out:
--	clk_disable_unprepare(fep->clk_ipg);
--failed_clk_ipg:
--	clk_disable_unprepare(fep->clk_ahb);
--failed_clk_ahb:
-+failed_clk:
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- 	return ret;
--- 
-1.7.8
+I'll send a V2
