@@ -1,64 +1,95 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net-next v2 0/3] net: device features handling fixes
-Date: Tue, 20 May 2014 08:29:15 +0200 (CEST)
-Message-ID: <cover.1400565116.git.mkubecek@suse.cz>
-References: <20140507.140846.1449010184057650775.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
+ efficiency
+Date: Tue, 20 May 2014 14:40:46 +0800
+Message-ID: <537AF8EE.10106@redhat.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com> <5379CE8D.2030405@redhat.com> <20140519160652.GE31595@redhat.com> <537ADF5C.6040803@redhat.com> <20140520062232.GA6653@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44335 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:45099 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699AbaETG3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:29:18 -0400
-In-Reply-To: <20140507.140846.1449010184057650775.davem@davemloft.net>
+	id S1750699AbaETGk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:40:58 -0400
+In-Reply-To: <20140520062232.GA6653@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I think we need to think more about what exact behavior is desired in
-> mixed csum feature set cases.  Probably whatever csum offload type is
-> the most prevelant should be the one advertised by the master.  It
-> means we will do that software checksum fixup for the oddball slaves,
-> but it seems the best we can do.
+On 05/20/2014 02:22 PM, Michael S. Tsirkin wrote:
+> On Tue, May 20, 2014 at 12:51:40PM +0800, Jason Wang wrote:
+>> On 05/20/2014 12:06 AM, Michael S. Tsirkin wrote:
+>>> On Mon, May 19, 2014 at 05:27:41PM +0800, Jason Wang wrote:
+>>>>> @@ -1330,47 +1329,26 @@ done:
+>>>>>  static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+>>>>>  			   const struct iovec *iv, ssize_t len, int noblock)
+>>>>>  {
+>>>>> -	DECLARE_WAITQUEUE(wait, current);
+>>>>>  	struct sk_buff *skb;
+>>>>>  	ssize_t ret = 0;
+>>>>> +	int peeked, err, off = 0;
+>>>>>  
+>>>>>  	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+>>>>>  
+>>>>> -	if (unlikely(!noblock))
+>>>>> -		add_wait_queue(&tfile->wq.wait, &wait);
+>>>>> -	while (len) {
+>>>>> -		if (unlikely(!noblock))
+>>>>> -			current->state = TASK_INTERRUPTIBLE;
+>>>>> +	if (!len)
+>>>>> +		return ret;
+>>>>>  
+>>>>> -		/* Read frames from the queue */
+>>>>> -		if (!(skb = skb_dequeue(&tfile->socket.sk->sk_receive_queue))) {
+>>>>> -			if (noblock) {
+>>>>> -				ret = -EAGAIN;
+>>>>> -				break;
+>>>>> -			}
+>>>>> -			if (signal_pending(current)) {
+>>>>> -				ret = -ERESTARTSYS;
+>>>>> -				break;
+>>>>> -			}
+>>>>> -			if (tun->dev->reg_state != NETREG_REGISTERED) {
+>>>>> -				ret = -EIO;
+>>>>> -				break;
+>>>>> -			}
+>>>>> -
+>>>>> -			/* Nothing to read, let's sleep */
+>>>>> -			schedule();
+>>>>> -			continue;
+>>>>> -		}
+>>>>> +	if (tun->dev->reg_state != NETREG_REGISTERED)
+>>>>> +		return -EIO;
+>>>>>  
+>>>>> +	/* Read frames from queue */
+>>>>> +	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+>>>>> +				  &peeked, &off, &err);
+>>>>> +	if (skb) {
+>>>> Still a little bit difference. We check the reg_state after we're sure
+>>>> there's nothing left in sk_receive_queue. But this patch returns -EIO
+>>>> before trying to dequeue skb.
+>>> Yes but what's the concern here? What does userspace do
+>>> to notice the change in behaviour?
+>>> tun_detach calls tun_queue_purge before unregister_netdevice
+>>> so apparently there's never anything in queue when
+>>> state isn't registered.
+>>> Did I miss something?
+>>>
+>> >From rollback_registered_many(), ndo_uninit() was called after reg_state
+>> was changed to NETREG_UNREGISTERING. So userspace could read something
+>> in the small window. Not sure it was a problem, but it does have minor
+>> difference.
+>
+> OK so userspace reads the fd when it's destroyed.
+> Previously it could get EIO, now it can get EIO.
+> Previously packets could get dropped, now packets could get dropped.
+> Sure timing changed but can the change break some userspace? How?
+>
 
-I've been thinking about it some more and I believe what I proposed is
-correct: features that are or-ed (ONE_FOR_ALL) should start with 0,
-those which are and-ed (ALL_FOR_ALL) with 1.
-
-But once we do that, we have to fix another problem in vlan module:
-features of a vlan device are mostly computed as bitwise AND of features
-and vlan_features of its underlying device. The problem is checksumming
-features don't really behave like independent flags as their main
-purpose is to be used in can_checksum_protocol() whose logic is that
-HW_CSUM (GEN_CSUM) means "can checksum everything" so that it kind of
-contains IP(V6)_CSUM functionality. Therefore intersection of HW_CSUM
-and IP(V6)_CSUM should result in the latter.
-
-An alternative approach would be to always set IP(V6)_CSUM once HW_CSUM
-(any of GEN_CSUM) is set but as for long time people were taught not to
-do that and we even have a warning for it, switching to the exact
-opposite could cause a lot of problems.
-
-> Also, like Jay, I agree that whatever we do in bonding needs to be
-> done in team too and I'd like the bug fixed at the same time in both
-> places.
-
-Agreed. Added a similar patch for teaming driver.
-
-Michal Kubecek (3):
-  vlan: more careful checksum features handling
-  bonding: fix vlan_features computing
-  teaming: fix vlan_features computing
-
- drivers/net/bonding/bond_main.c |  1 +
- drivers/net/team/team.c         |  2 +-
- include/linux/netdevice.h       | 14 ++++++++++++++
- net/8021q/vlan_dev.c            |  4 ++--
- 4 files changed, 18 insertions(+), 3 deletions(-)
-
--- 
-1.8.1.4
+Probably not even noticeable by userspace. Though it was not hard to
+keep this behaviour, I'm ok with the changes here.
