@@ -1,89 +1,52 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v1 2/2] net: fec: use pinctrl PM helpers
-Date: Tue, 20 May 2014 14:50:45 +0800
-Message-ID: <1400568645-10214-3-git-send-email-b38611@freescale.com>
-References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<kernel@pengutronix.de>, <B38611@freescale.com>,
-	<b20596@freescale.com>
-To: <davem@davemloft.net>, <shawn.guo@freescale.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next v2 2/3] bonding: fix vlan_features computing
+Date: Tue, 20 May 2014 08:29:35 +0200 (CEST)
+Message-ID: <b674454b3c315ebc69de6705f4db9cdaa900f7c8.1400565116.git.mkubecek@suse.cz>
+References: <20140507.140846.1449010184057650775.davem@davemloft.net>
+	<cover.1400565116.git.mkubecek@suse.cz>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:2307
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751966AbaETIMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 04:12:14 -0400
-In-Reply-To: <1400568645-10214-1-git-send-email-b38611@freescale.com>
+Received: from cantor2.suse.de ([195.135.220.15]:44350 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751158AbaETG3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:29:36 -0400
+In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when system suspend, need to set pins to low power state to
-save IO power consumption, there are three states of pinctrl:
-"default", "idle" and "sleep". Currently enet supports default
-and sleep state.
+bond_compute_features() uses netdev_increment_features() to
+combine vlan_features of slaves into vlan_features of the bond.
+As netdev_increment_features() only adds most features and we
+start with BOND_VLAN_FEATURES, we can end up with features none
+of the slaves provided.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
+If there is at least one slave, initialize vlan_features only
+with the flags in NETIF_F_ALL_FOR_ALL. Right now there is none
+in BOND_VLAN_FEATURES but stating it explicitely will make the
+code more future proof.
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/ethernet/freescale/fec_main.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index cb5c987..2053dac 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1816,6 +1816,7 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 7123205..9071139 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1038,6 +1038,7 @@ static void bond_compute_features(struct bonding *bond)
  
-+	pinctrl_pm_select_default_state(&fep->pdev->dev);
- 	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
- 		return ret;
-@@ -1859,6 +1860,7 @@ fec_enet_close(struct net_device *ndev)
- 	}
+ 	if (!bond_has_slaves(bond))
+ 		goto done;
++	vlan_features &= NETIF_F_ALL_FOR_ALL;
  
- 	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 	fec_enet_free_buffers(ndev);
- 
- 	return 0;
-@@ -2162,6 +2164,9 @@ fec_probe(struct platform_device *pdev)
- 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
- #endif
- 
-+	/* Select default pin state */
-+	pinctrl_pm_select_default_state(&pdev->dev);
-+
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	fep->hwp = devm_ioremap_resource(&pdev->dev, r);
- 	if (IS_ERR(fep->hwp)) {
-@@ -2258,6 +2263,7 @@ fec_probe(struct platform_device *pdev)
- 	/* Carrier starts down, phylib will bring it up */
- 	netif_carrier_off(ndev);
- 	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&pdev->dev);
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
-@@ -2321,6 +2327,8 @@ fec_suspend(struct device *dev)
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
- 
-+	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
-+
- 	return 0;
- }
- 
-@@ -2331,6 +2339,8 @@ fec_resume(struct device *dev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
- 
-+	pinctrl_pm_select_default_state(&fep->pdev->dev);
-+
- 	if (fep->reg_phy) {
- 		ret = regulator_enable(fep->reg_phy);
- 		if (ret)
+ 	bond_for_each_slave(bond, slave, iter) {
+ 		vlan_features = netdev_increment_features(vlan_features,
 -- 
-1.7.8
+1.8.1.4
