@@ -1,75 +1,83 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better
- sleep/wakeup efficiency
-Date: Tue, 20 May 2014 09:34:03 +0300
-Message-ID: <20140520063403.GB6653@redhat.com>
-References: <537AF036.7010005@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Xi Wang <xii@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Jason Wang <jasowang@redhat.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net-next v2 1/3] vlan: more careful checksum features handling
+Date: Tue, 20 May 2014 08:29:25 +0200 (CEST)
+Message-ID: <106e1cfaa47e489460375596e41005f8da4d0d06.1400565116.git.mkubecek@suse.cz>
+References: <20140507.140846.1449010184057650775.davem@davemloft.net>
+	<cover.1400565116.git.mkubecek@suse.cz>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Michal Miroslaw <mirq-linux@rere.qmqm.pl>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55778 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:44342 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145AbaETGfS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 02:35:18 -0400
-Content-Disposition: inline
-In-Reply-To: <537AF036.7010005@redhat.com>
+	id S1751417AbaETG30 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 02:29:26 -0400
+In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2014 at 02:03:34PM +0800, Jason Wang wrote:
-> On 05/20/2014 01:11 PM, Eric Dumazet wrote:
-> > On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
-> >> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
-> >>> About the sk_data_ready() and wake_up_all(), you missed the whole part
-> >>> of the patch I think.
-> >>>
-> >>> Check how sock_def_readable() does everything properly and efficiently,
-> >>> including the async part.
-> >> But this changes (sk_data_ready()) has nothing related to switching to
-> >> use __skb_recv_datagram()
-> >>
-> > This is totally related.
-> >
-> > I think you did not yet understood this patch
-> 
-> Sorry for being unclear, but I think you misunderstand my meaning.
-> >
-> > Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
-> >
-> > You should ask to yourself : Why do we use wq_has_sleeper() in
-> > networking stacks ?
-> 
-> See my first reply, I don't have objection that uses sk_data_ready() in
-> tun_net_xmit(). My only concern is using sk_data_ready() in
-> tun_detach_all():
-> 
-> - It was only called during tun destroying, so I believe we don't care
-> about the performance in this condition.
-> - sk_data_ready() was usually called when there's something new to be
-> processed which is not case in tun_detach_all()
+When combining real_dev's features and vlan_features, simple
+bitwise AND is used. This doesn't work well for checksum
+offloading features as if one set has NETIF_F_HW_CSUM and the
+other NETIF_F_IP_CSUM and/or NETIF_F_IPV6_CSUM, we end up with
+no checksum offloading. However, from the logical point of view
+(how can_checksum_protocol() works), NETIF_F_HW_CSUM contains
+the functionality of NETIF_F_IP_CSUM and NETIF_F_IPV6_CSUM so
+that the result should be IP/IPV6.
 
-OK so what does userspace do to notice change in behaviour?
-I don't ask that you write a test but can you show us in
-pseudo-code?
+Add helper function netdev_intersect_features() implementing
+this logic and use it in vlan_dev_fix_features().
 
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ include/linux/netdevice.h | 14 ++++++++++++++
+ net/8021q/vlan_dev.c      |  4 ++--
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-> - Not sure it was a problem but sock_def_readable() will not wake up
-> uninterruptible task during tun destroying.
-
-But task_uninterruptible here would really mean some in-kernel caller
-hooking into this function? is there a way to create this from
-userspace? If not we don't care.
-
-> - If we make sock_fasync() works for tun in the future, it may send
-> SIGIO to user process during tun destroying which is not expected.
-> 
-> Thanks
-
-I don't get this last comment. The patch does not touch fasync paths
-at all. How can it break them?
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 2dea98c..f4ad247 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3153,6 +3153,20 @@ const char *netdev_drivername(const struct net_device *dev);
+ 
+ void linkwatch_run_queue(void);
+ 
++static inline netdev_features_t netdev_intersect_features(netdev_features_t f1,
++							  netdev_features_t f2)
++{
++	if (f1 & NETIF_F_GEN_CSUM)
++		f1 |= (NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
++	if (f2 & NETIF_F_GEN_CSUM)
++		f2 |= (NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
++	f1 &= f2;
++	if (f1 & NETIF_F_GEN_CSUM)
++		f1 &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_GEN_CSUM);
++
++	return f1;
++}
++
+ static inline netdev_features_t netdev_get_wanted_features(
+ 	struct net_device *dev)
+ {
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 8f025af..4181fb7 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -678,9 +678,9 @@ static netdev_features_t vlan_dev_fix_features(struct net_device *dev,
+ 	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
+ 	netdev_features_t old_features = features;
+ 
+-	features &= real_dev->vlan_features;
++	features = netdev_intersect_features(features, real_dev->vlan_features);
+ 	features |= NETIF_F_RXCSUM;
+-	features &= real_dev->features;
++	features = netdev_intersect_features(features, real_dev->features);
+ 
+ 	features |= old_features & NETIF_F_SOFT_FEATURES;
+ 	features |= NETIF_F_LLTX;
+-- 
+1.8.1.4
