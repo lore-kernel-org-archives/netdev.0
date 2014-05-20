@@ -1,68 +1,81 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: Re: [PATCH] fix format mismatch in
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-Date: Tue, 20 May 2014 00:17:07 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E418ACB9A1C@fmsmsx115.amr.corp.intel.com>
-References: <1400501090-315-1-git-send-email-toralf.foerster@gmx.de>
-	<1400544507.2389.6.camel@jtkirshe-mobl>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 1/13] libertas: make return of 0 explicit
+Date: Tue, 20 May 2014 08:30:46 +0800 (SGT)
+Message-ID: <alpine.DEB.2.10.1405200829390.2723@hadrien>
+References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr> <1400473875-22228-2-git-send-email-Julia.Lawall@lip6.fr> <5379FCD0.2030506@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	=?utf-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1400544507.2389.6.camel@jtkirshe-mobl>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	kernel-janitors@vger.kernel.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <5379FCD0.2030506@cogentembedded.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBLaXJzaGVyLCBKZWZmcmV5IFQNCj4gDQo+IE9uIE1vbiwgMjAxNC0wNS0xOSBhdCAx
-NDowNCArMDIwMCwgVG9yYWxmIEbDtnJzdGVyIHdyb3RlOg0KPiA+IHNwb3R0ZWQgYnkgY3BwY2hl
-Y2sNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IFRvcmFsZiBGw7Zyc3RlciA8dG9yYWxmLmZvZXJz
-dGVyQGdteC5kZT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQw
-ZS9pNDBlX2RlYnVnZnMuYyB8IDQgKystLQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRp
-b25zKCspLCAyIGRlbGV0aW9ucygtKQ0KPiANCj4gSSB3aWxsIGFkZCB5b3VyIHBhdGNoIHRvIG15
-IHF1ZXVlIGFuZCB3aWxsIGhvbGQgb2ZmIG9uIG1ha2luZyBteQ0KPiBzdWdnZXN0ZWQgY2hhbmdl
-IGJlbG93IHVudGlsIFNoYW5ub24gYW5kIEplc3NlIGhhdmUgaGFkIHRpbWUgdG8gcmV2aWV3DQo+
-IHlvdXIgcGF0Y2guDQo+IA0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2k0MGUvaTQwZV9kZWJ1Z2ZzLmMNCj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9p
-bnRlbC9pNDBlL2k0MGVfZGVidWdmcy5jDQo+ID4gaW5kZXggM2MzNzM4Ni4uMWJjMzVhMiAxMDA2
-NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfZGVidWdm
-cy5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX2RlYnVn
-ZnMuYw0KPiA+IEBAIC0xMjM5LDcgKzEyMzksNyBAQCBzdGF0aWMgc3NpemVfdCBpNDBlX2RiZ19j
-b21tYW5kX3dyaXRlKHN0cnVjdA0KPiBmaWxlICpmaWxwLA0KPiA+ICAJfSBlbHNlIGlmIChzdHJu
-Y21wKGNtZF9idWYsICJhZGQgcHZpZCIsIDgpID09IDApIHsNCj4gPiAgCQlpNDBlX3N0YXR1cyBy
-ZXQ7DQo+ID4gIAkJdTE2IHZpZDsNCj4gPiAtCQlpbnQgdjsNCj4gPiArCQl1bnNpZ25lZCBpbnQg
-djsNCj4gDQo+IE1heWJlIHUxNiBpbnN0ZWFkLi4uDQoNCnNzY2FuZigpIGNhbiBiZSBhIHRyaWNr
-c2llIGxpdHRsZSBiZWFzdGllLCBhbmQgSSdtIG1vcmUgY29tZm9ydGFibGUgd2l0aCBnaXZpbmcg
-aXQgYW4gaW50IG9mIHNvbWUgc29ydCByYXRoZXIgdGhhbiBhIHUxNiwgb3RoZXJ3aXNlIHRoaXMg
-d291bGQgaGF2ZSBqdXN0IHVzZWQgdmlkIGZyb20gdGhlIHN0YXJ0LiAgSSBjYW4gbGl2ZSB3aXRo
-IFRvcmFsZidzIHN1Z2dlc3Rpb24uDQoNCnNsbg0KDQoNCj4gDQo+ID4NCj4gPiAgCQljbnQgPSBz
-c2NhbmYoJmNtZF9idWZbOF0sICIlaSAldSIsICZ2c2lfc2VpZCwgJnYpOw0KPiA+ICAJCWlmIChj
-bnQgIT0gMikgew0KPiA+IEBAIC0xMjU1LDcgKzEyNTUsNyBAQCBzdGF0aWMgc3NpemVfdCBpNDBl
-X2RiZ19jb21tYW5kX3dyaXRlKHN0cnVjdA0KPiBmaWxlICpmaWxwLA0KPiA+ICAJCQlnb3RvIGNv
-bW1hbmRfd3JpdGVfZG9uZTsNCj4gPiAgCQl9DQo+ID4NCj4gPiAtCQl2aWQgPSAodW5zaWduZWQp
-djsNCj4gPiArCQl2aWQgPSB2Ow0KPiA+ICAJCXJldCA9IGk0MGVfdnNpX2FkZF9wdmlkKHZzaSwg
-dmlkKTsNCj4gPiAgCQlpZiAoIXJldCkNCj4gPiAgCQkJZGV2X2luZm8oJnBmLT5wZGV2LT5kZXYs
-DQo+IA0KDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIkFjY2VsZXJhdGUgRGV2IEN5Y2xlcyB3aXRo
-IEF1dG9tYXRlZCBDcm9zcy1Ccm93c2VyIFRlc3RpbmcgLSBGb3IgRlJFRQpJbnN0YW50bHkgcnVu
-IHlvdXIgU2VsZW5pdW0gdGVzdHMgYWNyb3NzIDMwMCsgYnJvd3Nlci9PUyBjb21ib3MuCkdldCB1
-bnBhcmFsbGVsZWQgc2NhbGFiaWxpdHkgZnJvbSB0aGUgYmVzdCBTZWxlbml1bSB0ZXN0aW5nIHBs
-YXRmb3JtIGF2YWlsYWJsZQpTaW1wbGUgdG8gdXNlLiBOb3RoaW5nIHRvIGluc3RhbGwuIEdldCBz
-dGFydGVkIG5vdyBmb3IgZnJlZS4iCmh0dHA6Ly9wLnNmLm5ldC9zZnUvU2F1Y2VMYWJzCl9fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1h
-aWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0
-cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9y
-ZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmlu
-dGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+
+
+On Mon, 19 May 2014, Sergei Shtylyov wrote:
+
+> Hello.
+>
+> On 19-05-2014 8:31, Julia Lawall wrote:
+>
+> > From: Julia Lawall <Julia.Lawall@lip6.fr>
+>
+> > Delete unnecessary local variable whose value is always 0 and that hides
+> > the fact that the result is always 0.
+>
+> > A simplified version of the semantic patch that fixes this problem is as
+> > follows: (http://coccinelle.lip6.fr/)
+>
+> > // <smpl>
+> > @r exists@
+> > local idexpression ret;
+> > expression e;
+> > position p;
+> > @@
+> >
+> > -ret = 0;
+> > ... when != ret = e
+> > return
+> > - ret
+> > + 0
+> >    ;
+> > // </smpl>
+>
+> > Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+>
+> > ---
+> > Alternatively, was an error code intended in the bad length case, as is
+> > done in process_brxed_802_11_packet?
+>
+> >   drivers/net/wireless/libertas/rx.c |    7 ++-----
+> >   1 file changed, 2 insertions(+), 5 deletions(-)
+>
+> > diff --git a/drivers/net/wireless/libertas/rx.c
+> > b/drivers/net/wireless/libertas/rx.c
+> > index c7366b0..807c5b8 100644
+> > --- a/drivers/net/wireless/libertas/rx.c
+> > +++ b/drivers/net/wireless/libertas/rx.c
+> [...]
+> > @@ -154,10 +152,9 @@ int lbs_process_rxed_packet(struct lbs_private *priv,
+> > struct sk_buff *skb)
+> >   	else
+> >   		netif_rx_ni(skb);
+> >
+> > -	ret = 0;
+> >   done:
+> > -	lbs_deb_leave_args(LBS_DEB_RX, "ret %d", ret);
+> > -	return ret;
+> > +	lbs_deb_leave_args(LBS_DEB_RX, "ret %d", 0);
+>
+>    Why not just "ret 0"?
+
+OK, I wasn't sure if it was useful to keep the same number of arguments.
+But I will update it, since from the definition of lbs_deb_leave_args it
+seems ok.
+
+julia
