@@ -1,58 +1,54 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v8 2/2] can: xilinx CAN controller support.
-Date: Wed, 21 May 2014 13:29:04 +0200
-Message-ID: <537C8E00.404@pengutronix.de>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v8 2/2] can: xilinx CAN controller support.
+Date: Wed, 21 May 2014 11:32:41 +0000
+Message-ID: <72e9a444-0de4-42ce-a9d3-ee247948f0e6@BN1AFFO11FD030.protection.gbl>
 References: <30fc07d6-4404-4745-8c03-1c5ae775e4f1@BY2FFO11FD047.protection.gbl>
+ <537C8E00.404@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="XbqnbFrXuRAFJqHPfdWwNjKMWxKu6HM4J"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	wg@grandegger.com, michal.simek@xilinx.com,
-	grant.likely@linaro.org, robh+dt@kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	Michal Simek <michals@xilinx.com>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <30fc07d6-4404-4745-8c03-1c5ae775e4f1@BY2FFO11FD047.protection.gbl>
+In-Reply-To: <537C8E00.404@pengutronix.de>
+Content-Language: en-US
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---XbqnbFrXuRAFJqHPfdWwNjKMWxKu6HM4J
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 05/21/2014 09:00 AM, Kedareswara rao Appana wrote:
-> This patch adds xilinx CAN controller support.
-> This driver supports both ZYNQ CANPS and Soft IP
-> AXI CAN controller.
->=20
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-
-Looks good, do you already have an Ack for the DT-bindings?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---XbqnbFrXuRAFJqHPfdWwNjKMWxKu6HM4J
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlN8jgAACgkQjTAFq1RaXHMDvgCgkOiAReRprBnoYURD+77SMiol
-j8sAnjndVK/u7hAG5cVAFjyYQ36M+cK7
-=Dm2h
------END PGP SIGNATURE-----
-
---XbqnbFrXuRAFJqHPfdWwNjKMWxKu6HM4J--
+SGkgTWFyYywNCg0KICAgICAgICBZZXMgZm9yIERULWJpbmRpbmdzIFJvYiBhbHJlYWR5IGhhZCBn
+aXZlbiBhY2suDQpTb3JyeSBJIGZvcmdvdCB0byBhZGQgdGhlIEFja2VkLWJ5IGxpbmUgaW4gdGhh
+dCBwYXRjaC4NCg0KUmVnYXJkcywNCktlZGFyLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0t
+LS0tDQo+IEZyb206IE1hcmMgS2xlaW5lLUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRl
+XQ0KPiBTZW50OiBXZWRuZXNkYXksIE1heSAyMSwgMjAxNCA0OjU5IFBNDQo+IFRvOiBBcHBhbmEg
+RHVyZ2EgS2VkYXJlc3dhcmEgUmFvOyB3Z0BncmFuZGVnZ2VyLmNvbTsgTWljaGFsIFNpbWVrOw0K
+PiBncmFudC5saWtlbHlAbGluYXJvLm9yZzsgcm9iaCtkdEBrZXJuZWwub3JnDQo+IENjOiBsaW51
+eC1jYW5Admdlci5rZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1hcm0t
+DQo+IGtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwu
+b3JnOyBBcHBhbmEgRHVyZ2ENCj4gS2VkYXJlc3dhcmEgUmFvDQo+IFN1YmplY3Q6IFJlOiBbUEFU
+Q0ggdjggMi8yXSBjYW46IHhpbGlueCBDQU4gY29udHJvbGxlciBzdXBwb3J0Lg0KPg0KPiBPbiAw
+NS8yMS8yMDE0IDA5OjAwIEFNLCBLZWRhcmVzd2FyYSByYW8gQXBwYW5hIHdyb3RlOg0KPiA+IFRo
+aXMgcGF0Y2ggYWRkcyB4aWxpbnggQ0FOIGNvbnRyb2xsZXIgc3VwcG9ydC4NCj4gPiBUaGlzIGRy
+aXZlciBzdXBwb3J0cyBib3RoIFpZTlEgQ0FOUFMgYW5kIFNvZnQgSVAgQVhJIENBTiBjb250cm9s
+bGVyLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogS2VkYXJlc3dhcmEgcmFvIEFwcGFuYSA8YXBw
+YW5hZEB4aWxpbnguY29tPg0KPg0KPiBMb29rcyBnb29kLCBkbyB5b3UgYWxyZWFkeSBoYXZlIGFu
+IEFjayBmb3IgdGhlIERULWJpbmRpbmdzPw0KPg0KPiBNYXJjDQo+DQo+IC0tDQo+IFBlbmd1dHJv
+bml4IGUuSy4gICAgICAgICAgICAgICAgICB8IE1hcmMgS2xlaW5lLUJ1ZGRlICAgICAgICAgICB8
+DQo+IEluZHVzdHJpYWwgTGludXggU29sdXRpb25zICAgICAgICB8IFBob25lOiArNDktMjMxLTI4
+MjYtOTI0ICAgICB8DQo+IFZlcnRyZXR1bmcgV2VzdC9Eb3J0bXVuZCAgICAgICAgICB8IEZheDog
+ICArNDktNTEyMS0yMDY5MTctNTU1NSB8DQo+IEFtdHNnZXJpY2h0IEhpbGRlc2hlaW0sIEhSQSAy
+Njg2ICB8IGh0dHA6Ly93d3cucGVuZ3V0cm9uaXguZGUgICB8DQoNCg0KDQpUaGlzIGVtYWlsIGFu
+ZCBhbnkgYXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5h
+bWVkIHJlY2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24g
+dGhhdCBtYXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIg
+YXBwbGljYWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRv
+IG5vdCByZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0
+YWNobWVudHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBp
+bW1lZGlhdGVseS4NCg0K
