@@ -1,39 +1,46 @@
 From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Default network namespace name
-Date: Wed, 21 May 2014 10:29:47 -0700
-Message-ID: <CAHA+R7OKEri7yaSbbObbqERsoW+yvP0Txerg6iM6bXDtnYXzUw@mail.gmail.com>
-References: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
-	<CAKoUAr=68yxKqmPx8u9bfE8a-_bnonGZw-FcD=p-bw6=OARZ8A@mail.gmail.com>
-	<alpine.BSF.2.00.1405211908090.47766@nic-i.leissner.se>
+Subject: Re: [patch net-next] net: ipv6: trigger action when setting conf.all sysctls
+Date: Wed, 21 May 2014 10:35:17 -0700
+Message-ID: <CAHA+R7PaM4c6TmUtTLDAGnBUmRKE7=vnsjm67i=rmNebZvacVw@mail.gmail.com>
+References: <1400519372-5703-1-git-send-email-milos.vyletel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Rami Rosen <roszenrami@gmail.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Peter Fassberg <pf@leissner.se>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"open list:NETWORKING [IPv4/..." <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Milos Vyletel <milos.vyletel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:60540 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752796AbaEUR3s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 13:29:48 -0400
-Received: by mail-qc0-f173.google.com with SMTP id i8so3632475qcq.4
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 10:29:47 -0700 (PDT)
-In-Reply-To: <alpine.BSF.2.00.1405211908090.47766@nic-i.leissner.se>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:46683 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750957AbaEURfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 13:35:18 -0400
+Received: by mail-qg0-f47.google.com with SMTP id j107so3746980qga.20
+        for <netdev@vger.kernel.org>; Wed, 21 May 2014 10:35:17 -0700 (PDT)
+In-Reply-To: <1400519372-5703-1-git-send-email-milos.vyletel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 21, 2014 at 10:21 AM, Peter Fassberg <pf@leissner.se> wrote:
+On Mon, May 19, 2014 at 10:09 AM, Milos Vyletel <milos.vyletel@gmail.com> wrote:
+> As it is right now most of these tunables don't do anything - they don't
+> set any interface specific settings to the desired value and they don't
+> take precedence before device specific settings in most cases.
 >
-> How does "ip link set" distinguish between PID 1 and a namespace named "1"?
+> Documentation/networking/ip-sysctl.txt defines them to be:
+> conf/all/*:
+>         Change all the interface-specific settings.
+>
+> but that is not really the case.
+>
 
-Looking at the code, it just checks if it's name "1" first, then
-checks if it's a PID:
+I don't think it's a good idea, it enforces interface specific changes.
 
-                        if ((netns = get_netns_fd(*argv)) >= 0)
-                                addattr_l(&req->n, sizeof(*req),
-IFLA_NET_NS_FD, &netns, 4);
-                        else if (get_integer(&netns, *argv, 0) == 0)
-                                addattr_l(&req->n, sizeof(*req),
-IFLA_NET_NS_PID, &netns, 4);
-                        else
-                                invarg("Invalid \"netns\" value\n", *argv);
+You need to mimic what IPv4 conf does (if it hasn't done yet), something
+like below:
+
+#define IN_DEV_MAXCONF(in_dev, attr) \
+        (max(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), attr), \
+             IN_DEV_CONF_GET((in_dev), attr)))
