@@ -1,66 +1,95 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
-Date: Thu, 22 May 2014 08:03:51 +0900
-Message-ID: <20140521230351.GC19986@verge.net.au>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au>
- <CAEP_g=8ZEbx0NzCaXOc=ywiBAtejpmO4K-UzVk5uwBmEfUwZ7w@mail.gmail.com>
- <20140521153153.GB10390@verge.net.au>
- <CAEP_g=9At8jhM2ym31YeWaC9u6_O-Sq1igpER3TuYXj=KXTJNg@mail.gmail.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [ath9k-devel] randconfig build error with next-20140519, in drivers/net/wireless/ath/ath9k/dfs.c
+Date: Thu, 22 May 2014 09:31:36 +1000
+Message-ID: <CAGRGNgW2kdG=CUdWpEbpxaVLhVvVg3MzHwkS_M=_Wmaju+q8dw@mail.gmail.com>
+References: <CA+r1ZhiM7EK08Y4kriXMugMc1Mbj5VDUPwKMq8-_k8Q8qhwPtw@mail.gmail.com>
+ <20140521110143.GA2375@qca.qualcomm.com> <CAGRGNgXuS-ksFBAtmo8nLAPqPFKo2gHGDCsTcranU-k2-K3rfg@mail.gmail.com>
+ <20140521143832.GA9563@qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:43120 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752332AbaEUXD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 19:03:56 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=9At8jhM2ym31YeWaC9u6_O-Sq1igpER3TuYXj=KXTJNg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linville <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	ath9k-devel@lists.ath9k.org, netdev <netdev@vger.kernel.org>
+To: Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140521143832.GA9563@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 21, 2014 at 01:31:55PM -0700, Jesse Gross wrote:
-> On Wed, May 21, 2014 at 8:31 AM, Simon Horman <horms@verge.net.au> wrote:
-> > On Tue, May 20, 2014 at 07:30:38PM -0700, Jesse Gross wrote:
-> >> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
-> >> > diff --git a/datapath/linux/compat/include/linux/netdevice.h b/datapath/linux/compat/include/linux/netdevice.h
-> >> > index d726390..0381002 100644
-> >> > --- a/datapath/linux/compat/include/linux/netdevice.h
-> >> > +++ b/datapath/linux/compat/include/linux/netdevice.h
-> >> > +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
-> >> >  #define netif_skb_features rpl_netif_skb_features
-> >> >  netdev_features_t rpl_netif_skb_features(struct sk_buff *skb);
-> >>
-> >> Currently this function doesn't look at mpls_features. Should it for
-> >> things other than TSO?
-> >
-> > It seems to me that rpl_netif_skb_features is only used by
-> > rpl_dev_queue_xmit().
-> >
-> > If that is the case then I don't think it is necessary to examine
-> > mpls_features, which was introduced in v3.11, as rpl_dev_queue_xmit()
-> > only exists for older kernel versions.
-> 
-> Sorry, I actually meant for upstream. I agree that the compatibility
-> code reflects current kernels as written.
-> 
-> It seems like the checks in dev_hard_start_xmit() won't take
-> mpls_features (or the presence of MPLS) into account when deciding
-> whether to emulate the offload or pass the skb directly to the NIC. In
-> the GSO code itself, we look at mpls_features but if we never get
-> there then it will be too late.
+Hi Rajkumar,
 
-I am reasonably sure that when I merged the MPLS GSO code into mainline
-that it worked for the case where a non-MPLS GSO packet became an MPLS GSO
-packet (due to a push MPLS action). But that was a while ago and looking
-over the code its not obvious to my why that case would work.
+On Thu, May 22, 2014 at 12:38 AM, Rajkumar Manoharan
+<rmanohar@qti.qualcomm.com> wrote:
+> On Wed, May 21, 2014 at 10:12:26PM +1000, Julian Calaby wrote:
+>> Hi Rajkumar,
+>>
+>> On Wed, May 21, 2014 at 9:01 PM, Rajkumar Manoharan
+>> <rmanohar@qti.qualcomm.com> wrote:
+>> > On Mon, May 19, 2014 at 09:31:16AM -0700, Jim Davis wrote:
+>> >> Building with the attached random configuration file,
+>> >>
+>> >> In file included from drivers/net/wireless/ath/ath9k/eeprom.h:22:=
+0,
+>> >>                  from drivers/net/wireless/ath/ath9k/hw.h:27,
+>> >>                  from drivers/net/wireless/ath/ath9k/dfs.c:18:
+>> >> drivers/net/wireless/ath/ath9k/dfs.c: In function =E2=80=98ath9k_=
+dfs_process_phyerr=E2=80=99:
+>> >> drivers/net/wireless/ath/ath9k/dfs.c:185:14: error: =E2=80=98stru=
+ct ath_softc=E2=80=99
+>> >> has no member named =E2=80=98debug=E2=80=99
+>> >>     pe.ts - sc->debug.stats.dfs_stats.last_ts);
+>> >>               ^
+>> >> drivers/net/wireless/ath/ath9k/../ath.h:273:41: note: in definiti=
+on of
+>> >> macro =E2=80=98ath_dbg=E2=80=99
+>> >>    ath_printk(KERN_DEBUG, common, fmt, ##__VA_ARGS__); \
+>> >>                                          ^
+>> >> drivers/net/wireless/ath/ath9k/dfs.c:186:5: error: =E2=80=98struc=
+t ath_softc=E2=80=99
+>> >> has no member named =E2=80=98debug=E2=80=99
+>> >>    sc->debug.stats.dfs_stats.last_ts =3D pe.ts;
+>> >>      ^
+>> >> make[5]: *** [drivers/net/wireless/ath/ath9k/dfs.o] Error 1
+>> >
+>> > Please select CONFIG_ATH9K_DEBUGFS.
+>>
+>> The point of randconfig builds is to ensure that there it's really
+>> unlikely that there are any config combinations that don't build, ev=
+en
+>> if they're utterly insane.
+>>
+>> You should really change the ath9k Kconfig rules or move or add ifde=
+fs
+>> to prevent this from being possible.
+>>
+> Completely agree. But ath9k Kconfig has proper dependecy for
+> ATH9K_DFS_DEBUGFS. I am wondering how it is selected w/o ATH9K_DEBUGF=
+S.
+>
+> config ATH9K_DFS_DEBUGFS
+>         def_bool y
+>         depends on ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED
+>
+> Should it be like this?
+>
+> config ATH9K_DFS_DEBUGFS
+>         def_bool y if (ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED)
 
-I'll do some testing an analysis and propose a fix if necessary.
+Zefir already posted a patch to fix this particular issue.
 
-Would that address your concern?
+Judging by the patch, not all of the debugfs using code was properly
+enclosed in #ifdefs.
+
+Thanks,
+
+--=20
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+=2EPlan: http://sites.google.com/site/juliancalaby/
