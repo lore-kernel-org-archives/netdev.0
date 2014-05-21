@@ -1,94 +1,77 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH RESEND net-next 2/9] Documentation: devicetree: net: refer to
- fixed-link.txt
-Date: Wed, 21 May 2014 14:38:44 -0700
-Message-ID: <1400708331-18088-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH RESEND net-next 3/9] net: bcmgenet: use the new fixed PHY helpers
+Date: Wed, 21 May 2014 14:38:45 -0700
+Message-ID: <1400708331-18088-4-git-send-email-f.fainelli@gmail.com>
 References: <1400708331-18088-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
- Florian Fainelli <f.fainelli@gmail.com>,
- Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- Richard Cochran <richardcochran@gmail.com>,
- open list <linux-kernel@vger.kernel.org>,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- Vitaly Bordug <vbordug@ru.mvista.com>, Grant Likely <grant.likely@linaro.org>,
- "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
- davem@davemloft.net
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Li Yang <leoli@freescale.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND...),
+	linux-kernel@vger.kernel.org (open list),
+	linuxppc-dev@lists.ozlabs.org (open list:LINUX FOR POWERPC...)
 To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1400708331-18088-1-git-send-email-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VXBkYXRlIHRoZSBGcmVlc2NhbGUgVFNFQyBQSFksIEJyb2FkY29tIEdFTkVUICYgU1lTVEVNUE9S
-VCBEZXZpY2UgVHJlZQpiaW5kaW5nIGRvY3VtZW50YXRpb24gdG8gcmVmZXIgdG8gdGhlIGZpeGVk
-LWxpbmsgRGV2aWNlIFRyZWUgYmluZGluZyBpbgpmaXhlZC1saW5rLnR4dC4KClJldmlld2VkLWJ5
-OiBUaG9tYXMgUGV0YXp6b25pIDx0aG9tYXMucGV0YXp6b25pQGZyZWUtZWxlY3Ryb25zLmNvbT4K
-U2lnbmVkLW9mZi1ieTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5jb20+Ci0t
-LQogRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNvbS1iY21nZW5l
-dC50eHQgICB8IDIgKy0KIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvYnJv
-YWRjb20tc3lzdGVtcG9ydC50eHQgfCAyICstCiBEb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmlu
-ZGluZ3MvbmV0L2ZzbC10c2VjLXBoeS50eHQgICAgICAgIHwgNSArLS0tLQogMyBmaWxlcyBjaGFu
-Z2VkLCAzIGluc2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvRG9jdW1l
-bnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNvbS1iY21nZW5ldC50eHQgYi9E
-b2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2Jyb2FkY29tLWJjbWdlbmV0LnR4
-dAppbmRleCBmMmZlYmI5NDU1MGUuLjQ1MWZlZjI2YjRkZiAxMDA2NDQKLS0tIGEvRG9jdW1lbnRh
-dGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNvbS1iY21nZW5ldC50eHQKKysrIGIv
-RG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNvbS1iY21nZW5ldC50
-eHQKQEAgLTI0LDcgKzI0LDcgQEAgT3B0aW9uYWwgcHJvcGVydGllczoKIC0gZml4ZWQtbGluazog
-V2hlbiB0aGUgR0VORVQgaW50ZXJmYWNlIGlzIGNvbm5lY3RlZCB0byBhIE1vQ0EgaGFyZHdhcmUg
-YmxvY2sgb3IKICAgd2hlbiBvcGVyYXRpbmcgaW4gYSBSR01JSSB0byBSR01JSSB0eXBlIG9mIGNv
-bm5lY3Rpb24sIG9yIHdoZW4gdGhlIE1ESU8gYnVzIGlzCiAgIHZvbHVudGFyaWx5IGRpc2FibGVk
-LCB0aGlzIHByb3BlcnR5IHNob3VsZCBiZSB1c2VkIHRvIGRlc2NyaWJlIHRoZSAiZml4ZWQgbGlu
-ayIuCi0gIFNlZSBEb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC10c2Vj
-LXBoeS50eHQgZm9yIGluZm9ybWF0aW9uIG9uCisgIFNlZSBEb2N1bWVudGF0aW9uL2RldmljZXRy
-ZWUvYmluZGluZ3MvbmV0L2ZpeGVkLWxpbmsudHh0IGZvciBpbmZvcm1hdGlvbiBvbgogICB0aGUg
-cHJvcGVydHkgc3BlY2lmaWNzCiAKIFJlcXVpcmVkIGNoaWxkIG5vZGVzOgpkaWZmIC0tZ2l0IGEv
-RG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNvbS1zeXN0ZW1wb3J0
-LnR4dCBiL0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvYnJvYWRjb20tc3lz
-dGVtcG9ydC50eHQKaW5kZXggMWI3NjAwZTAyMmRkLi5jMTgzZWE5MGQ5YmMgMTAwNjQ0Ci0tLSBh
-L0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvYnJvYWRjb20tc3lzdGVtcG9y
-dC50eHQKKysrIGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9icm9hZGNv
-bS1zeXN0ZW1wb3J0LnR4dApAQCAtOCw3ICs4LDcgQEAgUmVxdWlyZWQgcHJvcGVydGllczoKIC0g
-bG9jYWwtbWFjLWFkZHJlc3M6IEV0aGVybmV0IE1BQyBhZGRyZXNzICg0OCBiaXRzKSBvZiB0aGlz
-IGFkYXB0ZXIKIC0gcGh5LW1vZGU6IFNob3VsZCBiZSBhIHN0cmluZyBkZXNjcmliaW5nIHRoZSBQ
-SFkgaW50ZXJmYWNlIHRvIHRoZQogICBFdGhlcm5ldCBzd2l0Y2gvUEhZLCBzZWUgRG9jdW1lbnRh
-dGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9ldGhlcm5ldC50eHQKLS0gZml4ZWQtbGluazog
-c2VlIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvZnNsLXRzZWMtcGh5LnR4
-dCBmb3IKKy0gZml4ZWQtbGluazogc2VlIERvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5n
-cy9uZXQvZml4ZWQtbGluay50eHQgZm9yCiAgIHRoZSBwcm9wZXJ0eSBzcGVjaWZpYyBkZXRhaWxz
-CiAKIE9wdGlvbmFsIHByb3BlcnRpZXM6CmRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2Rldmlj
-ZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC10c2VjLXBoeS50eHQgYi9Eb2N1bWVudGF0aW9uL2Rldmlj
-ZXRyZWUvYmluZGluZ3MvbmV0L2ZzbC10c2VjLXBoeS50eHQKaW5kZXggNzM3Y2RlZjRmOTAzLi5i
-ZTZlYTg5NjBmMjAgMTAwNjQ0Ci0tLSBhL0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5n
-cy9uZXQvZnNsLXRzZWMtcGh5LnR4dAorKysgYi9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmlu
-ZGluZ3MvbmV0L2ZzbC10c2VjLXBoeS50eHQKQEAgLTQyLDEwICs0Miw3IEBAIFByb3BlcnRpZXM6
-CiAgICAgaW50ZXJydXB0LiAgRm9yIFRTRUMgYW5kIGVUU0VDIGRldmljZXMsIHRoZSBmaXJzdCBp
-bnRlcnJ1cHQgaXMKICAgICB0cmFuc21pdCwgdGhlIHNlY29uZCBpcyByZWNlaXZlLCBhbmQgdGhl
-IHRoaXJkIGlzIGVycm9yLgogICAtIHBoeS1oYW5kbGUgOiBTZWUgZXRoZXJuZXQudHh0IGZpbGUg
-aW4gdGhlIHNhbWUgZGlyZWN0b3J5LgotICAtIGZpeGVkLWxpbmsgOiA8YSBiIGMgZCBlPiB3aGVy
-ZSBhIGlzIGVtdWxhdGVkIHBoeSBpZCAtIGNob29zZSBhbnksCi0gICAgYnV0IHVuaXF1ZSB0byB0
-aGUgYWxsIHNwZWNpZmllZCBmaXhlZC1saW5rcywgYiBpcyBkdXBsZXggLSAwIGhhbGYsCi0gICAg
-MSBmdWxsLCBjIGlzIGxpbmsgc3BlZWQgLSBkIzEwL2QjMTAwL2QjMTAwMCwgZCBpcyBwYXVzZSAt
-IDAgbm8KLSAgICBwYXVzZSwgMSBwYXVzZSwgZSBpcyBhc3ltX3BhdXNlIC0gMCBubyBhc3ltX3Bh
-dXNlLCAxIGFzeW1fcGF1c2UuCisgIC0gZml4ZWQtbGluayA6IFNlZSBmaXhlZC1saW5rLnR4dCBp
-biB0aGUgc2FtZSBkaXJlY3RvcnkuCiAgIC0gcGh5LWNvbm5lY3Rpb24tdHlwZSA6IFNlZSBldGhl
-cm5ldC50eHQgZmlsZSBpbiB0aGUgc2FtZSBkaXJlY3RvcnkuCiAgICAgVGhpcyBwcm9wZXJ0eSBp
-cyBvbmx5IHJlYWxseSBuZWVkZWQgaWYgdGhlIGNvbm5lY3Rpb24gaXMgb2YgdHlwZQogICAgICJy
-Z21paS1pZCIsIGFzIGFsbCBvdGhlciBjb25uZWN0aW9uIHR5cGVzIGFyZSBkZXRlY3RlZCBieSBo
-YXJkd2FyZS4KLS0gCjEuOS4xCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRldkBsaXN0cy5v
-emxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXY=
+of_phy_connect_fixed_link() is becoming obsolete, and also required
+platform code to register the fixed PHYs at the specified addresses for
+those to be usable. Get rid of it and use the new of_phy_is_fixed_link()
+plus of_phy_register_fixed_link() helpers to transition over the new
+scheme.
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmmii.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+index 4608673beaff..add8d8596084 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
+@@ -298,6 +298,7 @@ int bcmgenet_mii_config(struct net_device *dev)
+ static int bcmgenet_mii_probe(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
++	struct device_node *dn = priv->pdev->dev.of_node;
+ 	struct phy_device *phydev;
+ 	unsigned int phy_flags;
+ 	int ret;
+@@ -307,15 +308,19 @@ static int bcmgenet_mii_probe(struct net_device *dev)
+ 		return 0;
+ 	}
+ 
+-	if (priv->phy_dn)
+-		phydev = of_phy_connect(dev, priv->phy_dn,
+-					bcmgenet_mii_setup, 0,
+-					priv->phy_interface);
+-	else
+-		phydev = of_phy_connect_fixed_link(dev,
+-					bcmgenet_mii_setup,
+-					priv->phy_interface);
++	/* In the case of a fixed PHY, the DT node associated
++	 * to the PHY is the Ethernet MAC DT node.
++	 */
++	if (of_phy_is_fixed_link(dn)) {
++		ret = of_phy_register_fixed_link(dn);
++		if (ret)
++			return ret;
++
++		priv->phy_dn = dn;
++	}
+ 
++	phydev = of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup, 0,
++				priv->phy_interface);
+ 	if (!phydev) {
+ 		pr_err("could not attach to PHY\n");
+ 		return -ENODEV;
+-- 
+1.9.1
