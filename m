@@ -1,50 +1,78 @@
-From: Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
-Subject: Re: [ath9k-devel] randconfig build error with next-20140519, in
- drivers/net/wireless/ath/ath9k/dfs.c
-Date: Wed, 21 May 2014 16:31:45 +0530
-Message-ID: <20140521110143.GA2375@qca.qualcomm.com>
-References: <CA+r1ZhiM7EK08Y4kriXMugMc1Mbj5VDUPwKMq8-_k8Q8qhwPtw@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2014-05-19
+Date: Wed, 21 May 2014 13:09:55 +0200
+Message-ID: <537C8983.6050204@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linville <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	<ath9k-devel@lists.ath9k.org>, netdev <netdev@vger.kernel.org>
-To: Jim Davis <jim.epost@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+r1ZhiM7EK08Y4kriXMugMc1Mbj5VDUPwKMq8-_k8Q8qhwPtw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 19, 2014 at 09:31:16AM -0700, Jim Davis wrote:
-> Building with the attached random configuration file,
->=20
-> In file included from drivers/net/wireless/ath/ath9k/eeprom.h:22:0,
->                  from drivers/net/wireless/ath/ath9k/hw.h:27,
->                  from drivers/net/wireless/ath/ath9k/dfs.c:18:
-> drivers/net/wireless/ath/ath9k/dfs.c: In function =E2=80=98ath9k_dfs_=
-process_phyerr=E2=80=99:
-> drivers/net/wireless/ath/ath9k/dfs.c:185:14: error: =E2=80=98struct a=
-th_softc=E2=80=99
-> has no member named =E2=80=98debug=E2=80=99
->     pe.ts - sc->debug.stats.dfs_stats.last_ts);
->               ^
-> drivers/net/wireless/ath/ath9k/../ath.h:273:41: note: in definition o=
-f
-> macro =E2=80=98ath_dbg=E2=80=99
->    ath_printk(KERN_DEBUG, common, fmt, ##__VA_ARGS__); \
->                                          ^
-> drivers/net/wireless/ath/ath9k/dfs.c:186:5: error: =E2=80=98struct at=
-h_softc=E2=80=99
-> has no member named =E2=80=98debug=E2=80=99
->    sc->debug.stats.dfs_stats.last_ts =3D pe.ts;
->      ^
-> make[5]: *** [drivers/net/wireless/ath/ath9k/dfs.o] Error 1
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Please select CONFIG_ATH9K_DEBUGFS.
+Hello David,
 
--Rajkumar
+this is a pull request of a single patch for net-next/master. It fixes a
+use after free(), which slipped into to gs_usb driver.
+
+Marc
+
+---
+The following changes since commit 2a7ede540785cac631a7e7334701a25e949853=
+a8:
+
+  Merge tag 'linux-can-next-for-3.16-20140519' of
+git://gitorious.org/linux-can/linux-can-next (2014-05-21 02:00:27 -0400)
+
+are available in the git repository at:
+
+
+  git://gitorious.org/linux-can/linux-can-next.git
+tags/linux-can-next-for-3.16-20140521
+
+for you to fetch changes up to cf68f517c5c5041e3f3de502dccb008ec21f7262:
+
+  can: gs_usb: gs_destroy_candev(): fix use after free (2014-05-21
+13:04:20 +0200)
+
+----------------------------------------------------------------
+linux-can-next-for-3.16-20140521
+
+----------------------------------------------------------------
+Marc Kleine-Budde (1):
+      can: gs_usb: gs_destroy_candev(): fix use after free
+
+ drivers/net/can/usb/gs_usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlN8iYMACgkQjTAFq1RaXHOfvACfR7wOkVR+8J62rj2YuxL7kr4S
+RqIAn0o6LivlRgD3IGf0RbXgLxqfotCz
+=7Gnk
+-----END PGP SIGNATURE-----
+
+--mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn--
