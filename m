@@ -1,49 +1,79 @@
-From: Peter Fassberg <pf@leissner.se>
-Subject: Default network namespace name
-Date: Wed, 21 May 2014 08:36:40 +0200 (SST)
-Message-ID: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v1 1/2] ARM: dts: imx6sl: add fec sleep pinctrl for pin
+ PM state
+Date: Wed, 21 May 2014 14:56:07 +0800
+Message-ID: <20140521065606.GC25299@dragon>
+References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
+ <1400568645-10214-2-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>, <kernel@pengutronix.de>,
+	<b20596@freescale.com>
+To: Fugang Duan <b38611@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgate.leissner.se ([212.3.1.210]:64777 "EHLO
-	mailgate.leissner.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751787AbaEUGuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 02:50:32 -0400
-Received: from mailgate.leissner.se (localhost [127.0.0.1])
-	by mailgate.leissner.se (8.14.8/8.14.8) with ESMTP id s4L6akPA097601
-	for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:36:46 +0200 (CEST)
-	(envelope-from pf@leissner.se)
-Received: (from uucp@localhost)
-	by mailgate.leissner.se (8.14.8/8.14.8/Submit) id s4L6akEQ097596
-	for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:36:46 +0200 (CEST)
-	(envelope-from pf@leissner.se)
-Received: from nic-i.leissner.se (localhost [127.0.0.1])
-	by nic-i.leissner.se (8.14.8/8.14.7) with ESMTP id s4L6aeio098486
-	for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:36:40 +0200 (CEST)
-	(envelope-from pf@leissner.se)
-Received: from localhost (pf@localhost)
-	by nic-i.leissner.se (8.14.8/8.14.7/Submit) with ESMTP id s4L6aegT098483
-	for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:36:40 +0200 (CEST)
-	(envelope-from pf@leissner.se)
+Received: from mail-bn1blp0186.outbound.protection.outlook.com ([207.46.163.186]:42040
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750865AbaEUG4S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 02:56:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1400568645-10214-2-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, May 20, 2014 at 02:50:44PM +0800, Fugang Duan wrote:
+> when system suspend, need to set pins to low power state to
+> save IO power consumption, there are three states of pinctrl:
+> "default", "idle" and "sleep". Currently enet supports default
+> and sleep state.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Hi!
+I understand that this dts patch can be applied independently.  So
+patch applied, thanks.
 
-Is there a name of the default network namespace?
+Shawn
 
-I would like to execute a command in the default network namespace while running a shell in a non-default namespace.
-
-Like this: ip netns exec "" ip link
-Or this:   ip netns exec . ip link
-
-That command end up with a mis-spelled error message: :)
-seting the network namespace "" failed: Invalid argument
-
-
-
-Regards,
-
-Peter
+> ---
+>  arch/arm/boot/dts/imx6sl-evk.dts |   16 +++++++++++++++-
+>  1 files changed, 15 insertions(+), 1 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/imx6sl-evk.dts b/arch/arm/boot/dts/imx6sl-evk.dts
+> index a8d9a93..050786d 100644
+> --- a/arch/arm/boot/dts/imx6sl-evk.dts
+> +++ b/arch/arm/boot/dts/imx6sl-evk.dts
+> @@ -116,8 +116,9 @@
+>  };
+>  
+>  &fec {
+> -	pinctrl-names = "default";
+> +	pinctrl-names = "default", "sleep";
+>  	pinctrl-0 = <&pinctrl_fec>;
+> +	pinctrl-1 = <&pinctrl_fec_sleep>;
+>  	phy-mode = "rmii";
+>  	status = "okay";
+>  };
+> @@ -300,6 +301,19 @@
+>  			>;
+>  		};
+>  
+> +		pinctrl_fec_sleep: fecgrp-sleep {
+> +			fsl,pins = <
+> +				MX6SL_PAD_FEC_MDC__GPIO4_IO23      0x3080
+> +				MX6SL_PAD_FEC_CRS_DV__GPIO4_IO25   0x3080
+> +				MX6SL_PAD_FEC_RXD0__GPIO4_IO17     0x3080
+> +				MX6SL_PAD_FEC_RXD1__GPIO4_IO18     0x3080
+> +				MX6SL_PAD_FEC_TX_EN__GPIO4_IO22    0x3080
+> +				MX6SL_PAD_FEC_TXD0__GPIO4_IO24     0x3080
+> +				MX6SL_PAD_FEC_TXD1__GPIO4_IO16     0x3080
+> +				MX6SL_PAD_FEC_REF_CLK__GPIO4_IO26  0x3080
+> +			>;
+> +		};
+> +
+>  		pinctrl_i2c1: i2c1grp {
+>  			fsl,pins = <
+>  				MX6SL_PAD_I2C1_SCL__I2C1_SCL	0x4001b8b1
+> -- 
+> 1.7.8
+> 
