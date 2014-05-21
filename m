@@ -1,55 +1,119 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
-Date: Wed, 21 May 2014 13:31:55 -0700
-Message-ID: <CAEP_g=9At8jhM2ym31YeWaC9u6_O-Sq1igpER3TuYXj=KXTJNg@mail.gmail.com>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au> <CAEP_g=8ZEbx0NzCaXOc=ywiBAtejpmO4K-UzVk5uwBmEfUwZ7w@mail.gmail.com>
- <20140521153153.GB10390@verge.net.au>
+From: Linus Gasser <list@markas-al-nour.org>
+Subject: Re: Bonding with tun-devices
+Date: Wed, 21 May 2014 21:36:34 +0100
+Message-ID: <537D0E52.9030901@markas-al-nour.org>
+References: <537CB13A.3030100@markas-al-nour.org> <20140521155434.GC6295@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:43227 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753071AbaEUUcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 16:32:16 -0400
-Received: by mail-qc0-f178.google.com with SMTP id l6so4081276qcy.23
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 13:32:15 -0700 (PDT)
-In-Reply-To: <20140521153153.GB10390@verge.net.au>
+Received: from virt.linusetviviane.ch ([78.46.227.60]:45406 "EHLO
+	mail.profeda.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1752837AbaEUUgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 16:36:10 -0400
+In-Reply-To: <20140521155434.GC6295@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 21, 2014 at 8:31 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, May 20, 2014 at 07:30:38PM -0700, Jesse Gross wrote:
->> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
->> > diff --git a/datapath/linux/compat/include/linux/netdevice.h b/datapath/linux/compat/include/linux/netdevice.h
->> > index d726390..0381002 100644
->> > --- a/datapath/linux/compat/include/linux/netdevice.h
->> > +++ b/datapath/linux/compat/include/linux/netdevice.h
->> > +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
->> >  #define netif_skb_features rpl_netif_skb_features
->> >  netdev_features_t rpl_netif_skb_features(struct sk_buff *skb);
+Le 21/05/14 16:54, Veaceslav Falico a =E9crit :
+> On Wed, May 21, 2014 at 02:59:22PM +0100, Linus Gasser wrote:
+>> Dear list,
 >>
->> Currently this function doesn't look at mpls_features. Should it for
->> things other than TSO?
+>> I'm trying to create a bonded interface using tun-devices created by=
+ the
+>>
+>> ssh -NTCf -w 0:0
+>>
+>> command. The reason is that I'm behind a satellite connection with
+>> per-stream limited bandwidth...
+>>
+>> On some older kernels everything was fine, and I could do:
+>>
+>> # ssh -NTCf -w 0:0 web
+>> # ssh -NTCf -w 1:1 web
+>> # modprobe bonding mode=3D0 miimon=3D100
+>> # ifconfig bond0 172.16.0.1 netmask 255.255.255.0
+>> # ifconfig bond0 hw ether 12:34:56:78:9a
+>> # ifenslave bond0 tun0 tun1
 >
-> It seems to me that rpl_netif_skb_features is only used by
-> rpl_dev_queue_xmit().
+> It should fail here, as tun (from the first approach*) doesn't have
+> ndo_set_mac_address, and bonding relies on that, *unless* fail_over_m=
+ac is
+> set to 1.
 >
-> If that is the case then I don't think it is necessary to examine
-> mpls_features, which was introduced in v3.11, as rpl_dev_queue_xmit()
-> only exists for older kernel versions.
+> Could you try setting fail_over_mac =3D 1 on modprobe or via sysfs an=
+d
+> retesting?
+>
+> * I've tried to quickly recreate your setup but hit a panic (already
+> submitted a fix).
+>
+> Also, enabling debug for bonding (via dynamic_debug or anything else)=
+ and
+> attaching the output would help a lot.
 
-Sorry, I actually meant for upstream. I agree that the compatibility
-code reflects current kernels as written.
+Hi,
 
-It seems like the checks in dev_hard_start_xmit() won't take
-mpls_features (or the presence of MPLS) into account when deciding
-whether to emulate the offload or pass the skb directly to the NIC. In
-the GSO code itself, we look at mpls_features but if we never get
-there then it will be too late.
+OK, I tried to add "fail_over_mac=3D1" to the modprobe-call, but both w=
+ith=20
+"ifenslave" and "ip add" I get the same error. In the logs I found (wit=
+h=20
+fail_over_mac):
+
+kernel: bonding: Ethernet Channel Bonding Driver: v3.7.1 (April 27, 201=
+1)
+kernel: bonding: MII link monitoring set to 100 ms
+kernel: bonding: Warning: fail_over_mac only affects active-backup mode=
+=2E
+bonding: bond0: Warning: The first slave device specified does not=20
+support setting the MAC address.
+bonding: bond0: Warning: The first slave device specified does not=20
+support setting the MAC address.
+
+As far as I see, my kernel doesn't have dynamic_debug enabled. I'm in=20
+the midst of downloading it - hold on for a day or two ;) If you can=20
+tell me how I can debug otherwise, I'll be glad to do so.
+
+Linus
+
+>
+> Thank you!
+>
+>>
+>> on one side and
+>>
+>> # modprobe bonding mode=3D0 miimon=3D100
+>> # ifconfig bond0 172.16.0.2 netmask 255.255.255.0
+>> # ifconfig bond0 hw ether 12:35
+>> # ifenslave -f bond0 tun0 tun1
+>> # ping 172.16.0.1
+>>
+>> on the other side. On a newer kernel (>3.14) this doesn't work (at
+>> least not on linux-armv7), while on 3.13 it does work under
+>> linux-armv7. Now I've been told to use the iproute2-suite, as
+>> ifenslave is deprecated. But if I try to do
+>>
+>> # ssh -NTCf -w 0:0 web
+>> # ssh -NTCf -w 1:1 web
+>> # ip link add name bond1 type bond
+>> # ip link set dev tun0 master bond1
+>>
+>> it gives me an error
+>>
+>> RTNETLINK answers: Operation not supported
+>>
+>> Any idea what I'm doing wrong?
+>>
+>> Linus
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
