@@ -1,70 +1,63 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] bonding: Don't assume 802.1Q when sending alb learning packets.
-Date: Wed, 21 May 2014 11:24:39 -0400
-Message-ID: <1400685879-21843-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
+Date: Thu, 22 May 2014 00:26:06 +0900
+Message-ID: <20140521152603.GA10390@verge.net.au>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
+ <1400195227-21265-2-git-send-email-horms@verge.net.au>
+ <CAEP_g=-X=T2hJoXTV5ptZRvf1WPgYa1xusczwSR1bUYAZ5yaqA@mail.gmail.com>
+ <20140520104704.GA2979@verge.net.au>
+ <CAEP_g=8AkoxtsGE9CbaY_AqiWqDoV1jyqpoPaYO+BZvcTpXByg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63201 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752648AbaEUPYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2014 11:24:46 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:58487 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbaEUP0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 11:26:14 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=8AkoxtsGE9CbaY_AqiWqDoV1jyqpoPaYO+BZvcTpXByg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TLB/ALB learning packets always assume 802.1Q vlan protocol, but
-that is no longer the case since we now have support for Q-in-Q
-on top of bonding.  Pass the vlan protocol to alb_send_lp_vid()
-so that the packets are properly tagged.
+On Tue, May 20, 2014 at 07:05:28PM -0700, Jesse Gross wrote:
+> On Tue, May 20, 2014 at 3:48 AM, Simon Horman <horms@verge.net.au> wrote:
+> > On Mon, May 19, 2014 at 06:34:05PM -0700, Jesse Gross wrote:
+> >> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
+> >> > diff --git a/datapath/actions.c b/datapath/actions.c
+> >> > index 603c7cb..7c3ae0c 100644
+> >> > --- a/datapath/actions.c
+> >> > +++ b/datapath/actions.c
+> >> When we set the EtherType at the bottom of the function, I don't think
+> >> that it is correct in the presence of VLAN tags because it will set
+> >> the outer EtherType.
+> >
+> > I believe this comes back to the problem we have with tag ordering. A
+> > problem which after the most recent discussion of this topic I planned to
+> > kick into the long grass by only allowing push MPLS actions on packets with
+> > a well defined tag order.
+> 
+> Right, I subconsciously keep forgetting this even though I know it's there.
+> 
+> > This is the purpose of the white list in ovs_nla_copy_actions__().  It is
+> > supposed to only push MPLS actions for flows with an IPv4, IPv6, ARP, RARP
+> > or MPLS ethtype.  However, I now think that the white list likely does not
+> > work for VLAN packets as their flow's ethtype will be the inner-ethtype
+> > (the one inside the VLAN tag) rather than a VLAN ethtype.
+> >
+> > I'm unsure how you would like to handle this but one possibility would be
+> > simply for push_mpls() to return an error if it is called on an skb with a
+> > VLAN tag present or if the ethtype doesn't match a white list. Another is
+> > to set the inner ethtype.
+> 
+> Can't we just look at/track flow->tci to see if there is a vlan?
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/bonding/bond_alb.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Yes :)
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index e538478..2ec945c 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -995,7 +995,7 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
- /*********************** tlb/rlb shared functions *********************/
- 
- static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
--			    u16 vid)
-+			    __be16 vlan_proto, u16 vid)
- {
- 	struct learning_pkt pkt;
- 	struct sk_buff *skb;
-@@ -1021,7 +1021,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
- 	skb->dev = slave->dev;
- 
- 	if (vid) {
--		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
-+		skb = vlan_put_tag(skb, vlan_proto, vid);
- 		if (!skb) {
- 			pr_err("%s: Error: failed to insert VLAN tag\n",
- 			       slave->bond->dev->name);
-@@ -1040,13 +1040,14 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- 	struct list_head *iter;
- 
- 	/* send untagged */
--	alb_send_lp_vid(slave, mac_addr, 0);
-+	alb_send_lp_vid(slave, mac_addr, 0, 0);
- 
- 	/* loop through vlans and send one packet for each */
- 	rcu_read_lock();
- 	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
- 		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0)
- 			alb_send_lp_vid(slave, mac_addr,
-+					vlan_dev_vlan_proto(upper),
- 					vlan_dev_vlan_id(upper));
- 	}
- 	rcu_read_unlock();
--- 
-1.9.0
+I had been thinking in terms of OpenFlow flows and thought
+this wouldn't work. But I have verified that it does with datapath flows.
