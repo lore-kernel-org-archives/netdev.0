@@ -1,20 +1,19 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0
  (bridge : Sanitize skb before it enters the IP stack)
-Date: Wed, 21 May 2014 16:14:48 -0400 (EDT)
-Message-ID: <20140521.161448.716446182526388511.davem@davemloft.net>
-References: <537A12EA.4060604@davidnewall.com>
-	<14456.1400561749@turing-police.cc.vt.edu>
-	<537C5F71.6000204@davidnewall.com>
+Date: Wed, 21 May 2014 16:18:41 -0400 (EDT)
+Message-ID: <20140521.161841.1806439174351824310.davem@davemloft.net>
+References: <537A6E5C.6090602@pandora.be> <537C5A6C.3030809@davidnewall.com>
+	<537CF5A2.3080401@pandora.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, davidn@davidnewall.com,
 	bridge@lists.linux-foundation.org, fw@strlen.de,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org
-To: davidn@davidnewall.com
+	stephen@networkplumber.org, netfilter-devel@vger.kernel.org
+To: bdschuym@pandora.be
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <537C5F71.6000204@davidnewall.com>
+In-Reply-To: <537CF5A2.3080401@pandora.be>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -26,52 +25,55 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: David Newall <davidn@davidnewall.com>
-Date: Wed, 21 May 2014 17:40:25 +0930
+From: Bart De Schuymer <bdschuym@pandora.be>
+Date: Wed, 21 May 2014 20:51:14 +0200
 
-> On 20/05/14 14:25, Valdis.Kletnieks@vt.edu wrote:
->> So yes, we*do* need to do something sensible there - either frag the
->> packet
->> on the way out, or something.
+> David Newall schreef op 21/05/2014 9:49:
+>>> An alternative would be to make sure that the data pointed to by IPCB
+>>> and BR_INPUT_SKB_CB don't overlap. If this were the case, we could
+>>> indeed just revert the commit that was referred to.
+>>
+>> They are identical spaces, but you imply a good point: the cb area is
+>> possibly being used, simultaneously, for two, incompatible
+>> purposes. Yet
+>> another argument for divorcing bridge of ip logic.
 > 
-> I think the problem is that a bridge cannot be used across
-> incompatible media.  That's the job of a router.
-> 
-> A bridge should act like a bridge, not a router.  Fragmenting the
-> packet is wrong; that's IP's job.  Dropping the packet is also
-> arguably wrong; that's the real device-driver's job.  What seems right
-> to me is to act like a bridge and forward packets by looking inside of
-> them *no more than is necessary*.  Looking beyond MAC address is
-> perhaps too much.
-> 
-> We can finish the job of processing IP options, or at least in this
-> scenario, but that seems wrong-headed and invites more work as more
-> problems are discovered; or we could remove the half-hearted attempt
-> it currently does and leave the bridge as a simple bridge.
-> 
-> This problem wouldn't occur if all devices in a bridge were required
-> to be compatible media; particularly identical MTU.
+> There's no reason why they should overlap in the cb: it's 48 bytes
+> big, so big enough to hold both struct br_input_skb_cb and struct
+> inet_skb_parm. The original problem was introduced when
+> BR_INPUT_SKB_CB was introduced (around Feb 27, 2010), so fixing
+> BR_INPUT_SKB_CB seems most appropriate to me.
 
-I completely agree with you.
+So you are suggesting the patch below will fix everything?
 
-I also just want to state for the record, and I know some people will
-disagree with me, that I think the bridging netfilter layer should
-never have been integrated into the tree.
+> As for your other remark: as I've said before, if you don't like
+> bridge-netfilter then don't compile it into your kernel.
 
-And I've been saying this for more than a decade.
+That's never a good argument, please stop making it.
 
-It takes layering violations to a whole new level, and it's why we see
-problems like this.
+%99.999999999 of users get their kernels from distributions and
+they are all going to enable basically every feature available.
 
-Besides this IP options issue, it also creates fake ipv4 routes, so
-every time someone tries to do anything non-trivial with the ipv4
-routing code the bridging netfilter fake route code had to be adjusted
-or else we'd get crashes.
+We never should have added bridging netfilter to the tree in the
+first place, I wish I had better judgment back then.
 
-It has also held back many potential improvements to iptables in
-general over the years because it does so many things differently
-than the rest of the iptables modules.
-
-It stinks, we never should have added it, and now since we have people
-have been perversely convinced that doing stuff like this is actually
-sane.  It's not.
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 06811d7..2300def 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -18,6 +18,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/u64_stats_sync.h>
+ #include <net/route.h>
++#include <net/ip.h>
+ #include <linux/if_vlan.h>
+ 
+ #define BR_HASH_BITS 8
+@@ -297,6 +298,7 @@ struct net_bridge
+ };
+ 
+ struct br_input_skb_cb {
++	struct inet_skb_parm ip;
+ 	struct net_device *brdev;
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	int igmp;
