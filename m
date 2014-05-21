@@ -1,36 +1,79 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 0/4] ISDN patches for net-next (resubmission)
+Subject: [PATCH 2/4] isdn/capi: Make verbose reporting depend on capidrv
 Date: Wed, 21 May 2014 23:39:26 +0200 (CEST)
-Message-ID: <cover.1400449368.git.tilman@imap.cc>
+Message-ID: <9f26b3733e64ed9fafe1c0f7fcb5807223859d2f.1400449372.git.tilman@imap.cc>
+References: <cover.1400449368.git.tilman@imap.cc>
 Cc: Paul Bolle <pebolle@tiscali.nl>, isdn4linux@listserv.isdn4linux.de,
 	"Keil, Karsten" <isdn@linux-pingi.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gimli.pxnet.com ([89.1.7.7]:59705 "EHLO mail.pxnet.com"
+Received: from mail.pxnet.com ([89.1.7.7]:40399 "EHLO mail.pxnet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753714AbaEUVlt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2014 17:41:49 -0400
+	id S1753718AbaEUVlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 17:41:50 -0400
+In-Reply-To: <cover.1400449368.git.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here's a series of patches for the ISDN CAPI subsystem and an auxiliary
-patch to the tty driver, prepared by Paul Bolle over the last couple of
-weeks. I would appreciate if you could merge these via net-next.
+From: Paul Bolle <pebolle@tiscali.nl>
 
-Paul Bolle (4):
-  isdn/capi: move capi_info2str to capidrv.c
-  isdn/capi: Make verbose reporting depend on capidrv
-  tty: allow tty drivers to rename their device nodes
-  isdn/capi: fix (middleware) device nodes
+The Kconfig symbol ISDN_DRV_AVMB1_VERBOSE_REASON is only used for
+capi_info2str(). That function is only used in capidrv.c. So setting it
+without setting ISDN_CAPI_CAPIDRV is pointless. Make it depend on
+ISDN_CAPI_CAPIDRV, rename it to ISDN_CAPI_CAPIDRV_VERBOSE and put its
+entry after ISDN_CAPI_CAPIDRV's entry.
 
- drivers/isdn/capi/Kconfig     |  18 ++--
- drivers/isdn/capi/capi.c      |   8 +-
- drivers/isdn/capi/capidrv.c   | 195 ++++++++++++++++++++++++++++++++++++++++
- drivers/isdn/capi/capiutil.c  | 200 ------------------------------------------
- drivers/tty/tty_io.c          |  16 +++-
- include/linux/isdn/capiutil.h |   5 --
- include/linux/tty_driver.h    |   1 +
- 7 files changed, 226 insertions(+), 217 deletions(-)
+Since this symbol seems to be primarily used for debugging, keep it off
+by default. By now the last users of capidrv hopefully know all they
+need to know about the reasons for disconnecting.
 
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/capi/Kconfig   | 16 ++++++++--------
+ drivers/isdn/capi/capidrv.c |  2 +-
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/isdn/capi/Kconfig b/drivers/isdn/capi/Kconfig
+index 9816c51..1d7adff 100644
+--- a/drivers/isdn/capi/Kconfig
++++ b/drivers/isdn/capi/Kconfig
+@@ -1,11 +1,3 @@
+-config ISDN_DRV_AVMB1_VERBOSE_REASON
+-	bool "Verbose reason code reporting"
+-	default y
+-	help
+-	  If you say Y here, the CAPI drivers will give verbose reasons for
+-	  disconnecting. This will increase the size of the kernel by 7 KB. If
+-	  unsure, say Y.
+-
+ config CAPI_TRACE
+ 	bool "CAPI trace support"
+ 	default y
+@@ -42,3 +34,11 @@ config ISDN_CAPI_CAPIDRV
+ 	  the legacy isdn4linux link layer.  If you have a card which is
+ 	  supported by a CAPI driver, but still want to use old features like
+ 	  ippp interfaces or ttyI emulation, say Y/M here.
++
++config ISDN_CAPI_CAPIDRV_VERBOSE
++	bool "Verbose reason code reporting"
++	depends on ISDN_CAPI_CAPIDRV
++	help
++	  If you say Y here, the capidrv interface will give verbose reasons
++	  for disconnecting. This will increase the size of the kernel by 7 KB.
++	  If unsure, say N.
+diff --git a/drivers/isdn/capi/capidrv.c b/drivers/isdn/capi/capidrv.c
+index 70e67f6..fd6d28f 100644
+--- a/drivers/isdn/capi/capidrv.c
++++ b/drivers/isdn/capi/capidrv.c
+@@ -765,7 +765,7 @@ static inline int new_bchan(capidrv_contr *card)
+ /* ------------------------------------------------------------------- */
+ static char *capi_info2str(u16 reason)
+ {
+-#ifndef CONFIG_ISDN_DRV_AVMB1_VERBOSE_REASON
++#ifndef CONFIG_ISDN_CAPI_CAPIDRV_VERBOSE
+ 	return "..";
+ #else
+ 	switch (reason) {
 -- 
 1.9.2.459.g68773ac
