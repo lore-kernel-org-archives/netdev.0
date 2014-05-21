@@ -1,80 +1,96 @@
-From: Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
-Subject: Re: [ath9k-devel] randconfig build error with next-20140519, in
- drivers/net/wireless/ath/ath9k/dfs.c
-Date: Wed, 21 May 2014 20:08:34 +0530
-Message-ID: <20140521143832.GA9563@qca.qualcomm.com>
-References: <CA+r1ZhiM7EK08Y4kriXMugMc1Mbj5VDUPwKMq8-_k8Q8qhwPtw@mail.gmail.com>
- <20140521110143.GA2375@qca.qualcomm.com>
- <CAGRGNgXuS-ksFBAtmo8nLAPqPFKo2gHGDCsTcranU-k2-K3rfg@mail.gmail.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: Re: [PATCH V8 net-next 0/6] xen-net{back,
+ front}: Multiple transmit and receive queues
+Date: Wed, 21 May 2014 14:42:47 +0000
+Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0380FD1@AMSPEX01CL01.citrite.net>
+References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com>
+	<526369072.20140514160923@eikelenboom.it>
+	<20140514141347.GR6332@zion.uk.xensource.com>
+	<53739757.5060905@citrix.com>
+	<1296806729.20140514203719@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linville <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	<ath9k-devel@lists.ath9k.org>, netdev <netdev@vger.kernel.org>
-To: Julian Calaby <julian.calaby@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGRGNgXuS-ksFBAtmo8nLAPqPFKo2gHGDCsTcranU-k2-K3rfg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	Andrew Bennieston <andrew.bennieston@citrix.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1296806729.20140514203719@eikelenboom.it>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 21, 2014 at 10:12:26PM +1000, Julian Calaby wrote:
-> Hi Rajkumar,
->=20
-> On Wed, May 21, 2014 at 9:01 PM, Rajkumar Manoharan
-> <rmanohar@qti.qualcomm.com> wrote:
-> > On Mon, May 19, 2014 at 09:31:16AM -0700, Jim Davis wrote:
-> >> Building with the attached random configuration file,
+> -----Original Message-----
+> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
+> Sent: 14 May 2014 19:37
+> To: Andrew Bennieston
+> Cc: Wei Liu; xen-devel@lists.xenproject.org; davem@davemloft.net; Ian
+> Campbell; netdev@vger.kernel.org; Paul Durrant; David Vrabel; Zoltan Kiss
+> Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}:
+> Multiple transmit and receive queues
+> 
+> 
+> Wednesday, May 14, 2014, 6:18:31 PM, you wrote:
+> 
+> > On 14/05/14 15:13, Wei Liu wrote:
+> >> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
+> >>>
+> >>> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
+> >>>
+> >>>> This patch series implements multiple transmit and receive queues (i.e.
+> >>>> multiple shared rings) for the xen virtual network interfaces.
+> >>>
+> >>>> The series is split up as follows:
+> >>>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
+> >>>>     preparation for multi-queue support. See the patch itself for more
+> details.
+> >>>> - Patches 2 and 4 factor out the queue-specific data for netback and
+> >>>>    netfront respectively, and modify the rest of the code to use these
+> >>>>    as appropriate.
+> >>>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
+> >>>>    multiple shared rings and event channels, and code to connect these
+> >>>>    as appropriate.
+> >>>> - Patch 6 documents the XenStore keys required for the new feature
+> >>>>    in include/xen/interface/io/netif.h
+> >>>
+> >>>> All other transmit and receive processing remains unchanged, i.e. there
+> >>>> is a kthread per queue and a NAPI context per queue.
+> >>>
+> >>>> The performance of these patches has been analysed in detail, with
+> >>>> results available at:
+> >>>
+> >>> <snip>
+> >>>
+> >>> Would it be possible to also put these somewhere in a tree (or branch of
+> the
+> >>> xen-tree), so it is more easy to pull and test ?
+> >>>
 > >>
-> >> In file included from drivers/net/wireless/ath/ath9k/eeprom.h:22:0=
-,
-> >>                  from drivers/net/wireless/ath/ath9k/hw.h:27,
-> >>                  from drivers/net/wireless/ath/ath9k/dfs.c:18:
-> >> drivers/net/wireless/ath/ath9k/dfs.c: In function =E2=80=98ath9k_d=
-fs_process_phyerr=E2=80=99:
-> >> drivers/net/wireless/ath/ath9k/dfs.c:185:14: error: =E2=80=98struc=
-t ath_softc=E2=80=99
-> >> has no member named =E2=80=98debug=E2=80=99
-> >>     pe.ts - sc->debug.stats.dfs_stats.last_ts);
-> >>               ^
-> >> drivers/net/wireless/ath/ath9k/../ath.h:273:41: note: in definitio=
-n of
-> >> macro =E2=80=98ath_dbg=E2=80=99
-> >>    ath_printk(KERN_DEBUG, common, fmt, ##__VA_ARGS__); \
-> >>                                          ^
-> >> drivers/net/wireless/ath/ath9k/dfs.c:186:5: error: =E2=80=98struct=
- ath_softc=E2=80=99
-> >> has no member named =E2=80=98debug=E2=80=99
-> >>    sc->debug.stats.dfs_stats.last_ts =3D pe.ts;
-> >>      ^
-> >> make[5]: *** [drivers/net/wireless/ath/ath9k/dfs.o] Error 1
-> >
-> > Please select CONFIG_ATH9K_DEBUGFS.
->=20
-> The point of randconfig builds is to ensure that there it's really
-> unlikely that there are any config combinations that don't build, eve=
-n
-> if they're utterly insane.
->=20
-> You should really change the ath9k Kconfig rules or move or add ifdef=
-s
-> to prevent this from being possible.
->
-Completely agree. But ath9k Kconfig has proper dependecy for
-ATH9K_DFS_DEBUGFS. I am wondering how it is selected w/o ATH9K_DEBUGFS.
+> >> I cannot speak for Andrew. FWIW you can save this thread and use 'git
+> >> am' to apply them to 'net-next'.
+> >>
+> >> Wei.
+> 
+> > I don't currently have a public-facing git repo for this. If you'd
+> > prefer I can send you the patches directly in a tarball, which you may
+> > be able to apply more easily than grabbing them from email threads?
+> 
+> Got the patches from the thread .. but as i expected they interfere with
+> Zoltan's v3 fix for 3.15.
+> 
 
-config ATH9K_DFS_DEBUGFS
-        def_bool y
-	depends on ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED
+I realize there will be conflict when Zoli's patch (for net) and these patches (for net-next) come together, but I don't see these in the patchworks queue at all. Did they get lost somewhere?
 
-Should it be like this?
-
-config ATH9K_DFS_DEBUGFS
-	def_bool y if (ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED)
-
--Rajkumar
+  Paul
