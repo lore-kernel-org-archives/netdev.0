@@ -1,75 +1,112 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH net-next] net: cdc_ncm: fix 64bit division build error
-Date: Wed, 21 May 2014 12:07:33 +1000
-Message-ID: <20140521120733.4cb45333@canb.auug.org.au>
-References: <1400484069-13702-1-git-send-email-bjorn@mork.no>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 3/3] net: mvneta: Introduce a software TSO implementation
+Date: Wed, 21 May 2014 03:11:31 +0100
+Message-ID: <1400638291.17377.73.camel@deadeye.wl.decadent.org.uk>
+References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com>
+	 <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
+	 <20140505144702.GB12693@arch.cereza>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/XzzerdHBPhxTOfEGOWqoIo3"; protocol="application/pgp-signature"
-Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>
-To: =?UTF-8?B?QmrDuHJu?= Mork <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Y8uLO8I9aZroWUTq6nFV"
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, cmetcalf@tilera.com,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Simon Guinot <simon.guinot@sequanux.org>,
+	Willy Tarreau <w@1wt.eu>, Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Simon Guinot <sguinot@lacie.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:57664 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751650AbaEUCHm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 May 2014 22:07:42 -0400
-In-Reply-To: <1400484069-13702-1-git-send-email-bjorn@mork.no>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36900 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750735AbaEUCLn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 22:11:43 -0400
+In-Reply-To: <20140505144702.GB12693@arch.cereza>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/XzzerdHBPhxTOfEGOWqoIo3
-Content-Type: text/plain; charset=UTF-8
+
+--=-Y8uLO8I9aZroWUTq6nFV
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Hi all,
+On Mon, 2014-05-05 at 11:47 -0300, Ezequiel Garcia wrote:
+> Hi all,
+>=20
+> On 10 Apr 07:58 PM, Ezequiel Garcia wrote:
+> [..]
+> > +
+> > +	/* Calculate expected number of TX descriptors */
+> > +	desc_count =3D skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_fr=
+ags;
+> > +	if ((txq->count + desc_count) >=3D txq->size)
+> > +		return 0;
+> > +
+>=20
+> Is this calculus correct? Does it give the accurate number of needed
+> descriptors or is it an approximation?
+>=20
+> Tilera's tilegx driver does a much stricter descriptor count (see
+> tso_count_edescs). This functions loops through the skb_frag_t fragments
+> as it's done later in the data egress, hence strictly counting the
+> needed descriptors.
+>=20
+> However, as it's a much heavier routine than the one shown above,
+> I'm wondering if we can get away without it.
+>=20
+> Willy, Any ideas here?
 
-On Mon, 19 May 2014 09:21:09 +0200 Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
->
-> The upper timer_interval limit is arbitrary and much higher
-> than anything usable in the real world.  Reducing it from 15s
-> to ~4s to make the timer_interval fit in an u32 does not make
-> much difference.  The limit is still outside the practical
-> bounds.
->=20
-> This eliminates the need for a 64bit timer_interval, fixing a
-> build error related to 64bit division:
->=20
->  drivers/built-in.o: In function `cdc_ncm_get_coalesce':
->  ak8975.c:(.text+0x1ac994): undefined reference to `__aeabi_uldivmod'
->=20
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+There are (at least) three potential bugs you need to avoid:
 
-I have applied this as a fix patch to linux-next today.
+1. You must not underestimate the number of descriptors required here,
+otherwise the ring may overflow.  Hopefully that's obvious.
+2. You must ensure that the worst case number of descriptors does
+actually fit in the ring, and will probably need to set
+net_dev->gso_max_segs accordingly.  Eric pointed that out already.
+3. If you stop the queue because an skb doesn't fit, you should not wake
+it before there is enough space.
+
+A simple way to do this is:
+
+- Set a maximum number of segments to support (for sfc, I reckoned that
+100 was enough)
+- Calculate the maximum number of descriptors that could be needed for
+that number of segments
+- Stop the queue when the free space in the ring is less than that
+maximum
+- Wake the queue when the free space reaches a threshold somewhere
+between that maximum and completely free
+
+It may make more sense to work backward from the ring size to maximum
+number of segments.
+
+Ben.
+
 --=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Ben Hutchings
+Life would be so much easier if we could look at the source code.
 
---Sig_/XzzerdHBPhxTOfEGOWqoIo3
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+--=-Y8uLO8I9aZroWUTq6nFV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIcBAEBCAAGBQJTfAppAAoJEMDTa8Ir7ZwVMjIP/135dHp7fBx4RV8RuDkJQrwE
-lxMZk6/fD8AIKA/RO23zYir0kwITr52OxDaI5VvJHQ0sP9jeWW0gJL0wUhJmHEYQ
-lq5NqDTRV4lQwVSsRUinWWMjc6URCbbYIjLyfXWRYHUySDXUTrIQh7Yvyt9TQPsO
-QqbbW1dSHhr7oT+OtmwI87D5A4FjDJNH4PbRugeLl978n2lQ6poVhHms4plPU0Y7
-OrM1kye3Y+U8+FrxwJHQV0EMXZCYwm4+1B2iygfcU84dna1EIkNYHEWYvAMQSATj
-tuJE3lTTDCCI4JhoDHY3kys90wP4YQyRiIOehgYcqln66bZ+Uj8d8CboPXp5LQ+c
-85KltjcekjrBDfFvDC5DoUpcitg1bCyv/KztYYOpmv+o2EjJ4UliSuMWksB/KECg
-f2lQDYJXbSw62R5cAbX1tvYUjEqzmTQMUczqLsfe2/tPQIYQc3fByrwEumDJxjHG
-TSnpShww065PEoCLISfqQ1X4Y3ZQA8Sc760gWDiPWtFLVplg+HfCeNTMd5WFK46q
-h01p/Tv3j0G+15B1UpkRMvQmdri9vbfLuwckZ7DfGWGFfS2FL3iafsrCtbr5jijL
-rloHyjJMqwsBkyxUhDeZFkiTZzOgX+G8OPRSd0CGw9ob68AVDHO86uQdDD63haIG
-7ijHsOza8cm390d047JF
-=ESW9
+iQIVAwUAU3wLWOe/yOyVhhEJAQpECw/+JbQOrjG1npXVYQmAfQsM9fK/MrxaCQ2t
+BX+ziMq6L02MgXlBBKxAcq/mWxB1g1zrvAvBpOupZ+yp3MtNBBp8tI1yF64kRQTD
+c+EaP0AhHnkR059YMfAkcDeBJ2BJ5clJ3Jrr//9WX7S6CyCXZw8fJGQ7PpTFlK/F
+d8yy8YDJIykJKcPg514BPs/YB0GxZPFkBWteJ7Z5vY74WIF+IdRN7zaFPyKpYTlC
+1IQWVZl4e98gP+DSeBkqLbPzSh37kMmBKKRPuY6XL09iaqp8u/pvtbJm01/V1C/f
+FhnpeiDW0VGaUQPn0oBygUtlfV0Fel+ohaCoRAfwr2gTqrrQLf40hs1/RmCvydTf
+Lt1CQBo7NcE/Y8IDB3GqdhciCMrMLwv+AD1vge4fhMbMGvokyd+2fPaWEBCFYcVn
+Dw0r7Xt8qNf5e8y+SaIUP3yaWgO69B/vJoiNtweVzAQVxE+klJFuxoaRH1Ay370P
+PKG8a7IeuVjXoL5h5UCFo5G+4dW8Rj5EYiwbrJ2HN9r7ubwWq93BH+oBE2lfehYE
+zlxCXKZqRiZ/5fCiTU1MGVnHDNPoqY4lkbRTwx/hoBZkb+5QKMi9kbBsfvfPMlQI
+hPvXHKhUHbN+i7D0z9nYXii64fbbfxCWuzhwsbzl+6lIvg9sc3EM5f72MvoJZjqa
+TGy008Luoa8=
+=6JWm
 -----END PGP SIGNATURE-----
 
---Sig_/XzzerdHBPhxTOfEGOWqoIo3--
+--=-Y8uLO8I9aZroWUTq6nFV--
