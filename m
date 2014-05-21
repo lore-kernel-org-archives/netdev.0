@@ -1,110 +1,51 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: [PATCH net-next] Add hash value into RNDIS Per-packet info
-Date: Wed, 21 May 2014 12:55:39 -0700
-Message-ID: <1400702139-29280-1-git-send-email-haiyangz@microsoft.com>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH 1/2] mISDN: Use time_before()
+Date: Wed, 21 May 2014 21:10:05 +0200
+Message-ID: <1400699406-31294-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: manuel.schoelling@gmx.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It passes the hash value as the RNDIS Per-packet info to the Hyper-V host,
-so that the send completion notices can be spread across multiple channels.
-MS-TFS: 140273
+To be future-proof and for better readability the time comparisons are =
+modified
+to use time_before() instead of plain, error-prone math.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
 ---
- drivers/net/hyperv/hyperv_net.h |    4 ++++
- drivers/net/hyperv/netvsc_drv.c |   18 ++++++++++++++----
- 2 files changed, 18 insertions(+), 4 deletions(-)
+ drivers/isdn/mISDN/l1oip_core.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 4b7df5a..6cc37c1 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -791,6 +791,7 @@ enum ndis_per_pkt_info_type {
- 	IEEE_8021Q_INFO,
- 	ORIGINAL_PKTINFO,
- 	PACKET_CANCEL_ID,
-+	NBL_HASH_VALUE = PACKET_CANCEL_ID,
- 	ORIGINAL_NET_BUFLIST,
- 	CACHED_NET_BUFLIST,
- 	SHORT_PKT_PADINFO,
-@@ -937,6 +938,9 @@ struct ndis_tcp_lso_info {
- #define NDIS_LSO_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
- 		sizeof(struct ndis_tcp_lso_info))
- 
-+#define NDIS_HASH_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
-+		sizeof(u32))
-+
- /* Format of Information buffer passed in a SetRequest for the OID */
- /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
- struct rndis_config_parameter_info {
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 2e967a7..4fd71b7 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -224,9 +224,11 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
- 	if (nvsc_dev == NULL || ndev->real_num_tx_queues <= 1)
- 		return 0;
- 
--	if (netvsc_set_hash(&hash, skb))
-+	if (netvsc_set_hash(&hash, skb)) {
- 		q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
- 			ndev->real_num_tx_queues;
-+		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
-+	}
- 
- 	return q_idx;
- }
-@@ -384,6 +386,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	struct ndis_tcp_lso_info *lso_info;
- 	int  hdr_offset;
- 	u32 net_trans_info;
-+	u32 hash;
- 
- 
- 	/* We will atmost need two pages to describe the rndis
-@@ -402,9 +405,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
- 			 (num_data_pgs * sizeof(struct hv_page_buffer)) +
- 			 sizeof(struct rndis_message) +
--			 NDIS_VLAN_PPI_SIZE +
--			 NDIS_CSUM_PPI_SIZE +
--			 NDIS_LSO_PPI_SIZE, GFP_ATOMIC);
-+			 NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
-+			 NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE, GFP_ATOMIC);
- 	if (!packet) {
- 		/* out of memory, drop packet */
- 		netdev_err(net, "unable to allocate hv_netvsc_packet\n");
-@@ -443,6 +445,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
- 
- 	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
- 
-+	hash = skb_get_hash_raw(skb);
-+	if (hash != 0 && net->real_num_tx_queues > 1) {
-+		rndis_msg_size += NDIS_HASH_PPI_SIZE;
-+		ppi = init_ppi_data(rndis_msg, NDIS_HASH_PPI_SIZE,
-+				    NBL_HASH_VALUE);
-+		*(u32 *)((void *)ppi + ppi->ppi_offset) = hash;
-+	}
-+
- 	if (isvlan) {
- 		struct ndis_pkt_8021q_info *vlan;
- 
--- 
-1.7.4.1
+diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip=
+_core.c
+index 2c0d2c2..1c2bc36 100644
+--- a/drivers/isdn/mISDN/l1oip_core.c
++++ b/drivers/isdn/mISDN/l1oip_core.c
+@@ -287,7 +287,7 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, =
+u8 channel, u32 chanmask,
+ 	p =3D frame;
+=20
+ 	/* restart timer */
+-	if ((int)(hc->keep_tl.expires-jiffies) < 5 * HZ) {
++	if (time_before(hc->keep_tl.expires - 5 * HZ, jiffies)) {
+ 		del_timer(&hc->keep_tl);
+ 		hc->keep_tl.expires =3D jiffies + L1OIP_KEEPALIVE * HZ;
+ 		add_timer(&hc->keep_tl);
+@@ -621,7 +621,8 @@ multiframe:
+ 		goto multiframe;
+=20
+ 	/* restart timer */
+-	if ((int)(hc->timeout_tl.expires-jiffies) < 5 * HZ || !hc->timeout_on=
+) {
++	if (time_before(hc->timeout_tl.expires - 5 * HZ, jiffies)
++	    || !hc->timeout_on) {
+ 		hc->timeout_on =3D 1;
+ 		del_timer(&hc->timeout_tl);
+ 		hc->timeout_tl.expires =3D jiffies + L1OIP_TIMEOUT * HZ;
+--=20
+1.7.10.4
