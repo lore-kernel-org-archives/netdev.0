@@ -1,45 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] mISDN: Use time_before()
-Date: Thu, 22 May 2014 00:43:29 +0400
-Message-ID: <537D0FF1.2070708@cogentembedded.com>
-References: <1400699406-31294-1-git-send-email-manuel.schoelling@gmx.de>	 <537CFE29.7050100@cogentembedded.com> <1400702866.11896.4.camel@joe-AO725>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net] net_sched: fix an oops in tcindex filter
+Date: Wed, 21 May 2014 16:51:08 -0400 (EDT)
+Message-ID: <20140521.165108.1433532620660314918.davem@davemloft.net>
+References: <1400526949-1344-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Manuel_Sch=F6lling?= <manuel.schoelling@gmx.de>,
-	isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400702866.11896.4.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dborkman@redhat.com, kelly@xilka.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55864 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752866AbaEUUvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 16:51:10 -0400
+In-Reply-To: <1400526949-1344-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 19 May 2014 12:15:49 -0700
 
-On 05/22/2014 12:07 AM, Joe Perches wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> Kelly reported the following crash:
+ ...
+> This is because we memcpy struct tcindex_filter_result which contains
+> struct tcf_exts, obviously struct list_head can not be simply copied.
+> This is a regression introduced by commit 33be627159913b094bb578
+> (net_sched: act: use standard struct list_head).
+> 
+> It's not very easy to fix it as the code is a mess:
+ ...
+> Fixes: commit 33be627159913b0 (net_sched: act: use standard struct list_head)
+> Reported-by: Kelly Anderson <kelly@xilka.com>
+> Tested-by: Kelly Anderson <kelly@xilka.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
->>> To be future-proof and for better readability the time comparisons are modified
->>> to use time_before() instead of plain, error-prone math.
->>> diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
-> []
->>> @@ -287,7 +287,7 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
->>>    	p = frame;
->>>
->>>    	/* restart timer */
->>> -	if ((int)(hc->keep_tl.expires-jiffies) < 5 * HZ) {
->>> +	if (time_before(hc->keep_tl.expires - 5 * HZ, jiffies)) {
-
->>      Wouldn't it be clearer this way:
-
->> 	if (time_before(hc->keep_tl.expires, jiffies + 5 * HZ)) {
-
->>>    		del_timer(&hc->keep_tl);
->>>    		hc->keep_tl.expires = jiffies + L1OIP_KEEPALIVE * HZ;
->>>    		add_timer(&hc->keep_tl);
-
-> mod_timer?
-
-    Done by the 2nd patch.
-
-WBR, Sergei
+Applied and queued up for -stable, thank you.
