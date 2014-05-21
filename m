@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH RESEND net-next 1/9] Documentation: devicetree: add old and deprecated 'fixed-link'
-Date: Wed, 21 May 2014 14:38:43 -0700
-Message-ID: <1400708331-18088-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH RESEND net-next 4/9] net: systemport: use the new fixed PHY helpers
+Date: Wed, 21 May 2014 14:38:46 -0700
+Message-ID: <1400708331-18088-5-git-send-email-f.fainelli@gmail.com>
 References: <1400708331-18088-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
@@ -22,36 +22,64 @@ In-Reply-To: <1400708331-18088-1-git-send-email-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the fixed-link Device Tree binding documentation to contain
-information about the old and deprecated 5-digit 'fixed-link' property.
+of_phy_connect_fixed_link() is becoming obsolete, and also required
+platform code to register the fixed PHYs at the specified addresses for
+those to be usable. Get rid of it and use the new of_phy_is_fixed_link()
+plus of_phy_register_fixed_link() helpers to transition over the new
+scheme.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- Documentation/devicetree/bindings/net/fixed-link.txt | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/broadcom/bcmsysport.c | 17 +++++++++++++++--
+ drivers/net/ethernet/broadcom/bcmsysport.h |  1 +
+ 2 files changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
-index e956de1be935..34a991eb213f 100644
---- a/Documentation/devicetree/bindings/net/fixed-link.txt
-+++ b/Documentation/devicetree/bindings/net/fixed-link.txt
-@@ -18,6 +18,18 @@ properties:
- * 'asym-pause' (boolean, optional), to indicate that asym_pause should
-   be enabled.
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index d40c5b969e9e..dc708a888f80 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1327,8 +1327,8 @@ static int bcm_sysport_open(struct net_device *dev)
+ 	/* Read CRC forward */
+ 	priv->crc_fwd = !!(umac_readl(priv, UMAC_CMD) & CMD_CRC_FWD);
  
-+Old, deprecated 'fixed-link' binding:
-+
-+* A 'fixed-link' property in the EThernet MAC node, with 5 cells, of the
-+  form <a b c d e> with the following accepted values:
-+  - a: emulated phy id, choose any but but unique to the all specified
-+    fixed-links, from 0 to 31
-+  - b: duplex configuration: 0 for half duplex, 1 for full duplex
-+  - c: link speed in Mbits/sec, accepted values are: 10, 100 and 1000
-+  - d: pause configuration: 0 for no pause, 1 for pause
-+  - e: asymetric pause configuration: 0 for no asymetric pause, 1 for asymetric
-+    pause
-+
- Example:
+-	priv->phydev = of_phy_connect_fixed_link(dev, bcm_sysport_adj_link,
+-							priv->phy_interface);
++	priv->phydev = of_phy_connect(dev, priv->phy_dn, bcm_sysport_adj_link,
++					0, priv->phy_interface);
+ 	if (!priv->phydev) {
+ 		netdev_err(dev, "could not attach to PHY\n");
+ 		return -ENODEV;
+@@ -1551,6 +1551,19 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+ 	if (priv->phy_interface < 0)
+ 		priv->phy_interface = PHY_INTERFACE_MODE_GMII;
  
- ethernet@0 {
++	/* In the case of a fixed PHY, the DT node associated
++	 * to the PHY is the Ethernet MAC DT node.
++	 */
++	if (of_phy_is_fixed_link(dn)) {
++		ret = of_phy_register_fixed_link(dn);
++		if (ret) {
++			dev_err(&pdev->dev, "failed to register fixed PHY\n");
++			goto err;
++		}
++
++		priv->phy_dn = dn;
++	}
++
+ 	/* Initialize netdevice members */
+ 	macaddr = of_get_mac_address(dn);
+ 	if (!macaddr || !is_valid_ether_addr(macaddr)) {
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index abdeb62616df..73fd04a94797 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -656,6 +656,7 @@ struct bcm_sysport_priv {
+ 	unsigned int		rx_c_index;
+ 
+ 	/* PHY device */
++	struct device_node	*phy_dn;
+ 	struct phy_device	*phydev;
+ 	phy_interface_t		phy_interface;
+ 	int			old_pause;
 -- 
 1.9.1
