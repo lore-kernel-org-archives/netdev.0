@@ -1,51 +1,133 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: Default network namespace name
-Date: Wed, 21 May 2014 11:44:13 +0200
-Message-ID: <537C756D.4070407@6wind.com>
-References: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Peter Fassberg <pf@leissner.se>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:47555 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287AbaEUJoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 05:44:16 -0400
-Received: by mail-we0-f175.google.com with SMTP id t61so1731631wes.6
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 02:44:14 -0700 (PDT)
-In-Reply-To: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 17/25] netfilter: nf_tables: refactor chain statistic routines
+Date: Wed, 21 May 2014 11:43:14 +0200
+Message-ID: <1400665402-5835-17-git-send-email-pablo@netfilter.org>
+References: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 21/05/2014 08:36, Peter Fassberg a =E9crit :
->
-> Hi!
->
-> Is there a name of the default network namespace?
-No.
+Add new routines to encapsulate chain statistics allocation and
+replacement.
 
->
-> I would like to execute a command in the default network namespace wh=
-ile running
-> a shell in a non-default namespace.
->
-> Like this: ip netns exec "" ip link
-> Or this:   ip netns exec . ip link
->
-> That command end up with a mis-spelled error message: :)
-> seting the network namespace "" failed: Invalid argument
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_tables_api.c |   45 ++++++++++++++++++++++-------------------
+ 1 file changed, 24 insertions(+), 21 deletions(-)
 
-You can try something like this (I suppose that init runs in your
-"default network namespace") :
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 02d3cc6..92cec68 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -805,8 +805,7 @@ static const struct nla_policy nft_counter_policy[NFTA_COUNTER_MAX + 1] = {
+ 	[NFTA_COUNTER_BYTES]	= { .type = NLA_U64 },
+ };
+ 
+-static int
+-nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
++static struct nft_stats __percpu *nft_stats_alloc(const struct nlattr *attr)
+ {
+ 	struct nlattr *tb[NFTA_COUNTER_MAX+1];
+ 	struct nft_stats __percpu *newstats;
+@@ -815,14 +814,14 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
+ 
+ 	err = nla_parse_nested(tb, NFTA_COUNTER_MAX, attr, nft_counter_policy);
+ 	if (err < 0)
+-		return err;
++		return ERR_PTR(err);
+ 
+ 	if (!tb[NFTA_COUNTER_BYTES] || !tb[NFTA_COUNTER_PACKETS])
+-		return -EINVAL;
++		return ERR_PTR(-EINVAL);
+ 
+ 	newstats = alloc_percpu(struct nft_stats);
+ 	if (newstats == NULL)
+-		return -ENOMEM;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	/* Restore old counters on this cpu, no problem. Per-cpu statistics
+ 	 * are not exposed to userspace.
+@@ -831,6 +830,12 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
+ 	stats->bytes = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_BYTES]));
+ 	stats->pkts = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_PACKETS]));
+ 
++	return newstats;
++}
++
++static void nft_chain_stats_replace(struct nft_base_chain *chain,
++				    struct nft_stats __percpu *newstats)
++{
+ 	if (chain->stats) {
+ 		struct nft_stats __percpu *oldstats =
+ 				nft_dereference(chain->stats);
+@@ -840,8 +845,6 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
+ 		free_percpu(oldstats);
+ 	} else
+ 		rcu_assign_pointer(chain->stats, newstats);
+-
+-	return 0;
+ }
+ 
+ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+@@ -860,6 +863,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 	u8 policy = NF_ACCEPT;
+ 	u64 handle = 0;
+ 	unsigned int i;
++	struct nft_stats __percpu *stats;
+ 	int err;
+ 	bool create;
+ 
+@@ -920,10 +924,11 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			if (!(chain->flags & NFT_BASE_CHAIN))
+ 				return -EOPNOTSUPP;
+ 
+-			err = nf_tables_counters(nft_base_chain(chain),
+-						 nla[NFTA_CHAIN_COUNTERS]);
+-			if (err < 0)
+-				return err;
++			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
++			if (IS_ERR(stats))
++				return PTR_ERR(stats);
++
++			nft_chain_stats_replace(nft_base_chain(chain), stats);
+ 		}
+ 
+ 		if (nla[NFTA_CHAIN_POLICY])
+@@ -977,23 +982,21 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
+ 			return -ENOMEM;
+ 
+ 		if (nla[NFTA_CHAIN_COUNTERS]) {
+-			err = nf_tables_counters(basechain,
+-						 nla[NFTA_CHAIN_COUNTERS]);
+-			if (err < 0) {
++			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
++			if (IS_ERR(stats)) {
+ 				module_put(type->owner);
+ 				kfree(basechain);
+-				return err;
++				return PTR_ERR(stats);
+ 			}
++			basechain->stats = stats;
+ 		} else {
+-			struct nft_stats __percpu *newstats;
+-
+-			newstats = alloc_percpu(struct nft_stats);
+-			if (newstats == NULL) {
++			stats = alloc_percpu(struct nft_stats);
++			if (IS_ERR(stats)) {
+ 				module_put(type->owner);
+ 				kfree(basechain);
+-				return -ENOMEM;
++				return PTR_ERR(stats);
+ 			}
+-			rcu_assign_pointer(basechain->stats, newstats);
++			rcu_assign_pointer(basechain->stats, stats);
+ 		}
+ 
+ 		basechain->type = type;
+-- 
+1.7.10.4
 
-ip netns add foo (just to create /var/run/netns which is a tmpfs)
-ip netns del foo
-touch /var/run/netns/default
-mount --bind /proc/1/ns/net /var/run/netns/default
-ip netns exec default ip link
-
-Regards,
-Nicolas
