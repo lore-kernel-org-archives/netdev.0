@@ -1,54 +1,111 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [PATCH v8 2/2] can: xilinx CAN controller support.
-Date: Wed, 21 May 2014 11:53:13 +0000
-Message-ID: <e806ce16-917f-473d-9876-d7e85aa95bc7@BN1BFFO11FD029.protection.gbl>
-References: <30fc07d6-4404-4745-8c03-1c5ae775e4f1@BY2FFO11FD047.protection.gbl>
- <537C8E00.404@pengutronix.de>
- <72e9a444-0de4-42ce-a9d3-ee247948f0e6@BN1AFFO11FD030.protection.gbl>
- <537C92C2.4090204@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	Michal Simek <michals@xilinx.com>,
-	"grant.likely@linaro.org" <grant.likely@linaro.org>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <537C92C2.4090204@pengutronix.de>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 21 May 2014 05:00:58 -0700
+Message-ID: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:20362 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751882AbaEUMBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 08:01:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
-ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5
-LCBNYXkgMjEsIDIwMTQgNToxOSBQTQ0KPiBUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJh
-bzsgd2dAZ3JhbmRlZ2dlci5jb207IE1pY2hhbCBTaW1lazsNCj4gZ3JhbnQubGlrZWx5QGxpbmFy
-by5vcmc7IHJvYmgrZHRAa2VybmVsLm9yZw0KPiBDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9y
-ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5m
-cmFkZWFkLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTog
-W1BBVENIIHY4IDIvMl0gY2FuOiB4aWxpbnggQ0FOIGNvbnRyb2xsZXIgc3VwcG9ydC4NCj4NCj4g
-T24gMDUvMjEvMjAxNCAwMTozMiBQTSwgQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbyB3cm90
-ZToNCj4gPiBIaSBNYXJjLA0KPiA+DQo+ID4gICAgICAgICBZZXMgZm9yIERULWJpbmRpbmdzIFJv
-YiBhbHJlYWR5IGhhZCBnaXZlbiBhY2suDQo+ID4gU29ycnkgSSBmb3Jnb3QgdG8gYWRkIHRoZSBB
-Y2tlZC1ieSBsaW5lIGluIHRoYXQgcGF0Y2guDQo+DQo+IFlvdSBtZWFuIFJvYiBIZXJyaW5nPw0K
-Pg0KDQpZZXMgUm9iIEhlcnJpbmcuDQpJbiB0aGUgdmVyc2lvbiA1IHBhdGNoIGhlIGhhZCBnaXZl
-biB0aGUgYWNrLg0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4gICAgIEFja2VkLWJ5OiBSb2IgSGVy
-cmluZyA8cm9iaEBrZXJuZWwub3JnPg0KPg0KPiBNYXJjDQo+IC0tDQo+IFBlbmd1dHJvbml4IGUu
-Sy4gICAgICAgICAgICAgICAgICB8IE1hcmMgS2xlaW5lLUJ1ZGRlICAgICAgICAgICB8DQo+IElu
-ZHVzdHJpYWwgTGludXggU29sdXRpb25zICAgICAgICB8IFBob25lOiArNDktMjMxLTI4MjYtOTI0
-ICAgICB8DQo+IFZlcnRyZXR1bmcgV2VzdC9Eb3J0bXVuZCAgICAgICAgICB8IEZheDogICArNDkt
-NTEyMS0yMDY5MTctNTU1NSB8DQo+IEFtdHNnZXJpY2h0IEhpbGRlc2hlaW0sIEhSQSAyNjg2ICB8
-IGh0dHA6Ly93d3cucGVuZ3V0cm9uaXguZGUgICB8DQoNCg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkg
-YXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJl
-Y2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBt
-YXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGlj
-YWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCBy
-ZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVu
-dHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlh
-dGVseS4NCg0K
+This series contains updates to i40e and i40evf.
+
+Shannon makes minor changes to the AdminQ interface to bring it up to
+date.  Removes the hard coding of stats struct size in ethtool, in prep
+for adding data fields which are configuration dependent.
+
+Catherine removes some unused and unneeded PCI bus defines.
+
+Jesse fixes the copyright headers and finishes up the removal of the PTP
+Tx work functionality which allows us to rely on the Tx timesync interrupt.
+
+Mitch provides a number of fixes and cleanups for i40e/i40evf based on
+suggestions from Ben Hutchings.  First is to use a macro parameter for
+ethtool stats instead of just assuming that a valid netdev variable
+exists.  Second is not to tell ethtool that the VF can do 10GbaseT, when
+it really has no idea what its link speed is, so set the supported value
+to 0 instead.  Make the ethtool_ops structure constant since it is
+extremely unlikely to change at runtime.  Ethtool consistently reports
+0 values for our ITR settings because we never actually use them, so
+fix this by setting the default values to the specified default values.
+
+Greg avoids a compile error by wrapping the call to i40e_alloc_vfs() in
+CONFIG_PCI_IOV because the function itself is wrapped in the same
+conditional compile block.
+
+Alexander Gordeev updates the driver to use the new pci_enable_msi_range()
+and pci_enable_msix_range() or pci_enable_msi_exact() and
+pci_enable_msix_exact().
+
+Jean Sacren provides a fix where the wrong error code was being passed to
+i40e_open().
+
+The following are changes since commit b6052af61a9e0dee236bcf4c69843126c0d28e4f:
+  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Gordeev (1):
+  i40evf: Use pci_enable_msix_range() instead of pci_enable_msix()
+
+Catherine Sullivan (1):
+  i40evf: Remove unused defines
+
+Greg Rose (1):
+  i40e: Check PCI_IOV config to avoid compile error
+
+Jean Sacren (1):
+  i40e: fix passing wrong error code to i40e_open()
+
+Jesse Brandeburg (2):
+  i40evf: Fix the headers and update copyright year.
+  i40e: remove Tx work for ptp
+
+Mitch Williams (7):
+  i40e: add required include
+  i40evf: Use macro param for ethtool stats
+  i40evf: don't lie to ethtool
+  i40evf: make ethtool_ops const
+  i40e/i40evf: set proper default for ITR registers
+  i40e/i40evf: control auto ITR through ethtool
+  i40e: Don't disable SR-IOV when VFs are assigned
+
+Shannon Nelson (2):
+  i40evf: Update AdminQ interface
+  i40e: remove hardcode of stats struct size in ethtool
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  4 --
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 63 +++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  8 ++-
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++-
+ drivers/net/ethernet/intel/i40evf/Makefile         |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  5 +-
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 27 ++++---
+ drivers/net/ethernet/intel/i40evf/i40e_alloc.h     |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_osdep.h     |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_register.h  |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_status.h    |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  3 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      | 12 +---
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  5 +-
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  3 +
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 84 +++++++++++-----------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 40 +++++------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  3 +
+ 26 files changed, 179 insertions(+), 146 deletions(-)
+
+-- 
+1.9.0
