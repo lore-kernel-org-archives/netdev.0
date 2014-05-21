@@ -1,78 +1,81 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2014-05-19
-Date: Wed, 21 May 2014 13:09:55 +0200
-Message-ID: <537C8983.6050204@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn"
-Cc: David Miller <davem@davemloft.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
+Subject: [PATCH] can: peak_pci: prevent use after free at netdev removal
+Date: Wed, 21 May 2014 13:15:59 +0200
+Message-ID: <1400670959-14211-2-git-send-email-mkl@pengutronix.de>
+References: <1400670959-14211-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de,
+	Stephane Grosjean <s.grosjean@peak-system.com>,
+	linux-stable <stable@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1400670959-14211-1-git-send-email-mkl@pengutronix.de>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Stephane Grosjean <s.grosjean@peak-system.com>
 
-Hello David,
+As remarked by Christopher R. Baker in his post at
 
-this is a pull request of a single patch for net-next/master. It fixes a
-use after free(), which slipped into to gs_usb driver.
+http://marc.info/?l=linux-can&m=139707295706465&w=2
 
-Marc
+there's a possibility for an use after free condition at device removal.
 
+This simplified patch introduces an additional variable to prevent the issue.
+Thanks for catching this.
+
+Cc: linux-stable <stable@vger.kernel.org>
+Reported-by: Christopher R. Baker <cbaker@rec.ri.cmu.edu>
+Signed-off-by: Stephane Grosjean <s.grosjean@peak-system.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
-The following changes since commit 2a7ede540785cac631a7e7334701a25e949853=
-a8:
+ drivers/net/can/sja1000/peak_pci.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-  Merge tag 'linux-can-next-for-3.16-20140519' of
-git://gitorious.org/linux-can/linux-can-next (2014-05-21 02:00:27 -0400)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can-next.git
-tags/linux-can-next-for-3.16-20140521
-
-for you to fetch changes up to cf68f517c5c5041e3f3de502dccb008ec21f7262:
-
-  can: gs_usb: gs_destroy_candev(): fix use after free (2014-05-21
-13:04:20 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-3.16-20140521
-
-----------------------------------------------------------------
-Marc Kleine-Budde (1):
-      can: gs_usb: gs_destroy_candev(): fix use after free
-
- drivers/net/can/usb/gs_usb.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlN8iYMACgkQjTAFq1RaXHOfvACfR7wOkVR+8J62rj2YuxL7kr4S
-RqIAn0o6LivlRgD3IGf0RbXgLxqfotCz
-=7Gnk
------END PGP SIGNATURE-----
-
---mGIvfO53vEvchqKBIj0bvxFEjBlHaaGrn--
+diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
+index c540e3d..564933a 100644
+--- a/drivers/net/can/sja1000/peak_pci.c
++++ b/drivers/net/can/sja1000/peak_pci.c
+@@ -551,7 +551,7 @@ static int peak_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	struct sja1000_priv *priv;
+ 	struct peak_pci_chan *chan;
+-	struct net_device *dev;
++	struct net_device *dev, *prev_dev;
+ 	void __iomem *cfg_base, *reg_base;
+ 	u16 sub_sys_id, icr;
+ 	int i, err, channels;
+@@ -688,11 +688,13 @@ failure_remove_channels:
+ 	writew(0x0, cfg_base + PITA_ICR + 2);
+ 
+ 	chan = NULL;
+-	for (dev = pci_get_drvdata(pdev); dev; dev = chan->prev_dev) {
+-		unregister_sja1000dev(dev);
+-		free_sja1000dev(dev);
++	for (dev = pci_get_drvdata(pdev); dev; dev = prev_dev) {
+ 		priv = netdev_priv(dev);
+ 		chan = priv->priv;
++		prev_dev = chan->prev_dev;
++
++		unregister_sja1000dev(dev);
++		free_sja1000dev(dev);
+ 	}
+ 
+ 	/* free any PCIeC resources too */
+@@ -726,10 +728,12 @@ static void peak_pci_remove(struct pci_dev *pdev)
+ 
+ 	/* Loop over all registered devices */
+ 	while (1) {
++		struct net_device *prev_dev = chan->prev_dev;
++
+ 		dev_info(&pdev->dev, "removing device %s\n", dev->name);
+ 		unregister_sja1000dev(dev);
+ 		free_sja1000dev(dev);
+-		dev = chan->prev_dev;
++		dev = prev_dev;
+ 
+ 		if (!dev) {
+ 			/* do that only for first channel */
+-- 
+2.0.0.rc2
