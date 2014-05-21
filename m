@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/13 v2] wimax/i2400m: make return of 0 explicit
-Date: Wed, 21 May 2014 17:19:37 -0400 (EDT)
-Message-ID: <20140521.171937.898588239489051362.davem@davemloft.net>
-References: <1400473875-22228-5-git-send-email-Julia.Lawall@lip6.fr>
-	<5379FD39.7020605@cogentembedded.com>
-	<alpine.DEB.2.10.1405200844010.2723@hadrien>
+Subject: Re: [PATCH net v2] ipv6: gro: fix CHECKSUM_COMPLETE support
+Date: Wed, 21 May 2014 17:20:16 -0400 (EDT)
+Message-ID: <20140521.172016.831231990758100731.davem@davemloft.net>
+References: <1400548164.5367.80.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1400561794.5367.89.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, inaky.perez-gonzalez@intel.com,
-	kernel-janitors@vger.kernel.org, linux-wimax@intel.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: julia.lawall@lip6.fr
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1405200844010.2723@hadrien>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hkchu@google.com, netdev@vger.kernel.org, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56140 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687AbaEUVUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 17:20:17 -0400
+In-Reply-To: <1400561794.5367.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia.lawall@lip6.fr>
-Date: Tue, 20 May 2014 08:44:49 +0800 (SGT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 19 May 2014 21:56:34 -0700
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Delete unnecessary local variable whose value is always 0 and that hides
-> the fact that the result is always 0.
+> When GRE support was added in linux-3.14, CHECKSUM_COMPLETE handling
+> broke on GRE+IPv6 because we did not update/use the appropriate csum :
 > 
-> A simplified version of the semantic patch that fixes this problem is as
-> follows: (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> GRO layer is supposed to use/update NAPI_GRO_CB(skb)->csum instead of
+> skb->csum
 > 
+> Tested using a GRE tunnel and IPv6 traffic. GRO aggregation now happens
+> at the first level (ethernet device) instead of being done in gre
+> tunnel. Native IPv6+TCP is still properly aggregated.
+> 
+> Fixes: bf5a755f5e918 ("net-gre-gro: Add GRE support to the GRO stack")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Jerry Chu <hkchu@google.com>
 > ---
-> Alternatively, is an error code wanted under the if?
-> 
-> v2: remove the use of 0 as an argument in the call to d_fnend
+> v2: use nlen instead of sizeof(*iph) to support extension headers
 
-Applied to net-next, thanks.
+Applied and queued up for -stable, thanks.
