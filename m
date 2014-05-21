@@ -1,88 +1,56 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] datapath: 16bit inner_network_header field in struct
- ovs_gso_cb
-Date: Wed, 21 May 2014 10:18:34 +0900
-Message-ID: <20140521011834.GB25483@verge.net.au>
-References: <1400582464-2917-1-git-send-email-horms@verge.net.au>
- <CAEP_g=-1OfxGfRt58TtamGC955f7fG4z9tti3j0crYM73mJ2ug@mail.gmail.com>
- <20140520233145.GA30260@verge.net.au>
- <CAEP_g=_ri4kY+4aBZGjohZkrSJQkxHg7ybo+szFTiouY0AzZvA@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
+Date: Tue, 20 May 2014 19:05:28 -0700
+Message-ID: <CAEP_g=8AkoxtsGE9CbaY_AqiWqDoV1jyqpoPaYO+BZvcTpXByg@mail.gmail.com>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
+ <1400195227-21265-2-git-send-email-horms@verge.net.au> <CAEP_g=-X=T2hJoXTV5ptZRvf1WPgYa1xusczwSR1bUYAZ5yaqA@mail.gmail.com>
+ <20140520104704.GA2979@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Jesse Gross <jesse@nicira.com>
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41963 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807AbaEUBSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 21:18:37 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=_ri4kY+4aBZGjohZkrSJQkxHg7ybo+szFTiouY0AzZvA@mail.gmail.com>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:37796 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750807AbaEUCFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 22:05:49 -0400
+Received: by mail-qg0-f41.google.com with SMTP id j5so2216571qga.0
+        for <netdev@vger.kernel.org>; Tue, 20 May 2014 19:05:48 -0700 (PDT)
+In-Reply-To: <20140520104704.GA2979@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2014 at 05:14:25PM -0700, Jesse Gross wrote:
-> On Tue, May 20, 2014 at 4:31 PM, Simon Horman <horms@verge.net.au> wrote:
-> > On Tue, May 20, 2014 at 12:54:32PM -0700, Jesse Gross wrote:
-> >> On Tue, May 20, 2014 at 3:41 AM, Simon Horman <horms@verge.net.au> wrote:
-> >> > diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/gso.h
-> >> > index b83a4c3..f459c18 100644
-> >> > --- a/datapath/linux/compat/gso.h
-> >> > +++ b/datapath/linux/compat/gso.h
-> >> >  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> >> > -#define skb_inner_network_header rpl_skb_inner_network_header
-> >> > -static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
-> >> > -{
-> >> > -       return skb->head + OVS_GSO_CB(skb)->inner_network_header;
-> >> > -}
-> >> > -
-> >> >  #define skb_inner_mac_header rpl_skb_inner_mac_header
-> >> >  static inline unsigned char *skb_inner_mac_header(const struct sk_buff *skb)
-> >> >  {
-> >> >         return skb->head + OVS_GSO_CB(skb)->inner_mac_header;
-> >> >  }
-> >> >
-> >> > +#define skb_inner_network_header rpl_skb_inner_network_header
-> >> > +static inline unsigned char *skb_inner_network_header(const struct sk_buff *skb)
-> >> > +{
-> >> > +       return skb_inner_mac_header(skb) +
-> >> > +               OVS_GSO_CB(skb)->inner_network_header;
-> >> > +}
-> >> > +
-> >> >  #else
-> >>
-> >> This looks mostly fine to me but doesn't this need to be outside the
-> >> #ifdef NET_SKBUFF_DATA_USES_OFFSET block? Otherwise we will treat the
-> >> offset as a pointer on 32 bit kernels.
-> >
-> > Thanks, Somehow I completely missed that.
-> > How about this?
-> >
-> >
-> > From: Simon Horman <horms@verge.net.au>
-> >
-> > [PATCH v1.1] datapath: 16bit inner_network_header field in struct ovs_gso_cb
-> >
-> > The motivation for this is to create a 16bit hole in struct ovs_gso_cb
-> > which may be used for the inner_protocol field which is needed
-> > for the proposed implementation of compatibility for MPLS GSO segmentation.
-> >
-> > This should be safe as inner_network_header is now an offset to
-> > the inner_mac_header rather than skb->head.
-> >
-> > As pointed out by Thomas Graf simply making both inner offsets 16bis is not
-> > safe as there have been cases of overflow with "with collapsed TCP frames
-> > on IB when the headroom grew beyond 64K. See commit 50bceae9bd ``tcp:
-> > Reallocate headroom if it would overflow csum_start'' for additional
-> > details."
-> >
-> > This patch is based on suggestions by Thomas Graf and Jesse Gross.
-> >
-> > Cc: Thomas Graf <tgraf@suug.ch>
-> > Cc: Jesse Gross <jesse@nicira.com>
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> 
-> Applied, thanks.
+On Tue, May 20, 2014 at 3:48 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Mon, May 19, 2014 at 06:34:05PM -0700, Jesse Gross wrote:
+>> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
+>> > diff --git a/datapath/actions.c b/datapath/actions.c
+>> > index 603c7cb..7c3ae0c 100644
+>> > --- a/datapath/actions.c
+>> > +++ b/datapath/actions.c
+>> When we set the EtherType at the bottom of the function, I don't think
+>> that it is correct in the presence of VLAN tags because it will set
+>> the outer EtherType.
+>
+> I believe this comes back to the problem we have with tag ordering. A
+> problem which after the most recent discussion of this topic I planned to
+> kick into the long grass by only allowing push MPLS actions on packets with
+> a well defined tag order.
 
-Thanks
+Right, I subconsciously keep forgetting this even though I know it's there.
+
+> This is the purpose of the white list in ovs_nla_copy_actions__().  It is
+> supposed to only push MPLS actions for flows with an IPv4, IPv6, ARP, RARP
+> or MPLS ethtype.  However, I now think that the white list likely does not
+> work for VLAN packets as their flow's ethtype will be the inner-ethtype
+> (the one inside the VLAN tag) rather than a VLAN ethtype.
+>
+> I'm unsure how you would like to handle this but one possibility would be
+> simply for push_mpls() to return an error if it is called on an skb with a
+> VLAN tag present or if the ethtype doesn't match a white list. Another is
+> to set the inner ethtype.
+
+Can't we just look at/track flow->tci to see if there is a vlan?
