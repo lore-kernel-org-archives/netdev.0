@@ -1,111 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 21 May 2014 05:00:58 -0700
-Message-ID: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/15] i40evf: Update AdminQ interface
+Date: Wed, 21 May 2014 05:00:59 -0700
+Message-ID: <1400673673-31626-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Kevin Scott <kevin.c.scott@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:20362 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751882AbaEUMBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2014 08:01:20 -0400
+	id S1751882AbaEUMBW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 08:01:22 -0400
+In-Reply-To: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Shannon makes minor changes to the AdminQ interface to bring it up to
-date.  Removes the hard coding of stats struct size in ethtool, in prep
-for adding data fields which are configuration dependent.
+Minor changes to the AdminQ interface to bring it up-to-date.
 
-Catherine removes some unused and unneeded PCI bus defines.
+Change-ID: Ie31a4cc4911b2d9d3b7f9af2e56fb0ae674f6345
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 22 ++++++++--------------
+ 1 file changed, 8 insertions(+), 14 deletions(-)
 
-Jesse fixes the copyright headers and finishes up the removal of the PTP
-Tx work functionality which allows us to rely on the Tx timesync interrupt.
-
-Mitch provides a number of fixes and cleanups for i40e/i40evf based on
-suggestions from Ben Hutchings.  First is to use a macro parameter for
-ethtool stats instead of just assuming that a valid netdev variable
-exists.  Second is not to tell ethtool that the VF can do 10GbaseT, when
-it really has no idea what its link speed is, so set the supported value
-to 0 instead.  Make the ethtool_ops structure constant since it is
-extremely unlikely to change at runtime.  Ethtool consistently reports
-0 values for our ITR settings because we never actually use them, so
-fix this by setting the default values to the specified default values.
-
-Greg avoids a compile error by wrapping the call to i40e_alloc_vfs() in
-CONFIG_PCI_IOV because the function itself is wrapped in the same
-conditional compile block.
-
-Alexander Gordeev updates the driver to use the new pci_enable_msi_range()
-and pci_enable_msix_range() or pci_enable_msi_exact() and
-pci_enable_msix_exact().
-
-Jean Sacren provides a fix where the wrong error code was being passed to
-i40e_open().
-
-The following are changes since commit b6052af61a9e0dee236bcf4c69843126c0d28e4f:
-  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Gordeev (1):
-  i40evf: Use pci_enable_msix_range() instead of pci_enable_msix()
-
-Catherine Sullivan (1):
-  i40evf: Remove unused defines
-
-Greg Rose (1):
-  i40e: Check PCI_IOV config to avoid compile error
-
-Jean Sacren (1):
-  i40e: fix passing wrong error code to i40e_open()
-
-Jesse Brandeburg (2):
-  i40evf: Fix the headers and update copyright year.
-  i40e: remove Tx work for ptp
-
-Mitch Williams (7):
-  i40e: add required include
-  i40evf: Use macro param for ethtool stats
-  i40evf: don't lie to ethtool
-  i40evf: make ethtool_ops const
-  i40e/i40evf: set proper default for ITR registers
-  i40e/i40evf: control auto ITR through ethtool
-  i40e: Don't disable SR-IOV when VFs are assigned
-
-Shannon Nelson (2):
-  i40evf: Update AdminQ interface
-  i40e: remove hardcode of stats struct size in ethtool
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  4 --
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 63 +++++++---------
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  8 ++-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 -
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 ++-
- drivers/net/ethernet/intel/i40evf/Makefile         |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  5 +-
- .../net/ethernet/intel/i40evf/i40e_adminq_cmd.h    | 27 ++++---
- drivers/net/ethernet/intel/i40evf/i40e_alloc.h     |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_osdep.h     |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_prototype.h |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_register.h  |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_status.h    |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  3 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  5 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      | 12 +---
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  5 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |  3 +
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 84 +++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 40 +++++------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  3 +
- 26 files changed, 179 insertions(+), 146 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+index 6e61766..77e4f14 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq_cmd.h
+@@ -676,7 +676,6 @@ struct i40e_aqc_add_get_update_vsi {
+ #define I40E_AQ_VSI_TYPE_PF             0x2
+ #define I40E_AQ_VSI_TYPE_EMP_MNG        0x3
+ #define I40E_AQ_VSI_FLAG_CASCADED_PV    0x4
+-#define I40E_AQ_VSI_FLAG_CLOUD_VSI      0x8
+ 	__le32 addr_high;
+ 	__le32 addr_low;
+ };
+@@ -1038,7 +1037,9 @@ struct i40e_aqc_set_vsi_promiscuous_modes {
+ #define I40E_AQC_SET_VSI_PROMISC_VLAN        0x10
+ 	__le16 seid;
+ #define I40E_AQC_VSI_PROM_CMD_SEID_MASK      0x3FF
+-	u8     reserved[10];
++	__le16 vlan_tag;
++#define I40E_AQC_SET_VSI_VLAN_VALID          0x8000
++	u8     reserved[8];
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_set_vsi_promiscuous_modes);
+@@ -1931,19 +1932,12 @@ I40E_CHECK_CMD_LENGTH(i40e_aqc_lldp_start);
+ /* Add Udp Tunnel command and completion (direct 0x0B00) */
+ struct i40e_aqc_add_udp_tunnel {
+ 	__le16 udp_port;
+-	u8     header_len; /* in DWords, 1 to 15 */
++	u8     reserved0[3];
+ 	u8     protocol_type;
+-#define I40E_AQC_TUNNEL_TYPE_TEREDO	0x0
+-#define I40E_AQC_TUNNEL_TYPE_VXLAN	0x2
+-#define I40E_AQC_TUNNEL_TYPE_NGE	0x3
+-	u8     variable_udp_length;
+-#define I40E_AQC_TUNNEL_FIXED_UDP_LENGTH	0x0
+-#define I40E_AQC_TUNNEL_VARIABLE_UDP_LENGTH	0x1
+-	u8		udp_key_index;
+-#define I40E_AQC_TUNNEL_KEY_INDEX_VXLAN			0x0
+-#define I40E_AQC_TUNNEL_KEY_INDEX_NGE			0x1
+-#define I40E_AQC_TUNNEL_KEY_INDEX_PROPRIETARY_UDP	0x2
+-	u8		reserved[10];
++#define I40E_AQC_TUNNEL_TYPE_VXLAN	0x00
++#define I40E_AQC_TUNNEL_TYPE_NGE	0x01
++#define I40E_AQC_TUNNEL_TYPE_TEREDO	0x10
++	u8     reserved1[10];
+ };
+ 
+ I40E_CHECK_CMD_LENGTH(i40e_aqc_add_udp_tunnel);
 -- 
 1.9.0
