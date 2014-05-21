@@ -1,76 +1,66 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RESEND net-next 4/9] net: systemport: use the new fixed
- PHY helpers
-Date: Wed, 21 May 2014 15:02:42 -0700
-Message-ID: <CAGVrzcbBQFhw-dUh+tFm8H5m9-fmVgutChS8wUG-F6sTBoRq-g@mail.gmail.com>
-References: <1400708331-18088-1-git-send-email-f.fainelli@gmail.com>
- <1400708331-18088-5-git-send-email-f.fainelli@gmail.com> <537D20EA.1000305@cogentembedded.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
+Date: Thu, 22 May 2014 08:03:51 +0900
+Message-ID: <20140521230351.GC19986@verge.net.au>
+References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
+ <1400195227-21265-2-git-send-email-horms@verge.net.au>
+ <CAEP_g=8ZEbx0NzCaXOc=ywiBAtejpmO4K-UzVk5uwBmEfUwZ7w@mail.gmail.com>
+ <20140521153153.GB10390@verge.net.au>
+ <CAEP_g=9At8jhM2ym31YeWaC9u6_O-Sq1igpER3TuYXj=KXTJNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Pantelis Antoniou <pantelis.antoniou-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Vitaly Bordug <vbordug-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>,
-	Li Yang <leoli-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Aida Mynzhasova <aida.mynzhasova-Fmhy8gsqeTEvJsYlp49lxw@public.gmane.org>,
-	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"open list:OPEN FIRMWARE AND..." <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:LINUX FOR POWERPC..." <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <537D20EA.1000305-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43120 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752332AbaEUXD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 19:03:56 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=9At8jhM2ym31YeWaC9u6_O-Sq1igpER3TuYXj=KXTJNg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-05-21 14:55 GMT-07:00 Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>:
-> On 05/22/2014 01:38 AM, Florian Fainelli wrote:
->
->> of_phy_connect_fixed_link() is becoming obsolete, and also required
->> platform code to register the fixed PHYs at the specified addresses for
->> those to be usable. Get rid of it and use the new of_phy_is_fixed_link()
->> plus of_phy_register_fixed_link() helpers to transition over the new
->> scheme.
->
->
->> Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->>   drivers/net/ethernet/broadcom/bcmsysport.c | 17 +++++++++++++++--
->>   drivers/net/ethernet/broadcom/bcmsysport.h |  1 +
->>   2 files changed, 16 insertions(+), 2 deletions(-)
->
->
->> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c
->> b/drivers/net/ethernet/broadcom/bcmsysport.c
->> index d40c5b969e9e..dc708a888f80 100644
->> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
->> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
->> @@ -1327,8 +1327,8 @@ static int bcm_sysport_open(struct net_device *dev)
->>         /* Read CRC forward */
->>         priv->crc_fwd = !!(umac_readl(priv, UMAC_CMD) & CMD_CRC_FWD);
->>
->> -       priv->phydev = of_phy_connect_fixed_link(dev,
->> bcm_sysport_adj_link,
->> -
->> priv->phy_interface);
->> +       priv->phydev = of_phy_connect(dev, priv->phy_dn,
->> bcm_sysport_adj_link,
->> +                                       0, priv->phy_interface);
->
->
->    The continuation line should start on the next character after ( on the
-> above line, according to the networking coding style.
+On Wed, May 21, 2014 at 01:31:55PM -0700, Jesse Gross wrote:
+> On Wed, May 21, 2014 at 8:31 AM, Simon Horman <horms@verge.net.au> wrote:
+> > On Tue, May 20, 2014 at 07:30:38PM -0700, Jesse Gross wrote:
+> >> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
+> >> > diff --git a/datapath/linux/compat/include/linux/netdevice.h b/datapath/linux/compat/include/linux/netdevice.h
+> >> > index d726390..0381002 100644
+> >> > --- a/datapath/linux/compat/include/linux/netdevice.h
+> >> > +++ b/datapath/linux/compat/include/linux/netdevice.h
+> >> > +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+> >> >  #define netif_skb_features rpl_netif_skb_features
+> >> >  netdev_features_t rpl_netif_skb_features(struct sk_buff *skb);
+> >>
+> >> Currently this function doesn't look at mpls_features. Should it for
+> >> things other than TSO?
+> >
+> > It seems to me that rpl_netif_skb_features is only used by
+> > rpl_dev_queue_xmit().
+> >
+> > If that is the case then I don't think it is necessary to examine
+> > mpls_features, which was introduced in v3.11, as rpl_dev_queue_xmit()
+> > only exists for older kernel versions.
+> 
+> Sorry, I actually meant for upstream. I agree that the compatibility
+> code reflects current kernels as written.
+> 
+> It seems like the checks in dev_hard_start_xmit() won't take
+> mpls_features (or the presence of MPLS) into account when deciding
+> whether to emulate the offload or pass the skb directly to the NIC. In
+> the GSO code itself, we look at mpls_features but if we never get
+> there then it will be too late.
 
-Unless I am once again not following the coding style, the patch in
-patchwork has this correctly, and so does my file locally:
+I am reasonably sure that when I merged the MPLS GSO code into mainline
+that it worked for the case where a non-MPLS GSO packet became an MPLS GSO
+packet (due to a push MPLS action). But that was a while ago and looking
+over the code its not obvious to my why that case would work.
 
-http://patchwork.ozlabs.org/patch/351323/
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll do some testing an analysis and propose a fix if necessary.
+
+Would that address your concern?
