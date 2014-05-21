@@ -1,215 +1,170 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 23/25] netfilter: nf_tables: simplify nf_tables_*_notify
-Date: Wed, 21 May 2014 11:43:20 +0200
-Message-ID: <1400665402-5835-23-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 25/25] netfilter: nf_tables: defer all object release via rcu
+Date: Wed, 21 May 2014 11:43:22 +0200
+Message-ID: <1400665402-5835-25-git-send-email-pablo@netfilter.org>
 References: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:56096 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752247AbaEUJn4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2014 05:43:56 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that all these function are called from the commit path, we can
-pass the context structure to reduce the amount of parameters in all
-of the nf_tables_*_notify functions. This patch also removes unneeded
-branches to check for skb, nlh and net that should be always set in
-the context structure.
+Now that all objects are released in the reverse order via the
+transaction infrastructure, we can enqueue the release via
+call_rcu to save one synchronize_rcu. For small rule-sets loaded
+via nft -f, it now takes around 50ms less here.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   90 +++++++++++++++--------------------------
- 1 file changed, 32 insertions(+), 58 deletions(-)
+ include/net/netfilter/nf_tables.h |    2 +
+ net/netfilter/nf_tables_api.c     |   93 +++++++++++++++++++++----------------
+ 2 files changed, 56 insertions(+), 39 deletions(-)
 
+diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
+index 1ed2797..7ee6ce6 100644
+--- a/include/net/netfilter/nf_tables.h
++++ b/include/net/netfilter/nf_tables.h
+@@ -393,12 +393,14 @@ struct nft_rule {
+ /**
+  *	struct nft_trans - nf_tables object update in transaction
+  *
++ *	@rcu_head: rcu head to defer release of transaction data
+  *	@list: used internally
+  *	@msg_type: message type
+  *	@ctx: transaction context
+  *	@data: internal information related to the transaction
+  */
+ struct nft_trans {
++	struct rcu_head			rcu_head;
+ 	struct list_head		list;
+ 	int				msg_type;
+ 	struct nft_ctx			ctx;
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index cd00293..86d055a 100644
+index 4147166..e171c63 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -235,19 +235,16 @@ nla_put_failure:
- 	return -1;
+@@ -3298,6 +3298,30 @@ static void nft_chain_commit_update(struct nft_trans *trans)
+ 	}
  }
  
--static int nf_tables_table_notify(const struct sk_buff *oskb,
--				  const struct nlmsghdr *nlh,
--				  const struct nft_table *table,
--				  int event, int family)
-+static int nf_tables_table_notify(const struct nft_ctx *ctx, int event)
++/* Schedule objects for release via rcu to make sure no packets are accesing
++ * removed rules.
++ */
++static void nf_tables_commit_release_rcu(struct rcu_head *rt)
++{
++	struct nft_trans *trans = container_of(rt, struct nft_trans, rcu_head);
++
++	switch (trans->msg_type) {
++	case NFT_MSG_DELTABLE:
++		nf_tables_table_destroy(&trans->ctx);
++		break;
++	case NFT_MSG_DELCHAIN:
++		nf_tables_chain_destroy(trans->ctx.chain);
++		break;
++	case NFT_MSG_DELRULE:
++		nf_tables_rule_destroy(&trans->ctx, nft_trans_rule(trans));
++		break;
++	case NFT_MSG_DELSET:
++		nft_set_destroy(nft_trans_set(trans));
++		break;
++	}
++	kfree(trans);
++}
++
+ static int nf_tables_commit(struct sk_buff *skb)
  {
- 	struct sk_buff *skb;
--	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
--	u32 seq = nlh ? nlh->nlmsg_seq : 0;
--	struct net *net = oskb ? sock_net(oskb->sk) : &init_net;
-+	u32 portid = NETLINK_CB(ctx->skb).portid;
-+	u32 seq = ctx->nlh->nlmsg_seq;
-+	struct net *net = sock_net(ctx->skb->sk);
- 	bool report;
- 	int err;
+ 	struct net *net = sock_net(skb->sk);
+@@ -3397,32 +3421,39 @@ static int nf_tables_commit(struct sk_buff *skb)
+ 		}
+ 	}
  
--	report = nlh ? nlmsg_report(nlh) : false;
-+	report = nlmsg_report(ctx->nlh);
- 	if (!report && !nfnetlink_has_listeners(net, NFNLGRP_NFTABLES))
- 		return 0;
+-	/* Make sure we don't see any packet traversing old rules */
+-	synchronize_rcu();
+-
+-	/* Now we can safely release unused old rules */
+ 	list_for_each_entry_safe(trans, next, &net->nft.commit_list, list) {
+-		switch (trans->msg_type) {
+-		case NFT_MSG_DELTABLE:
+-			nf_tables_table_destroy(&trans->ctx);
+-			break;
+-		case NFT_MSG_DELCHAIN:
+-			nf_tables_chain_destroy(trans->ctx.chain);
+-			break;
+-		case NFT_MSG_DELRULE:
+-			nf_tables_rule_destroy(&trans->ctx,
+-					       nft_trans_rule(trans));
+-			break;
+-		case NFT_MSG_DELSET:
+-			nft_set_destroy(nft_trans_set(trans));
+-			break;
+-		}
+-		nft_trans_destroy(trans);
++		list_del(&trans->list);
++		trans->ctx.nla = NULL;
++		call_rcu(&trans->rcu_head, nf_tables_commit_release_rcu);
+ 	}
  
-@@ -257,7 +254,7 @@ static int nf_tables_table_notify(const struct sk_buff *oskb,
- 		goto err;
- 
- 	err = nf_tables_fill_table_info(skb, portid, seq, event, 0,
--					family, table);
-+					ctx->afi->family, ctx->table);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto err;
-@@ -721,20 +718,16 @@ nla_put_failure:
- 	return -1;
+ 	return 0;
  }
  
--static int nf_tables_chain_notify(const struct sk_buff *oskb,
--				  const struct nlmsghdr *nlh,
--				  const struct nft_table *table,
--				  const struct nft_chain *chain,
--				  int event, int family)
-+static int nf_tables_chain_notify(const struct nft_ctx *ctx, int event)
++/* Schedule objects for release via rcu to make sure no packets are accesing
++ * aborted rules.
++ */
++static void nf_tables_abort_release_rcu(struct rcu_head *rt)
++{
++	struct nft_trans *trans = container_of(rt, struct nft_trans, rcu_head);
++
++	switch (trans->msg_type) {
++	case NFT_MSG_NEWTABLE:
++		nf_tables_table_destroy(&trans->ctx);
++		break;
++	case NFT_MSG_NEWCHAIN:
++		nf_tables_chain_destroy(trans->ctx.chain);
++		break;
++	case NFT_MSG_NEWRULE:
++		nf_tables_rule_destroy(&trans->ctx, nft_trans_rule(trans));
++		break;
++	case NFT_MSG_NEWSET:
++		nft_set_destroy(nft_trans_set(trans));
++		break;
++	}
++	kfree(trans);
++}
++
+ static int nf_tables_abort(struct sk_buff *skb)
  {
- 	struct sk_buff *skb;
--	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
--	struct net *net = oskb ? sock_net(oskb->sk) : &init_net;
--	u32 seq = nlh ? nlh->nlmsg_seq : 0;
-+	u32 portid = NETLINK_CB(ctx->skb).portid;
-+	struct net *net = sock_net(ctx->skb->sk);
-+	u32 seq = ctx->nlh->nlmsg_seq;
- 	bool report;
- 	int err;
+ 	struct net *net = sock_net(skb->sk);
+@@ -3495,26 +3526,10 @@ static int nf_tables_abort(struct sk_buff *skb)
+ 		}
+ 	}
  
--	report = nlh ? nlmsg_report(nlh) : false;
-+	report = nlmsg_report(ctx->nlh);
- 	if (!report && !nfnetlink_has_listeners(net, NFNLGRP_NFTABLES))
- 		return 0;
+-	/* Make sure we don't see any packet accessing aborted rules */
+-	synchronize_rcu();
+-
+ 	list_for_each_entry_safe(trans, next, &net->nft.commit_list, list) {
+-		switch (trans->msg_type) {
+-		case NFT_MSG_NEWTABLE:
+-			nf_tables_table_destroy(&trans->ctx);
+-			break;
+-		case NFT_MSG_NEWCHAIN:
+-			nf_tables_chain_destroy(trans->ctx.chain);
+-			break;
+-		case NFT_MSG_NEWRULE:
+-			nf_tables_rule_destroy(&trans->ctx,
+-					       nft_trans_rule(trans));
+-			break;
+-		case NFT_MSG_NEWSET:
+-			nft_set_destroy(nft_trans_set(trans));
+-			break;
+-		}
+-		nft_trans_destroy(trans);
++		list_del(&trans->list);
++		trans->ctx.nla = NULL;
++		call_rcu(&trans->rcu_head, nf_tables_abort_release_rcu);
+ 	}
  
-@@ -743,8 +736,9 @@ static int nf_tables_chain_notify(const struct sk_buff *oskb,
- 	if (skb == NULL)
- 		goto err;
- 
--	err = nf_tables_fill_chain_info(skb, portid, seq, event, 0, family,
--					table, chain);
-+	err = nf_tables_fill_chain_info(skb, portid, seq, event, 0,
-+					ctx->afi->family, ctx->table,
-+					ctx->chain);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto err;
-@@ -1475,21 +1469,19 @@ nla_put_failure:
- 	return -1;
- }
- 
--static int nf_tables_rule_notify(const struct sk_buff *oskb,
--				 const struct nlmsghdr *nlh,
--				 const struct nft_table *table,
--				 const struct nft_chain *chain,
-+static int nf_tables_rule_notify(const struct nft_ctx *ctx,
- 				 const struct nft_rule *rule,
--				 int event, u32 flags, int family)
-+				 int event)
- {
-+	const struct sk_buff *oskb = ctx->skb;
- 	struct sk_buff *skb;
- 	u32 portid = NETLINK_CB(oskb).portid;
--	struct net *net = oskb ? sock_net(oskb->sk) : &init_net;
--	u32 seq = nlh->nlmsg_seq;
-+	struct net *net = sock_net(oskb->sk);
-+	u32 seq = ctx->nlh->nlmsg_seq;
- 	bool report;
- 	int err;
- 
--	report = nlmsg_report(nlh);
-+	report = nlmsg_report(ctx->nlh);
- 	if (!report && !nfnetlink_has_listeners(net, NFNLGRP_NFTABLES))
- 		return 0;
- 
-@@ -1498,8 +1490,9 @@ static int nf_tables_rule_notify(const struct sk_buff *oskb,
- 	if (skb == NULL)
- 		goto err;
- 
--	err = nf_tables_fill_rule_info(skb, portid, seq, event, flags,
--				       family, table, chain, rule);
-+	err = nf_tables_fill_rule_info(skb, portid, seq, event, 0,
-+				       ctx->afi->family, ctx->table,
-+				       ctx->chain, rule);
- 	if (err < 0) {
- 		kfree_skb(skb);
- 		goto err;
-@@ -3343,17 +3336,11 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			} else {
- 				trans->ctx.table->flags &= ~NFT_TABLE_INACTIVE;
- 			}
--			nf_tables_table_notify(trans->ctx.skb, trans->ctx.nlh,
--					       trans->ctx.table,
--					       NFT_MSG_NEWTABLE,
--					       trans->ctx.afi->family);
-+			nf_tables_table_notify(&trans->ctx, NFT_MSG_NEWTABLE);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELTABLE:
--			nf_tables_table_notify(trans->ctx.skb, trans->ctx.nlh,
--					       trans->ctx.table,
--					       NFT_MSG_DELTABLE,
--					       trans->ctx.afi->family);
-+			nf_tables_table_notify(&trans->ctx, NFT_MSG_DELTABLE);
- 			break;
- 		case NFT_MSG_NEWCHAIN:
- 			if (nft_trans_chain_update(trans))
-@@ -3362,20 +3349,12 @@ static int nf_tables_commit(struct sk_buff *skb)
- 				trans->ctx.chain->flags &= ~NFT_CHAIN_INACTIVE;
- 				trans->ctx.table->use++;
- 			}
--			nf_tables_chain_notify(trans->ctx.skb, trans->ctx.nlh,
--					       trans->ctx.table,
--					       trans->ctx.chain,
--					       NFT_MSG_NEWCHAIN,
--					       trans->ctx.afi->family);
-+			nf_tables_chain_notify(&trans->ctx, NFT_MSG_NEWCHAIN);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELCHAIN:
- 			trans->ctx.table->use--;
--			nf_tables_chain_notify(trans->ctx.skb, trans->ctx.nlh,
--					       trans->ctx.table,
--					       trans->ctx.chain,
--					       NFT_MSG_DELCHAIN,
--					       trans->ctx.afi->family);
-+			nf_tables_chain_notify(&trans->ctx, NFT_MSG_DELCHAIN);
- 			if (!(trans->ctx.table->flags & NFT_TABLE_F_DORMANT) &&
- 			    trans->ctx.chain->flags & NFT_BASE_CHAIN) {
- 				nf_unregister_hooks(nft_base_chain(trans->ctx.chain)->ops,
-@@ -3384,21 +3363,16 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			break;
- 		case NFT_MSG_NEWRULE:
- 			nft_rule_clear(trans->ctx.net, nft_trans_rule(trans));
--			nf_tables_rule_notify(trans->ctx.skb, trans->ctx.nlh,
--					      trans->ctx.table,
--					      trans->ctx.chain,
-+			nf_tables_rule_notify(&trans->ctx,
- 					      nft_trans_rule(trans),
--					      NFT_MSG_NEWRULE, 0,
--					      trans->ctx.afi->family);
-+					      NFT_MSG_NEWRULE);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELRULE:
- 			list_del_rcu(&nft_trans_rule(trans)->list);
--			nf_tables_rule_notify(trans->ctx.skb, trans->ctx.nlh,
--					      trans->ctx.table,
--					      trans->ctx.chain,
--					      nft_trans_rule(trans), NFT_MSG_DELRULE, 0,
--					      trans->ctx.afi->family);
-+			nf_tables_rule_notify(&trans->ctx,
-+					      nft_trans_rule(trans),
-+					      NFT_MSG_DELRULE);
- 			break;
- 		case NFT_MSG_NEWSET:
- 			nft_trans_set(trans)->flags &= ~NFT_SET_INACTIVE;
+ 	return 0;
 -- 
 1.7.10.4
+
