@@ -1,31 +1,119 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [RFC] Support for Multipath TCP in the Linux kernel
-Date: Wed, 21 May 2014 15:32:39 +0200
-Message-ID: <CAPh34mdxaQ94RxAMEDpDx5Zp3gpjipO+tr_4yC-rOTq2k2TZZw@mail.gmail.com>
-References: <CAE1zot+kBdDbYrZ9m2oCg12yUBAZvToPeDeB4aZmD65xg4e0Cg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Christoph Paasch <christoph.paasch@uclouvain.be>
-To: Octavian Purdila <octavian.purdila@intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v2 iproute] bridge: Add learning and flood support
+Date: Wed, 21 May 2014 09:53:43 -0400
+Message-ID: <1400680423-12437-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, nicolas.dichtel@6wind.com,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f181.google.com ([209.85.128.181]:41872 "EHLO
-	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751022AbaEUNck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 09:32:40 -0400
-Received: by mail-ve0-f181.google.com with SMTP id pa12so2455982veb.40
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 06:32:40 -0700 (PDT)
-In-Reply-To: <CAE1zot+kBdDbYrZ9m2oCg12yUBAZvToPeDeB4aZmD65xg4e0Cg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31952 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751429AbaEUNxu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 09:53:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IMHO, continue with 1) but try hard to reduce crossovers. MPTCP
-specific functionality should be separated as possible and crossovers
-(e.g. function calls) within standard TCP should be reduced to a bare
-minimum. Fast paths should probably further optimized with static keys
-(probability that a MPTCP socket is used is low - optimize for the
-common case).
+Add ability to control learning and flood flags on bridge
+ports.
 
-My two cents
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+v2: Fix spelling errors in man page (Nicolas Dichtel)
 
-[1] https://www.kernel.org/doc/Documentation/static-keys.txt
+ bridge/link.c     | 22 ++++++++++++++++++++++
+ man/man8/bridge.8 | 12 ++++++++++++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/bridge/link.c b/bridge/link.c
+index 38dfaea..e3fd6e6 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -185,6 +185,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 				if (prtb[IFLA_BRPORT_FAST_LEAVE])
+ 					print_onoff(fp, "fastleave",
+ 						    rta_getattr_u8(prtb[IFLA_BRPORT_FAST_LEAVE]));
++				if (prtb[IFLA_BRPORT_LEARNING])
++					print_onoff(fp, "learning",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_LEARNING]));
++				if (prtb[IFLA_BRPORT_UNICAST_FLOOD])
++					print_onoff(fp, "flood",
++						    rta_getattr_u8(prtb[IFLA_BRPORT_UNICAST_FLOOD]));
+ 			}
+ 		} else
+ 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
+@@ -214,6 +220,8 @@ static void usage(void)
+ 	fprintf(stderr, "                               [ hairpin {on | off} ] \n");
+ 	fprintf(stderr, "                               [ fastleave {on | off} ]\n");
+ 	fprintf(stderr,	"                               [ root_block {on | off} ]\n");
++	fprintf(stderr,	"                               [ learning {on | off} ]\n");
++	fprintf(stderr,	"                               [ flood {on | off} ]\n");
+ 	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
+ 	fprintf(stderr, "       bridge link show [dev DEV]\n");
+ 	exit(-1);
+@@ -243,6 +251,8 @@ static int brlink_modify(int argc, char **argv)
+ 		char             buf[512];
+ 	} req;
+ 	char *d = NULL;
++	__s8 learning = -1;
++	__s8 flood = -1;
+ 	__s8 hairpin = -1;
+ 	__s8 bpdu_guard = -1;
+ 	__s8 fast_leave = -1;
+@@ -281,6 +291,14 @@ static int brlink_modify(int argc, char **argv)
+ 			NEXT_ARG();
+ 			if (!on_off("root_block", &root_block, *argv))
+ 				exit(-1);
++		} else if (strcmp(*argv, "learning") == 0) {
++			NEXT_ARG();
++			if (!on_off("learning", &learning, *argv))
++				exit(-1);
++		} else if (strcmp(*argv, "flood") == 0) {
++			NEXT_ARG();
++			if (!on_off("flood", &flood, *argv))
++				exit(-1);
+ 		} else if (strcmp(*argv, "cost") == 0) {
+ 			NEXT_ARG();
+ 			cost = atoi(*argv);
+@@ -335,6 +353,10 @@ static int brlink_modify(int argc, char **argv)
+ 			 fast_leave);
+ 	if (root_block >= 0)
+ 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_PROTECT, root_block);
++	if (flood >= 0)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, flood);
++	if (learning >= 0)
++		addattr8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING, learning);
+ 
+ 	if (cost > 0)
+ 		addattr32(&req.n, sizeof(req), IFLA_BRPORT_COST, cost);
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 9a34804..af31d41 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -36,6 +36,8 @@ bridge \- show / manipulate bridge addresses and devices
+ .BR hairpin " { " on " | " off " } ] [ "
+ .BR fastleave " { " on " | " off " } ] [ "
+ .BR root_block " { " on " | " off " } ] [ "
++.BR learning " { " on " | " off " } ] [ "
++.BR flood " { " on " | " off " } ] [ "
+ .BR hwmode " { " vepa " | " veb " } ] "
+ 
+ .ti -8
+@@ -234,6 +236,16 @@ Controls whether a given port is allowed to become root port or not.  Only used
+ when STP is enabled on the bridge.  By default the flag is off.
+ 
+ .TP
++.BR "learning on " or " learning off "
++Controls whether a given port will learn MAC addresses from received traffic or
++not.  If learning if off, the bridge will end up flooding any traffic for which
++it has no FDB entry.  By default this flag is on.
++
++.TP
++.BR "flooding on " or " flooding off "
++Controls whether a given port will flood unicast traffic for which there is no FDB entry.  By default this flag is on.
++
++.TP
+ .BI hwmode
+ Some network interface cards support HW bridge functionality and they may be
+ configured in different modes.  Currently support modes are:
+-- 
+1.9.0
