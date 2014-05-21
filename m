@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Please queue commit 16c0b164bd24d44db for stable
-Date: Wed, 21 May 2014 17:15:56 -0400 (EDT)
-Message-ID: <20140521.171556.1536408784722270029.davem@davemloft.net>
-References: <CAHA+R7OQrH9Ay0HRfLFNw4OBzhawqfT8gEW2j0nV5ntzey0p+A@mail.gmail.com>
+Subject: Re: [PATCH 4/13 v2] wimax/i2400m: make return of 0 explicit
+Date: Wed, 21 May 2014 17:19:37 -0400 (EDT)
+Message-ID: <20140521.171937.898588239489051362.davem@davemloft.net>
+References: <1400473875-22228-5-git-send-email-Julia.Lawall@lip6.fr>
+	<5379FD39.7020605@cogentembedded.com>
+	<alpine.DEB.2.10.1405200844010.2723@hadrien>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: cwang@twopensource.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56112 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751786AbaEUVP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 17:15:57 -0400
-In-Reply-To: <CAHA+R7OQrH9Ay0HRfLFNw4OBzhawqfT8gEW2j0nV5ntzey0p+A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, inaky.perez-gonzalez@intel.com,
+	kernel-janitors@vger.kernel.org, linux-wimax@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: julia.lawall@lip6.fr
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1405200844010.2723@hadrien>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <cwang@twopensource.com>
-Date: Mon, 19 May 2014 16:36:08 -0700
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Tue, 20 May 2014 08:44:49 +0800 (SGT)
 
-> Please queue the following commit for stable (for kernel < 3.6):
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> commit 16c0b164bd24d44db137693a36b428ba28970c62
-> Author: Jason Wang <jasowang@redhat.com>
-> Date:   Wed Aug 15 20:44:27 2012 +0000
+> Delete unnecessary local variable whose value is always 0 and that hides
+> the fact that the result is always 0.
 > 
->     act_mirred: do not drop packets when fails to mirror it
+> A simplified version of the semantic patch that fixes this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
+> ---
+> Alternatively, is an error code wanted under the if?
 > 
-> $ git describe --contains 16c0b164bd24d44db
-> v3.6-rc3~10^2~23
-> 
-> It fixes some real bug.
+> v2: remove the use of 0 as an argument in the call to d_fnend
 
-Queued up, thanks.
+Applied to net-next, thanks.
