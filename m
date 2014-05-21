@@ -1,85 +1,68 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net] bonding: Don't assume 802.1Q when sending alb
- learning packets.
-Date: Wed, 21 May 2014 17:48:35 +0200
-Message-ID: <20140521154835.GA16470@mikrodark.usersys.redhat.com>
-References: <1400685879-21843-1-git-send-email-vyasevic@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: Expose header length compution
+ function
+Date: Wed, 21 May 2014 08:51:09 -0700
+Message-ID: <1400687469.5367.152.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1399553434-25617-1-git-send-email-amirv@mellanox.com>
+				<1399553434-25617-2-git-send-email-amirv@mellanox.com>
+			 <20140509.162454.1317479460010270185.davem@davemloft.net>
+			 <536E5DF4.8010908@gmail.com>
+		 <1399744197.7973.11.camel@edumazet-glaptop2.roam.corp.google.com>
+		 <536E9FE7.6060809@gmail.com>
+	 <1400533291.5367.67.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <537CC05E.6030705@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>, amirv@mellanox.com,
+	netdev@vger.kernel.org, idos@mellanox.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:55398 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752065AbaEUPtB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 11:49:01 -0400
-Received: by mail-we0-f170.google.com with SMTP id u57so2272533wes.29
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:49:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1400685879-21843-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:42614 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbaEUPvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 11:51:11 -0400
+Received: by mail-pd0-f175.google.com with SMTP id z10so1501655pdj.6
+        for <netdev@vger.kernel.org>; Wed, 21 May 2014 08:51:10 -0700 (PDT)
+In-Reply-To: <537CC05E.6030705@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 21, 2014 at 11:24:39AM -0400, Vlad Yasevich wrote:
->TLB/ALB learning packets always assume 802.1Q vlan protocol, but
->that is no longer the case since we now have support for Q-in-Q
->on top of bonding.  Pass the vlan protocol to alb_send_lp_vid()
->so that the packets are properly tagged.
->
->CC: Jay Vosburgh <j.vosburgh@gmail.com>
->CC: Veaceslav Falico <vfalico@gmail.com>
+On Wed, 2014-05-21 at 08:03 -0700, Alexander Duyck wrote:
 
-There one more left - the rlb_update_client(), but it'll require a bit more
-hacking with rlb_client_info struct to work. Maybe some day in the future
-:).
+> So it looks like you did kind of what I expected you would, only you
+> allocated a temporary sk_buff on the stack and then pointed the head to
+> the start of the page.  I'm not really a fan of this approach though it
+> does give me a couple ideas.
+> 
+> One thought I just had though, what if we were to do something like
+> create an eth_build_skb function?
 
-Acked-by: Veaceslav Falico <vfalico@gmail.com>
+Well, it all depends if you use napi_get_frags() / napi_gro_frags(),
+which are normally the way to get very fast GRO processing, since
+you don't even have to allocate memory for the skbs at all, since
+skb will likely be recycled in napi_reuse_skb()
 
->CC: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->---
-> drivers/net/bonding/bond_alb.c | 7 ++++---
-> 1 file changed, 4 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index e538478..2ec945c 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -995,7 +995,7 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
-> /*********************** tlb/rlb shared functions *********************/
->
-> static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
->-			    u16 vid)
->+			    __be16 vlan_proto, u16 vid)
-> {
-> 	struct learning_pkt pkt;
-> 	struct sk_buff *skb;
->@@ -1021,7 +1021,7 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
-> 	skb->dev = slave->dev;
->
-> 	if (vid) {
->-		skb = vlan_put_tag(skb, htons(ETH_P_8021Q), vid);
->+		skb = vlan_put_tag(skb, vlan_proto, vid);
-> 		if (!skb) {
-> 			pr_err("%s: Error: failed to insert VLAN tag\n",
-> 			       slave->bond->dev->name);
->@@ -1040,13 +1040,14 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
-> 	struct list_head *iter;
->
-> 	/* send untagged */
->-	alb_send_lp_vid(slave, mac_addr, 0);
->+	alb_send_lp_vid(slave, mac_addr, 0, 0);
->
-> 	/* loop through vlans and send one packet for each */
-> 	rcu_read_lock();
-> 	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
-> 		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0)
-> 			alb_send_lp_vid(slave, mac_addr,
->+					vlan_dev_vlan_proto(upper),
-> 					vlan_dev_vlan_id(upper));
-> 	}
-> 	rcu_read_unlock();
->-- 
->1.9.0
->
+>   It would essentially be a cross
+> between eth_type_trans, your new eth_frame_headlen function, and
+> build_skb.  It would allow us to avoid the unnecessary allocation of an
+> skb on the stack and avoid any unnecessary data duplication since we
+> already would be doing a number of the eth_type_trans steps in your
+> eth_frame_headlen function.  The one limitation is that we would need to
+> allocate a block of memory for the head, but that would be done after we
+> figure out what the size of the header is.
+
+'Allocating' an skb on stack has no cost. Exactly 0 added instructions.
+
+It only increases the size of stack, and at this point we are before all
+the networking stacks, so it is safe.
+
+Have you seen the eBPF stuff adding more stack usage than this ?
+
+#define MAX_BPF_STACK 512
