@@ -1,95 +1,52 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Subject: Re: [ath9k-devel] randconfig build error with next-20140519, in drivers/net/wireless/ath/ath9k/dfs.c
-Date: Thu, 22 May 2014 09:31:36 +1000
-Message-ID: <CAGRGNgW2kdG=CUdWpEbpxaVLhVvVg3MzHwkS_M=_Wmaju+q8dw@mail.gmail.com>
-References: <CA+r1ZhiM7EK08Y4kriXMugMc1Mbj5VDUPwKMq8-_k8Q8qhwPtw@mail.gmail.com>
- <20140521110143.GA2375@qca.qualcomm.com> <CAGRGNgXuS-ksFBAtmo8nLAPqPFKo2gHGDCsTcranU-k2-K3rfg@mail.gmail.com>
- <20140521143832.GA9563@qca.qualcomm.com>
+From: Kevin Hilman <khilman@linaro.org>
+Subject: Re: [PATCH] net: davinci_emac: fix oops caused by uninitialized ndev->dev
+Date: Wed, 21 May 2014 16:39:40 -0700
+Message-ID: <7h8upuog5f.fsf@paris.lan>
+References: <1400580697-24994-1-git-send-email-nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jim Davis <jim.epost@gmail.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linville <linville@tuxdriver.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	ath9k-devel@lists.ath9k.org, netdev <netdev@vger.kernel.org>
-To: Rajkumar Manoharan <rmanohar@qti.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140521143832.GA9563@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>,
+	Linux DaVinci Mailing List
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	Linux netdev Mailing List <netdev@vger.kernel.org>,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: Sekhar Nori <nsekhar@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:45907 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752306AbaEUXjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 19:39:42 -0400
+Received: by mail-pd0-f175.google.com with SMTP id z10so1850512pdj.34
+        for <netdev@vger.kernel.org>; Wed, 21 May 2014 16:39:42 -0700 (PDT)
+In-Reply-To: <1400580697-24994-1-git-send-email-nsekhar@ti.com> (Sekhar Nori's
+	message of "Tue, 20 May 2014 15:41:37 +0530")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rajkumar,
+Sekhar Nori <nsekhar@ti.com> writes:
 
-On Thu, May 22, 2014 at 12:38 AM, Rajkumar Manoharan
-<rmanohar@qti.qualcomm.com> wrote:
-> On Wed, May 21, 2014 at 10:12:26PM +1000, Julian Calaby wrote:
->> Hi Rajkumar,
->>
->> On Wed, May 21, 2014 at 9:01 PM, Rajkumar Manoharan
->> <rmanohar@qti.qualcomm.com> wrote:
->> > On Mon, May 19, 2014 at 09:31:16AM -0700, Jim Davis wrote:
->> >> Building with the attached random configuration file,
->> >>
->> >> In file included from drivers/net/wireless/ath/ath9k/eeprom.h:22:=
-0,
->> >>                  from drivers/net/wireless/ath/ath9k/hw.h:27,
->> >>                  from drivers/net/wireless/ath/ath9k/dfs.c:18:
->> >> drivers/net/wireless/ath/ath9k/dfs.c: In function =E2=80=98ath9k_=
-dfs_process_phyerr=E2=80=99:
->> >> drivers/net/wireless/ath/ath9k/dfs.c:185:14: error: =E2=80=98stru=
-ct ath_softc=E2=80=99
->> >> has no member named =E2=80=98debug=E2=80=99
->> >>     pe.ts - sc->debug.stats.dfs_stats.last_ts);
->> >>               ^
->> >> drivers/net/wireless/ath/ath9k/../ath.h:273:41: note: in definiti=
-on of
->> >> macro =E2=80=98ath_dbg=E2=80=99
->> >>    ath_printk(KERN_DEBUG, common, fmt, ##__VA_ARGS__); \
->> >>                                          ^
->> >> drivers/net/wireless/ath/ath9k/dfs.c:186:5: error: =E2=80=98struc=
-t ath_softc=E2=80=99
->> >> has no member named =E2=80=98debug=E2=80=99
->> >>    sc->debug.stats.dfs_stats.last_ts =3D pe.ts;
->> >>      ^
->> >> make[5]: *** [drivers/net/wireless/ath/ath9k/dfs.o] Error 1
->> >
->> > Please select CONFIG_ATH9K_DEBUGFS.
->>
->> The point of randconfig builds is to ensure that there it's really
->> unlikely that there are any config combinations that don't build, ev=
-en
->> if they're utterly insane.
->>
->> You should really change the ath9k Kconfig rules or move or add ifde=
-fs
->> to prevent this from being possible.
->>
-> Completely agree. But ath9k Kconfig has proper dependecy for
-> ATH9K_DFS_DEBUGFS. I am wondering how it is selected w/o ATH9K_DEBUGF=
-S.
+> Commit e194312854edc22a2faf1931b3c0608fe20cb969 (drivers: net:
+> davinci_cpdma: Convert kzalloc() to devm_kzalloc()) triggered
+> a bug in emac_probe() wherein dev member of net_device is used
+> for devres allocations even before it is initialized.
 >
-> config ATH9K_DFS_DEBUGFS
->         def_bool y
->         depends on ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED
+> This patch fixes that by using the struct device in platform_device
+> instead.
 >
-> Should it be like this?
+> While at it, use &pdev->dev consistently for console messages instead
+> of using ndev->dev for just one case and remove an unnecessary line
+> continuation.
 >
-> config ATH9K_DFS_DEBUGFS
->         def_bool y if (ATH9K_DEBUGFS && ATH9K_DFS_CERTIFIED)
+> Reported-by: Kevin Hilman <khilman@linaro.org>
+> Helped-by: George Cherian <george.cherian@ti.com>
+> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 
-Zefir already posted a patch to fix this particular issue.
+Tested-by: Kevin Hilman <khilman@linaro.org>
 
-Judging by the patch, not all of the debugfs using code was properly
-enclosed in #ifdefs.
+I verified this patch fixes the boot on dm365-evm (legacy boot) and
+da850-evm (DT boot).
 
 Thanks,
 
---=20
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
-=2EPlan: http://sites.google.com/site/juliancalaby/
+Kevin
