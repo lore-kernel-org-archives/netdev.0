@@ -1,41 +1,110 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Wed, 21 May 2014 20:51:14 +0200
-Message-ID: <537CF5A2.3080401@pandora.be>
-References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc> <537A12EA.4060604@davidnewall.com> <20140519170915.GB24523@breakpoint.cc> <537A6E5C.6090602@pandora.be> <537C5A6C.3030809@davidnewall.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] Add hash value into RNDIS Per-packet info
+Date: Wed, 21 May 2014 12:55:39 -0700
+Message-ID: <1400702139-29280-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: David Newall <davidn@davidnewall.com>,
-	Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from xavier.telenet-ops.be ([195.130.132.52]:42545 "EHLO
-	xavier.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbaEUSvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 14:51:21 -0400
-In-Reply-To: <537C5A6C.3030809@davidnewall.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-David Newall schreef op 21/05/2014 9:49:
->> An alternative would be to make sure that the data pointed to by IPCB
->> and BR_INPUT_SKB_CB don't overlap. If this were the case, we could
->> indeed just revert the commit that was referred to.
->
-> They are identical spaces, but you imply a good point: the cb area is
-> possibly being used, simultaneously, for two, incompatible purposes. Yet
-> another argument for divorcing bridge of ip logic.
+It passes the hash value as the RNDIS Per-packet info to the Hyper-V host,
+so that the send completion notices can be spread across multiple channels.
+MS-TFS: 140273
 
-There's no reason why they should overlap in the cb: it's 48 bytes big, 
-so big enough to hold both struct br_input_skb_cb and struct 
-inet_skb_parm. The original problem was introduced when BR_INPUT_SKB_CB 
-was introduced (around Feb 27, 2010), so fixing BR_INPUT_SKB_CB seems 
-most appropriate to me.
-As for your other remark: as I've said before, if you don't like 
-bridge-netfilter then don't compile it into your kernel.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Bart
+---
+ drivers/net/hyperv/hyperv_net.h |    4 ++++
+ drivers/net/hyperv/netvsc_drv.c |   18 ++++++++++++++----
+ 2 files changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 4b7df5a..6cc37c1 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -791,6 +791,7 @@ enum ndis_per_pkt_info_type {
+ 	IEEE_8021Q_INFO,
+ 	ORIGINAL_PKTINFO,
+ 	PACKET_CANCEL_ID,
++	NBL_HASH_VALUE = PACKET_CANCEL_ID,
+ 	ORIGINAL_NET_BUFLIST,
+ 	CACHED_NET_BUFLIST,
+ 	SHORT_PKT_PADINFO,
+@@ -937,6 +938,9 @@ struct ndis_tcp_lso_info {
+ #define NDIS_LSO_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
+ 		sizeof(struct ndis_tcp_lso_info))
+ 
++#define NDIS_HASH_PPI_SIZE (sizeof(struct rndis_per_packet_info) + \
++		sizeof(u32))
++
+ /* Format of Information buffer passed in a SetRequest for the OID */
+ /* OID_GEN_RNDIS_CONFIG_PARAMETER. */
+ struct rndis_config_parameter_info {
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 2e967a7..4fd71b7 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -224,9 +224,11 @@ static u16 netvsc_select_queue(struct net_device *ndev, struct sk_buff *skb,
+ 	if (nvsc_dev == NULL || ndev->real_num_tx_queues <= 1)
+ 		return 0;
+ 
+-	if (netvsc_set_hash(&hash, skb))
++	if (netvsc_set_hash(&hash, skb)) {
+ 		q_idx = nvsc_dev->send_table[hash % VRSS_SEND_TAB_SIZE] %
+ 			ndev->real_num_tx_queues;
++		skb_set_hash(skb, hash, PKT_HASH_TYPE_L3);
++	}
+ 
+ 	return q_idx;
+ }
+@@ -384,6 +386,7 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	struct ndis_tcp_lso_info *lso_info;
+ 	int  hdr_offset;
+ 	u32 net_trans_info;
++	u32 hash;
+ 
+ 
+ 	/* We will atmost need two pages to describe the rndis
+@@ -402,9 +405,8 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 	packet = kzalloc(sizeof(struct hv_netvsc_packet) +
+ 			 (num_data_pgs * sizeof(struct hv_page_buffer)) +
+ 			 sizeof(struct rndis_message) +
+-			 NDIS_VLAN_PPI_SIZE +
+-			 NDIS_CSUM_PPI_SIZE +
+-			 NDIS_LSO_PPI_SIZE, GFP_ATOMIC);
++			 NDIS_VLAN_PPI_SIZE + NDIS_CSUM_PPI_SIZE +
++			 NDIS_LSO_PPI_SIZE + NDIS_HASH_PPI_SIZE, GFP_ATOMIC);
+ 	if (!packet) {
+ 		/* out of memory, drop packet */
+ 		netdev_err(net, "unable to allocate hv_netvsc_packet\n");
+@@ -443,6 +445,14 @@ static int netvsc_start_xmit(struct sk_buff *skb, struct net_device *net)
+ 
+ 	rndis_msg_size = RNDIS_MESSAGE_SIZE(struct rndis_packet);
+ 
++	hash = skb_get_hash_raw(skb);
++	if (hash != 0 && net->real_num_tx_queues > 1) {
++		rndis_msg_size += NDIS_HASH_PPI_SIZE;
++		ppi = init_ppi_data(rndis_msg, NDIS_HASH_PPI_SIZE,
++				    NBL_HASH_VALUE);
++		*(u32 *)((void *)ppi + ppi->ppi_offset) = hash;
++	}
++
+ 	if (isvlan) {
+ 		struct ndis_pkt_8021q_info *vlan;
+ 
+-- 
+1.7.4.1
