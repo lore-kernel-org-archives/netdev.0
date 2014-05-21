@@ -1,56 +1,75 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to kernel
-Date: Tue, 20 May 2014 19:05:28 -0700
-Message-ID: <CAEP_g=8AkoxtsGE9CbaY_AqiWqDoV1jyqpoPaYO+BZvcTpXByg@mail.gmail.com>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au> <CAEP_g=-X=T2hJoXTV5ptZRvf1WPgYa1xusczwSR1bUYAZ5yaqA@mail.gmail.com>
- <20140520104704.GA2979@verge.net.au>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next] net: cdc_ncm: fix 64bit division build error
+Date: Wed, 21 May 2014 12:07:33 +1000
+Message-ID: <20140521120733.4cb45333@canb.auug.org.au>
+References: <1400484069-13702-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Ben Pfaff <blp@nicira.com>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/XzzerdHBPhxTOfEGOWqoIo3"; protocol="application/pgp-signature"
+Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>
+To: =?UTF-8?B?QmrDuHJu?= Mork <bjorn@mork.no>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:37796 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750807AbaEUCFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 May 2014 22:05:49 -0400
-Received: by mail-qg0-f41.google.com with SMTP id j5so2216571qga.0
-        for <netdev@vger.kernel.org>; Tue, 20 May 2014 19:05:48 -0700 (PDT)
-In-Reply-To: <20140520104704.GA2979@verge.net.au>
+Received: from ozlabs.org ([103.22.144.67]:57664 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751650AbaEUCHm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 May 2014 22:07:42 -0400
+In-Reply-To: <1400484069-13702-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 20, 2014 at 3:48 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Mon, May 19, 2014 at 06:34:05PM -0700, Jesse Gross wrote:
->> On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms@verge.net.au> wrote:
->> > diff --git a/datapath/actions.c b/datapath/actions.c
->> > index 603c7cb..7c3ae0c 100644
->> > --- a/datapath/actions.c
->> > +++ b/datapath/actions.c
->> When we set the EtherType at the bottom of the function, I don't think
->> that it is correct in the presence of VLAN tags because it will set
->> the outer EtherType.
+--Sig_/XzzerdHBPhxTOfEGOWqoIo3
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+Hi all,
+
+On Mon, 19 May 2014 09:21:09 +0200 Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
 >
-> I believe this comes back to the problem we have with tag ordering. A
-> problem which after the most recent discussion of this topic I planned to
-> kick into the long grass by only allowing push MPLS actions on packets with
-> a well defined tag order.
+> The upper timer_interval limit is arbitrary and much higher
+> than anything usable in the real world.  Reducing it from 15s
+> to ~4s to make the timer_interval fit in an u32 does not make
+> much difference.  The limit is still outside the practical
+> bounds.
+>=20
+> This eliminates the need for a 64bit timer_interval, fixing a
+> build error related to 64bit division:
+>=20
+>  drivers/built-in.o: In function `cdc_ncm_get_coalesce':
+>  ak8975.c:(.text+0x1ac994): undefined reference to `__aeabi_uldivmod'
+>=20
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 
-Right, I subconsciously keep forgetting this even though I know it's there.
+I have applied this as a fix patch to linux-next today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> This is the purpose of the white list in ovs_nla_copy_actions__().  It is
-> supposed to only push MPLS actions for flows with an IPv4, IPv6, ARP, RARP
-> or MPLS ethtype.  However, I now think that the white list likely does not
-> work for VLAN packets as their flow's ethtype will be the inner-ethtype
-> (the one inside the VLAN tag) rather than a VLAN ethtype.
->
-> I'm unsure how you would like to handle this but one possibility would be
-> simply for push_mpls() to return an error if it is called on an skb with a
-> VLAN tag present or if the ethtype doesn't match a white list. Another is
-> to set the inner ethtype.
+--Sig_/XzzerdHBPhxTOfEGOWqoIo3
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-Can't we just look at/track flow->tci to see if there is a vlan?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTfAppAAoJEMDTa8Ir7ZwVMjIP/135dHp7fBx4RV8RuDkJQrwE
+lxMZk6/fD8AIKA/RO23zYir0kwITr52OxDaI5VvJHQ0sP9jeWW0gJL0wUhJmHEYQ
+lq5NqDTRV4lQwVSsRUinWWMjc6URCbbYIjLyfXWRYHUySDXUTrIQh7Yvyt9TQPsO
+QqbbW1dSHhr7oT+OtmwI87D5A4FjDJNH4PbRugeLl978n2lQ6poVhHms4plPU0Y7
+OrM1kye3Y+U8+FrxwJHQV0EMXZCYwm4+1B2iygfcU84dna1EIkNYHEWYvAMQSATj
+tuJE3lTTDCCI4JhoDHY3kys90wP4YQyRiIOehgYcqln66bZ+Uj8d8CboPXp5LQ+c
+85KltjcekjrBDfFvDC5DoUpcitg1bCyv/KztYYOpmv+o2EjJ4UliSuMWksB/KECg
+f2lQDYJXbSw62R5cAbX1tvYUjEqzmTQMUczqLsfe2/tPQIYQc3fByrwEumDJxjHG
+TSnpShww065PEoCLISfqQ1X4Y3ZQA8Sc760gWDiPWtFLVplg+HfCeNTMd5WFK46q
+h01p/Tv3j0G+15B1UpkRMvQmdri9vbfLuwckZ7DfGWGFfS2FL3iafsrCtbr5jijL
+rloHyjJMqwsBkyxUhDeZFkiTZzOgX+G8OPRSd0CGw9ob68AVDHO86uQdDD63haIG
+7ijHsOza8cm390d047JF
+=ESW9
+-----END PGP SIGNATURE-----
+
+--Sig_/XzzerdHBPhxTOfEGOWqoIo3--
