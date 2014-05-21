@@ -1,68 +1,97 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2.57] datapath: Add basic MPLS support to
-	kernel
-Date: Tue, 20 May 2014 19:30:38 -0700
-Message-ID: <CAEP_g=8ZEbx0NzCaXOc=ywiBAtejpmO4K-UzVk5uwBmEfUwZ7w@mail.gmail.com>
-References: <1400195227-21265-1-git-send-email-horms@verge.net.au>
- <1400195227-21265-2-git-send-email-horms@verge.net.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH v2] net-tun: restructure tun_do_read for better sleep/wakeup
+ efficiency
+Date: Wed, 21 May 2014 12:45:06 +0800
+Message-ID: <537C2F52.5090901@redhat.com>
+References: <1400278308-25372-1-git-send-email-xii@google.com>			 <5379CE8D.2030405@redhat.com>		 <1400508587.5367.37.camel@edumazet-glaptop2.roam.corp.google.com>		 <537ADD91.4000609@redhat.com>	 <1400562668.5367.96.camel@edumazet-glaptop2.roam.corp.google.com>	 <537AF036.7010005@redhat.com> <1400594349.5367.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1400195227-21265-2-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Xi Wang <xii@google.com>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	Maxim Krasnyansky <maxk@qti.qualcomm.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7250 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750849AbaEUEpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 00:45:20 -0400
+In-Reply-To: <1400594349.5367.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 15, 2014 at 4:07 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> diff --git a/datapath/linux/compat/gso.c b/datapath/linux/compat/gso.c
-> index 9ded17c..d9b4485 100644
-> --- a/datapath/linux/compat/gso.c
-> +++ b/datapath/linux/compat/gso.c
-> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
->  static bool dev_supports_vlan_tx(struct net_device *dev)
->  {
-> -#if defined(HAVE_VLAN_BUG_WORKAROUND)
-> +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
-> +       return true;
-
-Should this be greater than 2.6.37 instead of less than?
-
-> diff --git a/datapath/linux/compat/include/linux/netdevice.h b/datapath/linux/compat/include/linux/netdevice.h
-> index d726390..0381002 100644
-> --- a/datapath/linux/compat/include/linux/netdevice.h
-> +++ b/datapath/linux/compat/include/linux/netdevice.h
-> +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
->  #define netif_skb_features rpl_netif_skb_features
->  netdev_features_t rpl_netif_skb_features(struct sk_buff *skb);
-
-Currently this function doesn't look at mpls_features. Should it for
-things other than TSO?
-
-> diff --git a/datapath/linux/compat/netdevice.c b/datapath/linux/compat/netdevice.c
-> index 1dc5abf..d22fced 100644
-> --- a/datapath/linux/compat/netdevice.c
-> +++ b/datapath/linux/compat/netdevice.c
-> @@ -78,6 +83,9 @@ struct sk_buff *rpl_skb_gso_segment(struct sk_buff *skb,
->         __be16 skb_proto;
->         struct sk_buff *skb_gso;
+On 05/20/2014 09:59 PM, Eric Dumazet wrote:
+> On Tue, 2014-05-20 at 14:03 +0800, Jason Wang wrote:
+>> On 05/20/2014 01:11 PM, Eric Dumazet wrote:
+>>> On Tue, 2014-05-20 at 12:44 +0800, Jason Wang wrote:
+>>>> On 05/19/2014 10:09 PM, Eric Dumazet wrote:
+>>>>> About the sk_data_ready() and wake_up_all(), you missed the whole part
+>>>>> of the patch I think.
+>>>>>
+>>>>> Check how sock_def_readable() does everything properly and efficiently,
+>>>>> including the async part.
+>>>> But this changes (sk_data_ready()) has nothing related to switching to
+>>>> use __skb_recv_datagram()
+>>>>
+>>> This is totally related.
+>>>
+>>> I think you did not yet understood this patch
+>> Sorry for being unclear, but I think you misunderstand my meaning.
+>>> Compare wake_up_all() and sk_data_ready() speeds, you'll be surprised.
+>>>
+>>> You should ask to yourself : Why do we use wq_has_sleeper() in
+>>> networking stacks ?
+>> See my first reply, I don't have objection that uses sk_data_ready() in
+>> tun_net_xmit(). My only concern is using sk_data_ready() in
+>> tun_detach_all():
+>>
+>> - It was only called during tun destroying, so I believe we don't care
+>> about the performance in this condition.
+> Its there for symmetry, and so far our tests just work.
 >
-> +       if (eth_p_mpls(skb->protocol))
-> +               type = ovs_skb_get_inner_protocol(skb);
-> +
->         while (type == htons(ETH_P_8021Q)) {
->                 struct vlan_hdr *vh;
+> Have you run into any problems ?
 
-Is the ordering on this backwards given that we expect that VLANs can
-be on the outside but not the other way around?
+Nope, I tested this patch and it works well.
+>> - sk_data_ready() was usually called when there's something new to be
+>> processed which is not case in tun_detach_all()
+> sk_data_ready() will wakeup waiters exactly like wake_up_all()
+>
+> We do not use wake_up_all() in net/ipv4 & net/ipv6, have you seen any
+> bug because of this ?
+>
+> wake_up_all() is a lazy call, when an author cannot be careful enough to
+> use a better way.
+
+I haven't. I thought there should be some reason that the author use
+wake_up_all() here. But I'm now convinced that it's safe to do the change.
+>
+> Your resistance shows that you think the _existing_ code might be racy.
+>
+> Care to elaborate instead ?
+
+I'm asking since I want to make sure nothing breaks and I think some of
+changes are unrelated.
+>> - Not sure it was a problem but sock_def_readable() will not wake up
+>> uninterruptible task during tun destroying.
+> Thats irrelevant. We are supposed to unblock threads that are waiting on
+> the tun device, not threads doing uninterruptible stuff somewhere else
+> in the kernel.
+>
+> Eventually they will later reach tun device and will detect device is
+> gone/dismantled.
+
+Ok.
+>
+>> - If we make sock_fasync() works for tun in the future, it may send
+>> SIGIO to user process during tun destroying which is not expected.
+> SOCK_FASYNC is not set on the tun socket.
+>
+> sk_wake_async() does nothing in this case. As for 99.9999 % of TCP
+> sockets and nobody ever noticed this code path was almost dead.
+>
+>
+
+I see and thanks for your time. I don't have concern with this patch any
+more.
