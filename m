@@ -1,133 +1,258 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 17/25] netfilter: nf_tables: refactor chain statistic routines
-Date: Wed, 21 May 2014 11:43:14 +0200
-Message-ID: <1400665402-5835-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/25] netfilter: nf_tables: Add meta expression key for bridge interface name
+Date: Wed, 21 May 2014 11:43:07 +0200
+Message-ID: <1400665402-5835-10-git-send-email-pablo@netfilter.org>
 References: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:55973 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752153AbaEUJnn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 05:43:43 -0400
 In-Reply-To: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add new routines to encapsulate chain statistics allocation and
-replacement.
+From: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 
+NFT_META_BRI_IIFNAME to get packet input bridge interface name
+NFT_META_BRI_OIFNAME to get packet output bridge interface name
+
+Such meta key are accessible only through NFPROTO_BRIDGE family, on a
+dedicated nft meta module: nft_meta_bridge.
+
+Suggested-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   45 ++++++++++++++++++++++-------------------
- 1 file changed, 24 insertions(+), 21 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |    4 +
+ net/bridge/Makefile                      |    2 +-
+ net/bridge/netfilter/Kconfig             |   14 ++-
+ net/bridge/netfilter/Makefile            |    1 +
+ net/bridge/netfilter/nft_meta_bridge.c   |  139 ++++++++++++++++++++++++++++++
+ 5 files changed, 158 insertions(+), 2 deletions(-)
+ create mode 100644 net/bridge/netfilter/nft_meta_bridge.c
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 02d3cc6..92cec68 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -805,8 +805,7 @@ static const struct nla_policy nft_counter_policy[NFTA_COUNTER_MAX + 1] = {
- 	[NFTA_COUNTER_BYTES]	= { .type = NLA_U64 },
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 1601592..7d6433f 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -563,6 +563,8 @@ enum nft_exthdr_attributes {
+  * @NFT_META_SECMARK: packet secmark (skb->secmark)
+  * @NFT_META_NFPROTO: netfilter protocol
+  * @NFT_META_L4PROTO: layer 4 protocol number
++ * @NFT_META_BRI_IIFNAME: packet input bridge interface name
++ * @NFT_META_BRI_OIFNAME: packet output bridge interface name
+  */
+ enum nft_meta_keys {
+ 	NFT_META_LEN,
+@@ -582,6 +584,8 @@ enum nft_meta_keys {
+ 	NFT_META_SECMARK,
+ 	NFT_META_NFPROTO,
+ 	NFT_META_L4PROTO,
++	NFT_META_BRI_IIFNAME,
++	NFT_META_BRI_OIFNAME,
  };
  
--static int
--nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
-+static struct nft_stats __percpu *nft_stats_alloc(const struct nlattr *attr)
- {
- 	struct nlattr *tb[NFTA_COUNTER_MAX+1];
- 	struct nft_stats __percpu *newstats;
-@@ -815,14 +814,14 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
+ /**
+diff --git a/net/bridge/Makefile b/net/bridge/Makefile
+index e85498b2f..906a18b 100644
+--- a/net/bridge/Makefile
++++ b/net/bridge/Makefile
+@@ -16,4 +16,4 @@ bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
  
- 	err = nla_parse_nested(tb, NFTA_COUNTER_MAX, attr, nft_counter_policy);
- 	if (err < 0)
--		return err;
-+		return ERR_PTR(err);
+ bridge-$(CONFIG_BRIDGE_VLAN_FILTERING) += br_vlan.o
  
- 	if (!tb[NFTA_COUNTER_BYTES] || !tb[NFTA_COUNTER_PACKETS])
--		return -EINVAL;
-+		return ERR_PTR(-EINVAL);
+-obj-$(CONFIG_BRIDGE_NF_EBTABLES) += netfilter/
++obj-$(CONFIG_BRIDGE_NETFILTER) += netfilter/
+diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
+index 5ca74a0..3baf29d 100644
+--- a/net/bridge/netfilter/Kconfig
++++ b/net/bridge/netfilter/Kconfig
+@@ -2,13 +2,25 @@
+ # Bridge netfilter configuration
+ #
+ #
+-config NF_TABLES_BRIDGE
++menuconfig NF_TABLES_BRIDGE
+ 	depends on NF_TABLES
++	select BRIDGE_NETFILTER
+ 	tristate "Ethernet Bridge nf_tables support"
  
- 	newstats = alloc_percpu(struct nft_stats);
- 	if (newstats == NULL)
--		return -ENOMEM;
-+		return ERR_PTR(-ENOMEM);
++if NF_TABLES_BRIDGE
++
++config NFT_BRIDGE_META
++	tristate "Netfilter nf_table bridge meta support"
++	depends on NFT_META
++	help
++	  Add support for bridge dedicated meta key.
++
++endif # NF_TABLES_BRIDGE
++
+ menuconfig BRIDGE_NF_EBTABLES
+ 	tristate "Ethernet Bridge tables (ebtables) support"
+ 	depends on BRIDGE && NETFILTER
++	select BRIDGE_NETFILTER
+ 	select NETFILTER_XTABLES
+ 	help
+ 	  ebtables is a general, extensible frame/packet identification
+diff --git a/net/bridge/netfilter/Makefile b/net/bridge/netfilter/Makefile
+index ea7629f..6f2f394 100644
+--- a/net/bridge/netfilter/Makefile
++++ b/net/bridge/netfilter/Makefile
+@@ -3,6 +3,7 @@
+ #
  
- 	/* Restore old counters on this cpu, no problem. Per-cpu statistics
- 	 * are not exposed to userspace.
-@@ -831,6 +830,12 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
- 	stats->bytes = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_BYTES]));
- 	stats->pkts = be64_to_cpu(nla_get_be64(tb[NFTA_COUNTER_PACKETS]));
+ obj-$(CONFIG_NF_TABLES_BRIDGE) += nf_tables_bridge.o
++obj-$(CONFIG_NFT_BRIDGE_META)  += nft_meta_bridge.o
  
-+	return newstats;
+ obj-$(CONFIG_BRIDGE_NF_EBTABLES) += ebtables.o
+ 
+diff --git a/net/bridge/netfilter/nft_meta_bridge.c b/net/bridge/netfilter/nft_meta_bridge.c
+new file mode 100644
+index 0000000..4f02109
+--- /dev/null
++++ b/net/bridge/netfilter/nft_meta_bridge.c
+@@ -0,0 +1,139 @@
++/*
++ * Copyright (c) 2014 Intel Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/netlink.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/nf_tables.h>
++#include <net/netfilter/nf_tables.h>
++#include <net/netfilter/nft_meta.h>
++
++#include "../br_private.h"
++
++static void nft_meta_bridge_get_eval(const struct nft_expr *expr,
++				     struct nft_data data[NFT_REG_MAX + 1],
++				     const struct nft_pktinfo *pkt)
++{
++	const struct nft_meta *priv = nft_expr_priv(expr);
++	const struct net_device *in = pkt->in, *out = pkt->out;
++	struct nft_data *dest = &data[priv->dreg];
++	const struct net_bridge_port *p;
++
++	switch (priv->key) {
++	case NFT_META_BRI_IIFNAME:
++		if (in == NULL || (p = br_port_get_rcu(in)) == NULL)
++			goto err;
++		break;
++	case NFT_META_BRI_OIFNAME:
++		if (out == NULL || (p = br_port_get_rcu(out)) == NULL)
++			goto err;
++		break;
++	default:
++		goto out;
++	}
++
++	strncpy((char *)dest->data, p->br->dev->name, sizeof(dest->data));
++	return;
++out:
++	return nft_meta_get_eval(expr, data, pkt);
++err:
++	data[NFT_REG_VERDICT].verdict = NFT_BREAK;
 +}
 +
-+static void nft_chain_stats_replace(struct nft_base_chain *chain,
-+				    struct nft_stats __percpu *newstats)
++static int nft_meta_bridge_get_init(const struct nft_ctx *ctx,
++				    const struct nft_expr *expr,
++				    const struct nlattr * const tb[])
 +{
- 	if (chain->stats) {
- 		struct nft_stats __percpu *oldstats =
- 				nft_dereference(chain->stats);
-@@ -840,8 +845,6 @@ nf_tables_counters(struct nft_base_chain *chain, const struct nlattr *attr)
- 		free_percpu(oldstats);
- 	} else
- 		rcu_assign_pointer(chain->stats, newstats);
--
--	return 0;
- }
- 
- static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
-@@ -860,6 +863,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	u8 policy = NF_ACCEPT;
- 	u64 handle = 0;
- 	unsigned int i;
-+	struct nft_stats __percpu *stats;
- 	int err;
- 	bool create;
- 
-@@ -920,10 +924,11 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			if (!(chain->flags & NFT_BASE_CHAIN))
- 				return -EOPNOTSUPP;
- 
--			err = nf_tables_counters(nft_base_chain(chain),
--						 nla[NFTA_CHAIN_COUNTERS]);
--			if (err < 0)
--				return err;
-+			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
-+			if (IS_ERR(stats))
-+				return PTR_ERR(stats);
++	struct nft_meta *priv = nft_expr_priv(expr);
++	int err;
 +
-+			nft_chain_stats_replace(nft_base_chain(chain), stats);
- 		}
- 
- 		if (nla[NFTA_CHAIN_POLICY])
-@@ -977,23 +982,21 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 			return -ENOMEM;
- 
- 		if (nla[NFTA_CHAIN_COUNTERS]) {
--			err = nf_tables_counters(basechain,
--						 nla[NFTA_CHAIN_COUNTERS]);
--			if (err < 0) {
-+			stats = nft_stats_alloc(nla[NFTA_CHAIN_COUNTERS]);
-+			if (IS_ERR(stats)) {
- 				module_put(type->owner);
- 				kfree(basechain);
--				return err;
-+				return PTR_ERR(stats);
- 			}
-+			basechain->stats = stats;
- 		} else {
--			struct nft_stats __percpu *newstats;
--
--			newstats = alloc_percpu(struct nft_stats);
--			if (newstats == NULL) {
-+			stats = alloc_percpu(struct nft_stats);
-+			if (IS_ERR(stats)) {
- 				module_put(type->owner);
- 				kfree(basechain);
--				return -ENOMEM;
-+				return PTR_ERR(stats);
- 			}
--			rcu_assign_pointer(basechain->stats, newstats);
-+			rcu_assign_pointer(basechain->stats, stats);
- 		}
- 
- 		basechain->type = type;
++	priv->key = ntohl(nla_get_be32(tb[NFTA_META_KEY]));
++	switch (priv->key) {
++	case NFT_META_BRI_IIFNAME:
++	case NFT_META_BRI_OIFNAME:
++		break;
++	default:
++		return nft_meta_get_init(ctx, expr, tb);
++	}
++
++	priv->dreg = ntohl(nla_get_be32(tb[NFTA_META_DREG]));
++	err = nft_validate_output_register(priv->dreg);
++	if (err < 0)
++		return err;
++
++	err = nft_validate_data_load(ctx, priv->dreg, NULL, NFT_DATA_VALUE);
++	if (err < 0)
++		return err;
++
++	return 0;
++}
++
++static struct nft_expr_type nft_meta_bridge_type;
++static const struct nft_expr_ops nft_meta_bridge_get_ops = {
++	.type		= &nft_meta_bridge_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
++	.eval		= nft_meta_bridge_get_eval,
++	.init		= nft_meta_bridge_get_init,
++	.dump		= nft_meta_get_dump,
++};
++
++static const struct nft_expr_ops nft_meta_bridge_set_ops = {
++	.type		= &nft_meta_bridge_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_meta)),
++	.eval		= nft_meta_set_eval,
++	.init		= nft_meta_set_init,
++	.dump		= nft_meta_set_dump,
++};
++
++static const struct nft_expr_ops *
++nft_meta_bridge_select_ops(const struct nft_ctx *ctx,
++			   const struct nlattr * const tb[])
++{
++	if (tb[NFTA_META_KEY] == NULL)
++		return ERR_PTR(-EINVAL);
++
++	if (tb[NFTA_META_DREG] && tb[NFTA_META_SREG])
++		return ERR_PTR(-EINVAL);
++
++	if (tb[NFTA_META_DREG])
++		return &nft_meta_bridge_get_ops;
++
++	if (tb[NFTA_META_SREG])
++		return &nft_meta_bridge_set_ops;
++
++	return ERR_PTR(-EINVAL);
++}
++
++static struct nft_expr_type nft_meta_bridge_type __read_mostly = {
++	.family         = NFPROTO_BRIDGE,
++	.name           = "meta",
++	.select_ops     = &nft_meta_bridge_select_ops,
++	.policy         = nft_meta_policy,
++	.maxattr        = NFTA_META_MAX,
++	.owner          = THIS_MODULE,
++};
++
++static int __init nft_meta_bridge_module_init(void)
++{
++	return nft_register_expr(&nft_meta_bridge_type);
++}
++
++static void __exit nft_meta_bridge_module_exit(void)
++{
++	nft_unregister_expr(&nft_meta_bridge_type);
++}
++
++module_init(nft_meta_bridge_module_init);
++module_exit(nft_meta_bridge_module_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>");
++MODULE_ALIAS_NFT_AF_EXPR(AF_BRIDGE, "meta");
 -- 
 1.7.10.4
-
