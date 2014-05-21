@@ -1,65 +1,39 @@
-From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-Subject: [PATCH] qlogic: Use time_before()
-Date: Wed, 21 May 2014 19:24:03 +0200
-Message-ID: <1400693043-15786-1-git-send-email-manuel.schoelling@gmx.de>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Default network namespace name
+Date: Wed, 21 May 2014 10:29:47 -0700
+Message-ID: <CAHA+R7OKEri7yaSbbObbqERsoW+yvP0Txerg6iM6bXDtnYXzUw@mail.gmail.com>
+References: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
+	<CAKoUAr=68yxKqmPx8u9bfE8a-_bnonGZw-FcD=p-bw6=OARZ8A@mail.gmail.com>
+	<alpine.BSF.2.00.1405211908090.47766@nic-i.leissner.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-To: shahed.shaikh@qlogic.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Rami Rosen <roszenrami@gmail.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Peter Fassberg <pf@leissner.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:60540 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752796AbaEUR3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 13:29:48 -0400
+Received: by mail-qc0-f173.google.com with SMTP id i8so3632475qcq.4
+        for <netdev@vger.kernel.org>; Wed, 21 May 2014 10:29:47 -0700 (PDT)
+In-Reply-To: <alpine.BSF.2.00.1405211908090.47766@nic-i.leissner.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-To be future-proof and for better readability the time comparisons are =
-modified
-to use time_before() instead of plain, error-prone math.
+On Wed, May 21, 2014 at 10:21 AM, Peter Fassberg <pf@leissner.se> wrote:
+>
+> How does "ip link set" distinguish between PID 1 and a namespace named "1"?
 
-Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c |   10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Looking at the code, it just checks if it's name "1" first, then
+checks if it's a PID:
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/n=
-et/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index 9f3adf4..c2a2ad4 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -630,7 +630,7 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter =
-*adapter)
- 	struct hlist_node *n;
- 	struct hlist_head *head;
- 	int i;
--	unsigned long time;
-+	unsigned long expires;
- 	u8 cmd;
-=20
- 	for (i =3D 0; i < adapter->fhash.fbucket_size; i++) {
-@@ -638,8 +638,8 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter =
-*adapter)
- 		hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
- 			cmd =3D  tmp_fil->vlan_id ? QLCNIC_MAC_VLAN_DEL :
- 						  QLCNIC_MAC_DEL;
--			time =3D tmp_fil->ftime;
--			if (jiffies > (QLCNIC_FILTER_AGE * HZ + time)) {
-+			expires =3D tmp_fil->ftime + QLCNIC_FILTER_AGE * HZ;
-+			if (time_before(expires, jiffies)) {
- 				qlcnic_sre_macaddr_change(adapter,
- 							  tmp_fil->faddr,
- 							  tmp_fil->vlan_id,
-@@ -657,8 +657,8 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter =
-*adapter)
-=20
- 		hlist_for_each_entry_safe(tmp_fil, n, head, fnode)
- 		{
--			time =3D tmp_fil->ftime;
--			if (jiffies > (QLCNIC_FILTER_AGE * HZ + time)) {
-+			expires =3D tmp_fil->ftime + QLCNIC_FILTER_AGE * HZ;
-+			if (time_before(expires, jiffies)) {
- 				spin_lock_bh(&adapter->rx_mac_learn_lock);
- 				adapter->rx_fhash.fnum--;
- 				hlist_del(&tmp_fil->fnode);
---=20
-1.7.10.4
+                        if ((netns = get_netns_fd(*argv)) >= 0)
+                                addattr_l(&req->n, sizeof(*req),
+IFLA_NET_NS_FD, &netns, 4);
+                        else if (get_integer(&netns, *argv, 0) == 0)
+                                addattr_l(&req->n, sizeof(*req),
+IFLA_NET_NS_PID, &netns, 4);
+                        else
+                                invarg("Invalid \"netns\" value\n", *argv);
