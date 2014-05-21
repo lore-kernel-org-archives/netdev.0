@@ -1,81 +1,42 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/25] netfilter: nft_hash: use set global element counter instead of private one
-Date: Wed, 21 May 2014 11:43:03 +0200
-Message-ID: <1400665402-5835-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/25] netfilter: nf_tables: Stack expression type depending on their family
+Date: Wed, 21 May 2014 11:43:06 +0200
+Message-ID: <1400665402-5835-9-git-send-email-pablo@netfilter.org>
 References: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55943 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752056AbaEUJnj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 May 2014 05:43:39 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1400665402-5835-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+From: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 
-Now that nf_tables performs global accounting of set elements, it is not
-needed in the hash type anymore.
+To ensure family tight expression gets selected in priority to family
+agnostic ones.
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_hash.c |    9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ net/netfilter/nf_tables_api.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_hash.c b/net/netfilter/nft_hash.c
-index 01884b3..1dfeb67 100644
---- a/net/netfilter/nft_hash.c
-+++ b/net/netfilter/nft_hash.c
-@@ -28,7 +28,6 @@ struct nft_hash {
- 
- struct nft_hash_table {
- 	unsigned int			size;
--	unsigned int			elements;
- 	struct nft_hash_elem __rcu	*buckets[];
- };
- 
-@@ -167,7 +166,6 @@ static int nft_hash_tbl_expand(const struct nft_set *set, struct nft_hash *priv)
- 			break;
- 		}
- 	}
--	ntbl->elements = tbl->elements;
- 
- 	/* Publish new table */
- 	rcu_assign_pointer(priv->tbl, ntbl);
-@@ -207,7 +205,6 @@ static int nft_hash_tbl_shrink(const struct nft_set *set, struct nft_hash *priv)
- 			;
- 		RCU_INIT_POINTER(*pprev, tbl->buckets[i + ntbl->size]);
- 	}
--	ntbl->elements = tbl->elements;
- 
- 	/* Publish new table */
- 	rcu_assign_pointer(priv->tbl, ntbl);
-@@ -243,10 +240,9 @@ static int nft_hash_insert(const struct nft_set *set,
- 	h = nft_hash_data(&he->key, tbl->size, set->klen);
- 	RCU_INIT_POINTER(he->next, tbl->buckets[h]);
- 	rcu_assign_pointer(tbl->buckets[h], he);
--	tbl->elements++;
- 
- 	/* Expand table when exceeding 75% load */
--	if (tbl->elements > tbl->size / 4 * 3)
-+	if (set->nelems + 1 > tbl->size / 4 * 3)
- 		nft_hash_tbl_expand(set, priv);
- 
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 1c5e633..1d0c174 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1093,7 +1093,10 @@ static void nft_ctx_init(struct nft_ctx *ctx,
+ int nft_register_expr(struct nft_expr_type *type)
+ {
+ 	nfnl_lock(NFNL_SUBSYS_NFTABLES);
+-	list_add_tail(&type->list, &nf_tables_expressions);
++	if (type->family == NFPROTO_UNSPEC)
++		list_add_tail(&type->list, &nf_tables_expressions);
++	else
++		list_add(&type->list, &nf_tables_expressions);
+ 	nfnl_unlock(NFNL_SUBSYS_NFTABLES);
  	return 0;
-@@ -274,10 +270,9 @@ static void nft_hash_remove(const struct nft_set *set,
- 	RCU_INIT_POINTER(*pprev, he->next);
- 	synchronize_rcu();
- 	kfree(he);
--	tbl->elements--;
- 
- 	/* Shrink table beneath 30% load */
--	if (tbl->elements < tbl->size * 3 / 10 &&
-+	if (set->nelems - 1 < tbl->size * 3 / 10 &&
- 	    tbl->size > NFT_HASH_MIN_SIZE)
- 		nft_hash_tbl_shrink(set, priv);
  }
 -- 
 1.7.10.4
+
