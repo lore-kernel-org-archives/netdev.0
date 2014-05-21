@@ -1,62 +1,54 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v8 2/2] can: xilinx CAN controller support.
-Date: Wed, 21 May 2014 13:49:22 +0200
-Message-ID: <537C92C2.4090204@pengutronix.de>
-References: <30fc07d6-4404-4745-8c03-1c5ae775e4f1@BY2FFO11FD047.protection.gbl> <537C8E00.404@pengutronix.de> <72e9a444-0de4-42ce-a9d3-ee247948f0e6@BN1AFFO11FD030.protection.gbl>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [PATCH v8 2/2] can: xilinx CAN controller support.
+Date: Wed, 21 May 2014 11:53:13 +0000
+Message-ID: <e806ce16-917f-473d-9876-d7e85aa95bc7@BN1BFFO11FD029.protection.gbl>
+References: <30fc07d6-4404-4745-8c03-1c5ae775e4f1@BY2FFO11FD047.protection.gbl>
+ <537C8E00.404@pengutronix.de>
+ <72e9a444-0de4-42ce-a9d3-ee247948f0e6@BN1AFFO11FD030.protection.gbl>
+ <537C92C2.4090204@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="DNR1DLrqLF72aeKBiGa0mBXm9n3QBeJOx"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>,
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
 	"wg@grandegger.com" <wg@grandegger.com>,
 	Michal Simek <michals@xilinx.com>,
 	"grant.likely@linaro.org" <grant.likely@linaro.org>,
 	"robh+dt@kernel.org" <robh+dt@kernel.org>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <72e9a444-0de4-42ce-a9d3-ee247948f0e6@BN1AFFO11FD030.protection.gbl>
+In-Reply-To: <537C92C2.4090204@pengutronix.de>
+Content-Language: en-US
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---DNR1DLrqLF72aeKBiGa0mBXm9n3QBeJOx
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 05/21/2014 01:32 PM, Appana Durga Kedareswara Rao wrote:
-> Hi Marc,
->=20
->         Yes for DT-bindings Rob already had given ack.
-> Sorry I forgot to add the Acked-by line in that patch.
-
-You mean Rob Herring?
-
-    Acked-by: Rob Herring <robh@kernel.org>
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---DNR1DLrqLF72aeKBiGa0mBXm9n3QBeJOx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlN8ksIACgkQjTAFq1RaXHN0HACfVSSVOynmlG2+7ugv7JzDXJYD
-4ksAnAu/Rjweh8kDN16NLVg8uYAw0QOH
-=/3Pv
------END PGP SIGNATURE-----
-
---DNR1DLrqLF72aeKBiGa0mBXm9n3QBeJOx--
+SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
+ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5
+LCBNYXkgMjEsIDIwMTQgNToxOSBQTQ0KPiBUbzogQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJh
+bzsgd2dAZ3JhbmRlZ2dlci5jb207IE1pY2hhbCBTaW1lazsNCj4gZ3JhbnQubGlrZWx5QGxpbmFy
+by5vcmc7IHJvYmgrZHRAa2VybmVsLm9yZw0KPiBDYzogbGludXgtY2FuQHZnZXIua2VybmVsLm9y
+ZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtYXJtLQ0KPiBrZXJuZWxAbGlzdHMuaW5m
+cmFkZWFkLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0OiBSZTog
+W1BBVENIIHY4IDIvMl0gY2FuOiB4aWxpbnggQ0FOIGNvbnRyb2xsZXIgc3VwcG9ydC4NCj4NCj4g
+T24gMDUvMjEvMjAxNCAwMTozMiBQTSwgQXBwYW5hIER1cmdhIEtlZGFyZXN3YXJhIFJhbyB3cm90
+ZToNCj4gPiBIaSBNYXJjLA0KPiA+DQo+ID4gICAgICAgICBZZXMgZm9yIERULWJpbmRpbmdzIFJv
+YiBhbHJlYWR5IGhhZCBnaXZlbiBhY2suDQo+ID4gU29ycnkgSSBmb3Jnb3QgdG8gYWRkIHRoZSBB
+Y2tlZC1ieSBsaW5lIGluIHRoYXQgcGF0Y2guDQo+DQo+IFlvdSBtZWFuIFJvYiBIZXJyaW5nPw0K
+Pg0KDQpZZXMgUm9iIEhlcnJpbmcuDQpJbiB0aGUgdmVyc2lvbiA1IHBhdGNoIGhlIGhhZCBnaXZl
+biB0aGUgYWNrLg0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4gICAgIEFja2VkLWJ5OiBSb2IgSGVy
+cmluZyA8cm9iaEBrZXJuZWwub3JnPg0KPg0KPiBNYXJjDQo+IC0tDQo+IFBlbmd1dHJvbml4IGUu
+Sy4gICAgICAgICAgICAgICAgICB8IE1hcmMgS2xlaW5lLUJ1ZGRlICAgICAgICAgICB8DQo+IElu
+ZHVzdHJpYWwgTGludXggU29sdXRpb25zICAgICAgICB8IFBob25lOiArNDktMjMxLTI4MjYtOTI0
+ICAgICB8DQo+IFZlcnRyZXR1bmcgV2VzdC9Eb3J0bXVuZCAgICAgICAgICB8IEZheDogICArNDkt
+NTEyMS0yMDY5MTctNTU1NSB8DQo+IEFtdHNnZXJpY2h0IEhpbGRlc2hlaW0sIEhSQSAyNjg2ICB8
+IGh0dHA6Ly93d3cucGVuZ3V0cm9uaXguZGUgICB8DQoNCg0KDQpUaGlzIGVtYWlsIGFuZCBhbnkg
+YXR0YWNobWVudHMgYXJlIGludGVuZGVkIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhlIG5hbWVkIHJl
+Y2lwaWVudChzKSBhbmQgY29udGFpbihzKSBjb25maWRlbnRpYWwgaW5mb3JtYXRpb24gdGhhdCBt
+YXkgYmUgcHJvcHJpZXRhcnksIHByaXZpbGVnZWQgb3IgY29weXJpZ2h0ZWQgdW5kZXIgYXBwbGlj
+YWJsZSBsYXcuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGllbnQsIGRvIG5vdCBy
+ZWFkLCBjb3B5LCBvciBmb3J3YXJkIHRoaXMgZW1haWwgbWVzc2FnZSBvciBhbnkgYXR0YWNobWVu
+dHMuIERlbGV0ZSB0aGlzIGVtYWlsIG1lc3NhZ2UgYW5kIGFueSBhdHRhY2htZW50cyBpbW1lZGlh
+dGVseS4NCg0K
