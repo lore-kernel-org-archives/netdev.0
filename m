@@ -1,96 +1,71 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH V8 net-next 0/6] xen-net{back,
- front}: Multiple transmit and receive queues
-Date: Wed, 21 May 2014 14:42:47 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD0380FD1@AMSPEX01CL01.citrite.net>
-References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com>
-	<526369072.20140514160923@eikelenboom.it>
-	<20140514141347.GR6332@zion.uk.xensource.com>
-	<53739757.5060905@citrix.com>
-	<1296806729.20140514203719@eikelenboom.it>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next 1/2] net: Expose header length compution function
+Date: Wed, 21 May 2014 08:03:58 -0700
+Message-ID: <537CC05E.6030705@intel.com>
+References: <1399553434-25617-1-git-send-email-amirv@mellanox.com>			<1399553434-25617-2-git-send-email-amirv@mellanox.com>		 <20140509.162454.1317479460010270185.davem@davemloft.net>		 <536E5DF4.8010908@gmail.com>	 <1399744197.7973.11.camel@edumazet-glaptop2.roam.corp.google.com>	 <536E9FE7.6060809@gmail.com> <1400533291.5367.67.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, Ian Campbell <Ian.Campbell@citrix.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	Andrew Bennieston <andrew.bennieston@citrix.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1296806729.20140514203719@eikelenboom.it>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, amirv@mellanox.com,
+	netdev@vger.kernel.org, idos@mellanox.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:13564 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751033AbaEUPFs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 11:05:48 -0400
+In-Reply-To: <1400533291.5367.67.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sander Eikelenboom [mailto:linux@eikelenboom.it]
-> Sent: 14 May 2014 19:37
-> To: Andrew Bennieston
-> Cc: Wei Liu; xen-devel@lists.xenproject.org; davem@davemloft.net; Ian
-> Campbell; netdev@vger.kernel.org; Paul Durrant; David Vrabel; Zoltan Kiss
-> Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}:
-> Multiple transmit and receive queues
+On 05/19/2014 02:01 PM, Eric Dumazet wrote:
+> On Sat, 2014-05-10 at 14:53 -0700, Alexander Duyck wrote:
 > 
+>> I'm more of a fan of purpose built functions in hot-path.  In the case
+>> of skb_flow_dissect, it is meant to collect the inputs for a Jenkins
+>> hash.
 > 
-> Wednesday, May 14, 2014, 6:18:31 PM, you wrote:
+> Not really.
 > 
-> > On 14/05/14 15:13, Wei Liu wrote:
-> >> On Wed, May 14, 2014 at 04:09:23PM +0200, Sander Eikelenboom wrote:
-> >>>
-> >>> Wednesday, May 14, 2014, 3:52:24 PM, you wrote:
-> >>>
-> >>>> This patch series implements multiple transmit and receive queues (i.e.
-> >>>> multiple shared rings) for the xen virtual network interfaces.
-> >>>
-> >>>> The series is split up as follows:
-> >>>>   - Patch 1 brings the 'grant_copy_op' array back into struct xenvif, in
-> >>>>     preparation for multi-queue support. See the patch itself for more
-> details.
-> >>>> - Patches 2 and 4 factor out the queue-specific data for netback and
-> >>>>    netfront respectively, and modify the rest of the code to use these
-> >>>>    as appropriate.
-> >>>> - Patches 3 and 5 introduce new XenStore keys to negotiate and use
-> >>>>    multiple shared rings and event channels, and code to connect these
-> >>>>    as appropriate.
-> >>>> - Patch 6 documents the XenStore keys required for the new feature
-> >>>>    in include/xen/interface/io/netif.h
-> >>>
-> >>>> All other transmit and receive processing remains unchanged, i.e. there
-> >>>> is a kthread per queue and a NAPI context per queue.
-> >>>
-> >>>> The performance of these patches has been analysed in detail, with
-> >>>> results available at:
-> >>>
-> >>> <snip>
-> >>>
-> >>> Would it be possible to also put these somewhere in a tree (or branch of
-> the
-> >>> xen-tree), so it is more easy to pull and test ?
-> >>>
-> >>
-> >> I cannot speak for Andrew. FWIW you can save this thread and use 'git
-> >> am' to apply them to 'net-next'.
-> >>
-> >> Wei.
+> And having multiple flow dissectors is really a lot of trouble for us,
+> and contributes to code bloat.
 > 
-> > I don't currently have a public-facing git repo for this. If you'd
-> > prefer I can send you the patches directly in a tarball, which you may
-> > be able to apply more easily than grabbing them from email threads?
-> 
-> Got the patches from the thread .. but as i expected they interfere with
-> Zoltan's v3 fix for 3.15.
+>>   If we also expand it to get the length my concern is that it may
+>> do both, but it won't be very efficient at doing either, and that
+>> doesn't even take into account that somebody at some point might want
+>> the flow dissector to not do things like coalesce IPv6 addresses to
+>> support things like a Toeplitz hash which would slow things down further.
+>>
+>> I can wait for the patch. I don't really see what you're talking about
+>> since we are trying to linearize the header portion of the buffers and
+>> for jumbos frames all 2K of the buffer has been used so you can't do any
+>> tricks like use a paged frag for the head.
 > 
 
-I realize there will be conflict when Zoli's patch (for net) and these patches (for net-next) come together, but I don't see these in the patchworks queue at all. Did they get lost somewhere?
+So it looks like you did kind of what I expected you would, only you
+allocated a temporary sk_buff on the stack and then pointed the head to
+the start of the page.  I'm not really a fan of this approach though it
+does give me a couple ideas.
 
-  Paul
+One thought I just had though, what if we were to do something like
+create an eth_build_skb function?  It would essentially be a cross
+between eth_type_trans, your new eth_frame_headlen function, and
+build_skb.  It would allow us to avoid the unnecessary allocation of an
+skb on the stack and avoid any unnecessary data duplication since we
+already would be doing a number of the eth_type_trans steps in your
+eth_frame_headlen function.  The one limitation is that we would need to
+allocate a block of memory for the head, but that would be done after we
+figure out what the size of the header is.
+
+If I get a chance I might try coding it up on Friday to see what
+something like that might look like.
+
+Thanks,
+
+Alex
