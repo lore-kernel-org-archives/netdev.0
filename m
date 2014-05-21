@@ -1,72 +1,167 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: Default network namespace name
-Date: Wed, 21 May 2014 19:51:10 +0300
-Message-ID: <CAKoUAr=68yxKqmPx8u9bfE8a-_bnonGZw-FcD=p-bw6=OARZ8A@mail.gmail.com>
-References: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Peter Fassberg <pf@leissner.se>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] bonding: Send ALB learning packets using the right source
+Date: Wed, 21 May 2014 13:19:48 -0400
+Message-ID: <1400692788-26995-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:43714 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752239AbaEUQvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 12:51:11 -0400
-Received: by mail-qg0-f48.google.com with SMTP id i50so3633752qgf.7
-        for <netdev@vger.kernel.org>; Wed, 21 May 2014 09:51:11 -0700 (PDT)
-In-Reply-To: <alpine.BSF.2.00.1405210826570.47766@nic-i.leissner.se>
+Received: from mx1.redhat.com ([209.132.183.28]:55214 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750798AbaEURTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 May 2014 13:19:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+ALB learning packets are currentlyalways sent using the slave mac
+address for all vlans configured on top of bond.   This is not always
+correct, as vlans may change their mac address.
+This patch introduced a concept of strict matching where the
+source of learning packets can either strictly match the address
+passed in, or it can determine a more correct address to use.
 
-The default, initial network namespace does not have a name. In fact,
-according to the kernel implementation, all namespaces (and in
-particular, the network namespace) do not have names. The names of the
-network namespaces are created and deleted by the userspace "ip netns"
-command.
+There are 3 casese to consider:
+  1) Switchover.  In this case, we have a new active slave and we need
+     tell the switch about all addresses available on the slave.
+  2) Monitor.  We'll periodically refresh learning info for all slaves.
+     In this case, we refresh all addresses for current active, and just
+     the slave address for other slaves.
+  3) Teaching of disabled adddress.  This happens as part of the
+     failover and in this case, we alwyas to use just the address
+     provided.
 
-You can move network interfaces to the initial namespace using pid 1,
-for example:
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c | 49 ++++++++++++++++++++++++++++++------------
+ 1 file changed, 35 insertions(+), 14 deletions(-)
 
-ip netns add myns2
-ip link set p4p1 netns myns2
-
-#start bash in myns2
-ip nents exec myns2 bash
-
-#move p4p1 from myns2 to the default network namespace
-
-ip link set p4p1 netns 1
-
-Regards,
-Rami Rosen
-
-http://ramirose.wix.com/ramirosen
-
-
-On Wed, May 21, 2014 at 9:36 AM, Peter Fassberg <pf@leissner.se> wrote:
->
-> Hi!
->
-> Is there a name of the default network namespace?
->
-> I would like to execute a command in the default network namespace while
-> running a shell in a non-default namespace.
->
-> Like this: ip netns exec "" ip link
-> Or this:   ip netns exec . ip link
->
-> That command end up with a mis-spelled error message: :)
-> seting the network namespace "" failed: Invalid argument
->
->
->
-> Regards,
->
-> Peter
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 2ec945c..93580a4 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -82,7 +82,8 @@ static inline struct arp_pkt *arp_pkt(const struct sk_buff *skb)
+ }
+ 
+ /* Forward declaration */
+-static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[]);
++static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
++				      bool strict_match);
+ static void rlb_purge_src_ip(struct bonding *bond, struct arp_pkt *arp);
+ static void rlb_src_unlink(struct bonding *bond, u32 index);
+ static void rlb_src_link(struct bonding *bond, u32 ip_src_hash,
+@@ -459,7 +460,7 @@ static void rlb_teach_disabled_mac_on_primary(struct bonding *bond, u8 addr[])
+ 
+ 	bond->alb_info.rlb_promisc_timeout_counter = 0;
+ 
+-	alb_send_learning_packets(bond->curr_active_slave, addr);
++	alb_send_learning_packets(bond->curr_active_slave, addr, true);
+ }
+ 
+ /* slave being removed should not be active at this point
+@@ -1032,8 +1033,8 @@ static void alb_send_lp_vid(struct slave *slave, u8 mac_addr[],
+ 	dev_queue_xmit(skb);
+ }
+ 
+-
+-static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
++static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[],
++				      bool strict_match)
+ {
+ 	struct bonding *bond = bond_get_bond_by_slave(slave);
+ 	struct net_device *upper;
+@@ -1045,10 +1046,19 @@ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
+ 	/* loop through vlans and send one packet for each */
+ 	rcu_read_lock();
+ 	netdev_for_each_all_upper_dev_rcu(bond->dev, upper, iter) {
+-		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0)
+-			alb_send_lp_vid(slave, mac_addr,
+-					vlan_dev_vlan_proto(upper),
+-					vlan_dev_vlan_id(upper));
++		if (is_vlan_dev(upper) && vlan_get_encap_level(upper) == 0) {
++			if (strict_match &&
++			    ether_addr_equal_64bits(mac_addr,
++						    upper->dev_addr)) {
++				alb_send_lp_vid(slave, mac_addr,
++						vlan_dev_vlan_proto(upper),
++						vlan_dev_vlan_id(upper));
++			} else if (!strict_match) {
++				alb_send_lp_vid(slave, upper->dev_addr,
++						vlan_dev_vlan_proto(upper),
++						vlan_dev_vlan_id(upper));
++			}
++		}
+ 	}
+ 	rcu_read_unlock();
+ }
+@@ -1108,7 +1118,7 @@ static void alb_fasten_mac_swap(struct bonding *bond, struct slave *slave1,
+ 
+ 	/* fasten the change in the switch */
+ 	if (SLAVE_IS_OK(slave1)) {
+-		alb_send_learning_packets(slave1, slave1->dev->dev_addr);
++		alb_send_learning_packets(slave1, slave1->dev->dev_addr, false);
+ 		if (bond->alb_info.rlb_enabled) {
+ 			/* inform the clients that the mac address
+ 			 * has changed
+@@ -1120,7 +1130,7 @@ static void alb_fasten_mac_swap(struct bonding *bond, struct slave *slave1,
+ 	}
+ 
+ 	if (SLAVE_IS_OK(slave2)) {
+-		alb_send_learning_packets(slave2, slave2->dev->dev_addr);
++		alb_send_learning_packets(slave2, slave2->dev->dev_addr, false);
+ 		if (bond->alb_info.rlb_enabled) {
+ 			/* inform the clients that the mac address
+ 			 * has changed
+@@ -1491,6 +1501,8 @@ void bond_alb_monitor(struct work_struct *work)
+ 
+ 	/* send learning packets */
+ 	if (bond_info->lp_counter >= BOND_ALB_LP_TICKS(bond)) {
++		bool strict_match;
++
+ 		/* change of curr_active_slave involves swapping of mac addresses.
+ 		 * in order to avoid this swapping from happening while
+ 		 * sending the learning packets, the curr_slave_lock must be held for
+@@ -1498,8 +1510,15 @@ void bond_alb_monitor(struct work_struct *work)
+ 		 */
+ 		read_lock(&bond->curr_slave_lock);
+ 
+-		bond_for_each_slave_rcu(bond, slave, iter)
+-			alb_send_learning_packets(slave, slave->dev->dev_addr);
++		bond_for_each_slave_rcu(bond, slave, iter) {
++			/* If updating current_active, use all currently
++			 * user mac addreses (!strict_match).  Otherwise, only
++			 * use mac of the slave device.
++			 */
++			strict_match = (slave != bond->curr_active_slave);
++			alb_send_learning_packets(slave, slave->dev->dev_addr,
++						  strict_match);
++		}
+ 
+ 		read_unlock(&bond->curr_slave_lock);
+ 
+@@ -1722,7 +1741,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	} else {
+ 		/* set the new_slave to the bond mac address */
+ 		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
+-		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
++		alb_send_learning_packets(new_slave, bond->dev->dev_addr,
++					  false);
+ 	}
+ 
+ 	write_lock_bh(&bond->curr_slave_lock);
+@@ -1765,7 +1785,8 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr);
+ 
+ 		read_lock(&bond->lock);
+-		alb_send_learning_packets(bond->curr_active_slave, bond_dev->dev_addr);
++		alb_send_learning_packets(bond->curr_active_slave,
++					  bond_dev->dev_addr, false);
+ 		if (bond->alb_info.rlb_enabled) {
+ 			/* inform clients mac address has changed */
+ 			rlb_req_update_slave_clients(bond, bond->curr_active_slave);
+-- 
+1.9.0
