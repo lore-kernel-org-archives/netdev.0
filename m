@@ -1,39 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] mac802154: llsec:
- correctly lookup implicit-indexed keys
-Date: Thu, 22 May 2014 15:28:19 -0400 (EDT)
-Message-ID: <20140522.152819.624108006079266322.davem@davemloft.net>
-References: <1400601091-26366-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] genirq: Eliminate explicit dependency between
+ IRQ affinity notifiers and CONFIG_SMP
+Date: Thu, 22 May 2014 15:28:08 -0400 (EDT)
+Message-ID: <20140522.152808.802269502342645717.davem@davemloft.net>
+References: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1400601091-26366-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: tglx@linutronix.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com, eyalpe@mellanox.com
+To: amirv@mellanox.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Date: Tue, 20 May 2014 17:51:31 +0200
+From: Amir Vadai <amirv@mellanox.com>
+Date: Tue, 20 May 2014 17:57:00 +0300
 
-> Key id comparison for type 1 keys (implicit source, with index) should
-> return true if mode and id are equal, not false.
+> From: Eyal Perry <eyalpe@mellanox.com>
 > 
-> Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+> Instead of requiring each consumer of the IRQ affinity notifier to have
+> themselves be explicitly dependent on CONFIG_SMP, make the definition of
+> struct irq_affinity_notify to exist independently of that config option
+> and introduce a stub for irq_set_affinity_notifier() under non SMP
+> configuration.
+> 
+> Fixes: 2eacc23 ("net/mlx4_core: Enforce irq affinity changes
+> immediatly")
+> 
+> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-Applied, thanks.
+IRQ layer folks please review and push upstream if there aren't any
+problems.
 
-------------------------------------------------------------------------------
-"Accelerate Dev Cycles with Automated Cross-Browser Testing - For FREE
-Instantly run your Selenium tests across 300+ browser/OS combos.
-Get unparalleled scalability from the best Selenium testing platform available
-Simple to use. Nothing to install. Get started now for free."
-http://p.sf.net/sfu/SauceLabs
+Thanks.
