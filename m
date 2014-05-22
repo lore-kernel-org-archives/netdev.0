@@ -1,37 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-next] net/dccp/timer.c: use 'u64' instead of
- 's64' to avoid compiler's warning
-Date: Thu, 22 May 2014 15:33:13 -0400 (EDT)
-Message-ID: <20140522.153313.958087444510569794.davem@davemloft.net>
-References: <537BF116.9000900@gmail.com>
+Subject: Re: bridge: multicast snooping patches / exports
+Date: Thu, 22 May 2014 15:37:42 -0400 (EDT)
+Message-ID: <20140522.153742.1822151259317153775.davem@davemloft.net>
+References: <1400662742-31999-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: gerrit@erg.abdn.ac.uk, gxt@mprc.pku.edu.cn, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gang.chen.5i5j@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537BF116.9000900@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1400662742-31999-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQ2hlbiBHYW5nIDxnYW5nLmNoZW4uNWk1akBnbWFpbC5jb20+DQpEYXRlOiBXZWQsIDIx
-IE1heSAyMDE0IDA4OjE5OjM0ICswODAwDQoNCj4gJ2RjY3BfdGltZXN0YW1wX3NlZWQnIGlzIGlu
-aXRpYWxpemVkIG9uY2UgYnkga3RpbWVfZ2V0X3JlYWwoKSBpbg0KPiBkY2NwX3RpbWVzdGFtcGlu
-Z19pbml0KCkuIEl0IGlzIGFsd2F5cyBsZXNzIHRoYW4ga3RpbWVfZ2V0X3JlYWwoKQ0KPiBpbiBk
-Y2NwX3RpbWVzdGFtcCgpLg0KPiANCj4gVGhlbiwga3RpbWVfdXNfZGVsdGEoKSBpbiBkY2NwX3Rp
-bWVzdGFtcCgpIHdpbGwgYWx3YXlzIHJldHVybiBwb3NpdGl2ZQ0KPiBudW1iZXIuIFNvIGNhbiB1
-c2UgbWFudWFsIHR5cGUgY2FzdCB0byBsZXQgY29tcGlsZXIgYW5kIGRvX2RpdigpIGtub3cNCj4g
-YWJvdXQgaXQgdG8gYXZvaWQgd2FybmluZy4NCj4gDQo+IFRoZSByZWxhdGVkIHdhcm5pbmcgKHdp
-dGggYWxsbW9kY29uZmlnIHVuZGVyIHVuaWNvcmUzMik6DQo+IA0KPiAgICAgQ0MgW01dICBuZXQv
-ZGNjcC90aW1lci5vDQo+ICAgbmV0L2RjY3AvdGltZXIuYzogSW4gZnVuY3Rpb24goWRjY3BfdGlt
-ZXN0YW1wojoNCj4gICBuZXQvZGNjcC90aW1lci5jOjI4NTogd2FybmluZzogY29tcGFyaXNvbiBv
-ZiBkaXN0aW5jdCBwb2ludGVyIHR5cGVzIGxhY2tzIGEgY2FzdA0KPiANCj4gDQo+IFNpZ25lZC1v
-ZmYtYnk6IENoZW4gR2FuZyA8Z2FuZy5jaGVuLjVpNWpAZ21haWwuY29tPg0KDQpBcHBsaWVkIHRv
-IG5ldC1uZXh0LCB0aGFua3MuDQoNCkJ1dCB0aGF0IHR5cGUgY2hlY2sgaW4gaW5jbHVkZS9hc20t
-Z2VuZXJpYy9kaXY2NC5oIGlzIGJvZ3VzLCBpdCBzaG91bGQNCmJlIGNoZWNraW5nIHNpemVvZihY
-KSA9PSA4IHJhdGhlciB0aGFuIHRoZSB0eXBlIHRoaW5nLCBpdCBqdXN0IHdhbnRzIHRvDQptYWtl
-IHN1cmUgdGhhdCB0aGUgdmFsdWUgaXMgNjQtYml0IHJlZ2FyZGxlc3Mgb2YgaXQncyBzaWduZWRu
-ZXNzLg0KDQpUaGUgYXJjaCBsb2NhbCBpbXBsZW1lbnRhdGlvbnMgZG8gbm90IGRvIHRoaXMsIGFu
-ZCB0aGF0J3Mgd2h5IHZlcnkgZmV3DQpvdGhlciBwZW9wbGUgbm90aWNlIHRoaXMgd2FybmluZy4N
-Cg==
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Wed, 21 May 2014 10:58:58 +0200
+
+> These two patches are exporting functionality needed to marry the bri=
+dge
+> multicast snooping with the batman-adv multicast optimizations recent=
+ly
+> added for the 3.15 kernel, allowing to use these optimzations in comm=
+on
+> setups having a bridge on top of e.g. bat0, too. So far these bridged=
+
+> setups would fall back to simple flooding through the batman-adv mesh=
+
+> network for any multicast packet entering bat0.
+> =
+
+> More information about the batman-adv multicast optimizations current=
+ly
+> implemented can be found here:
+> =
+
+> http://www.open-mesh.org/projects/batman-adv/wiki/Basic-multicast-opt=
+imizations
+> =
+
+> The integration on the batman-adv side could afterwards look like thi=
+s,
+> for instance:
+> =
+
+> http://git.open-mesh.org/batman-adv.git/commitdiff/576b59dd3e34737c70=
+2e548b21fa72059262f796?hp=3Df95ce7131746c65fbcdffcf2089cab59e2c2f7ac
+
+I'd really like to see some feedback from bridge folks before applying
+this, thanks.
