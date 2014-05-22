@@ -1,51 +1,50 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 20:07:41 +0100
-Message-ID: <537E4AFD.20304@mentor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/3] net: device features handling fixes
+Date: Thu, 22 May 2014 15:07:57 -0400 (EDT)
+Message-ID: <20140522.150757.314142708479740813.davem@davemloft.net>
+References: <20140507.140846.1449010184057650775.davem@davemloft.net>
+	<cover.1400565116.git.mkubecek@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <kamal@canonical.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
-To: <linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net, jiri@resnulli.us,
+	mirq-linux@rere.qmqm.pl
+To: mkubecek@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41479 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752653AbaEVTIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:08:00 -0400
+In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, I was hoping you can help me with some questions.
+From: Michal Kubecek <mkubecek@suse.cz>
+Date: Tue, 20 May 2014 08:29:15 +0200 (CEST)
 
-I have been investigating a network issue with bursts of network traffic
-over USB CDC-NCM, the issue is that the kernel is dropping packets
-because sk_rcvqueues_full() returns true due to skb2->truesize is always
-32960 instead of SKB_TRUESIZE(skb2->len) which is about 1800.
+>> I think we need to think more about what exact behavior is desired in
+>> mixed csum feature set cases.  Probably whatever csum offload type is
+>> the most prevelant should be the one advertised by the master.  It
+>> means we will do that software checksum fixup for the oddball slaves,
+>> but it seems the best we can do.
+> 
+> I've been thinking about it some more and I believe what I proposed is
+> correct: features that are or-ed (ONE_FOR_ALL) should start with 0,
+> those which are and-ed (ALL_FOR_ALL) with 1.
+> 
+> But once we do that, we have to fix another problem in vlan module:
+> features of a vlan device are mostly computed as bitwise AND of features
+> and vlan_features of its underlying device. The problem is checksumming
+> features don't really behave like independent flags as their main
+> purpose is to be used in can_checksum_protocol() whose logic is that
+> HW_CSUM (GEN_CSUM) means "can checksum everything" so that it kind of
+> contains IP(V6)_CSUM functionality. Therefore intersection of HW_CSUM
+> and IP(V6)_CSUM should result in the latter.
+> 
+> An alternative approach would be to always set IP(V6)_CSUM once HW_CSUM
+> (any of GEN_CSUM) is set but as for long time people were taught not to
+> do that and we even have a warning for it, switching to the exact
+> opposite could cause a lot of problems.
 
-The code I am trying to fix is this code below, it is splitting a set of
-multiple network packets compressed into a single 16k packet into
-individual skb's and sending them up the network stack.
-
-    skb2 = skb_clone(skb, GFP_ATOMIC);
-    if (skb2 == NULL)
-        goto err;
-
-    if (!skb_pull(skb2, index)) {
-        ret = -EOVERFLOW;
-        goto err;
-    }
-
-    skb_trim(skb2, dg_len - crc_len);
-
-My questions are:
-
-1) Which buffer size does truesize represent, is it the total buffer or
-just the data related to the relevant skb?
-
-2) If truesize is for the skb it is contained within should it be
-updated during the call to skb_trim?
-
-3) Why does the truesize default to 32960?
-
-
-Thank you for any help,
-Jim Baxter.
+Ok, looks good, series applied to net-next, thanks.
