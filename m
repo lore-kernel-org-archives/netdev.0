@@ -1,42 +1,50 @@
 From: Jim Baxter <jim_baxter@mentor.com>
 Subject: Re: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 21:21:33 +0100
-Message-ID: <537E5C4D.4040209@mentor.com>
-References: <537E4AFD.20304@mentor.com> <537E4F29.9080103@gmail.com>	 <537E526F.8060608@mentor.com> <1400788778.5367.163.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Thu, 22 May 2014 21:21:55 +0100
+Message-ID: <537E5C63.7080607@mentor.com>
+References: <537E4AFD.20304@mentor.com> <20140522.152146.2116142050088142989.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, <linux-usb@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <kamal@canonical.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <kamal@canonical.com>,
+	<bhutchings@solarflare.com>, <edumazet@google.com>,
+	<mszeredi@suse.cz>, <fw@strlen.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400788778.5367.163.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <20140522.152146.2116142050088142989.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22/05/14 20:59, Eric Dumazet wrote:
-> On Thu, 2014-05-22 at 20:39 +0100, Jim Baxter wrote:
+On 22/05/14 20:21, David Miller wrote:
+> From: Jim Baxter <jim_baxter@mentor.com>
+> Date: Thu, 22 May 2014 20:07:41 +0100
 > 
->> I now think that the correct solution here is to create a new smaller
->> skb and copy the data from the sub packets into it.
+>> My questions are:
+>>
+>> 1) Which buffer size does truesize represent, is it the total buffer or
+>> just the data related to the relevant skb?
+>>
+>> 2) If truesize is for the skb it is contained within should it be
+>> updated during the call to skb_trim?
+>>
+>> 3) Why does the truesize default to 32960?
 > 
-> For low speed devices, this is indeed the best way.
+> skb->truesize represents the total amount of memory that the SKB
+> is holding up.
 > 
-> (this is called copybreak in some nic drivers)
+> This is the size of the sk_buff metadata plus all of the buffer
+> memory.
 > 
+> For example, if the buffer is using 16K buffer yet only 1500 of it is
+> actually used for the packet, 16K is what should be plugged into the
+> equation to compute truesize.
 > 
+> Otherwise it would be easy to compromise a system by sending lots of 1
+> byte packets to a socket, even though the actual memory consumed by
+> that "1 byte" packet is significantly larger.
 > 
-Thank you Eric.
 
-It is USB device that can handle 480Mbits/s so a middle speed device.
-
-It looks like it is the normal trade off of speed versus memory. Either
-I can use skb_clone for speed but that will impact memory with multiple
-skb's of 16k or I copy the data to keep the memory usage low. Though
-copying 2k of data into an skb will not likely be a massive overhead.
-
-Jim
+OK, so it is the value of the memory that has been allocated for the SKB.
+If there are multiple clones for an skb all pointing at the same data,
+will that distort the memory used when they all have the same truesize?
