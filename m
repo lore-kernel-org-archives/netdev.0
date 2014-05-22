@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 2/9] Documentation: devicetree: net: refer to fixed-link.txt
-Date: Thu, 22 May 2014 09:47:44 -0700
-Message-ID: <1400777271-32199-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 8/9] of: mdio: remove of_phy_connect_fixed_link
+Date: Thu, 22 May 2014 09:47:50 -0700
+Message-ID: <1400777271-32199-9-git-send-email-f.fainelli@gmail.com>
 References: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
@@ -22,61 +22,94 @@ In-Reply-To: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Update the Freescale TSEC PHY, Broadcom GENET & SYSTEMPORT Device Tree
-binding documentation to refer to the fixed-link Device Tree binding in
-fixed-link.txt.
+All in-tree drivers have been converted to use the new pair of
+functions: of_is_fixed_phy_link() plus of_phy_register_fixed_link(), we
+can now safely remove of_phy_connect_fixed_link.
 
-Reviewed-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 No changes in v2
 
- Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt   | 2 +-
- Documentation/devicetree/bindings/net/broadcom-systemport.txt | 2 +-
- Documentation/devicetree/bindings/net/fsl-tsec-phy.txt        | 5 +----
- 3 files changed, 3 insertions(+), 6 deletions(-)
+ drivers/of/of_mdio.c    | 38 --------------------------------------
+ include/linux/of_mdio.h | 10 ----------
+ 2 files changed, 48 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-index f2febb94550e..451fef26b4df 100644
---- a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-+++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
-@@ -24,7 +24,7 @@ Optional properties:
- - fixed-link: When the GENET interface is connected to a MoCA hardware block or
-   when operating in a RGMII to RGMII type of connection, or when the MDIO bus is
-   voluntarily disabled, this property should be used to describe the "fixed link".
--  See Documentation/devicetree/bindings/net/fsl-tsec-phy.txt for information on
-+  See Documentation/devicetree/bindings/net/fixed-link.txt for information on
-   the property specifics
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 1def0bb5cb37..4c1e01ed16dc 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -246,44 +246,6 @@ struct phy_device *of_phy_connect(struct net_device *dev,
+ EXPORT_SYMBOL(of_phy_connect);
  
- Required child nodes:
-diff --git a/Documentation/devicetree/bindings/net/broadcom-systemport.txt b/Documentation/devicetree/bindings/net/broadcom-systemport.txt
-index 1b7600e022dd..c183ea90d9bc 100644
---- a/Documentation/devicetree/bindings/net/broadcom-systemport.txt
-+++ b/Documentation/devicetree/bindings/net/broadcom-systemport.txt
-@@ -8,7 +8,7 @@ Required properties:
- - local-mac-address: Ethernet MAC address (48 bits) of this adapter
- - phy-mode: Should be a string describing the PHY interface to the
-   Ethernet switch/PHY, see Documentation/devicetree/bindings/net/ethernet.txt
--- fixed-link: see Documentation/devicetree/bindings/net/fsl-tsec-phy.txt for
-+- fixed-link: see Documentation/devicetree/bindings/net/fixed-link.txt for
-   the property specific details
+ /**
+- * of_phy_connect_fixed_link - Parse fixed-link property and return a dummy phy
+- * @dev: pointer to net_device claiming the phy
+- * @hndlr: Link state callback for the network device
+- * @iface: PHY data interface type
+- *
+- * This function is a temporary stop-gap and will be removed soon.  It is
+- * only to support the fs_enet, ucc_geth and gianfar Ethernet drivers.  Do
+- * not call this function from new drivers.
+- */
+-struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+-					     void (*hndlr)(struct net_device *),
+-					     phy_interface_t iface)
+-{
+-	struct device_node *net_np;
+-	char bus_id[MII_BUS_ID_SIZE + 3];
+-	struct phy_device *phy;
+-	const __be32 *phy_id;
+-	int sz;
+-
+-	if (!dev->dev.parent)
+-		return NULL;
+-
+-	net_np = dev->dev.parent->of_node;
+-	if (!net_np)
+-		return NULL;
+-
+-	phy_id = of_get_property(net_np, "fixed-link", &sz);
+-	if (!phy_id || sz < sizeof(*phy_id))
+-		return NULL;
+-
+-	sprintf(bus_id, PHY_ID_FMT, "fixed-0", be32_to_cpu(phy_id[0]));
+-
+-	phy = phy_connect(dev, bus_id, hndlr, iface);
+-	return IS_ERR(phy) ? NULL : phy;
+-}
+-EXPORT_SYMBOL(of_phy_connect_fixed_link);
+-
+-/**
+  * of_phy_attach - Attach to a PHY without starting the state machine
+  * @dev: pointer to net_device claiming the phy
+  * @phy_np: Node pointer for the PHY
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+index 0aa367e316cb..d449018d0726 100644
+--- a/include/linux/of_mdio.h
++++ b/include/linux/of_mdio.h
+@@ -22,9 +22,6 @@ extern struct phy_device *of_phy_connect(struct net_device *dev,
+ struct phy_device *of_phy_attach(struct net_device *dev,
+ 				 struct device_node *phy_np, u32 flags,
+ 				 phy_interface_t iface);
+-extern struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+-					 void (*hndlr)(struct net_device *),
+-					 phy_interface_t iface);
  
- Optional properties:
-diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-index 737cdef4f903..be6ea8960f20 100644
---- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
-@@ -42,10 +42,7 @@ Properties:
-     interrupt.  For TSEC and eTSEC devices, the first interrupt is
-     transmit, the second is receive, and the third is error.
-   - phy-handle : See ethernet.txt file in the same directory.
--  - fixed-link : <a b c d e> where a is emulated phy id - choose any,
--    but unique to the all specified fixed-links, b is duplex - 0 half,
--    1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
--    pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
-+  - fixed-link : See fixed-link.txt in the same directory.
-   - phy-connection-type : See ethernet.txt file in the same directory.
-     This property is only really needed if the connection is of type
-     "rgmii-id", as all other connection types are detected by hardware.
+ extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
+ 
+@@ -59,13 +56,6 @@ static inline struct phy_device *of_phy_attach(struct net_device *dev,
+ 	return NULL;
+ }
+ 
+-static inline struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+-							   void (*hndlr)(struct net_device *),
+-							   phy_interface_t iface)
+-{
+-	return NULL;
+-}
+-
+ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
+ {
+ 	return NULL;
 -- 
 1.9.1
