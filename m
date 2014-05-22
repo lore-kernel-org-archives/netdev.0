@@ -1,29 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 12:59:38 -0700
-Message-ID: <1400788778.5367.163.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <537E4AFD.20304@mentor.com> <537E4F29.9080103@gmail.com>
-	 <537E526F.8060608@mentor.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net-next): ipsec-next 2014-05-22
+Date: Thu, 22 May 2014 16:00:26 -0400 (EDT)
+Message-ID: <20140522.160026.2099363558788045248.davem@davemloft.net>
+References: <1400749598-29603-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, kamal@canonical.com,
-	Ben Hutchings <bhutchings@solarflare.com>, edumazet@google.com,
-	mszeredi@suse.cz, fw@strlen.de
-To: Jim Baxter <jim_baxter@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537E526F.8060608@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42289 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456AbaEVUA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 16:00:28 -0400
+In-Reply-To: <1400749598-29603-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-22 at 20:39 +0100, Jim Baxter wrote:
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 22 May 2014 11:06:35 +0200
 
-> I now think that the correct solution here is to create a new smaller
-> skb and copy the data from the sub packets into it.
+> This is the last ipsec pull request before I leave for
+> a three weeks vacation tomorrow. David, can you please
+> take urgent ipsec patches directly into net/net-next
+> during this time?
 
-For low speed devices, this is indeed the best way.
+Ok, will do.
 
-(this is called copybreak in some nic drivers)
+> I'll continue to run the ipsec/ipsec-next trees as soon
+> as I'm back.
+> 
+> 1) Simplify the xfrm audit handling, from Tetsuo Handa.
+> 
+> 2) Codingstyle cleanup for xfrm_output, from abian Frederick.
+> 
+> Please pull or let me know if there are problems.
+
+Pulled, thanks a lot Steffen.
