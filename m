@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ieee802154: missing put_dev() on error
-Date: Thu, 22 May 2014 15:55:08 -0400 (EDT)
-Message-ID: <20140522.155508.1457164417698079548.davem@davemloft.net>
-References: <20140522075306.GB4346@mwanda>
+Subject: Re: [PATCH] ipv4: initialise the itag variable in __mkroute_input
+Date: Thu, 22 May 2014 15:57:55 -0400 (EDT)
+Message-ID: <20140522.155755.1647601791759631898.davem@davemloft.net>
+References: <1400747815-3470-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42207 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42242 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750760AbaEVTzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:55:10 -0400
-In-Reply-To: <20140522075306.GB4346@mwanda>
+	with ESMTP id S1751381AbaEVT55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:57:57 -0400
+In-Reply-To: <1400747815-3470-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 22 May 2014 10:53:06 +0300
+From: roy.qing.li@gmail.com
+Date: Thu, 22 May 2014 16:36:55 +0800
 
-> We should call put_dev() on the error path here.
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Fixes: 3e9c156e2c21 ('ieee802154: add netlink interfaces for llsec')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> the value of itag is a random value from stack, and may not be initiated by
+> fib_validate_source, which called fib_combine_itag if CONFIG_IP_ROUTE_CLASSID
+> is not set
+> 
+> This will make the cached dst uncertainty
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied, thanks Dan.
+Applied and queued up for -stable, thanks.
