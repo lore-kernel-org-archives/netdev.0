@@ -1,111 +1,63 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: =?UTF-8?B?5Zue5aSN77yaIFJlOiDlm57lpI3vvJogW1BBVENIIGxpbnV4LW4=?=
- =?UTF-8?B?ZXh0XSBuZXQvZGNjcC90aW1lci5jOiB1c2UgJ3U2NCcgaW5zdGVhZCBvZiAnczY=?=
- =?UTF-8?B?NCcgdG8gYXZvaWQgY29tcGlsZXIncyB3YXJuaW5n?=
-Date: Thu, 22 May 2014 09:14:17 +0800
-Message-ID: <537D4F69.6050705@gmail.com>
-References: <579164883.46799.1400720806850.JavaMail.root@bj-mail03.pku.edu.cn>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 1/2] bonding: populate essential new_slave->bond/dev
+ early
+Date: Thu, 22 May 2014 10:23:15 +0800
+Message-ID: <537D5F93.4090308@huawei.com>
+References: <1400686921-5698-1-git-send-email-vfalico@gmail.com> <1400686921-5698-2-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gerrit@erg.abdn.ac.uk, Guan Xuetao <gxt@mprc.pku.edu.cn>,
-	David Miller <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?B?566h6Zuq5rab?= <gxt@pku.edu.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <579164883.46799.1400720806850.JavaMail.root@bj-mail03.pku.edu.cn>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@gmail.com>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:40898 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752310AbaEVCXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 22:23:25 -0400
+In-Reply-To: <1400686921-5698-2-git-send-email-vfalico@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 2014/5/21 23:42, Veaceslav Falico wrote:
+> The new bond_free_slave() needs new_slave->bond to verify if additional
+> structures were allocated, so populate it early so that, in case of failure
+> in bond_enslave(), we would be able to get it.
+> 
+> Also populate the new_slave->dev field, as it's too one of the most needed
+> things to assign early.
+> 
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 7123205..923cdd5a 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1325,6 +1325,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  		goto err_undo_flags;
+>  	}
+>  
+> +	new_slave->bond = bond;
+> +	new_slave->dev = slave_dev;
+>  	/*
+>  	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
+>  	 * is set via sysfs or module option if desired.
+> @@ -1368,8 +1370,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  		goto err_restore_mac;
+>  	}
+>  
+> -	new_slave->bond = bond;
+> -	new_slave->dev = slave_dev;
+>  	slave_dev->priv_flags |= IFF_BONDING;
+>  
+>  	if (bond_is_lb(bond)) {
+> 
 
+Good catch.
 
-On 05/22/2014 09:06 AM, =E7=AE=A1=E9=9B=AA=E6=B6=9B wrote:
->=20
-> ----- Chen Gang <gang.chen.5i5j@gmail.com> =E5=86=99=E9=81=93=EF=BC=9A
->> On 05/22/2014 08:26 AM, =E7=AE=A1=E9=9B=AA=E6=B6=9B wrote:
->>>
->>> ----- Chen Gang <gang.chen.5i5j@gmail.com> =E5=86=99=E9=81=93=EF=BC=
-=9A
->>>> 'dccp_timestamp_seed' is initialized once by ktime_get_real() in
->>>> dccp_timestamping_init(). It is always less than ktime_get_real()
->>>> in dccp_timestamp().
->>>>
->>>> Then, ktime_us_delta() in dccp_timestamp() will always return posi=
-tive
->>>> number. So can use manual type cast to let compiler and do_div() k=
-now
->>>> about it to avoid warning.
->>>>
->>>> The related warning (with allmodconfig under unicore32):
->>>>
->>>>     CC [M]  net/dccp/timer.o
->>>>   net/dccp/timer.c: In function =E2=80=98dccp_timestamp=E2=80=99:
->>>>   net/dccp/timer.c:285: warning: comparison of distinct pointer ty=
-pes lacks a cast
->>>>
->>>>
->>>> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
->>>> ---
->>>>  net/dccp/timer.c | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/dccp/timer.c b/net/dccp/timer.c
->>>> index 16f0b22..1cd46a3 100644
->>>> --- a/net/dccp/timer.c
->>>> +++ b/net/dccp/timer.c
->>>> @@ -280,7 +280,7 @@ static ktime_t dccp_timestamp_seed;
->>>>   */
->>>>  u32 dccp_timestamp(void)
->>>>  {
->>>> -	s64 delta =3D ktime_us_delta(ktime_get_real(), dccp_timestamp_se=
-ed);
->>>> +	u64 delta =3D (u64)ktime_us_delta(ktime_get_real(), dccp_timesta=
-mp_seed);
->>>
->>> Do you assume that delta should be very small?
->>> Otherwise, return value will be different if data type is changed.
->>>
->>
->> 'u64' is a very very large number. after calculation, if it is based=
- on
->> nano second (although I am not quite sure whether it is based on it)=
-=2E
->>
->>         a hour,            3,600,000,000,000ns
->>         a day,            90,000,000,000,000ns
->>         a year,       50,000,000,000,000,000ns
->>         10 years,    500,000,000,000,000,000ns
->>         100 years, 5,000,000,000,000,000,000ns
->>         4G * 4G =3D 16,000,000,000,000,000,000ns
->>
->> So we can assume it will never overflow for 'u64'.
->=20
-> However, return value of dccp_timestamp function is u32.
->=20
-
-After check the function comments.
-
-/**
- * dccp_timestamp  -  10s of microseconds time source
- * Returns the number of 10s of microseconds since loading DCCP. This i=
-s native
- * DCCP time difference format (RFC 4340, sec. 13).
- * Please note: This will wrap around about circa every 11.9 hours.
- */
-
-So, it is still acceptable, although it is truncated into 'u32' before =
-return.
-
->>
->>
->> Thanks.
->> --=20
->> Chen Gang
->>
->> Open, share, and attitude like air, water, and life which God blesse=
-d
-
---=20
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+Acked-by: Ding Tianhong <dingtianhong@huawei.com>
