@@ -1,60 +1,48 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next 2/2] xfrm: configure policy hash table
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH ipsec-next 2/2] xfrm: configure policy hash table
  thresholds by /proc
-Date: Thu, 22 May 2014 12:09:05 +0200
-Message-ID: <20140522100905.GH32371@secunet.com>
+Date: Thu, 22 May 2014 10:15:03 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724B7DA@AcuExch.aculab.com>
 References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
  <1399902325-1788-3-git-send-email-christophe.gouault@6wind.com>
- <20140515083447.GC32371@secunet.com>
- <5379B591.6020001@6wind.com>
+ <20140515083447.GC32371@secunet.com> <5379B591.6020001@6wind.com>
+ <20140522100905.GH32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Christophe Gouault <christophe.gouault@6wind.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Steffen Klassert' <steffen.klassert@secunet.com>,
+	Christophe Gouault <christophe.gouault@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:46643 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753198AbaEVKJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2014 06:09:16 -0400
-Content-Disposition: inline
-In-Reply-To: <5379B591.6020001@6wind.com>
+Received: from mx0.aculab.com ([213.249.233.131]:35746 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754083AbaEVKPn convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 06:15:43 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 19611-01 for <netdev@vger.kernel.org>;
+ Thu, 22 May 2014 11:15:32 +0100 (BST)
+In-Reply-To: <20140522100905.GH32371@secunet.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 19, 2014 at 09:41:05AM +0200, Christophe Gouault wrote:
-> On 05/15/2014 10:34 AM, Steffen Klassert wrote:
+From: Klassert
+...
+> > Exporting a userland API (here by /proc) enables a user or a daemon to
+> > choose a strategy according to information the kernel does not
+> > necessarily have, and enables to implement various (possibly complex)
+> > policies.
+> >
 > 
-> >Second, on the long run we have to remove the IPsec flowcache
-> >as this has the same limitation as our routing cache had.
-> >To do this, we need to replace the hashlist based policy and
-> >state lookups by a well performing lookup algorithm and I
-> >would like to do that without any user visible changes.
-> 
-> Efficient lookup is a field we have studied for long in my company.
-> There are many thesis about multi-field classification, but none enables
-> to cover all use cases. All suffer from limitations (building time,
-> memory consumption, number of fields, time and memory
-> unpredictability...) and each is adapted to a specific use case.
+> If we add a user API for the current lookup mechanism, we will stick
+> with this because we can't change it anymore without breaking userspace.
+> So I don't want to add one before we finally decided on a long term
+> lookup mechanism for IPsec.
 
-Right, it is even hard to find a algorithm that covers the most
-common usecases. That's why we still use this list + flowcache
-based lookup mechanism. But on the long run we need an option
-to disable/remove the flowcache without loosing to much performance
-in the fastpath lookup.
+You could have a user API call to find the list of available mechanisms
+as well as one that returns/sets the current one.
+Then there is no actual requirement to continue to support any specific one.
 
-Like the ipv4 routing cache that was removed recently, the IPsec
-flowcache gets its performance from the network traffic that
-arrives and therefore it might be partly controllable by remote
-entities. This can be critical for a security protocol like IPsec.
-
-> 
-> Exporting a userland API (here by /proc) enables a user or a daemon to
-> choose a strategy according to information the kernel does not
-> necessarily have, and enables to implement various (possibly complex)
-> policies.
-> 
-
-If we add a user API for the current lookup mechanism, we will stick
-with this because we can't change it anymore without breaking userspace.
-So I don't want to add one before we finally decided on a long term
-lookup mechanism for IPsec.
+	David
