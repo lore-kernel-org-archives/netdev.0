@@ -1,57 +1,50 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH 5/5] net: Use netlink_ns_capable to verify the
- permisions of netlink messages
-Date: Thu, 22 May 2014 17:05:05 +0200
-Message-ID: <20140522170505.64ef87a2@griffin>
-References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
-	<536AB151.2070804@dti2.net>
-	<CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com>
-	<20140507.185256.496391962242529591.davem@davemloft.net>
-	<CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com>
-	<CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com>
-	<CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com>
+From: Horia Geanta <horia.geanta@freescale.com>
+Subject: [RFC ipsec-next] Non-standard sha256 ICV truncation size
+Date: Thu, 22 May 2014 18:10:36 +0300
+Message-ID: <1400771437-14096-1-git-send-email-horia.geanta@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Simo Sorce <ssorce@redhat.com>,
-	"security@kernel.org" <security@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Serge E. Hallyn" <serge@hallyn.com>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59854 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418AbaEVPFV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2014 11:05:21 -0400
-In-Reply-To: <CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Lei Xu <Lei.Xu@freescale.com>,
+	Sandeep Malik <Sandeep.Malik@freescale.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 7 May 2014 16:45:10 -0700, Andy Lutomirski wrote:
-> It looks like Zebra is mucking with its effective set.  It creates the
-> socket w/o effective caps, raises them to bind (no clue why), lowers
-> them post-bind, then raises them again to sendto.  Presumably the new
-> checks cause the sendto to fail b/c the socket()-time credentials were
-> insufficient.
-> 
-> I don't see why it bound w/ elevated permissions, since I don't think
-> this is important.  And it never connected at all.
-> 
-> Hence my suggestion that we check permissions at connect time instead
-> of socket() time and that we just check send-time permissions on an
-> unconnected socket.  Yes, this is awful.
+Hi,
 
-AFAIK this is still unresolved and this seems to be the only solution
-proposed so far that fixes the security problem and does not break
-zebra. Or have I missed something and the conclusion is zebra needs to
-be modified to comply with the changed semantics?
+I am sending this patch as RFC, since the change is likely to create
+interoperability issues.
+I'd like to get some comments on what should be the correct approach in this
+standard vs. de facto setup.
 
- Jiri
+Note that an older commit (which is no longer in git's history, but can be found
+here https://archive.org/details/git-history-of-linux) changed truncated ICV size
+from 128bit to 96bit:
+
+commit 627d1054055f465603bcfb7ef5c9adc5db9b2a53
+Author: Michal Ludvig <michal@logix.cz>
+Date:   Fri Jan 9 04:55:59 2004 -0800
+
+    [XFRM]: SHA2-256 should be truncated to 96 bits, not 128.
+
+It seems that initially the sha256 ICV was truncated to 128 bits, but later
+changed to 96 bits due to interoperability issues - see comment here:
+http://oss.sgi.com/archives/netdev/2004-01/msg00824.html
+
+Note that commit above is from 2004, long before RFC4868 was released (2007).
+
+Thanks,
+Horia
+
+Lei Xu (1):
+  xfrm: make sha256 icv truncation length RFC-compliant
+
+ net/xfrm/xfrm_algo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 -- 
-Jiri Benc
+1.8.3.1
