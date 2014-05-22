@@ -1,39 +1,72 @@
-From: "Mr. Chris W" <ori@insopesca.gob.ve>
-Subject: Recipient
-Date: Thu, 22 May 2014 00:38:41 -0430 (VET)
-Message-ID: <344029172.29686.1400735321846.JavaMail.zimbra@insopesca.gob.ve>
-Reply-To: weir.foundation@outlook.com
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] net: modify tunnel's name when changing link's name
+Date: Wed, 21 May 2014 22:56:38 -0700
+Message-ID: <CAHA+R7PUF0Bh-fmJGiNx37-O7Nig2FxMON88pNcZPWPCJ7_CKA@mail.gmail.com>
+References: <537AE7D1.4090702@cn.fujitsu.com>
+	<CAHA+R7O-yr5w6T2PUMXyofyZxmyyaGPSBUN67WTMVdvogmSmmA@mail.gmail.com>
+	<CAHA+R7Oc6qwd82riF8T+wXyopfMP9RquKUXty6WUpGs-n5ac5Q@mail.gmail.com>
+	<1400631582.5367.142.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAHA+R7PnmDj-6W-fo5g7poNuAb4tGgzgo5dFLGjiR2DuKjX0Jw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=UTF-8
+Cc: Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	stephen hemminger <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.insopesca.gob.ve ([201.249.203.155]:59774 "EHLO
-	correo.insopesca.gob.ve" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750836AbaEVFZ4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 01:25:56 -0400
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:42110 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750931AbaEVF4j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 01:56:39 -0400
+Received: by mail-qc0-f169.google.com with SMTP id e16so4986489qcx.0
+        for <netdev@vger.kernel.org>; Wed, 21 May 2014 22:56:38 -0700 (PDT)
+In-Reply-To: <CAHA+R7PnmDj-6W-fo5g7poNuAb4tGgzgo5dFLGjiR2DuKjX0Jw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, May 21, 2014 at 9:12 PM, Cong Wang <cwang@twopensource.com> wrote:
+> On Tue, May 20, 2014 at 5:19 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Tue, 2014-05-20 at 16:20 -0700, Cong Wang wrote:
+>>> On Tue, May 20, 2014 at 12:21 PM, Cong Wang <cwang@twopensource.com> wrote:
+>>> >
+>>> > I am working on a patch.
+>>>
+>>> For now, I think we just fix the renaming issue.
+>>> Please try this patch below (I already tested it actually).
+>>>
+>>> IPv6 part is on the way.
+>>
+>> This looks like bloat.
+>>
+>> Why do we need to copy dev->name into tunnel->param.name ?
+>>
+>> struct ip_tunnel_parm is legacy, but we do not need to store
+>> anything in tunnel->param.name
+>>
+>> This can be filled when/if sent to userland.
+>>
+>>
+>
+> Yeah, that should work as well, it's a even quicker fix.
+>
+> I think we will need a notifier for tunnels anyway, for example, when
+> the lower device (iflink) gets unregistered.
 
-Dear Lucky Recipient,
+Or a even quicker fix:
 
-If you have received this email then you are one of the lucky recipient=
-s that I
-I and my wife have donated the sum of =C2=A3800,000.00 GBP in our on-go=
-ing
-charity program. However you are required to Acknowledge this e-mail fo=
-r further
-procedures in regards to claim by providing the below information to:
-NAME---
-ADDRESS---
-CONTACT NUMBER---
-
-click this link for verification; http://www.bbc.co.uk/news/uk-scotland=
--glasgow-
-west-18801698
-
-We anticipate your earliest response as we are presently in india.
-Regards,
-Chris & Colin Weir.
-weir.foundation@outlook.com
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 289c6ee..e1dce3b 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -735,6 +735,8 @@ int ip_tunnel_ioctl(struct net_device *dev, struct
+ip_tunnel_parm *p, int cmd)
+                        if (t == NULL)
+                                t = netdev_priv(dev);
+                }
++               /* Device name might have been changed */
++               strlcpy(t->parms.name, t->dev->name, IFNAMSIZ);
+                memcpy(p, &t->parms, sizeof(*p));
+                break;
