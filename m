@@ -1,51 +1,84 @@
-From: huizhang <huizhang@marvell.com>
-Subject: [PATCH] net: ipv6: Fixed up ipsec packet be re-routing issue
-Date: Thu, 22 May 2014 15:05:46 +0800
-Message-ID: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
+From: Jet Chen <jet.chen@intel.com>
+Subject: Re: [net] WARNING: CPU: 1 PID: 1 at net/batman-adv/hard-interface.c:92
+ batadv_is_on_batman_iface()
+Date: Thu, 22 May 2014 15:34:01 +0800
+Message-ID: <537DA869.9070108@intel.com>
+References: <537D8030.8010403@intel.com> <CAHA+R7Mhd2KYaU8THAd+O4HzQNRLxhpGccvEPOqWJRKAwZbpgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <huizhang@marvell.com>, <alan@lxorguk.ukuu.org.uk>,
-	<nickcave.zhang@gmail.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:21994 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750931AbaEVHGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 03:06:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7Mhd2KYaU8THAd+O4HzQNRLxhpGccvEPOqWJRKAwZbpgQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hui Zhang <huizhang@marvell.com>
+On 05/22/2014 02:12 PM, Cong Wang wrote:
+> On Wed, May 21, 2014 at 9:42 PM, Jet Chen <jet.chen@intel.com> wrote:
+>> Hi Steffen,
+>>
+>> 0day kernel testing robot got the below dmesg and the first bad commit is
+>>
+>> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+>> commit 78ff4be45a4c51d8fb21ad92e4fabb467c6c3eeb
+>> Author:     Steffen Klassert <steffen.klassert@secunet.com>
+>> AuthorDate: Mon May 19 11:36:56 2014 +0200
+>> Commit:     David S. Miller <davem@davemloft.net>
+>> CommitDate: Wed May 21 02:08:32 2014 -0400
+>>
+>>      ip_tunnel: Initialize the fallback device properly
+>>          We need to initialize the fallback device to have a correct mtu
+>>      set on this device. Otherwise the mtu is set to null and the device
+>>      is unusable.
+>>          Fixes: fd58156e456d ("IPIP: Use ip-tunneling code.")
+>>      Cc: Pravin B Shelar <pshelar@nicira.com>
+>>      Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>>      Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>> +--------------------------------------------------------------------------------+------------+------------+
+>> |
+>> | d8d33c3b8a | 78ff4be45a |
+>> +--------------------------------------------------------------------------------+------------+------------+
+>> | boot_successes
+>> | 60         | 0          |
+>> | boot_failures
+>> | 0          | 20         |
+>> |
+>> WARNING:CPU:PID:at_net/batman-adv/hard-interface.c:batadv_is_on_batman_iface()
+>> | 0          | 20         |
+>> | backtrace:register_netdevice_notifier
+>> | 0          | 20         |
+>> | backtrace:batadv_init
+>> | 0          | 20         |
+>> | backtrace:kernel_init_freeable
+>> | 0          | 20         |
+>> +--------------------------------------------------------------------------------+------------+------------+
+>>
+>
+> batman needs to fix:
+>
+> diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+> index b851cc5..fbda6b5 100644
+> --- a/net/batman-adv/hard-interface.c
+> +++ b/net/batman-adv/hard-interface.c
+> @@ -83,7 +83,7 @@ static bool batadv_is_on_batman_iface(const struct
+> net_device *net_dev)
+>                  return true;
+>
+>          /* no more parents..stop recursion */
+> -       if (net_dev->iflink == net_dev->ifindex)
+> +       if (net_dev->iflink == 0 || net_dev->iflink == net_dev->ifindex)
+>                  return false;
+>
+>          /* recurse over the parent device */
+>
+Your patch fixes that issue.
 
-    Bug report on https://bugzilla.kernel.org/show_bug.cgi?id=75781
+Tested-by: Jet Chen <jet.chen@intel.com>
 
-    When a local output ipsec packet match the mangle table rule,
-    and be set mark value, the packet will be route again in
-    route_me_harder -> _session_decoder6
-
-    In this case, the nhoff in CB of skb was still the default
-    value 0. So the protocal match can't success and the packet can't match
-    correct SA rule,and then the packet be send out in plaintext.
-
-    To fixed up the issue. The CB->nhoff must be set.
-
-Signed-off-by: huizhang <huizhang@marvell.com>
----
- net/ipv6/xfrm6_policy.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 5f8e128..869b68b 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -134,6 +134,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
- 	const struct ipv6hdr *hdr = ipv6_hdr(skb);
- 	struct ipv6_opt_hdr *exthdr;
- 	const unsigned char *nh = skb_network_header(skb);
-+	if(IP6CB(skb)->nhoff==0)
-+		IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
- 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
- 	int oif = 0;
- 
--- 
-1.7.9.5
+Thanks,
+Jet
