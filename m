@@ -1,45 +1,37 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 1/2] net/mlx4_core: Deprecate use_prio module
- parameter
-Date: Thu, 22 May 2014 15:59:28 +0300
-Message-ID: <537DF4B0.3050006@mellanox.com>
-References: <1400488662-5657-1-git-send-email-amirv@mellanox.com>	<1400488662-5657-2-git-send-email-amirv@mellanox.com> <20140521.154952.422112298525039373.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <yevgenyp@mellanox.com>,
-	<ogerlitz@mellanox.com>, <clsoto@linux.vnet.ibm.com>
-To: David Miller <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: [PATCH net-next 0/2] bonding: remove rlb_enabled and alb_set_mac_address()
+Date: Thu, 22 May 2014 15:12:02 +0200
+Message-ID: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Veaceslav Falico <vfalico@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:49641 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754852AbaEVNAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 09:00:48 -0400
-In-Reply-To: <20140521.154952.422112298525039373.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:25788 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752318AbaEVNQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 May 2014 09:16:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/21/2014 10:49 PM, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Mon, 19 May 2014 11:37:41 +0300
->
->> It was used for steering by user priority for A0 steering. A0 mode is
->> not supported anymore. Printing a message and ignoring the parameter.
->>
->> CC: Carol Soto <clsoto@linux.vnet.ibm.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->
-> So you completely took away a feature that was publicly exposed and
-> available to the user?
->
-> Sorry this is still not acceptable, you have to bring back A0
-> steering, what if someone was using it?
->
-> I sense you really don't care, and that I find really disturbing.
->
+Hi,
 
-My description wasn't accurate. I resubmitted the patch set with a 
-better explanation about the purpose of this module param, and why we 
-don't expect that anything will break for anyone because we deprecated it.
+Currently rlb_enabled works as
+rlb_enabled == (BOND_MODE(bond) == BOND_MODE_ALB)
+so we can always use this verification and drop maintenance of this
+variable.
 
-Amir
+alb_set_mac_address(), OTOH, isn't used at all (as the mac changing logic
+is used in other parts), and isn't ever called, so it's safe to remove it
+as well.
+
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: netdev@vger.kernel.org
+Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+
+---
+ drivers/net/bonding/bond_alb.c  | 95 ++++++-----------------------------------
+ drivers/net/bonding/bond_alb.h  |  3 +-
+ drivers/net/bonding/bond_main.c |  2 +-
+ 3 files changed, 16 insertions(+), 84 deletions(-)
