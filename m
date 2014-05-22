@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 16:58:33 -0400 (EDT)
-Message-ID: <20140522.165833.414855217799383878.davem@davemloft.net>
-References: <537E4AFD.20304@mentor.com>
-	<20140522.152146.2116142050088142989.davem@davemloft.net>
-	<537E5C63.7080607@mentor.com>
+Subject: Re: [PATCH] e1000: Use time_after() for time comparison
+Date: Thu, 22 May 2014 16:58:44 -0400 (EDT)
+Message-ID: <20140522.165844.694155605608410652.davem@davemloft.net>
+References: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kamal@canonical.com,
-	bhutchings@solarflare.com, edumazet@google.com, mszeredi@suse.cz,
-	fw@strlen.de
-To: jim_baxter@mentor.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: manuel.schoelling@gmx.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537E5C63.7080607@mentor.com>
+In-Reply-To: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jim Baxter <jim_baxter@mentor.com>
-Date: Thu, 22 May 2014 21:21:55 +0100
+=46rom: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
+Date: Thu, 22 May 2014 22:21:30 +0200
 
-> If there are multiple clones for an skb all pointing at the same data,
-> will that distort the memory used when they all have the same truesize?
+> To be future-proof and for better readability the time comparisons ar=
+e modified
+> to use time_after() instead of plain, error-prone math.
+>=20
+> Signed-off-by: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
 
-What is distorted about it?
-
-Each clone references exactly that much backing memory.
+I'll let Jeff pick this up in his tree.
