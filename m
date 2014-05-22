@@ -1,39 +1,52 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: randconfig build error with next-20140522, in
- drivers/net/ethernet/cisco/enic/enic_main.c
-Date: Fri, 23 May 2014 01:49:22 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1405230148040.15994@ws.cisco>
-References: <CA+r1ZhgW_Du8VUCmOof-MYnOun8Pq0FYTu4cG5NAOt3vkztWBw@mail.gmail.com>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] e1000: Use time_after() for time comparison
+Date: Thu, 22 May 2014 22:21:30 +0200
+Message-ID: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next <linux-next@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>, benve@cisco.com,
-	ssujith@cisco.com, _govind@gmx.com, neepatel@cisco.com,
-	netdev <netdev@vger.kernel.org>
-To: Jim Davis <jim.epost@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:55516 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752447AbaEVUUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 May 2014 16:20:37 -0400
-In-Reply-To: <CA+r1ZhgW_Du8VUCmOof-MYnOun8Pq0FYTu4cG5NAOt3vkztWBw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, jesse.brandeburg@intel.com,
+	linux-kernel@vger.kernel.org, bruce.w.allan@intel.com,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
-
-On Thu, 22 May 2014, Jim Davis wrote:
-
-> Building with the attached random configuration file,
->
-> drivers/built-in.o: In function `enic_poll_msix':
-> enic_main.c:(.text+0x48710a): undefined reference to `__udivdi3'
-> make: *** [vmlinux] Error 1
->
-
-Looks like 64 bit divide issue. Will look into it.
-
-Thanks for reporting.
-
-Govind
+VG8gYmUgZnV0dXJlLXByb29mIGFuZCBmb3IgYmV0dGVyIHJlYWRhYmlsaXR5IHRoZSB0aW1lIGNv
+bXBhcmlzb25zIGFyZSBtb2RpZmllZAp0byB1c2UgdGltZV9hZnRlcigpIGluc3RlYWQgb2YgcGxh
+aW4sIGVycm9yLXByb25lIG1hdGguCgpTaWduZWQtb2ZmLWJ5OiBNYW51ZWwgU2Now7ZsbGluZyA8
+bWFudWVsLnNjaG9lbGxpbmdAZ214LmRlPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
+L2UxMDAwL2UxMDAwX2V0aHRvb2wuYyB8ICAgIDMgKystCiAxIGZpbGUgY2hhbmdlZCwgMiBpbnNl
+cnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvZTEwMDAvZTEwMDBfZXRodG9vbC5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
+ZWwvZTEwMDAvZTEwMDBfZXRodG9vbC5jCmluZGV4IDczYThhZWUuLjFjYmYyODEgMTAwNjQ0Ci0t
+LSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwL2UxMDAwX2V0aHRvb2wuYworKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMC9lMTAwMF9ldGh0b29sLmMKQEAgLTE0
+NjAsNyArMTQ2MCw4IEBAIHN0YXRpYyBpbnQgZTEwMDBfcnVuX2xvb3BiYWNrX3Rlc3Qoc3RydWN0
+IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIpCiAJCQkgKiBlbm91Z2ggdGltZSB0byBjb21wbGV0ZSB0
+aGUgcmVjZWl2ZXMsIGlmIGl0J3MKIAkJCSAqIGV4Y2VlZGVkLCBicmVhayBhbmQgZXJyb3Igb2Zm
+CiAJCQkgKi8KLQkJfSB3aGlsZSAoZ29vZF9jbnQgPCA2NCAmJiBqaWZmaWVzIDwgKHRpbWUgKyAy
+MCkpOworCQl9IHdoaWxlIChnb29kX2NudCA8IDY0ICYmIHRpbWVfYWZ0ZXIodGltZSArIDIwLCBq
+aWZmaWVzKSk7CisKIAkJaWYgKGdvb2RfY250ICE9IDY0KSB7CiAJCQlyZXRfdmFsID0gMTM7IC8q
+IHJldF92YWwgaXMgdGhlIHNhbWUgYXMgbWlzLWNvbXBhcmUgKi8KIAkJCWJyZWFrOwotLSAKMS43
+LjEwLjQKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KIkFjY2VsZXJhdGUgRGV2IEN5Y2xlcyB3aXRo
+IEF1dG9tYXRlZCBDcm9zcy1Ccm93c2VyIFRlc3RpbmcgLSBGb3IgRlJFRQpJbnN0YW50bHkgcnVu
+IHlvdXIgU2VsZW5pdW0gdGVzdHMgYWNyb3NzIDMwMCsgYnJvd3Nlci9PUyBjb21ib3MuCkdldCB1
+bnBhcmFsbGVsZWQgc2NhbGFiaWxpdHkgZnJvbSB0aGUgYmVzdCBTZWxlbml1bSB0ZXN0aW5nIHBs
+YXRmb3JtIGF2YWlsYWJsZQpTaW1wbGUgdG8gdXNlLiBOb3RoaW5nIHRvIGluc3RhbGwuIEdldCBz
+dGFydGVkIG5vdyBmb3IgZnJlZS4iCmh0dHA6Ly9wLnNmLm5ldC9zZnUvU2F1Y2VMYWJzCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkUxMDAwLWRldmVsIG1h
+aWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0
+cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9y
+ZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0cDovL2NvbW11bml0aWVzLmlu
+dGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
