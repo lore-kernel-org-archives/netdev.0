@@ -1,50 +1,47 @@
-From: Jim Baxter <jim_baxter@mentor.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 21:21:55 +0100
-Message-ID: <537E5C63.7080607@mentor.com>
-References: <537E4AFD.20304@mentor.com> <20140522.152146.2116142050088142989.davem@davemloft.net>
+Date: Thu, 22 May 2014 13:30:03 -0700
+Message-ID: <1400790603.5367.167.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <537E4AFD.20304@mentor.com>
+	 <20140522.152146.2116142050088142989.davem@davemloft.net>
+	 <537E5C63.7080607@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <kamal@canonical.com>,
-	<bhutchings@solarflare.com>, <edumazet@google.com>,
-	<mszeredi@suse.cz>, <fw@strlen.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140522.152146.2116142050088142989.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kamal-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+	edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org, fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org
+To: Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <537E5C63.7080607-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 22/05/14 20:21, David Miller wrote:
-> From: Jim Baxter <jim_baxter@mentor.com>
-> Date: Thu, 22 May 2014 20:07:41 +0100
-> 
->> My questions are:
->>
->> 1) Which buffer size does truesize represent, is it the total buffer or
->> just the data related to the relevant skb?
->>
->> 2) If truesize is for the skb it is contained within should it be
->> updated during the call to skb_trim?
->>
->> 3) Why does the truesize default to 32960?
-> 
-> skb->truesize represents the total amount of memory that the SKB
-> is holding up.
-> 
-> This is the size of the sk_buff metadata plus all of the buffer
-> memory.
-> 
-> For example, if the buffer is using 16K buffer yet only 1500 of it is
-> actually used for the packet, 16K is what should be plugged into the
-> equation to compute truesize.
-> 
-> Otherwise it would be easy to compromise a system by sending lots of 1
-> byte packets to a socket, even though the actual memory consumed by
-> that "1 byte" packet is significantly larger.
-> 
+On Thu, 2014-05-22 at 21:21 +0100, Jim Baxter wrote:
 
-OK, so it is the value of the memory that has been allocated for the SKB.
-If there are multiple clones for an skb all pointing at the same data,
-will that distort the memory used when they all have the same truesize?
+
+> OK, so it is the value of the memory that has been allocated for the SKB.
+> If there are multiple clones for an skb all pointing at the same data,
+> will that distort the memory used when they all have the same truesize?
+
+Its always better to over estimate memory uses, than under estimating.
+
+Its all about guarding against OOM.
+
+Keep in mind some parts of networking stack do not like clones.
+
+TCP coalescing works beautifully with non cloned skbs.
+
+Instead of cloning skb or doing copies, you could play with having frame
+on a page fragment. Only headers might need to be pulled from the frame
+to linear part of skb.
+
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
