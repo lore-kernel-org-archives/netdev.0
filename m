@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Please queue commit e33d0ba8047b049 for stable
-Date: Thu, 22 May 2014 17:14:36 -0400 (EDT)
-Message-ID: <20140522.171436.2218567945524856233.davem@davemloft.net>
-References: <CAHA+R7OK6aQho_cWC6wy1m9qQqz=i-vmwHmMEL8L6oYTXTkJpw@mail.gmail.com>
+Subject: Re: [PATCH net-next V1 0/2] net/mlx4_core: Deprecate module
+ parameter use_prio
+Date: Thu, 22 May 2014 17:17:56 -0400 (EDT)
+Message-ID: <20140522.171756.2050303950456581895.davem@davemloft.net>
+References: <1400763340-15028-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: cwang@twopensource.com
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42940 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42970 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbaEVVOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 17:14:37 -0400
-In-Reply-To: <CAHA+R7OK6aQho_cWC6wy1m9qQqz=i-vmwHmMEL8L6oYTXTkJpw@mail.gmail.com>
+	with ESMTP id S1750956AbaEVVR6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 17:17:58 -0400
+In-Reply-To: <1400763340-15028-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
-Date: Thu, 22 May 2014 14:09:07 -0700
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 22 May 2014 15:55:38 +0300
 
-> Please queue the following commit for stable:
+> This small patchset deprecates the mlx4_core module paramater 'use_prio', as
+> suggested by Carol Soto from IBM in [1].
+> Also, replaced some calls to the prefered pr_warn/info/devel macro's.
 > 
-> commit e33d0ba8047b049c9262fdb1fcafb93cb52ceceb
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Thu Apr 3 09:28:10 2014 -0700
+> Patchset was applied and tested on commit b6052af: "Merge tag
+> 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge"
 > 
->     net-gro: reset skb->truesize in napi_reuse_skb()
- ...
-> unless Eric disagrees.
+> [1] - http://marc.info/?l=linux-netdev&m=139871350103432&w=2
 > 
-> If I understand it correctly, it  fixes a real bug for all drivers calling
-> napi_gro_frags(). But I am not sure which version of kernels it should
-> apply to, it seems to be a long-standing bug.
+> Changes from V0:
+> - Patch 1/2: Deprecate use_prio module parameter
+>   - Commit message was confusing and not accurate, rewrote it
 
-Queued up, Eric what versions does it apply to?
-
-Thanks.
+Ok, fair enough, applied to net-next thanks.
