@@ -1,50 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] net: device features handling fixes
-Date: Thu, 22 May 2014 15:07:57 -0400 (EDT)
-Message-ID: <20140522.150757.314142708479740813.davem@davemloft.net>
-References: <20140507.140846.1449010184057650775.davem@davemloft.net>
-	<cover.1400565116.git.mkubecek@suse.cz>
+Subject: Re: [PATCH v1 0/2] net: fec: Add fec sleep pinctrl for pin PM state
+Date: Thu, 22 May 2014 15:10:42 -0400 (EDT)
+Message-ID: <20140522.151042.666672316134579103.davem@davemloft.net>
+References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, j.vosburgh@gmail.com,
-	vfalico@gmail.com, andy@greyhouse.net, jiri@resnulli.us,
-	mirq-linux@rere.qmqm.pl
-To: mkubecek@suse.cz
+Cc: shawn.guo@freescale.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de, b20596@freescale.com
+To: b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41479 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41525 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653AbaEVTIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:08:00 -0400
-In-Reply-To: <cover.1400565116.git.mkubecek@suse.cz>
+	with ESMTP id S1751143AbaEVTKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:10:44 -0400
+In-Reply-To: <1400568645-10214-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Tue, 20 May 2014 08:29:15 +0200 (CEST)
+From: Fugang Duan <b38611@freescale.com>
+Date: Tue, 20 May 2014 14:50:43 +0800
 
->> I think we need to think more about what exact behavior is desired in
->> mixed csum feature set cases.  Probably whatever csum offload type is
->> the most prevelant should be the one advertised by the master.  It
->> means we will do that software checksum fixup for the oddball slaves,
->> but it seems the best we can do.
-> 
-> I've been thinking about it some more and I believe what I proposed is
-> correct: features that are or-ed (ONE_FOR_ALL) should start with 0,
-> those which are and-ed (ALL_FOR_ALL) with 1.
-> 
-> But once we do that, we have to fix another problem in vlan module:
-> features of a vlan device are mostly computed as bitwise AND of features
-> and vlan_features of its underlying device. The problem is checksumming
-> features don't really behave like independent flags as their main
-> purpose is to be used in can_checksum_protocol() whose logic is that
-> HW_CSUM (GEN_CSUM) means "can checksum everything" so that it kind of
-> contains IP(V6)_CSUM functionality. Therefore intersection of HW_CSUM
-> and IP(V6)_CSUM should result in the latter.
-> 
-> An alternative approach would be to always set IP(V6)_CSUM once HW_CSUM
-> (any of GEN_CSUM) is set but as for long time people were taught not to
-> do that and we even have a warning for it, switching to the exact
-> opposite could cause a lot of problems.
+> The two patches is to add fec sleep pinctrl for pin PM state in imx6sl
+> evk platform.
 
-Ok, looks good, series applied to net-next, thanks.
+Patch #2 doesn't apply at all to the net tree.
