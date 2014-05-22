@@ -1,77 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 4/9] net: systemport: use the new fixed PHY helpers
-Date: Thu, 22 May 2014 09:47:46 -0700
-Message-ID: <1400777271-32199-5-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 5/9] fs_enet: use the new fixed PHY helpers
+Date: Thu, 22 May 2014 09:47:47 -0700
+Message-ID: <1400777271-32199-6-git-send-email-f.fainelli@gmail.com>
 References: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- "open list:OPEN FIRMWARE AND..." <devicetree@vger.kernel.org>,
- Florian Fainelli <f.fainelli@gmail.com>,
- Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
- Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- Richard Cochran <richardcochran@gmail.com>,
- open list <linux-kernel@vger.kernel.org>,
- Claudiu Manoil <claudiu.manoil@freescale.com>,
- Vitaly Bordug <vbordug@ru.mvista.com>, Grant Likely <grant.likely@linaro.org>,
- "open list:LINUX FOR POWERPC..." <linuxppc-dev@lists.ozlabs.org>,
- davem@davemloft.net
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
+	Vitaly Bordug <vbordug@ru.mvista.com>,
+	Li Yang <leoli@freescale.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Aida Mynzhasova <aida.mynzhasova@skitlab.ru>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	devicetree@vger.kernel.org (open list:OPEN FIRMWARE AND...),
+	linux-kernel@vger.kernel.org (open list),
+	linuxppc-dev@lists.ozlabs.org (open list:LINUX FOR POWERPC...)
 To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f177.google.com ([209.85.223.177]:61167 "EHLO
+	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366AbaEVQsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 12:48:23 -0400
 In-Reply-To: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-b2ZfcGh5X2Nvbm5lY3RfZml4ZWRfbGluaygpIGlzIGJlY29taW5nIG9ic29sZXRlLCBhbmQgYWxz
-byByZXF1aXJlZApwbGF0Zm9ybSBjb2RlIHRvIHJlZ2lzdGVyIHRoZSBmaXhlZCBQSFlzIGF0IHRo
-ZSBzcGVjaWZpZWQgYWRkcmVzc2VzIGZvcgp0aG9zZSB0byBiZSB1c2FibGUuIEdldCByaWQgb2Yg
-aXQgYW5kIHVzZSB0aGUgbmV3IG9mX3BoeV9pc19maXhlZF9saW5rKCkKcGx1cyBvZl9waHlfcmVn
-aXN0ZXJfZml4ZWRfbGluaygpIGhlbHBlcnMgdG8gdHJhbnNpdGlvbiBvdmVyIHRoZSBuZXcKc2No
-ZW1lLgoKU2lnbmVkLW9mZi1ieTogRmxvcmlhbiBGYWluZWxsaSA8Zi5mYWluZWxsaUBnbWFpbC5j
-b20+Ci0tLQpObyBjaGFuZ2VzIGluIHYyCgogZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20v
-YmNtc3lzcG9ydC5jIHwgMTcgKysrKysrKysrKysrKysrLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2Jyb2FkY29tL2JjbXN5c3BvcnQuaCB8ICAxICsKIDIgZmlsZXMgY2hhbmdlZCwgMTYgaW5zZXJ0
-aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9icm9hZGNvbS9iY21zeXNwb3J0LmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
-Y21zeXNwb3J0LmMKaW5kZXggZDQwYzViOTY5ZTllLi5kYzcwOGE4ODhmODAgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuYworKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9icm9hZGNvbS9iY21zeXNwb3J0LmMKQEAgLTEzMjcsOCArMTMyNyw4IEBA
-IHN0YXRpYyBpbnQgYmNtX3N5c3BvcnRfb3BlbihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCS8q
-IFJlYWQgQ1JDIGZvcndhcmQgKi8KIAlwcml2LT5jcmNfZndkID0gISEodW1hY19yZWFkbChwcml2
-LCBVTUFDX0NNRCkgJiBDTURfQ1JDX0ZXRCk7CiAKLQlwcml2LT5waHlkZXYgPSBvZl9waHlfY29u
-bmVjdF9maXhlZF9saW5rKGRldiwgYmNtX3N5c3BvcnRfYWRqX2xpbmssCi0JCQkJCQkJcHJpdi0+
-cGh5X2ludGVyZmFjZSk7CisJcHJpdi0+cGh5ZGV2ID0gb2ZfcGh5X2Nvbm5lY3QoZGV2LCBwcml2
-LT5waHlfZG4sIGJjbV9zeXNwb3J0X2Fkal9saW5rLAorCQkJCQkwLCBwcml2LT5waHlfaW50ZXJm
-YWNlKTsKIAlpZiAoIXByaXYtPnBoeWRldikgewogCQluZXRkZXZfZXJyKGRldiwgImNvdWxkIG5v
-dCBhdHRhY2ggdG8gUEhZXG4iKTsKIAkJcmV0dXJuIC1FTk9ERVY7CkBAIC0xNTUxLDYgKzE1NTEs
-MTkgQEAgc3RhdGljIGludCBiY21fc3lzcG9ydF9wcm9iZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNl
-ICpwZGV2KQogCWlmIChwcml2LT5waHlfaW50ZXJmYWNlIDwgMCkKIAkJcHJpdi0+cGh5X2ludGVy
-ZmFjZSA9IFBIWV9JTlRFUkZBQ0VfTU9ERV9HTUlJOwogCisJLyogSW4gdGhlIGNhc2Ugb2YgYSBm
-aXhlZCBQSFksIHRoZSBEVCBub2RlIGFzc29jaWF0ZWQKKwkgKiB0byB0aGUgUEhZIGlzIHRoZSBF
-dGhlcm5ldCBNQUMgRFQgbm9kZS4KKwkgKi8KKwlpZiAob2ZfcGh5X2lzX2ZpeGVkX2xpbmsoZG4p
-KSB7CisJCXJldCA9IG9mX3BoeV9yZWdpc3Rlcl9maXhlZF9saW5rKGRuKTsKKwkJaWYgKHJldCkg
-eworCQkJZGV2X2VycigmcGRldi0+ZGV2LCAiZmFpbGVkIHRvIHJlZ2lzdGVyIGZpeGVkIFBIWVxu
-Iik7CisJCQlnb3RvIGVycjsKKwkJfQorCisJCXByaXYtPnBoeV9kbiA9IGRuOworCX0KKwogCS8q
-IEluaXRpYWxpemUgbmV0ZGV2aWNlIG1lbWJlcnMgKi8KIAltYWNhZGRyID0gb2ZfZ2V0X21hY19h
-ZGRyZXNzKGRuKTsKIAlpZiAoIW1hY2FkZHIgfHwgIWlzX3ZhbGlkX2V0aGVyX2FkZHIobWFjYWRk
-cikpIHsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3Bv
-cnQuaCBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JjbXN5c3BvcnQuaAppbmRleCBh
-YmRlYjYyNjE2ZGYuLjczZmQwNGE5NDc5NyAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvYnJvYWRjb20vYmNtc3lzcG9ydC5oCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2Fk
-Y29tL2JjbXN5c3BvcnQuaApAQCAtNjU2LDYgKzY1Niw3IEBAIHN0cnVjdCBiY21fc3lzcG9ydF9w
-cml2IHsKIAl1bnNpZ25lZCBpbnQJCXJ4X2NfaW5kZXg7CiAKIAkvKiBQSFkgZGV2aWNlICovCisJ
-c3RydWN0IGRldmljZV9ub2RlCSpwaHlfZG47CiAJc3RydWN0IHBoeV9kZXZpY2UJKnBoeWRldjsK
-IAlwaHlfaW50ZXJmYWNlX3QJCXBoeV9pbnRlcmZhY2U7CiAJaW50CQkJb2xkX3BhdXNlOwotLSAK
-MS45LjEKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxp
-bnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0
-cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
+of_phy_connect_fixed_link() is becoming obsolete, and also required
+platform code to register the fixed PHYs at the specified addresses for
+those to be usable. Get rid of it and use the new of_phy_is_fixed_link()
+plus of_phy_register_fixed_link() helpers to transition over the new
+scheme.
+
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+- merge if conditions on the same line as suggested by Sergei
+- add comment explaining the device_node pointer assignment
+
+ drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 17 ++++++++++-------
+ 1 file changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+index dc80db41d6b3..cfaf17b70f3f 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
++++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
+@@ -792,10 +792,6 @@ static int fs_init_phy(struct net_device *dev)
+ 	phydev = of_phy_connect(dev, fep->fpi->phy_node, &fs_adjust_link, 0,
+ 				iface);
+ 	if (!phydev) {
+-		phydev = of_phy_connect_fixed_link(dev, &fs_adjust_link,
+-						   iface);
+-	}
+-	if (!phydev) {
+ 		dev_err(&dev->dev, "Could not attach to PHY\n");
+ 		return -ENODEV;
+ 	}
+@@ -1029,9 +1025,16 @@ static int fs_enet_probe(struct platform_device *ofdev)
+ 	fpi->use_napi = 1;
+ 	fpi->napi_weight = 17;
+ 	fpi->phy_node = of_parse_phandle(ofdev->dev.of_node, "phy-handle", 0);
+-	if ((!fpi->phy_node) && (!of_get_property(ofdev->dev.of_node, "fixed-link",
+-						  NULL)))
+-		goto out_free_fpi;
++	if (!fpi->phy_node && of_phy_is_fixed_link(ofdev->dev.of_node)) {
++		err = of_phy_register_fixed_link(ofdev->dev.of_node);
++		if (err)
++			goto out_free_fpi;
++
++		/* In the case of a fixed PHY, the DT node associated
++		 * to the PHY is the Ethernet MAC DT node.
++		 */
++		fpi->phy_node = ofdev->dev.of_node;
++	}
+ 
+ 	if (of_device_is_compatible(ofdev->dev.of_node, "fsl,mpc5125-fec")) {
+ 		phy_connection_type = of_get_property(ofdev->dev.of_node,
+-- 
+1.9.1
