@@ -1,63 +1,42 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/2] bonding: populate essential new_slave->bond/dev
- early
-Date: Thu, 22 May 2014 10:23:15 +0800
-Message-ID: <537D5F93.4090308@huawei.com>
-References: <1400686921-5698-1-git-send-email-vfalico@gmail.com> <1400686921-5698-2-git-send-email-vfalico@gmail.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
+ skb before it enters the IP stack)
+Date: Thu, 22 May 2014 13:20:05 +0930
+Message-ID: <537D73ED.4010400@davidnewall.com>
+References: <537621AC.1060409@davidnewall.com> <5379FFFD.1050705@davidnewall.com> <20140519140119.GA24523@breakpoint.cc> <537A12EA.4060604@davidnewall.com> <20140519170915.GB24523@breakpoint.cc> <537A6E5C.6090602@pandora.be> <537C5A6C.3030809@davidnewall.com> <537CF5A2.3080401@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:40898 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752310AbaEVCXZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 May 2014 22:23:25 -0400
-In-Reply-To: <1400686921-5698-2-git-send-email-vfalico@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Bart De Schuymer <bdschuym@pandora.be>,
+	Florian Westphal <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <537CF5A2.3080401@pandora.be>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/5/21 23:42, Veaceslav Falico wrote:
-> The new bond_free_slave() needs new_slave->bond to verify if additional
-> structures were allocated, so populate it early so that, in case of failure
-> in bond_enslave(), we would be able to get it.
-> 
-> Also populate the new_slave->dev field, as it's too one of the most needed
-> things to assign early.
-> 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
-> ---
->  drivers/net/bonding/bond_main.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 7123205..923cdd5a 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1325,6 +1325,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  		goto err_undo_flags;
->  	}
->  
-> +	new_slave->bond = bond;
-> +	new_slave->dev = slave_dev;
->  	/*
->  	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
->  	 * is set via sysfs or module option if desired.
-> @@ -1368,8 +1370,6 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  		goto err_restore_mac;
->  	}
->  
-> -	new_slave->bond = bond;
-> -	new_slave->dev = slave_dev;
->  	slave_dev->priv_flags |= IFF_BONDING;
->  
->  	if (bond_is_lb(bond)) {
-> 
+On 22/05/14 04:21, Bart De Schuymer wrote:
+> There's no reason why they should overlap in the cb: it's 48 bytes 
+> big, so big enough to hold both struct br_input_skb_cb and struct 
+> inet_skb_parm.
 
-Good catch.
+No reason, aside from the math, I think.  Those 48 bytes appear to be 
+used for 16 bytes of ip_options plus up to 40 bytes of options data, so 
+we're using pretend-space; of which we'd need more to squeeze 
+br_input_skb_cb in at the same time.
 
-Acked-by: Ding Tianhong <dingtianhong@huawei.com>
+I hate opening a second can of worms, but, if I read this right, IPCB is 
+quite, quite broken.
+
+
+> As for your other remark: as I've said before, if you don't like 
+> bridge-netfilter then don't compile it into your kernel.
+
+That's not very helpful.  I could say, with just as much merit, that it 
+should be marked deprecated (so that it's not compiled into distribution 
+kernels) and you can compile it into yours.
+
+What I dislike is that bridge-netfilter is faulty.
