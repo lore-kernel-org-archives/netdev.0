@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] e1000: Use time_after() for time comparison
-Date: Thu, 22 May 2014 16:58:44 -0400 (EDT)
-Message-ID: <20140522.165844.694155605608410652.davem@davemloft.net>
-References: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: manuel.schoelling@gmx.de
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: [PATCH 0/5] ks8851 DT updates
+Date: Thu, 22 May 2014 14:00:08 -0700
+Message-ID: <1400792413-21618-1-git-send-email-sboyd@codeaurora.org>
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, devicetree@vger.kernel.org,
+	Nishanth Menon <nm@ti.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
-Date: Thu, 22 May 2014 22:21:30 +0200
+This set of patches properly documents the micrel ks8851 spi ethernet
+controller, converts to devm_regulator_get_optional() to make error
+paths slightly simpler, and finally adds supports for another
+optional regulator and a reset gpio.
 
-> To be future-proof and for better readability the time comparisons ar=
-e modified
-> to use time_after() instead of plain, error-prone math.
->=20
-> Signed-off-by: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
+Stephen Boyd (5):
+  devicetree: bindings: Document micrel vendor prefix
+  devicetree: bindings: Properly document micrel ks8851 SPI chips
+  net: ks8851: Use devm_regulator_get_optional()
+  net: ks8851: Add optional vdd_io regulator and reset gpio
+  net: ks8851: Add of match table
 
-I'll let Jeff pick this up in his tree.
+ .../devicetree/bindings/net/micrel-ks8851.txt      | 15 ++++-
+ .../devicetree/bindings/vendor-prefixes.txt        |  1 +
+ drivers/net/ethernet/micrel/ks8851.c               | 71 +++++++++++++++++++---
+ 3 files changed, 75 insertions(+), 12 deletions(-)
+
+-- 
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+hosted by The Linux Foundation
