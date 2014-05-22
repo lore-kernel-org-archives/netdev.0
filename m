@@ -1,60 +1,74 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ipv6: Fixed up ipsec packet be re-routing issue
-Date: Thu, 22 May 2014 16:21:15 +0400
-Message-ID: <537DEBBB.60100@cogentembedded.com>
-References: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] libertas: fix return value when processing invalid packet
+Date: Thu, 22 May 2014 07:32:41 -0500
+Message-ID: <1400761961.15674.4.camel@dcbw.local>
+References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
+	 <1400473875-22228-2-git-send-email-Julia.Lawall@lip6.fr>
+	 <5379FCD0.2030506@cogentembedded.com> <1400520341.3819.15.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, nickcave.zhang@gmail.com
-To: huizhang <huizhang@marvell.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:58484 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754922AbaEVMVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 08:21:12 -0400
-Received: by mail-la0-f47.google.com with SMTP id pn19so2536946lab.6
-        for <netdev@vger.kernel.org>; Thu, 22 May 2014 05:21:11 -0700 (PDT)
-In-Reply-To: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, libertas-dev@lists.infradead.org,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400520341.3819.15.camel@dcbw.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Nothing actually uses the return value yet, but we might as well
+make it correct, like process_rxed_802_11_packet() does for the
+same case.  Also ensure that if monitor mode is enabled (and
+thus process_rxed_802_11_packet() is called) that the debugging
+enter/leave functions are balanced.
 
-On 22-05-2014 11:05, huizhang wrote:
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
+ drivers/net/wireless/libertas/Makefile | 4 ++--
+ drivers/net/wireless/libertas/rx.c     | 8 +++++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-> From: Hui Zhang <huizhang@marvell.com>
-
->      Bug report on https://bugzilla.kernel.org/show_bug.cgi?id=75781
->
->      When a local output ipsec packet match the mangle table rule,
->      and be set mark value, the packet will be route again in
->      route_me_harder -> _session_decoder6
-
->      In this case, the nhoff in CB of skb was still the default
->      value 0. So the protocal match can't success and the packet can't match
->      correct SA rule,and then the packet be send out in plaintext.
-
->      To fixed up the issue. The CB->nhoff must be set.
-
-> Signed-off-by: huizhang <huizhang@marvell.com>
-
-    Why not Hui Zhang, like in the From field?
-
-> ---
->   net/ipv6/xfrm6_policy.c |    2 ++
->   1 file changed, 2 insertions(+)
-
-> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-> index 5f8e128..869b68b 100644
-> --- a/net/ipv6/xfrm6_policy.c
-> +++ b/net/ipv6/xfrm6_policy.c
-> @@ -134,6 +134,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
->   	const struct ipv6hdr *hdr = ipv6_hdr(skb);
->   	struct ipv6_opt_hdr *exthdr;
->   	const unsigned char *nh = skb_network_header(skb);
-> +	if(IP6CB(skb)->nhoff==0)
-
-    Please, surround == with a space on each side.
-
-WBR, Sergei
+diff --git a/drivers/net/wireless/libertas/rx.c b/drivers/net/wireless/libertas/rx.c
+index c7366b0..e446fed 100644
+--- a/drivers/net/wireless/libertas/rx.c
++++ b/drivers/net/wireless/libertas/rx.c
+@@ -67,30 +67,32 @@ int lbs_process_rxed_packet(struct lbs_private *priv, struct sk_buff *skb)
+ 
+ 	lbs_deb_enter(LBS_DEB_RX);
+ 
+ 	BUG_ON(!skb);
+ 
+ 	skb->ip_summed = CHECKSUM_NONE;
+ 
+-	if (priv->wdev->iftype == NL80211_IFTYPE_MONITOR)
+-		return process_rxed_802_11_packet(priv, skb);
++	if (priv->wdev->iftype == NL80211_IFTYPE_MONITOR) {
++		ret = process_rxed_802_11_packet(priv, skb);
++		goto done;
++	}
+ 
+ 	p_rx_pd = (struct rxpd *) skb->data;
+ 	p_rx_pkt = (struct rxpackethdr *) ((u8 *)p_rx_pd +
+ 		le32_to_cpu(p_rx_pd->pkt_ptr));
+ 
+ 	dev = lbs_mesh_set_dev(priv, dev, p_rx_pd);
+ 
+ 	lbs_deb_hex(LBS_DEB_RX, "RX Data: Before chop rxpd", skb->data,
+ 		 min_t(unsigned int, skb->len, 100));
+ 
+ 	if (skb->len < (ETH_HLEN + 8 + sizeof(struct rxpd))) {
+ 		lbs_deb_rx("rx err: frame received with bad length\n");
+ 		dev->stats.rx_length_errors++;
+-		ret = 0;
++		ret = -EINVAL;
+ 		dev_kfree_skb(skb);
+ 		goto done;
+ 	}
+ 
+ 	lbs_deb_rx("rx data: skb->len - pkt_ptr = %d-%zd = %zd\n",
+ 		skb->len, (size_t)le32_to_cpu(p_rx_pd->pkt_ptr),
+ 		skb->len - (size_t)le32_to_cpu(p_rx_pd->pkt_ptr));
+-- 
+1.9.0
