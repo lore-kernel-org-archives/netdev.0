@@ -1,42 +1,49 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH 0/9] net: Introduce a software TSO helper API
-Date: Thu, 22 May 2014 16:38:45 -0300
-Message-ID: <20140522193845.GA18160@arch.cereza>
-References: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <20140522.145805.1022840326808986379.davem@davemloft.net>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: skbuff truesize incorrect.
+Date: Thu, 22 May 2014 20:39:27 +0100
+Message-ID: <537E526F.8060608@mentor.com>
+References: <537E4AFD.20304@mentor.com> <537E4F29.9080103@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, w@1wt.eu,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com,
-	sebastian.hesselbarth@gmail.com, tawfik@marvell.com,
-	alior@marvell.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:48738 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752134AbaEVTje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:39:34 -0400
-Content-Disposition: inline
-In-Reply-To: <20140522.145805.1022840326808986379.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <kamal@canonical.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
+To: Vlad Yasevich <vyasevich@gmail.com>, <linux-usb@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <537E4F29.9080103@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22 May 02:58 PM, David Miller wrote:
-> From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> Date: Mon, 19 May 2014 13:59:51 -0300
->=20
-> > Here's a first proposal for a generic software TSO helper API, foll=
-owing
-> > David's suggestion.
->=20
-> I like it, applied to net-next, thanks!
+On 22/05/14 20:25, Vlad Yasevich wrote:
+> On 05/22/2014 03:07 PM, Jim Baxter wrote:
+>>
+>>     skb2 = skb_clone(skb, GFP_ATOMIC);
+>>     if (skb2 == NULL)
+>>         goto err;
+>>
+>>     if (!skb_pull(skb2, index)) {
+>>         ret = -EOVERFLOW;
+>>         goto err;
+>>     }
+> 
+> This assumes that you original 16K packet is linear.  Is that
+> always the case?
+The packets within the original packet are linear, however they could be
+in an arbitrary order because they are just offsets from the start of
+the 16k skb.
 
-Great!
 
-Thanks,
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+> 
+> This is the very same problem that I ran into with SCTP since it
+> has similar code in it.  You can play games with truesize manually,
+> but you have to be very careful here.
+> 
+> -vlad
+
+I now think that the correct solution here is to create a new smaller
+skb and copy the data from the sub packets into it.
+
+Jim
