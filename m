@@ -1,37 +1,49 @@
-From: James Cameron <quozl@laptop.org>
-Subject: Re: [PATCH] libertas: fix return value when processing invalid packet
-Date: Fri, 23 May 2014 07:57:50 +1000
-Message-ID: <20140522215750.GF2161@us.netrek.org>
-References: <1400473875-22228-1-git-send-email-Julia.Lawall@lip6.fr>
- <1400473875-22228-2-git-send-email-Julia.Lawall@lip6.fr>
- <5379FCD0.2030506@cogentembedded.com>
- <1400520341.3819.15.camel@dcbw.local>
- <1400761961.15674.4.camel@dcbw.local>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH net-next] genirq: Eliminate explicit dependency between
+ IRQ affinity notifiers and CONFIG_SMP
+Date: Fri, 23 May 2014 07:21:02 +0900 (JST)
+Message-ID: <alpine.DEB.2.02.1405230717310.8522@ionos.tec.linutronix.de>
+References: <1400597820-30685-1-git-send-email-amirv@mellanox.com> <20140522.152808.802269502342645717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	kernel-janitors@vger.kernel.org, libertas-dev@lists.infradead.org,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-kernel@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: amirv@mellanox.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com,
+	yevgenyp@mellanox.com, ogerlitz@mellanox.com, eyalpe@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1400761961.15674.4.camel@dcbw.local>
+In-Reply-To: <20140522.152808.802269502342645717.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 22, 2014 at 07:32:41AM -0500, Dan Williams wrote:
-> Nothing actually uses the return value yet, but we might as well
-> make it correct, like process_rxed_802_11_packet() does for the
-> same case.  Also ensure that if monitor mode is enabled (and
-> thus process_rxed_802_11_packet() is called) that the debugging
-> enter/leave functions are balanced.
+On Thu, 22 May 2014, David Miller wrote:
+
+> From: Amir Vadai <amirv@mellanox.com>
+> Date: Tue, 20 May 2014 17:57:00 +0300
 > 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> > From: Eyal Perry <eyalpe@mellanox.com>
+> > 
+> > Instead of requiring each consumer of the IRQ affinity notifier to have
+> > themselves be explicitly dependent on CONFIG_SMP, make the definition of
+> > struct irq_affinity_notify to exist independently of that config option
+> > and introduce a stub for irq_set_affinity_notifier() under non SMP
+> > configuration.
+> > 
+> > Fixes: 2eacc23 ("net/mlx4_core: Enforce irq affinity changes
+> > immediatly")
+> > 
+> > Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
+> > Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> 
+> IRQ layer folks please review and push upstream if there aren't any
+> problems.
 
-Reviewed-by: James Cameron <quozl@laptop.org>
+It's queued for 3.16 in irq/core and also available for you as a
+single commit to merge into your next tree at:
 
--- 
-James Cameron
-http://quozl.linux.org.au/
+ git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git irq/for-net
+
+if you want to carry it along for testing.
+
+Thanks,
+
+	tglx
