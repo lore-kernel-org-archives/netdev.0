@@ -1,145 +1,67 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bonding: remove alb_set_mac_address()
-Date: Thu, 22 May 2014 17:56:19 +0200
-Message-ID: <20140522155619.GA321@mikrodark.usersys.redhat.com>
-References: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
- <1400764324-23221-3-git-send-email-vfalico@gmail.com>
- <537E17A5.8070604@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] ipv4: initialise the itag variable in __mkroute_input
+Date: Thu, 22 May 2014 09:03:36 -0700
+Message-ID: <CAADnVQ+bvNGhrEqC3P3DqApjcXM3OUUHqTWJ+iwVmC3f4PguEw@mail.gmail.com>
+References: <1400747815-3470-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: roy.qing.li@gmail.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	dormando <dormando@rydia.net>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:64194 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbaEVP4p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 11:56:45 -0400
-Received: by mail-wi0-f182.google.com with SMTP id r20so4566068wiv.3
-        for <netdev@vger.kernel.org>; Thu, 22 May 2014 08:56:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <537E17A5.8070604@gmail.com>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:54496 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbaEVQDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 12:03:37 -0400
+Received: by mail-qc0-f180.google.com with SMTP id i17so5988557qcy.39
+        for <netdev@vger.kernel.org>; Thu, 22 May 2014 09:03:36 -0700 (PDT)
+In-Reply-To: <1400747815-3470-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 22, 2014 at 11:28:37AM -0400, Vlad Yasevich wrote:
->On 05/22/2014 09:12 AM, Veaceslav Falico wrote:
->> Currently it's called only from bond_alb_set_mac_address(), which is called
->> only for ALB mode, and it does nothing in case the mode is ALB. So,
->> basically, it's a no-op. All the needed functionality (modifying the active
->> slave's mac address, per example) is handled by the
->> bond_alb_set_mac_address() itself.
->>
->> So remove it, as it's not needed.
+On Thu, May 22, 2014 at 1:36 AM,  <roy.qing.li@gmail.com> wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 >
->From the comments and code, it seems like it should be called for TLB
->mode as well as it does that weird half-setting of the address that
->TLB seems to want.  Is that not needed any more?
-
-It's still needed, but neither before my patch, nor after it works. The
-whole "save src mac address in dev->dev_addr" approach is wrong, and should
-be fixed - I'm working on it, and in the meanwhile cleaning the codebase.
-
-Basically, I see no point in fixing this code that never (at least till the
-beginning of this git tree) worked considering that we'll go away
-from it completely in the nearest future.
-
-OTOH, it'll be a basic fix (and then, anyway, removed ;) ), so I can send a
-v2 with it.
-
+> the value of itag is a random value from stack, and may not be initiated by
+> fib_validate_source, which called fib_combine_itag if CONFIG_IP_ROUTE_CLASSID
+> is not set
 >
->-vlad
+> This will make the cached dst uncertainty
 >
->>
->> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->> ---
->>  drivers/net/bonding/bond_alb.c | 61 ------------------------------------------
->>  1 file changed, 61 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->> index 965518b..1d772b5 100644
->> --- a/drivers/net/bonding/bond_alb.c
->> +++ b/drivers/net/bonding/bond_alb.c
->> @@ -1256,62 +1256,6 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
->>  	return 0;
->>  }
->>
->> -/**
->> - * alb_set_mac_address
->> - * @bond:
->> - * @addr:
->> - *
->> - * In TLB mode all slaves are configured to the bond's hw address, but set
->> - * their dev_addr field to different addresses (based on their permanent hw
->> - * addresses).
->> - *
->> - * For each slave, this function sets the interface to the new address and then
->> - * changes its dev_addr field to its previous value.
->> - *
->> - * Unwinding assumes bond's mac address has not yet changed.
->> - */
->> -static int alb_set_mac_address(struct bonding *bond, void *addr)
->> -{
->> -	struct slave *slave, *rollback_slave;
->> -	struct list_head *iter;
->> -	struct sockaddr sa;
->> -	char tmp_addr[ETH_ALEN];
->> -	int res;
->> -
->> -	if (BOND_MODE(bond) == BOND_MODE_ALB)
->> -		return 0;
->> -
->> -	bond_for_each_slave(bond, slave, iter) {
->> -		/* save net_device's current hw address */
->> -		ether_addr_copy(tmp_addr, slave->dev->dev_addr);
->> -
->> -		res = dev_set_mac_address(slave->dev, addr);
->> -
->> -		/* restore net_device's hw address */
->> -		ether_addr_copy(slave->dev->dev_addr, tmp_addr);
->> -
->> -		if (res)
->> -			goto unwind;
->> -	}
->> -
->> -	return 0;
->> -
->> -unwind:
->> -	memcpy(sa.sa_data, bond->dev->dev_addr, bond->dev->addr_len);
->> -	sa.sa_family = bond->dev->type;
->> -
->> -	/* unwind from head to the slave that failed */
->> -	bond_for_each_slave(bond, rollback_slave, iter) {
->> -		if (rollback_slave == slave)
->> -			break;
->> -		ether_addr_copy(tmp_addr, rollback_slave->dev->dev_addr);
->> -		dev_set_mac_address(rollback_slave->dev, &sa);
->> -		ether_addr_copy(rollback_slave->dev->dev_addr, tmp_addr);
->> -	}
->> -
->> -	return res;
->> -}
->> -
->>  /************************ exported alb funcions ************************/
->>
->>  int bond_alb_initialize(struct bonding *bond)
->> @@ -1777,15 +1721,10 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
->>  	struct bonding *bond = netdev_priv(bond_dev);
->>  	struct sockaddr *sa = addr;
->>  	struct slave *swap_slave;
->> -	int res;
->>
->>  	if (!is_valid_ether_addr(sa->sa_data))
->>  		return -EADDRNOTAVAIL;
->>
->> -	res = alb_set_mac_address(bond, addr);
->> -	if (res)
->> -		return res;
->> -
->>  	memcpy(bond_dev->dev_addr, sa->sa_data, bond_dev->addr_len);
->>
->>  	/* If there is no curr_active_slave there is nothing else to do.
->>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+
+Nice catch. Indeed. I think it's needed for stable.
+
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+
+Dormando,
+can you check whether your config has CONFIG_IP_ROUTE_CLASSID or not?
+The way I'm reading the code, it shouldn't be causing your failures,
+but that part
+of code is hairy..
+
+> ---
+>  net/ipv4/route.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 50e1e0f..4154eb7 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1526,7 +1526,7 @@ static int __mkroute_input(struct sk_buff *skb,
+>         struct in_device *out_dev;
+>         unsigned int flags = 0;
+>         bool do_cache;
+> -       u32 itag;
+> +       u32 itag = 0;
+>
+>         /* get a working reference to the output device */
+>         out_dev = __in_dev_get_rcu(FIB_RES_DEV(*res));
+> --
+> 1.7.10.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
