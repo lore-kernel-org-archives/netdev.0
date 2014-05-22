@@ -1,93 +1,89 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Thu, 22 May 2014 16:27:45 +0200
-Message-ID: <537E0961.8040005@gmail.com>
-References: <536101C9.9090601@gmail.com> <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com> <20140512143451.GB13801@kernel.org> <20140521210535.GA5414@kernel.org>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Subject: [net-next 0/1]: Add minimum bandwidth support in IP tool.
+Date: Thu, 22 May 2014 09:59:04 -0400
+Message-ID: <1400767145-11564-1-git-send-email-sucheta.chakraborty@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	=?UTF-8?B?T25kxZllaiBCw61sa2E=?= <neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org>,
-	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
-	=?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1v?= =?UTF-8?B?bnQ=?=
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
-	Chris Friesen <chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
-To: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140521210535.GA5414-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	<ben@decadent.org.uk>, <gregory.v.rose@intel.com>,
+	<linux-net-drivers@solarflare.com>, <Ariel.Elior@qlogic.com>,
+	<amirv@mellanox.com>, <mkubecek@suse.cz>,
+	<stephen@networkplumber.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:26400 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751830AbaEVO2l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 10:28:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Arnaldo,
+Today IP tool allows configuring only maximum bandwidth.
+Likewise minimum bandwidth can also be configured for a VF. It puts
+lower limit on the VF bandwidth. VF is guaranteed to have a bandwidth
+of at least this value.
 
-On 05/21/2014 11:05 PM, Arnaldo Carvalho de Melo wrote:
-> Em Mon, May 12, 2014 at 11:34:51AM -0300, Arnaldo Carvalho de Melo escreveu:
->> Em Mon, May 12, 2014 at 12:15:25PM +0200, Michael Kerrisk (man-pages) escreveu:
->>> Hi Arnaldo,
->  
->>> Ping!
-> 
->> I acknowledge the problem, the timeout has to be passed to the
->> underlying ->recvmsg() implementations that should return the time spent
->> waiting for each packet, so that we can accrue that at recvmmsg level.
->  
->> We can do either passing an extra timeout parameter to the recvmsg
->> implementations or using some struct sock member to specify that
->> timeout.
->  
->> The first approach is intrusive, touches tons of files, so I'll try
->> making it all mostly transparent by hooking into sock_rcvtimeo()
->> somehow.
-> 
-> But after thinking a bit more, looks like we need to do that, please
-> take a look at the attached patch to see if it addresses the problem.
-> 
-> Mostly it adds a new timeop to the per protocol recvmsg()
-> implementations, that, if not NULL, should be used instead of
-> SO_RCVTIMEO.
-> 
-> since the underlying recvmsg implementations already check that timeout,
-> return what is remaining, that will then be used in subsequent recvmsg
-> calls, at the end we just convert it back to timespec format.
-> 
-> In most cases it is just passed to skb_recv_datagram, that will check
-> the pointer, use it and update if not NULL.
-> 
-> Should have no problems, but I only did a boot with a system with this
-> patch applied, no problems noticed on a normal desktop session, ssh,
-> etc.
+With this change, user can alter minimum bandwidth rate.
 
-Thanks! I applied this patch against 3.15-rc6.
+This patch series has 1 combined patch that adds required support in kernel
+and qlcnic driver changes for minimum bandwidth support.
 
-recvmmsg() now (mostly) does what I expect: 
-* it waits until either the timeout expires or vlen messages 
-  have been received
-* If no message is received before timeout, it returns -1/EAGAIN.
-* If vlen messages are received before the timeout expires, then
-  the remaining time is returned in timeout.
+This change also requires changes in IP tool. I am sending that patch
+separately.
 
-One question: in the event that the call is interrupted by a signal 
-handler, it fails (as expected) with EINTR, but the 'timeout' value is 
-not updated with the remaining time on the timer. Would it be desirable 
-to emulate the behavior of select() (and other syscalls) in this 
-respect, and instead return the remaining time if interrupted by 
-a signal?
+Changes in v2 per suggestions from Ben Hutchings and Michal Kubecek:
 
-Cheers,
+   net-next patch:
+        o Fixed enum index for IFLA_VF_RATE
+        o ndo_set_vf_rate replaces ndo_set_vf_tx_rate. Drivers that currently implement
+          ndo_set_vf_tx_rate is converted to implement ndo_set_vf_rate instead.
+        o If only IFLA_VF_TX_RATE is specified, the core should get the current minimum
+          before calling ndo_set_vf_rate.
+        o IFLA_VF_RATE should override if both IFLA_VF_RATE and IFLA_VF_TX_RATE are specified.
+        o Combined qlcnic patch to add support for minimum bandwidth with net-next patch
 
-Michael
+Changes in v3 as per suggestions from Ben Hutchings
 
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    net-next patch:
+        o If user enters only one value out of min_tx_rate or max_tx_rate, the other
+          value will be read back in userspace for IFLA_VF_RATE.
+
+        o For IFLA_VF_TX_RATE, min rate will still be read in kernel space to preserve
+          compatibility:
+          (a) between old tool sends "rate" and kernel is new (expects "min" and "max")
+          (b) or, when new tool sends only "rate" and kernel is old (expects only "rate")
+
+Change in v4 as per suggestions from Stephen Hemminger:
+
+     No change in net-next patch. Change in Iproute patch w.r.t display of min_tx_rate and max_tx_rate.
+
+Please apply to net-next.
+
+Thanks,
+Sucheta.
+
+Sucheta Chakraborty (1):
+  net: Add support to configure SR-IOV VF minimum and maximum Tx
+    rate through ip tool.
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |    3 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        |   21 +++++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   26 ++++++---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |    3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c          |   20 +++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |    2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   13 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |    3 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           |   11 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +-
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   52 ++++++++++++++------
+ drivers/net/ethernet/sfc/siena_sriov.c             |    3 +-
+ include/linux/if_link.h                            |    3 +-
+ include/linux/netdevice.h                          |    8 ++-
+ include/uapi/linux/if_link.h                       |    9 +++-
+ net/core/rtnetlink.c                               |   38 ++++++++++++--
+ 20 files changed, 156 insertions(+), 67 deletions(-)
