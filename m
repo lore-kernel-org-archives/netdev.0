@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: Don't assume 802.1Q when sending alb
- learning packets.
-Date: Thu, 22 May 2014 15:45:11 -0400 (EDT)
-Message-ID: <20140522.154511.1728176095337929068.davem@davemloft.net>
-References: <1400685879-21843-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 0/2] bonding: fix enslaving a dev without mtu
+ setting support
+Date: Thu, 22 May 2014 15:47:06 -0400 (EDT)
+Message-ID: <20140522.154706.1268896686458226593.davem@davemloft.net>
+References: <1400686921-5698-1-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net
-To: vyasevic@redhat.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
+To: vfalico@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42015 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42043 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037AbaEVTpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:45:13 -0400
-In-Reply-To: <1400685879-21843-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1751277AbaEVTrJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:47:09 -0400
+In-Reply-To: <1400686921-5698-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed, 21 May 2014 11:24:39 -0400
+From: Veaceslav Falico <vfalico@gmail.com>
+Date: Wed, 21 May 2014 17:41:59 +0200
 
-> TLB/ALB learning packets always assume 802.1Q vlan protocol, but
-> that is no longer the case since we now have support for Q-in-Q
-> on top of bonding.  Pass the vlan protocol to alb_send_lp_vid()
-> so that the packets are properly tagged.
+> With the introduction of bond_free_slave() we need to have slave->bond
+> populated before calling it, however if the dev_mtu_set(slave, mtu) fails,
+> we call bond_free_slave() before actually setting slave->bond, and thus
+> we'll panic.
+> 
+> Fix this by populating slave->bond (and ->dev, it seems appropriate) as
+> early as possible.
+> 
+> Also, remove a harmful check for NULL in bond_get_bond_by_slave(), as it's
+> only hiding the real problem and making it harder to debug.
 > 
 > CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
 > CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 
-Applied, thanks Vlad.
+Series applied to net-next, thanks.
