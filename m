@@ -1,64 +1,60 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [patch] net: cdc_ncm: fix typo in test for supported formats
-Date: Thu, 22 May 2014 10:27:57 +0200
-Message-ID: <87oayqw73m.fsf@nemi.mork.no>
-References: <20140522075229.GA4346@mwanda>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: ipv6: Fixed up ipsec packet be re-routing issue
+Date: Thu, 22 May 2014 16:21:15 +0400
+Message-ID: <537DEBBB.60100@cogentembedded.com>
+References: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alan@lxorguk.ukuu.org.uk, nickcave.zhang@gmail.com
+To: huizhang <huizhang@marvell.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:38741 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752428AbaEVKwY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 06:52:24 -0400
-In-Reply-To: <20140522075229.GA4346@mwanda> (Dan Carpenter's message of "Thu,
-	22 May 2014 10:52:29 +0300")
+Received: from mail-la0-f47.google.com ([209.85.215.47]:58484 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922AbaEVMVM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 08:21:12 -0400
+Received: by mail-la0-f47.google.com with SMTP id pn19so2536946lab.6
+        for <netdev@vger.kernel.org>; Thu, 22 May 2014 05:21:11 -0700 (PDT)
+In-Reply-To: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter <dan.carpenter@oracle.com> writes:
+Hello.
 
-> There is a typo here where we test for USB_CDC_NCM_NTH32_SIGN instead
-> of USB_CDC_NCM_NTB32_SUPPORTED.  The test probably still works as
-> written because 0x686D636E has (1 << 1) set and doesn't have (1 << 0)
-> set.
+On 22-05-2014 11:05, huizhang wrote:
+
+> From: Hui Zhang <huizhang@marvell.com>
+
+>      Bug report on https://bugzilla.kernel.org/show_bug.cgi?id=75781
 >
-> Fixes: f8afb73da375 ('net: cdc_ncm: factor out one-time device initia=
-lization')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>      When a local output ipsec packet match the mangle table rule,
+>      and be set mark value, the packet will be route again in
+>      route_me_harder -> _session_decoder6
+
+>      In this case, the nhoff in CB of skb was still the default
+>      value 0. So the protocal match can't success and the packet can't match
+>      correct SA rule,and then the packet be send out in plaintext.
+
+>      To fixed up the issue. The CB->nhoff must be set.
+
+> Signed-off-by: huizhang <huizhang@marvell.com>
+
+    Why not Hui Zhang, like in the From field?
+
 > ---
-> Static analysis.  Untested.  Applies on -next
->
-> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-> index ad2a386..93c9ca9 100644
-> --- a/drivers/net/usb/cdc_ncm.c
-> +++ b/drivers/net/usb/cdc_ncm.c
-> @@ -357,7 +357,8 @@ static int cdc_ncm_init(struct usbnet *dev)
->  	 * "The host shall only send this command while the NCM Data
->  	 *  Interface is in alternate setting 0."
->  	 */
-> -	if (le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported) & USB_CDC_NCM_=
-NTH32_SIGN) {
-> +	if (le16_to_cpu(ctx->ncm_parm.bmNtbFormatsSupported) &
-> +						USB_CDC_NCM_NTB32_SUPPORTED) {
->  		dev_dbg(&dev->intf->dev, "Setting NTB format to 16-bit\n");
->  		err =3D usbnet_write_cmd(dev, USB_CDC_SET_NTB_FORMAT,
->  				       USB_TYPE_CLASS | USB_DIR_OUT
+>   net/ipv6/xfrm6_policy.c |    2 ++
+>   1 file changed, 2 insertions(+)
 
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index 5f8e128..869b68b 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -134,6 +134,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+>   	const struct ipv6hdr *hdr = ipv6_hdr(skb);
+>   	struct ipv6_opt_hdr *exthdr;
+>   	const unsigned char *nh = skb_network_header(skb);
+> +	if(IP6CB(skb)->nhoff==0)
 
-Thanks!  Yes, that is correct.
+    Please, surround == with a space on each side.
 
-I actually thought I had fixed that bug a while ago, but instead I
-managed to just copy it while refactoring.  Impressive...
-
-
-It doesn't matter whether (1 << 0) is set.  In fact it always will be.
-What makes this work despite the bug is that no other bits will ever be
-set - they are all reserved and must be zero.  But the spec also
-requires us to ignore them, so your fix is definitely needed.
-
-
-Bj=C3=B8rn
+WBR, Sergei
