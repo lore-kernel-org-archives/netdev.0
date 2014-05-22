@@ -1,100 +1,43 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH 3/3] net: mvneta: Introduce a software TSO implementation
-Date: Thu, 22 May 2014 14:47:54 -0300
-Message-ID: <20140522174754.GC1785@arch.cereza>
-References: <1397170682-19138-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1397170682-19138-4-git-send-email-ezequiel.garcia@free-electrons.com>
- <20140505144702.GB12693@arch.cereza>
- <1400638291.17377.73.camel@deadeye.wl.decadent.org.uk>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] micrel: Use time_before_eq()
+Date: Thu, 22 May 2014 19:52:45 +0200
+Message-ID: <1400781165-26498-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, cmetcalf@tilera.com,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Simon Guinot <simon.guinot@sequanux.org>,
-	Willy Tarreau <w@1wt.eu>, Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Simon Guinot <sguinot@lacie.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:48106 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750835AbaEVRsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 13:48:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1400638291.17377.73.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jg1.han@samsung.com, dingtianhong@huawei.com,
+	ebiederm@xmission.com, Julia.Lawall@lip6.fr,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21 May 03:11 AM, Ben Hutchings wrote:
-> On Mon, 2014-05-05 at 11:47 -0300, Ezequiel Garcia wrote:
-> > Hi all,
-> >=20
-> > On 10 Apr 07:58 PM, Ezequiel Garcia wrote:
-> > [..]
-> > > +
-> > > +	/* Calculate expected number of TX descriptors */
-> > > +	desc_count =3D skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)-=
->nr_frags;
-> > > +	if ((txq->count + desc_count) >=3D txq->size)
-> > > +		return 0;
-> > > +
-> >=20
-> > Is this calculus correct? Does it give the accurate number of neede=
-d
-> > descriptors or is it an approximation?
-> >=20
->=20
-> There are (at least) three potential bugs you need to avoid:
->=20
-> 1. You must not underestimate the number of descriptors required here=
-,
-> otherwise the ring may overflow.  Hopefully that's obvious.
+To be future-proof and for better readability the time comparisons are =
+modified
+to use time_before_eq() instead of plain, error-prone math.
 
-Yes, fully understood.
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
+---
+ drivers/net/ethernet/micrel/ksz884x.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> 2. You must ensure that the worst case number of descriptors does
-> actually fit in the ring, and will probably need to set
-> net_dev->gso_max_segs accordingly.  Eric pointed that out already.
-
-Yeah, I still need to take a deep look at the commit pointed out by Eri=
-c.
-
-> 3. If you stop the queue because an skb doesn't fit, you should not w=
-ake
-> it before there is enough space.
->=20
-> A simple way to do this is:
->=20
-> - Set a maximum number of segments to support (for sfc, I reckoned th=
-at
-> 100 was enough)
-> - Calculate the maximum number of descriptors that could be needed fo=
-r
-> that number of segments
-> - Stop the queue when the free space in the ring is less than that
-> maximum
-> - Wake the queue when the free space reaches a threshold somewhere
-> between that maximum and completely free
->=20
-> It may make more sense to work backward from the ring size to maximum
-> number of segments.
->=20
-
-Hm, this seems a good suggestion. I'm wondering if this can be added to
-the generic code. Although this is likely each driver's responsability.
-
-BTW, have you seen the proposal for the generic TSO API?
-
-http://permalink.gmane.org/gmane.linux.network/316852
-
-Any comments about it would be much appreciated, as we'd really like
-to see TSO implemented on our drivers.
-
-Thanks,
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethern=
+et/micrel/ksz884x.c
+index 14ac0e2..90fa5f3 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4930,7 +4930,7 @@ static void netdev_tx_timeout(struct net_device *=
+dev)
+ 		 * Only reset the hardware if time between calls is long
+ 		 * enough.
+ 		 */
+-		if (jiffies - last_reset <=3D dev->watchdog_timeo)
++		if (time_before_eq(jiffies, last_reset + dev->watchdog_timeo))
+ 			hw_priv =3D NULL;
+ 	}
+=20
 --=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+1.7.10.4
