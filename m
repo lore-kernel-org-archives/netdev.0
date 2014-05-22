@@ -1,49 +1,30 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] batman: fix a bogus warning from batadv_is_on_batman_iface()
-Date: Thu, 22 May 2014 11:57:17 -0700
-Message-ID: <1400785037-9963-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: jet.chen@intel.com, "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Cong Wang <cwang@twopensource.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] net: Introduce a software TSO helper API
+Date: Thu, 22 May 2014 14:58:05 -0400 (EDT)
+Message-ID: <20140522.145805.1022840326808986379.davem@davemloft.net>
+References: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, w@1wt.eu,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com,
+	sebastian.hesselbarth@gmail.com, tawfik@marvell.com,
+	alior@marvell.com
+To: ezequiel.garcia@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:42100 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751249AbaEVS50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 14:57:26 -0400
-Received: by mail-pa0-f47.google.com with SMTP id lf10so2881942pab.34
-        for <netdev@vger.kernel.org>; Thu, 22 May 2014 11:57:26 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:41384 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752247AbaEVS6K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 14:58:10 -0400
+In-Reply-To: <1400518800-6111-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Mon, 19 May 2014 13:59:51 -0300
 
-batman tries to search dev->iflink to check if it's a batman interface,
-but ->iflink could be 0, which is not a valid ifindex. It should just
-avoid iflink == 0 case.
+> Here's a first proposal for a generic software TSO helper API, following
+> David's suggestion.
 
-Reported-by: Jet Chen <jet.chen@intel.com>
-Tested-by: Jet Chen <jet.chen@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Antonio Quartulli <antonio@open-mesh.com>
-Cc: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
----
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index b851cc5..fbda6b5 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -83,7 +83,7 @@ static bool batadv_is_on_batman_iface(const struct net_device *net_dev)
- 		return true;
- 
- 	/* no more parents..stop recursion */
--	if (net_dev->iflink == net_dev->ifindex)
-+	if (net_dev->iflink == 0 || net_dev->iflink == net_dev->ifindex)
- 		return false;
- 
- 	/* recurse over the parent device */
+I like it, applied to net-next, thanks!
