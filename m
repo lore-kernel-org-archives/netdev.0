@@ -1,7 +1,7 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v3 1/8] net: mv643xx_eth: Simplify mv643xx_eth_adjust_link()
-Date: Thu, 22 May 2014 20:06:56 -0300
-Message-ID: <1400800023-1562-2-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH v3 2/8] net: mvneta: Clean-up mvneta_tx_frag_process()
+Date: Thu, 22 May 2014 20:06:57 -0300
+Message-ID: <1400800023-1562-3-git-send-email-ezequiel.garcia@free-electrons.com>
 References: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -12,70 +12,60 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:49692 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:49695 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753121AbaEVXHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 19:07:55 -0400
+	with ESMTP id S1751243AbaEVXH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 19:07:59 -0400
 In-Reply-To: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, mv643xx_eth_adjust_link() is only used to call mv643xx_adjust_pscr().
-This commit renames the latter to the former, and therefore removes the extra
-and useless function.
+A tiny clean-up to improve readability. This commit makes no functionality
+change.
 
-Acked-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mv643xx_eth.c | 14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 3b0f818..c68ff5d 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1167,8 +1167,9 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
- 
- 
- /* mii management interface *************************************************/
--static void mv643xx_adjust_pscr(struct mv643xx_eth_private *mp)
-+static void mv643xx_eth_adjust_link(struct net_device *dev)
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 18c698d..3034601 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1654,9 +1654,9 @@ static int mvneta_tx_frag_process(struct mvneta_port *pp, struct sk_buff *skb,
+ 				  struct mvneta_tx_queue *txq)
  {
-+	struct mv643xx_eth_private *mp = netdev_priv(dev);
- 	u32 pscr = rdlp(mp, PORT_SERIAL_CONTROL);
- 	u32 autoneg_disable = FORCE_LINK_PASS |
- 	             DISABLE_AUTO_NEG_SPEED_GMII |
-@@ -1544,7 +1545,7 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	struct mvneta_tx_desc *tx_desc;
+-	int i;
++	int i, nr_frags = skb_shinfo(skb)->nr_frags;
  
- 	ret = phy_ethtool_sset(mp->phy, cmd);
- 	if (!ret)
--		mv643xx_adjust_pscr(mp);
-+		mv643xx_eth_adjust_link(dev);
- 	return ret;
- }
+-	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++	for (i = 0; i < nr_frags; i++) {
+ 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 		void *addr = page_address(frag->page.p) + frag->page_offset;
  
-@@ -2473,7 +2474,7 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -1673,20 +1673,16 @@ static int mvneta_tx_frag_process(struct mvneta_port *pp, struct sk_buff *skb,
+ 			goto error;
+ 		}
  
- 	ret = phy_mii_ioctl(mp->phy, ifr, cmd);
- 	if (!ret)
--		mv643xx_adjust_pscr(mp);
-+		mv643xx_eth_adjust_link(dev);
- 	return ret;
- }
- 
-@@ -2871,13 +2872,6 @@ static void set_params(struct mv643xx_eth_private *mp,
- 	mp->txq_count = pd->tx_queue_count ? : 1;
- }
- 
--static void mv643xx_eth_adjust_link(struct net_device *dev)
--{
--	struct mv643xx_eth_private *mp = netdev_priv(dev);
+-		if (i == (skb_shinfo(skb)->nr_frags - 1)) {
++		if (i == nr_frags - 1) {
+ 			/* Last descriptor */
+ 			tx_desc->command = MVNETA_TXD_L_DESC | MVNETA_TXD_Z_PAD;
 -
--	mv643xx_adjust_pscr(mp);
--}
+ 			txq->tx_skb[txq->txq_put_index] = skb;
 -
- static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
- 				   int phy_addr)
- {
+-			mvneta_txq_inc_put(txq);
+ 		} else {
+ 			/* Descriptor in the middle: Not First, Not Last */
+ 			tx_desc->command = 0;
+-
+ 			txq->tx_skb[txq->txq_put_index] = NULL;
+-			mvneta_txq_inc_put(txq);
+ 		}
++		mvneta_txq_inc_put(txq);
+ 	}
+ 
+ 	return 0;
 -- 
 1.9.1
