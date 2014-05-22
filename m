@@ -1,7 +1,8 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v3 0/8] net: ethernet: marvell: Assorted fixes
-Date: Thu, 22 May 2014 20:06:55 -0300
-Message-ID: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH v3 1/8] net: mv643xx_eth: Simplify mv643xx_eth_adjust_link()
+Date: Thu, 22 May 2014 20:06:56 -0300
+Message-ID: <1400800023-1562-2-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
 	Gregory Clement <gregory.clement@free-electrons.com>,
@@ -11,60 +12,70 @@ Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:49686 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:49692 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753108AbaEVXHv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 19:07:51 -0400
+	with ESMTP id S1753121AbaEVXHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 19:07:55 -0400
+In-Reply-To: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-New round for this assorted fixes and clean-up series. There is more room for
-clean-ups, and I'll start preparing more patches once these are accepted.
+Currently, mv643xx_eth_adjust_link() is only used to call mv643xx_adjust_pscr().
+This commit renames the latter to the former, and therefore removes the extra
+and useless function.
 
-This series consists of cleanups and minor improvements on mvneta, mv643xx_eth
-and mvmdio drivers. None of the patches imply any functionality change, except
-for the patch six "Change the number of default rx queues to one".
+Acked-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
-This patch reduces the driver's allocated resources and makes the multiqueue
-path in the poll function not get taken. The previous patchset contains more
-details:
-
-  http://permalink.gmane.org/gmane.linux.network/315015
-
-As usual, any feedback on this will be well received!
-
-Changes from v2:
-
-  * Rebased on today's net-next and dropped patch 
-    "net: mvneta: Factorize feature setting", merged in the recent
-    TSO series.
-
-  * As per Sergei suggestion, used devm_kcalloc or devm_kmalloc_array
-    when suitable.
-
-Changes from v1:
-
-  * Added two more clean-up patches to the series.
-
-  * Added Sebastian's Acked-by's.
-
-  * Fixed extra empty line in "net: mv643xx_eth: Simplify
-    mv643xx_eth_adjust_link()" as pointed out by David Miller.
-
-Ezequiel Garcia (8):
-  net: mv643xx_eth: Simplify mv643xx_eth_adjust_link()
-  net: mvneta: Clean-up mvneta_tx_frag_process()
-  net: mvneta: Check tx queue setup error in mvneta_change_mtu()
-  net: mvneta: Clean-up mvneta_init()
-  net: mvneta: Use prepare/commit API to simplify MAC address setting
-  net: mvneta: Change the number of default rx queues to one
-  net: mvmdio: Use devm_* API to simplify the code
-  net: mvneta: Remove unneeded 'weigth' field
-
- drivers/net/ethernet/marvell/mv643xx_eth.c | 14 ++---
- drivers/net/ethernet/marvell/mvmdio.c      | 18 ++----
- drivers/net/ethernet/marvell/mvneta.c      | 91 ++++++++++++------------------
- 3 files changed, 45 insertions(+), 78 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 3b0f818..c68ff5d 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1167,8 +1167,9 @@ static void txq_set_fixed_prio_mode(struct tx_queue *txq)
+ 
+ 
+ /* mii management interface *************************************************/
+-static void mv643xx_adjust_pscr(struct mv643xx_eth_private *mp)
++static void mv643xx_eth_adjust_link(struct net_device *dev)
+ {
++	struct mv643xx_eth_private *mp = netdev_priv(dev);
+ 	u32 pscr = rdlp(mp, PORT_SERIAL_CONTROL);
+ 	u32 autoneg_disable = FORCE_LINK_PASS |
+ 	             DISABLE_AUTO_NEG_SPEED_GMII |
+@@ -1544,7 +1545,7 @@ mv643xx_eth_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ 	ret = phy_ethtool_sset(mp->phy, cmd);
+ 	if (!ret)
+-		mv643xx_adjust_pscr(mp);
++		mv643xx_eth_adjust_link(dev);
+ 	return ret;
+ }
+ 
+@@ -2473,7 +2474,7 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 
+ 	ret = phy_mii_ioctl(mp->phy, ifr, cmd);
+ 	if (!ret)
+-		mv643xx_adjust_pscr(mp);
++		mv643xx_eth_adjust_link(dev);
+ 	return ret;
+ }
+ 
+@@ -2871,13 +2872,6 @@ static void set_params(struct mv643xx_eth_private *mp,
+ 	mp->txq_count = pd->tx_queue_count ? : 1;
+ }
+ 
+-static void mv643xx_eth_adjust_link(struct net_device *dev)
+-{
+-	struct mv643xx_eth_private *mp = netdev_priv(dev);
+-
+-	mv643xx_adjust_pscr(mp);
+-}
+-
+ static struct phy_device *phy_scan(struct mv643xx_eth_private *mp,
+ 				   int phy_addr)
+ {
 -- 
 1.9.1
