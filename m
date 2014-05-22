@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 9/9] powerpc/fsl: fsl_soc: remove 'fixed-link' parsing code
-Date: Thu, 22 May 2014 09:47:51 -0700
-Message-ID: <1400777271-32199-10-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/9] Documentation: devicetree: net: refer to fixed-link.txt
+Date: Thu, 22 May 2014 09:47:44 -0700
+Message-ID: <1400777271-32199-3-git-send-email-f.fainelli@gmail.com>
 References: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
 	Pantelis Antoniou <pantelis.antoniou@gmail.com>,
@@ -22,78 +22,61 @@ In-Reply-To: <1400777271-32199-1-git-send-email-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Parsing and registration of fixed PHY devices was needed with the use of
-of_phy_connect_fixed_link() because this function was using the
-designated PHY address identifier (first cell of the property) as the
-address to bind the PHY on the emulated bus.
+Update the Freescale TSEC PHY, Broadcom GENET & SYSTEMPORT Device Tree
+binding documentation to refer to the fixed-link Device Tree binding in
+fixed-link.txt.
 
-Since commit 3be2a49e5c08d268f8af0dd4fe89a24ea8cdc339 ("of: provide a
-binding for fixed link PHYs") a new pair of functions has been
-introduced which allows for dynamic address allocation of these fixed
-PHY devices, but also parses the old 'fixed-link' 5-digit property.
-
-Registration of fixed PHY early in platform code was needed because we
-could not issue a fixed MDIO bus re-scan within network drivers. The
-fixed PHYs had to be registered before the network drivers would call
-of_phy_connect_fixed_link(). All of these caveats are solved now, such
-that we can safely remove of_add_fixed_phys() now.
-
+Reviewed-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 No changes in v2
 
- arch/powerpc/sysdev/fsl_soc.c | 32 --------------------------------
- 1 file changed, 32 deletions(-)
+ Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt   | 2 +-
+ Documentation/devicetree/bindings/net/broadcom-systemport.txt | 2 +-
+ Documentation/devicetree/bindings/net/fsl-tsec-phy.txt        | 5 +----
+ 3 files changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/arch/powerpc/sysdev/fsl_soc.c b/arch/powerpc/sysdev/fsl_soc.c
-index 228cf91b91c1..ffd1169ebaab 100644
---- a/arch/powerpc/sysdev/fsl_soc.c
-+++ b/arch/powerpc/sysdev/fsl_soc.c
-@@ -25,7 +25,6 @@
- #include <linux/of.h>
- #include <linux/of_platform.h>
- #include <linux/phy.h>
--#include <linux/phy_fixed.h>
- #include <linux/spi/spi.h>
- #include <linux/fsl_devices.h>
- #include <linux/fs_enet_pd.h>
-@@ -178,37 +177,6 @@ u32 get_baudrate(void)
- EXPORT_SYMBOL(get_baudrate);
- #endif /* CONFIG_CPM2 */
+diff --git a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+index f2febb94550e..451fef26b4df 100644
+--- a/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
++++ b/Documentation/devicetree/bindings/net/broadcom-bcmgenet.txt
+@@ -24,7 +24,7 @@ Optional properties:
+ - fixed-link: When the GENET interface is connected to a MoCA hardware block or
+   when operating in a RGMII to RGMII type of connection, or when the MDIO bus is
+   voluntarily disabled, this property should be used to describe the "fixed link".
+-  See Documentation/devicetree/bindings/net/fsl-tsec-phy.txt for information on
++  See Documentation/devicetree/bindings/net/fixed-link.txt for information on
+   the property specifics
  
--#ifdef CONFIG_FIXED_PHY
--static int __init of_add_fixed_phys(void)
--{
--	int ret;
--	struct device_node *np;
--	u32 *fixed_link;
--	struct fixed_phy_status status = {};
--
--	for_each_node_by_name(np, "ethernet") {
--		fixed_link  = (u32 *)of_get_property(np, "fixed-link", NULL);
--		if (!fixed_link)
--			continue;
--
--		status.link = 1;
--		status.duplex = fixed_link[1];
--		status.speed = fixed_link[2];
--		status.pause = fixed_link[3];
--		status.asym_pause = fixed_link[4];
--
--		ret = fixed_phy_add(PHY_POLL, fixed_link[0], &status);
--		if (ret) {
--			of_node_put(np);
--			return ret;
--		}
--	}
--
--	return 0;
--}
--arch_initcall(of_add_fixed_phys);
--#endif /* CONFIG_FIXED_PHY */
--
- #if defined(CONFIG_FSL_SOC_BOOKE) || defined(CONFIG_PPC_86xx)
- static __be32 __iomem *rstcr;
+ Required child nodes:
+diff --git a/Documentation/devicetree/bindings/net/broadcom-systemport.txt b/Documentation/devicetree/bindings/net/broadcom-systemport.txt
+index 1b7600e022dd..c183ea90d9bc 100644
+--- a/Documentation/devicetree/bindings/net/broadcom-systemport.txt
++++ b/Documentation/devicetree/bindings/net/broadcom-systemport.txt
+@@ -8,7 +8,7 @@ Required properties:
+ - local-mac-address: Ethernet MAC address (48 bits) of this adapter
+ - phy-mode: Should be a string describing the PHY interface to the
+   Ethernet switch/PHY, see Documentation/devicetree/bindings/net/ethernet.txt
+-- fixed-link: see Documentation/devicetree/bindings/net/fsl-tsec-phy.txt for
++- fixed-link: see Documentation/devicetree/bindings/net/fixed-link.txt for
+   the property specific details
  
+ Optional properties:
+diff --git a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+index 737cdef4f903..be6ea8960f20 100644
+--- a/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
++++ b/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt
+@@ -42,10 +42,7 @@ Properties:
+     interrupt.  For TSEC and eTSEC devices, the first interrupt is
+     transmit, the second is receive, and the third is error.
+   - phy-handle : See ethernet.txt file in the same directory.
+-  - fixed-link : <a b c d e> where a is emulated phy id - choose any,
+-    but unique to the all specified fixed-links, b is duplex - 0 half,
+-    1 full, c is link speed - d#10/d#100/d#1000, d is pause - 0 no
+-    pause, 1 pause, e is asym_pause - 0 no asym_pause, 1 asym_pause.
++  - fixed-link : See fixed-link.txt in the same directory.
+   - phy-connection-type : See ethernet.txt file in the same directory.
+     This property is only really needed if the connection is of type
+     "rgmii-id", as all other connection types are detected by hardware.
 -- 
 1.9.1
