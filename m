@@ -1,43 +1,25 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC ipsec-next] xfrm: make sha256 icv truncation length RFC-compliant
-Date: Thu, 22 May 2014 18:03:36 +0200
-Message-ID: <537E1FD8.8030504@6wind.com>
-References: <1400771437-14096-1-git-send-email-horia.geanta@freescale.com> <1400771437-14096-2-git-send-email-horia.geanta@freescale.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 22 May 2014 12:05:24 -0400 (EDT)
+Message-ID: <20140522.120524.770012063913363502.davem@davemloft.net>
+References: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lei Xu <Lei.Xu@freescale.com>,
-	Sandeep Malik <Sandeep.Malik@freescale.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Horia Geanta <horia.geanta@freescale.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:41866 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751104AbaEVQDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 12:03:40 -0400
-Received: by mail-wg0-f41.google.com with SMTP id z12so3620825wgg.12
-        for <netdev@vger.kernel.org>; Thu, 22 May 2014 09:03:39 -0700 (PDT)
-In-Reply-To: <1400771437-14096-2-git-send-email-horia.geanta@freescale.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39294 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbaEVQF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 12:05:26 -0400
+In-Reply-To: <1400673673-31626-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/05/2014 17:10, Horia Geanta a =C3=A9crit :
-> From: Lei Xu <Lei.Xu@freescale.com>
->
-> Currently the sha256 icv truncation length is set to 96bit
-> while the length is defined as 128bit in RFC4868.
-> This may result in somer errors when working with other IPsec devices
-> with the standard truncation length.
-> Thus, change the sha256 truncation length from 96bit to 128bit.
-The patch was already proposed, but it was kept as-is for userspace
-compatibility.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 21 May 2014 05:00:58 -0700
 
-See: https://lkml.org/lkml/2012/3/7/431
+> This series contains updates to i40e and i40evf.
 
-Regards,
-Nicolas
+Pulled, thanks Jeff.
