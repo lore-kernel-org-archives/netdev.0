@@ -1,40 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bonding: fix enslaving a dev without mtu
- setting support
-Date: Thu, 22 May 2014 15:47:06 -0400 (EDT)
-Message-ID: <20140522.154706.1268896686458226593.davem@davemloft.net>
-References: <1400686921-5698-1-git-send-email-vfalico@gmail.com>
+Subject: Re: [PATCH] bonding: Send ALB learning packets using the right
+ source
+Date: Thu, 22 May 2014 15:48:17 -0400 (EDT)
+Message-ID: <20140522.154817.2015811612495572736.davem@davemloft.net>
+References: <1400692788-26995-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
-To: vfalico@gmail.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42043 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42061 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751277AbaEVTrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:47:09 -0400
-In-Reply-To: <1400686921-5698-1-git-send-email-vfalico@gmail.com>
+	with ESMTP id S1750890AbaEVTsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 15:48:19 -0400
+In-Reply-To: <1400692788-26995-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@gmail.com>
-Date: Wed, 21 May 2014 17:41:59 +0200
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed, 21 May 2014 13:19:48 -0400
 
-> With the introduction of bond_free_slave() we need to have slave->bond
-> populated before calling it, however if the dev_mtu_set(slave, mtu) fails,
-> we call bond_free_slave() before actually setting slave->bond, and thus
-> we'll panic.
+> ALB learning packets are currentlyalways sent using the slave mac
+> address for all vlans configured on top of bond.   This is not always
+> correct, as vlans may change their mac address.
+> This patch introduced a concept of strict matching where the
+> source of learning packets can either strictly match the address
+> passed in, or it can determine a more correct address to use.
 > 
-> Fix this by populating slave->bond (and ->dev, it seems appropriate) as
-> early as possible.
-> 
-> Also, remove a harmful check for NULL in bond_get_bond_by_slave(), as it's
-> only hiding the real problem and making it harder to debug.
+> There are 3 casese to consider:
+>   1) Switchover.  In this case, we have a new active slave and we need
+>      tell the switch about all addresses available on the slave.
+>   2) Monitor.  We'll periodically refresh learning info for all slaves.
+>      In this case, we refresh all addresses for current active, and just
+>      the slave address for other slaves.
+>   3) Teaching of disabled adddress.  This happens as part of the
+>      failover and in this case, we alwyas to use just the address
+>      provided.
 > 
 > CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
 > CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Series applied to net-next, thanks.
+Applied, thanks Vlad.
