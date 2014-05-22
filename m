@@ -1,39 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] genirq: Eliminate explicit dependency between
- IRQ affinity notifiers and CONFIG_SMP
-Date: Thu, 22 May 2014 15:28:08 -0400 (EDT)
-Message-ID: <20140522.152808.802269502342645717.davem@davemloft.net>
-References: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH linux-next] net/dccp/timer.c: use 'u64' instead of
+ 's64' to avoid compiler's warning
+Date: Thu, 22 May 2014 15:33:13 -0400 (EDT)
+Message-ID: <20140522.153313.958087444510569794.davem@davemloft.net>
+References: <537BF116.9000900@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bhutchings@solarflare.com,
-	yevgenyp@mellanox.com, ogerlitz@mellanox.com, eyalpe@mellanox.com
-To: amirv@mellanox.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: gerrit@erg.abdn.ac.uk, gxt@mprc.pku.edu.cn, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gang.chen.5i5j@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400597820-30685-1-git-send-email-amirv@mellanox.com>
+In-Reply-To: <537BF116.9000900@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 20 May 2014 17:57:00 +0300
-
-> From: Eyal Perry <eyalpe@mellanox.com>
-> 
-> Instead of requiring each consumer of the IRQ affinity notifier to have
-> themselves be explicitly dependent on CONFIG_SMP, make the definition of
-> struct irq_affinity_notify to exist independently of that config option
-> and introduce a stub for irq_set_affinity_notifier() under non SMP
-> configuration.
-> 
-> Fixes: 2eacc23 ("net/mlx4_core: Enforce irq affinity changes
-> immediatly")
-> 
-> Signed-off-by: Eyal Perry <eyalpe@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-
-IRQ layer folks please review and push upstream if there aren't any
-problems.
-
-Thanks.
+RnJvbTogQ2hlbiBHYW5nIDxnYW5nLmNoZW4uNWk1akBnbWFpbC5jb20+DQpEYXRlOiBXZWQsIDIx
+IE1heSAyMDE0IDA4OjE5OjM0ICswODAwDQoNCj4gJ2RjY3BfdGltZXN0YW1wX3NlZWQnIGlzIGlu
+aXRpYWxpemVkIG9uY2UgYnkga3RpbWVfZ2V0X3JlYWwoKSBpbg0KPiBkY2NwX3RpbWVzdGFtcGlu
+Z19pbml0KCkuIEl0IGlzIGFsd2F5cyBsZXNzIHRoYW4ga3RpbWVfZ2V0X3JlYWwoKQ0KPiBpbiBk
+Y2NwX3RpbWVzdGFtcCgpLg0KPiANCj4gVGhlbiwga3RpbWVfdXNfZGVsdGEoKSBpbiBkY2NwX3Rp
+bWVzdGFtcCgpIHdpbGwgYWx3YXlzIHJldHVybiBwb3NpdGl2ZQ0KPiBudW1iZXIuIFNvIGNhbiB1
+c2UgbWFudWFsIHR5cGUgY2FzdCB0byBsZXQgY29tcGlsZXIgYW5kIGRvX2RpdigpIGtub3cNCj4g
+YWJvdXQgaXQgdG8gYXZvaWQgd2FybmluZy4NCj4gDQo+IFRoZSByZWxhdGVkIHdhcm5pbmcgKHdp
+dGggYWxsbW9kY29uZmlnIHVuZGVyIHVuaWNvcmUzMik6DQo+IA0KPiAgICAgQ0MgW01dICBuZXQv
+ZGNjcC90aW1lci5vDQo+ICAgbmV0L2RjY3AvdGltZXIuYzogSW4gZnVuY3Rpb24goWRjY3BfdGlt
+ZXN0YW1wojoNCj4gICBuZXQvZGNjcC90aW1lci5jOjI4NTogd2FybmluZzogY29tcGFyaXNvbiBv
+ZiBkaXN0aW5jdCBwb2ludGVyIHR5cGVzIGxhY2tzIGEgY2FzdA0KPiANCj4gDQo+IFNpZ25lZC1v
+ZmYtYnk6IENoZW4gR2FuZyA8Z2FuZy5jaGVuLjVpNWpAZ21haWwuY29tPg0KDQpBcHBsaWVkIHRv
+IG5ldC1uZXh0LCB0aGFua3MuDQoNCkJ1dCB0aGF0IHR5cGUgY2hlY2sgaW4gaW5jbHVkZS9hc20t
+Z2VuZXJpYy9kaXY2NC5oIGlzIGJvZ3VzLCBpdCBzaG91bGQNCmJlIGNoZWNraW5nIHNpemVvZihY
+KSA9PSA4IHJhdGhlciB0aGFuIHRoZSB0eXBlIHRoaW5nLCBpdCBqdXN0IHdhbnRzIHRvDQptYWtl
+IHN1cmUgdGhhdCB0aGUgdmFsdWUgaXMgNjQtYml0IHJlZ2FyZGxlc3Mgb2YgaXQncyBzaWduZWRu
+ZXNzLg0KDQpUaGUgYXJjaCBsb2NhbCBpbXBsZW1lbnRhdGlvbnMgZG8gbm90IGRvIHRoaXMsIGFu
+ZCB0aGF0J3Mgd2h5IHZlcnkgZmV3DQpvdGhlciBwZW9wbGUgbm90aWNlIHRoaXMgd2FybmluZy4N
+Cg==
