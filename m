@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: skbuff truesize incorrect.
-Date: Thu, 22 May 2014 17:10:33 -0400 (EDT)
-Message-ID: <20140522.171033.1040508444998374401.davem@davemloft.net>
-References: <537E4AFD.20304@mentor.com>
-	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: Please queue commit e33d0ba8047b049 for stable
+Date: Thu, 22 May 2014 17:14:36 -0400 (EDT)
+Message-ID: <20140522.171436.2218567945524856233.davem@davemloft.net>
+References: <CAHA+R7OK6aQho_cWC6wy1m9qQqz=i-vmwHmMEL8L6oYTXTkJpw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jim_baxter@mentor.com, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kamal@canonical.com, bhutchings@solarflare.com,
-	edumazet@google.com, mszeredi@suse.cz, fw@strlen.de, bjorn@mork.no
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: cwang@twopensource.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42940 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbaEVVOh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 17:14:37 -0400
+In-Reply-To: <CAHA+R7OK6aQho_cWC6wy1m9qQqz=i-vmwHmMEL8L6oYTXTkJpw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 22 May 2014 14:03:21 -0700
+From: Cong Wang <cwang@twopensource.com>
+Date: Thu, 22 May 2014 14:09:07 -0700
 
-> On Thu, 2014-05-22 at 13:58 -0700, Eric Dumazet wrote:
+> Please queue the following commit for stable:
 > 
->> I would set rx_max (rx_urb_size) to SKB_MAX_HEAD(0) so that you do not
->> use high order allocations.
+> commit e33d0ba8047b049c9262fdb1fcafb93cb52ceceb
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Thu Apr 3 09:28:10 2014 -0700
 > 
-> Correction, that would need SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN),
-> because drivers/net/usb/usbnet.c calls __netdev_alloc_skb_ip_align().
+>     net-gro: reset skb->truesize in napi_reuse_skb()
+ ...
+> unless Eric disagrees.
+> 
+> If I understand it correctly, it  fixes a real bug for all drivers calling
+> napi_gro_frags(). But I am not sure which version of kernels it should
+> apply to, it seems to be a long-standing bug.
 
-I seem to recall that this driver has a lot of strange buffering
-restrictions and that Bjorn Mork was talking a lot about this
-recently.
+Queued up, Eric what versions does it apply to?
 
-Bjorn people are getting really burnt because the driver ends up
-having a skb->truesize of 32K for the buffers it allocates on receive
-and this chokes up TCP and SCTP because the socket memory limits
-are hitting earlier than they should.
-
-We've just in the past few postings been discussing whether the just
-copy every packet into a more appropriately sized buffer, and it isn't
-clear if that's a good idea of the data rates handled here.
+Thanks.
