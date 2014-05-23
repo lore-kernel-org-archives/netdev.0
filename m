@@ -1,89 +1,51 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2014-05-23
-Date: Fri, 23 May 2014 09:22:00 +0200
-Message-ID: <537EF718.2020203@pengutronix.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] enic: fix adaptive irq coalescing on 32-bit
+Date: Fri, 23 May 2014 09:51:11 +0200
+Message-ID: <10713072.kCczZxGWdQ@wuerfel>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="p1LMreKut4VUrPfmmfenTdaMuSKxR4Eks"
-Cc: David Miller <davem@davemloft.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Sujith Sankar <ssujith@cisco.com>, Neel Patel <neepatel@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Christian Benvenuti <benve@cisco.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37145 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321AbaEWHWJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 03:22:09 -0400
+Received: from mout.kundenserver.de ([212.227.17.24]:58781 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbaEWHvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 03:51:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---p1LMreKut4VUrPfmmfenTdaMuSKxR4Eks
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+7c2ce6e60f703 "enic: Add support for adaptive interrupt coalescing"
+introduced a 64-bit division that causes a link error on all 32-bit
+machines:
 
-Hello David,
+drivers/built-in.o: In function `enic_poll_msix':
+:(.text+0x54ff00): undefined reference to `__aeabi_uldivmod'
 
-this is a pull request of two patches for net-next/master. Kedareswara
-rao Appana contributes support for the xilinx CAN core found on the
-zynq and microblaze SOCs.
+Since we are dividing another 32-bit value and are only interested
+in the approximate range here, it should always be safe to limit
+the delta to an u32 value.
 
-Marc
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+----
+I haven't seen another report of this bug, just ignore this
+mail if it was already fixed.
 
----
-The following changes since commit 091b64868b43ed84334c6623ea6a08497529d4=
-ff:
+Also, there may be better ways to solve this.
 
-  Merge branch 'mlx4-next' (2014-05-22 17:17:34 -0400)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-fo=
-r-3.16-20140523
-
-for you to fetch changes up to 05be386b709b5feacfaa0d3582dca63e1e435b26:
-
-  can: xilinx CAN controller support (2014-05-23 08:59:21 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-3.16-20140523
-
-----------------------------------------------------------------
-Kedareswara rao Appana (2):
-      can: Add xilinx CAN device tree bindings documentation
-      can: xilinx CAN controller support
-
- .../devicetree/bindings/net/can/xilinx_can.txt     | 44 ++++++++++++++++=
-++++++
- drivers/net/can/Kconfig                            |  8 ++++
- drivers/net/can/Makefile                           |  1 +
- 3 files changed, 53 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/xilinx_can.=
-txt
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-
-
---p1LMreKut4VUrPfmmfenTdaMuSKxR4Eks
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlN+9xgACgkQjTAFq1RaXHMqHgCZAcM8qn+WAku0dAeAx8ecw4O1
-R2kAnR6K1IaC47CMV+ZXaeY+oOBZDbvZ
-=H+lp
------END PGP SIGNATURE-----
-
---p1LMreKut4VUrPfmmfenTdaMuSKxR4Eks--
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 0d8995c..ad2fac2 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -1217,7 +1217,7 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
+ 	 */
+ 
+ 	traffic <<= 3;
+-	traffic /= delta;
++	traffic /= min_t(u32, delta, UINT_MAX);
+ 
+ 	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
+ 		if (traffic < mod_table[index].rx_rate)
