@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1] net: driver: stmicro: Remove some useless the lock
- protection
-Date: Fri, 23 May 2014 16:09:45 -0400 (EDT)
-Message-ID: <20140523.160945.226886017757584215.davem@davemloft.net>
-References: <1400843103-19433-1-git-send-email-Wei.Yang@windriver.com>
+Subject: Re: [net-next v2 00/10][pull request] Intel Wired LAN Driver
+ Updates
+Date: Fri, 23 May 2014 16:14:06 -0400 (EDT)
+Message-ID: <20140523.161406.261965778686662668.davem@davemloft.net>
+References: <1400849956-8387-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wei.Yang@windriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400843103-19433-1-git-send-email-Wei.Yang@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55386 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750985AbaEWUOI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 16:14:08 -0400
+In-Reply-To: <1400849956-8387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: <Wei.Yang@windriver.com>
-Date: Fri, 23 May 2014 19:05:03 +0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 23 May 2014 05:59:06 -0700
 
-> From: Yang Wei <Wei.Yang@windriver.com>
+> This series contains updates to igb, igbvf, ixgbe, i40e and i40evf.
 > 
-> kernel always invokes a pair of rtnl_lock adn rtnl_unlock to
-> protect dev_ethtool(), so its not neccessary to invoke spin_lock/unlock
-> in ethtool_ops.
+> Jacob provides eight patches to cleanup the ixgbe driver to resolve various
+> checkpatch.pl warnings/errors as well as minor coding style issues.
 > 
-> Signed-off-by: Yang Wei <Wei.Yang@windriver.com>
+> Stephen Hemminger and I provide simple cleanups of void functions which
+> had useless return statements at the end of the function which are not
+> needed.
+> 
+> v2: Dropped Emil's patch "ixgbe: fix the detection of SFP+ capable interfaces"
+>     while I wait for his updated patch to be validated.
 
-This does not apply cleanly to the net-next tree, please respin.
+Pulled, thanks a lot Jeff.
