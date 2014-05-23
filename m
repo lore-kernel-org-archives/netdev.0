@@ -1,52 +1,98 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: question: Any way to trigger DHCP renewal from kernel code?
-Date: Fri, 23 May 2014 10:06:56 -0500
-Message-ID: <1400857616.18322.9.camel@dcbw.local>
-References: <c64a7b76572942fda9acffc25dd76c29@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2014-05-23
+Date: Fri, 23 May 2014 11:07:34 -0400
+Message-ID: <20140523150733.GC13311@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17261 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752054AbaEWPG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2014 11:06:59 -0400
-In-Reply-To: <c64a7b76572942fda9acffc25dd76c29@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-05-22 at 22:24 +0000, Haiyang Zhang wrote:
-> Hi,
-> 
-> Our synthetic network driver is notified when the Hyper-V host 
-> resume from sleep/hibernation. We need to renew DHCP in this case.
-> I'm looking for a way to trigger DHCP renewal from kernel mode 
-> code.
+Dave,
 
-Another approach could be to change the 'operstate' of your synthetic
-netdevice to IF_OPER_DORMANT and then back to IF_OPER_UP.  Possibly like
-drivers/net/hsr/hsr_device.c does in __hsr_set_operstate().
+I have two more fixes intended for the 3.15 stream...
 
-The netdev_state_change() call will send out a netlink message that the
-device has changed, which includes the device flags.  Before changing
-the operstate, the flags will include IFF_RUNNING, which indicates the
-netdevice is operating and passing traffic.  When you change the
-operstate to IF_OPER_DORMANT, a netlink message will be sent which does
-*not* include IFF_RUNNING.  Then changing back to IF_OPER_UP will emit a
-netlink message that *does* include IFF_RUNNING again.
+For the iwlwifi one, Emmanuel says:
 
-The DHCP client can listen for device flag changes and trigger a DHCP
-renew when the IFF_RUNNING flag re-appears on the device.  There are
-some notes about this in Documentation/networking/operstates.txt too.
+"A race has been discovered in the beacon filtering code. Since the
+fix is too big for 3.15, I disable here the feature."
 
-(Random note: long ago when WiMAX was relevant there was also a need to
-trigger a DHCP renew in userspace based on events from the driver; a
-renew should be performed when the device comes out of fast sleep, which
-can happen quite often.  I don't remember how Inaky solved this, but I
-think it was out-of-band driver messages to the userspace control
-daemon.  A more standardized kernel facility somewhat less convoluted
-than manually munging operstates would have been nice...)
+For the bluetooth one, Gustavo says:
 
-Dan
+"This pull request contains a very important fix for 3.15. Here we fix the
+permissions of a debugfs file that would otherwise allow unauthorized users
+to write content to it."
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+The following changes since commit b6ed5498601df40489606dbc14a9c7011c16630b:
+
+  batman: fix a bogus warning from batadv_is_on_batman_iface() (2014-05-22 17:23:00 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+
+for you to fetch changes up to 5ca2504ea36df1da815029a9e9277c08540042eb:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless into for-davem (2014-05-23 10:55:58 -0400)
+
+----------------------------------------------------------------
+
+Emmanuel Grumbach (1):
+      iwlwifi: mvm: disable beacon filtering
+
+John W. Linville (3):
+      Merge branch 'master' of git://git.kernel.org/.../bluetooth/bluetooth
+      Merge branch 'for-john' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Samuel Ortiz (1):
+      Bluetooth: Fix L2CAP LE debugfs entries permissions
+
+ drivers/net/wireless/iwlwifi/mvm/mac80211.c | 2 +-
+ net/bluetooth/l2cap_core.c                  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/mvm/mac80211.c b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
+index b41dc84e9431..8735ef1f44ae 100644
+--- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
++++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
+@@ -826,7 +826,7 @@ static int iwl_mvm_mac_add_interface(struct ieee80211_hw *hw,
+ 	if (ret)
+ 		goto out_remove_mac;
+ 
+-	if (!mvm->bf_allowed_vif &&
++	if (!mvm->bf_allowed_vif && false &&
+ 	    vif->type == NL80211_IFTYPE_STATION && !vif->p2p &&
+ 	    mvm->fw->ucode_capa.flags & IWL_UCODE_TLV_FLAGS_BF_UPDATED){
+ 		mvm->bf_allowed_vif = mvmvif;
+diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
+index a1e5bb7d06e8..dc4d301d3a72 100644
+--- a/net/bluetooth/l2cap_core.c
++++ b/net/bluetooth/l2cap_core.c
+@@ -7519,9 +7519,9 @@ int __init l2cap_init(void)
+ 	l2cap_debugfs = debugfs_create_file("l2cap", 0444, bt_debugfs,
+ 					    NULL, &l2cap_debugfs_fops);
+ 
+-	debugfs_create_u16("l2cap_le_max_credits", 0466, bt_debugfs,
++	debugfs_create_u16("l2cap_le_max_credits", 0644, bt_debugfs,
+ 			   &le_max_credits);
+-	debugfs_create_u16("l2cap_le_default_mps", 0466, bt_debugfs,
++	debugfs_create_u16("l2cap_le_default_mps", 0644, bt_debugfs,
+ 			   &le_default_mps);
+ 
+ 	bt_6lowpan_init();
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
