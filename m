@@ -1,44 +1,49 @@
-From: Linus Gasser <list@markas-al-nour.org>
-Subject: Re: Bonding with tun-devices
-Date: Fri, 23 May 2014 07:35:49 +0100
-Message-ID: <537EEC45.2080101@markas-al-nour.org>
-References: <537CB13A.3030100@markas-al-nour.org> <20140521155434.GC6295@redhat.com> <537D0E52.9030901@markas-al-nour.org> <20140522132436.GD6295@redhat.com> <537E0E9D.8060405@markas-al-nour.org> <20140522150025.GE6295@redhat.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bonding: remove alb_set_mac_address()
+Date: Fri, 23 May 2014 09:38:42 +0300
+Message-ID: <CAJZOPZJHr0fpAaUM_X0Bwa1PtTO0ra3KLu5AFdir2ShKGFrukA@mail.gmail.com>
+References: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
+	<1400764324-23221-3-git-send-email-vfalico@gmail.com>
+	<CAJZOPZKHm_0zpHQWSVrkcs4YsRbYSTWj1DU7SMG6PHHCeZcb3Q@mail.gmail.com>
+	<20140522145724.GA1995@mikrodark.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Veaceslav Falico <vfalico@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Eyal Perry <eyalpe@mellanox.com>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from virt.linusetviviane.ch ([78.46.227.60]:49774 "EHLO
-	mail.profeda.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957AbaEWGfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 02:35:30 -0400
-In-Reply-To: <20140522150025.GE6295@redhat.com>
+Received: from mail-qc0-f177.google.com ([209.85.216.177]:58023 "EHLO
+	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490AbaEWGim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 02:38:42 -0400
+Received: by mail-qc0-f177.google.com with SMTP id i17so7250465qcy.8
+        for <netdev@vger.kernel.org>; Thu, 22 May 2014 23:38:42 -0700 (PDT)
+In-Reply-To: <20140522145724.GA1995@mikrodark.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/05/14 16:00, Veaceslav Falico a =E9crit :
-> On Thu, May 22, 2014 at 03:50:05PM +0100, Linus Gasser wrote:
->> Le 22/05/14 14:24, Veaceslav Falico a =E9crit :
->>> A workaround would be to use tap devices, as they're more "real" an=
-d
->>> support mac address setting.
->>
->> OK, what can I say - thank you for helping me not to have fiddled
->> around with it more than needed ;) If you manage to support
->> non-mac-connections, this would be great, of course. Else I'll have =
-to
->> try Openvpn which supports tap-devices.
+On Thu, May 22, 2014 at 5:57 PM, Veaceslav Falico <vfalico@gmail.com> wrote:
 >
-> Quick googling says that ssh -o Tunnel=3Dethernet creates a tap devic=
-e, so no
-> need for openvpn. Disclaimer - I've never actually tried it, so dunno=
- if
-> it'll work.
+> On Thu, May 22, 2014 at 05:36:19PM +0300, Or Gerlitz wrote:
+>>
+>>
+>> So with this patch @ hand, no more touching of the underlying device
+>> dev_addr field directly -- or we still have more accesses of this
+>> such, e.g in  bond_alb_set_mac_address() and/or friends?
+>
+>
+> Sorry, but no :(. I'm still working on it, and already sent several
+> patchsets approaching it :).
+>
+> Hopefully it will be ready next week. If you need it urgently - patches welcome :)
 
-I tried that, but I still only get tun-devices. Don't know why it=20
-doesn't want to generate tap-devices, as both man-pages and=20
-google-results say I could. Waiting for your patch then,
 
-Linus
+
+Hey -- no rush, I just asked as heads up since we have some proposed
+mlx4 driver change which was done also under the assumption that
+bonding touches directly the underlying dev_addr directly and I wanted
+to see where this stands, so we can re-evaluate the driver patch
+
+Or.
