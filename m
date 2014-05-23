@@ -1,82 +1,50 @@
-From: <Wei.Yang@windriver.com>
-Subject: [PATCH v1] net: driver: stmicro: Remove some useless the lock protection
-Date: Fri, 23 May 2014 19:05:03 +0800
-Message-ID: <1400843103-19433-1-git-send-email-Wei.Yang@windriver.com>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 12:13:23 +0100
+Message-ID: <537F2D53.5020408@mentor.com>
+References: <537E4AFD.20304@mentor.com>	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>	<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com> <87r43k4yhe.fsf@nemi.mork.no> <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <peppe.cavallaro@st.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"kamal@canonical.com" <kamal@canonical.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"mszeredi@suse.cz" <mszeredi@suse.cz>,
+	"fw@strlen.de" <fw@strlen.de>
+To: David Laight <David.Laight@ACULAB.COM>,
+	=?UTF-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yang Wei <Wei.Yang@windriver.com>
+On 23/05/14 11:45, David Laight wrote:
+> From: Bj=C3=B8rn Mork [mailto:bjorn@mork.no]
+>> David Laight <David.Laight@ACULAB.COM> writes:
+> ...
+>>> Note that some of the usb ethernet drivers allocate large skb then
+>>> lie about the truesize.
+>>
+>> Hmm, which drivers are these?
+>=20
+> $ grep truesize linux/drivers/net/usb/*
+>=20
+> asix_88179_178a, smsc95xx, sr9700.
+>=20
+> 	David
+>=20
 
-kernel always invokes a pair of rtnl_lock adn rtnl_unlock to
-protect dev_ethtool(), so its not neccessary to invoke spin_lock/unlock
-in ethtool_ops.
 
-Signed-off-by: Yang Wei <Wei.Yang@windriver.com>
----
+What are the side effects of changing the truesize, if the original
+uncloned skb has the full truesize then isn't the potential memory usag=
+e
+still counted for the avoidance of OOM?
 
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    8 --------
- 1 file changed, 8 deletions(-)
+I suppose if the uncloned skb is deleted you would then have a problem
+so a chain of URB's would be the safest solution.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index a49339d..a2f19e1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -231,9 +231,7 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
- 		return -EBUSY;
- 	}
- 	cmd->transceiver = XCVR_INTERNAL;
--	spin_lock_irq(&priv->lock);
- 	rc = phy_ethtool_gset(phy, cmd);
--	spin_unlock_irq(&priv->lock);
- 	return rc;
- }
- 
-@@ -244,9 +242,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
- 	struct phy_device *phy = priv->phydev;
- 	int rc;
- 
--	spin_lock(&priv->lock);
- 	rc = phy_ethtool_sset(phy, cmd);
--	spin_unlock(&priv->lock);
- 
- 	return rc;
- }
-@@ -313,7 +309,6 @@ stmmac_get_pauseparam(struct net_device *netdev,
- {
- 	struct stmmac_priv *priv = netdev_priv(netdev);
- 
--	spin_lock(&priv->lock);
- 
- 	pause->rx_pause = 0;
- 	pause->tx_pause = 0;
-@@ -324,7 +319,6 @@ stmmac_get_pauseparam(struct net_device *netdev,
- 	if (priv->flow_ctrl & FLOW_TX)
- 		pause->tx_pause = 1;
- 
--	spin_unlock(&priv->lock);
- }
- 
- static int
-@@ -336,7 +330,6 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	int new_pause = FLOW_OFF;
- 	int ret = 0;
- 
--	spin_lock(&priv->lock);
- 
- 	if (pause->rx_pause)
- 		new_pause |= FLOW_RX;
-@@ -352,7 +345,6 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	} else
- 		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
- 					 priv->flow_ctrl, priv->pause);
--	spin_unlock(&priv->lock);
- 	return ret;
- }
- 
--- 
-1.7.9.5
+Jim
