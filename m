@@ -1,103 +1,49 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 5/5 v3] l2tp: Add support for zero IPv6 checksums
-Date: Fri, 23 May 2014 08:47:40 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1405230838210.11802@tomh.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 09:00:51 -0700
+Message-ID: <1400860851.5367.210.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <537E4AFD.20304@mentor.com>
+	 <1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140522.171033.1040508444998374401.davem@davemloft.net>
+	 <87ppj5vupf.fsf@nemi.mork.no> <537F0DCA.6030901@mentor.com>
+	 <87vbsw4z5x.fsf@nemi.mork.no> <537F6CC1.2000503@hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:38041 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752318AbaEWPrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 11:47:41 -0400
-Received: by mail-ie0-f202.google.com with SMTP id rd18so1043898iec.5
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 08:47:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	David Miller <davem@davemloft.net>, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kamal@canonical.com, edumazet@google.com, mszeredi@suse.cz,
+	fw@strlen.de
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <537F6CC1.2000503@hp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Added new L2TP configuration options to allow TX and RX of
-zero checksums in IPv6. Default is not to use them.
+On Fri, 2014-05-23 at 08:44 -0700, Rick Jones wrote:
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/uapi/linux/l2tp.h | 2 ++
- net/l2tp/l2tp_core.c      | 9 ++++++++-
- net/l2tp/l2tp_core.h      | 4 +++-
- net/l2tp/l2tp_netlink.c   | 7 +++++++
- 4 files changed, 20 insertions(+), 2 deletions(-)
+> If you are measuring performance with the likes of netperf, you should 
+> be able to get an idea of the performance effect from the change in 
+> service demand (CPU consumed per unit of work) even if the maximum 
+> throughput remains capped.
 
-diff --git a/include/uapi/linux/l2tp.h b/include/uapi/linux/l2tp.h
-index 8adb681..21caa26 100644
---- a/include/uapi/linux/l2tp.h
-+++ b/include/uapi/linux/l2tp.h
-@@ -124,6 +124,8 @@ enum {
- 	L2TP_ATTR_STATS,		/* nested */
- 	L2TP_ATTR_IP6_SADDR,		/* struct in6_addr */
- 	L2TP_ATTR_IP6_DADDR,		/* struct in6_addr */
-+	L2TP_ATTR_UDP_ZERO_CSUM6_TX,	/* u8 */
-+	L2TP_ATTR_UDP_ZERO_CSUM6_RX,	/* u8 */
- 	__L2TP_ATTR_MAX,
- };
- 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index a118610..3795580 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1102,7 +1102,9 @@ static void l2tp_xmit_ipv6_csum(struct sock *sk, struct sk_buff *skb,
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct udphdr *uh = udp_hdr(skb);
- 
--	if (!skb_dst(skb) || !skb_dst(skb)->dev ||
-+	if (udp_get_no_check6_tx(sk))
-+		skb->ip_summed = CHECKSUM_NONE;
-+	else if (!skb_dst(skb) || !skb_dst(skb)->dev ||
- 	    !(skb_dst(skb)->dev->features & NETIF_F_IPV6_CSUM)) {
- 		__wsum csum = skb_checksum(skb, 0, udp_len, 0);
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-@@ -1435,6 +1437,11 @@ static int l2tp_tunnel_sock_create(struct net *net,
- 					     sizeof(udp6_addr), 0);
- 			if (err < 0)
- 				goto out;
-+
-+			if (cfg->udp6_zero_tx_checksums)
-+				udp_set_no_check6_tx(sock->sk, true);
-+			if (cfg->udp6_zero_rx_checksums)
-+				udp_set_no_check6_rx(sock->sk, true);
- 		} else
- #endif
- 		{
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 3f93ccd..68aa9ff 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -162,7 +162,9 @@ struct l2tp_tunnel_cfg {
- #endif
- 	u16			local_udp_port;
- 	u16			peer_udp_port;
--	unsigned int		use_udp_checksums:1;
-+	unsigned int		use_udp_checksums:1,
-+				udp6_zero_tx_checksums:1,
-+				udp6_zero_rx_checksums:1;
- };
- 
- struct l2tp_tunnel {
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index f3d331b..0ac907a 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -161,6 +161,13 @@ static int l2tp_nl_cmd_tunnel_create(struct sk_buff *skb, struct genl_info *info
- 			cfg.peer_udp_port = nla_get_u16(info->attrs[L2TP_ATTR_UDP_DPORT]);
- 		if (info->attrs[L2TP_ATTR_UDP_CSUM])
- 			cfg.use_udp_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_CSUM]);
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX])
-+			cfg.udp6_zero_tx_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_TX]);
-+		if (info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX])
-+			cfg.udp6_zero_rx_checksums = nla_get_flag(info->attrs[L2TP_ATTR_UDP_ZERO_CSUM6_RX]);
-+#endif
- 	}
- 
- 	if (info->attrs[L2TP_ATTR_DEBUG])
--- 
-1.9.1.423.g4596e3a
+This wont be enough to truly get an idea of the gains this patch brings.
+
+Add some random drops in the equation, and instead of dropping packets,
+we gently add them in the out of order queue, gently coalesce them,
+gently allow SACK enabled flows to recover thanks to fast retransmits,
+with no latency effect (No expensive collapse/prunes)
+
+# nstat -az|egrep "TCPRcvCoalesce|TCPOFOQueue|TCPRcvCollapsed|Prune"
+TcpExtPruneCalled               118                0.0
+TcpExtRcvPruned                 0                  0.0
+TcpExtOfoPruned                 0                  0.0
+TcpExtTCPRcvCollapsed           1009               0.0
+TcpExtTCPRcvCoalesce            857806             0.0
+TcpExtTCPOFOQueue               201246             0.0
+
+Yep, we _might_ consume some cpu cycles in the perfect case where no
+packet was dropped, but this is kind of an utopia.
