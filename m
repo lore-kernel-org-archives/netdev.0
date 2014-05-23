@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: Set NOCARRIER bit of etherdev state at
- initialization
-Date: Fri, 23 May 2014 14:15:51 -0400 (EDT)
-Message-ID: <20140523.141551.1253983630587935706.davem@davemloft.net>
-References: <537F7EEF.3060701@gmail.com>
-	<1400866681.18322.27.camel@dcbw.local>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Fri, 23 May 2014 14:46:18 -0400 (EDT)
+Message-ID: <20140523.144618.48288319728715940.davem@davemloft.net>
+References: <1400576378-2171-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kumaran.4353@gmail.com, stephen@networkplumber.org,
-	avi.kp.137@gmail.com, edumazet@google.com, netdev@vger.kernel.org
-To: dcbw@redhat.com
+Cc: dev@openvswitch.org, netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54325 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54518 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbaEWSP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 14:15:57 -0400
-In-Reply-To: <1400866681.18322.27.camel@dcbw.local>
+	with ESMTP id S1751038AbaEWSqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 14:46:20 -0400
+In-Reply-To: <1400576378-2171-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Fri, 23 May 2014 12:38:01 -0500
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 20 May 2014 01:59:38 -0700
 
-> The current "carrier on until told otherwise" model is intentional,
-> because not all drivers support carrier detection, and thus we must
-> assume the carrier is on until the driver tells us it is not on.
+> A set of OVS changes for net-next/3.16.
 > 
-> Would this patch break that model?
+> Most of change are related to improving performance of flow setup by
+> minimizing critical sections.
 
-Absolutely correct, this change is completely inappropriate.
+Pulled, thanks Pravin.
+
+In the future please make your postings so that they have the current date
+and time when you make the postings, not when the commits when into your
+tree.
+
+Otherwise it messed up the order in which your changes appear in patchwork
+wrt. other submissions.
