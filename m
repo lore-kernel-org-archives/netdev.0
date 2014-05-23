@@ -1,60 +1,65 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 09:58:50 +0100
-Message-ID: <537F0DCA.6030901@mentor.com>
-References: <537E4AFD.20304@mentor.com>	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>	<1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>	<20140522.171033.1040508444998374401.davem@davemloft.net> <87ppj5vupf.fsf@nemi.mork.no>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: Fwd: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173,
+ fatal exception in interrupt
+Date: Fri, 23 May 2014 11:15:51 +0200
+Message-ID: <20140523091551.GI32371@secunet.com>
+References: <bug-76781-65011@https.bugzilla.kernel.org/>
+ <537F09EE.5000703@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <eric.dumazet@gmail.com>, <linux-usb@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<kamal@canonical.com>, <bhutchings@solarflare.com>,
-	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87ppj5vupf.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <cate@cateee.net>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:34762 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750958AbaEWJQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 05:16:07 -0400
+Content-Disposition: inline
+In-Reply-To: <537F09EE.5000703@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> But although the problem is the same, I believe the driver in question
-> isn't the one I have been looking at recently.  The posted code snippet
-> was from the NCM gadget driver (drivers/usb/gadget/f_ncm.c), isn't that
-> right Jim?
+On Fri, May 23, 2014 at 10:42:22AM +0200, Daniel Borkmann wrote:
+> 
+> -------- Original Message --------
+> Subject: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173, fatal exception in interrupt
+> Date: Fri, 23 May 2014 07:07:40 +0000
+> From: bugzilla-daemon@bugzilla.kernel.org
+> To: dborkman@redhat.com
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=76781
+> 
+>             Bug ID: 76781
+>            Summary: unable to handle NULL in xfrm_input+0x173, fatal
+>                     exception in interrupt
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.15.0-rc6
+>           Hardware: x86-64
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: cate@cateee.net
+>         Regression: No
+> 
+> See also the fatal oops in:
+> 
+> http://cateee.net/kernel/IMG_20140522_225238.jpg
+> http://cateee.net/kernel/IMG_20140523_082629.jpg
+> 
+> It seems it happens "often": twice in last few hours I used the new kernels.
+> (the first oops was with 3.15.0-rc5-00270-gfba69f0)
+> 
+> I had also usual debian unstable updates, and I just finished to instal aiccu
+> (a sixxs program for dynamic ip6to4, so I'm not sure it is a recent bug or just
+> I forced it to appear in very last HEAD.
+> 
 
-Yes this is the NCM Gadget driver.
-> 
-> Yes, judging by this discussion I guess we should unconditionally copy
-> instead of cloning in these drivers.  We'll always have bad
-> payload/truesize ratio for cloned skbs, often less than 1/10 even for
-> max size payload.
-> 
-> Actually, I thought we already did copy in the host cdc_ncm driver.  But
-> I was wrong.  I was thinking of the cdc_mbim driver (which is different
-> enough to have its own implementation of this part of the rx code). The
-> cdc_ncm driver is cloning and the cdc_mbim driver is copying.  So we're
-> not even consistent...
-> 
-> I'll create and test a patch for the cdc_ncm host driver unless someone
-> else wants to do that. I haven't really played with the gadget driver
-> before, so I'd prefer if someone knowing it (Jim maybe?) could take care
-> of it.  If not, then I can always make an attempt using dummy_hcd to
-> test it.
-I can create a patch for the host driver, I will issue the gadget patch
-first to resolve any issues, the fix would be similar.
+This might be fixed by these two commits:
 
-> 
-> BTW, wrt the data rates: These drivers are USB class drivers and we
-> should really think of *all* possible rates, even future ones. This is
-> not limited to 480 Mbps USB2. AFAICS, there isn't anything preventing
-> the gadget driver from being used with e.g. a USB3380 controller to
-> create a 5 Gbps NCM device.  I'm sure the future will bring us even
-> faster USB devices.  The drivers will be the same.  Which is sort of
-> beautiful and scaring at the same time :-)
-> 
-> But I assume the bad payload/truesize ratio is the most important factor
-> here, so we should still copy?
-I will test the copy implementation for any performance impact.
-
-
-Jim
+commit edb666f07e ("xfrm6: Properly handle unsupported protocols")
+commit 61622cc6f2 ("xfrm4: Properly handle unsupported protocols")
