@@ -1,41 +1,68 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH 0/5] ks8851 DT updates
-Date: Fri, 23 May 2014 12:34:01 -0700
-Message-ID: <537FA2A9.6050309@codeaurora.org>
-References: <1400792413-21618-1-git-send-email-sboyd@codeaurora.org> <20140523.151502.1106354754894891974.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/8] net: ethernet: marvell: Assorted fixes
+Date: Fri, 23 May 2014 15:36:16 -0400 (EDT)
+Message-ID: <20140523.153616.2078296737930596480.davem@davemloft.net>
+References: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org, nm@ti.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20140523.151502.1106354754894891974.davem@davemloft.net>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	sebastian.hesselbarth@gmail.com,
+	gregory.clement@free-electrons.com, alior@marvell.com,
+	tawfik@marvell.com, andrew@lunn.ch
+To: ezequiel.garcia@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54982 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147AbaEWTgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 15:36:19 -0400
+In-Reply-To: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/14 12:15, David Miller wrote:
-> From: Stephen Boyd <sboyd@codeaurora.org>
-> Date: Thu, 22 May 2014 14:00:08 -0700
->
->> This set of patches properly documents the micrel ks8851 spi ethernet
->> controller, converts to devm_regulator_get_optional() to make error
->> paths slightly simpler, and finally adds supports for another
->> optional regulator and a reset gpio.
-> Please do not submit patch sets that you expect different trees to
-> integrate, this is painful for maintainers to deal with.
->
-> Instead, submit the changes separately.  One series for one
-> maintainer's tree, another for the other maintainer's tree.
->
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Thu, 22 May 2014 20:06:55 -0300
 
-Ok. Shall I resend this series with the proper separation? Or can you
-ignore the first patch? There isn't any functional dependency, more just
-a checkpatch dependency which is not really all that important.
+> New round for this assorted fixes and clean-up series. There is more room for
+> clean-ups, and I'll start preparing more patches once these are accepted.
+> 
+> This series consists of cleanups and minor improvements on mvneta, mv643xx_eth
+> and mvmdio drivers. None of the patches imply any functionality change, except
+> for the patch six "Change the number of default rx queues to one".
+> 
+> This patch reduces the driver's allocated resources and makes the multiqueue
+> path in the poll function not get taken. The previous patchset contains more
+> details:
+> 
+>   http://permalink.gmane.org/gmane.linux.network/315015
+> 
+> As usual, any feedback on this will be well received!
 
--- 
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-hosted by The Linux Foundation
+Series applied to net-next, but some comments:
+
+1) Never use web sites to reference informative material, instead put it
+   all explicitly into the commit message in your posting.
+
+   Web sites and archives come and go, the commit message is forever and
+   readily available to someone studying your changes.
+
+2) Just get rid of that MVNETA_RX_POLL_WEIGHT and simply use the
+   generic default NAPI_POLL_WEIGHT which has the same value.
+
+   Any local NAPI weight selection must be done for a good reason and
+   be fully documented with performance metrics et al.
+
+3) I know you inherited this, but the MTU change failure behavior is
+   not so great.  If the system is low on memory it could fail and losing
+   an interface completely during an MTU change is extremely poor behavior.
+
+   I would suggest holding onto the old allocated TXQ resources, and
+   restoring them if the allocation of the new ones fail.
+
+   That way the MTU change itself would fail, but the interface would
+   remain up with the original MTU.
+
+   Please make sure that you properly revert the MTU adjustment in
+   this failure path.
+
+Thanks.
