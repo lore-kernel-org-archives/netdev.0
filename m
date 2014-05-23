@@ -1,57 +1,46 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: question: Any way to trigger DHCP renewal from kernel code?
-Date: Fri, 23 May 2014 15:19:42 +0000
-Message-ID: <9cc824381b2a4eb28a09e5a35fd8ab5e@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <c64a7b76572942fda9acffc25dd76c29@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <1400857616.18322.9.camel@dcbw.local>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 15:30:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724CACF@AcuExch.aculab.com>
+References: <537E4AFD.20304@mentor.com>
+		<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
+		<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+	 <87r43k4yhe.fsf@nemi.mork.no>
+	 <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
+	 <537F2D53.5020408@mentor.com>
+ <1400852843.5367.191.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
+Cc: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"kamal@canonical.com" <kamal@canonical.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"mszeredi@suse.cz" <mszeredi@suse.cz>,
+	"fw@strlen.de" <fw@strlen.de>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Jim Baxter <jim_baxter@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-sn2-obe.ptr.o365filtering.com ([157.55.158.29]:20970 "EHLO
-	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752256AbaEWPTz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 11:19:55 -0400
-In-Reply-To: <1400857616.18322.9.camel@dcbw.local>
+Received: from mx0.aculab.com ([213.249.233.131]:59427 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751717AbaEWPbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 11:31:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17588-01 for <netdev@vger.kernel.org>;
+ Fri, 23 May 2014 16:31:11 +0100 (BST)
+In-Reply-To: <1400852843.5367.191.camel@edumazet-glaptop2.roam.corp.google.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRGFuIFdpbGxpYW1zIFtt
-YWlsdG86ZGNid0ByZWRoYXQuY29tXQ0KPiBTZW50OiBGcmlkYXksIE1heSAyMywgMjAxNCAxMTow
-NyBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
-PiBTdWJqZWN0OiBSZTogcXVlc3Rpb246IEFueSB3YXkgdG8gdHJpZ2dlciBESENQIHJlbmV3YWwg
-ZnJvbSBrZXJuZWwgY29kZT8NCj4gDQo+IE9uIFRodSwgMjAxNC0wNS0yMiBhdCAyMjoyNCArMDAw
-MCwgSGFpeWFuZyBaaGFuZyB3cm90ZToNCj4gPiBIaSwNCj4gPg0KPiA+IE91ciBzeW50aGV0aWMg
-bmV0d29yayBkcml2ZXIgaXMgbm90aWZpZWQgd2hlbiB0aGUgSHlwZXItViBob3N0DQo+ID4gcmVz
-dW1lIGZyb20gc2xlZXAvaGliZXJuYXRpb24uIFdlIG5lZWQgdG8gcmVuZXcgREhDUCBpbiB0aGlz
-IGNhc2UuDQo+ID4gSSdtIGxvb2tpbmcgZm9yIGEgd2F5IHRvIHRyaWdnZXIgREhDUCByZW5ld2Fs
-IGZyb20ga2VybmVsIG1vZGUNCj4gPiBjb2RlLg0KPiANCj4gQW5vdGhlciBhcHByb2FjaCBjb3Vs
-ZCBiZSB0byBjaGFuZ2UgdGhlICdvcGVyc3RhdGUnIG9mIHlvdXIgc3ludGhldGljDQo+IG5ldGRl
-dmljZSB0byBJRl9PUEVSX0RPUk1BTlQgYW5kIHRoZW4gYmFjayB0byBJRl9PUEVSX1VQLiAgUG9z
-c2libHkgbGlrZQ0KPiBkcml2ZXJzL25ldC9oc3IvaHNyX2RldmljZS5jIGRvZXMgaW4gX19oc3Jf
-c2V0X29wZXJzdGF0ZSgpLg0KPiANCj4gVGhlIG5ldGRldl9zdGF0ZV9jaGFuZ2UoKSBjYWxsIHdp
-bGwgc2VuZCBvdXQgYSBuZXRsaW5rIG1lc3NhZ2UgdGhhdCB0aGUNCj4gZGV2aWNlIGhhcyBjaGFu
-Z2VkLCB3aGljaCBpbmNsdWRlcyB0aGUgZGV2aWNlIGZsYWdzLiAgQmVmb3JlIGNoYW5naW5nDQo+
-IHRoZSBvcGVyc3RhdGUsIHRoZSBmbGFncyB3aWxsIGluY2x1ZGUgSUZGX1JVTk5JTkcsIHdoaWNo
-IGluZGljYXRlcyB0aGUNCj4gbmV0ZGV2aWNlIGlzIG9wZXJhdGluZyBhbmQgcGFzc2luZyB0cmFm
-ZmljLiAgV2hlbiB5b3UgY2hhbmdlIHRoZQ0KPiBvcGVyc3RhdGUgdG8gSUZfT1BFUl9ET1JNQU5U
-LCBhIG5ldGxpbmsgbWVzc2FnZSB3aWxsIGJlIHNlbnQgd2hpY2ggZG9lcw0KPiAqbm90KiBpbmNs
-dWRlIElGRl9SVU5OSU5HLiAgVGhlbiBjaGFuZ2luZyBiYWNrIHRvIElGX09QRVJfVVAgd2lsbCBl
-bWl0IGENCj4gbmV0bGluayBtZXNzYWdlIHRoYXQgKmRvZXMqIGluY2x1ZGUgSUZGX1JVTk5JTkcg
-YWdhaW4uDQo+IA0KPiBUaGUgREhDUCBjbGllbnQgY2FuIGxpc3RlbiBmb3IgZGV2aWNlIGZsYWcg
-Y2hhbmdlcyBhbmQgdHJpZ2dlciBhIERIQ1ANCj4gcmVuZXcgd2hlbiB0aGUgSUZGX1JVTk5JTkcg
-ZmxhZyByZS1hcHBlYXJzIG9uIHRoZSBkZXZpY2UuICBUaGVyZSBhcmUNCj4gc29tZSBub3RlcyBh
-Ym91dCB0aGlzIGluIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9vcGVyc3RhdGVzLnR4dCB0b28u
-DQo+IA0KPiAoUmFuZG9tIG5vdGU6IGxvbmcgYWdvIHdoZW4gV2lNQVggd2FzIHJlbGV2YW50IHRo
-ZXJlIHdhcyBhbHNvIGEgbmVlZCB0bw0KPiB0cmlnZ2VyIGEgREhDUCByZW5ldyBpbiB1c2Vyc3Bh
-Y2UgYmFzZWQgb24gZXZlbnRzIGZyb20gdGhlIGRyaXZlcjsgYQ0KPiByZW5ldyBzaG91bGQgYmUg
-cGVyZm9ybWVkIHdoZW4gdGhlIGRldmljZSBjb21lcyBvdXQgb2YgZmFzdCBzbGVlcCwgd2hpY2gN
-Cj4gY2FuIGhhcHBlbiBxdWl0ZSBvZnRlbi4gIEkgZG9uJ3QgcmVtZW1iZXIgaG93IEluYWt5IHNv
-bHZlZCB0aGlzLCBidXQgSQ0KPiB0aGluayBpdCB3YXMgb3V0LW9mLWJhbmQgZHJpdmVyIG1lc3Nh
-Z2VzIHRvIHRoZSB1c2Vyc3BhY2UgY29udHJvbA0KPiBkYWVtb24uICBBIG1vcmUgc3RhbmRhcmRp
-emVkIGtlcm5lbCBmYWNpbGl0eSBzb21ld2hhdCBsZXNzIGNvbnZvbHV0ZWQNCj4gdGhhbiBtYW51
-YWxseSBtdW5naW5nIG9wZXJzdGF0ZXMgd291bGQgaGF2ZSBiZWVuIG5pY2UuLi4pDQoNClRoYW5r
-cyBhIGxvdCB0byB5b3UgYW5kIG90aGVycyBmb3IgdGhlIGhlbHAhDQoNCi0gSGFpeWFuZw0KDQo=
+RnJvbTogRXJpYyBEdW1hemV0DQouLi4NCj4gVENQIHN0YWNrIHVzZXMgZmFzdCBjbG9uZXMsIGFu
+ZCBjdXJyZW50IHN0YWNrIGdpdmVzIHRoZW0gYSB0cnVlc2l6ZSBvZg0KPiAyMDQ4ICsgc2l6ZW9m
+KHNrX2J1ZmYpLCB3aGlsZSBpdCByZWFsbHkgc2hvdWxkIGJlIDIwNDggKw0KPiAyKnNpemVvZihz
+a19idWZmKQ0KPiANCj4gTHVja2lseSwgR1NPL1RTTyB0ZW5kcyB0byByZWR1Y2UgdGhlIGVycm9y
+LCBhcyBza2JzIG92ZXJoZWFkIGlzIGxvd2VyLg0KDQpEb2Vzbid0IHRoYXQgYWZmZWN0IHRoZSB0
+eCBzaWRlIC0gd2hlcmUgdGhlIHRydWVzaXplIGRvZXNuJ3QgbWF0dGVyIGFzIG11Y2g/DQoNCglE
+YXZpZA0KDQoNCg==
