@@ -1,107 +1,75 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: =?UTF-8?B?5Zue5aSN77yaIFJlOiBbUEFUQ0ggbGludXgtbmV4dF0gbmV0L2Q=?=
- =?UTF-8?B?Y2NwL3RpbWVyLmM6IHVzZSAndTY0JyBpbnN0ZWFkIG9mICdzNjQnIHRvIGF2b2k=?=
- =?UTF-8?B?ZCBjb21waWxlcidzIHdhcm5pbmc=?=
-Date: Fri, 23 May 2014 09:43:35 +0800
-Message-ID: <537EA7C7.8040708@gmail.com>
-References: <263613432.57393.1400803091663.JavaMail.root@bj-mail03.pku.edu.cn>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the wireless
+ tree
+Date: Fri, 23 May 2014 13:45:55 +1000
+Message-ID: <20140523134555.1ea341db@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gerrit@erg.abdn.ac.uk, gxt@mprc.pku.edu.cn, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?B?566h6Zuq5rab?= <gxt@pku.edu.cn>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <263613432.57393.1400803091663.JavaMail.root@bj-mail03.pku.edu.cn>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/ZGlYi+g=il30/yl50uO7ued"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/23/2014 07:58 AM, =E7=AE=A1=E9=9B=AA=E6=B6=9B wrote:
->=20
-> ----- David Miller <davem@davemloft.net> =E5=86=99=E9=81=93=EF=BC=9A
->> From: Chen Gang <gang.chen.5i5j@gmail.com>
->> Date: Wed, 21 May 2014 08:19:34 +0800
->>
->>> 'dccp_timestamp_seed' is initialized once by ktime_get_real() in
->>> dccp_timestamping_init(). It is always less than ktime_get_real()
->>> in dccp_timestamp().
->>>
->>> Then, ktime_us_delta() in dccp_timestamp() will always return posit=
-ive
->>> number. So can use manual type cast to let compiler and do_div() kn=
-ow
->>> about it to avoid warning.
->>>
->>> The related warning (with allmodconfig under unicore32):
->>>
->>>     CC [M]  net/dccp/timer.o
->>>   net/dccp/timer.c: In function =E2=80=98dccp_timestamp=E2=80=99:
->>>   net/dccp/timer.c:285: warning: comparison of distinct pointer typ=
-es lacks a cast
->>>
->>>
->>> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
->>
->> Applied to net-next, thanks.
->>
+--Sig_/ZGlYi+g=il30/yl50uO7ued
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Thank you for your work.
+Hi all,
 
->> But that type check in include/asm-generic/div64.h is bogus, it shou=
-ld
->> be checking sizeof(X) =3D=3D 8 rather than the type thing, it just w=
-ants to
->> make sure that the value is 64-bit regardless of it's signedness.
->>
->> The arch local implementations do not do this, and that's why very f=
-ew
->> other people notice this warning.
->=20
-> Arch-dependent codes implement it with unsigned long long type.
-> And, every warning should not be ignored.
->=20
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/wireless/iwlwifi/mvm/mac80211.c between commit 7bacc782270f
+("iwlwifi: mvm: disable beacon filtering") from the wireless tree and
+commit 73e5f2c5d762 ("iwlwifi: remove IWL_UCODE_TLV_FLAGS_BF_UPDATED
+flag") from the net-next tree.
 
-Yeah, we have to let do_div() no touch (especially for 32-bit machine,
-which the highest bit is checked). The related code in
-"include/asm-generic/div64.h":
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
- 23 #if BITS_PER_LONG =3D=3D 64
- 24
- 25 # define do_div(n,base) ({                                      \
- 26         uint32_t __base =3D (base);                               \
- 27         uint32_t __rem;                                         \
- 28         __rem =3D ((uint64_t)(n)) % __base;                       \
- 29         (n) =3D ((uint64_t)(n)) / __base;                         \
- 30         __rem;                                                  \
- 31  })
- 32
- 33 #elif BITS_PER_LONG =3D=3D 32
- 34
- 35 extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
- 36
- 37 /* The unnecessary pointer compare is there
- 38  * to check for type safety (n must be 64bit)
- 39  */
- 40 # define do_div(n,base) ({                              \
- 41         uint32_t __base =3D (base);                       \
- 42         uint32_t __rem;                                 \
- 43         (void)(((typeof((n)) *)0) =3D=3D ((uint64_t *)0));  \
- 44         if (likely(((n) >> 32) =3D=3D 0)) {                 \
- 45                 __rem =3D (uint32_t)(n) % __base;         \
- 46                 (n) =3D (uint32_t)(n) / __base;           \
- 47         } else                                          \
- 48                 __rem =3D __div64_32(&(n), __base);       \
- 49         __rem;                                          \
- 50  })
-
-
-And for division operation, architectures are signed/unsigned
-sensitive, e.g. div_u64() and div_s64(), they are different.
-
-
-Thanks.
 --=20
-Chen Gang
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Open, share, and attitude like air, water, and life which God blessed
+diff --cc drivers/net/wireless/iwlwifi/mvm/mac80211.c
+index 8735ef1f44ae,97c3deae6552..000000000000
+--- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
++++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
+@@@ -826,9 -825,8 +825,8 @@@ static int iwl_mvm_mac_add_interface(st
+  	if (ret)
+  		goto out_remove_mac;
+ =20
+ -	if (!mvm->bf_allowed_vif &&
+ +	if (!mvm->bf_allowed_vif && false &&
+- 	    vif->type =3D=3D NL80211_IFTYPE_STATION && !vif->p2p &&
+- 	    mvm->fw->ucode_capa.flags & IWL_UCODE_TLV_FLAGS_BF_UPDATED){
++ 	    vif->type =3D=3D NL80211_IFTYPE_STATION && !vif->p2p) {
+  		mvm->bf_allowed_vif =3D mvmvif;
+  		vif->driver_flags |=3D IEEE80211_VIF_BEACON_FILTER |
+  				     IEEE80211_VIF_SUPPORTS_CQM_RSSI;
+
+--Sig_/ZGlYi+g=il30/yl50uO7ued
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTfsR3AAoJEMDTa8Ir7ZwViCEP/0Yob9vxseJ4uDZtm0KeLkwx
+K6BlH60z+KZGMS8Ja2uUD6pRxg3EQ/EY41pckpYqMsfq3jdmRRDE/BJxmslsfGDr
+RswBd47K/DNH1dLxsDX09AX3pxb1yEsGD9YAUFFjrx58g9LWQqVAkURV46PZE1tT
+qQYtKuABw1mM7i1+vtqIVpOCVF2fJFcxyvf8iZAWkuWmihjlT95QVY8kmuX2UTsa
+6TpSNZpof4BjLcZctZer8lXWStQSvgegdkU80yIwPtz7DL8d0yMZc4lm5Mk+eN32
+BFMZmktiNZsw+gag1oK70VoKsgWVMxNh4jhhcVhE04V3z++xrc9HylzE1eZLF9jP
+v+z5pIsLyrCCSnLVM5HwVmnQMVFL2ALxDr3GTnOOjpFI1J/xQcT0+AzqC7CrjW8J
+hQAw7Dhtj7cmR2mCElYK0DarHGR8F8LeHjQ7vPr5GIZKHSUNM8/J1p1HvLXnIj7H
+VKoX62hPkcZEzhxlfilAFPdQBhaD2nqcNiP3tfrLHmoPjUNaVaHnEdEhABxAZPbJ
+Q6A9bkNYUyOohZmKxRf6+8Ig9h6lt1KzwWN7dw02ibhSFFG8kZtNP1q0X37ENfEJ
+j9jl/b8Xn5uXGHEmD1POs0IETmjwyXLGrfCseOqBkAlIHLt+THlw+dwSj7WL5zxO
+hBDImYZvMC70HmaXvLt1
+=i4qk
+-----END PGP SIGNATURE-----
+
+--Sig_/ZGlYi+g=il30/yl50uO7ued--
