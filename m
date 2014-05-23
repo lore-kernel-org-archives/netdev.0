@@ -1,53 +1,95 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] enic: fix adaptive irq coalescing on 32-bit
-Date: Fri, 23 May 2014 11:29:15 +0200
-Message-ID: <14330971.FOHpOT3kal@wuerfel>
-References: <10713072.kCczZxGWdQ@wuerfel> <063D6719AE5E284EB5DD2968C1650D6D1724C45F@AcuExch.aculab.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 11:33:46 +0200
+Message-ID: <87vbsw4z5x.fsf@nemi.mork.no>
+References: <537E4AFD.20304@mentor.com>
+	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140522.171033.1040508444998374401.davem@davemloft.net>
+	<87ppj5vupf.fsf@nemi.mork.no> <537F0DCA.6030901@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Neel Patel <neepatel@cisco.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Christian Benvenuti <benve@cisco.com>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:49977 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906AbaEWJ3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 05:29:24 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C45F@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=-=-="
+Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
+	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <kamal@canonical.com>,
+	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <537F0DCA.6030901@mentor.com> (Jim Baxter's message of "Fri, 23
+	May 2014 09:58:50 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 23 May 2014 08:29:52 David Laight wrote:
-> From: Arnd Bergmann
-> > 7c2ce6e60f703 "enic: Add support for adaptive interrupt coalescing"
-> > introduced a 64-bit division that causes a link error on all 32-bit
-> > machines:
-> > 
-> > drivers/built-in.o: In function `enic_poll_msix':
-> > :(.text+0x54ff00): undefined reference to `__aeabi_uldivmod'
-> > 
-> > Since we are dividing another 32-bit value and are only interested
-> > in the approximate range here, it should always be safe to limit
-> > the delta to an u32 value.
-> ...
-> >  	traffic <<= 3;
-> > -	traffic /= delta;
-> > +	traffic /= min_t(u32, delta, UINT_MAX);
-> 
-> I suspect that doesn't have the desired effect.
-> I think it is the same as:
-> 	traffic /= (u32)delta;
+--=-=-=
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Ah, you are right, sorry for that.
+Jim Baxter <jim_baxter@mentor.com> writes:
 
-> If you was the correct value for large 'delta' then maybe:
-> 	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
+>> I'll create and test a patch for the cdc_ncm host driver unless someone
+>> else wants to do that. I haven't really played with the gadget driver
+>> before, so I'd prefer if someone knowing it (Jim maybe?) could take care
+>> of it.  If not, then I can always make an attempt using dummy_hcd to
+>> test it.
+> I can create a patch for the host driver, I will issue the gadget patch
+> first to resolve any issues, the fix would be similar.
 
-That looks better, yes.
+Well, I couldn't help myself.  I just had to test it.  The attached
+patch works for me, briefly tested with an Ericsson H5321gw NCM device.
+I have no ideas about the performance impact as that modem is limited to
+21 Mbps HSDPA.
 
-	Arnd
+
+Bj=C3=B8rn
+
+
+--=-=-=
+Content-Type: text/x-diff; charset=utf-8
+Content-Disposition: inline;
+ filename=0001-net-cdc_ncm-reduce-skb-truesize-in-rx-path.patch
+Content-Transfer-Encoding: quoted-printable
+
+>From 4c7431cd046a6972e153e23249ad490a3692f9a3 Mon Sep 17 00:00:00 2001
+From: =3D?UTF-8?q?Bj=3DC3=3DB8rn=3D20Mork?=3D <bjorn@mork.no>
+Date: Fri, 23 May 2014 09:40:51 +0200
+Subject: [RFC] net: cdc_ncm: reduce skb truesize in rx path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3DUTF-8
+Content-Transfer-Encoding: 8bit
+
+Cloning the big skbs we use for USB buffering chokes up TCP and
+SCTP because the socket memory limits are hitting earlier than
+they should. It is better to unconditionally copy the unwrapped
+packets to freshly allocated skbs.
+
+Reported-by: Jim Baxter <jim_baxter@mentor.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/cdc_ncm.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 93c9ca9924eb..2bbbd65591c7 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1289,12 +1289,11 @@ next_ndp:
+ 			break;
+=20
+ 		} else {
+-			skb =3D skb_clone(skb_in, GFP_ATOMIC);
++			/* create a fresh copy to reduce truesize */
++			skb =3D netdev_alloc_skb_ip_align(dev->net,  len);
+ 			if (!skb)
+ 				goto error;
+-			skb->len =3D len;
+-			skb->data =3D ((u8 *)skb_in->data) + offset;
+-			skb_set_tail_pointer(skb, len);
++			memcpy(skb_put(skb, len), skb_in->data + offset, len);
+ 			usbnet_skb_return(dev, skb);
+ 			payload +=3D len;	/* count payload bytes in this NTB */
+ 		}
+--=20
+2.0.0.rc4
+
+
+--=-=-=--
