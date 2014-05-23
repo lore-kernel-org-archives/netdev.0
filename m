@@ -1,95 +1,64 @@
 From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Subject: Re: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 11:33:46 +0200
-Message-ID: <87vbsw4z5x.fsf@nemi.mork.no>
+Date: Fri, 23 May 2014 11:48:29 +0200
+Message-ID: <87r43k4yhe.fsf@nemi.mork.no>
 References: <537E4AFD.20304@mentor.com>
 	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1400792601.5367.176.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140522.171033.1040508444998374401.davem@davemloft.net>
-	<87ppj5vupf.fsf@nemi.mork.no> <537F0DCA.6030901@mentor.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <kamal@canonical.com>,
-	<edumazet@google.com>, <mszeredi@suse.cz>, <fw@strlen.de>
-To: Jim Baxter <jim_baxter@mentor.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
+	Jim Baxter <jim_baxter@mentor.com>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"kamal\@canonical.com" <kamal@canonical.com>,
+	"edumazet\@google.com" <edumazet@google.com>,
+	"mszeredi\@suse.cz" <mszeredi@suse.cz>,
+	"fw\@strlen.de" <fw@strlen.de>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537F0DCA.6030901@mentor.com> (Jim Baxter's message of "Fri, 23
-	May 2014 09:58:50 +0100")
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+	(David Laight's message of "Fri, 23 May 2014 08:52:13 +0000")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---=-=-=
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+David Laight <David.Laight@ACULAB.COM> writes:
 
-Jim Baxter <jim_baxter@mentor.com> writes:
+> Since USB bulk data are terminated by a short fragment there is actua=
+lly
+> no need for the URB be long enough for the full message. Provided the
+> URB are multiples of the USB message size (1k for USB 3) the message
+> can be received into multiple URB - the driver just has to be willing
+> to merge URB buffers (as well as split them) when generating the ethe=
+rnet
+> frames.
+>
+> What the driver needs to do us allocate URB with 2k (or 4k) buffers a=
+nd
+> only allocate the skb when processing the receive data.
+> Unfortunately this is a major rework of usb_net.c
 
->> I'll create and test a patch for the cdc_ncm host driver unless someone
->> else wants to do that. I haven't really played with the gadget driver
->> before, so I'd prefer if someone knowing it (Jim maybe?) could take care
->> of it.  If not, then I can always make an attempt using dummy_hcd to
->> test it.
-> I can create a patch for the host driver, I will issue the gadget patch
-> first to resolve any issues, the fix would be similar.
+Yes, I believe this is the way to go as well.
 
-Well, I couldn't help myself.  I just had to test it.  The attached
-patch works for me, briefly tested with an Ericsson H5321gw NCM device.
-I have no ideas about the performance impact as that modem is limited to
-21 Mbps HSDPA.
+I have been thinking about it in the context of the cdc_ncm driver.  On=
+e
+problem with the NCM protocol is that it will have to merge all the
+buffers of a "NCM Transfer Block" (NTB) before it can process any part
+of it.  The protocol puts no restrictions on the internal pointers in a
+NTB, so there is no guarantee that we can start at the beginning and
+work our way towards the end of it. The contained packets can be
+interleaved with index(es) or the index can be at the end etc.
+
+But this should still be possible to parse using a list of shorter
+buffers to hold each NTB.
+
+> Note that some of the usb ethernet drivers allocate large skb then
+> lie about the truesize.
+
+Hmm, which drivers are these?
 
 
 Bj=C3=B8rn
-
-
---=-=-=
-Content-Type: text/x-diff; charset=utf-8
-Content-Disposition: inline;
- filename=0001-net-cdc_ncm-reduce-skb-truesize-in-rx-path.patch
-Content-Transfer-Encoding: quoted-printable
-
->From 4c7431cd046a6972e153e23249ad490a3692f9a3 Mon Sep 17 00:00:00 2001
-From: =3D?UTF-8?q?Bj=3DC3=3DB8rn=3D20Mork?=3D <bjorn@mork.no>
-Date: Fri, 23 May 2014 09:40:51 +0200
-Subject: [RFC] net: cdc_ncm: reduce skb truesize in rx path
-MIME-Version: 1.0
-Content-Type: text/plain; charset=3DUTF-8
-Content-Transfer-Encoding: 8bit
-
-Cloning the big skbs we use for USB buffering chokes up TCP and
-SCTP because the socket memory limits are hitting earlier than
-they should. It is better to unconditionally copy the unwrapped
-packets to freshly allocated skbs.
-
-Reported-by: Jim Baxter <jim_baxter@mentor.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/cdc_ncm.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 93c9ca9924eb..2bbbd65591c7 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1289,12 +1289,11 @@ next_ndp:
- 			break;
-=20
- 		} else {
--			skb =3D skb_clone(skb_in, GFP_ATOMIC);
-+			/* create a fresh copy to reduce truesize */
-+			skb =3D netdev_alloc_skb_ip_align(dev->net,  len);
- 			if (!skb)
- 				goto error;
--			skb->len =3D len;
--			skb->data =3D ((u8 *)skb_in->data) + offset;
--			skb_set_tail_pointer(skb, len);
-+			memcpy(skb_put(skb, len), skb_in->data + offset, len);
- 			usbnet_skb_return(dev, skb);
- 			payload +=3D len;	/* count payload bytes in this NTB */
- 		}
---=20
-2.0.0.rc4
-
-
---=-=-=--
