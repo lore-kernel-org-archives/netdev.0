@@ -1,50 +1,64 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 12:13:23 +0100
-Message-ID: <537F2D53.5020408@mentor.com>
-References: <537E4AFD.20304@mentor.com>	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>	<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com> <87r43k4yhe.fsf@nemi.mork.no> <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
+From: nisse@southpole.se (Niels =?utf-8?Q?M=C3=B6ller?=)
+Subject: Re: What's the right way to use a *large* number of source addresses?
+Date: Fri, 23 May 2014 14:26:52 +0200
+Message-ID: <6zegzkvfxv.fsf@southpole.se>
+References: <6zlhtsvnqp.fsf@southpole.se>
+	<20140523101144.GH24523@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"kamal@canonical.com" <kamal@canonical.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"mszeredi@suse.cz" <mszeredi@suse.cz>,
-	"fw@strlen.de" <fw@strlen.de>
-To: David Laight <David.Laight@ACULAB.COM>,
-	=?UTF-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Jonas Bonn <jonas@southpole.se>
+To: Florian Westphal <fw@strlen.de>, Lukas Tribus <luky-37@hotmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.southpole.se ([37.247.8.11]:47632 "EHLO mail.southpole.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750981AbaEWM1E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 08:27:04 -0400
+In-Reply-To: <20140523101144.GH24523@breakpoint.cc> (Florian Westphal's
+	message of "Fri, 23 May 2014 12:11:44 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23/05/14 11:45, David Laight wrote:
-> From: Bj=C3=B8rn Mork [mailto:bjorn@mork.no]
->> David Laight <David.Laight@ACULAB.COM> writes:
-> ...
->>> Note that some of the usb ethernet drivers allocate large skb then
->>> lie about the truesize.
->>
->> Hmm, which drivers are these?
->=20
-> $ grep truesize linux/drivers/net/usb/*
->=20
-> asix_88179_178a, smsc95xx, sr9700.
->=20
-> 	David
->=20
+=46lorian Westphal <fw@strlen.de> writes:
 
+> Niels M=C3=B6ller <nisse@southpole.se> wrote:
 
-What are the side effects of changing the truesize, if the original
-uncloned skb has the full truesize then isn't the potential memory usag=
+>> 3. Just set the desired local address with the bind call. Currently,
+>>    this gives an EADDRNOTAVAIL error, so the first step would be som=
 e
-still counted for the avoidance of OOM?
+>>    option to allow arbitrary source addresses.
+>
+> See 'Making non-local sockets work' in Documentation/networking/tprox=
+y.txt
 
-I suppose if the uncloned skb is deleted you would then have a problem
-so a chain of URB's would be the safest solution.
+Great! Sounds like it should work fine with no additional kernel hackin=
+g.
 
-Jim
+Lukas Tribus <luky-37@hotmail.com> writes:
+
+> Yes, its a simple as setting IP_FREEBIND and then binding to the spec=
+ific
+> source IP.
+>
+> setsockopt(fd, SOL_IP, IP_FREEBIND, &one, sizeof(one))
+
+This sounds even easier, but I'm not sure it works. For my first test, =
+I just tried
+
+  sysctl net.ipv4.ip_nonlocal_bind=3D1
+
+(which is the global equivalent of IP_FREEBIND). Then bind succeeds, bu=
+t
+connect fails with EINVAL,
+
+  socket(PF_INET, SOCK_STREAM, IPPROTO_TCP) =3D 3
+  bind(3, {sa_family=3DAF_INET, sin_port=3Dhtons(8000), sin_addr=3Dinet=
+_addr("10.200.0.1")}, 16) =3D 0
+  connect(3, {sa_family=3DAF_INET, sin_port=3Dhtons(9), sin_addr=3Dinet=
+_addr("10.1.0.2")}, 16) =3D -1 EINVAL (Invalid argument)
+
+I'll do some more experiments, using IP_TRANSPARENT, and setting up the
+suggested iptables rules.
+
+Thanks,
+/Niels
