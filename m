@@ -1,61 +1,63 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Fwd: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173,
- fatal exception in interrupt
-Date: Fri, 23 May 2014 10:42:22 +0200
-Message-ID: <537F09EE.5000703@redhat.com>
-References: <bug-76781-65011@https.bugzilla.kernel.org/>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 08:52:13 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+References: <537E4AFD.20304@mentor.com>
+ <1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, cate@cateee.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4058 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751178AbaEWImc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2014 04:42:32 -0400
-In-Reply-To: <bug-76781-65011@https.bugzilla.kernel.org/>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"kamal@canonical.com" <kamal@canonical.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"mszeredi@suse.cz" <mszeredi@suse.cz>,
+	"fw@strlen.de" <fw@strlen.de>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
+	Jim Baxter <jim_baxter@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
--------- Original Message --------
-Subject: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173, fatal exception in interrupt
-Date: Fri, 23 May 2014 07:07:40 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: dborkman@redhat.com
-
-https://bugzilla.kernel.org/show_bug.cgi?id=76781
-
-             Bug ID: 76781
-            Summary: unable to handle NULL in xfrm_input+0x173, fatal
-                     exception in interrupt
-            Product: Networking
-            Version: 2.5
-     Kernel Version: 3.15.0-rc6
-           Hardware: x86-64
-                 OS: Linux
-               Tree: Mainline
-             Status: NEW
-           Severity: normal
-           Priority: P1
-          Component: Other
-           Assignee: shemminger@linux-foundation.org
-           Reporter: cate@cateee.net
-         Regression: No
-
-See also the fatal oops in:
-
-http://cateee.net/kernel/IMG_20140522_225238.jpg
-http://cateee.net/kernel/IMG_20140523_082629.jpg
-
-It seems it happens "often": twice in last few hours I used the new kernels.
-(the first oops was with 3.15.0-rc5-00270-gfba69f0)
-
-I had also usual debian unstable updates, and I just finished to instal aiccu
-(a sixxs program for dynamic ip6to4, so I'm not sure it is a recent bug or just
-I forced it to appear in very last HEAD.
-
--- 
-You are receiving this mail because:
-You are watching the assignee of the bug.
+RnJvbTogRXJpYyBEdW1hemV0DQo+IE9uIFRodSwgMjAxNC0wNS0yMiBhdCAyMDowNyArMDEwMCwg
+SmltIEJheHRlciB3cm90ZToNCj4gDQo+ID4NCj4gPiBJIGhhdmUgYmVlbiBpbnZlc3RpZ2F0aW5n
+IGEgbmV0d29yayBpc3N1ZSB3aXRoIGJ1cnN0cyBvZiBuZXR3b3JrIHRyYWZmaWMNCj4gPiBvdmVy
+IFVTQiBDREMtTkNNLCB0aGUgaXNzdWUgaXMgdGhhdCB0aGUga2VybmVsIGlzIGRyb3BwaW5nIHBh
+Y2tldHMNCj4gPiBiZWNhdXNlIHNrX3JjdnF1ZXVlc19mdWxsKCkgcmV0dXJucyB0cnVlIGR1ZSB0
+byBza2IyLT50cnVlc2l6ZSBpcyBhbHdheXMNCj4gPiAzMjk2MCBpbnN0ZWFkIG9mIFNLQl9UUlVF
+U0laRShza2IyLT5sZW4pIHdoaWNoIGlzIGFib3V0IDE4MDAuDQo+ID4NCj4gPiBUaGUgY29kZSBJ
+IGFtIHRyeWluZyB0byBmaXggaXMgdGhpcyBjb2RlIGJlbG93LCBpdCBpcyBzcGxpdHRpbmcgYSBz
+ZXQgb2YNCj4gPiBtdWx0aXBsZSBuZXR3b3JrIHBhY2tldHMgY29tcHJlc3NlZCBpbnRvIGEgc2lu
+Z2xlIDE2ayBwYWNrZXQgaW50bw0KPiA+IGluZGl2aWR1YWwgc2tiJ3MgYW5kIHNlbmRpbmcgdGhl
+bSB1cCB0aGUgbmV0d29yayBzdGFjay4NCj4gDQo+IGlmIHNrYiBhcmUgYWxsb2NhdGVkIHdpdGgg
+MTZrID0gMTYzODQgYnl0ZXMsIGFkZGluZyB0aGUgc3RydWN0DQo+IHNrYl9zaGFyZWRfaW5mbyBv
+dmVyaGVhZCBhbmQgcm91bmRpbmcgdXAgdG8gcG93ZXIgb2YgdHdvIGdpdmVzIDMyNzY4DQo+IGJ5
+dGVzLg0KPiANCj4gQ2hhbmNlcyB0byBiZSBhYmxlIHRvIGFsbG9jYXRlIDMyS0IgY29udGlndW91
+cyBtZW1vcnkgYXJlIHNsaW0gYWZ0ZXIgYQ0KPiB3aGlsZS4NCj4gDQo+IEkgd291bGQgc2V0IHJ4
+X21heCAocnhfdXJiX3NpemUpIHRvIFNLQl9NQVhfSEVBRCgwKSBzbyB0aGF0IHlvdSBkbyBub3QN
+Cj4gdXNlIGhpZ2ggb3JkZXIgYWxsb2NhdGlvbnMuDQo+IA0KPiBXaGF0IGlzIHRoZSBleGFjdCAn
+b3ZlcmhlYWQnIHVzaW5nIH40SyBpbnN0ZWFkIG9mIDE2SyBleGFjdGx5IG9uIHRoaXMNCj4gaGFy
+ZHdhcmUgPw0KDQpNYW55IG9mIHRoZSB1c2IgZXRoZXJuZXQgZHJpdmVycyBoYXZlIHRoZSBzYW1l
+IGlzc3VlLg0KDQpUaGUgaGFyZHdhcmUgd2lsbCBwdXQgbXVsdGlwbGUgZXRoZXJuZXQgZnJhbWVz
+IGludG8gYSBzaW5nbGUgVVNCIGJ1bGsgZGF0YQ0KbWVzc2FnZS4gVG8gaGFuZGxlIHRoaXMgdGhl
+IGRyaXZlciBnZW5lcmF0ZXMgYSBVUkIgdGhhdCBpcyAoaG9wZWZ1bGx5KSBsb25nDQplbm91Z2gg
+Zm9yIHRoZSBsb25nZXN0IFVTQiBtZXNzYWdlICh0eXBpY2FsbHkgMzJrIGlzIGFzc3VtZWQgdG8g
+YmUgZW5vdWdoKS4NClRoZSBVUkIgdGhhdCB1c2JfbmV0IGdlbmVyYXRlZCBoYXZlIHRoZSBkYXRh
+IGluIGEgbGluZWFyIHNrYiAtIHdoaWNoIHRoZW4NCmhhcyBhIGxhcmdlICd0cnVlc2l6ZScuDQoN
+ClNpbmNlIFVTQiBidWxrIGRhdGEgYXJlIHRlcm1pbmF0ZWQgYnkgYSBzaG9ydCBmcmFnbWVudCB0
+aGVyZSBpcyBhY3R1YWxseQ0Kbm8gbmVlZCBmb3IgdGhlIFVSQiBiZSBsb25nIGVub3VnaCBmb3Ig
+dGhlIGZ1bGwgbWVzc2FnZS4gUHJvdmlkZWQgdGhlDQpVUkIgYXJlIG11bHRpcGxlcyBvZiB0aGUg
+VVNCIG1lc3NhZ2Ugc2l6ZSAoMWsgZm9yIFVTQiAzKSB0aGUgbWVzc2FnZQ0KY2FuIGJlIHJlY2Vp
+dmVkIGludG8gbXVsdGlwbGUgVVJCIC0gdGhlIGRyaXZlciBqdXN0IGhhcyB0byBiZSB3aWxsaW5n
+DQp0byBtZXJnZSBVUkIgYnVmZmVycyAoYXMgd2VsbCBhcyBzcGxpdCB0aGVtKSB3aGVuIGdlbmVy
+YXRpbmcgdGhlIGV0aGVybmV0DQpmcmFtZXMuDQoNCldoYXQgdGhlIGRyaXZlciBuZWVkcyB0byBk
+byB1cyBhbGxvY2F0ZSBVUkIgd2l0aCAyayAob3IgNGspIGJ1ZmZlcnMgYW5kDQpvbmx5IGFsbG9j
+YXRlIHRoZSBza2Igd2hlbiBwcm9jZXNzaW5nIHRoZSByZWNlaXZlIGRhdGEuDQpVbmZvcnR1bmF0
+ZWx5IHRoaXMgaXMgYSBtYWpvciByZXdvcmsgb2YgdXNiX25ldC5jDQoNCk5vdGUgdGhhdCBzb21l
+IG9mIHRoZSB1c2IgZXRoZXJuZXQgZHJpdmVycyBhbGxvY2F0ZSBsYXJnZSBza2IgdGhlbg0KbGll
+IGFib3V0IHRoZSB0cnVlc2l6ZS4NCg0KCURhdmlkDQoNCg==
