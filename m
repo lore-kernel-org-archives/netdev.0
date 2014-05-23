@@ -1,52 +1,53 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 09:27:21 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724C54C@AcuExch.aculab.com>
-References: <537E4AFD.20304@mentor.com>
-	<20140522.152146.2116142050088142989.davem@davemloft.net>
-	<537E5C63.7080607@mentor.com>
- <20140522.165833.414855217799383878.davem@davemloft.net>
- <537F130F.6080901@mentor.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] enic: fix adaptive irq coalescing on 32-bit
+Date: Fri, 23 May 2014 11:29:15 +0200
+Message-ID: <14330971.FOHpOT3kal@wuerfel>
+References: <10713072.kCczZxGWdQ@wuerfel> <063D6719AE5E284EB5DD2968C1650D6D1724C45F@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kamal@canonical.com" <kamal@canonical.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"mszeredi@suse.cz" <mszeredi@suse.cz>,
-	"fw@strlen.de" <fw@strlen.de>
-To: 'Jim Baxter' <jim_baxter@mentor.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537F130F.6080901@mentor.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sujith Sankar <ssujith@cisco.com>,
+	Neel Patel <neepatel@cisco.com>,
+	Govindarajulu Varadarajan <_govind@gmx.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Christian Benvenuti <benve@cisco.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.10]:49977 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750906AbaEWJ3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 05:29:24 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C45F@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jim Baxter
-> On 22/05/14 21:58, David Miller wrote:
-> > From: Jim Baxter <jim_baxter@mentor.com>
-> > Date: Thu, 22 May 2014 21:21:55 +0100
-> >
-> >> If there are multiple clones for an skb all pointing at the same data,
-> >> will that distort the memory used when they all have the same truesize?
-> >
-> > What is distorted about it?
-> >
-> > Each clone references exactly that much backing memory.
-> >
+On Friday 23 May 2014 08:29:52 David Laight wrote:
+> From: Arnd Bergmann
+> > 7c2ce6e60f703 "enic: Add support for adaptive interrupt coalescing"
+> > introduced a 64-bit division that causes a link error on all 32-bit
+> > machines:
+> > 
+> > drivers/built-in.o: In function `enic_poll_msix':
+> > :(.text+0x54ff00): undefined reference to `__aeabi_uldivmod'
+> > 
+> > Since we are dividing another 32-bit value and are only interested
+> > in the approximate range here, it should always be safe to limit
+> > the delta to an u32 value.
+> ...
+> >  	traffic <<= 3;
+> > -	traffic /= delta;
+> > +	traffic /= min_t(u32, delta, UINT_MAX);
 > 
-> Thank you for you help, I think distorted was the wrong word.
-> 
-> 
-> I think I am confused what truesize is used for it looks like it is used
-> to deallocate memory, is this correct?
+> I suspect that doesn't have the desired effect.
+> I think it is the same as:
+> 	traffic /= (u32)delta;
 
-No, it is used for receive flow control.
-You need to count allocated memory (not data bytes) in order to
-actually stop the system running out of memory.
+Ah, you are right, sorry for that.
 
-	David
+> If you was the correct value for large 'delta' then maybe:
+> 	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
+
+That looks better, yes.
+
+	Arnd
