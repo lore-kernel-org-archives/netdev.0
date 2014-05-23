@@ -1,41 +1,46 @@
-From: wenxiong@linux.vnet.ibm.com
-Subject: [PATCH 1/2] bnx2x: Adapter not recovery from EEH error injection
-Date: Fri, 23 May 2014 11:29:56 -0500
-Message-ID: <20140523163025.817545098@linux.vnet.ibm.com>
-References: <20140523162955.780765614@linux.vnet.ibm.com>
-Cc: Wen Xiong <wenxiong@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/5] BPF updates
+Date: Fri, 23 May 2014 18:43:56 +0200
+Message-ID: <1400863441-3711-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [32.97.110.57] ([32.97.110.57]:33168 "HELO
-	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1753475AbaEWQkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 12:40:22 -0400
-Content-Disposition: inline; filename=bnx2x_eeh_fix
+Received: from mx1.redhat.com ([209.132.183.28]:56715 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751243AbaEWQoG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 12:44:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When injecting EEH error to bnx2x adapter, adapter couldn't be recovery
-and caused recursive EEH errors. The patch fixes the issue.
+These were still in my queue. Please see individual patches for
+details.
 
-Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I have rebased these on top of current net-next with Andrew's
+gcc union fixup [1] applied to avoid dealing with an unnecessary
+merge conflict.
 
-Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-===================================================================
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:42:48.000000000 -0500
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:44:36.757765539 -0500
-@@ -13279,8 +13279,8 @@ static int bnx2x_eeh_nic_unload(struct b
- 	netdev_reset_tc(bp->dev);
- 
- 	del_timer_sync(&bp->timer);
--	cancel_delayed_work(&bp->sp_task);
--	cancel_delayed_work(&bp->period_task);
-+	cancel_delayed_work_sync(&bp->sp_task);
-+	cancel_delayed_work_sync(&bp->period_task);
- 
- 	spin_lock_bh(&bp->stats_lock);
- 	bp->stats_state = STATS_STATE_DISABLED;
+Thanks !
+
+ [1] http://patchwork.ozlabs.org/patch/351577/
+
+Daniel Borkmann (5):
+  net: filter: remove DL macro
+  net: filter: let unattached filters use sock_fprog_kern
+  net: filter: doc: add section for BPF test suite
+  net: filter: improve test case framework
+  net: filter: add test case for jump with holes and ret x variants
+
+ Documentation/networking/filter.txt      |  14 +
+ drivers/isdn/i4l/isdn_ppp.c              |   4 +-
+ drivers/net/ppp/ppp_generic.c            |   4 +-
+ drivers/net/team/team_mode_loadbalance.c |  10 +-
+ include/linux/filter.h                   |   5 +-
+ lib/test_bpf.c                           | 482 +++++++++++++++++++++----------
+ net/core/filter.c                        | 195 +++++++------
+ net/core/ptp_classifier.c                |   2 +-
+ net/netfilter/xt_bpf.c                   |   5 +-
+ net/sched/cls_bpf.c                      |   4 +-
+ 10 files changed, 457 insertions(+), 268 deletions(-)
 
 -- 
+1.7.11.7
