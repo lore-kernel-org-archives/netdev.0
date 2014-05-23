@@ -1,76 +1,69 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: Don't reset the timeout when restarting
-Date: Fri, 23 May 2014 15:55:12 -0400
-Message-ID: <1400874912-25653-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Arnaldo Carvalho de Melo <acme@redhat.com>,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.gq1.yahoo.com ([98.137.12.180]:41810 "HELO
-	smtp105.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751011AbaEWTzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 15:55:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Fri, 23 May 2014 16:55:22 -0300
+Message-ID: <20140523195522.GH2741@kernel.org>
+References: <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com>
+ <20140512143451.GB13801@kernel.org>
+ <20140521210535.GA5414@kernel.org>
+ <20140523.150055.2214666905697701415.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org, caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org,
+	remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org, paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org,
+	chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140523.150055.2214666905697701415.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Em Fri, May 23, 2014 at 03:00:55PM -0400, David Miller escreveu:
+> From: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Date: Wed, 21 May 2014 18:05:35 -0300
 
-As it may then take longer than what the user specified using
-setsockopt(SO_RCVTIMEO).
+> > But after thinking a bit more, looks like we need to do that, please
+> > take a look at the attached patch to see if it addresses the problem.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+> > Mostly it adds a new timeop to the per protocol recvmsg()
+> > implementations, that, if not NULL, should be used instead of
+> > SO_RCVTIMEO.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ac08966..08d87fc 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -985,10 +985,11 @@ static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
- 	return 0;
- }
+> > since the underlying recvmsg implementations already check that timeout,
+> > return what is remaining, that will then be used in subsequent recvmsg
+> > calls, at the end we just convert it back to timespec format.
+
+> > In most cases it is just passed to skb_recv_datagram, that will check
+> > the pointer, use it and update if not NULL.
+
+> > Should have no problems, but I only did a boot with a system with this
+> > patch applied, no problems noticed on a normal desktop session, ssh,
+> > etc.
  
--static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
-+static int tipc_wait_for_rcvmsg(struct socket *sock, long *timeop)
- {
- 	struct sock *sk = sock->sk;
- 	DEFINE_WAIT(wait);
-+	long timeo = *timeop;
- 	int err;
+> This looks fine to me, but I have a small request:
  
- 	for (;;) {
-@@ -1013,6 +1014,7 @@ static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
- 			break;
- 	}
- 	finish_wait(sk_sleep(sk), &wait);
-+	*timeop = timeo;
- 	return err;
- }
+> +	return noblock ? 0 : timeop ? *timeop : sk->sk_rcvtimeo;
  
-@@ -1056,7 +1058,7 @@ static int tipc_recvmsg(struct kiocb *iocb, struct socket *sock,
- restart:
+> I keep forgetting which way these expressions associate, so if you could
+> parenthesize the innermost ?: I'd appreciate it. :)
+
+Ok, I actually wrote a sample program to verify that these ternaries did
+what I meant 8)
+
+I'll finish the cset log and do this clarification change.
+
+Would be great to get Acked-by tags from the original reporter, Michael
+and whoever had a look at this change, if possible. Michael, Elie?
  
- 	/* Look for a message in receive queue; wait if necessary */
--	res = tipc_wait_for_rcvmsg(sock, timeo);
-+	res = tipc_wait_for_rcvmsg(sock, &timeo);
- 	if (res)
- 		goto exit;
- 
-@@ -1154,7 +1156,7 @@ static int tipc_recv_stream(struct kiocb *iocb, struct socket *sock,
- 
- restart:
- 	/* Look for a message in receive queue; wait if necessary */
--	res = tipc_wait_for_rcvmsg(sock, timeo);
-+	res = tipc_wait_for_rcvmsg(sock, &timeo);
- 	if (res)
- 		goto exit;
- 
--- 
-1.7.9.5
+> Thanks!
+
+Thanks a lot for reviewing it!
+
+- Arnaldo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
