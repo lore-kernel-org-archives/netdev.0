@@ -1,24 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2014-05-23
-Date: Fri, 23 May 2014 15:44:33 -0400 (EDT)
-Message-ID: <20140523.154433.1565372421278669500.davem@davemloft.net>
-References: <537EF718.2020203@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <537EF718.2020203@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/1] tipc: Don't reset the timeout when restarting
+Date: Fri, 23 May 2014 15:55:12 -0400
+Message-ID: <1400874912-25653-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.biz.mail.gq1.yahoo.com ([98.137.12.180]:41810 "HELO
+	smtp105.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751011AbaEWTzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 15:55:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 23 May 2014 09:22:00 +0200
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
 
-> this is a pull request of two patches for net-next/master. Kedareswara
-> rao Appana contributes support for the xilinx CAN core found on the
-> zynq and microblaze SOCs.
+As it may then take longer than what the user specified using
+setsockopt(SO_RCVTIMEO).
 
-Pulled, thanks Marc.
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/socket.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index ac08966..08d87fc 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -985,10 +985,11 @@ static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
+ 	return 0;
+ }
+ 
+-static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
++static int tipc_wait_for_rcvmsg(struct socket *sock, long *timeop)
+ {
+ 	struct sock *sk = sock->sk;
+ 	DEFINE_WAIT(wait);
++	long timeo = *timeop;
+ 	int err;
+ 
+ 	for (;;) {
+@@ -1013,6 +1014,7 @@ static int tipc_wait_for_rcvmsg(struct socket *sock, long timeo)
+ 			break;
+ 	}
+ 	finish_wait(sk_sleep(sk), &wait);
++	*timeop = timeo;
+ 	return err;
+ }
+ 
+@@ -1056,7 +1058,7 @@ static int tipc_recvmsg(struct kiocb *iocb, struct socket *sock,
+ restart:
+ 
+ 	/* Look for a message in receive queue; wait if necessary */
+-	res = tipc_wait_for_rcvmsg(sock, timeo);
++	res = tipc_wait_for_rcvmsg(sock, &timeo);
+ 	if (res)
+ 		goto exit;
+ 
+@@ -1154,7 +1156,7 @@ static int tipc_recv_stream(struct kiocb *iocb, struct socket *sock,
+ 
+ restart:
+ 	/* Look for a message in receive queue; wait if necessary */
+-	res = tipc_wait_for_rcvmsg(sock, timeo);
++	res = tipc_wait_for_rcvmsg(sock, &timeo);
+ 	if (res)
+ 		goto exit;
+ 
+-- 
+1.7.9.5
