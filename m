@@ -1,58 +1,61 @@
-From: =?utf-8?B?566h6Zuq5rab?= <gxt@pku.edu.cn>
-Subject: =?utf-8?Q?=E5=9B=9E=E5=A4=8D=EF=BC=9A_Re:_[PATCH_linux-nex?=
- =?utf-8?Q?t]_net/dccp/timer.c:_use_?=
- =?utf-8?Q?'u64'_instead_of_'s64'_to_avoid_compiler's_warning?=
-Date: Fri, 23 May 2014 07:58:11 +0800 (CST)
-Message-ID: <263613432.57393.1400803091663.JavaMail.root@bj-mail03.pku.edu.cn>
-References: <20140522.153313.958087444510569794.davem@davemloft.net>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net] libphy: Add phy specific function to access mmd phy registers
+Date: Thu, 22 May 2014 19:02:51 -0500
+Message-ID: <CAOwfj2PgDAgwUHbSeoH4QkwZzoZd1UmVa+OKdrSJo_qrxRejFQ@mail.gmail.com>
+References: <1400797433-15256-1-git-send-email-vbridgers2013@gmail.com>
+	<CAGVrzca9zeqbN_d=KxokKzkeanE8gkYeCGxcQebNd2NSXyHMog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gang chen 5i5j <gang.chen.5i5j@gmail.com>, gerrit@erg.abdn.ac.uk,
-	gxt@mprc.pku.edu.cn, dccp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140522.153313.958087444510569794.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:34487 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247AbaEWACx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 May 2014 20:02:53 -0400
+Received: by mail-wg0-f52.google.com with SMTP id l18so4064788wgh.11
+        for <netdev@vger.kernel.org>; Thu, 22 May 2014 17:02:51 -0700 (PDT)
+In-Reply-To: <CAGVrzca9zeqbN_d=KxokKzkeanE8gkYeCGxcQebNd2NSXyHMog@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Florian,
 
------ David Miller <davem@davemloft.net> =E5=86=99=E9=81=93=EF=BC=9A
-> From: Chen Gang <gang.chen.5i5j@gmail.com>
-> Date: Wed, 21 May 2014 08:19:34 +0800
->=20
-> > 'dccp_timestamp_seed' is initialized once by ktime_get_real() in
-> > dccp_timestamping_init(). It is always less than ktime_get_real()
-> > in dccp_timestamp().
-> >=20
-> > Then, ktime_us_delta() in dccp_timestamp() will always return posit=
-ive
-> > number. So can use manual type cast to let compiler and do_div() kn=
-ow
-> > about it to avoid warning.
-> >=20
-> > The related warning (with allmodconfig under unicore32):
-> >=20
-> >     CC [M]  net/dccp/timer.o
-> >   net/dccp/timer.c: In function =E2=80=98dccp_timestamp=E2=80=99:
-> >   net/dccp/timer.c:285: warning: comparison of distinct pointer typ=
-es lacks a cast
-> >=20
-> >=20
-> > Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
->=20
-> Applied to net-next, thanks.
->=20
-> But that type check in include/asm-generic/div64.h is bogus, it shoul=
-d
-> be checking sizeof(X) =3D=3D 8 rather than the type thing, it just wa=
-nts to
-> make sure that the value is 64-bit regardless of it's signedness.
->=20
-> The arch local implementations do not do this, and that's why very fe=
-w
-> other people notice this warning.
+On Thu, May 22, 2014 at 5:32 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Hi,
+>
+> 2014-05-22 15:23 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
+>> libphy was originally written assuming all phy devices support clause 45
+>> access extensions to the mmd registers through the indirection registers
+>> located within the first 16 phy registers. This assumption is not true
+>> in all cases, and one specific example is the Micrel ksz9021 10/100/1000
+>> Mbps phy. Using the stmmac driver, accessing the mmd registers to query
+>> and configure energy efficient Ethernet (EEE) features yielded unexpected
+>> behavior.
+>>
+>> This patch adds mmd access functions to the phy driver that can be
+>> overriden by the phy specific driver if the phy does not support this
+>> mechanism or uses it's own non-standard access mechanism. By default,
+>> the IEEE Compatible clause 45 access mechanism described in clause 22
+>> is used. With this patch, EEE query/configure functions as expected
+>> using the stmmac and the Micrel ksz9021 phy.
+>>
+>> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+>> ---
+>>  drivers/net/phy/micrel.c     |   15 +++++++++++++
+>>  drivers/net/phy/phy.c        |   49 ++++++++++++++++++++++--------------------
+>>  drivers/net/phy/phy_device.c |    6 ++++++
+>>  include/linux/phy.h          |   10 +++++++++
+>>  4 files changed, 57 insertions(+), 23 deletions(-)
+>
+> Could you split that into at least two patches, one that prepares for
+> allowing drivers to implement their own read/write MMD indirect
+> registers function, and another one that does the real implementation
+> for the Micrel PHY driver?
+>
 
-Arch-dependent codes implement it with unsigned long long type.
-And, every warning should not be ignored.
+Yes, I'll take care of that and resubmit.
+
+All the best,
+
+Vince
