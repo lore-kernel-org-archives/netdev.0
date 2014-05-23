@@ -1,48 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/3] net: sysfs: add missing phys_port_id documentation
-Date: Fri, 23 May 2014 16:35:40 -0700
-Message-ID: <1400888142-5963-2-git-send-email-f.fainelli@gmail.com>
-References: <1400888142-5963-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, therbert@google.com, edumazet@gmail.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH 5/5] net: Use netlink_ns_capable to verify the permisions
+ of netlink messages
+Date: Fri, 23 May 2014 16:51:17 -0700
+Message-ID: <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com>
+References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
+	<536AB151.2070804@dti2.net>
+	<CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com>
+	<20140507.185256.496391962242529591.davem@davemloft.net>
+	<CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com>
+	<CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com>
+	<CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com>
+	<20140522170505.64ef87a2@griffin>
+	<87ioow6pt6.fsf@x220.int.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jiri Benc <jbenc@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	David Miller <davem@davemloft.net>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Simo Sorce <ssorce@redhat.com>,
+	"security@kernel.org" <security@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:39873 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751050AbaEWXfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 19:35:53 -0400
-Received: by mail-pb0-f43.google.com with SMTP id up15so4779936pbc.16
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 16:35:53 -0700 (PDT)
-In-Reply-To: <1400888142-5963-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-ve0-f173.google.com ([209.85.128.173]:41420 "EHLO
+	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017AbaEWXvS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 19:51:18 -0400
+Received: by mail-ve0-f173.google.com with SMTP id pa12so7133760veb.32
+        for <netdev@vger.kernel.org>; Fri, 23 May 2014 16:51:17 -0700 (PDT)
+In-Reply-To: <87ioow6pt6.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add documentation for the phys_port_id sysfs attribute of a network
-device.
+On Fri, May 23, 2014 at 4:25 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+>
+> I have not seen consensus that what Zebra is doing makes sense to
+> support.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- Documentation/ABI/testing/sysfs-class-net | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Eric, stop right there.
 
-diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
-index d922060e455d..416c5d59f52e 100644
---- a/Documentation/ABI/testing/sysfs-class-net
-+++ b/Documentation/ABI/testing/sysfs-class-net
-@@ -169,6 +169,14 @@ Description:
- 		"unknown", "notpresent", "down", "lowerlayerdown", "testing",
- 		"dormant", "up".
- 
-+What:		/sys/class/net/<iface>/phys_port_id
-+Date:		July 2013
-+KernelVersion:	3.12
-+Contact:	netdev@vger.kernel.org
-+Description:
-+		Indicates the interface unique physical port identifier within
-+		the NIC, as a string.
-+
- What:		/sys/class/net/<iface>/speed
- Date:		October 2009
- KernelVersion:	2.6.33
--- 
-1.9.1
+There is no "sensible to support". There is only "reality".
+
+The thing that makes "reality" be "reality" is that it exists whether
+you like it or not, or whether you believe in it or not.
+
+We don't break applications. Whether you like them or not is
+completely immaterial.
+
+                Linus
