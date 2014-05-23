@@ -1,56 +1,77 @@
-From: sowmini varadhan <sowmini05@gmail.com>
-Subject: Re: What's the right way to use a *large* number of source addresses?
-Date: Fri, 23 May 2014 08:53:18 -0400
-Message-ID: <CACP96tQMEQcTPZaCT7mehis-H5Sw_-74F6fSvZxB7Lr3Hqo0kQ@mail.gmail.com>
-References: <6zlhtsvnqp.fsf@southpole.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>
-To: =?UTF-8?Q?Niels_M=C3=B6ller?= <nisse@southpole.se>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 23 May 2014 05:59:06 -0700
+Message-ID: <1400849956-8387-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:53697 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753192AbaEWMxT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 08:53:19 -0400
-Received: by mail-la0-f45.google.com with SMTP id gl10so4179408lab.4
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 05:53:18 -0700 (PDT)
-In-Reply-To: <6zlhtsvnqp.fsf@southpole.se>
+Received: from mga09.intel.com ([134.134.136.24]:28124 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751217AbaEWM73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 08:59:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 23, 2014 at 5:38 AM, Niels M=C3=B6ller <nisse@southpole.se>=
- wrote:
+This series contains updates to igb, igbvf, ixgbe, i40e and i40evf.
 
+Jacob provides eight patches to cleanup the ixgbe driver to resolve various
+checkpatch.pl warnings/errors as well as minor coding style issues.
 
-> 1. Simply assign all addresses to be used to the interface, fixing an=
-y
->    remaining performance problems.
->
->    I've done a simple benchmark with a script assigning n addresses
->    using "ip address add", and this seems to have O(n^2) complexity.
->    E.g, assigning n=3D25500 addresses took 26 s, and doubling n, assi=
-gning
->    51000 addresses, took 122 s, 4.6 times longer. Which isn't
->    necessarily a problems once all the addresses are assigned, but it
->    sounds a bit like there's a linear datastructure in there, not
->    intended for a large number of addresses.
+Stephen Hemminger and I provide simple cleanups of void functions which
+had useless return statements at the end of the function which are not
+needed.
 
-I think the issue here is the netlink API: if you try to do the same th=
-ing
-with ifconfig (instead of /sbin/ip), you'll find things are much faster=
-,
-which seems paradoxical because ip(7) and netlink sockets are the
-recommended config paths. When I ran into this, it turned out that the
-difference was due to the implementation- the ioctl path was able to
-use the ifr_name efficiently to identify the target interface, unlike
-the netlink config path.
+v2: Dropped Emil's patch "ixgbe: fix the detection of SFP+ capable interfaces"
+    while I wait for his updated patch to be validated.
 
-But to solve  your specific problem, since you are implementing
-a packet generator, wouldnt it be easier to craft the packet and feed
-it over RAW or PF_PACKET sockets, allowing you more flexibility
-(if you need it down the road) to set all fields, not just the
-IP source address? Might mean a bit more work in your user-space,
-to compute checksums etc. though.
+The following are changes since commit 091b64868b43ed84334c6623ea6a08497529d4ff:
+  Merge branch 'mlx4-next'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
---Sowmini
+Jacob Keller (8):
+  ixgbe: clean up checkpatch warnings about CODE_INDENT and
+    LEADING_SPACE
+  ixgbe: fix function-like macro, remove semicolon
+  ixgbe: fix checkpatch style of blank line after declaration
+  ixgbe: fix several concatenated strings to single line
+  ixgbe: add braces around else block
+  ixgbe: don't check NULL for debugfs_remove_recursive
+  ixgbe: add space between operands to &
+  ixgbe: add /* fallthrough */ comment to case statements
+
+Jeff Kirsher (1):
+  igb/ixgbe: remove return statements for void functions
+
+Stephen Hemminger (1):
+  i40e,igb,ixgbe: remove usless return statements
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  4 -
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  4 -
+ drivers/net/ethernet/intel/igb/e1000_nvm.c         |  1 -
+ drivers/net/ethernet/intel/igb/igb_main.c          |  1 -
+ drivers/net/ethernet/intel/igbvf/ethtool.c         |  1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     | 62 ++++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     | 85 +++++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    | 45 +++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    | 16 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h | 24 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    | 28 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c   |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   | 83 ++++++++++-----------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       | 10 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |  6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       | 68 ++++++++---------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       | 32 ++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  4 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      | 60 +++++++--------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      | 15 ++--
+ 24 files changed, 271 insertions(+), 294 deletions(-)
+
+-- 
+1.9.0
