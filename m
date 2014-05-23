@@ -1,51 +1,82 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] enic: fix adaptive irq coalescing on 32-bit
-Date: Fri, 23 May 2014 08:29:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724C45F@AcuExch.aculab.com>
-References: <10713072.kCczZxGWdQ@wuerfel>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net] bridge: notify user space of fdb port
+	change
+Date: Fri, 23 May 2014 17:39:45 +0900
+Message-ID: <537F0951.5010904@lab.ntt.co.jp>
+References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
+	<5372BA1E.8000402@lab.ntt.co.jp>
+	<2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
+	<1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Sujith Sankar <ssujith@cisco.com>, Neel Patel <neepatel@cisco.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Christian Benvenuti <benve@cisco.com>
-To: 'Arnd Bergmann' <arnd@arndb.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:52435 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750872AbaEWIaf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 04:30:35 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 03974-02 for <netdev@vger.kernel.org>;
- Fri, 23 May 2014 09:30:26 +0100 (BST)
-In-Reply-To: <10713072.kCczZxGWdQ@wuerfel>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	stephen@networkplumber.org, Jon Maxwell <jmaxwell37@gmail.com>,
+	davem@davemloft.net
+To: Jon Maxwell <jmaxwell@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann
-> 7c2ce6e60f703 "enic: Add support for adaptive interrupt coalescing"
-> introduced a 64-bit division that causes a link error on all 32-bit
-> machines:
-> 
-> drivers/built-in.o: In function `enic_poll_msix':
-> :(.text+0x54ff00): undefined reference to `__aeabi_uldivmod'
-> 
-> Since we are dividing another 32-bit value and are only interested
-> in the approximate range here, it should always be safe to limit
-> the delta to an u32 value.
+(2014/05/23 13:59), Jon Maxwell wrote:
 ...
->  	traffic <<= 3;
-> -	traffic /= delta;
-> +	traffic /= min_t(u32, delta, UINT_MAX);
+> Makita-san,
+> 
+> I recoded this using your idea and ran it through a reproducer.
+> It work fine. After some more consideration I agree that 
+> setting fdb->dst = source is only required when source != fdb->dst.
+> 
+> Thanks for your suggestions. This is the revised patch. It should 
+> retain the original behaviour except for the notify after the fdb update.  
+> 
+> Please let me know if you have any further input?
 
-I suspect that doesn't have the desired effect.
-I think it is the same as:
-	traffic /= (u32)delta;
-If you was the correct value for large 'delta' then maybe:
-	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
+I have no more comments except for style problems (bracket position,
+indentation, type mismatch).
+thank you for rewriting :)
 
-	David
+Thanks,
+Toshiaki Makita
+
+> 
+> $ diff -Naur br_fdb.c br_fdb.c.patch
+> --- br_fdb.c        2014-05-17 12:43:23.346319609 +1000
+> +++ br_fdb.c.patch        2014-05-17 16:54:46.280235728 +1000
+> @@ -487,6 +487,7 @@
+>  {
+>          struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+>          struct net_bridge_fdb_entry *fdb;
+> +        bool fdb_modified = 0;
+>  
+>          /* some users want to always flood. */
+>          if (hold_time(br) == 0)
+> @@ -507,10 +508,16 @@
+>                                          source->dev->name);
+>                  } else {
+>                          /* fastpath: update of existing entry */
+> -                        fdb->dst = source;
+> +                        if (unlikely(source != fdb->dst))
+> +                                {
+> +                                fdb->dst = source;
+> +                                fdb_modified = 1;
+> +                                }
+>                          fdb->updated = jiffies;
+>                          if (unlikely(added_by_user))
+>                                  fdb->added_by_user = 1;
+> +                        if (unlikely(fdb_modified))
+> +                                fdb_notify(br, fdb, RTM_NEWNEIGH);
+>                  }
+>          } else {
+>                  spin_lock(&br->hash_lock);
+> 
+> 
