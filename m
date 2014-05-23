@@ -1,47 +1,41 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH] net: Add support for device specific address syncing
-Date: Fri, 23 May 2014 12:33:20 -0700
-Message-ID: <537FA280.7040607@intel.com>
-References: <20140521205457.31151.8273.stgit@ahduyck-cp2.jf.intel.com> <20140523.145535.35857476092197009.davem@davemloft.net>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: Re: [PATCH 0/5] ks8851 DT updates
+Date: Fri, 23 May 2014 12:34:01 -0700
+Message-ID: <537FA2A9.6050309@codeaurora.org>
+References: <1400792413-21618-1-git-send-email-sboyd@codeaurora.org> <20140523.151502.1106354754894891974.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	jpirko@redhat.com
+Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org, nm@ti.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:48201 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750995AbaEWTdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 May 2014 15:33:21 -0400
-In-Reply-To: <20140523.145535.35857476092197009.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20140523.151502.1106354754894891974.davem@davemloft.net>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/23/2014 11:55 AM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Wed, 21 May 2014 13:55:15 -0700
-> 
->> This change provides a function to be used in order to break the
->> ndo_set_rx_mode call into a set of address add and remove calls.  The code
->> is based on the implementation of dev_uc_sync/dev_mc_sync.  Since they
->> essentially do the same thing but with only one dev I simply named my
->> functions __dev_uc_sync/__dev_mc_sync.
->>
->> I also implemented an unsync version of the functions as well to allow for
->> cleanup on close.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> 
-> This looks fine semantically to me.
-> 
-> Please fix the coding style issues below and submit this alongside
-> the changes for whatever driver will first make use of this.
-> 
-> Thanks!
+On 05/23/14 12:15, David Miller wrote:
+> From: Stephen Boyd <sboyd@codeaurora.org>
+> Date: Thu, 22 May 2014 14:00:08 -0700
+>
+>> This set of patches properly documents the micrel ks8851 spi ethernet
+>> controller, converts to devm_regulator_get_optional() to make error
+>> paths slightly simpler, and finally adds supports for another
+>> optional regulator and a reset gpio.
+> Please do not submit patch sets that you expect different trees to
+> integrate, this is painful for maintainers to deal with.
+>
+> Instead, submit the changes separately.  One series for one
+> maintainer's tree, another for the other maintainer's tree.
+>
 
-Okay.  Will do.
+Ok. Shall I resend this series with the proper separation? Or can you
+ignore the first patch? There isn't any functional dependency, more just
+a checkpatch dependency which is not really all that important.
 
-Thanks,
-
-Alex
+-- 
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+hosted by The Linux Foundation
