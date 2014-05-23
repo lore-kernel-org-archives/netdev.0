@@ -1,49 +1,47 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bonding: remove alb_set_mac_address()
-Date: Fri, 23 May 2014 09:38:42 +0300
-Message-ID: <CAJZOPZJHr0fpAaUM_X0Bwa1PtTO0ra3KLu5AFdir2ShKGFrukA@mail.gmail.com>
-References: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
-	<1400764324-23221-3-git-send-email-vfalico@gmail.com>
-	<CAJZOPZKHm_0zpHQWSVrkcs4YsRbYSTWj1DU7SMG6PHHCeZcb3Q@mail.gmail.com>
-	<20140522145724.GA1995@mikrodark.usersys.redhat.com>
+From: =?UTF-8?B?SG9yaWEgR2VhbnTEgw==?= <horia.geanta@freescale.com>
+Subject: Re: [RFC ipsec-next] xfrm: make sha256 icv truncation length RFC-compliant
+Date: Fri, 23 May 2014 09:28:54 +0300
+Message-ID: <537EEAA6.7000506@freescale.com>
+References: <1400771437-14096-1-git-send-email-horia.geanta@freescale.com>
+ <1400771437-14096-2-git-send-email-horia.geanta@freescale.com>
+ <537E1FD8.8030504@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Eyal Perry <eyalpe@mellanox.com>
-To: Veaceslav Falico <vfalico@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:58023 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490AbaEWGim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 02:38:42 -0400
-Received: by mail-qc0-f177.google.com with SMTP id i17so7250465qcy.8
-        for <netdev@vger.kernel.org>; Thu, 22 May 2014 23:38:42 -0700 (PDT)
-In-Reply-To: <20140522145724.GA1995@mikrodark.usersys.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lei Xu <Lei.Xu@freescale.com>,
+	Sandeep Malik <Sandeep.Malik@freescale.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <nicolas.dichtel@6wind.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <537E1FD8.8030504@6wind.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 22, 2014 at 5:57 PM, Veaceslav Falico <vfalico@gmail.com> wrote:
->
-> On Thu, May 22, 2014 at 05:36:19PM +0300, Or Gerlitz wrote:
+On 5/22/2014 7:03 PM, Nicolas Dichtel wrote:
+> Le 22/05/2014 17:10, Horia Geanta a =C3=A9crit :
+>> From: Lei Xu <Lei.Xu@freescale.com>
 >>
->>
->> So with this patch @ hand, no more touching of the underlying device
->> dev_addr field directly -- or we still have more accesses of this
->> such, e.g in  bond_alb_set_mac_address() and/or friends?
+>> Currently the sha256 icv truncation length is set to 96bit
+>> while the length is defined as 128bit in RFC4868.
+>> This may result in somer errors when working with other IPsec device=
+s
+>> with the standard truncation length.
+>> Thus, change the sha256 truncation length from 96bit to 128bit.
+> The patch was already proposed, but it was kept as-is for userspace
+> compatibility.
 >
->
-> Sorry, but no :(. I'm still working on it, and already sent several
-> patchsets approaching it :).
->
-> Hopefully it will be ready next week. If you need it urgently - patches welcome :)
+> See: https://lkml.org/lkml/2012/3/7/431
 
+Thanks, somehow I missed that.
 
+So this just means bad luck for user space tools (for e.g. ipsec-tools =
+-=20
+setkey, racoon - and any other PF_KEY-based tool) that AFAICT cannot=20
+override the default truncated icv size, right?
 
-Hey -- no rush, I just asked as heads up since we have some proposed
-mlx4 driver change which was done also under the assumption that
-bonding touches directly the underlying dev_addr directly and I wanted
-to see where this stands, so we can re-evaluate the driver patch
-
-Or.
+Thanks,
+Horia
