@@ -1,78 +1,32 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 76791] New: Problem with esp sequence and anti-replay
- window logic.
-Date: Fri, 23 May 2014 10:40:45 -0700
-Message-ID: <20140523104045.501bba04@samsung-9>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: Set NOCARRIER bit of etherdev state at
+ initialization
+Date: Fri, 23 May 2014 14:15:51 -0400 (EDT)
+Message-ID: <20140523.141551.1253983630587935706.davem@davemloft.net>
+References: <537F7EEF.3060701@gmail.com>
+	<1400866681.18322.27.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: kumaran.4353@gmail.com, stephen@networkplumber.org,
+	avi.kp.137@gmail.com, edumazet@google.com, netdev@vger.kernel.org
+To: dcbw@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:53385 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186AbaEWRks (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 13:40:48 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kp14so4358380pab.26
-        for <netdev@vger.kernel.org>; Fri, 23 May 2014 10:40:48 -0700 (PDT)
-Received: from samsung-9 ([216.9.110.11])
-        by mx.google.com with ESMTPSA id zq5sm5608193pbb.37.2014.05.23.10.40.47
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 23 May 2014 10:40:47 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54325 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbaEWSP5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 14:15:57 -0400
+In-Reply-To: <1400866681.18322.27.camel@dcbw.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Dan Williams <dcbw@redhat.com>
+Date: Fri, 23 May 2014 12:38:01 -0500
 
+> The current "carrier on until told otherwise" model is intentional,
+> because not all drivers support carrier detection, and thus we must
+> assume the carrier is on until the driver tells us it is not on.
+> 
+> Would this patch break that model?
 
-Begin forwarded message:
-
-Date: Fri, 23 May 2014 00:22:53 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 76791] New: Problem with esp sequence and anti-replay window logic.
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=76791
-
-            Bug ID: 76791
-           Summary: Problem with esp sequence and anti-replay window
-                    logic.
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 2.6.34
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: bhargav.1226@gmail.com
-        Regression: No
-
-Hi,
-
-As the esp sequence number is a 32 bit field in the ESP packet, the maximum
-sequence number could be 4294967295 [as 2^32 is 4294967296], then after the
-sender will send the esp sequence starting from 1 again.
-
-Lets say a scenario, if there is a huge traffic continously and the esp
-sequence number reaches the maximum, and for the next packets the esp sequence
-will be 1. 
-The highest sequence number received will be 4294967295.
-
-But the anti-replay logic will check the difference of the highest sequence
-number  till that time and the sequence number of the received packet. In this
-case the difference  will be greater than the replay window size. There is a
-chance of dropping of packets.
-
-Seems it is a bug. Do we have to fix the anti-replay window to cycle the
-highest sequence like the sender is doing for the esp sequence number?
-
-Thanks,
-Bhargav
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Absolutely correct, this change is completely inappropriate.
