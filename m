@@ -1,133 +1,62 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net-next] tg3: Override clock, link aware and link idle mode during NVRAM dump
-Date: Fri, 23 May 2014 09:54:44 -0700
-Message-ID: <1400864084-27118-1-git-send-email-prashant@broadcom.com>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: [PATCH 1/1] net: Set NOCARRIER bit of etherdev state at initialization
+Date: Fri, 23 May 2014 22:31:35 +0530
+Message-ID: <537F7EEF.3060701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, stephen@networkplumber.org,
+	avi.kp.137@gmail.com, edumazet@google.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:22292 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243AbaEWQ5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 12:57:07 -0400
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:53738 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753178AbaEWRCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 13:02:05 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so4342574pad.23
+        for <netdev@vger.kernel.org>; Fri, 23 May 2014 10:02:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When cable is not present the clock speed of some of the devices is
-reduced based upon power saving mode setting in NVRAM. Due to this
-NVRAM reads take long time to complete as a result CPU soft lockup
-message is seen. Fix is to override clock, disable link aware and link
-idle modes before NVRAM reads and restore them back after the reads
-are complete. During this period also check if the thread needs to be
-rescheduled and if there are any signals to handle.
+For any etherdev 'netif_carrier_ok' should succeed only after phy
+layer determines carrier state through auto-negotiation or setting
+it forcibly.
 
-Also decrease the NVRAM command execution timeout value to 1ms.
+So ethernet drivers should set '__LINK_STATE_NOCARRIER' bit of
+'dev->state' using 'netif_carrier_off' call at driver initialization.
+As it is common for all ethernet devices, 'netif_carrier_off' call
+could be moved to 'ether_setup'.
 
-Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Balakumaran Kannan <kumaran.4353@gmail.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   44 +++++++++++++++++++++++++++++-----
- 1 files changed, 37 insertions(+), 7 deletions(-)
+'netif_carrier_off' could be called anywhere in between
+'alloc_etherdev' and 'phy_start'. For example,
+1. e1000 driver calls at the end of 'e1000_probe'
+2. intel i40e driver calls at the beginning of 'i40e_open'
+3. realtek r8169 driver calls at the end of 'rtl_init_one'
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index ccd9015..c59e938 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -3224,7 +3224,7 @@ static int tg3_nvram_read_using_eeprom(struct tg3 *tp,
- 	return 0;
+But some driver misses this call. For example smsc911x driver doesn't
+call 'netif_carrier_off' before calling 'phy_start'. So device starts
+performing dhcp and IPv6 DAD even if carrier is not ready.
+
+So it is better to move 'netif_carrier_off' call to 'ether_setup'. And
+drivers can remove this call from their initialization functions.
+---
+ net/ethernet/eth.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 5dc638c..45f6703 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -369,6 +369,9 @@ void ether_setup(struct net_device *dev)
+ 
+ 	memset(dev->broadcast, 0xFF, ETH_ALEN);
+ 
++	/* Carrier state should be off initially */
++	netif_carrier_off(dev);
++
  }
+ EXPORT_SYMBOL(ether_setup);
  
--#define NVRAM_CMD_TIMEOUT 10000
-+#define NVRAM_CMD_TIMEOUT 100
- 
- static int tg3_nvram_exec_cmd(struct tg3 *tp, u32 nvram_cmd)
- {
-@@ -11893,9 +11893,9 @@ static int tg3_get_eeprom_len(struct net_device *dev)
- static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
- {
- 	struct tg3 *tp = netdev_priv(dev);
--	int ret;
-+	int ret, cpmu_restore = 0;
- 	u8  *pd;
--	u32 i, offset, len, b_offset, b_count;
-+	u32 i, offset, len, b_offset, b_count, cpmu_val = 0;
- 	__be32 val;
- 
- 	if (tg3_flag(tp, NO_NVRAM))
-@@ -11907,6 +11907,20 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 
- 	eeprom->magic = TG3_EEPROM_MAGIC;
- 
-+	/* Override clock, link aware and link idle modes */
-+	if (tg3_flag(tp, CPMU_PRESENT)) {
-+		cpmu_val = tr32(TG3_CPMU_CTRL);
-+		if (cpmu_val & (CPMU_CTRL_LINK_AWARE_MODE |
-+				CPMU_CTRL_LINK_IDLE_MODE)) {
-+
-+			tw32(TG3_CPMU_CTRL, cpmu_val &
-+			     ~(CPMU_CTRL_LINK_AWARE_MODE |
-+			       CPMU_CTRL_LINK_IDLE_MODE));
-+			cpmu_restore = 1;
-+		}
-+	}
-+	tg3_override_clk(tp);
-+
- 	if (offset & 3) {
- 		/* adjustments to start on required 4 byte boundary */
- 		b_offset = offset & 3;
-@@ -11917,7 +11931,7 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		}
- 		ret = tg3_nvram_read_be32(tp, offset-b_offset, &val);
- 		if (ret)
--			return ret;
-+			goto eeprom_done;
- 		memcpy(data, ((char *)&val) + b_offset, b_count);
- 		len -= b_count;
- 		offset += b_count;
-@@ -11927,10 +11941,18 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 	/* read bytes up to the last 4 byte boundary */
- 	pd = &data[eeprom->len];
- 	for (i = 0; i < (len - (len & 3)); i += 4) {
-+		if (need_resched()) {
-+			if (signal_pending(current)) {
-+				eeprom->len += i;
-+				ret = -EINTR;
-+				goto eeprom_done;
-+			}
-+			cond_resched();
-+		}
- 		ret = tg3_nvram_read_be32(tp, offset + i, &val);
- 		if (ret) {
- 			eeprom->len += i;
--			return ret;
-+			goto eeprom_done;
- 		}
- 		memcpy(pd + i, &val, 4);
- 	}
-@@ -11943,11 +11965,19 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		b_offset = offset + len - b_count;
- 		ret = tg3_nvram_read_be32(tp, b_offset, &val);
- 		if (ret)
--			return ret;
-+			goto eeprom_done;
- 		memcpy(pd, &val, b_count);
- 		eeprom->len += b_count;
- 	}
--	return 0;
-+	ret = 0;
-+
-+eeprom_done:
-+	/* Restore clock, link aware and link idle modes */
-+	tg3_restore_clk(tp);
-+	if (cpmu_restore)
-+		tw32(TG3_CPMU_CTRL, cpmu_val);
-+
-+	return ret;
- }
- 
- static int tg3_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
 -- 
-1.7.1
+1.8.3.2
