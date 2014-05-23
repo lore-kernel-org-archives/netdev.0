@@ -1,89 +1,62 @@
-From: sumanth <sumantk2@linux.vnet.ibm.com>
-Subject: Some clarification regarding rfc3484 (6724) - Rule 8 Prefer smaller
- scope
-Date: Fri, 23 May 2014 18:51:25 +0530
-Message-ID: <537F4B55.5040305@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: skbuff truesize incorrect.
+Date: Fri, 23 May 2014 06:47:23 -0700
+Message-ID: <1400852843.5367.191.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <537E4AFD.20304@mentor.com>
+		<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
+		<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+	 <87r43k4yhe.fsf@nemi.mork.no>
+	 <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>
+	 <537F2D53.5020408@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Srikar Dronamraju <srikar@linux.vnet.ibm.com>,
-	Raghavendra K T <raghavendra.kt@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp04.in.ibm.com ([122.248.162.4]:55068 "EHLO
-	e28smtp04.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbaEWNVb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 09:21:31 -0400
-Received: from /spool/local
-	by e28smtp04.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sumantk2@linux.vnet.ibm.com>;
-	Fri, 23 May 2014 18:51:28 +0530
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by d28dlp02.in.ibm.com (Postfix) with ESMTP id C5BD33940049
-	for <netdev@vger.kernel.org>; Fri, 23 May 2014 18:51:26 +0530 (IST)
-Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s4NDLb7i2621890
-	for <netdev@vger.kernel.org>; Fri, 23 May 2014 18:51:37 +0530
-Received: from d28av05.in.ibm.com (localhost [127.0.0.1])
-	by d28av05.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s4NDLQFq001309
-	for <netdev@vger.kernel.org>; Fri, 23 May 2014 18:51:26 +0530
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	=?ISO-8859-1?Q?=27Bj=F8rn?= Mork' <bjorn@mork.no>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"kamal@canonical.com" <kamal@canonical.com>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"mszeredi@suse.cz" <mszeredi@suse.cz>,
+	"fw@strlen.de" <fw@strlen.de>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <537F2D53.5020408@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I had configured my local interface as follows :
-ifconfig eth0 inet6 add fe80::1/64
-ifconfig eth0 inet6 add fec0::1/10
+On Fri, 2014-05-23 at 12:13 +0100, Jim Baxter wrote:
 
-And /etc/hosts contains :
-fe80::2 server.org
-fec0::2 server.org
+> What are the side effects of changing the truesize, if the original
+> uncloned skb has the full truesize then isn't the potential memory usage
+> still counted for the avoidance of OOM?
 
-The above two interfaces in /etc/hosts are not configured. Just to get
-the result from getaddrinfo().
+Nope. This can be disastrous.
 
-So according to rfc3484 , link-local has lower scope when compared to
-site-local .
-So i think fe80::2 should be returned first and then later fec0::2
+A malicious remote peer can crash your host by sending specially cooked
+TCP messages.
 
-In my fedora ( any kernel ), getaddrinfo() is preferring site-local
-first instead of link-local.
+Send messages with one byte of payload, and out of order so that they
+cant be consumed by receiver, and cant be coalesced/collapsed.
 
-So when looking into the getaddrinfo() glibc implementation ,  when two
-or more addresses are available (code flow):
-1) create a udp datagram socket
-2) connect to the destination addresses returned from gaih_inet ( not
-sorted yet ). This was done inorder to get the source address from the
-kernel (using ipv6_get_saddr_eval() we get the preferred source for 
-each destination). Actually doesnt need the destination to be reachable .
- #netstat | grep -i udp
-udp        0      0 fec0::1:34236               server.org:http      
-ESTABLISHED
+If you claim the true size is sizeof(sk_buff) + 512, TCP stack will
+accumulate these messages in out of order queue, and will not bother
+with them, unless you hit sk_rcvbuf limit.
 
-3) getsockname to get the source address and store in result combo array.
+But in reality these messages uses sizeof(sk_buff) + 32768 bytes.
 
-So __connect() to site-local becomes successfull . But __connect() to
-link-local is not successfull .
+Divide your physical memory by 32768 : How many such messages will fit
+in memory before the host crashes ?
 
-Hence rfc3484_sort() in glibc changes the order and prefers site-local
-first .
+I've seen that kind of attacks in real cases.
 
-i.e /* Rule 1: Avoid unusable destinations.
-     We have the got_source_addr flag set if the destination is
-reachable.  */
-  if (a1->got_source_addr && ! a2->got_source_addr)
+Even the fast clones sk_buff mismatch can be noticed. Luckily a 10%
+error has no severe impact.
 
-a1->got_source_addr is false because connect to link-local failed.
+TCP stack uses fast clones, and current stack gives them a truesize of
+2048 + sizeof(sk_buff), while it really should be 2048 +
+2*sizeof(sk_buff)
 
-So my questions are :
-1) Can this be a problem somewhere around ip6_datagram_connect() [
-because connect fails ]
-2) Can this be a problem with the parsing of glibc getaddrinfo ? [
-something like sin6_scope_id being not set properly ]
-3) Or this is the expected behaviour or am i missing out something ?
-
-
-Any suggestions ?
-
-
-Thank you,
-Sumanth K
+Luckily, GSO/TSO tends to reduce the error, as skbs overhead is lower.
