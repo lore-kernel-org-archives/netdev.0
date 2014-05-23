@@ -1,82 +1,61 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: notify user space of fdb port
-	change
-Date: Fri, 23 May 2014 17:39:45 +0900
-Message-ID: <537F0951.5010904@lab.ntt.co.jp>
-References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com>
-	<5372BA1E.8000402@lab.ntt.co.jp>
-	<2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
-	<1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Fwd: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173,
+ fatal exception in interrupt
+Date: Fri, 23 May 2014 10:42:22 +0200
+Message-ID: <537F09EE.5000703@redhat.com>
+References: <bug-76781-65011@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	stephen@networkplumber.org, Jon Maxwell <jmaxwell37@gmail.com>,
-	davem@davemloft.net
-To: Jon Maxwell <jmaxwell@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, cate@cateee.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4058 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751178AbaEWImc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 04:42:32 -0400
+In-Reply-To: <bug-76781-65011@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/05/23 13:59), Jon Maxwell wrote:
-...
-> Makita-san,
-> 
-> I recoded this using your idea and ran it through a reproducer.
-> It work fine. After some more consideration I agree that 
-> setting fdb->dst = source is only required when source != fdb->dst.
-> 
-> Thanks for your suggestions. This is the revised patch. It should 
-> retain the original behaviour except for the notify after the fdb update.  
-> 
-> Please let me know if you have any further input?
 
-I have no more comments except for style problems (bracket position,
-indentation, type mismatch).
-thank you for rewriting :)
+-------- Original Message --------
+Subject: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173, fatal exception in interrupt
+Date: Fri, 23 May 2014 07:07:40 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: dborkman@redhat.com
 
-Thanks,
-Toshiaki Makita
+https://bugzilla.kernel.org/show_bug.cgi?id=76781
 
-> 
-> $ diff -Naur br_fdb.c br_fdb.c.patch
-> --- br_fdb.c        2014-05-17 12:43:23.346319609 +1000
-> +++ br_fdb.c.patch        2014-05-17 16:54:46.280235728 +1000
-> @@ -487,6 +487,7 @@
->  {
->          struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
->          struct net_bridge_fdb_entry *fdb;
-> +        bool fdb_modified = 0;
->  
->          /* some users want to always flood. */
->          if (hold_time(br) == 0)
-> @@ -507,10 +508,16 @@
->                                          source->dev->name);
->                  } else {
->                          /* fastpath: update of existing entry */
-> -                        fdb->dst = source;
-> +                        if (unlikely(source != fdb->dst))
-> +                                {
-> +                                fdb->dst = source;
-> +                                fdb_modified = 1;
-> +                                }
->                          fdb->updated = jiffies;
->                          if (unlikely(added_by_user))
->                                  fdb->added_by_user = 1;
-> +                        if (unlikely(fdb_modified))
-> +                                fdb_notify(br, fdb, RTM_NEWNEIGH);
->                  }
->          } else {
->                  spin_lock(&br->hash_lock);
-> 
-> 
+             Bug ID: 76781
+            Summary: unable to handle NULL in xfrm_input+0x173, fatal
+                     exception in interrupt
+            Product: Networking
+            Version: 2.5
+     Kernel Version: 3.15.0-rc6
+           Hardware: x86-64
+                 OS: Linux
+               Tree: Mainline
+             Status: NEW
+           Severity: normal
+           Priority: P1
+          Component: Other
+           Assignee: shemminger@linux-foundation.org
+           Reporter: cate@cateee.net
+         Regression: No
+
+See also the fatal oops in:
+
+http://cateee.net/kernel/IMG_20140522_225238.jpg
+http://cateee.net/kernel/IMG_20140523_082629.jpg
+
+It seems it happens "often": twice in last few hours I used the new kernels.
+(the first oops was with 3.15.0-rc5-00270-gfba69f0)
+
+I had also usual debian unstable updates, and I just finished to instal aiccu
+(a sixxs program for dynamic ip6to4, so I'm not sure it is a recent bug or just
+I forced it to appear in very last HEAD.
+
+-- 
+You are receiving this mail because:
+You are watching the assignee of the bug.
