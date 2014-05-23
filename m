@@ -1,76 +1,92 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH v2 1/4] devicetree: bindings: Properly document micrel ks8851
- SPI chips
-Date: Fri, 23 May 2014 12:57:17 -0700
-Message-ID: <1400875040-13269-2-git-send-email-sboyd@codeaurora.org>
-References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH v3 0/8] net: ethernet: marvell: Assorted fixes
+Date: Fri, 23 May 2014 17:01:27 -0300
+Message-ID: <20140523200127.GA14290@arch.cereza>
+References: <1400800023-1562-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <20140523.153616.2078296737930596480.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Nishanth Menon <nm@ti.com>, Mark Rutland <mark.rutland@arm.com>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- linux-arm-msm@vger.kernel.org, Kumar Gala <galak@codeaurora.org>,
- linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
- Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	sebastian.hesselbarth@gmail.com,
+	gregory.clement@free-electrons.com, alior@marvell.com,
+	tawfik@marvell.com, andrew@lunn.ch
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:56865 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751113AbaEWUCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 16:02:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20140523.153616.2078296737930596480.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ks8851 SPI ethernet wasn't documented, but we documented the
-optional regulator supply for it under the mll based ethernet
-chip. Furthermore, that compatible string needed another 'l'. Fix
-all of this and document the optional vdd-io and reset-gpios
-properties.
+On 23 May 03:36 PM, David Miller wrote:
+> From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> Date: Thu, 22 May 2014 20:06:55 -0300
+>=20
+> > New round for this assorted fixes and clean-up series. There is mor=
+e room for
+> > clean-ups, and I'll start preparing more patches once these are acc=
+epted.
+> >=20
+> > This series consists of cleanups and minor improvements on mvneta, =
+mv643xx_eth
+> > and mvmdio drivers. None of the patches imply any functionality cha=
+nge, except
+> > for the patch six "Change the number of default rx queues to one".
+> >=20
+> > This patch reduces the driver's allocated resources and makes the m=
+ultiqueue
+> > path in the poll function not get taken. The previous patchset cont=
+ains more
+> > details:
+> >=20
+> >   http://permalink.gmane.org/gmane.linux.network/315015
+> >=20
+> > As usual, any feedback on this will be well received!
+>=20
+> Series applied to net-next, but some comments:
+>=20
+> 1) Never use web sites to reference informative material, instead put=
+ it
+>    all explicitly into the commit message in your posting.
+>=20
+>    Web sites and archives come and go, the commit message is forever =
+and
+>    readily available to someone studying your changes.
+>=20
 
-Cc: Nishanth Menon <nm@ti.com>
-Cc: Rob Herring <robh+dt@kernel.org>
-Cc: Pawel Moll <pawel.moll@arm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Ian Campbell <ijc+devicetree@hellion.org.uk>
-Cc: Kumar Gala <galak@codeaurora.org>
-Cc: <devicetree@vger.kernel.org>
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
----
- Documentation/devicetree/bindings/net/micrel-ks8851.txt | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+OK, I'll keep this in mind.
 
-diff --git a/Documentation/devicetree/bindings/net/micrel-ks8851.txt b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-index d54d0cc79487..bbdf9a7359a2 100644
---- a/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-+++ b/Documentation/devicetree/bindings/net/micrel-ks8851.txt
-@@ -1,9 +1,18 @@
--Micrel KS8851 Ethernet mac
-+Micrel KS8851 Ethernet mac (MLL)
- 
- Required properties:
--- compatible = "micrel,ks8851-ml" of parallel interface
-+- compatible = "micrel,ks8851-mll" of parallel interface
- - reg : 2 physical address and size of registers for data and command
- - interrupts : interrupt connection
- 
-+Micrel KS8851 Ethernet mac (SPI)
-+
-+Required properties:
-+- compatible = "micrel,ks8851" or the deprecated "ks8851"
-+- reg : chip select number
-+- interrupts : interrupt connection
-+
- Optional properties:
--- vdd-supply:	supply for Ethernet mac
-+- vdd-supply: analog 3.3V supply for Ethernet mac
-+- vdd-io-supply: digital 1.8V IO supply for Ethernet mac
-+- reset-gpios: reset_n input pin
--- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-hosted by The Linux Foundation
+> 2) Just get rid of that MVNETA_RX_POLL_WEIGHT and simply use the
+>    generic default NAPI_POLL_WEIGHT which has the same value.
+>=20
+>    Any local NAPI weight selection must be done for a good reason and
+>    be fully documented with performance metrics et al.
+>=20
+
+OK.
+
+> 3) I know you inherited this, but the MTU change failure behavior is
+>    not so great.  If the system is low on memory it could fail and lo=
+sing
+>    an interface completely during an MTU change is extremely poor beh=
+avior.
+>=20
+>    I would suggest holding onto the old allocated TXQ resources, and
+>    restoring them if the allocation of the new ones fail.
+>=20
+>    That way the MTU change itself would fail, but the interface would
+>    remain up with the original MTU.
+>=20
+>    Please make sure that you properly revert the MTU adjustment in
+>    this failure path.
+>=20
+
+Oh, I see. Thanks for the feedback, I'll take a look at this next week.
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
