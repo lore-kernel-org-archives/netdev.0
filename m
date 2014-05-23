@@ -1,64 +1,59 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 11:48:29 +0200
-Message-ID: <87r43k4yhe.fsf@nemi.mork.no>
-References: <537E4AFD.20304@mentor.com>
-	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: Use time_after() for time comparison
+Date: Fri, 23 May 2014 02:51:57 -0700
+Message-ID: <1400838717.22900.15.camel@jtkirshe-mobl>
+References: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "'Eric Dumazet'" <eric.dumazet@gmail.com>,
-	Jim Baxter <jim_baxter@mentor.com>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"kamal\@canonical.com" <kamal@canonical.com>,
-	"edumazet\@google.com" <edumazet@google.com>,
-	"mszeredi\@suse.cz" <mszeredi@suse.cz>,
-	"fw\@strlen.de" <fw@strlen.de>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
-	(David Laight's message of "Fri, 23 May 2014 08:52:13 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-HaQsRa+32cPkwJvZucNt"
+Cc: jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Manuel =?ISO-8859-1?Q?Sch=F6lling?= <manuel.schoelling@gmx.de>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1400790090-13404-1-git-send-email-manuel.schoelling@gmx.de>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Laight <David.Laight@ACULAB.COM> writes:
 
-> Since USB bulk data are terminated by a short fragment there is actua=
-lly
-> no need for the URB be long enough for the full message. Provided the
-> URB are multiples of the USB message size (1k for USB 3) the message
-> can be received into multiple URB - the driver just has to be willing
-> to merge URB buffers (as well as split them) when generating the ethe=
-rnet
-> frames.
->
-> What the driver needs to do us allocate URB with 2k (or 4k) buffers a=
-nd
-> only allocate the skb when processing the receive data.
-> Unfortunately this is a major rework of usb_net.c
+--=-HaQsRa+32cPkwJvZucNt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yes, I believe this is the way to go as well.
+On Thu, 2014-05-22 at 22:21 +0200, Manuel Sch=C3=B6lling wrote:
+> To be future-proof and for better readability the time comparisons are
+> modified
+> to use time_after() instead of plain, error-prone math.
+>=20
+> Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_ethtool.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 
-I have been thinking about it in the context of the cdc_ncm driver.  On=
-e
-problem with the NCM protocol is that it will have to merge all the
-buffers of a "NCM Transfer Block" (NTB) before it can process any part
-of it.  The protocol puts no restrictions on the internal pointers in a
-NTB, so there is no guarantee that we can start at the beginning and
-work our way towards the end of it. The contained packets can be
-interleaved with index(es) or the index can be at the end etc.
+Thanks Manuel, I have added your patch to my queue.
 
-But this should still be possible to parse using a list of shorter
-buffers to hold each NTB.
+--=-HaQsRa+32cPkwJvZucNt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-> Note that some of the usb ethernet drivers allocate large skb then
-> lie about the truesize.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-Hmm, which drivers are these?
+iQIcBAABCgAGBQJTfxo9AAoJEOVv75VaS+3O5PkQAJc4NGbzhUIjTY550VNmtnqw
+4/Pqb8qumD13ddMXf2GCOEo9mVk04BoovNuYMaLJliEwB0YVeH5L9eZX36Zf1dIZ
+aMGaijx526e/SyhvIxWz3XIsyphCUsdDXWtl5bzE296xdbs+ViRw17d0fJ118chu
+Dol7NICU28ULZg8HahcqJUnj2DY9SgX4xMbFF+u1efkR2iwPg0I7dWEWZa4q98av
+ge/PlpNHw99DW/6A+FfnGUObsk9ZAaZTdpPieeCSenltMQabcPtmwFaqqvTn09Md
+5GAusKKFgQdZm0kI7/CkVW+AmQcxb8Y+CjTqUp72dT/r3sARZm+gJX2SiN7SH3XU
+9CcOvvrMvPQBG8a7gCDVLcaSDUckPd1+8W3YZavN+HNUX+obLIujcz8j49Jho+mw
+hZwseez1zIaTBHq3xICZtGNhe1VFLd1jll/5GZ4YR6XzkT0BRA2KW+vWod33BMGo
+lO7VhYQBhSnIysNjWgs1dpZGKSBtlDEAWsfU++Kk7apNkla22jiexoxEdStbtfjE
+IpD7Q+lzxlHijpA3iqOBjjrCPxBoflm+wttzY4S8F+QA1qmr799JwiibHSQN4vJm
+dP022h+jxRIf8Yn85ucCH0zBUGicITZ89huwVwwAy9SqV6SEe7MvMZn/iVwFOTU4
+vayuBnZy8r6/M1bDJBTQ
+=dgsY
+-----END PGP SIGNATURE-----
 
+--=-HaQsRa+32cPkwJvZucNt--
 
-Bj=C3=B8rn
