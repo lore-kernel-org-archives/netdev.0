@@ -1,62 +1,52 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: skbuff truesize incorrect.
-Date: Fri, 23 May 2014 16:00:52 +0100
-Message-ID: <537F62A4.1020707@mentor.com>
-References: <537E4AFD.20304@mentor.com>		<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>		<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>	 <87r43k4yhe.fsf@nemi.mork.no>	 <063D6719AE5E284EB5DD2968C1650D6D1724C7A1@AcuExch.aculab.com>	 <537F2D53.5020408@mentor.com> <1400852843.5367.191.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: question: Any way to trigger DHCP renewal from kernel code?
+Date: Fri, 23 May 2014 10:06:56 -0500
+Message-ID: <1400857616.18322.9.camel@dcbw.local>
+References: <c64a7b76572942fda9acffc25dd76c29@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	=?UTF-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"kamal@canonical.com" <kamal@canonical.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"mszeredi@suse.cz" <mszeredi@suse.cz>,
-	"fw@strlen.de" <fw@strlen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400852843.5367.191.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17261 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752054AbaEWPG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 May 2014 11:06:59 -0400
+In-Reply-To: <c64a7b76572942fda9acffc25dd76c29@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23/05/14 14:47, Eric Dumazet wrote:
-> On Fri, 2014-05-23 at 12:13 +0100, Jim Baxter wrote:
+On Thu, 2014-05-22 at 22:24 +0000, Haiyang Zhang wrote:
+> Hi,
 > 
->> What are the side effects of changing the truesize, if the original
->> uncloned skb has the full truesize then isn't the potential memory usage
->> still counted for the avoidance of OOM?
-> 
-> Nope. This can be disastrous.
-> 
-> A malicious remote peer can crash your host by sending specially cooked
-> TCP messages.
-> 
-> Send messages with one byte of payload, and out of order so that they
-> cant be consumed by receiver, and cant be coalesced/collapsed.
-> 
-> If you claim the true size is sizeof(sk_buff) + 512, TCP stack will
-> accumulate these messages in out of order queue, and will not bother
-> with them, unless you hit sk_rcvbuf limit.
-> 
-> But in reality these messages uses sizeof(sk_buff) + 32768 bytes.
-> 
-> Divide your physical memory by 32768 : How many such messages will fit
-> in memory before the host crashes ?
-> 
-> I've seen that kind of attacks in real cases.
-> 
-> Even the fast clones sk_buff mismatch can be noticed. Luckily a 10%
-> error has no severe impact.
-> 
-> TCP stack uses fast clones, and current stack gives them a truesize of
-> 2048 + sizeof(sk_buff), while it really should be 2048 +
-> 2*sizeof(sk_buff)
-> 
-> Luckily, GSO/TSO tends to reduce the error, as skbs overhead is lower.
-> 
-> 
+> Our synthetic network driver is notified when the Hyper-V host 
+> resume from sleep/hibernation. We need to renew DHCP in this case.
+> I'm looking for a way to trigger DHCP renewal from kernel mode 
+> code.
 
-Thank you for clarifying, that is useful to know.
+Another approach could be to change the 'operstate' of your synthetic
+netdevice to IF_OPER_DORMANT and then back to IF_OPER_UP.  Possibly like
+drivers/net/hsr/hsr_device.c does in __hsr_set_operstate().
+
+The netdev_state_change() call will send out a netlink message that the
+device has changed, which includes the device flags.  Before changing
+the operstate, the flags will include IFF_RUNNING, which indicates the
+netdevice is operating and passing traffic.  When you change the
+operstate to IF_OPER_DORMANT, a netlink message will be sent which does
+*not* include IFF_RUNNING.  Then changing back to IF_OPER_UP will emit a
+netlink message that *does* include IFF_RUNNING again.
+
+The DHCP client can listen for device flag changes and trigger a DHCP
+renew when the IFF_RUNNING flag re-appears on the device.  There are
+some notes about this in Documentation/networking/operstates.txt too.
+
+(Random note: long ago when WiMAX was relevant there was also a need to
+trigger a DHCP renew in userspace based on events from the driver; a
+renew should be performed when the device comes out of fast sleep, which
+can happen quite often.  I don't remember how Inaky solved this, but I
+think it was out-of-band driver messages to the userspace control
+daemon.  A more standardized kernel facility somewhat less convoluted
+than manually munging operstates would have been nice...)
+
+Dan
