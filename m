@@ -1,42 +1,48 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] qlcnic: info leak in qlcnic_dcb_peer_app_info()
-Date: Fri, 23 May 2014 19:37:21 +0300
-Message-ID: <20140523163721.GA14067@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dept-HSGLinuxNICDev@qlogic.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+From: wenxiong@linux.vnet.ibm.com
+Subject: [PATCH 2/2] bnx2x: Fix kernel crash and data miscompare after EEH recovery
+Date: Fri, 23 May 2014 11:29:57 -0500
+Message-ID: <20140523163025.984767723@linux.vnet.ibm.com>
+References: <20140523162955.780765614@linux.vnet.ibm.com>
+Cc: Milton Miller <miltonm@bga.com>,
+	Wen Xiong <wenxiong@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:39914 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753035AbaEWQhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 12:37:38 -0400
-Content-Disposition: inline
+Received: from [32.97.110.57] ([32.97.110.57]:33167 "HELO
+	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1753476AbaEWQkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 12:40:22 -0400
+Content-Disposition: inline; filename=bnx2x_rmb_fix
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This function is called from dcbnl_build_peer_app().  The "info"
-struct isn't initialized at all so we disclose 2 bytes of uninitialized
-stack data.  We should clear it before passing it to the user.
+A rmb() is required to ensure that the CQE is not read before it
+is written by the adapter DMA.  PCI ordering rules will make sure
+the other fields are written before the marker at the end of struct
+eth_fast_path_rx_cqe but without rmb() a weakly ordered processor can
+process stale data.
 
-Fixes: 48365e485275 ('qlcnic: dcb: Add support for CEE Netlink interface.')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Without the barrier we have observed various crashes including
+bnx2x_tpa_start being called on queues not stopped (resulting in message
+start of bin not in stop) and NULL pointer exceptions from bnx2x_rx_int.
+
+Signed-off-by: Milton Miller <miltonm@bga.com>
+Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
 ---
-This is a static analysis patch, and I am not familiar with this code.
-We may want to put some useful information here, to go with the
-app_count.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-index a51fe18..561cb11 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-@@ -1020,6 +1020,7 @@ static int qlcnic_dcb_peer_app_info(struct net_device *netdev,
- 	struct qlcnic_dcb_cee *peer;
- 	int i;
+Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+===================================================================
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c	2014-05-23 10:34:21.000000000 -0500
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c	2014-05-23 10:35:39.277766585 -0500
+@@ -906,6 +906,8 @@ static int bnx2x_rx_int(struct bnx2x_fas
+ 		bd_prod = RX_BD(bd_prod);
+ 		bd_cons = RX_BD(bd_cons);
  
-+	memset(info, 0, sizeof(*info));
- 	*app_count = 0;
++		rmb();
++
+ 		cqe_fp_flags = cqe_fp->type_error_flags;
+ 		cqe_fp_type = cqe_fp_flags & ETH_FAST_PATH_RX_CQE_TYPE;
  
- 	if (!test_bit(QLCNIC_DCB_STATE, &adapter->dcb->state))
+
+-- 
