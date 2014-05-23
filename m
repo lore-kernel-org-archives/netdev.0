@@ -1,44 +1,90 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Add hash value into RNDIS Per-packet info
-Date: Fri, 23 May 2014 14:50:01 -0400 (EDT)
-Message-ID: <20140523.145001.2140056621716323006.davem@davemloft.net>
-References: <1400702139-29280-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH] net: Add support for device specific address syncing
+Date: Fri, 23 May 2014 14:55:35 -0400 (EDT)
+Message-ID: <20140523.145535.35857476092197009.davem@davemloft.net>
+References: <20140521205457.31151.8273.stgit@ahduyck-cp2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1400702139-29280-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	jpirko@redhat.com
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54632 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042AbaEWSzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 14:55:37 -0400
+In-Reply-To: <20140521205457.31151.8273.stgit@ahduyck-cp2.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Wed, 21 May 2014 12:55:39 -0700
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Wed, 21 May 2014 13:55:15 -0700
 
-> It passes the hash value as the RNDIS Per-packet info to the Hyper-V host,
-> so that the send completion notices can be spread across multiple channels.
-> MS-TFS: 140273
+> This change provides a function to be used in order to break the
+> ndo_set_rx_mode call into a set of address add and remove calls.  The code
+> is based on the implementation of dev_uc_sync/dev_mc_sync.  Since they
+> essentially do the same thing but with only one dev I simply named my
+> functions __dev_uc_sync/__dev_mc_sync.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> I also implemented an unsync version of the functions as well to allow for
+> cleanup on close.
+> 
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied, but please craft your Subject lines correctly in the future.
+This looks fine semantically to me.
 
-You did not specify a subsystem prefix, which in this case should
-have been something like "hyperv: "
+Please fix the coding style issues below and submit this alongside
+the changes for whatever driver will first make use of this.
 
-Otherwise people scanning the commit log headers have no idea where
-your changes might be taking place.
+Thanks!
 
-I fixed it up this time for you.
+> +int __hw_addr_sync_dev(struct netdev_hw_addr_list *list,
+> +		struct net_device *dev,
+> +		int (*sync)(struct net_device *, const unsigned char *),
+> +		int (*unsync)(struct net_device *, const unsigned char *));
 
-Thanks.
+Arguments on continuation lines should start at the first column after
+the openning parenthesis on the first line.  You must use the appropriate
+number of TAB and SPACE characters necessary to achieve this.
+
+> +void __hw_addr_unsync_dev(struct netdev_hw_addr_list *list,
+> +		struct net_device *dev,
+> +		int (*unsync)(struct net_device *, const unsigned char *));
+
+Likewise.
+
+> +static inline int __dev_uc_sync(struct net_device *dev,
+> +		int (*sync)(struct net_device *, const unsigned char *),
+> +		int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
+
+> +static inline void __dev_uc_unsync(struct net_device *dev,
+> +		   int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
+
+> +static inline int __dev_mc_sync(struct net_device *dev,
+> +		int (*sync)(struct net_device *, const unsigned char *),
+> +		int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
+
+> +static inline void __dev_mc_unsync(struct net_device *dev,
+> +		int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
+
+> +int __hw_addr_sync_dev(struct netdev_hw_addr_list *list,
+> +		struct net_device *dev,
+> +		int (*sync)(struct net_device *, const unsigned char *),
+> +		int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
+
+> +void __hw_addr_unsync_dev(struct netdev_hw_addr_list *list,
+> +		struct net_device *dev,
+> +		int (*unsync)(struct net_device *, const unsigned char *))
+
+Likewise.
