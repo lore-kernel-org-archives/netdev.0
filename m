@@ -1,84 +1,147 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 23 May 2014 13:46:02 +1000
-Message-ID: <20140523134602.4dac2f7c@canb.auug.org.au>
+From: Jon Maxwell <jmaxwell@redhat.com>
+Subject: Re: [PATCH net] bridge: notify user space of fdb port change
+Date: Fri, 23 May 2014 00:59:32 -0400 (EDT)
+Message-ID: <1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com>
+References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com> <5372BA1E.8000402@lab.ntt.co.jp> <2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/cX6KlGT21T5VfHXOv/cexa="; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Veaceslav Falico <vfalico@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org,
+	davem@davemloft.net, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jpirko@redhat.com
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/cX6KlGT21T5VfHXOv/cexa=
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
 
-Hi all,
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/bonding/bond_alb.c between commit d0c21d43a5a1 ("bonding:
-Send ALB learning packets using the right source") from the net tree
-and commit 8557cd74ca8a ("bonding: replace SLAVE_IS_OK() with
-bond_slave_can_tx()") from the net-next tree.
+> ----- Original Message -----
+> > From: "Toshiaki Makita" <makita.toshiaki@lab.ntt.co.jp>
+> > To: "Jon Maxwell" <jmaxwell37@gmail.com>, stephen@networkplumber.org
+> > Cc: davem@davemloft.net, vyasevic@redhat.com,
+> > bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+> > linux-kernel@vger.kernel.org, jpirko@redhat.com, jmaxwell@redhat.com
+> > Sent: Wednesday, May 14, 2014 10:34:38 AM
+> > Subject: Re: [PATCH net] bridge: notify user space of fdb port change
+> > 
+> > (2014/05/13 16:55), Jon Maxwell wrote:
+> > > From: Jon Maxwell <jmaxwell37@gmail.com>
+> > > 
+> > > There has been a number incidents recently where customers running KVM
+> > > have
+> > > reported that VM hosts on different Hypervisors are unreachable. Based on
+> > > pcap traces we found that the bridge was broadcasting the ARP request out
+> > > onto the network. However some NICs have an inbuilt switch which on
+> > > occasions
+> > > were broadcasting the VMs ARP request back through the physical NIC on
+> > > the
+> > > Hypervisor. This resulted in the bridge changing ports and incorrectly
+> > > learning
+> > > that the VMs mac address was external. As a result the ARP reply was
+> > > directed
+> > > back onto the external network and VM never updated it's ARP cache. This
+> > > patch
+> > > will notify the bridge command to identify such port toggling.
+> > > 
+> > > Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+> > > ---
+> > >  net/bridge/br_fdb.c | 2 ++
+> > >  1 file changed, 2 insertions(+)
+> > > 
+> > > diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> > > index 9203d5a..37742e2 100644
+> > > --- a/net/bridge/br_fdb.c
+> > > +++ b/net/bridge/br_fdb.c
+> > > @@ -507,6 +507,8 @@ void br_fdb_update(struct net_bridge *br, struct
+> > > net_bridge_port *source,
+> > >  					source->dev->name);
+> > >  		} else {
+> > >  			/* fastpath: update of existing entry */
+> > > +			if (source->port_no != fdb->dst->port_no)
+> > 
+> > It seems that we don't need to fetch port_no and it is enough to compare
+> > source and fdb->dst.
+> 
+> It may save a few instructions but I have not tested it.
+> 
+> > 
+> > > +				fdb_notify(br, fdb, RTM_NEWNEIGH);
+> > >  			fdb->dst = source;
+> > >  			fdb->updated = jiffies;
+> > >  			if (unlikely(added_by_user))
+> > > 
+> > 
+> > This notifies fdb entry before updating existing entry. Is this on purpose?
+> > I think we should notify the updated fdb entry.
+> > Similar code fdb_add_entry() does after updating it.
+> 
+> It was not on purpose but for this particular case there will be burst of
+> notifies
+> so it probably does not matter. However I agree it should be after the
+> update.
+> I will do that along with adding the unlikely() conditional and resubmit.
+> 
+> > 
+> > Also, isn't it better to move update of dst into "if" block?
+> 
+> I would prefer to leave this portion as alone and only use the if
+> statement for the notify.
+> 
+> > 
+> > 	if (source != fdb->dst) {
+> > 		fdb->dst = source;
+> > 		modified = true;
+> > 	}
+> > 	...
+> > 	if (modified) ...
+> > 
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+Makita-san,
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+I recoded this using your idea and ran it through a reproducer.
+It work fine. After some more consideration I agree that 
+setting fdb->dst = source is only required when source != fdb->dst.
 
-diff --cc drivers/net/bonding/bond_alb.c
-index 93580a47cc54,03e0bcade234..000000000000
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@@ -1117,8 -1106,8 +1117,8 @@@ static void alb_fasten_mac_swap(struct=20
-  	ASSERT_RTNL();
- =20
-  	/* fasten the change in the switch */
-- 	if (SLAVE_IS_OK(slave1)) {
-+ 	if (bond_slave_can_tx(slave1)) {
- -		alb_send_learning_packets(slave1, slave1->dev->dev_addr);
- +		alb_send_learning_packets(slave1, slave1->dev->dev_addr, false);
-  		if (bond->alb_info.rlb_enabled) {
-  			/* inform the clients that the mac address
-  			 * has changed
-@@@ -1129,8 -1118,8 +1129,8 @@@
-  		disabled_slave =3D slave1;
-  	}
- =20
-- 	if (SLAVE_IS_OK(slave2)) {
-+ 	if (bond_slave_can_tx(slave2)) {
- -		alb_send_learning_packets(slave2, slave2->dev->dev_addr);
- +		alb_send_learning_packets(slave2, slave2->dev->dev_addr, false);
-  		if (bond->alb_info.rlb_enabled) {
-  			/* inform the clients that the mac address
-  			 * has changed
+Thanks for your suggestions. This is the revised patch. It should 
+retain the original behaviour except for the notify after the fdb update.  
 
---Sig_/cX6KlGT21T5VfHXOv/cexa=
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+Please let me know if you have any further input?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+$ diff -Naur br_fdb.c br_fdb.c.patch
+--- br_fdb.c        2014-05-17 12:43:23.346319609 +1000
++++ br_fdb.c.patch        2014-05-17 16:54:46.280235728 +1000
+@@ -487,6 +487,7 @@
+ {
+         struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+         struct net_bridge_fdb_entry *fdb;
++        bool fdb_modified = 0;
+ 
+         /* some users want to always flood. */
+         if (hold_time(br) == 0)
+@@ -507,10 +508,16 @@
+                                         source->dev->name);
+                 } else {
+                         /* fastpath: update of existing entry */
+-                        fdb->dst = source;
++                        if (unlikely(source != fdb->dst))
++                                {
++                                fdb->dst = source;
++                                fdb_modified = 1;
++                                }
+                         fdb->updated = jiffies;
+                         if (unlikely(added_by_user))
+                                 fdb->added_by_user = 1;
++                        if (unlikely(fdb_modified))
++                                fdb_notify(br, fdb, RTM_NEWNEIGH);
+                 }
+         } else {
+                 spin_lock(&br->hash_lock);
 
-iQIcBAEBCAAGBQJTfsR7AAoJEMDTa8Ir7ZwVI0QQAJTr9nAQ+Q86+HzYZ3ni4vJi
-jR/U67DFNEFdcTNZ63lKgOume4weJT98x+/sLMNTeCJRJg00K1M63h34y1KL/41Q
-wazjdX9ma+l1BtVBO2Bo4Hy9SZINZ5nuXrm3MCRqe0utn7KWAz0GBkZ2UA3fPC3h
-QfsTk3vYa1Dnryq2NH3BPRJGFZcO0gxhCEkdzngnusteXzL6WygrQxB4aseegpIQ
-0VvsU36oF8LzNxcfM0+lKlgHQpYioMw8a6lLIjdfG4dQSmjjpfaSLjKzenPfixMt
-/Qr4KaxGL0l1s5uCxVcsK7aOPo2TsalM4OxIA2G/ObU2k2HFrO956JJSaBj1E04A
-GWUdGrZnwleNpY7wxeUketrtVE6pWlvCEFB9XvFxhW6QIfWHZkGLro5N7dKlHDyE
-0Hnkai15rC2RZrSe84DZXgkC4WZrw7OPQf5TjRWt/MInlh/SYus9TvV/C0RZWg/Y
-p3JxcLpu3g+PjLQ+U+klYq307QsfmJOihDV9Y2lkiQtLhhYD63hexMWsvwzo4jGl
-7ISBxZ9colBYp8ookSAJROfdxxqnrOoBFz0vEzScuFelCmXkgJ4w9R9iT4LnHZTn
-WjAyjNMuQTcKWbrMXRexSXk8Cn/C/99bUHC2ogLOdzWIuavOPjE6FoJ1x9XzKoRL
-frMXC9IV6MBLhC7FIDEF
-=HtIo
------END PGP SIGNATURE-----
 
---Sig_/cX6KlGT21T5VfHXOv/cexa=--
+> > Thanks,
+> > Toshiaki Makita
+> > 
+> 
