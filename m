@@ -1,71 +1,99 @@
-From: Jon Maxwell <jmaxwell@redhat.com>
-Subject: Re: [PATCH net] bridge: notify user space of fdb port change
-Date: Fri, 23 May 2014 21:33:48 -0400 (EDT)
-Message-ID: <1655748249.12329071.1400895228522.JavaMail.zimbra@redhat.com>
-References: <1399967708-7283-1-git-send-email-jmaxwell@redhat.com> <5372BA1E.8000402@lab.ntt.co.jp> <2052318198.6465872.1400101664337.JavaMail.zimbra@redhat.com> <1679971005.11740655.1400821172875.JavaMail.zimbra@redhat.com> <537F0951.5010904@lab.ntt.co.jp>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH/RFC net-next] MPLS: Use mpls_features to activate
+	software MPLS GSO segmentation
+Date: Sat, 24 May 2014 11:42:54 +0900
+Message-ID: <1400899374-29917-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org,
-	davem@davemloft.net, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jpirko@redhat.com
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx5-phx2.redhat.com ([209.132.183.37]:45432 "EHLO
-	mx5-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750872AbaEXBdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 May 2014 21:33:54 -0400
-In-Reply-To: <537F0951.5010904@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
+If an MPLS packet requires segmentation then use mpls_features
+to determine if the software implementation should be used.
 
-> I have no more comments except for style problems (bracket position,
-> indentation, type mismatch).
-> thank you for rewriting :)
+As no driver advertises MPLS GSO segmentation this will always be
+the case.
 
-np, yes this is a draft but I will make sure complies with checkpatch.pl
-before submitting it.
+I had not noticed that this was necessary before as software MPLS GSO
+segmentation was already being used in my test environment. I believe that
+the reason for that is the skbs in question always had fragments and the
+driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+case for most drivers). Thus Thus software segmentation was activated by
+skb_gso_ok().
 
-Regards
+Thanks to Jesse Gross for prompting me to investigate this.
 
-Jon
+Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+---
+ net/core/dev.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-> 
-> Thanks,
-> Toshiaki Makita
-> 
-> > 
-> > $ diff -Naur br_fdb.c br_fdb.c.patch
-> > --- br_fdb.c        2014-05-17 12:43:23.346319609 +1000
-> > +++ br_fdb.c.patch        2014-05-17 16:54:46.280235728 +1000
-> > @@ -487,6 +487,7 @@
-> >  {
-> >          struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
-> >          struct net_bridge_fdb_entry *fdb;
-> > +        bool fdb_modified = 0;
-> >  
-> >          /* some users want to always flood. */
-> >          if (hold_time(br) == 0)
-> > @@ -507,10 +508,16 @@
-> >                                          source->dev->name);
-> >                  } else {
-> >                          /* fastpath: update of existing entry */
-> > -                        fdb->dst = source;
-> > +                        if (unlikely(source != fdb->dst))
-> > +                                {
-> > +                                fdb->dst = source;
-> > +                                fdb_modified = 1;
-> > +                                }
-> >                          fdb->updated = jiffies;
-> >                          if (unlikely(added_by_user))
-> >                                  fdb->added_by_user = 1;
-> > +                        if (unlikely(fdb_modified))
-> > +                                fdb_notify(br, fdb, RTM_NEWNEIGH);
-> >                  }
-> >          } else {
-> >                  spin_lock(&br->hash_lock);
-> > 
-> > 
-> 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 867adb2..ade6029 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2540,6 +2540,40 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(netif_skb_features);
+ 
++/* If MPLS offload request, verify we are testing hardware MPLS features
++ * instead of standard features for the netdev.
++ */
++#ifdef CONFIG_NET_MPLS_GSO
++static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
++	struct net_device *dev, netdev_features_t features)
++{
++	/* There is no support for MPLS LRO. So the only way that
++	 * an MPLS skb could require GSO segmentation is if it
++	 * was received as a non-MPLS skb and then became an MPLS skb.
++	 * This may be effected by Open vSwitch in which case the
++	 * mac_len will non-zero and not equal to skb_network_offset
++	 * as the former indicates the end of L2 the latter indicates
++	 * the beginning of L3 and there is a gap between them occupied
++	 * by the MPLS label stack.
++	 *
++	 * Thus it is possible to avoid traversing any VLAN tags that are
++	 * present to determine if the ethtype is MPLS. Instead the
++	 * inequality of mac_llen and skb_network_offset are used to
++	 * determine if a packet is MPLS for the purpose of determining
++	 * offload features.
++	 */
++	if (skb->mac_len && skb->mac_len != skb_network_offset(skb))
++		features &= dev->mpls_features;
++	return features;
++}
++#else
++static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
++	struct net_device *dev, netdev_features_t features)
++{
++	return features;
++}
++#endif
++
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+@@ -2576,6 +2610,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		if (skb->encapsulation)
+ 			features &= dev->hw_enc_features;
+ 
++		features = net_mpls_features(skb, dev, features);
++
+ 		if (netif_needs_gso(skb, features)) {
+ 			if (unlikely(dev_gso_segment(skb, features)))
+ 				goto out_kfree_skb;
+-- 
+1.8.4
