@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] ks8851 DT/regulator/gpio updates
-Date: Sat, 24 May 2014 14:03:58 -0400 (EDT)
-Message-ID: <20140524.140358.1963098926345179335.davem@davemloft.net>
-References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
+Subject: Re: pull request: wireless 2014-05-23
+Date: Sat, 24 May 2014 14:06:45 -0400 (EDT)
+Message-ID: <20140524.140645.430202997634061971.davem@davemloft.net>
+References: <20140523150733.GC13311@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	nm@ti.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, devicetree@vger.kernel.org
-To: sboyd@codeaurora.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
+In-Reply-To: <20140523150733.GC13311@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Boyd <sboyd@codeaurora.org>
-Date: Fri, 23 May 2014 12:57:16 -0700
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 23 May 2014 11:07:34 -0400
 
-> This set of patches properly documents the micrel ks8851 spi ethernet
-> controller, converts to devm_regulator_get_optional() to make error
-> paths slightly simpler, and finally adds supports for another
-> optional regulator and a reset gpio. This allows me to use the ks8851
-> on my MSM8960 CDP board.
+> I have two more fixes intended for the 3.15 stream...
 > 
-> Changes since v1:
->  * Dropped vendor prefix patch as that should go through DT tree
+> For the iwlwifi one, Emmanuel says:
+> 
+> "A race has been discovered in the beacon filtering code. Since the
+> fix is too big for 3.15, I disable here the feature."
+> 
+> For the bluetooth one, Gustavo says:
+> 
+> "This pull request contains a very important fix for 3.15. Here we fix the
+> permissions of a debugfs file that would otherwise allow unauthorized users
+> to write content to it."
+> 
+> Please let me know if there are problems!
 
-Series applied, thanks Stephen!
+Pulled, thanks a lot John.
