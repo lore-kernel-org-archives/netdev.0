@@ -1,94 +1,82 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Sat, 24 May 2014 08:13:36 +0200
-Message-ID: <53803890.2000000@gmail.com>
-References: <536101C9.9090601@gmail.com> <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com> <20140512143451.GB13801@kernel.org> <20140521210535.GA5414@kernel.org> <537E0961.8040005@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com, lkml <linux-kernel@vger.kernel.org>,
-	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	=?UTF-8?B?T25kxZllaiBCw61sa2E=?= <neleai@seznam.cz>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?UTF-8?B?UsOpbWkgRGVuaXMtQ291cm1v?= =?UTF-8?B?bnQ=?=
-	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>,
-	Chris Friesen <chris.friesen@windriver.com>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <537E0961.8040005@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH 1/1] actions: keyword flowid or classid terminates action pipeline
+Date: Sat, 24 May 2014 08:48:41 -0400
+Message-ID: <1400935721-13558-1-git-send-email-jhs@emojatatu.com>
+Cc: seann@herdejurgen.com, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:44484 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176AbaEXMsw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 08:48:52 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so5339498pab.19
+        for <netdev@vger.kernel.org>; Sat, 24 May 2014 05:48:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping!
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On 05/22/2014 04:27 PM, Michael Kerrisk (man-pages) wrote:
-> Hi Arnaldo,
-> 
-> On 05/21/2014 11:05 PM, Arnaldo Carvalho de Melo wrote:
->> Em Mon, May 12, 2014 at 11:34:51AM -0300, Arnaldo Carvalho de Melo escreveu:
->>> Em Mon, May 12, 2014 at 12:15:25PM +0200, Michael Kerrisk (man-pages) escreveu:
->>>> Hi Arnaldo,
->>  
->>>> Ping!
->>
->>> I acknowledge the problem, the timeout has to be passed to the
->>> underlying ->recvmsg() implementations that should return the time spent
->>> waiting for each packet, so that we can accrue that at recvmmsg level.
->>  
->>> We can do either passing an extra timeout parameter to the recvmsg
->>> implementations or using some struct sock member to specify that
->>> timeout.
->>  
->>> The first approach is intrusive, touches tons of files, so I'll try
->>> making it all mostly transparent by hooking into sock_rcvtimeo()
->>> somehow.
->>
->> But after thinking a bit more, looks like we need to do that, please
->> take a look at the attached patch to see if it addresses the problem.
->>
->> Mostly it adds a new timeop to the per protocol recvmsg()
->> implementations, that, if not NULL, should be used instead of
->> SO_RCVTIMEO.
->>
->> since the underlying recvmsg implementations already check that timeout,
->> return what is remaining, that will then be used in subsequent recvmsg
->> calls, at the end we just convert it back to timespec format.
->>
->> In most cases it is just passed to skb_recv_datagram, that will check
->> the pointer, use it and update if not NULL.
->>
->> Should have no problems, but I only did a boot with a system with this
->> patch applied, no problems noticed on a normal desktop session, ssh,
->> etc.
-> 
-> Thanks! I applied this patch against 3.15-rc6.
-> 
-> recvmmsg() now (mostly) does what I expect: 
-> * it waits until either the timeout expires or vlen messages 
->   have been received
-> * If no message is received before timeout, it returns -1/EAGAIN.
-> * If vlen messages are received before the timeout expires, then
->   the remaining time is returned in timeout.
-> 
-> One question: in the event that the call is interrupted by a signal 
-> handler, it fails (as expected) with EINTR, but the 'timeout' value is 
-> not updated with the remaining time on the timer. Would it be desirable 
-> to emulate the behavior of select() (and other syscalls) in this 
-> respect, and instead return the remaining time if interrupted by 
-> a signal?
-> 
-> Cheers,
-> 
-> Michael
-> 
+scenario testcase:
 
+TC="sudo ./tc/tc"
+DEV="dev eth0"
+$TC qdisc del $DEV ingress
+$TC qdisc add $DEV ingress
+$TC filter add $DEV parent ffff: protocol ip u32 match ip src 10.0.0.0/24 action police rate 6Mbit burst 6Mbit drop flowid :1
+$TC filter add $DEV parent ffff: protocol ip u32 match ip dst 10.0.0.0/24 action police rate 1Gbit burst 1Gbit pass flowid :1
+$TC -s filter ls $DEV parent ffff: protocol ip
+$TC qdisc del $DEV ingress
+$TC qdisc add $DEV ingress
+$TC filter add $DEV parent ffff: protocol ip u32 match ip src 10.0.0.0/24 flowid 1:1 action police rate 6Mbit burst 6Mbit drop
+$TC filter add $DEV parent ffff: protocol ip u32 match ip dst 10.0.0.0/24 flowid 1:2 action police rate 1Gbit burst 1Gbit pass
 
+$TC -s filter ls $DEV parent ffff: protocol ip
+$TC qdisc del $DEV ingress
+$TC qdisc add $DEV ingress
+$TC filter add $DEV parent ffff: protocol ip pref 10 \
+u32 match ip protocol 1 0xff \
+flowid 1:10 \
+action skbedit mark 11 \
+action police rate 10kbit burst 10k pipe index 1 \
+action skbedit mark 12 \
+action police rate 20kbit burst 20k pipe index 2 \
+action mirred egress mirror dev dummy0
+
+$TC -s filter ls $DEV parent ffff: protocol ip
+$TC qdisc del $DEV ingress
+$TC qdisc add $DEV ingress
+$TC filter add $DEV parent ffff: protocol ip pref 10 \
+u32 match ip protocol 1 0xff \
+action skbedit mark 11 \
+action police rate 10kbit burst 10k pipe index 1 \
+action skbedit mark 12 \
+action police rate 20kbit burst 20k pipe index 2 \
+action mirred egress mirror dev dummy0 \
+flowid 1:10
+
+$TC -s filter ls $DEV parent ffff: protocol ip
+
+Reported-by: Seann Herdejurgen <seann@herdejurgen.com>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ tc/m_action.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tc/m_action.c b/tc/m_action.c
+index 77479d6..5cd5e67 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -185,6 +185,10 @@ parse_action(int *argc_p, char ***argv_p, int tca_id, struct nlmsghdr *n)
+ 			}
+ #endif
+ 			continue;
++		} else if (strcmp(*argv, "flowid") == 0) {
++			break;
++		} else if (strcmp(*argv, "classid") == 0) {
++			break;
+ 		} else if (strcmp(*argv, "help") == 0) {
+ 			return -1;
+ 		} else if (new_cmd(argv)) {
 -- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+1.7.9.5
