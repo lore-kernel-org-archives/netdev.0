@@ -1,77 +1,35 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: What's the right way to use a *large* number of source addresses?
-Date: Sat, 24 May 2014 18:02:23 +0200
-Message-ID: <5380C28F.2050508@nod.at>
-References: <6zlhtsvnqp.fsf@southpole.se>	<53808957.7020906@mojatatu.com> <CAFLxGvx-6F3OqSBjSCBnm5b+m_NingSsbO2qaP7K7TtJghF5LQ@mail.gmail.com> <5380B729.5080101@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0
+ (bridge : Sanitize skb before it enters the IP stack)
+Date: Sat, 24 May 2014 13:43:56 -0400 (EDT)
+Message-ID: <20140524.134356.992924324126016022.davem@davemloft.net>
+References: <537CF5A2.3080401@pandora.be>
+	<20140521.161841.1806439174351824310.davem@davemloft.net>
+	<53803488.6000400@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?TmllbHMgTcO2bGxlcg==?= <nisse@southpole.se>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jonas Bonn <jonas@southpole.se>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.ns.miles-group.at ([95.130.255.143]:47834 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750882AbaEXQJJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 May 2014 12:09:09 -0400
-In-Reply-To: <5380B729.5080101@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bdschuym@pandora.be, netdev@vger.kernel.org, vyasevich@gmail.com,
+	bridge@lists.linux-foundation.org, fw@strlen.de,
+	stephen@networkplumber.org, bsd@redhat.com, netfilter-devel@vger.kernel.org
+To: davidn@davidnewall.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <53803488.6000400@davidnewall.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Am 24.05.2014 17:13, schrieb Jamal Hadi Salim:
-> On 05/24/14 10:44, Richard Weinberger wrote:
-> 
->> How to use this?
->> My tc's manpage does not know anything about nat.
->>
-> 
-> Start writing one and i will help.
+From: David Newall <davidn@davidnewall.com>
+Date: Sat, 24 May 2014 15:26:24 +0930
 
-*grml* yet another awesome and undocumented feature buried in the network stack.
+> The patch now reverts the commit and mitigates the original problem by
+> ensuring bridge's use of cb does not overlap ip's.
 
->> Maybe I'm mistaken but IIRC all non-netfilter nat code has been removed.
->>
-> 
-> This is stateless nat nothing to do with netfilter (much more efficient). Here's some documentation for you ;->
-
-Digging through the code shows that this feature is rather new.
-I had the old nat functionality of the routing subsystem in mind.
-
-> ----
-> hadi@jhs-1:~$ $TC filter add $DEV parent ffff: protocol ip u32 match ip dport 8080 0xffff flowid 1:1 action nat help
-> Illegal nat construct (help)
-> Usage: ... nat NAT
-> NAT := DIRECTION OLD NEW
-> DIRECTION := { ingress | egress }
-> OLD := PREFIX
-> NEW := ADDRESS
-> bad action parsing
-> parse_action: bad value (2:nat)!
-> Illegal "action"
-> -----
-> 
-> Google will give you more examples, but here's one:
-> 
-> Lets add a rule on the public facing bridge:
-> 
-> hadi@jhs-1:~$ $TC filter add dev virb0 parent ffff: protocol ip u32 match ip dport 8080 0xffff flowid 1:1 action nat ingress 192.168.10.15/32 10.0.0.15/32
-> 
-> 
-> now display it:
-> hadi@jhs-1:~$ $TC -s filter ls dev virbr0 parent ffff: protocol ip
-> filter pref 49152 u32
-> filter pref 49152 u32 fh 800: ht divisor 1
-> filter pref 49152 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
->   match 00001f90/0000ffff at 20
->     action order 1:  nat ingress 192.168.10.15/32 10.0.0.15 pass
->         installed 96 sec used 96 sec    Action statistics:
->       Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->       backlog 0b 0p requeues 0
-> 
-> You will need to add a reverse translation for internal->external
-
-Thanks for the howto.
-
-Thanks,
-//richard
+This patch was substantially corrupted by your email client.
