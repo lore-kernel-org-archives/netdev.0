@@ -1,43 +1,78 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: [PATCH 1/1] driver: net: smsc911x: set NOCARRIER flag in driver initialization
-Date: Sun, 25 May 2014 00:24:46 +0530
-Message-ID: <5380EAF6.1090402@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: steve.glendinning@shawell.net, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:47048 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208AbaEXSyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 14:54:50 -0400
-Received: by mail-pb0-f50.google.com with SMTP id ma3so5688685pbc.37
-        for <netdev@vger.kernel.org>; Sat, 24 May 2014 11:54:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Christensen <pch@ordbogen.com>
+Subject: [PATCH v2] ipvs: Fix panic due to non-linear skb
+Date: Sat, 24 May 2014 21:40:12 +0200
+Message-ID: <1400960412-12830-1-git-send-email-pch@ordbogen.com>
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Peter Christensen <pch@ordbogen.com>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-As smsc driver supports carrier detection, it should unset NOCARRIER
-flag only after carrier state determination. By default that flag
-is off so driver should set it before starting auto-negotiation
+Receiving a ICMP response to an IPIP packet in a non-linear skb could
+cause a kernel panic in __skb_pull.
 
-Signed-off-by: Balakumaran Kannan <Balakumaran.Kannan@ap.sony.com>
+The problem was introduced in
+commit f2edb9f7706dcb2c0d9a362b2ba849efe3a97f5e ("ipvs: implement
+passive PMTUD for IPIP packets").
+
+Signed-off-by: Peter Christensen <pch@ordbogen.com>
 ---
- drivers/net/ethernet/smsc/smsc911x.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/netfilter/ipvs/ip_vs_core.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index a0fc151..69016a5 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2525,6 +2525,8 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 4f26ee4..3d2d2c8 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -1392,15 +1392,19 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
  
- 	netdev_info(dev, "MAC Address: %pM\n", dev->dev_addr);
+ 	if (ipip) {
+ 		__be32 info = ic->un.gateway;
++		__u8 type = ic->type;
++		__u8 code = ic->code;
  
-+	netif_carrier_off(dev);
-+
- 	return 0;
+ 		/* Update the MTU */
+ 		if (ic->type == ICMP_DEST_UNREACH &&
+ 		    ic->code == ICMP_FRAG_NEEDED) {
+ 			struct ip_vs_dest *dest = cp->dest;
+ 			u32 mtu = ntohs(ic->un.frag.mtu);
++			__be16 frag_off = cih->frag_off;
  
- out_unregister_netdev_5:
+ 			/* Strip outer IP and ICMP, go to IPIP header */
+-			__skb_pull(skb, ihl + sizeof(_icmph));
++			if (pskb_pull(skb, ihl + sizeof(_icmph)) == NULL)
++				goto ignore_ipip;
+ 			offset2 -= ihl + sizeof(_icmph);
+ 			skb_reset_network_header(skb);
+ 			IP_VS_DBG(12, "ICMP for IPIP %pI4->%pI4: mtu=%u\n",
+@@ -1408,7 +1412,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 			ipv4_update_pmtu(skb, dev_net(skb->dev),
+ 					 mtu, 0, 0, 0, 0);
+ 			/* Client uses PMTUD? */
+-			if (!(cih->frag_off & htons(IP_DF)))
++			if (!(frag_off & htons(IP_DF)))
+ 				goto ignore_ipip;
+ 			/* Prefer the resulting PMTU */
+ 			if (dest) {
+@@ -1427,12 +1431,13 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
+ 		/* Strip outer IP, ICMP and IPIP, go to IP header of
+ 		 * original request.
+ 		 */
+-		__skb_pull(skb, offset2);
++		if (pskb_pull(skb, offset2) == NULL)
++			goto ignore_ipip;
+ 		skb_reset_network_header(skb);
+ 		IP_VS_DBG(12, "Sending ICMP for %pI4->%pI4: t=%u, c=%u, i=%u\n",
+ 			&ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
+-			ic->type, ic->code, ntohl(info));
+-		icmp_send(skb, ic->type, ic->code, info);
++			type, code, ntohl(info));
++		icmp_send(skb, type, code, info);
+ 		/* ICMP can be shorter but anyways, account it */
+ 		ip_vs_out_stats(cp, skb);
+ 
 -- 
-1.8.3.2
+1.7.10.4
+
