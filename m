@@ -1,134 +1,87 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net-next] tg3: Override clock, link aware and link idle mode during NVRAM dump
-Date: Sat, 24 May 2014 01:32:09 -0700
-Message-ID: <1400920329-9901-1-git-send-email-prashant@broadcom.com>
+From: Karsten Keil <kkeil@linux-pingi.de>
+Subject: Re: [PATCH 1/4] isdn/capi: move capi_info2str to capidrv.c
+Date: Sat, 24 May 2014 13:01:21 +0200
+Message-ID: <53807C01.9070706@linux-pingi.de>
+References: <cover.1400449368.git.tilman@imap.cc>	 <365e4f40e1aace19c3233305085ed929b30387b8.1400449370.git.tilman@imap.cc>	 <537D99F6.4040500@linux-pingi.de> <1400794689.16407.57.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Tilman Schmidt <tilman@imap.cc>, netdev@vger.kernel.org,
+	isdn4linux@listserv.isdn4linux.de,
+	"Keil, Karsten" <isdn@linux-pingi.de>
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:61081 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751207AbaEXIed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 04:34:33 -0400
+Received: from mout.kundenserver.de ([212.227.126.131]:64682 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751154AbaEXLB3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 07:01:29 -0400
+In-Reply-To: <1400794689.16407.57.camel@x220>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When cable is not present the clock speed of some of the devices is
-reduced based upon power saving mode setting in NVRAM. Due to this
-NVRAM reads take long time to complete as a result CPU soft lockup
-message is seen. Fix is to override clock, disable link aware and link
-idle modes before NVRAM reads and restore them back after the reads
-are complete. During this period also check if the thread needs to be
-rescheduled and if there are any signals to handle.
+Hi Paul,
 
-Also decrease the NVRAM command execution timeout value to 1ms.
+Am 22.05.2014 23:38, schrieb Paul Bolle:
+> Karsten,
+> 
+> On Thu, 2014-05-22 at 08:32 +0200, Karsten Keil wrote:
+>> Am 21.05.2014 23:39, schrieb Tilman Schmidt: 
+>>> capi_info2str() is apparently meant to be of general utility. It is
+>>> actually only used in capidrv.c. So move it from capiutil.c to
+>>> capidrv.c and (obviously) stop exporting it.
+>>>
+>>> And, since we're touching this, merge the two versions of this
+>>> function.
+>>
+>> I disagree here, since this is a general helper function and should be
+>> not in a special driver, but stay in capiutils.c which is the place for
+>> the driver independent stuff. I used this function from time to time to
+>> instrument other places for debugging as well.
+> 
+> Thanks for commenting. It would be nice if you could also comment on
+> patch 4/4. You might be able to tell whether the things I say there
+> about, well, the history of CAPI (middleware) device nodes are correct,
+> as you were already maintainer during that period, weren't you?
+> 
 
-Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   45 +++++++++++++++++++++++++++++-----
- 1 files changed, 38 insertions(+), 7 deletions(-)
+Yes I fully agree here, I have the same opinion as Tilman already
+stated. And thanks a lot for this work.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index ccd9015..3b74da5 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -3224,7 +3224,7 @@ static int tg3_nvram_read_using_eeprom(struct tg3 *tp,
- 	return 0;
- }
- 
--#define NVRAM_CMD_TIMEOUT 10000
-+#define NVRAM_CMD_TIMEOUT 100
- 
- static int tg3_nvram_exec_cmd(struct tg3 *tp, u32 nvram_cmd)
- {
-@@ -11893,9 +11893,9 @@ static int tg3_get_eeprom_len(struct net_device *dev)
- static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
- {
- 	struct tg3 *tp = netdev_priv(dev);
--	int ret;
-+	int ret, cpmu_restore = 0;
- 	u8  *pd;
--	u32 i, offset, len, b_offset, b_count;
-+	u32 i, offset, len, b_offset, b_count, cpmu_val = 0;
- 	__be32 val;
- 
- 	if (tg3_flag(tp, NO_NVRAM))
-@@ -11907,6 +11907,19 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 
- 	eeprom->magic = TG3_EEPROM_MAGIC;
- 
-+	/* Override clock, link aware and link idle modes */
-+	if (tg3_flag(tp, CPMU_PRESENT)) {
-+		cpmu_val = tr32(TG3_CPMU_CTRL);
-+		if (cpmu_val & (CPMU_CTRL_LINK_AWARE_MODE |
-+				CPMU_CTRL_LINK_IDLE_MODE)) {
-+			tw32(TG3_CPMU_CTRL, cpmu_val &
-+					    ~(CPMU_CTRL_LINK_AWARE_MODE |
-+					     CPMU_CTRL_LINK_IDLE_MODE));
-+			cpmu_restore = 1;
-+		}
-+	}
-+	tg3_override_clk(tp);
-+
- 	if (offset & 3) {
- 		/* adjustments to start on required 4 byte boundary */
- 		b_offset = offset & 3;
-@@ -11917,7 +11930,7 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		}
- 		ret = tg3_nvram_read_be32(tp, offset-b_offset, &val);
- 		if (ret)
--			return ret;
-+			goto eeprom_done;
- 		memcpy(data, ((char *)&val) + b_offset, b_count);
- 		len -= b_count;
- 		offset += b_count;
-@@ -11929,10 +11942,20 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 	for (i = 0; i < (len - (len & 3)); i += 4) {
- 		ret = tg3_nvram_read_be32(tp, offset + i, &val);
- 		if (ret) {
-+			if (i)
-+				i -= 4;
- 			eeprom->len += i;
--			return ret;
-+			goto eeprom_done;
- 		}
- 		memcpy(pd + i, &val, 4);
-+		if (need_resched()) {
-+			if (signal_pending(current)) {
-+				eeprom->len += i;
-+				ret = -EINTR;
-+				goto eeprom_done;
-+			}
-+			cond_resched();
-+		}
- 	}
- 	eeprom->len += i;
- 
-@@ -11943,11 +11966,19 @@ static int tg3_get_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom,
- 		b_offset = offset + len - b_count;
- 		ret = tg3_nvram_read_be32(tp, b_offset, &val);
- 		if (ret)
--			return ret;
-+			goto eeprom_done;
- 		memcpy(pd, &val, b_count);
- 		eeprom->len += b_count;
- 	}
--	return 0;
-+	ret = 0;
-+
-+eeprom_done:
-+	/* Restore clock, link aware and link idle modes */
-+	tg3_restore_clk(tp);
-+	if (cpmu_restore)
-+		tw32(TG3_CPMU_CTRL, cpmu_val);
-+
-+	return ret;
- }
- 
- static int tg3_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom, u8 *data)
--- 
-1.7.1
+> This patch, 1/4, and patch 2/4, simplify the Kconfig file and the code a
+> bit. It makes it  bit easier to understand how the CAPI code fits
+> together. Same thing with my commit d1958f8c2f0d ("isdn/capi: Make
+> Middleware depend on CAPI2.0"). It is also nice to drop the
+> ISDN_DRV_AVMB1_VERBOSE_REASON name, which only makes sense to people
+> that know the ancient history of this code.
+
+I'm not against dropping ISDN_DRV_AVMB1_VERBOSE_REASON completely, it
+was introduced in a time in which some KByte of memory did count a lot,
+since the PCs had often less than 4 MByte.
+
+Back to capi_info2str():
+My issue is that this change moves a part of the CAPI20 specification
+out of the capi modules. Everything from the CAPI specification (which
+is also defines these strings), is implemented in the 2 capi modules.
+The capidrv is not part of the CAPI20 specification, it is only the
+interface between CAPI20 and the old isdn4linux code, you can completely
+run CAPI20 applications without capidrv. If you disable I4L, nobody
+could use the CAPI reason translation. Yes, only the i4l interface
+driver did use it up to now, but this doesn't mean that it is the
+correct place. I think that this do not make it clearer how the code
+fits together.
+
+> 
+> Anyhow, this patch might complicate your local debugging practices. That
+> might be inconvenient for you. But in mainline we see a function that's
+> used in one place only. And I think cleaning up mainline code is what
+> counts.
+> 
+
+I'm not against cleaning up.
+If you still think, that we should move the code I do not compain again,
+but I want make sure that you understand why it was in that place and
+that it makes sense from the design of the CAPI20.
+
+Thanks again for your value work.
+
+Karsten
