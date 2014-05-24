@@ -1,99 +1,38 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: [PATCH/RFC net-next] MPLS: Use mpls_features to activate
-	software MPLS GSO segmentation
-Date: Sat, 24 May 2014 11:42:54 +0900
-Message-ID: <1400899374-29917-1-git-send-email-horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/4] bridge: adhere to querier
+ election mechanism specified by RFCs
+Date: Fri, 23 May 2014 23:36:37 -0400 (EDT)
+Message-ID: <20140523.233637.1826798421419100755.davem@davemloft.net>
+References: <1400662742-31999-1-git-send-email-linus.luessing@web.de>
+	<1400662742-31999-3-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1400662742-31999-3-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-If an MPLS packet requires segmentation then use mpls_features
-to determine if the software implementation should be used.
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Wed, 21 May 2014 10:59:00 +0200
 
-As no driver advertises MPLS GSO segmentation this will always be
-the case.
+> +	if (saddr <=3D br->ip4_querier.addr.u.ip4)
+> +		goto update;
 
-I had not noticed that this was necessary before as software MPLS GSO
-segmentation was already being used in my test environment. I believe that
-the reason for that is the skbs in question always had fragments and the
-driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
-case for most drivers). Thus Thus software segmentation was activated by
-skb_gso_ok().
+It is clear to me that you should be making these comparisons in cpu
+endianness.
 
-Thanks to Jesse Gross for prompting me to investigate this.
-
-Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
----
- net/core/dev.c | 36 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 867adb2..ade6029 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2540,6 +2540,40 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
- }
- EXPORT_SYMBOL(netif_skb_features);
- 
-+/* If MPLS offload request, verify we are testing hardware MPLS features
-+ * instead of standard features for the netdev.
-+ */
-+#ifdef CONFIG_NET_MPLS_GSO
-+static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
-+	struct net_device *dev, netdev_features_t features)
-+{
-+	/* There is no support for MPLS LRO. So the only way that
-+	 * an MPLS skb could require GSO segmentation is if it
-+	 * was received as a non-MPLS skb and then became an MPLS skb.
-+	 * This may be effected by Open vSwitch in which case the
-+	 * mac_len will non-zero and not equal to skb_network_offset
-+	 * as the former indicates the end of L2 the latter indicates
-+	 * the beginning of L3 and there is a gap between them occupied
-+	 * by the MPLS label stack.
-+	 *
-+	 * Thus it is possible to avoid traversing any VLAN tags that are
-+	 * present to determine if the ethtype is MPLS. Instead the
-+	 * inequality of mac_llen and skb_network_offset are used to
-+	 * determine if a packet is MPLS for the purpose of determining
-+	 * offload features.
-+	 */
-+	if (skb->mac_len && skb->mac_len != skb_network_offset(skb))
-+		features &= dev->mpls_features;
-+	return features;
-+}
-+#else
-+static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
-+	struct net_device *dev, netdev_features_t features)
-+{
-+	return features;
-+}
-+#endif
-+
- int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			struct netdev_queue *txq)
- {
-@@ -2576,6 +2610,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 		if (skb->encapsulation)
- 			features &= dev->hw_enc_features;
- 
-+		features = net_mpls_features(skb, dev, features);
-+
- 		if (netif_needs_gso(skb, features)) {
- 			if (unlikely(dev_gso_segment(skb, features)))
- 				goto out_kfree_skb;
--- 
-1.8.4
+Otherwise the code will handle the same situations differently
+on big-endian vs. little-endian machines.
