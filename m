@@ -1,53 +1,58 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v2 3/3] net: of_mdio: don't store the length of a property if we don't need to
-Date: Sat, 24 May 2014 09:34:27 +0200
-Message-ID: <1400916867-24573-4-git-send-email-zonque@gmail.com>
-References: <1400916867-24573-1-git-send-email-zonque@gmail.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mugunthanvnm@ti.com,
-	ujhelyi.m@gmail.com, Daniel Mack <zonque@gmail.com>
-To: f.fainelli@gmail.com
+From: Prashant <prashant@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: Override clock, link aware and link idle
+ mode during NVRAM dump
+Date: Sat, 24 May 2014 01:04:50 -0700
+Message-ID: <538052A2.1060700@broadcom.com>
+References: <1400864084-27118-1-git-send-email-prashant@broadcom.com> <20140524.001739.1276621872731687446.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <mchan@broadcom.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:36634 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaEXHep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 03:34:45 -0400
-Received: by mail-wg0-f45.google.com with SMTP id m15so5611325wgh.28
-        for <netdev@vger.kernel.org>; Sat, 24 May 2014 00:34:44 -0700 (PDT)
-In-Reply-To: <1400916867-24573-1-git-send-email-zonque@gmail.com>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:34281 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901AbaEXIEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 04:04:52 -0400
+In-Reply-To: <20140524.001739.1276621872731687446.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-of_get_property() can be called with NULL as 2nd argument if the caller
-is not interested in the length of a property. Use that here so we can
-get rid of a variable.
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/of/of_mdio.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 92e09ac..c719601 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -149,7 +149,7 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 	const __be32 *paddr;
- 	u32 addr;
- 	bool scanphys = false;
--	int rc, i, len;
-+	int rc, i;
- 
- 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
- 	 * the device tree are populated after the bus has been registered */
-@@ -186,7 +186,7 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 	/* auto scan for PHYs with empty reg property */
- 	for_each_available_child_of_node(np, child) {
- 		/* Skip PHYs with reg property set */
--		paddr = of_get_property(child, "reg", &len);
-+		paddr = of_get_property(child, "reg", NULL);
- 		if (paddr)
- 			continue;
- 
--- 
-1.9.0
+On 5/23/2014 9:17 PM, David Miller wrote:
+> From: Prashant Sreedharan <prashant@broadcom.com>
+> Date: Fri, 23 May 2014 09:54:44 -0700
+>
+>> +		if (cpmu_val & (CPMU_CTRL_LINK_AWARE_MODE |
+>> +				CPMU_CTRL_LINK_IDLE_MODE)) {
+>> +
+>
+> Please remove this empty line.
+Ok
+>
+>> +			tw32(TG3_CPMU_CTRL, cpmu_val &
+>> +			     ~(CPMU_CTRL_LINK_AWARE_MODE |
+>> +			       CPMU_CTRL_LINK_IDLE_MODE));
+>
+> This is not indented correctly.
+>
+> The ~() expression is part of the "cpum_val &", it's not
+> another separate argument to tw32().
+>
+> Therefore ~() should be indented to the column cpum_val starts
+> at.
+>
+Will fix indentation.
+>> +		if (need_resched()) {
+>> +			if (signal_pending(current)) {
+>> +				eeprom->len += i;
+>> +				ret = -EINTR;
+>> +				goto eeprom_done;
+>
+> Why are you incrementing eeprom->len when you break out of the
+> loop due to a signal?  You didn't read that extra byte.
+>
+eeprom->len is discarded by caller if a failure is returned.
+I will resend the patch after incorporating comments and add your 
+Reviewed-by. Thanks.
