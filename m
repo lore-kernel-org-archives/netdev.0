@@ -1,62 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: randconfig build error with next-20140523,
- in net/bridge/br_netfilter.c
-Date: Sat, 24 May 2014 14:24:25 -0400 (EDT)
-Message-ID: <20140524.142425.173040092814555368.davem@davemloft.net>
-References: <CA+r1Zhjh9Eyyf6uZWfW0beWgOonw77Ewu5w2nRG37698APXREg@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: What's the right way to use a *large* number of source addresses?
+Date: Sat, 24 May 2014 14:30:39 -0400
+Message-ID: <5380E54F.4030906@mojatatu.com>
+References: <6zlhtsvnqp.fsf@southpole.se>	<53808957.7020906@mojatatu.com> <CAFLxGvx-6F3OqSBjSCBnm5b+m_NingSsbO2qaP7K7TtJghF5LQ@mail.gmail.com> <5380B729.5080101@mojatatu.com> <5380C28F.2050508@nod.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	stephen@networkplumber.org, linux-next@vger.kernel.org, pablo@netfilter.org
-To: jim.epost@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CA+r1Zhjh9Eyyf6uZWfW0beWgOonw77Ewu5w2nRG37698APXREg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: =?UTF-8?B?TmllbHMgTcO2bGxlcg==?= <nisse@southpole.se>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jonas Bonn <jonas@southpole.se>
+To: Richard Weinberger <richard@nod.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:52887 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751133AbaEXSan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 14:30:43 -0400
+Received: by mail-ie0-f179.google.com with SMTP id rd18so6370350iec.10
+        for <netdev@vger.kernel.org>; Sat, 24 May 2014 11:30:43 -0700 (PDT)
+In-Reply-To: <5380C28F.2050508@nod.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jim Davis <jim.epost@gmail.com>
-Date: Fri, 23 May 2014 13:06:48 -0700
+On 05/24/14 12:02, Richard Weinberger wrote:
 
-> Building with the attached random configuration file,
-> 
-> warning: (BRIDGE_NF_EBTABLES) selects NETFILTER_XTABLES which has
-> unmet direct dependencies (NET && INET && NETFILTER)
-> warning: (NF_TABLES_BRIDGE && BRIDGE_NF_EBTABLES) selects
-> BRIDGE_NETFILTER which has unmet direct dependencies (NET && BRIDGE &&
-> NETFILTER && INET && NETFILTER_ADVANCED)
-> 
-> net/built-in.o: In function `br_parse_ip_options':
-> br_netfilter.c:(.text+0x4a5ba): undefined reference to `ip_options_compile'
-> br_netfilter.c:(.text+0x4a5ed): undefined reference to `ip_options_rcv_srr'
-> net/built-in.o: In function `br_nf_pre_routing_finish':
-> br_netfilter.c:(.text+0x4a8a4): undefined reference to `ip_route_input_noref'
-> br_netfilter.c:(.text+0x4a987): undefined reference to `ip_route_output_flow'
-> make: *** [vmlinux] Error 1
+> Digging through the code shows that this feature is rather new.
+> I had the old nat functionality of the routing subsystem in mind.
+>
 
-This problem was introduced by:
+This was the replacement for that. It is at least as old as
+a grade one kid.
 
-commit f5efc696cc711021cc73e7543cc3038e58459707
-Author: Tomasz Bursztyka <tomasz.bursztyka@linux.intel.com>
-Date:   Mon Apr 14 15:41:28 2014 +0300
-
-    netfilter: nf_tables: Add meta expression key for bridge interface name
-
-You can't use "select BRIDGE_NETFILTER" for NF_TABLES_BRIDGE, because
-it is BRIDGE_NETFILTER which provides the proper dependencies, and
-in particular the crucial "INET" dependency.
-
-When you use a hammer like "select" it bypasses the dependencies which
-are usually enforced by BRIDGE_NETFILTER and causes the problems we
-are seeing here.
-
-Pablo please fix this, thank you.
+cheers,
+jamal
