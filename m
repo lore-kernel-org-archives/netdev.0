@@ -1,98 +1,90 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2] ipvs: Fix panic due to non-linear skb
-Date: Sun, 25 May 2014 00:16:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1405250010210.1539@ja.home.ssi.bg>
-References: <1400960412-12830-1-git-send-email-pch@ordbogen.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Peter Christensen <pch@ordbogen.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1400960412-12830-1-git-send-email-pch@ordbogen.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cheng Renquan <crquan@gmail.com>
+Subject: [PATCH] dev-alloc-name-by-check-name-existence.patch
+Date: Sat, 24 May 2014 14:46:51 -0700
+Message-ID: <1400968011-13023-1-git-send-email-crquan@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:53502 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750989AbaEXVpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 17:45:35 -0400
+Received: by mail-yh0-f44.google.com with SMTP id b6so5375194yha.3
+        for <netdev@vger.kernel.org>; Sat, 24 May 2014 14:45:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Nowadays the net_device names have been mounted on a hash table,
+check name existence should be much faster than ever before, hence
+the extra page of memory for bitmap scanning is no longer needed.
 
-	Hello,
+Signed-off-by: Cheng Renquan <crquan@gmail.com>
 
-On Sat, 24 May 2014, Peter Christensen wrote:
+---
+ net/core/dev.c |   33 ++++++---------------------------
+ 1 file changed, 6 insertions(+), 27 deletions(-)
 
-> Receiving a ICMP response to an IPIP packet in a non-linear skb could
-> cause a kernel panic in __skb_pull.
-> 
-> The problem was introduced in
-> commit f2edb9f7706dcb2c0d9a362b2ba849efe3a97f5e ("ipvs: implement
-> passive PMTUD for IPIP packets").
-> 
-> Signed-off-by: Peter Christensen <pch@ordbogen.com>
-
-	Thanks!
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	Simon, please apply to ipvs tree!
-
-> ---
->  net/netfilter/ipvs/ip_vs_core.c |   15 ++++++++++-----
->  1 file changed, 10 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index 4f26ee4..3d2d2c8 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1392,15 +1392,19 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
->  
->  	if (ipip) {
->  		__be32 info = ic->un.gateway;
-> +		__u8 type = ic->type;
-> +		__u8 code = ic->code;
->  
->  		/* Update the MTU */
->  		if (ic->type == ICMP_DEST_UNREACH &&
->  		    ic->code == ICMP_FRAG_NEEDED) {
->  			struct ip_vs_dest *dest = cp->dest;
->  			u32 mtu = ntohs(ic->un.frag.mtu);
-> +			__be16 frag_off = cih->frag_off;
->  
->  			/* Strip outer IP and ICMP, go to IPIP header */
-> -			__skb_pull(skb, ihl + sizeof(_icmph));
-> +			if (pskb_pull(skb, ihl + sizeof(_icmph)) == NULL)
-> +				goto ignore_ipip;
->  			offset2 -= ihl + sizeof(_icmph);
->  			skb_reset_network_header(skb);
->  			IP_VS_DBG(12, "ICMP for IPIP %pI4->%pI4: mtu=%u\n",
-> @@ -1408,7 +1412,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
->  			ipv4_update_pmtu(skb, dev_net(skb->dev),
->  					 mtu, 0, 0, 0, 0);
->  			/* Client uses PMTUD? */
-> -			if (!(cih->frag_off & htons(IP_DF)))
-> +			if (!(frag_off & htons(IP_DF)))
->  				goto ignore_ipip;
->  			/* Prefer the resulting PMTU */
->  			if (dest) {
-> @@ -1427,12 +1431,13 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
->  		/* Strip outer IP, ICMP and IPIP, go to IP header of
->  		 * original request.
->  		 */
-> -		__skb_pull(skb, offset2);
-> +		if (pskb_pull(skb, offset2) == NULL)
-> +			goto ignore_ipip;
->  		skb_reset_network_header(skb);
->  		IP_VS_DBG(12, "Sending ICMP for %pI4->%pI4: t=%u, c=%u, i=%u\n",
->  			&ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
-> -			ic->type, ic->code, ntohl(info));
-> -		icmp_send(skb, ic->type, ic->code, info);
-> +			type, code, ntohl(info));
-> +		icmp_send(skb, type, code, info);
->  		/* ICMP can be shorter but anyways, account it */
->  		ip_vs_out_stats(cp, skb);
->  
-> -- 
-> 1.7.10.4
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Index: linux-3.14.3/net/core/dev.c
+===================================================================
+--- linux-3.14.3.orig/net/core/dev.c	2014-05-06 07:59:58.000000000 -0700
++++ linux-3.14.3/net/core/dev.c	2014-05-24 13:56:02.592865482 -0700
+@@ -960,54 +960,33 @@
+  *	Returns the number of the unit assigned or a negative errno code.
+  */
+ 
+ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
+ {
+ 	int i = 0;
+ 	const char *p;
+-	const int max_netdevices = 8*PAGE_SIZE;
+-	unsigned long *inuse;
+-	struct net_device *d;
+ 
+ 	p = strnchr(name, IFNAMSIZ-1, '%');
+ 	if (p) {
+ 		/*
+ 		 * Verify the string as this thing may have come from
+ 		 * the user.  There must be either one "%d" and no other "%"
+ 		 * characters.
+ 		 */
+ 		if (p[1] != 'd' || strchr(p + 2, '%'))
+ 			return -EINVAL;
+ 
+-		/* Use one page as a bit array of possible slots */
+-		inuse = (unsigned long *) get_zeroed_page(GFP_ATOMIC);
+-		if (!inuse)
+-			return -ENOMEM;
+-
+-		for_each_netdev(net, d) {
+-			if (!sscanf(d->name, name, &i))
+-				continue;
+-			if (i < 0 || i >= max_netdevices)
+-				continue;
+-
+-			/*  avoid cases where sscanf is not exact inverse of printf */
+-			snprintf(buf, IFNAMSIZ, name, i);
+-			if (!strncmp(buf, d->name, IFNAMSIZ))
+-				set_bit(i, inuse);
+-		}
+-
+-		i = find_first_zero_bit(inuse, max_netdevices);
+-		free_page((unsigned long) inuse);
++		do {
++			if (snprintf(buf, IFNAMSIZ, name, i) >= IFNAMSIZ)
++				break;
++			if (!__dev_get_by_name(net, buf))
++				return i;
++		} while (++i > 0);
+ 	}
+ 
+-	if (buf != name)
+-		snprintf(buf, IFNAMSIZ, name, i);
+-	if (!__dev_get_by_name(net, buf))
+-		return i;
+-
+ 	/* It is possible to run out of possible slots
+ 	 * when the name is long and there isn't enough space left
+ 	 * for the digits, or if all bits are used.
+ 	 */
+ 	return -ENFILE;
+ }
+ 
