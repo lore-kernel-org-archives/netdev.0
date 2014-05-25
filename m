@@ -1,55 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] wan: time_before()
-Date: Sun, 25 May 2014 10:58:52 -0700
-Message-ID: <1401040732.22191.8.camel@joe-AO725>
-References: <1401039163-10727-1-git-send-email-manuel.schoelling@gmx.de>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] mwifiex: use time_after()
+Date: Sun, 25 May 2014 19:59:36 +0200
+Message-ID: <1401040776-13711-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kevin.curtis@farsite.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Manuel =?ISO-8859-1?Q?Sch=F6lling?= <manuel.schoelling@gmx.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1401039163-10727-1-git-send-email-manuel.schoelling@gmx.de>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: bzhao@marvell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-05-25 at 19:32 +0200, Manuel Sch=F6lling wrote:
-> To be future-proof and for better readability the time comparisons ar=
-e
-> modified to use time_before() instead of plain, error-prone math.
+To be future-proof and for better readability the time comparisons are
+modified to use time_after() instead of plain, error-prone math.
 
-Sensible change, but it seems these should be
-udelay(some_constant) instead of a a rather
-variable time wait based on a system/config
-defined jiffies.
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
+---
+ drivers/net/wireless/mwifiex/main.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Kevin?
-
-> diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-[]
-> @@ -697,14 +697,14 @@ fst_cpureset(struct fst_card_info *card)
->  		 * We are delaying here to allow the 9054 to reset itself
->  		 */
->  		j =3D jiffies + 1;
-> -		while (jiffies < j)
-> +		while (time_before(jiffies, j))
->  			/* Do nothing */ ;
->  		outw(0x240f, card->pci_conf + CNTRL_9054 + 2);
->  		/*
->  		 * We are delaying here to allow the 9054 to reload its eeprom
->  		 */
->  		j =3D jiffies + 1;
-> -		while (jiffies < j)
-> +		while (time_before(jiffies, j))
->  			/* Do nothing */ ;
->  		outw(0x040f, card->pci_conf + CNTRL_9054 + 2);
-> =20
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe kernel-janito=
-rs" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/mwifiex/main.h b/drivers/net/wireless=
+/mwifiex/main.h
+index d53e1e8..3191066 100644
+--- a/drivers/net/wireless/mwifiex/main.h
++++ b/drivers/net/wireless/mwifiex/main.h
+@@ -1101,7 +1101,7 @@ mwifiex_11h_get_csa_closed_channel(struct mwifiex=
+_private *priv)
+ 		return 0;
+=20
+ 	/* Clear csa channel, if DFS channel move time has passed */
+-	if (jiffies > priv->csa_expire_time) {
++	if (time_after(jiffies, priv->csa_expire_time)) {
+ 		priv->csa_chan =3D 0;
+ 		priv->csa_expire_time =3D 0;
+ 	}
+--=20
+1.7.10.4
