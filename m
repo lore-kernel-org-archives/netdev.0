@@ -1,95 +1,125 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V6 0/2] cpumask,net: Affinity hint helper function
-Date: Sun, 25 May 2014 17:47:25 +0300
-Message-ID: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH net-next V6 1/2] cpumask: Utility function to set n'th cpu - local cpu first
+Date: Sun, 25 May 2014 17:47:26 +0300
+Message-ID: <1401029247-15196-2-git-send-email-amirv@mellanox.com>
+References: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Yuval Atias <yuvala@mellanox.com>, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37315 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751396AbaEYOry (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 May 2014 10:47:54 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This function sets the n'th cpu - local cpu's first.
+For example: in a 16 cores server with even cpu's local, will get the
+following values:
+cpumask_set_cpu_local_first(0, numa, cpumask) => cpu 0 is set
+cpumask_set_cpu_local_first(1, numa, cpumask) => cpu 2 is set
+...
+cpumask_set_cpu_local_first(7, numa, cpumask) => cpu 14 is set
+cpumask_set_cpu_local_first(8, numa, cpumask) => cpu 1 is set
+cpumask_set_cpu_local_first(9, numa, cpumask) => cpu 3 is set
+...
+cpumask_set_cpu_local_first(15, numa, cpumask) => cpu 15 is set
 
-This patchset will set affinity hint to influence IRQs to be allocated on the
-same NUMA node as the one where the card resides. As discussed in
-http://www.spinics.net/lists/netdev/msg271497.html
+Curently this function will be used by multi queue networking devices to
+calculate the irq affinity mask, such that as many local cpu's as
+possible will be utilized to handle the mq device irq's.
 
-If the number of IRQs allocated is greater than the number of local NUMA cores, all
-local cores will be used first, and the rest of the IRQs will be on a remote
-NUMA node.
-If no NUMA support - IRQ's and cores will be mapped 1:1
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/cpumask.h |  2 ++
+ lib/cpumask.c           | 64 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 66 insertions(+)
 
-Since the utility function to calculate the mapping could be useful in other mq
-drivers in the kernel, it was added to cpumask.[ch]
-
-This patchset was tested and applied on top of net-next since the first
-consumer is a network device (mlx4_en).  Over commit 506724c: "tg3: Override
-clock, link aware and link idle mode during NVRAM dump"
-
-I couldn't find a maintainer for cpumask.c, so only added the kernel mailing
-list
-
-Amir
-
-Changes from V5:
-- Moved the utility function from kernel/irq/manage.c to lib/cpumask.c, and
-  renamed it's name accordingly to cpumask_set_cpu_local_first()
-- Added some comments as Thomas Gleixner suggested
-- Changed -EINVAL to -EAGAIN, that describes the error situtation better.
-
-Changes from V4:
-- Patch 1/2: irq: Utility function to get affinity_hint by policy
-  Thank you Ben for the great review:
-  - Moved the function it kernel/irq/manage.c since it could be useful for
-    block mq devices
-  - Fixed Typo's
-  - Use cpumask_t * instead of cpumask_var_t in function header  
-  - Restructured the function to remove NULL assignment in a cpumask_var_t
-  - Fix for offline local CPU's
-
-Changes from V3:
-- Patch 2/2: net/mlx4_en: Use affinity hint
-  - somehow patch file was corrupted
-
-Changes from V2:
-- Patch 1/2: net: Utility function to get affinity_hint by policy
-  - Fixed style issues
-
-Changes from V1:
-- Patch 1/2: net: Utility function to get affinity_hint by policy
-  - Fixed error flow to return -EINVAL on error (thanks govind)
-- Patch 2/2: net/mlx4_en: Use affinity hint
-  - Set ring->affinity_hint to NULL on error
-
-Changes from V0:
-- Fixed small style issues
-
-
-Amir Vadai (1):
-  cpumask: Utility function to set n'th cpu - local cpu first
-
-Yuval Atias (1):
-  net/mlx4_en: Use affinity hint
-
- drivers/infiniband/hw/mlx4/main.c              |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_cq.c     |  6 ++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 30 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/eq.c        | 13 +++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
- include/linux/cpumask.h                        |  2 +
- include/linux/mlx4/device.h                    |  2 +-
- lib/cpumask.c                                  | 64 ++++++++++++++++++++++++++
- 8 files changed, 116 insertions(+), 4 deletions(-)
-
+diff --git a/include/linux/cpumask.h b/include/linux/cpumask.h
+index d08e4d2..3551d66 100644
+--- a/include/linux/cpumask.h
++++ b/include/linux/cpumask.h
+@@ -257,6 +257,8 @@ static inline void cpumask_set_cpu(unsigned int cpu, struct cpumask *dstp)
+ 	set_bit(cpumask_check(cpu), cpumask_bits(dstp));
+ }
+ 
++int cpumask_set_cpu_local_first(int i, int numa_node, cpumask_t *dstp);
++
+ /**
+  * cpumask_clear_cpu - clear a cpu in a cpumask
+  * @cpu: cpu number (< nr_cpu_ids)
+diff --git a/lib/cpumask.c b/lib/cpumask.c
+index b810b75..14049a9 100644
+--- a/lib/cpumask.c
++++ b/lib/cpumask.c
+@@ -163,4 +163,68 @@ void __init free_bootmem_cpumask_var(cpumask_var_t mask)
+ {
+ 	memblock_free_early(__pa(mask), cpumask_size());
+ }
++
++/**
++ * cpumask_set_cpu_local_first - set i'th cpu with local numa cpu's first
++ *
++ * @i: index number
++ * @numa_node: local numa_node
++ * @dstp: cpumask with the relevant cpu bit set according to the policy
++ *
++ * This function sets the cpumask according to a numa aware policy.
++ * cpumask could be used as an affinity hint for the IRQ related to a
++ * queue. When the policy is to spread queues across cores - local cores
++ * first.
++ *
++ * Returns 0 on success, -ENOMEM for no memory, and -EAGAIN when failed to set
++ * the cpu bit and need to re-call the function.
++ */
++int cpumask_set_cpu_local_first(int i, int numa_node, cpumask_t *dstp)
++{
++	cpumask_var_t mask;
++	int cpu;
++	int ret = 0;
++
++	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
++		return -ENOMEM;
++
++	i %= num_online_cpus();
++
++	if (!cpumask_of_node(numa_node)) {
++		/* Use all online cpu's for non numa aware system */
++		cpumask_copy(mask, cpu_online_mask);
++	} else {
++		int n;
++
++		cpumask_and(mask,
++			    cpumask_of_node(numa_node), cpu_online_mask);
++
++		n = cpumask_weight(mask);
++		if (i >= n) {
++			i -= n;
++
++			/* If index > number of local cpu's, mask out local
++			 * cpu's
++			 */
++			cpumask_andnot(mask, cpu_online_mask, mask);
++		}
++	}
++
++	for_each_cpu(cpu, mask) {
++		if (--i < 0)
++			goto out;
++	}
++
++	ret = -EAGAIN;
++
++out:
++	free_cpumask_var(mask);
++
++	if (!ret)
++		cpumask_set_cpu(cpu, dstp);
++
++	return ret;
++}
++EXPORT_SYMBOL(cpumask_set_cpu_local_first);
++
+ #endif
 -- 
 1.8.3.4
