@@ -1,124 +1,84 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH 1/1] iproute2 bridge: bring to par with brctl show macs
-Date: Sun, 25 May 2014 09:22:30 -0400
-Message-ID: <1401024151-8774-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
-	john.r.fastabend@intel.com, sfeldma@cumulusnetworks.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: [PATCH] ipv6: Fix regression caused by efe4208 in
+ udp_v6_mcast_next()
+Date: Sun, 25 May 2014 16:14:08 +0200 (CEST)
+Message-ID: <alpine.LNX.2.11.1405251611020.22222@titan.int.lan.stealer.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:47270 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751389AbaEYNWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 09:22:40 -0400
-Received: by mail-ie0-f176.google.com with SMTP id rl12so6774368iec.35
-        for <netdev@vger.kernel.org>; Sun, 25 May 2014 06:22:39 -0700 (PDT)
+Received: from smtp1.stealer.net ([88.198.224.204]:50418 "EHLO
+	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbaEYOUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 10:20:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+Commit efe4208 ("ipv6: make lookups simpler and faster") introduced a
+regression in udp_v6_mcast_next(), resulting in multicast packets not
+reaching the destination sockets under certain conditions.
 
-Example usage with bridge sw1 with two entries (port sw1-p1)
+The packet's IPv6 addresses are wrongly compared to the IPv6 addresses
+from the function's socket argument, which indicates the starting point
+for looping, instead of the loop variable. If the addresses from the
+first socket do not match the packet's addresses, no socket in the list
+will match.
 
-root@jhs-1:iprtmay24# ./bridge/bridge fdb help
-Usage: bridge fdb { add | append | del | replace } ADDR dev DEV
-{self|master} [ temp ]
-              [router] [ dst IPADDR] [ vlan VID ]
-              [ port PORT] [ vni VNI ] [via DEV]
-       bridge fdb {show} [ br BRDEV ] [ brport DEV ]
-root@jhs-1:iprtmay24#
-root@jhs-1:iprtmay24#
-root@jhs-1:iprtmay24# bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-6e:9a:af:54:70:ff dev sw1-p1 vlan 0 permanent
-00:17:42:8a:b4:05 dev sw1-p1 vlan 0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-root@moja-1:iprtmay24#
-root@moja-1:iprtmay24# bridge fdb show br sw1
-6e:9a:af:54:70:ff dev sw1-p1 vlan 0 permanent
-00:17:42:8a:b4:05 dev sw1-p1 vlan 0 permanent
+Fix this by shrinking the function to use one variable for the socket to
+avoid confusion in the future.
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: stable@vger.kernel.org # 3.13+
+Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
 ---
- bridge/fdb.c |   29 ++++++++++++++++++++++++-----
- 1 file changed, 24 insertions(+), 5 deletions(-)
+ net/ipv6/udp.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 9b720e3..01a2d71 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -33,7 +33,7 @@ static void usage(void)
- 	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
- 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
- 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
--	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
-+	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
- 	exit(-1);
- }
- 
-@@ -157,18 +157,35 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- static int fdb_show(int argc, char **argv)
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 1e586d9..9b7a99d 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -701,17 +701,16 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+ 				      int dif)
  {
-+	struct ndmsg ndm = { };
- 	char *filter_dev = NULL;
-+	char *br = NULL;
-+
-+	ndm.ndm_family = PF_BRIDGE;
-+	ndm.ndm_state = NUD_NOARP;
+ 	struct hlist_nulls_node *node;
+-	struct sock *s = sk;
+ 	unsigned short num = ntohs(loc_port);
  
- 	while (argc > 0) {
--		if (strcmp(*argv, "dev") == 0) {
-+		if ((strcmp(*argv, "brport") == 0) || strcmp(*argv, "dev") == 0) {
- 			NEXT_ARG();
--			if (filter_dev)
--				duparg("dev", *argv);
- 			filter_dev = *argv;
-+		} else if (strcmp(*argv, "br") == 0) {
-+			NEXT_ARG();
-+			br = *argv;
-+		} else {
-+			if (matches(*argv, "help") == 0)
-+				usage();
+-	sk_nulls_for_each_from(s, node) {
+-		struct inet_sock *inet = inet_sk(s);
++	sk_nulls_for_each_from(sk, node) {
++		struct inet_sock *inet = inet_sk(sk);
+ 
+-		if (!net_eq(sock_net(s), net))
++		if (!net_eq(sock_net(sk), net))
+ 			continue;
+ 
+-		if (udp_sk(s)->udp_port_hash == num &&
+-		    s->sk_family == PF_INET6) {
++		if (udp_sk(sk)->udp_port_hash == num &&
++		    sk->sk_family == PF_INET6) {
+ 			if (inet->inet_dport) {
+ 				if (inet->inet_dport != rmt_port)
+ 					continue;
+@@ -720,16 +719,16 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+ 			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
+ 				continue;
+ 
+-			if (s->sk_bound_dev_if && s->sk_bound_dev_if != dif)
++			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
+ 				continue;
+ 
+ 			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
+ 				if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, loc_addr))
+ 					continue;
+ 			}
+-			if (!inet6_mc_check(s, loc_addr, rmt_addr))
++			if (!inet6_mc_check(sk, loc_addr, rmt_addr))
+ 				continue;
+-			return s;
++			return sk;
  		}
- 		argc--; argv++;
  	}
- 
-+	if (br) {
-+		ndm.ndm_ifindex = ll_name_to_index(br);
-+		if (ndm.ndm_ifindex == 0) {
-+			fprintf(stderr, "Cannot find bridge device \"%s\"\n", br);
-+			return -1;
-+		}
-+	}
-+
- 	if (filter_dev) {
- 		filter_index = if_nametoindex(filter_dev);
- 		if (filter_index == 0) {
-@@ -176,13 +193,15 @@ static int fdb_show(int argc, char **argv)
- 				filter_dev);
- 			return -1;
- 		}
-+
- 	}
- 
--	if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETNEIGH) < 0) {
-+	if (rtnl_dump_request(&rth, RTM_GETNEIGH, &ndm, sizeof(struct ndmsg)) < 0) {
- 		perror("Cannot send dump request");
- 		exit(1);
- 	}
- 
-+
- 	if (rtnl_dump_filter(&rth, print_fdb, stdout) < 0) {
- 		fprintf(stderr, "Dump terminated\n");
- 		exit(1);
--- 
-1.7.9.5
+ 	return NULL;
