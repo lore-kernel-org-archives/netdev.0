@@ -1,46 +1,45 @@
-From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-Subject: [PATCH] wan: time_before()
-Date: Sun, 25 May 2014 19:32:43 +0200
-Message-ID: <1401039163-10727-1-git-send-email-manuel.schoelling@gmx.de>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH/RFC net-next] MPLS: Use mpls_features to
+ activate software MPLS GSO segmentation
+Date: Sun, 25 May 2014 10:46:05 -0700
+Message-ID: <CAEP_g=_7fyX1qCi8fC0HyzGGESPQSmYQu=_8YWJGZAecL0hT+w@mail.gmail.com>
+References: <1400899374-29917-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-To: kevin.curtis@farsite.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1400899374-29917-1-git-send-email-horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-To be future-proof and for better readability the time comparisons are
-modified to use time_before() instead of plain, error-prone math.
+On Fri, May 23, 2014 at 7:42 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> If an MPLS packet requires segmentation then use mpls_features
+> to determine if the software implementation should be used.
+>
+> As no driver advertises MPLS GSO segmentation this will always be
+> the case.
+>
+> I had not noticed that this was necessary before as software MPLS GSO
+> segmentation was already being used in my test environment. I believe that
+> the reason for that is the skbs in question always had fragments and the
+> driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+> case for most drivers). Thus Thus software segmentation was activated by
+> skb_gso_ok().
+>
+> Thanks to Jesse Gross for prompting me to investigate this.
+>
+> Cc: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 
-Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
----
- drivers/net/wan/farsync.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index bcfff0d..d007f60 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -697,14 +697,14 @@ fst_cpureset(struct fst_card_info *card)
- 		 * We are delaying here to allow the 9054 to reset itself
- 		 */
- 		j =3D jiffies + 1;
--		while (jiffies < j)
-+		while (time_before(jiffies, j))
- 			/* Do nothing */ ;
- 		outw(0x240f, card->pci_conf + CNTRL_9054 + 2);
- 		/*
- 		 * We are delaying here to allow the 9054 to reload its eeprom
- 		 */
- 		j =3D jiffies + 1;
--		while (jiffies < j)
-+		while (time_before(jiffies, j))
- 			/* Do nothing */ ;
- 		outw(0x040f, card->pci_conf + CNTRL_9054 + 2);
-=20
---=20
-1.7.10.4
+Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
