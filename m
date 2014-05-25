@@ -1,98 +1,100 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net-next] netfilter: bridge: fix Kconfig unmet dependencies
-Date: Sun, 25 May 2014 14:48:33 +0200
-Message-ID: <1401022113-6430-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH 1/1] bridge netlink interface at par with brctl show macs
+Date: Sun, 25 May 2014 09:04:02 -0400
+Message-ID: <1401023042-6902-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	vyasevic@redhat.com, john.r.fastabend@intel.com,
+	sfeldma@cumulusnetworks.com, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35189 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751422AbaEYMsx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 May 2014 08:48:53 -0400
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:56281 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbaEYNEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 09:04:20 -0400
+Received: by mail-pa0-f44.google.com with SMTP id ld10so6330572pab.3
+        for <netdev@vger.kernel.org>; Sun, 25 May 2014 06:04:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before f5efc69 ("netfilter: nf_tables: Add meta expression key for
-bridge interface name"), the entire net/bridge/netfilter/ directory
-depended on BRIDGE_NF_EBTABLES, ie. on ebtables. However, that
-directory already contained the nf_tables bridge extension that
-we should allow to compile separately. In f5efc69, we tried to
-generalize this by using CONFIG_BRIDGE_NETFILTER which was not a good
-idea since this option already existed and it is dedicated to enable
-the Netfilter bridge IP/ARP filtering.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Let's try to fix this mess by:
+This patch allows something equivalent to
+"brctl showmacs <bridge device>" with iproute2
+syntax "bridge fdb show br <bridge device>"
+Filtering by bridge is done in the kernel.
+The current setup doesnt scale when you have many bridges each
+with large fdbs (preliminary fix with the kernel patch).
 
-1) making net/bridge/netfilter/ dependent on the toplevel
-   CONFIG_NETFILTER option, just like we do with the net/netfilter and
-   net/ipv{4,6}/netfilter/ directories.
-
-2) Changing 'selects' to 'depends on' NETFILTER_XTABLES for
-   BRIDGE_NF_EBTABLES. I believe this problem was already before
-   f5efc69:
-
-warning: (BRIDGE_NF_EBTABLES) selects NETFILTER_XTABLES which has
-unmet direct dependencies (NET && INET && NETFILTER)
-
-3) Fix ebtables/nf_tables bridge dependencies by making NF_TABLES_BRIDGE
-   and BRIDGE_NF_EBTABLES dependent on BRIDGE and NETFILTER:
-
-warning: (NF_TABLES_BRIDGE && BRIDGE_NF_EBTABLES) selects
-BRIDGE_NETFILTER which has unmet direct dependencies (NET && BRIDGE &&
-NETFILTER && INET && NETFILTER_ADVANCED)
-
-net/built-in.o: In function `br_parse_ip_options':
-br_netfilter.c:(.text+0x4a5ba): undefined reference to `ip_options_compile'
-br_netfilter.c:(.text+0x4a5ed): undefined reference to `ip_options_rcv_srr'
-net/built-in.o: In function `br_nf_pre_routing_finish':
-br_netfilter.c:(.text+0x4a8a4): undefined reference to `ip_route_input_noref'
-br_netfilter.c:(.text+0x4a987): undefined reference to `ip_route_output_flow'
-make: *** [vmlinux] Error 1
-
-Reported-by: Jim Davis <jim.epost@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
-@David: Please, feel free to pick this fix into your net-next, it addresses
-http://marc.info/?l=linux-netdev&m=140095588506382&w=2
+ net/core/rtnetlink.c |   50 +++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 35 insertions(+), 15 deletions(-)
 
- net/bridge/Makefile          |    2 +-
- net/bridge/netfilter/Kconfig |    7 ++-----
- 2 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-index 906a18b..be68796 100644
---- a/net/bridge/Makefile
-+++ b/net/bridge/Makefile
-@@ -16,4 +16,4 @@ bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index f31268d..a605742 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2509,26 +2509,46 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx = 0;
+ 	struct net *net = sock_net(skb->sk);
++	const struct net_device_ops *ops;
+ 	struct net_device *dev;
++	struct ndmsg *ndm;
  
- bridge-$(CONFIG_BRIDGE_VLAN_FILTERING) += br_vlan.o
+-	rcu_read_lock();
+-	for_each_netdev_rcu(net, dev) {
+-		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+-			struct net_device *br_dev;
+-			const struct net_device_ops *ops;
+-
+-			br_dev = netdev_master_upper_dev_get(dev);
+-			ops = br_dev->netdev_ops;
+-			if (ops->ndo_fdb_dump)
+-				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++	ndm = nlmsg_data(cb->nlh);
++	if (ndm->ndm_ifindex) {
++		dev = __dev_get_by_index(net, ndm->ndm_ifindex);
++		if (dev == NULL) {
++			pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
++			return -ENODEV;
+ 		}
  
--obj-$(CONFIG_BRIDGE_NETFILTER) += netfilter/
-+obj-$(CONFIG_NETFILTER) += netfilter/
-diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
-index 3baf29d..629dc77 100644
---- a/net/bridge/netfilter/Kconfig
-+++ b/net/bridge/netfilter/Kconfig
-@@ -3,8 +3,7 @@
- #
- #
- menuconfig NF_TABLES_BRIDGE
--	depends on NF_TABLES
--	select BRIDGE_NETFILTER
-+	depends on BRIDGE && NETFILTER && NF_TABLES
- 	tristate "Ethernet Bridge nf_tables support"
+-		if (dev->netdev_ops->ndo_fdb_dump)
+-			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
+-		else
+-			idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++		printk("Requested for bridge <%s>\n", dev->name);
++		ops = dev->netdev_ops;
++		if (ops->ndo_fdb_dump) {
++			idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++		} else {
++			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
++				dev->name);
++			return -EINVAL;
++		}
++	} else {
++		rcu_read_lock();
++		for_each_netdev_rcu(net, dev) {
++			if (dev->priv_flags & IFF_BRIDGE_PORT) {
++				struct net_device *br_dev;
++				br_dev = netdev_master_upper_dev_get(dev);
++				ops = br_dev->netdev_ops;
++				if (ops->ndo_fdb_dump)
++					idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++			}
++
++			if (dev->netdev_ops->ndo_fdb_dump)
++				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
++								    idx);
++			else
++				idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++		}
++		rcu_read_unlock();
+ 	}
+-	rcu_read_unlock();
  
- if NF_TABLES_BRIDGE
-@@ -19,9 +18,7 @@ endif # NF_TABLES_BRIDGE
- 
- menuconfig BRIDGE_NF_EBTABLES
- 	tristate "Ethernet Bridge tables (ebtables) support"
--	depends on BRIDGE && NETFILTER
--	select BRIDGE_NETFILTER
--	select NETFILTER_XTABLES
-+	depends on BRIDGE && NETFILTER && NETFILTER_XTABLES
- 	help
- 	  ebtables is a general, extensible frame/packet identification
- 	  framework. Say 'Y' or 'M' here if you want to do Ethernet
+ 	cb->args[0] = idx;
+ 	return skb->len;
 -- 
-1.7.10.4
+1.7.9.5
