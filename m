@@ -1,37 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tg3: Override clock, link aware and link idle
- mode during NVRAM dump
-Date: Sat, 24 May 2014 23:40:07 -0400 (EDT)
-Message-ID: <20140524.234007.2092002212094016123.davem@davemloft.net>
-References: <1400920329-9901-1-git-send-email-prashant@broadcom.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCHv2 net-next 0/4] bridge: multicast snooping patches
+	/ exports
+Date: Sun, 25 May 2014 07:03:21 +0200
+Message-ID: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: prashant@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751262AbaEYDkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 May 2014 23:40:08 -0400
-In-Reply-To: <1400920329-9901-1-git-send-email-prashant@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: b.a.t.m.a.n@lists.open-mesh.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Prashant Sreedharan <prashant@broadcom.com>
-Date: Sat, 24 May 2014 01:32:09 -0700
+Changes in v2:
 
-> When cable is not present the clock speed of some of the devices is
-> reduced based upon power saving mode setting in NVRAM. Due to this
-> NVRAM reads take long time to complete as a result CPU soft lockup
-> message is seen. Fix is to override clock, disable link aware and link
-> idle modes before NVRAM reads and restore them back after the reads
-> are complete. During this period also check if the thread needs to be
-> rescheduled and if there are any signals to handle.
-> 
-> Also decrease the NVRAM command execution timeout value to 1ms.
-> 
-> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+* fix a nasty typo in PATCH 1/4, br_multicast_update_query_timer():
+  "br->multicast_query_interval" vs. "br->multicast_querier_interval"
+  =3D> this accidentally reduced the other querier present timer=20
+     from 255 to 125 seconds
+* fix a typo in PATCH 2/4, br_ip{4,6}_multicast_query():
+  ntohs(ETH_P_{IP,IPV6}) vs. htons(ETH_P_{IP,IPV6})
+* add missing ntohl()s before address comparison in PATCH 2/4,
+  br_ip4_multicast_select_querier() (thanks David!)
 
-Applied to net-next, thanks.
+Cheers, Linus
