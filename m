@@ -1,79 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 5/5] net: Use netlink_ns_capable to verify the permisions of netlink messages
-Date: Sat, 24 May 2014 22:45:13 -0700
-Message-ID: <87y4xqtnrq.fsf@x220.int.ebiederm.org>
-References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org>
-	<536AB151.2070804@dti2.net>
-	<CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com>
-	<20140507.185256.496391962242529591.davem@davemloft.net>
-	<CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com>
-	<CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com>
-	<CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com>
-	<20140522170505.64ef87a2@griffin>
-	<87ioow6pt6.fsf@x220.int.ebiederm.org>
-	<CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
+ skb before it enters the IP stack)
+Date: Sun, 25 May 2014 16:07:19 +0930
+Message-ID: <53818F9F.90307@davidnewall.com>
+References: <53803488.6000400@davidnewall.com>	<20140524.134356.992924324126016022.davem@davemloft.net>	<53815623.8020506@davidnewall.com> <20140524.230202.372276424258120234.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jiri Benc <jbenc@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	David Miller <davem@davemloft.net>,
-	"Jorge Boncompte \[DTI2\]" <jorge@dti2.net>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Simo Sorce <ssorce@redhat.com>,
-	"security\@kernel.org" <security@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Serge E. Hallyn" <serge@hallyn.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:42045 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787AbaEYFqH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 01:46:07 -0400
-In-Reply-To: <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com>
-	(Linus Torvalds's message of "Fri, 23 May 2014 16:51:17 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140524.230202.372276424258120234.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> writes:
-
-> On Fri, May 23, 2014 at 4:25 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->>
->> I have not seen consensus that what Zebra is doing makes sense to
->> support.
+On 25/05/14 12:32, David Miller wrote:
+> From: David Newall<davidn@davidnewall.com>
+> Date: Sun, 25 May 2014 12:02:03 +0930
 >
-> Eric, stop right there.
->
-> There is no "sensible to support". There is only "reality".
->
-> The thing that makes "reality" be "reality" is that it exists whether
-> you like it or not, or whether you believe in it or not.
->
-> We don't break applications. Whether you like them or not is
-> completely immaterial.
+>> On 25/05/14 03:13, David Miller wrote:
+>>> This patch was substantially corrupted by your email client.
+>> >We should be sending these things as mime attachments.
+> It makes replying and commenting inline easy.
 
-You stop right there.  You are shooting the messenger.
+Patches are intrinsically corrupted by commenting on them inline, and 
+that doesn't matter.  What does matter is when a patch that people will 
+need to test is corrupted, and sending them as mime attachments is the 
+best answer I know of.  It's trivial to copy and paste from an 
+attachment to the body so that you can comment; far easier than copying 
+and pasting a patch verbatim (i.e. without corrupting it.)
 
-I like Zebra just fine, and I hate breaking applications.
 
-We don't retain bug compatibility when the semantics of kernel
-interfaces are security vulnerabilities.
+> It's not our problem that so many email clients make sending
+> plain unmolested ASCII text difficult.
 
-I don't appreciate being shot when I am just the messenger saying that
-there is not a known fix for Zebra, that it might be unfixable, and that
-no one had thought of a anything.
+It wasn't the email client; it was the xfce-terminal copy that corrupted 
+it.  It's proven to corrupt this patch in two different ways; the other, 
+which I caught before send, was because of unreliable scrollback.
 
-What Andy Lutormiski suggested of checking permissions at connect time
-will break a whole lot more than just Zebra.  Unprivileged connect is a
-supported feature in netlink, and all information rtnetlink queries
-are non-privileged as is listening to rtnetlink brodacsts of network
-state chagnes.
+In fact it is our problem when we insist that patches be sent in a way 
+which we know is brittle and error-prone; our problem and our fault.  
+Just imagine if you could have back all of the time you've wasted 
+looking at included code, only to discover that it had been corrupted in 
+some way or another; and then multiply that by everybody else who's 
+wasted time the same way.  The argument that it makes it easy to comment 
+is unconvincing to me because the alternative is so easy.
 
-In concrete form, no special privileges are requires to run "ip link" or
-"ip monitor".  Those among other commands are what Andy has proposed
-breaking, all in the name of "supporting" Zebra.
-
-I care just enough I have thrown a patch over the wall and we will see
-if it sticks.
-
-Eric
+I apologise for this noise as I don't believe this is something which 
+will change any time soon; it will change, just not soon.  I'm quite 
+willing to drop the issue.
