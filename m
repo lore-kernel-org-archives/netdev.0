@@ -1,57 +1,40 @@
-From: Ivan Mikhaylov <ivan-JgLE2wv1ufrQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/2] emac: add missing support of 10mbit in emac/rgmii
-Date: Mon, 26 May 2014 22:24:17 +0400
-Message-ID: <1401128657.24099.17.camel@localhost.localdomain>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 4/4] staging: r8192ee: Turn on build of the new driver
+Date: Mon, 26 May 2014 13:24:40 -0500
+Message-ID: <538386E8.9090105@lwfinger.net>
+References: <1400707536-3338-1-git-send-email-Larry.Finger@lwfinger.net>	 <1400707536-3338-5-git-send-email-Larry.Finger@lwfinger.net> <1401127560.17377.137.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alistair Popple <alistair-Y4h6yKqj69EXC2x5gXVKYQ@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	devel@driverdev.osuosl.org, zhangfp1@lenovo.com,
+	troy_tan@realsil.com.cn
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:43940 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751737AbaEZSYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 14:24:43 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uy5so8387499obc.29
+        for <netdev@vger.kernel.org>; Mon, 26 May 2014 11:24:42 -0700 (PDT)
+In-Reply-To: <1401127560.17377.137.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In chips of emac/rgmii b'000' for 0/1 channel isn't suitable which
-resulted in non working network interface in this mode.
+On 05/26/2014 01:06 PM, Ben Hutchings wrote:
+> On Wed, 2014-05-21 at 16:25 -0500, Larry Finger wrote:
+> [...]
+>> --- /dev/null
+>> +++ b/drivers/staging/rtl8192ee/Kconfig
+>> @@ -0,0 +1,8 @@
+>> +config R8192EE
+>> +	tristate "Realtek RTL8192EE Wireless Network Adapter"
+>
+> depends on MAC80211 && PCI
+> (at least)
 
-Signed-off-by: Ivan Mikhaylov <ivan-JgLE2wv1ufrQT0dZR+AlfA@public.gmane.org>
+That should be all that is required.
 
----
- drivers/net/ethernet/ibm/emac/rgmii.c | 3 +++
- 1 file changed, 3 insertions(+)
+I'll prepare and send a patch.
 
-diff --git a/drivers/net/ethernet/ibm/emac/rgmii.c b/drivers/net/ethernet/ibm/emac/rgmii.c
-index 4fb2f96..a01182c 100644
---- a/drivers/net/ethernet/ibm/emac/rgmii.c
-+++ b/drivers/net/ethernet/ibm/emac/rgmii.c
-@@ -45,6 +45,7 @@
- 
- /* RGMIIx_SSR */
- #define RGMII_SSR_MASK(idx)	(0x7 << ((idx) * 8))
-+#define RGMII_SSR_10(idx)	(0x1 << ((idx) * 8))
- #define RGMII_SSR_100(idx)	(0x2 << ((idx) * 8))
- #define RGMII_SSR_1000(idx)	(0x4 << ((idx) * 8))
- 
-@@ -139,6 +140,8 @@ void rgmii_set_speed(struct platform_device *ofdev, int input, int speed)
- 		ssr |= RGMII_SSR_1000(input);
- 	else if (speed == SPEED_100)
- 		ssr |= RGMII_SSR_100(input);
-+	else if (speed == SPEED_10)
-+		ssr |= RGMII_SSR_10(input);
- 
- 	out_be32(&p->ssr, ssr);
- 
--- 
-1.9.3
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Larry
