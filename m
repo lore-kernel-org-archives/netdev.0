@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net-next 2/8] net: cdc_ncm: always reallocate tx_curr_skb when tx_max increases
-Date: Mon, 26 May 2014 12:53:39 +0200
-Message-ID: <1401101625-12342-3-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 1/8] net: cdc_ncm: reduce skb truesize in rx path
+Date: Mon, 26 May 2014 12:53:38 +0200
+Message-ID: <1401101625-12342-2-git-send-email-bjorn@mork.no>
 References: <1401101625-12342-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -20,37 +20,38 @@ In-Reply-To: <1401101625-12342-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.o
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We are calling usbnet_start_xmit() to flush any remaining data,
-depending on the side effect that tx_curr_skb is set to NULL,
-ensuring a new allocation using the updated tx_max.  But this
-side effect will only happen if there were any cached data ready
-to transmit. If not, then an empty tx_curr_skb is still allocated
-using the old tx_max size. Free it to avoid a buffer overrun.
+Cloning the big skbs we use for USB buffering chokes up TCP and
+SCTP because the socket memory limits are hitting earlier than
+they should. It is better to unconditionally copy the unwrapped
+packets to freshly allocated skbs.
 
-=46ixes: 68864abf08f0 ("net: cdc_ncm: support rx_max/tx_max updates whe=
-n running")
+Reported-by: Jim Baxter <jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org>
+Acked-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/cdc_ncm.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/usb/cdc_ncm.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 2bbbd65591c7..ff5b3a854898 100644
+index 93c9ca9924eb..2bbbd65591c7 100644
 --- a/drivers/net/usb/cdc_ncm.c
 +++ b/drivers/net/usb/cdc_ncm.c
-@@ -268,6 +268,11 @@ static void cdc_ncm_update_rxtx_max(struct usbnet =
-*dev, u32 new_rx, u32 new_tx)
- 	if (netif_running(dev->net) && val > ctx->tx_max) {
- 		netif_tx_lock_bh(dev->net);
- 		usbnet_start_xmit(NULL, dev->net);
-+		/* make sure tx_curr_skb is reallocated if it was empty */
-+		if (ctx->tx_curr_skb) {
-+			dev_kfree_skb_any(ctx->tx_curr_skb);
-+			ctx->tx_curr_skb =3D NULL;
-+		}
- 		ctx->tx_max =3D val;
- 		netif_tx_unlock_bh(dev->net);
- 	} else {
+@@ -1289,12 +1289,11 @@ next_ndp:
+ 			break;
+=20
+ 		} else {
+-			skb =3D skb_clone(skb_in, GFP_ATOMIC);
++			/* create a fresh copy to reduce truesize */
++			skb =3D netdev_alloc_skb_ip_align(dev->net,  len);
+ 			if (!skb)
+ 				goto error;
+-			skb->len =3D len;
+-			skb->data =3D ((u8 *)skb_in->data) + offset;
+-			skb_set_tail_pointer(skb, len);
++			memcpy(skb_put(skb, len), skb_in->data + offset, len);
+ 			usbnet_skb_return(dev, skb);
+ 			payload +=3D len;	/* count payload bytes in this NTB */
+ 		}
 --=20
 2.0.0.rc4
 
