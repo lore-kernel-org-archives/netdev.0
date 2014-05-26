@@ -1,53 +1,53 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [RFC][PATCH] netlink: Only check file credentials for implicit destinations
-Date: Mon, 26 May 2014 15:39:07 +0200
-Message-ID: <20140526133907.GD13929@1wt.eu>
-References: <CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com> <CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com> <CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com> <20140522170505.64ef87a2@griffin> <87ioow6pt6.fsf@x220.int.ebiederm.org> <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com> <87zji6v2mk.fsf_-_@x220.int.ebiederm.org> <CALCETrVezgCY61wSO_5kTJz-tX5HdYwbEPpS-HAy8bg7KEqibA@mail.gmail.com> <874n0ds9sk.fsf@x220.int.ebiederm.org> <CA+55aFwsomt04G8MTJBU2YEn4XLuRw14C4yU1b2sWDmk5HWrcw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	Jiri Benc <jbenc@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Simo Sorce <ssorce@redhat.com>,
-	"security@kernel.org" <security@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: [PATCH 5/6] pch_gbe: reset PHY before first configuration
+Date: Mon, 26 May 2014 15:40:38 +0200
+Message-ID: <1401111639-11507-5-git-send-email-alexander.stein@systec-electronic.com>
+References: <1401111639-11507-1-git-send-email-alexander.stein@systec-electronic.com>
+Cc: Daniel Krueger <daniel.krueger@systec-electronic.com>,
+	netdev@vger.kernel.org,
+	Alexander Stein <alexander.stein@systec-electronic.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:35981 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752122AbaEZNks (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2014 09:40:48 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFwsomt04G8MTJBU2YEn4XLuRw14C4yU1b2sWDmk5HWrcw@mail.gmail.com>
+Received: from webbox1416.server-home.net ([77.236.96.61]:58897 "EHLO
+	webbox1416.server-home.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752471AbaEZNm2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 09:42:28 -0400
+In-Reply-To: <1401111639-11507-1-git-send-email-alexander.stein@systec-electronic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 25, 2014 at 05:32:55PM -0700, Linus Torvalds wrote:
-> On Sun, May 25, 2014 at 4:44 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
-> >
-> > But I agree that since connect on sockets is really the equivalent of
-> > open on files, and unprivileged users can change where a socket is
-> > connected to, using a struct cred captured at connect() time is better
-> > than the struct cred captured at socket() time.
-> 
-> Ack. Conceptually, "connect/listen" really ends up being the
-> equivalent to pathname lookup, not so much "socket()", which just
-> mostly creates the placeholder for future work.
-> 
-> That would also be very much consistent with making "sendto" look at
-> current creds rather than cached creds (but only _if_ it has an
-> address, of course - using "sendto(... , NULL, 0)" should _not_
-> somehow be different from "send()"). So I think that from a
-> sensibility and "please explain the semantics to me" standpoint, that
-> would be sane semantics.
+From: Daniel Krueger <daniel.krueger@systec-electronic.com>
 
-I like this! And it's very much consistent with sendto() being used
-as an alternative to connect() with TCP Fastopen.
+It is a good idea to perform a PHY software reset, but is should be done
+before performing the first configuration.
 
-Willy
+Signed-off-by: Daniel Krueger <daniel.krueger@systec-electronic.com>
+Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
+---
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+index 3fa9a8f..dc9f0d3 100644
+--- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
++++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.c
+@@ -316,6 +316,8 @@ void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw)
+ 	if (ret)
+ 		netdev_err(adapter->netdev, "Error: mii_ethtool_gset\n");
+ 
++	pch_gbe_phy_sw_reset(hw);
++
+ 	ethtool_cmd_speed_set(&cmd, hw->mac.link_speed);
+ 	cmd.duplex = hw->mac.link_duplex;
+ 	cmd.advertising = hw->phy.autoneg_advertised;
+@@ -324,8 +326,6 @@ void pch_gbe_phy_init_setting(struct pch_gbe_hw *hw)
+ 	if (ret)
+ 		netdev_err(adapter->netdev, "Error: mii_ethtool_sset\n");
+ 
+-	pch_gbe_phy_sw_reset(hw);
+-
+ 	pch_gbe_phy_read_reg_miic(hw, PHY_PHYSP_CONTROL, &mii_reg);
+ 	mii_reg |= PHYSP_CTRL_ASSERT_CRS_TX;
+ 	pch_gbe_phy_write_reg_miic(hw, PHY_PHYSP_CONTROL, mii_reg);
+-- 
+1.8.5.5
