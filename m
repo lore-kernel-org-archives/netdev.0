@@ -1,53 +1,47 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next] enic: Fix 64 bit divide on 32bit system
-Date: Mon, 26 May 2014 15:52:43 +0530
-Message-ID: <1401099763-2427-1-git-send-email-_govind@gmx.com>
-Cc: arnd@arndb.de, David.Laight@aculab.com, gvaradar@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Neel Patel <neepatel@cisco.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:64367 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751834AbaEZKYV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2014 06:24:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected
+ mode TX path
+Date: Mon, 26 May 2014 12:52:41 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1405261251520.12047@pobox.suse.cz>
+References: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com> <alpine.LNX.2.00.1405131338030.16459@pobox.suse.cz> <CAJZOPZJVxF6A-3s16feqoWCb5gOLTjyUmB3F+st1+1QWp+bJnQ@mail.gmail.com>
+ <CAL1RGDUoEFF=fR-e-fc1v0yHp8sxaidBnO_2iiAFThgZNvCcfQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Or Gerlitz <or.gerlitz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Amir Vadai <amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Mel Gorman <mgorman-l3A5Bk7waGM@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL1RGDUoEFF=fR-e-fc1v0yHp8sxaidBnO_2iiAFThgZNvCcfQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Division of a 32 bit number by a 64 bit number causes the following link
-error introduced by
-7c2ce6e60f703 "enic: Add support for adaptive interrupt coalescing"
+On Mon, 19 May 2014, Roland Dreier wrote:
 
-drivers/built-in.o: In function `enic_poll_msix':
-enic_main.c:(.text+0x48710a): undefined reference to `__udivdi3'
-make: *** [vmlinux] Error 1
+> > Roland, we're soon on -rc6 and there's no reason for this to miss
+> > 3.16, could you please comment whether you want it to go through your
+> > tree or net-next?
+> 
+> I will pick it up.
 
-Since numerator is 32 bit, convert denominator to 32 bit accordingly.
+Thanks Roland.
 
-Fixes: 7c2ce6e60f703 ("enic: Add support for adaptive interrupt coalescing")
-Reported-by: Jim Davis <jim.epost@gmail.com>
-Cc: Christian Benvenuti <benve@cisco.com>
-Cc: Sujith Sankar <ssujith@cisco.com>
-Cc: Neel Patel <neepatel@cisco.com>
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sorry for being a bit persistent, but another week has passed, -rc7 is out 
+and I still don't see it in your tree. Could you please clarify what is 
+the destiny of this patchset?
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 0d8995c..d5a220d 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1217,7 +1217,7 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
- 	 */
- 
- 	traffic <<= 3;
--	traffic /= delta;
-+	traffic = delta > UINT_MAX ? 0 : traffic / (u32)delta;
- 
- 	for (index = 0; index < ENIC_MAX_COALESCE_TIMERS; index++)
- 		if (traffic < mod_table[index].rx_rate)
+Thanks,
+
 -- 
-1.9.2
+Jiri Kosina
+SUSE Labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
