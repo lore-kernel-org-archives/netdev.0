@@ -1,40 +1,84 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 4/4] staging: r8192ee: Turn on build of the new driver
-Date: Mon, 26 May 2014 13:24:40 -0500
-Message-ID: <538386E8.9090105@lwfinger.net>
-References: <1400707536-3338-1-git-send-email-Larry.Finger@lwfinger.net>	 <1400707536-3338-5-git-send-email-Larry.Finger@lwfinger.net> <1401127560.17377.137.camel@deadeye.wl.decadent.org.uk>
+From: Ivan Mikhaylov <ivan@ru.ibm.com>
+Subject: [PATCH 2/2] emac: aggregation of v1-2 PLB errors for IER register
+Date: Mon, 26 May 2014 22:34:39 +0400
+Message-ID: <1401129279.24099.23.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	devel@driverdev.osuosl.org, zhangfp1@lenovo.com,
-	troy_tan@realsil.com.cn
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f170.google.com ([209.85.214.170]:43940 "EHLO
-	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751737AbaEZSYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 14:24:43 -0400
-Received: by mail-ob0-f170.google.com with SMTP id uy5so8387499obc.29
-        for <netdev@vger.kernel.org>; Mon, 26 May 2014 11:24:42 -0700 (PDT)
-In-Reply-To: <1401127560.17377.137.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alistair Popple <alistair@popple.id.au>,
+	Rob Herring <robh+dt@kernel.org>,
+	Grant Likely <grant.likely@linaro.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/26/2014 01:06 PM, Ben Hutchings wrote:
-> On Wed, 2014-05-21 at 16:25 -0500, Larry Finger wrote:
-> [...]
->> --- /dev/null
->> +++ b/drivers/staging/rtl8192ee/Kconfig
->> @@ -0,0 +1,8 @@
->> +config R8192EE
->> +	tristate "Realtek RTL8192EE Wireless Network Adapter"
->
-> depends on MAC80211 && PCI
-> (at least)
+Aggreagation of version 1-2 because of version 1 can hit
+PLB errors too. If it's not set so we missing events for PLB bits
+and driver can't process those interrupts.
 
-That should be all that is required.
+Signed-off-by: Ivan Mikhaylov <ivan@ru.ibm.com>
 
-I'll prepare and send a patch.
+---
+ drivers/net/ethernet/ibm/emac/mal.c |  5 +----
+ drivers/net/ethernet/ibm/emac/mal.h | 20 ++++++++------------
+ 2 files changed, 9 insertions(+), 16 deletions(-)
 
-Larry
+diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+index 9d75fef..63eb959 100644
+--- a/drivers/net/ethernet/ibm/emac/mal.c
++++ b/drivers/net/ethernet/ibm/emac/mal.c
+@@ -682,10 +682,7 @@ static int mal_probe(struct platform_device *ofdev)
+ 		goto fail6;
+ 
+ 	/* Enable all MAL SERR interrupt sources */
+-	if (mal->version == 2)
+-		set_mal_dcrn(mal, MAL_IER, MAL2_IER_EVENTS);
+-	else
+-		set_mal_dcrn(mal, MAL_IER, MAL1_IER_EVENTS);
++	set_mal_dcrn(mal, MAL_IER, MAL_IER_EVENTS);
+ 
+ 	/* Enable EOB interrupt */
+ 	mal_enable_eob_irq(mal);
+diff --git a/drivers/net/ethernet/ibm/emac/mal.h b/drivers/net/ethernet/ibm/emac/mal.h
+index e431a32..eeade2e 100644
+--- a/drivers/net/ethernet/ibm/emac/mal.h
++++ b/drivers/net/ethernet/ibm/emac/mal.h
+@@ -95,24 +95,20 @@
+ 
+ 
+ #define MAL_IER			0x02
++/* MAL IER bits */
+ #define   MAL_IER_DE		0x00000010
+ #define   MAL_IER_OTE		0x00000004
+ #define   MAL_IER_OE		0x00000002
+ #define   MAL_IER_PE		0x00000001
+-/* MAL V1 IER bits */
+-#define   MAL1_IER_NWE		0x00000008
+-#define   MAL1_IER_SOC_EVENTS	MAL1_IER_NWE
+-#define   MAL1_IER_EVENTS	(MAL1_IER_SOC_EVENTS | MAL_IER_DE | \
+-				 MAL_IER_OTE | MAL_IER_OE | MAL_IER_PE)
+ 
+-/* MAL V2 IER bits */
+-#define   MAL2_IER_PT		0x00000080
+-#define   MAL2_IER_PRE		0x00000040
+-#define   MAL2_IER_PWE		0x00000020
+-#define   MAL2_IER_SOC_EVENTS	(MAL2_IER_PT | MAL2_IER_PRE | MAL2_IER_PWE)
+-#define   MAL2_IER_EVENTS	(MAL2_IER_SOC_EVENTS | MAL_IER_DE | \
+-				 MAL_IER_OTE | MAL_IER_OE | MAL_IER_PE)
++/* PLB read/write/timeout errors */
++#define   MAL_IER_PTE		0x00000080
++#define   MAL_IER_PRE		0x00000040
++#define   MAL_IER_PWE		0x00000020
+ 
++#define   MAL_IER_SOC_EVENTS	(MAL_IER_PTE | MAL_IER_PRE | MAL_IER_PWE)
++#define   MAL_IER_EVENTS	(MAL_IER_SOC_EVENTS | MAL_IER_DE | \
++				 MAL_IER_OTE | MAL_IER_OE | MAL_IER_PE)
+ 
+ #define MAL_TXCASR		0x04
+ #define MAL_TXCARR		0x05
+-- 
+1.9.3
