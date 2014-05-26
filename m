@@ -1,160 +1,98 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC][PATCH 2/1] netlink: Use the credential at the time the
- destination address was set.
-Date: Mon, 26 May 2014 10:19:56 -0700
-Message-ID: <CALCETrWDk4QBv=a8dvqymG8t7N_fDr7sEyyqu8s5+pVNnn1OQw@mail.gmail.com>
-References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org> <536AB151.2070804@dti2.net>
- <CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com>
- <20140507.185256.496391962242529591.davem@davemloft.net> <CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com>
- <CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com>
- <CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com>
- <20140522170505.64ef87a2@griffin> <87ioow6pt6.fsf@x220.int.ebiederm.org>
- <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com>
- <87zji6v2mk.fsf_-_@x220.int.ebiederm.org> <CALCETrVezgCY61wSO_5kTJz-tX5HdYwbEPpS-HAy8bg7KEqibA@mail.gmail.com>
- <874n0ds9sk.fsf@x220.int.ebiederm.org> <CA+55aFwsomt04G8MTJBU2YEn4XLuRw14C4yU1b2sWDmk5HWrcw@mail.gmail.com>
- <87ppj1qexz.fsf_-_@x220.int.ebiederm.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 1/9] net/mlx4_core: Enforce irq affinity
+ changes immediatly
+Date: Mon, 26 May 2014 18:20:50 +0100
+Message-ID: <1401124850.17377.124.camel@deadeye.wl.decadent.org.uk>
+References: <1399880605-28772-1-git-send-email-amirv@mellanox.com>
+		 <1399880605-28772-2-git-send-email-amirv@mellanox.com>
+	 <1400358787.2647.65.camel@deadeye.wl.decadent.org.uk>
+	 <5379EC0C.5070004@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	Jiri Benc <jbenc@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Simo Sorce <ssorce@redhat.com>,
-	"security@kernel.org" <security@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-+csJ+ONGw/AflJQk3AFt"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yuval Atias <yuvala@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f178.google.com ([209.85.220.178]:59946 "EHLO
-	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751359AbaEZRUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 13:20:17 -0400
-Received: by mail-vc0-f178.google.com with SMTP id ij19so6186700vcb.9
-        for <netdev@vger.kernel.org>; Mon, 26 May 2014 10:20:16 -0700 (PDT)
-In-Reply-To: <87ppj1qexz.fsf_-_@x220.int.ebiederm.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54255 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751388AbaEZRVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 13:21:33 -0400
+In-Reply-To: <5379EC0C.5070004@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 25, 2014 at 10:36 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
->
-> When sending a message over a netlink socket and then checking to see if
-> the person is authorized to send the message it is important that we verify
-> both the sender of the message and the whoever it is that set the destination
-> of the message both have permission.  Otherwise it becomes possible for an
-> unpriivleged user to set the message destination and trick an suid process
-> to write to the socket and change the network connection.
->
-> For netlink sockets socket() sets the default destination address to 0 (the kernel)
-> so we need to remember the credentials when a socket is created.
->
-> For netlink sockets connect() changes the default destination address so
-> we need to remember the credentials of the last changer of the default destination
-> with connect.
->
-> This results is there always being a valid remembered credential on the socket
-> and so that credential is unconditionally freed in netlink_release().
->
-> This change makes the semantics of the permission checks of netlink sockets
-> make sense,and removes the possibility of an unprivileged user getting access
-> to a root own socket and changing the destination address with connect.
->
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->
-> This winds up continuig to grab credentials when socket() is called
-> because we actually set the destination address in socket() for netlink
-> sockets, but now we update those credentials when connect() is called.
->
->  include/linux/netlink.h  |  2 +-
->  net/netlink/af_netlink.c | 27 ++++++++++++++++++++++++---
->  net/netlink/af_netlink.h |  1 +
->  3 files changed, 26 insertions(+), 4 deletions(-)
->
-> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-> index f289d085f87f..4f4607c0a1a1 100644
-> --- a/include/linux/netlink.h
-> +++ b/include/linux/netlink.h
-> @@ -19,7 +19,7 @@ enum netlink_skb_flags {
->         NETLINK_SKB_MMAPED      = 0x1,          /* Packet data is mmaped */
->         NETLINK_SKB_TX          = 0x2,          /* Packet was sent by userspace */
->         NETLINK_SKB_DELIVERED   = 0x4,          /* Packet was delivered */
-> -       NETLINK_SKB_DST         = 0x8,          /* Packet not socket destination */
-> +       NETLINK_SKB_DST         = 0x8,          /* Dst set in sendto or sendmsg */
->  };
->
->  struct netlink_skb_parms {
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 15c731f03fa6..5b886ed6a648 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1191,6 +1191,7 @@ static int __netlink_create(struct net *net, struct socket *sock,
->                 mutex_init(nlk->cb_mutex);
->         }
->         init_waitqueue_head(&nlk->wait);
-> +       nlk->cred = get_current_cred();
->  #ifdef CONFIG_NETLINK_MMAP
->         mutex_init(&nlk->pg_vec_lock);
->  #endif
-> @@ -1291,6 +1292,7 @@ static int netlink_release(struct socket *sock)
->                                 NETLINK_URELEASE, &n);
->         }
->
-> +       put_cred(nlk->cred);
->         module_put(nlk->module);
->
->         netlink_table_grab();
-> @@ -1377,9 +1379,17 @@ retry:
->  bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
->                         struct user_namespace *user_ns, int cap)
->  {
-> -       return ((nsp->flags & NETLINK_SKB_DST) ||
-> -               file_ns_capable(nsp->sk->sk_socket->file, user_ns, cap)) &&
-> -               ns_capable(user_ns, cap);
-> +       const struct cred *cred;
-> +       bool capable;
-> +
-> +       rcu_read_lock();
-> +       cred = nlk_sk(nsp->sk)->cred;
-> +       capable = ((nsp->flags & NETLINK_SKB_DST) ||
-> +                  security_capable(cred, user_ns, cap)) &&
-> +                       ns_capable(user_ns, cap);
-> +       rcu_read_unlock();
-> +
-> +       return capable;
->  }
->  EXPORT_SYMBOL(__netlink_ns_capable);
->
-> @@ -1569,14 +1579,20 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
->         struct sock *sk = sock->sk;
->         struct netlink_sock *nlk = nlk_sk(sk);
->         struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
-> +       const struct cred *old_cred;
->
->         if (alen < sizeof(addr->sa_family))
->                 return -EINVAL;
->
->         if (addr->sa_family == AF_UNSPEC) {
-> +               lock_sock(sk);
->                 sk->sk_state    = NETLINK_UNCONNECTED;
->                 nlk->dst_portid = 0;
->                 nlk->dst_group  = 0;
-> +               old_cred = nlk->cred;
-> +               nlk->cred = get_current_cred();
-> +               put_cred(old_cred);
-> +               release_sock(sk);
->                 return 0;
 
-I'm confused about the locking.  Either lock_sock prevents concurrent
-sendmsg, in which case the rcu_read_lock should be unnecessary, or it
-doesn't, in which case I think this is racy, because sendmsg could see
-a cred and dst_whatever that don't match.  Admittedly, exploiting that
-race is probably extremely difficult.
+--=-+csJ+ONGw/AflJQk3AFt
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-If the RCU protection is needed, shouldn't this use rcu_assign_pointer
-and rcu_dereference?
+On Mon, 2014-05-19 at 14:33 +0300, Amir Vadai wrote:
+> On 5/17/2014 11:33 PM, Ben Hutchings wrote:
+> > On Mon, 2014-05-12 at 10:43 +0300, Amir Vadai wrote:
+> >> From: Yuval Atias <yuvala@mellanox.com>
+> >>
+> >> During heavy traffic, napi is constatntly polling the complition queue
+> >> and no interrupt is fired. Because of that, changes to irq affinity ar=
+e
+> >> ignored until traffic is stopped and resumed.
+> >>
+> >> By registering to the irq notifier mechanism, and forcing interrupt wh=
+en
+> >> affinity is changed, irq affinity changes will be immediatly enforced.
+> > [...]
+> >
+> > This somewhat breaks ARFS in your driver, as that depends on IRQ
+> > affinity notification.
+> Interesting...
+> I missed the fact that irq_set_affinity_notifier is 'set' and not 'add'.
+> So, do you have objection if I change the API to have a list of=20
+> notifiers instead of only one?
 
+I don't mind.
 
---Andy
+> > It is also not safe to put an IRQ affinity notification function in a
+> > module currently, as the work item for notification doesn't carry a
+> > module reference and could be called after the module is removed.
+> I can get a module reference when a notifier is added and put it when=20
+> the notifier is removed.
+
+Maybe you can drop the reference in the affinity notifier release()
+function, though that might still leave a race condition.  But the
+module won't be removable until its devices are first removed or at
+least brought down (depending on where you add/remove the notifier).
+
+Anyway, I think that the issue you have found is quite general and
+should be fixed in the networking core rather than your specific driver.
+
+Ben.
+
+--=20
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
+
+--=-+csJ+ONGw/AflJQk3AFt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU4N3/+e/yOyVhhEJAQqB1g/9HdwObvdr7sbTiYuBI4Qd/qU0OaDL78KZ
+kl/NnewvxqwYOg5uYj8pEzK4ZvrLHppXl38uL8QcHOH236g1nkq0jcT4EstAOEBX
+UvURJinjfJyWdUk1EC+Ix4IwKuZI7A4Q3SdLUoIeN73VnK7yYsA6MhO4HQtF3mOl
+Zx08BV3ktpq6Pi65c6BoM6TYCtuO7DlvhDP36PcIRKJRcQX0UViA3RPo31p5tyGE
+NuWe6E49EpXIBj2QBY0ZJ12R+5OvNKRpBQSoR8meMD1FbyCzDsn7Bm4r9DlNTlWm
+a6oiR1tuB8yAb7mnIUmpJgkBO9pA5DfoZUygzdFCqxLO7Mis5wT9a+WAx4aMOU1A
+BqSGS8/9FjX64tDnJaRRLHKEBvJFbB1bL8F/LVQBY6KI8E/t+vat9pgqijsaHOO5
+EmWz1CVw65CXHnxLFdSMcBP3XTqIv69kEcH/gVVrnCUJHY0sAP9s9r+Ugg/lfyVd
+cxVH1JdJDjxypxoBtEsWANAQWViXsDsuIquqGRsrbpWcqokujPPMt97mXY5Bkt9U
+c0TYvtoh+c6doBQit15tB9gkrvDAAM8nBBgSC0IDlT9Ed2baQSaCYOrfN4+TY7/4
+SAWHCbGSxuWncXNySc59O4CIQ/e17E0AlHF3GceAxadJNq9DNYJQXYPF1OMRPcB2
+4MmB/GPAN+0=
+=JLk+
+-----END PGP SIGNATURE-----
+
+--=-+csJ+ONGw/AflJQk3AFt--
