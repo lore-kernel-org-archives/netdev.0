@@ -1,53 +1,131 @@
-From: HUSAM AL SAYED <Husamalsayed@asia.com>
-Subject: Your Urgent reply.
-Date: Mon, 26 May 2014 22:07:46 +0400
-Message-ID: <CAKFyHyoc+qL=wx=MUjUxRHGWR3K4Zb4HGHghxwF+z_=Tp+BD5Q@mail.gmail.com>
-Reply-To: Husamalsayed@asia.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] net: filter: test fill/spill of all M[] regs
+Date: Mon, 26 May 2014 20:17:34 +0200
+Message-ID: <1401128255-6545-2-git-send-email-dborkman@redhat.com>
+References: <1401128255-6545-1-git-send-email-dborkman@redhat.com>
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f196.google.com ([74.125.82.196]:59808 "EHLO
-	mail-we0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516AbaEZSHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 14:07:47 -0400
-Received: by mail-we0-f196.google.com with SMTP id k48so2684994wev.3
-        for <netdev@vger.kernel.org>; Mon, 26 May 2014 11:07:46 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:50716 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751991AbaEZSRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2014 14:17:42 -0400
+In-Reply-To: <1401128255-6545-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend,
+This test for classic BPF probes stores and load combination
+via X on all 16 registers of the scratch memory store. It
+initially loads integer 100 and passes this value around
+to each register while incrementing it every time, thus we
+expect to have 116 as a result. Might be useful for JIT
+testing.
 
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ lib/test_bpf.c | 90 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
 
-Compliments of the day.This mail May be a surprise to you Because you
-did not give me the permission to do so and Neither do you know me but
-before I tell you about myself I want you to please forgive me for
-sending this mail without your permission I have been in search of
-someone with this last name so when I saw you online, I was pushed to
-contact you and see how best we can assist each other. I am Mr. Husam
-Al Sayed, a Bank Officer here in U.A.E. I believe it is the wish of
-God for me to come across you now. I am having an important business
-discussion I wish to share with you which I  believe will interest
-you, because it is in connection with your last name and you are going
-to benefit from it.
-
-One Late peter who was among the death victims in the May 27 2006
-Earthquake disaster in Java, Indonesia that killed over 5,000 people.
-He was in Indonesia on a business trip and that was how he met his
-end. My bank management is yet to know about his death, I knew about
-it because he was my friend and I am his account officer.he did not
-mention any Next of Kin/ Heir when the account was opened, and he was
-not married and no children. Last week my Bank Management requested
-that he should give instructions on what to do about his funds,I know
-this will happen and that is why I have been looking for a means to
-handle the situation,
-
-If you are interested send me your private Email Address so that i can
-send you more details of the transaction,
-Thanks for your understanding
-
-I am waiting for your reply.
-
-Best regards,
-
-Mr. Husam Al Sayed
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index af677cb..6be9119 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -1485,6 +1485,96 @@ static struct bpf_test tests[] = {
+ 		{ },
+ 		{ },
+ 	},
++	{	/* Mainly checking JIT here. */
++		"M[]: STX + LDX",
++		.u.insns = {
++			BPF_STMT(BPF_LDX | BPF_IMM, 100),
++			BPF_STMT(BPF_STX, 0),
++			BPF_STMT(BPF_LDX | BPF_MEM, 0),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 1),
++			BPF_STMT(BPF_LDX | BPF_MEM, 1),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 2),
++			BPF_STMT(BPF_LDX | BPF_MEM, 2),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 3),
++			BPF_STMT(BPF_LDX | BPF_MEM, 3),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 4),
++			BPF_STMT(BPF_LDX | BPF_MEM, 4),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 5),
++			BPF_STMT(BPF_LDX | BPF_MEM, 5),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 6),
++			BPF_STMT(BPF_LDX | BPF_MEM, 6),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 7),
++			BPF_STMT(BPF_LDX | BPF_MEM, 7),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 8),
++			BPF_STMT(BPF_LDX | BPF_MEM, 8),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 9),
++			BPF_STMT(BPF_LDX | BPF_MEM, 9),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 10),
++			BPF_STMT(BPF_LDX | BPF_MEM, 10),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 11),
++			BPF_STMT(BPF_LDX | BPF_MEM, 11),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 12),
++			BPF_STMT(BPF_LDX | BPF_MEM, 12),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 13),
++			BPF_STMT(BPF_LDX | BPF_MEM, 13),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 14),
++			BPF_STMT(BPF_LDX | BPF_MEM, 14),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_STX, 15),
++			BPF_STMT(BPF_LDX | BPF_MEM, 15),
++			BPF_STMT(BPF_MISC | BPF_TXA, 0),
++			BPF_STMT(BPF_ALU | BPF_ADD | BPF_K, 1),
++			BPF_STMT(BPF_MISC | BPF_TAX, 0),
++			BPF_STMT(BPF_RET | BPF_A, 0),
++		},
++		CLASSIC | FLAG_NO_DATA,
++		{ },
++		{ { 0, 116 } },
++	},
+ };
+ 
+ static struct net_device dev;
+-- 
+1.7.11.7
