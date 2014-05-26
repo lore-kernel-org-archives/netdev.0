@@ -1,8 +1,8 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 3/3] staging: r8821ae: Fix potential problem with rate control
- registration
-Date: Mon, 26 May 2014 14:06:06 -0500
-Message-ID: <1401131166-6313-4-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH 2/3] staging: r8192ee: Fix build errors when PCI is not
+ available
+Date: Mon, 26 May 2014 14:06:05 -0500
+Message-ID: <1401131166-6313-3-git-send-email-Larry.Finger@lwfinger.net>
 References: <1401131166-6313-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,27 +23,34 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-The zero day testing facility reported a problem with duplicate
-registration of the rate-control algorithm. Although not yet reported,
-this driver needs the same fix.
+A build of this driver fails when PCI is not selected. It would also
+fail if MAC80211 is not selected. Kconfig is fixed to handle these
+conditions, and to select additional necessary components.
 
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Reported-by: Ben Hutchings <ben@decadent.org.uk>
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- drivers/staging/rtl8821ae/rc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/staging/rtl8192ee/Kconfig | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/staging/rtl8821ae/rc.c b/drivers/staging/rtl8821ae/rc.c
-index 0cc32c6..a5a09ba 100644
---- a/drivers/staging/rtl8821ae/rc.c
-+++ b/drivers/staging/rtl8821ae/rc.c
-@@ -286,7 +286,7 @@ static void rtl_rate_free_sta(void *rtlpriv,
- }
- 
- static struct rate_control_ops rtl_rate_ops = {
--	.name = "rtl_rc",
-+	.name = "rtl_rc_21ae",
- 	.alloc = rtl_rate_alloc,
- 	.free = rtl_rate_free,
- 	.alloc_sta = rtl_rate_alloc_sta,
+diff --git a/drivers/staging/rtl8192ee/Kconfig b/drivers/staging/rtl8192ee/Kconfig
+index 92c5f44..beb07ac2 100644
+--- a/drivers/staging/rtl8192ee/Kconfig
++++ b/drivers/staging/rtl8192ee/Kconfig
+@@ -1,6 +1,13 @@
+ config R8192EE
+ 	tristate "Realtek RTL8192EE Wireless Network Adapter"
++	depends on PCI && WLAN && MAC80211
++	depends on m
++	select WIRELESS_EXT
++	select WEXT_PRIV
++	select EEPROM_93CX6
++	select CRYPTO
+ 	select FW_LOADER
++	default N
+ 	---help---
+ 	This is the driver for Realtek RTL8192EE 802.11 PCIe
+ 	wireless network adapters.
 -- 
 1.8.4.5
