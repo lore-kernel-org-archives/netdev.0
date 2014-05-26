@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net-next 8/8] net: cdc_ncm: document the sysfs API
-Date: Mon, 26 May 2014 12:53:45 +0200
-Message-ID: <1401101625-12342-9-git-send-email-bjorn@mork.no>
+Subject: [PATCH net-next 3/8] net: cdc_ncm: inform usbnet when rx buffers are reduced
+Date: Mon, 26 May 2014 12:53:40 +0200
+Message-ID: <1401101625-12342-4-git-send-email-bjorn@mork.no>
 References: <1401101625-12342-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -16,173 +16,72 @@ Cc: <linux-usb@vger.kernel.org>,
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43694 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:43705 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751731AbaEZKzp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 May 2014 06:55:45 -0400
+	id S1751690AbaEZK4O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2014 06:56:14 -0400
 In-Reply-To: <1401101625-12342-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding documentation for all the driver specific sysfs attributes.
+It doesn't matter whether the buffer size goes up or down.  We have to
+keep usbnet and device syncronized to be able to split transfers at the
+correct boundaries. The spec allow skipping short packets when using
+max sized transfers.  If we don't tell usbnet about our new expected rx
+buffer size, then it will merge and/or split NTBs.  The driver does not
+support this, and the result will be lots of framing errors.
 
+=46ix by always reallocating usbnet rx buffers when the rx_max value
+changes.
+
+=46ixes: 68864abf08f0 ("net: cdc_ncm: support rx_max/tx_max updates whe=
+n running")
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- Documentation/ABI/testing/sysfs-class-net-cdc_ncm | 143 ++++++++++++++=
-++++++++
- 1 file changed, 143 insertions(+)
- create mode 100644 Documentation/ABI/testing/sysfs-class-net-cdc_ncm
+ drivers/net/usb/cdc_ncm.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/Documentation/ABI/testing/sysfs-class-net-cdc_ncm b/Docume=
-ntation/ABI/testing/sysfs-class-net-cdc_ncm
-new file mode 100644
-index 000000000000..971c13297f06
---- /dev/null
-+++ b/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
-@@ -0,0 +1,143 @@
-+What:		/sys/class/net/<iface>/cdc_ncm/min_tx_pkt
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		The driver will pad frames longer than this to tx_max,
-+		allowing the device to receive tx_max sized frames
-+		with no terminating short packet.  This represents a
-+		tradeoff between USB bus bandwidth and device DMA
-+		optimization.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index ff5b3a854898..5bce86a0d063 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -215,19 +215,12 @@ static void cdc_ncm_update_rxtx_max(struct usbnet=
+ *dev, u32 new_rx, u32 new_tx)
+ 			min, max, val);
+ 	}
+=20
+-	/* usbnet use these values for sizing rx queues */
+-	dev->rx_urb_size =3D val;
+-
+ 	/* inform device about NTB input size changes */
+ 	if (val !=3D ctx->rx_max) {
+ 		__le32 dwNtbInMaxSize =3D cpu_to_le32(val);
+=20
+ 		dev_info(&dev->intf->dev, "setting rx_max =3D %u\n", val);
+=20
+-		/* need to unlink rx urbs before increasing buffer size */
+-		if (netif_running(dev->net) && dev->rx_urb_size > ctx->rx_max)
+-			usbnet_unlink_rx_urbs(dev);
+-
+ 		/* tell device to use new size */
+ 		if (usbnet_write_cmd(dev, USB_CDC_SET_NTB_INPUT_SIZE,
+ 				     USB_TYPE_CLASS | USB_DIR_OUT
+@@ -238,6 +231,13 @@ static void cdc_ncm_update_rxtx_max(struct usbnet =
+*dev, u32 new_rx, u32 new_tx)
+ 			ctx->rx_max =3D val;
+ 	}
+=20
++	/* usbnet use these values for sizing rx queues */
++	if (dev->rx_urb_size !=3D ctx->rx_max) {
++		dev->rx_urb_size =3D ctx->rx_max;
++		if (netif_running(dev->net))
++			usbnet_unlink_rx_urbs(dev);
++	}
 +
-+		Set to 0 to pad all frames. Set greater than tx_max to
-+		disable all padding.
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/rx_max
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		The maximum NCM Transfer Block (NTB) size for RX.
-+		Cannot exceed the maximum value supported by the
-+		device. Must allow at least one max sized datagram
-+		plus headers.
-+
-+		The actual limits are device dependent.  See
-+		dwNtbInMaxSize.
-+
-+		Note: Some devices will silently ignore changes to
-+		this value, resulting in oversized NTBs and
-+		corresponding framing errors.
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/tx_max
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		The maximum NTB size for TX.  Cannot exceed the
-+		maximum value supported by the device.  Must allow at
-+		least one max sized datagram plus headers.
-+
-+		The actual limits are device dependent.  See
-+		dwNtbOutMaxSize.
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/tx_timer_usecs
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Datagram aggregation timeout in =C2=B5s. The driver will
-+		wait up to 3 times this timeout for more datagrams to
-+		aggregate before transmitting a NTB frame.
-+
-+		Valid range: 5 to 4000000
-+
-+		Set to 0 to disable aggregation.
-+
-+The following read only attributes all represent fields of the
-+structure defined in section 6.2.1 "GetNtbParameters" of "Universal
-+Serial Bus Communications Class Subclass Specifications for Network
-+Control Model Devices" (CDC NCM), Revision 1.0 (Errata 1), November
-+24, 2010 from USB Implementers Forum, Inc.  The descriptions are
-+quoted from table 6-3 of CDC NCM: "NTB Parameter Structure".
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/bmNtbFormatsSupported
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Bit 0: 16-bit NTB supported (set to 1)
-+		Bit 1: 32-bit NTB supported
-+		Bits 2 =E2=80=93 15: reserved (reset to zero; must be ignored by hos=
-t)
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/dwNtbInMaxSize
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		IN NTB Maximum Size in bytes
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpInDivisor
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Divisor used for IN NTB Datagram payload alignment
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpInPayloadRemainder
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Remainder used to align input datagram payload within
-+		the NTB: (Payload Offset) mod (wNdpInDivisor) =3D
-+		wNdpInPayloadRemainder
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpInAlignment
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		NDP alignment modulus for NTBs on the IN pipe. Shall
-+		be a power of 2, and shall be at least 4.
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/dwNtbOutMaxSize
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		OUT NTB Maximum Size
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutDivisor
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		OUT NTB Datagram alignment modulus
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutPayloadRemainder
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Remainder used to align output datagram payload
-+		offsets within the NTB: Padding, shall be transmitted
-+		as zero by function, and ignored by host.  (Payload
-+		Offset) mod (wNdpOutDivisor) =3D wNdpOutPayloadRemainder
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutAlignment
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		NDP alignment modulus for use in NTBs on the OUT
-+		pipe. Shall be a power of 2, and shall be at least 4.
-+
-+What:		/sys/class/net/<iface>/cdc_ncm/wNtbOutMaxDatagrams
-+Date:		May 2014
-+KernelVersion:	3.16
-+Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
-+Description:
-+		Maximum number of datagrams that the host may pack
-+		into a single OUT NTB. Zero means that the device
-+		imposes no limit.
+ 	/* clamp new_tx to sane values */
+ 	min =3D ctx->max_datagram_size + ctx->max_ndp_size + sizeof(struct us=
+b_cdc_ncm_nth16);
+ 	max =3D min_t(u32, CDC_NCM_NTB_MAX_SIZE_TX, le32_to_cpu(ctx->ncm_parm=
+=2EdwNtbOutMaxSize));
 --=20
 2.0.0.rc4
