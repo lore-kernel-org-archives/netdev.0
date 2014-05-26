@@ -1,83 +1,53 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: Extend irq_set_affinity_notifier() to use a call chain
-Date: Mon, 26 May 2014 14:39:54 +0200 (CEST)
-Message-ID: <alpine.DEB.2.02.1405261412110.21720@ionos.tec.linutronix.de>
-References: <5381DEDC.8050204@gmail.com> <alpine.DEB.2.02.1405261313570.21720@ionos.tec.linutronix.de> <53832472.7070000@gmail.com> <alpine.DEB.2.02.1405261327500.21720@ionos.tec.linutronix.de> <53832D28.1050207@mellanox.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [RFC][PATCH] netlink: Only check file credentials for implicit destinations
+Date: Mon, 26 May 2014 15:39:07 +0200
+Message-ID: <20140526133907.GD13929@1wt.eu>
+References: <CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com> <CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com> <CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com> <20140522170505.64ef87a2@griffin> <87ioow6pt6.fsf@x220.int.ebiederm.org> <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com> <87zji6v2mk.fsf_-_@x220.int.ebiederm.org> <CALCETrVezgCY61wSO_5kTJz-tX5HdYwbEPpS-HAy8bg7KEqibA@mail.gmail.com> <874n0ds9sk.fsf@x220.int.ebiederm.org> <CA+55aFwsomt04G8MTJBU2YEn4XLuRw14C4yU1b2sWDmk5HWrcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, idos@mellanox.com,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53832D28.1050207@mellanox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	"Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Simo Sorce <ssorce@redhat.com>,
+	"security@kernel.org" <security@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Michael Kerrisk-manpages <mtk.manpages@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:35981 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752122AbaEZNks (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 May 2014 09:40:48 -0400
+Content-Disposition: inline
+In-Reply-To: <CA+55aFwsomt04G8MTJBU2YEn4XLuRw14C4yU1b2sWDmk5HWrcw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 May 2014, Amir Vadai wrote:
-> On 5/26/2014 2:34 PM, Thomas Gleixner wrote:
-> > You are not describing what needs to be notified and why. Please
-> > explain the details of that and how the RFS (whatever that is) and the
-> > network driver are connected
-> The goal of RFS is to increase datacache hitrate by steering
-> kernel processing of packets in multi-queue devices to the CPU where the
-> application thread consuming the packet is running.
+On Sun, May 25, 2014 at 05:32:55PM -0700, Linus Torvalds wrote:
+> On Sun, May 25, 2014 at 4:44 PM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+> >
+> > But I agree that since connect on sockets is really the equivalent of
+> > open on files, and unprivileged users can change where a socket is
+> > connected to, using a struct cred captured at connect() time is better
+> > than the struct cred captured at socket() time.
 > 
-> In order to select the right queue, the networking stack needs to have a
-> reverse map of IRQ affinty. This is the rmap that was added by Ben Hutchings
-> [1]. To keep the rmap updated, cpu_rmap registers on the affinity notify.
+> Ack. Conceptually, "connect/listen" really ends up being the
+> equivalent to pathname lookup, not so much "socket()", which just
+> mostly creates the placeholder for future work.
 > 
-> This is the first affinity callback - it is located as a general library and
-> not under net/...
->
-> The motivation to the second irq affinity callback is:
-> When traffic starts, first packet fires an interrupt which starts the napi
-> polling on the cpu according the irq affinity.
-> If there is always packets to be consumed by the napi polling, no further
-> interrupts will be fired, and napi will consume all the packets from the cpu
-> it was started.
-> If the user changes the irq affinity, napi polling will continue to be done
-> from the original cpu.
-> Only when the traffic will pause, napi session will be finished, and when
-> traffic will resume, the new napi session will be done from the new cpu.
-> This is a problematic behavior, because from the user point of view, cpu
-> affinity can't be changed in a non-stop traffic scenario.
-> 
-> To solve this, the network driver should be notified on irq affinity change
-> event, and restart the napi session. This could be done by closing the napi
-> session and arming the interrupts. Next packet arrives will trigger an
-> interrupt and napi will session will start, this time on the new CPU.
-> 
-> > and why this notification cannot be
-> > propagated inside the network stack itself.
-> 
-> To my understanding, those are two different consumers to the same event, one
-> is a general library to maintain a reverse irq affinity map, and the other is
-> networking specific, and maybe even a networking driver specific.
+> That would also be very much consistent with making "sendto" look at
+> current creds rather than cached creds (but only _if_ it has an
+> address, of course - using "sendto(... , NULL, 0)" should _not_
+> somehow be different from "send()"). So I think that from a
+> sensibility and "please explain the semantics to me" standpoint, that
+> would be sane semantics.
 
-The rmap _IS_ instantiated by the driver, and both the driver and the
-networking core know about it.
+I like this! And it's very much consistent with sendto() being used
+as an alternative to connect() with TCP Fastopen.
 
-So it's not completely different consumers. Just because it's a
-library does not mean it's disjunct from the code which uses it.
-
-Aside of the fact, that maintaining a per irq notifier chain is going
-to be ugly as hell due to life time and locking issues, it's just
-opening a can of worms. How do you make sure that the invocation order
-is correct? What are the dependency rules of the driver restarting the
-napi session versus updating the rmap?
-
-Even if you'd solve that and have a callback in the driver, then the
-callback never can restart the napi session directly. All it can do is
-set a flag which needs to be checked in the RX path, right?
-
-So what's the point of adding notifier call chain complexity, ordering
-problems etc., if you can simply note the fact that the affinity
-changed in the rmap itself and check that in the RX path?
-
-Thanks,
-
-	tglx
+Willy
