@@ -1,99 +1,96 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2014-05-26
-Date: Mon, 26 May 2014 09:41:59 +0200
-Message-ID: <5382F047.2030600@pengutronix.de>
-References: <537EF718.2020203@pengutronix.de>	<20140523.154433.1565372421278669500.davem@davemloft.net> <20140523.162554.1697403825084761042.davem@davemloft.net>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: [RFC][PATCH] netlink: Only check file credentials for implicit
+ destinations
+Date: Mon, 26 May 2014 10:38:43 +0200
+Message-ID: <5382FD93.8090106@gmail.com>
+References: <87d2g7d9ag.fsf_-_@x220.int.ebiederm.org> <536AB151.2070804@dti2.net> <CALCETrXL6eui802diSCrzNEtVcA5f3W58kFj6h4DYobm3YR_JQ@mail.gmail.com> <20140507.185256.496391962242529591.davem@davemloft.net> <CALCETrVo7ducU3S25Z_4NDB1p72pSLU0oLQh-ppxEWMgqYyjqQ@mail.gmail.com> <CA+55aFzZg3LfpPpx3+83sB0npd9863NTMqvsCArMDjg-9J151A@mail.gmail.com> <CALCETrVWkW16Y7hOq-mA1auJjRXmwiAUfAGurK0-2bOdbZu_dA@mail.gmail.com> <20140522170505.64ef87a2@griffin> <87ioow6pt6.fsf@x220.int.ebiederm.org> <CA+55aFxybf=ya2RE5nzf10Km+JZ3=HqXGVCHYcteW2EVAUww+g@mail.gmail.com> <87zji6v2mk.fsf_-_@x220.int.ebiederm.org> <CALCETrVezgCY61wSO_5kTJz-tX5HdYwbEPpS-HAy8bg7KEqibA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="a7u8SHu8E3Cu9FVdAmJxNEUoid27EH5Cl"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages@gmail.com, "Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Simo Sorce <ssorce@redhat.com>,
+	"security@kernel.org" <security@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Andy Lutomirski <luto@amacapital.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:40817 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbaEZHmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 03:42:09 -0400
-In-Reply-To: <20140523.162554.1697403825084761042.davem@davemloft.net>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:41933 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbaEZIir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 04:38:47 -0400
+Received: by mail-we0-f179.google.com with SMTP id q59so7509313wes.24
+        for <netdev@vger.kernel.org>; Mon, 26 May 2014 01:38:46 -0700 (PDT)
+In-Reply-To: <CALCETrVezgCY61wSO_5kTJz-tX5HdYwbEPpS-HAy8bg7KEqibA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---a7u8SHu8E3Cu9FVdAmJxNEUoid27EH5Cl
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On 05/25/2014 06:50 PM, Andy Lutomirski wrote:
+> On Sat, May 24, 2014 at 10:38 PM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>>
+>> It was possible to get a setuid root or setcap executable to write to
+>> it's stdout or stderr (which has been set made a netlink socket) and
+>> inadvertently reconfigure the networking stack.
+>>
+>> To prevent this we check that both the creator of the socket and
+>> the currentl applications has permission to reconfigure the network
+>> stack.
+>>
+>> Unfortunately this breaks Zebra which always uses sendto/sendmsg
+>> and creates it's socket without any privileges.
+>>
+>> To keep Zebra working don't bother checking if the creator of the
+>> socket has privilege when a destination address is specified.  Instead
+>> rely exclusively on the privileges of the sender of the socket.
+>>
+> 
+> Cute.
+> 
+>> +       NETLINK_SKB_DST         = 0x8,          /* Packet not socket destination */
+> 
+> How about "sendto/sendmsg with explicit destination"
+> 
+> Whatever we settle on, I think this'll need to end up in the man
+> pages.  Cc: Michael Kerrisk.  I hereby volunteer to write something
+> up.
+> 
+> Michael, for background: Pre-linux-3.15, sending netlink messages to
+> the kernel checked the credentials of the sender.  This is a security
+> bug: the sender might be a setuid-root program with stdout or stderr
+> redirected to a netlink socket (or an SCM_RIGHTS user, etc).
 
-On 05/23/2014 10:25 PM, David Miller wrote:
->>> this is a pull request of two patches for net-next/master. Kedareswar=
-a
->>> rao Appana contributes support for the xilinx CAN core found on the
->>> zynq and microblaze SOCs.
+Andy, thanks for putting your hand-up, and thanks especially
+for paragraph of background. (Too often, I get CCed into a thread
+with the implication that something needs to be fixed in man-pages
+without any explanation of what or why.)
 
-> Somethings not right, it looks like a forgotten git add on your side.
+Cheers,
 
-Doh, yes, the file is in my tree, but not in the patch. Now the fixed
-version:
-
-This is a pull request of two patches for net-next/master. Kedareswara
-rao Appana contributes support for the xilinx CAN core found on the
-zynq and microblaze SoCs.
-
-Marc
----
-
-The following changes since commit 3bea8eddfebe1c61ea824dd2880d4368791edc=
-1f:
-
-  Merge branch 'net-sysfs-docs' (2014-05-26 01:02:39 -0400)
-
-are available in the git repository at:
-
-
-  git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-fo=
-r-3.16-20140526
-
-for you to fetch changes up to b1201e44f50b017a4972a337058b36b40c90abca:
-
-  can: xilinx CAN controller support (2014-05-26 09:36:31 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-3.16-20140526
-
-----------------------------------------------------------------
-Kedareswara rao Appana (2):
-      can: Add xilinx CAN device tree bindings documentation
-      can: xilinx CAN controller support
-
- .../devicetree/bindings/net/can/xilinx_can.txt     |   44 +
- drivers/net/can/Kconfig                            |    8 +
- drivers/net/can/Makefile                           |    1 +
- drivers/net/can/xilinx_can.c                       | 1208 ++++++++++++++=
-++++++
- 4 files changed, 1261 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/xilinx_can.=
-txt
- create mode 100644 drivers/net/can/xilinx_can.c
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Michael
 
 
---a7u8SHu8E3Cu9FVdAmJxNEUoid27EH5Cl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+> The proposal in this patch is that doing privileged things using a
+> netlink socket will require the sender to have capabilities and
+> (either sendto/sendmsg with an explicit destination or a connected
+> socket that was created by a privileged user).
+> 
+> This is still not great from a security POV: if you can get a hold of
+> a privileged socket (i.e. a socket created with CAP_NET_ADMIN
+> available), then you can connect it and try to attack the kernel.
+> This issue would go away if we hooked netlink_connect.  I can try
+> writing up that version of the patch tomorrow.
+> 
+> --Andy
+> 
 
-iEYEARECAAYFAlOC8EcACgkQjTAFq1RaXHOtOQCfbokQ6casDnJnQ9ycjY9kFyZs
-+F4AmgL+5RUp8s+Bj2VsdSx9LXmamR3K
-=4btF
------END PGP SIGNATURE-----
 
---a7u8SHu8E3Cu9FVdAmJxNEUoid27EH5Cl--
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
