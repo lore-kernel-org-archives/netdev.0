@@ -1,100 +1,69 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Mon, 26 May 2014 10:46:47 -0300
-Message-ID: <20140526134647.GB8176@kernel.org>
-References: <536101C9.9090601@gmail.com>
- <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com>
- <20140512143451.GB13801@kernel.org>
- <20140521210535.GA5414@kernel.org>
- <537E0961.8040005@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/3] net: hisilicon: add hix5hd2 mac driver
+Date: Mon, 26 May 2014 16:51:15 +0200
+Message-ID: <201405261651.15998.arnd@arndb.de>
+References: <1400504227-12047-1-git-send-email-zhangfei.gao@linaro.org> <1400504227-12047-4-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	=?utf-8?B?T25kxZllaiBCw61sa2E=?= <neleai@seznam.cz>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>,
-	Chris Friesen <chris.friesen@windriver.com>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <537E0961.8040005@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@aculab.com, eric.dumazet@gmail.com,
+	haifeng.yan@linaro.org, jchxue@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: Zhangfei Gao <zhangfei.gao@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:51784 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752553AbaEZOv7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 10:51:59 -0400
+In-Reply-To: <1400504227-12047-4-git-send-email-zhangfei.gao@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Thu, May 22, 2014 at 04:27:45PM +0200, Michael Kerrisk (man-pages) escreveu:
-> Hi Arnaldo,
-> 
-> On 05/21/2014 11:05 PM, Arnaldo Carvalho de Melo wrote:
-> > Em Mon, May 12, 2014 at 11:34:51AM -0300, Arnaldo Carvalho de Melo escreveu:
-> >> Em Mon, May 12, 2014 at 12:15:25PM +0200, Michael Kerrisk (man-pages) escreveu:
-> >>> Hi Arnaldo,
-> >  
-> >>> Ping!
-> > 
-> >> I acknowledge the problem, the timeout has to be passed to the
-> >> underlying ->recvmsg() implementations that should return the time spent
-> >> waiting for each packet, so that we can accrue that at recvmmsg level.
-> >  
-> >> We can do either passing an extra timeout parameter to the recvmsg
-> >> implementations or using some struct sock member to specify that
-> >> timeout.
-> >  
-> >> The first approach is intrusive, touches tons of files, so I'll try
-> >> making it all mostly transparent by hooking into sock_rcvtimeo()
-> >> somehow.
-> > 
-> > But after thinking a bit more, looks like we need to do that, please
-> > take a look at the attached patch to see if it addresses the problem.
-> > 
-> > Mostly it adds a new timeop to the per protocol recvmsg()
-> > implementations, that, if not NULL, should be used instead of
-> > SO_RCVTIMEO.
-> > 
-> > since the underlying recvmsg implementations already check that timeout,
-> > return what is remaining, that will then be used in subsequent recvmsg
-> > calls, at the end we just convert it back to timespec format.
-> > 
-> > In most cases it is just passed to skb_recv_datagram, that will check
-> > the pointer, use it and update if not NULL.
-> > 
-> > Should have no problems, but I only did a boot with a system with this
-> > patch applied, no problems noticed on a normal desktop session, ssh,
-> > etc.
-> 
-> Thanks! I applied this patch against 3.15-rc6.
-> 
-> recvmmsg() now (mostly) does what I expect: 
-> * it waits until either the timeout expires or vlen messages 
->   have been received
-> * If no message is received before timeout, it returns -1/EAGAIN.
-> * If vlen messages are received before the timeout expires, then
->   the remaining time is returned in timeout.
-> 
-> One question: in the event that the call is interrupted by a signal 
-> handler, it fails (as expected) with EINTR, but the 'timeout' value is 
-> not updated with the remaining time on the timer. Would it be desirable 
-> to emulate the behavior of select() (and other syscalls) in this 
-> respect, and instead return the remaining time if interrupted by 
-> a signal?
+On Monday 19 May 2014, Zhangfei Gao wrote:
 
-I think so, will check how to achieve that!
- 
-> Cheers,
-> 
-> Michael
-> 
-> -- 
-> Michael Kerrisk
-> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-> Linux/UNIX System Programming Training: http://man7.org/training/
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I only noticed one real issue with the driver:
+
+> +struct hix5hd2_desc {
+> +	__le32 buff_addr;
+> +	__le32 buff_len:11;
+> +	__le32 reserve2:5;
+> +	__le32 data_len:11;
+> +	__le32 reserve1:2;
+> +	__le32 fl:2;
+> +	__le32 descvid:1;
+> +} __aligned(32);
+> +
+
+You should generall not use bitfields in hardware data structures, as that is
+not endian safe and will prevent running a big-endian kernel on this machine.
+Better convert this to a set of __le32 fields and explicit shifts and masks.
+
+Two smaller things you should think about, I'm not entirely sure about these:
+
+> +static int hix5hd2_rx(struct net_device *dev, int limit)
+> +{
+> +	struct hix5hd2_priv *priv = netdev_priv(dev);
+> +	struct sk_buff *skb;
+> +	struct hix5hd2_desc *desc;
+> +	dma_addr_t dma_addr;
+> +	u32 start, end, num, pos, i, len;
+> +
+> +	/* software read pointer */
+> +	start = dma_cnt(readl_relaxed(priv->base + RX_BQ_RD_ADDR));
+> +	/* logic write pointer */
+> +	end = dma_cnt(readl_relaxed(priv->base + RX_BQ_WR_ADDR));
+
+I think one of these needs to be readl() instead of readl_relaxed(),
+to ensure the data is correctly ordered with regard to the pointer
+access.
+
+> +	if (pos != start)
+> +		writel(dma_byte(pos), priv->base + TX_RQ_RD_ADDR);
+
+While this looks like it could be writel_relaxed().
+
+	Arnd
