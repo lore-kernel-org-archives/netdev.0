@@ -1,126 +1,50 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [net-next PATCH v2 1/1] bring netlink interface to par with
- brctl show macs
-Date: Mon, 26 May 2014 03:35:47 +0100
-Message-ID: <1401071747.17377.111.camel@deadeye.wl.decadent.org.uk>
-References: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
+From: nickcave <nickcave.zhang@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Fixed up ipsec packet be re-routing issue
+Date: Mon, 26 May 2014 12:38:45 +0800
+Message-ID: <CAF-n9KN09vGodeE-Tb2-y+UmiqjgxfCau6h23KVir+Q6LWuZ6Q@mail.gmail.com>
+References: <1400742346-24727-1-git-send-email-huizhang@marvell.com>
+	<20140522.121215.16105419184813584.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-y6YmvRB+Plb8h/Why2wq"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	stephen@networkplumber.org, vyasevic@redhat.com,
-	john.r.fastabend@intel.com, sfeldma@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: huizhang@marvell.com, netdev@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52284 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751178AbaEZCf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 22:35:58 -0400
-In-Reply-To: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-vc0-f173.google.com ([209.85.220.173]:41022 "EHLO
+	mail-vc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178AbaEZEiq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 00:38:46 -0400
+Received: by mail-vc0-f173.google.com with SMTP id il7so8578718vcb.4
+        for <netdev@vger.kernel.org>; Sun, 25 May 2014 21:38:45 -0700 (PDT)
+In-Reply-To: <20140522.121215.16105419184813584.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2014-05-23 0:12 GMT+08:00 David Miller <davem@davemloft.net>:
+> From: huizhang <huizhang@marvell.com>
+> Date: Thu, 22 May 2014 15:05:46 +0800
+>
+>> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+>> index 5f8e128..869b68b 100644
+>> --- a/net/ipv6/xfrm6_policy.c
+>> +++ b/net/ipv6/xfrm6_policy.c
+>> @@ -134,6 +134,8 @@ _decode_session6(struct sk_buff *skb, struct flowi *fl, int reverse)
+>>       const struct ipv6hdr *hdr = ipv6_hdr(skb);
+>>       struct ipv6_opt_hdr *exthdr;
+>>       const unsigned char *nh = skb_network_header(skb);
+>> +     if(IP6CB(skb)->nhoff==0)
+>> +             IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
+>>       u8 nexthdr = nh[IP6CB(skb)->nhoff];
+>>       int oif = 0;
+>
+> Never put actual statements in the middle of a series of variable
+> declarations.
+>
+> Also, it would probably be better to do this assignment in
+> __ip_local_out().
+>
+> That's the bug, we only set nhoff in the input paths, we need
+> to set it in the output paths too if reaching _decode_session6
+> is possible for output packets.
 
---=-y6YmvRB+Plb8h/Why2wq
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sun, 2014-05-25 at 09:15 -0400, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->=20
-> This patch allows something equivalent to
-> "brctl showmacs <bridge device>" with iproute2
-> syntax "bridge fdb show br <bridge device>"
-> Filtering by bridge is done in the kernel.
-> The current setup doesnt scale when you have many bridges each
-> with large fdbs (preliminary fix with the kernel patch).
->=20
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/core/rtnetlink.c |   49 ++++++++++++++++++++++++++++++++++----------=
------
->  1 file changed, 34 insertions(+), 15 deletions(-)
->=20
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index f31268d..1ad4828 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2509,26 +2509,45 @@ static int rtnl_fdb_dump(struct sk_buff *skb, str=
-uct netlink_callback *cb)
->  {
->  	int idx =3D 0;
->  	struct net *net =3D sock_net(skb->sk);
-> +	const struct net_device_ops *ops;
->  	struct net_device *dev;
-> +	struct ndmsg *ndm;
-> =20
-> -	rcu_read_lock();
-> -	for_each_netdev_rcu(net, dev) {
-> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
-> -			struct net_device *br_dev;
-> -			const struct net_device_ops *ops;
-> -
-> -			br_dev =3D netdev_master_upper_dev_get(dev);
-> -			ops =3D br_dev->netdev_ops;
-> -			if (ops->ndo_fdb_dump)
-> -				idx =3D ops->ndo_fdb_dump(skb, cb, dev, idx);
-> +	ndm =3D nlmsg_data(cb->nlh);
-> +	if (ndm->ndm_ifindex) {
-> +		dev =3D __dev_get_by_index(net, ndm->ndm_ifindex);
-> +		if (dev =3D=3D NULL) {
-> +			pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
-
-You left another debug message here.
-
-> +			return -ENODEV;
->  		}
-> =20
-> -		if (dev->netdev_ops->ndo_fdb_dump)
-> -			idx =3D dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
-> -		else
-> -			idx =3D ndo_dflt_fdb_dump(skb, cb, dev, idx);
-> +		ops =3D dev->netdev_ops;
-> +		if (ops->ndo_fdb_dump) {
-> +			idx =3D ops->ndo_fdb_dump(skb, cb, dev, idx);
-> +		} else {
-> +			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
-> +				dev->name);
-
-And here.
-
-> +			return -EINVAL;
-> +		}
-[...]
-
-Why does this only call the device's own ndo_fdb_dump and not a
-bridge-port's bridge's ndo_fdb_dump or ndo_dflt_fdb_dump?
-
-Ben.
-
---=20
-Ben Hutchings
-Humans are not rational beings; they are rationalising beings.
-
---=-y6YmvRB+Plb8h/Why2wq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUAU4KoiOe/yOyVhhEJAQqUvQ/+MmzVrDuwWlEJq13K0U8x0MWCB1rWHlhM
-jerQpoeA1bK1LkZYtn89wwQzoDJ9QObzZ1YoqWaKW0RJSXqHuR6wbupkiYSBqrrt
-/xg/D1SmF1fzIZazsDNPyF1msHLejHq2uswrqc6w5ifrUwpCVfpxvIBmhUmbhsxc
-Pla8/5OS2J/JCczfA/r995NQFxeon87m3oe4Hzf8gOsdXverfrfswPU9i2/Xsryg
-tXoy5atHQoS4GZOUhcclFLbA9pXxK31BuX4u5D36f4hzwy8scSLOkcvbnl/qTu6v
-XjE8uNn2WW1POEe2OML58EFozZuVxHyCJJiwUEbFXAAsspEzOtO0nYbygSAu2tU5
-Fto4W7zDjNw2W+2vX1pZwYU+vedg3LHUJvrT69eDH+tS4KD1LER5Ydrgg6cyejms
-0bhkyJdrR8knrB15JYSSE/pTMZfuMzbbVxmbIdseaWhiqWOWSGyoIxRnT9zPt4ma
-+aj+k/ZmjPvtZYyT1RAoVaQBYpuoMSLzM1D4KIO20o5RHnBUBZZbxZz9rukLx0F4
-Vy/jcifMvEaEBW8iO5GmTtvH47hebIUwtzi/txNnnzawshipw15GJbmA41EzvxYd
-L4VAX403oyDcTbTHTcE+gWyv6lJg2GfV4oy1irrjDbFxlfNM/8A3lJ2VSfbdYzN3
-e3+oatVipDg=
-=mAmD
------END PGP SIGNATURE-----
-
---=-y6YmvRB+Plb8h/Why2wq--
+You are right,  __ip_local_out maybe a better place.I will submit another patch.
