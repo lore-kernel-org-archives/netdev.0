@@ -1,124 +1,126 @@
-From: Yang Yingliang <yangyingliang@huawei.com>
-Subject: [PATCH net-next v2] net_sched: increase drop count when packets are dropped
-Date: Mon, 26 May 2014 10:22:12 +0800
-Message-ID: <1401070932-12440-1-git-send-email-yangyingliang@huawei.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [net-next PATCH v2 1/1] bring netlink interface to par with
+ brctl show macs
+Date: Mon, 26 May 2014 03:35:47 +0100
+Message-ID: <1401071747.17377.111.camel@deadeye.wl.decadent.org.uk>
+References: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <eric.dumazet@gmail.com>, <vtlam@google.com>,
-	<nanditad@google.com>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-y6YmvRB+Plb8h/Why2wq"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	stephen@networkplumber.org, vyasevic@redhat.com,
+	john.r.fastabend@intel.com, sfeldma@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:11203 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027AbaEZCWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 22:22:52 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52284 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751178AbaEZCf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 May 2014 22:35:58 -0400
+In-Reply-To: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we change limit in qdisc, if there're too many packets in the queue,
-some packets will be dropped but the drop count is not increased.
 
-E.g.:
- One terminal run the following command:
- # tc qdisc add dev eth4 root handle 1: htb default 1
- # tc class add dev eth4 parent 1:0 classid 1:1 htb rate 800mbit ceil 800mbit
- # tc qdisc add dev eth4 parent 1:1 handle 11: fq
- Then use iperf to send packets
- 
- Another run the following scripts:
- #!/bin/sh
- int=1
- while(( $int<=5 ))
- do
- tc qdisc replace dev eth4 parent 1:1 handle 11: fq limit 10
- tc qdisc replace dev eth4 parent 1:1 handle 11: fq limit 100000
- done
+--=-y6YmvRB+Plb8h/Why2wq
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- Then show the qdisc :
- # tc -s -d qdisc show dev eth4
-qdisc htb 1: root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17 direct_qlen 1000
- Sent 1770938310 bytes 1175683 pkt (_dropped_ 447, overlimits 12423 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc fq 11: parent 1:1 limit 100000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140 
- Sent 1770970104 bytes 1175704 pkt (_dropped_ 426, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-  4 flows (3 inactive, 0 throttled)
-  0 gc, 0 highprio, 6748 throttled, 162 flows_plimit
+On Sun, 2014-05-25 at 09:15 -0400, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>=20
+> This patch allows something equivalent to
+> "brctl showmacs <bridge device>" with iproute2
+> syntax "bridge fdb show br <bridge device>"
+> Filtering by bridge is done in the kernel.
+> The current setup doesnt scale when you have many bridges each
+> with large fdbs (preliminary fix with the kernel patch).
+>=20
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>  net/core/rtnetlink.c |   49 ++++++++++++++++++++++++++++++++++----------=
+-----
+>  1 file changed, 34 insertions(+), 15 deletions(-)
+>=20
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index f31268d..1ad4828 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2509,26 +2509,45 @@ static int rtnl_fdb_dump(struct sk_buff *skb, str=
+uct netlink_callback *cb)
+>  {
+>  	int idx =3D 0;
+>  	struct net *net =3D sock_net(skb->sk);
+> +	const struct net_device_ops *ops;
+>  	struct net_device *dev;
+> +	struct ndmsg *ndm;
+> =20
+> -	rcu_read_lock();
+> -	for_each_netdev_rcu(net, dev) {
+> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+> -			struct net_device *br_dev;
+> -			const struct net_device_ops *ops;
+> -
+> -			br_dev =3D netdev_master_upper_dev_get(dev);
+> -			ops =3D br_dev->netdev_ops;
+> -			if (ops->ndo_fdb_dump)
+> -				idx =3D ops->ndo_fdb_dump(skb, cb, dev, idx);
+> +	ndm =3D nlmsg_data(cb->nlh);
+> +	if (ndm->ndm_ifindex) {
+> +		dev =3D __dev_get_by_index(net, ndm->ndm_ifindex);
+> +		if (dev =3D=3D NULL) {
+> +			pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
 
-The drop count of parent and leaf is not equal, becasue it only increase
-the drop count of parent(htb) but not leaf(fq) in fq_change().
+You left another debug message here.
 
-With this patch, they will be equal :
- # tc -s -d qdisc show dev eth4
-qdisc htb 1: root refcnt 2 r2q 10 default 1 direct_packets_stat 0 ver 3.17 direct_qlen 1000
- Sent 977241352 bytes 648678 pkt (_dropped_ 512, overlimits 14209 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc fq 11: parent 1:1 limit 100000p flow_limit 100p buckets 1024 quantum 3028 initial_quantum 15140 
- Sent 977274660 bytes 648700 pkt (_dropped_ 512, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-  5 flows (2 inactive, 0 throttled)
-  0 gc, 0 highprio, 7550 throttled, 58 flows_plimit
+> +			return -ENODEV;
+>  		}
+> =20
+> -		if (dev->netdev_ops->ndo_fdb_dump)
+> -			idx =3D dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
+> -		else
+> -			idx =3D ndo_dflt_fdb_dump(skb, cb, dev, idx);
+> +		ops =3D dev->netdev_ops;
+> +		if (ops->ndo_fdb_dump) {
+> +			idx =3D ops->ndo_fdb_dump(skb, cb, dev, idx);
+> +		} else {
+> +			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
+> +				dev->name);
 
-So replace kfree_skb() with qdisc_drop() which will increase the
-drop count. hhf and fq_codel have the same problem, fix them too.
-Besides, fq_codel and hhf have a member drop_overlimit which means
-drop count because of overlimit, increase it too.
+And here.
 
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Terry Lam <vtlam@google.com>
-Cc: Nandita Dukkipati <nanditad@google.com>
-Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+> +			return -EINVAL;
+> +		}
+[...]
 
----
-Change note:
+Why does this only call the device's own ndo_fdb_dump and not a
+bridge-port's bridge's ndo_fdb_dump or ndo_dflt_fdb_dump?
 
-Modify the changelog and add the description of test.
----
- net/sched/sch_fq.c       | 2 +-
- net/sched/sch_fq_codel.c | 3 ++-
- net/sched/sch_hhf.c      | 3 ++-
- 3 files changed, 5 insertions(+), 3 deletions(-)
+Ben.
 
-diff --git a/net/sched/sch_fq.c b/net/sched/sch_fq.c
-index ba648e189f2e..1e350406aa53 100644
---- a/net/sched/sch_fq.c
-+++ b/net/sched/sch_fq.c
-@@ -756,7 +756,7 @@ static int fq_change(struct Qdisc *sch, struct nlattr *opt)
- 
- 		if (!skb)
- 			break;
--		kfree_skb(skb);
-+		qdisc_drop(skb, sch);
- 		drop_count++;
- 	}
- 	qdisc_tree_decrease_qlen(sch, drop_count);
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 0bf432c782c1..bcfe4594470f 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -344,7 +344,8 @@ static int fq_codel_change(struct Qdisc *sch, struct nlattr *opt)
- 	while (sch->q.qlen > sch->limit) {
- 		struct sk_buff *skb = fq_codel_dequeue(sch);
- 
--		kfree_skb(skb);
-+		qdisc_drop(skb, sch);
-+		q->drop_overlimit++;
- 		q->cstats.drop_count++;
- 	}
- 	qdisc_tree_decrease_qlen(sch, q->cstats.drop_count);
-diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-index 6aab8619bbb0..71542d2cecac 100644
---- a/net/sched/sch_hhf.c
-+++ b/net/sched/sch_hhf.c
-@@ -593,7 +593,8 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
- 	while (sch->q.qlen > sch->limit) {
- 		struct sk_buff *skb = hhf_dequeue(sch);
- 
--		kfree_skb(skb);
-+		qdisc_drop(skb, sch);
-+		q->drop_overlimit++;
- 	}
- 	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
- 
--- 
-1.8.0
+--=20
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
+
+--=-y6YmvRB+Plb8h/Why2wq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIVAwUAU4KoiOe/yOyVhhEJAQqUvQ/+MmzVrDuwWlEJq13K0U8x0MWCB1rWHlhM
+jerQpoeA1bK1LkZYtn89wwQzoDJ9QObzZ1YoqWaKW0RJSXqHuR6wbupkiYSBqrrt
+/xg/D1SmF1fzIZazsDNPyF1msHLejHq2uswrqc6w5ifrUwpCVfpxvIBmhUmbhsxc
+Pla8/5OS2J/JCczfA/r995NQFxeon87m3oe4Hzf8gOsdXverfrfswPU9i2/Xsryg
+tXoy5atHQoS4GZOUhcclFLbA9pXxK31BuX4u5D36f4hzwy8scSLOkcvbnl/qTu6v
+XjE8uNn2WW1POEe2OML58EFozZuVxHyCJJiwUEbFXAAsspEzOtO0nYbygSAu2tU5
+Fto4W7zDjNw2W+2vX1pZwYU+vedg3LHUJvrT69eDH+tS4KD1LER5Ydrgg6cyejms
+0bhkyJdrR8knrB15JYSSE/pTMZfuMzbbVxmbIdseaWhiqWOWSGyoIxRnT9zPt4ma
++aj+k/ZmjPvtZYyT1RAoVaQBYpuoMSLzM1D4KIO20o5RHnBUBZZbxZz9rukLx0F4
+Vy/jcifMvEaEBW8iO5GmTtvH47hebIUwtzi/txNnnzawshipw15GJbmA41EzvxYd
+L4VAX403oyDcTbTHTcE+gWyv6lJg2GfV4oy1irrjDbFxlfNM/8A3lJ2VSfbdYzN3
+e3+oatVipDg=
+=mAmD
+-----END PGP SIGNATURE-----
+
+--=-y6YmvRB+Plb8h/Why2wq--
