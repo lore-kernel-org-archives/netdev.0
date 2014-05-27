@@ -1,56 +1,64 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: Extend irq_set_affinity_notifier() to use a call chain
-Date: Tue, 27 May 2014 11:15:06 +0300
-Message-ID: <5384498A.9080900@mellanox.com>
-References: <5381DEDC.8050204@gmail.com> <alpine.DEB.2.02.1405261313570.21720@ionos.tec.linutronix.de> <53832472.7070000@gmail.com> <alpine.DEB.2.02.1405261327500.21720@ionos.tec.linutronix.de> <53832D28.1050207@mellanox.com> <alpine.DEB.2.02.1405261412110.21720@ionos.tec.linutronix.de>
+Subject: Re: [PATCH net-next 1/2] net/mlx4_core: Deprecate use_prio module
+ parameter
+Date: Tue, 27 May 2014 11:08:38 +0300
+Message-ID: <53844806.6030808@mellanox.com>
+References: <1400488662-5657-1-git-send-email-amirv@mellanox.com>	 <1400488662-5657-2-git-send-email-amirv@mellanox.com> <1401132152.27743.2.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <idos@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1405261412110.21720@ionos.tec.linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Carol Soto <clsoto@linux.vnet.ibm.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:44229 "EHLO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752444AbaE0IIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 04:08:46 -0400
+In-Reply-To: <1401132152.27743.2.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 5/26/2014 3:39 PM, Thomas Gleixner wrote:
+On 5/26/2014 10:22 PM, Ben Hutchings wrote:
+> On Mon, 2014-05-19 at 11:37 +0300, Amir Vadai wrote:
+>> It was used for steering by user priority for A0 steering. A0 mode is
+>> not supported anymore. Printing a message and ignoring the parameter.
+>>
+>> CC: Carol Soto <clsoto@linux.vnet.ibm.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>   drivers/net/ethernet/mellanox/mlx4/main.c | 8 ++++----
+>>   include/linux/mlx4/device.h               | 1 -
+>>   2 files changed, 4 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>> index a56f601..08ff5dd 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>> @@ -132,8 +132,7 @@ MODULE_PARM_DESC(log_num_vlan, "Log2 max number of VLANs per ETH port (0-7)");
+>>
+>>   static bool use_prio;
+>>   module_param_named(use_prio, use_prio, bool, 0444);
+>
+> Perhaps the sysfs permissions should be set to 0 (i.e. not visible in
+> sysfs)?
+>
+Good idea - since the series already applied, will send another patch.
 
 [...]
 
+>> +	if (use_prio != 0)
+>> +		pr_warn("mlx4_core: use_prio - obsolete module param, ignored\n");
 >
-> The rmap _IS_ instantiated by the driver, and both the driver and the
-> networking core know about it.
->
-> So it's not completely different consumers. Just because it's a
-> library does not mean it's disjunct from the code which uses it.
->
-> Aside of the fact, that maintaining a per irq notifier chain is going
-> to be ugly as hell due to life time and locking issues, it's just
-> opening a can of worms. How do you make sure that the invocation order
-> is correct? What are the dependency rules of the driver restarting the
-> napi session versus updating the rmap?
->
-> Even if you'd solve that and have a callback in the driver, then the
-> callback never can restart the napi session directly. All it can do is
-> set a flag which needs to be checked in the RX path, right?
->
-> So what's the point of adding notifier call chain complexity, ordering
-> problems etc., if you can simply note the fact that the affinity
-> changed in the rmap itself and check that in the RX path?
-
-I will try to find a solution in the spirit of what you suggested - to 
-let the rmap library notify napi about affinity changes - without adding 
-this complexity to the code.
+> You spell it pr_warning() in the adjacent logging statements.
+Patch 2/2 "net/mlx4_core: Replace pr_warning() with pr_warn()" in this 
+patch series will take care to the other pr_warning's
 
 Thanks,
 Amir
 
 >
-> Thanks,
+> Ben.
 >
-> 	tglx
