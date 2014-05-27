@@ -1,47 +1,84 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 0/2] net: fec: Add fec sleep pinctrl for pin PM state
-Date: Tue, 27 May 2014 09:04:38 +0000
-Message-ID: <11233fa404764116995194dc29484092@BY2PR03MB377.namprd03.prod.outlook.com>
-References: <1400568645-10214-1-git-send-email-b38611@freescale.com>
- <20140522.151042.666672316134579103.davem@davemloft.net>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v2 1/1] net: fec: use pinctrl PM helpers
+Date: Tue, 27 May 2014 15:51:08 +0800
+Message-ID: <1401177068-6206-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Shawn Guo <Shawn.Guo@freescale.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
+	<b20596@freescale.com>, <R65073@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0240.outbound.protection.outlook.com ([207.46.163.240]:38096
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:49150
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750881AbaE0JEq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 05:04:46 -0400
-In-Reply-To: <20140522.151042.666672316134579103.davem@davemloft.net>
-Content-Language: en-US
+	id S1752085AbaE0JLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 05:11:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, David,
+when system suspend, need to set pins to low power state to
+save IO power consumption, there are three states of pinctrl:
+"default", "idle" and "sleep". Currently enet supports default
+and sleep state.
 
-From: David Miller <davem@davemloft.net> Data: Friday, May 23, 2014 3:11 AM
->To: Duan Fugang-B38611
->Cc: Guo Shawn-R65073; linux-arm-kernel@lists.infradead.org;
->netdev@vger.kernel.org; kernel@pengutronix.de; Li Frank-B20596
->Subject: Re: [PATCH v1 0/2] net: fec: Add fec sleep pinctrl for pin PM
->state
->
->From: Fugang Duan <b38611@freescale.com>
->Date: Tue, 20 May 2014 14:50:43 +0800
->
->> The two patches is to add fec sleep pinctrl for pin PM state in imx6sl
->> evk platform.
->
->Patch #2 doesn't apply at all to the net tree.
-The previous patch is based on next, now I resend the patch base your tree.
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-Thanks,
-Andy
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index cb5c987..4d989b2 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1816,6 +1816,7 @@ fec_enet_open(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int ret;
+ 
++	pinctrl_pm_select_default_state(&fep->pdev->dev);
+ 	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+ 		return ret;
+@@ -1859,6 +1860,7 @@ fec_enet_close(struct net_device *ndev)
+ 	}
+ 
+ 	fec_enet_clk_enable(ndev, false);
++	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	fec_enet_free_buffers(ndev);
+ 
+ 	return 0;
+@@ -2162,6 +2164,9 @@ fec_probe(struct platform_device *pdev)
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
+ #endif
+ 
++	/* Select default pin state */
++	pinctrl_pm_select_default_state(&pdev->dev);
++
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	fep->hwp = devm_ioremap_resource(&pdev->dev, r);
+ 	if (IS_ERR(fep->hwp)) {
+@@ -2258,6 +2263,7 @@ fec_probe(struct platform_device *pdev)
+ 	/* Carrier starts down, phylib will bring it up */
+ 	netif_carrier_off(ndev);
+ 	fec_enet_clk_enable(ndev, false);
++	pinctrl_pm_select_sleep_state(&pdev->dev);
+ 
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -2317,6 +2323,7 @@ fec_suspend(struct device *dev)
+ 		netif_device_detach(ndev);
+ 	}
+ 	fec_enet_clk_enable(ndev, false);
++	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 
+ 	if (fep->reg_phy)
+ 		regulator_disable(fep->reg_phy);
+@@ -2337,6 +2344,7 @@ fec_resume(struct device *dev)
+ 			return ret;
+ 	}
+ 
++	pinctrl_pm_select_default_state(&fep->pdev->dev);
+ 	ret = fec_enet_clk_enable(ndev, true);
+ 	if (ret)
+ 		goto failed_clk;
+-- 
+1.7.8
