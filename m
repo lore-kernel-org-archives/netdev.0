@@ -1,54 +1,23 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: RE: latest net-next: iwlwifi: reproducible SOFTIRQ-unsafe lock
- order detected
-Date: Tue, 27 May 2014 18:42:43 +0000
-Message-ID: <0BA3FCBA62E2DC44AF3030971E174FB303E1330E@HASMSX103.ger.corp.intel.com>
-References: <538232C5.7000306@hartkopp.net>
- <1401213672.5367.260.camel@edumazet-glaptop2.roam.corp.google.com>
- <1DC40B07CD6EC041A66726C271A73AE61B79892E@IRSMSX102.ger.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/mlx4_core: Preserve pci_dev_data after
+ __mlx4_remove_one()
+Date: Tue, 27 May 2014 14:54:03 -0400 (EDT)
+Message-ID: <20140527.145403.1114311769956769966.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"'johannes@sipsolutions.net'" <johannes@sipsolutions.net>
-To: "Berg, Johannes" <johannes.berg@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: weiyang@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:18776 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752094AbaE0SnU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 14:43:20 -0400
-In-Reply-To: <1DC40B07CD6EC041A66726C271A73AE61B79892E@IRSMSX102.ger.corp.intel.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:45787 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753347AbaE0SyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 14:54:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiANCj4gPiBCdWcgYWRkZWQgaW4gY29tbWl0IGVhNjhmNDYwNzBjN2JhZTYwOGM2MTlhZTA0OGYw
-YWQ5OTVkYjc0YzMNCj4gPiAoIml3bHdpZmk6IHBjaWU6IGNsYXJpZnkgVFggcXVldWUgbmVlZF91
-cGRhdGUgaGFuZGxpbmciKQ0KPiA+DQo+ID4gUGxlYXNlIHRyeSA6DQo+ID4NCj4gPiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXdsd2lmaS9wY2llL3R4LmMNCj4gPiBiL2RyaXZl
-cnMvbmV0L3dpcmVsZXNzL2l3bHdpZmkvcGNpZS90eC5jDQo+ID4gaW5kZXggZGRlNjAzMWY0MjU3
-Li4zMDlhMTNjYWRkY2QgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvaXds
-d2lmaS9wY2llL3R4LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9pd2x3aWZpL3Bj
-aWUvdHguYw0KPiA+IEBAIC0zMzgsMTIgKzMzOCwxMiBAQCB2b2lkIGl3bF9wY2llX3R4cV9jaGVj
-a193cnB0cnMoc3RydWN0IGl3bF90cmFucw0KPiA+ICp0cmFucykNCj4gPiAgCWZvciAoaSA9IDA7
-IGkgPCB0cmFucy0+Y2ZnLT5iYXNlX3BhcmFtcy0+bnVtX29mX3F1ZXVlczsgaSsrKSB7DQo+ID4g
-IAkJc3RydWN0IGl3bF90eHEgKnR4cSA9ICZ0cmFuc19wY2llLT50eHFbaV07DQo+ID4NCj4gPiAt
-CQlzcGluX2xvY2soJnR4cS0+bG9jayk7DQo+ID4gKwkJc3Bpbl9sb2NrX2JoKCZ0eHEtPmxvY2sp
-Ow0KPiANCj4gWWVhaCwgd2UgaGF2ZSB0aGUgc2FtZSBjb21taXQgaW4gdGhlIHRyZWU6DQo+IA0K
-PiBjb21taXQgZDA5MGY4NzhiMDA4NDM0NDgxMmRjN2JiMDg2ZTk4Y2QyNDU3MmU1OA0KPiBBdXRo
-b3I6IEVtbWFudWVsIEdydW1iYWNoIDxlbW1hbnVlbC5ncnVtYmFjaEBpbnRlbC5jb20+DQo+IERh
-dGU6ICAgVHVlIE1heSAxMyAwODoxMDo1MSAyMDE0ICswMzAwDQo+IA0KPiAgICAgaXdsd2lmaTog
-cGNpZTogZGlzYWJsZSBCSHMgaW4gaXdsX3BjaWVfdHhxX2NoZWNrX3dycHRycw0KPiANCj4gSSdt
-IG5vdCBzdXJlIHdoeSBpdCBoYXNuJ3QgaGl0IG5ldC5naXQsIEkgbm8gbG9uZ2VyIG1haW50YWlu
-IGl3bHdpZmkuZ2l0Lg0KDQpCZWNhdXNlIGl0IGRvZXNuJ3QgbmVlZCB0byBoaXQgbmV0LmdpdDoN
-Cg0KZ2l0IHRhZyAtLWNvbnRhaW5zIGVhNjhmNDYwNzBjN2JhZTYwOGM2MTlhZTA0OGYwYWQ5OTVk
-Yjc0YzMNCm1hc3Rlci0yMDE0LTA0LTIyDQptYXN0ZXItMjAxNC0wNC0yNA0KbWFzdGVyLTIwMTQt
-MDQtMjUNCm1hc3Rlci0yMDE0LTA1LTA1DQptYXN0ZXItMjAxNC0wNS0wNw0KbWFzdGVyLTIwMTQt
-MDUtMTMNCm1hc3Rlci0yMDE0LTA1LTE2DQptYXN0ZXItMjAxNC0wNS0xOQ0KbWFzdGVyLTIwMTQt
-MDUtMjANCm1hc3Rlci0yMDE0LTA1LTIwLTENCg0KVGhlIGJ1ZyBoYXMgYmVlbiBpbnRyb2R1Y2Vk
-IGluIHdpcmVsZXNzLW5leHQuZ2l0IGFuZCBhcHBhcmVudGx5LCB0aGUgZml4IGlzbid0IGluIG5l
-dC1uZXh0IHlldCAoaXQgaXMgaW4gd2lyZWxlc3MtbmV4dC5naXQgdGhvdWdoKS4NClRoZSB3aXJl
-bGVzcy1uZXh0IGNvZGUgaW4gbmV0LW5leHQgaXMgdmVyeSBvbGQuIEl0IHNlZW1zIHRoYXQgSm9o
-biBuZWVkcyB0byBzZW5kIGEgKGJpZykgcHVsbCByZXF1ZXN0Lg0K
+
+If you want me to add this to -stable, you'll have to do the backporting
+for me as this change doesn't come anywhere near to applying to v3.14.4
+
+Thanks.
