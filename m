@@ -1,38 +1,64 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] mwifiex: use time_after()
-Date: Tue, 27 May 2014 11:36:26 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F70430F70F5E285@SC-VEXCH1.marvell.com>
-References: <1401040776-13711-1-git-send-email-manuel.schoelling@gmx.de>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: latest net-next: iwlwifi: reproducible SOFTIRQ-unsafe lock order
+ detected
+Date: Tue, 27 May 2014 20:38:12 +0200
+Message-ID: <5384DB94.9050303@hartkopp.net>
+References: <538232C5.7000306@hartkopp.net> <1401213672.5367.260.camel@edumazet-glaptop2.roam.corp.google.com> <1DC40B07CD6EC041A66726C271A73AE61B79892E@IRSMSX102.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: =?utf-8?B?TWFudWVsIFNjaMO2bGxpbmc=?= <manuel.schoelling@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401040776-13711-1-git-send-email-manuel.schoelling@gmx.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"'johannes@sipsolutions.net'" <johannes@sipsolutions.net>
+To: "Berg, Johannes" <johannes.berg@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.161]:57755 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752616AbaE0SiP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 14:38:15 -0400
+In-Reply-To: <1DC40B07CD6EC041A66726C271A73AE61B79892E@IRSMSX102.ger.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFudWVsLA0KDQpUaGFua3MgZm9yIHRoZSBwYXRjaC4NCg0KPiBUbyBiZSBmdXR1cmUtcHJv
-b2YgYW5kIGZvciBiZXR0ZXIgcmVhZGFiaWxpdHkgdGhlIHRpbWUgY29tcGFyaXNvbnMgYXJlDQo+
-IG1vZGlmaWVkIHRvIHVzZSB0aW1lX2FmdGVyKCkgaW5zdGVhZCBvZiBwbGFpbiwgZXJyb3ItcHJv
-bmUgbWF0aC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1hbnVlbCBTY2jDtmxsaW5nIDxtYW51ZWwu
-c2Nob2VsbGluZ0BnbXguZGU+DQoNCkFja2VkLWJ5OiBCaW5nIFpoYW8gPGJ6aGFvQG1hcnZlbGwu
-Y29tPg0KDQpSZWdhcmRzLA0KQmluZw0KDQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvd2lyZWxlc3Mv
-bXdpZmlleC9tYWluLmggfCAgICAyICstDQo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24o
-KyksIDEgZGVsZXRpb24oLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93aXJlbGVz
-cy9td2lmaWV4L21haW4uaCBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL213aWZpZXgvbWFpbi5oDQo+
-IGluZGV4IGQ1M2UxZTguLjMxOTEwNjYgMTAwNjQ0DQo+IC0tLSBhL2RyaXZlcnMvbmV0L3dpcmVs
-ZXNzL213aWZpZXgvbWFpbi5oDQo+ICsrKyBiL2RyaXZlcnMvbmV0L3dpcmVsZXNzL213aWZpZXgv
-bWFpbi5oDQo+IEBAIC0xMTAxLDcgKzExMDEsNyBAQCBtd2lmaWV4XzExaF9nZXRfY3NhX2Nsb3Nl
-ZF9jaGFubmVsKHN0cnVjdCBtd2lmaWV4X3ByaXZhdGUgKnByaXYpDQo+ICAJCXJldHVybiAwOw0K
-PiANCj4gIAkvKiBDbGVhciBjc2EgY2hhbm5lbCwgaWYgREZTIGNoYW5uZWwgbW92ZSB0aW1lIGhh
-cyBwYXNzZWQgKi8NCj4gLQlpZiAoamlmZmllcyA+IHByaXYtPmNzYV9leHBpcmVfdGltZSkgew0K
-PiArCWlmICh0aW1lX2FmdGVyKGppZmZpZXMsIHByaXYtPmNzYV9leHBpcmVfdGltZSkpIHsNCj4g
-IAkJcHJpdi0+Y3NhX2NoYW4gPSAwOw0KPiAgCQlwcml2LT5jc2FfZXhwaXJlX3RpbWUgPSAwOw0K
-PiAgCX0NCj4gLS0NCj4gMS43LjEwLjQNCg0K
+Yep! That fixed it.
+
+Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+Btw. this issue is in net-next.
+
+Regards,
+Oliver
+
+
+On 27.05.2014 20:03, Berg, Johannes wrote:
+>> Bug added in commit ea68f46070c7bae608c619ae048f0ad995db74c3
+>> ("iwlwifi: pcie: clarify TX queue need_update handling")
+>>
+>> Please try :
+>>
+>> diff --git a/drivers/net/wireless/iwlwifi/pcie/tx.c
+>> b/drivers/net/wireless/iwlwifi/pcie/tx.c
+>> index dde6031f4257..309a13caddcd 100644
+>> --- a/drivers/net/wireless/iwlwifi/pcie/tx.c
+>> +++ b/drivers/net/wireless/iwlwifi/pcie/tx.c
+>> @@ -338,12 +338,12 @@ void iwl_pcie_txq_check_wrptrs(struct iwl_trans
+>> *trans)
+>>  	for (i = 0; i < trans->cfg->base_params->num_of_queues; i++) {
+>>  		struct iwl_txq *txq = &trans_pcie->txq[i];
+>>
+>> -		spin_lock(&txq->lock);
+>> +		spin_lock_bh(&txq->lock);
+> 
+> Yeah, we have the same commit in the tree:
+> 
+> commit d090f878b0084344812dc7bb086e98cd24572e58
+> Author: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+> Date:   Tue May 13 08:10:51 2014 +0300
+> 
+>     iwlwifi: pcie: disable BHs in iwl_pcie_txq_check_wrptrs
+> 
+> I'm not sure why it hasn't hit net.git, I no longer maintain iwlwifi.git.
+> 
+> johannes
+> 
