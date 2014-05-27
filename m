@@ -1,53 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 1/1] iproute2 bridge: bring to par with brctl show macs
-Date: Tue, 27 May 2014 17:41:06 -0400
-Message-ID: <53850672.1030107@mojatatu.com>
-References: <1401024151-8774-1-git-send-email-jhs@emojatatu.com> <27A51C19-553E-4BA0-A8B2-F4251FABA5F4@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	john.r.fastabend@intel.com,
-	Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Scott Feldman <sfeldma@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:37676 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738AbaE0VlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 17:41:17 -0400
-Received: by mail-ie0-f181.google.com with SMTP id rp18so7962880iec.12
-        for <netdev@vger.kernel.org>; Tue, 27 May 2014 14:41:17 -0700 (PDT)
-In-Reply-To: <27A51C19-553E-4BA0-A8B2-F4251FABA5F4@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH 6/9] tlan: Don't scream if no link
+Date: Tue, 27 May 2014 23:38:44 +0200
+Message-ID: <1401226727-5508-7-git-send-email-linux@rainbow-software.org>
+References: <1401226727-5508-1-git-send-email-linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Chessman <chessman@tux.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401226727-5508-1-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/27/14 11:59, Scott Feldman wrote:
->
->
-> Seems you could use your new kernel filter for brports also, when br is not specified.
->If both br and brport is specified, then use filter in user-space, otherwise use filter
->in kernel on br or brport ifindex.
->
+Remove excess printks when the link is down.
 
-filtering by brport is very useful.
-I wasnt as much concerned about that use case because i can already
-filter in user space for brport when i dump (iproute2 does as well).
-But i couldnt filter by bridge since that info is not even
-present in the dumped data
-I just saw the patch posted by Roopa - I think that now gives me the
-ability to also filter by bridge in user space.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/ti/tlan.c |    9 ---------
+ drivers/net/ethernet/ti/tlan.h |    1 -
+ 2 files changed, 10 deletions(-)
 
-Note: All i am doing is stealing the ndm ifindex - which before was
-a zero and ignore by the kernel as the bridge ifindex.
-I think what you are suggesting is: if the user doesnt specify the
-bridge i should use the ndm ifindex to send down the brport as
-the filter. But that becomes an bridge "or" bridgeport filter
-choice. A more useful scenario is to have bridge "and"
-bridgeport filter. So almost seems like i need an attribute to send
-down for the bridge port.
-Sounds like a separate patch...
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index 1047b3f..628a779 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -1199,9 +1199,6 @@ static irqreturn_t tlan_handle_interrupt(int irq, void *dev_id)
+ 
+ static int tlan_close(struct net_device *dev)
+ {
+-	struct tlan_priv *priv = netdev_priv(dev);
+-
+-	priv->neg_be_verbose = 0;
+ 	tlan_stop(dev);
+ 
+ 	free_irq(dev->irq, dev);
+@@ -2702,12 +2699,6 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
+ 		/* Wait for 8 sec to give the process
+ 		 * more time.  Perhaps we should fail after a while.
+ 		 */
+-		if (!priv->neg_be_verbose++) {
+-			pr_info("Giving autonegotiation more time.\n");
+-			pr_info("Please check that your adapter has\n");
+-			pr_info("been properly connected to a HUB or Switch.\n");
+-			pr_info("Trying to establish link in the background...\n");
+-		}
+ 		tlan_set_timer(dev, (8*HZ), TLAN_TIMER_PHY_FINISH_AN);
+ 		return;
+ 	}
+diff --git a/drivers/net/ethernet/ti/tlan.h b/drivers/net/ethernet/ti/tlan.h
+index b6ceeba..e992841 100644
+--- a/drivers/net/ethernet/ti/tlan.h
++++ b/drivers/net/ethernet/ti/tlan.h
+@@ -208,7 +208,6 @@ struct tlan_priv {
+ 	u8			tlan_full_duplex;
+ 	spinlock_t		lock;
+ 	struct work_struct			tlan_tqueue;
+-	u8			neg_be_verbose;
+ };
+ 
+ 
+-- 
+Ondrej Zary
