@@ -1,64 +1,58 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 1/2] net/mlx4_core: Deprecate use_prio module
- parameter
-Date: Tue, 27 May 2014 11:08:38 +0300
-Message-ID: <53844806.6030808@mellanox.com>
-References: <1400488662-5657-1-git-send-email-amirv@mellanox.com>	 <1400488662-5657-2-git-send-email-amirv@mellanox.com> <1401132152.27743.2.camel@deadeye.wl.decadent.org.uk>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
+ Sanitize skb before it enters the IP stack)
+Date: Tue, 27 May 2014 08:55:12 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724E207@AcuExch.aculab.com>
+References: <537CF5A2.3080401@pandora.be>
+	<20140521.161841.1806439174351824310.davem@davemloft.net>
+	<53803488.6000400@davidnewall.com>
+ <20140524.134356.992924324126016022.davem@davemloft.net>
+ <53815623.8020506@davidnewall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Carol Soto <clsoto@linux.vnet.ibm.com>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "bdschuym@pandora.be" <bdschuym@pandora.be>,
+	"fw@strlen.de" <fw@strlen.de>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	"bsd@redhat.com" <bsd@redhat.com>,
+	"vyasevich@gmail.com" <vyasevich@gmail.com>
+To: 'David Newall' <davidn@davidnewall.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:44229 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752444AbaE0IIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 04:08:46 -0400
-In-Reply-To: <1401132152.27743.2.camel@deadeye.wl.decadent.org.uk>
+Received: from mx0.aculab.com ([213.249.233.131]:49197 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751736AbaE0I4I convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 04:56:08 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 17682-01 for <netdev@vger.kernel.org>;
+ Tue, 27 May 2014 09:55:58 +0100 (BST)
+In-Reply-To: <53815623.8020506@davidnewall.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/26/2014 10:22 PM, Ben Hutchings wrote:
-> On Mon, 2014-05-19 at 11:37 +0300, Amir Vadai wrote:
->> It was used for steering by user priority for A0 steering. A0 mode is
->> not supported anymore. Printing a message and ignoring the parameter.
->>
->> CC: Carol Soto <clsoto@linux.vnet.ibm.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/main.c | 8 ++++----
->>   include/linux/mlx4/device.h               | 1 -
->>   2 files changed, 4 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
->> index a56f601..08ff5dd 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
->> @@ -132,8 +132,7 @@ MODULE_PARM_DESC(log_num_vlan, "Log2 max number of VLANs per ETH port (0-7)");
->>
->>   static bool use_prio;
->>   module_param_named(use_prio, use_prio, bool, 0444);
->
-> Perhaps the sysfs permissions should be set to 0 (i.e. not visible in
-> sysfs)?
->
-Good idea - since the series already applied, will send another patch.
+From: David Newall
+> On 25/05/14 03:13, David Miller wrote:
+> > This patch was substantially corrupted by your email client.
+> 
+> We should be sending these things as mime attachments.  Having to put
+> patches inline is brittle, absurd and a waste of everyone's time.  Is
+> there actually anybody here who doesn't have a mime-compatible MUA?
 
-[...]
+Yes - anyone using the email client from the world's largest desktop
+computer software company.
 
->> +	if (use_prio != 0)
->> +		pr_warn("mlx4_core: use_prio - obsolete module param, ignored\n");
->
-> You spell it pr_warning() in the adjacent logging statements.
-Patch 2/2 "net/mlx4_core: Replace pr_warning() with pr_warn()" in this 
-patch series will take care to the other pr_warning's
+It doesn't have any method for displaying text attachments.
+It has a scheme for executing attachments, for which it will use
+an interpreter based on the filename extension.
+(Yes - this is why it is very good at propagating viruses.)
 
-Thanks,
-Amir
+FWIW it can send valid patches quite easily - just copy/paste from wordpad.
+(Possibly after hacking the registry to allow lines longer than 72 characters.
 
->
-> Ben.
->
+	David
