@@ -1,121 +1,103 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: add hix5hd2 mac driver
-Date: Tue, 27 May 2014 15:25:46 +0200
-Message-ID: <201405271525.46356.arnd@arndb.de>
-References: <1400504227-12047-1-git-send-email-zhangfei.gao@linaro.org> <201405261651.15998.arnd@arndb.de> <53840D40.3000600@linaro.org>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH v2 1/2] Documentation: add Device tree bindings for
+ Hisilicon hix5hd2 ethernet
+Date: Tue, 27 May 2014 14:34:23 +0100
+Message-ID: <20140527133423.GB6969@leverpostej>
+References: <1401194667-14445-1-git-send-email-zhangfei.gao@linaro.org>
+ <1401194667-14445-2-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@aculab.com, eric.dumazet@gmail.com,
-	haifeng.yan@linaro.org, jchxue@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: zhangfei <zhangfei.gao@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"haifeng.yan@linaro.org" <haifeng.yan@linaro.org>,
+	"jchxue@gmail.com" <jchxue@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Zhangfei Gao <zhangfei.gao@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:51322 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbaE0N0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 09:26:35 -0400
-In-Reply-To: <53840D40.3000600@linaro.org>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:49681 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752047AbaE0NfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 09:35:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1401194667-14445-2-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 27 May 2014, zhangfei wrote:
-> On 05/26/2014 10:51 PM, Arnd Bergmann wrote:
-> > On Monday 19 May 2014, Zhangfei Gao wrote:
-> >
-> > I only noticed one real issue with the driver:
-> >
-> >> +struct hix5hd2_desc {
-> >> +    __le32 buff_addr;
-> >> +    __le32 buff_len:11;
-> >> +    __le32 reserve2:5;
-> >> +    __le32 data_len:11;
-> >> +    __le32 reserve1:2;
-> >> +    __le32 fl:2;
-> >> +    __le32 descvid:1;
-> >> +} __aligned(32);
-> >> +
-> >
-> > You should generall not use bitfields in hardware data structures, as that is
-> > not endian safe and will prevent running a big-endian kernel on this machine.
-> > Better convert this to a set of __le32 fields and explicit shifts and masks.
+On Tue, May 27, 2014 at 01:44:26PM +0100, Zhangfei Gao wrote:
+> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+> ---
+>  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   36 ++++++++++++++++++++
+>  1 file changed, 36 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
 > 
-> Got it, will update.
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> new file mode 100644
+> index 0000000..5fe3835
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+> @@ -0,0 +1,36 @@
+> +Hisilicon hix5hd2 gmac controller
+
+Just to clarify, is the SoC name "hix5hd2", or is the 'x' a wildcard?
+
+> +
+> +Required properties:
+> +- compatible: should be "hisilicon,hix5hd2-gmac".
+> +- reg: specifies base physical address(s) and size of the device registers.
+> +  The first region is the MAC register base and size.
+> +  The second region is external interface control register.
+
+Single registers? Are these not part of a larger block?
+
+> +- interrupts: should contain the MAC interrupts
+
+How many, in which order?
+
+> +- #address-cells: must be <1>.
+> +- #size-cells: must be <0>.
+> +- phy-mode: see ethernet.txt [1].
+> +- phy-handle: see ethernet.txt [1].
+> +- mac-address: see ethernet.txt [1].
+> +- clocks: clock phandle and specifier pair.
+
+Is this the only clock input to the gmac block?
+
+Is the clock input named in any documentation?
+
+Cheers,
+Mark.
+
+> +
+> +- PHY subnode: inherits from phy binding [2]
+> +
+> +[1] Documentation/devicetree/bindings/net/ethernet.txt
+> +[2] Documentation/devicetree/bindings/net/phy.txt
+> +
+> +Example:
+> +	gmac0: ethernet@f9840000 {
+> +		compatible = "hisilicon,hix5hd2-gmac";
+> +		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
+> +		interrupts = <0 71 4>;
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		phy-mode = "mii";
+> +		phy-handle = <&phy2>;
+> +		mac-address = [00 00 00 00 00 00];
+> +		clocks = <&clock HIX5HD2_MAC0_CLK>;
+> +
+> +		phy2: ethernet-phy@2 {
+> +			reg = <2>;
+> +		};
+> +	};
+> -- 
+> 1.7.9.5
 > 
-> More knowledge about big-endian kernel is appreciated, in which case we 
-> should consider such kernel.
-> Can we only consider this driver is only running on arm, which is 
-> little-endian.
-
-The main user of big-endian kernels that I know of are network infrastructure
-people that have a ton of legacy user-space code written in non-portable
-big-endian style.
-
-There is no real technical advantage in running one endianess or the other
-on ARM, so generally everyone uses little-endian because that is what their
-user space is, except for the few people that have ported over their
-code from PowerPC or MIPSeb.
-
-> > Two smaller things you should think about, I'm not entirely sure about these:
-> >
-> >> +static int hix5hd2_rx(struct net_device *dev, int limit)
-> >> +{
-> >> +    struct hix5hd2_priv *priv = netdev_priv(dev);
-> >> +    struct sk_buff *skb;
-> >> +    struct hix5hd2_desc *desc;
-> >> +    dma_addr_t dma_addr;
-> >> +    u32 start, end, num, pos, i, len;
-> >> +
-> >> +    /* software read pointer */
-> >> +    start = dma_cnt(readl_relaxed(priv->base + RX_BQ_RD_ADDR));
-> >> +    /* logic write pointer */
-> >> +    end = dma_cnt(readl_relaxed(priv->base + RX_BQ_WR_ADDR));
-> >
-> > I think one of these needs to be readl() instead of readl_relaxed(),
-> > to ensure the data is correctly ordered with regard to the pointer
-> > access.
-> readl_relaxed can ensure the sequence.
 > 
-> >
-> >> +    if (pos != start)
-> >> +            writel(dma_byte(pos), priv->base + TX_RQ_RD_ADDR);
-> >
-> > While this looks like it could be writel_relaxed().
-> >
-> En, I think all three cases can use xxx_relaxed.
-> These accesses are just update pointer used by internal logic and get 
-> pointer updated by internal logic.
-
-You always need a barrier between the access to a buffer from the kernel
-and the register access communicating with the hardware about that
-buffer:
-
-For tx:
-
-	a) write to DMA descriptor
-	b) wmb()
-	c) writel_relaxed(register)
-
-writel() is the short form of b+c. If you omit the __iowmb(), the decriptor
-access may still be inside of the CPU write buffer (or the cache on coherent
-systems) by the time the hardware reads the descriptor.
-
-for rx:
-
-	a) readl_relaxed(register)
-	b) rmb()
-	c) read from descriptor or skb data
-
-If you leave out the __iormb() here, it's possible that the CPU can prefetch
-the access to the descriptor while waiting for the register data, and read
-stale data.
-
-If your particular machine doesn't need rmb() or wmb() (e.g. for
-non-SMP ARMv6 or older), the build process should replace them with
-do{}while(0) them automatically.
-
-	Arnd
