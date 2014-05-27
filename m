@@ -1,27 +1,32 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net: filter: test fill/spill of all M[]
- regs
-Date: Tue, 27 May 2014 18:57:46 +0200
-Message-ID: <5384C40A.7050203@redhat.com>
-References: <1401128255-6545-1-git-send-email-dborkman@redhat.com> <1401128255-6545-2-git-send-email-dborkman@redhat.com> <CAMEtUuyP+F5SxBnaT7a3LgAwcp5MG6knWEsdt1-xdq2pk2gWxQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 2/2] macvlan: slight optimization for
+ macvlan_handle_frame
+Date: Tue, 27 May 2014 09:58:01 -0700
+Message-ID: <20140527095801.6d269c1f@nehalam.linuxnetplumber.net>
+References: <1401187996-10252-1-git-send-email-dingtianhong@huawei.com>
+	<1401187996-10252-3-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Ding Tianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60183 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751927AbaE0Q5v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 12:57:51 -0400
-In-Reply-To: <CAMEtUuyP+F5SxBnaT7a3LgAwcp5MG6knWEsdt1-xdq2pk2gWxQ@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:47737 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752594AbaE0Q6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 12:58:05 -0400
+Received: by mail-pa0-f45.google.com with SMTP id ey11so9450857pad.4
+        for <netdev@vger.kernel.org>; Tue, 27 May 2014 09:58:04 -0700 (PDT)
+In-Reply-To: <1401187996-10252-3-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/27/2014 08:02 AM, Alexei Starovoitov wrote:
-...
-> store and immediate load from the same slot won't catch slot overlap,
-> but that would be a job for another test.
+On Tue, 27 May 2014 18:53:16 +0800
+Ding Tianhong <dingtianhong@huawei.com> wrote:
 
-Have a test in my queue. ;)
+> Add unlikely() micro to the unlikely conditions in the macvlan_handle_frame
+> for slight optimization.
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+
+Unnecessary, a goto is equivalent to unlikely
