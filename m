@@ -1,52 +1,109 @@
-From: Darek Marcinkiewicz <reksio@newterm.pl>
-Subject: Re: [PATCH] net: ec_bhf: Add runtime dependencies
-Date: Tue, 27 May 2014 22:30:59 +0200
-Message-ID: <20140527203059.GA25384@newterm.pl>
-References: <20140526212614.6e2610b0@endymion.delvare>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] ehea: Introduce the use of the managed version of
+ kzalloc
+Date: Tue, 27 May 2014 18:13:57 -0300
+Message-ID: <20140527211357.GA4700@oc0268524204.ibm.com>
+References: <20140525185037.GA3041@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jean Delvare <jdelvare@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.newterm.pl ([79.187.237.18]:59117 "EHLO apollo.newterm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752664AbaE0UbB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 16:31:01 -0400
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr, David Miller <davem@davemloft.net>
+To: Himangi Saraogi <himangi774@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140526212614.6e2610b0@endymion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140525185037.GA3041@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 26, 2014 at 09:26:14PM +0200, Jean Delvare wrote:
-> The ec_bhf driver is specific to the Beckhoff CX5020, an embedded PC
-> based on a 32-bit Intel Atom CPU. So we can add a dependency on
-> X86_32, with COMPILE_TEST as an alternative to still allow for broader
-> build-testing.
+On Mon, May 26, 2014 at 12:20:38AM +0530, Himangi Saraogi wrote:
+> This patch moves data allocated using kzalloc to managed data allocated
+> using devm_kzalloc and cleans now unnecessary kfrees in probe and remove
+> functions. Also, linux/device.h is added to make sure the devm_*()
+> routine declarations are unambiguously available.
 > 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
-> Cc: Darek Marcinkiewicz <reksio@newterm.pl>
-> Cc: David S. Miller <davem@davemloft.net>
+> The following Coccinelle semantic patch was used for making the change:
+> 
+> @platform@
+> identifier p, probefn, removefn;
+> @@
+> struct platform_driver p = {
+>   .probe = probefn,
+>   .remove = removefn,
+> };
+> 
+> @prb@
+> identifier platform.probefn, pdev;
+> expression e, e1, e2;
+> @@
+> probefn(struct platform_device *pdev, ...) {
+>   <+...
+> - e = kzalloc(e1, e2)
+> + e = devm_kzalloc(&pdev->dev, e1, e2)
+>   ...
+> ?-kfree(e);
+>   ...+>
+> }
+> 
+> @rem depends on prb@
+> identifier platform.removefn;
+> expression e;
+> @@
+> removefn(...) {
+>   <...
+> - kfree(e);
+>   ...>
+> }
+> 
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 > ---
->  drivers/net/ethernet/Kconfig |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> --- linux-3.15-rc7.orig/drivers/net/ethernet/Kconfig	2014-05-26 09:24:00.555619955 +0200
-> +++ linux-3.15-rc7/drivers/net/ethernet/Kconfig	2014-05-26 21:01:32.971410992 +0200
-> @@ -39,6 +39,7 @@ source "drivers/net/ethernet/cisco/Kconf
->  config CX_ECAT
->  	tristate "Beckhoff CX5020 EtherCAT master support"
->  	depends on PCI
-> +	depends on X86_32 || COMPILE_TEST
->  	---help---
->  	  Driver for EtherCAT master module located on CCAT FPGA
->  	  that can be found on Beckhoff CX5020, and possibly other of CX
-> 
-> 
-It makes sense, just one more comment. It is pretty likely that
-this driver also works with CX20** family of Beckhoff embedded PCs, which
-have 64bit Intel iCore processor. Unfortunately, I haven't yet had a chance
-to get my hands on any of those so cannot tell for sure. Maybe allowing
-this driver also for x64 would be slightly better option?
+> Not compiled due to incompatible architecture
 
--- 
-DM
+For now, compile-tested.
+
+Cascardo.
+
+> 
+> v2: add linux/device.h include
+>  drivers/net/ethernet/ibm/ehea/ehea_main.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> index 538903b..a25f3c6 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+> @@ -29,6 +29,7 @@
+>  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> 
+>  #include <linux/in.h>
+> +#include<linux/device.h>
+>  #include <linux/ip.h>
+>  #include <linux/tcp.h>
+>  #include <linux/udp.h>
+> @@ -3273,7 +3274,7 @@ static int ehea_probe_adapter(struct platform_device *dev)
+>  		return -EINVAL;
+>  	}
+> 
+> -	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
+> +	adapter = devm_kzalloc(&dev->dev, sizeof(*adapter), GFP_KERNEL);
+>  	if (!adapter) {
+>  		ret = -ENOMEM;
+>  		dev_err(&dev->dev, "no mem for ehea_adapter\n");
+> @@ -3359,7 +3360,6 @@ out_kill_eq:
+> 
+>  out_free_ad:
+>  	list_del(&adapter->list);
+> -	kfree(adapter);
+> 
+>  out:
+>  	ehea_update_firmware_handles();
+> @@ -3386,7 +3386,6 @@ static int ehea_remove(struct platform_device *dev)
+>  	ehea_destroy_eq(adapter->neq);
+>  	ehea_remove_adapter_mr(adapter);
+>  	list_del(&adapter->list);
+> -	kfree(adapter);
+> 
+>  	ehea_update_firmware_handles();
+> 
+> -- 
+> 1.9.1
+> 
