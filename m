@@ -1,84 +1,96 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v2 1/1] net: fec: use pinctrl PM helpers
-Date: Tue, 27 May 2014 15:51:08 +0800
-Message-ID: <1401177068-6206-1-git-send-email-b38611@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<b20596@freescale.com>, <R65073@freescale.com>
-To: <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 27 May 2014 02:12:16 -0700
+Message-ID: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:49150
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752085AbaE0JLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 05:11:41 -0400
+Received: from mga02.intel.com ([134.134.136.20]:17019 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751850AbaE0JMe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 05:12:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-when system suspend, need to set pins to low power state to
-save IO power consumption, there are three states of pinctrl:
-"default", "idle" and "sleep". Currently enet supports default
-and sleep state.
+This series contains updates to e1000, e1000e, ixgbe and i40evf.
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+Emil provides a fix for ixgbe so that non-fiber devices with MNG FW enabled
+are able to link at 100Mbps.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index cb5c987..4d989b2 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1816,6 +1816,7 @@ fec_enet_open(struct net_device *ndev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	int ret;
- 
-+	pinctrl_pm_select_default_state(&fep->pdev->dev);
- 	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
- 		return ret;
-@@ -1859,6 +1860,7 @@ fec_enet_close(struct net_device *ndev)
- 	}
- 
- 	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 	fec_enet_free_buffers(ndev);
- 
- 	return 0;
-@@ -2162,6 +2164,9 @@ fec_probe(struct platform_device *pdev)
- 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
- #endif
- 
-+	/* Select default pin state */
-+	pinctrl_pm_select_default_state(&pdev->dev);
-+
- 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	fep->hwp = devm_ioremap_resource(&pdev->dev, r);
- 	if (IS_ERR(fep->hwp)) {
-@@ -2258,6 +2263,7 @@ fec_probe(struct platform_device *pdev)
- 	/* Carrier starts down, phylib will bring it up */
- 	netif_carrier_off(ndev);
- 	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&pdev->dev);
- 
- 	ret = register_netdev(ndev);
- 	if (ret)
-@@ -2317,6 +2323,7 @@ fec_suspend(struct device *dev)
- 		netif_device_detach(ndev);
- 	}
- 	fec_enet_clk_enable(ndev, false);
-+	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
- 
- 	if (fep->reg_phy)
- 		regulator_disable(fep->reg_phy);
-@@ -2337,6 +2344,7 @@ fec_resume(struct device *dev)
- 			return ret;
- 	}
- 
-+	pinctrl_pm_select_default_state(&fep->pdev->dev);
- 	ret = fec_enet_clk_enable(ndev, true);
- 	if (ret)
- 		goto failed_clk;
+Jacob provides several changes for ixgbe, most of which are PTP related.
+Renames ixgbe_ptp_enable() to ixgbe_ptp_feature_enable() to better reflect
+the functions purpose.  Extracts the hardware setup logic for the PTP
+hardware bits from the ixgbe_ptp_set_ts_config() to enable future work for
+the ixgbe_ptp_reset().  Maintain the hwstamp configuration through a reset
+and extracts the creation of the PTP clock device from ptp_init() in order
+to properly handle a suspend/resume cycle and only calls it if we don't
+already have a ptp_clock pointer.
+
+David provides a patch to expend the e1000e driver to turn on unicast
+PROMISC when there is failure to write to a shared receive address register.
+The fix update_phy_task() for 82579 is expanded to include newer PHYs as well
+so that the dev_spec->eee_lp_ability has the correct value when going into
+SX states.
+
+Todd provides a e1000e fix an errata for 82574/82583 where it is possible
+bad bits are read from SYSTIMH/L so check to see that the time is
+incrementing at a reasonable rate and is a multiple of the time incremental
+value.  Removes a redundant igb PHY power down register write.
+
+Andi Kleen out of lines two write functions for e1000e to save 30k text size.
+
+Tobias Klauser converts the e1000 and i40evf drivers to use the
+is_broadcast_ether_addr() and is_multicast_ether_addr().
+
+The following are changes since commit 3bea8eddfebe1c61ea824dd2880d4368791edc1f:
+  Merge branch 'net-sysfs-docs'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Andi Kleen (1):
+  e1000e: Out of line __ew32_prepare/__ew32
+
+David Ertman (3):
+  e1000e: Failure to write SHRA turns on PROMISC mode
+  e1000e: Cleanup parenthesis around return value
+  e1000e: Fix expand setting EEE link info to all affected parts
+
+Emil Tantilov (1):
+  ixgbe: fix linking at 100Mbps on copper devices with MNG FW enabled
+
+Jacob Keller (6):
+  ixgbe: rename ixgbe_ptp_enable to ixgbe_ptp_feature_enable
+  ixgbe: extract the hardware setup from the ixgbe_ptp_set_ts_config
+  ixgbe: allow ixgbe_ptp_reset to maintain current hwtstamp config
+  ixgbe: extract PTP clock device from ptp_init
+  ixgbe: separate the PTP suspend and stop actions
+  ixgbe: avoid duplicate code in suspend and stop paths
+
+Tobias Klauser (2):
+  e1000: Use is_broadcast_ether_addr/is_multicast_ether_addr helpers
+  i40evf: Use is_multicast_ether_addr helper
+
+Todd Fujinaka (2):
+  e1000e: 82574/82583 TimeSync errata for SYSTIM read
+  igb: remove redundant PHY power down register write
+
+ drivers/net/ethernet/intel/e1000/e1000_hw.c     |   4 +-
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c |   1 +
+ drivers/net/ethernet/intel/e1000e/82571.c       |   1 +
+ drivers/net/ethernet/intel/e1000e/e1000.h       |  33 +----
+ drivers/net/ethernet/intel/e1000e/hw.h          |   3 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |  61 +++++++--
+ drivers/net/ethernet/intel/e1000e/mac.c         |   9 +-
+ drivers/net/ethernet/intel/e1000e/mac.h         |   3 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c      |  69 +++++++++-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c |   2 +-
+ drivers/net/ethernet/intel/igb/e1000_phy.c      |  14 --
+ drivers/net/ethernet/intel/igb/e1000_phy.h      |   1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  29 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c    | 163 ++++++++++++++++++------
+ 15 files changed, 277 insertions(+), 117 deletions(-)
+
 -- 
-1.7.8
+1.9.3
