@@ -1,83 +1,42 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: latest net-next: iwlwifi: reproducible SOFTIRQ-unsafe lock order
- detected
-Date: Tue, 27 May 2014 15:09:22 -0400
-Message-ID: <20140527190922.GA8378@tuxdriver.com>
-References: <538232C5.7000306@hartkopp.net>
- <1401213672.5367.260.camel@edumazet-glaptop2.roam.corp.google.com>
- <1DC40B07CD6EC041A66726C271A73AE61B79892E@IRSMSX102.ger.corp.intel.com>
- <5384DB94.9050303@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Berg, Johannes" <johannes.berg@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"'johannes@sipsolutions.net'" <johannes@sipsolutions.net>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+From: wenxiong@linux.vnet.ibm.com
+Subject: [PATCH RESEND 1/2] bnx2x: Adapter not recovery from EEH error injection
+Date: Tue, 27 May 2014 14:11:23 -0500
+Message-ID: <20140527191235.587455631@linux.vnet.ibm.com>
+References: <20140527191122.750711568@linux.vnet.ibm.com>
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
+	Wen Xiong <wenxiong@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43444 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752078AbaE0TPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 15:15:12 -0400
-Content-Disposition: inline
-In-Reply-To: <5384DB94.9050303@hartkopp.net>
+Received: from [32.97.110.57] ([32.97.110.57]:33188 "HELO
+	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1753171AbaE0TPu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 15:15:50 -0400
+Content-Disposition: inline; filename=bnx2x_eeh_fix
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have that commit in wireless-next, included in the pull request
-sent today.
+When injecting EEH error to bnx2x adapter, adapter couldn't be recovery
+and caused recursive EEH errors. The patch fixes the issue.
 
-John
+Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-On Tue, May 27, 2014 at 08:38:12PM +0200, Oliver Hartkopp wrote:
-> Yep! That fixed it.
-> 
-> Tested-by: Oliver Hartkopp <socketcan@hartkopp.net>
-> 
-> Btw. this issue is in net-next.
-> 
-> Regards,
-> Oliver
-> 
-> 
-> On 27.05.2014 20:03, Berg, Johannes wrote:
-> >> Bug added in commit ea68f46070c7bae608c619ae048f0ad995db74c3
-> >> ("iwlwifi: pcie: clarify TX queue need_update handling")
-> >>
-> >> Please try :
-> >>
-> >> diff --git a/drivers/net/wireless/iwlwifi/pcie/tx.c
-> >> b/drivers/net/wireless/iwlwifi/pcie/tx.c
-> >> index dde6031f4257..309a13caddcd 100644
-> >> --- a/drivers/net/wireless/iwlwifi/pcie/tx.c
-> >> +++ b/drivers/net/wireless/iwlwifi/pcie/tx.c
-> >> @@ -338,12 +338,12 @@ void iwl_pcie_txq_check_wrptrs(struct iwl_trans
-> >> *trans)
-> >>  	for (i = 0; i < trans->cfg->base_params->num_of_queues; i++) {
-> >>  		struct iwl_txq *txq = &trans_pcie->txq[i];
-> >>
-> >> -		spin_lock(&txq->lock);
-> >> +		spin_lock_bh(&txq->lock);
-> > 
-> > Yeah, we have the same commit in the tree:
-> > 
-> > commit d090f878b0084344812dc7bb086e98cd24572e58
-> > Author: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
-> > Date:   Tue May 13 08:10:51 2014 +0300
-> > 
-> >     iwlwifi: pcie: disable BHs in iwl_pcie_txq_check_wrptrs
-> > 
-> > I'm not sure why it hasn't hit net.git, I no longer maintain iwlwifi.git.
-> > 
-> > johannes
-> > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+===================================================================
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:42:48.000000000 -0500
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:44:36.757765539 -0500
+@@ -13279,8 +13279,8 @@ static int bnx2x_eeh_nic_unload(struct b
+ 	netdev_reset_tc(bp->dev);
+ 
+ 	del_timer_sync(&bp->timer);
+-	cancel_delayed_work(&bp->sp_task);
+-	cancel_delayed_work(&bp->period_task);
++	cancel_delayed_work_sync(&bp->sp_task);
++	cancel_delayed_work_sync(&bp->period_task);
+ 
+ 	spin_lock_bh(&bp->stats_lock);
+ 	bp->stats_state = STATS_STATE_DISABLED;
 
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
