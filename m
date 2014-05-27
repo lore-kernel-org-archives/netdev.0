@@ -1,138 +1,50 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 4/4] s390/net: fix format string mismatches
-Date: Tue, 27 May 2014 11:13:45 +0200
-Message-ID: <20140527091400.422890684@de.ibm.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [patch 4/4] s390/net: fix format string mismatches
+Date: Tue, 27 May 2014 09:34:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724E324@AcuExch.aculab.com>
 References: <20140527091341.417448231@de.ibm.com>
+ <20140527091400.422890684@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>,
 	Ursula Braun <ursula.braun@de.ibm.com>,
 	Toralf Foerster <toralf.foerster@gmx.de>
-To: davem@davemloft.net
+To: "'frank.blaschka@de.ibm.com'" <frank.blaschka@de.ibm.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:46373 "EHLO
-	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429AbaE0JOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 05:14:30 -0400
-Received: from /spool/local
-	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
-	Tue, 27 May 2014 10:14:06 +0100
-Content-Disposition: inline; filename=608-net-format-strings.diff
+Received: from mx0.aculab.com ([213.249.233.131]:50313 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751777AbaE0JfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 05:35:16 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 31191-03 for <netdev@vger.kernel.org>;
+ Tue, 27 May 2014 10:35:06 +0100 (BST)
+In-Reply-To: <20140527091400.422890684@de.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
-
-cppcheck blamed some issues in drivers/s390/net/...
-They are fixed here.
-
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
-Reported-by: Toralf Foerster <toralf.foerster@gmx.de>
----
- drivers/s390/net/ctcm_sysfs.c   | 14 +++++++++-----
- drivers/s390/net/lcs.c          | 13 +++++++++----
- drivers/s390/net/qeth_l3_main.c |  2 +-
- 3 files changed, 19 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/s390/net/ctcm_sysfs.c b/drivers/s390/net/ctcm_sysfs.c
-index 985b5dc..883f713 100644
---- a/drivers/s390/net/ctcm_sysfs.c
-+++ b/drivers/s390/net/ctcm_sysfs.c
-@@ -34,8 +34,9 @@ static ssize_t ctcm_buffer_write(struct device *dev,
- 		struct device_attribute *attr, const char *buf, size_t count)
- {
- 	struct net_device *ndev;
--	int bs1;
-+	unsigned int bs1;
- 	struct ctcm_priv *priv = dev_get_drvdata(dev);
-+	int rc;
- 
- 	ndev = priv->channel[CTCM_READ]->netdev;
- 	if (!(priv && priv->channel[CTCM_READ] && ndev)) {
-@@ -43,7 +44,9 @@ static ssize_t ctcm_buffer_write(struct device *dev,
- 		return -ENODEV;
- 	}
- 
--	sscanf(buf, "%u", &bs1);
-+	rc =  sscanf(buf, "%u", &bs1);
-+	if (rc != 1)
-+					goto einval;
- 	if (bs1 > CTCM_BUFSIZE_LIMIT)
- 					goto einval;
- 	if (bs1 < (576 + LL_HEADER_LENGTH + 2))
-@@ -143,13 +146,14 @@ static ssize_t ctcm_proto_show(struct device *dev,
- static ssize_t ctcm_proto_store(struct device *dev,
- 		struct device_attribute *attr, const char *buf, size_t count)
- {
--	int value;
-+	int value, rc;
- 	struct ctcm_priv *priv = dev_get_drvdata(dev);
- 
- 	if (!priv)
- 		return -ENODEV;
--	sscanf(buf, "%u", &value);
--	if (!((value == CTCM_PROTO_S390)  ||
-+	rc = sscanf(buf, "%d", &value);
-+	if ((rc != 1) ||
-+	    !((value == CTCM_PROTO_S390)  ||
- 	      (value == CTCM_PROTO_LINUX) ||
- 	      (value == CTCM_PROTO_MPC) ||
- 	      (value == CTCM_PROTO_OS390)))
-diff --git a/drivers/s390/net/lcs.c b/drivers/s390/net/lcs.c
-index 8d5d969..0a7d87c 100644
---- a/drivers/s390/net/lcs.c
-+++ b/drivers/s390/net/lcs.c
-@@ -1943,14 +1943,16 @@ static ssize_t
- lcs_portno_store (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
- {
-         struct lcs_card *card;
--        int value;
-+	int value, rc;
- 
- 	card = dev_get_drvdata(dev);
- 
-         if (!card)
-                 return 0;
- 
--        sscanf(buf, "%u", &value);
-+	rc = sscanf(buf, "%d", &value);
-+	if (rc != 1)
-+		return -EINVAL;
-         /* TODO: sanity checks */
-         card->portno = value;
- 
-@@ -1997,14 +1999,17 @@ static ssize_t
- lcs_timeout_store (struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
- {
-         struct lcs_card *card;
--        int value;
-+	unsigned int value;
-+	int rc;
- 
- 	card = dev_get_drvdata(dev);
- 
-         if (!card)
-                 return 0;
- 
--        sscanf(buf, "%u", &value);
-+	rc = sscanf(buf, "%u", &value);
-+	if (rc != 1)
-+		return -EINVAL;
-         /* TODO: sanity checks */
-         card->lancmd_timeout = value;
- 
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index c8d91d7..491be1a 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -63,7 +63,7 @@ void qeth_l3_ipaddr4_to_string(const __u8 *addr, char *buf)
- int qeth_l3_string_to_ipaddr4(const char *buf, __u8 *addr)
- {
- 	int count = 0, rc = 0;
--	int in[4];
-+	unsigned int in[4];
- 	char c;
- 
- 	rc = sscanf(buf, "%u.%u.%u.%u%c",
+RnJvbTogZnJhbmsuYmxhc2Noa2FAZGUuaWJtLmNvbQ0KPiBGcm9tOiBVcnN1bGEgQnJhdW4gPHVy
+c3VsYS5icmF1bkBkZS5pYm0uY29tPg0KPiANCj4gY3BwY2hlY2sgYmxhbWVkIHNvbWUgaXNzdWVz
+IGluIGRyaXZlcnMvczM5MC9uZXQvLi4uDQo+IFRoZXkgYXJlIGZpeGVkIGhlcmUuDQouLi4NCj4g
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvczM5MC9uZXQvY3RjbV9zeXNmcy5jIGIvZHJpdmVycy9zMzkw
+L25ldC9jdGNtX3N5c2ZzLmMNCj4gaW5kZXggOTg1YjVkYy4uODgzZjcxMyAxMDA2NDQNCj4gLS0t
+IGEvZHJpdmVycy9zMzkwL25ldC9jdGNtX3N5c2ZzLmMNCj4gKysrIGIvZHJpdmVycy9zMzkwL25l
+dC9jdGNtX3N5c2ZzLmMNCj4gQEAgLTM0LDggKzM0LDkgQEAgc3RhdGljIHNzaXplX3QgY3RjbV9i
+dWZmZXJfd3JpdGUoc3RydWN0IGRldmljZSAqZGV2LA0KPiAgCQlzdHJ1Y3QgZGV2aWNlX2F0dHJp
+YnV0ZSAqYXR0ciwgY29uc3QgY2hhciAqYnVmLCBzaXplX3QgY291bnQpDQo+ICB7DQo+ICAJc3Ry
+dWN0IG5ldF9kZXZpY2UgKm5kZXY7DQo+IC0JaW50IGJzMTsNCj4gKwl1bnNpZ25lZCBpbnQgYnMx
+Ow0KPiAgCXN0cnVjdCBjdGNtX3ByaXYgKnByaXYgPSBkZXZfZ2V0X2RydmRhdGEoZGV2KTsNCj4g
+KwlpbnQgcmM7DQo+IA0KPiAgCW5kZXYgPSBwcml2LT5jaGFubmVsW0NUQ01fUkVBRF0tPm5ldGRl
+djsNCj4gIAlpZiAoIShwcml2ICYmIHByaXYtPmNoYW5uZWxbQ1RDTV9SRUFEXSAmJiBuZGV2KSkg
+ew0KPiBAQCAtNDMsNyArNDQsOSBAQCBzdGF0aWMgc3NpemVfdCBjdGNtX2J1ZmZlcl93cml0ZShz
+dHJ1Y3QgZGV2aWNlICpkZXYsDQo+ICAJCXJldHVybiAtRU5PREVWOw0KPiAgCX0NCj4gDQo+IC0J
+c3NjYW5mKGJ1ZiwgIiV1IiwgJmJzMSk7DQo+ICsJcmMgPSAgc3NjYW5mKGJ1ZiwgIiV1IiwgJmJz
+MSk7DQoNClRoZXJlIGlzIGEgc3BhcmUgJyAnIGhlcmUuDQpJJ2QgaGF2ZSB0aG91Z2h0IHRoYXQg
+dGhlcmUgaXMgYSBzdHJ0b3VsKCkgZnVuY3Rpb24gdGhhdCBnaXZlcw0KbXVjaCBjbGVhcmVyIGVy
+cm9yIGRldGVjdGlvbiB0aGFuIHNzY2FuZigpLg0KDQo+ICsJaWYgKHJjICE9IDEpDQo+ICsJCQkJ
+CWdvdG8gZWludmFsOw0KDQphbmQgc29tZXRoaW5nIG9kZCB3aXRoIHRoZSBpbmRlbnRhdGlvbiBo
+ZXJlLg0KYW5kIHNvbWUgdGFiL3NwYWNlIGZ1YmFyIGxhdGVyIG9uLi4uDQoNCglEYXZpZA0KDQo=
