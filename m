@@ -1,32 +1,35 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 2/2] macvlan: slight optimization for
- macvlan_handle_frame
-Date: Tue, 27 May 2014 09:58:01 -0700
-Message-ID: <20140527095801.6d269c1f@nehalam.linuxnetplumber.net>
-References: <1401187996-10252-1-git-send-email-dingtianhong@huawei.com>
-	<1401187996-10252-3-git-send-email-dingtianhong@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net: filter: use block statements in tcpdump
+ tests
+Date: Tue, 27 May 2014 19:00:13 +0200
+Message-ID: <5384C49D.7090101@redhat.com>
+References: <1401128255-6545-1-git-send-email-dborkman@redhat.com> <1401128255-6545-3-git-send-email-dborkman@redhat.com> <CAMEtUuwDsabgox593uiDNocBgLo=LFE34ByqLkF0iA+F7X=boQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <kaber@trash.net>, <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Ding Tianhong <dingtianhong@huawei.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:47737 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752594AbaE0Q6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 12:58:05 -0400
-Received: by mail-pa0-f45.google.com with SMTP id ey11so9450857pad.4
-        for <netdev@vger.kernel.org>; Tue, 27 May 2014 09:58:04 -0700 (PDT)
-In-Reply-To: <1401187996-10252-3-git-send-email-dingtianhong@huawei.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45977 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752217AbaE0RAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 13:00:18 -0400
+In-Reply-To: <CAMEtUuwDsabgox593uiDNocBgLo=LFE34ByqLkF0iA+F7X=boQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 May 2014 18:53:16 +0800
-Ding Tianhong <dingtianhong@huawei.com> wrote:
+On 05/27/2014 08:20 AM, Alexei Starovoitov wrote:
+...
+>> +                       BPF_STMT(BPF_ALU | BPF_LSH | BPF_K, 2),
+>> +                       BPF_STMT(BPF_MISC | BPF_TAX, 0x5), /* libpcap emits K on TAX */
+>
+> interesting observation. It means that libpcap doesn't init memory
+> properly and other fields just have junk in them?
+> and because it was doing it forever we need to accept such 'valid'
+> instructions? Oh well. ok.
 
-> Add unlikely() micro to the unlikely conditions in the macvlan_handle_frame
-> for slight optimization.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-
-Unnecessary, a goto is equivalent to unlikely
+Hmm, doesn't look like totally random. Perhaps they're
+storing some intermediate value in it or something, and
+don't clear that out as we have accepted that since ever,
+but that shouldn't do anything anyway here. ;)
