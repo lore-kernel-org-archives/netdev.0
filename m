@@ -1,72 +1,88 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH] batman-adv: fix NULL pointer dereferences
-Date: Tue, 27 May 2014 04:25:47 +0200
-Message-ID: <1401157547-25199-2-git-send-email-antonio@meshcoding.com>
-References: <1401157547-25199-1-git-send-email-antonio@meshcoding.com>
+From: zhangfei <zhangfei.gao-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 3/3] net: hisilicon: add hix5hd2 mac driver
+Date: Tue, 27 May 2014 11:57:52 +0800
+Message-ID: <53840D40.3000600@linaro.org>
+References: <1400504227-12047-1-git-send-email-zhangfei.gao@linaro.org> <1400504227-12047-4-git-send-email-zhangfei.gao@linaro.org> <201405261651.15998.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	Antonio Quartulli <antonio@meshcoding.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:32427 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133AbaE0C1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 May 2014 22:27:39 -0400
-In-Reply-To: <1401157547-25199-1-git-send-email-antonio@meshcoding.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	haifeng.yan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, jchxue-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201405261651.15998.arnd-r2nGTMty4D4@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Marek Lindner <mareklindner@neomailbox.ch>
+Hi Arnd,
 
-Was introduced with 4c8755d69cbde2ec464a39c932aed0a83f9ff89f
-("batman-adv: Send multicast packets to nodes with a WANT_ALL flag")
+Thanks for the kind suggestions.
 
-Reported-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Acked-by: Antonio Quartulli <antonio@meshcoding.com>
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
-Signed-off-by: Antonio Quartulli <antonio@meshcoding.com>
----
- net/batman-adv/multicast.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On 05/26/2014 10:51 PM, Arnd Bergmann wrote:
+> On Monday 19 May 2014, Zhangfei Gao wrote:
+>
+> I only noticed one real issue with the driver:
+>
+>> +struct hix5hd2_desc {
+>> +	__le32 buff_addr;
+>> +	__le32 buff_len:11;
+>> +	__le32 reserve2:5;
+>> +	__le32 data_len:11;
+>> +	__le32 reserve1:2;
+>> +	__le32 fl:2;
+>> +	__le32 descvid:1;
+>> +} __aligned(32);
+>> +
+>
+> You should generall not use bitfields in hardware data structures, as that is
+> not endian safe and will prevent running a big-endian kernel on this machine.
+> Better convert this to a set of __le32 fields and explicit shifts and masks.
 
-diff --git a/net/batman-adv/multicast.c b/net/batman-adv/multicast.c
-index 8c7ca81..96b66fd 100644
---- a/net/batman-adv/multicast.c
-+++ b/net/batman-adv/multicast.c
-@@ -415,7 +415,7 @@ batadv_mcast_forw_ipv4_node_get(struct batadv_priv =
-*bat_priv)
- 	hlist_for_each_entry_rcu(tmp_orig_node,
- 				 &bat_priv->mcast.want_all_ipv4_list,
- 				 mcast_want_all_ipv4_node) {
--		if (!atomic_inc_not_zero(&orig_node->refcount))
-+		if (!atomic_inc_not_zero(&tmp_orig_node->refcount))
- 			continue;
-=20
- 		orig_node =3D tmp_orig_node;
-@@ -442,7 +442,7 @@ batadv_mcast_forw_ipv6_node_get(struct batadv_priv =
-*bat_priv)
- 	hlist_for_each_entry_rcu(tmp_orig_node,
- 				 &bat_priv->mcast.want_all_ipv6_list,
- 				 mcast_want_all_ipv6_node) {
--		if (!atomic_inc_not_zero(&orig_node->refcount))
-+		if (!atomic_inc_not_zero(&tmp_orig_node->refcount))
- 			continue;
-=20
- 		orig_node =3D tmp_orig_node;
-@@ -493,7 +493,7 @@ batadv_mcast_forw_unsnoop_node_get(struct batadv_pr=
-iv *bat_priv)
- 	hlist_for_each_entry_rcu(tmp_orig_node,
- 				 &bat_priv->mcast.want_all_unsnoopables_list,
- 				 mcast_want_all_unsnoopables_node) {
--		if (!atomic_inc_not_zero(&orig_node->refcount))
-+		if (!atomic_inc_not_zero(&tmp_orig_node->refcount))
- 			continue;
-=20
- 		orig_node =3D tmp_orig_node;
---=20
-1.8.5.5
+Got it, will update.
+
+More knowledge about big-endian kernel is appreciated, in which case we 
+should consider such kernel.
+Can we only consider this driver is only running on arm, which is 
+little-endian.
+
+>
+> Two smaller things you should think about, I'm not entirely sure about these:
+>
+>> +static int hix5hd2_rx(struct net_device *dev, int limit)
+>> +{
+>> +	struct hix5hd2_priv *priv = netdev_priv(dev);
+>> +	struct sk_buff *skb;
+>> +	struct hix5hd2_desc *desc;
+>> +	dma_addr_t dma_addr;
+>> +	u32 start, end, num, pos, i, len;
+>> +
+>> +	/* software read pointer */
+>> +	start = dma_cnt(readl_relaxed(priv->base + RX_BQ_RD_ADDR));
+>> +	/* logic write pointer */
+>> +	end = dma_cnt(readl_relaxed(priv->base + RX_BQ_WR_ADDR));
+>
+> I think one of these needs to be readl() instead of readl_relaxed(),
+> to ensure the data is correctly ordered with regard to the pointer
+> access.
+readl_relaxed can ensure the sequence.
+
+>
+>> +	if (pos != start)
+>> +		writel(dma_byte(pos), priv->base + TX_RQ_RD_ADDR);
+>
+> While this looks like it could be writel_relaxed().
+>
+En, I think all three cases can use xxx_relaxed.
+These accesses are just update pointer used by internal logic and get 
+pointer updated by internal logic.
+
+Thanks
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
