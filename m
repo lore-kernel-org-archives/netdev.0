@@ -1,88 +1,59 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: skbuff truesize incorrect.
-Date: Tue, 27 May 2014 15:23:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724E565@AcuExch.aculab.com>
-References: <537E4AFD.20304@mentor.com>
-	<1400792295.5367.174.camel@edumazet-glaptop2.roam.corp.google.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
- <20140523.161823.1006372695373018122.davem@davemloft.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/1] net: Set NOCARRIER bit of etherdev state at
+ initialization
+Date: Tue, 27 May 2014 10:24:20 -0500
+Message-ID: <1401204260.4346.11.camel@dcbw.local>
+References: <537F7EEF.3060701@gmail.com>
+	 <1400866681.18322.27.camel@dcbw.local>
+	 <20140523.141551.1253983630587935706.davem@davemloft.net>
+	 <CAHPKR9LUseeYbtJomZHSu0mmU-VbcCVg8OGnSCOL1b1=Sfj9kQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"jim_baxter@mentor.com" <jim_baxter@mentor.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kamal@canonical.com" <kamal@canonical.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"mszeredi@suse.cz" <mszeredi@suse.cz>,
-	"fw@strlen.de" <fw@strlen.de>
-To: 'David Miller' <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, stephen@networkplumber.org,
+	Avinash Kumar <avi.kp.137@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Balakumaran Kannan <kumaran.4353@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:57255 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752657AbaE0PYK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 11:24:10 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28716-09 for <netdev@vger.kernel.org>;
- Tue, 27 May 2014 16:24:01 +0100 (BST)
-In-Reply-To: <20140523.161823.1006372695373018122.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:61120 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752912AbaE0PYb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 11:24:31 -0400
+In-Reply-To: <CAHPKR9LUseeYbtJomZHSu0mmU-VbcCVg8OGnSCOL1b1=Sfj9kQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Fri, 23 May 2014 08:52:13 +0000
-> 
-> > The hardware will put multiple ethernet frames into a single USB bulk data
-> > message. To handle this the driver generates a URB that is (hopefully) long
-> > enough for the longest USB message (typically 32k is assumed to be enough).
-> > The URB that usb_net generated have the data in a linear skb - which then
-> > has a large 'truesize'.
+On Sat, 2014-05-24 at 18:52 +0530, Balakumaran Kannan wrote:
+> On Fri, May 23, 2014 at 11:45 PM, David Miller <davem@davemloft.net> wrote:
+> > From: Dan Williams <dcbw@redhat.com>
+> > Date: Fri, 23 May 2014 12:38:01 -0500
 > >
-> > Since USB bulk data are terminated by a short fragment there is actually
-> > no need for the URB be long enough for the full message. Provided the
-> > URB are multiples of the USB message size (1k for USB 3) the message
-> > can be received into multiple URB - the driver just has to be willing
-> > to merge URB buffers (as well as split them) when generating the ethernet
-> > frames.
+> >> The current "carrier on until told otherwise" model is intentional,
+> >> because not all drivers support carrier detection, and thus we must
+> >> assume the carrier is on until the driver tells us it is not on.
+> >>
+> >> Would this patch break that model?
+> >
+> > Absolutely correct, this change is completely inappropriate.
 > 
-> I think we could take a less invasive approach.
+> So it is driver's responsibility to maintain this flag appropriately.
+> Thus if a driver supports carrier detection, it should set "carrier
+> on" only after determining the carrier state. Then I'll add
+> 'netif_carrier_off' call to smsc911x driver and send a new patch.
+
+Correct.  Carrier state starts with ON.  If the driver knows it can
+detect carrier state, then the driver should call netif_carrier_off()
+early in the driver initialization, and then call on/off as appropriate
+when it gets carrier change events.
+
+Dan
+
+> Thanks for the explanation.
 > 
-> Use whatever order page is needed for that 32K chunk for the URB,
-> but split up the compound page so that the individual pages can be
-> accounted for separately.
-
-Using 4k 'pages' would be fine (or even 1k).
-All the USB interfaces support SG provided the fragments are all
-aligned.
-Recycling the unused 4k pages would probably be better than using
-separate URB for each fragment.
-
-Note that the xhci driver has to split buffers that cross 64k
-boundaries into separate ring entries - and these must not cross
-the end of the ring (thank you hardware engineers...).
-So not receiving into the 'linear' part of an skb helps.
-
-Although I suspect that 32k is excessive - provided the driver can
-merge URB (as well as pages) to generate ethernet frames.
-
-> Hook up the pages into the SKB frag array, and only account PAGE_SIZE
-> into the SKB truesize for the individual pages actually used from
-> the superpage.
-> 
-> This will largely retain the URB allocation and processing scheme,
-> yet at the same time dramatically decrease the truesize overrage
-> factor.
-
-True, you still need to sort out how to handle multiple ethernet
-frames in the same 4k page, and arbitrary page boundaries within a frame.
-
-I suspect that using 1k or 2k pages and using 'copybreak' to never pass
-up shared pages would give the best overall performance.
-
-	David
+> Regards,
+> K.Balakumaran
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
