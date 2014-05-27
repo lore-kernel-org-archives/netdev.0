@@ -1,80 +1,82 @@
-From: roopa@cumulusnetworks.com
-Subject: [RFC PATCH] Add bridge ifindex to bridge fdb notify msgs
-Date: Mon, 26 May 2014 21:39:46 -0700
-Message-ID: <1401165586-13836-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: wkok@cumulusnetworks.com
-To: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: [PATCH net-next] net: stmmac: Handle different error codes from platform_get_irq_byname
+Date: Tue, 27 May 2014 12:49:54 +0800
+Message-ID: <1401166194-19085-1-git-send-email-wens@csie.org>
+Cc: Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Rob Herring <robh@kernel.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:35979 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbaE0Ejk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 00:39:40 -0400
+Received: from mirror2.csie.ntu.edu.tw ([140.112.30.76]:39935 "EHLO
+	mirror2.csie.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbaE0F1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 01:27:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+The following patch moved device tree interrupt resolution into
+platform_get_irq_byname:
 
-This patch adds NDA_MASTER attribute to neighbour attributes enum for
-bridge/master ifindex. And adds NDA_MASTER to bridge fdb notify msgs.
+  ad69674 of/irq: do irq resolution in platform_get_irq_byname()
 
-Today bridge fdb notifications dont contain bridge information.
-Userspace can derive it from the port information in the fdb
-notification. However this is tricky in some scenarious.
+As a result, the function no longer only return -ENXIO on error.
+This breaks DT based probing of stmmac, as seen in test runs of
+linux-next next-20140526 cubie2-sunxi_defconfig:
 
-Example, bridge port delete notification comes before bridge fdb
-delete notifications. And we have seen problems in userspace
-when using libnl where, the bridge fdb delete notification handling code
-does not understand which bridge this fdb entry is part of because
-the bridge and port association has already been deleted.
-And these notifications (port membership and fdb) are generated on
-separate rtnl groups.
+  http://lists.linaro.org/pipermail/kernel-build-reports/2014-May/003659.html
 
-Fixing the order of notifications could possibly solve the problem
-for some cases (I can submit a separate patch for that).
+This patch makes the stmmac_platform probe function properly handle
+error codes, such as returning for deferred probing, and other codes
+returned by of_irq_get_by_name.
 
-This patch chooses to add NDA_MASTER to bridge fdb notify msgs
-because it not only solves the problem described above, but also helps
-userspace avoid another lookup into link msgs to derive the master index.
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
 ---
- include/uapi/linux/neighbour.h |    1 +
- net/bridge/br_fdb.c            |    3 +++
- 2 files changed, 4 insertions(+)
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c    | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index d3ef583..4a1d7e9 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -24,6 +24,7 @@ enum {
- 	NDA_PORT,
- 	NDA_VNI,
- 	NDA_IFINDEX,
-+	NDA_MASTER,
- 	__NDA_MAX
- };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 46aef510..9562b18 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -237,10 +237,12 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
  
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..019bb93 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -565,6 +565,8 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
+ 	/* Get the MAC information */
+ 	priv->dev->irq = platform_get_irq_byname(pdev, "macirq");
+-	if (priv->dev->irq == -ENXIO) {
+-		pr_err("%s: ERROR: MAC IRQ configuration "
+-		       "information not found\n", __func__);
+-		return -ENXIO;
++	if (priv->dev->irq < 0) {
++		if (priv->wol_irq != -EPROBE_DEFER) {
++			pr_err("%s: ERROR: MAC IRQ configuration "
++			       "information not found\n", __func__);
++		}
++		return priv->dev->irq;
+ 	}
  
- 	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->addr))
- 		goto nla_put_failure;
-+	if (nla_put_u32(skb, NDA_MASTER, br->dev->ifindex))
-+		goto nla_put_failure;
- 	ci.ndm_used	 = jiffies_to_clock_t(now - fdb->used);
- 	ci.ndm_confirmed = 0;
- 	ci.ndm_updated	 = jiffies_to_clock_t(now - fdb->updated);
-@@ -586,6 +588,7 @@ static inline size_t fdb_nlmsg_size(void)
- {
- 	return NLMSG_ALIGN(sizeof(struct ndmsg))
- 		+ nla_total_size(ETH_ALEN) /* NDA_LLADDR */
-+		+ nla_total_size(sizeof(u32)) /* NDA_MASTER */
- 		+ nla_total_size(sizeof(u16)) /* NDA_VLAN */
- 		+ nla_total_size(sizeof(struct nda_cacheinfo));
- }
+ 	/*
+@@ -252,10 +254,18 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 	 * so the driver will continue to use the mac irq (ndev->irq)
+ 	 */
+ 	priv->wol_irq = platform_get_irq_byname(pdev, "eth_wake_irq");
+-	if (priv->wol_irq == -ENXIO)
++	if (priv->wol_irq < 0) {
++		if (priv->wol_irq == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
+ 		priv->wol_irq = priv->dev->irq;
++	}
+ 
+ 	priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
++	if (priv->lpi_irq < 0) {
++		if (priv->wol_irq == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
++		priv->lpi_irq = -ENXIO;
++	}
+ 
+ 	platform_set_drvdata(pdev, priv->dev);
+ 
 -- 
-1.7.10.4
+2.0.0.rc2
