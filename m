@@ -1,59 +1,86 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: net: export TSO helper functions
-Date: Tue, 27 May 2014 12:16:03 +0200
-Message-ID: <4514086.6xHrns0u2W@wuerfel>
+From: Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>
+Subject: Re: [PATCH net-next 8/8] net: cdc_ncm: document the sysfs API
+Date: Tue, 27 May 2014 12:40:43 +0200
+Message-ID: <20140527104043.3456.qmail@stuge.se>
+References: <1401101625-12342-1-git-send-email-bjorn@mork.no> <1401101625-12342-9-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: ezequiel.garcia@free-electrons.com,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.13]:53269 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752312AbaE0KQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 06:16:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+To: =?utf-8?B?QmrDuHJu?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1401101625-12342-9-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The software TSO helper API was recently added but so far only
-works for built-in device drivers. This adds appropriate exports
-to let us build the drivers using it as loadable modules.
+Bj=C3=B8rn Mork wrote:
+> +++ b/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
+> @@ -0,0 +1,143 @@
+> +What:		/sys/class/net/<iface>/cdc_ncm/min_tx_pkt
+> +Date:		May 2014
+> +KernelVersion:	3.16
+> +Contact:	Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> +Description:
+> +		The driver will pad frames longer than this to tx_max,
+                                           ^^^^^^
+longer or shorter?
 
-Found during randconfig testing.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
-diff --git a/net/core/tso.c b/net/core/tso.c
-index 097821d..c8caf5b 100644
---- a/net/core/tso.c
-+++ b/net/core/tso.c
-@@ -7,6 +7,7 @@ int tso_count_descs(struct sk_buff *skb)
- 	/* The Marvell Way */
- 	return skb_shinfo(skb)->gso_segs * 2 + skb_shinfo(skb)->nr_frags;
- }
-+EXPORT_SYMBOL_GPL(tso_count_descs);
- 
- void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
- 		   int size, bool is_last)
-@@ -31,6 +32,7 @@ void tso_build_hdr(struct sk_buff *skb, char *hdr, struct tso_t *tso,
- 		tcph->rst = 0;
- 	}
- }
-+EXPORT_SYMBOL_GPL(tso_build_hdr);
- 
- void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size)
- {
-@@ -48,6 +50,7 @@ void tso_build_data(struct sk_buff *skb, struct tso_t *tso, int size)
- 		tso->next_frag_idx++;
- 	}
- }
-+EXPORT_SYMBOL_GPL(tso_build_data);
- 
- void tso_start(struct sk_buff *skb, struct tso_t *tso)
- {
-@@ -70,3 +73,4 @@ void tso_start(struct sk_buff *skb, struct tso_t *tso)
- 		tso->next_frag_idx++;
- 	}
- }
-+EXPORT_SYMBOL_GPL(tso_start);
+> +What:		/sys/class/net/<iface>/cdc_ncm/rx_max
+> +Date:		May 2014
+> +KernelVersion:	3.16
+> +Contact:	Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> +Description:
+> +		The maximum NCM Transfer Block (NTB) size for RX.
+> +		Cannot exceed the maximum value supported by the
+> +		device. Must allow at least one max sized datagram
+> +		plus headers.
+> +
+> +		The actual limits are device dependent.  See
+> +		dwNtbInMaxSize.
+> +
+> +		Note: Some devices will silently ignore changes to
+> +		this value, resulting in oversized NTBs and
+> +		corresponding framing errors.
+
+That behavior makes the setting only so-so useful. Could the driver
+know which devices do this, or is it inconsistent even across
+individual devices which are otherwise indistinguishable?
+
+
+> +What:		/sys/class/net/<iface>/cdc_ncm/tx_timer_usecs
+> +Date:		May 2014
+> +KernelVersion:	3.16
+> +Contact:	Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> +Description:
+> +		Datagram aggregation timeout in =C2=B5s. The driver will
+> +		wait up to 3 times this timeout for more datagrams to
+> +		aggregate before transmitting a NTB frame.
+                                              ^
+"an NTB frame" might be better since N sounds like "enn".
+
+
+
+
+> +
+> +		Valid range: 5 to 4000000
+> +
+> +		Set to 0 to disable aggregation.
+> +
+> +The following read only attributes all represent fields of the
+
+read-only?
+
+
+//Peter
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
