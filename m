@@ -1,109 +1,62 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 8/8] net: cdc_ncm: document the sysfs API
-Date: Tue, 27 May 2014 13:07:29 +0200
-Message-ID: <87bnujiioe.fsf@nemi.mork.no>
-References: <1401101625-12342-1-git-send-email-bjorn@mork.no>
-	<1401101625-12342-9-git-send-email-bjorn@mork.no>
-	<20140527104043.3456.qmail@stuge.se>
+From: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH] of: mdio: fix compile warning in
+ of_mdiobus_register_phy()
+Date: Tue, 27 May 2014 12:16:28 +0100
+Message-ID: <20140527111628.A11E1C4156C@trevor.secretlab.ca>
+References: <1400880835-29537-1-git-send-email-cengelma@gmx.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Lars Melin <larsm17@gmail.com>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60777 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751655AbaE0LHp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 07:07:45 -0400
-In-Reply-To: <20140527104043.3456.qmail@stuge.se> (Peter Stuge's message of
-	"Tue, 27 May 2014 12:40:43 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Christian Engelmayer <cengelma-RbZlAiThDcE@public.gmane.org>
+To: Christian Engelmayer <cengelma-RbZlAiThDcE@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1400880835-29537-1-git-send-email-cengelma-RbZlAiThDcE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Peter Stuge <peter@stuge.se> writes:
+On Fri, 23 May 2014 23:33:55 +0200, Christian Engelmayer <cengelma@gmx.=
+at> wrote:
+> Commit de906af1 (net: phy: make of_set_phy_supported work with genphy=
+ driver)
+> removed the last user of variable 'max_speed' in function
+> of_mdiobus_register_phy(), leading to compile warning "unused variabl=
+e
+> =E2=80=98max_speed=E2=80=99 [-Wunused-variable]". Thus remove it.
+>=20
+> Signed-off-by: Christian Engelmayer <cengelma-RbZlAiThDcE@public.gmane.org>
+> ---
+> Compile tested. Applies against branch master in tree
+> git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
 
-> Bj=C3=B8rn Mork wrote:
->> +++ b/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
->> @@ -0,0 +1,143 @@
->> +What:		/sys/class/net/<iface>/cdc_ncm/min_tx_pkt
->> +Date:		May 2014
->> +KernelVersion:	3.16
->> +Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
->> +Description:
->> +		The driver will pad frames longer than this to tx_max,
->                                            ^^^^^^
-> longer or shorter?
+Acked-by: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-longer.  If it is shorter then it is sent as-is.  I guess this setting
-could use a bit more explanation here.
+g.
 
+> ---
+>  drivers/of/of_mdio.c | 1 -
+>  1 file changed, 1 deletion(-)
+>=20
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index b857094..7c6e277 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -46,7 +46,6 @@ static int of_mdiobus_register_phy(struct mii_bus *=
+mdio, struct device_node *chi
+>  	struct phy_device *phy;
+>  	bool is_c45;
+>  	int rc;
+> -	u32 max_speed =3D 0;
+>  	u32 phy_id;
+> =20
+>  	is_c45 =3D of_device_is_compatible(child,
+> --=20
+> 1.9.1
+>=20
 
->
->> +What:		/sys/class/net/<iface>/cdc_ncm/rx_max
->> +Date:		May 2014
->> +KernelVersion:	3.16
->> +Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
->> +Description:
->> +		The maximum NCM Transfer Block (NTB) size for RX.
->> +		Cannot exceed the maximum value supported by the
->> +		device. Must allow at least one max sized datagram
->> +		plus headers.
->> +
->> +		The actual limits are device dependent.  See
->> +		dwNtbInMaxSize.
->> +
->> +		Note: Some devices will silently ignore changes to
->> +		this value, resulting in oversized NTBs and
->> +		corresponding framing errors.
->
-> That behavior makes the setting only so-so useful. Could the driver
-> know which devices do this, or is it inconsistent even across
-> individual devices which are otherwise indistinguishable?
-
-I have no idea, and I don't know how to find out.  I've observed the
-failure on one of my MBIM modems.  That's all I know.
-
-I believe the setting still is useful for all spec compliant devices,
-and even most of the others.  The firmware bug does make it difficult t=
-o
-do any automagic tuning.  But it's not impossible.  The tuning
-application can do a bit of probing and looking at the frame error
-counter.
-
->> +What:		/sys/class/net/<iface>/cdc_ncm/tx_timer_usecs
->> +Date:		May 2014
->> +KernelVersion:	3.16
->> +Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
->> +Description:
->> +		Datagram aggregation timeout in =C2=B5s. The driver will
->> +		wait up to 3 times this timeout for more datagrams to
->> +		aggregate before transmitting a NTB frame.
->                                               ^
-> "an NTB frame" might be better since N sounds like "enn".
-
-
-OK
-
->> +
->> +		Valid range: 5 to 4000000
->> +
->> +		Set to 0 to disable aggregation.
->> +
->> +The following read only attributes all represent fields of the
->
-> read-only?
-
-OK
-
-
-Thanks for reviewing this.
-
-
-
-Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
