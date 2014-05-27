@@ -1,68 +1,42 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH 2/2] net: tilegx: Use helpers from linux/etherdevice.h to check/set MAC
-Date: Tue, 27 May 2014 14:04:05 +0200
-Message-ID: <1401192245-26260-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: net: export TSO helper functions
+Date: Tue, 27 May 2014 09:37:47 -0300
+Message-ID: <20140527123747.GB1655@arch.cereza>
+References: <4514086.6xHrns0u2W@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	sachin.kamat@linaro.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:36769 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751916AbaE0MEK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 08:04:10 -0400
+Received: from top.free-electrons.com ([176.31.233.9]:38084 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751960AbaE0MiZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 08:38:25 -0400
+Content-Disposition: inline
+In-Reply-To: <4514086.6xHrns0u2W@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use is_valid_ether_addr() to check for a valid MAC address to set on the
-device.  This will also check for the device address being multicast,
-which would have been possible previously.
+Hi Arnd,
 
-Also use ether_addr_copy() instead of a manual memcpy() to set the
-address.
+On 27 May 12:16 PM, Arnd Bergmann wrote:
+> The software TSO helper API was recently added but so far only
+> works for built-in device drivers. This adds appropriate exports
+> to let us build the drivers using it as loadable modules.
+>=20
 
-Furthermore, get rid of a redundant assignment of dev->addr_len. This is
-already set by ether_setup() which is called in tile_net_setup().
+Thanks for the patch. Another similar fix was sent recently:
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/ethernet/tile/tilegx.c |   17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+http://patchwork.ozlabs.org/patch/352452/
 
-diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-index 0db40de..6e978f8 100644
---- a/drivers/net/ethernet/tile/tilegx.c
-+++ b/drivers/net/ethernet/tile/tilegx.c
-@@ -2192,7 +2192,6 @@ static void tile_net_dev_init(const char *name, const uint8_t *mac)
- {
- 	int ret;
- 	int i;
--	int nz_addr = 0;
- 	struct net_device *dev;
- 	struct tile_net_priv *priv;
- 
-@@ -2219,18 +2218,14 @@ static void tile_net_dev_init(const char *name, const uint8_t *mac)
- 	init_ptp_dev(priv);
- 
- 	/* Get the MAC address and set it in the device struct; this must
--	 * be done before the device is opened.  If the MAC is all zeroes,
--	 * we use a random address, since we're probably on the simulator.
-+	 * be done before the device is opened.  If the MAC is all zeroes or a
-+	 * multicast address, we use a random address, since we're probably on
-+	 * the simulator.
- 	 */
--	for (i = 0; i < 6; i++)
--		nz_addr |= mac[i];
--
--	if (nz_addr) {
--		memcpy(dev->dev_addr, mac, ETH_ALEN);
--		dev->addr_len = 6;
--	} else {
-+	if (is_valid_ether_addr(mac))
-+		ether_addr_copy(dev->dev_addr, mac);
-+	else
- 		eth_hw_addr_random(dev);
--	}
- 
- 	/* Register the network device. */
- 	ret = register_netdev(dev);
--- 
-1.7.9.5
+which proposes to use EXPORT_SYMBOL, instead of EXPORT_SYMBOL_GPL. Bein=
+g a core
+API, I think the former is more appropriate, so I'd rather pick it inst=
+ead of
+this one.
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
