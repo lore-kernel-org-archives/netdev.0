@@ -1,10 +1,9 @@
 From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH v2 1/2] Documentation: add Device tree bindings for
- Hisilicon hix5hd2 ethernet
-Date: Tue, 27 May 2014 14:34:23 +0100
-Message-ID: <20140527133423.GB6969@leverpostej>
+Subject: Re: [PATCH v2 2/2] net: hisilicon: add hix5hd2 mac driver
+Date: Tue, 27 May 2014 14:57:27 +0100
+Message-ID: <20140527135727.GC6969@leverpostej>
 References: <1401194667-14445-1-git-send-email-zhangfei.gao@linaro.org>
- <1401194667-14445-2-git-send-email-zhangfei.gao@linaro.org>
+ <1401194667-14445-3-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "davem@davemloft.net" <davem@davemloft.net>,
@@ -22,82 +21,84 @@ Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
 To: Zhangfei Gao <zhangfei.gao@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:49681 "EHLO
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:50166 "EHLO
 	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752047AbaE0NfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 09:35:08 -0400
+	by vger.kernel.org with ESMTP id S1752078AbaE0N6G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 09:58:06 -0400
 Content-Disposition: inline
-In-Reply-To: <1401194667-14445-2-git-send-email-zhangfei.gao@linaro.org>
+In-Reply-To: <1401194667-14445-3-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 27, 2014 at 01:44:26PM +0100, Zhangfei Gao wrote:
+On Tue, May 27, 2014 at 01:44:27PM +0100, Zhangfei Gao wrote:
+> Add support for the hix5hd2 XGMAC 1Gb ethernet device.
+> The controller requires two queues for tx and two queues for rx.
+> Controller fetch buffer from free queue and then push to used queue.
+> Diver should prepare free queue and free buffer from used queue.
+> 
 > Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
 > ---
->  .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   36 ++++++++++++++++++++
->  1 file changed, 36 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
-> new file mode 100644
-> index 0000000..5fe3835
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
-> @@ -0,0 +1,36 @@
-> +Hisilicon hix5hd2 gmac controller
+>  drivers/net/ethernet/Kconfig                  |    1 +
+>  drivers/net/ethernet/Makefile                 |    1 +
+>  drivers/net/ethernet/hisilicon/Kconfig        |   27 +
+>  drivers/net/ethernet/hisilicon/Makefile       |    5 +
+>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 1057 +++++++++++++++++++++++++
+>  5 files changed, 1091 insertions(+)
+>  create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+>  create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+>  create mode 100644 drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
 
-Just to clarify, is the SoC name "hix5hd2", or is the 'x' a wildcard?
+[...]
 
+> +struct hix5hd2_desc {
+> +       __le32 buff_addr;
+> +       __le32 cmd;
+> +} __aligned(32);
+
+[...]
+
+> +static void hix5hd2_rx_refill(struct hix5hd2_priv *priv)
+> +{
+> +       struct hix5hd2_desc *desc;
+> +       struct sk_buff *skb;
+> +       u32 start, end, num, pos, i;
 > +
-> +Required properties:
-> +- compatible: should be "hisilicon,hix5hd2-gmac".
-> +- reg: specifies base physical address(s) and size of the device registers.
-> +  The first region is the MAC register base and size.
-> +  The second region is external interface control register.
+> +       /* software write pointer */
+> +       start = dma_cnt(readl_relaxed(priv->base + RX_FQ_WR_ADDR));
+> +       /* logic read pointer */
+> +       end = dma_cnt(readl_relaxed(priv->base + RX_FQ_RD_ADDR));
+> +       num = CIRC_SPACE(start, end, RX_DESC_NUM);
+> +
+> +       for (i = 0, pos = start; i < num; i++) {
+> +               if (priv->rx_skb[pos])
+> +                       break;
+> +               else {
+> +                       skb = netdev_alloc_skb_ip_align(priv->netdev,
+> +                               MAC_MAX_FRAME_SIZE);
+> +                       if (unlikely(skb == NULL))
+> +                               break;
+> +               }
+> +
+> +               desc = priv->rx_fq.desc + pos;
+> +               desc->buff_addr =
+> +                       dma_map_single(priv->dev, skb->data,
+> +                                       MAC_MAX_FRAME_SIZE, DMA_FROM_DEVICE);
 
-Single registers? Are these not part of a larger block?
+buff_addr was declared as an __le32, but here we're pasting values of
+the kernel's native endianness (which might not be little). You will
+need to carefully convert the endianness of this value when dealing with
+it.
 
-> +- interrupts: should contain the MAC interrupts
+> +               if (dma_mapping_error(priv->dev, desc->buff_addr)) {
+> +                       dev_kfree_skb_any(skb);
+> +                       break;
+> +               }
+> +
+> +               priv->rx_skb[pos] = skb;
+> +               desc->cmd = (MAC_MAX_FRAME_SIZE - 1) | DESC_VLD_FREE;
 
-How many, in which order?
-
-> +- #address-cells: must be <1>.
-> +- #size-cells: must be <0>.
-> +- phy-mode: see ethernet.txt [1].
-> +- phy-handle: see ethernet.txt [1].
-> +- mac-address: see ethernet.txt [1].
-> +- clocks: clock phandle and specifier pair.
-
-Is this the only clock input to the gmac block?
-
-Is the clock input named in any documentation?
+Likewise cmd was described as an __le32 and needs to be converted
+appropriately.
 
 Cheers,
 Mark.
-
-> +
-> +- PHY subnode: inherits from phy binding [2]
-> +
-> +[1] Documentation/devicetree/bindings/net/ethernet.txt
-> +[2] Documentation/devicetree/bindings/net/phy.txt
-> +
-> +Example:
-> +	gmac0: ethernet@f9840000 {
-> +		compatible = "hisilicon,hix5hd2-gmac";
-> +		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
-> +		interrupts = <0 71 4>;
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +		phy-mode = "mii";
-> +		phy-handle = <&phy2>;
-> +		mac-address = [00 00 00 00 00 00];
-> +		clocks = <&clock HIX5HD2_MAC0_CLK>;
-> +
-> +		phy2: ethernet-phy@2 {
-> +			reg = <2>;
-> +		};
-> +	};
-> -- 
-> 1.7.9.5
-> 
-> 
