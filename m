@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] ixgbe: allow ixgbe_ptp_reset to maintain current hwtstamp config
-Date: Tue, 27 May 2014 02:12:20 -0700
-Message-ID: <1401181951-31358-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] ixgbe: extract the hardware setup from the ixgbe_ptp_set_ts_config
+Date: Tue, 27 May 2014 02:12:19 -0700
+Message-ID: <1401181951-31358-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17026 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:17019 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752040AbaE0JMh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751850AbaE0JMh (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 27 May 2014 05:12:37 -0400
 In-Reply-To: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,59 +18,134 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-Rather than clearing the hwtstamp configuration, we should use the known
-configuration requested by the user and call the function which has now
-been separated from the ioctl. This means that after a reset, the
-timestamp mode will be maintained rather than lost. We still can't
-maintain the clock value, however.
+Currently all of the hardware setup logic for the PTP hardware bits is
+buried inside of the ioctl which sets the timestamp configuration. This
+makes it hard to use this logic in other places (primarily reset), and
+this means we can't restore current timestamp mode upon a MAC reset.
+Extracting this logic into a separate function will enable future work
+for the ixgbe_ptp_reset function.
 
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 50 ++++++++++++++++++++--------
+ 1 file changed, 36 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 5a75dd5..9d329f5 100644
+index 1a88609..5a75dd5 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -812,9 +812,13 @@ void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter)
-  * ixgbe_ptp_reset
-  * @adapter: the ixgbe private board structure
+@@ -570,9 +570,9 @@ int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ }
+ 
+ /**
+- * ixgbe_ptp_set_ts_config - control hardware time stamping
+- * @adapter: pointer to adapter struct
+- * @ifreq: ioctl data
++ * ixgbe_ptp_set_timestamp_mode - setup the hardware for the requested mode
++ * @adapter: the private ixgbe adapter structure
++ * @config: the hwtstamp configuration requested
   *
-- * When the MAC resets, all timesync features are reset. This function should be
-- * called to re-enable the PTP clock structure. It will re-init the timecounter
-- * structure based on the kernel time as well as setup the cycle counter data.
-+ * When the MAC resets, all the hardware bits for timesync are reset. This
-+ * function is used to re-enable the device for PTP based on current settings.
-+ * We do lose the current clock time, so just reset the cyclecounter to the
-+ * system real clock time.
+  * Outgoing time stamping can be enabled and disabled. Play nice and
+  * disable it when requested, although it shouldn't cause any overhead
+@@ -590,25 +590,25 @@ int ixgbe_ptp_get_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+  * packets, regardless of the type specified in the register, only use V2
+  * Event mode. This more accurately tells the user what the hardware is going
+  * to do anyways.
 + *
-+ * This function will maintain hwtstamp_config settings, and resets the SDP
-+ * output if it was enabled.
++ * Note: this may modify the hwtstamp configuration towards a more general
++ * mode, if required to support the specifically requested mode.
   */
- void ixgbe_ptp_reset(struct ixgbe_adapter *adapter)
+-int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
++static int ixgbe_ptp_set_timestamp_mode(struct ixgbe_adapter *adapter,
++				 struct hwtstamp_config *config)
  {
-@@ -826,8 +830,8 @@ void ixgbe_ptp_reset(struct ixgbe_adapter *adapter)
- 	IXGBE_WRITE_REG(hw, IXGBE_SYSTIMH, 0x00000000);
- 	IXGBE_WRITE_FLUSH(hw);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	struct hwtstamp_config config;
+ 	u32 tsync_tx_ctl = IXGBE_TSYNCTXCTL_ENABLED;
+ 	u32 tsync_rx_ctl = IXGBE_TSYNCRXCTL_ENABLED;
+ 	u32 tsync_rx_mtrl = PTP_EV_PORT << 16;
+ 	bool is_l2 = false;
+ 	u32 regval;
  
--	/* Reset the saved tstamp_config */
--	memset(&adapter->tstamp_config, 0, sizeof(adapter->tstamp_config));
-+	/* reset the hardware timestamping mode */
-+	ixgbe_ptp_set_timestamp_mode(adapter, &adapter->tstamp_config);
+-	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
+-		return -EFAULT;
+-
+ 	/* reserved for future extensions */
+-	if (config.flags)
++	if (config->flags)
+ 		return -EINVAL;
  
- 	ixgbe_ptp_start_cyclecounter(adapter);
+-	switch (config.tx_type) {
++	switch (config->tx_type) {
+ 	case HWTSTAMP_TX_OFF:
+ 		tsync_tx_ctl = 0;
+ 	case HWTSTAMP_TX_ON:
+@@ -617,7 +617,7 @@ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ 		return -ERANGE;
+ 	}
  
-@@ -907,6 +911,8 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
- 	} else
- 		e_dev_info("registered PHC device on %s\n", netdev->name);
+-	switch (config.rx_filter) {
++	switch (config->rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
+ 		tsync_rx_ctl = 0;
+ 		tsync_rx_mtrl = 0;
+@@ -641,7 +641,7 @@ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_EVENT_V2;
+ 		is_l2 = true;
+-		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+ 	case HWTSTAMP_FILTER_ALL:
+@@ -652,7 +652,7 @@ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ 		 * Delay_Req messages and hardware does not support
+ 		 * timestamping all packets => return error
+ 		 */
+-		config.rx_filter = HWTSTAMP_FILTER_NONE;
++		config->rx_filter = HWTSTAMP_FILTER_NONE;
+ 		return -ERANGE;
+ 	}
  
-+	adapter->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
-+	adapter->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
- 	ixgbe_ptp_reset(adapter);
+@@ -671,7 +671,6 @@ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ 	else
+ 		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_1588), 0);
  
- 	/* enter the IXGBE_PTP_RUNNING state */
+-
+ 	/* enable/disable TX */
+ 	regval = IXGBE_READ_REG(hw, IXGBE_TSYNCTXCTL);
+ 	regval &= ~IXGBE_TSYNCTXCTL_ENABLED;
+@@ -693,6 +692,29 @@ int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
+ 	regval = IXGBE_READ_REG(hw, IXGBE_TXSTMPH);
+ 	regval = IXGBE_READ_REG(hw, IXGBE_RXSTMPH);
+ 
++	return 0;
++}
++
++/**
++ * ixgbe_ptp_set_ts_config - user entry point for timestamp mode
++ * @adapter: pointer to adapter struct
++ * @ifreq: ioctl data
++ *
++ * Set hardware to requested mode. If unsupported, return an error with no
++ * changes. Otherwise, store the mode for future reference.
++ */
++int ixgbe_ptp_set_ts_config(struct ixgbe_adapter *adapter, struct ifreq *ifr)
++{
++	struct hwtstamp_config config;
++	int err;
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	err = ixgbe_ptp_set_timestamp_mode(adapter, &config);
++	if (err)
++		return err;
++
+ 	/* save these settings for future reference */
+ 	memcpy(&adapter->tstamp_config, &config,
+ 	       sizeof(adapter->tstamp_config));
 -- 
 1.9.3
