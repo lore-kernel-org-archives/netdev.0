@@ -1,60 +1,54 @@
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Subject: [PATCH net] bridge: notify user space after fdb update
-Date: Wed, 28 May 2014 08:45:49 +1000
-Message-ID: <1401230749-19507-1-git-send-email-jmaxwell37@gmail.com>
-Cc: davem@davemloft.net, makita.toshiaki@lab.ntt.co.jp,
-	vyasevic@redhat.com, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	jpirko@redhat.com, jmaxwell37@gmail.com, jmaxwell@redhat.com
-To: stephen@networkplumber.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V8 net-next 0/6] xen-net{back, front}:
+ Multiple transmit and receive queues
+Date: Wed, 28 May 2014 00:10:16 +0100
+Message-ID: <20140527231016.GC30121@zion.uk.xensource.com>
+References: <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com>
+ <526369072.20140514160923@eikelenboom.it>
+ <20140514141347.GR6332@zion.uk.xensource.com>
+ <53739757.5060905@citrix.com>
+ <1296806729.20140514203719@eikelenboom.it>
+ <9AAE0902D5BC7E449B7C8E4E778ABCD0380FD1@AMSPEX01CL01.citrite.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Andrew Bennieston <andrew.bennieston@citrix.com>
+To: Paul Durrant <Paul.Durrant@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:58116 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752039AbaE0XKR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 19:10:17 -0400
+Content-Disposition: inline
+In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD0380FD1@AMSPEX01CL01.citrite.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There has been a number incidents recently where customers running KVM have
-reported that VM hosts on different Hypervisors are unreachable. Based on
-pcap traces we found that the bridge was broadcasting the ARP request out
-onto the network. However some NICs have an inbuilt switch which on occasions
-were broadcasting the VMs ARP request back through the physical NIC on the
-Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-that the VMs mac address was external. As a result the ARP reply was directed
-back onto the external network and VM never updated it's ARP cache. This patch
-will notify the bridge command, after a fdb has been updated to identify such
-port toggling.
+On Wed, May 21, 2014 at 03:42:47PM +0100, Paul Durrant wrote:
+[...]
+> > 
+> > > I don't currently have a public-facing git repo for this. If you'd
+> > > prefer I can send you the patches directly in a tarball, which you may
+> > > be able to apply more easily than grabbing them from email threads?
+> > 
+> > Got the patches from the thread .. but as i expected they interfere with
+> > Zoltan's v3 fix for 3.15.
+> > 
+> 
+> I realize there will be conflict when Zoli's patch (for net) and these patches (for net-next) come together, but I don't see these in the patchworks queue at all. Did they get lost somewhere?
+> 
 
-Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
----
- net/bridge/br_fdb.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+I just check, now net-next contains Zoli's patch. I will rebase this
+series myself and post it some time later (Andrew left Citrix last week
+if I'm not mistaken).
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 9203d5a..f3ee2da 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -487,6 +487,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- {
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
- 	struct net_bridge_fdb_entry *fdb;
-+	bool fdb_modified = 0;
- 
- 	/* some users want to always flood. */
- 	if (hold_time(br) == 0)
-@@ -507,10 +508,15 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
- 					source->dev->name);
- 		} else {
- 			/* fastpath: update of existing entry */
--			fdb->dst = source;
-+			if (unlikely(source != fdb->dst)) {
-+					fdb->dst = source;
-+					fdb_modified = 1;
-+				}
- 			fdb->updated = jiffies;
- 			if (unlikely(added_by_user))
- 				fdb->added_by_user = 1;
-+			if (unlikely(fdb_modified))
-+				fdb_notify(br, fdb, RTM_NEWNEIGH);
- 		}
- 	} else {
- 		spin_lock(&br->hash_lock);
--- 
-1.8.3.1
+Wei.
+
+>   Paul
