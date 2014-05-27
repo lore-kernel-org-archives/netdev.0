@@ -1,31 +1,43 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: request for backporting commit 99d3016de4 to 3.14 (stable)
-Date: Tue, 27 May 2014 15:32:08 +0000
-Message-ID: <7788d6445c894835bf2e1dc64a77e797@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: skbuff truesize incorrect.
+Date: Tue, 27 May 2014 11:52:43 -0400 (EDT)
+Message-ID: <20140527.115243.2071632723301616912.davem@davemloft.net>
+References: <063D6719AE5E284EB5DD2968C1650D6D1724C490@AcuExch.aculab.com>
+	<20140523.161823.1006372695373018122.davem@davemloft.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1724E565@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bernhard Walle <bernhard@bwalle.de>,
-	KY Srinivasan <kys@microsoft.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na01-sn2-obe.ptr.o365filtering.com ([157.55.158.27]:58713 "EHLO
-	na01-sn2-obe.outbound.o365filtering.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752885AbaE0PcT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 11:32:19 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jim_baxter-nmGgyN9QBj3QT0dZR+AlfA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kamal-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, mszeredi-AlSwsSmVLrQ@public.gmane.org,
+	fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org
+To: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724E565-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave, 
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Date: Tue, 27 May 2014 15:23:14 +0000
 
-I found this commit is in stable tree already. Will it be backported into 3.14 as well? Otherwise, can we request it to be included into the next 3.14 update?
+> True, you still need to sort out how to handle multiple ethernet
+> frames in the same 4k page, and arbitrary page boundaries within a
+> frame.
 
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/drivers/net/hyperv?id=99d3016de4f2a29635f5382b0e9bd0e5f2151487
-	hyperv: Change the receive buffer size for legacy hosts
+Multiple ethernet frames in the same 4K page is used by several ethernet
+drivers already.  NIU for one.
 
-Thanks,
-- Haiyang
+Several chips have various pools of pages, chopped up into different
+power-of-2 chunks.
+
+As the packet arrives, they build up the packet using buffers from the
+different sized pools.
+
+Anyways, you just have to charge the page to all packets contained
+within.  This doesn't seem to be much of an issue to address.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
