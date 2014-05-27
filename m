@@ -1,86 +1,104 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] igb: remove redundant PHY power down register write
-Date: Tue, 27 May 2014 02:12:29 -0700
-Message-ID: <1401181951-31358-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] ixgbe: separate the PTP suspend and stop actions
+Date: Tue, 27 May 2014 02:12:22 -0700
+Message-ID: <1401181951-31358-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:17026 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:17019 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752187AbaE0JMq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 May 2014 05:12:46 -0400
+	id S1751854AbaE0JMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 May 2014 05:12:41 -0400
 In-Reply-To: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-One of the registers used to power down the PHY was found to be wrong
-(should be bit 2 not bit 1) on further inspection it was also found to
-be redundant.
+Since we are adding proper support for suspend of PTP, extract out of
+ixgbe_ptp_stop those things relevant to suspend. Then, have
+ixgbe_ptp_stop call ixgbe_ptp_suspend. The next patch in the series will
+have ixgbe_ptp_suspend called from the ixgbe_suspend path.
 
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_phy.c | 14 --------------
- drivers/net/ethernet/intel/igb/e1000_phy.h |  1 -
- 2 files changed, 15 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h     |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 31 +++++++++++++++++++++-------
+ 2 files changed, 25 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index 424f16c..c1bb64d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -2204,16 +2204,10 @@ s32 igb_phy_init_script_igp3(struct e1000_hw *hw)
- void igb_power_up_phy_copper(struct e1000_hw *hw)
- {
- 	u16 mii_reg = 0;
--	u16 power_reg = 0;
- 
- 	/* The PHY will retain its settings across a power down/up cycle */
- 	hw->phy.ops.read_reg(hw, PHY_CONTROL, &mii_reg);
- 	mii_reg &= ~MII_CR_POWER_DOWN;
--	if (hw->phy.type == e1000_phy_i210) {
--		hw->phy.ops.read_reg(hw, GS40G_COPPER_SPEC, &power_reg);
--		power_reg &= ~GS40G_CS_POWER_DOWN;
--		hw->phy.ops.write_reg(hw, GS40G_COPPER_SPEC, power_reg);
--	}
- 	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 4c0203b..ac9f214 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -957,6 +957,7 @@ static inline struct netdev_queue *txring_txq(const struct ixgbe_ring *ring)
  }
  
-@@ -2227,18 +2221,10 @@ void igb_power_up_phy_copper(struct e1000_hw *hw)
- void igb_power_down_phy_copper(struct e1000_hw *hw)
- {
- 	u16 mii_reg = 0;
--	u16 power_reg = 0;
- 
- 	/* The PHY will retain its settings across a power down/up cycle */
- 	hw->phy.ops.read_reg(hw, PHY_CONTROL, &mii_reg);
- 	mii_reg |= MII_CR_POWER_DOWN;
--
--	/* i210 Phy requires an additional bit for power up/down */
--	if (hw->phy.type == e1000_phy_i210) {
--		hw->phy.ops.read_reg(hw, GS40G_COPPER_SPEC, &power_reg);
--		power_reg |= GS40G_CS_POWER_DOWN;
--		hw->phy.ops.write_reg(hw, GS40G_COPPER_SPEC, power_reg);
--	}
- 	hw->phy.ops.write_reg(hw, PHY_CONTROL, mii_reg);
- 	usleep_range(1000, 2000);
+ void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
++void ixgbe_ptp_suspend(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
+ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+index 9df7e57..b3266b7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+@@ -960,28 +960,45 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
  }
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index fe921e2..7af4ffa 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -151,7 +151,6 @@ s32  igb_check_polarity_m88(struct e1000_hw *hw);
- #define GS40G_MAC_LB			0x4140
- #define GS40G_MAC_SPEED_1G		0X0006
- #define GS40G_COPPER_SPEC		0x0010
--#define GS40G_CS_POWER_DOWN		0x0002
- #define GS40G_LINE_LB			0x4000
  
- /* SFP modules ID memory locations */
+ /**
+- * ixgbe_ptp_stop - disable ptp device and stop the overflow check
+- * @adapter: pointer to adapter struct
++ * ixgbe_ptp_suspend - stop PTP work items
++ * @ adapter: pointer to adapter struct
+  *
+- * this function stops the ptp support, and cancels the delayed work.
++ * this function suspends PTP activity, and prevents more PTP work from being
++ * generated, but does not destroy the PTP clock device.
+  */
+-void ixgbe_ptp_stop(struct ixgbe_adapter *adapter)
++void ixgbe_ptp_suspend(struct ixgbe_adapter *adapter)
+ {
+ 	/* Leave the IXGBE_PTP_RUNNING state. */
+ 	if (!test_and_clear_bit(__IXGBE_PTP_RUNNING, &adapter->state))
+ 		return;
+ 
+-	/* stop the PPS signal */
+-	adapter->flags2 &= ~IXGBE_FLAG2_PTP_PPS_ENABLED;
+-	ixgbe_ptp_setup_sdp(adapter);
++	/* since this might be called in suspend, we don't clear the state,
++	 * but simply reset the auxiliary PPS signal control register
++	 */
++	IXGBE_WRITE_REG(&adapter->hw, IXGBE_TSAUXC, 0x0);
+ 
++	/* ensure that we cancel any pending PTP Tx work item in progress */
+ 	cancel_work_sync(&adapter->ptp_tx_work);
+ 	if (adapter->ptp_tx_skb) {
+ 		dev_kfree_skb_any(adapter->ptp_tx_skb);
+ 		adapter->ptp_tx_skb = NULL;
+ 		clear_bit_unlock(__IXGBE_PTP_TX_IN_PROGRESS, &adapter->state);
+ 	}
++}
++
++/**
++ * ixgbe_ptp_stop - close the PTP device
++ * @adapter: pointer to adapter struct
++ *
++ * completely destroy the PTP device, should only be called when the device is
++ * being fully closed.
++ */
++void ixgbe_ptp_stop(struct ixgbe_adapter *adapter)
++{
++	/* first, suspend PTP activity */
++	ixgbe_ptp_suspend(adapter);
+ 
++	/* disable the PTP clock device */
+ 	if (adapter->ptp_clock) {
+ 		ptp_clock_unregister(adapter->ptp_clock);
+ 		adapter->ptp_clock = NULL;
 -- 
 1.9.3
