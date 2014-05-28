@@ -1,116 +1,59 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: SCTP seems to lose its socket state.
-Date: Wed, 28 May 2014 16:18:54 -0400
-Message-ID: <538644AE.90807@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH] net: ks8851: Don't use regulator_get_optional()
+Date: Wed, 28 May 2014 21:23:27 +0100
+Message-ID: <20140528202327.GK5099@sirena.org.uk>
+References: <1401307872-23190-1-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:57717 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419AbaE1US6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 16:18:58 -0400
-Received: by mail-qg0-f47.google.com with SMTP id j107so19300116qga.20
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 13:18:57 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 05/27/2014 11:10 AM, David Laight wrote:
-> I've been looking at an ethernet trace from one of our customers.
-> They seem to have got an SCTP socket into a rather confused state.
-> 
-> There seem to be a significant number of transmit ethernet frames
-> that don't read the far end.
-> This shouldn't cause a real problem, but we end up with the following:
-> This trace was taken on the linux system:
-> 
-> 39964   0.304473        ->      SCTP    INIT
-> 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
-> 39968   0.467935        <-      SCTP    INIT
-> 39969   0.000093        ->      SCTP    INIT_ACK
-> 39970   0.003947        <-      SCTP    COOKIE_ECHO
-> 39971   0.000072        ->      SCTP    COOKIE_ACK
-> 39972   0.000337        ->      M3UA    ASPUP
-> 39979   0.809659        <-      SCTP    COOKIE_ECHO
-
-cookie_ack was dropped for some reason?
-
-> 39980   0.000058        ->      SCTP    COOKIE_ACK
-> shutdown() called here - seems to be ignored
-> 39983   0.949471        <-      SCTP    COOKIE_ECHO
-
-Cookie timer fired and resent the cookie_echo.
-
-> 39984   0.000053        ->      SCTP    COOKIE_ACK
-> 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
-> 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
-
-Hmm.. look like more retransmissions.
-
-> 40008   3.689088        <-      SCTP    HEARTBEAT
-
-This probably means that cookie_ack was finally accepted and
-we are not heart-beating...
-
-output of 'cat /proc/net/sctp/assocs' might help.  If the local
-is running a recent enough kernel, then turning on dynamic debug
-in sctp will also help.
-
-> 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
-> 40014   0.261152        <-      SCTP    HEARTBEAT
-> 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
-> 40026   0.123048        <-      SCTP    HEARTBEAT
-> 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
-> 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
-> 
-> There are no signs of any SACKs for the ASPUP, I think they have the
-> correct TSN (the same value as in the INIT_ACK).
-
-Make sure that verification tags match what was negotiated in
-init/init_ack, and the SSN starts at 0.
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3D7yMlnunRPwJqC7"
+Cc: "David S . Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Nishanth Menon <nm@ti.com>
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1401307872-23190-1-git-send-email-sboyd@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> No signs of any shutdowns or aborts from either system.
-> 
+--3D7yMlnunRPwJqC7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-What's strange is that some frames are simply not accepted.
-Are the nics by any chance ixgbe that has checksum offload and
-the checksums are corrupt for some reason?
+On Wed, May 28, 2014 at 01:11:12PM -0700, Stephen Boyd wrote:
+> We shouldn't be using regulator_get_optional() here. These
+> regulators are always present as part of the physical design and
+> there isn't any way to use an internal regulator or change the
+> source of the reference voltage via software. Given that the only
+> users of this driver in the kernel are DT based, this change
+> should be transparent to them even if they don't specify any
+> supplies because the regulator framework will insert dummy
+> supplies as needed.
 
--vlad
+Reviewed-by: Mark Brown <broonie@linaro.org>
 
-> As seems to be typical for M3UA the source and destination ports are
-> the same. No additional IP addresses appear in the INIT (etc) messages.
-> 
-> Some 80 seconds after the start of the above the remote sends us another INIT.
-> This is responded to (with new verification tags from both ends), but only
-> SCTP heartbeats get sent/received (both ways).
-> 
-> The remote sends a few heartbeats with the old verification tag they are
-> ignored.
-> 
-> The application is repeatedly trying to connect() - but the requests fail
-> immediately (errno unknown).
-> I think the system is RHEL 6.4, kernel: 2.6.32-358.el6.x86_64.
-> 
-> Does this 'ring any bells' ?
-> I think I've asked a similar question before - and 2.6.32 was thought
-> to be a late enough kernel.
-> It is, of course, possible they are running RHEL 5 on this system.
-> 
-> I can't think of an easy way to repeat the above sequence to verify
-> on a much more recent kernel.
-> 
-> 	David
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+--3D7yMlnunRPwJqC7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJThkW8AAoJELSic+t+oim9FR0P/jTc6X1DYlh76vwgyJZMiKgI
+CM5aX19PupQpsm5n91NStVNa5ls56GI/Wz+9PiLYxqKZrPRcsm1Iz84Bgozd1MYI
+AeaiBKMPgIsZftYUe5+ap/lZXNq6SWtvSZaqQSVNRsRd9wj3mK300fXbIfw6Jv71
+DENmtsPAtGv/1orSY2uuMJkR3/ZapmEzrZdJ6lmxyq0m5z6TZ/BRwvR5KiBI8dbU
+P9ZQeDG//lYGrZ3hVPsicuPMV+Sv4qDXI7lHmUuefiZAQNNggyLcZ5hNw4xfG4ip
+0dgCK2bfcuLIkrw1Fr5kO/Br6ISzy5ZJeKLeEo+ZtoY00elAnvf3TqfW65w/JVZl
+UPnPmr92nRDv+cryyw63we6BcEnsqpeLspRLK9BaVXZNxW4ZBddurTN6m9prLxCL
+Bc+9n/zImal+RHVDbkJyqKgk5Y9a30mIQC4oI6GAOGVhCqLL2inLIM8YsvO9T/xG
+TAQ0TgQqNZl9UjBmxky5XEpnrFi+/l2xOyWQ3hMzDI1at25YRXOQcN20V6KRAWU8
+gRy8OZOxDD1WI1oxhCMtLIucy+CfYUftv4MR06c0G0vNhK3RMS2EDFsH8WC4SiJx
+kdFlZPLLD2127M3ZbNRSD67VEK16C8UGo/kfRkQaeHSw6m41qgrDvoukmRWRhyqP
+bqj6CcsBZx8Oq5SjBBUy
+=KqNG
+-----END PGP SIGNATURE-----
+
+--3D7yMlnunRPwJqC7--
