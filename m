@@ -1,32 +1,81 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next V6 1/2] cpumask: Utility function to set n'th cpu
- - local cpu first
-Date: Wed, 28 May 2014 08:49:44 +0300
-Message-ID: <CAJZOPZJ=sC9ZNdU5O+XLapO49HhcJmn5579o8DMva3Og4pwyJw@mail.gmail.com>
-References: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
-	<1401029247-15196-2-git-send-email-amirv@mellanox.com>
-	<20140527.152414.1304343647733553805.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Yuval Atias <yuvala@mellanox.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140527.152414.1304343647733553805.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Kiran Kumar Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [RFC] Bluetooth: Keep master role when SCO or eSCO is active
+Date: Wed, 28 May 2014 11:26:28 +0530
+Message-ID: <1401256588-1467-1-git-send-email-kiran.kumar@linaro.org>
+Cc: "hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:BLUETOOTH SUBSYSTEM),
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING [GENERAL]),
+	Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 27, 2014 at 10:24 PM, David Miller <davem@davemloft.net> wrote:
+From: "hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 
-> I would like someone who cares about these cpumask interfaces to provide
-> a review.
+Preserve the master role when SCO or eSCO is active
+as this improves compatability with lots of
+headset and chipset combinations.
 
-understood, still, looking in the git log of that file didn't yield
-much only 1-2 commits per years for 2011/12/13, so, any concrete
-suggestion?
+This is one of the number of patches from the Android AOSP
+common.git tree, which is used on almost all Android devices.
+It looks like it would improve support for compatibility with
+lot of headset,so I wanted to submit it for review to see
+if it should go upstream.
 
-Or.
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (maintainer:NETWORKING [GENERAL])
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:BLUETOOTH SUBSYSTEM)
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING [GENERAL])
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+Cc: Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: hyungseoung.yoo <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+[kiran: Added context to commit message]
+Signed-off-by: Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ net/bluetooth/hci_event.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
+index 15010a2..6f944d5 100644
+--- a/net/bluetooth/hci_event.c
++++ b/net/bluetooth/hci_event.c
+@@ -1915,6 +1915,15 @@ unlock:
+ 	hci_conn_check_pending(hdev);
+ }
+ 
++static inline bool is_sco_active(struct hci_dev *hdev)
++{
++	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
++			(hci_conn_hash_lookup_state(hdev, ESCO_LINK,
++						    BT_CONNECTED)))
++		return true;
++	return false;
++}
++
+ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
+ {
+ 	struct hci_ev_conn_request *ev = (void *) skb->data;
+@@ -1961,7 +1970,8 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
+ 
+ 			bacpy(&cp.bdaddr, &ev->bdaddr);
+ 
+-			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
++			if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
++						|| is_sco_active(hdev)))
+ 				cp.role = 0x00; /* Become master */
+ 			else
+ 				cp.role = 0x01; /* Remain slave */
+-- 
+1.8.2.1
