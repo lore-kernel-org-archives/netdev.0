@@ -1,256 +1,524 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 4/6] be2net: re-factor MCCQ error status handling code
-Date: Wed, 28 May 2014 12:01:03 +0530
-Message-ID: <1401258665-6238-5-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 3/6] be2net: support flashing new regions on Skyhawk-R
+Date: Wed, 28 May 2014 12:01:02 +0530
+Message-ID: <1401258665-6238-4-git-send-email-sathya.perla@emulex.com>
 References: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:54807 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753955AbaE1G2O (ORCPT
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:44468 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753969AbaE1G2O (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 02:28:14 -0400
 In-Reply-To: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-This patch improves MCCQ error status handling in the following ways:
-a) A MCC cmd completion returns a base-status and an addl-status.
-So far, the routine be_mcc_compl_process() returned only the "status" value.
-Now, embedd both statuses in the return value and let the caller routine access
-the value of interest using base_status() and addl_status() macros.
+Certain new flash regions have been added to Skyhawk-R FW image. The newer
+FW images specify op_types for each region. A region is flashed only
+when it's CRC doesn't match that of the region on the HW flash. While
+upgrading to a new FW image the driver is expected to tolerate certain
+errors.
 
-b) Rename variables accordingly (base/addl) to avoid confusion while error
-checking.
-
-b) Some of the errors returned by FW are harmless and so an error msg is not
-logged for such errors. Capture this logic in a separate routine to make the
-code more readable.
-
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+This patch re-factors code under be_flash() to support the above scheme.
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   56 +++++++++++++--------------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   30 ++++++++++----
- drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++---
- 3 files changed, 57 insertions(+), 45 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   25 ++-
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    6 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h   |   12 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |  252 +++++++++++++++++----------
+ 4 files changed, 188 insertions(+), 107 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index f73185b..a2ecdff 100644
+index 216463b..f73185b 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -119,10 +119,24 @@ static struct be_cmd_resp_hdr *be_decode_resp_hdr(u32 tag0, u32 tag1)
- 	return (void *)addr;
- }
+@@ -133,6 +133,9 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 	compl_status = (compl->status >> CQE_STATUS_COMPL_SHIFT) &
+ 				CQE_STATUS_COMPL_MASK;
  
-+static bool be_skip_err_log(u8 opcode, u16 base_status, u16 addl_status)
-+{
-+	if (base_status == MCC_STATUS_NOT_SUPPORTED ||
-+	    base_status == MCC_STATUS_ILLEGAL_REQUEST ||
-+	    addl_status == MCC_ADDL_STATUS_TOO_MANY_INTERFACES ||
-+	    (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
-+	    (base_status == MCC_STATUS_ILLEGAL_FIELD ||
-+	     addl_status == MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH)))
-+		return true;
-+	else
-+		return false;
-+}
++	extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
++				CQE_STATUS_EXTD_MASK;
 +
- static int be_mcc_compl_process(struct be_adapter *adapter,
- 				struct be_mcc_compl *compl)
- {
--	u16 compl_status, extd_status;
-+	enum mcc_base_status base_status;
-+	enum mcc_addl_status addl_status;
- 	struct be_cmd_resp_hdr *resp_hdr;
- 	u8 opcode = 0, subsystem = 0;
- 
-@@ -130,11 +144,8 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 	 * from mcc_wrb */
- 	be_dws_le_to_cpu(compl, 4);
- 
--	compl_status = (compl->status >> CQE_STATUS_COMPL_SHIFT) &
--				CQE_STATUS_COMPL_MASK;
--
--	extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
--				CQE_STATUS_EXTD_MASK;
-+	base_status = base_status(compl->status);
-+	addl_status = addl_status(compl->status);
- 
  	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
  
-@@ -152,11 +163,11 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 	if (((opcode == OPCODE_COMMON_WRITE_FLASHROM) ||
- 	     (opcode == OPCODE_COMMON_WRITE_OBJECT)) &&
- 	    (subsystem == CMD_SUBSYSTEM_COMMON)) {
--		adapter->flash_status = compl_status;
-+		adapter->flash_status = compl->status;
- 		complete(&adapter->et_cmd_compl);
- 	}
- 
--	if (compl_status == MCC_STATUS_SUCCESS) {
-+	if (base_status == MCC_STATUS_SUCCESS) {
- 		if (((opcode == OPCODE_ETH_GET_STATISTICS) ||
- 		     (opcode == OPCODE_ETH_GET_PPORT_STATS)) &&
- 		    (subsystem == CMD_SUBSYSTEM_ETH)) {
-@@ -174,35 +185,20 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 		if (opcode == OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES)
+ 	if (resp_hdr) {
+@@ -172,16 +175,25 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
  			adapter->be_get_temp_freq = 0;
  
--		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
--		    compl_status == MCC_STATUS_ILLEGAL_REQUEST)
--			return compl_status;
-+		if (be_skip_err_log(opcode, base_status, addl_status))
-+			return compl->status;
+ 		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
+-			compl_status == MCC_STATUS_ILLEGAL_REQUEST)
+-			goto done;
++		    compl_status == MCC_STATUS_ILLEGAL_REQUEST)
++			return compl_status;
++
++		/* Ignore CRC mismatch error during FW download with old FW */
++		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
++		    compl_status == MCC_STATUS_FAILED &&
++		    extd_status == MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH)
++			return compl_status;
++
++		/* Ignore illegal field error during FW download with old FW */
++		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
++		    compl_status == MCC_STATUS_ILLEGAL_FIELD)
++			return compl_status;
  
--		/* Ignore CRC mismatch error during FW download with old FW */
--		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
--		    compl_status == MCC_STATUS_FAILED &&
--		    extd_status == MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH)
--			return compl_status;
--
--		/* Ignore illegal field error during FW download with old FW */
--		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
--		    compl_status == MCC_STATUS_ILLEGAL_FIELD)
--			return compl_status;
--
--		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
-+		if (base_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
+ 		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
  			dev_warn(&adapter->pdev->dev,
  				 "VF is not privileged to issue opcode %d-%d\n",
  				 opcode, subsystem);
  		} else {
+-			extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
+-					CQE_STATUS_EXTD_MASK;
  			dev_err(&adapter->pdev->dev,
  				"opcode %d-%d failed:status %d-%d\n",
--				opcode, subsystem, compl_status, extd_status);
--
--			if (extd_status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
--				return extd_status;
-+				opcode, subsystem, base_status, addl_status);
+ 				opcode, subsystem, compl_status, extd_status);
+@@ -190,7 +202,6 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 				return extd_status;
  		}
  	}
--	return compl_status;
-+	return compl->status;
+-done:
+ 	return compl_status;
  }
  
- /* Link state evt is a string of bytes; no need for endian swapping */
-@@ -452,7 +448,9 @@ static int be_mcc_notify_wait(struct be_adapter *adapter)
- 	if (status == -EIO)
- 		goto out;
- 
--	status = resp->status;
-+	status = (resp->base_status |
-+		  ((resp->addl_status & CQE_ADDL_STATUS_MASK) <<
-+		   CQE_ADDL_STATUS_SHIFT));
- out:
- 	return status;
+@@ -2300,7 +2311,7 @@ err_unlock:
  }
+ 
+ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+-			 int offset)
++			  u16 optype, int offset)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_read_flash_crc *req;
+@@ -2319,7 +2330,7 @@ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+ 			       OPCODE_COMMON_READ_FLASHROM, sizeof(*req),
+ 			       wrb, NULL);
+ 
+-	req->params.op_type = cpu_to_le32(OPTYPE_REDBOOT);
++	req->params.op_type = cpu_to_le32(optype);
+ 	req->params.op_code = cpu_to_le32(FLASHROM_OPER_REPORT);
+ 	req->params.offset = cpu_to_le32(offset);
+ 	req->params.data_buf_size = cpu_to_le32(0x4);
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 070f775..af62403 100644
+index 9df9d3b..070f775 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -50,7 +50,7 @@ struct be_mcc_wrb {
- #define CQE_FLAGS_CONSUMED_MASK 	(1 << 27)
- 
- /* Completion Status */
--enum {
-+enum mcc_base_status {
- 	MCC_STATUS_SUCCESS = 0,
- 	MCC_STATUS_FAILED = 1,
- 	MCC_STATUS_ILLEGAL_REQUEST = 2,
-@@ -60,13 +60,25 @@ enum {
- 	MCC_STATUS_NOT_SUPPORTED = 66
+@@ -61,6 +61,7 @@ enum {
  };
  
--#define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
--#define MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH	0x4d
-+/* Additional status */
-+enum mcc_addl_status {
-+	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
-+	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
-+	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a
-+};
+ #define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
++#define MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH	0x4d
+ 
+ #define CQE_STATUS_COMPL_MASK		0xFFFF
+ #define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
+@@ -1186,7 +1187,8 @@ struct be_cmd_read_flash_crc {
+ 	struct flashrom_params params;
+ 	u8 crc[4];
+ 	u8 rsvd[4];
+-};
++} __packed;
 +
-+#define CQE_BASE_STATUS_MASK		0xFFFF
-+#define CQE_BASE_STATUS_SHIFT		0	/* bits 0 - 15 */
-+#define CQE_ADDL_STATUS_MASK		0xFF
-+#define CQE_ADDL_STATUS_SHIFT		16	/* bits 16 - 31 */
+ /**************** Lancer Firmware Flash ************/
+ struct amap_lancer_write_obj_context {
+ 	u8 write_length[24];
+@@ -2088,7 +2090,7 @@ int lancer_cmd_read_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
+ 			   u32 data_size, u32 data_offset, const char *obj_name,
+ 			   u32 *data_read, u32 *eof, u8 *addn_status);
+ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+-			 int offset);
++			  u16 optype, int offset);
+ int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
+ 			    struct be_dma_mem *nonemb_cmd);
+ int be_cmd_fw_init(struct be_adapter *adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 3bd1985..8840c64 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -188,10 +188,14 @@
+ #define OPTYPE_FCOE_FW_ACTIVE		10
+ #define OPTYPE_FCOE_FW_BACKUP		11
+ #define OPTYPE_NCSI_FW			13
++#define OPTYPE_REDBOOT_DIR		18
++#define OPTYPE_REDBOOT_CONFIG		19
++#define OPTYPE_SH_PHY_FW		21
++#define OPTYPE_FLASHISM_JUMPVECTOR	22
++#define OPTYPE_UFI_DIR			23
+ #define OPTYPE_PHY_FW			99
+ #define TN_8022				13
  
--#define CQE_STATUS_COMPL_MASK		0xFFFF
--#define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
--#define CQE_STATUS_EXTD_MASK		0xFFFF
--#define CQE_STATUS_EXTD_SHIFT		16	/* bits 16 - 31 */
-+#define base_status(status)		\
-+		((enum mcc_base_status)	\
-+			(status > 0 ? (status & CQE_BASE_STATUS_MASK) : 0))
-+#define addl_status(status)		\
-+		((enum mcc_addl_status)	\
-+			(status > 0 ? (status >> CQE_ADDL_STATUS_SHIFT) & \
-+					CQE_ADDL_STATUS_MASK : 0))
+-#define ILLEGAL_IOCTL_REQ		2
+ #define FLASHROM_OPER_PHY_FLASH		9
+ #define FLASHROM_OPER_PHY_SAVE		10
+ #define FLASHROM_OPER_FLASH		1
+@@ -250,6 +254,9 @@
+ #define IMAGE_FIRMWARE_BACKUP_FCoE	178
+ #define IMAGE_FIRMWARE_BACKUP_COMP_FCoE 179
+ #define IMAGE_FIRMWARE_PHY		192
++#define IMAGE_REDBOOT_DIR		208
++#define IMAGE_REDBOOT_CONFIG		209
++#define IMAGE_UFI_DIR			210
+ #define IMAGE_BOOT_CODE			224
  
- struct be_mcc_compl {
- 	u32 status;		/* dword 0 */
-@@ -259,8 +271,8 @@ struct be_cmd_resp_hdr {
- 	u8 opcode;		/* dword 0 */
- 	u8 subsystem;		/* dword 0 */
- 	u8 rsvd[2];		/* dword 0 */
--	u8 status;		/* dword 1 */
--	u8 add_status;		/* dword 1 */
-+	u8 base_status;		/* dword 1 */
-+	u8 addl_status;		/* dword 1 */
- 	u8 rsvd1[2];		/* dword 1 */
- 	u32 response_length;	/* dword 2 */
- 	u32 actual_resp_len;	/* dword 3 */
+ /************* Rx Packet Type Encoding **************/
+@@ -534,7 +541,8 @@ struct flash_section_entry {
+ 	u32 image_size;
+ 	u32 cksum;
+ 	u32 entry_point;
+-	u32 rsvd0;
++	u16 optype;
++	u16 rsvd0;
+ 	u32 rsvd1;
+ 	u8 ver_data[32];
+ } __packed;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d2b4efa..6822b3d 100644
+index d39a1c6..d2b4efa 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1111,7 +1111,8 @@ static int be_vid_config(struct be_adapter *adapter)
- 	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num);
- 	if (status) {
- 		/* Set to VLAN promisc mode as setting VLAN filter failed */
--		if (status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
-+		if (addl_status(status) ==
-+				MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES)
- 			goto set_vlan_promisc;
- 		dev_err(&adapter->pdev->dev,
- 			"Setting HW VLAN filtering failed.\n");
-@@ -3729,7 +3730,7 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
+@@ -3630,34 +3630,7 @@ static void be_netpoll(struct net_device *netdev)
+ }
+ #endif
+ 
+-#define FW_FILE_HDR_SIGN 	"ServerEngines Corp. "
+-static char flash_cookie[2][16] =      {"*** SE FLAS", "H DIRECTORY *** "};
+-
+-static bool be_flash_redboot(struct be_adapter *adapter,
+-			     const u8 *p, u32 img_start, int image_size,
+-			     int hdr_size)
+-{
+-	u32 crc_offset;
+-	u8 flashed_crc[4];
+-	int status;
+-
+-	crc_offset = hdr_size + img_start + image_size - 4;
+-
+-	p += crc_offset;
+-
+-	status = be_cmd_get_flash_crc(adapter, flashed_crc, (image_size - 4));
+-	if (status) {
+-		dev_err(&adapter->pdev->dev,
+-			"could not get crc from flash, not flashing redboot\n");
+-		return false;
+-	}
+-
+-	/*update redboot only if crc does not match*/
+-	if (!memcmp(flashed_crc, p, 4))
+-		return false;
+-	else
+-		return true;
+-}
++static char flash_cookie[2][16] = {"*** SE FLAS", "H DIRECTORY *** "};
+ 
+ static bool phy_flashing_required(struct be_adapter *adapter)
+ {
+@@ -3704,12 +3677,35 @@ static struct flash_section_info *get_fsec_info(struct be_adapter *adapter,
+ 	return NULL;
+ }
+ 
++static int be_check_flash_crc(struct be_adapter *adapter, const u8 *p,
++			      u32 img_offset, u32 img_size, int hdr_size,
++			      u16 img_optype, bool *crc_match)
++{
++	u32 crc_offset;
++	int status;
++	u8 crc[4];
++
++	status = be_cmd_get_flash_crc(adapter, crc, img_optype, img_size - 4);
++	if (status)
++		return status;
++
++	crc_offset = hdr_size + img_offset + img_size - 4;
++
++	/* Skip flashing, if crc of flashed region matches */
++	if (!memcmp(crc, p + crc_offset, 4))
++		*crc_match = true;
++	else
++		*crc_match = false;
++
++	return status;
++}
++
+ static int be_flash(struct be_adapter *adapter, const u8 *img,
+ 		    struct be_dma_mem *flash_cmd, int optype, int img_size)
+ {
+-	u32 total_bytes = 0, flash_op, num_bytes = 0;
+-	int status = 0;
+ 	struct be_cmd_write_flashrom *req = flash_cmd->va;
++	u32 total_bytes, flash_op, num_bytes;
++	int status;
+ 
+ 	total_bytes = img_size;
+ 	while (total_bytes) {
+@@ -3733,14 +3729,11 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
  		img += num_bytes;
  		status = be_cmd_write_flashrom(adapter, flash_cmd, optype,
  					       flash_op, num_bytes);
--		if (status == MCC_STATUS_ILLEGAL_REQUEST &&
-+		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST &&
- 		    optype == OPTYPE_PHY_FW)
- 			break;
- 		else if (status)
-@@ -3952,8 +3953,8 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
- 		 * new FLASH op_type. To complete the remaining process,
- 		 * download the same FW again after the reboot.
- 		 */
--		if (status == MCC_STATUS_ILLEGAL_REQUEST ||
--		    status == MCC_STATUS_ILLEGAL_FIELD) {
-+		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST ||
-+		    base_status(status) == MCC_STATUS_ILLEGAL_FIELD) {
- 			dev_err(dev, "Flash incomplete. Reset the server\n");
- 			dev_err(dev, "Download FW image again after reset\n");
- 			return -EAGAIN;
-@@ -3975,9 +3976,10 @@ flash:
- 		/* For old FW images ignore ILLEGAL_FIELD error or errors on
- 		 * UFI_DIR region
- 		 */
--		if (old_fw_img && (status == MCC_STATUS_ILLEGAL_FIELD ||
--				   (img_optype == OPTYPE_UFI_DIR &&
--				    status == MCC_STATUS_FAILED))) {
-+		if (old_fw_img &&
-+		    (base_status(status) == MCC_STATUS_ILLEGAL_FIELD ||
-+		     (img_optype == OPTYPE_UFI_DIR &&
-+		      base_status(status) == MCC_STATUS_FAILED))) {
+-		if (status) {
+-			if (status == ILLEGAL_IOCTL_REQ &&
+-			    optype == OPTYPE_PHY_FW)
+-				break;
+-			dev_err(&adapter->pdev->dev,
+-				"cmd to write to flash rom failed.\n");
++		if (status == MCC_STATUS_ILLEGAL_REQUEST &&
++		    optype == OPTYPE_PHY_FW)
++			break;
++		else if (status)
+ 			return status;
+-		}
+ 	}
+ 	return 0;
+ }
+@@ -3750,12 +3743,13 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 			const struct firmware *fw,
+ 			struct be_dma_mem *flash_cmd, int num_of_images)
+ {
+-	int status = 0, i, filehdr_size = 0;
+ 	int img_hdrs_size = (num_of_images * sizeof(struct image_hdr));
+-	const u8 *p = fw->data;
+-	const struct flash_comp *pflashcomp;
+-	int num_comp, redboot;
++	struct device *dev = &adapter->pdev->dev;
+ 	struct flash_section_info *fsec = NULL;
++	int status, i, filehdr_size, num_comp;
++	const struct flash_comp *pflashcomp;
++	bool crc_match;
++	const u8 *p;
+ 
+ 	struct flash_comp gen3_flash_types[] = {
+ 		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, OPTYPE_ISCSI_ACTIVE,
+@@ -3812,8 +3806,7 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	/* Get flash section info*/
+ 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
+ 	if (!fsec) {
+-		dev_err(&adapter->pdev->dev,
+-			"Invalid Cookie. UFI corrupted ?\n");
++		dev_err(dev, "Invalid Cookie. FW image may be corrupted\n");
+ 		return -1;
+ 	}
+ 	for (i = 0; i < num_comp; i++) {
+@@ -3829,25 +3822,32 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 				continue;
+ 
+ 		if (pflashcomp[i].optype == OPTYPE_REDBOOT) {
+-			redboot = be_flash_redboot(adapter, fw->data,
+-						   pflashcomp[i].offset,
+-						   pflashcomp[i].size,
+-						   filehdr_size +
+-						   img_hdrs_size);
+-			if (!redboot)
++			status = be_check_flash_crc(adapter, fw->data,
++						    pflashcomp[i].offset,
++						    pflashcomp[i].size,
++						    filehdr_size +
++						    img_hdrs_size,
++						    OPTYPE_REDBOOT, &crc_match);
++			if (status) {
++				dev_err(dev,
++					"Could not get CRC for 0x%x region\n",
++					pflashcomp[i].optype);
++				continue;
++			}
++
++			if (crc_match)
+ 				continue;
+ 		}
+ 
+-		p = fw->data;
+-		p += filehdr_size + pflashcomp[i].offset + img_hdrs_size;
++		p = fw->data + filehdr_size + pflashcomp[i].offset +
++			img_hdrs_size;
+ 		if (p + pflashcomp[i].size > fw->data + fw->size)
+ 			return -1;
+ 
+ 		status = be_flash(adapter, p, flash_cmd, pflashcomp[i].optype,
+ 				  pflashcomp[i].size);
+ 		if (status) {
+-			dev_err(&adapter->pdev->dev,
+-				"Flashing section type %d failed.\n",
++			dev_err(dev, "Flashing section type 0x%x failed\n",
+ 				pflashcomp[i].img_type);
+ 			return status;
+ 		}
+@@ -3855,74 +3855,134 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	return 0;
+ }
+ 
++static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
++{
++	u32 img_type = le32_to_cpu(fsec_entry.type);
++	u16 img_optype = le16_to_cpu(fsec_entry.optype);
++
++	if (img_optype != 0xFFFF)
++		return img_optype;
++
++	switch (img_type) {
++	case IMAGE_FIRMWARE_iSCSI:
++		img_optype = OPTYPE_ISCSI_ACTIVE;
++		break;
++	case IMAGE_BOOT_CODE:
++		img_optype = OPTYPE_REDBOOT;
++		break;
++	case IMAGE_OPTION_ROM_ISCSI:
++		img_optype = OPTYPE_BIOS;
++		break;
++	case IMAGE_OPTION_ROM_PXE:
++		img_optype = OPTYPE_PXE_BIOS;
++		break;
++	case IMAGE_OPTION_ROM_FCoE:
++		img_optype = OPTYPE_FCOE_BIOS;
++		break;
++	case IMAGE_FIRMWARE_BACKUP_iSCSI:
++		img_optype = OPTYPE_ISCSI_BACKUP;
++		break;
++	case IMAGE_NCSI:
++		img_optype = OPTYPE_NCSI_FW;
++		break;
++	case IMAGE_FLASHISM_JUMPVECTOR:
++		img_optype = OPTYPE_FLASHISM_JUMPVECTOR;
++		break;
++	case IMAGE_FIRMWARE_PHY:
++		img_optype = OPTYPE_SH_PHY_FW;
++		break;
++	case IMAGE_REDBOOT_DIR:
++		img_optype = OPTYPE_REDBOOT_DIR;
++		break;
++	case IMAGE_REDBOOT_CONFIG:
++		img_optype = OPTYPE_REDBOOT_CONFIG;
++		break;
++	case IMAGE_UFI_DIR:
++		img_optype = OPTYPE_UFI_DIR;
++		break;
++	default:
++		break;
++	}
++
++	return img_optype;
++}
++
+ static int be_flash_skyhawk(struct be_adapter *adapter,
+ 			    const struct firmware *fw,
+ 			    struct be_dma_mem *flash_cmd, int num_of_images)
+ {
+-	int status = 0, i, filehdr_size = 0;
+-	int img_offset, img_size, img_optype, redboot;
+ 	int img_hdrs_size = num_of_images * sizeof(struct image_hdr);
+-	const u8 *p = fw->data;
++	struct device *dev = &adapter->pdev->dev;
+ 	struct flash_section_info *fsec = NULL;
++	u32 img_offset, img_size, img_type;
++	int status, i, filehdr_size;
++	bool crc_match, old_fw_img;
++	u16 img_optype;
++	const u8 *p;
+ 
+ 	filehdr_size = sizeof(struct flash_file_hdr_g3);
+ 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
+ 	if (!fsec) {
+-		dev_err(&adapter->pdev->dev,
+-			"Invalid Cookie. UFI corrupted ?\n");
++		dev_err(dev, "Invalid Cookie. FW image may be corrupted\n");
+ 		return -1;
+ 	}
+ 
+ 	for (i = 0; i < le32_to_cpu(fsec->fsec_hdr.num_images); i++) {
+ 		img_offset = le32_to_cpu(fsec->fsec_entry[i].offset);
+ 		img_size   = le32_to_cpu(fsec->fsec_entry[i].pad_size);
++		img_type   = le32_to_cpu(fsec->fsec_entry[i].type);
++		img_optype = be_get_img_optype(fsec->fsec_entry[i]);
++		old_fw_img = fsec->fsec_entry[i].optype == 0xFFFF;
+ 
+-		switch (le32_to_cpu(fsec->fsec_entry[i].type)) {
+-		case IMAGE_FIRMWARE_iSCSI:
+-			img_optype = OPTYPE_ISCSI_ACTIVE;
+-			break;
+-		case IMAGE_BOOT_CODE:
+-			img_optype = OPTYPE_REDBOOT;
+-			break;
+-		case IMAGE_OPTION_ROM_ISCSI:
+-			img_optype = OPTYPE_BIOS;
+-			break;
+-		case IMAGE_OPTION_ROM_PXE:
+-			img_optype = OPTYPE_PXE_BIOS;
+-			break;
+-		case IMAGE_OPTION_ROM_FCoE:
+-			img_optype = OPTYPE_FCOE_BIOS;
+-			break;
+-		case IMAGE_FIRMWARE_BACKUP_iSCSI:
+-			img_optype = OPTYPE_ISCSI_BACKUP;
+-			break;
+-		case IMAGE_NCSI:
+-			img_optype = OPTYPE_NCSI_FW;
+-			break;
+-		default:
++		if (img_optype == 0xFFFF)
  			continue;
- 		} else if (status) {
- 			dev_err(dev, "Flashing section type 0x%x failed\n",
++		/* Don't bother verifying CRC if an old FW image is being
++		 * flashed
++		 */
++		if (old_fw_img)
++			goto flash;
++
++		status = be_check_flash_crc(adapter, fw->data, img_offset,
++					    img_size, filehdr_size +
++					    img_hdrs_size, img_optype,
++					    &crc_match);
++		/* The current FW image on the card does not recognize the new
++		 * FLASH op_type. The FW download is partially complete.
++		 * Reboot the server now to enable FW image to recognize the
++		 * new FLASH op_type. To complete the remaining process,
++		 * download the same FW again after the reboot.
++		 */
++		if (status == MCC_STATUS_ILLEGAL_REQUEST ||
++		    status == MCC_STATUS_ILLEGAL_FIELD) {
++			dev_err(dev, "Flash incomplete. Reset the server\n");
++			dev_err(dev, "Download FW image again after reset\n");
++			return -EAGAIN;
++		} else if (status) {
++			dev_err(dev, "Could not get CRC for 0x%x region\n",
++				img_optype);
++			return -EFAULT;
+ 		}
+ 
+-		if (img_optype == OPTYPE_REDBOOT) {
+-			redboot = be_flash_redboot(adapter, fw->data,
+-						   img_offset, img_size,
+-						   filehdr_size +
+-						   img_hdrs_size);
+-			if (!redboot)
+-				continue;
+-		}
++		if (crc_match)
++			continue;
+ 
+-		p = fw->data;
+-		p += filehdr_size + img_offset + img_hdrs_size;
++flash:
++		p = fw->data + filehdr_size + img_offset + img_hdrs_size;
+ 		if (p + img_size > fw->data + fw->size)
+ 			return -1;
+ 
+ 		status = be_flash(adapter, p, flash_cmd, img_optype, img_size);
+-		if (status) {
+-			dev_err(&adapter->pdev->dev,
+-				"Flashing section type %d failed.\n",
+-				fsec->fsec_entry[i].type);
+-			return status;
++		/* For old FW images ignore ILLEGAL_FIELD error or errors on
++		 * UFI_DIR region
++		 */
++		if (old_fw_img && (status == MCC_STATUS_ILLEGAL_FIELD ||
++				   (img_optype == OPTYPE_UFI_DIR &&
++				    status == MCC_STATUS_FAILED))) {
++			continue;
++		} else if (status) {
++			dev_err(dev, "Flashing section type 0x%x failed\n",
++				img_type);
++			return -EFAULT;
+ 		}
+ 	}
+ 	return 0;
 -- 
 1.7.1
