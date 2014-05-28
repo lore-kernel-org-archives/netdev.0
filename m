@@ -1,316 +1,63 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [net-next 08/15] e1000e: Failure to write SHRA turns on PROMISC
- mode
-Date: Wed, 28 May 2014 10:06:20 -0400
-Message-ID: <5385ED5C.1070703@redhat.com>
-References: <1401181951-31358-1-git-send-email-jeffrey.t.kirsher@intel.com> <1401181951-31358-9-git-send-email-jeffrey.t.kirsher@intel.com>
-Reply-To: vyasevic@redhat.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 5/9] tlan: Restart autonegotiation on link loss
+Date: Wed, 28 May 2014 18:08:13 +0400
+Message-ID: <5385EDCD.5030001@cogentembedded.com>
+References: <1401226727-5508-1-git-send-email-linux@rainbow-software.org> <1401226727-5508-6-git-send-email-linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Ertman <davidx.m.ertman@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14182 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753198AbaE1OGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 10:06:24 -0400
-In-Reply-To: <1401181951-31358-9-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>,
+	Samuel Chessman <chessman@tux.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401226727-5508-6-git-send-email-linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/27/2014 05:12 AM, Jeff Kirsher wrote:
-> From: David Ertman <davidx.m.ertman@intel.com>
-> 
-> Previously, the check to turn on promiscuous mode only took into account
-> the total number of SHared Receive Address (SHRA) registers and if the
-> request was for a register within that range.  It is possible that the
-> Management Engine might have locked a number of SHRA and not allowed a
-> new address to be written to the requested register.
-> 
-> Add a function to determine the number of unlocked SHRA registers.  Then
-> determine if the number of registers available is sufficient for our needs,
-> if not then return -ENOMEM so that UNICAST PROMISC mode is activated.
-> 
-> Since the method by which ME claims SHRA registers is non-deterministic,
-> also add a return value to the function attempting to write an address
-> to a SHRA, and return a -E1000_ERR_CONFIG if the write fails.  The error
-> will be passed up the function chain and allow the driver to also set
-> UNICAST PROMISC when this happens.
-> 
-> Cc: Vlad Yasevich <vyasevic@redhat.com>
+Hello.
 
-Acked-by: Vlad Yasevich <vyasevic@redhat.com>
+On 05/28/2014 01:38 AM, Ondrej Zary wrote:
 
--vlad
+> When link is lost on a card which uses internal PHY for 10 Mbit speeds,
+> restart autonegotiation to allow switching between 10 and 100 Mbps speeds.
 
-> Signed-off-by: Dave Ertman <davidx.m.ertman@intel.com>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 > ---
->  drivers/net/ethernet/intel/e1000e/80003es2lan.c |  1 +
->  drivers/net/ethernet/intel/e1000e/82571.c       |  1 +
->  drivers/net/ethernet/intel/e1000e/hw.h          |  3 +-
->  drivers/net/ethernet/intel/e1000e/ich8lan.c     | 57 +++++++++++++++++++++----
->  drivers/net/ethernet/intel/e1000e/mac.c         |  9 +++-
->  drivers/net/ethernet/intel/e1000e/mac.h         |  3 +-
->  drivers/net/ethernet/intel/e1000e/netdev.c      | 10 ++++-
->  7 files changed, 71 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-> index a5f6b11..08f22f3 100644
-> --- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-> +++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-> @@ -1365,6 +1365,7 @@ static const struct e1000_mac_operations es2_mac_ops = {
->  	.setup_led		= e1000e_setup_led_generic,
->  	.config_collision_dist	= e1000e_config_collision_dist_generic,
->  	.rar_set		= e1000e_rar_set_generic,
-> +	.rar_get_count		= e1000e_rar_get_count_generic,
->  };
->  
->  static const struct e1000_phy_operations es2_phy_ops = {
-> diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-> index e0aa7f1..218481e 100644
-> --- a/drivers/net/ethernet/intel/e1000e/82571.c
-> +++ b/drivers/net/ethernet/intel/e1000e/82571.c
-> @@ -1896,6 +1896,7 @@ static const struct e1000_mac_operations e82571_mac_ops = {
->  	.config_collision_dist	= e1000e_config_collision_dist_generic,
->  	.read_mac_addr		= e1000_read_mac_addr_82571,
->  	.rar_set		= e1000e_rar_set_generic,
-> +	.rar_get_count		= e1000e_rar_get_count_generic,
->  };
->  
->  static const struct e1000_phy_operations e82_phy_ops_igp = {
-> diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-> index 6b3de5f..72f5475 100644
-> --- a/drivers/net/ethernet/intel/e1000e/hw.h
-> +++ b/drivers/net/ethernet/intel/e1000e/hw.h
-> @@ -469,8 +469,9 @@ struct e1000_mac_operations {
->  	s32  (*setup_led)(struct e1000_hw *);
->  	void (*write_vfta)(struct e1000_hw *, u32, u32);
->  	void (*config_collision_dist)(struct e1000_hw *);
-> -	void (*rar_set)(struct e1000_hw *, u8 *, u32);
-> +	int  (*rar_set)(struct e1000_hw *, u8 *, u32);
->  	s32  (*read_mac_addr)(struct e1000_hw *);
-> +	u32  (*rar_get_count)(struct e1000_hw *);
->  };
->  
->  /* When to use various PHY register access functions:
-> diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> index 5f55395..b75862d 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-> @@ -139,8 +139,9 @@ static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
->  static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
->  static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
->  static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
-> -static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
-> -static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index);
-> +static int e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index);
-> +static int e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index);
-> +static u32 e1000_rar_get_count_pch_lpt(struct e1000_hw *hw);
->  static s32 e1000_k1_workaround_lv(struct e1000_hw *hw);
->  static void e1000_gate_hw_phy_config_ich8lan(struct e1000_hw *hw, bool gate);
->  static s32 e1000_disable_ulp_lpt_lp(struct e1000_hw *hw, bool force);
-> @@ -704,6 +705,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
->  		mac->ops.rar_set = e1000_rar_set_pch_lpt;
->  		mac->ops.setup_physical_interface =
->  		    e1000_setup_copper_link_pch_lpt;
-> +		mac->ops.rar_get_count = e1000_rar_get_count_pch_lpt;
->  	}
->  
->  	/* Enable PCS Lock-loss workaround for ICH8 */
-> @@ -1668,7 +1670,7 @@ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw)
->   *  contain the MAC address but RAR[1-6] are reserved for manageability (ME).
->   *  Use SHRA[0-3] in place of those reserved for ME.
->   **/
-> -static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
-> +static int e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
->  {
->  	u32 rar_low, rar_high;
->  
-> @@ -1690,7 +1692,7 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
->  		e1e_flush();
->  		ew32(RAH(index), rar_high);
->  		e1e_flush();
-> -		return;
-> +		return 0;
->  	}
->  
->  	/* RAR[1-6] are owned by manageability.  Skip those and program the
-> @@ -1713,7 +1715,7 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
->  		/* verify the register updates */
->  		if ((er32(SHRAL(index - 1)) == rar_low) &&
->  		    (er32(SHRAH(index - 1)) == rar_high))
-> -			return;
-> +			return 0;
->  
->  		e_dbg("SHRA[%d] might be locked by ME - FWSM=0x%8.8x\n",
->  		      (index - 1), er32(FWSM));
-> @@ -1721,6 +1723,43 @@ static void e1000_rar_set_pch2lan(struct e1000_hw *hw, u8 *addr, u32 index)
->  
->  out:
->  	e_dbg("Failed to write receive address at index %d\n", index);
-> +	return -E1000_ERR_CONFIG;
-> +}
-> +
-> +/**
-> + *  e1000_rar_get_count_pch_lpt - Get the number of available SHRA
-> + *  @hw: pointer to the HW structure
-> + *
-> + *  Get the number of available receive registers that the Host can
-> + *  program. SHRA[0-10] are the shared receive address registers
-> + *  that are shared between the Host and manageability engine (ME).
-> + *  ME can reserve any number of addresses and the host needs to be
-> + *  able to tell how many available registers it has access to.
-> + **/
-> +static u32 e1000_rar_get_count_pch_lpt(struct e1000_hw *hw)
-> +{
-> +	u32 wlock_mac;
-> +	u32 num_entries;
-> +
-> +	wlock_mac = er32(FWSM) & E1000_FWSM_WLOCK_MAC_MASK;
-> +	wlock_mac >>= E1000_FWSM_WLOCK_MAC_SHIFT;
-> +
-> +	switch (wlock_mac) {
-> +	case 0:
-> +		/* All SHRA[0..10] and RAR[0] available */
-> +		num_entries = hw->mac.rar_entry_count;
-> +		break;
-> +	case 1:
-> +		/* Only RAR[0] available */
-> +		num_entries = 1;
-> +		break;
-> +	default:
-> +		/* SHRA[0..(wlock_mac - 1)] available + RAR[0] */
-> +		num_entries = wlock_mac + 1;
-> +		break;
-> +	}
-> +
-> +	return num_entries;
->  }
->  
->  /**
-> @@ -1734,7 +1773,7 @@ out:
->   *  contain the MAC address. SHRA[0-10] are the shared receive address
->   *  registers that are shared between the Host and manageability engine (ME).
->   **/
-> -static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
-> +static int e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
->  {
->  	u32 rar_low, rar_high;
->  	u32 wlock_mac;
-> @@ -1756,7 +1795,7 @@ static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
->  		e1e_flush();
->  		ew32(RAH(index), rar_high);
->  		e1e_flush();
-> -		return;
-> +		return 0;
->  	}
->  
->  	/* The manageability engine (ME) can lock certain SHRAR registers that
-> @@ -1788,12 +1827,13 @@ static void e1000_rar_set_pch_lpt(struct e1000_hw *hw, u8 *addr, u32 index)
->  			/* verify the register updates */
->  			if ((er32(SHRAL_PCH_LPT(index - 1)) == rar_low) &&
->  			    (er32(SHRAH_PCH_LPT(index - 1)) == rar_high))
-> -				return;
-> +				return 0;
->  		}
->  	}
->  
->  out:
->  	e_dbg("Failed to write receive address at index %d\n", index);
-> +	return -E1000_ERR_CONFIG;
->  }
->  
->  /**
-> @@ -4977,6 +5017,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
->  	/* id_led_init dependent on mac type */
->  	.config_collision_dist	= e1000e_config_collision_dist_generic,
->  	.rar_set		= e1000e_rar_set_generic,
-> +	.rar_get_count		= e1000e_rar_get_count_generic,
->  };
->  
->  static const struct e1000_phy_operations ich8_phy_ops = {
-> diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-> index baa0a46..8c386f3a 100644
-> --- a/drivers/net/ethernet/intel/e1000e/mac.c
-> +++ b/drivers/net/ethernet/intel/e1000e/mac.c
-> @@ -211,6 +211,11 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
->  	return 0;
->  }
->  
-> +u32 e1000e_rar_get_count_generic(struct e1000_hw *hw)
-> +{
-> +	return hw->mac.rar_entry_count;
-> +}
-> +
->  /**
->   *  e1000e_rar_set_generic - Set receive address register
->   *  @hw: pointer to the HW structure
-> @@ -220,7 +225,7 @@ s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
->   *  Sets the receive address array register at index to the address passed
->   *  in by addr.
->   **/
-> -void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
-> +int e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
->  {
->  	u32 rar_low, rar_high;
->  
-> @@ -244,6 +249,8 @@ void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index)
->  	e1e_flush();
->  	ew32(RAH(index), rar_high);
->  	e1e_flush();
-> +
-> +	return 0;
->  }
->  
->  /**
-> diff --git a/drivers/net/ethernet/intel/e1000e/mac.h b/drivers/net/ethernet/intel/e1000e/mac.h
-> index 4e81c28..0513d90 100644
-> --- a/drivers/net/ethernet/intel/e1000e/mac.h
-> +++ b/drivers/net/ethernet/intel/e1000e/mac.h
-> @@ -61,7 +61,8 @@ void e1000e_update_adaptive(struct e1000_hw *hw);
->  void e1000_write_vfta_generic(struct e1000_hw *hw, u32 offset, u32 value);
->  
->  void e1000_set_lan_id_multi_port_pcie(struct e1000_hw *hw);
-> -void e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
-> +u32 e1000e_rar_get_count_generic(struct e1000_hw *hw);
-> +int e1000e_rar_set_generic(struct e1000_hw *hw, u8 *addr, u32 index);
->  void e1000e_config_collision_dist_generic(struct e1000_hw *hw);
->  
->  #endif
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index e4207ef..6084e6b 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -3311,9 +3311,11 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
->  {
->  	struct e1000_adapter *adapter = netdev_priv(netdev);
->  	struct e1000_hw *hw = &adapter->hw;
-> -	unsigned int rar_entries = hw->mac.rar_entry_count;
-> +	unsigned int rar_entries;
->  	int count = 0;
->  
-> +	rar_entries = hw->mac.ops.rar_get_count(hw);
-> +
->  	/* save a rar entry for our hardware address */
->  	rar_entries--;
->  
-> @@ -3332,9 +3334,13 @@ static int e1000e_write_uc_addr_list(struct net_device *netdev)
->  		 * combining
->  		 */
->  		netdev_for_each_uc_addr(ha, netdev) {
-> +			int rval;
-> +
->  			if (!rar_entries)
->  				break;
-> -			hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
-> +			rval = hw->mac.ops.rar_set(hw, ha->addr, rar_entries--);
-> +			if (rval < 0)
-> +				return -ENOMEM;
->  			count++;
->  		}
->  	}
-> 
+>   drivers/net/ethernet/ti/tlan.c |   14 ++++++++++++++
+>   1 file changed, 14 insertions(+)
+
+> diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+> index 31d4a96..1047b3f 100644
+> --- a/drivers/net/ethernet/ti/tlan.c
+> +++ b/drivers/net/ethernet/ti/tlan.c
+[...]
+> @@ -2788,6 +2789,19 @@ static void tlan_phy_monitor(unsigned long data)
+>   			       dev->name);
+>   			tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
+>   			netif_carrier_off(dev);
+> +			if (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) {
+> +				/* power down internal PHY */
+> +				u16 data = MII_GC_PDOWN | MII_GC_LOOPBK
+> +					| MII_GC_ISOLATE;
+
+    Please, leave | on the previosu line.
+
+> +				tlan_mii_sync(dev->base_addr);
+> +				tlan_mii_write_reg(dev, priv->phy[0],
+> +					MII_GEN_CTL, data);
+
+    Please start this line right under 'dev' on the previous one.
+
+> +				/* set to external PHY */
+> +				priv->phy_num = 1;
+> +				/* restart autonegotiation */
+> +				tlan_set_timer(dev, (4*HZ/10), TLAN_TIMER_PHY_PDOWN);
+
+    Spaces around * and / wouldn't hurt for consistency.
+
+> +				return;
+> +			}
+>   		}
+>   	}
+
+WBR, Sergei
