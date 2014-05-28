@@ -1,59 +1,158 @@
-From: wenxiong@linux.vnet.ibm.com
-Subject: [PATCH V2 2/2] bnx2x: Fix kernel crash and data miscompare after EEH recovery
-Date: Wed, 28 May 2014 10:56:43 -0500
-Message-ID: <20140528155722.361752083@linux.vnet.ibm.com>
-References: <20140528155641.920171803@linux.vnet.ibm.com>
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
-	Milton Miller <miltonm@bga.com>,
-	Wen Xiong <wenxiong@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net v2] net: fix wrong mac_len calculation for vlans
+Date: Wed, 28 May 2014 18:03:48 +0200
+Message-ID: <1401293028-18685-1-git-send-email-nikolay@redhat.com>
+Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Daniel Borkman <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [32.97.110.57] ([32.97.110.57]:33208 "HELO
-	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with SMTP id S1754003AbaE1QAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 12:00:38 -0400
-Content-Disposition: inline; filename=bnx2x_rmb_fix
+Received: from mx1.redhat.com ([209.132.183.28]:23711 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932168AbaE1QEE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2014 12:04:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A rmb() is required to ensure that the CQE is not read before it
-is written by the adapter DMA.  PCI ordering rules will make sure
-the other fields are written before the marker at the end of struct
-eth_fast_path_rx_cqe but without rmb() a weakly ordered processor can
-process stale data.
+After 1e785f48d29a ("net: Start with correct mac_len in
+skb_network_protocol") skb->mac_len is used as a start of the
+calculation in skb_network_protocol() but that is not always correct. If
+skb->protocol == 8021Q/AD, usually the vlan header is already inserted
+in the skb (i.e. vlan reorder hdr == 0). Usually when the packet enters
+dev_hard_xmit it has mac_len == 0 so we take 2 bytes from the
+destination mac address (skb->data + VLAN_HLEN) as a type in
+skb_network_protocol() and return vlan_depth == 4. In the case where TSO is
+off, then the mac_len is set but it's == 18 (ETH_HLEN + VLAN_HLEN), so
+skb_network_protocol() returns a type from inside the packet and
+offset == 22. Also make vlan_depth unsigned as suggested before.
+As suggested by Eric Dumazet, move the while() loop in the if() so we
+can avoid additional testing in fast path.
 
-Without the barrier we have observed various crashes including
-bnx2x_tpa_start being called on queues not stopped (resulting in message
-start of bin not in stop) and NULL pointer exceptions from bnx2x_rx_int.
+Here are few netperf tests + debug printk's to illustrate:
+cat netperf.tso-on.reorder-on.bugged
+- Vlan -> device (reorder on, default, this case is okay)
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.3.1 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
 
-Signed-off-by: Milton Miller <miltonm@bga.com>
-Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+ 87380  16384  16384    10.00    7111.54
+[   81.605435] skb->len 65226 skb->gso_size 1448 skb->proto 0x800
+skb->mac_len 0 vlan_depth 0 type 0x800
+
+- Vlan -> device (reorder off, bad)
+cat netperf.tso-on.reorder-off.bugged
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.3.1 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+ 87380  16384  16384    10.00     241.35
+[  204.578332] skb->len 1518 skb->gso_size 0 skb->proto 0x8100
+skb->mac_len 0 vlan_depth 4 type 0x5301
+0x5301 are the last two bytes of the destination mac.
+
+And if we stop TSO, we may get even the following:
+[   83.343156] skb->len 2966 skb->gso_size 1448 skb->proto 0x8100
+skb->mac_len 18 vlan_depth 22 type 0xb84
+Because mac_len already accounts for VLAN_HLEN.
+
+After the fix:
+cat netperf.tso-on.reorder-off.fixed
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
+192.168.3.1 () port 0 AF_INET
+Recv   Send    Send
+Socket Socket  Message  Elapsed
+Size   Size    Size     Time     Throughput
+bytes  bytes   bytes    secs.    10^6bits/sec
+
+ 87380  16384  16384    10.01    5001.46
+[   81.888489] skb->len 65230 skb->gso_size 1448 skb->proto 0x8100
+skb->mac_len 0 vlan_depth 18 type 0x800
+
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Daniel Borkman <dborkman@redhat.com>
+CC: David S. Miller <davem@davemloft.net>
+
+Fixes:1e785f48d29a ("net: Start with correct mac_len in
+skb_network_protocol")
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+v2: Move the while() loop in the if() to avoid additional testing in fast
+path as suggested by Eric Dumazet.
 
-Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-===================================================================
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c	2014-05-23 10:34:21.000000000 -0500
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c	2014-05-28 10:54:26.627766086 -0500
-@@ -906,6 +906,18 @@ static int bnx2x_rx_int(struct bnx2x_fas
- 		bd_prod = RX_BD(bd_prod);
- 		bd_cons = RX_BD(bd_cons);
+Note: A good side-effect of this patch is that in the mac_len > 0
+case we'll directly look in the last vlan header in the while loop later
+(mac_len - VLAN_HLEN), so it should take only a single iteration.
+Also I'm working on getting mac_len always correct for net-next, so we can
+get rid of this later. My plan currently is to make dev_hard_header()
+adjust mac_len according to the return value from create(), but I'll have
+to look into if that's enough and if it's feasible. Any suggestions on this
+are very welcome.
+
+ net/core/dev.c | 35 +++++++++++++++++++++++++----------
+ 1 file changed, 25 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9abc503b19b7..fb8b0546485b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2283,8 +2283,8 @@ EXPORT_SYMBOL(skb_checksum_help);
  
-+		/* A rmb() is required to ensure that the CQE is not read
-+		 * before it is written by the adapter DMA.  PCI ordering
-+		 * rules will make sure the other fields are written before
-+		 * the marker at the end of struct eth_fast_path_rx_cqe
-+		 * but without rmb() a weakly ordered processor can process
-+		 * stale data.  Without the barrier TPA state-machine might
-+		 * enter inconsistent state and kernel stack might be
-+		 * provided with incorrect packet description - these lead
-+		 * to various kernel crashed.
-+		*/
-+		rmb();
+ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ {
++	unsigned int vlan_depth = skb->mac_len;
+ 	__be16 type = skb->protocol;
+-	int vlan_depth = skb->mac_len;
+ 
+ 	/* Tunnel gso handlers can set protocol to ethernet. */
+ 	if (type == htons(ETH_P_TEB)) {
+@@ -2297,15 +2297,30 @@ __be16 skb_network_protocol(struct sk_buff *skb, int *depth)
+ 		type = eth->h_proto;
+ 	}
+ 
+-	while (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
+-		struct vlan_hdr *vh;
+-
+-		if (unlikely(!pskb_may_pull(skb, vlan_depth + VLAN_HLEN)))
+-			return 0;
+-
+-		vh = (struct vlan_hdr *)(skb->data + vlan_depth);
+-		type = vh->h_vlan_encapsulated_proto;
+-		vlan_depth += VLAN_HLEN;
++	/* if skb->protocol is 802.1Q/AD then the header should already be
++	 * present at mac_len - VLAN_HLEN (if mac_len > 0), or at
++	 * ETH_HLEN otherwise
++	 */
++	if (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
++		if (vlan_depth) {
++			if (unlikely(WARN_ON(vlan_depth < VLAN_HLEN)))
++				return 0;
++			vlan_depth -= VLAN_HLEN;
++		} else {
++			vlan_depth = ETH_HLEN;
++		}
++		do {
++			struct vlan_hdr *vh;
 +
- 		cqe_fp_flags = cqe_fp->type_error_flags;
- 		cqe_fp_type = cqe_fp_flags & ETH_FAST_PATH_RX_CQE_TYPE;
++			if (unlikely(!pskb_may_pull(skb,
++						    vlan_depth + VLAN_HLEN)))
++				return 0;
++
++			vh = (struct vlan_hdr *)(skb->data + vlan_depth);
++			type = vh->h_vlan_encapsulated_proto;
++			vlan_depth += VLAN_HLEN;
++		} while (type == htons(ETH_P_8021Q) ||
++			 type == htons(ETH_P_8021AD));
+ 	}
  
-
+ 	*depth = vlan_depth;
 -- 
+1.8.5.3
