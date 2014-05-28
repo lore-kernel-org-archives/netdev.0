@@ -1,53 +1,94 @@
-From: sowmini varadhan <sowmini05@gmail.com>
-Subject: Re: Scaling 'ip addr add' (was Re: What's the right way to use a
- *large* number of source addresses?)
-Date: Wed, 28 May 2014 13:18:55 -0400
-Message-ID: <CACP96tTVoHKrVJD+nX9=PpV-tk1CQ31=9bxdFeGUvDaJUrmkWA@mail.gmail.com>
-References: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
-	<1401241268.5367.266.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
-	<1401284699.5367.268.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1401288533.5367.271.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 5/9] tlan: Restart autonegotiation on link loss
+Date: Wed, 28 May 2014 10:26:53 -0700
+Message-ID: <CAGVrzcY2anVgKaghKYM_A=Qke854byc=uGn2dvbOm-+vQk9bFA@mail.gmail.com>
+References: <1401226727-5508-1-git-send-email-linux@rainbow-software.org>
+ <1401226727-5508-6-git-send-email-linux@rainbow-software.org>
+ <CAGVrzcbD=OhzuWRuxJVG1SJeYDsOYaV2AozsWafBtX6gcF08vw@mail.gmail.com> <201405280839.00973.linux@rainbow-software.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	=?UTF-8?Q?Niels_M=C3=B6ller?= <nisse@southpole.se>,
-	netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:58221 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675AbaE1RS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 13:18:57 -0400
-Received: by mail-lb0-f174.google.com with SMTP id n15so5987063lbi.5
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 10:18:55 -0700 (PDT)
-In-Reply-To: <1401288533.5367.271.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Samuel Chessman <chessman@tux.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201405280839.00973.linux@rainbow-software.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 28, 2014 at 10:48 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+2014-05-27 23:39 GMT-07:00 Ondrej Zary <linux@rainbow-software.org>:
+> On Wednesday 28 May 2014, Florian Fainelli wrote:
+>> Hi,
+>>
+>> 2014-05-27 14:38 GMT-07:00 Ondrej Zary <linux@rainbow-software.org>:
+>> > When link is lost on a card which uses internal PHY for 10 Mbit speeds,
+>> > restart autonegotiation to allow switching between 10 and 100 Mbps
+>> > speeds.
+>>
+>> I think you should take a look at implementing libphy read/write stubs
+>> for this driver, that would allow you not to open-code such things.
+>
+> Yes, that would be good. However, I don't want to do any major PHY-related
+> changes to the driver because it supports cards with various PHY
+> configurations and I don't have all the different hardware to test.
+
+That is completely fair, this is a fairly old driver, if it is not
+broken, let's keep it as-is.
+
+>
+>> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+>> > ---
+>> >  drivers/net/ethernet/ti/tlan.c |   14 ++++++++++++++
+>> >  1 file changed, 14 insertions(+)
+>> >
+>> > diff --git a/drivers/net/ethernet/ti/tlan.c
+>> > b/drivers/net/ethernet/ti/tlan.c index 31d4a96..1047b3f 100644
+>> > --- a/drivers/net/ethernet/ti/tlan.c
+>> > +++ b/drivers/net/ethernet/ti/tlan.c
+>> > @@ -2721,6 +2721,7 @@ static void tlan_phy_finish_auto_neg(struct
+>> > net_device *dev) else if (!(mode & 0x0080) && (mode & 0x0040))
+>> >                 priv->tlan_full_duplex = true;
+>> >
+>> > +       /* switch to internal PHY for 10 Mbps */
+>> >         if ((!(mode & 0x0180)) &&
+>> >             (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) &&
+>> >             (priv->phy_num != 0)) {
+>> > @@ -2788,6 +2789,19 @@ static void tlan_phy_monitor(unsigned long data)
+>> >                                dev->name);
+>> >                         tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
+>> >                         netif_carrier_off(dev);
+>> > +                       if (priv->adapter->flags &
+>> > TLAN_ADAPTER_USE_INTERN_10) { +                               /* power
+>> > down internal PHY */
+>> > +                               u16 data = MII_GC_PDOWN | MII_GC_LOOPBK
+>> > +                                       | MII_GC_ISOLATE;
+>> > +                               tlan_mii_sync(dev->base_addr);
+>> > +                               tlan_mii_write_reg(dev, priv->phy[0],
+>> > +                                       MII_GEN_CTL, data);
+>> > +                               /* set to external PHY */
+>> > +                               priv->phy_num = 1;
+>> > +                               /* restart autonegotiation */
+>> > +                               tlan_set_timer(dev, (4*HZ/10),
+>> > TLAN_TIMER_PHY_PDOWN); +                               return;
+>> > +                       }
+>> >                 }
+>> >         }
+>> >
+>> > --
+>> > Ondrej Zary
+>> >
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe linux-kernel"
+>> > in the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> > Please read the FAQ at  http://www.tux.org/lkml/
+>
+>
+>
+> --
+> Ondrej Zary
 
 
-> Following patch helps a lot
-> (30 seconds to add 65536 addresses on lo interface instead of 52 seconds
-> on my host)
 
-I haven't had a chance to try out your patch yet (thanks for
-the "dont do a del" caveat :-)) and I'm going to try it out now,
- but reading your info makes me
-wonder- in this case all the addresses that are being added
-are static Ipv4 addrs, i.e., they are clearly IFA_F_PERMANENT
-addresses, so check_lifetime() should not have too much work
-to do (other than to examine the ifa_flags and continue). So
-why is this making such a big difference?
-
-Alternatively, afaict check_lifetime() is only interested in
-an !IFA_F_PERMANENT. So maybe __inet_insert_ifa should
-only do the {inet_hash_insert(..); /* reset check_lifetime_work */}
-when it added a !PERMANENT address? Would this break
-something else? (I realize it may need more changes elsewhere,
-if the PERMANENT flag is modified on the fly, I've not checked
-for those yet)
-
---Sowmini
+-- 
+Florian
