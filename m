@@ -1,86 +1,76 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v2 1/4] devicetree: bindings: Properly document micrel
- ks8851 SPI chips
-Date: Wed, 28 May 2014 17:16:46 +0200
-Message-ID: <20140528151646.GU20155@pengutronix.de>
-References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
- <1400875040-13269-2-git-send-email-sboyd@codeaurora.org>
- <20140524124858.GR22111@sirena.org.uk>
- <5385063F.30407@codeaurora.org>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Wed, 28 May 2014 15:17:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com>
+References: <20140512143451.GB13801@kernel.org>
+ <20140521210535.GA5414@kernel.org> <537E0961.8040005@gmail.com>
+ <20140526134647.GB8176@kernel.org> <20140526211706.GA25474@kernel.org>
+ <5384BEC5.2080607@gmail.com> <20140527192115.GD25474@kernel.org>
+ <CAKgNAkht1vubHueYPpkRu_W5B8OYW3rPUkHeLEq5WMVbCvO47w@mail.gmail.com>
+ <20140527203010.GA2764@kernel.org> <5385D47A.3070401@gmail.com>
+ <20140528150720.GB2764@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Mark Brown <broonie@kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	Nishanth Menon <nm@ti.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	linux-arm-msm@vger.kernel.org, Kumar Gala <galak@codeaurora.org>,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Stephen Boyd <sboyd@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5385063F.30407@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	=?iso-8859-2?Q?Ondrej_B=EDlka?= <neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"Elie De Brauwer" <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Steven Whitehouse" <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	=?iso-8859-2?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	"Chris Friesen" <chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: 'Arnaldo Carvalho de Melo' <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140528150720.GB2764-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Content-Language: en-US
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello Stephen,
-
-On Tue, May 27, 2014 at 02:40:15PM -0700, Stephen Boyd wrote:
-> On 05/24/14 05:48, Mark Brown wrote:
-> > On Fri, May 23, 2014 at 12:57:17PM -0700, Stephen Boyd wrote:
+From: Arnaldo Carvalho de Melo
+...
+> > But, another question...
 > >
-> >>  Optional properties:
-> >> -- vdd-supply:	supply for Ethernet mac
-> >> +- vdd-supply: analog 3.3V supply for Ethernet mac
-> >> +- vdd-io-supply: digital 1.8V IO supply for Ethernet mac
-> > So, according to the datasheet I managed to find this device has a
-> > supply VDD_IO (so normally written vdd-io-supply here), some other
-> > supplies which are tied to VDD_IO (so can probably be omitted) and =
-a
-> > supply VDD_A3.3 none of which are optional.  There is an internal
-> > regulator which can be used to drop a higher voltage VDD_IO down fo=
-r
-> > some of the supplies tied to it but that's essentially a noop from
-> > software as far as I can tell.  None of these supplies are obviousl=
-y
-> > optional, though I've not read the datasheet in detail so I may hav=
-e
-> > missed something here.
-There is a difference between the supply being optional for the hardwar=
-e
-to work and the need to specify it in the device tree, isn't it? My
-expectation is that when it's not specified there is just nothing the
-the software needs to care for.=20
+> > In the case that the call is interrupted by a signal handler and some
+> > datagrams have already been received, then the call succeeds, and
+> > returns the number of datagrams received, and 'timeout' is updated with
+> > the remaining time. Maybe that's the right behavior, but I just want to
+> 
+> Note that what the comment in the existing code says should apply here,
+> namely that the next recv (m or mmsg) syscall on this socket will return
+> what is in sock->sk->sk_err, that is the signal:
+> 
+...
+> 
+> So, yes, the user _can_ process the packets already copied to userspace,
+> i.e. no packet loss, and then, on the next call, will receive the signal
+> notification.
 
-> > That said it looks like this is intended to be a supply for an exte=
-rnal
-> > PHY rather than the device itself, but even so my original question
-> > about it being able to operate without power still applies.  Lookin=
-g at
-> > the code it's certainly not doing any of the handling of a missing
-> > supply that I would associate with using _optional().
->=20
-> I agree, both supplies don't look optional. Unfortunately
-> efm32gg-dk3750.dts doesn't look to be listing any supply, and this
-> driver only recently got support for the VDD_A3.3 supply that the oma=
-p
-> board uses (adding Uwe for any comments on efm setup). I presume on
-If I read the schematic correctly there is nothing to regulate on the
-efm32 dev board. If you want to take a look on the schematic yourself,
-it's contained in the documentation package available at
-http://www.silabs.com/products/mcu/lowpower/pages/efm32gg-dk3750.aspx .
-BDR3201A_A02_sch.pdf, page 3 of 22.
+The application shouldn't need to see an EINTR response, any signal handler
+should be run when the system call returns to user (regardless of the
+system call result code).
+If that doesn't happen Linux is badly broken!
+>From an application point of view this is exactly the same as the signal
+occurring just before/after the kernel entry/exit for the system call.
 
-Best regards
-Uwe
+The call should just return early with success status.
+No need to preserve the EINTR response for later.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+The same might be appropriate for other errors - maybe including EFAULT
+copying non-initial messages to userspace.
+Put the message being processed back on the socket queue and return
+success with the (non-zero) partial message count.
+
+	David
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
