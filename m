@@ -1,72 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173,
- fatal exception in interrupt
-Date: Wed, 28 May 2014 14:37:34 -0700
-Message-ID: <1401313054.3645.19.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140528140147.7eaa538e@nehalam.linuxnetplumber.net>
-	 <1401312501.3645.18.camel@edumazet-glaptop2.roam.corp.google.com>
+From: 'Arnaldo Carvalho de Melo' <acme@kernel.org>
+Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Wed, 28 May 2014 18:49:33 -0300
+Message-ID: <20140528214933.GF2764@kernel.org>
+References: <20140526211706.GA25474@kernel.org>
+ <5384BEC5.2080607@gmail.com>
+ <20140527192115.GD25474@kernel.org>
+ <CAKgNAkht1vubHueYPpkRu_W5B8OYW3rPUkHeLEq5WMVbCvO47w@mail.gmail.com>
+ <20140527203010.GA2764@kernel.org>
+ <5385D47A.3070401@gmail.com>
+ <20140528150720.GB2764@kernel.org>
+ <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com>
+ <20140528195004.GD2764@kernel.org>
+ <5386563F.8000901@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:64760 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386AbaE1Vhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 17:37:36 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kp14so11578507pab.26
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 14:37:35 -0700 (PDT)
-In-Reply-To: <1401312501.3645.18.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Ondrej =?iso-8859-1?Q?B=EDlka?= <neleai@seznam.cz>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Elie De Brauwer <eliedebrauwer@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Steven Whitehouse <steve@chygwyn.com>,
+	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>
+To: Chris Friesen <chris.friesen@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5386563F.8000901@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-05-28 at 14:28 -0700, Eric Dumazet wrote:
-> On Wed, 2014-05-28 at 14:01 -0700, Stephen Hemminger wrote:
-> > 
-> > Begin forwarded message:
-> > 
-> > Date: Fri, 23 May 2014 00:07:48 -0700
-> > From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> > To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> > Subject: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173, fatal exception in interrupt
-> > 
-> > 
-> > https://bugzilla.kernel.org/show_bug.cgi?id=76781
-> > 
-> >             Bug ID: 76781
-> >            Summary: unable to handle NULL in xfrm_input+0x173, fatal
-> >                     exception in interrupt
-> >            Product: Networking
-> >            Version: 2.5
-> >     Kernel Version: 3.15.0-rc6
-> >           Hardware: x86-64
-> >                 OS: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: Other
-> >           Assignee: shemminger@linux-foundation.org
-> >           Reporter: cate@cateee.net
-> >         Regression: No
-> > 
-> > See also the fatal oops in:
-> > 
-> > http://cateee.net/kernel/IMG_20140522_225238.jpg
-> > http://cateee.net/kernel/IMG_20140523_082629.jpg
-> > 
-> > 
-> > It seems it happens "often": twice in last few hours I used the new kernels.
-> > (the first oops was with 3.15.0-rc5-00270-gfba69f0)
-> > 
-> > I had also usual debian unstable updates, and I just finished to instal aiccu
-> > (a sixxs program for dynamic ip6to4, so I'm not sure it is a recent bug or just
-> > I forced it to appear in very last HEAD.
-> > 
-> 
-> Right, commit 61622cc6f29034d0 is buggy.
+Em Wed, May 28, 2014 at 03:33:51PM -0600, Chris Friesen escreveu:
+> On 05/28/2014 01:50 PM, 'Arnaldo Carvalho de Melo' wrote:
+ 
+> >What is being discussed here is how to return the EFAULT that may happen
+> >_after_ datagram processing, be it interrupted by an EFAULT, signal, or
+> >plain returning all that was requested, with no errors.
 
-Hmpff, commit 61622cc6f29034d0  should fix the bug, and is in
-linux-3.15-rc7
+> >This EFAULT _after_ datagram processing may happen when updating the
+> >remaining timeout, because then how can userspace both receive the
+> >number of successfully copied datagrams (in any of the cases mentioned
+> >in the previous paragraph) and know that that timeout can't be used
+> >because there was a problem while trying to copy it to userspace
+> >(EFAULT)?
+ 
+> How does select() handle this problem?  It updates the timeout and also
+> modifies other data.
+ 
+> Could we just check whether the timeout pointer is valid before doing
+> anything else?  Of course we could still fault the page out while waiting
+> for messages and then fail to fault it back in later, but that seems like a
+> not-very-likely scenario.
+
+I'll check how select behaves, and yes, I think it is not-very-likely
+and what we're doing now is reasonable for datagram protocols, i.e. to
+return -EFAULT when updating the timeout fails, not reporting if packets
+were successfully received, i.e. they end up being "dropped", as
+userspace can't easily figure out if some was received short of painting
+it with some pattern and then checking the ones that aren't with that
+pattern.
+
+- Arnaldo
