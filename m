@@ -1,44 +1,41 @@
-From: Alexander Stein <alexander.stein@systec-electronic.com>
-Subject: Re: [PATCH 1/6] pch_gbe: print invalid MAC address during probe
-Date: Wed, 28 May 2014 11:34:20 +0200
-Message-ID: <9952617.kdfEWfEVqY@ws-stein>
-References: <1401111639-11507-1-git-send-email-alexander.stein@systec-electronic.com> <1401121468.519.6.camel@joe-AO725>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [PATCH] mvme147: use correct order of ram pages
+Date: Wed, 28 May 2014 11:39:20 +0200
+Message-ID: <mvmvbsqjl87.fsf@hawking.suse.de>
+References: <1401250073-16603-1-git-send-email-akong@redhat.com>
+	<CAMuHMdV-g35ijLgcE=sSM3eE+fCxC1WOiAX2PaWs0z4-+bDP+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Krueger <daniel.krueger@systec-electronic.com>,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webbox1416.server-home.net ([77.236.96.61]:41369 "EHLO
-	webbox1416.server-home.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751031AbaE1Jfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:35:53 -0400
-In-Reply-To: <1401121468.519.6.camel@joe-AO725>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Amos Kong <akong@redhat.com>,
+	"Linux\/m68k" <linux-m68k@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdV-g35ijLgcE=sSM3eE+fCxC1WOiAX2PaWs0z4-+bDP+A@mail.gmail.com>
+	(Geert Uytterhoeven's message of "Wed, 28 May 2014 09:51:39 +0200")
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 26 May 2014 09:24:28, Joe Perches wrote:
-> On Mon, 2014-05-26 at 15:40 +0200, Alexander Stein wrote:
-> > show the actual offending MAC address instead of just
-> > rejecting it
-> []
-> > diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> []
-> > @@ -2674,6 +2674,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
-> >  		 */
-> >  		dev_err(&pdev->dev, "Invalid MAC address, "
-> >  		                    "interface disabled.\n");
-> > +		dev_err(&pdev->dev, "%pM\n", adapter->hw.mac.addr);
-> 
-> Nicer I think on a single line
-> using just one dev_err
-> 
-> 		dev_err(&pdev->dev, "Invalid MAC %pM - interface disabled\n",
-> 			adapter->hw.mac.addr);
+Geert Uytterhoeven <geert@linux-m68k.org> writes:
 
-Yep, I'll send a v2 if there is some more feedback on the other patches.
+>> -/* We have 16834 bytes of RAM for the init block and buffers. This places
+>> +/* We have 16384 bytes of RAM for the init block and buffers. This places
+>>   * an upper limit on the number of buffers we can use. NetBSD uses 8 Rx
+>>   * buffers and 2 Tx buffers.
+>>   */
+>> +#define M147LANCE_RAM_SIZE   16384 /* 16K */
+>>  #define LANCE_LOG_TX_BUFFERS 1
+>>  #define LANCE_LOG_RX_BUFFERS 3
+>
+> BTW,I also find it fishy why the driver uses only 1+3 buffers, since more
+> RAM is available.
 
-Best regards,
-Alexander
+It's 2^1+2^3.
+
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
