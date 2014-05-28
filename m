@@ -1,64 +1,53 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH net-next] net: stmmac: Handle different error codes from platform_get_irq_byname
-Date: Wed, 28 May 2014 08:30:35 -0500
-Message-ID: <CAL_JsqKfmg+MBazWXC4oe_mn3Uw_GSJf+oiYS3NsT02baH9GeA@mail.gmail.com>
-References: <1401166194-19085-1-git-send-email-wens@csie.org>
-	<CAL_Jsq+dkdYsw+dQc_tuTT5FJ9QWk2cX7Lq4UiGEH2UqmB24gg@mail.gmail.com>
-	<CAGb2v66W4EkUkxEdE+7MQp6pYue_SycpXvktHhwr-tSEXXJ62Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Scaling 'ip addr add' (was Re: What's the right way to use a
+ *large* number of source addresses?)
+Date: Wed, 28 May 2014 06:44:59 -0700
+Message-ID: <1401284699.5367.268.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
+	 <1401241268.5367.266.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	netdev <netdev@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Kevin Hilman <khilman@linaro.org>
-To: Chen-Yu Tsai <wens@csie.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@southpole.se>,
+	netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>
+To: sowmini varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f178.google.com ([209.85.128.178]:46396 "EHLO
-	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753767AbaE1Nag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 09:30:36 -0400
-Received: by mail-ve0-f178.google.com with SMTP id sa20so12350678veb.23
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 06:30:35 -0700 (PDT)
-In-Reply-To: <CAGb2v66W4EkUkxEdE+7MQp6pYue_SycpXvktHhwr-tSEXXJ62Q@mail.gmail.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:56563 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752547AbaE1NpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 09:45:04 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rq2so11214180pbb.33
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 06:45:03 -0700 (PDT)
+In-Reply-To: <CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 28, 2014 at 1:44 AM, Chen-Yu Tsai <wens@csie.org> wrote:
-> On Wed, May 28, 2014 at 8:58 AM, Rob Herring <robh@kernel.org> wrote:
->> On Mon, May 26, 2014 at 11:49 PM, Chen-Yu Tsai <wens@csie.org> wrote:
->>> The following patch moved device tree interrupt resolution into
->>> platform_get_irq_byname:
->>>
->>>   ad69674 of/irq: do irq resolution in platform_get_irq_byname()
->>>
->>> As a result, the function no longer only return -ENXIO on error.
->>> This breaks DT based probing of stmmac, as seen in test runs of
->>> linux-next next-20140526 cubie2-sunxi_defconfig:
+On Wed, 2014-05-28 at 08:18 -0400, sowmini varadhan wrote:
+> On Tue, May 27, 2014 at 9:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > Last time I checked, we were spending _lot_ of time in check_lifetime()
+> 
+> Although check_lifetime() itself did not light up in my
+> perf output, i see your point- it has a few ifa_list walks
+> that might end up being expensive - but these are static
+> IPv4 addresses- they should be marked IFA_F_PERMANENT,
+> right? That's probably why they did not show up in my perf output?
 
-[...]
 
->>>         priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
->>> +       if (priv->lpi_irq < 0) {
->>
->> You don't need this if.
->
-> stmmac core driver checks lpi_irq != -ENXIO for valid interrupt.
-> Might as well change that check to  lpi_irq >= 0.
-> (0 is a valid interrupt, correct?)
+How did you run perf ?
 
-No. NO_IRQ is defined to 0 (preferred) or -1 depending on the arch.
-You should be testing for "> 0" for valid irq rather than only ENXIO.
+If you run :
 
-My comment still stands. If lpi_irq is already <0, then there is no
-reason to set it to -ENXIO (again). If there are other error codes
-returned, changing the error code is not good practice.
+perf record ./your_script.sh
 
-> Interestingly, stmmac_pci never sets lpi_irq, there might be a glitch
-> there.
+It wont catch all the load that is triggered from work queues.
 
-I believe they would have to be combined to a single interrrupt for PCI.
+If you do
 
-Rob
+./your_script.sh &
+
+perf top
+
+Then you'll see check_lifetime() at first position.
