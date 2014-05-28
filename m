@@ -1,82 +1,99 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] bridge: notify user space after fdb update
-Date: Wed, 28 May 2014 18:19:53 +0400
-Message-ID: <5385F089.9080608@cogentembedded.com>
-References: <1401230749-19507-1-git-send-email-jmaxwell37@gmail.com>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH v3] ehea: Introduce the use of the managed version of kzalloc
+Date: Wed, 28 May 2014 19:53:09 +0530
+Message-ID: <20140528142309.GA4371@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	jmaxwell@redhat.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1401230749-19507-1-git-send-email-jmaxwell37@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+This patch moves data allocated using kzalloc to managed data allocated
+using devm_kzalloc and cleans now unnecessary kfrees in probe and remove
+functions. Also, linux/device.h is added to make sure the devm_*()
+routine declarations are unambiguously available.
 
-On 05/28/2014 02:45 AM, Jon Maxwell wrote:
+The following Coccinelle semantic patch was used for making the change:
 
-> There has been a number incidents recently where customers running KVM have
-> reported that VM hosts on different Hypervisors are unreachable. Based on
-> pcap traces we found that the bridge was broadcasting the ARP request out
-> onto the network. However some NICs have an inbuilt switch which on occasions
-> were broadcasting the VMs ARP request back through the physical NIC on the
-> Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-> that the VMs mac address was external. As a result the ARP reply was directed
-> back onto the external network and VM never updated it's ARP cache. This patch
-> will notify the bridge command, after a fdb has been updated to identify such
-> port toggling.
+@platform@
+identifier p, probefn, removefn;
+@@
+struct platform_driver p = {
+  .probe = probefn,
+  .remove = removefn,
+};
 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
-> ---
->   net/bridge/br_fdb.c | 8 +++++++-
->   1 file changed, 7 insertions(+), 1 deletion(-)
+@prb@
+identifier platform.probefn, pdev;
+expression e, e1, e2;
+@@
+probefn(struct platform_device *pdev, ...) {
+  <+...
+- e = kzalloc(e1, e2)
++ e = devm_kzalloc(&pdev->dev, e1, e2)
+  ...
+?-kfree(e);
+  ...+>
+}
 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 9203d5a..f3ee2da 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -487,6 +487,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->   {
->   	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
->   	struct net_bridge_fdb_entry *fdb;
-> +	bool fdb_modified = 0;
+@rem depends on prb@
+identifier platform.removefn;
+expression e;
+@@
+removefn(...) {
+  <...
+- kfree(e);
+  ...>
+}
 
-    s/0/false/.
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Compile-Tested-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+v3: add space in linux/device.h include
 
->
->   	/* some users want to always flood. */
->   	if (hold_time(br) == 0)
-> @@ -507,10 +508,15 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
->   					source->dev->name);
->   		} else {
->   			/* fastpath: update of existing entry */
-> -			fdb->dst = source;
-> +			if (unlikely(source != fdb->dst)) {
-> +					fdb->dst = source;
-> +					fdb_modified = 1;
+ drivers/net/ethernet/ibm/ehea/ehea_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-   s/1/true/.
-
-> +				}
->   			fdb->updated = jiffies;
->   			if (unlikely(added_by_user))
->   				fdb->added_by_user = 1;
-> +			if (unlikely(fdb_modified))
-> +				fdb_notify(br, fdb, RTM_NEWNEIGH);
->   		}
->   	} else {
->   		spin_lock(&br->hash_lock);
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 538903b..a0b418e 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -28,6 +28,7 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <linux/device.h>
+ #include <linux/in.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
+@@ -3273,7 +3274,7 @@ static int ehea_probe_adapter(struct platform_device *dev)
+ 		return -EINVAL;
+ 	}
+ 
+-	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
++	adapter = devm_kzalloc(&dev->dev, sizeof(*adapter), GFP_KERNEL);
+ 	if (!adapter) {
+ 		ret = -ENOMEM;
+ 		dev_err(&dev->dev, "no mem for ehea_adapter\n");
+@@ -3359,7 +3360,6 @@ out_kill_eq:
+ 
+ out_free_ad:
+ 	list_del(&adapter->list);
+-	kfree(adapter);
+ 
+ out:
+ 	ehea_update_firmware_handles();
+@@ -3386,7 +3386,6 @@ static int ehea_remove(struct platform_device *dev)
+ 	ehea_destroy_eq(adapter->neq);
+ 	ehea_remove_adapter_mr(adapter);
+ 	list_del(&adapter->list);
+-	kfree(adapter);
+ 
+ 	ehea_update_firmware_handles();
+ 
+-- 
+1.9.1
