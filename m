@@ -1,94 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 5/9] tlan: Restart autonegotiation on link loss
-Date: Wed, 28 May 2014 10:26:53 -0700
-Message-ID: <CAGVrzcY2anVgKaghKYM_A=Qke854byc=uGn2dvbOm-+vQk9bFA@mail.gmail.com>
-References: <1401226727-5508-1-git-send-email-linux@rainbow-software.org>
- <1401226727-5508-6-git-send-email-linux@rainbow-software.org>
- <CAGVrzcbD=OhzuWRuxJVG1SJeYDsOYaV2AozsWafBtX6gcF08vw@mail.gmail.com> <201405280839.00973.linux@rainbow-software.org>
+From: Milos Vyletel <milos.vyletel@gmail.com>
+Subject: Re: [patch net-next] net: ipv6: trigger action when setting conf.all sysctls
+Date: Wed, 28 May 2014 13:45:52 -0400
+Message-ID: <CAAFXRd2xhSa_X2u-dCB_nM==_vLoV_GypNPzMugW=njBbnLr6g@mail.gmail.com>
+References: <1400519372-5703-1-git-send-email-milos.vyletel@gmail.com>
+	<CAHA+R7PaM4c6TmUtTLDAGnBUmRKE7=vnsjm67i=rmNebZvacVw@mail.gmail.com>
+	<20140521.163113.383854871907102866.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Samuel Chessman <chessman@tux.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ondrej Zary <linux@rainbow-software.org>
+Cc: cwang@twopensource.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	"open list:X86 ARCHITECTURE..." <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201405280839.00973.linux@rainbow-software.org>
+In-Reply-To: <20140521.163113.383854871907102866.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-05-27 23:39 GMT-07:00 Ondrej Zary <linux@rainbow-software.org>:
-> On Wednesday 28 May 2014, Florian Fainelli wrote:
->> Hi,
+On Wed, May 21, 2014 at 4:31 PM, David Miller <davem@davemloft.net> wrote:
+> From: Cong Wang <cwang@twopensource.com>
+> Date: Wed, 21 May 2014 10:35:17 -0700
+>
+>> On Mon, May 19, 2014 at 10:09 AM, Milos Vyletel <milos.vyletel@gmail.com> wrote:
+>>> As it is right now most of these tunables don't do anything - they don't
+>>> set any interface specific settings to the desired value and they don't
+>>> take precedence before device specific settings in most cases.
+>>>
+>>> Documentation/networking/ip-sysctl.txt defines them to be:
+>>> conf/all/*:
+>>>         Change all the interface-specific settings.
+>>>
+>>> but that is not really the case.
+>>>
 >>
->> 2014-05-27 14:38 GMT-07:00 Ondrej Zary <linux@rainbow-software.org>:
->> > When link is lost on a card which uses internal PHY for 10 Mbit speeds,
->> > restart autonegotiation to allow switching between 10 and 100 Mbps
->> > speeds.
+>> I don't think it's a good idea, it enforces interface specific changes.
 >>
->> I think you should take a look at implementing libphy read/write stubs
->> for this driver, that would allow you not to open-code such things.
+>> You need to mimic what IPv4 conf does (if it hasn't done yet), something
+>> like below:
+>>
+>> #define IN_DEV_MAXCONF(in_dev, attr) \
+>>         (max(IPV4_DEVCONF_ALL(dev_net(in_dev->dev), attr), \
+>>              IN_DEV_CONF_GET((in_dev), attr)))
 >
-> Yes, that would be good. However, I don't want to do any major PHY-related
-> changes to the driver because it supports cards with various PHY
-> configurations and I don't have all the different hardware to test.
+> Agreed.
 
-That is completely fair, this is a fairly old driver, if it is not
-broken, let's keep it as-is.
+Thanks for the comments guys. I've looked at ipv4 sysctl code and I'm going to
+align ipv6 code and add similar macros (IN6_DEV_{OR,MAX,AND}CONF).
 
->
->> > Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
->> > ---
->> >  drivers/net/ethernet/ti/tlan.c |   14 ++++++++++++++
->> >  1 file changed, 14 insertions(+)
->> >
->> > diff --git a/drivers/net/ethernet/ti/tlan.c
->> > b/drivers/net/ethernet/ti/tlan.c index 31d4a96..1047b3f 100644
->> > --- a/drivers/net/ethernet/ti/tlan.c
->> > +++ b/drivers/net/ethernet/ti/tlan.c
->> > @@ -2721,6 +2721,7 @@ static void tlan_phy_finish_auto_neg(struct
->> > net_device *dev) else if (!(mode & 0x0080) && (mode & 0x0040))
->> >                 priv->tlan_full_duplex = true;
->> >
->> > +       /* switch to internal PHY for 10 Mbps */
->> >         if ((!(mode & 0x0180)) &&
->> >             (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) &&
->> >             (priv->phy_num != 0)) {
->> > @@ -2788,6 +2789,19 @@ static void tlan_phy_monitor(unsigned long data)
->> >                                dev->name);
->> >                         tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
->> >                         netif_carrier_off(dev);
->> > +                       if (priv->adapter->flags &
->> > TLAN_ADAPTER_USE_INTERN_10) { +                               /* power
->> > down internal PHY */
->> > +                               u16 data = MII_GC_PDOWN | MII_GC_LOOPBK
->> > +                                       | MII_GC_ISOLATE;
->> > +                               tlan_mii_sync(dev->base_addr);
->> > +                               tlan_mii_write_reg(dev, priv->phy[0],
->> > +                                       MII_GEN_CTL, data);
->> > +                               /* set to external PHY */
->> > +                               priv->phy_num = 1;
->> > +                               /* restart autonegotiation */
->> > +                               tlan_set_timer(dev, (4*HZ/10),
->> > TLAN_TIMER_PHY_PDOWN); +                               return;
->> > +                       }
->> >                 }
->> >         }
->> >
->> > --
->> > Ondrej Zary
->> >
->> > --
->> > To unsubscribe from this list: send the line "unsubscribe linux-kernel"
->> > in the body of a message to majordomo@vger.kernel.org
->> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> > Please read the FAQ at  http://www.tux.org/lkml/
->
->
->
-> --
-> Ondrej Zary
-
-
-
--- 
-Florian
+Milos
