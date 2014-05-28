@@ -1,98 +1,130 @@
-From: Amos Kong <akong@redhat.com>
-Subject: Re: [PATCH] mvme147: use correct order of ram pages
-Date: Wed, 28 May 2014 21:58:20 +0800
-Message-ID: <20140528135820.GB3127@z.redhat.com>
-References: <1401250073-16603-1-git-send-email-akong@redhat.com>
- <CAMuHMdV-g35ijLgcE=sSM3eE+fCxC1WOiAX2PaWs0z4-+bDP+A@mail.gmail.com>
- <mvmvbsqjl87.fsf@hawking.suse.de>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] bridge: Prevent insertion of FDB entry
+ with disallowed vlan
+Date: Wed, 28 May 2014 10:02:05 -0400
+Message-ID: <5385EC5D.40106@redhat.com>
+References: <1401084953-10135-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Linux/m68k <linux-m68k@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andreas Schwab <schwab@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65180 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753809AbaE1N62 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 09:58:28 -0400
-Content-Disposition: inline
-In-Reply-To: <mvmvbsqjl87.fsf@hawking.suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1401084953-10135-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 28, 2014 at 11:39:20AM +0200, Andreas Schwab wrote:
-> Geert Uytterhoeven <geert@linux-m68k.org> writes:
+On 05/26/2014 02:15 AM, Toshiaki Makita wrote:
+> br_handle_local_finish() is allowing us to insert an FDB entry with
+> disallowed vlan. For example, when port 1 and 2 are communicating in
+> vlan 10, and even if vlan 10 is disallowed on port 3, port 3 can
+> interfere with their communication by spoofed src mac address with
+> vlan id 10.
 > 
-> >> -/* We have 16834 bytes of RAM for the init block and buffers. This places
-> >> +/* We have 16384 bytes of RAM for the init block and buffers. This places
-> >>   * an upper limit on the number of buffers we can use. NetBSD uses 8 Rx
-> >>   * buffers and 2 Tx buffers.
-> >>   */
-> >> +#define M147LANCE_RAM_SIZE   16384 /* 16K */
-> >>  #define LANCE_LOG_TX_BUFFERS 1
-> >>  #define LANCE_LOG_RX_BUFFERS 3
-> >
-
-#define TX_RING_SIZE            (1 << LANCE_LOG_TX_BUFFERS)
-#define RX_RING_SIZE            (1 << LANCE_LOG_RX_BUFFERS)
-
-> > BTW,I also find it fishy why the driver uses only 1+3 buffers, since more
-> > RAM is available.
+> Note: Even if it is judged that a frame should not be learned, it should
+> not be dropped because it is destined for not forwarding layer but higher
+> layer. See IEEE 802.1Q-2011 8.13.10.
 > 
-> It's 2^1+2^3.
-
-tx & rx bufs aren't 2^1 + 2^3 = 10 pages. 
-
-Rx buffers and Tx buffers are included in 'struct lance_init_block'
-
-   volatile char tx_buf[TX_RING_SIZE][TX_BUFF_SIZE];
-   volatile char rx_buf[RX_RING_SIZE][RX_BUFF_SIZE];
-
-   volatile char tx_buf[2][1544];
-   volatile char rx_buf[8][1544];
-
-   RX_BUFF_SIZE = TX_BUFF_SIZE = 1554
-   So tx_buf takes 1544 * 2 bytes, rx_buf takes 1544 * 8 bytes
-        
-In drivers/net/ethernet/amd/mvme147.c:
-=====================================
-  lp->lance.init_block = (struct lance_init_block *)(lp->ram); /* CPU addr */
-  lp->lance.lance_init_block = (struct lance_init_block*)(lp->ram); /* LANCE addr of same RAM */
-
-init_block and lance_init_block are set same address
-
-In drivers/net/ethernet/amd/a2065.c:
-===================================
-  priv->init_block = (struct lance_init_block *)dev->mem_start;
-  priv->lance_init_block = (struct lance_init_block *)A2065_RAM;
-
-  The ram size (A2065_RAM_SIZE) is 0x8000 -> 8 pages -> order is 3
-
-It seems original 3 is a right order, we need to fix the comments.
-it's 2^3 * 4k = 32K = 32768 bytes.
-
-But in drivers/net/ethernet/amd/hplance.c:
-=========================================
-  #define HPLANCE_MEMOFF 0x8000 /* struct lance_init_block */
-  lp->lance.init_block = (struct lance_init_block *)(va + HPLANCE_MEMOFF); /* CPU addr */
-                                                          ^^^^ it skips 0x8000, that is for HPLANCE
-  lp->lance.lance_init_block = NULL; /* LANCE addr of same RAM */
-
-  We need 2 * 32k for lp->ram?
-
- 
-> Andreas.
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> ---
+>  net/bridge/br_input.c   |  4 ++--
+>  net/bridge/br_private.h |  7 +++++++
+>  net/bridge/br_vlan.c    | 28 ++++++++++++++++++++++++++++
+>  3 files changed, 37 insertions(+), 2 deletions(-)
 > 
-> -- 
-> Andreas Schwab, schwab@linux-m68k.org
-> GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-> "And now for something completely different."
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> index 7985dea..04d6348 100644
+> --- a/net/bridge/br_input.c
+> +++ b/net/bridge/br_input.c
+> @@ -147,8 +147,8 @@ static int br_handle_local_finish(struct sk_buff *skb)
+>  	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+>  	u16 vid = 0;
+>  
+> -	br_vlan_get_tag(skb, &vid);
+> -	if (p->flags & BR_LEARNING)
+> +	/* check if vlan is allowed, to avoid spoofing */
+> +	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
+>  		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
+>  	return 0;	 /* process further */
+>  }
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 06811d7..59d3a85 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -581,6 +581,7 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+>  			struct sk_buff *skb, u16 *vid);
+>  bool br_allowed_egress(struct net_bridge *br, const struct net_port_vlans *v,
+>  		       const struct sk_buff *skb);
+> +bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid);
+>  struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>  			       const struct net_port_vlans *v,
+>  			       struct sk_buff *skb);
+> @@ -648,6 +649,12 @@ static inline bool br_allowed_egress(struct net_bridge *br,
+>  	return true;
+>  }
+>  
+> +static inline bool br_should_learn(struct net_bridge_port *p,
+> +				   struct sk_buff *skb, u16 *vid)
+> +{
+> +	return true;
+> +}
+> +
+>  static inline struct sk_buff *br_handle_vlan(struct net_bridge *br,
+>  					     const struct net_port_vlans *v,
+>  					     struct sk_buff *skb)
+> diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> index 4a37161..5fee2fe 100644
+> --- a/net/bridge/br_vlan.c
+> +++ b/net/bridge/br_vlan.c
+> @@ -241,6 +241,34 @@ bool br_allowed_egress(struct net_bridge *br,
+>  	return false;
+>  }
+>  
+> +/* Called under RCU */
+> +bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
+> +{
+> +	struct net_bridge *br = p->br;
+> +	struct net_port_vlans *v;
+> +
+> +	if (!br->vlan_enabled)
+> +		return true;
+> +
+> +	v = rcu_dereference(p->vlan_info);
+> +	if (!v)
+> +		return false;
+> +
+> +	br_vlan_get_tag(skb, vid);
+> +	if (!*vid) {
+> +		*vid = br_get_pvid(v);
+> +		if (*vid == VLAN_N_VID)
+> +			return false;
+> +
+> +		return true;
+> +	}
+> +
+> +	if (test_bit(*vid, v->vlan_bitmap))
+> +		return true;
+> +
+> +	return false;
+> +}
+> +
+>  /* Must be protected by RTNL.
+>   * Must be called with vid in range from 1 to 4094 inclusive.
+>   */
+> 
 
--- 
-			Amos.
+This is very similar to br_allow_ingress(), so may be you can
+re-factor so that we only have 1 such function...
+
+-vlad
