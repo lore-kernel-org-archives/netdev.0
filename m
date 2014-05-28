@@ -1,37 +1,42 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: manual merge of the staging tree with the net-next
- tree
-Date: Wed, 28 May 2014 08:49:42 -0700
-Message-ID: <20140528154942.GA12056@kroah.com>
-References: <20140528182824.63672ad9@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Sachin Kamat <sachin.kamat@linaro.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140528182824.63672ad9@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: wenxiong@linux.vnet.ibm.com
+Subject: [PATCH V2 1/2] bnx2x: Adapter not recovery from EEH error injection
+Date: Wed, 28 May 2014 10:56:42 -0500
+Message-ID: <20140528155722.190598661@linux.vnet.ibm.com>
+References: <20140528155641.920171803@linux.vnet.ibm.com>
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org,
+	Wen Xiong <wenxiong@linux.vnet.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [32.97.110.57] ([32.97.110.57]:33206 "HELO
+	jupiter1-lp2.austin.ibm.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with SMTP id S1753970AbaE1QAi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 12:00:38 -0400
+Content-Disposition: inline; filename=bnx2x_eeh_fix
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 28, 2014 at 06:28:24PM +1000, Stephen Rothwell wrote:
-> Hi Greg,
-> 
-> Today's linux-next merge of the staging tree got a conflict in
-> drivers/staging/rtl8821ae/core.c between commit 77be2c54c5bd
-> ("mac80211: add vif to flush call") from the net-next tree and commit
-> 0cd05ba54a53 ("staging: rtl8821ae: core.c: Remove version specific
-> code") from the staging tree.
-> 
-> I fixed it up (the former is a suberset of the latter for this
-> particular conflict) and can carry the fix as necessary (no action is
-> required).
+When injecting EEH error to bnx2x adapter, adapter couldn't be recovery
+and caused recursive EEH errors. The patch fixes the issue.
 
-Sounds good, thanks.
+Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-greg k-h
+Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+===================================================================
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:42:48.000000000 -0500
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c	2014-05-22 18:44:36.757765539 -0500
+@@ -13279,8 +13279,8 @@ static int bnx2x_eeh_nic_unload(struct b
+ 	netdev_reset_tc(bp->dev);
+ 
+ 	del_timer_sync(&bp->timer);
+-	cancel_delayed_work(&bp->sp_task);
+-	cancel_delayed_work(&bp->period_task);
++	cancel_delayed_work_sync(&bp->sp_task);
++	cancel_delayed_work_sync(&bp->period_task);
+ 
+ 	spin_lock_bh(&bp->stats_lock);
+ 	bp->stats_state = STATS_STATE_DISABLED;
+
+-- 
