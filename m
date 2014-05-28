@@ -1,72 +1,67 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 3/4] tty: allow tty drivers to rename their device nodes
-Date: Wed, 28 May 2014 23:17:00 +0200
-Message-ID: <1401311820.6186.27.camel@x220>
-References: <cover.1400449368.git.tilman@imap.cc>
-	 <243519fa733359d22ce008b795f5686411e6038a.1400449372.git.tilman@imap.cc>
-	 <20140528205656.GA3117@kroah.com> <1401311201.6186.22.camel@x220>
-	 <20140528211235.GA12604@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fw: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173,
+ fatal exception in interrupt
+Date: Wed, 28 May 2014 14:28:21 -0700
+Message-ID: <1401312501.3645.18.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140528140147.7eaa538e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tilman Schmidt <tilman@imap.cc>, netdev@vger.kernel.org,
-	isdn4linux@listserv.isdn4linux.de,
-	"Keil, Karsten" <isdn@linux-pingi.de>, Jiri Slaby <jslaby@suse.cz>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews02.kpnxchange.com ([213.75.39.5]:56114 "EHLO
-	cpsmtpb-ews02.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752853AbaE1VRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 17:17:02 -0400
-In-Reply-To: <20140528211235.GA12604@kroah.com>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:52931 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388AbaE1V2X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 17:28:23 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rp16so11842294pbb.20
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 14:28:23 -0700 (PDT)
+In-Reply-To: <20140528140147.7eaa538e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-28 at 14:12 -0700, Greg Kroah-Hartman wrote:
-> On Wed, May 28, 2014 at 11:06:41PM +0200, Paul Bolle wrote:
-> > On Wed, 2014-05-28 at 13:56 -0700, Greg Kroah-Hartman wrote:
-> > > On Wed, May 21, 2014 at 11:39:26PM +0200, Tilman Schmidt wrote:
-> > > > From: Paul Bolle <pebolle@tiscali.nl>
-> > >>
-> > > > The device nodes for tty drivers are named using a straightforward
-> > > > scheme: tty_driver->name with an (increasing) digit appended. But the
-> > > > capi driver (a part of one of the current ISDN subsystems) requires a
-> > > > different naming scheme for its "capi_nc" tty_driver:
-> > > >     /dev/capi/0
-> > > >     /dev/capi/1
-> > > >     [...]
-> > > 
-> > > Can't you just use a '!' character to represent the '/' and the tty core
-> > > will handle it all properly for you without this tty core change needed?
-> > 
-> > As in: set struct tty_driver.name to "capi!"?
+On Wed, 2014-05-28 at 14:01 -0700, Stephen Hemminger wrote:
 > 
-> Yes.  Try it and see :)
+> Begin forwarded message:
 > 
-> If not, let me know, it should "just work".
-
-I'll let you know. But chances are v2 will only contain 3 patches!
-
-> > > > So add a devnode() callback to struct tty_driver to allow tty drivers
-> > > > to use a more elaborate naming scheme. And let tty_devnode(), the
-> > > > devnode() callback for the "tty" class, call that new callback if a tty
-> > > > driver uses one. This allows the capi driver to add a callback to
-> > > > enable its scheme.
-> > > 
-> > > And why the sudden need for this feature, what changed in isdn to
-> > > warrant this change?
-> > 
-> > Did you already read the explanation to 4/4? It contains a summary of
-> > the events that got us in the current situation.
+> Date: Fri, 23 May 2014 00:07:48 -0700
+> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+> Subject: [Bug 76781] New: unable to handle NULL in xfrm_input+0x173, fatal exception in interrupt
 > 
-> Sorry, only read patch 3 as it came first :)
 > 
-> But try the above first, the driver core and udev supports the '!'
-> character for subdirs for a very long time thanks to some horrid scsi
-> drivers needing it...
+> https://bugzilla.kernel.org/show_bug.cgi?id=76781
+> 
+>             Bug ID: 76781
+>            Summary: unable to handle NULL in xfrm_input+0x173, fatal
+>                     exception in interrupt
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 3.15.0-rc6
+>           Hardware: x86-64
+>                 OS: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>           Assignee: shemminger@linux-foundation.org
+>           Reporter: cate@cateee.net
+>         Regression: No
+> 
+> See also the fatal oops in:
+> 
+> http://cateee.net/kernel/IMG_20140522_225238.jpg
+> http://cateee.net/kernel/IMG_20140523_082629.jpg
+> 
+> 
+> It seems it happens "often": twice in last few hours I used the new kernels.
+> (the first oops was with 3.15.0-rc5-00270-gfba69f0)
+> 
+> I had also usual debian unstable updates, and I just finished to instal aiccu
+> (a sixxs program for dynamic ip6to4, so I'm not sure it is a recent bug or just
+> I forced it to appear in very last HEAD.
+> 
 
-Will do. And I'll probably ponder how I managed to miss an easy way out.
-Thanks for the review!
-
-
-Paul Bolle
+Right, commit 61622cc6f29034d0 is buggy.
