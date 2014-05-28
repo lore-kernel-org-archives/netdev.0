@@ -1,81 +1,109 @@
-From: Kiran Kumar Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Subject: [RFC] Bluetooth: Keep master role when SCO or eSCO is active
-Date: Wed, 28 May 2014 11:26:28 +0530
-Message-ID: <1401256588-1467-1-git-send-email-kiran.kumar@linaro.org>
-Cc: "hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:BLUETOOTH SUBSYSTEM),
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING [GENERAL]),
-	Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-	Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: zhangfei <zhangfei.gao@linaro.org>
+Subject: Re: [PATCH v2 2/2] net: hisilicon: add hix5hd2 mac driver
+Date: Wed, 28 May 2014 14:09:04 +0800
+Message-ID: <53857D80.50806@linaro.org>
+References: <1401194667-14445-1-git-send-email-zhangfei.gao@linaro.org> <1401194667-14445-3-git-send-email-zhangfei.gao@linaro.org> <20140527135727.GC6969@leverpostej>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+	"sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"David.Laight@ACULAB.COM" <David.Laight@ACULAB.COM>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"haifeng.yan@linaro.org" <haifeng.yan@linaro.org>,
+	"jchxue@gmail.com" <jchxue@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:38792 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353AbaE1GJJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 02:09:09 -0400
+Received: by mail-pb0-f51.google.com with SMTP id ma3so10519001pbc.24
+        for <netdev@vger.kernel.org>; Tue, 27 May 2014 23:09:09 -0700 (PDT)
+In-Reply-To: <20140527135727.GC6969@leverpostej>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 
-Preserve the master role when SCO or eSCO is active
-as this improves compatability with lots of
-headset and chipset combinations.
 
-This is one of the number of patches from the Android AOSP
-common.git tree, which is used on almost all Android devices.
-It looks like it would improve support for compatibility with
-lot of headset,so I wanted to submit it for review to see
-if it should go upstream.
+On 05/27/2014 09:57 PM, Mark Rutland wrote:
+> On Tue, May 27, 2014 at 01:44:27PM +0100, Zhangfei Gao wrote:
+>> Add support for the hix5hd2 XGMAC 1Gb ethernet device.
+>> The controller requires two queues for tx and two queues for rx.
+>> Controller fetch buffer from free queue and then push to used queue.
+>> Diver should prepare free queue and free buffer from used queue.
+>>
+>> Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+>> ---
+>>   drivers/net/ethernet/Kconfig                  |    1 +
+>>   drivers/net/ethernet/Makefile                 |    1 +
+>>   drivers/net/ethernet/hisilicon/Kconfig        |   27 +
+>>   drivers/net/ethernet/hisilicon/Makefile       |    5 +
+>>   drivers/net/ethernet/hisilicon/hix5hd2_gmac.c | 1057 +++++++++++++++++++++++++
+>>   5 files changed, 1091 insertions(+)
+>>   create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
+>>   create mode 100644 drivers/net/ethernet/hisilicon/Makefile
+>>   create mode 100644 drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+>
+> [...]
+>
+>> +struct hix5hd2_desc {
+>> +       __le32 buff_addr;
+>> +       __le32 cmd;
+>> +} __aligned(32);
+>
+> [...]
+>
+>> +static void hix5hd2_rx_refill(struct hix5hd2_priv *priv)
+>> +{
+>> +       struct hix5hd2_desc *desc;
+>> +       struct sk_buff *skb;
+>> +       u32 start, end, num, pos, i;
+>> +
+>> +       /* software write pointer */
+>> +       start = dma_cnt(readl_relaxed(priv->base + RX_FQ_WR_ADDR));
+>> +       /* logic read pointer */
+>> +       end = dma_cnt(readl_relaxed(priv->base + RX_FQ_RD_ADDR));
+>> +       num = CIRC_SPACE(start, end, RX_DESC_NUM);
+>> +
+>> +       for (i = 0, pos = start; i < num; i++) {
+>> +               if (priv->rx_skb[pos])
+>> +                       break;
+>> +               else {
+>> +                       skb = netdev_alloc_skb_ip_align(priv->netdev,
+>> +                               MAC_MAX_FRAME_SIZE);
+>> +                       if (unlikely(skb == NULL))
+>> +                               break;
+>> +               }
+>> +
+>> +               desc = priv->rx_fq.desc + pos;
+>> +               desc->buff_addr =
+>> +                       dma_map_single(priv->dev, skb->data,
+>> +                                       MAC_MAX_FRAME_SIZE, DMA_FROM_DEVICE);
+>
+> buff_addr was declared as an __le32, but here we're pasting values of
+> the kernel's native endianness (which might not be little). You will
+> need to carefully convert the endianness of this value when dealing with
+> it.
+>
+>> +               if (dma_mapping_error(priv->dev, desc->buff_addr)) {
+>> +                       dev_kfree_skb_any(skb);
+>> +                       break;
+>> +               }
+>> +
+>> +               priv->rx_skb[pos] = skb;
+>> +               desc->cmd = (MAC_MAX_FRAME_SIZE - 1) | DESC_VLD_FREE;
+>
+> Likewise cmd was described as an __le32 and needs to be converted
+> appropriately.
+>
 
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
-Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
-Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (maintainer:NETWORKING [GENERAL])
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:BLUETOOTH SUBSYSTEM)
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING [GENERAL])
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
-Cc: Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Signed-off-by: hyungseoung.yoo <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-[kiran: Added context to commit message]
-Signed-off-by: Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
----
- net/bluetooth/hci_event.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
-diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-index 15010a2..6f944d5 100644
---- a/net/bluetooth/hci_event.c
-+++ b/net/bluetooth/hci_event.c
-@@ -1915,6 +1915,15 @@ unlock:
- 	hci_conn_check_pending(hdev);
- }
- 
-+static inline bool is_sco_active(struct hci_dev *hdev)
-+{
-+	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
-+			(hci_conn_hash_lookup_state(hdev, ESCO_LINK,
-+						    BT_CONNECTED)))
-+		return true;
-+	return false;
-+}
-+
- static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
- {
- 	struct hci_ev_conn_request *ev = (void *) skb->data;
-@@ -1961,7 +1970,8 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
- 
- 			bacpy(&cp.bdaddr, &ev->bdaddr);
- 
--			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
-+			if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
-+						|| is_sco_active(hdev)))
- 				cp.role = 0x00; /* Become master */
- 			else
- 				cp.role = 0x01; /* Remain slave */
--- 
-1.8.2.1
+Got it, will use le32_to_cpu & cpu_to_le32 for the conversion.
+Thanks for the info.
