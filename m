@@ -1,83 +1,34 @@
-From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-Subject: RE: [PATCH V2 2/2] bnx2x: Fix kernel crash and data miscompare
- after EEH recovery
-Date: Wed, 28 May 2014 19:23:09 +0000
-Message-ID: <87B4DDAD5EAFA041BDC28F314593782D017497B2@avmb3.qlogic.org>
-References: <20140528155641.920171803@linux.vnet.ibm.com>
- <20140528155722.361752083@linux.vnet.ibm.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH 1/2] net: tile:  Remove unnecessary memset of netdev private
+ data
+Date: Wed, 28 May 2014 15:35:22 -0400
+Message-ID: <53863A7A.5020407@tilera.com>
+References: <1401192231-26203-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>, Milton Miller <miltonm@bga.com>
-To: "wenxiong@linux.vnet.ibm.com" <wenxiong@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:54873 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751158AbaE1TXQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 15:23:16 -0400
-In-Reply-To: <20140528155722.361752083@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from usmamail.tilera.com ([12.216.194.151]:27303 "EHLO
+	USMAMAIL.TILERA.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158AbaE1TfY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 15:35:24 -0400
+In-Reply-To: <1401192231-26203-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of wenxiong@linux.vnet.ibm.com
-> Sent: Wednesday, May 28, 2014 6:57 PM
-> To: David Miller
-> Cc: Ariel Elior; netdev; Milton Miller; Wen Xiong
-> Subject: [PATCH V2 2/2] bnx2x: Fix kernel crash and data miscompare after
-> EEH recovery
+On 5/27/2014 8:03 AM, Tobias Klauser wrote:
+> The memory for private data is allocated using kzalloc/vzalloc in
+> alloc_netdev_mqs, thus there is no need to zero it again in the driver.
 >
-> A rmb() is required to ensure that the CQE is not read before it is written by
-> the adapter DMA.  PCI ordering rules will make sure the other fields are
-> written before the marker at the end of struct eth_fast_path_rx_cqe but
-> without rmb() a weakly ordered processor can process stale data.
->
-> Without the barrier we have observed various crashes including
-> bnx2x_tpa_start being called on queues not stopped (resulting in message
-> start of bin not in stop) and NULL pointer exceptions from bnx2x_rx_int.
->
-> Signed-off-by: Milton Miller <miltonm@bga.com>
-> Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+> Signed-off-by: Tobias Klauser<tklauser@distanz.ch>
 > ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 ++++++++++++
->  1 file changed, 12 insertions(+)
->
-> Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> ===================================================================
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-23
-> 10:34:21.000000000 -0500
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-28
-> 10:54:26.627766086 -0500
-> @@ -906,6 +906,18 @@ static int bnx2x_rx_int(struct bnx2x_fas
->               bd_prod = RX_BD(bd_prod);
->               bd_cons = RX_BD(bd_cons);
->
-> +             /* A rmb() is required to ensure that the CQE is not read
-> +              * before it is written by the adapter DMA.  PCI ordering
-> +              * rules will make sure the other fields are written before
-> +              * the marker at the end of struct eth_fast_path_rx_cqe
-> +              * but without rmb() a weakly ordered processor can process
-> +              * stale data.  Without the barrier TPA state-machine might
-> +              * enter inconsistent state and kernel stack might be
-> +              * provided with incorrect packet description - these lead
-> +              * to various kernel crashed.
-> +             */
-> +             rmb();
-> +
->               cqe_fp_flags = cqe_fp->type_error_flags;
->               cqe_fp_type = cqe_fp_flags &
-> ETH_FAST_PATH_RX_CQE_TYPE;
->
-The subject states 'EEH recovery', but looks like this is not the only case. Other than that:
+>   drivers/net/ethernet/tile/tilegx.c |    1 -
+>   1 file changed, 1 deletion(-)
 
-Acked-by: Dmitry Kravkov <dmitry.kravkov@qlogic.com>
+Acked-by: Chris Metcalf <cmetcalf@tilera.com>
 
-
-________________________________
-
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
