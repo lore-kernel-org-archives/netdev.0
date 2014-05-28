@@ -1,60 +1,36 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH 1/5] devicetree: bindings: Document micrel vendor prefix
-Date: Wed, 28 May 2014 11:18:56 -0500
-Message-ID: <CAL_JsqK1wkXMkJCag5g72enGcss2Cr1fYjEo--KkgQBDGuqyEQ@mail.gmail.com>
-References: <1400792413-21618-1-git-send-email-sboyd@codeaurora.org>
-	<1400792413-21618-2-git-send-email-sboyd@codeaurora.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch 4/4] s390/net: fix format string mismatches
+Date: Wed, 28 May 2014 09:22:31 -0700
+Message-ID: <1401294151.19335.6.camel@joe-AO725>
+References: <20140528082227.024995099@de.ibm.com>
+	 <20140528082239.994360709@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	netdev <netdev@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Stephen Boyd <sboyd@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1400792413-21618-2-git-send-email-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-s390@vger.kernel.org, Ursula Braun <ursula.braun@de.ibm.com>,
+	Toralf Foerster <toralf.foerster@gmx.de>
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0057.hostedemail.com ([216.40.44.57]:60924 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752387AbaE1QWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 12:22:40 -0400
+In-Reply-To: <20140528082239.994360709@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 22, 2014 at 4:00 PM, Stephen Boyd <sboyd@codeaurora.org> wrote:
-> There's one existing use of 'micrel' in the documentation so use
-> 'micrel' instead of the company's ticker symbol 'mcrl'.
->
-> Cc: <devicetree@vger.kernel.org>
-> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+Hi Frank:
 
-Applied for 3.16.
+A trivial note:
 
-Rob
+On Wed, 2014-05-28 at 10:22 +0200, frank.blaschka@de.ibm.com wrote:
 
-> ---
->
-> This is mostly here as the first patch to make checkpatch quiet. I expect DT
-> maintainers to pick this one up.
->
->  Documentation/devicetree/bindings/vendor-prefixes.txt | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
-> index 1bc2174e1a05..2fe06ad1d248 100644
-> --- a/Documentation/devicetree/bindings/vendor-prefixes.txt
-> +++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
-> @@ -76,6 +76,7 @@ linux Linux-specific binding
->  lsi    LSI Corp. (LSI Logic)
->  marvell        Marvell Technology Group Ltd.
->  maxim  Maxim Integrated Products
-> +micrel Micrel Inc.
->  microchip      Microchip Technology Inc.
->  mosaixtech     Mosaix Technologies, Inc.
->  moxa   Moxa
-> --
-> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-> hosted by The Linux Foundation
->
+(submitting a patch containing changes like)
+
++	rc = sscanf(buf, "%u", &bs1);
++	if (rc != 1)
++		goto einval;
+
+All of these single var sscanf uses could be
+changed to kstrto<foo>
