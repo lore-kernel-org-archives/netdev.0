@@ -1,36 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [patch 4/4] s390/net: fix format string mismatches
-Date: Wed, 28 May 2014 09:22:31 -0700
-Message-ID: <1401294151.19335.6.camel@joe-AO725>
-References: <20140528082227.024995099@de.ibm.com>
-	 <20140528082239.994360709@de.ibm.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 0/2] macvlan: fix the problem when mac address
+ changes for passthru mode
+Date: Wed, 28 May 2014 12:24:05 -0400
+Message-ID: <53860DA5.8090407@gmail.com>
+References: <1401106233-11320-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org, Ursula Braun <ursula.braun@de.ibm.com>,
-	Toralf Foerster <toralf.foerster@gmx.de>
-To: frank.blaschka@de.ibm.com
+Cc: netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0057.hostedemail.com ([216.40.44.57]:60924 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752387AbaE1QWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 12:22:40 -0400
-In-Reply-To: <20140528082239.994360709@de.ibm.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:43559 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753478AbaE1QYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 12:24:11 -0400
+Received: by mail-qg0-f42.google.com with SMTP id q107so18932522qgd.1
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 09:24:10 -0700 (PDT)
+In-Reply-To: <1401106233-11320-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Frank:
+On 05/26/2014 08:10 AM, Ding Tianhong wrote:
+> Ding Tianhong (2):
+>   macvlan: don't change macvlan address alone for passthru mode
+>   macvlan: propagate lowerdev mac address changes for passthru mode
+> 
+>  drivers/net/macvlan.c | 40 +++++++++++++++++++++++++++++++---------
+>  1 file changed, 31 insertions(+), 9 deletions(-)
+> 
 
-A trivial note:
+This ends up working kind-of backwards...  A user now has to know
+that passthru macvlans he has to change the lower-level mac, but
+for all others, changing the macvlan mac is ok and will work...
 
-On Wed, 2014-05-28 at 10:22 +0200, frank.blaschka@de.ibm.com wrote:
+This also will not work if the passthru macvlan is stacked on
+something other the hw (for example: a vlan).
 
-(submitting a patch containing changes like)
+Why not simply propagate the mac address change of the passhtru macvlan
+down to the real device?
 
-+	rc = sscanf(buf, "%u", &bs1);
-+	if (rc != 1)
-+		goto einval;
-
-All of these single var sscanf uses could be
-changed to kstrto<foo>
+Thanks
+-vlad
