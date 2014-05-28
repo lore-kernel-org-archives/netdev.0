@@ -1,53 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Scaling 'ip addr add' (was Re: What's the right way to use a
- *large* number of source addresses?)
-Date: Wed, 28 May 2014 06:44:59 -0700
-Message-ID: <1401284699.5367.268.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
-	 <1401241268.5367.266.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH v1 for-next 0/3] IB: Use GFP_NOIO calls in IPoIB connected
+ mode TX path
+Date: Wed, 28 May 2014 16:57:31 +0300
+Message-ID: <CAJZOPZ+OPc9VWqwyE_erZfQbQ0VV-0yr7NiCyJOH5LUM_xyx2g@mail.gmail.com>
+References: <1399810512-30774-1-git-send-email-ogerlitz@mellanox.com>
+	<alpine.LNX.2.00.1405131338030.16459@pobox.suse.cz>
+	<CAJZOPZJVxF6A-3s16feqoWCb5gOLTjyUmB3F+st1+1QWp+bJnQ@mail.gmail.com>
+	<CAL1RGDUoEFF=fR-e-fc1v0yHp8sxaidBnO_2iiAFThgZNvCcfQ@mail.gmail.com>
+	<alpine.LNX.2.00.1405261251520.12047@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@southpole.se>,
-	netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>
-To: sowmini varadhan <sowmini05@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:56563 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752547AbaE1NpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 09:45:04 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so11214180pbb.33
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 06:45:03 -0700 (PDT)
-In-Reply-To: <CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	linux-rdma <linux-rdma@vger.kernel.org>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Mel Gorman <mgorman@suse.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Roland Dreier <roland@purestorage.com>
+To: Roland Dreier <roland@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1405261251520.12047@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-05-28 at 08:18 -0400, sowmini varadhan wrote:
-> On Tue, May 27, 2014 at 9:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > Last time I checked, we were spending _lot_ of time in check_lifetime()
-> 
-> Although check_lifetime() itself did not light up in my
-> perf output, i see your point- it has a few ifa_list walks
-> that might end up being expensive - but these are static
-> IPv4 addresses- they should be marked IFA_F_PERMANENT,
-> right? That's probably why they did not show up in my perf output?
+On Mon, May 26, 2014 at 1:52 PM, Jiri Kosina <jkosina@suse.cz> wrote:
+> On Mon, 19 May 2014, Roland Dreier wrote:
+>
+>> > Roland, we're soon on -rc6 and there's no reason for this to miss
+>>> 3.16, could you please comment whether you want it to go through your
+>>> tree or net-next?
 
+>> I will pick it up.
 
-How did you run perf ?
+> Thanks Roland.
+> Sorry for being a bit persistent, but another week has passed, -rc7 is out
+> and I still don't see it in your tree. Could you please clarify what is
+> the destiny of this patchset?
 
-If you run :
+Roland, so M2 starts worrying, you have picked into your for-next
+branch yesterday the other pending series, but not this one, so?
 
-perf record ./your_script.sh
-
-It wont catch all the load that is triggered from work queues.
-
-If you do
-
-./your_script.sh &
-
-perf top
-
-Then you'll see check_lifetime() at first position.
+Or.
