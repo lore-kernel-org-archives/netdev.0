@@ -1,40 +1,42 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [Bridge] [PATCH net] bridge: Prevent insertion of FDB entry
- with disallowed vlan
-Date: Wed, 28 May 2014 23:32:50 +0900
-Message-ID: <1401287570.1873.4.camel@localhost.localdomain>
-References: <1401084953-10135-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <5385EC5D.40106@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v2 2/2] sfc: Restrict PIO to 64-bit architectures
+Date: Wed, 28 May 2014 18:45:08 +0400
+Message-ID: <5385F674.60504@cogentembedded.com>
+References: <cover.1401268725.git.sshah@solarflare.com> <5385AC57.9040000@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
+Cc: linux-net-drivers@solarflare.com
+To: Shradha Shah <sshah@solarflare.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:51956 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753801AbaE1Oc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 10:32:56 -0400
-Received: by mail-pa0-f44.google.com with SMTP id ld10so11095246pab.31
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 07:32:56 -0700 (PDT)
-In-Reply-To: <5385EC5D.40106@redhat.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:44213 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752909AbaE1OpE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 10:45:04 -0400
+Received: by mail-lb0-f175.google.com with SMTP id l4so5892773lbv.20
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 07:45:02 -0700 (PDT)
+In-Reply-To: <5385AC57.9040000@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-05-28 at 10:02 -0400, Vlad Yasevich wrote:
-...
-> 
-> This is very similar to br_allow_ingress(), so may be you can
-> re-factor so that we only have 1 such function...
+Hello.
 
-Yes.. indeed, this looks redundant.
-What bothered me is br_allowed_ingress() modifies or drops frames but
-I'm not expecting it here.
-Maybe we can hand a hint to br_allowed_ingress so that it doesn't modify
-the skb?
+On 05/28/2014 01:28 PM, Shradha Shah wrote:
 
-Thanks,
-Toshiaki Makita
+> From: Jon Cooper <jcooper@solarflare.com>
+
+> Enable PIO for x86_64 architecture only.
+> Not tested on platforms other than x86_64.
+
+> Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
+
+    12 digits is enough. And please specify that commit's summary enclosed in 
+parens and quotes.
+
+> orig-hg-hash: 53dc43553d9bbe1c5a64c49e580ca571ddc470ae
+> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> ---
+>   drivers/net/ethernet/sfc/io.h | 8 ++++++++
+>   1 file changed, 8 insertions(+)
+
+WBR, Sergei
