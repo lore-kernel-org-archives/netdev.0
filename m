@@ -1,61 +1,91 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net-next tree
-Date: Wed, 28 May 2014 18:28:24 +1000
-Message-ID: <20140528182824.63672ad9@canb.auug.org.au>
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: RE: [PATCH RESEND 2/2] bnx2x: Fix kernel crash and data miscompare
+ after EEH recovery
+Date: Wed, 28 May 2014 08:38:04 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D01748FFB@avmb3.qlogic.org>
+References: <20140527191122.750711568@linux.vnet.ibm.com>
+ <20140527191235.743680910@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/K.V47Y2h8HC5yHcLZwqcdZZ"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Sachin Kamat <sachin.kamat@linaro.org>
-To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>, Milton Miller <miltonm@bga.com>
+To: "wenxiong@linux.vnet.ibm.com" <wenxiong@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:9619 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752520AbaE1IiM convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 May 2014 04:38:12 -0400
+In-Reply-To: <20140527191235.743680910@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/K.V47Y2h8HC5yHcLZwqcdZZ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Hi Wen
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of wenxiong@linux.vnet.ibm.com
+> Sent: Tuesday, May 27, 2014 10:11 PM
+> To: David Miller
+> Cc: Ariel Elior; netdev; Milton Miller; Wen Xiong
+> Subject: [PATCH RESEND 2/2] bnx2x: Fix kernel crash and data miscompare
+> after EEH recovery
+>
+> A rmb() is required to ensure that the CQE is not read before it is written by
+> the adapter DMA.  PCI ordering rules will make sure the other fields are
+> written before the marker at the end of struct eth_fast_path_rx_cqe but
+> without rmb() a weakly ordered processor can process stale data.
+>
+> Without the barrier we have observed various crashes including
+> bnx2x_tpa_start being called on queues not stopped (resulting in message
+> start of bin not in stop) and NULL pointer exceptions from bnx2x_rx_int.
+>
+> Signed-off-by: Milton Miller <miltonm@bga.com>
+> Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+>
+> Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> ===================================================================
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-23
+> 10:34:21.000000000 -0500
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-27
+> 13:51:12.067764759 -0500
+> @@ -906,6 +906,18 @@ static int bnx2x_rx_int(struct bnx2x_fas
+>               bd_prod = RX_BD(bd_prod);
+>               bd_cons = RX_BD(bd_cons);
+>
+> +             /* A rmb() is required to ensure that the CQE is not read
+> +              * before it is written by the adapter DMA.  PCI ordering
+> +              * rules will make sure the other fields are written before
+> +              * the marker at the end of struct eth_fast_path_rx_cqe
+> +              * but without rmb() a weakly ordered processor can process
+> +              * stale data.  Without the barrier we have observed various
+> +              * crashes including bnx2x_tpa_start being called on queues
+> +              * not stopped (resulting in message start of bin not in
+> +              * stop) and NULL pointer exceptions from bnx2x_rx_int.
+> +             */
+Can you please drop third sentence from the comment or rephrase it in more generic way like:
+Without the barrier TPA state-machine might enter inconsistent state and kernel stack might be provided with incorrect packet description - these lead to various kernel crashes.
 
-Hi Greg,
+Thanks
+Dmitry
+> +             rmb();
+> +
+>               cqe_fp_flags = cqe_fp->type_error_flags;
+>               cqe_fp_type = cqe_fp_flags &
+> ETH_FAST_PATH_RX_CQE_TYPE;
+>
+>
+> --
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+> body of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
 
-Today's linux-next merge of the staging tree got a conflict in
-drivers/staging/rtl8821ae/core.c between commit 77be2c54c5bd
-("mac80211: add vif to flush call") from the net-next tree and commit
-0cd05ba54a53 ("staging: rtl8821ae: core.c: Remove version specific
-code") from the staging tree.
+________________________________
 
-I fixed it up (the former is a suberset of the latter for this
-particular conflict) and can carry the fix as necessary (no action is
-required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/K.V47Y2h8HC5yHcLZwqcdZZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJThZ4tAAoJEMDTa8Ir7ZwVSLIP/Rvlj7PQQUiRMxyF6NJlwr9w
-SdUzpLz6d6+K/aJUAaLWTUrw/Sk3P8B8jI0/9z/N3wdNsBGwCpClvj46P+XajrDW
-YOt5CdrsRb1/1ZCDZVtGW7w7BWRhjGwawCec+Y0+zusChwn7q01lNl651T7ebIJw
-UmuSGN2K8zIPybysU+hvnJdd4vqM3rsFKn3j6e2pcrxkKb80c0FunyLJCqu5Tbc4
-SjOvMV3IuxJWf21OzmToF/afsZ/FNej+iYXeNModtpzuKEb+PL+9zHtMXjntyT4M
-QRava/VKA9RSFfKAxlhE/OHf4AWYn01INbrd7aHbho1HF/Ev6eo8y8oaW7pAobdi
-jddBlFMDqLRtIiRuNTpbRd/22xmEGmlO1GLlL53h0UzFGiT6t7htskel+MX7apUv
-kDRh6lCIM0hFR3QyroorZq/O8oN8OyQHmyFqkf78ZO0wWT2HOOla3WCfatqoe/t7
-Pe1VkMrSrTKEKnVWeX+Nxrp8FwVG7MKCC0XXDyzK1h8+704dRq92h8+I3FqDQfyl
-fro/KBCP9Oag8LlBwGCQT3FmftiWaEz6egE7iAqB/3lf1MjQN/40l5AhcNTB7gYh
-Lfpw1q1+r8ouz2P13uSL1vshli3SCGnKkdm7oM/vqB0eRO2HjAqXTRXSGR5ChFBy
-1gDEYn8U0idFOboJsG46
-=lWkz
------END PGP SIGNATURE-----
-
---Sig_/K.V47Y2h8HC5yHcLZwqcdZZ--
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
