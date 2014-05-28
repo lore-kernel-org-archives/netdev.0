@@ -1,72 +1,78 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v2 1/2] sfc: use 64-bit writes for PIO.
-Date: Wed, 28 May 2014 18:48:57 +0400
-Message-ID: <5385F759.8010408@cogentembedded.com>
-References: <cover.1401268725.git.sshah@solarflare.com> <5385ABE5.9070406@solarflare.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Scaling 'ip addr add' (was Re: What's the right way to use a
+ *large* number of source addresses?)
+Date: Wed, 28 May 2014 07:48:53 -0700
+Message-ID: <1401288533.5367.271.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
+	 <1401241268.5367.266.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CACP96tRBiANHxXSFZ_w7eKwO_zWk_AZv-7CDJFLSP6+bZJLZ5g@mail.gmail.com>
+	 <1401284699.5367.268.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com
-To: Shradha Shah <sshah@solarflare.com>, netdev@vger.kernel.org
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Niels =?ISO-8859-1?Q?M=F6ller?= <nisse@southpole.se>,
+	netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>,
+	Jiri Pirko <jiri@resnulli.us>
+To: sowmini varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:52122 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752169AbaE1Osx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 10:48:53 -0400
-Received: by mail-la0-f41.google.com with SMTP id e16so7521485lan.0
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 07:48:51 -0700 (PDT)
-In-Reply-To: <5385ABE5.9070406@solarflare.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:60112 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752356AbaE1Osz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 10:48:55 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so11111220pab.19
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 07:48:54 -0700 (PDT)
+In-Reply-To: <1401284699.5367.268.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2014 01:27 PM, Shradha Shah wrote:
+On Wed, 2014-05-28 at 06:44 -0700, Eric Dumazet wrote:
+> On Wed, 2014-05-28 at 08:18 -0400, sowmini varadhan wrote:
+> > On Tue, May 27, 2014 at 9:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > 
+> > > Last time I checked, we were spending _lot_ of time in check_lifetime()
+> > 
+> > Although check_lifetime() itself did not light up in my
+> > perf output, i see your point- it has a few ifa_list walks
+> > that might end up being expensive - but these are static
+> > IPv4 addresses- they should be marked IFA_F_PERMANENT,
+> > right? That's probably why they did not show up in my perf output?
+> 
+> 
+> How did you run perf ?
+> 
+> If you run :
+> 
+> perf record ./your_script.sh
+> 
+> It wont catch all the load that is triggered from work queues.
+> 
+> If you do
+> 
+> ./your_script.sh &
+> 
+> perf top
+> 
+> Then you'll see check_lifetime() at first position.
 
-> From: Jon Cooper <jcooper@solarflare.com>
+Following patch helps a lot
+(30 seconds to add 65536 addresses on lo interface instead of 52 seconds
+on my host)
 
-> Patch to open-code the memory copy routines.
-> 32bit writes over the PCI bus causes data corruption.
+for i in `seq 0 255`; do for j in `seq 0 255`; do echo "addr add 127.2.$i.$j/8 dev lo"; done; done >batch
+ip -b batch
 
-> Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
-
-    Same comment as in the patch #2
-
-> orig-hg-hash: 853f313def1e5e9c733f980f2b4e6330a7d063ef
-
-    What's this?
-
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
-> ---
->   drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
->   1 file changed, 19 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-> index fa94753..bd6a4b8 100644
-> --- a/drivers/net/ethernet/sfc/tx.c
-> +++ b/drivers/net/ethernet/sfc/tx.c
-> @@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
->   	u8 buf[L1_CACHE_BYTES];
->   };
->
-> +/* Copy in explicit 64-bit writes. */
-> +static void efx_memcpy_64(void *dest, void *src, size_t len)
-> +{
-> +	uint64_t *src64 = src, *dest64 = dest;
-> +	size_t i, l64 = len / 8;
-> +
-> +	WARN_ON_ONCE(len % 8 != 0);
-> +	WARN_ON_ONCE(((u8 *)dest - (u8 *) 0) % 8 != 0);
-
-    Be consistent with spaces after a typecast, please.
-
-> +	BUILD_BUG_ON(sizeof(uint64_t) != 8);
-> +
-> +	for(i = 0; i < l64; ++i)
-> +		dest64[i] = src64[i];
-> +}
-> +
->   /* Copy to PIO, respecting that writes to PIO buffers must be dword aligned.
->    * Advances piobuf pointer. Leaves additional data in the copy buffer.
->    */
-[...]
-
-WBR, Sergei
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index bdbf68bb2e2d..9b9763f27607 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -474,7 +474,8 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+ 	inet_hash_insert(dev_net(in_dev->dev), ifa);
+ 
+ 	cancel_delayed_work(&check_lifetime_work);
+-	queue_delayed_work(system_power_efficient_wq, &check_lifetime_work, 0);
++	queue_delayed_work(system_power_efficient_wq, &check_lifetime_work,
++			   HZ / 4);
+ 
+ 	/* Send message first, then call notifier.
+ 	   Notifier will trigger FIB update, so that
