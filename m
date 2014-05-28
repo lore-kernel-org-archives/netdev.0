@@ -1,40 +1,41 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH] netlink: downgrade warning about leftover bytes to debug
- level
-Date: Wed, 28 May 2014 11:18:09 +0200
-Message-ID: <5385A9D1.4000102@redhat.com>
-References: <1401196563-6999-1-git-send-email-mschmidt@redhat.com> <53859359.70304@6wind.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net v2 0/2] sfc: Restrict PIO for 64bit arch in order to avoid
+ data corruption
+Date: Wed, 28 May 2014 10:23:01 +0100
+Message-ID: <5385AAF5.7090001@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1233 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752489AbaE1JSP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 05:18:15 -0400
-In-Reply-To: <53859359.70304@6wind.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:17040 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbaE1JXH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:23:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2014 09:42 AM, Nicolas Dichtel wrote:
-> Le 27/05/2014 15:16, Michal Schmidt a =C3=A9crit :
->> Any process is able to send netlink messages with leftover bytes, so
->> downgrade the warning message to pr_debug in order to avoid possible
->> kernel log spam.
-> Yes, but that's not a normal case. I think that the level warning is =
-good,
-> there is something wrong with this kind of messages.
+This patch series 
+Fixes: ee45fd92c739db5b7950163d91dfe5f016af6d24
 
-As an alternative we could at least guard it with net_ratelimit().
+The linux net driver uses memcpy_toio() in order to copy into
+the PIO buffers.
+Even on a 64bit machine this causes 32bit accesses to a write-
+combined memory region.
+There are hardware limitations that mean that only
+64bit naturally aligned accesses are safe in all cases. Due to being
+write-combined memory region two 32bit accesses may be coalesced to
+form a 64bit non 64bit aligned access.
+Solution was to open-code the memory copy routines using pointers
+and to only enable PIO for x86_64 machines.
 
-But still, the message indicates a userspace bug. It can be useful
-for a developer of a netlink library, but not for many more.
-I think it's odd to let unprivileged userspace spam the dmesg,
-even if rate-limited. The kernel does not emit warning messages when
-userspace is buggy in other ways, like calling syscalls with invalid
-arguments.
+This bug fix applies to v3.13 and v3.14 stable branches.
 
-Regards,
-Michal
+Jon Cooper (2):
+  sfc: use 64-bit writes for PIO.
+  sfc: Restrict PIO to 64-bit architectures
+
+ drivers/net/ethernet/sfc/io.h |  8 ++++++++
+ drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
+ 2 files changed, 27 insertions(+), 5 deletions(-)
