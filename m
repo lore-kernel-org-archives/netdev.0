@@ -1,86 +1,84 @@
-From: Stephen Boyd <sboyd-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+From: Mark Brown <broonie@kernel.org>
 Subject: Re: [PATCH v2 1/4] devicetree: bindings: Properly document micrel
  ks8851 SPI chips
-Date: Wed, 28 May 2014 12:44:35 -0700
-Message-ID: <53863CA3.7040000@codeaurora.org>
-References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org> <1400875040-13269-2-git-send-email-sboyd@codeaurora.org> <20140524124858.GR22111@sirena.org.uk> <5385063F.30407@codeaurora.org> <20140528151646.GU20155@pengutronix.de> <20140528171219.GD5099@sirena.org.uk>
+Date: Wed, 28 May 2014 20:49:13 +0100
+Message-ID: <20140528194913.GI5099@sirena.org.uk>
+References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
+ <1400875040-13269-2-git-send-email-sboyd@codeaurora.org>
+ <20140524124858.GR22111@sirena.org.uk>
+ <5385063F.30407@codeaurora.org>
+ <20140528151646.GU20155@pengutronix.de>
+ <20140528171219.GD5099@sirena.org.uk>
+ <53863CA3.7040000@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Nishanth Menon <nm-l0cyMroinI0@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	linux-arm-msm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140528171219.GD5099-GFdadSzt00ze9xe1eoZjHA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="tSiBuZsJmMXpnp7T"
+Cc: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Nishanth Menon <nm@ti.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	linux-arm-msm@vger.kernel.org, Kumar Gala <galak@codeaurora.org>,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53863CA3.7040000@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/28/14 10:12, Mark Brown wrote:
-> On Wed, May 28, 2014 at 05:16:46PM +0200, Uwe Kleine-K=F6nig wrote:
->> On Tue, May 27, 2014 at 02:40:15PM -0700, Stephen Boyd wrote:
->>> On 05/24/14 05:48, Mark Brown wrote:
->>>> So, according to the datasheet I managed to find this device has a
->>>> supply VDD_IO (so normally written vdd-io-supply here), some other
->>>> supplies which are tied to VDD_IO (so can probably be omitted) and=
- a
->>>> supply VDD_A3.3 none of which are optional.  There is an internal
->>>> regulator which can be used to drop a higher voltage VDD_IO down f=
-or
->>>> some of the supplies tied to it but that's essentially a noop from
->>>> software as far as I can tell.  None of these supplies are obvious=
-ly
->>>> optional, though I've not read the datasheet in detail so I may ha=
-ve
->>>> missed something here.
->> There is a difference between the supply being optional for the hard=
-ware
->> to work and the need to specify it in the device tree, isn't it? My
->> expectation is that when it's not specified there is just nothing th=
-e
->> the software needs to care for.=20
-> If the supply must always be physically present the bindings should b=
-e
-> specified as it being mandatory and the code written in that fashion;=
- as
-> an extension Linux will put a dummy in but this is attempting to hand=
-le
-> incorrect DTs.  This means we have functional error handling in cases
-> where there is something to worry about and simplifies the code using
-> the regulator.
 
-Ok, you're saying the opposite of Rob. Should it be required or optiona=
-l
-in the DT binding?
+--tSiBuZsJmMXpnp7T
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
->
-> regulator_get_optional() should *only* be used if the supply may be
-> omitted from the physical design and should generally always be
-> accompanied by code which does something substantially different such=
- as
-> using an internal regulator or changing the source for a reference
-> voltage instead.
->
->
+On Wed, May 28, 2014 at 12:44:35PM -0700, Stephen Boyd wrote:
+> On 05/28/14 10:12, Mark Brown wrote:
 
-Ok. Dave M has already picked up all these patches so I'll send a patch
-to replace regulator_get_optional() with regulator_get() and fix up the
-error handling unless I hear otherwise.
+> > If the supply must always be physically present the bindings should be
+> > specified as it being mandatory and the code written in that fashion; as
+> > an extension Linux will put a dummy in but this is attempting to handle
+> > incorrect DTs.  This means we have functional error handling in cases
+> > where there is something to worry about and simplifies the code using
+> > the regulator.
 
---=20
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-hosted by The Linux Foundation
+> Ok, you're saying the opposite of Rob. Should it be required or optional
+> in the DT binding?
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm saying it should be required.  The implementation accepts it as an
+extension (a recent extension at that).
+
+> Ok. Dave M has already picked up all these patches so I'll send a patch
+> to replace regulator_get_optional() with regulator_get() and fix up the
+> error handling unless I hear otherwise.
+
+Yes, please.  I'm much more worried about the abuse of
+regulator_get_optional() than the binding.
+
+--tSiBuZsJmMXpnp7T
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJThj22AAoJELSic+t+oim9YCQP/3X79T9pZF6Mlt7qgfAAzkt5
+1tOJAXcsj11VYtwdVp61JJsmluCnYCK7LrGCoVBiv4wcgraaV0fivPpESjrC0SL6
+jf9JDo2G9QBFafd7uMkrUGmEfd0CEk/CrESX3qD+AWHiQe/cpQwhZGGmP4ArFg22
+PNwRHPnXrPOS1hFxJstcpKZBdG1VwK5EnXuQpTiA36SljLyQz0BUJeK8HOofmAHn
+3aOeUf5OE8Sp1ktAG0VLvBCBwVNhkz0VdFfrEYweWJ0FX2dvBtvM7QppDBY5EHgY
+2L8XYPK6F7+QkEDzZNKmCh+TUfjrdOEUiH9417Ewq8FAf/IK6G6v4xL/pKkeONN6
+3Gs0K+UoBRkMi2fVakiaaFxac+B4zWK290aIIhEFnRsq5x+KXUzrvtbgRwpfIQO5
+EhvsP67SImY5Q2JmeDC2suSQwoG+HKzhtrekwViIX7LEozPSheTiPTzYWd6aMUlQ
+UOUZfpb4FSxo/W9xUvZkVUlGslYuBECyqBDQRyDc9zr2cRiYb22vh/K+qs+OkPYl
+1Jf+4dhenqAgDvHr+JPne78DSW9cNXCA8+Us0SPPckgT11aKexEzH+sFeWNhuxZ0
+Zr2//CD75J7DTxbswucidzNFhE6o6G6xddPlHyKjl4gGau3bU8VyV9X+MMhYYCBi
+gJ3TAaMcWyrE1zuPUtsB
+=lp/p
+-----END PGP SIGNATURE-----
+
+--tSiBuZsJmMXpnp7T--
