@@ -1,111 +1,44 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: Re: [PATCH net v2 1/2] sfc: use 64-bit writes for PIO.
-Date: Wed, 28 May 2014 10:32:30 +0100
-Message-ID: <5385AD2E.3040705@solarflare.com>
-References: <cover.1401268725.git.sshah@solarflare.com> <5385ABE5.9070406@solarflare.com>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: Re: [PATCH 1/6] pch_gbe: print invalid MAC address during probe
+Date: Wed, 28 May 2014 11:34:20 +0200
+Message-ID: <9952617.kdfEWfEVqY@ws-stein>
+References: <1401111639-11507-1-git-send-email-alexander.stein@systec-electronic.com> <1401121468.519.6.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Krueger <daniel.krueger@systec-electronic.com>,
+	netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17218 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752066AbaE1Jcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:32:33 -0400
-In-Reply-To: <5385ABE5.9070406@solarflare.com>
+Received: from webbox1416.server-home.net ([77.236.96.61]:41369 "EHLO
+	webbox1416.server-home.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751031AbaE1Jfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:35:53 -0400
+In-Reply-To: <1401121468.519.6.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please ignore this patch.
-
-I have sent out the correct patch with a cover letter.
-
-My Apologies for duplication
-
-Regards,
-Shradha
-
-On 28/05/14 10:27, Shradha Shah wrote:
-> From: Jon Cooper <jcooper@solarflare.com>
+On Monday 26 May 2014 09:24:28, Joe Perches wrote:
+> On Mon, 2014-05-26 at 15:40 +0200, Alexander Stein wrote:
+> > show the actual offending MAC address instead of just
+> > rejecting it
+> []
+> > diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> []
+> > @@ -2674,6 +2674,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+> >  		 */
+> >  		dev_err(&pdev->dev, "Invalid MAC address, "
+> >  		                    "interface disabled.\n");
+> > +		dev_err(&pdev->dev, "%pM\n", adapter->hw.mac.addr);
 > 
-> Patch to open-code the memory copy routines.
-> 32bit writes over the PCI bus causes data corruption.
+> Nicer I think on a single line
+> using just one dev_err
 > 
-> Fixes:ee45fd92c739db5b7950163d91dfe5f016af6d24
-> 
-> orig-hg-hash: 853f313def1e5e9c733f980f2b4e6330a7d063ef
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
-> ---
->  drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
->  1 file changed, 19 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-> index fa94753..bd6a4b8 100644
-> --- a/drivers/net/ethernet/sfc/tx.c
-> +++ b/drivers/net/ethernet/sfc/tx.c
-> @@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
->  	u8 buf[L1_CACHE_BYTES];
->  };
->  
-> +/* Copy in explicit 64-bit writes. */
-> +static void efx_memcpy_64(void *dest, void *src, size_t len)
-> +{
-> +	uint64_t *src64 = src, *dest64 = dest;
-> +	size_t i, l64 = len / 8;
-> +
-> +	WARN_ON_ONCE(len % 8 != 0);
-> +	WARN_ON_ONCE(((u8 *)dest - (u8 *) 0) % 8 != 0);
-> +	BUILD_BUG_ON(sizeof(uint64_t) != 8);
-> +
-> +	for(i = 0; i < l64; ++i)
-> +		dest64[i] = src64[i];
-> +}
-> +
->  /* Copy to PIO, respecting that writes to PIO buffers must be dword aligned.
->   * Advances piobuf pointer. Leaves additional data in the copy buffer.
->   */
-> @@ -198,7 +212,7 @@ static void efx_memcpy_toio_aligned(struct efx_nic *efx, u8 __iomem **piobuf,
->  {
->  	int block_len = len & ~(sizeof(copy_buf->buf) - 1);
->  
-> -	memcpy_toio(*piobuf, data, block_len);
-> +	efx_memcpy_64(*piobuf, data, block_len);
->  	*piobuf += block_len;
->  	len -= block_len;
->  
-> @@ -230,7 +244,7 @@ static void efx_memcpy_toio_aligned_cb(struct efx_nic *efx, u8 __iomem **piobuf,
->  		if (copy_buf->used < sizeof(copy_buf->buf))
->  			return;
->  
-> -		memcpy_toio(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-> +		efx_memcpy_64(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
->  		*piobuf += sizeof(copy_buf->buf);
->  		data += copy_to_buf;
->  		len -= copy_to_buf;
-> @@ -245,7 +259,7 @@ static void efx_flush_copy_buffer(struct efx_nic *efx, u8 __iomem *piobuf,
->  {
->  	/* if there's anything in it, write the whole buffer, including junk */
->  	if (copy_buf->used)
-> -		memcpy_toio(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-> +		efx_memcpy_64(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
->  }
->  
->  /* Traverse skb structure and copy fragments in to PIO buffer.
-> @@ -304,8 +318,8 @@ efx_enqueue_skb_pio(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
->  		 */
->  		BUILD_BUG_ON(L1_CACHE_BYTES >
->  			     SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
-> -		memcpy_toio(tx_queue->piobuf, skb->data,
-> -			    ALIGN(skb->len, L1_CACHE_BYTES));
-> +		efx_memcpy_64(tx_queue->piobuf, skb->data,
-> +			      ALIGN(skb->len, L1_CACHE_BYTES));
->  	}
->  
->  	EFX_POPULATE_QWORD_5(buffer->option,
-> 
+> 		dev_err(&pdev->dev, "Invalid MAC %pM - interface disabled\n",
+> 			adapter->hw.mac.addr);
 
--- 
-Many Thanks,
-Regards,
-Shradha Shah
+Yep, I'll send a v2 if there is some more feedback on the other patches.
+
+Best regards,
+Alexander
