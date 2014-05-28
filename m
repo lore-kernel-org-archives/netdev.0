@@ -1,19 +1,19 @@
 From: Shradha Shah <sshah@solarflare.com>
 Subject: [PATCH net v2 2/2] sfc: Restrict PIO to 64-bit architectures
-Date: Wed, 28 May 2014 10:28:55 +0100
-Message-ID: <5385AC57.9040000@solarflare.com>
-References: <cover.1401268725.git.sshah@solarflare.com>
+Date: Wed, 28 May 2014 10:30:24 +0100
+Message-ID: <5385ACB0.3060206@solarflare.com>
+References: <5385AAF5.7090001@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: <linux-net-drivers@solarflare.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17146 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17176 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752368AbaE1J26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:28:58 -0400
-In-Reply-To: <cover.1401268725.git.sshah@solarflare.com>
+	with ESMTP id S1752169AbaE1Ja1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:30:27 -0400
+In-Reply-To: <5385AAF5.7090001@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
