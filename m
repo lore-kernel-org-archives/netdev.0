@@ -1,84 +1,93 @@
-From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-Subject: [PATCH v3] net/phy: tune get_phy_c45_ids to support more c45 phy
-Date: Wed, 28 May 2014 16:54:36 +0800
-Message-ID: <1401267276-29648-1-git-send-email-Shengzhou.Liu@freescale.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [PATCH v2 1/4] devicetree: bindings: Properly document micrel
+ ks8851 SPI chips
+Date: Wed, 28 May 2014 10:44:54 +0100
+Message-ID: <20140528094454.GH12304@sirena.org.uk>
+References: <1400875040-13269-1-git-send-email-sboyd@codeaurora.org>
+ <1400875040-13269-2-git-send-email-sboyd@codeaurora.org>
+ <20140524124858.GR22111@sirena.org.uk>
+ <5385063F.30407@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shengzhou Liu <Shengzhou.Liu@freescale.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0211.outbound.protection.outlook.com ([207.46.163.211]:38754
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752603AbaE1JnN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 05:43:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="F+GrfnmevXhaz2Un"
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Nishanth Menon <nm@ti.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	linux-arm-msm@vger.kernel.org, Kumar Gala <galak@codeaurora.org>,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5385063F.30407@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently get_phy_c45_ids() driver assumes that device zero is reserved and
-doesn't probe c45 device which has zero device address. The driver only
-probes c45 phy with non-zero device address by code:
-for(i = 1; i < num_ids && c45_ids->devices_in_package == 0; i++)
 
-This patch updates the driver to support those c45 phy which has special zero
-device address(e.g. the device address is zero on Cortina CS4315/CS4340 10G
-PHY, 'i' must be zero to have it work).
+--F+GrfnmevXhaz2Un
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-We should first probe non-zero devices, if not found, then probe device zero.
+On Tue, May 27, 2014 at 02:40:15PM -0700, Stephen Boyd wrote:
+> On 05/24/14 05:48, Mark Brown wrote:
 
-Signed-off-by: Shengzhou Liu <Shengzhou.Liu@freescale.com>
----
-v3: refined commit messages.
-v2: refined to reuse code.
+> > That said it looks like this is intended to be a supply for an external
+> > PHY rather than the device itself, but even so my original question
+> > about it being able to operate without power still applies.  Looking at
+> > the code it's certainly not doing any of the handling of a missing
+> > supply that I would associate with using _optional().
 
- drivers/net/phy/phy_device.c | 24 +++++++++++++++---------
- 1 file changed, 15 insertions(+), 9 deletions(-)
+> I agree, both supplies don't look optional. Unfortunately
+> efm32gg-dk3750.dts doesn't look to be listing any supply, and this
+> driver only recently got support for the VDD_A3.3 supply that the omap
+> board uses (adding Uwe for any comments on efm setup). I presume on
+> these boards VDD_IO is tied to some always on power source that software
+> doesn't want to deal with. Nishant, what's VDD_IO connected to on omap?
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index cfb5110..88f1d38 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -226,13 +226,11 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
- 	int i, reg_addr;
- 	const int num_ids = ARRAY_SIZE(c45_ids->device_ids);
- 
--	/* Find first non-zero Devices In package.  Device
--	 * zero is reserved, so don't probe it.
--	 */
-+	/* Find first non-zero Devices In package */
- 	for (i = 1;
- 	     i < num_ids && c45_ids->devices_in_package == 0;
- 	     i++) {
--		reg_addr = MII_ADDR_C45 | i << 16 | 6;
-+retry:		reg_addr = MII_ADDR_C45 | i << 16 | 6;
- 		phy_reg = mdiobus_read(bus, addr, reg_addr);
- 		if (phy_reg < 0)
- 			return -EIO;
-@@ -244,12 +242,20 @@ static int get_phy_c45_ids(struct mii_bus *bus, int addr, u32 *phy_id,
- 			return -EIO;
- 		c45_ids->devices_in_package |= (phy_reg & 0xffff);
- 
--		/* If mostly Fs, there is no device there,
--		 * let's get out of here.
--		 */
- 		if ((c45_ids->devices_in_package & 0x1fffffff) == 0x1fffffff) {
--			*phy_id = 0xffffffff;
--			return 0;
-+			if (i) {
-+				/*  If mostly Fs, there is no non-zero device
-+				 *  found, then let's continue to probe more
-+				 *  for special device which has zero device
-+				 *  address, thus set i = 0 to try again.
-+				 */
-+				i = 0;
-+				goto retry;
-+			} else {
-+				/* no device there, let's get out of here */
-+				*phy_id = 0xffffffff;
-+				return 0;
-+			}
- 		}
- 	}
- 
--- 
-1.8.0
+> What's the proper solution here? Should we use regulator_get() and check
+> for EPROBE_DEFER and ignore other errors?
+
+As an implementation extension if no supply is specified at all the
+regulator API will happily substitute in a dummy if the board is using
+DT or ACPI, or if it has specified full constraints.
+
+> Should the get_optional() variant just drop the "Other consumers will
+> be... " part and should the get_exclusive() variant say "obtain this
+> regulator while this reference is held" ?
+
+Yes.
+
+> From: Stephen Boyd <sboyd@codeaurora.org>
+> Subject: [PATCH] regulator: Fix regulator_get_{optional,exclusive}()
+>  documentation
+
+Documentation/SubmittingPatches.
+
+--F+GrfnmevXhaz2Un
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBAgAGBQJThbATAAoJELSic+t+oim9Hv8P/0wo8aYnBoyFv+R9/tAAkqM3
+cqFew+QnqKruZ0h4Joc8Q21tawR80Qeu2/QXkf+Kq0c7b0C+ILjC3SXHA8vULfYD
+gnc6JXEo2mw4AhKVeXt4JzhVBGr83hAVH8ccGlRVXxfBcb9DEA/v5d/vc2W95bs9
+LwqPH8J+sdAk1iPNoGsVQFp6e+9SlRUZCJyXx6aBu14ENjkR53SmkJL53xjTweon
+yZMfSYmTE2s4CUdQ0IBifu7JnJfhyL+Dg6bKtczoZpcRPb1v+WdZBI3ANy/qTyuw
+wTHMCuWZAXGSYSDH+WpTletN5w0t6ZVF3oOmhHzzdzZpR9nHxxCdtCwLW/k6ma1f
+QqS2a7FOSImO21uCdWVEYzBOPy72sT9lNJ4F3lQxJ53WwdvmIdv63twpny+/O3Ee
+AoAeeCVghoFhUpwVz+fSH/5fiEN7xFD/FDqQYlEZg6zw0W/uyYLPbxd0xpHAR9aY
+zeHlnpf4r7XznBAY/C7NFhkWSW0ir+eg7kv1Lu5b85pAfc7GMLHQgeC8eOZP73mR
+OCdNuO5jeyZ6/JNV6xW5VTvJ/RbQvlA51hRj9aiRoQST6yiUexSo4KQAweOZd1Di
+t/iAtDe3nJXmyAC7WGnDoxjXubSHtqE/eY9aNeDmODyu6pz3tgFxPGRTj7JRRfz3
+nulng4GPP+jN6DuaMF/U
+=gxsH
+-----END PGP SIGNATURE-----
+
+--F+GrfnmevXhaz2Un--
