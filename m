@@ -1,101 +1,118 @@
-From: 'Arnaldo Carvalho de Melo' <acme@kernel.org>
-Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Wed, 28 May 2014 16:50:04 -0300
-Message-ID: <20140528195004.GD2764@kernel.org>
-References: <537E0961.8040005@gmail.com>
- <20140526134647.GB8176@kernel.org>
- <20140526211706.GA25474@kernel.org>
- <5384BEC5.2080607@gmail.com>
- <20140527192115.GD25474@kernel.org>
- <CAKgNAkht1vubHueYPpkRu_W5B8OYW3rPUkHeLEq5WMVbCvO47w@mail.gmail.com>
- <20140527203010.GA2764@kernel.org>
- <5385D47A.3070401@gmail.com>
- <20140528150720.GB2764@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH iproute2] bridge: Add master device name to bridge fdb
+ show
+Date: Wed, 28 May 2014 16:00:17 -0400
+Message-ID: <53864051.4070102@gmail.com>
+References: <1401255611-30862-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ondrej =?iso-8859-1?Q?B=EDlka?= <neleai@seznam.cz>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>,
-	Chris Friesen <chris.friesen@windriver.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
+To: roopa@cumulusnetworks.com, davem@davemloft.net,
+	stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:37819 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbaE1UAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 16:00:20 -0400
+Received: by mail-qg0-f53.google.com with SMTP id f51so19303989qge.12
+        for <netdev@vger.kernel.org>; Wed, 28 May 2014 13:00:20 -0700 (PDT)
+In-Reply-To: <1401255611-30862-1-git-send-email-roopa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Wed, May 28, 2014 at 03:17:40PM +0000, David Laight escreveu:
-> From: Arnaldo Carvalho de Melo
-> ...
-> > > But, another question...
-> > >
-> > > In the case that the call is interrupted by a signal handler and some
-> > > datagrams have already been received, then the call succeeds, and
-> > > returns the number of datagrams received, and 'timeout' is updated with
-> > > the remaining time. Maybe that's the right behavior, but I just want to
- 
-> > Note that what the comment in the existing code says should apply here,
-> > namely that the next recv (m or mmsg) syscall on this socket will return
-> > what is in sock->sk->sk_err, that is the signal:
- 
-> ...
- 
-> > So, yes, the user _can_ process the packets already copied to userspace,
-> > i.e. no packet loss, and then, on the next call, will receive the signal
-> > notification.
- 
-> The application shouldn't need to see an EINTR response, any signal handler
-> should be run when the system call returns to user (regardless of the
-> system call result code).
-> If that doesn't happen Linux is badly broken!
-> >From an application point of view this is exactly the same as the signal
-> occurring just before/after the kernel entry/exit for the system call.
+On 05/28/2014 01:40 AM, roopa@cumulusnetworks.com wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
-> The call should just return early with success status.
-> No need to preserve the EINTR response for later.
+> (This patch depends on net-next patch titled
+> "Add bridge ifindex to bridge fdb notify msgs")
 > 
-> The same might be appropriate for other errors - maybe including EFAULT
-> copying non-initial messages to userspace.
-> Put the message being processed back on the socket queue and return
-> success with the (non-zero) partial message count.
+> This patch adds master dev name from NDA_MASTER netlink attribute
+>  to bridge fdb show output
+> 
+> current iproute2 tries to print 'master' in the output if NTF_MASTER
+> is present. But, kernel today does not set NTF_MASTER during dump
+> requests. Which means I have not seen iproute2 bridge cmd print 'master' atall.
+> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is present.
+> 
+> Example output:
+> 
+> before this patch:
+> # bridge fdb show
+> 44:38:39:00:27:ba dev bond2.2003 permanent
+> 44:38:39:00:27:bb dev bond4.2003 permanent
+> 44:38:39:00:27:bc dev bond2.2004 permanent
+> 
+> After this patch:
+> # bridge fdb show
+> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
+> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
+> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
 
-We don't need to put anything back, if we get an EFAULT for a datagram,
-then we stop processing that packet, _dropping_ it (and that is just
-like recvmsg works, look at __skb_recv_datagram, the skb_unlink there,
-and udp_recvmsg, what happens if skb_copy_and_csum_datagram_iovec fails)
-and stop the batch, and if no datagrams were received, return the error
-straight away.
+'master' is already a reserved word in the bridge command and
+has a slightly different connotation. May be replace it with
+'bridge' or something similar.
 
-But if some datagrams were successfully received, and at that point
-_already_ removed from queues and sent successfully to userspace,
-recvmmsg will return the number of successfully copied datagrams and
-store the error so that it can return on the next syscall,
+> 
+> For comparision with the above, below is the output for NTF_SELF today,
+> # bridge fdb show
+> 33:33:00:00:00:01 dev eth0 self permanent
+> 01:00:5e:00:00:01 dev eth0 self permanent
+> 33:33:ff:00:01:cc dev eth0 self permanent
+> 
+> If change in output is a concern, 'master' can be put at the end of the fdb
+> output line or made optional with -d[etails] option.
 
-Please refer to the original discussion on how to report how many
-successfully copied datagrams and also report that it stopped before the
-timeout and the number of requested datagrams in a batch:
+As Stephen always mentions, iproute commands have to be invertable.
+In other words, what you get out of the show command you should
+be able to feed back into a set command.
 
-http://lkml.kernel.org/r/200905221022.48790.remi.denis-courmont@nokia.com
+As such, it would probably be a good thing to support
+bridge fdb set 44:38:39:00:27:ba dev bond2.2003 bridge br-2003 permanent
 
-What is being discussed here is how to return the EFAULT that may happen
-_after_ datagram processing, be it interrupted by an EFAULT, signal, or
-plain returning all that was requested, with no errors.
+and I think this ends up being something very close to what
+Jamal already proposed.
 
-This EFAULT _after_ datagram processing may happen when updating the
-remaining timeout, because then how can userspace both receive the
-number of successfully copied datagrams (in any of the cases mentioned
-in the previous paragraph) and know that that timeout can't be used
-because there was a problem while trying to copy it to userspace
-(EFAULT)?
+May be work together and come up with a single syntax.
 
-- Arnaldo
+-vlad
+
+
+> 
+> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  bridge/fdb.c              |    5 ++++-
+>  include/linux/neighbour.h |    1 +
+>  2 files changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/bridge/fdb.c b/bridge/fdb.c
+> index 9b720e3..d1c3da6 100644
+> --- a/bridge/fdb.c
+> +++ b/bridge/fdb.c
+> @@ -146,7 +146,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  	}
+>  	if (r->ndm_flags & NTF_SELF)
+>  		fprintf(fp, "self ");
+> -	if (r->ndm_flags & NTF_MASTER)
+> +	if (tb[NDA_MASTER])
+> +		fprintf(fp, "master %s ",
+> +			ll_index_to_name(rta_getattr_u32(tb[NDA_MASTER])));
+> +	else if (r->ndm_flags & NTF_MASTER)
+>  		fprintf(fp, "master ");
+>  	if (r->ndm_flags & NTF_ROUTER)
+>  		fprintf(fp, "router ");
+> diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+> index d3ef583..4a1d7e9 100644
+> --- a/include/linux/neighbour.h
+> +++ b/include/linux/neighbour.h
+> @@ -24,6 +24,7 @@ enum {
+>  	NDA_PORT,
+>  	NDA_VNI,
+>  	NDA_IFINDEX,
+> +	NDA_MASTER,
+>  	__NDA_MAX
+>  };
+>  
+> 
