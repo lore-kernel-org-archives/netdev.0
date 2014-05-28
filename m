@@ -1,38 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] lpc_eth: Use resource_size instead of computation
-Date: Wed, 28 May 2014 09:16:56 -0700
-Message-ID: <1401293816.19335.3.camel@joe-AO725>
-References: <1401290047-30005-1-git-send-email-benoit.taine@lip6.fr>
-	 <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH 1/5] devicetree: bindings: Document micrel vendor prefix
+Date: Wed, 28 May 2014 11:18:56 -0500
+Message-ID: <CAL_JsqK1wkXMkJCag5g72enGcss2Cr1fYjEo--KkgQBDGuqyEQ@mail.gmail.com>
+References: <1400792413-21618-1-git-send-email-sboyd@codeaurora.org>
+	<1400792413-21618-2-git-send-email-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Benoit Taine <benoit.taine@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	netdev <netdev@vger.kernel.org>,
+	"David S . Miller" <davem@davemloft.net>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1400792413-21618-2-git-send-email-sboyd@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-05-28 at 17:14 +0200, Benoit Taine wrote:
-> This issue was reported by coccicheck using the semantic patch 
-> at scripts/coccinelle/api/resource_size.cocci
+On Thu, May 22, 2014 at 4:00 PM, Stephen Boyd <sboyd@codeaurora.org> wrote:
+> There's one existing use of 'micrel' in the documentation so use
+> 'micrel' instead of the company's ticker symbol 'mcrl'.
+>
+> Cc: <devicetree@vger.kernel.org>
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 
-Slightly associated trivial note:
+Applied for 3.16.
 
-> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-[]
-> @@ -1419,8 +1419,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
->  
->  	netdev_dbg(ndev, "IO address start     :0x%08x\n",
->  			res->start);
-> -	netdev_dbg(ndev, "IO address size      :%d\n",
-> -			res->end - res->start + 1);
-> +	netdev_dbg(ndev, "IO address size      :%d\n", resource_size(res));
+Rob
 
-May be better using:
-
-	netdev_dbg(ndev, "IO                       :%pR\n", res)
-
-
+> ---
+>
+> This is mostly here as the first patch to make checkpatch quiet. I expect DT
+> maintainers to pick this one up.
+>
+>  Documentation/devicetree/bindings/vendor-prefixes.txt | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+> index 1bc2174e1a05..2fe06ad1d248 100644
+> --- a/Documentation/devicetree/bindings/vendor-prefixes.txt
+> +++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+> @@ -76,6 +76,7 @@ linux Linux-specific binding
+>  lsi    LSI Corp. (LSI Logic)
+>  marvell        Marvell Technology Group Ltd.
+>  maxim  Maxim Integrated Products
+> +micrel Micrel Inc.
+>  microchip      Microchip Technology Inc.
+>  mosaixtech     Mosaix Technologies, Inc.
+>  moxa   Moxa
+> --
+> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+> hosted by The Linux Foundation
+>
