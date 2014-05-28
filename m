@@ -1,19 +1,19 @@
 From: Shradha Shah <sshah@solarflare.com>
 Subject: [PATCH net v2 1/2] sfc: use 64-bit writes for PIO.
-Date: Wed, 28 May 2014 10:27:01 +0100
-Message-ID: <5385ABE5.9070406@solarflare.com>
-References: <cover.1401268725.git.sshah@solarflare.com>
+Date: Wed, 28 May 2014 10:28:04 +0100
+Message-ID: <5385AC24.6030007@solarflare.com>
+References: <5385AAF5.7090001@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17103 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17135 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbaE1J1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:27:04 -0400
-In-Reply-To: <cover.1401268725.git.sshah@solarflare.com>
+	with ESMTP id S1752283AbaE1J2H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 May 2014 05:28:07 -0400
+In-Reply-To: <5385AAF5.7090001@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
