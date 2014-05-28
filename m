@@ -1,39 +1,39 @@
-From: Xufeng Zhang <xufengzhang.main@gmail.com>
-Subject: Question about esp sequence number and anti-reply window logic
-Date: Wed, 28 May 2014 10:30:16 +0800
-Message-ID: <CA+=dFzhDVqRvFU0f8QoP7thV7LJeHN_375oe=dG=NoqoSGD1eQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/mlx4_core: Preserve pci_dev_data after
+ __mlx4_remove_one()
+Date: Tue, 27 May 2014 19:37:37 -0700 (PDT)
+Message-ID: <20140527.193737.22275611325169063.davem@davemloft.net>
+References: <20140527.145403.1114311769956769966.davem@davemloft.net>
+	<20140528014848.GB5830@richard>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: weiyang@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f51.google.com ([209.85.192.51]:36777 "EHLO
-	mail-qg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbaE1CaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 22:30:17 -0400
-Received: by mail-qg0-f51.google.com with SMTP id q107so16042212qgd.10
-        for <netdev@vger.kernel.org>; Tue, 27 May 2014 19:30:16 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49532 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108AbaE1Chn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 May 2014 22:37:43 -0400
+In-Reply-To: <20140528014848.GB5830@richard>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Date: Wed, 28 May 2014 09:48:48 +0800
 
-Per RFC4303:
-The sender assumes anti-replay is enabled as a default, unless
-otherwise notified by the receiver (see Section 3.4.3). Thus,
-typical behavior of an ESP implementation calls for the sender to
-establish a new SA when the Sequence Number (or ESN) cycles, or in
-anticipation of this value cycling.
+> I haven't done some backporting job before, so not sure how to and which
+> attention I should pay.
+> 
+> I guess I should use this tree:
+>      git://git.kernel.org/pub/scm/linux/kernel/git/jirislaby/linux-stable.git
+> and apply it on tag v3.14.4?
 
-But currently the xfrm implementation don't establish a new SA when
-the Sequence Number cycles, it just give a notification to user.
-I know this might be a well-known limitation, but is there any document
-declare this about why xfrm didn't implement this?
+That is Jiri's personal tree strictly for 3.12 -stable development.
 
-I also found a similar bug opened for this issue but without any response:
-https://bugzilla.kernel.org/show_bug.cgi?id=76791
+The real -stable tree is at:
 
+	git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 
-Thanks a lot!
-Xufeng
+And you should make versions for the most recent tags for 3.14, 3.10, 3.4,
+and 3.2
