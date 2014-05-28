@@ -1,91 +1,97 @@
-From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-Subject: RE: [PATCH RESEND 2/2] bnx2x: Fix kernel crash and data miscompare
- after EEH recovery
-Date: Wed, 28 May 2014 08:38:04 +0000
-Message-ID: <87B4DDAD5EAFA041BDC28F314593782D01748FFB@avmb3.qlogic.org>
-References: <20140527191122.750711568@linux.vnet.ibm.com>
- <20140527191235.743680910@linux.vnet.ibm.com>
+From: Luiz Augusto von Dentz <luiz.dentz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC] Bluetooth: Keep master role when SCO or eSCO is active
+Date: Wed, 28 May 2014 11:45:13 +0300
+Message-ID: <CABBYNZLn7Uw=Jcu_haMEczmfgY5pnfz=jwktwKDqmQ29JXk+GA@mail.gmail.com>
+References: <1401256588-1467-1-git-send-email-kiran.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>, Milton Miller <miltonm@bga.com>
-To: "wenxiong@linux.vnet.ibm.com" <wenxiong@linux.vnet.ibm.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:9619 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752520AbaE1IiM convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 May 2014 04:38:12 -0400
-In-Reply-To: <20140527191235.743680910@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"open list:BLUETOOTH SUBSYSTEM" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:NETWORKING [GENERAL]" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+To: Kiran Kumar Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1401256588-1467-1-git-send-email-kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Wen
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of wenxiong@linux.vnet.ibm.com
-> Sent: Tuesday, May 27, 2014 10:11 PM
-> To: David Miller
-> Cc: Ariel Elior; netdev; Milton Miller; Wen Xiong
-> Subject: [PATCH RESEND 2/2] bnx2x: Fix kernel crash and data miscompare
-> after EEH recovery
+Hi,
+
+On Wed, May 28, 2014 at 8:56 AM, Kiran Kumar Raparthy
+<kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> wrote:
+> From: "hyungseoung.yoo" <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
 >
-> A rmb() is required to ensure that the CQE is not read before it is written by
-> the adapter DMA.  PCI ordering rules will make sure the other fields are
-> written before the marker at the end of struct eth_fast_path_rx_cqe but
-> without rmb() a weakly ordered processor can process stale data.
+> Preserve the master role when SCO or eSCO is active
+> as this improves compatability with lots of
+> headset and chipset combinations.
 >
-> Without the barrier we have observed various crashes including
-> bnx2x_tpa_start being called on queues not stopped (resulting in message
-> start of bin not in stop) and NULL pointer exceptions from bnx2x_rx_int.
+> This is one of the number of patches from the Android AOSP
+> common.git tree, which is used on almost all Android devices.
+> It looks like it would improve support for compatibility with
+> lot of headset,so I wanted to submit it for review to see
+> if it should go upstream.
 >
-> Signed-off-by: Milton Miller <miltonm@bga.com>
-> Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+> Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+> Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (maintainer:BLUETOOTH SUBSYSTEM)
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> (maintainer:NETWORKING [GENERAL])
+> Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:BLUETOOTH SUBSYSTEM)
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list:NETWORKING [GENERAL])
+> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org (open list)
+> Cc: Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+> Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Signed-off-by: hyungseoung.yoo <hyungseoung.yoo-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+> Signed-off-by: Jaikumar Ganesh <jaikumarg-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+> [kiran: Added context to commit message]
+> Signed-off-by: Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 > ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |   12 ++++++++++++
->  1 file changed, 12 insertions(+)
+>  net/bluetooth/hci_event.c | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
 >
-> Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> ===================================================================
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-23
-> 10:34:21.000000000 -0500
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c 2014-05-27
-> 13:51:12.067764759 -0500
-> @@ -906,6 +906,18 @@ static int bnx2x_rx_int(struct bnx2x_fas
->               bd_prod = RX_BD(bd_prod);
->               bd_cons = RX_BD(bd_cons);
+> diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
+> index 15010a2..6f944d5 100644
+> --- a/net/bluetooth/hci_event.c
+> +++ b/net/bluetooth/hci_event.c
+> @@ -1915,6 +1915,15 @@ unlock:
+>         hci_conn_check_pending(hdev);
+>  }
 >
-> +             /* A rmb() is required to ensure that the CQE is not read
-> +              * before it is written by the adapter DMA.  PCI ordering
-> +              * rules will make sure the other fields are written before
-> +              * the marker at the end of struct eth_fast_path_rx_cqe
-> +              * but without rmb() a weakly ordered processor can process
-> +              * stale data.  Without the barrier we have observed various
-> +              * crashes including bnx2x_tpa_start being called on queues
-> +              * not stopped (resulting in message start of bin not in
-> +              * stop) and NULL pointer exceptions from bnx2x_rx_int.
-> +             */
-Can you please drop third sentence from the comment or rephrase it in more generic way like:
-Without the barrier TPA state-machine might enter inconsistent state and kernel stack might be provided with incorrect packet description - these lead to various kernel crashes.
-
-Thanks
-Dmitry
-> +             rmb();
+> +static inline bool is_sco_active(struct hci_dev *hdev)
+> +{
+> +       if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
+> +                       (hci_conn_hash_lookup_state(hdev, ESCO_LINK,
+> +                                                   BT_CONNECTED)))
+> +               return true;
+> +       return false;
+> +}
 > +
->               cqe_fp_flags = cqe_fp->type_error_flags;
->               cqe_fp_type = cqe_fp_flags &
-> ETH_FAST_PATH_RX_CQE_TYPE;
+>  static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
+>  {
+>         struct hci_ev_conn_request *ev = (void *) skb->data;
+> @@ -1961,7 +1970,8 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
 >
+>                         bacpy(&cp.bdaddr, &ev->bdaddr);
 >
+> -                       if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
+> +                       if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
+> +                                               || is_sco_active(hdev)))
+>                                 cp.role = 0x00; /* Become master */
+>                         else
+>                                 cp.role = 0x01; /* Remain slave */
 > --
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the
-> body of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+> 1.8.2.1
 
-________________________________
+I guess the real issue is the possibility of creating a scatternet if
+you have more than one connection, I will send a patch for scatternet
+shortly but that does not guarantee the remote device wont reject it.
 
-This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
+
+-- 
+Luiz Augusto von Dentz
