@@ -1,59 +1,46 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] mvme147: use correct order of ram pages
-Date: Wed, 28 May 2014 09:51:39 +0200
-Message-ID: <CAMuHMdV-g35ijLgcE=sSM3eE+fCxC1WOiAX2PaWs0z4-+bDP+A@mail.gmail.com>
-References: <1401250073-16603-1-git-send-email-akong@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Linux/m68k" <linux-m68k@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Amos Kong <akong@redhat.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1401250073-16603-1-git-send-email-akong@redhat.com>
-Sender: linux-m68k-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2014-05-28
+Date: Wed, 28 May 2014 10:04:42 +0200
+Message-ID: <1401264283-9353-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Amos,
+Hello David,
 
-On Wed, May 28, 2014 at 6:07 AM, Amos Kong <akong@redhat.com> wrote:
-> 16K is 2^2 * PAGE_SIZE, so the page order should be 2, not 3.
->
-> This patch uses get_order() to get correct order, and fixes
-> one typo in comment.
+here's a pull request for v3.15, hope it's not too late.
 
-Thanks for your patch!
+Oliver Hartkopp fixed a bug in the CAN led trigger device renaming code.
 
-> Signed-off-by: Amos Kong <akong@redhat.com>
-> ---
-> This patch wasn't built. Geert, can you help to test it?
-> I don't know if it needs a head file by using get_order().
+regards,
+Marc
 
-It builds fine. The get_order() is nicely expanded to "2" in the assembler
-output.
+---
 
-Now, I'd like to get some feedback from the MVME hackers first.
-Perhaps the comment was wrong?
+The following changes since commit 8646224cdb945eca4293e2131e5be47930ce3e80:
 
-> -/* We have 16834 bytes of RAM for the init block and buffers. This places
-> +/* We have 16384 bytes of RAM for the init block and buffers. This places
->   * an upper limit on the number of buffers we can use. NetBSD uses 8 Rx
->   * buffers and 2 Tx buffers.
->   */
-> +#define M147LANCE_RAM_SIZE   16384 /* 16K */
->  #define LANCE_LOG_TX_BUFFERS 1
->  #define LANCE_LOG_RX_BUFFERS 3
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless (2014-05-24 14:06:19 -0400)
 
-BTW,I also find it fishy why the driver uses only 1+3 buffers, since more
-RAM is available.
+are available in the git repository at:
 
-Gr{oetje,eeting}s,
 
-                        Geert
+  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.15-20140528
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+for you to fetch changes up to 45fb4f8d81578e0a17c45c4593a3305afbf7a48b:
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+  can: only rename enabled led triggers when changing the netdev name (2014-05-27 15:05:41 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-3.15-20140528
+
+----------------------------------------------------------------
+Oliver Hartkopp (1):
+      can: only rename enabled led triggers when changing the netdev name
+
+ drivers/net/can/led.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+
