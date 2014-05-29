@@ -1,112 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] i40e: Tx/Rx rings declaration
-Date: Thu, 29 May 2014 08:10:06 -0700
-Message-ID: <1401376216-12531-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40: disable FCoE for MFP modes
+Date: Thu, 29 May 2014 08:10:14 -0700
+Message-ID: <1401376216-12531-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401376216-12531-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:51814 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:55978 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932782AbaE2PKh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2014 11:10:37 -0400
+	id S933154AbaE2PKj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 11:10:39 -0400
 In-Reply-To: <1401376216-12531-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+From: Vasu Dev <vasu.dev@intel.com>
 
-This patch changes the declaration of Tx/Rx rings inside several loops. It
-eliminates declaring the same rings every time for the duration of the loop,
-instead declaring them once before the loop.
+Currently FCoE is not supported with MFP modes, so this patch
+makes sure it is disabled.
 
-Change-ID: I59dea54276f18c47dca522f520c18f65fe42a15d
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+It is disabled by overriding HW FCoE capability, so that later
+it can be re-enabled by just the SW upgrade.
+
+Change-ID: I1c0bae5c099b209f56b88bda360031a8565e43e8
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Tested-By: Jack Morgan <jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  4 ++--
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 11 +++++------
- 2 files changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 861e1db..a7bf149 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -633,6 +633,7 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 				   struct ethtool_stats *stats, u64 *data)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_ring *tx_ring, *rx_ring;
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
- 	int i = 0;
-@@ -650,8 +651,7 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 	}
- 	rcu_read_lock();
- 	for (j = 0; j < vsi->num_queue_pairs; j++) {
--		struct i40e_ring *tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
--		struct i40e_ring *rx_ring;
-+		tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
- 
- 		if (!tx_ring)
- 			continue;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8e15ced..75bd99e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -356,6 +356,7 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
- 					     struct rtnl_link_stats64 *stats)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	struct i40e_ring *tx_ring, *rx_ring;
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct rtnl_link_stats64 *vsi_stats = i40e_get_vsi_stats_struct(vsi);
- 	int i;
-@@ -368,7 +369,6 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
- 
- 	rcu_read_lock();
- 	for (i = 0; i < vsi->num_queue_pairs; i++) {
--		struct i40e_ring *tx_ring, *rx_ring;
- 		u64 bytes, packets;
- 		unsigned int start;
- 
-@@ -2415,6 +2415,7 @@ static int i40e_vsi_configure_rx(struct i40e_vsi *vsi)
-  **/
- static void i40e_vsi_config_dcb_rings(struct i40e_vsi *vsi)
- {
-+	struct i40e_ring *tx_ring, *rx_ring;
- 	u16 qoffset, qcount;
- 	int i, n;
- 
-@@ -2428,8 +2429,8 @@ static void i40e_vsi_config_dcb_rings(struct i40e_vsi *vsi)
- 		qoffset = vsi->tc_config.tc_info[n].qoffset;
- 		qcount = vsi->tc_config.tc_info[n].qcount;
- 		for (i = qoffset; i < (qoffset + qcount); i++) {
--			struct i40e_ring *rx_ring = vsi->rx_rings[i];
--			struct i40e_ring *tx_ring = vsi->tx_rings[i];
-+			rx_ring = vsi->rx_rings[i];
-+			tx_ring = vsi->tx_rings[i];
- 			rx_ring->dcb_tc = n;
- 			tx_ring->dcb_tc = n;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 064b0aa..2329e2f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -1949,6 +1949,12 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
  		}
-@@ -5948,14 +5949,12 @@ static void i40e_vsi_clear_rings(struct i40e_vsi *vsi)
-  **/
- static int i40e_alloc_rings(struct i40e_vsi *vsi)
- {
-+	struct i40e_ring *tx_ring, *rx_ring;
- 	struct i40e_pf *pf = vsi->back;
- 	int i;
+ 	}
  
- 	/* Set basic values in the rings to be used later during open() */
- 	for (i = 0; i < vsi->alloc_queue_pairs; i++) {
--		struct i40e_ring *tx_ring;
--		struct i40e_ring *rx_ring;
--
- 		/* allocate space for both Tx and Rx in one shot */
- 		tx_ring = kzalloc(sizeof(struct i40e_ring) * 2, GFP_KERNEL);
- 		if (!tx_ring)
++	/* Software override ensuring FCoE is disabled if npar or mfp
++	 * mode because it is not supported in these modes.
++	 */
++	if (p->npar_enable || p->mfp_mode_1)
++		p->fcoe = false;
++
+ 	/* additional HW specific goodies that might
+ 	 * someday be HW version specific
+ 	 */
 -- 
 1.9.3
