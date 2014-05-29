@@ -1,7 +1,7 @@
 From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH v6 net-next 4/4] net: filter: minor BPF cleanups
-Date: Thu, 29 May 2014 11:56:11 -0700
-Message-ID: <1401389771-13410-1-git-send-email-chema@google.com>
+Subject: [PATCH v6 net-next 2/4] net: filter: add insn for loading internal transport header offset
+Date: Thu, 29 May 2014 11:56:03 -0700
+Message-ID: <1401389763-13320-1-git-send-email-chema@google.com>
 References: <1398882591-30422-1-git-send-email-chema@google.com>
 Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
 To: David Miller <davem@davemloft.net>,
@@ -9,97 +9,189 @@ To: David Miller <davem@davemloft.net>,
 	Daniel Borkmann <dborkman@redhat.com>,
 	Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f202.google.com ([209.85.192.202]:39809 "EHLO
-	mail-pd0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752294AbaE2S4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 14:56:13 -0400
-Received: by mail-pd0-f202.google.com with SMTP id fp1so12321pdb.1
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 11:56:12 -0700 (PDT)
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:41394 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751264AbaE2TEB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 15:04:01 -0400
+Received: by mail-yh0-f73.google.com with SMTP id f73so172374yha.0
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 12:04:00 -0700 (PDT)
 In-Reply-To: <1398882591-30422-1-git-send-email-chema@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Includes:
- - 4th argument for BPF_CALLs is the FP register
- - unused fields in LD[X]/ST[X] insn should be zero
- - some typos
+Patch adds an ANC_TRA_OFFSET insn that loads the internal transport
+header of a packet ("internal" meaning after decapsulation by the
+flow dissector). Goal is to be able to easily write filters based
+on the inner-most header.
+
+For example, the following filter will capture all packets whose
+inner-most L4 dst port is 80:
+
+ld #toff
+tax
+ldh [X+2]
+jneq #80, drop
+ret #-1
+drop: ret #0
 
 Signed-off-by: Chema Gonzalez <chema@google.com>
 ---
- net/core/filter.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+ include/linux/filter.h      |  1 +
+ include/uapi/linux/filter.h |  3 ++-
+ net/core/filter.c           | 23 ++++++++++++++++++++++-
+ tools/net/bpf_exp.l         |  1 +
+ tools/net/bpf_exp.y         | 11 ++++++++++-
+ 5 files changed, 36 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 625f4de..9bc7771 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -304,6 +304,7 @@ enum {
+ 	BPF_S_ANC_VLAN_TAG_PRESENT,
+ 	BPF_S_ANC_PAY_OFFSET,
+ 	BPF_S_ANC_RANDOM,
++	BPF_S_ANC_TRA_OFFSET,
+ };
+ 
+ #endif /* __LINUX_FILTER_H__ */
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 253b4d4..9f1b8f1 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -131,7 +131,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_VLAN_TAG_PRESENT 48
+ #define SKF_AD_PAY_OFFSET	52
+ #define SKF_AD_RANDOM	56
+-#define SKF_AD_MAX	60
++#define SKF_AD_TRA_OFFSET	60
++#define SKF_AD_MAX	64
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
 diff --git a/net/core/filter.c b/net/core/filter.c
-index fcc2783..fd9c7bf 100644
+index 0c55252..0d67498 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
-@@ -651,7 +651,7 @@ static u64 __skb_get_tra_protocol(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
- 	return stack_layout->flow.ip_proto;
+@@ -623,6 +623,20 @@ static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
+ 			      &stack_layout->flow_inited);
  }
  
--static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
-+static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
++static u64 __skb_get_tra_offset(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
++{
++	struct classic_bpf_stack_layout *stack_layout =
++	    (void *) fp - sizeof(struct classic_bpf_stack_layout);
++	/* check whether the flow dissector has already been run */
++	if (!stack_layout->flow_inited) {
++		if (!skb_flow_dissect((struct sk_buff *)(unsigned long) ctx,
++		    &stack_layout->flow))
++			return 0;
++		stack_layout->flow_inited = 1;
++	}
++	return stack_layout->flow.thoff;
++}
++
+ static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
  {
  	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
- 	struct nlattr *nla;
-@@ -672,7 +672,7 @@ static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- 	return 0;
- }
- 
--static u64 __skb_get_nlattr_nest(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
-+static u64 __skb_get_nlattr_nest(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
- {
- 	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
- 	struct nlattr *nla;
-@@ -697,13 +697,13 @@ static u64 __skb_get_nlattr_nest(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- 	return 0;
- }
- 
--static u64 __get_raw_cpu_id(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
-+static u64 __get_raw_cpu_id(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
- {
- 	return raw_smp_processor_id();
- }
- 
- /* note that this only generates 32-bit random numbers */
--static u64 __get_random_u32(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
-+static u64 __get_random_u32(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
- {
- 	return prandom_u32();
- }
-@@ -1094,7 +1094,7 @@ do_pass:
- 			EMIT_JMP;
+@@ -789,6 +803,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 	case SKF_AD_OFF + SKF_AD_NLATTR_NEST:
+ 	case SKF_AD_OFF + SKF_AD_CPU:
+ 	case SKF_AD_OFF + SKF_AD_RANDOM:
++	case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
+ 		/* arg1 = ctx */
+ 		*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_ARG1, BPF_REG_CTX);
+ 		insn++;
+@@ -823,6 +838,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 		case SKF_AD_OFF + SKF_AD_RANDOM:
+ 			insn->imm = __get_random_u32 - __bpf_call_base;
  			break;
++		case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
++			insn->imm = __skb_get_tra_offset - __bpf_call_base;
++			break;
+ 		}
+ 		break;
  
--		/* ldxb 4 * ([14] & 0xf) is remaped into 6 insns. */
-+		/* ldxb 4 * ([14] & 0xf) is remapped into 6 insns. */
- 		case BPF_LDX | BPF_MSH | BPF_B:
- 			/* tmp = A */
- 			*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_TMP, BPF_REG_A);
-@@ -1120,7 +1120,7 @@ do_pass:
- 			*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_A, BPF_REG_TMP);
+@@ -855,7 +873,8 @@ void __sk_convert_filter_prologue(struct sock_filter *fp, int len,
+ 	for (i = 0; i < len; fp++, i++) {
+ 		if (BPF_CLASS(fp->code) == BPF_LD &&
+ 		    BPF_MODE(fp->code) == BPF_ABS &&
+-		    fp->k == SKF_AD_OFF + SKF_AD_PAY_OFFSET) {
++		    (fp->k == SKF_AD_OFF + SKF_AD_PAY_OFFSET ||
++		     fp->k == SKF_AD_OFF + SKF_AD_TRA_OFFSET)) {
+ 			use_flow_dissector = true;
  			break;
+ 		}
+@@ -1402,6 +1421,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(VLAN_TAG_PRESENT);
+ 			ANCILLARY(PAY_OFFSET);
+ 			ANCILLARY(RANDOM);
++			ANCILLARY(TRA_OFFSET);
+ 			}
  
--		/* RET_K, RET_A are remaped into 2 insns. */
-+		/* RET_K, RET_A are remapped into 2 insns. */
- 		case BPF_RET | BPF_A:
- 		case BPF_RET | BPF_K:
- 			insn->code = BPF_ALU | BPF_MOV |
-@@ -1145,6 +1145,7 @@ do_pass:
- 			    -sizeof(struct classic_bpf_stack_layout) +
- 			    offsetof(struct classic_bpf_stack_layout,
- 				     mem[fp->k]);
-+			insn->imm = 0;
- 			break;
+ 			/* ancillary operation unknown or unsupported */
+@@ -1815,6 +1835,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+ 		[BPF_S_ANC_VLAN_TAG_PRESENT] = BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
++		[BPF_S_ANC_TRA_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
+ 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
+ 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
+diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+index 833a966..4e72934 100644
+--- a/tools/net/bpf_exp.l
++++ b/tools/net/bpf_exp.l
+@@ -93,6 +93,7 @@ extern void yyerror(const char *str);
+ "#"?("vlan_tci") { return K_VLANT; }
+ "#"?("vlan_pr")	{ return K_VLANP; }
+ "#"?("rand")	{ return K_RAND; }
++"#"?("toff")	{ return K_TOFF; }
  
- 		/* Load from stack. */
-@@ -1158,6 +1159,7 @@ do_pass:
- 			    -sizeof(struct classic_bpf_stack_layout) +
- 			    offsetof(struct classic_bpf_stack_layout,
- 				     mem[fp->k]);
-+			insn->imm = 0;
- 			break;
+ ":"		{ return ':'; }
+ ","		{ return ','; }
+diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+index e6306c5..ced6949 100644
+--- a/tools/net/bpf_exp.y
++++ b/tools/net/bpf_exp.y
+@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
+ %token OP_LDXI
  
- 		/* A = K or X = K */
+ %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
+-%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND
++%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF
+ 
+ %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+ 
+@@ -167,6 +167,9 @@ ldb
+ 	| OP_LDB K_RAND {
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_RANDOM); }
++	| OP_LDB K_TOFF {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
+ 	;
+ 
+ ldh
+@@ -218,6 +221,9 @@ ldh
+ 	| OP_LDH K_RAND {
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_RANDOM); }
++	| OP_LDH K_TOFF {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
+ 	;
+ 
+ ldi
+@@ -274,6 +280,9 @@ ld
+ 	| OP_LD K_RAND {
+ 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_RANDOM); }
++	| OP_LD K_TOFF {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
+ 	| OP_LD 'M' '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
+ 	| OP_LD '[' 'x' '+' number ']' {
 -- 
 1.9.1.423.g4596e3a
