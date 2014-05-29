@@ -1,65 +1,73 @@
-From: Cheng Renquan <crquan@gmail.com>
-Subject: [PATCH] genetlink: remove superfluous assignment
-Date: Wed, 28 May 2014 23:54:08 -0700
-Message-ID: <1401346448-17105-1-git-send-email-crquan@gmail.com>
-Cc: Johannes Berg <johannes.berg@intel.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f180.google.com ([209.85.160.180]:64388 "EHLO
-	mail-yk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104AbaE2GzB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 02:55:01 -0400
-Received: by mail-yk0-f180.google.com with SMTP id q9so9182410ykb.11
-        for <netdev@vger.kernel.org>; Wed, 28 May 2014 23:55:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net-next v1] mrf24j40: add managed API's provided by
+ device layer
+Date: Thu, 29 May 2014 12:42:37 +0530
+Message-ID: <CAEUmHybO0GHykgLAn9Gm5RZEJNdopzFxR_inniE50V5SQiSeOA@mail.gmail.com>
+References: <1401338421-15394-1-git-send-email-varkab@cdac.in>
+	<20140529063236.GA9679@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alan Ott <alan@signal11.us>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Alexandra Serrano <alex.aing@gmail.com>,
+	Varka Bhadram <varkab@cdac.in>
+To: Tushar Behera <trblinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140529063236.GA9679@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-the local variable ops and n_ops were just read out from family,
-and not changed, why need to assign back?
+Thanks for the suggestions.
 
-Validation functions should operate on const parameters and not
-change anything.
+I send the v2 patch which uses devm_kzalloc().
 
-Signed-off-by: Cheng Renquan <crquan@gmail.com>
+Regards,
+Varka Bhadram
 
----
- net/netlink/genetlink.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-Index: linux-3.14.3/net/netlink/genetlink.c
-===================================================================
---- linux-3.14.3.orig/net/netlink/genetlink.c	2014-05-06 07:59:58.000000000 -0700
-+++ linux-3.14.3/net/netlink/genetlink.c	2014-05-28 23:42:46.325410152 -0700
-@@ -307,39 +307,35 @@
- 		genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, family,
- 				&family->mcgrps[i], grp_id);
- 	}
- }
- 
--static int genl_validate_ops(struct genl_family *family)
-+static int genl_validate_ops(const struct genl_family *family)
- {
- 	const struct genl_ops *ops = family->ops;
- 	unsigned int n_ops = family->n_ops;
- 	int i, j;
- 
- 	if (WARN_ON(n_ops && !ops))
- 		return -EINVAL;
- 
- 	if (!n_ops)
- 		return 0;
- 
- 	for (i = 0; i < n_ops; i++) {
- 		if (ops[i].dumpit == NULL && ops[i].doit == NULL)
- 			return -EINVAL;
- 		for (j = i + 1; j < n_ops; j++)
- 			if (ops[i].cmd == ops[j].cmd)
- 				return -EINVAL;
- 	}
- 
--	/* family is not registered yet, so no locking needed */
--	family->ops = ops;
--	family->n_ops = n_ops;
--
- 	return 0;
- }
+On Thu, May 29, 2014 at 12:02 PM, Tushar Behera <trblinux@gmail.com> wrote:
+> On Thu, May 29, 2014 at 10:10:21AM +0530, Varka Bhadram wrote:
+>> Hi,
+>>       Previous patch having bug in using managed API's. I fixed that.
+>>
+>> Regards,
+>> Varka Bhadram.
+>
+> Only add relevant commit message here, no need to add 'Hi' and
+> 'Regards'.
+>
+> Something like ...
+>
+> "Added devres managed APIs"
+>
+>>
+>> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+>> ---
+>>  drivers/net/ieee802154/mrf24j40.c |   21 +++++++++------------
+>>  1 file changed, 9 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+>> index 78a6552..f701cdb 100644
+>> --- a/drivers/net/ieee802154/mrf24j40.c
+>> +++ b/drivers/net/ieee802154/mrf24j40.c
+>> @@ -618,10 +618,10 @@ static int mrf24j40_probe(struct spi_device *spi)
+>>
+>>       printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+>>
+>> -     devrec = kzalloc(sizeof(struct mrf24j40), GFP_KERNEL);
+>> +     devrec = devm_kzalloc(&spi->dev, sizeof(struct mrf24j40), GFP_KERNEL);
+>>       if (!devrec)
+>>               goto err_devrec;
+>> -     devrec->buf = kzalloc(3, GFP_KERNEL);
+>> +     devrec->buf = kzalloc(&spi->dev, 3, GFP_KERNEL);
+>
+> devm_kzalloc()
+>
+> Without this, it should not build at all. So remember to compile test
+> before sending the patches.
+>
+> --
+> Warm regards,
+> Tushar
