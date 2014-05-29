@@ -1,69 +1,79 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] team: fix mtu setting
-Date: Thu, 29 May 2014 21:55:24 +0200
-Message-ID: <20140529195524.GD19750@minipsycho.orion>
-References: <1401389177-10463-1-git-send-email-jiri@resnulli.us>
- <20140529193319.GB13007@t520.home>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net V2 2/2] libphy: Add stubs to hook IEEE MMD Register
+ reads and writes
+Date: Fri, 30 May 2014 00:17:07 +0400
+Message-ID: <538795C3.8060905@cogentembedded.com>
+References: <1401380913-4207-1-git-send-email-vbridgers2013@gmail.com> <1401380913-4207-3-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: fbl@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vince Bridgers <vbridgers2013@gmail.com>, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:59781 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751264AbaE2Tz3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 15:55:29 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v10so99771pde.32
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 12:55:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140529193319.GB13007@t520.home>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:60111 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755215AbaE2URC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 16:17:02 -0400
+Received: by mail-lb0-f171.google.com with SMTP id 10so498441lbg.30
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 13:17:00 -0700 (PDT)
+In-Reply-To: <1401380913-4207-3-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, May 29, 2014 at 09:33:19PM CEST, fbl@redhat.com wrote:
->On Thu, May 29, 2014 at 08:46:17PM +0200, Jiri Pirko wrote:
->> Now it is not possible to set mtu to team device which has a port
->> enslaved to it. The reason is that when team_change_mtu() calls
->> dev_set_mtu() for port device, notificator for NETDEV_PRECHANGEMTU
->> event is called and team_device_event() returns NOTIFY_BAD forbidding
->> the change. So fix this by returning NOTIFY_DONE here in case team is
->> changing mtu in team_change_mtu().
->> 
->> Introduced-by: 3d249d4c "net: introduce ethernet teaming device"
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->
->Alright, so changing the team's mtu is now allowed but changing
->port's mtu isn't allowed.
->LGTM.
->
->Since there are some common code between the unwide and the
->successful code paths, I'd suggest to simply use:
->...
->	list_for_each_entry() {
->		err = 
->		if (err)
->			break
->	}
->
->	if (err) {
->		unwind
->	}
->	else
->		dev->mtu = new_mtu;
->
->	<common code>
->
->But I suspect that due to the long function name, any
->additional indentation there will cause the code to look
->less readable.
+Hello.
 
-Yep, I was thinking about the same thing, decided not to go that way for
-now.
+On 05/29/2014 08:28 PM, Vince Bridgers wrote:
 
+> The Micrel ksz9021 PHY does not support standard IEEE standard MMD
+> extended register access, therefore requires stubs to fail the read
+> register method and do nothing for the write register method when
+> libphy attempts to read and/or configure Energy Efficient Ethernet
+> features in PHYS that do support those features. This problem
+> was observed on an Altera Cyclone V SOC development kit that
+> uses the Synopsys EMAC and the Micrel ksz9021 PHY. This patch
+> was tested on the same board, and Energy Efficient Ethernet is
+> now disabled as expected since the Micrel PHY does not support that
+> feature.
+
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> V2: Split libphy and Micrel specific changes into 2 patches
+>      based on review comments
+> ---
+>   drivers/net/phy/micrel.c |   23 +++++++++++++++++++++++
+>   1 file changed, 23 insertions(+)
+
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index d849684..08e9c49 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -316,6 +316,27 @@ static int ksz8873mll_config_aneg(struct phy_device *phydev)
+>   	return 0;
+>   }
 >
->Acked-by: Flavio Leitner <fbl@redhat.com>
->
+> +/* This routine returns -1 as an indication to the caller that the
+> + * Micrel ksz9021 10/100/1000 PHY does not support standard IEEE
+> + * MMD extended PHY registers.
+> + */
+> +static int
+> +ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+> +		      int regnum)
+> +{
+> +	return -1;
+> +}
+> +
+> +/* This routine does nothing since the Micrel ksz9021 does not support
+> + * standard IEEE MMD extended PHY registers.
+> + */
+> +static void
+> +ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+> +		      int regnum, u32 val)
+> +{
+> +	return;
 
+    Not needed.
 
-Thanks for review!
+> +}
+> +
+
+WBR, Sergei
