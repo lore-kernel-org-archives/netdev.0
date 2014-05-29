@@ -1,46 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: qmi_wwan: add Netgear AirCard 341U
-Date: Thu, 29 May 2014 12:00:53 +0200
-Message-ID: <877g54dhuy.fsf@nemi.mork.no>
-References: <1401303903-29958-1-git-send-email-aleksander@aleksander.es>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net v3 0/2] sfc: Restrict PIO for 64bit arch in order to avoid
+ data corruption
+Date: Thu, 29 May 2014 11:18:44 +0100
+Message-ID: <53870984.6020803@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Aleksander Morgado <aleksander@aleksander.es>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:36648 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750723AbaE2KA4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 06:00:56 -0400
-In-Reply-To: <1401303903-29958-1-git-send-email-aleksander@aleksander.es>
-	(Aleksander Morgado's message of "Wed, 28 May 2014 21:05:03 +0200")
+Received: from webmail.solarflare.com ([12.187.104.25]:29103 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752220AbaE2KSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 06:18:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Aleksander Morgado <aleksander@aleksander.es> writes:
+This patch series 
+Fixes: ee45fd92c739("sfc: Use TX PIO for sufficiently small packets")
 
-> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
-> ---
->  drivers/net/usb/qmi_wwan.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-> index 83208d4..c0b611f 100644
-> --- a/drivers/net/usb/qmi_wwan.c
-> +++ b/drivers/net/usb/qmi_wwan.c
-> @@ -753,6 +753,7 @@ static const struct usb_device_id products[] =3D =
-{
->  	{QMI_FIXED_INTF(0x1199, 0x901f, 8)},    /* Sierra Wireless EM7355 *=
-/
->  	{QMI_FIXED_INTF(0x1199, 0x9041, 8)},	/* Sierra Wireless MC7305/MC73=
-55 */
->  	{QMI_FIXED_INTF(0x1199, 0x9051, 8)},	/* Netgear AirCard 340U */
-> +	{QMI_FIXED_INTF(0x1199, 0x9055, 8)},	/* Netgear AirCard 341U */
->  	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (=
-Alcatel One Touch L100V LTE) */
->  	{QMI_FIXED_INTF(0x1bbb, 0x0203, 2)},	/* Alcatel L800MA */
->  	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 *=
-/
+The linux net driver uses memcpy_toio() in order to copy into
+the PIO buffers.
+Even on a 64bit machine this causes 32bit accesses to a write-
+combined memory region.
+There are hardware limitations that mean that only
+64bit naturally aligned accesses are safe in all cases. Due to being
+write-combined memory region two 32bit accesses may be coalesced to
+form a 64bit non 64bit aligned access.
+Solution was to open-code the memory copy routines using pointers
+and to only enable PIO for x86_64 machines.
 
-Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+This bug fix applies to v3.13 and v3.14 stable branches.
+
+Jon Cooper (2):
+  sfc: use 64-bit writes for PIO.
+  sfc: Restrict PIO to 64-bit architectures
+
+ drivers/net/ethernet/sfc/io.h |  8 ++++++++
+ drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
+ 2 files changed, 27 insertions(+), 5 deletions(-)
