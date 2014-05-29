@@ -1,58 +1,128 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next] bridge: fix the unbalanced
- promiscuous count when add_if failed
-Date: Thu, 29 May 2014 09:30:55 -0400
-Message-ID: <5387368F.2080509@redhat.com>
-References: <53869842.4060202@huawei.com>
-Reply-To: vyasevic@redhat.com
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v2] macvlan: fix the problem when mac address
+ changes for passthru mode
+Date: Thu, 29 May 2014 09:46:26 -0400
+Message-ID: <53873A32.5000107@gmail.com>
+References: <5386E137.1040304@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Wang Weidong <wangweidong1@huawei.com>, David Miller <davem@davemloft.net>,
-	stephen@networkplumber.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <53869842.4060202@huawei.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:43080 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932416AbaE2Nq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 09:46:29 -0400
+Received: by mail-qg0-f43.google.com with SMTP id 63so978681qgz.2
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 06:46:29 -0700 (PDT)
+In-Reply-To: <5386E137.1040304@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2014 10:15 PM, Wang Weidong wrote:
-> As commit 2796d0c648c94("bridge: Automatically manage port
-> promiscuous mode."), make the add_if use dev_set_allmulti
-> instead of dev_set_promiscuous, so when add_if failed, we
-> should do dev_set_allmulti(dev, -1).
+On 05/29/2014 03:26 AM, Ding Tianhong wrote:
+> The macvlan dev should always have the same mac address like lowerdev
+> when in the passthru mode, change the mac address alone will break the
+> work mechanism, so when the lowerdev or macvlan mac address changes,
+> we should propagate the changes to another dev.
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
-
-Acked-by: Vlad Yasevich <vyasevic@redhat.com>
-
-Thanks
--vlad
-
+> v1->v2: Allow macvlan dev to change mac address for passthru mode and propagate to
+> 	lowerdev.
+> 
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 > ---
->  net/bridge/br_if.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/macvlan.c | 42 +++++++++++++++++++++++++++++++++---------
+>  1 file changed, 33 insertions(+), 9 deletions(-)
 > 
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 104a811..a08d2b8 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -528,7 +528,7 @@ err2:
->  	kobject_put(&p->kobj);
->  	p = NULL; /* kobject_put frees */
->  err1:
-> -	dev_set_promiscuity(dev, -1);
-> +	dev_set_allmulti(dev, -1);
->  put_back:
->  	dev_put(dev);
->  	kfree(p);
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index a665e90..3e24770 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -494,35 +494,47 @@ hash_del:
+>  	return 0;
+>  }
+>  
+> -static int macvlan_set_mac_address(struct net_device *dev, void *p)
+> +static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>  {
+>  	struct macvlan_dev *vlan = netdev_priv(dev);
+>  	struct net_device *lowerdev = vlan->lowerdev;
+> -	struct sockaddr *addr = p;
+>  	int err;
+>  
+> -	if (!is_valid_ether_addr(addr->sa_data))
+> -		return -EADDRNOTAVAIL;
+> -
+>  	if (!(dev->flags & IFF_UP)) {
+>  		/* Just copy in the new address */
+> -		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+> +		ether_addr_copy(dev->dev_addr, addr);
+>  	} else {
+>  		/* Rehash and update the device filters */
+> -		if (macvlan_addr_busy(vlan->port, addr->sa_data))
+> +		if (macvlan_addr_busy(vlan->port, addr))
+>  			return -EBUSY;
+>  
+> -		err = dev_uc_add(lowerdev, addr->sa_data);
+> +		err = dev_uc_add(lowerdev, addr);
+>  		if (err)
+>  			return err;
+>  
+>  		dev_uc_del(lowerdev, dev->dev_addr);
+>  
+> -		macvlan_hash_change_addr(vlan, addr->sa_data);
+> +		macvlan_hash_change_addr(vlan, addr);
+>  	}
+>  	return 0;
+>  }
+>  
+> +static int macvlan_set_mac_address(struct net_device *dev, void *p)
+> +{
+> +	struct macvlan_dev *vlan = netdev_priv(dev);
+> +	struct sockaddr *addr = p;
+> +
+> +	if (!is_valid_ether_addr(addr->sa_data))
+> +		return -EADDRNOTAVAIL;
+> +
+> +	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
+> +		dev_set_mac_address(vlan->lowerdev, addr);
+> +		return 0;
+> +	}
+> +
+> +	return macvlan_sync_address(dev, addr->sa_data);
+> +}
+> +
+>  static void macvlan_change_rx_flags(struct net_device *dev, int change)
+>  {
+>  	struct macvlan_dev *vlan = netdev_priv(dev);
+> @@ -1106,6 +1118,18 @@ static int macvlan_device_event(struct notifier_block *unused,
+>  			dev_set_mtu(vlan->dev, dev->mtu);
+>  		}
+>  		break;
+> +	case NETDEV_CHANGEADDR:
+> +		if (!port->passthru)
+> +			return NOTIFY_DONE;
+> +
+> +		vlan = list_first_entry_or_null(&port->vlans,
+> +						struct macvlan_dev,
+> +						list);
+> +
+> +		if (macvlan_sync_address(vlan->dev, dev->dev_addr))
+> +			return NOTIFY_BAD;
+> +
+
+Ok, this is not quite right.  The lower device changes it's mac address
+and notifies upper macvlan about it.  Macvlan, if it is up, will write
+the same mac address down to the lower device's unicast address list
+as part of the sync.  The lower device ends up with two copies of its
+own address.
+
+-vlad
+> +		break;
+>  	case NETDEV_UNREGISTER:
+>  		/* twiddle thumbs on netns device moves */
+>  		if (dev->reg_state != NETREG_UNREGISTERING)
 > 
