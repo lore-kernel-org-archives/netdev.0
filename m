@@ -1,52 +1,198 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v1 3/3] usb: gadget: NCM: Stop RX TCP Bursts getting
- dropped.
-Date: Thu, 29 May 2014 12:04:23 -0700
-Message-ID: <1401390263.3645.51.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
-	 <1401383543-10181-1-git-send-email-jim_baxter@mentor.com>
-	 <1401383543-10181-4-git-send-email-jim_baxter@mentor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Felipe Balbi <balbi@ti.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
-To: Jim Baxter <jim_baxter@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401383543-10181-4-git-send-email-jim_baxter@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chema Gonzalez <chema@google.com>
+Subject: [PATCH v6 net-next 3/4] net: filter: add insn for loading internal transport header proto
+Date: Thu, 29 May 2014 11:56:07 -0700
+Message-ID: <1401389767-13366-1-git-send-email-chema@google.com>
+References: <1398882591-30422-1-git-send-email-chema@google.com>
+Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f201.google.com ([209.85.128.201]:38014 "EHLO
+	mail-ve0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754316AbaE2TTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 15:19:04 -0400
+Received: by mail-ve0-f201.google.com with SMTP id db11so177330veb.0
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 12:19:02 -0700 (PDT)
+In-Reply-To: <1398882591-30422-1-git-send-email-chema@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-29 at 18:12 +0100, Jim Baxter wrote:
-> This fixes a problem with dropped packets over 16k CDC-NCM
-> when the connection is being heavily used.
-> 
-> The issue was that the skb truesize for the unpacked NCM
-> packets was too high after they were cloned from the 16k
-> skb, this lead to the potential memory calculated by the
-> Kernel running out of memory earlier then it should.
-> 
-> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
-> ---
+Patch adds an ANC_TRA_PROTOCOL insn that loads the protocol of
+the internal transport header of a packet ("internal" meaning after
+decapsulation by the flow dissector).
 
-Note the patch is OK, but changelog a bit misleading ;)
+For example, the following filter will capture all packets whose
+inner-most TCP dst port is 80:
 
-Kernel was not running out of memory, because truesize was correct.
+ld #proto
+jneq #6, drop
+ld #toff
+tax
+ldh [X+2]
+jneq #80, drop
+ret #-1
+drop: ret #0
 
-The problem here is that a frame was consuming more kernel memory than
-really needed, so chances of hitting socket sk_rcvbuf limit was high.
+Signed-off-by: Chema Gonzalez <chema@google.com>
+---
+ include/linux/filter.h      |  1 +
+ include/uapi/linux/filter.h |  3 ++-
+ net/core/filter.c           | 23 ++++++++++++++++++++++-
+ tools/net/bpf_exp.l         |  1 +
+ tools/net/bpf_exp.y         | 11 ++++++++++-
+ 5 files changed, 36 insertions(+), 3 deletions(-)
 
-BTW :
-#define NTB_OUT_SIZE              16384
-
-alloc_skb(size) ->
-	kmalloc(16384 + sizeof(struct skb_shared_info)) ->
-		roundup() => 32768
-
-So truesize of the skb was infact ~32KB, which is really insane indeed.
-After your patch, its back to ~2KB
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 9bc7771..02e6ed8 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -305,6 +305,7 @@ enum {
+ 	BPF_S_ANC_PAY_OFFSET,
+ 	BPF_S_ANC_RANDOM,
+ 	BPF_S_ANC_TRA_OFFSET,
++	BPF_S_ANC_TRA_PROTOCOL,
+ };
+ 
+ #endif /* __LINUX_FILTER_H__ */
+diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+index 9f1b8f1..e34d608 100644
+--- a/include/uapi/linux/filter.h
++++ b/include/uapi/linux/filter.h
+@@ -132,7 +132,8 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+ #define SKF_AD_PAY_OFFSET	52
+ #define SKF_AD_RANDOM	56
+ #define SKF_AD_TRA_OFFSET	60
+-#define SKF_AD_MAX	64
++#define SKF_AD_TRA_PROTOCOL	64
++#define SKF_AD_MAX	68
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+ 
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 0d67498..fcc2783 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -637,6 +637,20 @@ static u64 __skb_get_tra_offset(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
+ 	return stack_layout->flow.thoff;
+ }
+ 
++static u64 __skb_get_tra_protocol(u64 ctx, u64 a, u64 x, u64 fp, u64 r5)
++{
++	struct classic_bpf_stack_layout *stack_layout =
++	    (void *) fp - sizeof(struct classic_bpf_stack_layout);
++	/* check whether the flow dissector has already been run */
++	if (!stack_layout->flow_inited) {
++		if (!skb_flow_dissect((struct sk_buff *)(unsigned long) ctx,
++		    &stack_layout->flow))
++			return 0;
++		stack_layout->flow_inited = 1;
++	}
++	return stack_layout->flow.ip_proto;
++}
++
+ static u64 __skb_get_nlattr(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
+ {
+ 	struct sk_buff *skb = (struct sk_buff *)(unsigned long) ctx;
+@@ -804,6 +818,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 	case SKF_AD_OFF + SKF_AD_CPU:
+ 	case SKF_AD_OFF + SKF_AD_RANDOM:
+ 	case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
++	case SKF_AD_OFF + SKF_AD_TRA_PROTOCOL:
+ 		/* arg1 = ctx */
+ 		*insn = BPF_ALU64_REG(BPF_MOV, BPF_REG_ARG1, BPF_REG_CTX);
+ 		insn++;
+@@ -841,6 +856,9 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 		case SKF_AD_OFF + SKF_AD_TRA_OFFSET:
+ 			insn->imm = __skb_get_tra_offset - __bpf_call_base;
+ 			break;
++		case SKF_AD_OFF + SKF_AD_TRA_PROTOCOL:
++			insn->imm = __skb_get_tra_protocol - __bpf_call_base;
++			break;
+ 		}
+ 		break;
+ 
+@@ -874,7 +892,8 @@ void __sk_convert_filter_prologue(struct sock_filter *fp, int len,
+ 		if (BPF_CLASS(fp->code) == BPF_LD &&
+ 		    BPF_MODE(fp->code) == BPF_ABS &&
+ 		    (fp->k == SKF_AD_OFF + SKF_AD_PAY_OFFSET ||
+-		     fp->k == SKF_AD_OFF + SKF_AD_TRA_OFFSET)) {
++		     fp->k == SKF_AD_OFF + SKF_AD_TRA_OFFSET ||
++		     fp->k == SKF_AD_OFF + SKF_AD_TRA_PROTOCOL)) {
+ 			use_flow_dissector = true;
+ 			break;
+ 		}
+@@ -1422,6 +1441,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(PAY_OFFSET);
+ 			ANCILLARY(RANDOM);
+ 			ANCILLARY(TRA_OFFSET);
++			ANCILLARY(TRA_PROTOCOL);
+ 			}
+ 
+ 			/* ancillary operation unknown or unsupported */
+@@ -1836,6 +1856,7 @@ void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
+ 		[BPF_S_ANC_PAY_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_RANDOM]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_ANC_TRA_OFFSET]	= BPF_LD|BPF_B|BPF_ABS,
++		[BPF_S_ANC_TRA_PROTOCOL]	= BPF_LD|BPF_B|BPF_ABS,
+ 		[BPF_S_LD_W_LEN]	= BPF_LD|BPF_W|BPF_LEN,
+ 		[BPF_S_LD_W_IND]	= BPF_LD|BPF_W|BPF_IND,
+ 		[BPF_S_LD_H_IND]	= BPF_LD|BPF_H|BPF_IND,
+diff --git a/tools/net/bpf_exp.l b/tools/net/bpf_exp.l
+index 4e72934..c1b5958 100644
+--- a/tools/net/bpf_exp.l
++++ b/tools/net/bpf_exp.l
+@@ -94,6 +94,7 @@ extern void yyerror(const char *str);
+ "#"?("vlan_pr")	{ return K_VLANP; }
+ "#"?("rand")	{ return K_RAND; }
+ "#"?("toff")	{ return K_TOFF; }
++"#"?("tproto")	{ return K_TPROTO; }
+ 
+ ":"		{ return ':'; }
+ ","		{ return ','; }
+diff --git a/tools/net/bpf_exp.y b/tools/net/bpf_exp.y
+index ced6949..71fef72 100644
+--- a/tools/net/bpf_exp.y
++++ b/tools/net/bpf_exp.y
+@@ -56,7 +56,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
+ %token OP_LDXI
+ 
+ %token K_PKT_LEN K_PROTO K_TYPE K_NLATTR K_NLATTR_NEST K_MARK K_QUEUE K_HATYPE
+-%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF
++%token K_RXHASH K_CPU K_IFIDX K_VLANT K_VLANP K_POFF K_RAND K_TOFF K_TPROTO
+ 
+ %token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+ 
+@@ -170,6 +170,9 @@ ldb
+ 	| OP_LDB K_TOFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
++	| OP_LDB K_TPROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_B | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
+ 	;
+ 
+ ldh
+@@ -224,6 +227,9 @@ ldh
+ 	| OP_LDH K_TOFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
++	| OP_LDH K_TPROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_H | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
+ 	;
+ 
+ ldi
+@@ -283,6 +289,9 @@ ld
+ 	| OP_LD K_TOFF {
+ 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
+ 				   SKF_AD_OFF + SKF_AD_TRA_OFFSET); }
++	| OP_LD K_TPROTO {
++		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_ABS, 0, 0,
++				   SKF_AD_OFF + SKF_AD_TRA_PROTOCOL); }
+ 	| OP_LD 'M' '[' number ']' {
+ 		bpf_set_curr_instr(BPF_LD | BPF_MEM, 0, 0, $4); }
+ 	| OP_LD '[' 'x' '+' number ']' {
+-- 
+1.9.1.423.g4596e3a
