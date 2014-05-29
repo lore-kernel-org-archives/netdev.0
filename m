@@ -1,67 +1,90 @@
-From: Tushar Behera <trblinux@gmail.com>
-Subject: Re: [PATCH net-next v1] mrf24j40: add managed API's provided by
- device layer
-Date: Thu, 29 May 2014 12:02:37 +0530
-Message-ID: <20140529063236.GA9679@linaro.org>
-References: <1401338421-15394-1-git-send-email-varkab@cdac.in>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Scaling 'ip addr add' (was Re: What's the right way to use a
+ *large* number of source addresses?)
+Date: Thu, 29 May 2014 09:34:29 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1405290853530.1636@ja.home.ssi.bg>
+References: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alan@signal11.us, alex.bluesman.smirnov@gmail.com,
-	dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, alex.aing@gmail.com,
-	Varka Bhadram <varkab@cdac.in>
-To: Varka Bhadram <varkabhadram@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Niels_M=C3=B6ller?= <nisse@southpole.se>,
+	netdev <netdev@vger.kernel.org>, Jonas Bonn <jonas@southpole.se>
+To: sowmini varadhan <sowmini05@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:54734 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751828AbaE2Gcp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 02:32:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1401338421-15394-1-git-send-email-varkab@cdac.in>
+Received: from ja.ssi.bg ([178.16.129.10]:33057 "EHLO ja.home.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757073AbaE2Gex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 02:34:53 -0400
+In-Reply-To: <CACP96tRSpop=Sf58qE6TXeF+a-5nqfCj5d12bwD9WaYue_6_UA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 29, 2014 at 10:10:21AM +0530, Varka Bhadram wrote:
-> Hi,
-> 	Previous patch having bug in using managed API's. I fixed that.
+
+	Hello,
+
+On Tue, 27 May 2014, sowmini varadhan wrote:
+
+> For Niels script, since there are many addresses in the same
+> subnet, we'll have a lot of cases of an IFA_F_SECONDARY address,
+> so fib_add_ifaddr will then do another walk of the ifa_list.
 > 
-> Regards,
-> Varka Bhadram.
+> Has anyone looked at consolidating some of this?
+> All of this could easily become a factor when the system
+> has a large number of interfaces and addresses, and the
+> control plane only wants to modify a very small subset of
+> that state.
 
-Only add relevant commit message here, no need to add 'Hi' and
-'Regards'.
+	First improvment without adding fields to
+struct in_ifaddr would be (step 1):
 
-Something like ...
+- find_matching_ifa:
+	- walk inet_addr_lst and match
 
-"Added devres managed APIs"
+- devinet_ioctl:
+	- tryaddrmatch: walk inet_addr_lst and match
 
-> 
-> Signed-off-by: Varka Bhadram <varkab@cdac.in>
-> ---
->  drivers/net/ieee802154/mrf24j40.c |   21 +++++++++------------
->  1 file changed, 9 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-> index 78a6552..f701cdb 100644
-> --- a/drivers/net/ieee802154/mrf24j40.c
-> +++ b/drivers/net/ieee802154/mrf24j40.c
-> @@ -618,10 +618,10 @@ static int mrf24j40_probe(struct spi_device *spi)
->  
->  	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
->  
-> -	devrec = kzalloc(sizeof(struct mrf24j40), GFP_KERNEL);
-> +	devrec = devm_kzalloc(&spi->dev, sizeof(struct mrf24j40), GFP_KERNEL);
->  	if (!devrec)
->  		goto err_devrec;
-> -	devrec->buf = kzalloc(3, GFP_KERNEL);
-> +	devrec->buf = kzalloc(&spi->dev, 3, GFP_KERNEL);
+- inet_rtm_deladdr:
+	- if IFA_LOCAL is provided find ifa_local in
+	inet_addr_lst, then do other matches
 
-devm_kzalloc()
+	With additional pointer we can optimize
+__inet_insert_ifa and __inet_del_ifa: we will know
+how after finding ifa by walking inet_addr_lst to reach
+the primary ifa: with new pointer ifa_parent that
+points to our subnet. All secondaries for the subnet
+can be known with pointer to the first one: ifa_sec,
+because all secondaries are after all primaries:
 
-Without this, it should not build at all. So remember to compile test
-before sending the patches.
+- pri1
+- pri2
+- ...
+- sec1_1
+- sec1_2
+- sec2_1
+- sec2_2
+
+	In fact ifa_sec and ifa_parent can be one field:
+ifa_pri_sec, ifa_link or another better name, used depending
+on IFA_F_SECONDARY.
+
+	So, step 2: add pointer in ifa
+
+	The real pain is fib_del_ifaddr: for ifa_local
+we have a fast way (inet_addr_lst hash table) to determine
+if this is the last local address in system (for prefsrc
+purposes) but for ifa_broadcast we don't have such hash table.
+May be with such hash table we can solve the problem but
+it needs more ifa fields.
+
+	Step 3: hash table for ifa_broadcast and
+struct hlist_node for ifa_has_brd (ifa_broadcast),
+ifa_hash_brd0 (first addr in subnet), ifa_hash_brd1 (last
+addr in subnet).
+
+	Any ideas?
+
+Regards
 
 --
-Warm regards,
-Tushar
+Julian Anastasov <ja@ssi.bg>
