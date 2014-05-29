@@ -1,40 +1,60 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: [PATCH v1 0/3] usb: gadget: NCM: Fixes and Multi-frame for TX.
-Date: Thu, 29 May 2014 18:12:20 +0100
-Message-ID: <1401383543-10181-1-git-send-email-jim_baxter@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] mrf24j40: add managed API's provided by device layer
+Date: Thu, 29 May 2014 21:45:33 +0400
+Message-ID: <5387723D.9020009@cogentembedded.com>
+References: <1401337071-4071-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	<netdev@vger.kernel.org>
-To: Felipe Balbi <balbi@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Jim Baxter <jim_baxter@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	alex.aing@gmail.com, Varka Bhadram <varkab@cdac.in>
+To: Varka Bhadram <varkabhadram@gmail.com>, alan@signal11.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:34545 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932856AbaE2Rp2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 13:45:28 -0400
+Received: by mail-lb0-f178.google.com with SMTP id w7so387675lbi.9
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 10:45:26 -0700 (PDT)
+In-Reply-To: <1401337071-4071-1-git-send-email-varkab@cdac.in>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series adds the ability to support packaging multiple network
-packets into a single 16k CDC-NCM NTB.
+Hello.
 
-Patches 1 and 3 are fixes for the receive unwrap function which
-previously was unable to handle an NTB with multiple NDP's and a fix
-that switches from using skb_clone to creating a new packet to fix the
-issue of the truesize being far to big and causing packets to be
-dropped incorrectly.
+On 05/29/2014 08:17 AM, Varka Bhadram wrote:
 
-Jim Baxter (3):
-  usb: gadget: NCM: RX function support multiple NDPs
-  usb: gadget: NCM: Add transmit multi-frame.
-  usb: gadget: NCM: Stop RX TCP Bursts getting dropped.
+> This patch adds the managed APIs to the deriver code. By using this we need
+> not to worry about freeing the memory and irq numbers.
 
- drivers/usb/gadget/f_ncm.c   |  480 +++++++++++++++++++++++++++++-------------
- drivers/usb/gadget/u_ether.c |   19 +-
- drivers/usb/gadget/u_ether.h |    2 +
- 3 files changed, 347 insertions(+), 154 deletions(-)
+> Thanks and Regards,
+> Varka Bhadram
 
--- 
-1.7.9.5
+    This is not desirable thing in the patch changelog, maintainer will have 
+to edit it out...
+
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+> ---
+>   drivers/net/ieee802154/mrf24j40.c |   22 ++++++++++------------
+>   1 file changed, 10 insertions(+), 12 deletions(-)
+
+> diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+> index 78a6552..729ec0f 100644
+> --- a/drivers/net/ieee802154/mrf24j40.c
+> +++ b/drivers/net/ieee802154/mrf24j40.c
+> @@ -618,10 +618,11 @@ static int mrf24j40_probe(struct spi_device *spi)
+>
+>   	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+>
+> -	devrec = kzalloc(sizeof(struct mrf24j40), GFP_KERNEL);
+> +	devrec = devm_kzalloc(spi->dev,
+> +			sizeof(struct mrf24j40), GFP_KERNEL);
+
+    Continuation line should start under the next character after ( on the 
+previous line, according to the networking coding style.
+
+[...]
+
+WBR, Sergei
