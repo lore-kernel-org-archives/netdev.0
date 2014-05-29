@@ -1,40 +1,28 @@
-From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v1] mrf24j40: add managed
-	API's provided by device layer
-Date: Thu, 29 May 2014 10:10:21 +0530
-Message-ID: <1401338421-15394-1-git-send-email-varkab@cdac.in>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, alex.aing-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next v2]  mrf24j40: add managed API's provided by device layer
+Date: Thu, 29 May 2014 11:35:35 +0530
+Message-ID: <1401343536-20361-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	alex.aing@gmail.com, Varka Bhadram <varkab@cdac.in>
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-	Previous patch having bug in using managed API's. I fixed that.
+forgot to use devm_* for spi buff.
+sorry for that.
 
-Regards,
-Varka Bhadram.
+-Varka Bhadram
 
-Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
  drivers/net/ieee802154/mrf24j40.c |   21 +++++++++------------
  1 file changed, 9 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index 78a6552..f701cdb 100644
+index 78a6552..90aed9b 100644
 --- a/drivers/net/ieee802154/mrf24j40.c
 +++ b/drivers/net/ieee802154/mrf24j40.c
 @@ -618,10 +618,10 @@ static int mrf24j40_probe(struct spi_device *spi)
@@ -46,7 +34,7 @@ index 78a6552..f701cdb 100644
  	if (!devrec)
  		goto err_devrec;
 -	devrec->buf = kzalloc(3, GFP_KERNEL);
-+	devrec->buf = kzalloc(&spi->dev, 3, GFP_KERNEL);
++	devrec->buf = devm_kzalloc(&spi->dev, 3, GFP_KERNEL);
  	if (!devrec->buf)
  		goto err_buf;
  
@@ -88,9 +76,3 @@ index 78a6552..f701cdb 100644
  
 -- 
 1.7.9.5
-
-
-------------------------------------------------------------------------------
-Time is money. Stop wasting it! Get your web API in 5 minutes.
-www.restlet.com/download
-http://p.sf.net/sfu/restlet
