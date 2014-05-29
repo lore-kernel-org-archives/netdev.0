@@ -1,42 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL nf] Fixes for v3.15
-Date: Thu, 29 May 2014 23:00:43 +0200
-Message-ID: <20140529210043.GA5730@localhost>
-References: <1401068235-6730-1-git-send-email-horms@verge.net.au>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next 0/8] cdc_ncm: fixes and conversion to sysfs API
+Date: Thu, 29 May 2014 23:31:28 +0200
+Message-ID: <e31a8302-1e13-4951-b58a-28054fa92bde@email.android.com>
+References: <1401101625-12342-1-git-send-email-bjorn@mork.no> <87bnugdhxw.fsf@nemi.mork.no> <20140529.122052.770095370432733118.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1401068235-6730-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	alexey.orishko@gmail.com, oliver@neukum.org, mrkiko.rs@gmail.com,
+	David.Laight@ACULAB.COM, larsm17@gmail.com, peter@stuge.se,
+	gsuarez@smithmicro.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:44878 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753484AbaE2VcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 17:32:04 -0400
+In-Reply-To: <20140529.122052.770095370432733118.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 26, 2014 at 10:37:14AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> I realise this is extremely late in the v3.15 cycle so please don't hesitate
-> to push it back to v3.16. I am more than happy to rebase/resubmit if that
-> is what you decided on.
-> 
-> This fix resolves a panic due to non-linear skb.
-> 
-> It has been present since v3.6-rc1.
-> 
-> I would like this fix considered for -stable and I have checked that it
-> applies cleanly on top of v3.10.40, v3.12.20 and v3.14.4.
-> 
-> 
-> The following changes since commit 3b084e99a3fabaeb0f9c65a0806cde30f0b2835e:
-> 
->   netfilter: nf_tables: fix trace of matching non-terminal rule (2014-05-15 19:44:20 +0200)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.15
 
-Pulled, thanks Simon.
+
+On 29 May 2014 21:20:52 CEST, David Miller <davem@davemloft.net> wrote:
+>From: Bj=C3=B8rn Mork <bjorn@mork.no>
+>Date: Thu, 29 May 2014 11:59:07 +0200
+>
+>> I see that this series is now marked "Not Applicable" in patchwork.
+>But
+>> the reason is not obvious to me.  May I ask why?
+>
+>I meant to mark it as "Changes Requested",
+
+Yes, that I expected :-)
+
+I worried that I might have missed something important. Thanks for clea=
+ring it up.
+
+>because patch 8 had some
+>feedback
+>that you said you'd address.
+
+I will. I am just waiting a bit to see if there is anything else to fix=
+=2E
+
+
+Bj=C3=B8rn
