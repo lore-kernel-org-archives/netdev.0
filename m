@@ -1,129 +1,97 @@
-From: Spike White <spikewhitetx@gmail.com>
-Subject: Re: inconsistency of ethtool feature names for get vs. set
-Date: Thu, 29 May 2014 14:40:54 +0000 (UTC)
-Message-ID: <loom.20140529T162434-807@post.gmane.org>
-References: <52C535B9.7080208@mellanox.com> <1388675034.1607.9.camel@bwh-desktop.uk.level5networks.com> <1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com> <20140106235858.5ce80054.billfink@mindspring.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 2/5] ixgbe: increase default TX ring buffer to
+ 1024
+Date: Thu, 29 May 2014 17:29:23 +0200
+Message-ID: <20140529172923.2f4aab8a@redhat.com>
+References: <20140514141545.20309.28343.stgit@dragon>
+	<20140514141748.20309.83121.stgit@dragon>
+	<537399C2.8070908@intel.com>
+	<20140514.134950.1208688313542719676.davem@davemloft.net>
+	<20140514210935.5fc80c79@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
+	dborkman@redhat.com, fw@strlen.de, shemminger@vyatta.com,
+	paulmck@linux.vnet.ibm.com, robert@herjulf.se,
+	greearb@candelatech.com, john.r.fastabend@intel.com,
+	danieltt@kth.se, zhouzhouyi@gmail.com, Thomas Graf <tgraf@suug.ch>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:48431 "EHLO plane.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:62733 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757515AbaE2PPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2014 11:15:10 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Wq22o-0000pO-MT
-	for netdev@vger.kernel.org; Thu, 29 May 2014 17:15:05 +0200
-Received: from 108-90-112-141.lightspeed.austtx.sbcglobal.net ([108.90.112.141])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 17:15:02 +0200
-Received: from spikewhitetx by 108-90-112-141.lightspeed.austtx.sbcglobal.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 17:15:02 +0200
+	id S965140AbaE2PaU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 11:30:20 -0400
+In-Reply-To: <20140514210935.5fc80c79@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bill Fink <billfink <at> mindspring.com> writes:
+On Wed, 14 May 2014 21:09:35 +0200
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-> 
-> On Thu, 2 Jan 2014, Ben Hutchings wrote:
-> 
-> > On Thu, 2014-01-02 at 15:03 +0000, Ben Hutchings wrote:
-> > > On Thu, 2014-01-02 at 11:47 +0200, Or Gerlitz wrote:
-> > [...]
-> > > > $ ethtool -k eth1  | grep generic-receive-offload
-> > > > generic-receive-offload: on
-> > > > 
-> > > > $ ethtool -K eth1  generic-receive-offload off
-> > > > ethtool: bad command line argument(s)
-> > > > For more information run ethtool -h
-> > > > 
-> > > > --> looking in the sources and realizing I need to use "rx-gro"
-> > > 
-> > > Or 'gro'.  All the old feature names that can be used with the -K 
-option
-> > > are listed in the manual page.  All the new feature names are 
-consistent
-> > > between -k/-K.
+> > From: Alexander Duyck <alexander.h.duyck@intel.com>
+> > Date: Wed, 14 May 2014 09:28:50 -0700
 > > 
-> > By 'new feature names' I mean names for features that weren't 
-previously
-> > exposed through ethtool.
-> > 
-> > [...]
-> > > > Basically, this can be resolved by fairly simple patch, but I 
-wasn't 
-> > > > sure if you want it in user space, in the kernel or both...
-> > > 
-> > > How do you intend to resolve this, given the compatibility 
-requirement
-> > > that the old names must still be reported by -k and accepted by -K?
-> > 
-> > Just to be clear, I do see that there's a problem here but the fix may
-> > have to be mostly or entirely in documentation rather than code.
-> 
-> Wouldn't one simple option be to allow the long form like
-> generic-receive-offload for setting in addition to the existing
-> shortcuts rx-gro and gro?  That way a user doing "ethtool -k"
-> could use the name provided to do a set via "ethtool -K" without
-> needing to consult a man page (or "ethtool -h"), while still
-> allowing more knowledgeable users to use the shortcut names.
-> 
-> 					-Bill
-> 
+> > > I'd say that it might be better to just add a note to the documentation
+> > > folder indicating what configuration is optimal for pktgen rather then
+> > > changing everyone's defaults to support one specific test.
+>
+> I know, increasing these limits should not be taken lightly, but we
+> just have to be crystal clear that the current 512 limit, is
+> artificially limiting the capabilities of your hardware.
 
-I love Bill's suggestion. 
+The above statement is mine and it is wrong ;-)
 
-For instance, I have a mandate from my network engineering team to disable 
-all offloads on all Linux VMs.  (don't ask).
+ I'm dropping this patch because of the following understanding:
 
-I plagiarized the below code.  But it uses the same keywords that it gets 
-from -k to call -K.  So it fails.
+Alexander Duyck pointed out to me, that interrupt throttling might be
+the reason behind the need to increase the TX ring size.  I tested this
+and Alex is right.
 
-So I have to continue to play whack-a-mole.  As new offloads arise, 
-decipher the translation (via viewing man pages, etc.)
+The needed TX ring size ("ethtool -g") for max performance, is
+directly corrolated with how fast/often the TX cleanup is running.
 
-#==================================================
-# TCP Offloading
-# Guidance from network engineering to disable all offloads on all NICs:
-# rx tx sg tso ufo gso gro lro rxvlan txvlan rxhash
-function fix_offload () {
+Adjusting the "ethtool -C <ethx> rx-usecs" value affect how often we
+cleanup the ring(s).  The default value "1" is some auto interrupt throttling.
 
-NICS=$(ifconfig | awk '/^p[0-9][^:]/ || /^eth[0-9][^:]/ || /^em[0-9][^:]/ 
-{print $1}')
+Notice with these coalesce tuning, the performance even increase from
+6.7Mpps to 7.1Mpps on top of patchset V1.
 
-MODEL=$(dmidecode | grep -i product | head -1 | cut -f2 -d':' | cut -c 2-)
+On top of V1 patchset:
+ - 6,747,016 pps - rx-usecs:  1 tx-ring: 1024 (irqs: 9492)
+ - 6,684,612 pps - rx-usecs: 10 tx-ring: 1024 (irqs:99322)
+ - 7,005,226 pps - rx-usecs: 20 tx-ring: 1024 (irqs:50444)
+ - 7,113,048 pps - rx-usecs: 30 tx-ring: 1024 (irqs:34004)
+ - 7,133,019 pps - rx-usecs: 40 tx-ring: 1024 (irqs:25845)
+ - 7,168,399 pps - rx-usecs: 50 tx-ring: 1024 (irqs:20896)
 
-if [[ $MODEL = VMware* ]] && [[ $OS = "OEL6" ]]
-then
-   # New offloads in OEL6 that ethtool cannot disable on VM's: rxvlan, 
-txvlan, & rxhash
-   ETHTOOL_PARSE="egrep -v -e 'vlan' -e 'hashing'"
-elif [[ -n "$UEK" ]]
-then
-   # UEK has a bunch of features that we don't care about, so specify what 
-we want
-   ETHTOOL_PARSE="egrep -e 'checksumming' -e 'scatter' -e 'offload' -
-e 'hashing'"
-else
-   # Grab everything
-   ETHTOOL_PARSE="grep ':'"
-fi
+Look same performance with 512 TX ring.
 
-for i in $NICS
-do
-   OFFLOADS_ON=$(ethtool -k $i 2> /dev/null | eval $ETHTOOL_PARSE | 
-grep ': on' | awk -F: '{print $1 off}')
-   if [[ -n "$OFFLOADS_ON" ]]
-   then
-      echo "NIC $i offloads on"
-      ethtool -K $i $OFFLOADS_ON
-   else
-      echo "PASS: NIC $i offloads off"
-   fi
-done
+Lowering TX ring size to (default) 512:
+ (On top of V1 patchset)
+ - 3,934,674 pps - rx-usecs:  1 tx-ring: 512 (irqs: 9602)
+ - 6,684,066 pps - rx-usecs: 10 tx-ring: 512 (irqs:99370)
+ - 7,001,235 pps - rx-usecs: 20 tx-ring: 512 (irqs:50567)
+ - 7,115,047 pps - rx-usecs: 30 tx-ring: 512 (irqs:34105)
+ - 7,130,250 pps - rx-usecs: 40 tx-ring: 512 (irqs:25741)
+ - 7,165,296 pps - rx-usecs: 50 tx-ring: 512 (irqs:20898)
 
-}
+Look how even a 256 TX ring is enough, if we cleanup the TX ring fast
+enough, and how performance decrease if we cleanup to slowly.
+
+Lowering TX ring size to (default) 256:
+ (On top of V1 patchset)
+ - 1,883,360 pps - rx-usecs:  1 tx-ring: 256 (irqs: 9800)
+ - 6,683,552 pps - rx-usecs: 10 tx-ring: 256 (irqs:99786)
+ - 7,005,004 pps - rx-usecs: 20 tx-ring: 256 (irqs:50749)
+ - 7,108,776 pps - rx-usecs: 30 tx-ring: 256 (irqs:34536)
+ - 5,734,301 pps - rx-usecs: 40 tx-ring: 256 (irqs:25909)
+ - 4,590,093 pps - rx-usecs: 50 tx-ring: 256 (irqs:21183)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
