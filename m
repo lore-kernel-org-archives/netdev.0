@@ -1,40 +1,52 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net] bridge: notify user space after fdb update
-Date: Thu, 29 May 2014 18:15:18 +0900
-Message-ID: <5386FAA6.8030103@lab.ntt.co.jp>
-References: <1401348436-5187-1-git-send-email-jmaxwell37@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net-next 0/8] cdc_ncm: fixes and conversion to sysfs API
+Date: Thu, 29 May 2014 11:59:07 +0200
+Message-ID: <87bnugdhxw.fsf@nemi.mork.no>
+References: <1401101625-12342-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	jmaxwell@redhat.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Jon Maxwell <jmaxwell37@gmail.com>, stephen@networkplumber.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1401348436-5187-1-git-send-email-jmaxwell37@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:36639 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751264AbaE2KAm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 06:00:42 -0400
+In-Reply-To: <1401101625-12342-1-git-send-email-bjorn@mork.no>
+ (=?utf-8?Q?=22Bj=C3=B8rn?= Mork"'s
+	message of "Mon, 26 May 2014 12:53:37 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/05/29 16:27), Jon Maxwell wrote:
-> There has been a number incidents recently where customers running KVM have
-> reported that VM hosts on different Hypervisors are unreachable. Based on
-> pcap traces we found that the bridge was broadcasting the ARP request out
-> onto the network. However some NICs have an inbuilt switch which on occasions
-> were broadcasting the VMs ARP request back through the physical NIC on the
-> Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-> that the VMs mac address was external. As a result the ARP reply was directed
-> back onto the external network and VM never updated it's ARP cache. This patch
-> will notify the bridge command, after a fdb has been updated to identify such
-> port toggling.
-> 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+Bj=C3=B8rn Mork <bjorn@mork.no> writes:
 
-Acked-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> After considering the comments received after the ethtool coalesce
+> support was commited, I have ended up concluding that we should
+> remove it again, while we can, before it hits a release. The idea
+> was not well enough thought through, and all comments received
+> pointed to advantages of using a sysfs based API instead.
+>
+> This series removes the ethtool coalesce support and replaces it
+> with sysfs attributes in a driver specific group under the netdev.
+
+Hello David,
+
+I see that this series is now marked "Not Applicable" in patchwork. But
+the reason is not obvious to me.  May I ask why?
+
+AFAICS, the series technically still applies to net-next, so I assume
+the reason is that it is somehow inappropriate.  That's OK, but I do
+assume some of it can be applied if split out from the rest?  It would
+be good to have some hints about which parts I need to change or remove
+for a possible resubmission.
+
+
+Thanks,
+Bj=C3=B8rn
