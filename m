@@ -1,79 +1,47 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH 2/2] ipv6: Shrink udp_v6_mcast_next() to one socket variable
-Date: Thu, 29 May 2014 20:27:06 +0000
-Message-ID: <1401395226-10304-3-git-send-email-sven.wegener@stealer.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] ipv6: Fix regression caused by efe4208 in
+ udp_v6_mcast_next()
+Date: Thu, 29 May 2014 13:37:35 -0700
+Message-ID: <1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1401395226-10304-1-git-send-email-sven.wegener@stealer.net>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: "David S. Miller" <davem@davemloft.net>
+	 <1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>
+To: Sven Wegener <sven.wegener@stealer.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.stealer.net ([88.198.224.204]:40544 "EHLO
-	smtp1.stealer.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336AbaE2U11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 16:27:27 -0400
-In-Reply-To: <1401395226-10304-1-git-send-email-sven.wegener@stealer.net>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:59071 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752336AbaE2Uhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 16:37:37 -0400
+Received: by mail-pd0-f181.google.com with SMTP id z10so135488pdj.40
+        for <netdev@vger.kernel.org>; Thu, 29 May 2014 13:37:37 -0700 (PDT)
+In-Reply-To: <1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To avoid the confusion of having two variables, shrink the function to
-only use the parameter variable for looping.
+On Thu, 2014-05-29 at 20:27 +0000, Sven Wegener wrote:
+> Commit efe4208 ("ipv6: make lookups simpler and faster") introduced a
+> regression in udp_v6_mcast_next(), resulting in multicast packets not
+> reaching the destination sockets under certain conditions.
+> 
+> The packet's IPv6 addresses are wrongly compared to the IPv6 addresses
+> from the function's socket argument, which indicates the starting point
+> for looping, instead of the loop variable. If the addresses from the
+> first socket do not match the packet's addresses, no socket in the list
+> will match.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: stable@vger.kernel.org # 3.13+
+> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+> ---
+>  net/ipv6/udp.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
 
-Cc: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
----
- net/ipv6/udp.c | 25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 20b63d2..9b7a99d 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -701,35 +701,34 @@ static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
- 				      int dif)
- {
- 	struct hlist_nulls_node *node;
--	struct sock *s = sk;
- 	unsigned short num = ntohs(loc_port);
- 
--	sk_nulls_for_each_from(s, node) {
--		struct inet_sock *inet = inet_sk(s);
-+	sk_nulls_for_each_from(sk, node) {
-+		struct inet_sock *inet = inet_sk(sk);
- 
--		if (!net_eq(sock_net(s), net))
-+		if (!net_eq(sock_net(sk), net))
- 			continue;
- 
--		if (udp_sk(s)->udp_port_hash == num &&
--		    s->sk_family == PF_INET6) {
-+		if (udp_sk(sk)->udp_port_hash == num &&
-+		    sk->sk_family == PF_INET6) {
- 			if (inet->inet_dport) {
- 				if (inet->inet_dport != rmt_port)
- 					continue;
- 			}
--			if (!ipv6_addr_any(&s->sk_v6_daddr) &&
--			    !ipv6_addr_equal(&s->sk_v6_daddr, rmt_addr))
-+			if (!ipv6_addr_any(&sk->sk_v6_daddr) &&
-+			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
- 				continue;
- 
--			if (s->sk_bound_dev_if && s->sk_bound_dev_if != dif)
-+			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
- 				continue;
- 
--			if (!ipv6_addr_any(&s->sk_v6_rcv_saddr)) {
--				if (!ipv6_addr_equal(&s->sk_v6_rcv_saddr, loc_addr))
-+			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
-+				if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, loc_addr))
- 					continue;
- 			}
--			if (!inet6_mc_check(s, loc_addr, rmt_addr))
-+			if (!inet6_mc_check(sk, loc_addr, rmt_addr))
- 				continue;
--			return s;
-+			return sk;
- 		}
- 	}
- 	return NULL;
--- 
-2.0.0
+I removed the CC stable@ , as you should not have use it.
+
+Thanks
