@@ -1,55 +1,98 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net v3 2/2] sfc: Restrict PIO to 64-bit architectures
-Date: Thu, 29 May 2014 11:20:50 +0100
-Message-ID: <53870A02.6020500@solarflare.com>
-References: <53870984.6020803@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29256 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757210AbaE2KUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 06:20:54 -0400
-In-Reply-To: <53870984.6020803@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next v3] mrf24j40: added device managed APIs
+Date: Thu, 29 May 2014 15:57:38 +0530
+Message-ID: <1401359258-7247-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	alex.aing@gmail.com, Varka Bhadram <varkab@cdac.in>
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Cooper <jcooper@solarflare.com>
+changes since v2:
+1. removed unwanted label implementation. 
 
-Enable PIO for x86_64 architecture only.
-Not tested on platforms other than x86_64.
+When we use devm_* APIs ,probe() failed also the memory
+will be freed automatically. Thanks to Alex
 
-Fixes:ee45fd92c739
-("sfc: Use TX PIO for sufficiently small packets")
+-Varka Bhadram
 
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
- drivers/net/ethernet/sfc/io.h | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ieee802154/mrf24j40.c |   30 ++++++++++++------------------
+ 1 file changed, 12 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
-index 4d3f119..adadcf0 100644
---- a/drivers/net/ethernet/sfc/io.h
-+++ b/drivers/net/ethernet/sfc/io.h
-@@ -66,10 +66,18 @@
- #define EFX_USE_QWORD_IO 1
- #endif
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 78a6552..f2b1345 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -618,12 +618,12 @@ static int mrf24j40_probe(struct spi_device *spi)
  
-+/* PIO only works on 64-bit architectures */
-+#if BITS_PER_LONG == 64
-+/* not strictly necessary to restrict to x86 arch, but done for safety
-+ * since unusual write combining behaviour can break PIO.
-+ */
-+#ifdef CONFIG_X86_64
- /* PIO is a win only if write-combining is possible */
- #ifdef ARCH_HAS_IOREMAP_WC
- #define EFX_USE_PIO 1
- #endif
-+#endif
-+#endif
+ 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
  
- #ifdef EFX_USE_QWORD_IO
- static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
+-	devrec = kzalloc(sizeof(struct mrf24j40), GFP_KERNEL);
++	devrec = devm_kzalloc(&spi->dev, sizeof(struct mrf24j40), GFP_KERNEL);
+ 	if (!devrec)
+-		goto err_devrec;
+-	devrec->buf = kzalloc(3, GFP_KERNEL);
++		goto err_ret;
++	devrec->buf = devm_kzalloc(&spi->dev, 3, GFP_KERNEL);
+ 	if (!devrec->buf)
+-		goto err_buf;
++		goto err_ret;
+ 
+ 	spi->mode = SPI_MODE_0; /* TODO: Is this appropriate for right here? */
+ 	if (spi->max_speed_hz > MAX_SPI_SPEED_HZ)
+@@ -676,12 +676,13 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	val &= ~0x3; /* Clear RX mode (normal) */
+ 	write_short_reg(devrec, REG_RXMCR, val);
+ 
+-	ret = request_threaded_irq(spi->irq,
+-				   NULL,
+-				   mrf24j40_isr,
+-				   IRQF_TRIGGER_LOW|IRQF_ONESHOT,
+-				   dev_name(&spi->dev),
+-				   devrec);
++	ret = devm_request_threaded_irq(&spi->dev,
++					spi->irq,
++					NULL,
++					mrf24j40_isr,
++					IRQF_TRIGGER_LOW|IRQF_ONESHOT,
++					dev_name(&spi->dev),
++					devrec);
+ 
+ 	if (ret) {
+ 		dev_err(printdev(devrec), "Unable to get IRQ");
+@@ -696,10 +697,7 @@ err_read_reg:
+ err_register_device:
+ 	ieee802154_free_device(devrec->dev);
+ err_alloc_dev:
+-	kfree(devrec->buf);
+-err_buf:
+-	kfree(devrec);
+-err_devrec:
++err_ret:
+ 	return ret;
+ }
+ 
+@@ -709,15 +707,11 @@ static int mrf24j40_remove(struct spi_device *spi)
+ 
+ 	dev_dbg(printdev(devrec), "remove\n");
+ 
+-	free_irq(spi->irq, devrec);
+ 	ieee802154_unregister_device(devrec->dev);
+ 	ieee802154_free_device(devrec->dev);
+ 	/* TODO: Will ieee802154_free_device() wait until ->xmit() is
+ 	 * complete? */
+ 
+-	/* Clean up the SPI stuff. */
+-	kfree(devrec->buf);
+-	kfree(devrec);
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
