@@ -1,47 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] ipv6: Fix regression caused by efe4208 in
- udp_v6_mcast_next()
-Date: Thu, 29 May 2014 13:37:35 -0700
-Message-ID: <1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401395226-10304-1-git-send-email-sven.wegener@stealer.net>
-	 <1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v1 net-next] net: filter: fix length calculation in BPF
+ testsuite
+Date: Thu, 29 May 2014 22:41:28 +0200
+Message-ID: <53879B78.5050106@redhat.com>
+References: <1401391757-27620-1-git-send-email-chema@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Sven Wegener <sven.wegener@stealer.net>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
+To: Chema Gonzalez <chema@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:59071 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752336AbaE2Uhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 16:37:37 -0400
-Received: by mail-pd0-f181.google.com with SMTP id z10so135488pdj.40
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 13:37:37 -0700 (PDT)
-In-Reply-To: <1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
+Received: from mx1.redhat.com ([209.132.183.28]:58036 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754147AbaE2Uln (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 16:41:43 -0400
+In-Reply-To: <1401391757-27620-1-git-send-email-chema@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-05-29 at 20:27 +0000, Sven Wegener wrote:
-> Commit efe4208 ("ipv6: make lookups simpler and faster") introduced a
-> regression in udp_v6_mcast_next(), resulting in multicast packets not
-> reaching the destination sockets under certain conditions.
-> 
-> The packet's IPv6 addresses are wrongly compared to the IPv6 addresses
-> from the function's socket argument, which indicates the starting point
-> for looping, instead of the loop variable. If the addresses from the
-> first socket do not match the packet's addresses, no socket in the list
-> will match.
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: stable@vger.kernel.org # 3.13+
-> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-> ---
->  net/ipv6/udp.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+On 05/29/2014 09:29 PM, Chema Gonzalez wrote:
+> The current probe_filter_length() (the function that calculates the
+> length of a test BPF filter) behavior is to declare the end of the
+> filter as soon as it finds {0, *, *, 0}. This is actually a valid
+> insn ("ld #0"), so any filter with includes "BPF_STMT(BPF_LD | BPF_IMM, 0)"
+> fails (its length is cut short).
+>
+> We are changing probe_filter_length() so as to start from the end, and
+> declare the end of the filter as the first instruction which is not
+> {0, *, *, 0}. This solution produces a simpler patch than the
+> alternative of using an explicit end-of-filter mark. It is technically
+> incorrect if your filter ends up with "ld #0", but that should not
+> happen anyway.
+>
+> We also add a new test (LD_IMM_0) that includes ld #0 (does not work
+> without this patch).
+>
+> Signed-off-by: Chema Gonzalez <chema@google.com>
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Looks good to me, thanks a lot Chema!
 
-I removed the CC stable@ , as you should not have use it.
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
 
-Thanks
+> +	for (len = MAX_INSNS-1; len > 0; --len)
+> +		if (fp[len].code != 0 || fp[len].k != 0)
+> +			break;
+>
+> -	return len;
+> +	return len+1;
+
+Nit: would be great to have a whitespace between MAX_INSNS-1 and len+1 but
+that shouldn't matter that much, perhaps.
