@@ -1,82 +1,57 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH v1 net-next] net: filter: fix length calculation in BPF testsuite
-Date: Thu, 29 May 2014 12:29:17 -0700
-Message-ID: <1401391757-27620-1-git-send-email-chema@google.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [patch net] team: fix mtu setting
+Date: Thu, 29 May 2014 16:33:19 -0300
+Message-ID: <20140529193319.GB13007@t520.home>
+References: <1401389177-10463-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:60370 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932109AbaE2T3T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 15:29:19 -0400
-Received: by mail-ob0-f201.google.com with SMTP id wn1so168753obc.2
-        for <netdev@vger.kernel.org>; Thu, 29 May 2014 12:29:18 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:64185 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754003AbaE2TdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 15:33:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1401389177-10463-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current probe_filter_length() (the function that calculates the
-length of a test BPF filter) behavior is to declare the end of the
-filter as soon as it finds {0, *, *, 0}. This is actually a valid
-insn ("ld #0"), so any filter with includes "BPF_STMT(BPF_LD | BPF_IMM, 0)"
-fails (its length is cut short).
+On Thu, May 29, 2014 at 08:46:17PM +0200, Jiri Pirko wrote:
+> Now it is not possible to set mtu to team device which has a port
+> enslaved to it. The reason is that when team_change_mtu() calls
+> dev_set_mtu() for port device, notificator for NETDEV_PRECHANGEMTU
+> event is called and team_device_event() returns NOTIFY_BAD forbidding
+> the change. So fix this by returning NOTIFY_DONE here in case team is
+> changing mtu in team_change_mtu().
+> 
+> Introduced-by: 3d249d4c "net: introduce ethernet teaming device"
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
 
-We are changing probe_filter_length() so as to start from the end, and
-declare the end of the filter as the first instruction which is not
-{0, *, *, 0}. This solution produces a simpler patch than the
-alternative of using an explicit end-of-filter mark. It is technically
-incorrect if your filter ends up with "ld #0", but that should not
-happen anyway.
+Alright, so changing the team's mtu is now allowed but changing
+port's mtu isn't allowed.
+LGTM.
 
-We also add a new test (LD_IMM_0) that includes ld #0 (does not work
-without this patch).
+Since there are some common code between the unwide and the
+successful code paths, I'd suggest to simply use:
+...
+	list_for_each_entry() {
+		err = 
+		if (err)
+			break
+	}
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- lib/test_bpf.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
+	if (err) {
+		unwind
+	}
+	else
+		dev->mtu = new_mtu;
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index af677cb..e893e3b 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -158,6 +158,18 @@ static struct bpf_test tests[] = {
- 		{ { 0, 0x800000ff }, { 1, 0x800000ff } },
- 	},
- 	{
-+		"LD_IMM_0",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_IMM, 0), /* ld #0 */
-+			BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0, 1, 0),
-+			BPF_STMT(BPF_RET | BPF_K, 0),
-+			BPF_STMT(BPF_RET | BPF_K, 1),
-+		},
-+		CLASSIC,
-+		{ },
-+		{ { 1, 1 } },
-+	},
-+	{
- 		"LD_IND",
- 		.u.insns = {
- 			BPF_STMT(BPF_LDX | BPF_LEN, 0),
-@@ -1542,12 +1554,11 @@ static int probe_filter_length(struct sock_filter *fp)
- {
- 	int len = 0;
- 
--	while (fp->code != 0 || fp->k != 0) {
--		fp++;
--		len++;
--	}
-+	for (len = MAX_INSNS-1; len > 0; --len)
-+		if (fp[len].code != 0 || fp[len].k != 0)
-+			break;
- 
--	return len;
-+	return len+1;
- }
- 
- static struct sk_filter *generate_filter(int which, int *err)
--- 
-1.9.1.423.g4596e3a
+	<common code>
+
+But I suspect that due to the long function name, any
+additional indentation there will cause the code to look
+less readable.
+
+Acked-by: Flavio Leitner <fbl@redhat.com>
