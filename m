@@ -1,92 +1,80 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 1/2] macvlan: slight optimization for passthru
- mode
-Date: Thu, 29 May 2014 12:16:40 +0800
-Message-ID: <5386B4A8.6090302@huawei.com>
-References: <1401187996-10252-1-git-send-email-dingtianhong@huawei.com> <1401187996-10252-2-git-send-email-dingtianhong@huawei.com> <53861500.7050803@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>, <kaber@trash.net>,
-	<davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:52448 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755478AbaE2ERQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 00:17:16 -0400
-In-Reply-To: <53861500.7050803@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH] mrf24j40: add managed API's provided by device layer
+Date: Thu, 29 May 2014 09:47:51 +0530
+Message-ID: <1401337071-4071-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	alex.aing@gmail.com, Varka Bhadram <varkab@cdac.in>
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/5/29 0:55, Vlad Yasevich wrote:
-> On 05/27/2014 06:53 AM, Ding Tianhong wrote:
->> When the maclvan is in passthru mode, there should be one(and only one)
->> macvlan dev, so no need to check the vlan point, remove the judgement and
->> the redundant variables.
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  drivers/net/macvlan.c | 15 +++++++--------
->>  1 file changed, 7 insertions(+), 8 deletions(-)
->>
->> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->> index 55faff3..c9ada17 100644
->> --- a/drivers/net/macvlan.c
->> +++ b/drivers/net/macvlan.c
->> @@ -274,7 +274,6 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
->>  	const struct ethhdr *eth = eth_hdr(skb);
->>  	const struct macvlan_dev *vlan;
->>  	const struct macvlan_dev *src;
->> -	struct net_device *dev;
->>  	unsigned int len = 0;
->>  	int ret = NET_RX_DROP;
->>  
->> @@ -300,16 +299,16 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
->>  		return RX_HANDLER_PASS;
->>  	}
->>  
->> -	if (port->passthru)
->> +	if (port->passthru) {
->>  		vlan = list_first_or_null_rcu(&port->vlans,
->>  					      struct macvlan_dev, list);
->> -	else
->> +	} else {
->>  		vlan = macvlan_hash_lookup(port, eth->h_dest);
->> -	if (vlan == NULL)
->> -		return RX_HANDLER_PASS;
->> +		if (vlan == NULL)
->> +			return RX_HANDLER_PASS;
->> +	}
->>  
-> 
-> I don't think you can do that.  del_link() happens before ndo_uninit(),
-> and we unregister the rx_handler in ndo_uninit().  As such it is
-> possible to enter the rx_handler while the ports->vlans is empty.
-> 
-> -vlad
+This patch adds the managed APIs to the deriver code. By using this we need
+not to worry about freeing the memory and irq numbers.
 
-Yes, I miss it, the ports->vlans is already empty when unregister rx_handler, thanks.
+Thanks and Regards,
+Varka Bhadram
 
-Ding
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ieee802154/mrf24j40.c |   22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
 
-> 
->> -	dev = vlan->dev;
->> -	if (unlikely(!(dev->flags & IFF_UP))) {
->> +	if (unlikely(!(vlan->dev->flags & IFF_UP))) {
->>  		kfree_skb(skb);
->>  		return RX_HANDLER_CONSUMED;
->>  	}
->> @@ -318,7 +317,7 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
->>  	if (!skb)
->>  		goto out;
->>  
->> -	skb->dev = dev;
->> +	skb->dev = vlan->dev;
->>  	skb->pkt_type = PACKET_HOST;
->>  
->>  	ret = netif_rx(skb);
->>
-> 
-> 
-> 
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 78a6552..729ec0f 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -618,10 +618,11 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 
+ 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+ 
+-	devrec = kzalloc(sizeof(struct mrf24j40), GFP_KERNEL);
++	devrec = devm_kzalloc(spi->dev,
++			sizeof(struct mrf24j40), GFP_KERNEL);
+ 	if (!devrec)
+ 		goto err_devrec;
+-	devrec->buf = kzalloc(3, GFP_KERNEL);
++	devrec->buf = devm_kzalloc(spi->dev, 3, GFP_KERNEL);
+ 	if (!devrec->buf)
+ 		goto err_buf;
+ 
+@@ -676,12 +677,13 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	val &= ~0x3; /* Clear RX mode (normal) */
+ 	write_short_reg(devrec, REG_RXMCR, val);
+ 
+-	ret = request_threaded_irq(spi->irq,
+-				   NULL,
+-				   mrf24j40_isr,
+-				   IRQF_TRIGGER_LOW|IRQF_ONESHOT,
+-				   dev_name(&spi->dev),
+-				   devrec);
++	ret = devm_request_threaded_irq(spi->dev,
++					spi->irq,
++					NULL,
++					mrf24j40_isr,
++					IRQF_TRIGGER_LOW|IRQF_ONESHOT,
++					dev_name(&spi->dev),
++					devrec);
+ 
+ 	if (ret) {
+ 		dev_err(printdev(devrec), "Unable to get IRQ");
+@@ -709,15 +711,11 @@ static int mrf24j40_remove(struct spi_device *spi)
+ 
+ 	dev_dbg(printdev(devrec), "remove\n");
+ 
+-	free_irq(spi->irq, devrec);
+ 	ieee802154_unregister_device(devrec->dev);
+ 	ieee802154_free_device(devrec->dev);
+ 	/* TODO: Will ieee802154_free_device() wait until ->xmit() is
+ 	 * complete? */
+ 
+-	/* Clean up the SPI stuff. */
+-	kfree(devrec->buf);
+-	kfree(devrec);
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
