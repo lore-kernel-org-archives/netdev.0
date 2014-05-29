@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
- Sanitize skb before it enters the IP stack)
-Date: Thu, 29 May 2014 15:34:24 -0700 (PDT)
-Message-ID: <20140529.153424.1310751217059624351.davem@davemloft.net>
-References: <53803488.6000400@davidnewall.com>
-	<20140524.134356.992924324126016022.davem@davemloft.net>
-	<53815623.8020506@davidnewall.com>
+Subject: Re: [PATCHv2 net-next 0/4] bridge: multicast snooping
+ patches / exports
+Date: Thu, 29 May 2014 15:36:22 -0700 (PDT)
+Message-ID: <20140529.153622.764478286337271648.davem@davemloft.net>
+References: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bdschuym@pandora.be, fw@strlen.de, stephen@networkplumber.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org, bsd@redhat.com,
-	vyasevich@gmail.com
-To: davidn@davidnewall.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47151 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329AbaE2WeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 18:34:25 -0400
-In-Reply-To: <53815623.8020506@davidnewall.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org
+To: linus.luessing@web.de
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: David Newall <davidn@davidnewall.com>
-Date: Sun, 25 May 2014 12:02:03 +0930
+From: Linus L=FCssing <linus.luessing@web.de>
+Date: Sun, 25 May 2014 07:03:21 +0200
 
-> +	pskb_trim_rcsum(skb, len);
+> Changes in v2:
 
-You really need to check the return value as this can perform allocations,
-GFP_ATOMIC ones in fact.
-
-Also, why are we not bumping the statistics any more?  I didn't see a
-discussion of that in this thread.
+I really need a bridging expert to review this series, thank you.
