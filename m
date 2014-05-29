@@ -1,83 +1,111 @@
-From: 'Arnaldo Carvalho de Melo' <acme@kernel.org>
-Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
-Date: Thu, 29 May 2014 11:17:05 -0300
-Message-ID: <20140529141705.GI2764@kernel.org>
-References: <20140527192115.GD25474@kernel.org>
- <CAKgNAkht1vubHueYPpkRu_W5B8OYW3rPUkHeLEq5WMVbCvO47w@mail.gmail.com>
- <20140527203010.GA2764@kernel.org>
- <5385D47A.3070401@gmail.com>
- <20140528150720.GB2764@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com>
- <20140528195004.GD2764@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6D1724FB67@AcuExch.aculab.com>
- <20140529135547.GG2764@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6D1724FC78@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"linux-man@vger.kernel.org" <linux-man@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ondrej =?iso-8859-1?Q?B=EDlka?= <neleai@seznam.cz>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Steven Whitehouse <steve@chygwyn.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>, Paul Moore <paul@paul-moore.com>,
-	Chris Friesen <chris.friesen@windriver.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724FC78@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: [PATCH net-next v2] net: stmmac: Handle different error codes from platform_get_irq_byname
+Date: Thu, 29 May 2014 22:31:40 +0800
+Message-ID: <1401373900-30253-1-git-send-email-wens@csie.org>
+Cc: Chen-Yu Tsai <wens@csie.org>, netdev@vger.kernel.org,
+	Grygorii Strashko <grygorii.strashko@ti.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Rob Herring <robh@kernel.org>,
+	Maxime Ripard <maxime.ripard@free-electrons.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mirror2.csie.ntu.edu.tw ([140.112.30.76]:40122 "EHLO
+	mirror2.csie.ntu.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932605AbaE2Ob4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 10:31:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Thu, May 29, 2014 at 02:06:04PM +0000, David Laight escreveu:
-> From: 'Arnaldo Carvalho de Melo'
-> ...
-> > > I remember some discussions from an XNET standards meeting (I've forgotten
-> > > exactly which errors on which calls were being discussed).
-> > > My recollection is that you return success with a partial transfer
-> > > count for ANY error that happens after some data has been transferred.
-> > > The actual error will be returned when it happens again on the next
-> > > system call - Note the AGAIN, not a saved error.
+The following patch moved device tree interrupt resolution into
+platform_get_irq_byname:
 
-> > A saved error, for the right entity, in the recvmmsg case, that
-> > basically is batching multiple recvmsg syscalls, doesn't sound like a
-> > problem, i.e. the idea is to, as much as possible, mimic what multiple
-> > recvmsg calls would do, but reduce its in/out kernel (and inside kernel
-> > subsystems) overhead.
+  ad69674 of/irq: do irq resolution in platform_get_irq_byname()
 
-> > Perhaps we can have something in between, i.e. for things like EFAULT,
-> > we should report straight away, effectively dropping whatever datagrams
-> > successfully received in the current batch, do you agree?
+As a result, the function no longer only return -ENXIO on error.
+This breaks DT based probing of stmmac, as seen in test runs of
+linux-next next-20140526 cubie2-sunxi_defconfig:
+
+  http://lists.linaro.org/pipermail/kernel-build-reports/2014-May/003659.html
+
+This patch makes the stmmac_platform probe function properly handle
+error codes, such as returning for deferred probing, and other codes
+returned by of_irq_get_by_name.
+
+Signed-off-by: Chen-Yu Tsai <wens@csie.org>
+---
+
+v2 addresses Rob Herring's comments:
+
+  - copy / paste errors
+  - use netdev_err instead of pr_err
+  - join a split string
+  - Fix checking lpi_irq for valid interrupt
+
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c     |  4 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 17 ++++++++++++-----
+ 2 files changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 110ca1c..057a120 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1753,7 +1753,7 @@ static int stmmac_open(struct net_device *dev)
+ 	}
  
-> Not unreasonable - EFAULT shouldn't happen unless the application
-> is buggy.
-
-Ok.
+ 	/* Request the IRQ lines */
+-	if (priv->lpi_irq != -ENXIO) {
++	if (priv->lpi_irq > 0) {
+ 		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
+ 				  dev->name, dev);
+ 		if (unlikely(ret < 0)) {
+@@ -1813,7 +1813,7 @@ static int stmmac_release(struct net_device *dev)
+ 	free_irq(dev->irq, dev);
+ 	if (priv->wol_irq != dev->irq)
+ 		free_irq(priv->wol_irq, dev);
+-	if (priv->lpi_irq != -ENXIO)
++	if (priv->lpi_irq > 0)
+ 		free_irq(priv->lpi_irq, dev);
  
-> > For transient errors the existing mechanism, fixed so that only per
-> > socket errors are saved for later, as today, could be kept?
+ 	/* Stop TX/RX DMA and clear the descriptors */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 46aef510..ea7a65b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -237,10 +237,12 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
  
-> I don't think it is ever necessary to save an errno value for the
-> next system call at all.
-> Just process the next system call and see what happens.
+ 	/* Get the MAC information */
+ 	priv->dev->irq = platform_get_irq_byname(pdev, "macirq");
+-	if (priv->dev->irq == -ENXIO) {
+-		pr_err("%s: ERROR: MAC IRQ configuration "
+-		       "information not found\n", __func__);
+-		return -ENXIO;
++	if (priv->dev->irq < 0) {
++		if (priv->dev->irq != -EPROBE_DEFER) {
++			netdev_err(priv->dev,
++				   "MAC IRQ configuration information not found\n");
++		}
++		return priv->dev->irq;
+ 	}
  
-> If the call returns with less than the maximum number of datagrams
-> and with a non-zero timeout left - then the application can infer
-> that it was terminated by an abnormal event of some kind.
-> This might be a signal.
-
-Then it could use getsockopt(SO_ERROR) perhaps? I.e. we don't return the
-error on the next call, but we provide a way for the app to retrieve the
-reason for the smaller than expected batch?
-
-> I'm not sure if an icmp error on a connected datagram socket could
-> generate a 'disconnect'. It might happen if the interface is being
-> used for something like SCTP.
-> In either case the next call will detect the error.
-
-- Arnaldo
+ 	/*
+@@ -252,10 +254,15 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
+ 	 * so the driver will continue to use the mac irq (ndev->irq)
+ 	 */
+ 	priv->wol_irq = platform_get_irq_byname(pdev, "eth_wake_irq");
+-	if (priv->wol_irq == -ENXIO)
++	if (priv->wol_irq < 0) {
++		if (priv->wol_irq == -EPROBE_DEFER)
++			return -EPROBE_DEFER;
+ 		priv->wol_irq = priv->dev->irq;
++	}
+ 
+ 	priv->lpi_irq = platform_get_irq_byname(pdev, "eth_lpi");
++	if (priv->lpi_irq == -EPROBE_DEFER)
++		return -EPROBE_DEFER;
+ 
+ 	platform_set_drvdata(pdev, priv->dev);
+ 
+-- 
+2.0.0.rc4
