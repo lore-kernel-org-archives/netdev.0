@@ -1,31 +1,33 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
- cnic_alloc_uio_rings()
-Date: Fri, 30 May 2014 15:33:20 -0700
-Message-ID: <20140530223320.GA23581@f1.synalogic.ca>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
- <1401491923-5480-2-git-send-email-mchan@broadcom.com>
- <1401491923-5480-3-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ehea: Introduce the use of the managed version of
+ kzalloc
+Date: Fri, 30 May 2014 15:40:57 -0700 (PDT)
+Message-ID: <20140530.154057.1365325960228216056.davem@davemloft.net>
+References: <20140528142309.GA4371@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:35098 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751983AbaE3WdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:33:23 -0400
-Received: by mail-pb0-f53.google.com with SMTP id md12so2186112pbc.40
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 15:33:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1401491923-5480-3-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: cascardo@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140528142309.GA4371@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/05/30 16:18, Michael Chan wrote:
-> We are allocating memory with GFP_KERNEL under spinlock.  Since this is
-> the only call manipulating the cnic_udev_list and it is always under
-> rtnl_lock, cnic_dev_lock can be safely removed.
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Wed, 28 May 2014 19:53:09 +0530
 
-In that case, the many other instances of cnic_dev_lock throughout cnic
-should also be removed, no?
+> This patch moves data allocated using kzalloc to managed data allocated
+> using devm_kzalloc and cleans now unnecessary kfrees in probe and remove
+> functions. Also, linux/device.h is added to make sure the devm_*()
+> routine declarations are unambiguously available.
+> 
+> The following Coccinelle semantic patch was used for making the change:
+ ...
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Compile-Tested-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+> ---
+> v3: add space in linux/device.h include
+
+Applied to net-next, thanks.
