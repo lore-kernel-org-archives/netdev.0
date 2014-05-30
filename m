@@ -1,61 +1,77 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next 5/6] be2net: move async cmd processing to a
- separate routine
-Date: Fri, 30 May 2014 09:18:34 +0000
-Message-ID: <85723bf9-d7da-4d31-9abb-d50b58e1a172@CMEXHTCAS2.ad.emulex.com>
-References: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
- <1401258665-6238-6-git-send-email-sathya.perla@emulex.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx
+ buffers are reduced
+Date: Fri, 30 May 2014 09:18:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
+References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
+ <1401435070-26721-4-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Sathya Perla <Sathya.Perla@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:42569 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504AbaE3JSk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:18:40 -0400
-In-Reply-To: <1401258665-6238-6-git-send-email-sathya.perla@emulex.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1401435070-26721-4-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Sathya Perla
-...
-> 
->
->  static int be_mcc_compl_process(struct be_adapter *adapter,
->  				struct be_mcc_compl *compl)
->  {
->  	enum mcc_base_status base_status;
->  	enum mcc_addl_status addl_status;
->  	struct be_cmd_resp_hdr *resp_hdr;
-> -	u8 opcode = 0, subsystem = 0;
-> +	u8 opcode, subsystem;
-> 
->  	/* Just swap the status to host endian; mcc tag is opaquely copied
->  	 * from mcc_wrb */
-> @@ -148,45 +196,13 @@ static int be_mcc_compl_process(struct be_adapter
-> *adapter,
->  	addl_status = addl_status(compl->status);
-> 
->  	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
-> +	opcode = resp_hdr->opcode;
-> +	subsystem = resp_hdr->subsystem;
-> 
-> -	if (resp_hdr) {
-> -		opcode = resp_hdr->opcode;
-> -		subsystem = resp_hdr->subsystem;
-> -	}
-> -
-
-I missed a NULL check here. I'll fix this up and re-send the patch set.
-Thanks!
-
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+RnJvbTogQmrDuHJuIE1vcmsgDQo+IEl0IGRvZXNuJ3QgbWF0dGVyIHdoZXRoZXIgdGhlIGJ1ZmZl
+ciBzaXplIGdvZXMgdXAgb3IgZG93bi4gIFdlIGhhdmUgdG8NCj4ga2VlcCB1c2JuZXQgYW5kIGRl
+dmljZSBzeW5jcm9uaXplZCB0byBiZSBhYmxlIHRvIHNwbGl0IHRyYW5zZmVycyBhdCB0aGUNCj4g
+Y29ycmVjdCBib3VuZGFyaWVzLiBUaGUgc3BlYyBhbGxvdyBza2lwcGluZyBzaG9ydCBwYWNrZXRz
+IHdoZW4gdXNpbmcNCj4gbWF4IHNpemVkIHRyYW5zZmVycy4gIElmIHdlIGRvbid0IHRlbGwgdXNi
+bmV0IGFib3V0IG91ciBuZXcgZXhwZWN0ZWQgcngNCj4gYnVmZmVyIHNpemUsIHRoZW4gaXQgd2ls
+bCBtZXJnZSBhbmQvb3Igc3BsaXQgTlRCcy4gIFRoZSBkcml2ZXIgZG9lcyBub3QNCj4gc3VwcG9y
+dCB0aGlzLCBhbmQgdGhlIHJlc3VsdCB3aWxsIGJlIGxvdHMgb2YgZnJhbWluZyBlcnJvcnMuDQo+
+IA0KPiBGaXggYnkgYWx3YXlzIHJlYWxsb2NhdGluZyB1c2JuZXQgcnggYnVmZmVycyB3aGVuIHRo
+ZSByeF9tYXggdmFsdWUNCj4gY2hhbmdlcy4NCg0KSSdtIGd1ZXNzaW5nIHRoYXQgdGhlIHJ4X21h
+eCB2YWx1ZSBpcyB0aGUgbWF4aW11bSBzaXplIG9mIHRoZSBVU0IgYnVsaw0KZGF0YSAnbWVzc2Fn
+ZScgdGhhdCB0aGUgZGV2aWNlIGdlbmVyYXRlcz8NCg0KQXMgc3VjaCB0aGUgVVJCIG9ubHkgbmVl
+ZCB0byBiZSBsb25nZXIgdGhhdCBpdC4NCihPciBtdWx0aXBsZXMgb2YgdGhlIFVTQiBwYWNrZXQg
+c2l6ZSwgYW5kIHRoZSBkcml2ZXIgdGhlbiBtZXJnZSBVUkINCndoZW4gZ2VuZXJhdGluZyBza2Jz
+LikNCg0KU2luY2UgeW91IGFyZSBub3cgY29weWluZyB0aGUgZGF0YSBvdXQgb2YgdGhlIFVSQidz
+IHNrYiBiZWZvcmUNCnBhc3NpbmcgdGhlIGV0aGVybmV0IHBhY2tldCB1cHN0cmVhbSwgaXMgdGhl
+cmUgZXZlciBhbnkgcmVhbA0KcmVxdWlyZW1lbnQgdG8gdXNlIGEgc21hbGwgcnhfbWF4PyBvciBl
+dmVyIGNoYW5nZSByeF9tYXg/DQoNCglEYXZpZA0KDQo+IEZpeGVzOiA2ODg2NGFiZjA4ZjAgKCJu
+ZXQ6IGNkY19uY206IHN1cHBvcnQgcnhfbWF4L3R4X21heCB1cGRhdGVzIHdoZW4gcnVubmluZyIp
+DQo+IFNpZ25lZC1vZmYtYnk6IEJqw7hybiBNb3JrIDxiam9ybkBtb3JrLm5vPg0KPiAtLS0NCj4g
+IGRyaXZlcnMvbmV0L3VzYi9jZGNfbmNtLmMgfCAxNCArKysrKysrLS0tLS0tLQ0KPiAgMSBmaWxl
+IGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC91c2IvY2RjX25jbS5jIGIvZHJpdmVycy9uZXQvdXNiL2NkY19uY20u
+Yw0KPiBpbmRleCBmZjViM2E4NTQ4OTguLjViY2U4NmEwZDA2MyAxMDA2NDQNCj4gLS0tIGEvZHJp
+dmVycy9uZXQvdXNiL2NkY19uY20uYw0KPiArKysgYi9kcml2ZXJzL25ldC91c2IvY2RjX25jbS5j
+DQo+IEBAIC0yMTUsMTkgKzIxNSwxMiBAQCBzdGF0aWMgdm9pZCBjZGNfbmNtX3VwZGF0ZV9yeHR4
+X21heChzdHJ1Y3QgdXNibmV0ICpkZXYsIHUzMiBuZXdfcngsIHUzMiBuZXdfdHgpDQo+ICAJCQlt
+aW4sIG1heCwgdmFsKTsNCj4gIAl9DQo+IA0KPiAtCS8qIHVzYm5ldCB1c2UgdGhlc2UgdmFsdWVz
+IGZvciBzaXppbmcgcnggcXVldWVzICovDQo+IC0JZGV2LT5yeF91cmJfc2l6ZSA9IHZhbDsNCj4g
+LQ0KPiAgCS8qIGluZm9ybSBkZXZpY2UgYWJvdXQgTlRCIGlucHV0IHNpemUgY2hhbmdlcyAqLw0K
+PiAgCWlmICh2YWwgIT0gY3R4LT5yeF9tYXgpIHsNCj4gIAkJX19sZTMyIGR3TnRiSW5NYXhTaXpl
+ID0gY3B1X3RvX2xlMzIodmFsKTsNCj4gDQo+ICAJCWRldl9pbmZvKCZkZXYtPmludGYtPmRldiwg
+InNldHRpbmcgcnhfbWF4ID0gJXVcbiIsIHZhbCk7DQo+IA0KPiAtCQkvKiBuZWVkIHRvIHVubGlu
+ayByeCB1cmJzIGJlZm9yZSBpbmNyZWFzaW5nIGJ1ZmZlciBzaXplICovDQo+IC0JCWlmIChuZXRp
+Zl9ydW5uaW5nKGRldi0+bmV0KSAmJiBkZXYtPnJ4X3VyYl9zaXplID4gY3R4LT5yeF9tYXgpDQo+
+IC0JCQl1c2JuZXRfdW5saW5rX3J4X3VyYnMoZGV2KTsNCj4gLQ0KPiAgCQkvKiB0ZWxsIGRldmlj
+ZSB0byB1c2UgbmV3IHNpemUgKi8NCj4gIAkJaWYgKHVzYm5ldF93cml0ZV9jbWQoZGV2LCBVU0Jf
+Q0RDX1NFVF9OVEJfSU5QVVRfU0laRSwNCj4gIAkJCQkgICAgIFVTQl9UWVBFX0NMQVNTIHwgVVNC
+X0RJUl9PVVQNCj4gQEAgLTIzOCw2ICsyMzEsMTMgQEAgc3RhdGljIHZvaWQgY2RjX25jbV91cGRh
+dGVfcnh0eF9tYXgoc3RydWN0IHVzYm5ldCAqZGV2LCB1MzIgbmV3X3J4LCB1MzIgbmV3X3R4KQ0K
+PiAgCQkJY3R4LT5yeF9tYXggPSB2YWw7DQo+ICAJfQ0KPiANCj4gKwkvKiB1c2JuZXQgdXNlIHRo
+ZXNlIHZhbHVlcyBmb3Igc2l6aW5nIHJ4IHF1ZXVlcyAqLw0KPiArCWlmIChkZXYtPnJ4X3VyYl9z
+aXplICE9IGN0eC0+cnhfbWF4KSB7DQo+ICsJCWRldi0+cnhfdXJiX3NpemUgPSBjdHgtPnJ4X21h
+eDsNCj4gKwkJaWYgKG5ldGlmX3J1bm5pbmcoZGV2LT5uZXQpKQ0KPiArCQkJdXNibmV0X3VubGlu
+a19yeF91cmJzKGRldik7DQo+ICsJfQ0KPiArDQo+ICAJLyogY2xhbXAgbmV3X3R4IHRvIHNhbmUg
+dmFsdWVzICovDQo+ICAJbWluID0gY3R4LT5tYXhfZGF0YWdyYW1fc2l6ZSArIGN0eC0+bWF4X25k
+cF9zaXplICsgc2l6ZW9mKHN0cnVjdCB1c2JfY2RjX25jbV9udGgxNik7DQo+ICAJbWF4ID0gbWlu
+X3QodTMyLCBDRENfTkNNX05UQl9NQVhfU0laRV9UWCwgbGUzMl90b19jcHUoY3R4LT5uY21fcGFy
+bS5kd050Yk91dE1heFNpemUpKTsNCj4gLS0NCj4gMi4wLjAucmM0DQoNCg==
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
