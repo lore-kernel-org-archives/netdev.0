@@ -1,8 +1,8 @@
-From: David Laight <David.Laight@ACULAB.COM>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
 Subject: RE: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx
  buffers are reduced
-Date: Fri, 30 May 2014 12:39:55 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172506D0@AcuExch.aculab.com>
+Date: Fri, 30 May 2014 12:42:29 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17250700@AcuExch.aculab.com>
 References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
 	<1401435070-26721-4-git-send-email-bjorn@mork.no>
 	<063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
@@ -10,65 +10,32 @@ References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58710 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752416AbaE3MlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 08:41:03 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09922-05 for <netdev@vger.kernel.org>;
- Fri, 30 May 2014 13:40:53 +0100 (BST)
-In-Reply-To: <87d2eva41t.fsf@nemi.mork.no>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <87d2eva41t.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQmrDuHJuIE1vcmsNCj4gRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNP
-TT4gd3JpdGVzOg0KPiA+IEZyb206IEJqw7hybiBNb3JrDQo+ID4+IEl0IGRvZXNuJ3QgbWF0dGVy
-IHdoZXRoZXIgdGhlIGJ1ZmZlciBzaXplIGdvZXMgdXAgb3IgZG93bi4gIFdlIGhhdmUgdG8NCj4g
-Pj4ga2VlcCB1c2JuZXQgYW5kIGRldmljZSBzeW5jcm9uaXplZCB0byBiZSBhYmxlIHRvIHNwbGl0
-IHRyYW5zZmVycyBhdCB0aGUNCj4gPj4gY29ycmVjdCBib3VuZGFyaWVzLiBUaGUgc3BlYyBhbGxv
-dyBza2lwcGluZyBzaG9ydCBwYWNrZXRzIHdoZW4gdXNpbmcNCj4gPj4gbWF4IHNpemVkIHRyYW5z
-ZmVycy4gIElmIHdlIGRvbid0IHRlbGwgdXNibmV0IGFib3V0IG91ciBuZXcgZXhwZWN0ZWQgcngN
-Cj4gPj4gYnVmZmVyIHNpemUsIHRoZW4gaXQgd2lsbCBtZXJnZSBhbmQvb3Igc3BsaXQgTlRCcy4g
-IFRoZSBkcml2ZXIgZG9lcyBub3QNCj4gPj4gc3VwcG9ydCB0aGlzLCBhbmQgdGhlIHJlc3VsdCB3
-aWxsIGJlIGxvdHMgb2YgZnJhbWluZyBlcnJvcnMuDQo+ID4+DQo+ID4+IEZpeCBieSBhbHdheXMg
-cmVhbGxvY2F0aW5nIHVzYm5ldCByeCBidWZmZXJzIHdoZW4gdGhlIHJ4X21heCB2YWx1ZQ0KPiA+
-PiBjaGFuZ2VzLg0KPiA+DQo+ID4gSSdtIGd1ZXNzaW5nIHRoYXQgdGhlIHJ4X21heCB2YWx1ZSBp
-cyB0aGUgbWF4aW11bSBzaXplIG9mIHRoZSBVU0IgYnVsaw0KPiA+IGRhdGEgJ21lc3NhZ2UnIHRo
-YXQgdGhlIGRldmljZSBnZW5lcmF0ZXM/DQo+ID4NCj4gPiBBcyBzdWNoIHRoZSBVUkIgb25seSBu
-ZWVkIHRvIGJlIGxvbmdlciB0aGF0IGl0Lg0KPiANCj4gU28gZGlkIEkgdGhpbmsgdG9vIGF0IGZp
-cnN0LiAgVGhhdCdzIGhvdyBJIGFkZGVkIHRoZSBidWcgZml4ZWQgYnkgdGhpcw0KPiBjb21taXQg
-Oi0pDQo+IA0KPiBUaGUgcHJvYmxlbSB3aXRoIE5DTSBpcyB0aGF0IGl0IGV4cGxpY2l0bHkgYWxs
-b3dzIChhbmQgZW5jb3VyYWdlKSB1c2luZw0KPiB0cmFuc2ZlcnMgd2hpY2ggYXJlIG11bHRpcGxl
-cyBvZiB0aGUgVVNCIHBhY2tldCBzaXplLCAqd2l0aG91dCogYW55DQo+IHRlcm1pbmF0aW5nIHNo
-b3J0IHBhY2tldCAoMCBvciAxIGJ5dGUpLiBUaGlzIG1lYW5zIHRoYXQgdGhlIFVTQiBjb3JlDQo+
-IHdvbid0IGtub3cgb3IgY2FyZSBhYm91dCB0aGUgZW5kIG9mIG9uZSB0cmFuc2ZlciBhbmQgdGhl
-IGJlZ2lubmluZyBvZg0KPiB0aGUgbmV4dC4gIFdoaWNoIGlzIGZpbmUuICBCdXQgdGhlIGNkY19u
-Y20gZHJpdmVyIGhhcyB0byBrbm93LCBiZWNhdXNlDQo+IGl0IG11c3Qgc3BsaXQgdGhlIHRyYW5z
-ZmVycyBpbnRvIGZyYW1lcyBpdCBjYW4gZGVjb2RlLg0KPiANCj4gTm93LCB0aGUgY3VycmVudCBj
-ZGNfbmNtIGltcGxlbWVudGF0aW9uIGhhcyBhIGJ1aWx0LWluIGFzc3VtcHRpb24gdGhhdA0KPiB0
-aGUgc2l6ZSBvZiB0aGUgVVJCID09IHJ4X21heC4gIFRoaXMgbGV0cyBpdCBzaW1wbGlmeSB0aGUg
-c3BsaXR0aW5nIGludG8NCj4gZnJhbWVzIHRvIG5lYXJseSBub3RoaW5nOiBBbnkgcmVjZWl2ZWQg
-VVJCIGNvbnRhaW5zIGV4YWN0bHkgb25lIGZyYW1lLg0KPiBUaGVyZWZvcmUgd2UgbmVlZCB0byBr
-ZWVwIHRoZSByeCBVUkIgc2l6ZSBzdHJpY3RseSBzeW5jcm9uaXplZCB0aGUNCj4gcnhfbWF4Lg0K
-DQpIbW1tLi4uLg0KU28gdGhlcmUgaXMgYW4gZXRoZXJuZXQgcGFja2V0IHNpemUgc29tZXdoZXJl
-IG5lYXIgNTAwIHRoYXQgZXhhY3RseSBmaWxscw0KYSA1MTIgYnl0ZSBVU0IyIGZyYW1lLg0KSWYg
-eW91IHJlY2VpdmUgb25lIG9mIHRob3NlIGRvZXMgdGhlIGhhcmR3YXJlIHNlbmQgYSAwIGxlbmd0
-aCB0ZXJtaW5hdGluZw0KZnJhZ21lbnQ/DQpJZiBub3QgdGhlIHRoZW4gVVJCIHdvbid0IGNvbXBs
-ZXRlIHVudGlsIGFmdGVyIHRoZSBuZXh0IGV0aGVybmV0IGZyYW1lDQphcnJpdmVzLg0KUmVjZWl2
-ZSB0aHJlZSBvZiB0aGVtIGZvbGxvd2VkIGJ5IGEgbG9uZ2VyIGZyYW1lIGFuZCB5b3UnbGwgb3Zl
-cnJ1biB0aGUNCmVuZCBvZiB0aGUgVVJCLg0KDQpBdCBsZWFzdCBvbmUgcGF0aCB0aHJvdWdoIHVz
-Ym5ldCBlbnN1cmVzIHRoYXQgdGhlIHJ4IGJ1ZmZlcnMgYXJlbid0DQphIG11bHRpcGxlIG9mIHRo
-ZSBVU0IgZnJhbWUgc2l6ZS4gSSdtIG5vdCBzdXJlIHdoZXRoZXIgdGhhdCByZWFsbHkgaGVscHMu
-DQoNClNvdW5kcyBsaWtlIHRoZSBoYXJkd2FyZSBleHBlY3RzIHlvdSB0byByZWNlaXZlIGVhY2gg
-VVNCIGJ1bGsgYnVmZmVyDQpzZXBhcmF0ZWx5Lg0KDQoJRGF2aWQNCg0K
+RnJvbTogQmrDuHJuIE1vcmsNCi4uLg0KPiA+IFNpbmNlIHlvdSBhcmUgbm93IGNvcHlpbmcgdGhl
+IGRhdGEgb3V0IG9mIHRoZSBVUkIncyBza2IgYmVmb3JlDQo+ID4gcGFzc2luZyB0aGUgZXRoZXJu
+ZXQgcGFja2V0IHVwc3RyZWFtLCBpcyB0aGVyZSBldmVyIGFueSByZWFsDQo+ID4gcmVxdWlyZW1l
+bnQgdG8gdXNlIGEgc21hbGwgcnhfbWF4PyBvciBldmVyIGNoYW5nZSByeF9tYXg/DQo+IA0KPiBZ
+ZXMuICB1c2JuZXQgZG9lc24ndCBjdXJyZW50bHkgcmVjeWNsZSBza2JzLiAgQ29udGludW91c2x5
+IGFsbG9jYXRpbmcgMzINCj4ga0Igc2ticyAob3IgZXZlbiA2NCBrQiB0cnVlc2l6ZSwgd2hpY2gg
+aXMgdGhlIGN1cnJlbnQgY2RjX25jbSB3b3JzdA0KPiBjYXNlKSBvbiBtZW1vcnkgY29uc3RyYWlu
+ZWQgaG9zdHMgaXMgYm91bmQgdG8gZmFpbCBldmVudHVhbGx5Lg0KDQpHZXR0aW5nIHVzYm5ldCB0
+byByZWN5Y2xlIHNrYiBzaG91bGRuJ3QgYmUgdG9vIGhhcmQgLSBhbmQgd2lsbA0KYmUgYW4gaW1t
+ZWRpYXRlIGdhaW4gZm9yIG1vc3Qgb2YgdGhlIGRyaXZlcnMuDQpJIHRoaW5rIHRoZXkgd291bGQg
+YWxsIGJlbmVmaXQgZnJvbSBjb3B5aW5nIGZyYW1lcyB0byBuZXcgc2tiLg0KDQoJRGF2aWQNCg0K
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
