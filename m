@@ -1,78 +1,58 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 09:42:34 +0000
-Message-ID: <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
- <1401415552-2263-5-git-send-email-b38611@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+From: Kristian Evensen <kristian.evensen@gmail.com>
+Subject: [PATCH net-next] ipheth: Add support for iPad 2 and iPad 3
+Date: Fri, 30 May 2014 12:17:00 +0200
+Message-ID: <1401445020-14027-1-git-send-email-kristian.evensen@gmail.com>
+Cc: Kristian Evensen <kristian.evensen@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:33485
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755160AbaE3Jmz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:42:55 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:38652 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755221AbaE3KRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 06:17:09 -0400
+Received: by mail-wi0-f181.google.com with SMTP id n15so841410wiw.8
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 03:17:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, 2014 5:11 PM
->To: Duan Fugang-B38611; Li Frank-B20596; davem@davemloft.net
->Cc: ezequiel.garcia@free-electrons.com; netdev@vger.kernel.org;
->shawn.guo@linaro.org; bhutchings@solarflare.com;
->stephen@networkplumber.org
->Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry
->number
->
->From: Fugang Duan
->> In order to support SG, software TSO, let's increase BD entry number.
->
->Software TSO shouldn't significantly increase the number of descriptors
->required.
->I'd guess it makes a lot of packets have 2 fragments.
->
->...
->> -#define FEC_ENET_RX_PAGES	8
->> +#define FEC_ENET_RX_PAGES	256
->
->Supporting TSO shouldn't need more RX descriptors.
->While 16 descriptors isn't that many, 512 is a lot.
->If PAGE_SIZE is greater than 4k it is a huge amount of memory.
->
-Yes, 16 descriptors is little, increase BD entry size can improve the performance.
-And I want to add the later patch to support interrupt coalescing, which need more BD descriptors.
+From: Kristian Evensen <kristian.evensen@gmail.com>
 
->>  #define FEC_ENET_RX_FRSIZE	2048
->>  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
->>  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
->>  #define FEC_ENET_TX_FRSIZE	2048
->>  #define FEC_ENET_TX_FRPPG	(PAGE_SIZE / FEC_ENET_TX_FRSIZE)
->> -#define TX_RING_SIZE		16	/* Must be power of two */
->> -#define TX_RING_MOD_MASK	15	/*   for this to work */
->> +#define TX_RING_SIZE		512	/* Must be power of two */
->> +#define TX_RING_MOD_MASK	511	/*   for this to work */
->
->Does the driver support BQL (or similar) in order to limit the amount of
->queued tx traffic?
->Otherwise you've significantly increased the latency for connections other
->than one doing bulk tx.
->
->	David
->
-The driver still don't support BQL.
-I will add the feature to support FEC. Thanks for your advise.
+Each iPad model has a different product id, this patch adds support for iPad 2
+(pid 0x12a2) and iPad 3 (pid 0x12a6). Note that iPad 2 must be jailbroken and a
+third-party app must be used for tethering to work. On iPad 3, tethering works
+out of the box (assuming your ISP is nice).
 
-Thanks,
-Andy
+Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+---
+ drivers/net/usb/ipheth.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
+index 421934c..973275f 100644
+--- a/drivers/net/usb/ipheth.c
++++ b/drivers/net/usb/ipheth.c
+@@ -59,6 +59,8 @@
+ #define USB_PRODUCT_IPHONE_3GS  0x1294
+ #define USB_PRODUCT_IPHONE_4	0x1297
+ #define USB_PRODUCT_IPAD 0x129a
++#define USB_PRODUCT_IPAD_2	0x12a2
++#define USB_PRODUCT_IPAD_3	0x12a6
+ #define USB_PRODUCT_IPAD_MINI    0x12ab
+ #define USB_PRODUCT_IPHONE_4_VZW 0x129c
+ #define USB_PRODUCT_IPHONE_4S	0x12a0
+@@ -107,6 +109,14 @@ static struct usb_device_id ipheth_table[] = {
+ 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
+ 		IPHETH_USBINTF_PROTO) },
+ 	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_2,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_3,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
+ 		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_MINI,
+ 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
+ 		IPHETH_USBINTF_PROTO) },
+-- 
+1.8.3.2
