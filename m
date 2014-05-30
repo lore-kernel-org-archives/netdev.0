@@ -1,36 +1,105 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] bridge: fix the unbalanced promiscuous count
- when add_if failed
-Date: Fri, 30 May 2014 07:34:46 -0700
-Message-ID: <20140530073446.14b87673@nehalam.linuxnetplumber.net>
-References: <53869842.4060202@huawei.com>
+Subject: Re: [PATCH iproute2] bridge: Add master device name to bridge fdb
+ show
+Date: Fri, 30 May 2014 07:36:14 -0700
+Message-ID: <20140530073614.0a48f2bd@nehalam.linuxnetplumber.net>
+References: <1401255611-30862-1-git-send-email-roopa@cumulusnetworks.com>
+	<53864051.4070102@gmail.com>
+	<53869320.6010302@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	<bridge@lists.linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>, <vyasevic@redhat.com>
-To: Wang Weidong <wangweidong1@huawei.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, jhs@mojatatu.com, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:37054 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752856AbaE3Oet (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:34:49 -0400
-Received: by mail-pd0-f171.google.com with SMTP id y13so1015166pdi.30
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 07:34:49 -0700 (PDT)
-In-Reply-To: <53869842.4060202@huawei.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:34482 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbaE3OgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:36:18 -0400
+Received: by mail-pd0-f174.google.com with SMTP id r10so1014184pdi.33
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 07:36:17 -0700 (PDT)
+In-Reply-To: <53869320.6010302@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 May 2014 10:15:30 +0800
-Wang Weidong <wangweidong1@huawei.com> wrote:
+On Wed, 28 May 2014 18:53:36 -0700
+Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
 
-> As commit 2796d0c648c94("bridge: Automatically manage port
-> promiscuous mode."), make the add_if use dev_set_allmulti
-> instead of dev_set_promiscuous, so when add_if failed, we
-> should do dev_set_allmulti(dev, -1).
+> On 5/28/14, 1:00 PM, Vlad Yasevich wrote:
+> > On 05/28/2014 01:40 AM, roopa@cumulusnetworks.com wrote:
+> >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> >>
+> >> (This patch depends on net-next patch titled
+> >> "Add bridge ifindex to bridge fdb notify msgs")
+> >>
+> >> This patch adds master dev name from NDA_MASTER netlink attribute
+> >>   to bridge fdb show output
+> >>
+> >> current iproute2 tries to print 'master' in the output if NTF_MASTER
+> >> is present. But, kernel today does not set NTF_MASTER during dump
+> >> requests. Which means I have not seen iproute2 bridge cmd print 'master' atall.
+> >> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is present.
+> >>
+> >> Example output:
+> >>
+> >> before this patch:
+> >> # bridge fdb show
+> >> 44:38:39:00:27:ba dev bond2.2003 permanent
+> >> 44:38:39:00:27:bb dev bond4.2003 permanent
+> >> 44:38:39:00:27:bc dev bond2.2004 permanent
+> >>
+> >> After this patch:
+> >> # bridge fdb show
+> >> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
+> >> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
+> >> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
+> > 'master' is already a reserved word in the bridge command and
+> > has a slightly different connotation. May be replace it with
+> > 'bridge' or something similar.
+> I am not so convinced about the 'bridge' keyword. The way i see it is: I 
+> am just adding more context to the existing 'master' keyword. In the 
+> cases i am pointing out above 'master' is a bridge.
+> If the only argument is that it changes existing output, ...i agree. I 
+> have expressed slight concerns about that before.
+> >
+> >> For comparision with the above, below is the output for NTF_SELF today,
+> >> # bridge fdb show
+> >> 33:33:00:00:00:01 dev eth0 self permanent
+> >> 01:00:5e:00:00:01 dev eth0 self permanent
+> >> 33:33:ff:00:01:cc dev eth0 self permanent
+> >>
+> >> If change in output is a concern, 'master' can be put at the end of the fdb
+> >> output line or made optional with -d[etails] option.
+> > As Stephen always mentions, iproute commands have to be invertable.
+> > In other words, what you get out of the show command you should
+> > be able to feed back into a set command.
+> >
+> > As such, it would probably be a good thing to support
+> > bridge fdb set 44:38:39:00:27:ba dev bond2.2003 bridge br-2003 permanent
+> We did discuss this on the other thread (RFC), and it does not seem 
+> necessary.
+> two things:
+> - like i indicated above, introducing 'bridge' to mean  'master' seems 
+> to add more confusion and
+> seems redundant. But, maybe that's just me.
+> - having user specify master when kernel can derive it
+> seems unnecessary (agree that for code symmetry we could add master 
+> during sets but make it optional)
 > 
-> Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
+> >
+> > and I think this ends up being something very close to what
+> > Jamal already proposed.
+> >
+> > May be work together and come up with a single syntax.
+> Ack.
+> looking at jamals patch for fdb show filters,  if i consider my approach 
+> of using 'master' to represent a bridge,
+> his syntax would look like,
+> 
+> bridge fdb {show} [dev DEV]
+> bridge fdb {show} [dev DEV] [master BRDEV]
 
-Good catch.
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+I prefer bridge keyword since master is not used in IEEE 802
+documents.
