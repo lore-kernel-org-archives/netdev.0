@@ -1,76 +1,66 @@
-From: "ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 13:35:15 -0300
-Message-ID: <20140530163515.GA10354@arch.cereza>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
- <1401415552-2263-5-git-send-email-b38611@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
- <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
- <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140530140137.GC783@arch.cereza>
- <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
- <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
- <063D6719AE5E284EB5DD2968C1650D6D17250953@AcuExch.aculab.com>
- <1401465492.3645.122.camel@edumazet-glaptop2.roam.corp.google.com>
+From: "SAFIA RAHAJ HASSAN" <wumt@mail.com>
+Subject: Assalamualaikum
+Date: Fri, 30 May 2014 12:30:15 -0400 (AST)
+Message-ID: <52825.41.45.198.137.1401467415.squirrel@mail.flowtrinidad.com>
+Reply-To: safiarahajhas@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=windows-1256
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"'fugang.duan@freescale.com'" <fugang.duan@freescale.com>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:58368 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752015AbaE3Qf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:35:58 -0400
-Content-Disposition: inline
-In-Reply-To: <1401465492.3645.122.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.flowtrinidad.com ([200.1.104.38]:38617 "EHLO
+	mail.flowtrinidad.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754460AbaE3Qhh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:37:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30 May 08:58 AM, Eric Dumazet wrote:
-> On Fri, 2014-05-30 at 15:34 +0000, David Laight wrote:
->=20
-> > Software TSO generates lots of separate ethernet frames, there is n=
-o
-> > absolute requirement to be able to put all of them into the tx ring=
- at once.
->=20
-> Yes there is absolute requirement. It is driver responsibility to blo=
-ck
-> the queue if the available slots in TX ring would not allow the
-> following packet to be sent.
->=20
-> Thats why a TSO emulation needs to set gso_max_segs to some sane valu=
-e
->=20
-> (sfc sets it to 100)
->=20
-> In Fugang patch this part was a wrong way to deal with this :
->=20
-> +       if (tso_count_descs(skb) >=3D fec_enet_txdesc_entry_free(fep)=
-) {
-> +               if (net_ratelimit())
-> +                       netdev_err(ndev, "tx queue full!\n");
-> +               return NETDEV_TX_BUSY;
-> +       }
-> +
->=20
-> This was copy/pasted from buggy
-> drivers/net/ethernet/marvell/mv643xx_eth.c
->=20
 
-Indeed. I'm just about to submit the fixes for those, which may be usef=
-ul to
-fix it in this driver as well.
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+
+
+Assalamualaikum
+=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5 =E6=C8=D1=
+=DF=C7=CA=E5....=C7=CA=E3=E4=ED =C7=E4 =CA=DF=E6=E4 =C7=E4=CA =E6=C7=E1=
+=DA=C7=C6=E1=C9 =C8=D5=CD=C9 =CC=ED=CF=C9
+=E6=DD=EC =C7=CD=D3=E4 =CD=C7=E1 =C7=E4 =D4=C7=C1 =C7=E1=E1=C9...=E6=C7=
+=CA=E3=E4=ED =C7=E4 =CA=D5=E1=ED =E3=DA=ED =E1=E1=C9 =DA=D2 =E6=CC=E1 =C7=
+=E4 =ED=CC=E1=C8 =C7=E1=D3=E1=C7=E3
+=E6=C7=E1=C7=D3=CA=DE=D1=C7=D1 =E1=E1=D4=DA=C8 =C7=E1=D3=E6=D1=ED.
+=D5=CF=ED=DE=ED =C7=E1=DA=D2=ED=D2 =C7=CA=E3=E4=ED =C7=E4 =D1=D3=C7=E1=CA=
+=ED =E5=CF=C9 =E1=E3 =CA=D3=C8=C8 =E1=DF =C7=E1=C7=D2=DA=C7=CC =C7=E6 =CA=
+=DA=CA=DE=CF =C7=E4=E4=ED =C7=CD=C7=E6=E1 =C7=E4
+=C7=CD=CA=C7=E1 =DA=E1=ED=DF =E1=C7=E4=E4=ED =E1=D3=CA =E3=CB=E1 =C7=E1=
+=E3=CD=CA=C7=E1=ED=E4 =DA=E1=ED =D4=C8=DF=C9 =C7=E1=C7=E4=CA=D1=E4=CA =E1=
+=C7 =C7=E4=E4=ED =C7=E3=D1=C7=C9 =E3=D3=E1=E3=C9
+=E6=C7=E3 =E6=CD=ED=CF=C9 =C7=D1=E3=E1=C9 =E1=D8=DD=E1=ED=E4 =E6=C7=E4=E4=
+=ED =E3=E4 =D3=E6=D1=ED=C7... =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =D4=CE=D5=
+ =D5=C7=CF=DE =E6=E4=D2=ED=E5 =E1=ED=DF=E6=E4
+=D4=D1=ED=DF=ED =E6=E1=ED=D3=C7=DA=CF=E4=ED =DD=ED =CA=C7=E3=ED=E4 =C7=E3=
+=CA=DA=C9 =DA=C7=C6=E1=CA=ED =E1=C7=E4=E4=C7 =DA=E1=ED =E6=D4=DF =C7=E4=
+ =E4=DB=C7=CF=D1 =D3=E6=D1=ED=C7 =E1=E3=DF=C7=E4
+=C7=DF=CB=D1 =C7=E3=C7=E4=C7 =E6=C7=D1=ED=CF =C7=E1=C7=D3=CA=CB=E3=C7=D1=
+ =E5=E4=C7=DF =E1=C7=E4=E5 =E1=C7 =ED=E6=CC=CF =C7=E3=E4 =C7=E6 =C7=ED =
+=C7=D3=CA=DE=D1=C7=D1 =DD=ED =D3=E6=D1=ED=C7
+=CD=C7=E1=ED=C7 =E6=C7=E4=C7 =DA=E4=CF=ED =C8=DA=D6 =C7=E1=C7=DE=CA=D1=C7=
+=CD=C7=CA =C7=D1=ED=CF =C7=E4 =E4=CA=D4=C7=D1=DF =DD=ED=E5=C7 =D3=E6=ED=
+=C7 =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4
+=E3=D3=CA=CB=E3=D1 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=C7 =E1=ED =E1=C7=E4=E4=ED=
+ =C7=D1=ED=CF =C7=E4 =C7=C8=CF=C1 =DD=ED =C8=E4=C7=C1 =C7=D3=CA=CB=E3=C7=
+=D1 =E1=C8=DA=D6 =C7=E1=C7=DA=E3=C7=E1 =CE=C7=D1=CC
+=D3=E6=D1=ED=C7 =E1=C7=E4=E5=C7 =E1=ED=D3=CA =C8=E3=DF=C7=E4 =C7=E3=E4 =
+=CD=C7=E1=ED=C7...=C7=D1=ED=CF=DF =C7=E4 =CA=DA=D1=DD =C7=E4 =C7=CA=D5=E1=
+ =C8=DF =E1=C8=CF=C7=C1 =D4=ED =DF=CA=ED=D1
+=DF=E6=ED=D3 =E6=C7=E4=DF =D3=E6=DD =CA=D3=CA=DD=ED=CF =C7=CF=C7 =C7=D1=
+=CA =C7=E4 =CA=DF=E6=E4 =D4=D1=ED=DF=ED =DD=ED =E5=CF=C7 =C7=E1=C7=D3=CA=
+=CB=E3=C7=D1 =C8=C7=E1=C7=ED=E3=C7=E4 =C7=CA=D5=E1
+=C8=ED =DA=E1=ED =C7=E1=C8=ED=C7=E4=C7=CA =C7=E1=E3=E6=CC=E6=CF=C9 =C8=C7=
+=E1=C7=D3=DD=E1 =E6=D3=E6=DD =C7=DA=D8=ED=DF =C8=ED=C7=E4=C7=CA =DA=E4 =
+=C7=E1=E3=E6=D6=E6=DA
+
+1)=C7=E1=C7=D3=E3 =C8=C7=E1=DF=C7=E3=E1
+
+2)=D1=DE=E3 =C7=E1=CA=E1=ED=DD=E6=E4 =E1=E1=C7=CA=D5=C7=E1 =C8=DF
+
+=D3=E6=DD =C7=CA=D5=E1 =C8=DF =E1=E3=E4=C7=DE=D4=C9 =C8=DA=D6 =C7=E1=C7=
+=E3=E6=D1 =C7=E1=CE=C7=D5=C9 =C8=C7=E1=E3=E6=D6=E6=DA =C7=D1=CC=E6 =C7=E1=
+=C7=D1=D3=C7=E1 =DA=E1=EC =C8=D1=ED=CF=ED
