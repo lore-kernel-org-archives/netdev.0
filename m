@@ -1,93 +1,46 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v6 net-next 1/4] net: flow_dissector: avoid multiple calls
- in eBPF
-Date: Fri, 30 May 2014 01:54:21 +0200
-Message-ID: <5387C8AD.6000909@redhat.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com> <1401389758-13252-1-git-send-email-chema@google.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH net-next 5/7] net:fec: add support for dumping transmit
+	ring on timeout
+Date: Fri, 30 May 2014 01:03:36 +0100
+Message-ID: <20140530000336.GM3693@n2100.arm.linux.org.uk>
+References: <1398773350-7293-1-git-send-email-Frank.Li@freescale.com> <1398773350-7293-5-git-send-email-Frank.Li@freescale.com> <063D6719AE5E284EB5DD2968C1650D6D0F7014F0@AcuExch.aculab.com> <CAHrpEqSCSw=bYgx5Egk4Mva-CODnw5=vvK6y3VWmB3_QpBQ8sQ@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6D0F701524@AcuExch.aculab.com> <CAHrpEqRZ1oyd6bXXqxznfw+1qwo5LVBW10mcrzLbbCHYowPetA@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6D0F70156E@AcuExch.aculab.com> <20140429143828.GB26756@n2100.arm.linux.org.uk> <51ca1e44e5e849ecbae40bf0beaa2028@BY2PR03MB377.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
-To: Chema Gonzalez <chema@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	'Frank Li' <lznuaa@gmail.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58514 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753930AbaE2Xy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2014 19:54:28 -0400
-In-Reply-To: <1401389758-13252-1-git-send-email-chema@google.com>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:38757 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751538AbaE3AFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 20:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <51ca1e44e5e849ecbae40bf0beaa2028@BY2PR03MB377.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/29/2014 08:55 PM, Chema Gonzalez wrote:
-> This patch makes __skb_get_pay_offset() (the function called by
-> the eBPF call generated from "ld #poff") store the output of the flow
-> dissector (a flow_keys structure) in the eBPF stack. This way, multiple
-> invocations of this eBPF call in the same BPF filter will only require
-> one single call to the flow dissector.
->
-> Note that other eBPF calls that use the flow dissector can use the same
-> approach, and share the results, so at the end there is only one single
-> call to the flow dissector per packet.
->
-> Tested:
->
-> $ cat tools/net/ipv4_tcp_poff2.bpf
-> ldh [12]
-> jne #0x800, drop
-> ldb [23]
-> jneq #6, drop
-> ld poff
-> ld poff
-> ld poff
-> ld poff
-> ret #-1
-> drop: ret #0
-> $ ./tools/net/bpf_asm tools/net/ipv4_tcp_poff2.bpf
-> 10,40 0 0 12,21 0 7 2048,48 0 0 23,21 0 5 6,32 0 0 4294963252,32 0 0 4294963252,32 0 0 4294963252,32 0 0 4294963252,6 0 0 4294967295,6 0 0 0,
->
-> And then, in a VM, we ran:
->
-> $ tcpdump -n -i eth0 -f "10,40 0 0 12,21 0 7 2048,48 0 0 23,21 0 5 6,32 0 0 4294963252,32 0 0 4294963252,32 0 0 4294963252,32 0 0 4294963252,6 0 0 4294967295,6 0 0 0,"
->
-> This tcpdump is github's tcpdump HEAD with pull request #353, which
-> allows using raw filters in tcpdump.
->
-> Debugging the kernel, we can see that there only the first "ld poff" call
-> does invoke the flow dissector. The other calls reuse the value in the
-> eBPF stack.
->
-> Also tested the test_bpf module.
->
-> Signed-off-by: Chema Gonzalez <chema@google.com>
+On Thu, May 29, 2014 at 08:17:07AM +0000, fugang.duan@freescale.com wrote:
+> Hi, Russell,
+> 
+> I see linux next and net "imx_v6_v7_defconfig" don't enable "CONFIG_CMA",
+> if you enable the feature,
 
-I actually liked [1] most ... ;)
+Sorry, telling people that CMA is required to avoid that is just not an
+acceptable "solution".
 
-Just an idea ...
+With CMA not enabled, the DMA memory provided to the driver is still
+perfectly valid and should be no different from what CMA provides.
 
-Have you taken into account the following: since thoff is u16 and ip_proto
-is u8 and you clearly seem to want to have the value of these two in your
-patch set (or even plus the poff value), why not squashing all these into
-one extension e.g. SKF_AD_DISSECT where you call the external skb_flow_dissect()
-helper or similar on?
+I'd strongly suggest investigating why there is this difference, and
+what the difference is - I'd assume freescale have the ability to do
+that with their own devices much more than I have, and probably to a
+greater depth too - especially as there is no possibility what so ever
+of using any kind of hardware debug on the iMX6 platforms I have.
 
-I could imagine that either these offsets are squashed into the return or
-stored if you really need them from the struct flow_keys into M[] itself. So
-you would end up with one e.g. 'ld #keys' call that e.g. fills out/overwrites
-your M[] with the dissected metadata. Then, you'd only have a reason to call
-that once and do further processing based on these information. Whether you
-also need poff could e.g. be determined if the user does e.g. 'ldx #1' or so
-to indicate to the function it eventually calls, that it would further do
-the dissect and also give you poff into fixed defined M[] slots back.
-
-Thus if someone really only cares about headers, a use case like 'ld #poff +
-ret a' is sufficient, but if you need much more and don't want to do this in
-BPF like in your case, you go with 'ld #keys' and process your BPF program
-further via M[].
-
-Thanks,
-
-Daniel
-
-  [1] http://patchwork.ozlabs.org/patch/344271/
+-- 
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
