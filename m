@@ -1,77 +1,74 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it
- occupies too many slots
-Date: Fri, 30 May 2014 13:38:18 +0100
-Message-ID: <20140530123818.GE2655@zion.uk.xensource.com>
-References: <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516131145.GK18551@zion.uk.xensource.com>
- <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516143653.GL18551@zion.uk.xensource.com>
- <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516153452.GM18551@zion.uk.xensource.com>
- <53763CD1.6060500@citrix.com>
- <53883C18.2050708@canonical.com>
- <20140530121141.GA2655@zion.uk.xensource.com>
- <53887961.9030502@canonical.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx
+ buffers are reduced
+Date: Fri, 30 May 2014 12:39:55 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172506D0@AcuExch.aculab.com>
+References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
+	<1401435070-26721-4-git-send-email-bjorn@mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
+ <87d2eva41t.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, David Vrabel <david.vrabel@citrix.com>,
-	"Konrad Wilk" <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Stefan Bader <stefan.bader@canonical.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: =?utf-8?B?J0Jqw7hybiBNb3JrJw==?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:10147 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500AbaE3MiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 08:38:20 -0400
-Content-Disposition: inline
-In-Reply-To: <53887961.9030502@canonical.com>
+Received: from mx0.aculab.com ([213.249.233.131]:58710 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752416AbaE3MlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 08:41:03 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09922-05 for <netdev@vger.kernel.org>;
+ Fri, 30 May 2014 13:40:53 +0100 (BST)
+In-Reply-To: <87d2eva41t.fsf@nemi.mork.no>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 02:28:17PM +0200, Stefan Bader wrote:
-> On 30.05.2014 14:11, Wei Liu wrote:
-> > On Fri, May 30, 2014 at 10:06:48AM +0200, Stefan Bader wrote:
-> > [...]
-> >> I had been idly wondering about this onwards. And trying to understand the whole
-> >> skb handling environment, I tried to come up with some idea as well. It may be
-> >> totally stupid and using the wrong assumptions. It seems to work in the sense
-> >> that things did not blow up into my face immediately and somehow I did not see
-> >> dropped packages due to the number of slots either.
-> >> But again, I am not sure I am doing the right thing. The idea was to just try to
-> >> get rid of so many compound pages (which I believe are the only ones that can
-> >> have an offset big enough to allow some alignment savings)...
-> >>
-> >> -Stefan
-> >>
-> > 
-> > Thanks. I think the general idea is OK, but it still involves
-> > unnecessary page allocation. We don't actually need to get rid of
-> > compound page by replacing it with a new page, we just need to make sure
-> > the data inside is aligned.
-> > 
-> > If you look at xennet_make_frags, it only grants the 4K page which
-> > contains data. I presume a simple memove would be better than alloc_page
-> > + memcpy. What do you think?
-> > 
-> > Like:
-> >    memmove(page_address(fpage), page_address(fpage)+offset, size);
-> >    frag->page_offset = 0;
-> 
-> I was hesitating to do that as I could not really tell whether I can make any
-> assumptions about those memory areas. So my cautious guess was to leave the
-> original pages alone altogether (maybe whoever owns those has something
-> important in the starting area). If I did it right, my new page potentially
-> could be a smaller allocation unit than the original, since I only ask for
-> something big enough to hold the frag size (ignoring a potential offset over
-> full 4K areas).
-> 
-
-Thanks for the explanation.
-
-Wei.
-
-> -Stefan
+RnJvbTogQmrDuHJuIE1vcmsNCj4gRGF2aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNP
+TT4gd3JpdGVzOg0KPiA+IEZyb206IEJqw7hybiBNb3JrDQo+ID4+IEl0IGRvZXNuJ3QgbWF0dGVy
+IHdoZXRoZXIgdGhlIGJ1ZmZlciBzaXplIGdvZXMgdXAgb3IgZG93bi4gIFdlIGhhdmUgdG8NCj4g
+Pj4ga2VlcCB1c2JuZXQgYW5kIGRldmljZSBzeW5jcm9uaXplZCB0byBiZSBhYmxlIHRvIHNwbGl0
+IHRyYW5zZmVycyBhdCB0aGUNCj4gPj4gY29ycmVjdCBib3VuZGFyaWVzLiBUaGUgc3BlYyBhbGxv
+dyBza2lwcGluZyBzaG9ydCBwYWNrZXRzIHdoZW4gdXNpbmcNCj4gPj4gbWF4IHNpemVkIHRyYW5z
+ZmVycy4gIElmIHdlIGRvbid0IHRlbGwgdXNibmV0IGFib3V0IG91ciBuZXcgZXhwZWN0ZWQgcngN
+Cj4gPj4gYnVmZmVyIHNpemUsIHRoZW4gaXQgd2lsbCBtZXJnZSBhbmQvb3Igc3BsaXQgTlRCcy4g
+IFRoZSBkcml2ZXIgZG9lcyBub3QNCj4gPj4gc3VwcG9ydCB0aGlzLCBhbmQgdGhlIHJlc3VsdCB3
+aWxsIGJlIGxvdHMgb2YgZnJhbWluZyBlcnJvcnMuDQo+ID4+DQo+ID4+IEZpeCBieSBhbHdheXMg
+cmVhbGxvY2F0aW5nIHVzYm5ldCByeCBidWZmZXJzIHdoZW4gdGhlIHJ4X21heCB2YWx1ZQ0KPiA+
+PiBjaGFuZ2VzLg0KPiA+DQo+ID4gSSdtIGd1ZXNzaW5nIHRoYXQgdGhlIHJ4X21heCB2YWx1ZSBp
+cyB0aGUgbWF4aW11bSBzaXplIG9mIHRoZSBVU0IgYnVsaw0KPiA+IGRhdGEgJ21lc3NhZ2UnIHRo
+YXQgdGhlIGRldmljZSBnZW5lcmF0ZXM/DQo+ID4NCj4gPiBBcyBzdWNoIHRoZSBVUkIgb25seSBu
+ZWVkIHRvIGJlIGxvbmdlciB0aGF0IGl0Lg0KPiANCj4gU28gZGlkIEkgdGhpbmsgdG9vIGF0IGZp
+cnN0LiAgVGhhdCdzIGhvdyBJIGFkZGVkIHRoZSBidWcgZml4ZWQgYnkgdGhpcw0KPiBjb21taXQg
+Oi0pDQo+IA0KPiBUaGUgcHJvYmxlbSB3aXRoIE5DTSBpcyB0aGF0IGl0IGV4cGxpY2l0bHkgYWxs
+b3dzIChhbmQgZW5jb3VyYWdlKSB1c2luZw0KPiB0cmFuc2ZlcnMgd2hpY2ggYXJlIG11bHRpcGxl
+cyBvZiB0aGUgVVNCIHBhY2tldCBzaXplLCAqd2l0aG91dCogYW55DQo+IHRlcm1pbmF0aW5nIHNo
+b3J0IHBhY2tldCAoMCBvciAxIGJ5dGUpLiBUaGlzIG1lYW5zIHRoYXQgdGhlIFVTQiBjb3JlDQo+
+IHdvbid0IGtub3cgb3IgY2FyZSBhYm91dCB0aGUgZW5kIG9mIG9uZSB0cmFuc2ZlciBhbmQgdGhl
+IGJlZ2lubmluZyBvZg0KPiB0aGUgbmV4dC4gIFdoaWNoIGlzIGZpbmUuICBCdXQgdGhlIGNkY19u
+Y20gZHJpdmVyIGhhcyB0byBrbm93LCBiZWNhdXNlDQo+IGl0IG11c3Qgc3BsaXQgdGhlIHRyYW5z
+ZmVycyBpbnRvIGZyYW1lcyBpdCBjYW4gZGVjb2RlLg0KPiANCj4gTm93LCB0aGUgY3VycmVudCBj
+ZGNfbmNtIGltcGxlbWVudGF0aW9uIGhhcyBhIGJ1aWx0LWluIGFzc3VtcHRpb24gdGhhdA0KPiB0
+aGUgc2l6ZSBvZiB0aGUgVVJCID09IHJ4X21heC4gIFRoaXMgbGV0cyBpdCBzaW1wbGlmeSB0aGUg
+c3BsaXR0aW5nIGludG8NCj4gZnJhbWVzIHRvIG5lYXJseSBub3RoaW5nOiBBbnkgcmVjZWl2ZWQg
+VVJCIGNvbnRhaW5zIGV4YWN0bHkgb25lIGZyYW1lLg0KPiBUaGVyZWZvcmUgd2UgbmVlZCB0byBr
+ZWVwIHRoZSByeCBVUkIgc2l6ZSBzdHJpY3RseSBzeW5jcm9uaXplZCB0aGUNCj4gcnhfbWF4Lg0K
+DQpIbW1tLi4uLg0KU28gdGhlcmUgaXMgYW4gZXRoZXJuZXQgcGFja2V0IHNpemUgc29tZXdoZXJl
+IG5lYXIgNTAwIHRoYXQgZXhhY3RseSBmaWxscw0KYSA1MTIgYnl0ZSBVU0IyIGZyYW1lLg0KSWYg
+eW91IHJlY2VpdmUgb25lIG9mIHRob3NlIGRvZXMgdGhlIGhhcmR3YXJlIHNlbmQgYSAwIGxlbmd0
+aCB0ZXJtaW5hdGluZw0KZnJhZ21lbnQ/DQpJZiBub3QgdGhlIHRoZW4gVVJCIHdvbid0IGNvbXBs
+ZXRlIHVudGlsIGFmdGVyIHRoZSBuZXh0IGV0aGVybmV0IGZyYW1lDQphcnJpdmVzLg0KUmVjZWl2
+ZSB0aHJlZSBvZiB0aGVtIGZvbGxvd2VkIGJ5IGEgbG9uZ2VyIGZyYW1lIGFuZCB5b3UnbGwgb3Zl
+cnJ1biB0aGUNCmVuZCBvZiB0aGUgVVJCLg0KDQpBdCBsZWFzdCBvbmUgcGF0aCB0aHJvdWdoIHVz
+Ym5ldCBlbnN1cmVzIHRoYXQgdGhlIHJ4IGJ1ZmZlcnMgYXJlbid0DQphIG11bHRpcGxlIG9mIHRo
+ZSBVU0IgZnJhbWUgc2l6ZS4gSSdtIG5vdCBzdXJlIHdoZXRoZXIgdGhhdCByZWFsbHkgaGVscHMu
+DQoNClNvdW5kcyBsaWtlIHRoZSBoYXJkd2FyZSBleHBlY3RzIHlvdSB0byByZWNlaXZlIGVhY2gg
+VVNCIGJ1bGsgYnVmZmVyDQpzZXBhcmF0ZWx5Lg0KDQoJRGF2aWQNCg0K
