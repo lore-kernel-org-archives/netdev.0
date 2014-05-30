@@ -1,7 +1,8 @@
 From: Zhangfei Gao <zhangfei.gao@linaro.org>
-Subject: [PATCH v3 0/2] add hix5hd2 mac driver
-Date: Fri, 30 May 2014 17:02:06 +0800
-Message-ID: <1401440528-7804-1-git-send-email-zhangfei.gao@linaro.org>
+Subject: [PATCH v3 1/2] Documentation: add Device tree bindings for Hisilicon hix5hd2 ethernet
+Date: Fri, 30 May 2014 17:02:07 +0800
+Message-ID: <1401440528-7804-2-git-send-email-zhangfei.gao@linaro.org>
+References: <1401440528-7804-1-git-send-email-zhangfei.gao@linaro.org>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org, Zhangfei Gao <zhangfei.gao@linaro.org>
 To: davem@davemloft.net, arnd@arndb.de, f.fainelli@gmail.com,
@@ -9,39 +10,63 @@ To: davem@davemloft.net, arnd@arndb.de, f.fainelli@gmail.com,
 	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
 	haifeng.yan@linaro.org, jchxue@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:44475 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752272AbaE3JC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:02:29 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so1500340pbb.8
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 02:02:28 -0700 (PDT)
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:37358 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754878AbaE3JCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:02:34 -0400
+Received: by mail-pa0-f54.google.com with SMTP id lf10so1263794pab.27
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 02:02:34 -0700 (PDT)
+In-Reply-To: <1401440528-7804-1-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v3:
-Remove .ndo_get_stats as mentioned by Tobias
-Add __le32 conversion pointed by Mark
-
-v2:
-Update binding accoring to Sergei comments
-Update descriptor as Arnd's suggestion
-
-Zhangfei Gao (2):
-  Documentation: add Device tree bindings for Hisilicon hix5hd2
-    ethernet
-  net: hisilicon: add hix5hd2 mac driver
-
- .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   36 +
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/hisilicon/Kconfig             |   27 +
- drivers/net/ethernet/hisilicon/Makefile            |    5 +
- drivers/net/ethernet/hisilicon/hix5hd2_gmac.c      | 1066 ++++++++++++++++++++
- 6 files changed, 1136 insertions(+)
+Signed-off-by: Zhangfei Gao <zhangfei.gao@linaro.org>
+---
+ .../bindings/net/hisilicon-hix5hd2-gmac.txt        |   36 ++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
- create mode 100644 drivers/net/ethernet/hisilicon/Kconfig
- create mode 100644 drivers/net/ethernet/hisilicon/Makefile
- create mode 100644 drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
 
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+new file mode 100644
+index 0000000..75d398b
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+@@ -0,0 +1,36 @@
++Hisilicon hix5hd2 gmac controller
++
++Required properties:
++- compatible: should be "hisilicon,hix5hd2-gmac".
++- reg: specifies base physical address(s) and size of the device registers.
++  The first region is the MAC register base and size.
++  The second region is external interface control register.
++- interrupts: should contain the MAC interrupt.
++- #address-cells: must be <1>.
++- #size-cells: must be <0>.
++- phy-mode: see ethernet.txt [1].
++- phy-handle: see ethernet.txt [1].
++- mac-address: see ethernet.txt [1].
++- clocks: clock phandle and specifier pair.
++
++- PHY subnode: inherits from phy binding [2]
++
++[1] Documentation/devicetree/bindings/net/ethernet.txt
++[2] Documentation/devicetree/bindings/net/phy.txt
++
++Example:
++	gmac0: ethernet@f9840000 {
++		compatible = "hisilicon,hix5hd2-gmac";
++		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
++		interrupts = <0 71 4>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++		phy-mode = "mii";
++		phy-handle = <&phy2>;
++		mac-address = [00 00 00 00 00 00];
++		clocks = <&clock HIX5HD2_MAC0_CLK>;
++
++		phy2: ethernet-phy@2 {
++			reg = <2>;
++		};
++	};
 -- 
 1.7.9.5
