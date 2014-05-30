@@ -1,85 +1,98 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] ipvs: Fix panic due to non-linear skb
-Date: Fri, 30 May 2014 18:43:04 +0200
-Message-ID: <1401468184-3704-2-git-send-email-pablo@netfilter.org>
-References: <1401468184-3704-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH-next] drivers/net: fix broadcom/bcmsysport.c compile fail
+ on SPARC
+Date: Fri, 30 May 2014 10:04:49 -0700
+Message-ID: <CAGVrzcbUmaGt4hjKmmME7ssLGR_1bz=ggSePZJu28avc6GZJbA@mail.gmail.com>
+References: <1401458527-26513-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38253 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933148AbaE3QnP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 12:43:15 -0400
-In-Reply-To: <1401468184-3704-1-git-send-email-pablo@netfilter.org>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:41772 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754104AbaE3RFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:05:30 -0400
+Received: by mail-qg0-f42.google.com with SMTP id q107so6283092qgd.29
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:05:29 -0700 (PDT)
+In-Reply-To: <1401458527-26513-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Christensen <pch@ordbogen.com>
+Hi Paul,
 
-Receiving a ICMP response to an IPIP packet in a non-linear skb could
-cause a kernel panic in __skb_pull.
+2014-05-30 7:02 GMT-07:00 Paul Gortmaker <paul.gortmaker@windriver.com>:
+> To fix:
+>
+>   CC      drivers/net/ethernet/broadcom/bcmsysport.o
+> In file included from drivers/net/ethernet/broadcom/bcmsysport.c:28:0:
+> drivers/net/ethernet/broadcom/bcmsysport.h:41:8: error: redefinition of 'struct tsb'
+> arch/sparc/include/asm/mmu_64.h:65:8: note: originally defined here
+> make[1]: *** [drivers/net/ethernet/broadcom/bcmsysport.o] Error 1
+>
+> we change struct tsb to struct bcm_tsb in the broadcom driver in
+> order to avoid the namespace collision.
+>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-The problem was introduced in
-commit f2edb9f7706dcb2c0d9a362b2ba849efe3a97f5e ("ipvs: implement
-passive PMTUD for IPIP packets").
+For consistency, we might want to rename 'struct tsb' to 'struct
+bcm_tsb', thanks for catching this.
 
-Signed-off-by: Peter Christensen <pch@ordbogen.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 4f26ee4..3d2d2c8 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1392,15 +1392,19 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
- 
- 	if (ipip) {
- 		__be32 info = ic->un.gateway;
-+		__u8 type = ic->type;
-+		__u8 code = ic->code;
- 
- 		/* Update the MTU */
- 		if (ic->type == ICMP_DEST_UNREACH &&
- 		    ic->code == ICMP_FRAG_NEEDED) {
- 			struct ip_vs_dest *dest = cp->dest;
- 			u32 mtu = ntohs(ic->un.frag.mtu);
-+			__be16 frag_off = cih->frag_off;
- 
- 			/* Strip outer IP and ICMP, go to IPIP header */
--			__skb_pull(skb, ihl + sizeof(_icmph));
-+			if (pskb_pull(skb, ihl + sizeof(_icmph)) == NULL)
-+				goto ignore_ipip;
- 			offset2 -= ihl + sizeof(_icmph);
- 			skb_reset_network_header(skb);
- 			IP_VS_DBG(12, "ICMP for IPIP %pI4->%pI4: mtu=%u\n",
-@@ -1408,7 +1412,7 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
- 			ipv4_update_pmtu(skb, dev_net(skb->dev),
- 					 mtu, 0, 0, 0, 0);
- 			/* Client uses PMTUD? */
--			if (!(cih->frag_off & htons(IP_DF)))
-+			if (!(frag_off & htons(IP_DF)))
- 				goto ignore_ipip;
- 			/* Prefer the resulting PMTU */
- 			if (dest) {
-@@ -1427,12 +1431,13 @@ ip_vs_in_icmp(struct sk_buff *skb, int *related, unsigned int hooknum)
- 		/* Strip outer IP, ICMP and IPIP, go to IP header of
- 		 * original request.
- 		 */
--		__skb_pull(skb, offset2);
-+		if (pskb_pull(skb, offset2) == NULL)
-+			goto ignore_ipip;
- 		skb_reset_network_header(skb);
- 		IP_VS_DBG(12, "Sending ICMP for %pI4->%pI4: t=%u, c=%u, i=%u\n",
- 			&ip_hdr(skb)->saddr, &ip_hdr(skb)->daddr,
--			ic->type, ic->code, ntohl(info));
--		icmp_send(skb, ic->type, ic->code, info);
-+			type, code, ntohl(info));
-+		icmp_send(skb, type, code, info);
- 		/* ICMP can be shorter but anyways, account it */
- 		ip_vs_out_stats(cp, skb);
- 
+>
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+> index 4dc8d1e9829b..0d466c134a9e 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -759,7 +759,7 @@ static irqreturn_t bcm_sysport_tx_isr(int irq, void *dev_id)
+>  static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
+>  {
+>         struct sk_buff *nskb;
+> -       struct tsb *tsb;
+> +       struct bcm_tsb *tsb;
+>         u32 csum_info;
+>         u8 ip_proto;
+>         u16 csum_start;
+> @@ -777,7 +777,7 @@ static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
+>                 skb = nskb;
+>         }
+>
+> -       tsb = (struct tsb *)skb_push(skb, sizeof(*tsb));
+> +       tsb = (struct bcm_tsb *)skb_push(skb, sizeof(*tsb));
+>         /* Zero-out TSB by default */
+>         memset(tsb, 0, sizeof(*tsb));
+>
+> @@ -1549,8 +1549,8 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+>                                 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+>
+>         /* Set the needed headroom once and for all */
+> -       BUILD_BUG_ON(sizeof(struct tsb) != 8);
+> -       dev->needed_headroom += sizeof(struct tsb);
+> +       BUILD_BUG_ON(sizeof(struct bcm_tsb) != 8);
+> +       dev->needed_headroom += sizeof(struct bcm_tsb);
+>
+>         /* We are interfaced to a switch which handles the multicast
+>          * filtering for us, so we do not support programming any
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+> index a0441e7c83cd..72a103c096f2 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.h
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+> @@ -38,7 +38,7 @@
+>                                  ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
+>
+>  /* Transmit status block */
+> -struct tsb {
+> +struct bcm_tsb {
+>         u32 pcp_dei_vid;
+>  #define PCP_DEI_MASK           0xf
+>  #define VID_SHIFT              4
+> --
+> 1.9.3
+>
+
+
+
 -- 
-1.7.10.4
+Florian
