@@ -1,68 +1,67 @@
 From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH 1/3] cnic: Don't take rcu_read_lock in cnic_rcv_netevent()
-Date: Fri, 30 May 2014 16:18:41 -0700
-Message-ID: <1401491923-5480-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 2/3] cnic: Don't take cnic_dev_lock in cnic_alloc_uio_rings()
+Date: Fri, 30 May 2014 16:18:42 -0700
+Message-ID: <1401491923-5480-3-git-send-email-mchan@broadcom.com>
 References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
+ <1401491923-5480-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <nhorman@tuxdriver.com>,
 	Michael Chan <mchan@broadcom.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:52116 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934587AbaE3V7S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 17:59:18 -0400
-In-Reply-To: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:56181 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934712AbaE3V7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 17:59:17 -0400
+In-Reply-To: <1401491923-5480-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Because the called function, such as bnx2fc_indicate_netevent(), can sleep,
-we cannot take rcu_lock().  To prevent the rcu protected ulp_ops from going
-away, we use the cnic_lock mutex and set the ULP_F_CALL_PENDING flag.
-The code already waits for ULP_F_CALL_PENDING flag to clear in
-cnic_unregister_device().
+We are allocating memory with GFP_KERNEL under spinlock.  Since this is
+the only call manipulating the cnic_udev_list and it is always under
+rtnl_lock, cnic_dev_lock can be safely removed.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/cnic.c |    6 ------
+ 1 files changed, 0 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 09f3fef..7f40a2c 100644
+index 7f40a2c..4ebab75 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -5624,20 +5624,27 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
- {
- 	int if_type;
+@@ -1039,21 +1039,17 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct cnic_uio_dev *udev;
  
--	rcu_read_lock();
- 	for (if_type = 0; if_type < MAX_CNIC_ULP_TYPE; if_type++) {
- 		struct cnic_ulp_ops *ulp_ops;
- 		void *ctx;
- 
--		ulp_ops = rcu_dereference(cp->ulp_ops[if_type]);
--		if (!ulp_ops || !ulp_ops->indicate_netevent)
-+		mutex_lock(&cnic_lock);
-+		ulp_ops = rcu_dereference_protected(cp->ulp_ops[if_type],
-+						lockdep_is held(&cnic_lock));
-+		if (!ulp_ops || !ulp_ops->indicate_netevent) {
-+			mutex_unlock(&cnic_lock);
- 			continue;
-+		}
- 
- 		ctx = cp->ulp_handle[if_type];
- 
-+		set_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[if_type]);
-+		mutex_unlock(&cnic_lock);
-+
- 		ulp_ops->indicate_netevent(ctx, event, vlan_id);
-+
-+		clear_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[if_type]);
+-	read_lock(&cnic_dev_lock);
+ 	list_for_each_entry(udev, &cnic_udev_list, list) {
+ 		if (udev->pdev == dev->pcidev) {
+ 			udev->dev = dev;
+ 			if (__cnic_alloc_uio_rings(udev, pages)) {
+ 				udev->dev = NULL;
+-				read_unlock(&cnic_dev_lock);
+ 				return -ENOMEM;
+ 			}
+ 			cp->udev = udev;
+-			read_unlock(&cnic_dev_lock);
+ 			return 0;
+ 		}
  	}
--	rcu_read_unlock();
- }
+-	read_unlock(&cnic_dev_lock);
  
- /* netdev event handler */
+ 	udev = kzalloc(sizeof(struct cnic_uio_dev), GFP_ATOMIC);
+ 	if (!udev)
+@@ -1067,9 +1063,7 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
+ 	if (__cnic_alloc_uio_rings(udev, pages))
+ 		goto err_udev;
+ 
+-	write_lock(&cnic_dev_lock);
+ 	list_add(&udev->list, &cnic_udev_list);
+-	write_unlock(&cnic_dev_lock);
+ 
+ 	pci_dev_get(udev->pdev);
+ 
 -- 
 1.7.1
