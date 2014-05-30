@@ -1,64 +1,77 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: Ethernet bug at Upstream-v3.15-rcx on Lager.
-Date: Fri, 30 May 2014 15:04:34 +0100
-Message-ID: <53888FF2.8040505@codethink.co.uk>
-References: <53745E88.7040108@jinso.co.jp> <5374F753.70203@cogentembedded.com> <537564FC.4090905@jinso.co.jp> <5375A877.1090606@renesas.com>
+From: "ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
+Date: Fri, 30 May 2014 11:01:37 -0300
+Message-ID: <20140530140137.GC783@arch.cereza>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+ <1401415552-2263-5-git-send-email-b38611@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
+ <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
+ <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	cm-hiep@jinso.co.jp
+Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:33899 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751529AbaE3OEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:04:40 -0400
-In-Reply-To: <5375A877.1090606@renesas.com>
+Received: from top.free-electrons.com ([176.31.233.9]:57621 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933250AbaE3OFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:05:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/05/14 06:56, Yoshihiro Shimoda wrote:
-> Hi Hiep-san,
+Hello Eric,
+
+On 30 May 06:13 AM, Eric Dumazet wrote:
+> On Fri, 2014-05-30 at 09:42 +0000, fugang.duan@freescale.com wrote:
+> > From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, =
+2014 5:11 PM
+> > >
+> > >Does the driver support BQL (or similar) in order to limit the amo=
+unt of
+> > >queued tx traffic?
+> > >Otherwise you've significantly increased the latency for connectio=
+ns other
+> > >than one doing bulk tx.
+> > >
+> > >	David
+> > >
+> > The driver still don't support BQL.
+> > I will add the feature to support FEC. Thanks for your advise.
 >=20
-> (2014/05/16 10:08), =E3=82=AB=E3=82=AA=E3=80=80=E3=83=9F=E3=83=B3=E3=80=
-=80=E3=83=92=E3=82=A7=E3=83=83=E3=83=97 wrote:
->>>
->>>> Please review it when you have time.
->>>
->>>    Please try this patch:
->>>
->>> http://marc.info/?l=3Dlinux-netdev&m=3D139602519809181
->>>
->> I have tested this patch on v3.15.0-rc5-00077-g14186fe, and results =
-are the message of
->> "sh-eth r8a7790-ether eth0: Receive FIFO Overflow" has disappeared a=
-nd sending datagrams is good.
->> (Bandwidth 10M to 100M: Test with 5/5 times by script and by hand ar=
-e good)
->>
+> Note that a full size TSO packet (44 or 45 MSS) requires about 88 or =
+90
+> descriptors.
 >=20
-> It's nice!
-> So, I hope the patch is merged in upstream.
-> However, the patch's change log mentioned r8a7790 only.
-> The r8a7791's ethernet controller also has this bit.
 
-The bit update covers both of them as the r8a7790 and r8a7791 both shar=
-e
-the same configuration structure.
+What's the rationale behing those numbers?
 
-I re-sent the patch but didn't find your email post until after I had
-sent it, otherwise I would have mentioned your testing specifically. In
-future it would be helpful if you could do the following
+=46ollowing the Solarflare commit you pointed me a while ago, I've set
+gso_max_segs to limit the number of descriptors in the mvneta and
+mv643xx_eth drivers.
 
-- Mention driver by name in the subject line
-- Search the list for previous mentions and reply to that/those threads=
-=2E
+My understanding reading the sfc commit 7e6d06f0de3f7 is that the
+maximum number of required descriptors would be around ~250:
 
+/* Header and payload descriptor for each output segment, plus
+ * one for every input fragment boundary within a segment
+ */
+unsigned int max_descs =3D EFX_TSO_MAX_SEGS * 2 + MAX_SKB_FRAGS;
 
+Maybe I've misunderstood something?
+
+PS: I was also about to add BQL support to the drivers...
 --=20
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
