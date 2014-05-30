@@ -1,43 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv2 net-next 3/4] bridge: add export of multicast
- database adjacent to net_dev
-Date: Fri, 30 May 2014 07:38:34 -0700
-Message-ID: <20140530073834.0986af33@nehalam.linuxnetplumber.net>
-References: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
-	<1400994205-31165-4-git-send-email-linus.luessing@web.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
+Date: Fri, 30 May 2014 07:54:02 -0700
+Message-ID: <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
+	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
+	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140530140137.GC783@arch.cereza>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, "David S.
-	Miller" <davem@davemloft.net>, b.a.t.m.a.n@lists.open-mesh.org,
-	linux-kernel@vger.kernel.org
-To: Linus =?ISO-8859-1?B?TPxzc2luZw==?= <linus.luessing@web.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1400994205-31165-4-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:38215 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753393AbaE3OyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:54:04 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rp16so1802238pbb.6
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 07:54:03 -0700 (PDT)
+In-Reply-To: <20140530140137.GC783@arch.cereza>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 25 May 2014 07:03:24 +0200
-Linus L=FCssing <linus.luessing@web.de> wrote:
+On Fri, 2014-05-30 at 11:01 -0300, ezequiel.garcia@free-electrons.com
+wrote:
+> Hello Eric,
+> 
+> On 30 May 06:13 AM, Eric Dumazet wrote:
+> > On Fri, 2014-05-30 at 09:42 +0000, fugang.duan@freescale.com wrote:
+> > > From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, 2014 5:11 PM
+> > > >
+> > > >Does the driver support BQL (or similar) in order to limit the amount of
+> > > >queued tx traffic?
+> > > >Otherwise you've significantly increased the latency for connections other
+> > > >than one doing bulk tx.
+> > > >
+> > > >	David
+> > > >
+> > > The driver still don't support BQL.
+> > > I will add the feature to support FEC. Thanks for your advise.
+> > 
+> > Note that a full size TSO packet (44 or 45 MSS) requires about 88 or 90
+> > descriptors.
+> > 
+> 
+> What's the rationale behing those numbers?
+> 
 
-> With this new, exported function br_multicast_list_adjacent(net_dev) a
-> list of IPv4/6 addresses is returned. This list contains all multicast
-> addresses sensed by the bridge multicast snooping feature on all bridge
-> ports of the bridge interface of net_dev, excluding addresses from the
-> specified net_device itself.
->=20
-> Adding bridge support to the batman-adv multicast optimization requires
-> batman-adv knowing about the existence of bridged-in multicast
-> listeners to be able to reliably serve them with multicast packets.
->=20
-> Signed-off-by: Linus L=FCssing <linus.luessing@web.de>
+64KB TSO packet, with MSS=1460 -> 44 segments  (44*1460 = 64240)
+with MSS=1448 (TCP timestamps) -> 45 segments  (45*1448 = 65160)
 
-Please use EXPORT_SYMBOL_GPL
+This software TSO emulation uses at least 2 descriptors per MSS
+
+one descriptor to hold the headers (ethernet + ip + tcp)
+one descriptor (or two) to hold the payload for this MSS
