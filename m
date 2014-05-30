@@ -1,52 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH v1 6/6] net: fec: Add software TSO support
-Date: Fri, 30 May 2014 09:21:38 -0700
-Message-ID: <1401466898.3645.127.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
-	 <1401415552-2263-7-git-send-email-b38611@freescale.com>
-	 <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH V1 net-next 5/5] amd-xgbe: Maintainer information
+Date: Fri, 30 May 2014 11:11:25 -0500
+Message-ID: <20140530161125.31154.35207.stgit@tlendack-t1.amdoffice.net>
+References: <20140530161055.31154.97537.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Cc: <jcm@redhat.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:54385 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933202AbaE3QVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:21:39 -0400
-Received: by mail-pb0-f53.google.com with SMTP id md12so1887556pbc.12
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 09:21:39 -0700 (PDT)
-In-Reply-To: <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-bl2lp0207.outbound.protection.outlook.com ([207.46.163.207]:50678
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933709AbaE3Q1R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 12:27:17 -0400
+In-Reply-To: <20140530161055.31154.97537.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-05-30 at 07:16 +0000, fugang.duan@freescale.com wrote:
+This patch adds the maintainer information for the AMD 10GbE
+platform driver.
 
-> Yes, test found it bounce all TX frames.
-> Use 2 descriptors to transfer one part, which bring more complicate for driver. Of course, 
-> Performance must be better.
-> 
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ MAINTAINERS |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-How cpu handles misaligned 32bit accesses ?
-
-> Digression information:
-> Imx6dl FEC HW have bandwidth issue limit to 400 ~ 700Mbps. Current performance with TSO is 506Mbps, cpu loading is about 40%.
-> Later chips with FEC IP support byte alignment, such as imx6sx. On imx6sx FEC, no SW TSO, tx bandwidth is 840~870Mbps, cpu loading is 100%,
-> After the software TSO, tx bandwidth is 840Mbps, cpu loading is 48%.
-
-Since you have some cpu cycles, have you tried to always use the bounce
-thing, using one descriptor per MSS, instead of two ?
-
-(headers + payload)
-
-This might help to get better bandwidth, by lowering overhead on DMA and
-on NIC.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 7510623..0ee21d7 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -597,6 +597,13 @@ L:	amd64-microcode@amd64.org
+ S:	Maintained
+ F:	arch/x86/kernel/microcode_amd.c
+ 
++AMD XGBE DRIVER
++M:	Tom Lendacky <thomas.lendacky@amd.com>
++L:	netdev@vger.kernel.org
++S:	Supported
++F:	drivers/net/ethernet/amd/xgbe/
++F:	drivers/net/phy/amd-xgbe-phy.c
++
+ AMS (Apple Motion Sensor) DRIVER
+ M:	Michael Hanselmann <linux-kernel@hansmi.ch>
+ S:	Supported
