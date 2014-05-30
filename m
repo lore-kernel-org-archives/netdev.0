@@ -1,20 +1,21 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] ipmr: Replace comma with semicolon
-Date: Fri, 30 May 2014 21:10:48 +0530
-Message-ID: <20140530154048.GA3949@himangi-Dell>
+Subject: [PATCH] rds/tcp_listen: Replace comma with semicolon
+Date: Fri, 30 May 2014 21:17:13 +0530
+Message-ID: <20140530154713.GA4079@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: julia.lawall@lip6.fr
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+To: Chien Yen <chien.yen@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:43579 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932189AbaE3Pra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 11:47:30 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This patch replaces a comma between expression statements by a semicolon.
 
@@ -35,22 +36,23 @@ identifier i;
 // </smpl>
 
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- net/ipv4/ipmr.c | 2 +-
+ net/rds/tcp_listen.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index d84dc8d..2bc9cc4 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -484,7 +484,7 @@ static void reg_vif_setup(struct net_device *dev)
- 	dev->type		= ARPHRD_PIMREG;
- 	dev->mtu		= ETH_DATA_LEN - sizeof(struct iphdr) - 8;
- 	dev->flags		= IFF_NOARP;
--	dev->netdev_ops		= &reg_vif_netdev_ops,
-+	dev->netdev_ops		= &reg_vif_netdev_ops;
- 	dev->destructor		= free_netdev;
- 	dev->features		|= NETIF_F_NETNS_LOCAL;
- }
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 4e638f8..23ab4dcd 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -153,7 +153,7 @@ int rds_tcp_listen_init(void)
+ 	sock->sk->sk_data_ready = rds_tcp_listen_data_ready;
+ 	write_unlock_bh(&sock->sk->sk_callback_lock);
+ 
+-	sin.sin_family = PF_INET,
++	sin.sin_family = PF_INET;
+ 	sin.sin_addr.s_addr = (__force u32)htonl(INADDR_ANY);
+ 	sin.sin_port = (__force u16)htons(RDS_TCP_PORT);
+ 
 -- 
 1.9.1
