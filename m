@@ -1,322 +1,256 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 6/6] be2net: cleanup MCC async event processing code
-Date: Fri, 30 May 2014 19:06:28 +0530
-Message-ID: <1401456988-11395-7-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 4/6] be2net: re-factor MCCQ error status handling code
+Date: Fri, 30 May 2014 19:06:26 +0530
+Message-ID: <1401456988-11395-5-git-send-email-sathya.perla@emulex.com>
 References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:7592 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:7591 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932162AbaE3Ndn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:43 -0400
+	with ESMTP id S1755389AbaE3Ndj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:39 -0400
 In-Reply-To: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MCC async event processing code has 2 issues:
-a) because of long struct names the code indentation is badly broken
-b) description and definitions of how an MCC completion is interpreted as
-   an async event are confusing (for e.g. the last word of an MCC event is
-   named "code", while "code" is just a sub-field of the last word.)
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
-This patch fixes the structure definitions, comments and re-factors code
-as needed.
+This patch improves MCCQ error status handling in the following ways:
+a) A MCC cmd completion returns a base-status and an addl-status.
+So far, the routine be_mcc_compl_process() returned only the "status" value.
+Now, embedd both statuses in the return value and let the caller routine access
+the value of interest using base_status() and addl_status() macros.
 
+b) Rename variables accordingly (base/addl) to avoid confusion while error
+checking.
+
+b) Some of the errors returned by FW are harmless and so an error msg is not
+logged for such errors. Capture this logic in a separate routine to make the
+code more readable.
+
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |  103 ++++++++++++++-------------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   34 ++++-----
- 2 files changed, 67 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   56 +++++++++++++--------------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   30 ++++++++++----
+ drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++---
+ 3 files changed, 57 insertions(+), 45 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 0538c0b..a568f7d 100644
+index f73185b..a2ecdff 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -225,8 +225,11 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 
- /* Link state evt is a string of bytes; no need for endian swapping */
- static void be_async_link_state_process(struct be_adapter *adapter,
--					struct be_async_event_link_state *evt)
-+					struct be_mcc_compl *compl)
- {
-+	struct be_async_event_link_state *evt =
-+			(struct be_async_event_link_state *)compl;
-+
- 	/* When link status changes, link speed must be re-queried from FW */
- 	adapter->phy.link_speed = -1;
- 
-@@ -249,10 +252,11 @@ static void be_async_link_state_process(struct be_adapter *adapter,
- 
- /* Grp5 CoS Priority evt */
- static void be_async_grp5_cos_priority_process(struct be_adapter *adapter,
--					       struct
--					       be_async_event_grp5_cos_priority
--					       *evt)
-+					       struct be_mcc_compl *compl)
- {
-+	struct be_async_event_grp5_cos_priority *evt =
-+			(struct be_async_event_grp5_cos_priority *)compl;
-+
- 	if (evt->valid) {
- 		adapter->vlan_prio_bmap = evt->available_priority_bmap;
- 		adapter->recommended_prio &= ~VLAN_PRIO_MASK;
-@@ -263,10 +267,11 @@ static void be_async_grp5_cos_priority_process(struct be_adapter *adapter,
- 
- /* Grp5 QOS Speed evt: qos_link_speed is in units of 10 Mbps */
- static void be_async_grp5_qos_speed_process(struct be_adapter *adapter,
--					    struct
--					    be_async_event_grp5_qos_link_speed
--					    *evt)
-+					    struct be_mcc_compl *compl)
- {
-+	struct be_async_event_grp5_qos_link_speed *evt =
-+			(struct be_async_event_grp5_qos_link_speed *)compl;
-+
- 	if (adapter->phy.link_speed >= 0 &&
- 	    evt->physical_port == adapter->port_num)
- 		adapter->phy.link_speed = le16_to_cpu(evt->qos_link_speed) * 10;
-@@ -274,10 +279,11 @@ static void be_async_grp5_qos_speed_process(struct be_adapter *adapter,
- 
- /*Grp5 PVID evt*/
- static void be_async_grp5_pvid_state_process(struct be_adapter *adapter,
--					     struct
--					     be_async_event_grp5_pvid_state
--					     *evt)
-+					     struct be_mcc_compl *compl)
- {
-+	struct be_async_event_grp5_pvid_state *evt =
-+			(struct be_async_event_grp5_pvid_state *)compl;
-+
- 	if (evt->enabled) {
- 		adapter->pvid = le16_to_cpu(evt->tag) & VLAN_VID_MASK;
- 		dev_info(&adapter->pdev->dev, "LPVID: %d\n", adapter->pvid);
-@@ -287,26 +293,21 @@ static void be_async_grp5_pvid_state_process(struct be_adapter *adapter,
+@@ -119,10 +119,24 @@ static struct be_cmd_resp_hdr *be_decode_resp_hdr(u32 tag0, u32 tag1)
+ 	return (void *)addr;
  }
  
- static void be_async_grp5_evt_process(struct be_adapter *adapter,
--				      u32 trailer, struct be_mcc_compl *evt)
-+				      struct be_mcc_compl *compl)
- {
--	u8 event_type = 0;
--
--	event_type = (trailer >> ASYNC_TRAILER_EVENT_TYPE_SHIFT) &
--		ASYNC_TRAILER_EVENT_TYPE_MASK;
-+	u8 event_type = (compl->flags >> ASYNC_EVENT_TYPE_SHIFT) &
-+				ASYNC_EVENT_TYPE_MASK;
- 
- 	switch (event_type) {
- 	case ASYNC_EVENT_COS_PRIORITY:
--		be_async_grp5_cos_priority_process(adapter,
--		(struct be_async_event_grp5_cos_priority *)evt);
--	break;
-+		be_async_grp5_cos_priority_process(adapter, compl);
-+		break;
- 	case ASYNC_EVENT_QOS_SPEED:
--		be_async_grp5_qos_speed_process(adapter,
--		(struct be_async_event_grp5_qos_link_speed *)evt);
--	break;
-+		be_async_grp5_qos_speed_process(adapter, compl);
-+		break;
- 	case ASYNC_EVENT_PVID_STATE:
--		be_async_grp5_pvid_state_process(adapter,
--		(struct be_async_event_grp5_pvid_state *)evt);
--	break;
-+		be_async_grp5_pvid_state_process(adapter, compl);
-+		break;
- 	default:
- 		dev_warn(&adapter->pdev->dev, "Unknown grp5 event 0x%x!\n",
- 			 event_type);
-@@ -315,13 +316,13 @@ static void be_async_grp5_evt_process(struct be_adapter *adapter,
- }
- 
- static void be_async_dbg_evt_process(struct be_adapter *adapter,
--				     u32 trailer, struct be_mcc_compl *cmp)
-+				     struct be_mcc_compl *cmp)
- {
- 	u8 event_type = 0;
- 	struct be_async_event_qnq *evt = (struct be_async_event_qnq *) cmp;
- 
--	event_type = (trailer >> ASYNC_TRAILER_EVENT_TYPE_SHIFT) &
--		ASYNC_TRAILER_EVENT_TYPE_MASK;
-+	event_type = (cmp->flags >> ASYNC_EVENT_TYPE_SHIFT) &
-+			ASYNC_EVENT_TYPE_MASK;
- 
- 	switch (event_type) {
- 	case ASYNC_DEBUG_EVENT_TYPE_QNQ:
-@@ -336,25 +337,33 @@ static void be_async_dbg_evt_process(struct be_adapter *adapter,
- 	}
- }
- 
--static inline bool is_link_state_evt(u32 trailer)
-+static inline bool is_link_state_evt(u32 flags)
- {
--	return ((trailer >> ASYNC_TRAILER_EVENT_CODE_SHIFT) &
--		ASYNC_TRAILER_EVENT_CODE_MASK) ==
--				ASYNC_EVENT_CODE_LINK_STATE;
-+	return ((flags >> ASYNC_EVENT_CODE_SHIFT) & ASYNC_EVENT_CODE_MASK) ==
-+			ASYNC_EVENT_CODE_LINK_STATE;
- }
- 
--static inline bool is_grp5_evt(u32 trailer)
-+static inline bool is_grp5_evt(u32 flags)
- {
--	return (((trailer >> ASYNC_TRAILER_EVENT_CODE_SHIFT) &
--		ASYNC_TRAILER_EVENT_CODE_MASK) ==
--				ASYNC_EVENT_CODE_GRP_5);
-+	return ((flags >> ASYNC_EVENT_CODE_SHIFT) & ASYNC_EVENT_CODE_MASK) ==
-+			ASYNC_EVENT_CODE_GRP_5;
- }
- 
--static inline bool is_dbg_evt(u32 trailer)
-+static inline bool is_dbg_evt(u32 flags)
- {
--	return (((trailer >> ASYNC_TRAILER_EVENT_CODE_SHIFT) &
--		ASYNC_TRAILER_EVENT_CODE_MASK) ==
--				ASYNC_EVENT_CODE_QNQ);
-+	return ((flags >> ASYNC_EVENT_CODE_SHIFT) & ASYNC_EVENT_CODE_MASK) ==
-+			ASYNC_EVENT_CODE_QNQ;
++static bool be_skip_err_log(u8 opcode, u16 base_status, u16 addl_status)
++{
++	if (base_status == MCC_STATUS_NOT_SUPPORTED ||
++	    base_status == MCC_STATUS_ILLEGAL_REQUEST ||
++	    addl_status == MCC_ADDL_STATUS_TOO_MANY_INTERFACES ||
++	    (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
++	    (base_status == MCC_STATUS_ILLEGAL_FIELD ||
++	     addl_status == MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH)))
++		return true;
++	else
++		return false;
 +}
 +
-+static void be_mcc_event_process(struct be_adapter *adapter,
-+				 struct be_mcc_compl *compl)
-+{
-+	if (is_link_state_evt(compl->flags))
-+		be_async_link_state_process(adapter, compl);
-+	else if (is_grp5_evt(compl->flags))
-+		be_async_grp5_evt_process(adapter, compl);
-+	else if (is_dbg_evt(compl->flags))
-+		be_async_dbg_evt_process(adapter, compl);
+ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 				struct be_mcc_compl *compl)
+ {
+-	u16 compl_status, extd_status;
++	enum mcc_base_status base_status;
++	enum mcc_addl_status addl_status;
+ 	struct be_cmd_resp_hdr *resp_hdr;
+ 	u8 opcode = 0, subsystem = 0;
+ 
+@@ -130,11 +144,8 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 	 * from mcc_wrb */
+ 	be_dws_le_to_cpu(compl, 4);
+ 
+-	compl_status = (compl->status >> CQE_STATUS_COMPL_SHIFT) &
+-				CQE_STATUS_COMPL_MASK;
+-
+-	extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
+-				CQE_STATUS_EXTD_MASK;
++	base_status = base_status(compl->status);
++	addl_status = addl_status(compl->status);
+ 
+ 	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
+ 
+@@ -152,11 +163,11 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 	if (((opcode == OPCODE_COMMON_WRITE_FLASHROM) ||
+ 	     (opcode == OPCODE_COMMON_WRITE_OBJECT)) &&
+ 	    (subsystem == CMD_SUBSYSTEM_COMMON)) {
+-		adapter->flash_status = compl_status;
++		adapter->flash_status = compl->status;
+ 		complete(&adapter->et_cmd_compl);
+ 	}
+ 
+-	if (compl_status == MCC_STATUS_SUCCESS) {
++	if (base_status == MCC_STATUS_SUCCESS) {
+ 		if (((opcode == OPCODE_ETH_GET_STATISTICS) ||
+ 		     (opcode == OPCODE_ETH_GET_PPORT_STATS)) &&
+ 		    (subsystem == CMD_SUBSYSTEM_ETH)) {
+@@ -174,35 +185,20 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 		if (opcode == OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES)
+ 			adapter->be_get_temp_freq = 0;
+ 
+-		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
+-		    compl_status == MCC_STATUS_ILLEGAL_REQUEST)
+-			return compl_status;
++		if (be_skip_err_log(opcode, base_status, addl_status))
++			return compl->status;
+ 
+-		/* Ignore CRC mismatch error during FW download with old FW */
+-		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
+-		    compl_status == MCC_STATUS_FAILED &&
+-		    extd_status == MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH)
+-			return compl_status;
+-
+-		/* Ignore illegal field error during FW download with old FW */
+-		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
+-		    compl_status == MCC_STATUS_ILLEGAL_FIELD)
+-			return compl_status;
+-
+-		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
++		if (base_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
+ 			dev_warn(&adapter->pdev->dev,
+ 				 "VF is not privileged to issue opcode %d-%d\n",
+ 				 opcode, subsystem);
+ 		} else {
+ 			dev_err(&adapter->pdev->dev,
+ 				"opcode %d-%d failed:status %d-%d\n",
+-				opcode, subsystem, compl_status, extd_status);
+-
+-			if (extd_status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
+-				return extd_status;
++				opcode, subsystem, base_status, addl_status);
+ 		}
+ 	}
+-	return compl_status;
++	return compl->status;
  }
  
- static struct be_mcc_compl *be_mcc_compl_get(struct be_adapter *adapter)
-@@ -396,21 +405,13 @@ int be_process_mcc(struct be_adapter *adapter)
- 	struct be_mcc_obj *mcc_obj = &adapter->mcc_obj;
+ /* Link state evt is a string of bytes; no need for endian swapping */
+@@ -452,7 +448,9 @@ static int be_mcc_notify_wait(struct be_adapter *adapter)
+ 	if (status == -EIO)
+ 		goto out;
  
- 	spin_lock(&adapter->mcc_cq_lock);
-+
- 	while ((compl = be_mcc_compl_get(adapter))) {
- 		if (compl->flags & CQE_FLAGS_ASYNC_MASK) {
--			/* Interpret flags as an async trailer */
--			if (is_link_state_evt(compl->flags))
--				be_async_link_state_process(adapter,
--				(struct be_async_event_link_state *) compl);
--			else if (is_grp5_evt(compl->flags))
--				be_async_grp5_evt_process(adapter,
--							  compl->flags, compl);
--			else if (is_dbg_evt(compl->flags))
--				be_async_dbg_evt_process(adapter,
--							 compl->flags, compl);
-+			be_mcc_event_process(adapter, compl);
- 		} else if (compl->flags & CQE_FLAGS_COMPLETED_MASK) {
--				status = be_mcc_compl_process(adapter, compl);
--				atomic_dec(&mcc_obj->q.used);
-+			status = be_mcc_compl_process(adapter, compl);
-+			atomic_dec(&mcc_obj->q.used);
- 		}
- 		be_mcc_compl_use(compl);
- 		num++;
+-	status = resp->status;
++	status = (resp->base_status |
++		  ((resp->addl_status & CQE_ADDL_STATUS_MASK) <<
++		   CQE_ADDL_STATUS_SHIFT));
+ out:
+ 	return status;
+ }
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index af62403..d4616ff 100644
+index 070f775..af62403 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -87,13 +87,13 @@ struct be_mcc_compl {
- 	u32 flags;		/* dword 3 */
+@@ -50,7 +50,7 @@ struct be_mcc_wrb {
+ #define CQE_FLAGS_CONSUMED_MASK 	(1 << 27)
+ 
+ /* Completion Status */
+-enum {
++enum mcc_base_status {
+ 	MCC_STATUS_SUCCESS = 0,
+ 	MCC_STATUS_FAILED = 1,
+ 	MCC_STATUS_ILLEGAL_REQUEST = 2,
+@@ -60,13 +60,25 @@ enum {
+ 	MCC_STATUS_NOT_SUPPORTED = 66
  };
  
--/* When the async bit of mcc_compl is set, the last 4 bytes of
-- * mcc_compl is interpreted as follows:
-+/* When the async bit of mcc_compl flags is set, flags
-+ * is interpreted as follows:
-  */
--#define ASYNC_TRAILER_EVENT_CODE_SHIFT	8	/* bits 8 - 15 */
--#define ASYNC_TRAILER_EVENT_CODE_MASK	0xFF
--#define ASYNC_TRAILER_EVENT_TYPE_SHIFT	16
--#define ASYNC_TRAILER_EVENT_TYPE_MASK	0xFF
-+#define ASYNC_EVENT_CODE_SHIFT		8	/* bits 8 - 15 */
-+#define ASYNC_EVENT_CODE_MASK		0xFF
-+#define ASYNC_EVENT_TYPE_SHIFT		16
-+#define ASYNC_EVENT_TYPE_MASK		0xFF
- #define ASYNC_EVENT_CODE_LINK_STATE	0x1
- #define ASYNC_EVENT_CODE_GRP_5		0x5
- #define ASYNC_EVENT_QOS_SPEED		0x1
-@@ -102,10 +102,6 @@ struct be_mcc_compl {
- #define ASYNC_EVENT_CODE_QNQ		0x6
- #define ASYNC_DEBUG_EVENT_TYPE_QNQ	1
+-#define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
+-#define MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH	0x4d
++/* Additional status */
++enum mcc_addl_status {
++	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
++	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
++	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a
++};
++
++#define CQE_BASE_STATUS_MASK		0xFFFF
++#define CQE_BASE_STATUS_SHIFT		0	/* bits 0 - 15 */
++#define CQE_ADDL_STATUS_MASK		0xFF
++#define CQE_ADDL_STATUS_SHIFT		16	/* bits 16 - 31 */
  
--struct be_async_event_trailer {
--	u32 code;
--};
--
- enum {
- 	LINK_DOWN	= 0x0,
- 	LINK_UP		= 0x1
-@@ -113,7 +109,7 @@ enum {
- #define LINK_STATUS_MASK			0x1
- #define LOGICAL_LINK_STATUS_MASK		0x2
+-#define CQE_STATUS_COMPL_MASK		0xFFFF
+-#define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
+-#define CQE_STATUS_EXTD_MASK		0xFFFF
+-#define CQE_STATUS_EXTD_SHIFT		16	/* bits 16 - 31 */
++#define base_status(status)		\
++		((enum mcc_base_status)	\
++			(status > 0 ? (status & CQE_BASE_STATUS_MASK) : 0))
++#define addl_status(status)		\
++		((enum mcc_addl_status)	\
++			(status > 0 ? (status >> CQE_ADDL_STATUS_SHIFT) & \
++					CQE_ADDL_STATUS_MASK : 0))
  
--/* When the event code of an async trailer is link-state, the mcc_compl
-+/* When the event code of compl->flags is link-state, the mcc_compl
-  * must be interpreted as follows
-  */
- struct be_async_event_link_state {
-@@ -123,10 +119,10 @@ struct be_async_event_link_state {
- 	u8 port_speed;
- 	u8 port_fault;
- 	u8 rsvd0[7];
--	struct be_async_event_trailer trailer;
-+	u32 flags;
- } __packed;
- 
--/* When the event code of an async trailer is GRP-5 and event_type is QOS_SPEED
-+/* When the event code of compl->flags is GRP-5 and event_type is QOS_SPEED
-  * the mcc_compl must be interpreted as follows
-  */
- struct be_async_event_grp5_qos_link_speed {
-@@ -134,10 +130,10 @@ struct be_async_event_grp5_qos_link_speed {
- 	u8 rsvd[5];
- 	u16 qos_link_speed;
- 	u32 event_tag;
--	struct be_async_event_trailer trailer;
-+	u32 flags;
- } __packed;
- 
--/* When the event code of an async trailer is GRP5 and event type is
-+/* When the event code of compl->flags is GRP5 and event type is
-  * CoS-Priority, the mcc_compl must be interpreted as follows
-  */
- struct be_async_event_grp5_cos_priority {
-@@ -147,10 +143,10 @@ struct be_async_event_grp5_cos_priority {
- 	u8 valid;
- 	u8 rsvd0;
- 	u8 event_tag;
--	struct be_async_event_trailer trailer;
-+	u32 flags;
- } __packed;
- 
--/* When the event code of an async trailer is GRP5 and event type is
-+/* When the event code of compl->flags is GRP5 and event type is
-  * PVID state, the mcc_compl must be interpreted as follows
-  */
- struct be_async_event_grp5_pvid_state {
-@@ -159,7 +155,7 @@ struct be_async_event_grp5_pvid_state {
- 	u16 tag;
- 	u32 event_tag;
- 	u32 rsvd1;
--	struct be_async_event_trailer trailer;
-+	u32 flags;
- } __packed;
- 
- /* async event indicating outer VLAN tag in QnQ */
-@@ -169,7 +165,7 @@ struct be_async_event_qnq {
- 	u16 vlan_tag;
- 	u32 event_tag;
- 	u8 rsvd1[4];
--	struct be_async_event_trailer trailer;
-+	u32 flags;
- } __packed;
- 
- struct be_mcc_mailbox {
+ struct be_mcc_compl {
+ 	u32 status;		/* dword 0 */
+@@ -259,8 +271,8 @@ struct be_cmd_resp_hdr {
+ 	u8 opcode;		/* dword 0 */
+ 	u8 subsystem;		/* dword 0 */
+ 	u8 rsvd[2];		/* dword 0 */
+-	u8 status;		/* dword 1 */
+-	u8 add_status;		/* dword 1 */
++	u8 base_status;		/* dword 1 */
++	u8 addl_status;		/* dword 1 */
+ 	u8 rsvd1[2];		/* dword 1 */
+ 	u32 response_length;	/* dword 2 */
+ 	u32 actual_resp_len;	/* dword 3 */
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index d2b4efa..6822b3d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1111,7 +1111,8 @@ static int be_vid_config(struct be_adapter *adapter)
+ 	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num);
+ 	if (status) {
+ 		/* Set to VLAN promisc mode as setting VLAN filter failed */
+-		if (status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
++		if (addl_status(status) ==
++				MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES)
+ 			goto set_vlan_promisc;
+ 		dev_err(&adapter->pdev->dev,
+ 			"Setting HW VLAN filtering failed.\n");
+@@ -3729,7 +3730,7 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
+ 		img += num_bytes;
+ 		status = be_cmd_write_flashrom(adapter, flash_cmd, optype,
+ 					       flash_op, num_bytes);
+-		if (status == MCC_STATUS_ILLEGAL_REQUEST &&
++		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST &&
+ 		    optype == OPTYPE_PHY_FW)
+ 			break;
+ 		else if (status)
+@@ -3952,8 +3953,8 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
+ 		 * new FLASH op_type. To complete the remaining process,
+ 		 * download the same FW again after the reboot.
+ 		 */
+-		if (status == MCC_STATUS_ILLEGAL_REQUEST ||
+-		    status == MCC_STATUS_ILLEGAL_FIELD) {
++		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST ||
++		    base_status(status) == MCC_STATUS_ILLEGAL_FIELD) {
+ 			dev_err(dev, "Flash incomplete. Reset the server\n");
+ 			dev_err(dev, "Download FW image again after reset\n");
+ 			return -EAGAIN;
+@@ -3975,9 +3976,10 @@ flash:
+ 		/* For old FW images ignore ILLEGAL_FIELD error or errors on
+ 		 * UFI_DIR region
+ 		 */
+-		if (old_fw_img && (status == MCC_STATUS_ILLEGAL_FIELD ||
+-				   (img_optype == OPTYPE_UFI_DIR &&
+-				    status == MCC_STATUS_FAILED))) {
++		if (old_fw_img &&
++		    (base_status(status) == MCC_STATUS_ILLEGAL_FIELD ||
++		     (img_optype == OPTYPE_UFI_DIR &&
++		      base_status(status) == MCC_STATUS_FAILED))) {
+ 			continue;
+ 		} else if (status) {
+ 			dev_err(dev, "Flashing section type 0x%x failed\n",
 -- 
 1.7.1
