@@ -1,58 +1,58 @@
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Subject: [PATCH net-next] ipheth: Add support for iPad 2 and iPad 3
-Date: Fri, 30 May 2014 12:17:00 +0200
-Message-ID: <1401445020-14027-1-git-send-email-kristian.evensen@gmail.com>
-Cc: Kristian Evensen <kristian.evensen@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:38652 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755221AbaE3KRJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 06:17:09 -0400
-Received: by mail-wi0-f181.google.com with SMTP id n15so841410wiw.8
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 03:17:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH v1 3/3] usb: gadget: NCM: Stop RX TCP Bursts getting dropped.
+Date: Fri, 30 May 2014 12:25:48 +0100
+Message-ID: <53886ABC.8030303@mentor.com>
+References: <Jim Baxter <jim_baxter@mentor.com>	 <1401383543-10181-1-git-send-email-jim_baxter@mentor.com>	 <1401383543-10181-4-git-send-email-jim_baxter@mentor.com> <1401390263.3645.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Felipe Balbi <balbi@ti.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	=?UTF-8?B?QmrDuA==?= =?UTF-8?B?cm4gTW9yaw==?= <bjorn@mork.no>,
+	David Laight <David.Laight@ACULAB.COM>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401390263.3645.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
+On 29/05/14 20:04, Eric Dumazet wrote:
+> On Thu, 2014-05-29 at 18:12 +0100, Jim Baxter wrote:
+>> This fixes a problem with dropped packets over 16k CDC-NCM
+>> when the connection is being heavily used.
+>>
+>> The issue was that the skb truesize for the unpacked NCM
+>> packets was too high after they were cloned from the 16k
+>> skb, this lead to the potential memory calculated by the
+>> Kernel running out of memory earlier then it should.
+>>
+>> Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
+>> ---
+> 
+> Note the patch is OK, but changelog a bit misleading ;)
+> 
+> Kernel was not running out of memory, because truesize was correct.
+> 
+> The problem here is that a frame was consuming more kernel memory than
+> really needed, so chances of hitting socket sk_rcvbuf limit was high.
+> 
+> BTW :
+> #define NTB_OUT_SIZE              16384
+> 
+> alloc_skb(size) ->
+> 	kmalloc(16384 + sizeof(struct skb_shared_info)) ->
+> 		roundup() => 32768
+> 
+> So truesize of the skb was infact ~32KB, which is really insane indeed.
+> After your patch, its back to ~2KB
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> 
+> 
 
-Each iPad model has a different product id, this patch adds support for iPad 2
-(pid 0x12a2) and iPad 3 (pid 0x12a6). Note that iPad 2 must be jailbroken and a
-third-party app must be used for tethering to work. On iPad 3, tethering works
-out of the box (assuming your ISP is nice).
+Thank you, I will clarify the description.
 
-Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
----
- drivers/net/usb/ipheth.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
-index 421934c..973275f 100644
---- a/drivers/net/usb/ipheth.c
-+++ b/drivers/net/usb/ipheth.c
-@@ -59,6 +59,8 @@
- #define USB_PRODUCT_IPHONE_3GS  0x1294
- #define USB_PRODUCT_IPHONE_4	0x1297
- #define USB_PRODUCT_IPAD 0x129a
-+#define USB_PRODUCT_IPAD_2	0x12a2
-+#define USB_PRODUCT_IPAD_3	0x12a6
- #define USB_PRODUCT_IPAD_MINI    0x12ab
- #define USB_PRODUCT_IPHONE_4_VZW 0x129c
- #define USB_PRODUCT_IPHONE_4S	0x12a0
-@@ -107,6 +109,14 @@ static struct usb_device_id ipheth_table[] = {
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
- 	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_2,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
-+		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_3,
-+		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
-+		IPHETH_USBINTF_PROTO) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(
- 		USB_VENDOR_APPLE, USB_PRODUCT_IPAD_MINI,
- 		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
- 		IPHETH_USBINTF_PROTO) },
--- 
-1.8.3.2
+Jim
