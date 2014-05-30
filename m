@@ -1,77 +1,53 @@
-From: "ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 11:01:37 -0300
-Message-ID: <20140530140137.GC783@arch.cereza>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
- <1401415552-2263-5-git-send-email-b38611@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
- <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
- <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH] sh_eth: use RNC mode for R8A7790
+Date: Fri, 30 May 2014 15:09:54 +0100
+Message-ID: <53889132.7020104@codethink.co.uk>
+References: <1401458186-29985-1-git-send-email-ben.dooks@codethink.co.uk> <53888EEA.7060702@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@codethink.co.uk, nobuhiro.iwamatsu.yj@renesas.com,
+	magnus.damn@opensource.se, horms@verge.net.au
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:57621 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933250AbaE3OFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:05:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:34136 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933023AbaE3OKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:10:01 -0400
+In-Reply-To: <53888EEA.7060702@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+On 30/05/14 15:00, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 05/30/2014 05:56 PM, Ben Dooks wrote:
+> 
+>    The subject should have "R8A779x".
+> 
+>> The current behaviour of the sh_eth driver is not to use the RNC bit
+>> for the receive ring. This means that every packet recieved is not only
+>> generating an IRQ but it also stops the receive ring DMA as well until
+>> the driver re-enables it after unloading the packet.
+>>
+>> This means that a number of the following errors are generated due to
+>> the receive packet FIFO overflowing due to nowhere to put packets:
+>>
+>>     net eth0: Receive FIFO Overflow
+>>
+>> Setting the RMCR_RNC configuration has so far been tested with an NFS
+>> root filesystem and the driver has not failed yet. It is not yet known
+>> why this is not set for R8A779x operation (Feedback on this issue or
+>> other testing is welcome)
+> 
+>    I have provided such feedback (and many people provided testing), so
+> that the last sentence doesn't make sense anymore.
 
-On 30 May 06:13 AM, Eric Dumazet wrote:
-> On Fri, 2014-05-30 at 09:42 +0000, fugang.duan@freescale.com wrote:
-> > From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, =
-2014 5:11 PM
-> > >
-> > >Does the driver support BQL (or similar) in order to limit the amo=
-unt of
-> > >queued tx traffic?
-> > >Otherwise you've significantly increased the latency for connectio=
-ns other
-> > >than one doing bulk tx.
-> > >
-> > >	David
-> > >
-> > The driver still don't support BQL.
-> > I will add the feature to support FEC. Thanks for your advise.
->=20
-> Note that a full size TSO packet (44 or 45 MSS) requires about 88 or =
-90
-> descriptors.
->=20
+I suppose it could be removed, it depends on how pedantic people
+want to be with the changelogs.
 
-What's the rationale behing those numbers?
 
-=46ollowing the Solarflare commit you pointed me a while ago, I've set
-gso_max_segs to limit the number of descriptors in the mvneta and
-mv643xx_eth drivers.
-
-My understanding reading the sfc commit 7e6d06f0de3f7 is that the
-maximum number of required descriptors would be around ~250:
-
-/* Header and payload descriptor for each output segment, plus
- * one for every input fragment boundary within a segment
- */
-unsigned int max_descs =3D EFX_TSO_MAX_SEGS * 2 + MAX_SKB_FRAGS;
-
-Maybe I've misunderstood something?
-
-PS: I was also about to add BQL support to the drivers...
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
