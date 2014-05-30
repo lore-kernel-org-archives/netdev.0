@@ -1,84 +1,106 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: [PATCH v2 net-next] net: filter: fix length calculation in BPF testsuite
-Date: Fri, 30 May 2014 10:15:12 -0700
-Message-ID: <1401470112-3933-1-git-send-email-chema@google.com>
-References: <53879B78.5050106@redhat.com>
-Cc: netdev@vger.kernel.org, Chema Gonzalez <chema@google.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 6/8] net: mv643xx_eth: Limit the TSO segments and adjust
+ stop/wake thresholds
+Date: Fri, 30 May 2014 10:21:33 -0700
+Message-ID: <1401470493.3645.129.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
+	 <1401468011-10609-7-git-send-email-ezequiel.garcia@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Tawfik Bayouk <tawfik@marvell.com>, fugang.duan@freescale.com,
+	Willy Tarreau <w@1wt.eu>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:48096 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965068AbaE3RPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:15:14 -0400
-Received: by mail-yh0-f74.google.com with SMTP id 29so461840yhl.1
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:15:13 -0700 (PDT)
-In-Reply-To: <53879B78.5050106@redhat.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:64797 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933202AbaE3RV5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:21:57 -0400
+Received: by mail-pa0-f46.google.com with SMTP id kq14so1929791pab.33
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:21:57 -0700 (PDT)
+In-Reply-To: <1401468011-10609-7-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current probe_filter_length() (the function that calculates the
-length of a test BPF filter) behavior is to declare the end of the
-filter as soon as it finds {0, *, *, 0}. This is actually a valid
-insn ("ld #0"), so any filter with includes "BPF_STMT(BPF_LD | BPF_IMM, 0)"
-fails (its length is cut short).
+On Fri, 2014-05-30 at 13:40 -0300, Ezequiel Garcia wrote:
+> Currently small MSS values may require too many TSO descriptors for
+> the default queue size. This commit prevents this situation by fixing
+> the maximum supported TSO number of segments to 100 and by setting a
+> minimum Tx queue size. The minimum Tx queue size is set so that at
+> least 2 worst-case skb can be accommodated.
+> 
+> In addition, the queue stop and wake thresholds values are adjusted
+> accordingly. The queue is stopped when there's room for only 1 worst-case
+> skb and waked when the number of descriptors is half that value.
+> 
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c | 63 ++++++++++++++++++++----------
+>  1 file changed, 42 insertions(+), 21 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index 97a60de..2cea86d 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -185,6 +185,10 @@ static char mv643xx_eth_driver_version[] = "1.4";
+>  
+>  #define TSO_HEADER_SIZE		128
+>  
+> +/* Max number of allowed TCP segments for software TSO */
+> +#define MV643XX_MAX_TSO_SEGS 100
+> +#define MV643XX_MAX_SKB_DESCS (MV643XX_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
+> +
+>  /*
+>   * RX/TX descriptors.
+>   */
+> @@ -348,6 +352,9 @@ struct tx_queue {
+>  	int tx_curr_desc;
+>  	int tx_used_desc;
+>  
+> +	int tx_stop_threshold;
+> +	int tx_wake_threshold;
+> +
+>  	char *tso_hdrs;
+>  	dma_addr_t tso_hdrs_dma;
+>  
+> @@ -497,7 +504,7 @@ static void txq_maybe_wake(struct tx_queue *txq)
+>  
+>  	if (netif_tx_queue_stopped(nq)) {
+>  		__netif_tx_lock(nq, smp_processor_id());
+> -		if (txq->tx_ring_size - txq->tx_desc_count >= MAX_SKB_FRAGS + 1)
+> +		if (txq->tx_desc_count <= txq->tx_wake_threshold)
+>  			netif_tx_wake_queue(nq);
+>  		__netif_tx_unlock(nq);
+>  	}
+> @@ -897,7 +904,8 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
+>  	}
+>  }
+>  
+> -static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb)
+> +static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb,
+> +			  struct net_device *dev)
+>  {
+>  	struct mv643xx_eth_private *mp = txq_to_mp(txq);
+>  	int nr_frags = skb_shinfo(skb)->nr_frags;
+> @@ -910,11 +918,15 @@ static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb)
+>  	cmd_sts = 0;
+>  	l4i_chk = 0;
+>  
+> +	if (txq->tx_ring_size - txq->tx_desc_count < MAX_SKB_FRAGS + 1) {
 
-We are changing probe_filter_length() so as to start from the end, and
-declare the end of the filter as the first instruction which is not
-{0, *, *, 0}. This solution produces a simpler patch than the
-alternative of using an explicit end-of-filter mark. It is technically
-incorrect if your filter ends up with "ld #0", but that should not
-happen anyway.
+I am not sure I understand this part.
 
-We also add a new test (LD_IMM_0) that includes ld #0 (does not work
-without this patch).
+You have one skb here, so why are you using MAX_SKB_FRAGS ?
 
-Signed-off-by: Chema Gonzalez <chema@google.com>
----
- lib/test_bpf.c | 21 ++++++++++++++++-----
- 1 file changed, 16 insertions(+), 5 deletions(-)
+> +		if (net_ratelimit())
+> +			netdev_err(dev, "tx queue full?!\n");
+> +		return -EBUSY;
+> +	}
+> +
 
-diff --git a/lib/test_bpf.c b/lib/test_bpf.c
-index af677cb..e60f766 100644
---- a/lib/test_bpf.c
-+++ b/lib/test_bpf.c
-@@ -158,6 +158,18 @@ static struct bpf_test tests[] = {
- 		{ { 0, 0x800000ff }, { 1, 0x800000ff } },
- 	},
- 	{
-+		"LD_IMM_0",
-+		.u.insns = {
-+			BPF_STMT(BPF_LD | BPF_IMM, 0), /* ld #0 */
-+			BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0, 1, 0),
-+			BPF_STMT(BPF_RET | BPF_K, 0),
-+			BPF_STMT(BPF_RET | BPF_K, 1),
-+		},
-+		CLASSIC,
-+		{ },
-+		{ { 1, 1 } },
-+	},
-+	{
- 		"LD_IND",
- 		.u.insns = {
- 			BPF_STMT(BPF_LDX | BPF_LEN, 0),
-@@ -1542,12 +1554,11 @@ static int probe_filter_length(struct sock_filter *fp)
- {
- 	int len = 0;
- 
--	while (fp->code != 0 || fp->k != 0) {
--		fp++;
--		len++;
--	}
-+	for (len = MAX_INSNS - 1; len > 0; --len)
-+		if (fp[len].code != 0 || fp[len].k != 0)
-+			break;
- 
--	return len;
-+	return len + 1;
- }
- 
- static struct sk_filter *generate_filter(int which, int *err)
--- 
-1.9.1.423.g4596e3a
+Also it looks like this part will become dead after the following
+patch...
