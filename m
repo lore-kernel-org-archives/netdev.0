@@ -1,198 +1,78 @@
-From: David Newall <davidn@davidnewall.com>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
- skb before it enters the IP stack)
-Date: Fri, 30 May 2014 18:47:58 +0930
-Message-ID: <53884CC6.2000000@davidnewall.com>
-References: <53803488.6000400@davidnewall.com>	<20140524.134356.992924324126016022.davem@davemloft.net>	<53815623.8020506@davidnewall.com> <20140529.153424.1310751217059624351.davem@davemloft.net>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
+Date: Fri, 30 May 2014 09:42:34 +0000
+Message-ID: <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+ <1401415552-2263-5-git-send-email-b38611@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bdschuym@pandora.be, fw@strlen.de, stephen@networkplumber.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org, bsd@redhat.com,
-	vyasevich@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140529.153424.1310751217059624351.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:33485
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755160AbaE3Jmz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:42:55 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30/05/14 08:04, David Miller wrote:
-> You really need to check the return value as this can perform allocations,
-> GFP_ATOMIC ones in fact.
+From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, 2014 5:11 PM
+>To: Duan Fugang-B38611; Li Frank-B20596; davem@davemloft.net
+>Cc: ezequiel.garcia@free-electrons.com; netdev@vger.kernel.org;
+>shawn.guo@linaro.org; bhutchings@solarflare.com;
+>stephen@networkplumber.org
+>Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry
+>number
 >
-> Also, why are we not bumping the statistics any more?  I didn't see a
-> discussion of that in this thread.
+>From: Fugang Duan
+>> In order to support SG, software TSO, let's increase BD entry number.
+>
+>Software TSO shouldn't significantly increase the number of descriptors
+>required.
+>I'd guess it makes a lot of packets have 2 fragments.
+>
+>...
+>> -#define FEC_ENET_RX_PAGES	8
+>> +#define FEC_ENET_RX_PAGES	256
+>
+>Supporting TSO shouldn't need more RX descriptors.
+>While 16 descriptors isn't that many, 512 is a lot.
+>If PAGE_SIZE is greater than 4k it is a huge amount of memory.
+>
+Yes, 16 descriptors is little, increase BD entry size can improve the performance.
+And I want to add the later patch to support interrupt coalescing, which need more BD descriptors.
 
-I was only restoring the code as it was before the commit.  Maybe this, 
-(instead of the previous patch of br_netfilter.c,) to keep the (added) 
-check on pskb_may_pull's return value and incremented statistics?
+>>  #define FEC_ENET_RX_FRSIZE	2048
+>>  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
+>>  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
+>>  #define FEC_ENET_TX_FRSIZE	2048
+>>  #define FEC_ENET_TX_FRPPG	(PAGE_SIZE / FEC_ENET_TX_FRSIZE)
+>> -#define TX_RING_SIZE		16	/* Must be power of two */
+>> -#define TX_RING_MOD_MASK	15	/*   for this to work */
+>> +#define TX_RING_SIZE		512	/* Must be power of two */
+>> +#define TX_RING_MOD_MASK	511	/*   for this to work */
+>
+>Does the driver support BQL (or similar) in order to limit the amount of
+>queued tx traffic?
+>Otherwise you've significantly increased the latency for connections other
+>than one doing bulk tx.
+>
+>	David
+>
+The driver still don't support BQL.
+I will add the feature to support FEC. Thanks for your advise.
 
---- br_netfilter.c	2014-05-30 18:01:40.221868365 +0930
-+++ br_netfilter.c.orig	2014-05-30 18:17:39.697425383 +0930
-@@ -253,73 +253,6 @@ static inline void nf_bridge_update_prot
-  		skb->protocol = htons(ETH_P_PPP_SES);
-  }
-  
--/* When handing a packet over to the IP layer
-- * check whether we have a skb that is in the
-- * expected format
-- */
--
--static int br_parse_ip_options(struct sk_buff *skb)
--{
--	struct ip_options *opt;
--	const struct iphdr *iph;
--	struct net_device *dev = skb->dev;
--	u32 len;
--
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	opt = &(IPCB(skb)->opt);
--
--	/* Basic sanity checks */
--	if (iph->ihl < 5 || iph->version != 4)
--		goto inhdr_error;
--
--	if (!pskb_may_pull(skb, iph->ihl*4))
--		goto inhdr_error;
--
--	iph = ip_hdr(skb);
--	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
--		goto inhdr_error;
--
--	len = ntohs(iph->tot_len);
--	if (skb->len < len) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
--		goto drop;
--	} else if (len < (iph->ihl*4))
--		goto inhdr_error;
--
--	if (pskb_trim_rcsum(skb, len)) {
--		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
--		goto drop;
--	}
--
--	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--	if (iph->ihl == 5)
--		return 0;
--
--	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
--	if (ip_options_compile(dev_net(dev), opt, skb))
--		goto inhdr_error;
--
--	/* Check correct handling of SRR option */
--	if (unlikely(opt->srr)) {
--		struct in_device *in_dev = __in_dev_get_rcu(dev);
--		if (in_dev && !IN_DEV_SOURCE_ROUTE(in_dev))
--			goto drop;
--
--		if (ip_options_rcv_srr(skb))
--			goto drop;
--	}
--
--	return 0;
--
--inhdr_error:
--	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
--drop:
--	return -1;
--}
--
-  /* Fill in the header for fragmented IP packets handled by
-   * the IPv4 connection tracking code.
-   */
-@@ -679,6 +612,8 @@ static unsigned int br_nf_pre_routing(co
-  {
-  	struct net_bridge_port *p;
-  	struct net_bridge *br;
-+	const struct iphdr *iph;
-+	struct net_device *dev = skb->dev;
-  	__u32 len = nf_bridge_encap_header_len(skb);
-  
-  	if (unlikely(!pskb_may_pull(skb, len)))
-@@ -704,9 +639,35 @@ static unsigned int br_nf_pre_routing(co
-  		return NF_ACCEPT;
-  
-  	nf_bridge_pull_encap_header_rcsum(skb);
-+
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-+		goto inhdr_error;
-+
-+	iph = ip_hdr(skb);
-+	if (iph->ihl < 5 || iph->version != 4)
-+		goto inhdr_error;
-+
-+	if (!pskb_may_pull(skb, 4 * iph->ihl))
-+		goto inhdr_error;
-+
-+	iph = ip_hdr(skb);
-+	if (ip_fast_csum((__u8 *) iph, iph->ihl) != 0)
-+		goto inhdr_error;
-+
-+	len = ntohs(iph->tot_len);
-+	if (skb->len < len) {
-+		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INTRUNCATEDPKTS);
-+		return NF_DROP;
-+	} else if (len < (iph->ihl*4))
-+		goto inhdr_error;
-  
--	if (br_parse_ip_options(skb))
-+	if (pskb_trim_rcsum(skb, len)) {
-+		IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
-  		return NF_DROP;
-+	}
-+
-+	/* BUG: Should really parse the IP options here. */
-+	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-  
-  	nf_bridge_put(skb->nf_bridge);
-  	if (!nf_bridge_alloc(skb))
-@@ -720,6 +681,10 @@ static unsigned int br_nf_pre_routing(co
-  		br_nf_pre_routing_finish);
-  
-  	return NF_STOLEN;
-+
-+inhdr_error:
-+	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
-+	return NF_DROP;
-  }
-  
-  
-@@ -806,9 +771,6 @@ static unsigned int br_nf_forward_ip(con
-  		nf_bridge->mask |= BRNF_PKT_TYPE;
-  	}
-  
--	if (pf == NFPROTO_IPV4 && br_parse_ip_options(skb))
--		return NF_DROP;
--
-  	/* The physdev module checks on this */
-  	nf_bridge->mask |= BRNF_BRIDGED;
-  	nf_bridge->physoutdev = skb->dev;
-@@ -862,19 +824,14 @@ static unsigned int br_nf_forward_arp(co
-  #if IS_ENABLED(CONFIG_NF_CONNTRACK_IPV4)
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
-  {
--	int ret;
--
-  	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
-  	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
-  	    !skb_is_gso(skb)) {
--		if (br_parse_ip_options(skb))
--			/* Drop invalid packet */
--			return NF_DROP;
--		ret = ip_fragment(skb, br_dev_queue_push_xmit);
-+		/* BUG: Should really parse the IP options here. */
-+		memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
-+		return ip_fragment(skb, br_dev_queue_push_xmit);
-  	} else
--		ret = br_dev_queue_push_xmit(skb);
--
--	return ret;
-+		return br_dev_queue_push_xmit(skb);
-  }
-  #else
-  static int br_nf_dev_queue_xmit(struct sk_buff *skb)
-
+Thanks,
+Andy
