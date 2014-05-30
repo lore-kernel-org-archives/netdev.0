@@ -1,54 +1,76 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH 2/2] net: tilegx: Use helpers from linux/etherdevice.h
- to check/set MAC
-Date: Fri, 30 May 2014 09:14:34 +0200
-Message-ID: <20140530071434.GA18085@distanz.ch>
-References: <1401192245-26260-1-git-send-email-tklauser@distanz.ch>
- <53863C65.5000404@tilera.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 6/6] net: fec: Add software TSO support
+Date: Fri, 30 May 2014 07:16:12 +0000
+Message-ID: <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-7-git-send-email-b38611@freescale.com>
+ <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:37988 "EHLO sym2.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751045AbaE3HOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 03:14:37 -0400
-Content-Disposition: inline
-In-Reply-To: <53863C65.5000404@tilera.com>
+Received: from mail-bl2lp0205.outbound.protection.outlook.com ([207.46.163.205]:31891
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753114AbaE3HQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 03:16:35 -0400
+In-Reply-To: <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-05-28 at 21:43:33 +0200, Chris Metcalf <cmetcalf@tilera.com> wrote:
-> On 5/27/2014 8:04 AM, Tobias Klauser wrote:
-> >Use is_valid_ether_addr() to check for a valid MAC address to set on the
-> >device.  This will also check for the device address being multicast,
-> >which would have been possible previously.
-> 
-> I don't think having a multicast address here is possible (i.e. as returned
-> by gxio_mpipe_link_enumerate_mac), and it confuses the actual issue, which
-> is handling the all-zeroes case in a simulator run.  I'd prefer to see
-> is_zero_ether_addr() instead.
-
-Ok, I'll send an updated patch which only tests for
-!is_zero_ether_addr()
-
-> >Also use ether_addr_copy() instead of a manual memcpy() to set the
-> >address.
-> >
-> >Furthermore, get rid of a redundant assignment of dev->addr_len. This is
-> >already set by ether_setup() which is called in tile_net_setup().
-> >
-> >Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> >---
-> >  drivers/net/ethernet/tile/tilegx.c |   17 ++++++-----------
-> >  1 file changed, 6 insertions(+), 11 deletions(-)
-> 
-> With the change above,
-> 
-> Acked-by: Chris Metcalf <cmetcalf@tilera.com>
-> 
-> -- 
-> Chris Metcalf, Tilera Corp.
-> http://www.tilera.com
-> 
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBEYXRhOiBGcmlkYXks
+IE1heSAzMCwgMjAxNCAyOjMwIFBNDQo+VG86IER1YW4gRnVnYW5nLUIzODYxMQ0KPkNjOiBMaSBG
+cmFuay1CMjA1OTY7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IGV6ZXF1aWVsLmdhcmNpYUBmcmVlLQ0K
+PmVsZWN0cm9ucy5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHNoYXduLmd1b0BsaW5hcm8u
+b3JnOw0KPmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIu
+b3JnDQo+U3ViamVjdDogUmU6IFtQQVRDSCB2MSA2LzZdIG5ldDogZmVjOiBBZGQgc29mdHdhcmUg
+VFNPIHN1cHBvcnQNCj4NCj5PbiBGcmksIDIwMTQtMDUtMzAgYXQgMTA6MDUgKzA4MDAsIEZ1Z2Fu
+ZyBEdWFuIHdyb3RlOg0KPg0KPj4gKwlpZiAoKCh1bnNpZ25lZCBsb25nKSBkYXRhKSAmIEZFQ19B
+TElHTk1FTlQpIHsNCj4+ICsJCW1lbWNweShmZXAtPnR4X2JvdW5jZVtpbmRleF0sIGRhdGEsIHNp
+emUpOw0KPj4gKwkJZGF0YSA9IGZlcC0+dHhfYm91bmNlW2luZGV4XTsNCj4+ICsJfQ0KPg0KPk5v
+dyB5b3UgaGF2ZSBTRyBzdXBwb3J0LCBtYXliZSB5b3UgY291bGQgYXZvaWQgY29weWluZyB0aGUg
+d2hvbGUgcGFydCwgYW5kDQo+b25seSBjb3B5IHRoZSBiZWdpbm5pbmcgdG8gcmVhY2ggdGhlIHJl
+cXVpcmVkIGFsaWdubWVudC4NCj4NCj5Ob3Qgc3VyZSBpdHMgYSB3aW4sIGFzIGl0IHJlcXVpcmVz
+IDIgZGVzY3JpcHRvcnMgaW5zdGVhZCBvZiBvbmUsIGFuZA0KPnRzb19jb3VudF9kZXNjcygpIHdv
+dWxkIGhhdmUgdG8gYmUgY2hhbmdlZCBhcyB3ZWxsLg0KPg0KPkRvIHlvdSBoYXZlIGFuIGlkZWEg
+b2YgaG93IG9mdGVuIHRoaXMgYm91bmNpbmcgaGFwcGVucyBmb3Igbm9ybWFsDQo+d29ya2xvYWRz
+IChpZSBub3Qgc3ludGhldGljIGJlbmNobWFya3MpID8NCj4NCj5FdmVuIGZvciBub24gVFNPIGZy
+YW1lcywgd2UgaGF2ZSBhbiAzMmJpdCBhbGlnbmVkIElQIGhlYWRlciwgc28gdGhlDQo+RXRoZXJu
+ZXQgaGVhZGVyIGlzIG5vdCBhbGlnbmVkIHRvIGEgNCBieXRlcyBib3VuZGFyeS4gSSBzdXNwZWN0
+IHRoaXMNCj5kcml2ZXIgaGFkIHRvIGJvdW5jZSBhbGwgVFggZnJhbWVzID8NCj4NClllcywgdGVz
+dCBmb3VuZCBpdCBib3VuY2UgYWxsIFRYIGZyYW1lcy4NClVzZSAyIGRlc2NyaXB0b3JzIHRvIHRy
+YW5zZmVyIG9uZSBwYXJ0LCB3aGljaCBicmluZyBtb3JlIGNvbXBsaWNhdGUgZm9yIGRyaXZlci4g
+T2YgY291cnNlLCANClBlcmZvcm1hbmNlIG11c3QgYmUgYmV0dGVyLg0KDQpEaWdyZXNzaW9uIGlu
+Zm9ybWF0aW9uOg0KSW14NmRsIEZFQyBIVyBoYXZlIGJhbmR3aWR0aCBpc3N1ZSBsaW1pdCB0byA0
+MDAgfiA3MDBNYnBzLiBDdXJyZW50IHBlcmZvcm1hbmNlIHdpdGggVFNPIGlzIDUwNk1icHMsIGNw
+dSBsb2FkaW5nIGlzIGFib3V0IDQwJS4NCkxhdGVyIGNoaXBzIHdpdGggRkVDIElQIHN1cHBvcnQg
+Ynl0ZSBhbGlnbm1lbnQsIHN1Y2ggYXMgaW14NnN4LiBPbiBpbXg2c3ggRkVDLCBubyBTVyBUU08s
+IHR4IGJhbmR3aWR0aCBpcyA4NDB+ODcwTWJwcywgY3B1IGxvYWRpbmcgaXMgMTAwJSwNCkFmdGVy
+IHRoZSBzb2Z0d2FyZSBUU08sIHR4IGJhbmR3aWR0aCBpcyA4NDBNYnBzLCBjcHUgbG9hZGluZyBp
+cyA0OCUuDQoNCj5JIGFtIHdvbmRlcmluZyBpZiBtb3N0IHBhcnQgb2YgdGhlIFRTTyBnYWluIHlv
+dSBoYXZlIGNvbWVzIGZyb20gdGhpcw0KPmFsaWdubWVudCBwcm9ibGVtIHlvdSBoYWQgYmVmb3Jl
+IHRoaXMgcGF0Y2ggYW5kIHRoZSBTRyBvbmUuDQo+DQo+SXQgbG9va3MgbGlrZSB5b3UgY291bGQg
+dHdlYWsgdGNwX3NlbmRtc2coKSB0byBtYWtlIHN1cmUgYSBmcmFnbWVudCBhbHdheXMNCj5zdGFy
+dCBhdCBhIDE2IGJ5dGVzIGJvdW5kYXJ5IG9yIHNvbWV0aGluZy4uLg0KPg0KPkl0IHNob3VsZCBu
+b3QgcmVhbGx5IG1hdHRlciB3aXRoIGlwZXJmIGJlY2F1c2UgaXQgbmF0dXJhbGx5IGdlbmVyYXRl
+cw0KPmFsaWduZWQgZnJhZ21lbnRzIChBIG5ldyBwYWdlIHN0YXJ0cyB3aXRoIG9mZnNldD0wIGFu
+ZCBpcGVyZiB1c2VzIDEyOEtCDQo+d3JpdGVzLi4uKQ0KPg0KPmRpZmYgLS1naXQgYS9uZXQvaXB2
+NC90Y3AuYyBiL25ldC9pcHY0L3RjcC5jIGluZGV4DQo+ZWIxZGRlMzdlNjc4Li5iZTk5YWYyZDU0
+ZTYgMTAwNjQ0DQo+LS0tIGEvbmV0L2lwdjQvdGNwLmMNCj4rKysgYi9uZXQvaXB2NC90Y3AuYw0K
+PkBAIC0xMjIwLDYgKzEyMjAsNyBAQCBuZXdfc2VnbWVudDoNCj4gCQkJCQltZXJnZSA9IGZhbHNl
+Ow0KPiAJCQkJfQ0KPg0KPisJCQkJcGZyYWctPm9mZnNldCA9IEFMSUdOKHBmcmFnLT5vZmZzZXQs
+IDE2KTsNCj4gCQkJCWNvcHkgPSBtaW5fdChpbnQsIGNvcHksIHBmcmFnLT5zaXplIC0gcGZyYWct
+DQo+Pm9mZnNldCk7DQo+DQo+IAkJCQlpZiAoIXNrX3dtZW1fc2NoZWR1bGUoc2ssIGNvcHkpKQ0K
+Pg0KPg0KPg0KVGhlIHNvbHV0aW9uIHdpdGggdHdlYWsgZm9yIHRjcF9zZW5kbXNnIGlzIGJldHRl
+ciwgaXQgZG9uJ3QgYnJpbmcgYW55IGltcGFjdC4NCkkgZG9uJ3Qga25vdyB3aGV0aGVyIGFueWJv
+ZHkgYWdyZWUgdGhlIGNoYW5nZSA/DQoNClRoYW5rcywNCkFuZHkNCg==
