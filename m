@@ -1,82 +1,70 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 15:52:01 +0000
-Message-ID: <2da03236cc684b2586bcd2d6578778d3@BLUPR03MB373.namprd03.prod.outlook.com>
+Date: Fri, 30 May 2014 08:58:12 -0700
+Message-ID: <1401465492.3645.122.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
 	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
 	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
 	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
 	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
 	 <20140530140137.GC783@arch.cereza>
- <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
- <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
- <063D6719AE5E284EB5DD2968C1650D6D17250953@AcuExch.aculab.com>
+	 <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D17250953@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "'fugang.duan@freescale.com'" <fugang.duan@freescale.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
 	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
 	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0186.outbound.protection.outlook.com ([207.46.163.186]:58212
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933274AbaE3PwE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 11:52:04 -0400
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:52741 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932165AbaE3P6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 11:58:14 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz1so1845790pad.16
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 08:58:13 -0700 (PDT)
 In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17250953@AcuExch.aculab.com>
-Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksIERhdmlkDQoNCkZyb206IERhdmlkIExhaWdodCA8RGF2aWQuTGFpZ2h0QEFDVUxBQi5DT00+
-IERhdGE6IEZyaWRheSwgTWF5IDMwLCAyMDE0IDExOjM1IFBNDQo+VG86IER1YW4gRnVnYW5nLUIz
-ODYxMTsgRXJpYyBEdW1hemV0OyBlemVxdWllbC5nYXJjaWFAZnJlZS1lbGVjdHJvbnMuY29tDQo+
-Q2M6IExpIEZyYW5rLUIyMDU5NjsgZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2Vy
-bmVsLm9yZzsNCj5zaGF3bi5ndW9AbGluYXJvLm9yZzsgYmh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNv
-bTsNCj5zdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZw0KPlN1YmplY3Q6IFJFOiBbUEFUQ0ggdjEg
-NC82XSBuZXQ6IGZlYzogSW5jcmVhc2UgYnVmZmVyIGRlc2NyaXB0b3IgZW50cnkNCj5udW1iZXIN
-Cj4NCj5Gcm9tOiBmdWdhbmcuZHVhbkBmcmVlc2NhbGUuY29tDQo+PiA+NjRLQiBUU08gcGFja2V0
-LCB3aXRoIE1TUz0xNDYwIC0+IDQ0IHNlZ21lbnRzICAoNDQqMTQ2MCA9IDY0MjQwKSB3aXRoDQo+
-PiA+TVNTPTE0NDggKFRDUCB0aW1lc3RhbXBzKSAtPiA0NSBzZWdtZW50cyAgKDQ1KjE0NDggPSA2
-NTE2MCkNCj4+ID4NCj4+ID5UaGlzIHNvZnR3YXJlIFRTTyBlbXVsYXRpb24gdXNlcyBhdCBsZWFz
-dCAyIGRlc2NyaXB0b3JzIHBlciBNU1MNCj4+ID4NCj4+ID5vbmUgZGVzY3JpcHRvciB0byBob2xk
-IHRoZSBoZWFkZXJzIChldGhlcm5ldCArIGlwICsgdGNwKSBvbmUNCj4+ID5kZXNjcmlwdG9yIChv
-ciB0d28pIHRvIGhvbGQgdGhlIHBheWxvYWQgZm9yIHRoaXMgTVNTDQo+PiA+DQo+PiBUaGFua3Mg
-Zm9yIEVyaWMncyBkZXRhaWwgZXhwbGFpbi4NCj4+DQo+PiBJZiBmcmFnIHBhZ2UgZGF0YSBpcyBu
-b3QgbWF0Y2ggdGhlIGFsaWdubWVudCBmb3IgZXRoZXJuZXQgRE1BDQo+PiBjb250cm9sbGVyLCB0
-aGVyZSBuZWVkIHRocmVlIGRlc2NyaXB0b3IgZm9yIG9uZSBNU1M6DQo+PiBPbmUgZGVzY3JpcHRv
-ciBmb3IgaGVhZGVycywgb25lIGZvciB0aGUgZmlyc3Qgbm9uLWFsaWduIGJ5dGVzIGNvcGllZA0K
-Pj4gZnJvbSBmcmFnIHBhZ2UsIG9uZSBmb3IgdGhlIHJlc3Qgb2YgZnJhZyBwYWdlLg0KPj4NCj4+
-IFNvIG9uZSBmcmFtZSBtYXkgY29zdCBkZXNjcmlwdG9yIG51bWJlciBpczogMyB4IDQ1DQo+DQo+
-Tm8gLSB0aGF0IGlzIDQ1IGZyYW1lcywgdHlwaWNhbGx5IG5lZWRpbmcgMyByaW5nIGVudHJpZXMg
-ZWFjaC4NCj4NCj4+IEFuZCBJIHdpbGwgYWRkIGludGVycnVwdCBjb2FsZXNjaW5nIHN1cHBvcnQg
-Zm9yIHR4IGFuZCByeCwgd2hpY2ggYWxzbw0KPmNvc3Qgc29tZSBtb3JlIGRlc2NyaXB0b3JzLg0K
-Pj4NCj4+IFNvIHRoZSBkZXNjcmlwdG9ycyBzbG90cyBzZXQgdG8gNTEyIGlzIG5vdCBiaWcsIGp1
-c3QgaXMgcmVhc29uYWJsZS4gRG8NCj55b3UgdGhpbmsgPw0KPg0KPlNvZnR3YXJlIFRTTyBnZW5l
-cmF0ZXMgbG90cyBvZiBzZXBhcmF0ZSBldGhlcm5ldCBmcmFtZXMsIHRoZXJlIGlzIG5vDQo+YWJz
-b2x1dGUgcmVxdWlyZW1lbnQgdG8gYmUgYWJsZSB0byBwdXQgYWxsIG9mIHRoZW0gaW50byB0aGUg
-dHggcmluZyBhdA0KPm9uY2UuDQo+DQo+VGhlIHJlcXVpcmVkIHNpemUgZm9yIHRoZSB0eCByaW5n
-IGlzIG11Y2ggbW9yZSBsaWtlbHkgdG8gYmUgcmVsYXRlZCB0byBhbnkNCj5pbnRlcnJ1cHQgbWl0
-aWdhdGlvbiB0aGF0IGRlbGF5cyB0aGUgcmVmaWxsaW5nIG9mIHJpbmcgZW50cmllcy4NCj41MTIg
-c291bmRzIGxpa2UgYSBsb3Qgb2YgdHggcmluZyBlbnRyaWVzLg0KPg0KPlRoZSByZWNlaXZlIHJp
-bmcgZG9lc24ndCBuZWVkIHRvIGFsbG93IGZvciBmcmFnbWVudHMgLSB5b3VyIGRyaXZlciBpcyBp
-bg0KPmNvbnRyb2wgb2YgYWxsb2NhdGluZyB0aGUgYnVmZmVycy4NCj5JIGRpZG4ndCB1bmRlcnN0
-YW5kIHdoeSB5b3UndmUgYmFzZWQgdGhlIG51bWJlciBvZiByeCByaW5nIGVudHJpZXMgb24NCj5Q
-QUdFX1NJWkUgLSBJSVJDIHRoYXQgbWlnaHQgYmUgNjRrLCBvciBldmVuIGxhcmdlci4NCj5JJ2Qg
-aGF2ZSBleHBlY3RlZCAxMjggb3IgMjU2IHJ4IHJpbmcgZW50cmllcyB0byBiZSB0eXBpY2FsLCBi
-dXQgaG93IG1hbnkNCj5hcmUgbmVlZGVkIGlzIGEgc2VwYXJhdGUgaXNzdWUuDQo+SWYgdGhlIHN5
-c3RlbSBjYW4ga2VlcCB1cCB3aXRoIHRoZSBtYXhpbXVtIGV0aGVybmV0IGRhdGEgcmF0ZSBJJ2Qg
-ZXhwZWN0DQo+dGhhdCBhIHNtYWxsZXIgbnVtYmVyIHdvdWxkIGJlIGZpbmUuDQo+SWYgaXQgY2Fu
-J3Qga2VlcCB1cCB5b3UnbGwgbG9zZSBwYWNrZXRzIGFueXdheS4NCj5BZ2dyZXNzaXZlIHBvd2Vy
-IHNhdmluZyAod2l0aCB3YWtlIG9uIExBTikgbWlnaHQgbmVlZCBtb3JlLg0KPg0KPglEYXZpZA0K
-DQpUaGFua3MgZm9yIHlvdXIgaW5mb3JtYXRpb24uIEkgd2lsbCBkbyBtb3JlIHRlc3QgdG8gd2Vp
-Z2ggdGhlIHNtYWxsZXIgbnVtYmVyIGZvciBtYXhpbXVtIGRhdGEuDQpTdW1tYXJ5IHlvdSBhbmQg
-RXJpYydzIHRob3VnaHRzLCBtYXliZSByeCBzZXQgdG8gMjU2LCB0eCBzZXQgdG8gNTEyIGFyZSBm
-aW5lLg0KDQpUaGFua3MsDQpBbmR5DQo=
+On Fri, 2014-05-30 at 15:34 +0000, David Laight wrote:
+
+> Software TSO generates lots of separate ethernet frames, there is no
+> absolute requirement to be able to put all of them into the tx ring at once.
+
+Yes there is absolute requirement. It is driver responsibility to block
+the queue if the available slots in TX ring would not allow the
+following packet to be sent.
+
+Thats why a TSO emulation needs to set gso_max_segs to some sane value
+
+(sfc sets it to 100)
+
+In Fugang patch this part was a wrong way to deal with this :
+
++       if (tso_count_descs(skb) >= fec_enet_txdesc_entry_free(fep)) {
++               if (net_ratelimit())
++                       netdev_err(ndev, "tx queue full!\n");
++               return NETDEV_TX_BUSY;
++       }
++
+
+This was copy/pasted from buggy
+drivers/net/ethernet/marvell/mv643xx_eth.c
+
+> 
+> The required size for the tx ring is much more likely to be related
+> to any interrupt mitigation that delays the refilling of ring entries.
+> 512 sounds like a lot of tx ring entries.
+
+512 slots -> 256 frames (considering SG : headers/payload use 2 desc)
+
+-> 3 ms on a Gbit NIC. Its about the right size.
