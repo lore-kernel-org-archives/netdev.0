@@ -1,106 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 6/8] net: mv643xx_eth: Limit the TSO segments and adjust
- stop/wake thresholds
-Date: Fri, 30 May 2014 10:21:33 -0700
-Message-ID: <1401470493.3645.129.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	 <1401468011-10609-7-git-send-email-ezequiel.garcia@free-electrons.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
+Date: Fri, 30 May 2014 10:33:37 -0700
+Message-ID: <5388C0F1.90503@gmail.com>
+References: <20140530094025.3b78301e@canb.auug.org.au>        <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>        <1401449454-30895-2-git-send-email-berthe.ab@gmail.com> <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>, fugang.duan@freescale.com,
-	Willy Tarreau <w@1wt.eu>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:64797 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933202AbaE3RV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:21:57 -0400
-Received: by mail-pa0-f46.google.com with SMTP id kq14so1929791pab.33
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:21:57 -0700 (PDT)
-In-Reply-To: <1401468011-10609-7-git-send-email-ezequiel.garcia@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>, m@bues.ch,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	patches@opensource.wolfsonmicro.com,
+	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
+	"linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
+	Linux Media Mailing List <linux-media@vger.kernel.org>,
+	linux-samsungsoc@vger.kernel.org, spear-devel@list.st.com,
+	platform-driver-x86@vger.kernel.org,
+	"netdev@vger.kernel.org"
+To: abdoulaye berthe <berthe.ab@gmail.com>
+Return-path: <linux-gpio-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
+Sender: linux-gpio-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-05-30 at 13:40 -0300, Ezequiel Garcia wrote:
-> Currently small MSS values may require too many TSO descriptors for
-> the default queue size. This commit prevents this situation by fixing
-> the maximum supported TSO number of segments to 100 and by setting a
-> minimum Tx queue size. The minimum Tx queue size is set so that at
-> least 2 worst-case skb can be accommodated.
-> 
-> In addition, the queue stop and wake thresholds values are adjusted
-> accordingly. The queue is stopped when there's room for only 1 worst-case
-> skb and waked when the number of descriptors is half that value.
-> 
-> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> ---
->  drivers/net/ethernet/marvell/mv643xx_eth.c | 63 ++++++++++++++++++++----------
->  1 file changed, 42 insertions(+), 21 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> index 97a60de..2cea86d 100644
-> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> @@ -185,6 +185,10 @@ static char mv643xx_eth_driver_version[] = "1.4";
->  
->  #define TSO_HEADER_SIZE		128
->  
-> +/* Max number of allowed TCP segments for software TSO */
-> +#define MV643XX_MAX_TSO_SEGS 100
-> +#define MV643XX_MAX_SKB_DESCS (MV643XX_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
-> +
->  /*
->   * RX/TX descriptors.
->   */
-> @@ -348,6 +352,9 @@ struct tx_queue {
->  	int tx_curr_desc;
->  	int tx_used_desc;
->  
-> +	int tx_stop_threshold;
-> +	int tx_wake_threshold;
-> +
->  	char *tso_hdrs;
->  	dma_addr_t tso_hdrs_dma;
->  
-> @@ -497,7 +504,7 @@ static void txq_maybe_wake(struct tx_queue *txq)
->  
->  	if (netif_tx_queue_stopped(nq)) {
->  		__netif_tx_lock(nq, smp_processor_id());
-> -		if (txq->tx_ring_size - txq->tx_desc_count >= MAX_SKB_FRAGS + 1)
-> +		if (txq->tx_desc_count <= txq->tx_wake_threshold)
->  			netif_tx_wake_queue(nq);
->  		__netif_tx_unlock(nq);
->  	}
-> @@ -897,7 +904,8 @@ static void txq_submit_frag_skb(struct tx_queue *txq, struct sk_buff *skb)
->  	}
->  }
->  
-> -static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb)
-> +static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb,
-> +			  struct net_device *dev)
->  {
->  	struct mv643xx_eth_private *mp = txq_to_mp(txq);
->  	int nr_frags = skb_shinfo(skb)->nr_frags;
-> @@ -910,11 +918,15 @@ static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *skb)
->  	cmd_sts = 0;
->  	l4i_chk = 0;
->  
-> +	if (txq->tx_ring_size - txq->tx_desc_count < MAX_SKB_FRAGS + 1) {
+On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
+> On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com> wrote:
+>> --- a/drivers/gpio/gpiolib.c
+>> +++ b/drivers/gpio/gpiolib.c
+>> @@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct gpio_chip *gpiochip);
+>>    *
+>>    * A gpio_chip with any GPIOs still requested may not be removed.
+>>    */
+>> -int gpiochip_remove(struct gpio_chip *chip)
+>> +void gpiochip_remove(struct gpio_chip *chip)
+>>   {
+>>          unsigned long   flags;
+>> -       int             status = 0;
+>>          unsigned        id;
+>>
+>>          acpi_gpiochip_remove(chip);
+>> @@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
+>>          of_gpiochip_remove(chip);
+>>
+>>          for (id = 0; id < chip->ngpio; id++) {
+>> -               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
+>> -                       status = -EBUSY;
+>> -                       break;
+>> -               }
+>> -       }
+>> -       if (status == 0) {
+>> -               for (id = 0; id < chip->ngpio; id++)
+>> -                       chip->desc[id].chip = NULL;
+>> -
+>> -               list_del(&chip->list);
+>> +               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
+>> +                       panic("gpio: removing gpiochip with gpios still requested\n");
+>
+> panic?
 
-I am not sure I understand this part.
+NACK to the patch for this reason.  The strongest thing you should do 
+here is WARN.
 
-You have one skb here, so why are you using MAX_SKB_FRAGS ?
+That said, I am not sure why we need this whole patch set in the first 
+place.
 
-> +		if (net_ratelimit())
-> +			netdev_err(dev, "tx queue full?!\n");
-> +		return -EBUSY;
-> +	}
-> +
+David Daney
 
-Also it looks like this part will become dead after the following
-patch...
+
+
+>
+> Is this likely to happen?
+>
+> Gr{oetje,eeting}s,
+>
+>                          Geert
+>
+> --
+> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+>
+> In personal conversations with technical people, I call myself a hacker. But
+> when I'm talking to journalists I just say "programmer" or something like that.
+>                                  -- Linus Torvalds
+>
+>
+
