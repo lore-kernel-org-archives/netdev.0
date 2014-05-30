@@ -1,7 +1,8 @@
 From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v1 0/6] *** net: fec: Enable Software TSO to improve the tx performance ***
-Date: Fri, 30 May 2014 10:05:46 +0800
-Message-ID: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+Subject: [PATCH v1 1/6] net: fec: Factorize the .xmit transmit function
+Date: Fri, 30 May 2014 10:05:47 +0800
+Message-ID: <1401415552-2263-2-git-send-email-b38611@freescale.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ezequiel.garcia@free-electrons.com>, <netdev@vger.kernel.org>,
@@ -9,50 +10,170 @@ Cc: <ezequiel.garcia@free-electrons.com>, <netdev@vger.kernel.org>,
 	<b38611@freescale.com>, <stephen@networkplumber.org>
 To: <b20596@freescale.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0189.outbound.protection.outlook.com ([207.46.163.189]:43184
+Received: from mail-bn1lp0139.outbound.protection.outlook.com ([207.46.163.139]:10450
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752099AbaE3D1W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 May 2014 23:27:22 -0400
+	id S932083AbaE3D1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 23:27:25 -0400
+In-Reply-To: <1401415552-2263-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add SG and software TSO support for FEC.
-This feature allows to improve outbound throughput performance.
-Tested on imx6dl sabresd board, running iperf tcp tests shows:
-	* 82% improvement comparing with NO SG & TSO patch
+Make the code more readable and easy to support other features like
+SG, TSO, moving the common transmit function to one api.
 
-$ ethtool -K eth0 sg on
-$ ethtool -K eth0 tso on
- [  3] local 10.192.242.108 port 35388 connected with 10.192.242.167 port 5001
- [ ID] Interval       Transfer     Bandwidth
- [  3]  0.0- 3.0 sec   181 MBytes   506 Mbits/sec
+And the patch also factorize the getting BD index to it own function.
 
-$ ethtool -K eth0 sg off
-$ ethtool -K eth0 tso off
-[  3] local 10.192.242.108 port 52618 connected with 10.192.242.167 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0- 3.0 sec  99.5 MBytes   278 Mbits/sec
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   87 ++++++++++++++++++-----------
+ 1 files changed, 54 insertions(+), 33 deletions(-)
 
-FEC HW support IP header and TCP/UDP hw checksum, support multi buffer descriptor transfer
-one frame, but don't support HW TSO, so FEC bandwidth is limited to this.
-
-The patch set just enable TSO feature.  Test on imx6dl sabresd board, there have 82% improvement.
-The software TSO also tested on imx6sx platform, the cpu loading reduce from 100% to 52% with the
-same Bandwidth, later, i will send some patch let FEC support imx6sx platform.
-
-
-Fugang Duan (6):
-  net: fec: Factorize the .xmit transmit function
-  net: fec: Enable IP header hardware checksum
-  net: fec: Factorize feature setting
-  net: fec: Increase buffer descriptor entry number
-  net: fec: Add Scatter/gather support
-  net: fec: Add software TSO support
-
- drivers/net/ethernet/freescale/fec.h      |   12 +-
- drivers/net/ethernet/freescale/fec_main.c |  510 +++++++++++++++++++++++-----
- 2 files changed, 427 insertions(+), 95 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 4d989b2..96c1a07 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -286,6 +286,25 @@ struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, struct fec_enet_priva
+ 		return (new_bd < base) ? (new_bd + ring_size) : new_bd;
+ }
+ 
++static inline
++int fec_enet_get_bd_index(struct bufdesc *bdp, struct fec_enet_private *fep)
++{
++	struct bufdesc *base;
++	int index;
++
++	if (bdp >= fep->tx_bd_base)
++		base = fep->tx_bd_base;
++	else
++		base = fep->rx_bd_base;
++
++	if (fep->bufdesc_ex)
++		index = (struct bufdesc_ex *)bdp - (struct bufdesc_ex *)base;
++	else
++		index = bdp - base;
++
++	return index;
++}
++
+ static void *swap_buffer(void *bufaddr, int len)
+ {
+ 	int i;
+@@ -312,8 +331,7 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ 	return 0;
+ }
+ 
+-static netdev_tx_t
+-fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
++static int txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	const struct platform_device_id *id_entry =
+@@ -328,14 +346,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	status = bdp->cbd_sc;
+ 
+-	if (status & BD_ENET_TX_READY) {
+-		/* Ooops.  All transmit buffers are full.  Bail out.
+-		 * This should not happen, since ndev->tbusy should be set.
+-		 */
+-		netdev_err(ndev, "tx queue full!\n");
+-		return NETDEV_TX_BUSY;
+-	}
+-
+ 	/* Protocol checksum off-load for TCP and UDP. */
+ 	if (fec_enet_clear_csum(skb, ndev)) {
+ 		dev_kfree_skb_any(skb);
+@@ -349,16 +359,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	bufaddr = skb->data;
+ 	bdp->cbd_datlen = skb->len;
+ 
+-	/*
+-	 * On some FEC implementations data must be aligned on
+-	 * 4-byte boundaries. Use bounce buffers to copy data
+-	 * and get it aligned. Ugh.
+-	 */
+-	if (fep->bufdesc_ex)
+-		index = (struct bufdesc_ex *)bdp -
+-			(struct bufdesc_ex *)fep->tx_bd_base;
+-	else
+-		index = bdp - fep->tx_bd_base;
++	index = fec_enet_get_bd_index(bdp, fep);
+ 
+ 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+ 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
+@@ -432,15 +433,43 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	fep->cur_tx = bdp;
+ 
+-	if (fep->cur_tx == fep->dirty_tx)
+-		netif_stop_queue(ndev);
+-
+ 	/* Trigger transmission start */
+ 	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+ 
+ 	return NETDEV_TX_OK;
+ }
+ 
++static netdev_tx_t
++fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	struct bufdesc *bdp;
++	unsigned short	status;
++	int ret;
++
++	/* Fill in a Tx ring entry */
++	bdp = fep->cur_tx;
++
++	status = bdp->cbd_sc;
++
++	if (status & BD_ENET_TX_READY) {
++		/* Ooops.  All transmit buffers are full.  Bail out.
++		 * This should not happen, since ndev->tbusy should be set.
++		 */
++		netdev_err(ndev, "tx queue full!\n");
++		return NETDEV_TX_BUSY;
++	}
++
++	ret = txq_submit_skb(skb, ndev);
++	if (ret == -EBUSY)
++		return NETDEV_TX_BUSY;
++
++	if (fep->cur_tx == fep->dirty_tx)
++		netif_stop_queue(ndev);
++
++	return NETDEV_TX_OK;
++}
++
+ /* Init RX & TX buffer descriptors
+  */
+ static void fec_enet_bd_init(struct net_device *dev)
+@@ -769,11 +798,7 @@ fec_enet_tx(struct net_device *ndev)
+ 		if (bdp == fep->cur_tx)
+ 			break;
+ 
+-		if (fep->bufdesc_ex)
+-			index = (struct bufdesc_ex *)bdp -
+-				(struct bufdesc_ex *)fep->tx_bd_base;
+-		else
+-			index = bdp - fep->tx_bd_base;
++		index = fec_enet_get_bd_index(bdp, fep);
+ 
+ 		skb = fep->tx_skbuff[index];
+ 		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, skb->len,
+@@ -920,11 +945,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		pkt_len = bdp->cbd_datlen;
+ 		ndev->stats.rx_bytes += pkt_len;
+ 
+-		if (fep->bufdesc_ex)
+-			index = (struct bufdesc_ex *)bdp -
+-				(struct bufdesc_ex *)fep->rx_bd_base;
+-		else
+-			index = bdp - fep->rx_bd_base;
++		index = fec_enet_get_bd_index(bdp, fep);
+ 		data = fep->rx_skbuff[index]->data;
+ 		dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
 -- 
 1.7.8
