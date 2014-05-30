@@ -1,28 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 14/18] r8152: Use kmemdup instead of kmalloc + memcpy
-Date: Fri, 30 May 2014 16:25:50 -0700 (PDT)
-Message-ID: <20140530.162550.1648501676114480780.davem@davemloft.net>
-References: <1401117687-28911-1-git-send-email-benoit.taine@lip6.fr>
-	<1401117687-28911-15-git-send-email-benoit.taine@lip6.fr>
+Subject: Re: [PATCH net-next 0/2] BPF test suite update
+Date: Fri, 30 May 2014 16:27:50 -0700 (PDT)
+Message-ID: <20140530.162750.1744765873282031224.davem@davemloft.net>
+References: <1401128255-6545-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: benoit.taine@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401117687-28911-15-git-send-email-benoit.taine@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751491AbaE3X1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 19:27:51 -0400
+In-Reply-To: <1401128255-6545-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Benoit Taine <benoit.taine@lip6.fr>
-Date: Mon, 26 May 2014 17:21:23 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 26 May 2014 20:17:33 +0200
 
-> This issue was reported by coccicheck using the semantic patch 
-> at scripts/coccinelle/api/memdup.cocci
-> 
-> Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
-> ---
-> Tested by compilation without errors.
+> Daniel Borkmann (2):
+>   net: filter: test fill/spill of all M[] regs
+>   net: filter: use block statements in tcpdump tests
 
-Applied to net-next, thank you.
+Series applied, thanks.
