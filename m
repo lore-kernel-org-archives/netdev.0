@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH v2 net-next 5/8] net: cdc_ncm: drop ethtool coalesce support
-Date: Fri, 30 May 2014 09:31:07 +0200
-Message-ID: <1401435070-26721-6-git-send-email-bjorn@mork.no>
+Subject: [PATCH v2 net-next 8/8] net: cdc_ncm: document the sysfs API
+Date: Fri, 30 May 2014 09:31:10 +0200
+Message-ID: <1401435070-26721-9-git-send-email-bjorn@mork.no>
 References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -16,99 +16,180 @@ Cc: <linux-usb@vger.kernel.org>,
 	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:51786 "EHLO canardo.mork.no"
+Received: from canardo.mork.no ([148.122.252.1]:51788 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932093AbaE3HdI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 03:33:08 -0400
+	id S932093AbaE3HdN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 03:33:13 -0400
 In-Reply-To: <1401435070-26721-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool coalesce API is not applicable for this driver. Forcing
-it to fit the NCM aggregation redefined the API in a driver specific
-way, which is much worse than defining a clean new API. These ethtool
-coalesce functions have therefore been replaced by a new sysfs API.
+Adding documentation for all the driver specific sysfs attributes.
 
+Cc: Peter Stuge <peter@stuge.se>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- drivers/net/usb/cdc_ncm.c | 48 ---------------------------------------=
---------
- 1 file changed, 48 deletions(-)
+ Documentation/ABI/testing/sysfs-class-net-cdc_ncm | 149 ++++++++++++++=
+++++++++
+ 1 file changed, 149 insertions(+)
+ create mode 100644 Documentation/ABI/testing/sysfs-class-net-cdc_ncm
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 631741c8ff22..aaa440d892b8 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -127,54 +127,8 @@ static void cdc_ncm_get_strings(struct net_device =
-__always_unused *netdev, u32 s
- 	}
- }
-=20
--static int cdc_ncm_get_coalesce(struct net_device *netdev,
--				struct ethtool_coalesce *ec)
--{
--	struct usbnet *dev =3D netdev_priv(netdev);
--	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--
--	/* assuming maximum sized dgrams and ignoring NDPs */
--	ec->rx_max_coalesced_frames =3D ctx->rx_max / ctx->max_datagram_size;
--	ec->tx_max_coalesced_frames =3D ctx->tx_max / ctx->max_datagram_size;
--
--	/* the timer will fire CDC_NCM_TIMER_PENDING_CNT times in a row */
--	ec->tx_coalesce_usecs =3D ctx->timer_interval / (NSEC_PER_USEC / CDC_=
-NCM_TIMER_PENDING_CNT);
--	return 0;
--}
--
- static void cdc_ncm_update_rxtx_max(struct usbnet *dev, u32 new_rx, u3=
-2 new_tx);
-=20
--static int cdc_ncm_set_coalesce(struct net_device *netdev,
--				struct ethtool_coalesce *ec)
--{
--	struct usbnet *dev =3D netdev_priv(netdev);
--	struct cdc_ncm_ctx *ctx =3D (struct cdc_ncm_ctx *)dev->data[0];
--	u32 new_rx_max =3D ctx->rx_max;
--	u32 new_tx_max =3D ctx->tx_max;
--
--	/* assuming maximum sized dgrams and a single NDP */
--	if (ec->rx_max_coalesced_frames)
--		new_rx_max =3D ec->rx_max_coalesced_frames * ctx->max_datagram_size;
--	if (ec->tx_max_coalesced_frames)
--		new_tx_max =3D ec->tx_max_coalesced_frames * ctx->max_datagram_size;
--
--	if (ec->tx_coalesce_usecs &&
--	    (ec->tx_coalesce_usecs < CDC_NCM_TIMER_INTERVAL_MIN * CDC_NCM_TIM=
-ER_PENDING_CNT ||
--	     ec->tx_coalesce_usecs > CDC_NCM_TIMER_INTERVAL_MAX * CDC_NCM_TIM=
-ER_PENDING_CNT))
--		return -EINVAL;
--
--	spin_lock_bh(&ctx->mtx);
--	ctx->timer_interval =3D ec->tx_coalesce_usecs * (NSEC_PER_USEC / CDC_=
-NCM_TIMER_PENDING_CNT);
--	if (!ctx->timer_interval)
--		ctx->tx_timer_pending =3D 0;
--	spin_unlock_bh(&ctx->mtx);
--
--	/* inform device of new values */
--	if (new_rx_max !=3D ctx->rx_max || new_tx_max !=3D ctx->tx_max)
--		cdc_ncm_update_rxtx_max(dev, new_rx_max, new_tx_max);
--	return 0;
--}
--
- static const struct ethtool_ops cdc_ncm_ethtool_ops =3D {
- 	.get_settings      =3D usbnet_get_settings,
- 	.set_settings      =3D usbnet_set_settings,
-@@ -187,8 +141,6 @@ static const struct ethtool_ops cdc_ncm_ethtool_ops=
- =3D {
- 	.get_sset_count    =3D cdc_ncm_get_sset_count,
- 	.get_strings       =3D cdc_ncm_get_strings,
- 	.get_ethtool_stats =3D cdc_ncm_get_ethtool_stats,
--	.get_coalesce      =3D cdc_ncm_get_coalesce,
--	.set_coalesce      =3D cdc_ncm_set_coalesce,
- };
-=20
- static u32 cdc_ncm_check_rx_max(struct usbnet *dev, u32 new_rx)
+diff --git a/Documentation/ABI/testing/sysfs-class-net-cdc_ncm b/Docume=
+ntation/ABI/testing/sysfs-class-net-cdc_ncm
+new file mode 100644
+index 000000000000..5cedf72df358
+--- /dev/null
++++ b/Documentation/ABI/testing/sysfs-class-net-cdc_ncm
+@@ -0,0 +1,149 @@
++What:		/sys/class/net/<iface>/cdc_ncm/min_tx_pkt
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		The driver will pad NCM Transfer Blocks (NTBs) longer
++		than this to tx_max, allowing the device to receive
++		tx_max sized frames with no terminating short
++		packet. NTBs shorter than this limit are transmitted
++		as-is, without any padding, and are terminated with a
++		short USB packet.
++
++		Padding to tx_max allows the driver to transmit NTBs
++		back-to-back without any interleaving short USB
++		packets.  This reduces the number of short packet
++		interrupts in the device, and represents a tradeoff
++		between USB bus bandwidth and device DMA optimization.
++
++		Set to 0 to pad all frames. Set greater than tx_max to
++		disable all padding.
++
++What:		/sys/class/net/<iface>/cdc_ncm/rx_max
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		The maximum NTB size for RX.  Cannot exceed the
++		maximum value supported by the device. Must allow at
++		least one max sized datagram plus headers.
++
++		The actual limits are device dependent.  See
++		dwNtbInMaxSize.
++
++		Note: Some devices will silently ignore changes to
++		this value, resulting in oversized NTBs and
++		corresponding framing errors.
++
++What:		/sys/class/net/<iface>/cdc_ncm/tx_max
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		The maximum NTB size for TX.  Cannot exceed the
++		maximum value supported by the device.  Must allow at
++		least one max sized datagram plus headers.
++
++		The actual limits are device dependent.  See
++		dwNtbOutMaxSize.
++
++What:		/sys/class/net/<iface>/cdc_ncm/tx_timer_usecs
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Datagram aggregation timeout in =C2=B5s. The driver will
++		wait up to 3 times this timeout for more datagrams to
++		aggregate before transmitting an NTB frame.
++
++		Valid range: 5 to 4000000
++
++		Set to 0 to disable aggregation.
++
++The following read-only attributes all represent fields of the
++structure defined in section 6.2.1 "GetNtbParameters" of "Universal
++Serial Bus Communications Class Subclass Specifications for Network
++Control Model Devices" (CDC NCM), Revision 1.0 (Errata 1), November
++24, 2010 from USB Implementers Forum, Inc.  The descriptions are
++quoted from table 6-3 of CDC NCM: "NTB Parameter Structure".
++
++What:		/sys/class/net/<iface>/cdc_ncm/bmNtbFormatsSupported
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Bit 0: 16-bit NTB supported (set to 1)
++		Bit 1: 32-bit NTB supported
++		Bits 2 =E2=80=93 15: reserved (reset to zero; must be ignored by hos=
+t)
++
++What:		/sys/class/net/<iface>/cdc_ncm/dwNtbInMaxSize
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		IN NTB Maximum Size in bytes
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpInDivisor
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Divisor used for IN NTB Datagram payload alignment
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpInPayloadRemainder
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Remainder used to align input datagram payload within
++		the NTB: (Payload Offset) mod (wNdpInDivisor) =3D
++		wNdpInPayloadRemainder
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpInAlignment
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		NDP alignment modulus for NTBs on the IN pipe. Shall
++		be a power of 2, and shall be at least 4.
++
++What:		/sys/class/net/<iface>/cdc_ncm/dwNtbOutMaxSize
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		OUT NTB Maximum Size
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutDivisor
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		OUT NTB Datagram alignment modulus
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutPayloadRemainder
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Remainder used to align output datagram payload
++		offsets within the NTB: Padding, shall be transmitted
++		as zero by function, and ignored by host.  (Payload
++		Offset) mod (wNdpOutDivisor) =3D wNdpOutPayloadRemainder
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNdpOutAlignment
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		NDP alignment modulus for use in NTBs on the OUT
++		pipe. Shall be a power of 2, and shall be at least 4.
++
++What:		/sys/class/net/<iface>/cdc_ncm/wNtbOutMaxDatagrams
++Date:		May 2014
++KernelVersion:	3.16
++Contact:	Bj=C3=B8rn Mork <bjorn@mork.no>
++Description:
++		Maximum number of datagrams that the host may pack
++		into a single OUT NTB. Zero means that the device
++		imposes no limit.
 --=20
 2.0.0.rc4
