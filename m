@@ -1,96 +1,50 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 5/6] net: fec: Add Scatter/gather support
-Date: Fri, 30 May 2014 04:48:42 +0000
-Message-ID: <7e450625c014430db0872d6b73f5218f@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
-	 <1401415552-2263-6-git-send-email-b38611@freescale.com>
- <1401424672.3645.68.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v2 1/1] bring netlink interface to par with
+ brctl show macs
+Date: Thu, 29 May 2014 22:08:01 -0700 (PDT)
+Message-ID: <20140529.220801.2111563710536999957.davem@davemloft.net>
+References: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
+	<1401071747.17377.111.camel@deadeye.wl.decadent.org.uk>
+	<53831FDD.4020902@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	stephen@networkplumber.org, vyasevic@redhat.com,
+	john.r.fastabend@intel.com, sfeldma@cumulusnetworks.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0243.outbound.protection.outlook.com ([207.46.163.243]:16970
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751129AbaE3Esr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 00:48:47 -0400
-In-Reply-To: <1401424672.3645.68.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:49446 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054AbaE3FIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 01:08:05 -0400
+In-Reply-To: <53831FDD.4020902@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBEYXRhOiBGcmlkYXks
-IE1heSAzMCwgMjAxNCAxMjozOCBQTQ0KPlRvOiBEdWFuIEZ1Z2FuZy1CMzg2MTENCj5DYzogTGkg
-RnJhbmstQjIwNTk2OyBkYXZlbUBkYXZlbWxvZnQubmV0OyBlemVxdWllbC5nYXJjaWFAZnJlZS0N
-Cj5lbGVjdHJvbnMuY29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBzaGF3bi5ndW9AbGluYXJv
-Lm9yZzsNCj5iaHV0Y2hpbmdzQHNvbGFyZmxhcmUuY29tOyBzdGVwaGVuQG5ldHdvcmtwbHVtYmVy
-Lm9yZw0KPlN1YmplY3Q6IFJlOiBbUEFUQ0ggdjEgNS82XSBuZXQ6IGZlYzogQWRkIFNjYXR0ZXIv
-Z2F0aGVyIHN1cHBvcnQNCj4NCj5PbiBGcmksIDIwMTQtMDUtMzAgYXQgMTA6MDUgKzA4MDAsIEZ1
-Z2FuZyBEdWFuIHdyb3RlOg0KPj4gQWRkIFNjYXR0ZXIvZ2F0aGVyIHN1cHBvcnQgZm9yIEZFQy4N
-Cj4+IFRoaXMgZmVhdHVyZSBhbGxvd3MgdG8gaW1wcm92ZSBvdXRib3VuZCB0aHJvdWdocHV0IHBl
-cmZvcm1hbmNlLg0KPj4gUnVubmluZyBpcGVyZiB0ZXN0cyBzaG93cyBhIDU1LjQlIGltcHJvdmVt
-ZW50LCB0ZXN0ZWQgb24gaW14NmRsDQo+PiBzYWJyZXNkIGJvYXJkLg0KPg0KPg0KPj4gKwkJCWJ1
-ZmFkZHIgPSBmZXAtPnR4X2JvdW5jZVtpbmRleF07DQo+PiArCQl9DQo+PiArCQlpZiAoaWRfZW50
-cnktPmRyaXZlcl9kYXRhICYgRkVDX1FVSVJLX1NXQVBfRlJBTUUpDQo+PiArCQkJc3dhcF9idWZm
-ZXIoYnVmYWRkciwgZnJhZ19sZW4pOw0KPg0KPg0KPmJ1ZmFkZHIgaXMgYSBwYWdlIGZyYWdtZW50
-IGFuZCBjYW4gYmUgc2hhcmVkICh1c2luZyBzZW5kZmlsZSgpIGZvcg0KPmV4YW1wbGUpLCB3ZSBj
-YW5ub3QgbW9kaWZ5IHRoZSBjb250ZW50IHVzaW5nIHN3YXBfYnVmZmVyKCkuDQo+DQo+SW4gb3Jk
-ZXIgdG8gZG8gdGhlIHN3YXAsIHlvdSBuZWVkIHRvIGZvcmNlIHRoZSBjb3B5IHRvIHR4X2JvdW5j
-ZSBidWZmZXIuDQo+DQpZZXMsIHlvdSBhcmUgcmlnaHQuIEkgd2lsbCBjaGFuZ2UgaXQgaW4gbmV4
-dCB2ZXJzaW9uLg0KSSB0ZXN0ZWQgb24gaW14NmRsIHBsYXRmb3JtLCBGRUMgc3VwcG9ydCBodyBz
-d2FwIGZ1bmN0aW9uLCBzbyBJIGRvbid0IGZpbmQgaXNzdWUuDQpUaGFua3MuDQoNCj4NCj4+ICsJ
-CWJkcC0+Y2JkX2J1ZmFkZHIgPSBkbWFfbWFwX3NpbmdsZSgmZmVwLT5wZGV2LT5kZXYsIGJ1ZmFk
-ZHIsDQo+PiArCQkJCQkJZnJhZ19sZW4sIERNQV9UT19ERVZJQ0UpOw0KPj4gKwkJaWYgKGRtYV9t
-YXBwaW5nX2Vycm9yKCZmZXAtPnBkZXYtPmRldiwgYmRwLT5jYmRfYnVmYWRkcikpIHsNCj4+ICsJ
-CQlkZXZfa2ZyZWVfc2tiX2FueShza2IpOw0KPj4gKwkJCWlmIChuZXRfcmF0ZWxpbWl0KCkpDQo+
-PiArCQkJCW5ldGRldl9lcnIobmRldiwgIlR4IERNQSBtZW1vcnkgbWFwIGZhaWxlZFxuIik7DQo+
-PiArCQkJZ290byBkbWFfbWFwcGluZ19lcnJvcjsNCj4+ICsJCX0NCj4+ICsNCj4+ICsJCWJkcC0+
-Y2JkX2RhdGxlbiA9IGZyYWdfbGVuOw0KPj4gKwkJYmRwLT5jYmRfc2MgPSBzdGF0dXM7DQo+PiAr
-CX0NCj4+ICsNCj4+ICsJZmVwLT5jdXJfdHggPSBiZHA7DQo+PiArDQo+PiArCXJldHVybiAwOw0K
-Pj4gKw0KPj4gK2RtYV9tYXBwaW5nX2Vycm9yOg0KPj4gIAliZHAgPSBmZXAtPmN1cl90eDsNCj4+
-ICsJZm9yIChpID0gMDsgaSA8IGZyYWc7IGkrKykgew0KPj4gKwkJYmRwID0gZmVjX2VuZXRfZ2V0
-X25leHRkZXNjKGJkcCwgZmVwKTsNCj4+ICsJCWRtYV91bm1hcF9zaW5nbGUoJmZlcC0+cGRldi0+
-ZGV2LCBiZHAtPmNiZF9idWZhZGRyLA0KPj4gKwkJCQliZHAtPmNiZF9kYXRsZW4sIERNQV9UT19E
-RVZJQ0UpOw0KPj4gKwl9DQo+PiArCXJldHVybiBORVRERVZfVFhfT0s7DQo+PiArfQ0KPj4NCj4+
-IC0Jc3RhdHVzID0gYmRwLT5jYmRfc2M7DQo+PiArc3RhdGljIGludCBmZWNfZW5ldF90eHFfc3Vi
-bWl0X3NrYihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QNCj4+ICtuZXRfZGV2aWNlICpuZGV2
-KSB7DQo+PiArCXN0cnVjdCBmZWNfZW5ldF9wcml2YXRlICpmZXAgPSBuZXRkZXZfcHJpdihuZGV2
-KTsNCj4+ICsJY29uc3Qgc3RydWN0IHBsYXRmb3JtX2RldmljZV9pZCAqaWRfZW50cnkgPQ0KPj4g
-KwkJCQlwbGF0Zm9ybV9nZXRfZGV2aWNlX2lkKGZlcC0+cGRldik7DQo+PiArCWludCBucl9mcmFn
-cyA9IHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3M7DQo+PiArCXN0cnVjdCBidWZkZXNjICpiZHAs
-ICpsYXN0X2JkcDsNCj4+ICsJdm9pZCAqYnVmYWRkcjsNCj4+ICsJdW5zaWduZWQgc2hvcnQgc3Rh
-dHVzOw0KPj4gKwl1bnNpZ25lZCBzaG9ydCBidWZsZW47DQo+PiArCXVuc2lnbmVkIGludCBlc3Rh
-dHVzID0gMDsNCj4+ICsJdW5zaWduZWQgaW50IGluZGV4Ow0KPj4gKwlpbnQgcmV0Ow0KPj4NCj4+
-ICAJLyogUHJvdG9jb2wgY2hlY2tzdW0gb2ZmLWxvYWQgZm9yIFRDUCBhbmQgVURQLiAqLw0KPj4g
-IAlpZiAoZmVjX2VuZXRfY2xlYXJfY3N1bShza2IsIG5kZXYpKSB7IEBAIC0zNDksMTcgKzQ2Miwx
-OCBAQCBzdGF0aWMNCj4+IGludCB0eHFfc3VibWl0X3NrYihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBz
-dHJ1Y3QgbmV0X2RldmljZSAqbmRldikNCj4+ICAJCXJldHVybiBORVRERVZfVFhfT0s7DQo+PiAg
-CX0NCj4+DQo+PiAtCS8qIENsZWFyIGFsbCBvZiB0aGUgc3RhdHVzIGZsYWdzICovDQo+PiArCS8q
-IEZpbGwgaW4gYSBUeCByaW5nIGVudHJ5ICovDQo+PiArCWJkcCA9IGZlcC0+Y3VyX3R4Ow0KPj4g
-KwlzdGF0dXMgPSBiZHAtPmNiZF9zYzsNCj4+ICAJc3RhdHVzICY9IH5CRF9FTkVUX1RYX1NUQVRT
-Ow0KPj4NCj4+ICAJLyogU2V0IGJ1ZmZlciBsZW5ndGggYW5kIGJ1ZmZlciBwb2ludGVyICovDQo+
-PiAgCWJ1ZmFkZHIgPSBza2ItPmRhdGE7DQo+PiAtCWJkcC0+Y2JkX2RhdGxlbiA9IHNrYi0+bGVu
-Ow0KPj4gKwlidWZsZW4gPSBza2JfaGVhZGxlbihza2IpOw0KPj4NCj4+ICAJaW5kZXggPSBmZWNf
-ZW5ldF9nZXRfYmRfaW5kZXgoYmRwLCBmZXApOw0KPj4gLQ0KPj4gIAlpZiAoKCh1bnNpZ25lZCBs
-b25nKSBidWZhZGRyKSAmIEZFQ19BTElHTk1FTlQpIHsNCj4+IC0JCW1lbWNweShmZXAtPnR4X2Jv
-dW5jZVtpbmRleF0sIHNrYi0+ZGF0YSwgc2tiLT5sZW4pOw0KPj4gKwkJbWVtY3B5KGZlcC0+dHhf
-Ym91bmNlW2luZGV4XSwgc2tiLT5kYXRhLCBidWZsZW4pOw0KPj4gIAkJYnVmYWRkciA9IGZlcC0+
-dHhfYm91bmNlW2luZGV4XTsNCj4+ICAJfQ0KPj4NCj4+IEBAIC0zNjksNjIgKzQ4Myw2NiBAQCBz
-dGF0aWMgaW50IHR4cV9zdWJtaXRfc2tiKHN0cnVjdCBza19idWZmICpza2IsDQo+c3RydWN0IG5l
-dF9kZXZpY2UgKm5kZXYpDQo+PiAgCSAqIHN3YXAgZXZlcnkgZnJhbWUgZ29pbmcgdG8gYW5kIGNv
-bWluZyBmcm9tIHRoZSBjb250cm9sbGVyLg0KPj4gIAkgKi8NCj4+ICAJaWYgKGlkX2VudHJ5LT5k
-cml2ZXJfZGF0YSAmIEZFQ19RVUlSS19TV0FQX0ZSQU1FKQ0KPj4gLQkJc3dhcF9idWZmZXIoYnVm
-YWRkciwgc2tiLT5sZW4pOw0KPj4gLQ0KPj4gLQkvKiBTYXZlIHNrYiBwb2ludGVyICovDQo+PiAt
-CWZlcC0+dHhfc2tidWZmW2luZGV4XSA9IHNrYjsNCj4+ICsJCXN3YXBfYnVmZmVyKGJ1ZmFkZHIs
-IGJ1Zmxlbik7DQo+DQo+U2FtZSBwcm9ibGVtIGhlcmUsIGEgZHJpdmVyIGlzIGNlcnRhaW5seSBu
-b3QgYWxsb3dlZCB0byBtZXNzIHdpdGgNCj5za2ItPmRhdGEuDQo+DQpUaGFua3MsIGFzIGFib3Zl
-Lg0KDQpBbmR5DQo=
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon, 26 May 2014 07:05:01 -0400
+
+> On 05/25/14 22:35, Ben Hutchings wrote:
+>> On Sun, 2014-05-25 at 09:15 -0400, Jamal Hadi Salim wrote:
+> 
+>>> +		if (dev == NULL) {
+>>> + pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
+>>
+>> You left another debug message here.
+>>
+>>> +			return -ENODEV;
+>>>   		}
+> 
+>>> +			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
+>>> +				dev->name);
+>>
+>> And here.
+> 
+> Those two just adhere to the coding style used in the rest of the fdb
+> code. I could remove them and send subsequent patches to remove
+> equivalent debugs in the rest of the code. To me they seem useful
+> although i have seen very strong views against them in the past.
+
+I think we have to get rid of these, because they are essentially
+user triggerable.
