@@ -1,46 +1,69 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] netlink: rate-limit leftover bytes warning and print process name
-Date: Fri, 30 May 2014 14:57:27 +0200
-Message-ID: <1401454647-28228-1-git-send-email-mschmidt@redhat.com>
-References: <5385DAE5.2020009@6wind.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: Re: [PATCH 1/1] driver: net: smsc911x: set NOCARRIER flag in driver initialization
+Date: Fri, 30 May 2014 18:35:43 +0530
+Message-ID: <CAHPKR9KmDSgC9EstJLfhqY9SB462OSJhQCEPS7Ka=VvnqbH6iQ@mail.gmail.com>
+References: <5380EAF6.1090402@gmail.com>
+	<20140529.152809.871745461296745132.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53758 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932663AbaE3M5d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 08:57:33 -0400
-In-Reply-To: <5385DAE5.2020009@6wind.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:57755 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751753AbaE3NFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:05:49 -0400
+Received: by mail-wi0-f177.google.com with SMTP id f8so1044660wiw.16
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 06:05:44 -0700 (PDT)
+In-Reply-To: <20140529.152809.871745461296745132.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any process is able to send netlink messages with leftover bytes.
-Make the warning rate-limited to prevent too much log spam.
+Hi David,
 
-The warning is supposed to help find userspace bugs, so print the
-triggering command name to implicate the buggy program.
+On Fri, May 30, 2014 at 3:58 AM, David Miller <davem@davemloft.net> wrote:
+> From: Balakumaran Kannan <kumaran.4353@gmail.com>
+> Date: Sun, 25 May 2014 00:24:46 +0530
+>
+>> @@ -2525,6 +2525,8 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+>>
+>>       netdev_info(dev, "MAC Address: %pM\n", dev->dev_addr);
+>>
+>> +     netif_carrier_off(dev);
+>> +
+>>       return 0;
+>>
+>
+> You should do this before the network device is registered.
+IMHO calling netif_carrier_off after registering device will not
+affect functionality. Because,
 
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- lib/nlattr.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+    * Device starts carrier detection once driver's open function
+calls phy_start.
+    * Kernel starts network layer initialization only after __dev_open
+function sets IFF_UP bit of dev->flags.
+    And __dev_open sets this bit only after driver's open function returns.
+    * So we could place netif_carrier_off call anywhere before
+phy_start in driver's open function gets called.
 
-diff --git a/lib/nlattr.c b/lib/nlattr.c
-index fc67547..31047c4 100644
---- a/lib/nlattr.c
-+++ b/lib/nlattr.c
-@@ -201,8 +201,9 @@ int nla_parse(struct nlattr **tb, int maxtype, const struct nlattr *head,
- 	}
- 
- 	if (unlikely(rem > 0))
--		printk(KERN_WARNING "netlink: %d bytes leftover after parsing "
--		       "attributes.\n", rem);
-+		printk_ratelimited(KERN_WARNING
-+				   "netlink: %d bytes leftover after parsing attributes in process `%s'.\n",
-+				   rem, current->comm);
- 
- 	err = 0;
- errout:
--- 
-1.9.3
+Also I have referred some other drivers.
+
+    * Intel i40e driver calls netif_carrier_off at the beginning of
+driver's open (i40e_open) function.
+    * e1000 driver places netif_carrier_off at the end of driver probe
+(e1000_probe) function.
+    * realtek r8169 driver calls netif_carrier_off at the end of
+driver init (rtl_init_one) function.
+
+All these drivers call netif_carrier_off function after registering
+the network device using register_netdev.
+
+This explanation is based on my understanding. Please explain to me if
+I'm wrong or I miss something. In such case I'll modify the patch
+accordingly.
+
+Thank you.
+
+Regards,
+K.Balakumaran
