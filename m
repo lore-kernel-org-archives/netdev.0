@@ -1,76 +1,85 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH 6/8] net: mv643xx_eth: Limit the TSO segments and adjust
- stop/wake thresholds
-Date: Fri, 30 May 2014 15:08:39 -0300
-Message-ID: <20140530180839.GA12172@arch.cereza>
-References: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1401468011-10609-7-git-send-email-ezequiel.garcia@free-electrons.com>
- <1401470493.3645.129.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
+Date: Fri, 30 May 2014 20:16:59 +0200
+Message-ID: <5388CB1B.3090802@metafoo.de>
+References: <20140530094025.3b78301e@canb.auug.org.au>        <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>        <1401449454-30895-2-git-send-email-berthe.ab@gmail.com> <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com> <5388C0F1.90503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>, fugang.duan@freescale.com,
-	Willy Tarreau <w@1wt.eu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:59040 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933525AbaE3SJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 14:09:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1401470493.3645.129.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: abdoulaye berthe <berthe.ab@gmail.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Alexandre Courbot <gnurou@gmail.com>, m@bues.ch,
+	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	patches@opensource.wolfsonmicro.com,
+	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
+	"linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
+	Linux Media Mailing List <linux-media@vger.kernel.org>,
+	linux-samsungsoc@vger.kernel.org, spear-devel@list.st.com,
+	platform-driver-x86@vg
+To: David Daney <ddaney.cavm@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5388C0F1.90503@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On 05/30/2014 07:33 PM, David Daney wrote:
+> On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
+>> On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com>
+>> wrote:
+>>> --- a/drivers/gpio/gpiolib.c
+>>> +++ b/drivers/gpio/gpiolib.c
+>>> @@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct
+>>> gpio_chip *gpiochip);
+>>>    *
+>>>    * A gpio_chip with any GPIOs still requested may not be removed.
+>>>    */
+>>> -int gpiochip_remove(struct gpio_chip *chip)
+>>> +void gpiochip_remove(struct gpio_chip *chip)
+>>>   {
+>>>          unsigned long   flags;
+>>> -       int             status = 0;
+>>>          unsigned        id;
+>>>
+>>>          acpi_gpiochip_remove(chip);
+>>> @@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
+>>>          of_gpiochip_remove(chip);
+>>>
+>>>          for (id = 0; id < chip->ngpio; id++) {
+>>> -               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
+>>> -                       status = -EBUSY;
+>>> -                       break;
+>>> -               }
+>>> -       }
+>>> -       if (status == 0) {
+>>> -               for (id = 0; id < chip->ngpio; id++)
+>>> -                       chip->desc[id].chip = NULL;
+>>> -
+>>> -               list_del(&chip->list);
+>>> +               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
+>>> +                       panic("gpio: removing gpiochip with gpios still
+>>> requested\n");
+>>
+>> panic?
+>
+> NACK to the patch for this reason.  The strongest thing you should do here
+> is WARN.
+>
+> That said, I am not sure why we need this whole patch set in the first place.
 
-On 30 May 10:21 AM, Eric Dumazet wrote:
-> On Fri, 2014-05-30 at 13:40 -0300, Ezequiel Garcia wrote:
-> > =20
-> > -static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *sk=
-b)
-> > +static int txq_submit_skb(struct tx_queue *txq, struct sk_buff *sk=
-b,
-> > +			  struct net_device *dev)
-> >  {
-> >  	struct mv643xx_eth_private *mp =3D txq_to_mp(txq);
-> >  	int nr_frags =3D skb_shinfo(skb)->nr_frags;
-> > @@ -910,11 +918,15 @@ static int txq_submit_skb(struct tx_queue *tx=
-q, struct sk_buff *skb)
-> >  	cmd_sts =3D 0;
-> >  	l4i_chk =3D 0;
-> > =20
-> > +	if (txq->tx_ring_size - txq->tx_desc_count < MAX_SKB_FRAGS + 1) {
->=20
-> I am not sure I understand this part.
->=20
-> You have one skb here, so why are you using MAX_SKB_FRAGS ?
->=20
+Well, what currently happens when you remove a device that is a provider of 
+a gpio_chip which is still in use, is that the kernel crashes. Probably with 
+a rather cryptic error message. So this patch doesn't really change the 
+behavior, but makes it more explicit what is actually wrong. And even if you 
+replace the panic() by a WARN() it will again just crash slightly later.
 
-This check was moved around, so I'm blindly carrying it over.
-You meant that I can directly use skb_shinfo(skb)->nr_frags, right?
+This is a design flaw in the GPIO subsystem that needs to be fixed.
 
-> > +		if (net_ratelimit())
-> > +			netdev_err(dev, "tx queue full?!\n");
-> > +		return -EBUSY;
-> > +	}
-> > +
->=20
-> Also it looks like this part will become dead after the following
-> patch...
->=20
-
-Indeed, I've kept it just for consistency. I had to return some error v=
-alue
-and EBUSY seems the most appropriate. Do you think I should change this=
-?
-
-Thanks for the feedback,
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+- Lars
