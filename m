@@ -1,105 +1,38 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] bridge: Add master device name to bridge fdb
- show
-Date: Fri, 30 May 2014 07:36:14 -0700
-Message-ID: <20140530073614.0a48f2bd@nehalam.linuxnetplumber.net>
-References: <1401255611-30862-1-git-send-email-roopa@cumulusnetworks.com>
-	<53864051.4070102@gmail.com>
-	<53869320.6010302@cumulusnetworks.com>
+Subject: Re: [PATCHv2 net-next 0/4] bridge: multicast snooping
+ patches / exports
+Date: Fri, 30 May 2014 07:37:18 -0700
+Message-ID: <20140530073718.27e21e38@nehalam.linuxnetplumber.net>
+References: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
+	<20140529.153622.764478286337271648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, jhs@mojatatu.com, wkok@cumulusnetworks.com,
-	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:34482 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069AbaE3OgS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:36:18 -0400
-Received: by mail-pd0-f174.google.com with SMTP id r10so1014184pdi.33
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 07:36:17 -0700 (PDT)
-In-Reply-To: <53869320.6010302@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, linus.luessing@web.de, linux-kernel@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org, bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140529.153622.764478286337271648.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 28 May 2014 18:53:36 -0700
-Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Thu, 29 May 2014 15:36:22 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> On 5/28/14, 1:00 PM, Vlad Yasevich wrote:
-> > On 05/28/2014 01:40 AM, roopa@cumulusnetworks.com wrote:
-> >> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> >>
-> >> (This patch depends on net-next patch titled
-> >> "Add bridge ifindex to bridge fdb notify msgs")
-> >>
-> >> This patch adds master dev name from NDA_MASTER netlink attribute
-> >>   to bridge fdb show output
-> >>
-> >> current iproute2 tries to print 'master' in the output if NTF_MASTER
-> >> is present. But, kernel today does not set NTF_MASTER during dump
-> >> requests. Which means I have not seen iproute2 bridge cmd print 'master' atall.
-> >> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is present.
-> >>
-> >> Example output:
-> >>
-> >> before this patch:
-> >> # bridge fdb show
-> >> 44:38:39:00:27:ba dev bond2.2003 permanent
-> >> 44:38:39:00:27:bb dev bond4.2003 permanent
-> >> 44:38:39:00:27:bc dev bond2.2004 permanent
-> >>
-> >> After this patch:
-> >> # bridge fdb show
-> >> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
-> >> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
-> >> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
-> > 'master' is already a reserved word in the bridge command and
-> > has a slightly different connotation. May be replace it with
-> > 'bridge' or something similar.
-> I am not so convinced about the 'bridge' keyword. The way i see it is: I 
-> am just adding more context to the existing 'master' keyword. In the 
-> cases i am pointing out above 'master' is a bridge.
-> If the only argument is that it changes existing output, ...i agree. I 
-> have expressed slight concerns about that before.
-> >
-> >> For comparision with the above, below is the output for NTF_SELF today,
-> >> # bridge fdb show
-> >> 33:33:00:00:00:01 dev eth0 self permanent
-> >> 01:00:5e:00:00:01 dev eth0 self permanent
-> >> 33:33:ff:00:01:cc dev eth0 self permanent
-> >>
-> >> If change in output is a concern, 'master' can be put at the end of the fdb
-> >> output line or made optional with -d[etails] option.
-> > As Stephen always mentions, iproute commands have to be invertable.
-> > In other words, what you get out of the show command you should
-> > be able to feed back into a set command.
-> >
-> > As such, it would probably be a good thing to support
-> > bridge fdb set 44:38:39:00:27:ba dev bond2.2003 bridge br-2003 permanent
-> We did discuss this on the other thread (RFC), and it does not seem 
-> necessary.
-> two things:
-> - like i indicated above, introducing 'bridge' to mean  'master' seems 
-> to add more confusion and
-> seems redundant. But, maybe that's just me.
-> - having user specify master when kernel can derive it
-> seems unnecessary (agree that for code symmetry we could add master 
-> during sets but make it optional)
-> 
-> >
-> > and I think this ends up being something very close to what
-> > Jamal already proposed.
-> >
-> > May be work together and come up with a single syntax.
-> Ack.
-> looking at jamals patch for fdb show filters,  if i consider my approach 
-> of using 'master' to represent a bridge,
-> his syntax would look like,
-> 
-> bridge fdb {show} [dev DEV]
-> bridge fdb {show} [dev DEV] [master BRDEV]
+> From: Linus L=FCssing <linus.luessing@web.de>
+> Date: Sun, 25 May 2014 07:03:21 +0200
+>=20
+> > Changes in v2:
+>=20
+> I really need a bridging expert to review this series, thank you.
 
-I prefer bridge keyword since master is not used in IEEE 802
-documents.
+I am fine with these, but would like original author of IGMP snooping
+to weigh in.
