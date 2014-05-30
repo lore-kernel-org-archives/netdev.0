@@ -1,63 +1,61 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 09:10:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
- <1401415552-2263-5-git-send-email-b38611@freescale.com>
+From: Sathya Perla <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next 5/6] be2net: move async cmd processing to a
+ separate routine
+Date: Fri, 30 May 2014 09:18:34 +0000
+Message-ID: <85723bf9-d7da-4d31-9abb-d50b58e1a172@CMEXHTCAS2.ad.emulex.com>
+References: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
+ <1401258665-6238-6-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: 'Fugang Duan' <b38611@freescale.com>,
-	"b20596@freescale.com" <b20596@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+To: Sathya Perla <Sathya.Perla@Emulex.Com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55074 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932551AbaE3JMI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:12:08 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16489-09 for <netdev@vger.kernel.org>;
- Fri, 30 May 2014 10:11:57 +0100 (BST)
-In-Reply-To: <1401415552-2263-5-git-send-email-b38611@freescale.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:42569 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753504AbaE3JSk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 05:18:40 -0400
+In-Reply-To: <1401258665-6238-6-git-send-email-sathya.perla@emulex.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan
-> In order to support SG, software TSO, let's increase BD entry number.
-
-Software TSO shouldn't significantly increase the number of
-descriptors required.
-I'd guess it makes a lot of packets have 2 fragments.
-
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Sathya Perla
 ...
-> -#define FEC_ENET_RX_PAGES	8
-> +#define FEC_ENET_RX_PAGES	256
+> 
+>
+>  static int be_mcc_compl_process(struct be_adapter *adapter,
+>  				struct be_mcc_compl *compl)
+>  {
+>  	enum mcc_base_status base_status;
+>  	enum mcc_addl_status addl_status;
+>  	struct be_cmd_resp_hdr *resp_hdr;
+> -	u8 opcode = 0, subsystem = 0;
+> +	u8 opcode, subsystem;
+> 
+>  	/* Just swap the status to host endian; mcc tag is opaquely copied
+>  	 * from mcc_wrb */
+> @@ -148,45 +196,13 @@ static int be_mcc_compl_process(struct be_adapter
+> *adapter,
+>  	addl_status = addl_status(compl->status);
+> 
+>  	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
+> +	opcode = resp_hdr->opcode;
+> +	subsystem = resp_hdr->subsystem;
+> 
+> -	if (resp_hdr) {
+> -		opcode = resp_hdr->opcode;
+> -		subsystem = resp_hdr->subsystem;
+> -	}
+> -
 
-Supporting TSO shouldn't need more RX descriptors.
-While 16 descriptors isn't that many, 512 is a lot.
-If PAGE_SIZE is greater than 4k it is a huge amount of memory.
+I missed a NULL check here. I'll fix this up and re-send the patch set.
+Thanks!
 
->  #define FEC_ENET_RX_FRSIZE	2048
->  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
->  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
->  #define FEC_ENET_TX_FRSIZE	2048
->  #define FEC_ENET_TX_FRPPG	(PAGE_SIZE / FEC_ENET_TX_FRSIZE)
-> -#define TX_RING_SIZE		16	/* Must be power of two */
-> -#define TX_RING_MOD_MASK	15	/*   for this to work */
-> +#define TX_RING_SIZE		512	/* Must be power of two */
-> +#define TX_RING_MOD_MASK	511	/*   for this to work */
-
-Does the driver support BQL (or similar) in order to limit
-the amount of queued tx traffic?
-Otherwise you've significantly increased the latency for
-connections other than one doing bulk tx.
-
-	David
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
