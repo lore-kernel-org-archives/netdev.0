@@ -1,99 +1,73 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC v2] Bluetooth: Keep master role when SCO or eSCO is active
-Date: Fri, 30 May 2014 19:23:38 +0400
-Message-ID: <5388A27A.7040002@cogentembedded.com>
-References: <1401431094-2833-1-git-send-email-kiran.kumar@linaro.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
+Date: Fri, 30 May 2014 15:34:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17250953@AcuExch.aculab.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
+	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
+	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140530140137.GC783@arch.cereza>
+ <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+ <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "hyungseoung.yoo" <hyungseoung.yoo@samsung.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Android Kernel Team <kernel-team@android.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Jaikumar Ganesh <jaikumarg@android.com>
-To: Kiran Kumar Raparthy <kiran.kumar@linaro.org>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401431094-2833-1-git-send-email-kiran.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "'fugang.duan@freescale.com'" <fugang.duan@freescale.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:33617 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755556AbaE3Pf7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 11:35:59 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 23933-09 for <netdev@vger.kernel.org>;
+ Fri, 30 May 2014 16:35:49 +0100 (BST)
+In-Reply-To: <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 05/30/2014 10:24 AM, Kiran Kumar Raparthy wrote:
-
-> From: "hyungseoung.yoo" <hyungseoung.yoo@samsung.com>
-
-> Preserve the master role when SCO or eSCO is active
-> as this improves compatability with lots of
-> headset and chipset combinations.
-
-> This is one of the number of patches from the Android AOSP
-> common.git tree, which is used on almost all Android devices.
-> It looks like it would improve support for compatibility with
-> lot of headset,so I wanted to submit it for review to see
-> if it should go upstream.
-
-> v2: Fixed formatting issues pointed by Sergei
-
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Cc: Gustavo Padovan <gustavo@padovan.org>
-> Cc: Johan Hedberg <johan.hedberg@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-bluetooth@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: Android Kernel Team <kernel-team@android.com>
-> Cc: John Stultz <john.stultz@linaro.org>
-> Signed-off-by: hyungseoung.yoo <hyungseoung.yoo@samsung.com>
-> Signed-off-by: Jaikumar Ganesh <jaikumarg@android.com>
-> [kiran: Added context to commit message]
-> Signed-off-by: Kiran Raparthy <kiran.kumar@linaro.org>
-> ---
->   net/bluetooth/hci_event.c | 12 +++++++++++-
->   1 file changed, 11 insertions(+), 1 deletion(-)
-
-> diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-> index 15010a2..48bc772 100644
-> --- a/net/bluetooth/hci_event.c
-> +++ b/net/bluetooth/hci_event.c
-> @@ -1915,6 +1915,14 @@ unlock:
->   	hci_conn_check_pending(hdev);
->   }
->
-> +static inline bool is_sco_active(struct hci_dev *hdev)
-> +{
-> +	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
-> +		hci_conn_hash_lookup_state(hdev, ESCO_LINK, BT_CONNECTED))
-
-    The continuation line should start under the next character after ( on the 
-previous line, according to the networking coding style. The way you formatted 
-it, it visually groups with the following *return* statement...
-
-> +		return true;
-> +	return false;
-> +}
-> +
->   static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
->   {
->   	struct hci_ev_conn_request *ev = (void *) skb->data;
-> @@ -1961,7 +1969,9 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
->
->   			bacpy(&cp.bdaddr, &ev->bdaddr);
->
-> -			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
-> +			if (lmp_rswitch_capable(hdev) &&
-> +				((mask & HCI_LM_MASTER) ||
-> +				is_sco_active(hdev)))
-
-    Same comment.
-
->   				cp.role = 0x00; /* Become master */
->   			else
->   				cp.role = 0x01; /* Remain slave */
-
-WBR, Sergei
+RnJvbTogZnVnYW5nLmR1YW5AZnJlZXNjYWxlLmNvbQ0KPiA+NjRLQiBUU08gcGFja2V0LCB3aXRo
+IE1TUz0xNDYwIC0+IDQ0IHNlZ21lbnRzICAoNDQqMTQ2MCA9IDY0MjQwKSB3aXRoDQo+ID5NU1M9
+MTQ0OCAoVENQIHRpbWVzdGFtcHMpIC0+IDQ1IHNlZ21lbnRzICAoNDUqMTQ0OCA9IDY1MTYwKQ0K
+PiA+DQo+ID5UaGlzIHNvZnR3YXJlIFRTTyBlbXVsYXRpb24gdXNlcyBhdCBsZWFzdCAyIGRlc2Ny
+aXB0b3JzIHBlciBNU1MNCj4gPg0KPiA+b25lIGRlc2NyaXB0b3IgdG8gaG9sZCB0aGUgaGVhZGVy
+cyAoZXRoZXJuZXQgKyBpcCArIHRjcCkgb25lIGRlc2NyaXB0b3INCj4gPihvciB0d28pIHRvIGhv
+bGQgdGhlIHBheWxvYWQgZm9yIHRoaXMgTVNTDQo+ID4NCj4gVGhhbmtzIGZvciBFcmljJ3MgZGV0
+YWlsIGV4cGxhaW4uDQo+IA0KPiBJZiBmcmFnIHBhZ2UgZGF0YSBpcyBub3QgbWF0Y2ggdGhlIGFs
+aWdubWVudCBmb3IgZXRoZXJuZXQgRE1BIGNvbnRyb2xsZXIsDQo+IHRoZXJlIG5lZWQgdGhyZWUg
+ZGVzY3JpcHRvciBmb3Igb25lIE1TUzoNCj4gT25lIGRlc2NyaXB0b3IgZm9yIGhlYWRlcnMsIG9u
+ZSBmb3IgdGhlIGZpcnN0IG5vbi1hbGlnbiBieXRlcyBjb3BpZWQgZnJvbQ0KPiBmcmFnIHBhZ2Us
+IG9uZSBmb3IgdGhlIHJlc3Qgb2YgZnJhZyBwYWdlLg0KPiANCj4gU28gb25lIGZyYW1lIG1heSBj
+b3N0IGRlc2NyaXB0b3IgbnVtYmVyIGlzOiAzIHggNDUNCg0KTm8gLSB0aGF0IGlzIDQ1IGZyYW1l
+cywgdHlwaWNhbGx5IG5lZWRpbmcgMyByaW5nIGVudHJpZXMgZWFjaC4NCg0KPiBBbmQgSSB3aWxs
+IGFkZCBpbnRlcnJ1cHQgY29hbGVzY2luZyBzdXBwb3J0IGZvciB0eCBhbmQgcngsIHdoaWNoIGFs
+c28gY29zdCBzb21lIG1vcmUgZGVzY3JpcHRvcnMuDQo+IA0KPiBTbyB0aGUgZGVzY3JpcHRvcnMg
+c2xvdHMgc2V0IHRvIDUxMiBpcyBub3QgYmlnLCBqdXN0IGlzIHJlYXNvbmFibGUuIERvIHlvdSB0
+aGluayA/DQoNClNvZnR3YXJlIFRTTyBnZW5lcmF0ZXMgbG90cyBvZiBzZXBhcmF0ZSBldGhlcm5l
+dCBmcmFtZXMsIHRoZXJlIGlzIG5vDQphYnNvbHV0ZSByZXF1aXJlbWVudCB0byBiZSBhYmxlIHRv
+IHB1dCBhbGwgb2YgdGhlbSBpbnRvIHRoZSB0eCByaW5nIGF0IG9uY2UuDQoNClRoZSByZXF1aXJl
+ZCBzaXplIGZvciB0aGUgdHggcmluZyBpcyBtdWNoIG1vcmUgbGlrZWx5IHRvIGJlIHJlbGF0ZWQN
+CnRvIGFueSBpbnRlcnJ1cHQgbWl0aWdhdGlvbiB0aGF0IGRlbGF5cyB0aGUgcmVmaWxsaW5nIG9m
+IHJpbmcgZW50cmllcy4NCjUxMiBzb3VuZHMgbGlrZSBhIGxvdCBvZiB0eCByaW5nIGVudHJpZXMu
+DQoNClRoZSByZWNlaXZlIHJpbmcgZG9lc24ndCBuZWVkIHRvIGFsbG93IGZvciBmcmFnbWVudHMg
+LSB5b3VyIGRyaXZlcg0KaXMgaW4gY29udHJvbCBvZiBhbGxvY2F0aW5nIHRoZSBidWZmZXJzLg0K
+SSBkaWRuJ3QgdW5kZXJzdGFuZCB3aHkgeW91J3ZlIGJhc2VkIHRoZSBudW1iZXIgb2Ygcnggcmlu
+ZyBlbnRyaWVzDQpvbiBQQUdFX1NJWkUgLSBJSVJDIHRoYXQgbWlnaHQgYmUgNjRrLCBvciBldmVu
+IGxhcmdlci4NCkknZCBoYXZlIGV4cGVjdGVkIDEyOCBvciAyNTYgcnggcmluZyBlbnRyaWVzIHRv
+IGJlIHR5cGljYWwsIGJ1dA0KaG93IG1hbnkgYXJlIG5lZWRlZCBpcyBhIHNlcGFyYXRlIGlzc3Vl
+Lg0KSWYgdGhlIHN5c3RlbSBjYW4ga2VlcCB1cCB3aXRoIHRoZSBtYXhpbXVtIGV0aGVybmV0IGRh
+dGEgcmF0ZQ0KSSdkIGV4cGVjdCB0aGF0IGEgc21hbGxlciBudW1iZXIgd291bGQgYmUgZmluZS4N
+CklmIGl0IGNhbid0IGtlZXAgdXAgeW91J2xsIGxvc2UgcGFja2V0cyBhbnl3YXkuDQpBZ2dyZXNz
+aXZlIHBvd2VyIHNhdmluZyAod2l0aCB3YWtlIG9uIExBTikgbWlnaHQgbmVlZCBtb3JlLg0KDQoJ
+RGF2aWQNCg0K
