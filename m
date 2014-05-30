@@ -1,68 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 1/6] be2net: skip multicast promiscuos setting
- in already set
-Date: Fri, 30 May 2014 17:51:12 +0400
-Message-ID: <53888CD0.50403@cogentembedded.com>
-References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com> <1401456988-11395-2-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Sathya Perla <sathya.perla@emulex.com>, netdev@vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] sh_eth: use RNC mode for R8A7790
+Date: Fri, 30 May 2014 14:56:26 +0100
+Message-ID: <1401458186-29985-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: linux-kernel@codethink.co.uk,
+	Ben Dooks <ben.dooks@codethink.co.uk>,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:43671 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755960AbaE3NvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:51:07 -0400
-Received: by mail-la0-f48.google.com with SMTP id mc6so1014480lab.21
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 06:51:05 -0700 (PDT)
-In-Reply-To: <1401456988-11395-2-git-send-email-sathya.perla@emulex.com>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:33449 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932162AbaE3N4e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:56:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The current behaviour of the sh_eth driver is not to use the RNC bit
+for the receive ring. This means that every packet recieved is not only
+generating an IRQ but it also stops the receive ring DMA as well until
+the driver re-enables it after unloading the packet.
 
-On 05/30/2014 05:36 PM, Sathya Perla wrote:
+This means that a number of the following errors are generated due to
+the receive packet FIFO overflowing due to nowhere to put packets:
 
-> From: Kalesh AP <kalesh.purayil@emulex.com>
+	net eth0: Receive FIFO Overflow
 
-> Set mc-promisc (multicast promiscuous) mode on an interface, only if it is
-> *not already* in that mode.
+Setting the RMCR_RNC configuration has so far been tested with an NFS
+root filesystem and the driver has not failed yet. It is not yet known
+why this is not set for R8A779x operation (Feedback on this issue or
+other testing is welcome)
 
-> Also removed logs that report interface being set to multicast
-> promiscous mode. In an earlier comment on the netdev list such log messages
-> were deemed unnecessary as this behaviour is common across most of the
-> ethernet drivers.
+There are further test reports from Sergei Shtylov and others for
+both the R8A7790 and R8A7791.
 
-> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
-[...]
+---
+Cc: nobuhiro.iwamatsu.yj@renesas.com
+Cc: magnus.damn@opensource.se
+Cc: horms@verge.net.au
+---
+ drivers/net/ethernet/renesas/sh_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-> index e1d445d..9116d5e 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-[...]
-> @@ -1244,15 +1242,22 @@ static void be_set_rx_mode(struct net_device *netdev)
->   	}
->
->   	status = be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
-> -
-> -	/* Set to MCAST promisc mode if setting MULTICAST address fails */
-> -	if (status) {
-> -		dev_info(&adapter->pdev->dev,
-> -			 "Exhausted multicast HW filters.\n");
-> -		dev_info(&adapter->pdev->dev,
-> -			 "Disabling HW multicast filtering.\n");
-> -		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
-> +	if (!status) {
-> +		if (adapter->flags & BE_FLAGS_MCAST_PROMISC)
-> +			adapter->flags &= ~BE_FLAGS_MCAST_PROMISC;
-
-    Why not just clear it without prior check?
-
-> +		goto done;
->   	}
-[...]
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 6a9509c..1e3e5d2 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -468,6 +468,7 @@ static struct sh_eth_cpu_data r8a779x_data = {
+ 	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+ 	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
+ 	.eesipr_value	= 0x01ff009f,
++	.rmcr_value	= RMCR_RNC,
+ 
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+ 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RFE |
+-- 
+2.0.0.rc2
