@@ -1,75 +1,126 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH] cnic: don't take the rtnl_read_lock in
- cnic_rcv_netevent
-Date: Fri, 30 May 2014 10:58:11 -0700
-Message-ID: <1401472691.9728.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	<fcoe-devel@open-fcoe.org>, Robert Love <robert.w.love@intel.com>,
-	Vasu Dev <vasu.dev@intel.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:3456 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752978AbaE3R6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:58:12 -0400
-In-Reply-To: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: [PATCH urgent] netlink: Only check file credentials for implicit destinations
+Date: Fri, 30 May 2014 11:04:00 -0700
+Message-ID: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
+Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>,
+	Jiri Benc <jbenc@redhat.com>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Vivek Goyal <vgoyal@redhat.com>,
+	Simo Sorce <ssorce@redhat.com>,
+	"Serge E. Hallyn" <serge@hallyn.com>, stable@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	David Miller <davem@davemloft.net>,
+	"security@kernel.org" <security@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-05-30 at 11:00 -0400, Neil Horman wrote: 
-> The Cnic driver handles lots of ulp operations in its netdevice event hanlder.
-> To do this, it accesses the ulp_ops array, which is an rcu protected array.
-> However, some ulp operations (like bnx2fc_indicate_netevent) try to lock
-> mutexes, which might sleep (somthing that you can't do while holding rcu read
-> side locks if you've configured non-preemptive rcu.
-> 
-> Fix this by changing the dereference method.  All accesses to the ulp_ops array
-> for a cnic dev are modified under the protection of the rtnl lock, and so we can
-> safely just use rcu_dereference_rtnl, and remove the rcu_read_lock here
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Because the bnx2fc function can sleep, we need a more complete fix to
-prevent the ulp_ops from going away when the device is unregistered.
-synchronize_rcu() won't be able to protect it.  I'll post the patch
-later today.  Thanks.
+It was possible to get a setuid root or setcap executable to write to
+it's stdout or stderr (which has been set made a netlink socket) and
+inadvertently reconfigure the networking stack.
 
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Michael Chan <mchan@broadcom.com>
-> CC: fcoe-devel@open-fcoe.org
-> CC: Robert Love <robert.w.love@intel.com>
-> CC: Vasu Dev <vasu.dev@intel.com>
-> ---
->  drivers/net/ethernet/broadcom/cnic.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-> index f58a8b8..bfdb9f0 100644
-> --- a/drivers/net/ethernet/broadcom/cnic.c
-> +++ b/drivers/net/ethernet/broadcom/cnic.c
-> @@ -5622,12 +5622,11 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
->  {
->  	int if_type;
->  
-> -	rcu_read_lock();
->  	for (if_type = 0; if_type < MAX_CNIC_ULP_TYPE; if_type++) {
->  		struct cnic_ulp_ops *ulp_ops;
->  		void *ctx;
->  
-> -		ulp_ops = rcu_dereference(cp->ulp_ops[if_type]);
-> +		ulp_ops = rcu_dereference_rtnl(cp->ulp_ops[if_type]);
->  		if (!ulp_ops || !ulp_ops->indicate_netevent)
->  			continue;
->  
-> @@ -5635,7 +5634,6 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
->  
->  		ulp_ops->indicate_netevent(ctx, event, vlan_id);
->  	}
-> -	rcu_read_unlock();
->  }
->  
->  /* netdev event handler */
+To prevent this we check that both the creator of the socket and
+the currentl applications has permission to reconfigure the network
+stack.
+
+Unfortunately this breaks Zebra which always uses sendto/sendmsg
+and creates it's socket without any privileges.
+
+To keep Zebra working don't bother checking if the creator of the
+socket has privilege when a destination address is specified.  Instead
+rely exclusively on the privileges of the sender of the socket.
+
+Note from Andy: This is exactly Eric's code except for some comment
+clarifications and formatting fixes.  Neither I nor, I think, anyone
+else is thrilled with this approach, but I'm hesitant to wait on a
+better fix since 3.15 is almost here.
+
+Note to stable maintainers: This is a mess.  An earlier series of
+patches in 3.15 fix a rather serious security issue (CVE-2014-0181),
+but they did so in a way that breaks Zebra.  The offending series
+includes:
+
+    commit aa4cf9452f469f16cea8c96283b641b4576d4a7b
+    Author: Eric W. Biederman <ebiederm@xmission.com>
+    Date:   Wed Apr 23 14:28:03 2014 -0700
+
+        net: Add variants of capable for use on netlink messages
+
+If a given kernel version is missing that series of fixes, it's
+probably worth backporting it and this patch.  if that series is
+present, then this fix is critical if you care about Zebra.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+---
+
+This, or something like it, is needed for 3.15.
+
+ include/linux/netlink.h  | 7 ++++---
+ net/netlink/af_netlink.c | 7 ++++++-
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index f64b017..034cda7 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -16,9 +16,10 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
+ }
+ 
+ enum netlink_skb_flags {
+-	NETLINK_SKB_MMAPED	= 0x1,		/* Packet data is mmaped */
+-	NETLINK_SKB_TX		= 0x2,		/* Packet was sent by userspace */
+-	NETLINK_SKB_DELIVERED	= 0x4,		/* Packet was delivered */
++	NETLINK_SKB_MMAPED	= 0x1,	/* Packet data is mmaped */
++	NETLINK_SKB_TX		= 0x2,	/* Packet was sent by userspace */
++	NETLINK_SKB_DELIVERED	= 0x4,	/* Packet was delivered */
++	NETLINK_SKB_DST		= 0x8,	/* Dst set in sendto or sendmsg */
+ };
+ 
+ struct netlink_skb_parms {
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 81dca96..f22757a 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1373,7 +1373,9 @@ retry:
+ bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
+ 			struct user_namespace *user_ns, int cap)
+ {
+-	return sk_ns_capable(nsp->sk, user_ns, cap);
++	return ((nsp->flags & NETLINK_SKB_DST) ||
++		file_ns_capable(nsp->sk->sk_socket->file, user_ns, cap)) &&
++		ns_capable(user_ns, cap);
+ }
+ EXPORT_SYMBOL(__netlink_ns_capable);
+ 
+@@ -2293,6 +2295,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct sk_buff *skb;
+ 	int err;
+ 	struct scm_cookie scm;
++	u32 netlink_skb_flags = 0;
+ 
+ 	if (msg->msg_flags&MSG_OOB)
+ 		return -EOPNOTSUPP;
+@@ -2314,6 +2317,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		if ((dst_group || dst_portid) &&
+ 		    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
+ 			goto out;
++		netlink_skb_flags |= NETLINK_SKB_DST;
+ 	} else {
+ 		dst_portid = nlk->dst_portid;
+ 		dst_group = nlk->dst_group;
+@@ -2343,6 +2347,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	NETLINK_CB(skb).portid	= nlk->portid;
+ 	NETLINK_CB(skb).dst_group = dst_group;
+ 	NETLINK_CB(skb).creds	= siocb->scm->creds;
++	NETLINK_CB(skb).flags	= netlink_skb_flags;
+ 
+ 	err = -EFAULT;
+ 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
+-- 
+1.9.3
