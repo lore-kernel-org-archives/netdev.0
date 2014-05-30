@@ -1,50 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v2 1/1] bring netlink interface to par with
- brctl show macs
-Date: Thu, 29 May 2014 22:08:01 -0700 (PDT)
-Message-ID: <20140529.220801.2111563710536999957.davem@davemloft.net>
-References: <1401023755-8174-1-git-send-email-jhs@emojatatu.com>
-	<1401071747.17377.111.camel@deadeye.wl.decadent.org.uk>
-	<53831FDD.4020902@mojatatu.com>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: [PATCH v2 net-next repost] MPLS: Use mpls_features to
+ activate software MPLS GSO segmentation
+Date: Fri, 30 May 2014 14:35:19 +0900
+Message-ID: <20140530053519.GA3444@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	stephen@networkplumber.org, vyasevic@redhat.com,
-	john.r.fastabend@intel.com, sfeldma@cumulusnetworks.com
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49446 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751054AbaE3FIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 01:08:05 -0400
-In-Reply-To: <53831FDD.4020902@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 26 May 2014 07:05:01 -0400
+If an MPLS packet requires segmentation then use mpls_features
+to determine if the software implementation should be used.
 
-> On 05/25/14 22:35, Ben Hutchings wrote:
->> On Sun, 2014-05-25 at 09:15 -0400, Jamal Hadi Salim wrote:
-> 
->>> +		if (dev == NULL) {
->>> + pr_info("PF_BRIDGE: RTM_GETNEIGH with unknown ifindex\n");
->>
->> You left another debug message here.
->>
->>> +			return -ENODEV;
->>>   		}
-> 
->>> +			pr_info("PF_BRIDGE: RTM_GETNEIGH %s no dumper\n",
->>> +				dev->name);
->>
->> And here.
-> 
-> Those two just adhere to the coding style used in the rest of the fdb
-> code. I could remove them and send subsequent patches to remove
-> equivalent debugs in the rest of the code. To me they seem useful
-> although i have seen very strong views against them in the past.
+As no driver advertises MPLS GSO segmentation this will always be
+the case.
 
-I think we have to get rid of these, because they are essentially
-user triggerable.
+I had not noticed that this was necessary before as software MPLS GSO
+segmentation was already being used in my test environment. I believe that
+the reason for that is the skbs in question always had fragments and the
+driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+case for most drivers). Thus software segmentation was activated by
+skb_gso_ok().
+
+Thanks to Jesse Gross for prompting me to investigate this.
+
+Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+
+---
+v2
+* Added Ack from Jesse Gross
+* Removed duplicate 'Thus' from changelog
+---
+ net/core/dev.c | 36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0355ca5..15f3e6f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2540,6 +2540,40 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(netif_skb_features);
+ 
++/* If MPLS offload request, verify we are testing hardware MPLS features
++ * instead of standard features for the netdev.
++ */
++#ifdef CONFIG_NET_MPLS_GSO
++static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
++	struct net_device *dev, netdev_features_t features)
++{
++	/* There is no support for MPLS LRO. So the only way that
++	 * an MPLS skb could require GSO segmentation is if it
++	 * was received as a non-MPLS skb and then became an MPLS skb.
++	 * This may be effected by Open vSwitch in which case the
++	 * mac_len will non-zero and not equal to skb_network_offset
++	 * as the former indicates the end of L2 the latter indicates
++	 * the beginning of L3 and there is a gap between them occupied
++	 * by the MPLS label stack.
++	 *
++	 * Thus it is possible to avoid traversing any VLAN tags that are
++	 * present to determine if the ethtype is MPLS. Instead the
++	 * inequality of mac_llen and skb_network_offset are used to
++	 * determine if a packet is MPLS for the purpose of determining
++	 * offload features.
++	 */
++	if (skb->mac_len && skb->mac_len != skb_network_offset(skb))
++		features &= dev->mpls_features;
++	return features;
++}
++#else
++static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
++	struct net_device *dev, netdev_features_t features)
++{
++	return features;
++}
++#endif
++
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+@@ -2576,6 +2610,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		if (skb->encapsulation)
+ 			features &= dev->hw_enc_features;
+ 
++		features = net_mpls_features(skb, dev, features);
++
+ 		if (netif_needs_gso(skb, features)) {
+ 			if (unlikely(dev_gso_segment(skb, features)))
+ 				goto out_kfree_skb;
+-- 
+1.8.5.2
