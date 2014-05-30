@@ -1,73 +1,99 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 15:08:40 +0000
-Message-ID: <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
-	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
-	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
-	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140530140137.GC783@arch.cereza>
- <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC v2] Bluetooth: Keep master role when SCO or eSCO is active
+Date: Fri, 30 May 2014 19:23:38 +0400
+Message-ID: <5388A27A.7040002@cogentembedded.com>
+References: <1401431094-2833-1-git-send-email-kiran.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:15453
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753137AbaE3PIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 11:08:43 -0400
-In-Reply-To: <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "hyungseoung.yoo" <hyungseoung.yoo@samsung.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Android Kernel Team <kernel-team@android.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Jaikumar Ganesh <jaikumarg@android.com>
+To: Kiran Kumar Raparthy <kiran.kumar@linaro.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401431094-2833-1-git-send-email-kiran.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBEYXRhOiBGcmlkYXks
-IE1heSAzMCwgMjAxNCAxMDo1NCBQTQ0KPlRvOiBlemVxdWllbC5nYXJjaWFAZnJlZS1lbGVjdHJv
-bnMuY29tDQo+Q2M6IER1YW4gRnVnYW5nLUIzODYxMTsgRGF2aWQgTGFpZ2h0OyBMaSBGcmFuay1C
-MjA1OTY7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hh
-d24uZ3VvQGxpbmFyby5vcmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207DQo+c3RlcGhlbkBu
-ZXR3b3JrcGx1bWJlci5vcmcNCj5TdWJqZWN0OiBSZTogW1BBVENIIHYxIDQvNl0gbmV0OiBmZWM6
-IEluY3JlYXNlIGJ1ZmZlciBkZXNjcmlwdG9yIGVudHJ5DQo+bnVtYmVyDQo+DQo+T24gRnJpLCAy
-MDE0LTA1LTMwIGF0IDExOjAxIC0wMzAwLCBlemVxdWllbC5nYXJjaWFAZnJlZS1lbGVjdHJvbnMu
-Y29tDQo+d3JvdGU6DQo+PiBIZWxsbyBFcmljLA0KPj4NCj4+IE9uIDMwIE1heSAwNjoxMyBBTSwg
-RXJpYyBEdW1hemV0IHdyb3RlOg0KPj4gPiBPbiBGcmksIDIwMTQtMDUtMzAgYXQgMDk6NDIgKzAw
-MDAsIGZ1Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+PiA+ID4gRnJvbTogRGF2aWQg
-TGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTT4gRGF0YTogRnJpZGF5LCBNYXkgMzAsDQo+
-PiA+ID4gMjAxNCA1OjExIFBNDQo+PiA+ID4gPg0KPj4gPiA+ID5Eb2VzIHRoZSBkcml2ZXIgc3Vw
-cG9ydCBCUUwgKG9yIHNpbWlsYXIpIGluIG9yZGVyIHRvIGxpbWl0IHRoZQ0KPj4gPiA+ID5hbW91
-bnQgb2YgcXVldWVkIHR4IHRyYWZmaWM/DQo+PiA+ID4gPk90aGVyd2lzZSB5b3UndmUgc2lnbmlm
-aWNhbnRseSBpbmNyZWFzZWQgdGhlIGxhdGVuY3kgZm9yDQo+PiA+ID4gPmNvbm5lY3Rpb25zIG90
-aGVyIHRoYW4gb25lIGRvaW5nIGJ1bGsgdHguDQo+PiA+ID4gPg0KPj4gPiA+ID4JRGF2aWQNCj4+
-ID4gPiA+DQo+PiA+ID4gVGhlIGRyaXZlciBzdGlsbCBkb24ndCBzdXBwb3J0IEJRTC4NCj4+ID4g
-PiBJIHdpbGwgYWRkIHRoZSBmZWF0dXJlIHRvIHN1cHBvcnQgRkVDLiBUaGFua3MgZm9yIHlvdXIg
-YWR2aXNlLg0KPj4gPg0KPj4gPiBOb3RlIHRoYXQgYSBmdWxsIHNpemUgVFNPIHBhY2tldCAoNDQg
-b3IgNDUgTVNTKSByZXF1aXJlcyBhYm91dCA4OCBvcg0KPj4gPiA5MCBkZXNjcmlwdG9ycy4NCj4+
-ID4NCj4+DQo+PiBXaGF0J3MgdGhlIHJhdGlvbmFsZSBiZWhpbmcgdGhvc2UgbnVtYmVycz8NCj4+
-DQo+DQo+NjRLQiBUU08gcGFja2V0LCB3aXRoIE1TUz0xNDYwIC0+IDQ0IHNlZ21lbnRzICAoNDQq
-MTQ2MCA9IDY0MjQwKSB3aXRoDQo+TVNTPTE0NDggKFRDUCB0aW1lc3RhbXBzKSAtPiA0NSBzZWdt
-ZW50cyAgKDQ1KjE0NDggPSA2NTE2MCkNCj4NCj5UaGlzIHNvZnR3YXJlIFRTTyBlbXVsYXRpb24g
-dXNlcyBhdCBsZWFzdCAyIGRlc2NyaXB0b3JzIHBlciBNU1MNCj4NCj5vbmUgZGVzY3JpcHRvciB0
-byBob2xkIHRoZSBoZWFkZXJzIChldGhlcm5ldCArIGlwICsgdGNwKSBvbmUgZGVzY3JpcHRvcg0K
-PihvciB0d28pIHRvIGhvbGQgdGhlIHBheWxvYWQgZm9yIHRoaXMgTVNTDQo+DQpUaGFua3MgZm9y
-IEVyaWMncyBkZXRhaWwgZXhwbGFpbi4NCg0KSWYgZnJhZyBwYWdlIGRhdGEgaXMgbm90IG1hdGNo
-IHRoZSBhbGlnbm1lbnQgZm9yIGV0aGVybmV0IERNQSBjb250cm9sbGVyLCB0aGVyZSBuZWVkIHRo
-cmVlIGRlc2NyaXB0b3IgZm9yIG9uZSBNU1M6DQpPbmUgZGVzY3JpcHRvciBmb3IgaGVhZGVycywg
-b25lIGZvciB0aGUgZmlyc3Qgbm9uLWFsaWduIGJ5dGVzIGNvcGllZCBmcm9tIGZyYWcgcGFnZSwg
-b25lIGZvciB0aGUgcmVzdCBvZiBmcmFnIHBhZ2UuDQoNClNvIG9uZSBmcmFtZSBtYXkgY29zdCBk
-ZXNjcmlwdG9yIG51bWJlciBpczogMyB4IDQ1IA0KDQpBbmQgSSB3aWxsIGFkZCBpbnRlcnJ1cHQg
-Y29hbGVzY2luZyBzdXBwb3J0IGZvciB0eCBhbmQgcngsIHdoaWNoIGFsc28gY29zdCBzb21lIG1v
-cmUgZGVzY3JpcHRvcnMuDQoNClNvIHRoZSBkZXNjcmlwdG9ycyBzbG90cyBzZXQgdG8gNTEyIGlz
-IG5vdCBiaWcsIGp1c3QgaXMgcmVhc29uYWJsZS4gRG8geW91IHRoaW5rID8NCg0KDQpUaGFua3Ms
-DQpBbmR5IA0K
+Hello.
+
+On 05/30/2014 10:24 AM, Kiran Kumar Raparthy wrote:
+
+> From: "hyungseoung.yoo" <hyungseoung.yoo@samsung.com>
+
+> Preserve the master role when SCO or eSCO is active
+> as this improves compatability with lots of
+> headset and chipset combinations.
+
+> This is one of the number of patches from the Android AOSP
+> common.git tree, which is used on almost all Android devices.
+> It looks like it would improve support for compatibility with
+> lot of headset,so I wanted to submit it for review to see
+> if it should go upstream.
+
+> v2: Fixed formatting issues pointed by Sergei
+
+> Cc: Marcel Holtmann <marcel@holtmann.org>
+> Cc: Gustavo Padovan <gustavo@padovan.org>
+> Cc: Johan Hedberg <johan.hedberg@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-bluetooth@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: Android Kernel Team <kernel-team@android.com>
+> Cc: John Stultz <john.stultz@linaro.org>
+> Signed-off-by: hyungseoung.yoo <hyungseoung.yoo@samsung.com>
+> Signed-off-by: Jaikumar Ganesh <jaikumarg@android.com>
+> [kiran: Added context to commit message]
+> Signed-off-by: Kiran Raparthy <kiran.kumar@linaro.org>
+> ---
+>   net/bluetooth/hci_event.c | 12 +++++++++++-
+>   1 file changed, 11 insertions(+), 1 deletion(-)
+
+> diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
+> index 15010a2..48bc772 100644
+> --- a/net/bluetooth/hci_event.c
+> +++ b/net/bluetooth/hci_event.c
+> @@ -1915,6 +1915,14 @@ unlock:
+>   	hci_conn_check_pending(hdev);
+>   }
+>
+> +static inline bool is_sco_active(struct hci_dev *hdev)
+> +{
+> +	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
+> +		hci_conn_hash_lookup_state(hdev, ESCO_LINK, BT_CONNECTED))
+
+    The continuation line should start under the next character after ( on the 
+previous line, according to the networking coding style. The way you formatted 
+it, it visually groups with the following *return* statement...
+
+> +		return true;
+> +	return false;
+> +}
+> +
+>   static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
+>   {
+>   	struct hci_ev_conn_request *ev = (void *) skb->data;
+> @@ -1961,7 +1969,9 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
+>
+>   			bacpy(&cp.bdaddr, &ev->bdaddr);
+>
+> -			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
+> +			if (lmp_rswitch_capable(hdev) &&
+> +				((mask & HCI_LM_MASTER) ||
+> +				is_sco_active(hdev)))
+
+    Same comment.
+
+>   				cp.role = 0x00; /* Become master */
+>   			else
+>   				cp.role = 0x01; /* Remain slave */
+
+WBR, Sergei
