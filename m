@@ -1,105 +1,239 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 1/6] be2net: skip multicast promiscuos setting in already set
-Date: Fri, 30 May 2014 19:06:23 +0530
-Message-ID: <1401456988-11395-2-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 2/6] be2net: fixup TX-rate setting code for Skyhawk-R
+Date: Fri, 30 May 2014 19:06:24 +0530
+Message-ID: <1401456988-11395-3-git-send-email-sathya.perla@emulex.com>
 References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:38189 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751529AbaE3Ndd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:33 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:7589 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753504AbaE3Ndf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:35 -0400
 In-Reply-To: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+From: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
 
-Set mc-promisc (multicast promiscuous) mode on an interface, only if it is
-*not already* in that mode.
+Skyhawk-R FW supports TX-rate setting only as a % value of the link
+speed, set via the SET_PROFILE_CONFIG cmd.
 
-Also removed logs that report interface being set to multicast
-promiscous mode. In an earlier comment on the netdev list such log messages
-were deemed unnecessary as this behaviour is common across most of the
-ethernet drivers.
+This patch makes the necessary changes to the FW cmd descriptors to support
+the above change and also introduces checks in be_set_vf_tx_rate() to allow
+only discrete values (that map to % of the link-speed).
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |   31 +++++++++++++++-----------
- 2 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   40 +++++++++++-----
+ drivers/net/ethernet/emulex/benet/be_cmds.h |   13 ++++--
+ drivers/net/ethernet/emulex/benet/be_main.c |   66 ++++++++++++++++++---------
+ 3 files changed, 81 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 31c3766..2e7c555 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -374,6 +374,7 @@ enum vf_state {
- #define BE_FLAGS_LINK_STATUS_INIT		1
- #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
- #define BE_FLAGS_VLAN_PROMISC			(1 << 4)
-+#define BE_FLAGS_MCAST_PROMISC			(1 << 5)
- #define BE_FLAGS_NAPI_ENABLED			(1 << 9)
- #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
- #define BE_FLAGS_VXLAN_OFFLOADS			(1 << 12)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 476752d..216463b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -3562,33 +3562,47 @@ void be_reset_nic_desc(struct be_nic_res_desc *nic)
+ 	nic->cq_count = 0xFFFF;
+ 	nic->toe_conn_count = 0xFFFF;
+ 	nic->eq_count = 0xFFFF;
++	nic->iface_count = 0xFFFF;
+ 	nic->link_param = 0xFF;
++	nic->channel_id_param = cpu_to_le16(0xF000);
+ 	nic->acpi_params = 0xFF;
+ 	nic->wol_param = 0x0F;
+-	nic->bw_min = 0xFFFFFFFF;
++	nic->tunnel_iface_count = 0xFFFF;
++	nic->direct_tenant_iface_count = 0xFFFF;
+ 	nic->bw_max = 0xFFFFFFFF;
+ }
+ 
+-int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain)
++int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate, u16 link_speed,
++		      u8 domain)
+ {
+-	if (lancer_chip(adapter)) {
+-		struct be_nic_res_desc nic_desc;
++	struct be_nic_res_desc nic_desc;
++	u32 bw_percent;
++	u16 version = 0;
++
++	if (BE3_chip(adapter))
++		return be_cmd_set_qos(adapter, max_rate / 10, domain);
+ 
+-		be_reset_nic_desc(&nic_desc);
++	be_reset_nic_desc(&nic_desc);
++	nic_desc.pf_num = adapter->pf_number;
++	nic_desc.vf_num = domain;
++	if (lancer_chip(adapter)) {
+ 		nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V0;
+ 		nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V0;
+ 		nic_desc.flags = (1 << QUN_SHIFT) | (1 << IMM_SHIFT) |
+ 					(1 << NOSV_SHIFT);
+-		nic_desc.pf_num = adapter->pf_number;
+-		nic_desc.vf_num = domain;
+-		nic_desc.bw_max = cpu_to_le32(bps);
+-
+-		return be_cmd_set_profile_config(adapter, &nic_desc,
+-						 RESOURCE_DESC_SIZE_V0,
+-						 0, domain);
++		nic_desc.bw_max = cpu_to_le32(max_rate / 10);
+ 	} else {
+-		return be_cmd_set_qos(adapter, bps, domain);
++		version = 1;
++		nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V1;
++		nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V1;
++		nic_desc.flags = (1 << IMM_SHIFT) | (1 << NOSV_SHIFT);
++		bw_percent = max_rate ? (max_rate * 100) / link_speed : 100;
++		nic_desc.bw_max = cpu_to_le32(bw_percent);
+ 	}
++
++	return be_cmd_set_profile_config(adapter, &nic_desc,
++					 nic_desc.hdr.desc_len,
++					 version, domain);
+ }
+ 
+ int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op)
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 228d4b6..9df9d3b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1891,16 +1891,20 @@ struct be_nic_res_desc {
+ 	u16 cq_count;
+ 	u16 toe_conn_count;
+ 	u16 eq_count;
+-	u32 rsvd5;
++	u16 vlan_id;
++	u16 iface_count;
+ 	u32 cap_flags;
+ 	u8 link_param;
+-	u8 rsvd6[3];
++	u8 rsvd6;
++	u16 channel_id_param;
+ 	u32 bw_min;
+ 	u32 bw_max;
+ 	u8 acpi_params;
+ 	u8 wol_param;
+ 	u16 rsvd7;
+-	u32 rsvd8[7];
++	u16 tunnel_iface_count;
++	u16 direct_tenant_iface_count;
++	u32 rsvd8[6];
+ } __packed;
+ 
+ /************ Multi-Channel type ***********/
+@@ -2101,7 +2105,8 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
+ 			u8 loopback_type, u8 enable);
+ int be_cmd_get_phy_info(struct be_adapter *adapter);
+-int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain);
++int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate,
++		      u16 link_speed, u8 domain);
+ void be_detect_error(struct be_adapter *adapter);
+ int be_cmd_get_die_temperature(struct be_adapter *adapter);
+ int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index e1d445d..9116d5e 100644
+index 9116d5e..d39a1c6 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1190,7 +1190,7 @@ ret:
- static void be_clear_promisc(struct be_adapter *adapter)
+@@ -1352,7 +1352,10 @@ static int be_set_vf_tx_rate(struct net_device *netdev, int vf,
+ 			     int min_tx_rate, int max_tx_rate)
  {
- 	adapter->promiscuous = false;
--	adapter->flags &= ~BE_FLAGS_VLAN_PROMISC;
-+	adapter->flags &= ~(BE_FLAGS_VLAN_PROMISC | BE_FLAGS_MCAST_PROMISC);
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	int status = 0;
++	struct device *dev = &adapter->pdev->dev;
++	int percent_rate, status = 0;
++	u16 link_speed = 0;
++	u8 link_status;
  
- 	be_cmd_rx_filter(adapter, IFF_PROMISC, OFF);
- }
-@@ -1215,10 +1215,8 @@ static void be_set_rx_mode(struct net_device *netdev)
+ 	if (!sriov_enabled(adapter))
+ 		return -EPERM;
+@@ -1363,18 +1366,47 @@ static int be_set_vf_tx_rate(struct net_device *netdev, int vf,
+ 	if (min_tx_rate)
+ 		return -EINVAL;
  
- 	/* Enable multicast promisc if num configured exceeds what we support */
- 	if (netdev->flags & IFF_ALLMULTI ||
--	    netdev_mc_count(netdev) > be_max_mc(adapter)) {
--		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
--		goto done;
--	}
-+	    netdev_mc_count(netdev) > be_max_mc(adapter))
-+		goto set_mcast_promisc;
- 
- 	if (netdev_uc_count(netdev) != adapter->uc_macs) {
- 		struct netdev_hw_addr *ha;
-@@ -1244,15 +1242,22 @@ static void be_set_rx_mode(struct net_device *netdev)
+-	if (max_tx_rate < 100 || max_tx_rate > 10000) {
+-		dev_err(&adapter->pdev->dev,
+-			"max tx rate must be between 100 and 10000 Mbps\n");
+-		return -EINVAL;
++	if (!max_tx_rate)
++		goto config_qos;
++
++	status = be_cmd_link_status_query(adapter, &link_speed,
++					  &link_status, 0);
++	if (status)
++		goto err;
++
++	if (!link_status) {
++		dev_err(dev, "TX-rate setting not allowed when link is down\n");
++		status = -EPERM;
++		goto err;
++	}
++
++	if (max_tx_rate < 100 || max_tx_rate > link_speed) {
++		dev_err(dev, "TX-rate must be between 100 and %d Mbps\n",
++			link_speed);
++		status = -EINVAL;
++		goto err;
  	}
  
- 	status = be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
+-	status = be_cmd_config_qos(adapter, max_tx_rate / 10, vf + 1);
++	/* On Skyhawk the QOS setting must be done only as a % value */
++	percent_rate = link_speed / 100;
++	if (skyhawk_chip(adapter) && (max_tx_rate % percent_rate)) {
++		dev_err(dev, "TX-rate must be a multiple of %d Mbps\n",
++			percent_rate);
++		status = -EINVAL;
++		goto err;
++	}
++
++config_qos:
++	status = be_cmd_config_qos(adapter, max_tx_rate, link_speed, vf + 1);
+ 	if (status)
+-		dev_err(&adapter->pdev->dev,
+-			"max tx rate %d on VF %d failed\n", max_tx_rate, vf);
+-	else
+-		adapter->vf_cfg[vf].tx_rate = max_tx_rate;
++		goto err;
++
++	adapter->vf_cfg[vf].tx_rate = max_tx_rate;
++	return 0;
++
++err:
++	dev_err(dev, "TX-rate setting of %dMbps on VF%d failed\n",
++		max_tx_rate, vf);
+ 	return status;
+ }
+ static int be_set_vf_link_state(struct net_device *netdev, int vf,
+@@ -3135,7 +3167,6 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 	struct be_vf_cfg *vf_cfg;
+ 	int status, old_vfs, vf;
+ 	u32 privileges;
+-	u16 lnk_speed;
+ 
+ 	old_vfs = pci_num_vf(adapter->pdev);
+ 	if (old_vfs) {
+@@ -3191,16 +3222,9 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 					 vf);
+ 		}
+ 
+-		/* BE3 FW, by default, caps VF TX-rate to 100mbps.
+-		 * Allow full available bandwidth
+-		 */
+-		if (BE3_chip(adapter) && !old_vfs)
+-			be_cmd_config_qos(adapter, 1000, vf + 1);
 -
--	/* Set to MCAST promisc mode if setting MULTICAST address fails */
--	if (status) {
--		dev_info(&adapter->pdev->dev,
--			 "Exhausted multicast HW filters.\n");
--		dev_info(&adapter->pdev->dev,
--			 "Disabling HW multicast filtering.\n");
--		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
-+	if (!status) {
-+		if (adapter->flags & BE_FLAGS_MCAST_PROMISC)
-+			adapter->flags &= ~BE_FLAGS_MCAST_PROMISC;
-+		goto done;
- 	}
-+
-+set_mcast_promisc:
-+	if (adapter->flags & BE_FLAGS_MCAST_PROMISC)
-+		return;
-+
-+	/* Set to MCAST promisc mode if setting MULTICAST address fails
-+	 * or if num configured exceeds what we support
-+	 */
-+	status = be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
-+	if (!status)
-+		adapter->flags |= BE_FLAGS_MCAST_PROMISC;
- done:
- 	return;
- }
+-		status = be_cmd_link_status_query(adapter, &lnk_speed,
+-						  NULL, vf + 1);
+-		if (!status)
+-			vf_cfg->tx_rate = lnk_speed;
++		/* Allow full available bandwidth */
++		if (!old_vfs)
++			be_cmd_config_qos(adapter, 0, 0, vf + 1);
+ 
+ 		if (!old_vfs) {
+ 			be_cmd_enable_vf(adapter, vf + 1);
 -- 
 1.7.1
