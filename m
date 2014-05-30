@@ -1,50 +1,46 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 0/8] ethernet: marvell: After-TSO fixes
-Date: Fri, 30 May 2014 13:40:03 -0300
-Message-ID: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Tawfik Bayouk <tawfik@marvell.com>, fugang.duan@freescale.com,
-	Willy Tarreau <w@1wt.eu>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:58402 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751776AbaE3QlD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:41:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH] IPVS fix for net
+Date: Fri, 30 May 2014 18:43:03 +0200
+Message-ID: <1401468184-3704-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patchset consists of different fixes and improvements in the mvneta
-and mv643xx_eth drivers. The most important change is the one that allows
-to support small MSS values (see patches 2 and 6).
+Hi David,
 
-This is done following the Solarflare driver (see commit 7e6d06f0de3f7).
+The following patchset contains a late fix for IPVS:
 
-While doing this some other fixes were spotted and so they are included.
+* Fix crash when trying to remove the transport header with non-linear
+  skbuffs, this was introduced in 3.6-rc. Patch from Peter Christensen
+  via the IPVS folks.
 
-Finally, notice that the TSO support introduced a wrong DMA unmapping
-of the TSO header buffers, so patches 4 and 8 provide a couple patches to
-fix that in the drivers.
+I'll pass this to -stable once this hits mainstream.
 
-Ezequiel Garcia (8):
-  net: mvneta: Use default NAPI weight instead of a custom one
-  net: mvneta: Limit the TSO segments and adjust stop/wake thresholds
-  net: mvneta: Fix missing DMA region unmap
-  net: mvneta: Avoid unmapping the TSO header buffers
-  net: mv643xx_eth: Count dropped packets properly
-  net: mv643xx_eth: Limit the TSO segments and adjust stop/wake
-    thresholds
-  net: mv643xx_eth: Drop the NETDEV_TX_BUSY return path
-  net: mv643xx_eth: Avoid unmapping the TSO header buffers
+You can pull these changes from:
 
- drivers/net/ethernet/marvell/mv643xx_eth.c | 76 ++++++++++++++++++++----------
- drivers/net/ethernet/marvell/mvneta.c      | 46 +++++++++++++-----
- 2 files changed, 85 insertions(+), 37 deletions(-)
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
--- 
-1.9.1
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 3b084e99a3fabaeb0f9c65a0806cde30f0b2835e:
+
+  netfilter: nf_tables: fix trace of matching non-terminal rule (2014-05-15 19:44:20 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to f44a5f45f544561302e855e7bd104e5f506ec01b:
+
+  ipvs: Fix panic due to non-linear skb (2014-05-26 10:22:46 +0900)
+
+----------------------------------------------------------------
+Peter Christensen (1):
+      ipvs: Fix panic due to non-linear skb
+
+ net/netfilter/ipvs/ip_vs_core.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
