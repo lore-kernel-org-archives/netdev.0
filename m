@@ -1,18 +1,19 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] rds/tcp_listen: Replace comma with semicolon
-Date: Fri, 30 May 2014 21:17:13 +0530
-Message-ID: <20140530154713.GA4079@himangi-Dell>
+Subject: [PATCH] af_key: Replace comma with semicolon
+Date: Fri, 30 May 2014 21:18:12 +0530
+Message-ID: <20140530154812.GA4119@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: julia.lawall@lip6.fr
-To: Chien Yen <chien.yen@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:43579 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932189AbaE3Pra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 11:47:30 -0400
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:57343 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753685AbaE3Ps2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 11:48:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -38,21 +39,21 @@ identifier i;
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- net/rds/tcp_listen.c | 2 +-
+ net/key/af_key.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
-index 4e638f8..23ab4dcd 100644
---- a/net/rds/tcp_listen.c
-+++ b/net/rds/tcp_listen.c
-@@ -153,7 +153,7 @@ int rds_tcp_listen_init(void)
- 	sock->sk->sk_data_ready = rds_tcp_listen_data_ready;
- 	write_unlock_bh(&sock->sk->sk_callback_lock);
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index b47f8e5..ba2a2f9 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2541,7 +2541,7 @@ static int pfkey_migrate(struct sock *sk, struct sk_buff *skb,
+ 		sel.sport_mask = htons(0xffff);
  
--	sin.sin_family = PF_INET,
-+	sin.sin_family = PF_INET;
- 	sin.sin_addr.s_addr = (__force u32)htonl(INADDR_ANY);
- 	sin.sin_port = (__force u16)htons(RDS_TCP_PORT);
- 
+ 	/* set destination address info of selector */
+-	sa = ext_hdrs[SADB_EXT_ADDRESS_DST - 1],
++	sa = ext_hdrs[SADB_EXT_ADDRESS_DST - 1];
+ 	pfkey_sadb_addr2xfrm_addr(sa, &sel.daddr);
+ 	sel.prefixlen_d = sa->sadb_address_prefixlen;
+ 	sel.proto = pfkey_proto_to_xfrm(sa->sadb_address_proto);
 -- 
 1.9.1
