@@ -1,57 +1,68 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx buffers are reduced
-Date: Fri, 30 May 2014 15:39:14 +0200
-Message-ID: <87mwdz8jy5.fsf@nemi.mork.no>
-References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
-	<1401435070-26721-4-git-send-email-bjorn@mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
-	<87d2eva41t.fsf@nemi.mork.no>
-	<063D6719AE5E284EB5DD2968C1650D6D17250700@AcuExch.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v2 1/6] be2net: skip multicast promiscuos setting
+ in already set
+Date: Fri, 30 May 2014 17:51:12 +0400
+Message-ID: <53888CD0.50403@cogentembedded.com>
+References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com> <1401456988-11395-2-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Alexey Orishko <alexey.orishko@gmail.com>,
-	Oliver Neukum <oliver@neukum.org>,
-	Enrico Mioso <mrkiko.rs@gmail.com>,
-	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
-	Greg Suarez <gsuarez@smithmicro.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Sathya Perla <sathya.perla@emulex.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:56078 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751782AbaE3Nja convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:39:30 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17250700@AcuExch.aculab.com>
-	(David Laight's message of "Fri, 30 May 2014 12:42:29 +0000")
+Received: from mail-la0-f48.google.com ([209.85.215.48]:43671 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755960AbaE3NvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:51:07 -0400
+Received: by mail-la0-f48.google.com with SMTP id mc6so1014480lab.21
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 06:51:05 -0700 (PDT)
+In-Reply-To: <1401456988-11395-2-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> writes:
+Hello.
 
-> From: Bj=C3=B8rn Mork
-> ...
->> > Since you are now copying the data out of the URB's skb before
->> > passing the ethernet packet upstream, is there ever any real
->> > requirement to use a small rx_max? or ever change rx_max?
->>=20
->> Yes.  usbnet doesn't currently recycle skbs.  Continuously allocatin=
-g 32
->> kB skbs (or even 64 kB truesize, which is the current cdc_ncm worst
->> case) on memory constrained hosts is bound to fail eventually.
+On 05/30/2014 05:36 PM, Sathya Perla wrote:
+
+> From: Kalesh AP <kalesh.purayil@emulex.com>
+
+> Set mc-promisc (multicast promiscuous) mode on an interface, only if it is
+> *not already* in that mode.
+
+> Also removed logs that report interface being set to multicast
+> promiscous mode. In an earlier comment on the netdev list such log messages
+> were deemed unnecessary as this behaviour is common across most of the
+> ethernet drivers.
+
+> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+
+[...]
+
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+> index e1d445d..9116d5e 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+[...]
+> @@ -1244,15 +1242,22 @@ static void be_set_rx_mode(struct net_device *netdev)
+>   	}
 >
-> Getting usbnet to recycle skb shouldn't be too hard - and will
-> be an immediate gain for most of the drivers.
+>   	status = be_cmd_rx_filter(adapter, IFF_MULTICAST, ON);
+> -
+> -	/* Set to MCAST promisc mode if setting MULTICAST address fails */
+> -	if (status) {
+> -		dev_info(&adapter->pdev->dev,
+> -			 "Exhausted multicast HW filters.\n");
+> -		dev_info(&adapter->pdev->dev,
+> -			 "Disabling HW multicast filtering.\n");
+> -		be_cmd_rx_filter(adapter, IFF_ALLMULTI, ON);
+> +	if (!status) {
+> +		if (adapter->flags & BE_FLAGS_MCAST_PROMISC)
+> +			adapter->flags &= ~BE_FLAGS_MCAST_PROMISC;
 
-Yes.  This is one of those problems that really isn't that hard to
-solve.  Until you start hitting all the corner cases...  But I'm sure i=
-t
-is doable.
+    Why not just clear it without prior check?
 
-Anyway, it is not going to be part of this patch series, which is merel=
-y
-touching the cdc_ncm minidriver within the existing usbnet framework.
+> +		goto done;
+>   	}
+[...]
 
-
-Bj=C3=B8rn
+WBR, Sergei
