@@ -1,126 +1,48 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: [PATCH urgent] netlink: Only check file credentials for implicit destinations
-Date: Fri, 30 May 2014 11:04:00 -0700
-Message-ID: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
-Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>,
-	Jiri Benc <jbenc@redhat.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Simo Sorce <ssorce@redhat.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>, stable@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>,
-	"security@kernel.org" <security@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: ipconfig: allow IP-Config over DSA devices
+Date: Fri, 30 May 2014 11:08:45 -0700
+Message-ID: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, buytenh@wantstofly.org, jiri@resnulli.us,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:40312 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525AbaE3SJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 14:09:12 -0400
+Received: by mail-ig0-f182.google.com with SMTP id uy17so1146225igb.9
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 11:09:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
+Hi David, Lennert, Jiri,
 
-It was possible to get a setuid root or setcap executable to write to
-it's stdout or stderr (which has been set made a netlink socket) and
-inadvertently reconfigure the networking stack.
+This small patch allows us to use the kernel IP auto-configuration on DSA
+enabled devices.
 
-To prevent this we check that both the creator of the socket and
-the currentl applications has permission to reconfigure the network
-stack.
+I initially started implementing the netdev_upper_dev_link() calls for the
+DSA slave devices, but ended up realizing that although this might be useful,
+the other drivers or protocols implementing these master/slave relantionship
+are the bonding driver and the VLAN code.
 
-Unfortunately this breaks Zebra which always uses sendto/sendmsg
-and creates it's socket without any privileges.
+None of these interfaces (bonding or VLAN) can be created by the kernel
+without modifications, which means that user-space is there, and so we could
+pivot_root over a NFS mounted share for instance, hence making the master/slave
+net_device relationship not so useful for IP-Config.
 
-To keep Zebra working don't bother checking if the creator of the
-socket has privilege when a destination address is specified.  Instead
-rely exclusively on the privileges of the sender of the socket.
+This is not the case with DSA devices which are solely created by the kernel
+based on platform configuration.
 
-Note from Andy: This is exactly Eric's code except for some comment
-clarifications and formatting fixes.  Neither I nor, I think, anyone
-else is thrilled with this approach, but I'm hesitant to wait on a
-better fix since 3.15 is almost here.
+Let me know your thoughts. If you feel like something like:
+netdev_is_upper_dev() or something like that is better.
 
-Note to stable maintainers: This is a mess.  An earlier series of
-patches in 3.15 fix a rather serious security issue (CVE-2014-0181),
-but they did so in a way that breaks Zebra.  The offending series
-includes:
+Thanks!
 
-    commit aa4cf9452f469f16cea8c96283b641b4576d4a7b
-    Author: Eric W. Biederman <ebiederm@xmission.com>
-    Date:   Wed Apr 23 14:28:03 2014 -0700
+Florian Fainelli (1):
+  net: ipconfig: handle DSA enabled network devices
 
-        net: Add variants of capable for use on netlink messages
+ net/ipv4/ipconfig.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-If a given kernel version is missing that series of fixes, it's
-probably worth backporting it and this patch.  if that series is
-present, then this fix is critical if you care about Zebra.
-
-Cc: stable@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
----
-
-This, or something like it, is needed for 3.15.
-
- include/linux/netlink.h  | 7 ++++---
- net/netlink/af_netlink.c | 7 ++++++-
- 2 files changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index f64b017..034cda7 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -16,9 +16,10 @@ static inline struct nlmsghdr *nlmsg_hdr(const struct sk_buff *skb)
- }
- 
- enum netlink_skb_flags {
--	NETLINK_SKB_MMAPED	= 0x1,		/* Packet data is mmaped */
--	NETLINK_SKB_TX		= 0x2,		/* Packet was sent by userspace */
--	NETLINK_SKB_DELIVERED	= 0x4,		/* Packet was delivered */
-+	NETLINK_SKB_MMAPED	= 0x1,	/* Packet data is mmaped */
-+	NETLINK_SKB_TX		= 0x2,	/* Packet was sent by userspace */
-+	NETLINK_SKB_DELIVERED	= 0x4,	/* Packet was delivered */
-+	NETLINK_SKB_DST		= 0x8,	/* Dst set in sendto or sendmsg */
- };
- 
- struct netlink_skb_parms {
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 81dca96..f22757a 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1373,7 +1373,9 @@ retry:
- bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
- 			struct user_namespace *user_ns, int cap)
- {
--	return sk_ns_capable(nsp->sk, user_ns, cap);
-+	return ((nsp->flags & NETLINK_SKB_DST) ||
-+		file_ns_capable(nsp->sk->sk_socket->file, user_ns, cap)) &&
-+		ns_capable(user_ns, cap);
- }
- EXPORT_SYMBOL(__netlink_ns_capable);
- 
-@@ -2293,6 +2295,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct sk_buff *skb;
- 	int err;
- 	struct scm_cookie scm;
-+	u32 netlink_skb_flags = 0;
- 
- 	if (msg->msg_flags&MSG_OOB)
- 		return -EOPNOTSUPP;
-@@ -2314,6 +2317,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		if ((dst_group || dst_portid) &&
- 		    !netlink_allowed(sock, NL_CFG_F_NONROOT_SEND))
- 			goto out;
-+		netlink_skb_flags |= NETLINK_SKB_DST;
- 	} else {
- 		dst_portid = nlk->dst_portid;
- 		dst_group = nlk->dst_group;
-@@ -2343,6 +2347,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	NETLINK_CB(skb).portid	= nlk->portid;
- 	NETLINK_CB(skb).dst_group = dst_group;
- 	NETLINK_CB(skb).creds	= siocb->scm->creds;
-+	NETLINK_CB(skb).flags	= netlink_skb_flags;
- 
- 	err = -EFAULT;
- 	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
 -- 
-1.9.3
+1.9.1
