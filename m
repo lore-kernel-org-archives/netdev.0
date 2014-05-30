@@ -1,72 +1,74 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] xen-netfront: try linearizing SKB if it
- occupies too many slots
-Date: Fri, 30 May 2014 12:28:53 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172506AE@AcuExch.aculab.com>
-References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com>
- <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516131145.GK18551@zion.uk.xensource.com>
- <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516143653.GL18551@zion.uk.xensource.com>
- <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140516153452.GM18551@zion.uk.xensource.com> <53763CD1.6060500@citrix.com>
- <53883C18.2050708@canonical.com>
- <20140530121141.GA2655@zion.uk.xensource.com>
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: RE: [PATCH V2 1/2] bnx2x: Adapter not recovery from EEH error
+ injection
+Date: Fri, 30 May 2014 12:32:54 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D0174AA27@avmb3.qlogic.org>
+References: <20140528155641.920171803@linux.vnet.ibm.com>
+ <20140528155722.190598661@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	"Boris Ostrovsky" <boris.ostrovsky@oracle.com>
-To: 'Wei Liu' <wei.liu2@citrix.com>,
-	Stefan Bader <stefan.bader@canonical.com>
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: "wenxiong@linux.vnet.ibm.com" <wenxiong@linux.vnet.ibm.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58482 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752666AbaE3MaB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 08:30:01 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09925-02 for <netdev@vger.kernel.org>;
- Fri, 30 May 2014 13:29:51 +0100 (BST)
-In-Reply-To: <20140530121141.GA2655@zion.uk.xensource.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:27443 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751115AbaE3MdA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 08:33:00 -0400
+In-Reply-To: <20140528155722.190598661@linux.vnet.ibm.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu
-> On Fri, May 30, 2014 at 10:06:48AM +0200, Stefan Bader wrote:
-> [...]
-> > I had been idly wondering about this onwards. And trying to understand the whole
-> > skb handling environment, I tried to come up with some idea as well. It may be
-> > totally stupid and using the wrong assumptions. It seems to work in the sense
-> > that things did not blow up into my face immediately and somehow I did not see
-> > dropped packages due to the number of slots either.
-> > But again, I am not sure I am doing the right thing. The idea was to just try to
-> > get rid of so many compound pages (which I believe are the only ones that can
-> > have an offset big enough to allow some alignment savings)...
-> >
-> > -Stefan
-> >
-> 
-> Thanks. I think the general idea is OK, but it still involves
-> unnecessary page allocation. We don't actually need to get rid of
-> compound page by replacing it with a new page, we just need to make sure
-> the data inside is aligned.
-> 
-> If you look at xennet_make_frags, it only grants the 4K page which
-> contains data. I presume a simple memove would be better than alloc_page
-> + memcpy. What do you think?
-> 
-> Like:
->    memmove(page_address(fpage), page_address(fpage)+offset, size);
->    frag->page_offset = 0;
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of wenxiong@linux.vnet.ibm.com
+> Sent: Wednesday, May 28, 2014 6:57 PM
+> To: David Miller
+> Cc: Ariel Elior; netdev; Wen Xiong
+> Subject: [PATCH V2 1/2] bnx2x: Adapter not recovery from EEH error
+> injection
+>
+> When injecting EEH error to bnx2x adapter, adapter couldn't be recovery
+> and caused recursive EEH errors. The patch fixes the issue.
+>
+> Signed-off-by: Wen Xiong <wenxiong@linux.vnet.ibm.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> Index: b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+> ===================================================================
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c        2014-05-22
+> 18:42:48.000000000 -0500
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c        2014-05-22
+> 18:44:36.757765539 -0500
+> @@ -13279,8 +13279,8 @@ static int bnx2x_eeh_nic_unload(struct b
+>       netdev_reset_tc(bp->dev);
+>
+>       del_timer_sync(&bp->timer);
+> -     cancel_delayed_work(&bp->sp_task);
+> -     cancel_delayed_work(&bp->period_task);
+> +     cancel_delayed_work_sync(&bp->sp_task);
+> +     cancel_delayed_work_sync(&bp->period_task);
+>
+>       spin_lock_bh(&bp->stats_lock);
+>       bp->stats_state = STATS_STATE_DISABLED;
+>
 
-Isn't the rest of the page likely to contain fragments of other ethernet
-frames?  Even possibly of other data?
+Thanks.
 
-	David
+Reviewed-by: Dmitry Kravkov <dmitry.kravkov@qlogic.com>
+
+> --
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in the
+> body of a message to majordomo@vger.kernel.org More majordomo info at
+> http://vger.kernel.org/majordomo-info.html
+
+________________________________
+
+This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
