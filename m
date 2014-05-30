@@ -1,79 +1,64 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH-next] drivers/net: fix broadcom/bcmsysport.c compile fail on SPARC
-Date: Fri, 30 May 2014 10:02:07 -0400
-Message-ID: <1401458527-26513-1-git-send-email-paul.gortmaker@windriver.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: Ethernet bug at Upstream-v3.15-rcx on Lager.
+Date: Fri, 30 May 2014 15:04:34 +0100
+Message-ID: <53888FF2.8040505@codethink.co.uk>
+References: <53745E88.7040108@jinso.co.jp> <5374F753.70203@cogentembedded.com> <537564FC.4090905@jinso.co.jp> <5375A877.1090606@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Simon Horman <horms@verge.net.au>
+To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	cm-hiep@jinso.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:48731 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504AbaE3OCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:02:22 -0400
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:33899 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751529AbaE3OEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:04:40 -0400
+In-Reply-To: <5375A877.1090606@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To fix:
+On 16/05/14 06:56, Yoshihiro Shimoda wrote:
+> Hi Hiep-san,
+>=20
+> (2014/05/16 10:08), =E3=82=AB=E3=82=AA=E3=80=80=E3=83=9F=E3=83=B3=E3=80=
+=80=E3=83=92=E3=82=A7=E3=83=83=E3=83=97 wrote:
+>>>
+>>>> Please review it when you have time.
+>>>
+>>>    Please try this patch:
+>>>
+>>> http://marc.info/?l=3Dlinux-netdev&m=3D139602519809181
+>>>
+>> I have tested this patch on v3.15.0-rc5-00077-g14186fe, and results =
+are the message of
+>> "sh-eth r8a7790-ether eth0: Receive FIFO Overflow" has disappeared a=
+nd sending datagrams is good.
+>> (Bandwidth 10M to 100M: Test with 5/5 times by script and by hand ar=
+e good)
+>>
+>=20
+> It's nice!
+> So, I hope the patch is merged in upstream.
+> However, the patch's change log mentioned r8a7790 only.
+> The r8a7791's ethernet controller also has this bit.
 
-  CC      drivers/net/ethernet/broadcom/bcmsysport.o
-In file included from drivers/net/ethernet/broadcom/bcmsysport.c:28:0:
-drivers/net/ethernet/broadcom/bcmsysport.h:41:8: error: redefinition of 'struct tsb'
-arch/sparc/include/asm/mmu_64.h:65:8: note: originally defined here
-make[1]: *** [drivers/net/ethernet/broadcom/bcmsysport.o] Error 1
+The bit update covers both of them as the r8a7790 and r8a7791 both shar=
+e
+the same configuration structure.
 
-we change struct tsb to struct bcm_tsb in the broadcom driver in
-order to avoid the namespace collision.
+I re-sent the patch but didn't find your email post until after I had
+sent it, otherwise I would have mentioned your testing specifically. In
+future it would be helpful if you could do the following
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+- Mention driver by name in the subject line
+- Search the list for previous mentions and reply to that/those threads=
+=2E
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 4dc8d1e9829b..0d466c134a9e 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -759,7 +759,7 @@ static irqreturn_t bcm_sysport_tx_isr(int irq, void *dev_id)
- static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct sk_buff *nskb;
--	struct tsb *tsb;
-+	struct bcm_tsb *tsb;
- 	u32 csum_info;
- 	u8 ip_proto;
- 	u16 csum_start;
-@@ -777,7 +777,7 @@ static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
- 		skb = nskb;
- 	}
- 
--	tsb = (struct tsb *)skb_push(skb, sizeof(*tsb));
-+	tsb = (struct bcm_tsb *)skb_push(skb, sizeof(*tsb));
- 	/* Zero-out TSB by default */
- 	memset(tsb, 0, sizeof(*tsb));
- 
-@@ -1549,8 +1549,8 @@ static int bcm_sysport_probe(struct platform_device *pdev)
- 				NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
- 
- 	/* Set the needed headroom once and for all */
--	BUILD_BUG_ON(sizeof(struct tsb) != 8);
--	dev->needed_headroom += sizeof(struct tsb);
-+	BUILD_BUG_ON(sizeof(struct bcm_tsb) != 8);
-+	dev->needed_headroom += sizeof(struct bcm_tsb);
- 
- 	/* We are interfaced to a switch which handles the multicast
- 	 * filtering for us, so we do not support programming any
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
-index a0441e7c83cd..72a103c096f2 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.h
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.h
-@@ -38,7 +38,7 @@
- 				 ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
- 
- /* Transmit status block */
--struct tsb {
-+struct bcm_tsb {
- 	u32 pcp_dei_vid;
- #define PCP_DEI_MASK		0xf
- #define VID_SHIFT		4
--- 
-1.9.3
+
+--=20
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
