@@ -1,85 +1,105 @@
-From: Lars-Peter Clausen <lars@metafoo.de>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Fri, 30 May 2014 20:16:59 +0200
-Message-ID: <5388CB1B.3090802@metafoo.de>
-References: <20140530094025.3b78301e@canb.auug.org.au>        <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>        <1401449454-30895-2-git-send-email-berthe.ab@gmail.com> <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com> <5388C0F1.90503@gmail.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH-next] drivers/net: fix broadcom/bcmsysport.c compile fail
+ on SPARC
+Date: Fri, 30 May 2014 14:21:23 -0400
+Message-ID: <5388CC23.8050608@windriver.com>
+References: <1401458527-26513-1-git-send-email-paul.gortmaker@windriver.com> <CAGVrzcbUmaGt4hjKmmME7ssLGR_1bz=ggSePZJu28avc6GZJbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: abdoulaye berthe <berthe.ab@gmail.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <gnurou@gmail.com>, m@bues.ch,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Linux MIPS Mailing List <linux-mips@linux-mips.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	patches@opensource.wolfsonmicro.com,
-	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-	"linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
-	Linux Media Mailing List <linux-media@vger.kernel.org>,
-	linux-samsungsoc@vger.kernel.org, spear-devel@list.st.com,
-	platform-driver-x86@vg
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5388C0F1.90503@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:33257 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933014AbaE3SVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 14:21:21 -0400
+In-Reply-To: <CAGVrzcbUmaGt4hjKmmME7ssLGR_1bz=ggSePZJu28avc6GZJbA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2014 07:33 PM, David Daney wrote:
-> On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
->> On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com>
->> wrote:
->>> --- a/drivers/gpio/gpiolib.c
->>> +++ b/drivers/gpio/gpiolib.c
->>> @@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct
->>> gpio_chip *gpiochip);
->>>    *
->>>    * A gpio_chip with any GPIOs still requested may not be removed.
->>>    */
->>> -int gpiochip_remove(struct gpio_chip *chip)
->>> +void gpiochip_remove(struct gpio_chip *chip)
->>>   {
->>>          unsigned long   flags;
->>> -       int             status = 0;
->>>          unsigned        id;
->>>
->>>          acpi_gpiochip_remove(chip);
->>> @@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
->>>          of_gpiochip_remove(chip);
->>>
->>>          for (id = 0; id < chip->ngpio; id++) {
->>> -               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
->>> -                       status = -EBUSY;
->>> -                       break;
->>> -               }
->>> -       }
->>> -       if (status == 0) {
->>> -               for (id = 0; id < chip->ngpio; id++)
->>> -                       chip->desc[id].chip = NULL;
->>> -
->>> -               list_del(&chip->list);
->>> +               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
->>> +                       panic("gpio: removing gpiochip with gpios still
->>> requested\n");
+On 14-05-30 01:04 PM, Florian Fainelli wrote:
+> Hi Paul,
+> 
+> 2014-05-30 7:02 GMT-07:00 Paul Gortmaker <paul.gortmaker@windriver.com>:
+>> To fix:
 >>
->> panic?
->
-> NACK to the patch for this reason.  The strongest thing you should do here
-> is WARN.
->
-> That said, I am not sure why we need this whole patch set in the first place.
+>>   CC      drivers/net/ethernet/broadcom/bcmsysport.o
+>> In file included from drivers/net/ethernet/broadcom/bcmsysport.c:28:0:
+>> drivers/net/ethernet/broadcom/bcmsysport.h:41:8: error: redefinition of 'struct tsb'
+>> arch/sparc/include/asm/mmu_64.h:65:8: note: originally defined here
+>> make[1]: *** [drivers/net/ethernet/broadcom/bcmsysport.o] Error 1
+>>
+>> we change struct tsb to struct bcm_tsb in the broadcom driver in
+>> order to avoid the namespace collision.
+>>
+>> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
+> For consistency, we might want to rename 'struct tsb' to 'struct
+> bcm_tsb', thanks for catching this.
 
-Well, what currently happens when you remove a device that is a provider of 
-a gpio_chip which is still in use, is that the kernel crashes. Probably with 
-a rather cryptic error message. So this patch doesn't really change the 
-behavior, but makes it more explicit what is actually wrong. And even if you 
-replace the panic() by a WARN() it will again just crash slightly later.
+The above is what I did ; I assume however you meant "struct rsb"
+to "struct bcm_rsb", which does make sense for consistency.  I'll
+send a v2 with that incorporated.
 
-This is a design flaw in the GPIO subsystem that needs to be fixed.
+Thanks,
+Paul.
+--
 
-- Lars
+> 
+> Acked-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> index 4dc8d1e9829b..0d466c134a9e 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> @@ -759,7 +759,7 @@ static irqreturn_t bcm_sysport_tx_isr(int irq, void *dev_id)
+>>  static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
+>>  {
+>>         struct sk_buff *nskb;
+>> -       struct tsb *tsb;
+>> +       struct bcm_tsb *tsb;
+>>         u32 csum_info;
+>>         u8 ip_proto;
+>>         u16 csum_start;
+>> @@ -777,7 +777,7 @@ static int bcm_sysport_insert_tsb(struct sk_buff *skb, struct net_device *dev)
+>>                 skb = nskb;
+>>         }
+>>
+>> -       tsb = (struct tsb *)skb_push(skb, sizeof(*tsb));
+>> +       tsb = (struct bcm_tsb *)skb_push(skb, sizeof(*tsb));
+>>         /* Zero-out TSB by default */
+>>         memset(tsb, 0, sizeof(*tsb));
+>>
+>> @@ -1549,8 +1549,8 @@ static int bcm_sysport_probe(struct platform_device *pdev)
+>>                                 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+>>
+>>         /* Set the needed headroom once and for all */
+>> -       BUILD_BUG_ON(sizeof(struct tsb) != 8);
+>> -       dev->needed_headroom += sizeof(struct tsb);
+>> +       BUILD_BUG_ON(sizeof(struct bcm_tsb) != 8);
+>> +       dev->needed_headroom += sizeof(struct bcm_tsb);
+>>
+>>         /* We are interfaced to a switch which handles the multicast
+>>          * filtering for us, so we do not support programming any
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+>> index a0441e7c83cd..72a103c096f2 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.h
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+>> @@ -38,7 +38,7 @@
+>>                                  ENET_BRCM_TAG_LEN + ETH_FCS_LEN + ENET_PAD)
+>>
+>>  /* Transmit status block */
+>> -struct tsb {
+>> +struct bcm_tsb {
+>>         u32 pcp_dei_vid;
+>>  #define PCP_DEI_MASK           0xf
+>>  #define VID_SHIFT              4
+>> --
+>> 1.9.3
+>>
+> 
+> 
+> 
