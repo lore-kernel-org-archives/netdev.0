@@ -1,79 +1,98 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Fri, 30 May 2014 13:39:15 +0200
-Message-ID: <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
-References: <20140530094025.3b78301e@canb.auug.org.au>
-	<1401449454-30895-1-git-send-email-berthe.ab@gmail.com>
-	<1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx buffers are reduced
+Date: Fri, 30 May 2014 13:39:42 +0200
+Message-ID: <87d2eva41t.fsf@nemi.mork.no>
+References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
+	<1401435070-26721-4-git-send-email-bjorn@mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	Alexandre Courbot <gnurou@gmail.com>, m@bues.ch,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Linux MIPS Mailing List <linux-mips@linux-mips.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	patches@opensource.wolfsonmicro.com,
-	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-	"linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
-	Linux Media Mailing List <linux-media@vger.kernel.org>,
-	linux-samsungsoc@vger.kernel.org, spear-devel@list.st.com,
-	platform-driver-x86@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	driverdevel <deve
-To: abdoulaye berthe <berthe.ab@gmail.com>
-Return-path: <linux-leds-owner@vger.kernel.org>
-In-Reply-To: <1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
-Sender: linux-leds-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:54656 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752059AbaE3LkC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 07:40:02 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
+	(David Laight's message of "Fri, 30 May 2014 09:18:37 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com> wrote:
-> --- a/drivers/gpio/gpiolib.c
-> +++ b/drivers/gpio/gpiolib.c
-> @@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct gpio_chip *gpiochip);
->   *
->   * A gpio_chip with any GPIOs still requested may not be removed.
->   */
-> -int gpiochip_remove(struct gpio_chip *chip)
-> +void gpiochip_remove(struct gpio_chip *chip)
->  {
->         unsigned long   flags;
-> -       int             status = 0;
->         unsigned        id;
+David Laight <David.Laight@ACULAB.COM> writes:
+> From: Bj=C3=B8rn Mork=20
+>> It doesn't matter whether the buffer size goes up or down.  We have =
+to
+>> keep usbnet and device syncronized to be able to split transfers at =
+the
+>> correct boundaries. The spec allow skipping short packets when using
+>> max sized transfers.  If we don't tell usbnet about our new expected=
+ rx
+>> buffer size, then it will merge and/or split NTBs.  The driver does =
+not
+>> support this, and the result will be lots of framing errors.
+>>=20
+>> Fix by always reallocating usbnet rx buffers when the rx_max value
+>> changes.
 >
->         acpi_gpiochip_remove(chip);
-> @@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
->         of_gpiochip_remove(chip);
+> I'm guessing that the rx_max value is the maximum size of the USB bul=
+k
+> data 'message' that the device generates?
 >
->         for (id = 0; id < chip->ngpio; id++) {
-> -               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
-> -                       status = -EBUSY;
-> -                       break;
-> -               }
-> -       }
-> -       if (status == 0) {
-> -               for (id = 0; id < chip->ngpio; id++)
-> -                       chip->desc[id].chip = NULL;
-> -
-> -               list_del(&chip->list);
-> +               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
-> +                       panic("gpio: removing gpiochip with gpios still requested\n");
+> As such the URB only need to be longer that it.
 
-panic?
+So did I think too at first.  That's how I added the bug fixed by this
+commit :-)
 
-Is this likely to happen?
+The problem with NCM is that it explicitly allows (and encourage) using
+transfers which are multiples of the USB packet size, *without* any
+terminating short packet (0 or 1 byte). This means that the USB core
+won't know or care about the end of one transfer and the beginning of
+the next.  Which is fine.  But the cdc_ncm driver has to know, because
+it must split the transfers into frames it can decode.
 
-Gr{oetje,eeting}s,
+Now, the current cdc_ncm implementation has a built-in assumption that
+the size of the URB =3D=3D rx_max.  This lets it simplify the splitting=
+ into
+frames to nearly nothing: Any received URB contains exactly one frame.
+Therefore we need to keep the rx URB size strictly syncronized the
+rx_max.
 
-                        Geert
+> (Or multiples of the USB packet size, and the driver then merge URB
+> when generating skbs.)
+>
+> Since you are now copying the data out of the URB's skb before
+> passing the ethernet packet upstream, is there ever any real
+> requirement to use a small rx_max? or ever change rx_max?
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Yes.  usbnet doesn't currently recycle skbs.  Continuously allocating 3=
+2
+kB skbs (or even 64 kB truesize, which is the current cdc_ncm worst
+case) on memory constrained hosts is bound to fail eventually.  Reducin=
+g
+rx_max will reduce the order of the allocations and thereby the
+probability of failing.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+I've had reports from OpenWRT users with Huawei modems (which tend to
+use extreme buffers), constantly hitting the usbnet allocation failure
+event 'EVENT_RX_MEMORY'.  The result is of course terrible performance,
+where usbnet gets really busy trying to allocate buffers which just
+cannot be allocated...  Reducing rx_max by simply rebuilding the old
+driver with a lower hard limit has pretty much eliminated these issues,
+but is not generally a solution because it makes some modem firmwares
+fail.
+
+True, copying instead of cloning is probably going to help this problem
+too, but I believe there are still reasons why you do not want to allow
+the 64 kB skb abuse.
+
+
+
+Bj=C3=B8rn
