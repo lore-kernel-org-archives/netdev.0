@@ -1,75 +1,73 @@
-From: Christopher White <chris@logicalelegance.com>
-Subject: Re: [PATCH net-next] LISP: Locator/Identifier Separation Protocol
-Date: Fri, 30 May 2014 08:07:13 -0700
-Message-ID: <312043C7-F7FE-4F59-BD80-7CFE35710D5A@logicalelegance.com>
-References: <E5B7A820-EF96-4F50-81F8-DE7714105D89@logicalelegance.com> <CA+mtBx--drm2PLO5jrfN=6J-8OnAvaP6HefHo-Ck7EqH-d3scw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
+Date: Fri, 30 May 2014 15:08:40 +0000
+Message-ID: <417d6b6ae192430f9fee0a339074d9c6@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
+	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
+	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
+	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140530140137.GC783@arch.cereza>
+ <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.webfaction.com ([74.55.86.74]:48673 "EHLO
-	smtp.webfaction.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752069AbaE3PHQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 11:07:16 -0400
-In-Reply-To: <CA+mtBx--drm2PLO5jrfN=6J-8OnAvaP6HefHo-Ck7EqH-d3scw@mail.gmail.com>
+Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:15453
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753137AbaE3PIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 11:08:43 -0400
+In-Reply-To: <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Tom, I will address these and resubmit. I assume vxlan has been updated already?
-
--Chris
-
-On May 29, 2014, at 5:13 PM, Tom Herbert <therbert@google.com> wrote:
-
-> On Thu, May 29, 2014 at 2:05 PM, Christopher White
-> <chris@logicalelegance.com> wrote:
->> This is a static tunnel implementation of LISP as described in RFC 6830:
->>  http://tools.ietf.org/html/rfc6830
->> 
->> This driver provides point-to-point LISP dataplane
->> encapsulation/decapsulation for statically configured endpoints. It provides
->> support for IPv4 in IPv4 and IPv6 in IPv4. IPv6 outer headers are not
->> supported yet. Instance ID is supported on a per device basis.
->> 
-> 
-> Hi Chris,
-> 
-> Please look at my recent patches to standardize checksum handling for
-> UDP tunnel implementations. This should also include configuration to
-> enable UDP4 csums, as well as enabling zero csums in TX or RX for UDP6
-> when you implement v6 support. Some more specific comments are inline.
-> 
-> Thanks,
-> Tom
-> 
->> +static int handle_offloads(struct sk_buff *skb)
->> +{
->> +       if (skb_is_gso(skb)) {
->> +               int err = skb_unclone(skb, GFP_ATOMIC);
->> +               if (unlikely(err))
->> +                       return err;
->> +
->> +               skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
->> +       } else if (skb->ip_summed != CHECKSUM_PARTIAL) {
->> +               skb->ip_summed = CHECKSUM_NONE;
->> +       }
->> +
->> +       return 0;
->> +}
->> +
-> This should now just call iptunnel_handle_offloads with maybe setting
-> type to be SKB_GSO_UDP_TUNNEL_CSUM. See vxlan.c and my patches to
-> support UDP tunnels with csums.
-> 
->> +       /* If the NIC driver gave us an encapsulated packet
->> +        * with the encapsulation mark, the device checksummed it
->> +        * for us. Otherwise force the upper layers to verify it.
->> +        */
->> +       if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
->> +           !skb->encapsulation)
->> +               skb->ip_summed = CHECKSUM_NONE;
->> +
-> Checksum validation for UDP tunnels is now done in UDP so this should
-> be unnecessary.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBEYXRhOiBGcmlkYXks
+IE1heSAzMCwgMjAxNCAxMDo1NCBQTQ0KPlRvOiBlemVxdWllbC5nYXJjaWFAZnJlZS1lbGVjdHJv
+bnMuY29tDQo+Q2M6IER1YW4gRnVnYW5nLUIzODYxMTsgRGF2aWQgTGFpZ2h0OyBMaSBGcmFuay1C
+MjA1OTY7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgc2hh
+d24uZ3VvQGxpbmFyby5vcmc7IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207DQo+c3RlcGhlbkBu
+ZXR3b3JrcGx1bWJlci5vcmcNCj5TdWJqZWN0OiBSZTogW1BBVENIIHYxIDQvNl0gbmV0OiBmZWM6
+IEluY3JlYXNlIGJ1ZmZlciBkZXNjcmlwdG9yIGVudHJ5DQo+bnVtYmVyDQo+DQo+T24gRnJpLCAy
+MDE0LTA1LTMwIGF0IDExOjAxIC0wMzAwLCBlemVxdWllbC5nYXJjaWFAZnJlZS1lbGVjdHJvbnMu
+Y29tDQo+d3JvdGU6DQo+PiBIZWxsbyBFcmljLA0KPj4NCj4+IE9uIDMwIE1heSAwNjoxMyBBTSwg
+RXJpYyBEdW1hemV0IHdyb3RlOg0KPj4gPiBPbiBGcmksIDIwMTQtMDUtMzAgYXQgMDk6NDIgKzAw
+MDAsIGZ1Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+PiA+ID4gRnJvbTogRGF2aWQg
+TGFpZ2h0IDxEYXZpZC5MYWlnaHRAQUNVTEFCLkNPTT4gRGF0YTogRnJpZGF5LCBNYXkgMzAsDQo+
+PiA+ID4gMjAxNCA1OjExIFBNDQo+PiA+ID4gPg0KPj4gPiA+ID5Eb2VzIHRoZSBkcml2ZXIgc3Vw
+cG9ydCBCUUwgKG9yIHNpbWlsYXIpIGluIG9yZGVyIHRvIGxpbWl0IHRoZQ0KPj4gPiA+ID5hbW91
+bnQgb2YgcXVldWVkIHR4IHRyYWZmaWM/DQo+PiA+ID4gPk90aGVyd2lzZSB5b3UndmUgc2lnbmlm
+aWNhbnRseSBpbmNyZWFzZWQgdGhlIGxhdGVuY3kgZm9yDQo+PiA+ID4gPmNvbm5lY3Rpb25zIG90
+aGVyIHRoYW4gb25lIGRvaW5nIGJ1bGsgdHguDQo+PiA+ID4gPg0KPj4gPiA+ID4JRGF2aWQNCj4+
+ID4gPiA+DQo+PiA+ID4gVGhlIGRyaXZlciBzdGlsbCBkb24ndCBzdXBwb3J0IEJRTC4NCj4+ID4g
+PiBJIHdpbGwgYWRkIHRoZSBmZWF0dXJlIHRvIHN1cHBvcnQgRkVDLiBUaGFua3MgZm9yIHlvdXIg
+YWR2aXNlLg0KPj4gPg0KPj4gPiBOb3RlIHRoYXQgYSBmdWxsIHNpemUgVFNPIHBhY2tldCAoNDQg
+b3IgNDUgTVNTKSByZXF1aXJlcyBhYm91dCA4OCBvcg0KPj4gPiA5MCBkZXNjcmlwdG9ycy4NCj4+
+ID4NCj4+DQo+PiBXaGF0J3MgdGhlIHJhdGlvbmFsZSBiZWhpbmcgdGhvc2UgbnVtYmVycz8NCj4+
+DQo+DQo+NjRLQiBUU08gcGFja2V0LCB3aXRoIE1TUz0xNDYwIC0+IDQ0IHNlZ21lbnRzICAoNDQq
+MTQ2MCA9IDY0MjQwKSB3aXRoDQo+TVNTPTE0NDggKFRDUCB0aW1lc3RhbXBzKSAtPiA0NSBzZWdt
+ZW50cyAgKDQ1KjE0NDggPSA2NTE2MCkNCj4NCj5UaGlzIHNvZnR3YXJlIFRTTyBlbXVsYXRpb24g
+dXNlcyBhdCBsZWFzdCAyIGRlc2NyaXB0b3JzIHBlciBNU1MNCj4NCj5vbmUgZGVzY3JpcHRvciB0
+byBob2xkIHRoZSBoZWFkZXJzIChldGhlcm5ldCArIGlwICsgdGNwKSBvbmUgZGVzY3JpcHRvcg0K
+PihvciB0d28pIHRvIGhvbGQgdGhlIHBheWxvYWQgZm9yIHRoaXMgTVNTDQo+DQpUaGFua3MgZm9y
+IEVyaWMncyBkZXRhaWwgZXhwbGFpbi4NCg0KSWYgZnJhZyBwYWdlIGRhdGEgaXMgbm90IG1hdGNo
+IHRoZSBhbGlnbm1lbnQgZm9yIGV0aGVybmV0IERNQSBjb250cm9sbGVyLCB0aGVyZSBuZWVkIHRo
+cmVlIGRlc2NyaXB0b3IgZm9yIG9uZSBNU1M6DQpPbmUgZGVzY3JpcHRvciBmb3IgaGVhZGVycywg
+b25lIGZvciB0aGUgZmlyc3Qgbm9uLWFsaWduIGJ5dGVzIGNvcGllZCBmcm9tIGZyYWcgcGFnZSwg
+b25lIGZvciB0aGUgcmVzdCBvZiBmcmFnIHBhZ2UuDQoNClNvIG9uZSBmcmFtZSBtYXkgY29zdCBk
+ZXNjcmlwdG9yIG51bWJlciBpczogMyB4IDQ1IA0KDQpBbmQgSSB3aWxsIGFkZCBpbnRlcnJ1cHQg
+Y29hbGVzY2luZyBzdXBwb3J0IGZvciB0eCBhbmQgcngsIHdoaWNoIGFsc28gY29zdCBzb21lIG1v
+cmUgZGVzY3JpcHRvcnMuDQoNClNvIHRoZSBkZXNjcmlwdG9ycyBzbG90cyBzZXQgdG8gNTEyIGlz
+IG5vdCBiaWcsIGp1c3QgaXMgcmVhc29uYWJsZS4gRG8geW91IHRoaW5rID8NCg0KDQpUaGFua3Ms
+DQpBbmR5IA0K
