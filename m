@@ -1,66 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v1 4/6] net: fec: Increase buffer descriptor entry number
-Date: Fri, 30 May 2014 07:54:02 -0700
-Message-ID: <1401461642.3645.104.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
-	 <1401415552-2263-5-git-send-email-b38611@freescale.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D1725053E@AcuExch.aculab.com>
-	 <bf938381e86b4ef5b4e3cbec8733fd2e@BLUPR03MB373.namprd03.prod.outlook.com>
-	 <1401455586.3645.96.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140530140137.GC783@arch.cereza>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [PATCH] cnic: don't take the rtnl_read_lock in
+	cnic_rcv_netevent
+Date: Fri, 30 May 2014 11:00:19 -0400
+Message-ID: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "fugang.duan@freescale.com" <fugang.duan@freescale.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:38215 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753393AbaE3OyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 10:54:04 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rp16so1802238pbb.6
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 07:54:03 -0700 (PDT)
-In-Reply-To: <20140530140137.GC783@arch.cereza>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
+ <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel>
+List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
+ <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Sender: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-05-30 at 11:01 -0300, ezequiel.garcia@free-electrons.com
-wrote:
-> Hello Eric,
-> 
-> On 30 May 06:13 AM, Eric Dumazet wrote:
-> > On Fri, 2014-05-30 at 09:42 +0000, fugang.duan@freescale.com wrote:
-> > > From: David Laight <David.Laight@ACULAB.COM> Data: Friday, May 30, 2014 5:11 PM
-> > > >
-> > > >Does the driver support BQL (or similar) in order to limit the amount of
-> > > >queued tx traffic?
-> > > >Otherwise you've significantly increased the latency for connections other
-> > > >than one doing bulk tx.
-> > > >
-> > > >	David
-> > > >
-> > > The driver still don't support BQL.
-> > > I will add the feature to support FEC. Thanks for your advise.
-> > 
-> > Note that a full size TSO packet (44 or 45 MSS) requires about 88 or 90
-> > descriptors.
-> > 
-> 
-> What's the rationale behing those numbers?
-> 
+The Cnic driver handles lots of ulp operations in its netdevice event hanlder.
+To do this, it accesses the ulp_ops array, which is an rcu protected array.
+However, some ulp operations (like bnx2fc_indicate_netevent) try to lock
+mutexes, which might sleep (somthing that you can't do while holding rcu read
+side locks if you've configured non-preemptive rcu.
 
-64KB TSO packet, with MSS=1460 -> 44 segments  (44*1460 = 64240)
-with MSS=1448 (TCP timestamps) -> 45 segments  (45*1448 = 65160)
+Fix this by changing the dereference method.  All accesses to the ulp_ops array
+for a cnic dev are modified under the protection of the rtnl lock, and so we can
+safely just use rcu_dereference_rtnl, and remove the rcu_read_lock here
 
-This software TSO emulation uses at least 2 descriptors per MSS
+Signed-off-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+CC: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+CC: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+CC: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org
+CC: Robert Love <robert.w.love-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+CC: Vasu Dev <vasu.dev-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+---
+ drivers/net/ethernet/broadcom/cnic.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-one descriptor to hold the headers (ethernet + ip + tcp)
-one descriptor (or two) to hold the payload for this MSS
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index f58a8b8..bfdb9f0 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5622,12 +5622,11 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
+ {
+ 	int if_type;
+ 
+-	rcu_read_lock();
+ 	for (if_type = 0; if_type < MAX_CNIC_ULP_TYPE; if_type++) {
+ 		struct cnic_ulp_ops *ulp_ops;
+ 		void *ctx;
+ 
+-		ulp_ops = rcu_dereference(cp->ulp_ops[if_type]);
++		ulp_ops = rcu_dereference_rtnl(cp->ulp_ops[if_type]);
+ 		if (!ulp_ops || !ulp_ops->indicate_netevent)
+ 			continue;
+ 
+@@ -5635,7 +5634,6 @@ static void cnic_rcv_netevent(struct cnic_local *cp, unsigned long event,
+ 
+ 		ulp_ops->indicate_netevent(ctx, event, vlan_id);
+ 	}
+-	rcu_read_unlock();
+ }
+ 
+ /* netdev event handler */
+-- 
+1.8.3.1
