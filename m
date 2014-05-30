@@ -1,66 +1,56 @@
-From: "SAFIA RAHAJ HASSAN" <wumt@mail.com>
-Subject: Assalamualaikum
-Date: Fri, 30 May 2014 12:30:15 -0400 (AST)
-Message-ID: <52825.41.45.198.137.1401467415.squirrel@mail.flowtrinidad.com>
-Reply-To: safiarahajhas@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1256
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 1/8] net: mvneta: Use default NAPI weight instead of a custom one
+Date: Fri, 30 May 2014 13:40:04 -0300
+Message-ID: <1401468011-10609-2-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Tawfik Bayouk <tawfik@marvell.com>, fugang.duan@freescale.com,
+	Willy Tarreau <w@1wt.eu>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.flowtrinidad.com ([200.1.104.38]:38617 "EHLO
-	mail.flowtrinidad.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754460AbaE3Qhh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:37:37 -0400
+Received: from top.free-electrons.com ([176.31.233.9]:58412 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756103AbaE3QlH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:41:07 -0400
+In-Reply-To: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This driver has no need for a custom NAPI weigth. Use the default
+one, which has the same value.
 
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvneta.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-
-Assalamualaikum
-=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5 =E6=C8=D1=
-=DF=C7=CA=E5....=C7=CA=E3=E4=ED =C7=E4 =CA=DF=E6=E4 =C7=E4=CA =E6=C7=E1=
-=DA=C7=C6=E1=C9 =C8=D5=CD=C9 =CC=ED=CF=C9
-=E6=DD=EC =C7=CD=D3=E4 =CD=C7=E1 =C7=E4 =D4=C7=C1 =C7=E1=E1=C9...=E6=C7=
-=CA=E3=E4=ED =C7=E4 =CA=D5=E1=ED =E3=DA=ED =E1=E1=C9 =DA=D2 =E6=CC=E1 =C7=
-=E4 =ED=CC=E1=C8 =C7=E1=D3=E1=C7=E3
-=E6=C7=E1=C7=D3=CA=DE=D1=C7=D1 =E1=E1=D4=DA=C8 =C7=E1=D3=E6=D1=ED.
-=D5=CF=ED=DE=ED =C7=E1=DA=D2=ED=D2 =C7=CA=E3=E4=ED =C7=E4 =D1=D3=C7=E1=CA=
-=ED =E5=CF=C9 =E1=E3 =CA=D3=C8=C8 =E1=DF =C7=E1=C7=D2=DA=C7=CC =C7=E6 =CA=
-=DA=CA=DE=CF =C7=E4=E4=ED =C7=CD=C7=E6=E1 =C7=E4
-=C7=CD=CA=C7=E1 =DA=E1=ED=DF =E1=C7=E4=E4=ED =E1=D3=CA =E3=CB=E1 =C7=E1=
-=E3=CD=CA=C7=E1=ED=E4 =DA=E1=ED =D4=C8=DF=C9 =C7=E1=C7=E4=CA=D1=E4=CA =E1=
-=C7 =C7=E4=E4=ED =C7=E3=D1=C7=C9 =E3=D3=E1=E3=C9
-=E6=C7=E3 =E6=CD=ED=CF=C9 =C7=D1=E3=E1=C9 =E1=D8=DD=E1=ED=E4 =E6=C7=E4=E4=
-=ED =E3=E4 =D3=E6=D1=ED=C7... =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =D4=CE=D5=
- =D5=C7=CF=DE =E6=E4=D2=ED=E5 =E1=ED=DF=E6=E4
-=D4=D1=ED=DF=ED =E6=E1=ED=D3=C7=DA=CF=E4=ED =DD=ED =CA=C7=E3=ED=E4 =C7=E3=
-=CA=DA=C9 =DA=C7=C6=E1=CA=ED =E1=C7=E4=E4=C7 =DA=E1=ED =E6=D4=DF =C7=E4=
- =E4=DB=C7=CF=D1 =D3=E6=D1=ED=C7 =E1=E3=DF=C7=E4
-=C7=DF=CB=D1 =C7=E3=C7=E4=C7 =E6=C7=D1=ED=CF =C7=E1=C7=D3=CA=CB=E3=C7=D1=
- =E5=E4=C7=DF =E1=C7=E4=E5 =E1=C7 =ED=E6=CC=CF =C7=E3=E4 =C7=E6 =C7=ED =
-=C7=D3=CA=DE=D1=C7=D1 =DD=ED =D3=E6=D1=ED=C7
-=CD=C7=E1=ED=C7 =E6=C7=E4=C7 =DA=E4=CF=ED =C8=DA=D6 =C7=E1=C7=DE=CA=D1=C7=
-=CD=C7=CA =C7=D1=ED=CF =C7=E4 =E4=CA=D4=C7=D1=DF =DD=ED=E5=C7 =D3=E6=ED=
-=C7 =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4
-=E3=D3=CA=CB=E3=D1 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=C7 =E1=ED =E1=C7=E4=E4=ED=
- =C7=D1=ED=CF =C7=E4 =C7=C8=CF=C1 =DD=ED =C8=E4=C7=C1 =C7=D3=CA=CB=E3=C7=
-=D1 =E1=C8=DA=D6 =C7=E1=C7=DA=E3=C7=E1 =CE=C7=D1=CC
-=D3=E6=D1=ED=C7 =E1=C7=E4=E5=C7 =E1=ED=D3=CA =C8=E3=DF=C7=E4 =C7=E3=E4 =
-=CD=C7=E1=ED=C7...=C7=D1=ED=CF=DF =C7=E4 =CA=DA=D1=DD =C7=E4 =C7=CA=D5=E1=
- =C8=DF =E1=C8=CF=C7=C1 =D4=ED =DF=CA=ED=D1
-=DF=E6=ED=D3 =E6=C7=E4=DF =D3=E6=DD =CA=D3=CA=DD=ED=CF =C7=CF=C7 =C7=D1=
-=CA =C7=E4 =CA=DF=E6=E4 =D4=D1=ED=DF=ED =DD=ED =E5=CF=C7 =C7=E1=C7=D3=CA=
-=CB=E3=C7=D1 =C8=C7=E1=C7=ED=E3=C7=E4 =C7=CA=D5=E1
-=C8=ED =DA=E1=ED =C7=E1=C8=ED=C7=E4=C7=CA =C7=E1=E3=E6=CC=E6=CF=C9 =C8=C7=
-=E1=C7=D3=DD=E1 =E6=D3=E6=DD =C7=DA=D8=ED=DF =C8=ED=C7=E4=C7=CA =DA=E4 =
-=C7=E1=E3=E6=D6=E6=DA
-
-1)=C7=E1=C7=D3=E3 =C8=C7=E1=DF=C7=E3=E1
-
-2)=D1=DE=E3 =C7=E1=CA=E1=ED=DD=E6=E4 =E1=E1=C7=CA=D5=C7=E1 =C8=DF
-
-=D3=E6=DD =C7=CA=D5=E1 =C8=DF =E1=E3=E4=C7=DE=D4=C9 =C8=DA=D6 =C7=E1=C7=
-=E3=E6=D1 =C7=E1=CE=C7=D5=C9 =C8=C7=E1=E3=E6=D6=E6=DA =C7=D1=CC=E6 =C7=E1=
-=C7=D1=D3=C7=E1 =DA=E1=EC =C8=D1=ED=CF=ED
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b8919fa..af1ac82 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -219,9 +219,6 @@
+ #define MVNETA_RX_COAL_PKTS		32
+ #define MVNETA_RX_COAL_USEC		100
+ 
+-/* Napi polling weight */
+-#define MVNETA_RX_POLL_WEIGHT		64
+-
+ /* The two bytes Marvell header. Either contains a special value used
+  * by Marvell switches when a specific hardware mode is enabled (not
+  * supported by this driver) or is filled automatically by zeroes on
+@@ -3025,7 +3022,7 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	if (dram_target_info)
+ 		mvneta_conf_mbus_windows(pp, dram_target_info);
+ 
+-	netif_napi_add(dev, &pp->napi, mvneta_poll, MVNETA_RX_POLL_WEIGHT);
++	netif_napi_add(dev, &pp->napi, mvneta_poll, NAPI_POLL_WEIGHT);
+ 
+ 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
+ 	dev->hw_features |= dev->features;
+-- 
+1.9.1
