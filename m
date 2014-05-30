@@ -1,54 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ipv6: Fix regression caused by efe4208 in
- udp_v6_mcast_next()
-Date: Fri, 30 May 2014 15:18:39 -0700 (PDT)
-Message-ID: <20140530.151839.1819689526929476760.davem@davemloft.net>
-References: <1401395226-10304-1-git-send-email-sven.wegener@stealer.net>
-	<1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
-	<1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sven.wegener@stealer.net, netdev@vger.kernel.org,
-	edumazet@google.com
-To: eric.dumazet@gmail.com
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: fix cwnd undo on DSACK in F-RTO
+Date: Fri, 30 May 2014 15:25:59 -0700
+Message-ID: <1401488759-22637-1-git-send-email-ycheng@google.com>
+Cc: ncardwell@google.com, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59963 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932289AbaE3WSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:18:42 -0400
-In-Reply-To: <1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:56163 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934204AbaE3W0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:26:42 -0400
+Received: by mail-yh0-f73.google.com with SMTP id f73so550175yha.2
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 15:26:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 29 May 2014 13:37:35 -0700
+This bug is discovered by an recent F-RTO issue on tcpm list
+https://www.ietf.org/mail-archive/web/tcpm/current/msg08794.html
 
-> On Thu, 2014-05-29 at 20:27 +0000, Sven Wegener wrote:
->> Commit efe4208 ("ipv6: make lookups simpler and faster") introduced a
->> regression in udp_v6_mcast_next(), resulting in multicast packets not
->> reaching the destination sockets under certain conditions.
->> 
->> The packet's IPv6 addresses are wrongly compared to the IPv6 addresses
->> from the function's socket argument, which indicates the starting point
->> for looping, instead of the loop variable. If the addresses from the
->> first socket do not match the packet's addresses, no socket in the list
->> will match.
->> 
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: stable@vger.kernel.org # 3.13+
->> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
->> ---
->>  net/ipv6/udp.c | 8 ++++----
->>  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> Acked-by: Eric Dumazet <edumazet@google.com>
-> 
-> I removed the CC stable@ , as you should not have use it.
+The bug is that currently F-RTO does not use DSACK to undo cwnd in
+certain cases: upon receiving an ACK after the RTO retransmission in
+F-RTO, and the ACK has DSACK indicating the retransmission is spurious,
+the sender only calls tcp_try_undo_loss() if some never retransmisted
+data is sacked (FLAG_ORIG_DATA_SACKED).
 
-I'll apply this to 'net' and queue it up for -stable, thanks.
+The correct behavior is to unconditionally call tcp_try_undo_loss so
+the DSACK information is used properly to undo the cwnd reduction.
 
-The next time I merge 'net' into 'net-next' I'll add the second
-patch there.
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_input.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-Thanks again.
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d6b46eb..3a26b3b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2684,13 +2684,12 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
+ 	bool recovered = !before(tp->snd_una, tp->high_seq);
+ 
+ 	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
+-		if (flag & FLAG_ORIG_SACK_ACKED) {
+-			/* Step 3.b. A timeout is spurious if not all data are
+-			 * lost, i.e., never-retransmitted data are (s)acked.
+-			 */
+-			tcp_try_undo_loss(sk, true);
++		/* Step 3.b. A timeout is spurious if not all data are
++		 * lost, i.e., never-retransmitted data are (s)acked.
++		 */
++		if (tcp_try_undo_loss(sk, flag & FLAG_ORIG_SACK_ACKED))
+ 			return;
+-		}
++
+ 		if (after(tp->snd_nxt, tp->high_seq) &&
+ 		    (flag & FLAG_DATA_SACKED || is_dupack)) {
+ 			tp->frto = 0; /* Loss was real: 2nd part of step 3.a */
+-- 
+1.9.1.423.g4596e3a
