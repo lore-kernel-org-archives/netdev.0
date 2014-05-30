@@ -1,136 +1,92 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2] macvlan: fix the problem when mac address
- changes for passthru mode
-Date: Fri, 30 May 2014 10:36:22 +0800
-Message-ID: <5387EEA6.1080609@huawei.com>
-References: <5386E137.1040304@huawei.com> <53873A32.5000107@gmail.com>
+From: Bill Fink <billfink@mindspring.com>
+Subject: Re: inconsistency of ethtool feature names for get vs. set
+Date: Thu, 29 May 2014 22:39:06 -0400
+Message-ID: <20140529223906.c79827145882d8a7e270b68a@mindspring.com>
+References: <52C535B9.7080208@mellanox.com>
+	<1388675034.1607.9.camel@bwh-desktop.uk.level5networks.com>
+	<1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
+	<20140106235858.5ce80054.billfink@mindspring.com>
+	<loom.20140529T162434-807@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Spike White <spikewhitetx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:6999 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbaE3Ch2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 22:37:28 -0400
-In-Reply-To: <53873A32.5000107@gmail.com>
+Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:44780 "EHLO
+	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751037AbaE3Co5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 22:44:57 -0400
+In-Reply-To: <loom.20140529T162434-807@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/5/29 21:46, Vlad Yasevich wrote:
-> On 05/29/2014 03:26 AM, Ding Tianhong wrote:
->> The macvlan dev should always have the same mac address like lowerdev
->> when in the passthru mode, change the mac address alone will break the
->> work mechanism, so when the lowerdev or macvlan mac address changes,
->> we should propagate the changes to another dev.
->>
->> v1->v2: Allow macvlan dev to change mac address for passthru mode and propagate to
->> 	lowerdev.
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  drivers/net/macvlan.c | 42 +++++++++++++++++++++++++++++++++---------
->>  1 file changed, 33 insertions(+), 9 deletions(-)
->>
->> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->> index a665e90..3e24770 100644
->> --- a/drivers/net/macvlan.c
->> +++ b/drivers/net/macvlan.c
->> @@ -494,35 +494,47 @@ hash_del:
->>  	return 0;
->>  }
->>  
->> -static int macvlan_set_mac_address(struct net_device *dev, void *p)
->> +static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
->>  {
->>  	struct macvlan_dev *vlan = netdev_priv(dev);
->>  	struct net_device *lowerdev = vlan->lowerdev;
->> -	struct sockaddr *addr = p;
->>  	int err;
->>  
->> -	if (!is_valid_ether_addr(addr->sa_data))
->> -		return -EADDRNOTAVAIL;
->> -
->>  	if (!(dev->flags & IFF_UP)) {
->>  		/* Just copy in the new address */
->> -		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
->> +		ether_addr_copy(dev->dev_addr, addr);
->>  	} else {
->>  		/* Rehash and update the device filters */
->> -		if (macvlan_addr_busy(vlan->port, addr->sa_data))
->> +		if (macvlan_addr_busy(vlan->port, addr))
->>  			return -EBUSY;
->>  
->> -		err = dev_uc_add(lowerdev, addr->sa_data);
->> +		err = dev_uc_add(lowerdev, addr);
->>  		if (err)
->>  			return err;
->>  
->>  		dev_uc_del(lowerdev, dev->dev_addr);
->>  
->> -		macvlan_hash_change_addr(vlan, addr->sa_data);
->> +		macvlan_hash_change_addr(vlan, addr);
->>  	}
->>  	return 0;
->>  }
->>  
->> +static int macvlan_set_mac_address(struct net_device *dev, void *p)
->> +{
->> +	struct macvlan_dev *vlan = netdev_priv(dev);
->> +	struct sockaddr *addr = p;
->> +
->> +	if (!is_valid_ether_addr(addr->sa_data))
->> +		return -EADDRNOTAVAIL;
->> +
->> +	if (vlan->mode == MACVLAN_MODE_PASSTHRU) {
->> +		dev_set_mac_address(vlan->lowerdev, addr);
->> +		return 0;
->> +	}
->> +
->> +	return macvlan_sync_address(dev, addr->sa_data);
->> +}
->> +
->>  static void macvlan_change_rx_flags(struct net_device *dev, int change)
->>  {
->>  	struct macvlan_dev *vlan = netdev_priv(dev);
->> @@ -1106,6 +1118,18 @@ static int macvlan_device_event(struct notifier_block *unused,
->>  			dev_set_mtu(vlan->dev, dev->mtu);
->>  		}
->>  		break;
->> +	case NETDEV_CHANGEADDR:
->> +		if (!port->passthru)
->> +			return NOTIFY_DONE;
->> +
->> +		vlan = list_first_entry_or_null(&port->vlans,
->> +						struct macvlan_dev,
->> +						list);
->> +
->> +		if (macvlan_sync_address(vlan->dev, dev->dev_addr))
->> +			return NOTIFY_BAD;
->> +
-> 
-> Ok, this is not quite right.  The lower device changes it's mac address
-> and notifies upper macvlan about it.  Macvlan, if it is up, will write
-> the same mac address down to the lower device's unicast address list
-> as part of the sync.  The lower device ends up with two copies of its
-> own address.
-> 
-> -vlad
+On Thu, 29 May 2014, Spike White wrote:
 
-Good catch, I will fix it, thanks.
+> Bill Fink <billfink <at> mindspring.com> writes:
+> 
+> > 
+> > On Thu, 2 Jan 2014, Ben Hutchings wrote:
+> > 
+> > > On Thu, 2014-01-02 at 15:03 +0000, Ben Hutchings wrote:
+> > > > On Thu, 2014-01-02 at 11:47 +0200, Or Gerlitz wrote:
+> > > [...]
+> > > > > $ ethtool -k eth1  | grep generic-receive-offload
+> > > > > generic-receive-offload: on
+> > > > > 
+> > > > > $ ethtool -K eth1  generic-receive-offload off
+> > > > > ethtool: bad command line argument(s)
+> > > > > For more information run ethtool -h
+> > > > > 
+> > > > > --> looking in the sources and realizing I need to use "rx-gro"
+> > > > 
+> > > > Or 'gro'.  All the old feature names that can be used with the -K 
+> option
+> > > > are listed in the manual page.  All the new feature names are 
+> consistent
+> > > > between -k/-K.
+> > > 
+> > > By 'new feature names' I mean names for features that weren't 
+> previously
+> > > exposed through ethtool.
+> > > 
+> > > [...]
+> > > > > Basically, this can be resolved by fairly simple patch, but I 
+> wasn't 
+> > > > > sure if you want it in user space, in the kernel or both...
+> > > > 
+> > > > How do you intend to resolve this, given the compatibility 
+> requirement
+> > > > that the old names must still be reported by -k and accepted by -K?
+> > > 
+> > > Just to be clear, I do see that there's a problem here but the fix may
+> > > have to be mostly or entirely in documentation rather than code.
+> > 
+> > Wouldn't one simple option be to allow the long form like
+> > generic-receive-offload for setting in addition to the existing
+> > shortcuts rx-gro and gro?  That way a user doing "ethtool -k"
+> > could use the name provided to do a set via "ethtool -K" without
+> > needing to consult a man page (or "ethtool -h"), while still
+> > allowing more knowledgeable users to use the shortcut names.
+> > 
+> > 					-Bill
+> > 
+> 
+> I love Bill's suggestion. 
+> 
+> For instance, I have a mandate from my network engineering team to disable 
+> all offloads on all Linux VMs.  (don't ask).
+> 
+> I plagiarized the below code.  But it uses the same keywords that it gets 
+> from -k to call -K.  So it fails.
+> 
+> So I have to continue to play whack-a-mole.  As new offloads arise, 
+> decipher the translation (via viewing man pages, etc.)
 
-Ding
+Someone, I believe Ben Hutchings, had an ethtool patch that
+accomplished my suggestion.  Ben just needed someone to test
+it.  I unfortunately didn't have time back then to do the
+testing myself, nor do I now, but the patch should be in
+the archives.
 
->> +		break;
->>  	case NETDEV_UNREGISTER:
->>  		/* twiddle thumbs on netns device moves */
->>  		if (dev->reg_state != NETREG_UNREGISTERING)
->>
-> 
-> 
-> .
-> 
+					-Bill
