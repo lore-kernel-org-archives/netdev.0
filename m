@@ -1,92 +1,58 @@
-From: Bill Fink <billfink@mindspring.com>
-Subject: Re: inconsistency of ethtool feature names for get vs. set
-Date: Thu, 29 May 2014 22:39:06 -0400
-Message-ID: <20140529223906.c79827145882d8a7e270b68a@mindspring.com>
-References: <52C535B9.7080208@mellanox.com>
-	<1388675034.1607.9.camel@bwh-desktop.uk.level5networks.com>
-	<1388688114.9947.30.camel@bwh-desktop.uk.level5networks.com>
-	<20140106235858.5ce80054.billfink@mindspring.com>
-	<loom.20140529T162434-807@post.gmane.org>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v1 0/6] *** net: fec: Enable Software TSO to improve the tx performance ***
+Date: Fri, 30 May 2014 10:05:46 +0800
+Message-ID: <1401415552-2263-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Spike White <spikewhitetx@gmail.com>
+Content-Type: text/plain
+Cc: <ezequiel.garcia@free-electrons.com>, <netdev@vger.kernel.org>,
+	<shawn.guo@linaro.org>, <bhutchings@solarflare.com>,
+	<b38611@freescale.com>, <stephen@networkplumber.org>
+To: <b20596@freescale.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-junco.atl.sa.earthlink.net ([209.86.89.63]:44780 "EHLO
-	elasmtp-junco.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751037AbaE3Co5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 May 2014 22:44:57 -0400
-In-Reply-To: <loom.20140529T162434-807@post.gmane.org>
+Received: from mail-bn1blp0189.outbound.protection.outlook.com ([207.46.163.189]:43184
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752099AbaE3D1W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 May 2014 23:27:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 May 2014, Spike White wrote:
+Add SG and software TSO support for FEC.
+This feature allows to improve outbound throughput performance.
+Tested on imx6dl sabresd board, running iperf tcp tests shows:
+	* 82% improvement comparing with NO SG & TSO patch
 
-> Bill Fink <billfink <at> mindspring.com> writes:
-> 
-> > 
-> > On Thu, 2 Jan 2014, Ben Hutchings wrote:
-> > 
-> > > On Thu, 2014-01-02 at 15:03 +0000, Ben Hutchings wrote:
-> > > > On Thu, 2014-01-02 at 11:47 +0200, Or Gerlitz wrote:
-> > > [...]
-> > > > > $ ethtool -k eth1  | grep generic-receive-offload
-> > > > > generic-receive-offload: on
-> > > > > 
-> > > > > $ ethtool -K eth1  generic-receive-offload off
-> > > > > ethtool: bad command line argument(s)
-> > > > > For more information run ethtool -h
-> > > > > 
-> > > > > --> looking in the sources and realizing I need to use "rx-gro"
-> > > > 
-> > > > Or 'gro'.  All the old feature names that can be used with the -K 
-> option
-> > > > are listed in the manual page.  All the new feature names are 
-> consistent
-> > > > between -k/-K.
-> > > 
-> > > By 'new feature names' I mean names for features that weren't 
-> previously
-> > > exposed through ethtool.
-> > > 
-> > > [...]
-> > > > > Basically, this can be resolved by fairly simple patch, but I 
-> wasn't 
-> > > > > sure if you want it in user space, in the kernel or both...
-> > > > 
-> > > > How do you intend to resolve this, given the compatibility 
-> requirement
-> > > > that the old names must still be reported by -k and accepted by -K?
-> > > 
-> > > Just to be clear, I do see that there's a problem here but the fix may
-> > > have to be mostly or entirely in documentation rather than code.
-> > 
-> > Wouldn't one simple option be to allow the long form like
-> > generic-receive-offload for setting in addition to the existing
-> > shortcuts rx-gro and gro?  That way a user doing "ethtool -k"
-> > could use the name provided to do a set via "ethtool -K" without
-> > needing to consult a man page (or "ethtool -h"), while still
-> > allowing more knowledgeable users to use the shortcut names.
-> > 
-> > 					-Bill
-> > 
-> 
-> I love Bill's suggestion. 
-> 
-> For instance, I have a mandate from my network engineering team to disable 
-> all offloads on all Linux VMs.  (don't ask).
-> 
-> I plagiarized the below code.  But it uses the same keywords that it gets 
-> from -k to call -K.  So it fails.
-> 
-> So I have to continue to play whack-a-mole.  As new offloads arise, 
-> decipher the translation (via viewing man pages, etc.)
+$ ethtool -K eth0 sg on
+$ ethtool -K eth0 tso on
+ [  3] local 10.192.242.108 port 35388 connected with 10.192.242.167 port 5001
+ [ ID] Interval       Transfer     Bandwidth
+ [  3]  0.0- 3.0 sec   181 MBytes   506 Mbits/sec
 
-Someone, I believe Ben Hutchings, had an ethtool patch that
-accomplished my suggestion.  Ben just needed someone to test
-it.  I unfortunately didn't have time back then to do the
-testing myself, nor do I now, but the patch should be in
-the archives.
+$ ethtool -K eth0 sg off
+$ ethtool -K eth0 tso off
+[  3] local 10.192.242.108 port 52618 connected with 10.192.242.167 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0- 3.0 sec  99.5 MBytes   278 Mbits/sec
 
-					-Bill
+FEC HW support IP header and TCP/UDP hw checksum, support multi buffer descriptor transfer
+one frame, but don't support HW TSO, so FEC bandwidth is limited to this.
+
+The patch set just enable TSO feature.  Test on imx6dl sabresd board, there have 82% improvement.
+The software TSO also tested on imx6sx platform, the cpu loading reduce from 100% to 52% with the
+same Bandwidth, later, i will send some patch let FEC support imx6sx platform.
+
+
+Fugang Duan (6):
+  net: fec: Factorize the .xmit transmit function
+  net: fec: Enable IP header hardware checksum
+  net: fec: Factorize feature setting
+  net: fec: Increase buffer descriptor entry number
+  net: fec: Add Scatter/gather support
+  net: fec: Add software TSO support
+
+ drivers/net/ethernet/freescale/fec.h      |   12 +-
+ drivers/net/ethernet/freescale/fec_main.c |  510 +++++++++++++++++++++++-----
+ 2 files changed, 427 insertions(+), 95 deletions(-)
+
+-- 
+1.7.8
