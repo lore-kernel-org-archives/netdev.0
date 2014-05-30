@@ -1,239 +1,524 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 2/6] be2net: fixup TX-rate setting code for Skyhawk-R
-Date: Fri, 30 May 2014 19:06:24 +0530
-Message-ID: <1401456988-11395-3-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 3/6] be2net: support flashing new regions on Skyhawk-R
+Date: Fri, 30 May 2014 19:06:25 +0530
+Message-ID: <1401456988-11395-4-git-send-email-sathya.perla@emulex.com>
 References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:7589 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504AbaE3Ndf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:35 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:38191 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751529AbaE3Ndh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:37 -0400
 In-Reply-To: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ravikumar Nelavelli <ravikumar.nelavelli@emulex.com>
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-Skyhawk-R FW supports TX-rate setting only as a % value of the link
-speed, set via the SET_PROFILE_CONFIG cmd.
+Certain new flash regions have been added to Skyhawk-R FW image. The newer
+FW images specify op_types for each region. A region is flashed only
+when it's CRC doesn't match that of the region on the HW flash. While
+upgrading to a new FW image the driver is expected to tolerate certain
+errors.
 
-This patch makes the necessary changes to the FW cmd descriptors to support
-the above change and also introduces checks in be_set_vf_tx_rate() to allow
-only discrete values (that map to % of the link-speed).
-
+This patch re-factors code under be_flash() to support the above scheme.
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   40 +++++++++++-----
- drivers/net/ethernet/emulex/benet/be_cmds.h |   13 ++++--
- drivers/net/ethernet/emulex/benet/be_main.c |   66 ++++++++++++++++++---------
- 3 files changed, 81 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   25 ++-
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    6 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h   |   12 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |  252 +++++++++++++++++----------
+ 4 files changed, 188 insertions(+), 107 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 476752d..216463b 100644
+index 216463b..f73185b 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3562,33 +3562,47 @@ void be_reset_nic_desc(struct be_nic_res_desc *nic)
- 	nic->cq_count = 0xFFFF;
- 	nic->toe_conn_count = 0xFFFF;
- 	nic->eq_count = 0xFFFF;
-+	nic->iface_count = 0xFFFF;
- 	nic->link_param = 0xFF;
-+	nic->channel_id_param = cpu_to_le16(0xF000);
- 	nic->acpi_params = 0xFF;
- 	nic->wol_param = 0x0F;
--	nic->bw_min = 0xFFFFFFFF;
-+	nic->tunnel_iface_count = 0xFFFF;
-+	nic->direct_tenant_iface_count = 0xFFFF;
- 	nic->bw_max = 0xFFFFFFFF;
- }
+@@ -133,6 +133,9 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 	compl_status = (compl->status >> CQE_STATUS_COMPL_SHIFT) &
+ 				CQE_STATUS_COMPL_MASK;
  
--int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain)
-+int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate, u16 link_speed,
-+		      u8 domain)
- {
--	if (lancer_chip(adapter)) {
--		struct be_nic_res_desc nic_desc;
-+	struct be_nic_res_desc nic_desc;
-+	u32 bw_percent;
-+	u16 version = 0;
++	extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
++				CQE_STATUS_EXTD_MASK;
 +
-+	if (BE3_chip(adapter))
-+		return be_cmd_set_qos(adapter, max_rate / 10, domain);
+ 	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
  
--		be_reset_nic_desc(&nic_desc);
-+	be_reset_nic_desc(&nic_desc);
-+	nic_desc.pf_num = adapter->pf_number;
-+	nic_desc.vf_num = domain;
-+	if (lancer_chip(adapter)) {
- 		nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V0;
- 		nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V0;
- 		nic_desc.flags = (1 << QUN_SHIFT) | (1 << IMM_SHIFT) |
- 					(1 << NOSV_SHIFT);
--		nic_desc.pf_num = adapter->pf_number;
--		nic_desc.vf_num = domain;
--		nic_desc.bw_max = cpu_to_le32(bps);
--
--		return be_cmd_set_profile_config(adapter, &nic_desc,
--						 RESOURCE_DESC_SIZE_V0,
--						 0, domain);
-+		nic_desc.bw_max = cpu_to_le32(max_rate / 10);
- 	} else {
--		return be_cmd_set_qos(adapter, bps, domain);
-+		version = 1;
-+		nic_desc.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V1;
-+		nic_desc.hdr.desc_len = RESOURCE_DESC_SIZE_V1;
-+		nic_desc.flags = (1 << IMM_SHIFT) | (1 << NOSV_SHIFT);
-+		bw_percent = max_rate ? (max_rate * 100) / link_speed : 100;
-+		nic_desc.bw_max = cpu_to_le32(bw_percent);
+ 	if (resp_hdr) {
+@@ -172,16 +175,25 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 			adapter->be_get_temp_freq = 0;
+ 
+ 		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
+-			compl_status == MCC_STATUS_ILLEGAL_REQUEST)
+-			goto done;
++		    compl_status == MCC_STATUS_ILLEGAL_REQUEST)
++			return compl_status;
++
++		/* Ignore CRC mismatch error during FW download with old FW */
++		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
++		    compl_status == MCC_STATUS_FAILED &&
++		    extd_status == MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH)
++			return compl_status;
++
++		/* Ignore illegal field error during FW download with old FW */
++		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
++		    compl_status == MCC_STATUS_ILLEGAL_FIELD)
++			return compl_status;
+ 
+ 		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
+ 			dev_warn(&adapter->pdev->dev,
+ 				 "VF is not privileged to issue opcode %d-%d\n",
+ 				 opcode, subsystem);
+ 		} else {
+-			extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
+-					CQE_STATUS_EXTD_MASK;
+ 			dev_err(&adapter->pdev->dev,
+ 				"opcode %d-%d failed:status %d-%d\n",
+ 				opcode, subsystem, compl_status, extd_status);
+@@ -190,7 +202,6 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
+ 				return extd_status;
+ 		}
  	}
-+
-+	return be_cmd_set_profile_config(adapter, &nic_desc,
-+					 nic_desc.hdr.desc_len,
-+					 version, domain);
+-done:
+ 	return compl_status;
  }
  
- int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op)
+@@ -2300,7 +2311,7 @@ err_unlock:
+ }
+ 
+ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+-			 int offset)
++			  u16 optype, int offset)
+ {
+ 	struct be_mcc_wrb *wrb;
+ 	struct be_cmd_read_flash_crc *req;
+@@ -2319,7 +2330,7 @@ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+ 			       OPCODE_COMMON_READ_FLASHROM, sizeof(*req),
+ 			       wrb, NULL);
+ 
+-	req->params.op_type = cpu_to_le32(OPTYPE_REDBOOT);
++	req->params.op_type = cpu_to_le32(optype);
+ 	req->params.op_code = cpu_to_le32(FLASHROM_OPER_REPORT);
+ 	req->params.offset = cpu_to_le32(offset);
+ 	req->params.data_buf_size = cpu_to_le32(0x4);
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 228d4b6..9df9d3b 100644
+index 9df9d3b..070f775 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1891,16 +1891,20 @@ struct be_nic_res_desc {
- 	u16 cq_count;
- 	u16 toe_conn_count;
- 	u16 eq_count;
--	u32 rsvd5;
-+	u16 vlan_id;
-+	u16 iface_count;
- 	u32 cap_flags;
- 	u8 link_param;
--	u8 rsvd6[3];
-+	u8 rsvd6;
-+	u16 channel_id_param;
- 	u32 bw_min;
- 	u32 bw_max;
- 	u8 acpi_params;
- 	u8 wol_param;
- 	u16 rsvd7;
--	u32 rsvd8[7];
-+	u16 tunnel_iface_count;
-+	u16 direct_tenant_iface_count;
-+	u32 rsvd8[6];
- } __packed;
+@@ -61,6 +61,7 @@ enum {
+ };
  
- /************ Multi-Channel type ***********/
-@@ -2101,7 +2105,8 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
- int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
- 			u8 loopback_type, u8 enable);
- int be_cmd_get_phy_info(struct be_adapter *adapter);
--int be_cmd_config_qos(struct be_adapter *adapter, u32 bps, u8 domain);
-+int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate,
-+		      u16 link_speed, u8 domain);
- void be_detect_error(struct be_adapter *adapter);
- int be_cmd_get_die_temperature(struct be_adapter *adapter);
- int be_cmd_get_cntl_attributes(struct be_adapter *adapter);
+ #define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
++#define MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH	0x4d
+ 
+ #define CQE_STATUS_COMPL_MASK		0xFFFF
+ #define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
+@@ -1186,7 +1187,8 @@ struct be_cmd_read_flash_crc {
+ 	struct flashrom_params params;
+ 	u8 crc[4];
+ 	u8 rsvd[4];
+-};
++} __packed;
++
+ /**************** Lancer Firmware Flash ************/
+ struct amap_lancer_write_obj_context {
+ 	u8 write_length[24];
+@@ -2088,7 +2090,7 @@ int lancer_cmd_read_object(struct be_adapter *adapter, struct be_dma_mem *cmd,
+ 			   u32 data_size, u32 data_offset, const char *obj_name,
+ 			   u32 *data_read, u32 *eof, u8 *addn_status);
+ int be_cmd_get_flash_crc(struct be_adapter *adapter, u8 *flashed_crc,
+-			 int offset);
++			  u16 optype, int offset);
+ int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
+ 			    struct be_dma_mem *nonemb_cmd);
+ int be_cmd_fw_init(struct be_adapter *adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 3bd1985..8840c64 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -188,10 +188,14 @@
+ #define OPTYPE_FCOE_FW_ACTIVE		10
+ #define OPTYPE_FCOE_FW_BACKUP		11
+ #define OPTYPE_NCSI_FW			13
++#define OPTYPE_REDBOOT_DIR		18
++#define OPTYPE_REDBOOT_CONFIG		19
++#define OPTYPE_SH_PHY_FW		21
++#define OPTYPE_FLASHISM_JUMPVECTOR	22
++#define OPTYPE_UFI_DIR			23
+ #define OPTYPE_PHY_FW			99
+ #define TN_8022				13
+ 
+-#define ILLEGAL_IOCTL_REQ		2
+ #define FLASHROM_OPER_PHY_FLASH		9
+ #define FLASHROM_OPER_PHY_SAVE		10
+ #define FLASHROM_OPER_FLASH		1
+@@ -250,6 +254,9 @@
+ #define IMAGE_FIRMWARE_BACKUP_FCoE	178
+ #define IMAGE_FIRMWARE_BACKUP_COMP_FCoE 179
+ #define IMAGE_FIRMWARE_PHY		192
++#define IMAGE_REDBOOT_DIR		208
++#define IMAGE_REDBOOT_CONFIG		209
++#define IMAGE_UFI_DIR			210
+ #define IMAGE_BOOT_CODE			224
+ 
+ /************* Rx Packet Type Encoding **************/
+@@ -534,7 +541,8 @@ struct flash_section_entry {
+ 	u32 image_size;
+ 	u32 cksum;
+ 	u32 entry_point;
+-	u32 rsvd0;
++	u16 optype;
++	u16 rsvd0;
+ 	u32 rsvd1;
+ 	u8 ver_data[32];
+ } __packed;
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9116d5e..d39a1c6 100644
+index d39a1c6..d2b4efa 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1352,7 +1352,10 @@ static int be_set_vf_tx_rate(struct net_device *netdev, int vf,
- 			     int min_tx_rate, int max_tx_rate)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	int status = 0;
-+	struct device *dev = &adapter->pdev->dev;
-+	int percent_rate, status = 0;
-+	u16 link_speed = 0;
-+	u8 link_status;
- 
- 	if (!sriov_enabled(adapter))
- 		return -EPERM;
-@@ -1363,18 +1366,47 @@ static int be_set_vf_tx_rate(struct net_device *netdev, int vf,
- 	if (min_tx_rate)
- 		return -EINVAL;
- 
--	if (max_tx_rate < 100 || max_tx_rate > 10000) {
--		dev_err(&adapter->pdev->dev,
--			"max tx rate must be between 100 and 10000 Mbps\n");
--		return -EINVAL;
-+	if (!max_tx_rate)
-+		goto config_qos;
-+
-+	status = be_cmd_link_status_query(adapter, &link_speed,
-+					  &link_status, 0);
-+	if (status)
-+		goto err;
-+
-+	if (!link_status) {
-+		dev_err(dev, "TX-rate setting not allowed when link is down\n");
-+		status = -EPERM;
-+		goto err;
-+	}
-+
-+	if (max_tx_rate < 100 || max_tx_rate > link_speed) {
-+		dev_err(dev, "TX-rate must be between 100 and %d Mbps\n",
-+			link_speed);
-+		status = -EINVAL;
-+		goto err;
- 	}
- 
--	status = be_cmd_config_qos(adapter, max_tx_rate / 10, vf + 1);
-+	/* On Skyhawk the QOS setting must be done only as a % value */
-+	percent_rate = link_speed / 100;
-+	if (skyhawk_chip(adapter) && (max_tx_rate % percent_rate)) {
-+		dev_err(dev, "TX-rate must be a multiple of %d Mbps\n",
-+			percent_rate);
-+		status = -EINVAL;
-+		goto err;
-+	}
-+
-+config_qos:
-+	status = be_cmd_config_qos(adapter, max_tx_rate, link_speed, vf + 1);
- 	if (status)
--		dev_err(&adapter->pdev->dev,
--			"max tx rate %d on VF %d failed\n", max_tx_rate, vf);
--	else
--		adapter->vf_cfg[vf].tx_rate = max_tx_rate;
-+		goto err;
-+
-+	adapter->vf_cfg[vf].tx_rate = max_tx_rate;
-+	return 0;
-+
-+err:
-+	dev_err(dev, "TX-rate setting of %dMbps on VF%d failed\n",
-+		max_tx_rate, vf);
- 	return status;
+@@ -3630,34 +3630,7 @@ static void be_netpoll(struct net_device *netdev)
  }
- static int be_set_vf_link_state(struct net_device *netdev, int vf,
-@@ -3135,7 +3167,6 @@ static int be_vf_setup(struct be_adapter *adapter)
- 	struct be_vf_cfg *vf_cfg;
- 	int status, old_vfs, vf;
- 	u32 privileges;
--	u16 lnk_speed;
+ #endif
  
- 	old_vfs = pci_num_vf(adapter->pdev);
- 	if (old_vfs) {
-@@ -3191,16 +3222,9 @@ static int be_vf_setup(struct be_adapter *adapter)
- 					 vf);
+-#define FW_FILE_HDR_SIGN 	"ServerEngines Corp. "
+-static char flash_cookie[2][16] =      {"*** SE FLAS", "H DIRECTORY *** "};
+-
+-static bool be_flash_redboot(struct be_adapter *adapter,
+-			     const u8 *p, u32 img_start, int image_size,
+-			     int hdr_size)
+-{
+-	u32 crc_offset;
+-	u8 flashed_crc[4];
+-	int status;
+-
+-	crc_offset = hdr_size + img_start + image_size - 4;
+-
+-	p += crc_offset;
+-
+-	status = be_cmd_get_flash_crc(adapter, flashed_crc, (image_size - 4));
+-	if (status) {
+-		dev_err(&adapter->pdev->dev,
+-			"could not get crc from flash, not flashing redboot\n");
+-		return false;
+-	}
+-
+-	/*update redboot only if crc does not match*/
+-	if (!memcmp(flashed_crc, p, 4))
+-		return false;
+-	else
+-		return true;
+-}
++static char flash_cookie[2][16] = {"*** SE FLAS", "H DIRECTORY *** "};
+ 
+ static bool phy_flashing_required(struct be_adapter *adapter)
+ {
+@@ -3704,12 +3677,35 @@ static struct flash_section_info *get_fsec_info(struct be_adapter *adapter,
+ 	return NULL;
+ }
+ 
++static int be_check_flash_crc(struct be_adapter *adapter, const u8 *p,
++			      u32 img_offset, u32 img_size, int hdr_size,
++			      u16 img_optype, bool *crc_match)
++{
++	u32 crc_offset;
++	int status;
++	u8 crc[4];
++
++	status = be_cmd_get_flash_crc(adapter, crc, img_optype, img_size - 4);
++	if (status)
++		return status;
++
++	crc_offset = hdr_size + img_offset + img_size - 4;
++
++	/* Skip flashing, if crc of flashed region matches */
++	if (!memcmp(crc, p + crc_offset, 4))
++		*crc_match = true;
++	else
++		*crc_match = false;
++
++	return status;
++}
++
+ static int be_flash(struct be_adapter *adapter, const u8 *img,
+ 		    struct be_dma_mem *flash_cmd, int optype, int img_size)
+ {
+-	u32 total_bytes = 0, flash_op, num_bytes = 0;
+-	int status = 0;
+ 	struct be_cmd_write_flashrom *req = flash_cmd->va;
++	u32 total_bytes, flash_op, num_bytes;
++	int status;
+ 
+ 	total_bytes = img_size;
+ 	while (total_bytes) {
+@@ -3733,14 +3729,11 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
+ 		img += num_bytes;
+ 		status = be_cmd_write_flashrom(adapter, flash_cmd, optype,
+ 					       flash_op, num_bytes);
+-		if (status) {
+-			if (status == ILLEGAL_IOCTL_REQ &&
+-			    optype == OPTYPE_PHY_FW)
+-				break;
+-			dev_err(&adapter->pdev->dev,
+-				"cmd to write to flash rom failed.\n");
++		if (status == MCC_STATUS_ILLEGAL_REQUEST &&
++		    optype == OPTYPE_PHY_FW)
++			break;
++		else if (status)
+ 			return status;
+-		}
+ 	}
+ 	return 0;
+ }
+@@ -3750,12 +3743,13 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 			const struct firmware *fw,
+ 			struct be_dma_mem *flash_cmd, int num_of_images)
+ {
+-	int status = 0, i, filehdr_size = 0;
+ 	int img_hdrs_size = (num_of_images * sizeof(struct image_hdr));
+-	const u8 *p = fw->data;
+-	const struct flash_comp *pflashcomp;
+-	int num_comp, redboot;
++	struct device *dev = &adapter->pdev->dev;
+ 	struct flash_section_info *fsec = NULL;
++	int status, i, filehdr_size, num_comp;
++	const struct flash_comp *pflashcomp;
++	bool crc_match;
++	const u8 *p;
+ 
+ 	struct flash_comp gen3_flash_types[] = {
+ 		{ FLASH_iSCSI_PRIMARY_IMAGE_START_g3, OPTYPE_ISCSI_ACTIVE,
+@@ -3812,8 +3806,7 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	/* Get flash section info*/
+ 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
+ 	if (!fsec) {
+-		dev_err(&adapter->pdev->dev,
+-			"Invalid Cookie. UFI corrupted ?\n");
++		dev_err(dev, "Invalid Cookie. FW image may be corrupted\n");
+ 		return -1;
+ 	}
+ 	for (i = 0; i < num_comp; i++) {
+@@ -3829,25 +3822,32 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 				continue;
+ 
+ 		if (pflashcomp[i].optype == OPTYPE_REDBOOT) {
+-			redboot = be_flash_redboot(adapter, fw->data,
+-						   pflashcomp[i].offset,
+-						   pflashcomp[i].size,
+-						   filehdr_size +
+-						   img_hdrs_size);
+-			if (!redboot)
++			status = be_check_flash_crc(adapter, fw->data,
++						    pflashcomp[i].offset,
++						    pflashcomp[i].size,
++						    filehdr_size +
++						    img_hdrs_size,
++						    OPTYPE_REDBOOT, &crc_match);
++			if (status) {
++				dev_err(dev,
++					"Could not get CRC for 0x%x region\n",
++					pflashcomp[i].optype);
++				continue;
++			}
++
++			if (crc_match)
+ 				continue;
  		}
  
--		/* BE3 FW, by default, caps VF TX-rate to 100mbps.
--		 * Allow full available bandwidth
--		 */
--		if (BE3_chip(adapter) && !old_vfs)
--			be_cmd_config_qos(adapter, 1000, vf + 1);
--
--		status = be_cmd_link_status_query(adapter, &lnk_speed,
--						  NULL, vf + 1);
--		if (!status)
--			vf_cfg->tx_rate = lnk_speed;
-+		/* Allow full available bandwidth */
-+		if (!old_vfs)
-+			be_cmd_config_qos(adapter, 0, 0, vf + 1);
+-		p = fw->data;
+-		p += filehdr_size + pflashcomp[i].offset + img_hdrs_size;
++		p = fw->data + filehdr_size + pflashcomp[i].offset +
++			img_hdrs_size;
+ 		if (p + pflashcomp[i].size > fw->data + fw->size)
+ 			return -1;
  
- 		if (!old_vfs) {
- 			be_cmd_enable_vf(adapter, vf + 1);
+ 		status = be_flash(adapter, p, flash_cmd, pflashcomp[i].optype,
+ 				  pflashcomp[i].size);
+ 		if (status) {
+-			dev_err(&adapter->pdev->dev,
+-				"Flashing section type %d failed.\n",
++			dev_err(dev, "Flashing section type 0x%x failed\n",
+ 				pflashcomp[i].img_type);
+ 			return status;
+ 		}
+@@ -3855,74 +3855,134 @@ static int be_flash_BEx(struct be_adapter *adapter,
+ 	return 0;
+ }
+ 
++static u16 be_get_img_optype(struct flash_section_entry fsec_entry)
++{
++	u32 img_type = le32_to_cpu(fsec_entry.type);
++	u16 img_optype = le16_to_cpu(fsec_entry.optype);
++
++	if (img_optype != 0xFFFF)
++		return img_optype;
++
++	switch (img_type) {
++	case IMAGE_FIRMWARE_iSCSI:
++		img_optype = OPTYPE_ISCSI_ACTIVE;
++		break;
++	case IMAGE_BOOT_CODE:
++		img_optype = OPTYPE_REDBOOT;
++		break;
++	case IMAGE_OPTION_ROM_ISCSI:
++		img_optype = OPTYPE_BIOS;
++		break;
++	case IMAGE_OPTION_ROM_PXE:
++		img_optype = OPTYPE_PXE_BIOS;
++		break;
++	case IMAGE_OPTION_ROM_FCoE:
++		img_optype = OPTYPE_FCOE_BIOS;
++		break;
++	case IMAGE_FIRMWARE_BACKUP_iSCSI:
++		img_optype = OPTYPE_ISCSI_BACKUP;
++		break;
++	case IMAGE_NCSI:
++		img_optype = OPTYPE_NCSI_FW;
++		break;
++	case IMAGE_FLASHISM_JUMPVECTOR:
++		img_optype = OPTYPE_FLASHISM_JUMPVECTOR;
++		break;
++	case IMAGE_FIRMWARE_PHY:
++		img_optype = OPTYPE_SH_PHY_FW;
++		break;
++	case IMAGE_REDBOOT_DIR:
++		img_optype = OPTYPE_REDBOOT_DIR;
++		break;
++	case IMAGE_REDBOOT_CONFIG:
++		img_optype = OPTYPE_REDBOOT_CONFIG;
++		break;
++	case IMAGE_UFI_DIR:
++		img_optype = OPTYPE_UFI_DIR;
++		break;
++	default:
++		break;
++	}
++
++	return img_optype;
++}
++
+ static int be_flash_skyhawk(struct be_adapter *adapter,
+ 			    const struct firmware *fw,
+ 			    struct be_dma_mem *flash_cmd, int num_of_images)
+ {
+-	int status = 0, i, filehdr_size = 0;
+-	int img_offset, img_size, img_optype, redboot;
+ 	int img_hdrs_size = num_of_images * sizeof(struct image_hdr);
+-	const u8 *p = fw->data;
++	struct device *dev = &adapter->pdev->dev;
+ 	struct flash_section_info *fsec = NULL;
++	u32 img_offset, img_size, img_type;
++	int status, i, filehdr_size;
++	bool crc_match, old_fw_img;
++	u16 img_optype;
++	const u8 *p;
+ 
+ 	filehdr_size = sizeof(struct flash_file_hdr_g3);
+ 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
+ 	if (!fsec) {
+-		dev_err(&adapter->pdev->dev,
+-			"Invalid Cookie. UFI corrupted ?\n");
++		dev_err(dev, "Invalid Cookie. FW image may be corrupted\n");
+ 		return -1;
+ 	}
+ 
+ 	for (i = 0; i < le32_to_cpu(fsec->fsec_hdr.num_images); i++) {
+ 		img_offset = le32_to_cpu(fsec->fsec_entry[i].offset);
+ 		img_size   = le32_to_cpu(fsec->fsec_entry[i].pad_size);
++		img_type   = le32_to_cpu(fsec->fsec_entry[i].type);
++		img_optype = be_get_img_optype(fsec->fsec_entry[i]);
++		old_fw_img = fsec->fsec_entry[i].optype == 0xFFFF;
+ 
+-		switch (le32_to_cpu(fsec->fsec_entry[i].type)) {
+-		case IMAGE_FIRMWARE_iSCSI:
+-			img_optype = OPTYPE_ISCSI_ACTIVE;
+-			break;
+-		case IMAGE_BOOT_CODE:
+-			img_optype = OPTYPE_REDBOOT;
+-			break;
+-		case IMAGE_OPTION_ROM_ISCSI:
+-			img_optype = OPTYPE_BIOS;
+-			break;
+-		case IMAGE_OPTION_ROM_PXE:
+-			img_optype = OPTYPE_PXE_BIOS;
+-			break;
+-		case IMAGE_OPTION_ROM_FCoE:
+-			img_optype = OPTYPE_FCOE_BIOS;
+-			break;
+-		case IMAGE_FIRMWARE_BACKUP_iSCSI:
+-			img_optype = OPTYPE_ISCSI_BACKUP;
+-			break;
+-		case IMAGE_NCSI:
+-			img_optype = OPTYPE_NCSI_FW;
+-			break;
+-		default:
++		if (img_optype == 0xFFFF)
+ 			continue;
++		/* Don't bother verifying CRC if an old FW image is being
++		 * flashed
++		 */
++		if (old_fw_img)
++			goto flash;
++
++		status = be_check_flash_crc(adapter, fw->data, img_offset,
++					    img_size, filehdr_size +
++					    img_hdrs_size, img_optype,
++					    &crc_match);
++		/* The current FW image on the card does not recognize the new
++		 * FLASH op_type. The FW download is partially complete.
++		 * Reboot the server now to enable FW image to recognize the
++		 * new FLASH op_type. To complete the remaining process,
++		 * download the same FW again after the reboot.
++		 */
++		if (status == MCC_STATUS_ILLEGAL_REQUEST ||
++		    status == MCC_STATUS_ILLEGAL_FIELD) {
++			dev_err(dev, "Flash incomplete. Reset the server\n");
++			dev_err(dev, "Download FW image again after reset\n");
++			return -EAGAIN;
++		} else if (status) {
++			dev_err(dev, "Could not get CRC for 0x%x region\n",
++				img_optype);
++			return -EFAULT;
+ 		}
+ 
+-		if (img_optype == OPTYPE_REDBOOT) {
+-			redboot = be_flash_redboot(adapter, fw->data,
+-						   img_offset, img_size,
+-						   filehdr_size +
+-						   img_hdrs_size);
+-			if (!redboot)
+-				continue;
+-		}
++		if (crc_match)
++			continue;
+ 
+-		p = fw->data;
+-		p += filehdr_size + img_offset + img_hdrs_size;
++flash:
++		p = fw->data + filehdr_size + img_offset + img_hdrs_size;
+ 		if (p + img_size > fw->data + fw->size)
+ 			return -1;
+ 
+ 		status = be_flash(adapter, p, flash_cmd, img_optype, img_size);
+-		if (status) {
+-			dev_err(&adapter->pdev->dev,
+-				"Flashing section type %d failed.\n",
+-				fsec->fsec_entry[i].type);
+-			return status;
++		/* For old FW images ignore ILLEGAL_FIELD error or errors on
++		 * UFI_DIR region
++		 */
++		if (old_fw_img && (status == MCC_STATUS_ILLEGAL_FIELD ||
++				   (img_optype == OPTYPE_UFI_DIR &&
++				    status == MCC_STATUS_FAILED))) {
++			continue;
++		} else if (status) {
++			dev_err(dev, "Flashing section type 0x%x failed\n",
++				img_type);
++			return -EFAULT;
+ 		}
+ 	}
+ 	return 0;
 -- 
 1.7.1
