@@ -1,58 +1,54 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: [PATCH 3/3] cnic: Fix missing ISCSI_KEVENT_IF_DOWN message
-Date: Fri, 30 May 2014 16:18:43 -0700
-Message-ID: <1401491923-5480-4-git-send-email-mchan@broadcom.com>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
- <1401491923-5480-2-git-send-email-mchan@broadcom.com>
- <1401491923-5480-3-git-send-email-mchan@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ipv6: Fix regression caused by efe4208 in
+ udp_v6_mcast_next()
+Date: Fri, 30 May 2014 15:18:39 -0700 (PDT)
+Message-ID: <20140530.151839.1819689526929476760.davem@davemloft.net>
+References: <1401395226-10304-1-git-send-email-sven.wegener@stealer.net>
+	<1401395226-10304-2-git-send-email-sven.wegener@stealer.net>
+	<1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <nhorman@tuxdriver.com>,
-	Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sven.wegener@stealer.net, netdev@vger.kernel.org,
+	edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:56181 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754614AbaE3V7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 17:59:15 -0400
-In-Reply-To: <1401491923-5480-3-git-send-email-mchan@broadcom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59963 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932289AbaE3WSm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:18:42 -0400
+In-Reply-To: <1401395855.3645.53.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The iSCSI netlink message needs to be sent before the ulp_ops is cleared
-as it is sent through a function pointer in the ulp_ops.  This bug
-causes iscsid to not get the message when the bnx2i driver is unloaded.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 May 2014 13:37:35 -0700
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/cnic.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+> On Thu, 2014-05-29 at 20:27 +0000, Sven Wegener wrote:
+>> Commit efe4208 ("ipv6: make lookups simpler and faster") introduced a
+>> regression in udp_v6_mcast_next(), resulting in multicast packets not
+>> reaching the destination sockets under certain conditions.
+>> 
+>> The packet's IPv6 addresses are wrongly compared to the IPv6 addresses
+>> from the function's socket argument, which indicates the starting point
+>> for looping, instead of the loop variable. If the addresses from the
+>> first socket do not match the packet's addresses, no socket in the list
+>> will match.
+>> 
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: stable@vger.kernel.org # 3.13+
+>> Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+>> ---
+>>  net/ipv6/udp.c | 8 ++++----
+>>  1 file changed, 4 insertions(+), 4 deletions(-)
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> I removed the CC stable@ , as you should not have use it.
 
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 4ebab75..565fb31 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -608,6 +608,10 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
- 		pr_err("%s: Bad type %d\n", __func__, ulp_type);
- 		return -EINVAL;
- 	}
-+
-+	if (ulp_type == CNIC_ULP_ISCSI)
-+		cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
-+
- 	mutex_lock(&cnic_lock);
- 	if (rcu_dereference(cp->ulp_ops[ulp_type])) {
- 		RCU_INIT_POINTER(cp->ulp_ops[ulp_type], NULL);
-@@ -620,9 +624,7 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
- 	}
- 	mutex_unlock(&cnic_lock);
- 
--	if (ulp_type == CNIC_ULP_ISCSI)
--		cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
--	else if (ulp_type == CNIC_ULP_FCOE)
-+	if (ulp_type == CNIC_ULP_FCOE)
- 		dev->fcoe_cap = NULL;
- 
- 	synchronize_rcu();
--- 
-1.7.1
+I'll apply this to 'net' and queue it up for -stable, thanks.
+
+The next time I merge 'net' into 'net-next' I'll add the second
+patch there.
+
+Thanks again.
