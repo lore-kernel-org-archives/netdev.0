@@ -1,96 +1,52 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH V1 net-next 4/5] amd-xgbe: Configuration and build support
-Date: Fri, 30 May 2014 11:11:20 -0500
-Message-ID: <20140530161119.31154.92247.stgit@tlendack-t1.amdoffice.net>
-References: <20140530161055.31154.97537.stgit@tlendack-t1.amdoffice.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH v1 6/6] net: fec: Add software TSO support
+Date: Fri, 30 May 2014 09:21:38 -0700
+Message-ID: <1401466898.3645.127.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-7-git-send-email-b38611@freescale.com>
+	 <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <jcm@redhat.com>, <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:2766
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754082AbaE3QLi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 May 2014 12:11:38 -0400
-In-Reply-To: <20140530161055.31154.97537.stgit@tlendack-t1.amdoffice.net>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:54385 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933202AbaE3QVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 12:21:39 -0400
+Received: by mail-pb0-f53.google.com with SMTP id md12so1887556pbc.12
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 09:21:39 -0700 (PDT)
+In-Reply-To: <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides the Kconfig and Makefile changes needed
-to configure and build the AMD 10GbE platform driver and the
-AMD 10GbE phylib driver.
+On Fri, 2014-05-30 at 07:16 +0000, fugang.duan@freescale.com wrote:
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/Kconfig  |   14 +++++++++++++-
- drivers/net/ethernet/amd/Makefile |    1 +
- drivers/net/phy/Kconfig           |    5 +++++
- drivers/net/phy/Makefile          |    1 +
- 4 files changed, 20 insertions(+), 1 deletion(-)
+> Yes, test found it bounce all TX frames.
+> Use 2 descriptors to transfer one part, which bring more complicate for driver. Of course, 
+> Performance must be better.
+> 
 
-diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
-index 562df46..bbaf36d 100644
---- a/drivers/net/ethernet/amd/Kconfig
-+++ b/drivers/net/ethernet/amd/Kconfig
-@@ -7,7 +7,7 @@ config NET_VENDOR_AMD
- 	default y
- 	depends on DIO || MACH_DECSTATION || MVME147 || ATARI || SUN3 || \
- 		   SUN3X || SBUS || PCI || ZORRO || (ISA && ISA_DMA_API) || \
--		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA
-+		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA || ARM64
- 	---help---
- 	  If you have a network (Ethernet) chipset belonging to this class,
- 	  say Y.
-@@ -177,4 +177,16 @@ config SUNLANCE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sunlance.
- 
-+config AMD_XGBE
-+	tristate "AMD 10GbE Ethernet driver"
-+	depends on OF_NET
-+	select PHYLIB
-+	select AMD_XGBE_PHY
-+	---help---
-+	  This driver supports the AMD 10GbE Ethernet device found on an
-+	  AMD SoC.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called amd-xgbe.
-+
- endif # NET_VENDOR_AMD
-diff --git a/drivers/net/ethernet/amd/Makefile b/drivers/net/ethernet/amd/Makefile
-index cdd4301..a38a2dc 100644
---- a/drivers/net/ethernet/amd/Makefile
-+++ b/drivers/net/ethernet/amd/Makefile
-@@ -17,3 +17,4 @@ obj-$(CONFIG_NI65) += ni65.o
- obj-$(CONFIG_PCNET32) += pcnet32.o
- obj-$(CONFIG_SUN3LANCE) += sun3lance.o
- obj-$(CONFIG_SUNLANCE) += sunlance.o
-+obj-$(CONFIG_AMD_XGBE) += xgbe/
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 6a17f92..6c71955 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -24,6 +24,11 @@ config AMD_PHY
- 	---help---
- 	  Currently supports the am79c874
- 
-+config AMD_XGBE_PHY
-+	tristate "Driver for the AMD 10GbE (amd-xgbe) PHYs"
-+	---help---
-+	  Currently supports the AMD 10GbE PHY
-+
- config MARVELL_PHY
- 	tristate "Drivers for Marvell PHYs"
- 	---help---
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 07d2402..7dc3d5b 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -33,3 +33,4 @@ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
- obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
- obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
- obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
-+obj-$(CONFIG_AMD_XGBE_PHY)	+= amd-xgbe-phy.o
+How cpu handles misaligned 32bit accesses ?
+
+> Digression information:
+> Imx6dl FEC HW have bandwidth issue limit to 400 ~ 700Mbps. Current performance with TSO is 506Mbps, cpu loading is about 40%.
+> Later chips with FEC IP support byte alignment, such as imx6sx. On imx6sx FEC, no SW TSO, tx bandwidth is 840~870Mbps, cpu loading is 100%,
+> After the software TSO, tx bandwidth is 840Mbps, cpu loading is 48%.
+
+Since you have some cpu cycles, have you tried to always use the bounce
+thing, using one descriptor per MSS, instead of two ?
+
+(headers + payload)
+
+This might help to get better bandwidth, by lowering overhead on DMA and
+on NIC.
