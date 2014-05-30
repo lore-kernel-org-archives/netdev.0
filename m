@@ -1,63 +1,67 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH v2 net-next 0/8] cdc_ncm: fixes and conversion to sysfs API
-Date: Fri, 30 May 2014 09:31:02 +0200
-Message-ID: <1401435070-26721-1-git-send-email-bjorn@mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH v2 2/2] net: tile: Use helpers from linux/etherdevice.h to check/set MAC
+Date: Fri, 30 May 2014 09:47:17 +0200
+Message-ID: <1401436037-4993-1-git-send-email-tklauser@distanz.ch>
+References: <1401192245-26260-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:39034 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932568AbaE3Hrb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 May 2014 03:47:31 -0400
+In-Reply-To: <1401192245-26260-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After considering the comments received after the ethtool coalesce
-support was commited, I have ended up concluding that we should
-remove it again, while we can, before it hits a release. The idea
-was not well enough thought through, and all comments received
-pointed to advantages of using a sysfs based API instead.
+Use is_zero_ether_addr() to check for the MAC address being all zeros instead of
+open coding the check.
 
-This series removes the ethtool coalesce support and replaces it
-with sysfs attributes in a driver specific group under the netdev.
+Also use ether_addr_copy() instead of a manual memcpy() to set the
+netdev->dev_addr.
 
-The first 3 patches are unrelated fixes:
+Furthermore, get rid of a redundant assignment of netdev->addr_len. This is
+already set by ether_setup() which is called in tile_net_setup().
 
-patch 1: reducing truesize as discussed
-patch 2: fixing a potentional buffer overrun when changing tx_max
-patch 3: prevent framing errors when changing rx_max
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Acked-by: Chris Metcalf <cmetcalf@tilera.com>
 
+---
+v2: only check for zero address
 
-Changes v2:
- - minor editorial changes to patch 8, as suggested by Peter Stuge
+ drivers/net/ethernet/tile/tilegx.c |   12 +++---------
+ 1 file changed, 3 insertions(+), 9 deletions(-)
 
-
-Bj=C3=B8rn Mork (8):
-  net: cdc_ncm: reduce skb truesize in rx path
-  net: cdc_ncm: always reallocate tx_curr_skb when tx_max increases
-  net: cdc_ncm: inform usbnet when rx buffers are reduced
-  net: cdc_ncm: use sysfs for rx/tx aggregation tuning
-  net: cdc_ncm: drop ethtool coalesce support
-  net: cdc_ncm: export NCM Transfer Block (NTB) parameters
-  net: cdc_ncm: allow tuning min_tx_pkt
-  net: cdc_ncm: document the sysfs API
-
- Documentation/ABI/testing/sysfs-class-net-cdc_ncm | 149 ++++++++++++
- drivers/net/usb/cdc_ncm.c                         | 268 ++++++++++++++=
-++------
- 2 files changed, 341 insertions(+), 76 deletions(-)
- create mode 100644 Documentation/ABI/testing/sysfs-class-net-cdc_ncm
-
---=20
-2.0.0.rc4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 0db40de..14389f8 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -2192,7 +2192,6 @@ static void tile_net_dev_init(const char *name, const uint8_t *mac)
+ {
+ 	int ret;
+ 	int i;
+-	int nz_addr = 0;
+ 	struct net_device *dev;
+ 	struct tile_net_priv *priv;
+ 
+@@ -2222,15 +2221,10 @@ static void tile_net_dev_init(const char *name, const uint8_t *mac)
+ 	 * be done before the device is opened.  If the MAC is all zeroes,
+ 	 * we use a random address, since we're probably on the simulator.
+ 	 */
+-	for (i = 0; i < 6; i++)
+-		nz_addr |= mac[i];
+-
+-	if (nz_addr) {
+-		memcpy(dev->dev_addr, mac, ETH_ALEN);
+-		dev->addr_len = 6;
+-	} else {
++	if (!is_zero_ether_addr(mac))
++		ether_addr_copy(dev->dev_addr, mac);
++	else
+ 		eth_hw_addr_random(dev);
+-	}
+ 
+ 	/* Register the network device. */
+ 	ret = register_netdev(dev);
+-- 
+1.7.9.5
