@@ -1,50 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] qlcnic: Initialize mailbox cmd structure to zero.
-Date: Fri, 30 May 2014 15:27:21 -0700 (PDT)
-Message-ID: <20140530.152721.2164470954070022673.davem@davemloft.net>
-References: <1401029702-22267-1-git-send-email-rajesh.borundia@qlogic.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
+ cnic_alloc_uio_rings()
+Date: Fri, 30 May 2014 15:33:20 -0700
+Message-ID: <20140530223320.GA23581@f1.synalogic.ca>
+References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
+ <1401491923-5480-2-git-send-email-mchan@broadcom.com>
+ <1401491923-5480-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
-To: rajesh.borundia@qlogic.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60018 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934204AbaE3W1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:27:22 -0400
-In-Reply-To: <1401029702-22267-1-git-send-email-rajesh.borundia@qlogic.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:35098 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751983AbaE3WdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 18:33:23 -0400
+Received: by mail-pb0-f53.google.com with SMTP id md12so2186112pbc.40
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 15:33:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1401491923-5480-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Date: Sun, 25 May 2014 10:55:02 -0400
+On 2014/05/30 16:18, Michael Chan wrote:
+> We are allocating memory with GFP_KERNEL under spinlock.  Since this is
+> the only call manipulating the cnic_udev_list and it is always under
+> rtnl_lock, cnic_dev_lock can be safely removed.
 
-> o Uninitialized fields in mailbox command structure
->   caused commands to time out randomly due to garbage
->   values, so initialize it to zero.
-> 
-> Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-
-The reason you ran into this problem is that some callers clear out
-the command structure, and some do not.
-
-And after your change it's even more confusing, because it is not
-clear at all who is responsible for this initialization.
-
-In my opinion it is better to have the place that allocates the
-memory perform the initialization.  This means for interfaces that
-take on-stack references from their caller, the caller does it.
-
-This also avoids situations (which currently isn't happening here)
-where error codes cause early function exits and as a result the
-passed in variable isn't cleared out.
-
-It also makes it so that the compiler can %100 see that the entire
-object is initialized before being used, in all code paths.
-
-Therefore, please change this bug fix to instead add the appropriate
-memset()'s to qlcnic_sriov_get_vf_acl(), qlcnic_sriov_channel_cfg_cmd(),
-and qlcnic_sriov_cfg_vf_guest_vlan().
-
-Thanks.
+In that case, the many other instances of cnic_dev_lock throughout cnic
+should also be removed, no?
