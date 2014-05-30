@@ -1,256 +1,105 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 4/6] be2net: re-factor MCCQ error status handling code
-Date: Fri, 30 May 2014 19:06:26 +0530
-Message-ID: <1401456988-11395-5-git-send-email-sathya.perla@emulex.com>
-References: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v2 net-next 3/8] net: cdc_ncm: inform usbnet when rx buffers are reduced
+Date: Fri, 30 May 2014 15:35:43 +0200
+Message-ID: <87r43b8k40.fsf@nemi.mork.no>
+References: <1401435070-26721-1-git-send-email-bjorn@mork.no>
+	<1401435070-26721-4-git-send-email-bjorn@mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D1725057A@AcuExch.aculab.com>
+	<87d2eva41t.fsf@nemi.mork.no>
+	<063D6719AE5E284EB5DD2968C1650D6D172506D0@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb\@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	Oliver Neukum <oliver@neukum.org>,
+	Enrico Mioso <mrkiko.rs@gmail.com>,
+	Lars Melin <larsm17@gmail.com>, Peter Stuge <peter@stuge.se>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:7591 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755389AbaE3Ndj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:33:39 -0400
-In-Reply-To: <1401456988-11395-1-git-send-email-sathya.perla@emulex.com>
+Received: from canardo.mork.no ([148.122.252.1]:56043 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752069AbaE3Ng2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 09:36:28 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D172506D0@AcuExch.aculab.com>
+	(David Laight's message of "Fri, 30 May 2014 12:39:55 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+David Laight <David.Laight@ACULAB.COM> writes:
 
-This patch improves MCCQ error status handling in the following ways:
-a) A MCC cmd completion returns a base-status and an addl-status.
-So far, the routine be_mcc_compl_process() returned only the "status" value.
-Now, embedd both statuses in the return value and let the caller routine access
-the value of interest using base_status() and addl_status() macros.
+> From: Bj=C3=B8rn Mork
+>> David Laight <David.Laight@ACULAB.COM> writes:
+>> > From: Bj=C3=B8rn Mork
+>> >> It doesn't matter whether the buffer size goes up or down.  We ha=
+ve to
+>> >> keep usbnet and device syncronized to be able to split transfers =
+at the
+>> >> correct boundaries. The spec allow skipping short packets when us=
+ing
+>> >> max sized transfers.  If we don't tell usbnet about our new expec=
+ted rx
+>> >> buffer size, then it will merge and/or split NTBs.  The driver do=
+es not
+>> >> support this, and the result will be lots of framing errors.
+>> >>
+>> >> Fix by always reallocating usbnet rx buffers when the rx_max valu=
+e
+>> >> changes.
+>> >
+>> > I'm guessing that the rx_max value is the maximum size of the USB =
+bulk
+>> > data 'message' that the device generates?
+>> >
+>> > As such the URB only need to be longer that it.
+>>=20
+>> So did I think too at first.  That's how I added the bug fixed by th=
+is
+>> commit :-)
+>>=20
+>> The problem with NCM is that it explicitly allows (and encourage) us=
+ing
+>> transfers which are multiples of the USB packet size, *without* any
+>> terminating short packet (0 or 1 byte). This means that the USB core
+>> won't know or care about the end of one transfer and the beginning o=
+f
+>> the next.  Which is fine.  But the cdc_ncm driver has to know, becau=
+se
+>> it must split the transfers into frames it can decode.
+>>=20
+>> Now, the current cdc_ncm implementation has a built-in assumption th=
+at
+>> the size of the URB =3D=3D rx_max.  This lets it simplify the splitt=
+ing into
+>> frames to nearly nothing: Any received URB contains exactly one fram=
+e.
+>> Therefore we need to keep the rx URB size strictly syncronized the
+>> rx_max.
+>
+> Hmmm....
+> So there is an ethernet packet size somewhere near 500 that exactly f=
+ills
+> a 512 byte USB2 frame.
+> If you receive one of those does the hardware send a 0 length termina=
+ting
+> fragment?
+> If not the then URB won't complete until after the next ethernet fram=
+e
+> arrives.
+> Receive three of them followed by a longer frame and you'll overrun t=
+he
+> end of the URB.
+>
+> At least one path through usbnet ensures that the rx buffers aren't
+> a multiple of the USB frame size. I'm not sure whether that really he=
+lps.
+>
+> Sounds like the hardware expects you to receive each USB bulk buffer
+> separately.
 
-b) Rename variables accordingly (base/addl) to avoid confusion while error
-checking.
+Please, go read the NCM spec.
 
-b) Some of the errors returned by FW are harmless and so an error msg is not
-logged for such errors. Capture this logic in a separate routine to make the
-code more readable.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |   56 +++++++++++++--------------
- drivers/net/ethernet/emulex/benet/be_cmds.h |   30 ++++++++++----
- drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++---
- 3 files changed, 57 insertions(+), 45 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index f73185b..a2ecdff 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -119,10 +119,24 @@ static struct be_cmd_resp_hdr *be_decode_resp_hdr(u32 tag0, u32 tag1)
- 	return (void *)addr;
- }
- 
-+static bool be_skip_err_log(u8 opcode, u16 base_status, u16 addl_status)
-+{
-+	if (base_status == MCC_STATUS_NOT_SUPPORTED ||
-+	    base_status == MCC_STATUS_ILLEGAL_REQUEST ||
-+	    addl_status == MCC_ADDL_STATUS_TOO_MANY_INTERFACES ||
-+	    (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
-+	    (base_status == MCC_STATUS_ILLEGAL_FIELD ||
-+	     addl_status == MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH)))
-+		return true;
-+	else
-+		return false;
-+}
-+
- static int be_mcc_compl_process(struct be_adapter *adapter,
- 				struct be_mcc_compl *compl)
- {
--	u16 compl_status, extd_status;
-+	enum mcc_base_status base_status;
-+	enum mcc_addl_status addl_status;
- 	struct be_cmd_resp_hdr *resp_hdr;
- 	u8 opcode = 0, subsystem = 0;
- 
-@@ -130,11 +144,8 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 	 * from mcc_wrb */
- 	be_dws_le_to_cpu(compl, 4);
- 
--	compl_status = (compl->status >> CQE_STATUS_COMPL_SHIFT) &
--				CQE_STATUS_COMPL_MASK;
--
--	extd_status = (compl->status >> CQE_STATUS_EXTD_SHIFT) &
--				CQE_STATUS_EXTD_MASK;
-+	base_status = base_status(compl->status);
-+	addl_status = addl_status(compl->status);
- 
- 	resp_hdr = be_decode_resp_hdr(compl->tag0, compl->tag1);
- 
-@@ -152,11 +163,11 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 	if (((opcode == OPCODE_COMMON_WRITE_FLASHROM) ||
- 	     (opcode == OPCODE_COMMON_WRITE_OBJECT)) &&
- 	    (subsystem == CMD_SUBSYSTEM_COMMON)) {
--		adapter->flash_status = compl_status;
-+		adapter->flash_status = compl->status;
- 		complete(&adapter->et_cmd_compl);
- 	}
- 
--	if (compl_status == MCC_STATUS_SUCCESS) {
-+	if (base_status == MCC_STATUS_SUCCESS) {
- 		if (((opcode == OPCODE_ETH_GET_STATISTICS) ||
- 		     (opcode == OPCODE_ETH_GET_PPORT_STATS)) &&
- 		    (subsystem == CMD_SUBSYSTEM_ETH)) {
-@@ -174,35 +185,20 @@ static int be_mcc_compl_process(struct be_adapter *adapter,
- 		if (opcode == OPCODE_COMMON_GET_CNTL_ADDITIONAL_ATTRIBUTES)
- 			adapter->be_get_temp_freq = 0;
- 
--		if (compl_status == MCC_STATUS_NOT_SUPPORTED ||
--		    compl_status == MCC_STATUS_ILLEGAL_REQUEST)
--			return compl_status;
-+		if (be_skip_err_log(opcode, base_status, addl_status))
-+			return compl->status;
- 
--		/* Ignore CRC mismatch error during FW download with old FW */
--		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
--		    compl_status == MCC_STATUS_FAILED &&
--		    extd_status == MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH)
--			return compl_status;
--
--		/* Ignore illegal field error during FW download with old FW */
--		if (opcode == OPCODE_COMMON_WRITE_FLASHROM &&
--		    compl_status == MCC_STATUS_ILLEGAL_FIELD)
--			return compl_status;
--
--		if (compl_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
-+		if (base_status == MCC_STATUS_UNAUTHORIZED_REQUEST) {
- 			dev_warn(&adapter->pdev->dev,
- 				 "VF is not privileged to issue opcode %d-%d\n",
- 				 opcode, subsystem);
- 		} else {
- 			dev_err(&adapter->pdev->dev,
- 				"opcode %d-%d failed:status %d-%d\n",
--				opcode, subsystem, compl_status, extd_status);
--
--			if (extd_status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
--				return extd_status;
-+				opcode, subsystem, base_status, addl_status);
- 		}
- 	}
--	return compl_status;
-+	return compl->status;
- }
- 
- /* Link state evt is a string of bytes; no need for endian swapping */
-@@ -452,7 +448,9 @@ static int be_mcc_notify_wait(struct be_adapter *adapter)
- 	if (status == -EIO)
- 		goto out;
- 
--	status = resp->status;
-+	status = (resp->base_status |
-+		  ((resp->addl_status & CQE_ADDL_STATUS_MASK) <<
-+		   CQE_ADDL_STATUS_SHIFT));
- out:
- 	return status;
- }
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 070f775..af62403 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -50,7 +50,7 @@ struct be_mcc_wrb {
- #define CQE_FLAGS_CONSUMED_MASK 	(1 << 27)
- 
- /* Completion Status */
--enum {
-+enum mcc_base_status {
- 	MCC_STATUS_SUCCESS = 0,
- 	MCC_STATUS_FAILED = 1,
- 	MCC_STATUS_ILLEGAL_REQUEST = 2,
-@@ -60,13 +60,25 @@ enum {
- 	MCC_STATUS_NOT_SUPPORTED = 66
- };
- 
--#define MCC_ADDL_STS_INSUFFICIENT_RESOURCES	0x16
--#define MCC_ADDL_STS_FLASH_IMAGE_CRC_MISMATCH	0x4d
-+/* Additional status */
-+enum mcc_addl_status {
-+	MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES = 0x16,
-+	MCC_ADDL_STATUS_FLASH_IMAGE_CRC_MISMATCH = 0x4d,
-+	MCC_ADDL_STATUS_TOO_MANY_INTERFACES = 0x4a
-+};
-+
-+#define CQE_BASE_STATUS_MASK		0xFFFF
-+#define CQE_BASE_STATUS_SHIFT		0	/* bits 0 - 15 */
-+#define CQE_ADDL_STATUS_MASK		0xFF
-+#define CQE_ADDL_STATUS_SHIFT		16	/* bits 16 - 31 */
- 
--#define CQE_STATUS_COMPL_MASK		0xFFFF
--#define CQE_STATUS_COMPL_SHIFT		0	/* bits 0 - 15 */
--#define CQE_STATUS_EXTD_MASK		0xFFFF
--#define CQE_STATUS_EXTD_SHIFT		16	/* bits 16 - 31 */
-+#define base_status(status)		\
-+		((enum mcc_base_status)	\
-+			(status > 0 ? (status & CQE_BASE_STATUS_MASK) : 0))
-+#define addl_status(status)		\
-+		((enum mcc_addl_status)	\
-+			(status > 0 ? (status >> CQE_ADDL_STATUS_SHIFT) & \
-+					CQE_ADDL_STATUS_MASK : 0))
- 
- struct be_mcc_compl {
- 	u32 status;		/* dword 0 */
-@@ -259,8 +271,8 @@ struct be_cmd_resp_hdr {
- 	u8 opcode;		/* dword 0 */
- 	u8 subsystem;		/* dword 0 */
- 	u8 rsvd[2];		/* dword 0 */
--	u8 status;		/* dword 1 */
--	u8 add_status;		/* dword 1 */
-+	u8 base_status;		/* dword 1 */
-+	u8 addl_status;		/* dword 1 */
- 	u8 rsvd1[2];		/* dword 1 */
- 	u32 response_length;	/* dword 2 */
- 	u32 actual_resp_len;	/* dword 3 */
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d2b4efa..6822b3d 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1111,7 +1111,8 @@ static int be_vid_config(struct be_adapter *adapter)
- 	status = be_cmd_vlan_config(adapter, adapter->if_handle, vids, num);
- 	if (status) {
- 		/* Set to VLAN promisc mode as setting VLAN filter failed */
--		if (status == MCC_ADDL_STS_INSUFFICIENT_RESOURCES)
-+		if (addl_status(status) ==
-+				MCC_ADDL_STATUS_INSUFFICIENT_RESOURCES)
- 			goto set_vlan_promisc;
- 		dev_err(&adapter->pdev->dev,
- 			"Setting HW VLAN filtering failed.\n");
-@@ -3729,7 +3730,7 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
- 		img += num_bytes;
- 		status = be_cmd_write_flashrom(adapter, flash_cmd, optype,
- 					       flash_op, num_bytes);
--		if (status == MCC_STATUS_ILLEGAL_REQUEST &&
-+		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST &&
- 		    optype == OPTYPE_PHY_FW)
- 			break;
- 		else if (status)
-@@ -3952,8 +3953,8 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
- 		 * new FLASH op_type. To complete the remaining process,
- 		 * download the same FW again after the reboot.
- 		 */
--		if (status == MCC_STATUS_ILLEGAL_REQUEST ||
--		    status == MCC_STATUS_ILLEGAL_FIELD) {
-+		if (base_status(status) == MCC_STATUS_ILLEGAL_REQUEST ||
-+		    base_status(status) == MCC_STATUS_ILLEGAL_FIELD) {
- 			dev_err(dev, "Flash incomplete. Reset the server\n");
- 			dev_err(dev, "Download FW image again after reset\n");
- 			return -EAGAIN;
-@@ -3975,9 +3976,10 @@ flash:
- 		/* For old FW images ignore ILLEGAL_FIELD error or errors on
- 		 * UFI_DIR region
- 		 */
--		if (old_fw_img && (status == MCC_STATUS_ILLEGAL_FIELD ||
--				   (img_optype == OPTYPE_UFI_DIR &&
--				    status == MCC_STATUS_FAILED))) {
-+		if (old_fw_img &&
-+		    (base_status(status) == MCC_STATUS_ILLEGAL_FIELD ||
-+		     (img_optype == OPTYPE_UFI_DIR &&
-+		      base_status(status) == MCC_STATUS_FAILED))) {
- 			continue;
- 		} else if (status) {
- 			dev_err(dev, "Flashing section type 0x%x failed\n",
--- 
-1.7.1
+Bj=C3=B8rn
