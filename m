@@ -1,105 +1,113 @@
-From: Chema Gonzalez <chema@google.com>
-Subject: Re: [PATCH v6 net-next 1/4] net: flow_dissector: avoid multiple calls
- in eBPF
-Date: Fri, 30 May 2014 10:12:19 -0700
-Message-ID: <CA+ZOOTNobzzJPgQnVVZ+b6rRD=0_pdjUB8q5FQVkbO+dob0BSg@mail.gmail.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com>
-	<1401389758-13252-1-git-send-email-chema@google.com>
-	<5387C8AD.6000909@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH V1 net-next 1/5] amd-xgbe: AMD 10GbE device bindings documentation
+Date: Fri, 30 May 2014 10:11:57 -0700
+Message-ID: <CAGVrzcbb1x_DrqmqH4D5qm2Nh0OBzNZMZ9APMcAq=hbXUsDBKw@mail.gmail.com>
+References: <20140530161055.31154.97537.stgit@tlendack-t1.amdoffice.net> <20140530161101.31154.21311.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>, jcm@redhat.com,
+	David Miller <davem@davemloft.net>
+To: Tom Lendacky <thomas.lendacky@amd.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:39554 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933196AbaE3RMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:12:19 -0400
-Received: by mail-ie0-f181.google.com with SMTP id rp18so1931254iec.26
-        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:12:19 -0700 (PDT)
-In-Reply-To: <5387C8AD.6000909@redhat.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:37198 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934048AbaE3RMi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 13:12:38 -0400
+Received: by mail-qg0-f43.google.com with SMTP id 63so6157817qgz.2
+        for <netdev@vger.kernel.org>; Fri, 30 May 2014 10:12:37 -0700 (PDT)
+In-Reply-To: <20140530161101.31154.21311.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 29, 2014 at 4:54 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> I actually liked [1] most ... ;)
+Hi,
+
+2014-05-30 9:11 GMT-07:00 Tom Lendacky <thomas.lendacky@amd.com>:
+> This patch provides the documentation of the device bindings
+> for the AMD 10GbE platform driver.
 >
-> Just an idea ...
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> ---
+>  .../devicetree/bindings/net/amd-xgbe-phy.txt       |   17 +++++++++++
+>  Documentation/devicetree/bindings/net/amd-xgbe.txt |   32 ++++++++++++++++++++
+>  2 files changed, 49 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+>  create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe.txt
 >
-> Have you taken into account the following: since thoff is u16 and ip_proto
-> is u8 and you clearly seem to want to have the value of these two in your
-> patch set (or even plus the poff value), why not squashing all these into
-Note that I not only want thoff and ip_proto (the ones in patch #1 and
-#2), but also nhoff and nproto. I could use the other flow_keys fields
-(saddr, daddr, sport, dport), but they're one proto
-comparison+indirect load away from [tn]hoff/[ip_|n]proto, so I don't
-think it's worth to change BPF for them. Now, nhoff and proto are not
-kept by the flow dissector. We cannot just add them to flow_keys as
-the struct is used in some skb CB's that don't have any space left. I
-have a patch that replaces thoff/ip_proto with nhof/proto (as the L4
-info is easily obtainable from the L3 one, but not the other way
-around), plus a fix of the couple of places where the L4 info is
-actually used. I'll post it after these patches (and after your
-code/decode cleaning goes through).
+> diff --git a/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+> new file mode 100644
+> index 0000000..cd821d0
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+> @@ -0,0 +1,17 @@
+> +* AMD 10GbE PHY driver (amd-xgbe-phy)
+> +
+> +Required properties:
+> +- compatible: Should be "amd,xgbe-phy-seattle-v1a" and
+> +  "ethernet-phy-ieee802.3-c45"
+> +- reg: Address and length of the register sets for the device
+> +   - SerDes Rx/Tx registers
+> +   - SerDes integration registers (1/2)
+> +   - SerDes integration registers (2/2)
+> +
+> +Example:
+> +       xgbe_phy@e1240800 {
+> +               compatible = "amd,xgbe-phy-seattle-v1a", "ethernet-phy-ieee802.3-c45";
+> +               reg = <0 0xe1240800 0 0x00400>,
+> +                     <0 0xe1250000 0 0x00060>,
+> +                     <0 0xe1250080 0 0x00004>;
+> +       };
+> diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+> new file mode 100644
+> index 0000000..2aec10d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+> @@ -0,0 +1,32 @@
+> +* AMD 10GbE driver (amd-xgbe)
+> +
+> +Required properties:
+> +- compatible: Should be "amd,xgbe-seattle-v1a"
+> +- reg: Address and length of the register sets for the device
+> +   - MAC registers
+> +   - PCS registers
+> +- interrupt-parent: Should be the phandle for the interrupt controller
+> +  that services interrupts for this device
+> +- interrupts: Should contain the amd-xgbe interrupt
+> +- clocks: Should be the DMA clock for the amd-xgbe device (used for
+> +  calculating the correct Rx interrupt watchdog timer value on a DMA
+> +  channel for coalescing)
+> +- clock-names: Should be the name of the DMA clock, "dma_clk"
+> +- phy-handle: Should be the phandle for the associated phy
 
-> one extension e.g. SKF_AD_DISSECT where you call the external
-> skb_flow_dissect()
-> helper or similar on?
+You can also reference ethernet.txt and phy.txt in the same directory
+for details about 'phy-handle'.
+
+'phy-mode' is also a required property here since you have specified a
+'phy-handle' phandle to the PHY node.
+
+> +
+> +Optional properties:
+> +- mac-address: mac address to be assigned to the device. Can be overridden
+> +  by UEFI.
+> +
+> +Example:
+> +       xgbe@e0700000 {
+> +               compatible = "amd,xgbe-seattle-v1a";
+> +               reg = <0 0xe0700000 0 0x80000>,
+> +                     <0 0xe0780000 0 0x80000>;
+> +               interrupt-parent = <&gic>;
+> +               interrupts = <0 325 4>;
+> +               clocks = <&xgbe_clk>;
+> +               clock-names = "dma_clk";
+> +               phy-handle = <&phy>;
+> +               mac-address = [ 02 a1 a2 a3 a4 a5 ];
+> +       };
 >
-> I could imagine that either these offsets are squashed into the return or
-> stored if you really need them from the struct flow_keys into M[] itself. So
-> you would end up with one e.g. 'ld #keys' call that e.g. fills
-> out/overwrites
-> your M[] with the dissected metadata. Then, you'd only have a reason to call
-> that once and do further processing based on these information. Whether you
-> also need poff could e.g. be determined if the user does e.g. 'ldx #1' or so
-> to indicate to the function it eventually calls, that it would further do
-> the dissect and also give you poff into fixed defined M[] slots back.
-
-IIUC, you're suggesting to have the classic BPF user writes "ld #keys"
-to load flow_keys in the stack and then *explicitly* adds "ld
-mem[<offset>]" to access the field she's interested on. Note that if
-the "ld mem[]" is implicit, then the user must use "ld #thoff" to let
-the compiler know she wants "ld #keys" and then "ld
-mem[<thoff_offset>]" (and not "ld mem[<other_offset>]"), which is
-equivalent to what we're doing right now*.
-
-The only advantage I can see is that we're only adding one new
-ancillary load, which is more elegant. I can see some issues with this
-approach:
-
-- usability. The user has to actually know what's the right offset of
-the thoff, which is cumbersome and may change with kernels. We'd be
-effectively exporting the flow_keys struct layout to the users.
-- have to take care that the classic BPF filter does not muck with
-mem[] between the "ld #keys" and all of the the "ld* mem[]" that
-access to it. Note that we're currently storing the flow_keys struct
-in the stack outside of the mem[] words, so this is not a problem
-here. (It is only accessible using ebpf insns.)
-
-*Now, if your comment is ebpf-only, that could be ok. That would mean:
-
-- a. the user writes "ld #thoff"
-- b. the BPF->eBPF compiler generates one common BPF_CALL
-(__skb_get_flow_dissect) plus a "ebpf_ldx stack[right_offset]". This
-would not include payload_offset (which needs to run its own function
-to get the poff from flow_keys).
-
-Is this what you are proposing?
-
--Chema
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
-> Thus if someone really only cares about headers, a use case like 'ld #poff +
-> ret a' is sufficient, but if you need much more and don't want to do this in
-> BPF like in your case, you go with 'ld #keys' and process your BPF program
-> further via M[].
->
-> Thanks,
->
-> Daniel
->
->  [1] http://patchwork.ozlabs.org/patch/344271/
+
+-- 
+Florian
