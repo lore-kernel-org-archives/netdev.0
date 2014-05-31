@@ -1,25 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] arcnet: remove check for CONFIG_SA1100_CT6001
-Date: Fri, 30 May 2014 17:21:09 -0700 (PDT)
-Message-ID: <20140530.172109.1758735676902083194.davem@davemloft.net>
+Date: Fri, 30 May 2014 17:26:15 -0700 (PDT)
+Message-ID: <20140530.172615.2243203796607511160.davem@davemloft.net>
 References: <1401220424.28714.17.camel@x220>
+	<20140530.172109.1758735676902083194.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: pebolle@tiscali.nl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401220424.28714.17.camel@x220>
+In-Reply-To: <20140530.172109.1758735676902083194.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Tue, 27 May 2014 21:53:44 +0200
-
-> A check for CONFIG_SA1100_CT6001 was added in v2.6.11. But the related
-> Kconfig symbol was never added to the tree. Remove this check and do
-> some related cleaning up.
-> 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-
-Applied to net-next, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAzMCBN
+YXkgMjAxNCAxNzoyMTowOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFBhdWwgQm9sbGUgPHBlYm9s
+bGVAdGlzY2FsaS5ubD4NCj4gRGF0ZTogVHVlLCAyNyBNYXkgMjAxNCAyMTo1Mzo0NCArMDIwMA0K
+PiANCj4+IEEgY2hlY2sgZm9yIENPTkZJR19TQTExMDBfQ1Q2MDAxIHdhcyBhZGRlZCBpbiB2Mi42
+LjExLiBCdXQgdGhlIHJlbGF0ZWQNCj4+IEtjb25maWcgc3ltYm9sIHdhcyBuZXZlciBhZGRlZCB0
+byB0aGUgdHJlZS4gUmVtb3ZlIHRoaXMgY2hlY2sgYW5kIGRvDQo+PiBzb21lIHJlbGF0ZWQgY2xl
+YW5pbmcgdXAuDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IFBhdWwgQm9sbGUgPHBlYm9sbGVAdGlz
+Y2FsaS5ubD4NCj4gDQo+IEFwcGxpZWQgdG8gbmV0LW5leHQsIHRoYW5rcy4NCg0KUmV2ZXJ0ZWQs
+IHlvdSBtaXNzZWQgbW9yZSByZWZlcmVuY2VzIHRvIEJVU19BTElHTiBpbiBjb20yMDAyMC5jOg0K
+DQpkcml2ZXJzL25ldC9hcmNuZXQvY29tMjAwMjAuYzogSW4gZnVuY3Rpb24goWNvbTIwMDIwX2No
+ZWNrojoNCmRyaXZlcnMvbmV0L2FyY25ldC9jb20yMDAyMC5jOjEyMDoyMjogZXJyb3I6IKFCVVNf
+QUxJR06iIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0aGlzIGZ1bmN0aW9uKQ0KZHJpdmVycy9u
+ZXQvYXJjbmV0L2NvbTIwMDIwLmM6MTIwOjIyOiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRp
+ZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBp
+bg0KZHJpdmVycy9uZXQvYXJjbmV0L2NvbTIwMDIwLmM6IEluIGZ1bmN0aW9uIKFjb20yMDAyMF9m
+b3VuZKI6DQpkcml2ZXJzL25ldC9hcmNuZXQvY29tMjAwMjAuYzoxODI6MzU6IGVycm9yOiChQlVT
+X0FMSUdOoiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCg0KRm9yIGEg
+ZHJpdmVyIHRoYXQgYnVpbGRzIG9uIHg4NiwgdGhlcmUgaXMgbm8gZXhjdXNlIG5vdCB0byBoYXZl
+IGF0IGxlYXN0DQpidWlsZCB0ZXN0ZWQgdGhpcyBwYXRjaC4NCg==
