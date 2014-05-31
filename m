@@ -1,50 +1,65 @@
-From: "Max S." <max@schneidersoft.net>
-Subject: Thanks! Re: pull-request: can-next 2014-05-19
-Date: Sat, 31 May 2014 15:38:49 +0000
-Message-ID: <1401550729.32359.16.camel@blackbox>
-References: <5379B6CE.60004@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <5379B6CE.60004@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Subject: [PATCH 2/11 V2] cw1200: Remove useless return variables
+Date: Sat, 31 May 2014 13:12:26 -0300
+Message-ID: <1401552746-10615-1-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Solomon Peachy <pizza@shaftnet.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all.
-Thanks allot for all the help on getting this driver this far.
+This patch remove variables that are initialized with a constant,
+are never updated, and are only used as parameter of return.
+Return the constant instead of using a variable.
 
-I've got two tethered units I'm be willing to give away. So if any of
-the people who helped me with this project are interested, send me an
-address to ship to. If you are interested, please make sure you have a
-use for the device :)
+Verified by compilation only.
 
-Again thanks to all the people involved. Especially Marc, Oliver, and
-Wolfgang.
+The coccinelle script that find and fixes this issue is:
+// <smpl>
+@@
+type T;
+constant C;
+identifier ret;
+@@
+- T ret = C;
+... when != ret
+    when strict
+return
+- ret
++ C
+;
+// </smpl>
 
-Regards,
-Maximilian Schneider.
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
-On Mon, 2014-05-19 at 09:46 +0200, Marc Kleine-Budde wrote:
-> Hello David,
-> 
-> this is a pull request of 13 patches for net-next/master.
-> 
-> A patch by Dan Carpenter fixes a coccinelle warning in the mcp251x
-> driver. Jean Delvare contributes three patches to tightening the
-> Kconfig dependencies for some drivers. Then come three patches by Pavel
-> Machek that improve the c_can driver support on the socfpga platform.
-> Sergei Shtylyov's patch brings support for the CAN hardware found on
-> Renesas R-Car CAN controllers. Four patches by Oliver Hartkopp, the
-> first cleans up the guard macros in the CAN headers the other three
-> improve the EFF frame filtering. Maximilian Schneider's patch adds
-> support for the GS_USB CAN devices.
-> 
-> Marc
-> 
+---
+Changes from V1:
+- Keep commented code instead of removing it
 
+ drivers/net/wireless/cw1200/sta.c |   19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
 
+diff --git a/drivers/net/wireless/cw1200/sta.c b/drivers/net/wireless/cw1200/sta.c
+index cd0cad7..5b84664 100644
+--- a/drivers/net/wireless/cw1200/sta.c
++++ b/drivers/net/wireless/cw1200/sta.c
+@@ -2289,7 +2289,6 @@ static int cw1200_upload_null(struct cw1200_common *priv)
+ 
+ static int cw1200_upload_qosnull(struct cw1200_common *priv)
+ {
+-	int ret = 0;
+ 	/* TODO:  This needs to be implemented
+ 
+ 	struct wsm_template_frame frame = {
+@@ -2306,7 +2305,7 @@ static int cw1200_upload_qosnull(struct cw1200_common *priv)
+ 	dev_kfree_skb(frame.skb);
+ 
+ 	*/
+-	return ret;
++	return 0;
+ }
+ 
+ static int cw1200_enable_beaconing(struct cw1200_common *priv,
