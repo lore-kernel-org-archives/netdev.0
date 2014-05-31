@@ -1,74 +1,65 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 4/11] via-ircc: Remove useless return variables
-Date: Sat, 31 May 2014 10:14:04 -0300
-Message-ID: <1401542051-3174-4-git-send-email-peter.senna@gmail.com>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] wan: Use usleep_range()
+Date: Sat, 31 May 2014 17:07:51 +0200
+Message-ID: <1401548871-12352-1-git-send-email-manuel.schoelling@gmx.de>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAFDE223C6D@SOLO.hq.farsitecommunications.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: kevin.curtis@farsite.co.uk
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CAFDE223C6D@SOLO.hq.farsitecommunications.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch remove variables that are initialized with a constant,
-are never updated, and are only used as parameter of return.
-Return the constant instead of using a variable.
+Instead of using a jiffies hack we can use the standard api for delays.
 
-Verified by compilation only.
-
-The coccinelle script that find and fixes this issue is:
-// <smpl>
-@@
-type T;
-constant C;
-identifier ret;
-@@
-- T ret = C;
-... when != ret
-    when strict
-return
-- ret
-+ C
-;
-// </smpl>
-
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
 ---
- drivers/net/irda/via-ircc.c |    9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/wan/farsync.c |   10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index 2900af0..3fde116 100644
---- a/drivers/net/irda/via-ircc.c
-+++ b/drivers/net/irda/via-ircc.c
-@@ -509,11 +509,9 @@ static void via_hw_init(struct via_ircc_cb *self)
-  *
-  */
- static int via_ircc_read_dongle_id(int iobase)
--{
--	int dongle_id = 9;	/* Default to IBM */
--
-+{/* Default to IBM */
- 	IRDA_ERROR("via-ircc: dongle probing not supported, please specify dongle_id module parameter.\n");
--	return dongle_id;
-+	return 9;
- }
- 
- /*
-@@ -926,7 +924,6 @@ static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase)
- static int via_ircc_dma_xmit_complete(struct via_ircc_cb *self)
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index bcfff0d..02f6d1c 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -26,6 +26,7 @@
+ #include <linux/ioport.h>
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
++#include <linux/delay.h>
+ #include <linux/if.h>
+ #include <linux/hdlc.h>
+ #include <asm/io.h>
+@@ -678,7 +679,6 @@ static inline void
+ fst_cpureset(struct fst_card_info *card)
  {
- 	int iobase;
--	int ret = TRUE;
- 	u8 Tx_status;
- 
- 	IRDA_DEBUG(3, "%s()\n", __func__);
-@@ -983,7 +980,7 @@ F01_E*/
- 	// Tell the network layer, that we can accept more frames 
- 	netif_wake_queue(self->netdev);
- //F01   }
--	return ret;
-+	return TRUE;
- }
- 
- /*
+ 	unsigned char interrupt_line_register;
+-	unsigned long j =3D jiffies + 1;
+ 	unsigned int regval;
+=20
+ 	if (card->family =3D=3D FST_FAMILY_TXU) {
+@@ -696,16 +696,12 @@ fst_cpureset(struct fst_card_info *card)
+ 		/*
+ 		 * We are delaying here to allow the 9054 to reset itself
+ 		 */
+-		j =3D jiffies + 1;
+-		while (jiffies < j)
+-			/* Do nothing */ ;
++		usleep_range(10, 20);
+ 		outw(0x240f, card->pci_conf + CNTRL_9054 + 2);
+ 		/*
+ 		 * We are delaying here to allow the 9054 to reload its eeprom
+ 		 */
+-		j =3D jiffies + 1;
+-		while (jiffies < j)
+-			/* Do nothing */ ;
++		usleep_range(10, 20);
+ 		outw(0x040f, card->pci_conf + CNTRL_9054 + 2);
+=20
+ 		if (pci_write_config_byte
+--=20
+1.7.10.4
