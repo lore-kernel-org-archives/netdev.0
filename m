@@ -1,47 +1,50 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: [PATCH v2] net: ec_bhf: Add runtime dependencies
-Date: Sat, 31 May 2014 17:32:27 +0200
-Message-ID: <20140531173227.693f6429@endymion.delvare>
+From: "Max S." <max@schneidersoft.net>
+Subject: Thanks! Re: pull-request: can-next 2014-05-19
+Date: Sat, 31 May 2014 15:38:49 +0000
+Message-ID: <1401550729.32359.16.camel@blackbox>
+References: <5379B6CE.60004@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Darek Marcinkiewicz <reksio@newterm.pl>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:50234 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750752AbaEaPcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 31 May 2014 11:32:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5379B6CE.60004@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ec_bhf driver is specific to the Beckhoff CX embedded PC series.
-These are based on Intel x86 CPU. So we can add a dependency on
-X86, with COMPILE_TEST as an alternative to still allow for broader
-build-testing.
+Hello all.
+Thanks allot for all the help on getting this driver this far.
 
-Signed-off-by: Jean Delvare <jdelvare@suse.de>
-Cc: Darek Marcinkiewicz <reksio@newterm.pl>
-Cc: David S. Miller <davem@davemloft.net>
----
-Changes since v1:
- * Depend on X86 instead of X86_32.
+I've got two tethered units I'm be willing to give away. So if any of
+the people who helped me with this project are interested, send me an
+address to ship to. If you are interested, please make sure you have a
+use for the device :)
 
- drivers/net/ethernet/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
+Again thanks to all the people involved. Especially Marc, Oliver, and
+Wolfgang.
 
---- linux-3.15-rc7.orig/drivers/net/ethernet/Kconfig	2014-05-30 12:45:25.185014302 +0200
-+++ linux-3.15-rc7/drivers/net/ethernet/Kconfig	2014-05-31 17:25:40.286213925 +0200
-@@ -39,6 +39,7 @@ source "drivers/net/ethernet/cisco/Kconf
- config CX_ECAT
- 	tristate "Beckhoff CX5020 EtherCAT master support"
- 	depends on PCI
-+	depends on X86 || COMPILE_TEST
- 	---help---
- 	  Driver for EtherCAT master module located on CCAT FPGA
- 	  that can be found on Beckhoff CX5020, and possibly other of CX
+Regards,
+Maximilian Schneider.
 
--- 
-Jean Delvare
-SUSE L3 Support
+On Mon, 2014-05-19 at 09:46 +0200, Marc Kleine-Budde wrote:
+> Hello David,
+> 
+> this is a pull request of 13 patches for net-next/master.
+> 
+> A patch by Dan Carpenter fixes a coccinelle warning in the mcp251x
+> driver. Jean Delvare contributes three patches to tightening the
+> Kconfig dependencies for some drivers. Then come three patches by Pavel
+> Machek that improve the c_can driver support on the socfpga platform.
+> Sergei Shtylyov's patch brings support for the CAN hardware found on
+> Renesas R-Car CAN controllers. Four patches by Oliver Hartkopp, the
+> first cleans up the guard macros in the CAN headers the other three
+> improve the EFF frame filtering. Maximilian Schneider's patch adds
+> support for the GS_USB CAN devices.
+> 
+> Marc
+> 
+
+
