@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/2] sfc: Restrict PIO for 64bit arch in order
- to avoid data corruption
-Date: Fri, 30 May 2014 17:38:20 -0700 (PDT)
-Message-ID: <20140530.173820.494414338220972060.davem@davemloft.net>
-References: <5385AAF5.7090001@solarflare.com>
+Subject: Re: [PATCH v3] net/phy: tune get_phy_c45_ids to support more c45
+ phy
+Date: Fri, 30 May 2014 17:41:14 -0700 (PDT)
+Message-ID: <20140530.174114.2094570661893736648.davem@davemloft.net>
+References: <1401267276-29648-1-git-send-email-Shengzhou.Liu@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Cc: netdev@vger.kernel.org
+To: Shengzhou.Liu@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60863 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60880 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934624AbaEaAiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:38:21 -0400
-In-Reply-To: <5385AAF5.7090001@solarflare.com>
+	with ESMTP id S934753AbaEaAlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:41:16 -0400
+In-Reply-To: <1401267276-29648-1-git-send-email-Shengzhou.Liu@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Wed, 28 May 2014 10:23:01 +0100
+From: Shengzhou Liu <Shengzhou.Liu@freescale.com>
+Date: Wed, 28 May 2014 16:54:36 +0800
 
-> This patch series 
-> Fixes: ee45fd92c739db5b7950163d91dfe5f016af6d24
-> 
-> The linux net driver uses memcpy_toio() in order to copy into
-> the PIO buffers.
-> Even on a 64bit machine this causes 32bit accesses to a write-
-> combined memory region.
-> There are hardware limitations that mean that only
-> 64bit naturally aligned accesses are safe in all cases. Due to being
-> write-combined memory region two 32bit accesses may be coalesced to
-> form a 64bit non 64bit aligned access.
-> Solution was to open-code the memory copy routines using pointers
-> and to only enable PIO for x86_64 machines.
-> 
-> This bug fix applies to v3.13 and v3.14 stable branches.
+> -	/* Find first non-zero Devices In package.  Device
+> -	 * zero is reserved, so don't probe it.
+> -	 */
+> +	/* Find first non-zero Devices In package */
+>  	for (i = 1;
+>  	     i < num_ids && c45_ids->devices_in_package == 0;
+>  	     i++) {
+ ...
+> -			return 0;
+> +			if (i) {
 
-You submited this twice and I'm still confused which ones I should
-use.
+It makes no sense to test 'i' for zero vs. non-zero until the looping
+construct it is contained within can actually hit a zero value.
 
-Please resubmit this and address Sergei's feedback, thank you.
+It cannot currently, and adding such a check here makes the code
+confusing.
+
+I'm not applying this, sorry.
