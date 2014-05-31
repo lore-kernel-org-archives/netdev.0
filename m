@@ -1,38 +1,98 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] atm: fore200e.c:  Cleaning up uninitialized variables
-Date: Sun,  1 Jun 2014 01:08:32 +0200
-Message-ID: <1401577712-4447-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Rob Herring <robh+dt@kernel.org>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org
-To: Chas Williams <chas@cmf.nrl.navy.mil>,
-	Grant Likely <grant.likely@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next] ieee802154: use helper function to get rid of redundancy
+Date: Sat, 31 May 2014 17:39:02 -0600
+Message-ID: <1401579542-17108-1-git-send-email-sakiwit@gmail.com>
+Cc: Alexander Aring <alex.aring@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:51246 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755481AbaEaXjL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 19:39:11 -0400
+Received: by mail-pb0-f51.google.com with SMTP id ma3so2978987pbc.10
+        for <netdev@vger.kernel.org>; Sat, 31 May 2014 16:39:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a risk that the variable will be used without being initialized.
+In some call sites of at86rf230_write_subreg(), they are rather
+redundant. Use a helper function to replace those call sites for
+efficiency.
 
-This was largely found by using a static code analysis program called cppcheck.
+With at86rf230_write_subreg_by_page(), now ->rssi_base_val is
+assigned before at86rf230_write_subreg() is evaluated. Looking at
+at86rf230_write_subreg(), that change could possibly affect
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+		__at86rf230_read_subreg()
+and
+		__at86rf230_write()
+
+only or vice versa. Yet by the definition of
+
+		struct at86rf230_local
+
+changing ->rssi_base_val will in no way affect those two functions
+above and evaluation of those two has no impact on ->rssi_base_val.
+Thus, at86rf230_write_subreg_by_page() itself is safe.
+
+Additionally at86rf230_write_subreg_by_channel() is simple and safe.
+
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 ---
- drivers/atm/fore200e.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ieee802154/at86rf230.c | 34 +++++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index 204814e..d4725fc 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -2780,7 +2780,7 @@ static struct pci_driver fore200e_pca_driver = {
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 4517b149ed07..5aecbd1c402c 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -597,25 +597,37 @@ at86rf230_set_channel(struct at86rf230_local *lp, int page, int channel)
+ 	return at86rf230_write_subreg(lp, SR_CHANNEL, channel);
+ }
  
- static int __init fore200e_module_init(void)
++static int at86rf230_write_subreg_by_channel(struct at86rf230_local *lp,
++					     int channel)
++{
++	if (channel)
++		channel = 1;
++
++	return at86rf230_write_subreg(lp, SR_SUB_MODE, channel);
++}
++
++static int at86rf230_write_subreg_by_page(struct at86rf230_local *lp, int page)
++{
++	if (page) {
++		lp->rssi_base_val = -98;
++		page = 1;
++	} else {
++		lp->rssi_base_val = -100;
++	}
++
++	return at86rf230_write_subreg(lp, SR_BPSK_QPSK, page);
++}
++
+ static int
+ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
  {
--	int err;
-+	int err = 0;
+ 	int rc;
  
- 	printk(FORE200E "FORE Systems 200E-series ATM driver - version " FORE200E_VERSION "\n");
+-	if (channel == 0)
+-		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 0);
+-	else
+-		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 1);
++	rc = at86rf230_write_subreg_by_channel(lp, channel);
+ 	if (rc < 0)
+ 		return rc;
  
--- 
-1.7.10.4
+-	if (page == 0) {
+-		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 0);
+-		lp->rssi_base_val = -100;
+-	} else {
+-		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 1);
+-		lp->rssi_base_val = -98;
+-	}
++	rc = at86rf230_write_subreg_by_page(lp, page);
+ 	if (rc < 0)
+ 		return rc;
+ 
