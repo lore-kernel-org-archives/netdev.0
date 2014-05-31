@@ -1,98 +1,47 @@
-From: walter harms <wharms-fPG8STNUNVg@public.gmane.org>
-Subject: Re: [PATCH 2/11] cw1200: Remove useless return variables
-Date: Sat, 31 May 2014 17:17:52 +0200
-Message-ID: <5389F2A0.1000903@bfs.de>
-References: <1401542051-3174-2-git-send-email-peter.senna@gmail.com>
-Reply-To: wharms-fPG8STNUNVg@public.gmane.org
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH v2] net: ec_bhf: Add runtime dependencies
+Date: Sat, 31 May 2014 17:32:27 +0200
+Message-ID: <20140531173227.693f6429@endymion.delvare>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1401542051-3174-2-git-send-email-peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Darek Marcinkiewicz <reksio@newterm.pl>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:50234 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750752AbaEaPcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 May 2014 11:32:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The ec_bhf driver is specific to the Beckhoff CX embedded PC series.
+These are based on Intel x86 CPU. So we can add a dependency on
+X86, with COMPILE_TEST as an alternative to still allow for broader
+build-testing.
 
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Cc: Darek Marcinkiewicz <reksio@newterm.pl>
+Cc: David S. Miller <davem@davemloft.net>
+---
+Changes since v1:
+ * Depend on X86 instead of X86_32.
 
-Am 31.05.2014 15:14, schrieb Peter Senna Tschudin:
-> This patch remove variables that are initialized with a constant,
-> are never updated, and are only used as parameter of return.
-> Return the constant instead of using a variable.
-> 
-> Verified by compilation only.
-> 
-> The coccinelle script that find and fixes this issue is:
-> // <smpl>
-> @@
-> type T;
-> constant C;
-> identifier ret;
-> @@
-> - T ret = C;
-> ... when != ret
->     when strict
-> return
-> - ret
-> + C
-> ;
-> // </smpl>
-> 
-> Signed-off-by: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> ---
->  drivers/net/wireless/cw1200/sta.c |   19 +------------------
->  1 file changed, 1 insertion(+), 18 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/cw1200/sta.c b/drivers/net/wireless/cw1200/sta.c
-> index cd0cad7..622370c 100644
-> --- a/drivers/net/wireless/cw1200/sta.c
-> +++ b/drivers/net/wireless/cw1200/sta.c
-> @@ -2289,24 +2289,7 @@ static int cw1200_upload_null(struct cw1200_common *priv)
->  
->  static int cw1200_upload_qosnull(struct cw1200_common *priv)
->  {
-> -	int ret = 0;
-> -	/* TODO:  This needs to be implemented
-> -
-> -	struct wsm_template_frame frame = {
-> -		.frame_type = WSM_FRAME_TYPE_QOS_NULL,
-> -		.rate = 0xFF,
-> -	};
-> -
-> -	frame.skb = ieee80211_qosnullfunc_get(priv->hw, priv->vif);
-> -	if (!frame.skb)
-> -		return -ENOMEM;
-> -
-> -	ret = wsm_set_template_frame(priv, &frame);
-> -
-> -	dev_kfree_skb(frame.skb);
-> -
-> -	*/
-> -	return ret;
-> +	return 0;
->  }
->  
->  static int cw1200_enable_beaconing(struct cw1200_common *priv,
+ drivers/net/ethernet/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
+--- linux-3.15-rc7.orig/drivers/net/ethernet/Kconfig	2014-05-30 12:45:25.185014302 +0200
++++ linux-3.15-rc7/drivers/net/ethernet/Kconfig	2014-05-31 17:25:40.286213925 +0200
+@@ -39,6 +39,7 @@ source "drivers/net/ethernet/cisco/Kconf
+ config CX_ECAT
+ 	tristate "Beckhoff CX5020 EtherCAT master support"
+ 	depends on PCI
++	depends on X86 || COMPILE_TEST
+ 	---help---
+ 	  Driver for EtherCAT master module located on CCAT FPGA
+ 	  that can be found on Beckhoff CX5020, and possibly other of CX
 
-are you sure you want to remove the entire function ?
-
-re,
- wh
-
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Jean Delvare
+SUSE L3 Support
