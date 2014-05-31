@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_key: Replace comma with semicolon
-Date: Fri, 30 May 2014 17:50:09 -0700 (PDT)
-Message-ID: <20140530.175009.1085183968784177111.davem@davemloft.net>
-References: <20140530154812.GA4119@himangi-Dell>
+Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 30 May 2014 17:53:57 -0700 (PDT)
+Message-ID: <20140530.175357.1674117020839087119.davem@davemloft.net>
+References: <1401376216-12531-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: himangi774@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140530154812.GA4119@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32769 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934625AbaEaAx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:53:58 -0400
+In-Reply-To: <1401376216-12531-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Himangi Saraogi <himangi774@gmail.com>
-Date: Fri, 30 May 2014 21:18:12 +0530
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 29 May 2014 08:10:01 -0700
 
-> This patch replaces a comma between expression statements by a semicolon.
-> 
-> A simplified version of the semantic patch that performs this
-> transformation is as follows:
+> This series contains updates to i40e and i40evf.
  ...
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+> The following are changes since commit 6623b4194459c07859d3e3196c3994fa7be5b88e:
+>   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Applied.
+Pulled, thanks Jeff.
+
+And, as always, thanks for the detailed cover letter.
