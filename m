@@ -1,26 +1,12 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 11/11] drivers/net/ethernet/intel: Remove
-	useless return variables
-Date: Sat, 31 May 2014 10:14:11 -0300
-Message-ID: <1401542051-3174-11-git-send-email-peter.senna@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Linux NICS <linux.nics@intel.com>, e1000-devel@lists.sourceforge.net,
-	kernel-janitors@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Subject: [PATCH 10/11] vxge: Remove useless return variables
+Date: Sat, 31 May 2014 10:14:10 -0300
+Message-ID: <1401542051-3174-10-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jon Mason <jdmason@kudzu.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 This patch remove variables that are initialized with a constant,
@@ -48,259 +34,125 @@ return
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   |   12 +++---------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c |   12 +++---------
- drivers/net/ethernet/intel/igb/e1000_82575.c    |   22 ++++++++--------------
- 3 files changed, 14 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/neterion/vxge/vxge-config.c |   22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 34415d3..524f8ca 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -464,8 +464,6 @@ init_adminq_exit:
-  **/
- static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
+index 089b713..2bbd01f 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-config.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-config.c
+@@ -120,7 +120,6 @@ __vxge_hw_device_register_poll(void __iomem *reg, u64 mask, u32 max_millis)
  {
--	i40e_status ret_code = 0;
+ 	u64 val64;
+ 	u32 i = 0;
+-	enum vxge_hw_status ret = VXGE_HW_FAIL;
+ 
+ 	udelay(10);
+ 
+@@ -139,7 +138,7 @@ __vxge_hw_device_register_poll(void __iomem *reg, u64 mask, u32 max_millis)
+ 		mdelay(1);
+ 	} while (++i <= max_millis);
+ 
+-	return ret;
++	return VXGE_HW_FAIL;
+ }
+ 
+ static inline enum vxge_hw_status
+@@ -1682,12 +1681,10 @@ enum vxge_hw_status vxge_hw_driver_stats_get(
+ 			struct __vxge_hw_device *hldev,
+ 			struct vxge_hw_device_stats_sw_info *sw_stats)
+ {
+-	enum vxge_hw_status status = VXGE_HW_OK;
 -
- 	if (hw->aq.asq.count == 0)
- 		return I40E_ERR_NOT_READY;
+ 	memcpy(sw_stats, &hldev->stats.sw_dev_info_stats,
+ 		sizeof(struct vxge_hw_device_stats_sw_info));
  
-@@ -484,7 +482,7 @@ static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
- 
- 	mutex_unlock(&hw->aq.asq_mutex);
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-@@ -495,8 +493,6 @@ static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
-  **/
- static i40e_status i40e_shutdown_arq(struct i40e_hw *hw)
- {
--	i40e_status ret_code = 0;
--
- 	if (hw->aq.arq.count == 0)
- 		return I40E_ERR_NOT_READY;
- 
-@@ -515,7 +511,7 @@ static i40e_status i40e_shutdown_arq(struct i40e_hw *hw)
- 
- 	mutex_unlock(&hw->aq.arq_mutex);
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-@@ -622,8 +618,6 @@ init_adminq_exit:
-  **/
- i40e_status i40e_shutdown_adminq(struct i40e_hw *hw)
- {
--	i40e_status ret_code = 0;
--
- 	if (i40e_check_asq_alive(hw))
- 		i40e_aq_queue_shutdown(hw, true);
- 
-@@ -632,7 +626,7 @@ i40e_status i40e_shutdown_adminq(struct i40e_hw *hw)
- 
- 	/* destroy the locks */
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 68b4aac..1534c32 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -462,8 +462,6 @@ init_adminq_exit:
-  **/
- static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
- {
--	i40e_status ret_code = 0;
--
- 	if (hw->aq.asq.count == 0)
- 		return I40E_ERR_NOT_READY;
- 
-@@ -482,7 +480,7 @@ static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
- 
- 	mutex_unlock(&hw->aq.asq_mutex);
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-@@ -493,8 +491,6 @@ static i40e_status i40e_shutdown_asq(struct i40e_hw *hw)
-  **/
- static i40e_status i40e_shutdown_arq(struct i40e_hw *hw)
- {
--	i40e_status ret_code = 0;
--
- 	if (hw->aq.arq.count == 0)
- 		return I40E_ERR_NOT_READY;
- 
-@@ -513,7 +509,7 @@ static i40e_status i40e_shutdown_arq(struct i40e_hw *hw)
- 
- 	mutex_unlock(&hw->aq.arq_mutex);
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-@@ -574,8 +570,6 @@ init_adminq_exit:
-  **/
- i40e_status i40evf_shutdown_adminq(struct i40e_hw *hw)
- {
--	i40e_status ret_code = 0;
--
- 	if (i40evf_check_asq_alive(hw))
- 		i40evf_aq_queue_shutdown(hw, true);
- 
-@@ -584,7 +578,7 @@ i40e_status i40evf_shutdown_adminq(struct i40e_hw *hw)
- 
- 	/* destroy the locks */
- 
--	return ret_code;
-+	return 0;
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 2e36c67..0175290 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1004,7 +1004,6 @@ out:
- static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
- 	u16 data;
- 
- 	data = rd32(E1000_82580_PHY_POWER_MGMT);
-@@ -1028,7 +1027,7 @@ static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- 			data &= ~E1000_82580_PM_SPD; }
- 
- 	wr32(E1000_82580_PHY_POWER_MGMT, data);
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -1048,7 +1047,6 @@ static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- static s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
- 	u16 data;
- 
- 	data = rd32(E1000_82580_PHY_POWER_MGMT);
-@@ -1073,7 +1071,7 @@ static s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
- 	}
- 
- 	wr32(E1000_82580_PHY_POWER_MGMT, data);
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -1199,7 +1197,6 @@ static void igb_release_swfw_sync_82575(struct e1000_hw *hw, u16 mask)
- static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
- {
- 	s32 timeout = PHY_CFG_TIMEOUT;
--	s32 ret_val = 0;
- 	u32 mask = E1000_NVM_CFG_DONE_PORT_0;
- 
- 	if (hw->bus.func == 1)
-@@ -1223,7 +1220,7 @@ static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
- 	    (hw->phy.type == e1000_phy_igp_3))
- 		igb_phy_init_script_igp3(hw);
- 
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -2552,7 +2549,6 @@ s32 igb_read_emi_reg(struct e1000_hw *hw, u16 addr, u16 *data)
-  **/
- s32 igb_set_eee_i350(struct e1000_hw *hw)
- {
--	s32 ret_val = 0;
- 	u32 ipcnfg, eeer;
- 
- 	if ((hw->mac.type < e1000_i350) ||
-@@ -2586,7 +2582,7 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
- 	rd32(E1000_EEER);
- out:
- 
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -2713,7 +2709,6 @@ static const u8 e1000_emc_therm_limit[4] = {
-  **/
- static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- {
--	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
- 	u16 ets_cfg;
- 	u16 ets_sensor;
-@@ -2731,7 +2726,7 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- 	/* Return the internal sensor only if ETS is unsupported */
- 	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
- 	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
--		return status;
-+		return E1000_SUCCESS;
- 
- 	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
- 	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
-@@ -2755,7 +2750,7 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- 					E1000_I2C_THERMAL_SENSOR_ADDR,
- 					&data->sensor[i].temp);
- 	}
 -	return status;
-+	return E1000_SUCCESS;
++	return VXGE_HW_OK;
  }
  
- /**
-@@ -2767,7 +2762,6 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
-  **/
- static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
+ /*
+@@ -3228,7 +3225,6 @@ enum vxge_hw_status
+ vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
  {
--	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
- 	u16 ets_cfg;
- 	u16 ets_sensor;
-@@ -2793,7 +2787,7 @@ static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- 	/* Return the internal sensor only if ETS is unsupported */
- 	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
- 	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
--		return status;
-+		return E1000_SUCCESS;
+ 	struct vxge_hw_vpmgmt_reg       __iomem *vpmgmt_reg;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+ 	int i = 0, j = 0;
  
- 	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
- 	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
-@@ -2824,7 +2818,7 @@ static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- 							low_thresh_delta;
+ 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
+@@ -3241,7 +3237,7 @@ vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
+ 				return VXGE_HW_FAIL;
  		}
  	}
 -	return status;
-+	return E1000_SUCCESS;
++	return VXGE_HW_OK;
+ }
+ /*
+  * vxge_hw_mgmt_reg_Write - Write Titan register.
+@@ -3979,7 +3975,6 @@ __vxge_hw_vpath_mgmt_read(
+ {
+ 	u32 i, mtu = 0, max_pyld = 0;
+ 	u64 val64;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+ 
+ 	for (i = 0; i < VXGE_HW_MAC_MAX_MAC_PORT_ID; i++) {
+ 
+@@ -4009,7 +4004,7 @@ __vxge_hw_vpath_mgmt_read(
+ 	else
+ 		VXGE_HW_DEVICE_LINK_STATE_SET(vpath->hldev, VXGE_HW_LINK_DOWN);
+ 
+-	return status;
++	return VXGE_HW_OK;
  }
  
- #endif
-
-
-------------------------------------------------------------------------------
-Time is money. Stop wasting it! Get your web API in 5 minutes.
-www.restlet.com/download
-http://p.sf.net/sfu/restlet
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ /*
+@@ -4039,14 +4034,13 @@ static enum vxge_hw_status
+ __vxge_hw_vpath_reset(struct __vxge_hw_device *hldev, u32 vp_id)
+ {
+ 	u64 val64;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+ 
+ 	val64 = VXGE_HW_CMN_RSTHDLR_CFG0_SW_RESET_VPATH(1 << (16 - vp_id));
+ 
+ 	__vxge_hw_pio_mem_write32_upper((u32)vxge_bVALn(val64, 0, 32),
+ 				&hldev->common_reg->cmn_rsthdlr_cfg0);
+ 
+-	return status;
++	return VXGE_HW_OK;
+ }
+ 
+ /*
+@@ -4227,7 +4221,6 @@ static enum vxge_hw_status
+ __vxge_hw_vpath_mac_configure(struct __vxge_hw_device *hldev, u32 vp_id)
+ {
+ 	u64 val64;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+ 	struct __vxge_hw_virtualpath *vpath;
+ 	struct vxge_hw_vp_config *vp_config;
+ 	struct vxge_hw_vpath_reg __iomem *vp_reg;
+@@ -4283,7 +4276,7 @@ __vxge_hw_vpath_mac_configure(struct __vxge_hw_device *hldev, u32 vp_id)
+ 
+ 		writeq(val64, &vp_reg->rxmac_vcfg1);
+ 	}
+-	return status;
++	return VXGE_HW_OK;
+ }
+ 
+ /*
+@@ -4295,7 +4288,6 @@ static enum vxge_hw_status
+ __vxge_hw_vpath_tim_configure(struct __vxge_hw_device *hldev, u32 vp_id)
+ {
+ 	u64 val64;
+-	enum vxge_hw_status status = VXGE_HW_OK;
+ 	struct __vxge_hw_virtualpath *vpath;
+ 	struct vxge_hw_vpath_reg __iomem *vp_reg;
+ 	struct vxge_hw_vp_config *config;
+@@ -4545,7 +4537,7 @@ __vxge_hw_vpath_tim_configure(struct __vxge_hw_device *hldev, u32 vp_id)
+ 	val64 |= VXGE_HW_TIM_WRKLD_CLC_CNT_RX_TX(3);
+ 	writeq(val64, &vp_reg->tim_wrkld_clc);
+ 
+-	return status;
++	return VXGE_HW_OK;
+ }
+ 
+ /*
