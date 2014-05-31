@@ -1,47 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge :
- Sanitize skb before it enters the IP stack)
-Date: Fri, 30 May 2014 23:37:30 -0700 (PDT)
-Message-ID: <20140530.233730.278118344680023489.davem@davemloft.net>
-References: <53884CC6.2000000@davidnewall.com>
-	<20140530.174608.587404162482133282.davem@davemloft.net>
-	<538972FC.2090801@davidnewall.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] net: ipconfig: allow IP-Config over DSA devices
+Date: Sat, 31 May 2014 09:04:36 +0200
+Message-ID: <20140531070436.GA3154@minipsycho.orion>
+References: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bdschuym@pandora.be, fw@strlen.de, stephen@networkplumber.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	bridge@lists.linux-foundation.org, bsd@redhat.com,
-	vyasevich@gmail.com
-To: davidn@davidnewall.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <538972FC.2090801@davidnewall.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, buytenh@wantstofly.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:49675 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708AbaEaHEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 03:04:39 -0400
+Received: by mail-wg0-f46.google.com with SMTP id n12so2931056wgh.5
+        for <netdev@vger.kernel.org>; Sat, 31 May 2014 00:04:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Newall <davidn@davidnewall.com>
-Date: Sat, 31 May 2014 15:43:16 +0930
+Fri, May 30, 2014 at 08:08:45PM CEST, f.fainelli@gmail.com wrote:
+>Hi David, Lennert, Jiri,
+>
+>This small patch allows us to use the kernel IP auto-configuration on DSA
+>enabled devices.
+>
+>I initially started implementing the netdev_upper_dev_link() calls for the
+>DSA slave devices, but ended up realizing that although this might be useful,
+>the other drivers or protocols implementing these master/slave relantionship
+>are the bonding driver and the VLAN code.
+>
+>None of these interfaces (bonding or VLAN) can be created by the kernel
+>without modifications, which means that user-space is there, and so we could
+>pivot_root over a NFS mounted share for instance, hence making the master/slave
+>net_device relationship not so useful for IP-Config.
+>
+>This is not the case with DSA devices which are solely created by the kernel
+>based on platform configuration.
+>
+>Let me know your thoughts. If you feel like something like:
+>netdev_is_upper_dev() or something like that is better.
 
-> On 31/05/14 10:16, David Miller wrote:
->> I don't see why you don't simply keep br_parse_ip_options() around
->> and adjust it as you need, you're just mostly duplicating it's
->> contents into br_nf_pre_routing().
-> 
-> More accurately, I'm *restoring* br_parse_ip_options()'s contents to
-> br_nf_pre_routing().  The reasons why are twofold: I'm undoing a
-> change which turns out to have been a mistake; and leaving it largely
-> as-is, just removing the call to ip_options_compile(), would be
-> confusing in that the name (br_pase_ip_options()) gives an expectation
-> of function that would be untrue.
-> 
-> I can see an argument in favour of leaving br_parse_options() around,
-> being that it is called from three places, and thus restoring the code
-> removes checks which are currently being performed.  They weren't
-> being performed before and it's not clear that they are needed, but if
-> you say that it would be better, I'll leave it around and just remove
-> the call to ip_options_compile(). Just say the word.
+uppers and lowers should not be used by switches. If they were, it would
+block the usage of ports in bond/bridge/ovs. I did that myself in my
+first RFC patchset but realized that it make no sense.
 
-You can rename the function to something more suitable.
+What I have in mind and I believe that many people nodded to is an
+exported (netlink, sysfs) value of switch id. That can be generated
+randomly or from some hw id. Please see following git tree:
 
-Because then it's just a handful of line changes rather than a huge
-bunch of hunks which are harder to audit.
+https://github.com/jpirko/net-next-rocker
+
+On the tip, there are rocker patches combined with the switch
+infrastructure patches. The switch id is there implemented for dsa and
+rocker.
+
+This is based on the RFC patchset I sent some while ago on netdev
+mailing list.
+
+Please tell me what do you think.
+
+Thanks.
+
+Jiri
+
+>
+>Thanks!
+>
+>Florian Fainelli (1):
+>  net: ipconfig: handle DSA enabled network devices
+>
+> net/ipv4/ipconfig.c | 7 ++++---
+> 1 file changed, 4 insertions(+), 3 deletions(-)
+>
+>-- 
+>1.9.1
+>
