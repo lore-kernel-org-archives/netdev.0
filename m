@@ -1,75 +1,41 @@
-From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 4/11 V2] via-ircc: Remove useless return variables
-Date: Sat, 31 May 2014 13:21:59 -0300
-Message-ID: <1401553319-11763-1-git-send-email-peter.senna@gmail.com>
-Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] dns_resolver: Do not accept domain names longer than 255 chars
+Date: Sat, 31 May 2014 18:44:33 +0200
+Message-ID: <1401554673-16311-1-git-send-email-manuel.schoelling@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch remove variables that are initialized with a constant,
-are never updated, and are only used as parameter of return.
-Return the constant instead of using a variable.
+According to RFC1035 "[...] the total length of a domain name (i.e.,
+label octets and label length octets) is restricted to 255 octets or
+less."
 
-Verified by compilation only.
-
-The coccinelle script that find and fixes this issue is:
-// <smpl>
-@@
-type T;
-constant C;
-identifier ret;
-@@
-- T ret = C;
-... when != ret
-    when strict
-return
-- ret
-+ C
-;
-// </smpl>
-
-Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
-
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
 ---
-Changes from V1:
- - Moved comment about return value to near the return value
+ net/dns_resolver/dns_query.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/irda/via-ircc.c |    9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
-index 2900af0..5a5e17b 100644
---- a/drivers/net/irda/via-ircc.c
-+++ b/drivers/net/irda/via-ircc.c
-@@ -510,10 +510,8 @@ static void via_hw_init(struct via_ircc_cb *self)
-  */
- static int via_ircc_read_dongle_id(int iobase)
- {
--	int dongle_id = 9;	/* Default to IBM */
--
- 	IRDA_ERROR("via-ircc: dongle probing not supported, please specify dongle_id module parameter.\n");
--	return dongle_id;
-+	return 9;	/* Default to IBM */
- }
- 
- /*
-@@ -926,7 +924,6 @@ static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase)
- static int via_ircc_dma_xmit_complete(struct via_ircc_cb *self)
- {
- 	int iobase;
--	int ret = TRUE;
- 	u8 Tx_status;
- 
- 	IRDA_DEBUG(3, "%s()\n", __func__);
-@@ -983,7 +980,7 @@ F01_E*/
- 	// Tell the network layer, that we can accept more frames 
- 	netif_wake_queue(self->netdev);
- //F01   }
--	return ret;
-+	return TRUE;
- }
- 
- /*
+diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.=
+c
+index e7b6d53..e0fde29 100644
+--- a/net/dns_resolver/dns_query.c
++++ b/net/dns_resolver/dns_query.c
+@@ -94,7 +94,7 @@ int dns_query(const char *type, const char *name, siz=
+e_t namelen,
+=20
+ 	if (!namelen)
+ 		namelen =3D strlen(name);
+-	if (namelen < 3)
++	if (namelen < 3 || namelen > 255)
+ 		return -EINVAL;
+ 	desclen +=3D namelen + 1;
+=20
+--=20
+1.7.10.4
