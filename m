@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Reset RoCE VF gids when guest
- driver goes down
-Date: Fri, 30 May 2014 16:58:22 -0700 (PDT)
-Message-ID: <20140530.165822.292594586292656620.davem@davemloft.net>
-References: <1401171998-22702-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH v2 1/1] net: fec: use pinctrl PM helpers
+Date: Fri, 30 May 2014 17:03:52 -0700 (PDT)
+Message-ID: <20140530.170352.2196404366015569028.davem@davemloft.net>
+References: <1401177068-6206-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	jackm@dev.mellanox.co.il
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org, b20596@freescale.com, R65073@freescale.com
+To: b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60650 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60664 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755432AbaE3X6X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 19:58:23 -0400
-In-Reply-To: <1401171998-22702-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S934548AbaEaADx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:03:53 -0400
+In-Reply-To: <1401177068-6206-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 27 May 2014 09:26:38 +0300
+From: Fugang Duan <b38611@freescale.com>
+Date: Tue, 27 May 2014 15:51:08 +0800
 
-> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+> when system suspend, need to set pins to low power state to
+> save IO power consumption, there are three states of pinctrl:
+> "default", "idle" and "sleep". Currently enet supports default
+> and sleep state.
 > 
-> Reset the GIDs assigned to a VF in the port RoCE GID table when
-> that guest goes down (either crashes or goes down cleanly).
-> 
-> As part of this fix, we refactor the RoCE gid table driver copy,
-> moving it to the mlx4_port_info structure (together with the MAC
-> and VLAN tables).
-> 
-> As with the MAC and VLAN tables, we now use a mutex per port
-> for the GID table so that modifying the driver copy and
-> modifying the firmware copy of a port GID table becomes an 
-> atomic operation (thus avoiding driver-copy/FW-copy mismatches).
-> 
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
 
-Applied, thanks.
+Applied to net-next, thanks.
