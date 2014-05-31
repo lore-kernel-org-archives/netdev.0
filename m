@@ -1,90 +1,53 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: Re: pull request net: batman-adv 20140527
-Date: Sat, 31 May 2014 11:26:39 +0200
-Message-ID: <5389A04F.1000500@meshcoding.com>
-References: <1401157547-25199-1-git-send-email-antonio@meshcoding.com> <20140530.164757.984109840722396912.davem@davemloft.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2] bridge: Add master device name to bridge fdb
+ show
+Date: Sat, 31 May 2014 07:10:31 -0400
+Message-ID: <5389B8A7.8030301@mojatatu.com>
+References: <1401255611-30862-1-git-send-email-roopa@cumulusnetworks.com> <53864051.4070102@gmail.com> <53869320.6010302@cumulusnetworks.com> <20140530073614.0a48f2bd@nehalam.linuxnetplumber.net> <53895A48.2040203@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="bU3jgRmxEIjtOMn6WxLpx02QkAWiFCCvF"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:13294 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753026AbaEaJ2N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 05:28:13 -0400
-In-Reply-To: <20140530.164757.984109840722396912.davem@davemloft.net>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:52740 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754558AbaEaLKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 07:10:38 -0400
+Received: by mail-ie0-f169.google.com with SMTP id rp18so1561410iec.28
+        for <netdev@vger.kernel.org>; Sat, 31 May 2014 04:10:38 -0700 (PDT)
+In-Reply-To: <53895A48.2040203@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---bU3jgRmxEIjtOMn6WxLpx02QkAWiFCCvF
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 05/31/14 00:27, Roopa Prabhu wrote:
+> On 5/30/14, 7:36 AM, Stephen Hemminger wrote:
 
-David,
+> but set also uses 'master' ..and the bridge is referenced using 'master'
+> in almost all commands
+> #ip link set dev brport master brdev
+>
+> so, using 'bridge' and 'master' interchangeably seems a bit confusing.
+>
+> But, if  the preference is 'bridge' i will resubmit this patch with
+> 'bridge' shortly.
 
-On 31/05/14 01:47, David Miller wrote:
-> From: Antonio Quartulli <antonio@meshcoding.com>
-> Date: Tue, 27 May 2014 04:25:46 +0200
->=20
->> Hello David,
->>
->> here you have another very small fix intended for net/linux-3.15.
->> It prevents some multicast functions from dereferencing a NULL pointer=
-=2E
->> (Actually it was nothing more than a typ0)
->> I hope it is not too late for such a small patch.
->>
->>
->> Please pull or let me know of any problem
->  ...
->> are available in the git repository at:
->>
->>   git://git.open-mesh.org/linux-merge.git=20
->=20
+Sorry - I guess until i looked at the code again last few minutes,
+it had skipped my mind that this interface is also used for vxlan. So 
+master now seems to make more sense ;->
 
-ops, this was supposed to be:
+Vlad, you may get your wish - it seems if i am going to have to set
+the bridge device as a filter I will have no choice but to use an
+ifm since it is size different from ndm. Which is not a big deal
+until i attach an attribute - which breaks old iproute2  out in
+the wild already. I have to say i am not liking this (because i was
+hoping to add other filters in the future, example vlan)
+but dont see a way out.
+So the only way this would work is to use the original ifm as
+the header.
 
-git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-Can you pull this tag please?
-
-(I just rebased my branch on top of the current net/master once again to
-be sure that everything is in order).
-
-
-Thanks a lot!
-
-
-
---=20
-Antonio Quartulli
-
-
---bU3jgRmxEIjtOMn6WxLpx02QkAWiFCCvF
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJTiaBYAAoJEJgn97Bh2u9en0gP/31gmJwhZtQ6qScd7W7etRTb
-3CmmBimjF7IbYDnrTWwukCcnOXtMZzfuOWmwUs7L2SP8QA2I0CqMkBb8UWD0M8mS
-mkp0DJN4llU+BOxcK8aZy+hcO8zD1w/1p6tVhqUmPlgJnmu9P+lRk+ju/oH2r9B8
-WMquc5rRwCoYTztx6DquUb160i9Nts1x66xw3LREzuCLynb4eGs94BccVpKbu7P/
-8Bdvphf2aFvgRCqagu8cbWBjfku7XZJE+GAsWyDeeYlPpkUoFbwYHKnQwafHaeHw
-jAARDSkG0HCJdpABWplnwxgDh4oKsruTkdvyv7WfoK9YCoO5Xn+SHISixP6l/ba6
-h0Qu16WP3f4x5UitgRjWfFRBrqVPV7VbnpdsKt/e+7tNoAX/o3QkEGJSuD0qtjwa
-wlTqmjpBniGzogd6Semkh+j9J4t3ulUjwzQMxiGy1qJr4uhSfAPjQ6L2N2y8s4x5
-I3T8O++3/3iqkFrYcMlrgjOHK7ZImwGxAAFmOen6D2EFt1nyJq8jL8NAQyxyuDt2
-/M7Zi3INcTy/lmAlbSwe8EU7Plm3cgpcMoFjbyN4beZcd/glEmiRFzMRxu23bIUy
-d/49i6ek99pODDA7baomFFK1LAWbZaKs552AoI3zYRxPQx37ioU6JVqdzgZDMlfg
-1TV3qU1hwThxoYk7VqwF
-=mJJP
------END PGP SIGNATURE-----
-
---bU3jgRmxEIjtOMn6WxLpx02QkAWiFCCvF--
+cheers,
+jamal
