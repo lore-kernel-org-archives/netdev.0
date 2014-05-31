@@ -1,97 +1,82 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Fri, 30 May 2014 16:29:22 -0700
-Message-ID: <20140530232922.GD25854@kroah.com>
-References: <20140530094025.3b78301e@canb.auug.org.au>
- <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>
- <1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
- <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
- <5388C0F1.90503@gmail.com> <5388CB1B.3090802@metafoo.de>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] cnic: don't take the rtnl_read_lock in
+	cnic_rcv_netevent
+Date: Fri, 30 May 2014 22:41:08 -0400
+Message-ID: <20140531024108.GA27184@localhost.localdomain>
+References: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
+ <1401472691.9728.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20140530200311.GG3144@hmsreliant.think-freely.org>
+ <1401480820.9728.148.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20140530203823.GH3144@hmsreliant.think-freely.org>
+ <1401483513.9728.158.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
- David Daney <ddaney.cavm@gmail.com>, Linux-sh list <linux-sh@vger.kernel.org>,
- Linus Walleij <linus.walleij@linaro.org>, platform-driver-x86@vger.kernel.org,
- "linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
- driverdevel <devel@driverdev.osuosl.org>, Alexandre Courbot <gnurou@gmail.com>,
- patches@opensource.wolfsonmicro.com, linux-samsungsoc@vger.kernel.org,
- Geert Uytterhoeven <geert@linux-m68k.org>,
- "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
- abdoulaye berthe <berthe.ab@gmail.com>, spear-devel@list.st.com,
- "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>, m@bues.ch,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- linux-wireless <linux-wireless@vger.kernel.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel
-To: Lars-Peter Clausen <lars@metafoo.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5388CB1B.3090802@metafoo.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+In-Reply-To: <1401483513.9728.158.camel-WIqd6NlzC1zwyCTbCWje6raTQr+y5IJFqs7JOtOhHmkAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
+ <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel>
+List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
+ <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Sender: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 30, 2014 at 08:16:59PM +0200, Lars-Peter Clausen wrote:
-> On 05/30/2014 07:33 PM, David Daney wrote:
-> >On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
-> >>On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com>
-> >>wrote:
-> >>>--- a/drivers/gpio/gpiolib.c
-> >>>+++ b/drivers/gpio/gpiolib.c
-> >>>@@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct
-> >>>gpio_chip *gpiochip);
-> >>>   *
-> >>>   * A gpio_chip with any GPIOs still requested may not be removed.
-> >>>   */
-> >>>-int gpiochip_remove(struct gpio_chip *chip)
-> >>>+void gpiochip_remove(struct gpio_chip *chip)
-> >>>  {
-> >>>         unsigned long   flags;
-> >>>-       int             status = 0;
-> >>>         unsigned        id;
-> >>>
-> >>>         acpi_gpiochip_remove(chip);
-> >>>@@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
-> >>>         of_gpiochip_remove(chip);
-> >>>
-> >>>         for (id = 0; id < chip->ngpio; id++) {
-> >>>-               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
-> >>>-                       status = -EBUSY;
-> >>>-                       break;
-> >>>-               }
-> >>>-       }
-> >>>-       if (status == 0) {
-> >>>-               for (id = 0; id < chip->ngpio; id++)
-> >>>-                       chip->desc[id].chip = NULL;
-> >>>-
-> >>>-               list_del(&chip->list);
-> >>>+               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
-> >>>+                       panic("gpio: removing gpiochip with gpios still
-> >>>requested\n");
-> >>
-> >>panic?
-> >
-> >NACK to the patch for this reason.  The strongest thing you should do here
-> >is WARN.
-> >
-> >That said, I am not sure why we need this whole patch set in the first place.
+On Fri, May 30, 2014 at 01:58:33PM -0700, Michael Chan wrote:
+> On Fri, 2014-05-30 at 16:38 -0400, Neil Horman wrote: 
+> > On Fri, May 30, 2014 at 01:13:40PM -0700, Michael Chan wrote:
+> > > On Fri, 2014-05-30 at 16:03 -0400, Neil Horman wrote: 
+> > > > On Fri, May 30, 2014 at 10:58:11AM -0700, Michael Chan wrote:
+> > > > > On Fri, 2014-05-30 at 11:00 -0400, Neil Horman wrote: 
+> > > > > > The Cnic driver handles lots of ulp operations in its netdevice event hanlder.
+> > > > > > To do this, it accesses the ulp_ops array, which is an rcu protected array.
+> > > > > > However, some ulp operations (like bnx2fc_indicate_netevent) try to lock
+> > > > > > mutexes, which might sleep (somthing that you can't do while holding rcu read
+> > > > > > side locks if you've configured non-preemptive rcu.
+> > > > > > 
+> > > > > > Fix this by changing the dereference method.  All accesses to the ulp_ops array
+> > > > > > for a cnic dev are modified under the protection of the rtnl lock, and so we can
+> > > > > > safely just use rcu_dereference_rtnl, and remove the rcu_read_lock here
+> > > > > 
+> > > > > Because the bnx2fc function can sleep, we need a more complete fix to
+> > > > > prevent the ulp_ops from going away when the device is unregistered.
+> > > > > synchronize_rcu() won't be able to protect it.  I'll post the patch
+> > > > > later today.  Thanks.
+> > > > > 
+> > > > The device can't be unregistered while we hold rtnl, can it?  Since we hold it
+> > > > in this path it seems safe to me, even if we sleep, or am I missing something?
+> > > > Neil
+> > > > 
+> > > The netdev cannot be unregistered of course, but I am talking about
+> > > bnx2fc unregistering the cnic device.  For example if someone does
+> > > fcoeadm -d or bnx2fc gets unloaded.
+> > 
+> > I don't think the latter can happen, as creating an fcoe transport places a hold
+> > on the bnx2fc module (see bnx2fc_create), and the former operation (fcoeadm -d)
+> > will block in bnx2fc_destroy as it requires holding the rtnl_lock, which will
+> > already be held by the netevent notifer, and confirmed by the
+> > rcu_dereference_rtnl in my patch.
+> > 
+> > I really think we're safe here 
 > 
-> Well, what currently happens when you remove a device that is a provider of
-> a gpio_chip which is still in use, is that the kernel crashes. Probably with
-> a rather cryptic error message. So this patch doesn't really change the
-> behavior, but makes it more explicit what is actually wrong. And even if you
-> replace the panic() by a WARN() it will again just crash slightly later.
+> Take a look at bnx2fc_mod_exit().  It doesn't look safe to me as it goes
+> through the adapter_list unregistering all cnic devices not under
+> rtnl_lock.
 > 
-> This is a design flaw in the GPIO subsystem that needs to be fixed.
+Right, but you can't get into the module removal code at all until all
+transports are unregistered.  I suppose if you have no registered transports and
+remove the bnx2fc module while a netdevice event occurs, there might be a
+problem, but I think that problem is bigger than what we're talking about here,
+as you don't want to remove the module at all while running a netdevice
+notifier, as you'll wind up potentially executing garbage.
 
-Then fix the GPIO code properly, don't add a new panic() to the kernel.
+Neil
 
-greg k-h
+> 
