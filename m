@@ -1,22 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipmr: Replace comma with semicolon
-Date: Fri, 30 May 2014 17:49:43 -0700 (PDT)
-Message-ID: <20140530.174943.753682993601773215.davem@davemloft.net>
-References: <20140530154048.GA3949@himangi-Dell>
+Subject: Re: [PATCH] RDS/RDMA: Replace comma with semicolon
+Date: Fri, 30 May 2014 17:49:53 -0700 (PDT)
+Message-ID: <20140530.174953.1755997377617855664.davem@davemloft.net>
+References: <20140530154605.GA4049@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
+Cc: chien.yen@oracle.com, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
 To: himangi774@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140530154048.GA3949@himangi-Dell>
+In-Reply-To: <20140530154605.GA4049@himangi-Dell>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Himangi Saraogi <himangi774@gmail.com>
-Date: Fri, 30 May 2014 21:10:48 +0530
+Date: Fri, 30 May 2014 21:16:05 +0530
 
 > This patch replaces a comma between expression statements by a semicolon.
 > 
@@ -24,5 +24,6 @@ Date: Fri, 30 May 2014 21:10:48 +0530
 > transformation is as follows:
  ...
 > Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 
 Applied.
