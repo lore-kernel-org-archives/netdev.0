@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: rate-limit leftover bytes warning and print
- process name
-Date: Fri, 30 May 2014 17:16:24 -0700 (PDT)
-Message-ID: <20140530.171624.1737602003205792918.davem@davemloft.net>
-References: <5385DAE5.2020009@6wind.com>
-	<1401454647-28228-1-git-send-email-mschmidt@redhat.com>
+Subject: Re: [PATCH] [TRIVIAL] atm: remove commented out check
+Date: Fri, 30 May 2014 17:17:22 -0700 (PDT)
+Message-ID: <20140530.171722.342011579545846279.davem@davemloft.net>
+References: <1401203232.28714.10.camel@x220>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: mschmidt@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60723 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934638AbaEaAQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:16:25 -0400
-In-Reply-To: <1401454647-28228-1-git-send-email-mschmidt@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: trivial@kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: pebolle@tiscali.nl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401203232.28714.10.camel@x220>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Fri, 30 May 2014 14:57:27 +0200
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Tue, 27 May 2014 17:07:12 +0200
 
-> Any process is able to send netlink messages with leftover bytes.
-> Make the warning rate-limited to prevent too much log spam.
+> This preprocessor check is commented out ever since this file was added
+> during the v2.3 development cycle. It is unclear what it purpose might
+> have been. Whatever it was, it can safely be removed now.
 > 
-> The warning is supposed to help find userspace bugs, so print the
-> triggering command name to implicate the buggy program.
+> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+> ---
+> Compile tested.
 > 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> Perhaps someone on netdev knows what CONFIG_SINGLE_SIGITF might have
+> been for. Not that it actually matters.
 
-Please use pr_warn_ratelimited() as suggested by Sergei.
-
-Thanks.
+Yeah it can't actually matter, applied to net-next, thanks.
