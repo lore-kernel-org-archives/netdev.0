@@ -1,10 +1,10 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: [PATCH 10/11] vxge: Remove useless return variables
-Date: Sat, 31 May 2014 10:14:10 -0300
-Message-ID: <1401542051-3174-10-git-send-email-peter.senna@gmail.com>
+Subject: [PATCH 7/11] bnx2x: Remove useless return variables
+Date: Sat, 31 May 2014 10:14:07 -0300
+Message-ID: <1401542051-3174-7-git-send-email-peter.senna@gmail.com>
 Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jon Mason <jdmason@kudzu.us>
+To: Ariel Elior <ariele@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -34,125 +34,62 @@ return
 Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
 ---
- drivers/net/ethernet/neterion/vxge/vxge-config.c |   22 +++++++---------------
- 1 file changed, 7 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-config.c b/drivers/net/ethernet/neterion/vxge/vxge-config.c
-index 089b713..2bbd01f 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-config.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-config.c
-@@ -120,7 +120,6 @@ __vxge_hw_device_register_poll(void __iomem *reg, u64 mask, u32 max_millis)
- {
- 	u64 val64;
- 	u32 i = 0;
--	enum vxge_hw_status ret = VXGE_HW_FAIL;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 9b6b3d7..4fef1e1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -2218,7 +2218,6 @@ int bnx2x_update_pfc(struct link_params *params,
+ 	 */
+ 	u32 val;
+ 	struct bnx2x *bp = params->bp;
+-	int bnx2x_status = 0;
+ 	u8 bmac_loopback = (params->loopback_mode == LOOPBACK_BMAC);
  
- 	udelay(10);
+ 	if (params->feature_config_flags & FEATURE_CONFIG_PFC_ENABLED)
+@@ -2232,7 +2231,7 @@ int bnx2x_update_pfc(struct link_params *params,
+ 	bnx2x_update_pfc_nig(params, vars, pfc_params);
  
-@@ -139,7 +138,7 @@ __vxge_hw_device_register_poll(void __iomem *reg, u64 mask, u32 max_millis)
- 		mdelay(1);
- 	} while (++i <= max_millis);
+ 	if (!vars->link_up)
+-		return bnx2x_status;
++		return 0;
  
--	return ret;
-+	return VXGE_HW_FAIL;
- }
+ 	DP(NETIF_MSG_LINK, "About to update PFC in BMAC\n");
  
- static inline enum vxge_hw_status
-@@ -1682,12 +1681,10 @@ enum vxge_hw_status vxge_hw_driver_stats_get(
- 			struct __vxge_hw_device *hldev,
- 			struct vxge_hw_device_stats_sw_info *sw_stats)
- {
--	enum vxge_hw_status status = VXGE_HW_OK;
--
- 	memcpy(sw_stats, &hldev->stats.sw_dev_info_stats,
- 		sizeof(struct vxge_hw_device_stats_sw_info));
- 
--	return status;
-+	return VXGE_HW_OK;
- }
- 
- /*
-@@ -3228,7 +3225,6 @@ enum vxge_hw_status
- vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
- {
- 	struct vxge_hw_vpmgmt_reg       __iomem *vpmgmt_reg;
--	enum vxge_hw_status status = VXGE_HW_OK;
- 	int i = 0, j = 0;
- 
- 	for (i = 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
-@@ -3241,7 +3237,7 @@ vxge_hw_vpath_strip_fcs_check(struct __vxge_hw_device *hldev, u64 vpath_mask)
- 				return VXGE_HW_FAIL;
+@@ -2246,7 +2245,7 @@ int bnx2x_update_pfc(struct link_params *params,
+ 		    == 0) {
+ 			DP(NETIF_MSG_LINK, "About to update PFC in EMAC\n");
+ 			bnx2x_emac_enable(params, vars, 0);
+-			return bnx2x_status;
++			return 0;
  		}
+ 		if (CHIP_IS_E2(bp))
+ 			bnx2x_update_pfc_bmac2(params, vars, bmac_loopback);
+@@ -2260,7 +2259,7 @@ int bnx2x_update_pfc(struct link_params *params,
+ 			val = 1;
+ 		REG_WR(bp, NIG_REG_BMAC0_PAUSE_OUT_EN + params->port*4, val);
  	}
--	return status;
-+	return VXGE_HW_OK;
+-	return bnx2x_status;
++	return 0;
  }
- /*
-  * vxge_hw_mgmt_reg_Write - Write Titan register.
-@@ -3979,7 +3975,6 @@ __vxge_hw_vpath_mgmt_read(
+ 
+ static int bnx2x_bmac1_enable(struct link_params *params,
+@@ -6473,7 +6472,6 @@ int bnx2x_test_link(struct link_params *params, struct link_vars *vars,
+ static int bnx2x_link_initialize(struct link_params *params,
+ 				 struct link_vars *vars)
  {
- 	u32 i, mtu = 0, max_pyld = 0;
- 	u64 val64;
--	enum vxge_hw_status status = VXGE_HW_OK;
- 
- 	for (i = 0; i < VXGE_HW_MAC_MAX_MAC_PORT_ID; i++) {
- 
-@@ -4009,7 +4004,7 @@ __vxge_hw_vpath_mgmt_read(
- 	else
- 		VXGE_HW_DEVICE_LINK_STATE_SET(vpath->hldev, VXGE_HW_LINK_DOWN);
- 
--	return status;
-+	return VXGE_HW_OK;
+-	int rc = 0;
+ 	u8 phy_index, non_ext_phy;
+ 	struct bnx2x *bp = params->bp;
+ 	/* In case of external phy existence, the line speed would be the
+@@ -6546,7 +6544,7 @@ static int bnx2x_link_initialize(struct link_params *params,
+ 			NIG_STATUS_XGXS0_LINK_STATUS |
+ 			NIG_STATUS_SERDES0_LINK_STATUS |
+ 			NIG_MASK_MI_INT));
+-	return rc;
++	return 0;
  }
  
- /*
-@@ -4039,14 +4034,13 @@ static enum vxge_hw_status
- __vxge_hw_vpath_reset(struct __vxge_hw_device *hldev, u32 vp_id)
- {
- 	u64 val64;
--	enum vxge_hw_status status = VXGE_HW_OK;
- 
- 	val64 = VXGE_HW_CMN_RSTHDLR_CFG0_SW_RESET_VPATH(1 << (16 - vp_id));
- 
- 	__vxge_hw_pio_mem_write32_upper((u32)vxge_bVALn(val64, 0, 32),
- 				&hldev->common_reg->cmn_rsthdlr_cfg0);
- 
--	return status;
-+	return VXGE_HW_OK;
- }
- 
- /*
-@@ -4227,7 +4221,6 @@ static enum vxge_hw_status
- __vxge_hw_vpath_mac_configure(struct __vxge_hw_device *hldev, u32 vp_id)
- {
- 	u64 val64;
--	enum vxge_hw_status status = VXGE_HW_OK;
- 	struct __vxge_hw_virtualpath *vpath;
- 	struct vxge_hw_vp_config *vp_config;
- 	struct vxge_hw_vpath_reg __iomem *vp_reg;
-@@ -4283,7 +4276,7 @@ __vxge_hw_vpath_mac_configure(struct __vxge_hw_device *hldev, u32 vp_id)
- 
- 		writeq(val64, &vp_reg->rxmac_vcfg1);
- 	}
--	return status;
-+	return VXGE_HW_OK;
- }
- 
- /*
-@@ -4295,7 +4288,6 @@ static enum vxge_hw_status
- __vxge_hw_vpath_tim_configure(struct __vxge_hw_device *hldev, u32 vp_id)
- {
- 	u64 val64;
--	enum vxge_hw_status status = VXGE_HW_OK;
- 	struct __vxge_hw_virtualpath *vpath;
- 	struct vxge_hw_vpath_reg __iomem *vp_reg;
- 	struct vxge_hw_vp_config *config;
-@@ -4545,7 +4537,7 @@ __vxge_hw_vpath_tim_configure(struct __vxge_hw_device *hldev, u32 vp_id)
- 	val64 |= VXGE_HW_TIM_WRKLD_CLC_CNT_RX_TX(3);
- 	writeq(val64, &vp_reg->tim_wrkld_clc);
- 
--	return status;
-+	return VXGE_HW_OK;
- }
- 
- /*
+ static void bnx2x_int_link_reset(struct bnx2x_phy *phy,
