@@ -1,86 +1,37 @@
-From: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH] cnic: don't take the rtnl_read_lock in
- cnic_rcv_netevent
-Date: Fri, 30 May 2014 22:50:01 -0700
-Message-ID: <1401515401.9728.171.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
- <1401472691.9728.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140530200311.GG3144@hmsreliant.think-freely.org>
- <1401480820.9728.148.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140530203823.GH3144@hmsreliant.think-freely.org>
- <1401483513.9728.158.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140531024108.GA27184@localhost.localdomain>
+From: David Newall <davidn@davidnewall.com>
+Subject: Re: Revert 462fb2af9788a82a534f8184abfde31574e1cfa0 (bridge : Sanitize
+ skb before it enters the IP stack)
+Date: Sat, 31 May 2014 15:43:16 +0930
+Message-ID: <538972FC.2090801@davidnewall.com>
+References: <53815623.8020506@davidnewall.com>	<20140529.153424.1310751217059624351.davem@davemloft.net>	<53884CC6.2000000@davidnewall.com> <20140530.174608.587404162482133282.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <20140531024108.GA27184-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel>
-List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Cc: bdschuym@pandora.be, fw@strlen.de, stephen@networkplumber.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	bridge@lists.linux-foundation.org, bsd@redhat.com,
+	vyasevich@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140530.174608.587404162482133282.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-05-30 at 22:41 -0400, Neil Horman wrote:
-> On Fri, May 30, 2014 at 01:58:33PM -0700, Michael Chan wrote:
-> > On Fri, 2014-05-30 at 16:38 -0400, Neil Horman wrote: 
-> > > On Fri, May 30, 2014 at 01:13:40PM -0700, Michael Chan wrote:
-> > > > On Fri, 2014-05-30 at 16:03 -0400, Neil Horman wrote: 
-> > > > > On Fri, May 30, 2014 at 10:58:11AM -0700, Michael Chan wrote:
-> > > > > > On Fri, 2014-05-30 at 11:00 -0400, Neil Horman wrote: 
-> > > > > > > The Cnic driver handles lots of ulp operations in its netdevice event hanlder.
-> > > > > > > To do this, it accesses the ulp_ops array, which is an rcu protected array.
-> > > > > > > However, some ulp operations (like bnx2fc_indicate_netevent) try to lock
-> > > > > > > mutexes, which might sleep (somthing that you can't do while holding rcu read
-> > > > > > > side locks if you've configured non-preemptive rcu.
-> > > > > > > 
-> > > > > > > Fix this by changing the dereference method.  All accesses to the ulp_ops array
-> > > > > > > for a cnic dev are modified under the protection of the rtnl lock, and so we can
-> > > > > > > safely just use rcu_dereference_rtnl, and remove the rcu_read_lock here
-> > > > > > 
-> > > > > > Because the bnx2fc function can sleep, we need a more complete fix to
-> > > > > > prevent the ulp_ops from going away when the device is unregistered.
-> > > > > > synchronize_rcu() won't be able to protect it.  I'll post the patch
-> > > > > > later today.  Thanks.
-> > > > > > 
-> > > > > The device can't be unregistered while we hold rtnl, can it?  Since we hold it
-> > > > > in this path it seems safe to me, even if we sleep, or am I missing something?
-> > > > > Neil
-> > > > > 
-> > > > The netdev cannot be unregistered of course, but I am talking about
-> > > > bnx2fc unregistering the cnic device.  For example if someone does
-> > > > fcoeadm -d or bnx2fc gets unloaded.
-> > > 
-> > > I don't think the latter can happen, as creating an fcoe transport places a hold
-> > > on the bnx2fc module (see bnx2fc_create), and the former operation (fcoeadm -d)
-> > > will block in bnx2fc_destroy as it requires holding the rtnl_lock, which will
-> > > already be held by the netevent notifer, and confirmed by the
-> > > rcu_dereference_rtnl in my patch.
-> > > 
-> > > I really think we're safe here 
-> > 
-> > Take a look at bnx2fc_mod_exit().  It doesn't look safe to me as it goes
-> > through the adapter_list unregistering all cnic devices not under
-> > rtnl_lock.
-> > 
-> Right, but you can't get into the module removal code at all until all
-> transports are unregistered.  I suppose if you have no registered transports and
-> remove the bnx2fc module while a netdevice event occurs, there might be a
-> problem, but I think that problem is bigger than what we're talking about here,
-> as you don't want to remove the module at all while running a netdevice
-> notifier, as you'll wind up potentially executing garbage. 
+On 31/05/14 10:16, David Miller wrote:
+> I don't see why you don't simply keep br_parse_ip_options() around
+> and adjust it as you need, you're just mostly duplicating it's
+> contents into br_nf_pre_routing().
 
-As long as we take care of the race conditions, I don't think there is a
-bigger problem.  During bnx2fc module removal, it will unregister all
-cnic devices.  If there is a netdev event, we will synchronize and the
-unregister call will wait for all pending netdev event handling to be
-done before completing.  The alternate patch that I sent out should take
-care of this condition.  Thanks.
+More accurately, I'm *restoring* br_parse_ip_options()'s contents to 
+br_nf_pre_routing().  The reasons why are twofold: I'm undoing a change 
+which turns out to have been a mistake; and leaving it largely as-is, 
+just removing the call to ip_options_compile(), would be confusing in 
+that the name (br_pase_ip_options()) gives an expectation of function 
+that would be untrue.
+
+I can see an argument in favour of leaving br_parse_options() around, 
+being that it is called from three places, and thus restoring the code 
+removes checks which are currently being performed.  They weren't being 
+performed before and it's not clear that they are needed, but if you say 
+that it would be better, I'll leave it around and just remove the call 
+to ip_options_compile(). Just say the word.
