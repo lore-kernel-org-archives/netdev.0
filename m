@@ -1,82 +1,61 @@
-From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] cnic: don't take the rtnl_read_lock in
-	cnic_rcv_netevent
-Date: Fri, 30 May 2014 22:41:08 -0400
-Message-ID: <20140531024108.GA27184@localhost.localdomain>
-References: <1401462019-7958-1-git-send-email-nhorman@tuxdriver.com>
- <1401472691.9728.145.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140530200311.GG3144@hmsreliant.think-freely.org>
- <1401480820.9728.148.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <20140530203823.GH3144@hmsreliant.think-freely.org>
- <1401483513.9728.158.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH] net/mlx4_core: Preserve pci_dev_data after
+ __mlx4_remove_one()
+Date: Sat, 31 May 2014 10:46:54 +0800
+Message-ID: <20140531024654.GA12848@richard>
+References: <20140528014848.GB5830@richard>
+ <20140527.193737.22275611325169063.davem@davemloft.net>
+ <20140528024650.GA8602@richard>
+ <20140527.231803.1411461924645076157.davem@davemloft.net>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Michael Chan <mchan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: weiyang@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp06.in.ibm.com ([122.248.162.6]:35673 "EHLO
+	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755609AbaEaCrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 22:47:04 -0400
+Received: from /spool/local
+	by e28smtp06.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Sat, 31 May 2014 08:17:01 +0530
+Received: from d28relay01.in.ibm.com (d28relay01.in.ibm.com [9.184.220.58])
+	by d28dlp02.in.ibm.com (Postfix) with ESMTP id E0E2B394005A
+	for <netdev@vger.kernel.org>; Sat, 31 May 2014 08:16:57 +0530 (IST)
+Received: from d28av05.in.ibm.com (d28av05.in.ibm.com [9.184.220.67])
+	by d28relay01.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s4V2lZlL59375680
+	for <netdev@vger.kernel.org>; Sat, 31 May 2014 08:17:35 +0530
+Received: from d28av05.in.ibm.com (localhost [127.0.0.1])
+	by d28av05.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s4V2ku7t005730
+	for <netdev@vger.kernel.org>; Sat, 31 May 2014 08:16:56 +0530
 Content-Disposition: inline
-In-Reply-To: <1401483513.9728.158.camel-WIqd6NlzC1zwyCTbCWje6raTQr+y5IJFqs7JOtOhHmkAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel>
-List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140527.231803.1411461924645076157.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 01:58:33PM -0700, Michael Chan wrote:
-> On Fri, 2014-05-30 at 16:38 -0400, Neil Horman wrote: 
-> > On Fri, May 30, 2014 at 01:13:40PM -0700, Michael Chan wrote:
-> > > On Fri, 2014-05-30 at 16:03 -0400, Neil Horman wrote: 
-> > > > On Fri, May 30, 2014 at 10:58:11AM -0700, Michael Chan wrote:
-> > > > > On Fri, 2014-05-30 at 11:00 -0400, Neil Horman wrote: 
-> > > > > > The Cnic driver handles lots of ulp operations in its netdevice event hanlder.
-> > > > > > To do this, it accesses the ulp_ops array, which is an rcu protected array.
-> > > > > > However, some ulp operations (like bnx2fc_indicate_netevent) try to lock
-> > > > > > mutexes, which might sleep (somthing that you can't do while holding rcu read
-> > > > > > side locks if you've configured non-preemptive rcu.
-> > > > > > 
-> > > > > > Fix this by changing the dereference method.  All accesses to the ulp_ops array
-> > > > > > for a cnic dev are modified under the protection of the rtnl lock, and so we can
-> > > > > > safely just use rcu_dereference_rtnl, and remove the rcu_read_lock here
-> > > > > 
-> > > > > Because the bnx2fc function can sleep, we need a more complete fix to
-> > > > > prevent the ulp_ops from going away when the device is unregistered.
-> > > > > synchronize_rcu() won't be able to protect it.  I'll post the patch
-> > > > > later today.  Thanks.
-> > > > > 
-> > > > The device can't be unregistered while we hold rtnl, can it?  Since we hold it
-> > > > in this path it seems safe to me, even if we sleep, or am I missing something?
-> > > > Neil
-> > > > 
-> > > The netdev cannot be unregistered of course, but I am talking about
-> > > bnx2fc unregistering the cnic device.  For example if someone does
-> > > fcoeadm -d or bnx2fc gets unloaded.
-> > 
-> > I don't think the latter can happen, as creating an fcoe transport places a hold
-> > on the bnx2fc module (see bnx2fc_create), and the former operation (fcoeadm -d)
-> > will block in bnx2fc_destroy as it requires holding the rtnl_lock, which will
-> > already be held by the netevent notifer, and confirmed by the
-> > rcu_dereference_rtnl in my patch.
-> > 
-> > I really think we're safe here 
-> 
-> Take a look at bnx2fc_mod_exit().  It doesn't look safe to me as it goes
-> through the adapter_list unregistering all cnic devices not under
-> rtnl_lock.
-> 
-Right, but you can't get into the module removal code at all until all
-transports are unregistered.  I suppose if you have no registered transports and
-remove the bnx2fc module while a netdevice event occurs, there might be a
-problem, but I think that problem is bigger than what we're talking about here,
-as you don't want to remove the module at all while running a netdevice
-notifier, as you'll wind up potentially executing garbage.
+On Tue, May 27, 2014 at 11:18:03PM -0400, David Miller wrote:
+>From: Wei Yang <weiyang@linux.vnet.ibm.com>
+>Date: Wed, 28 May 2014 10:46:50 +0800
+>
+>> Could I backport it one version by one version? Or need to send out for these
+>> four versions at the same time?
+>
+>It's awkward for me to submit a fix for only one release, I submit a
+>specific set of fixes to all relevant -stable branches at one time.
 
-Neil
+David,
 
-> 
+I have back port code to 3.14, 3.10 and verified.
+
+While on 3.4, this kernel version doesn't work on our latest machine.
+This is a latest Power Machine. I don't have a spare x86 machine to verify
+this card. And this card is in US, while I am in China.
+
+Is it possible to send out the code without verification? And ask help from
+others, like Mellanox engineer? Otherwise this would be a little trouble.
+
+-- 
+Richard Yang
+Help you, Help me
