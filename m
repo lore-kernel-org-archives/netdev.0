@@ -1,78 +1,64 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
- cnic_alloc_uio_rings()
-Date: Sat, 31 May 2014 09:07:00 -0400
-Message-ID: <20140531130700.GB27590@localhost.localdomain>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
- <1401491923-5480-2-git-send-email-mchan@broadcom.com>
- <1401491923-5480-3-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44231 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756383AbaEaNHN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 09:07:13 -0400
-Content-Disposition: inline
-In-Reply-To: <1401491923-5480-3-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 2/11] cw1200: Remove useless return variables
+Date: Sat, 31 May 2014 10:14:02 -0300
+Message-ID: <1401542051-3174-2-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 30, 2014 at 04:18:42PM -0700, Michael Chan wrote:
-> We are allocating memory with GFP_KERNEL under spinlock.  Since this is
-> the only call manipulating the cnic_udev_list and it is always under
-> rtnl_lock, cnic_dev_lock can be safely removed.
-> 
- I don't think this is accurate.  cnic_alloc_uio_rings seems to protect the list
-with cnic_dev_lock, but has several paths (those calling ->alloc_resc()), that
-never hold the rtnl_lock.
+This patch remove variables that are initialized with a constant,
+are never updated, and are only used as parameter of return.
+Return the constant instead of using a variable.
 
-Neil
+Verified by compilation only.
 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/cnic.c |    6 ------
->  1 files changed, 0 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-> index 7f40a2c..4ebab75 100644
-> --- a/drivers/net/ethernet/broadcom/cnic.c
-> +++ b/drivers/net/ethernet/broadcom/cnic.c
-> @@ -1039,21 +1039,17 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
->  	struct cnic_local *cp = dev->cnic_priv;
->  	struct cnic_uio_dev *udev;
->  
-> -	read_lock(&cnic_dev_lock);
->  	list_for_each_entry(udev, &cnic_udev_list, list) {
->  		if (udev->pdev == dev->pcidev) {
->  			udev->dev = dev;
->  			if (__cnic_alloc_uio_rings(udev, pages)) {
->  				udev->dev = NULL;
-> -				read_unlock(&cnic_dev_lock);
->  				return -ENOMEM;
->  			}
->  			cp->udev = udev;
-> -			read_unlock(&cnic_dev_lock);
->  			return 0;
->  		}
->  	}
-> -	read_unlock(&cnic_dev_lock);
->  
->  	udev = kzalloc(sizeof(struct cnic_uio_dev), GFP_ATOMIC);
->  	if (!udev)
-> @@ -1067,9 +1063,7 @@ static int cnic_alloc_uio_rings(struct cnic_dev *dev, int pages)
->  	if (__cnic_alloc_uio_rings(udev, pages))
->  		goto err_udev;
->  
-> -	write_lock(&cnic_dev_lock);
->  	list_add(&udev->list, &cnic_udev_list);
-> -	write_unlock(&cnic_dev_lock);
->  
->  	pci_dev_get(udev->pdev);
->  
-> -- 
-> 1.7.1
-> 
-> 
+The coccinelle script that find and fixes this issue is:
+// <smpl>
+@@
+type T;
+constant C;
+identifier ret;
+@@
+- T ret = C;
+... when != ret
+    when strict
+return
+- ret
++ C
+;
+// </smpl>
+
+Signed-off-by: Peter Senna Tschudin <peter.senna-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+---
+ drivers/net/wireless/cw1200/sta.c |   19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/drivers/net/wireless/cw1200/sta.c b/drivers/net/wireless/cw1200/sta.c
+index cd0cad7..622370c 100644
+--- a/drivers/net/wireless/cw1200/sta.c
++++ b/drivers/net/wireless/cw1200/sta.c
+@@ -2289,24 +2289,7 @@ static int cw1200_upload_null(struct cw1200_common *priv)
+ 
+ static int cw1200_upload_qosnull(struct cw1200_common *priv)
+ {
+-	int ret = 0;
+-	/* TODO:  This needs to be implemented
+-
+-	struct wsm_template_frame frame = {
+-		.frame_type = WSM_FRAME_TYPE_QOS_NULL,
+-		.rate = 0xFF,
+-	};
+-
+-	frame.skb = ieee80211_qosnullfunc_get(priv->hw, priv->vif);
+-	if (!frame.skb)
+-		return -ENOMEM;
+-
+-	ret = wsm_set_template_frame(priv, &frame);
+-
+-	dev_kfree_skb(frame.skb);
