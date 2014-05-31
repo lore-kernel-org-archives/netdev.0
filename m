@@ -1,101 +1,75 @@
 From: Peter Senna Tschudin <peter.senna@gmail.com>
-Subject: Re: [PATCH 2/11] cw1200: Remove useless return variables
-Date: Sat, 31 May 2014 13:14:29 -0300
-Message-ID: <CA+MoWDopnSqszCNTghH-5wrhzR+C7Bof9NoSGVGg9AhH_kZCVg@mail.gmail.com>
-References: <1401542051-3174-2-git-send-email-peter.senna@gmail.com>
-	<5389F2A0.1000903@bfs.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Solomon Peachy <pizza@shaftnet.org>,
-	kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: walter harms <wharms@bfs.de>
+Subject: [PATCH 4/11 V2] via-ircc: Remove useless return variables
+Date: Sat, 31 May 2014 13:21:59 -0300
+Message-ID: <1401553319-11763-1-git-send-email-peter.senna@gmail.com>
+Cc: kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5389F2A0.1000903@bfs.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 31, 2014 at 12:17 PM, walter harms <wharms@bfs.de> wrote:
->
->
-> Am 31.05.2014 15:14, schrieb Peter Senna Tschudin:
->> This patch remove variables that are initialized with a constant,
->> are never updated, and are only used as parameter of return.
->> Return the constant instead of using a variable.
->>
->> Verified by compilation only.
->>
->> The coccinelle script that find and fixes this issue is:
->> // <smpl>
->> @@
->> type T;
->> constant C;
->> identifier ret;
->> @@
->> - T ret = C;
->> ... when != ret
->>     when strict
->> return
->> - ret
->> + C
->> ;
->> // </smpl>
->>
->> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
->>
->> ---
->>  drivers/net/wireless/cw1200/sta.c |   19 +------------------
->>  1 file changed, 1 insertion(+), 18 deletions(-)
->>
->> diff --git a/drivers/net/wireless/cw1200/sta.c b/drivers/net/wireless/cw1200/sta.c
->> index cd0cad7..622370c 100644
->> --- a/drivers/net/wireless/cw1200/sta.c
->> +++ b/drivers/net/wireless/cw1200/sta.c
->> @@ -2289,24 +2289,7 @@ static int cw1200_upload_null(struct cw1200_common *priv)
->>
->>  static int cw1200_upload_qosnull(struct cw1200_common *priv)
->>  {
->> -     int ret = 0;
->> -     /* TODO:  This needs to be implemented
->> -
->> -     struct wsm_template_frame frame = {
->> -             .frame_type = WSM_FRAME_TYPE_QOS_NULL,
->> -             .rate = 0xFF,
->> -     };
->> -
->> -     frame.skb = ieee80211_qosnullfunc_get(priv->hw, priv->vif);
->> -     if (!frame.skb)
->> -             return -ENOMEM;
->> -
->> -     ret = wsm_set_template_frame(priv, &frame);
->> -
->> -     dev_kfree_skb(frame.skb);
->> -
->> -     */
->> -     return ret;
->> +     return 0;
->>  }
->>
->>  static int cw1200_enable_beaconing(struct cw1200_common *priv,
->
->
-> are you sure you want to remove the entire function ?
-Removing the comments was my fault. Sent V2 keeping the comments.
+This patch remove variables that are initialized with a constant,
+are never updated, and are only used as parameter of return.
+Return the constant instead of using a variable.
 
->
-> re,
->  wh
->
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+Verified by compilation only.
 
+The coccinelle script that find and fixes this issue is:
+// <smpl>
+@@
+type T;
+constant C;
+identifier ret;
+@@
+- T ret = C;
+... when != ret
+    when strict
+return
+- ret
++ C
+;
+// </smpl>
 
+Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
--- 
-Peter
+---
+Changes from V1:
+ - Moved comment about return value to near the return value
+
+ drivers/net/irda/via-ircc.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/irda/via-ircc.c b/drivers/net/irda/via-ircc.c
+index 2900af0..5a5e17b 100644
+--- a/drivers/net/irda/via-ircc.c
++++ b/drivers/net/irda/via-ircc.c
+@@ -510,10 +510,8 @@ static void via_hw_init(struct via_ircc_cb *self)
+  */
+ static int via_ircc_read_dongle_id(int iobase)
+ {
+-	int dongle_id = 9;	/* Default to IBM */
+-
+ 	IRDA_ERROR("via-ircc: dongle probing not supported, please specify dongle_id module parameter.\n");
+-	return dongle_id;
++	return 9;	/* Default to IBM */
+ }
+ 
+ /*
+@@ -926,7 +924,6 @@ static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase)
+ static int via_ircc_dma_xmit_complete(struct via_ircc_cb *self)
+ {
+ 	int iobase;
+-	int ret = TRUE;
+ 	u8 Tx_status;
+ 
+ 	IRDA_DEBUG(3, "%s()\n", __func__);
+@@ -983,7 +980,7 @@ F01_E*/
+ 	// Tell the network layer, that we can accept more frames 
+ 	netif_wake_queue(self->netdev);
+ //F01   }
+-	return ret;
++	return TRUE;
+ }
+ 
+ /*
