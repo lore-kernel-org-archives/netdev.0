@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arcnet: remove check for CONFIG_SA1100_CT6001
-Date: Fri, 30 May 2014 17:26:15 -0700 (PDT)
-Message-ID: <20140530.172615.2243203796607511160.davem@davemloft.net>
-References: <1401220424.28714.17.camel@x220>
-	<20140530.172109.1758735676902083194.davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] be2net: patch set
+Date: Fri, 30 May 2014 17:28:35 -0700 (PDT)
+Message-ID: <20140530.172835.203975562412535198.davem@davemloft.net>
+References: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140530.172109.1758735676902083194.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60816 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932699AbaEaA2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 May 2014 20:28:36 -0400
+In-Reply-To: <1401258665-6238-1-git-send-email-sathya.perla@emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAzMCBN
-YXkgMjAxNCAxNzoyMTowOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFBhdWwgQm9sbGUgPHBlYm9s
-bGVAdGlzY2FsaS5ubD4NCj4gRGF0ZTogVHVlLCAyNyBNYXkgMjAxNCAyMTo1Mzo0NCArMDIwMA0K
-PiANCj4+IEEgY2hlY2sgZm9yIENPTkZJR19TQTExMDBfQ1Q2MDAxIHdhcyBhZGRlZCBpbiB2Mi42
-LjExLiBCdXQgdGhlIHJlbGF0ZWQNCj4+IEtjb25maWcgc3ltYm9sIHdhcyBuZXZlciBhZGRlZCB0
-byB0aGUgdHJlZS4gUmVtb3ZlIHRoaXMgY2hlY2sgYW5kIGRvDQo+PiBzb21lIHJlbGF0ZWQgY2xl
-YW5pbmcgdXAuDQo+PiANCj4+IFNpZ25lZC1vZmYtYnk6IFBhdWwgQm9sbGUgPHBlYm9sbGVAdGlz
-Y2FsaS5ubD4NCj4gDQo+IEFwcGxpZWQgdG8gbmV0LW5leHQsIHRoYW5rcy4NCg0KUmV2ZXJ0ZWQs
-IHlvdSBtaXNzZWQgbW9yZSByZWZlcmVuY2VzIHRvIEJVU19BTElHTiBpbiBjb20yMDAyMC5jOg0K
-DQpkcml2ZXJzL25ldC9hcmNuZXQvY29tMjAwMjAuYzogSW4gZnVuY3Rpb24goWNvbTIwMDIwX2No
-ZWNrojoNCmRyaXZlcnMvbmV0L2FyY25ldC9jb20yMDAyMC5jOjEyMDoyMjogZXJyb3I6IKFCVVNf
-QUxJR06iIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0aGlzIGZ1bmN0aW9uKQ0KZHJpdmVycy9u
-ZXQvYXJjbmV0L2NvbTIwMDIwLmM6MTIwOjIyOiBub3RlOiBlYWNoIHVuZGVjbGFyZWQgaWRlbnRp
-ZmllciBpcyByZXBvcnRlZCBvbmx5IG9uY2UgZm9yIGVhY2ggZnVuY3Rpb24gaXQgYXBwZWFycyBp
-bg0KZHJpdmVycy9uZXQvYXJjbmV0L2NvbTIwMDIwLmM6IEluIGZ1bmN0aW9uIKFjb20yMDAyMF9m
-b3VuZKI6DQpkcml2ZXJzL25ldC9hcmNuZXQvY29tMjAwMjAuYzoxODI6MzU6IGVycm9yOiChQlVT
-X0FMSUdOoiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCg0KRm9yIGEg
-ZHJpdmVyIHRoYXQgYnVpbGRzIG9uIHg4NiwgdGhlcmUgaXMgbm8gZXhjdXNlIG5vdCB0byBoYXZl
-IGF0IGxlYXN0DQpidWlsZCB0ZXN0ZWQgdGhpcyBwYXRjaC4NCg==
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Wed, 28 May 2014 12:00:59 +0530
+
+> Patch 1 is a minor optimization for issuing multicast promisc FW cmd
+> only when the interface is not already in that mode.
+> 
+> Patch 2 provides support for VF TX-rate setting on Skyhawk-R.
+> 
+> Patch 3 provides support for flashing new FW flash regions.
+> 
+> Patches 4, 5, 6 cleanup the MCC processing (for FW cmds) code in be_cmds.c.
+> The MCC error reporting and event handling code are areas that needed
+> cleanup.
+> 
+> Pls consider applying to the net-next tree. Thanks.
+
+Applied, although you should give a response to Sergei's feedback.
+
+Thank you.
