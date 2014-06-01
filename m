@@ -1,46 +1,35 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 2/2] bridge netlink dump interface at par with
- brctl Actually better than brctl showmacs because we can filter by bridge
- port in the kernel
-Date: Sun, 01 Jun 2014 08:24:02 -0400
-Message-ID: <538B1B62.1060400@mojatatu.com>
-References: <1401623780-4297-1-git-send-email-jhs@emojatatu.com> <1401623780-4297-2-git-send-email-jhs@emojatatu.com> <538B19A9.4050607@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
-	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com
-To: davem@davemloft.net, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:44311 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757513AbaFAMYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 08:24:07 -0400
-Received: by mail-ie0-f176.google.com with SMTP id rl12so3450612iec.35
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 05:24:06 -0700 (PDT)
-In-Reply-To: <538B19A9.4050607@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ethernet: chelsio: cxgb4: t4_hw.c:  Cleaning up uninitialized variables
+Date: Sun,  1 Jun 2014 14:34:15 +0200
+Message-ID: <1401626055-15144-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	linux-kernel@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Additional note:
-This is also on top of Roopa's patch.
+There is a risk that the variable will be used without being initialized.
 
-cheers,
-jamal
+This was largely found by using a static code analysis program called cppcheck.
 
-On 06/01/14 08:16, Jamal Hadi Salim wrote:
->
-> This is mostly to you Vlad since you brought it up earlier.
-> I ended using ifm instead of ndm. Currently there is lack of
-> symettry - we send requests with ifm and get responses with
-> ndms. Unfortunately after spending 2-3 hours I came to the
-> conclusion i cant change it without breaking old iproute2s that
-> were expecting this behavior. What we have here is a magnitude
-> better filtering but we could have done slightly better if we
-> were able to use an ndm. A little acrobatics later on to filter
-> by vlans may work..
->
-> cheers,
-> jamal
->
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index bba6768..326c005 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -571,7 +571,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool enable)
+  */
+ int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ {
+-	u32 cclk_param, cclk_val;
++	u32 cclk_param, cclk_val = 0;
+ 	int i, ret, addr;
+ 	int ec, sn, pn;
+ 	u8 *vpd, csum;
+-- 
+1.7.10.4
