@@ -1,40 +1,75 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
- cnic_alloc_uio_rings()
-Date: Sat, 31 May 2014 17:07:55 -0700
-Message-ID: <1401581275.9728.179.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
-	 <1401491923-5480-2-git-send-email-mchan@broadcom.com>
-	 <1401491923-5480-3-git-send-email-mchan@broadcom.com>
-	 <20140531130700.GB27590@localhost.localdomain>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v1 6/6] net: fec: Add software TSO support
+Date: Sun, 1 Jun 2014 00:55:55 +0000
+Message-ID: <4961e71606b94f9d812f90dff0ed0ab1@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
+	 <1401415552-2263-7-git-send-email-b38611@freescale.com>
+	 <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
+ <1401466898.3645.127.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:21617 "EHLO
-	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752609AbaFAAH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 20:07:56 -0400
-In-Reply-To: <20140531130700.GB27590@localhost.localdomain>
+Received: from mail-by2lp0242.outbound.protection.outlook.com ([207.46.163.242]:2800
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751659AbaFAAz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 31 May 2014 20:55:59 -0400
+In-Reply-To: <1401466898.3645.127.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-05-31 at 09:07 -0400, Neil Horman wrote: 
-> On Fri, May 30, 2014 at 04:18:42PM -0700, Michael Chan wrote:
-> > We are allocating memory with GFP_KERNEL under spinlock.  Since this is
-> > the only call manipulating the cnic_udev_list and it is always under
-> > rtnl_lock, cnic_dev_lock can be safely removed.
-> > 
->  I don't think this is accurate.  cnic_alloc_uio_rings seems to protect the list
-> with cnic_dev_lock, but has several paths (those calling ->alloc_resc()), that
-> never hold the rtnl_lock.
-> 
-> 
-->alloc_resc() is called by cnic_start_hw().  cnic_start_hw() is called
-from 2 paths.  One is from netdev events which always hold rtnl_lock.
-The other path is from bnx2/bnx2x with CNIC_CTL_START_CMD.  In bnx2,
-this is called during bnx2_netif_start() which is always under
-rtnl_lock.  In bnx2x, it is called during bnx2x_nic_load() which is also
-under rtnl_lock().  Thanks.
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPiBEYXRhOiBTYXR1cmRh
+eSwgTWF5IDMxLCAyMDE0IDEyOjIyIEFNDQo+VG86IER1YW4gRnVnYW5nLUIzODYxMQ0KPkNjOiBM
+aSBGcmFuay1CMjA1OTY7IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IGV6ZXF1aWVsLmdhcmNpYUBmcmVl
+LQ0KPmVsZWN0cm9ucy5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHNoYXduLmd1b0BsaW5h
+cm8ub3JnOw0KPmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IHN0ZXBoZW5AbmV0d29ya3BsdW1i
+ZXIub3JnDQo+U3ViamVjdDogUkU6IFtQQVRDSCB2MSA2LzZdIG5ldDogZmVjOiBBZGQgc29mdHdh
+cmUgVFNPIHN1cHBvcnQNCj4NCj5PbiBGcmksIDIwMTQtMDUtMzAgYXQgMDc6MTYgKzAwMDAsIGZ1
+Z2FuZy5kdWFuQGZyZWVzY2FsZS5jb20gd3JvdGU6DQo+DQo+PiBZZXMsIHRlc3QgZm91bmQgaXQg
+Ym91bmNlIGFsbCBUWCBmcmFtZXMuDQo+PiBVc2UgMiBkZXNjcmlwdG9ycyB0byB0cmFuc2ZlciBv
+bmUgcGFydCwgd2hpY2ggYnJpbmcgbW9yZSBjb21wbGljYXRlDQo+PiBmb3IgZHJpdmVyLiBPZiBj
+b3Vyc2UsIFBlcmZvcm1hbmNlIG11c3QgYmUgYmV0dGVyLg0KPj4NCj4NCj5Ib3cgY3B1IGhhbmRs
+ZXMgbWlzYWxpZ25lZCAzMmJpdCBhY2Nlc3NlcyA/DQoNCllvdSBtZWFuIHVzZSBleHRyYSBkZXNj
+cmlwdG9yIGZvciBtaXNhbGlnbmVkIGJ5dGVzID8gT3IgYXR0YWNoIHRoZSBtaXNhbGlnbmVkIGJ5
+dGVzIHRvIGhlYWRlciBkZXNjcmlwdG9yID8NCkkgZG9uJ3QgZG8vdGVzdCBpdC4NClNpbmNlIGNw
+dSBsb2FkaW5nIGlzIGxpZ2h0LCBJIHdhbnQgdG8ga2VlcCB0aGUgY3VycmVudCBtZXRob2QuIChv
+bmUgZGVzY3JpcHRvciBmb3IgaGVhZGVyLCBvbmUgZGVzY3JpcHRvciBmb3IgbXNzKQ0KPg0KPj4g
+RGlncmVzc2lvbiBpbmZvcm1hdGlvbjoNCj4+IElteDZkbCBGRUMgSFcgaGF2ZSBiYW5kd2lkdGgg
+aXNzdWUgbGltaXQgdG8gNDAwIH4gNzAwTWJwcy4gQ3VycmVudA0KPnBlcmZvcm1hbmNlIHdpdGgg
+VFNPIGlzIDUwNk1icHMsIGNwdSBsb2FkaW5nIGlzIGFib3V0IDQwJS4NCj4+IExhdGVyIGNoaXBz
+IHdpdGggRkVDIElQIHN1cHBvcnQgYnl0ZSBhbGlnbm1lbnQsIHN1Y2ggYXMgaW14NnN4LiBPbg0K
+Pj4gaW14NnN4IEZFQywgbm8gU1cgVFNPLCB0eCBiYW5kd2lkdGggaXMgODQwfjg3ME1icHMsIGNw
+dSBsb2FkaW5nIGlzIDEwMCUsDQo+QWZ0ZXIgdGhlIHNvZnR3YXJlIFRTTywgdHggYmFuZHdpZHRo
+IGlzIDg0ME1icHMsIGNwdSBsb2FkaW5nIGlzIDQ4JS4NCj4NCj5TaW5jZSB5b3UgaGF2ZSBzb21l
+IGNwdSBjeWNsZXMsIGhhdmUgeW91IHRyaWVkIHRvIGFsd2F5cyB1c2UgdGhlIGJvdW5jZQ0KPnRo
+aW5nLCB1c2luZyBvbmUgZGVzY3JpcHRvciBwZXIgTVNTLCBpbnN0ZWFkIG9mIHR3byA/DQo+DQo+
+KGhlYWRlcnMgKyBwYXlsb2FkKQ0KPg0KPlRoaXMgbWlnaHQgaGVscCB0byBnZXQgYmV0dGVyIGJh
+bmR3aWR0aCwgYnkgbG93ZXJpbmcgb3ZlcmhlYWQgb24gRE1BIGFuZA0KPm9uIE5JQy4NCj4NCklt
+eDZkbCBpdHNlbGYgaGFzIGh3IGJhbmR3aWR0aCBsaW1pdGF0aW9uLiBUaGUgcGVyZm9ybWFuY2Ug
+Y2FuIHJlYWNoIGF0IDUwNk1icHMgaXMgdmVyeSBhbWF6aW5nLg0KDQpJbXg2c3ggaHcgYmFuZHdp
+ZHRoIG5vIGxpbWl0YXRpb24uIFRoZSBhYm92ZSB0ZXN0IHJlc3VsdCBpcyB0aGF0IGNvbm5lY3Rp
+bmcgdG8gb25lIEZQR0EgYm9hcmQoaXBlcmYgc2VydmVyKSwgd2hpY2ggcnggc3BlZWQgbWF5IGJl
+IGxpbWl0ZWQuDQpTbyBJIGNvbm5lY3QgdG8gQVBQTEUgTUFDIGJvb2sgdG8gdGVzdCBhZ2Fpbiwg
+dGVzdCByZXN1bHQgKGFwcGxpZWQgdGhlIHBhdGNoZXMgdG8gb3VyIGludGVybmFsIGtlcm5lbCAz
+LjEwLjMxKToNCkhpZ2ggbWVtIGRpc2FibGU6IHR4IGJhbmR3aWR0aCA5NDJNYnBzLCBjcHUgbG9h
+ZGluZyBpcyA2NSUuDQpIaWdoIG1lbSBlbmFibGU6IHR4IGJhbmR3aWR0aCA5MzBNYnBzLCBjcHUg
+bG9hZGluZyBpcyAxMDAlLiANCj0+IEkgZG9uJ3Qga25vdyB3aHkga2VybmVsIGhpZ2htZW0gY29u
+ZmlnIGVuYWJsZSBjYXVzZSBzbyBtdWNoIHBlcmZvcm1hbmNlIGRyb3AgPz8/DQoNCkZvciB5b3Vy
+IGFib3ZlIHN1Z2dlc3Rpb24gInVzaW5nIG9uZSBkZXNjcmlwdG9yIHBlciBNU1MsIGluc3RlYWQg
+b2YgdHdvIjoNClllcywgZm9yIGlteDZkbCBzb2MsIHdlIGp1c3QgZG8gaXQgbGlrZSB0aGlzLiAg
+Rm9yIGlteDZzeCBzb2MgRkVDIHRoYXQgc3VwcG9ydCBieXRlIGFsaWdubWVudCwgIHNvIGl0IGFs
+c28gdXNlIG9uZSBkZXNjcmlwdG9yIHBlciBNU1MuDQoNClRoYW5rcyBmb3IgeW91ciBzdWdnZXN0
+aW9uIGFuZCByZXNwb25zZS4gRG8geW91IGtub3cgd2h5IGhpZ2htZW0gY2F1c2UgbXVjaCBwZXJm
+b3JtYW5jZSBkcm9wIGZvciBTVyBUU08gPw0KDQpUaGFua3MsDQpBbmR5DQo=
