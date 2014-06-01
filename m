@@ -1,45 +1,49 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 1/1] iproute2 bridge: bring to above par with brctl show
- macs
-Date: Sun, 01 Jun 2014 08:12:57 -0400
-Message-ID: <538B18C9.7040804@mojatatu.com>
-References: <1401624365-5103-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [net-next PATCH 2/2] bridge netlink dump interface at par with
+ brctl Actually better than brctl showmacs because we can filter by bridge
+ port in the kernel
+Date: Sun, 01 Jun 2014 08:16:41 -0400
+Message-ID: <538B19A9.4050607@mojatatu.com>
+References: <1401623780-4297-1-git-send-email-jhs@emojatatu.com> <1401623780-4297-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
-	netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
+	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
+	roopa@cumulusnetworks.com
+To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:64273 "EHLO
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:53576 "EHLO
 	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757012AbaFAMNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 08:13:01 -0400
-Received: by mail-ig0-f169.google.com with SMTP id hl10so2305833igb.4
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 05:13:00 -0700 (PDT)
-In-Reply-To: <1401624365-5103-1-git-send-email-jhs@emojatatu.com>
+	with ESMTP id S1756936AbaFAMQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 08:16:44 -0400
+Received: by mail-ig0-f169.google.com with SMTP id hl10so2306043igb.0
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 05:16:44 -0700 (PDT)
+In-Reply-To: <1401623780-4297-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-This is built on top of the patches posted by Roopa earlier;
-I can resend this one after agreement is reached on what keyword
-to use for displaying the master. Note: I find "master" is better
-than "bridge" because we can deal the same way with vxlan
+This is mostly to you Vlad since you brought it up earlier.
+I ended using ifm instead of ndm. Currently there is lack of
+symettry - we send requests with ifm and get responses with
+ndms. Unfortunately after spending 2-3 hours I came to the
+conclusion i cant change it without breaking old iproute2s that
+were expecting this behavior. What we have here is a magnitude
+better filtering but we could have done slightly better if we
+were able to use an ndm. A little acrobatics later on to filter
+by vlans may work..
 
 cheers,
 jamal
 
-On 06/01/14 08:06, Jamal Hadi Salim wrote:
+On 06/01/14 07:56, Jamal Hadi Salim wrote:
 > From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> root@moja-mojo:bridge# ./bridge fdb help
-> Usage: bridge fdb { add | append | del | replace } ADDR dev DEV
-> {self|master} [ temp ]
->                [router] [ dst IPADDR] [ vlan VID ]
->                [ port PORT] [ vni VNI ] [via DEV]
->         bridge fdb {show} [ br BRDEV ] [ brport DEV ]
+> The current bridge netlink interface doesnt scale when you have many bridges each
+> with large fdbs or even bridges with many bridge ports
+>
+> Example usage:
 >
 > Lets start with two bridges each with a port...
 >
@@ -67,7 +71,6 @@ On 06/01/14 08:06, Jamal Hadi Salim wrote:
 > 33:33:00:00:00:01 dev sw1-p1 self permanent
 >
 > Lets see a port that is not attached to a bridge
->
 > root@moja-mojo:bridge# ./bridge fdb show brport eth0
 > 33:33:00:00:00:01 self permanent
 > 01:00:5e:00:00:01 self permanent
@@ -102,7 +105,6 @@ On 06/01/14 08:06, Jamal Hadi Salim wrote:
 > root@moja-mojo:bridge# ip link set sw1-p1 master br0
 >
 > Now dump again br0
->
 > root@moja-mojo:bridge# ./bridge fdb show br br0
 > 02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
 > 00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
@@ -113,97 +115,94 @@ On 06/01/14 08:06, Jamal Hadi Salim wrote:
 >
 > Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 > ---
->   bridge/fdb.c |   42 ++++++++++++++++++++++++++++++++++++------
->   1 file changed, 36 insertions(+), 6 deletions(-)
+>   net/core/rtnetlink.c |   68 +++++++++++++++++++++++++++++++++++++++++---------
+>   1 file changed, 56 insertions(+), 12 deletions(-)
 >
-> diff --git a/bridge/fdb.c b/bridge/fdb.c
-> index 91ab5cd..1b7802e 100644
-> --- a/bridge/fdb.c
-> +++ b/bridge/fdb.c
-> @@ -34,7 +34,7 @@ static void usage(void)
->   	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
->   		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
->   		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
-> -	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
-> +	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
->   	exit(-1);
->   }
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 064418e..71e6bc8 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2508,26 +2508,70 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
 >
-> @@ -81,8 +81,9 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->   	if (r->ndm_family != AF_BRIDGE)
->   		return 0;
->
-> -	if (filter_index && filter_index != r->ndm_ifindex)
-> +	if (filter_index && filter_index != r->ndm_ifindex) {
->   		return 0;
-> +	}
->
->   	parse_rtattr(tb, NDA_MAX, NDA_RTA(r),
->   		     n->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
-> @@ -161,18 +162,45 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->
->   static int fdb_show(int argc, char **argv)
+>   static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
 >   {
-> +	struct {
-> +		struct nlmsghdr 	n;
-> +		struct ifinfomsg	ifm;
-> +		char   			buf[256];
-> +	} req;
+> -	int idx = 0;
+> -	struct net *net = sock_net(skb->sk);
+>   	struct net_device *dev;
+> +	struct net_device *br_dev;
+> +	struct nlattr *tb[IFLA_MAX+1];
+> +	const struct net_device_ops *ops;
+> +	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
+> +	struct net *net = sock_net(skb->sk);
+> +	int brport_idx = 0;
+> +	int br_idx = 0;
+> +	int idx = 0;
 > +
->   	char *filter_dev = NULL;
-> +	char *br = NULL;
-> +	int msg_size = sizeof(struct ifinfomsg);
-> +
-> +	memset(&req, 0, sizeof(req));
-> +	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-> +	req.ifm.ifi_family = PF_BRIDGE;
->
->   	while (argc > 0) {
-> -		if (strcmp(*argv, "dev") == 0) {
-> +		if ((strcmp(*argv, "brport") == 0) || strcmp(*argv, "dev") == 0) {
->   			NEXT_ARG();
-> -			if (filter_dev)
-> -				duparg("dev", *argv);
->   			filter_dev = *argv;
-> +		} else if (strcmp(*argv, "br") == 0) {
-> +			NEXT_ARG();
-> +			br = *argv;
-> +		} else {
-> +			if (matches(*argv, "help") == 0)
-> +				usage();
->   		}
->   		argc--; argv++;
->   	}
->
-> +	if (br) {
-> +		int br_ifindex = ll_name_to_index(br);
-> +		if (br_ifindex == 0) {
-> +			fprintf(stderr, "Cannot find bridge device \"%s\"\n", br);
-> +			return -1;
-> +		}
-> +		addattr32(&req.n, sizeof(req), IFLA_MASTER, br_ifindex);
-> +		msg_size += RTA_LENGTH(4);
+> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
+> +			ifla_policy) == 0) {
+> +		if (tb[IFLA_MASTER])
+> +			br_idx = nla_get_u32(tb[IFLA_MASTER]);
 > +	}
-> +
-> +	/*we'll keep around filter_dev for older kernels */
->   	if (filter_dev) {
->   		filter_index = if_nametoindex(filter_dev);
->   		if (filter_index == 0) {
-> @@ -180,13 +208,15 @@ static int fdb_show(int argc, char **argv)
->   				filter_dev);
->   			return -1;
->   		}
-> +		req.ifm.ifi_index = filter_index;
->   	}
+> +	
+> +	brport_idx = ifm->ifi_index;
 >
-> -	if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETNEIGH) < 0) {
-> +	if (rtnl_dump_request(&rth, RTM_GETNEIGH, &req.ifm, msg_size) < 0) {
->   		perror("Cannot send dump request");
->   		exit(1);
->   	}
+>   	rcu_read_lock();
+>   	for_each_netdev_rcu(net, dev) {
+> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+> -			struct net_device *br_dev;
+> -			const struct net_device_ops *ops;
 >
+> -			br_dev = netdev_master_upper_dev_get(dev);
+> +		if (brport_idx && (dev->ifindex != brport_idx))
+> +			continue;
 > +
->   	if (rtnl_dump_filter(&rth, print_fdb, stdout) < 0) {
->   		fprintf(stderr, "Dump terminated\n");
->   		exit(1);
+> +		if (!br_idx) {
+> +			if (dev->priv_flags & IFF_BRIDGE_PORT) {
+> +				br_dev = netdev_master_upper_dev_get(dev);
+> +				ops = br_dev->netdev_ops;
+> +				if (ops->ndo_fdb_dump)
+> +					idx = ops->ndo_fdb_dump(skb, cb, br_dev,
+> +								dev, idx);
+> +			}
+> +
+> +			/* all of bridge fdb entries are dumped via brports fdb
+> +			 * therefore only allow for selfies for bridges
+> +			*/
+> +			if (!(dev->priv_flags & IFF_EBRIDGE) &&
+> +			      dev->netdev_ops->ndo_fdb_dump)
+> +				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
+> +								    NULL, idx);
+> +			else
+> +				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+> +
+> +		} else {
+> +			if (!(dev->priv_flags & IFF_BRIDGE_PORT))
+> +				continue;
+> +
+> +			br_dev = __dev_get_by_index(net, br_idx);
+> +			if (!br_dev)
+> +				return -ENODEV;
+> +
+> +			if (br_dev != netdev_master_upper_dev_get(dev))
+> +				continue;
+> +
+>   			ops = br_dev->netdev_ops;
+>   			if (ops->ndo_fdb_dump)
+> -				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+> -		}
+> +				idx = ops->ndo_fdb_dump(skb, cb, br_dev, dev, idx);
+>
+> -		if (dev->netdev_ops->ndo_fdb_dump)
+> -			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+> -		else
+> -			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+> +			if (dev->netdev_ops->ndo_fdb_dump)
+> +				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
+> +								    NULL, idx);
+> +			else
+> +				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+> +		}
+>   	}
+>   	rcu_read_unlock();
+>
 >
