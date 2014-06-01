@@ -1,58 +1,34 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH] net/mlx4_core: Preserve pci_dev_data after
- __mlx4_remove_one()
-Date: Sun, 1 Jun 2014 10:41:29 +0800
-Message-ID: <20140601024129.GA5674@richard>
-References: <20140528024650.GA8602@richard>
- <20140527.231803.1411461924645076157.davem@davemloft.net>
- <20140531024654.GA12848@richard>
- <20140530.233549.1224347263965890953.davem@davemloft.net>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request net: batman-adv 20140527
+Date: Sat, 31 May 2014 20:02:38 -0700 (PDT)
+Message-ID: <20140531.200238.1056715274270429767.davem@davemloft.net>
+References: <1401157547-25199-1-git-send-email-antonio@meshcoding.com>
+	<20140530.164757.984109840722396912.davem@davemloft.net>
+	<5389A04F.1000500@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weiyang@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp09.au.ibm.com ([202.81.31.142]:35024 "EHLO
-	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbaFAClg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 22:41:36 -0400
-Received: from /spool/local
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Sun, 1 Jun 2014 12:41:34 +1000
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [9.190.234.120])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id DB55B3578048
-	for <netdev@vger.kernel.org>; Sun,  1 Jun 2014 12:41:32 +1000 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s512JqDu53149798
-	for <netdev@vger.kernel.org>; Sun, 1 Jun 2014 12:19:53 +1000
-Received: from d23av02.au.ibm.com (localhost [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s512fVOI025476
-	for <netdev@vger.kernel.org>; Sun, 1 Jun 2014 12:41:31 +1000
-Content-Disposition: inline
-In-Reply-To: <20140530.233549.1224347263965890953.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44523 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751047AbaFADCl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 23:02:41 -0400
+In-Reply-To: <5389A04F.1000500@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 11:35:49PM -0700, David Miller wrote:
->From: Wei Yang <weiyang@linux.vnet.ibm.com>
->Date: Sat, 31 May 2014 10:46:54 +0800
->
->> I have back port code to 3.14, 3.10 and verified.
->> 
->> While on 3.4, this kernel version doesn't work on our latest machine.
->> This is a latest Power Machine. I don't have a spare x86 machine to verify
->> this card. And this card is in US, while I am in China.
->> 
->> Is it possible to send out the code without verification? And ask help from
->> others, like Mellanox engineer? Otherwise this would be a little trouble.
->
->Just do a best effort backport and make sure it compiles cleanly.
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Sat, 31 May 2014 11:26:39 +0200
 
-Got it, I will make sure it compiles on our platform.
+> ops, this was supposed to be:
+> 
+> git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+> 
+> Can you pull this tag please?
+> 
+> (I just rebased my branch on top of the current net/master once again to
+> be sure that everything is in order).
 
-
--- 
-Richard Yang
-Help you, Help me
+Pulled, thanks.
