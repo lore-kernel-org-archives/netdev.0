@@ -1,81 +1,25 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: phy.c: Cleaning up
- uninitialized variables
-Date: Sun, 1 Jun 2014 18:44:15 +0200
-Message-ID: <CAFo99gYJ_K9qEaHihtvaFT4Wv3ApUZMJmTK=nuqK+=sA2NaYsA@mail.gmail.com>
-References: <1401626948-16183-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<538B5714.6060107@cogentembedded.com>
+From: "Connell, Jill M" <Jill.Connell@acegroup.com>
+Subject: Awarded Grant
+Date: Sun, 1 Jun 2014 13:23:55 -0400
+Message-ID: <09DD97DF84EDB84784425D134531858C652DC8615E@USSBYEX7UVS4.aceins.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <538B5714.6060107@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi Sergei!
-
-Okay, sorry. But you agree with what it is doing in general then?
-
-In this case, I am sending a new patch...
-
-Best regards
-Rickard Strandqvist
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.bemta8.messagelabs.com ([216.82.243.205]:53569 "EHLO
+	mail1.bemta8.messagelabs.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752113AbaFARbF convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jun 2014 13:31:05 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-2014-06-01 18:38 GMT+02:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
-> Hello.
->
->
-> On 06/01/2014 04:49 PM, Rickard Strandqvist wrote:
->
->> There is a risk that the variable will be used without being initialized.
->
->
->> This was largely found by using a static code analysis program called
->> cppcheck.
->
->
->> Signed-off-by: Rickard Strandqvist
->> <rickard_strandqvist@spectrumdigital.se>
->> ---
->>   drivers/net/wireless/rtlwifi/rtl8192de/phy.c |    2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->
->
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
->> b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
->> index 3d1f0dd..66abaf6 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
->> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
->> @@ -203,11 +203,11 @@ u32 rtl92d_phy_query_bb_reg(struct ieee80211_hw *hw,
->> u32 regaddr, u32 bitmask)
->>         struct rtl_priv *rtlpriv = rtl_priv(hw);
->>         struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
->>         u32 returnvalue, originalvalue, bitshift;
->> -       u8 dbi_direct;
->>
->>         RT_TRACE(rtlpriv, COMP_RF, DBG_TRACE, "regaddr(%#x),
->> bitmask(%#x)\n",
->>                  regaddr, bitmask);
->>         if (rtlhal->during_mac1init_radioa ||
->> rtlhal->during_mac0init_radiob) {
->> +               u8 dbi_direct = 0;
->
->
->    Empty line is needed here, after declarations, like above.
->
->
->>                 /* mac1 use phy0 read radio_b. */
->>                 /* mac0 use phy1 read radio_b. */
->>                 if (rtlhal->during_mac1init_radioa)
->
->
-> WBR, Sergei
->
+This is to bring to your notice that the United Nations have selected you for the 2014 grant sum award. The exact amount of the award will be disclosed to you upon your reply to this email. Contact Mr. Robert Daniel via email: unclaim81@rogers.com<mailto:unclaim81@rogers.com>
+
+___________________________________________________________________
+This email is intended for the designated recipient(s) only, and may be confidential, non-public, proprietary, protected by the attorney/client or other privilege. Unauthorized reading, distribution, copying or other use of this communication is prohibited and may be unlawful. Receipt by anyone other than the intended recipient(s) should not be deemed a waiver of any privilege or protection. If you are not the intended recipient or if you believe that you have received this email in error, please notify the sender immediately and delete all copies from your computer system without reading, saving, or using it in any manner. Although it has been checked for viruses and other malicious software ("malware"), we do not warrant, represent or guarantee in any way that this communication is free 
+ of malware or potentially damaging defects. All liability for any actual or alleged loss, damage, or injury arising out of or resulting in any way from the receipt, opening or use of this email is expressly disclaimed.
+______________________________________________________________________
