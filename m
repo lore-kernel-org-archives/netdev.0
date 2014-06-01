@@ -1,60 +1,220 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 3.14-stable] net/mlx4_core: Preserve pci_dev_data after __mlx4_remove_one()
-Date: Sun, 1 Jun 2014 13:52:54 +0300
-Message-ID: <CAJZOPZ+5wkQmabjUhK138akLCVZUY8BQkwhGuX-ssV+UFVn4Ww@mail.gmail.com>
-References: <1401607475-8367-1-git-send-email-weiyang@linux.vnet.ibm.com>
-	<20140601073853.GA8635@richard>
-	<538AF2CB.20603@mellanox.com>
-	<538AF412.9080406@mellanox.com>
+From: Igor Royzis <igorr@swortex.com>
+Subject: Re: [PATCH] Fixed zero copy GSO without orphaning the fragments
+Date: Sun, 1 Jun 2014 14:39:39 +0300
+Message-ID: <CAKyyzSRfO_Hw4bDimfzV9+-8damc9RwoqA_RLkBBa_gMw9e62Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:60894 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753383AbaFAKwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 06:52:55 -0400
-Received: by mail-qa0-f46.google.com with SMTP id w8so1163940qac.19
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 03:52:54 -0700 (PDT)
-In-Reply-To: <538AF412.9080406@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Simon Horman <horms@verge.net.au>,
+	Joe Perches <joe@perches.com>, Jiri Pirko <jiri@resnulli.us>,
+	Florian Westphal <fw@strlen.de>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	Thomas Graf <tgraf@suug.ch>, Jan Beulich <JBeulich@suse.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Miklos Szeredi <mszeredi@suse.cz>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Anton Nayshtut <anton@swortex.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 1, 2014 at 12:36 PM, Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> On 01/06/2014 12:30, Or Gerlitz wrote:
+The patch discussion seems got lost due to a delay it took us to get
+the numbers. We believe that a 24% improvement in VM's network
+performance (and probably the better improvement the more guests are
+running on a host) is worth commenting and getting to some conclusion.
 
->> Wait, I recently noticed that on 3.15-rcX if the host is rebooted when the
->> mlx4_core driver is loaded in SRIOV mode, we crash like that, looking on
->> this now, I think there's chance we can relate it to your upstream change
->> befdf89 "net/mlx4_core: Preserve pci_dev_data after __mlx4_remove_one()"
-
-
-> this seems to fix the crash, will further evaluate and submit patch later today
-
-We ended up with a slightly different fix, let's see it hits well 3.15 and then
-you can resume your -stable efforts.
-
-Or.
-
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2629,7 +2629,7 @@ static void __mlx4_remove_one(struct pci_dev *pdev)
->         int               pci_dev_data;
->         int p;
+> Before your patch :
 >
-> -       if (priv->removed)
-> +       if (!priv || priv->removed)
->                 return;
+> sizeof(struct skb_shared_info)=0x140
+> offsetof(struct skb_shared_info, frags[1])=0x40
 >
->         pci_dev_data = priv->pci_dev_data;
+> SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x140
 >
+> After your patch :
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> sizeof(struct skb_shared_info)=0x148
+> offsetof(struct skb_shared_info, frags[1])=0x48
+>
+> SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) -> 0x180
+>
+> Thats a serious bump, because it increases all skb truesizes, and
+> typical skb with one fragment will use 2 cache lines instead of one in
+> struct skb_shared_info, so this adds memory pressure in fast path.
+>
+> So while this patch might increase performance for some workloads,
+> it generally decreases performance on many others.
+
+Would moving  the parent fragment pointer from skb_shared_info to
+skbuff solve this issue?
+
+Regards,
+-Igor
+
+On Sun, May 25, 2014 at 1:54 PM, Igor Royzis <igorr@swortex.com> wrote:
+>> If true, I'd like to see some performance numbers please.
+>
+> The numbers have been obtained by running iperf between 2 QEMU Win2012
+> VMs, 4 vCPU/ 4GB RAM each.
+> iperf parameters: -w 256K -l 256K -t 300
+> Original kernel 3.15.0-rc5:           34.4 Gbytes transferred, 984
+> Mbits/sec bandwidth.
+> Kernel 3.15.0-rc5 with our patch: 42.5 Gbytes transferred, 1.22
+> Gbits/sec bandwidth.
+>
+> Overall improvement is about 24%.
+> Below are raw iperf outputs.
+>
+> kernel 3.15.0-rc5:
+> C:\iperf>iperf -c 192.168.11.2 -w 256K -l 256K -t 300
+> ------------------------------------------------------------
+> Client connecting to 192.168.11.2, TCP port 5001
+> TCP window size:  256 KByte
+> ------------------------------------------------------------
+> [  3] local 192.168.11.1 port 49167 connected with 192.168.11.2 port 5001
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-300.7 sec  34.4 GBytes   984 Mbits/sec
+>
+> kernel 3.15.0-rc5-patched:
+> C:\iperf>iperf -c 192.168.11.2 -w 256K -l 256K -t 300
+> ------------------------------------------------------------
+> Client connecting to 192.168.11.2, TCP port 5001
+> TCP window size:  256 KByte
+> ------------------------------------------------------------
+> [  3] local 192.168.11.1 port 49167 connected with 192.168.11.2 port 5001
+> [ ID] Interval       Transfer     Bandwidth
+> [  3]  0.0-300.7 sec  42.5 GBytes   1.22 Gbits/sec
+>
+> On Tue, May 20, 2014 at 2:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>>
+>> On Tue, May 20, 2014 at 02:24:21PM +0300, Igor Royzis wrote:
+>> > Fix accessing GSO fragments memory (and a possible corruption therefore) after
+>> > reporting completion in a zero copy callback. The previous fix in the commit 1fd819ec
+>> > orphaned frags which eliminates zero copy advantages. The fix makes the completion
+>> > called after all the fragments were processed avoiding unnecessary orphaning/copying
+>> > from userspace.
+>> >
+>> > The GSO fragments corruption issue was observed in a typical QEMU/KVM VM setup that
+>> > hosts a Windows guest (since QEMU virtio-net Windows driver doesn't support GRO).
+>> > The fix has been verified by running the HCK OffloadLSO test.
+>> >
+>> > Signed-off-by: Igor Royzis <igorr@swortex.com>
+>> > Signed-off-by: Anton Nayshtut <anton@swortex.com>
+>>
+>> OK but with 1fd819ec there's no corruption, correct?
+>> So this patch is in fact an optimization?
+>> If true, I'd like to see some performance numbers please.
+>>
+>> Thanks!
+>>
+>> > ---
+>> >  include/linux/skbuff.h |    1 +
+>> >  net/core/skbuff.c      |   18 +++++++++++++-----
+>> >  2 files changed, 14 insertions(+), 5 deletions(-)
+>> >
+>> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> > index 08074a8..8c49edc 100644
+>> > --- a/include/linux/skbuff.h
+>> > +++ b/include/linux/skbuff.h
+>> > @@ -287,6 +287,7 @@ struct skb_shared_info {
+>> >       struct sk_buff  *frag_list;
+>> >       struct skb_shared_hwtstamps hwtstamps;
+>> >       __be32          ip6_frag_id;
+>> > +     struct sk_buff  *zcopy_src;
+>> >
+>> >       /*
+>> >        * Warning : all fields before dataref are cleared in __alloc_skb()
+>> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+>> > index 1b62343..6fa6342 100644
+>> > --- a/net/core/skbuff.c
+>> > +++ b/net/core/skbuff.c
+>> > @@ -610,14 +610,18 @@ EXPORT_SYMBOL(__kfree_skb);
+>> >   */
+>> >  void kfree_skb(struct sk_buff *skb)
+>> >  {
+>> > +     struct sk_buff *zcopy_src;
+>> >       if (unlikely(!skb))
+>> >               return;
+>> >       if (likely(atomic_read(&skb->users) == 1))
+>> >               smp_rmb();
+>> >       else if (likely(!atomic_dec_and_test(&skb->users)))
+>> >               return;
+>> > +     zcopy_src = skb_shinfo(skb)->zcopy_src;
+>> >       trace_kfree_skb(skb, __builtin_return_address(0));
+>> >       __kfree_skb(skb);
+>> > +     if (unlikely(zcopy_src))
+>> > +             kfree_skb(zcopy_src);
+>> >  }
+>> >  EXPORT_SYMBOL(kfree_skb);
+>> >
+>> > @@ -662,14 +666,18 @@ EXPORT_SYMBOL(skb_tx_error);
+>> >   */
+>> >  void consume_skb(struct sk_buff *skb)
+>> >  {
+>> > +     struct sk_buff *zcopy_src;
+>> >       if (unlikely(!skb))
+>> >               return;
+>> >       if (likely(atomic_read(&skb->users) == 1))
+>> >               smp_rmb();
+>> >       else if (likely(!atomic_dec_and_test(&skb->users)))
+>> >               return;
+>> > +     zcopy_src = skb_shinfo(skb)->zcopy_src;
+>> >       trace_consume_skb(skb);
+>> >       __kfree_skb(skb);
+>> > +     if (unlikely(zcopy_src))
+>> > +             consume_skb(zcopy_src);
+>> >  }
+>> >  EXPORT_SYMBOL(consume_skb);
+>> >
+>> > @@ -2867,7 +2875,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >       skb_frag_t *frag = skb_shinfo(head_skb)->frags;
+>> >       unsigned int mss = skb_shinfo(head_skb)->gso_size;
+>> >       unsigned int doffset = head_skb->data - skb_mac_header(head_skb);
+>> > -     struct sk_buff *frag_skb = head_skb;
+>> >       unsigned int offset = doffset;
+>> >       unsigned int tnl_hlen = skb_tnl_header_len(head_skb);
+>> >       unsigned int headroom;
+>> > @@ -2913,7 +2920,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >                       i = 0;
+>> >                       nfrags = skb_shinfo(list_skb)->nr_frags;
+>> >                       frag = skb_shinfo(list_skb)->frags;
+>> > -                     frag_skb = list_skb;
+>> >                       pos += skb_headlen(list_skb);
+>> >
+>> >                       while (pos < offset + len) {
+>> > @@ -2975,6 +2981,11 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >                                                nskb->data - tnl_hlen,
+>> >                                                doffset + tnl_hlen);
+>> >
+>> > +             if (skb_shinfo(head_skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+>> > +                     skb_shinfo(nskb)->zcopy_src = head_skb;
+>> > +                     atomic_inc(&head_skb->users);
+>> > +             }
+>> > +
+>> >               if (nskb->len == len + doffset)
+>> >                       goto perform_csum_check;
+>> >
+>> > @@ -3001,7 +3012,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >                               i = 0;
+>> >                               nfrags = skb_shinfo(list_skb)->nr_frags;
+>> >                               frag = skb_shinfo(list_skb)->frags;
+>> > -                             frag_skb = list_skb;
+>> >
+>> >                               BUG_ON(!nfrags);
+>> >
+>> > @@ -3016,8 +3026,6 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+>> >                               goto err;
+>> >                       }
+>> >
+>> > -                     if (unlikely(skb_orphan_frags(frag_skb, GFP_ATOMIC)))
+>> > -                             goto err;
+>> >
+>> >                       *nskb_frag = *frag;
+>> >                       __skb_frag_ref(nskb_frag);
+>> > --
+>> > 1.7.9.5
