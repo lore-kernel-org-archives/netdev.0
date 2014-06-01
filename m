@@ -1,46 +1,49 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH 3.14-stable] net/mlx4_core: Preserve pci_dev_data after
- __mlx4_remove_one()
-Date: Sun, 1 Jun 2014 12:36:18 +0300
-Message-ID: <538AF412.9080406@mellanox.com>
-References: <1401607475-8367-1-git-send-email-weiyang@linux.vnet.ibm.com> <20140601073853.GA8635@richard> <538AF2CB.20603@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Bjorn Helgaas <bhelgaas@google.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: Wei Yang <weiyang@linux.vnet.ibm.com>, <davem@davemloft.net>
+Subject: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are probed into the Host
+Date: Sun,  1 Jun 2014 13:49:43 +0300
+Message-ID: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	weiyang@linux.vnet.ibm.com,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:47127 "EHLO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752096AbaFAJhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 05:37:04 -0400
-In-Reply-To: <538AF2CB.20603@mellanox.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:58940 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751929AbaFAKuE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 1 Jun 2014 06:50:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/2014 12:30, Or Gerlitz wrote:
-> Wait, I recently noticed that on 3.15-rcX if the host is rebooted when 
-> the mlx4_core driver is loaded in SRIOV mode, we crash like that, 
-> looking on this now, I think there's chance we can relate it to your 
-> upstream change befdf89 "net/mlx4_core: Preserve pci_dev_data after 
-> __mlx4_remove_one()"
+From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 
-this seems to fix the crash, will further evaluate and submit patch 
-later today
+Commit befdf89 did not take into account the case where the Host
+driver is being unloaded. In this case, pci_get_drvdata for the VF
+remove_one call may return NULL, so that dereferencing the priv
+struct results in a kernel oops.
 
+The fix is to also test that the dev pointer returned by
+pci_get_drvdata is non-NULL.
 
+Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-index c187d74..c747736 100644
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index c187d74..a6ae089 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/main.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
 @@ -2629,7 +2629,7 @@ static void __mlx4_remove_one(struct pci_dev *pdev)
-         int               pci_dev_data;
-         int p;
-
--       if (priv->removed)
-+       if (!priv || priv->removed)
-                 return;
-
-         pci_dev_data = priv->pci_dev_data;
+ 	int               pci_dev_data;
+ 	int p;
+ 
+-	if (priv->removed)
++	if (!dev || priv->removed)
+ 		return;
+ 
+ 	pci_dev_data = priv->pci_dev_data;
+-- 
+1.7.1
