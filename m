@@ -1,7 +1,7 @@
 From: Michael Braun <michael-dev@fami-braun.de>
-Subject: [PATCH 2/2] rt2800usb:fix hang during firmware load
-Date: Sun, 01 Jun 2014 19:52:52 +0200
-Message-ID: <20140601175252.7980.64143.stgit@charlie.fem.tu-ilmenau.de>
+Subject: [PATCH 1/2] rt2800usb:fix efuse detection
+Date: Sun, 01 Jun 2014 19:52:47 +0200
+Message-ID: <20140601175247.7980.2461.stgit@charlie.fem.tu-ilmenau.de>
 References: <20140601174736.7980.18330.stgit@charlie.fem.tu-ilmenau.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,47 +17,47 @@ In-Reply-To: <20140601174736.7980.18330.stgit@charlie.fem.tu-ilmenau.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) boots into a state that does not actually require loading a firmware file.
-The vendors driver finds out about this by checking a firmware state
-register, so this patch adopts this here.
+The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) currently does not
+load. One thing observed is that the vendors driver detects EFUSE mode
+for this device, but rt2800usb does not. This is due to rt2800usb
+lacking a check for the firmware mode present in the vendors driver,
+that this patch adopts for rt2800usb.
 
-Finally, with this patch applied, my wifi dongle actually becomes
-usefull (scan + connect to wpa network works).
+With this patch applied, the 'RF chipset' detection does no longer fail.
 
 Signed-off-by: Michael Braun <michael-dev@fami-braun.de>
 ---
- drivers/net/wireless/rt2x00/rt2800usb.c |   14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ drivers/net/wireless/rt2x00/rt2800usb.c |   16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
-index b601422..71bf101 100644
+index a49c3d7..b601422 100644
 --- a/drivers/net/wireless/rt2x00/rt2800usb.c
 +++ b/drivers/net/wireless/rt2x00/rt2800usb.c
-@@ -240,6 +240,7 @@ static int rt2800usb_write_firmware(struct rt2x00_dev *rt2x00dev,
- 	int status;
- 	u32 offset;
- 	u32 length;
+@@ -735,11 +735,25 @@ static void rt2800usb_fill_rxdone(struct queue_entry *entry,
+ /*
+  * Device probe functions.
+  */
++static int rt2800usb_efuse_detect(struct rt2x00_dev *rt2x00dev)
++{
 +	__le32 fwMode;
- 
- 	/*
- 	 * Check which section of the firmware we need.
-@@ -257,8 +258,17 @@ static int rt2800usb_write_firmware(struct rt2x00_dev *rt2x00dev,
- 	/*
- 	 * Write firmware to device.
- 	 */
--	rt2x00usb_register_multiwrite(rt2x00dev, FIRMWARE_IMAGE_BASE,
--				      data + offset, length);
++
 +	rt2x00usb_vendor_request(rt2x00dev, USB_DEVICE_MODE,
 +				 USB_VENDOR_REQUEST_IN, 0, 0x11, &fwMode,
 +				 sizeof(fwMode), REGISTER_TIMEOUT_FIRMWARE);
 +
-+	if ((fwMode & 0x00000003) == 2) {
-+		rt2x00_info(rt2x00dev,
-+		      "Firmware loading not required - NIC in AutoRun mode\n");
-+	} else {
-+		rt2x00usb_register_multiwrite(rt2x00dev, FIRMWARE_IMAGE_BASE,
-+					      data + offset, length);
-+	}
++	if ((fwMode & 0x00000003) == 2)
++		return 1;
++
++	return rt2800_efuse_detect(rt2x00dev);
++}
++
+ static int rt2800usb_read_eeprom(struct rt2x00_dev *rt2x00dev)
+ {
+ 	int retval;
  
- 	rt2x00usb_register_write(rt2x00dev, H2M_MAILBOX_CID, ~0);
- 	rt2x00usb_register_write(rt2x00dev, H2M_MAILBOX_STATUS, ~0);
+-	if (rt2800_efuse_detect(rt2x00dev))
++	if (rt2800usb_efuse_detect(rt2x00dev))
+ 		retval = rt2800_read_eeprom_efuse(rt2x00dev);
+ 	else
+ 		retval = rt2x00usb_eeprom_read(rt2x00dev, rt2x00dev->eeprom,
