@@ -1,51 +1,51 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net-next] ieee802154: use helper function to get rid of
- redundancy
-Date: Sun, 1 Jun 2014 08:23:17 -0600
-Message-ID: <20140601142317.GA19754@mail.gmail.com>
-References: <1401579542-17108-1-git-send-email-sakiwit@gmail.com>
- <20140601072655.GA12277@omega>
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] net: bluetooth: hci_core.c:  Cleaning up uninitialized variables
+Date: Sun, 1 Jun 2014 16:24:21 +0200
+Message-ID: <AB19A214-D495-44EE-87E0-45332F156767@holtmann.org>
+References: <1401631076-20818-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:49887 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141AbaFAOX0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 10:23:26 -0400
-Received: by mail-pa0-f49.google.com with SMTP id fa1so2253510pad.8
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 07:23:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140601072655.GA12277@omega>
+Received: from senator.holtmann.net ([87.106.208.187]:33919 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947AbaFAOY0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 10:24:26 -0400
+In-Reply-To: <1401631076-20818-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Sun, 01 Jun 2014 09:26:57 +0200
+Hi Rickard,
 
-Hi Alex,
+> There is a risk that the variable will be used without being initialized.
+> 
+> This was largely found by using a static code analysis program called cppcheck.
+> 
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+> net/bluetooth/hci_core.c |    2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+> index 1c6ffaa..1d93d2f 100644
+> --- a/net/bluetooth/hci_core.c
+> +++ b/net/bluetooth/hci_core.c
+> @@ -4603,7 +4603,7 @@ static struct hci_chan *hci_chan_sent(struct hci_dev *hdev, __u8 type,
+> 	struct hci_chan *chan = NULL;
+> 	unsigned int num = 0, min = ~0, cur_prio = 0;
+> 	struct hci_conn *conn;
+> -	int cnt, q, conn_num = 0;
+> +	int cnt, q = 0, conn_num = 0;
 
-Thank you very much for the feedback.
+I have no idea on how the variable will be used without being initialized. Have you actually looked through that function. The only thing we do with q is assign it and then use it. That is it.
 
-> the at86rf230 driver supports several at86rf2xx chips. You split the
-> at86rf212_set_channel which is at86rf212 specific in two function which
-> are named at86rf230_foo.
+Regards
 
-I didn't "split" at86rf212_set_channel() in two functions. I spliced
-those two sections of code and made at86rf212_set_channel() far
-succinct and easy to read.
-
-> Sorry, but I think we should not do this. One reason is that the code is
-> much easier to read when we have one channel_set callback for at86rf23x
-> and at86rf212 chips.
-
-If you use one channel_set callback as before the change, how would you
-overcome the redundancy?
-
-> Btw. I preparing a big cleanup for this driver which supports regmap and
-> asychronous handling for rx/tx paths.
-
-Thank you for letting me know. I'm sure I will learn a lot.
+Marcel
