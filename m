@@ -1,51 +1,74 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] net: bluetooth: hci_core.c:  Cleaning up uninitialized variables
-Date: Sun, 1 Jun 2014 16:24:21 +0200
-Message-ID: <AB19A214-D495-44EE-87E0-45332F156767@holtmann.org>
-References: <1401631076-20818-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:33919 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947AbaFAOY0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 10:24:26 -0400
-In-Reply-To: <1401631076-20818-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] ieee802154: use helper
+ function to get rid of redundancy
+Date: Sun, 1 Jun 2014 16:35:53 +0200
+Message-ID: <20140601143550.GA13168@omega>
+References: <1401579542-17108-1-git-send-email-sakiwit@gmail.com>
+	<20140601072655.GA12277@omega>
+	<20140601142317.GA19754@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Jean Sacren <sakiwit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20140601142317.GA19754-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Rickard,
+Hi,
 
-> There is a risk that the variable will be used without being initialized.
+On Sun, Jun 01, 2014 at 08:23:17AM -0600, Jean Sacren wrote:
+> From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Sun, 01 Jun 2014 09:26:57 +0200
 > 
-> This was largely found by using a static code analysis program called cppcheck.
+> Hi Alex,
 > 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
-> net/bluetooth/hci_core.c |    2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+> Thank you very much for the feedback.
 > 
-> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-> index 1c6ffaa..1d93d2f 100644
-> --- a/net/bluetooth/hci_core.c
-> +++ b/net/bluetooth/hci_core.c
-> @@ -4603,7 +4603,7 @@ static struct hci_chan *hci_chan_sent(struct hci_dev *hdev, __u8 type,
-> 	struct hci_chan *chan = NULL;
-> 	unsigned int num = 0, min = ~0, cur_prio = 0;
-> 	struct hci_conn *conn;
-> -	int cnt, q, conn_num = 0;
-> +	int cnt, q = 0, conn_num = 0;
+> > the at86rf230 driver supports several at86rf2xx chips. You split the
+> > at86rf212_set_channel which is at86rf212 specific in two function which
+> > are named at86rf230_foo.
+> 
+> I didn't "split" at86rf212_set_channel() in two functions. I spliced
+> those two sections of code and made at86rf212_set_channel() far
+> succinct and easy to read.
+> 
 
-I have no idea on how the variable will be used without being initialized. Have you actually looked through that function. The only thing we do with q is assign it and then use it. That is it.
+yes, but this driver supports more than one chip and it's easier to read
+if we have one channel_set function for each chip type. Note you also
+named the specific channel_set function to a another at86rf230_foo
+function which is at86rf212 specific only. Sorry that will confuse
+all the people who will ever read this code.
 
-Regards
+There is a at86rf230_ops and at86rf212_ops struct. The channel_set
+function it's much easier to have only one callback for each struct,
+otherwise you have 4 different channel_set functions and nobody knows
+for which at86rf2xx type that function is for.
 
-Marcel
+> > Sorry, but I think we should not do this. One reason is that the code is
+> > much easier to read when we have one channel_set callback for at86rf23x
+> > and at86rf212 chips.
+> 
+> If you use one channel_set callback as before the change, how would you
+> overcome the redundancy?
+> 
+
+There is no redundancy, sorry. There would be a redundancy if two
+chiptypes like at86rf231 and at86rf212 needs some code of this callback
+and you can do some codesharing, but you can't do that there.
+
+- Alex
+
+------------------------------------------------------------------------------
+Time is money. Stop wasting it! Get your web API in 5 minutes.
+www.restlet.com/download
+http://p.sf.net/sfu/restlet
