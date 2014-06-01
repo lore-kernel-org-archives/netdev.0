@@ -1,54 +1,47 @@
-From: Dimitrios Michailidis <dm@chelsio.com>
-Subject: RE: [PATCH] net: ethernet: chelsio: cxgb4: t4_hw.c:  Cleaning up
- uninitialized variables
-Date: Sun, 1 Jun 2014 19:11:24 +0000
-Message-ID: <CBA48B605613B640864883107238931C13AC20@nice.asicdesigners.com>
-References: <1401626055-15144-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
+ probed into the Host
+Date: Sun, 1 Jun 2014 22:59:59 +0300
+Message-ID: <CAJZOPZJs8cS6fDdPNv07EeTO=dCOUxk5W5_YH+oagh6m5D5CLA@mail.gmail.com>
+References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
+	<538B57BB.5090000@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Amir Vadai <amirv@mellanox.com>,
+	Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-228.uvs.sntcca.sbcglobal.net ([99.65.72.228]:30184
-	"EHLO stargate.chelsio.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752512AbaFATzX convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2014 15:55:23 -0400
-In-Reply-To: <1401626055-15144-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Content-Language: en-US
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:54776 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752271AbaFAUAA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 16:00:00 -0400
+Received: by mail-qa0-f52.google.com with SMTP id cm18so1630907qab.11
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 12:59:59 -0700 (PDT)
+In-Reply-To: <538B57BB.5090000@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rickard Strandqvist wrote:
-> There is a risk that the variable will be used without being initialized.
+On Sun, Jun 1, 2014 at 7:41 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 06/01/2014 02:49 PM, Or Gerlitz wrote:
 
-There isn't actual risk here, this variable is not used uninitialized AFAICS.
+>> Commit befdf89 did not take into account the case where the Host
+>    Please also specify that commit's summary line in parens.
 
-> This was largely found by using a static code analysis program called cppcheck.
+Did that below, see where we say
 
-It seems this is a false inference by the tool.  I think the preferred method to suppress false tool warnings is to use uninitialized_var.
- 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
->  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> index bba6768..326c005 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-> @@ -571,7 +571,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool
-> enable)
->   */
->  int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
->  {
-> -	u32 cclk_param, cclk_val;
-> +	u32 cclk_param, cclk_val = 0;
->  	int i, ret, addr;
->  	int ec, sn, pn;
->  	u8 *vpd, csum;
-> --
-> 1.7.10.4
+Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
+
+>> driver is being unloaded. In this case, pci_get_drvdata for the VF
+>> remove_one call may return NULL, so that dereferencing the priv
+>> struct results in a kernel oops.
+
+>> The fix is to also test that the dev pointer returned by
+>> pci_get_drvdata is non-NULL.
+>> Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
+>> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
