@@ -1,46 +1,81 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs
- are probed into the Host
-Date: Sun, 01 Jun 2014 20:41:31 +0400
-Message-ID: <538B57BB.5090000@cogentembedded.com>
-References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: phy.c: Cleaning up
+ uninitialized variables
+Date: Sun, 1 Jun 2014 18:44:15 +0200
+Message-ID: <CAFo99gYJ_K9qEaHihtvaFT4Wv3ApUZMJmTK=nuqK+=sA2NaYsA@mail.gmail.com>
+References: <1401626948-16183-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<538B5714.6060107@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	weiyang@linux.vnet.ibm.com,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
-To: Or Gerlitz <ogerlitz@mellanox.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:55472 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533AbaFAQld (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 12:41:33 -0400
-Received: by mail-la0-f52.google.com with SMTP id s18so61665lam.25
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 09:41:32 -0700 (PDT)
-In-Reply-To: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <538B5714.6060107@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Sergei!
 
-On 06/01/2014 02:49 PM, Or Gerlitz wrote:
+Okay, sorry. But you agree with what it is doing in general then?
 
-> From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+In this case, I am sending a new patch...
 
-> Commit befdf89 did not take into account the case where the Host
+Best regards
+Rickard Strandqvist
 
-    Please also specify that commit's summary line in parens.
 
-> driver is being unloaded. In this case, pci_get_drvdata for the VF
-> remove_one call may return NULL, so that dereferencing the priv
-> struct results in a kernel oops.
-
-> The fix is to also test that the dev pointer returned by
-> pci_get_drvdata is non-NULL.
-
-> Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
-> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-
-WBR, Sergei
+2014-06-01 18:38 GMT+02:00 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+>
+> On 06/01/2014 04:49 PM, Rickard Strandqvist wrote:
+>
+>> There is a risk that the variable will be used without being initialized.
+>
+>
+>> This was largely found by using a static code analysis program called
+>> cppcheck.
+>
+>
+>> Signed-off-by: Rickard Strandqvist
+>> <rickard_strandqvist@spectrumdigital.se>
+>> ---
+>>   drivers/net/wireless/rtlwifi/rtl8192de/phy.c |    2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>
+>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
+>> b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
+>> index 3d1f0dd..66abaf6 100644
+>> --- a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
+>> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
+>> @@ -203,11 +203,11 @@ u32 rtl92d_phy_query_bb_reg(struct ieee80211_hw *hw,
+>> u32 regaddr, u32 bitmask)
+>>         struct rtl_priv *rtlpriv = rtl_priv(hw);
+>>         struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
+>>         u32 returnvalue, originalvalue, bitshift;
+>> -       u8 dbi_direct;
+>>
+>>         RT_TRACE(rtlpriv, COMP_RF, DBG_TRACE, "regaddr(%#x),
+>> bitmask(%#x)\n",
+>>                  regaddr, bitmask);
+>>         if (rtlhal->during_mac1init_radioa ||
+>> rtlhal->during_mac0init_radiob) {
+>> +               u8 dbi_direct = 0;
+>
+>
+>    Empty line is needed here, after declarations, like above.
+>
+>
+>>                 /* mac1 use phy0 read radio_b. */
+>>                 /* mac0 use phy1 read radio_b. */
+>>                 if (rtlhal->during_mac1init_radioa)
+>
+>
+> WBR, Sergei
+>
