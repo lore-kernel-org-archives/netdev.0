@@ -1,96 +1,83 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net-next] ieee802154: use helper function to get rid of
- redundancy
-Date: Sun, 1 Jun 2014 09:35:47 -0600
-Message-ID: <20140601153546.GA20143@mail.gmail.com>
-References: <1401579542-17108-1-git-send-email-sakiwit@gmail.com>
- <20140601072655.GA12277@omega>
- <20140601142317.GA19754@mail.gmail.com>
- <20140601143550.GA13168@omega>
+From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Subject: Re: [PATCH] net: bluetooth: hci_core.c: Cleaning up uninitialized variables
+Date: Sun, 1 Jun 2014 17:41:12 +0200
+Message-ID: <CAFo99gZVJ3D-f_j8C4zYBod4yaLveq8X5__URyTuOAKcffN-Cg@mail.gmail.com>
+References: <1401631076-20818-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<AB19A214-D495-44EE-87E0-45332F156767@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:55816 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbaFAPf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 11:35:57 -0400
-Received: by mail-pa0-f43.google.com with SMTP id kp14so1107853pab.30
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 08:35:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140601143550.GA13168@omega>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AB19A214-D495-44EE-87E0-45332F156767-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Sun, 01 Jun 2014 16:35:53 +0200
+Hi Marcel!
+
+
+Sorry sorry!! This is obviously not necessary!
+
+This is code that was left when I tried to split up my original big patch.
+
+This was part of code trying to solve a possible divided by 0.
+
+
+    int q = 0;
+
+...
+
+    if (num)
+        q = cnt / num;
+    *quote = q ? q : 1;
+
+
+But I'm not sure if it can happen in reality...
+Guessing it will be caught by in that case by:
+
+    if (!chan)
+        return NULL;
+
+
+
+I had actually not planned to submit this divided by 0 patch at all :-/
+
+
+Best regards
+Rickard Strandqvist
+
+
+2014-06-01 16:24 GMT+02:00 Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>:
+> Hi Rickard,
 >
-> Hi,
-> 
-> On Sun, Jun 01, 2014 at 08:23:17AM -0600, Jean Sacren wrote:
-> > From: Alexander Aring <alex.aring@gmail.com>
-> > Date: Sun, 01 Jun 2014 09:26:57 +0200
-> > 
-> > Hi Alex,
-> > 
-> > Thank you very much for the feedback.
-> > 
-> > > the at86rf230 driver supports several at86rf2xx chips. You split the
-> > > at86rf212_set_channel which is at86rf212 specific in two function which
-> > > are named at86rf230_foo.
-> > 
-> > I didn't "split" at86rf212_set_channel() in two functions. I spliced
-> > those two sections of code and made at86rf212_set_channel() far
-> > succinct and easy to read.
-> > 
-> 
-> yes, but this driver supports more than one chip and it's easier to read
-> if we have one channel_set function for each chip type. Note you also
-> named the specific channel_set function to a another at86rf230_foo
-> function which is at86rf212 specific only. Sorry that will confuse
-> all the people who will ever read this code.
-> 
-> There is a at86rf230_ops and at86rf212_ops struct. The channel_set
-> function it's much easier to have only one callback for each struct,
-> otherwise you have 4 different channel_set functions and nobody knows
-> for which at86rf2xx type that function is for.
-
-You mean something like the following will be less confusing?
-
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 4517b149ed07..06b494bacc44 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -602,20 +602,21 @@ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
- {
- 	int rc;
- 
--	if (channel == 0)
--		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 0);
--	else
--		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 1);
-+	if (channel)
-+		channel = 1;
-+
-+	rc = at86rf230_write_subreg(lp, SR_SUB_MODE, channel);
- 	if (rc < 0)
- 		return rc;
- 
--	if (page == 0) {
--		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 0);
--		lp->rssi_base_val = -100;
--	} else {
--		rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, 1);
-+	if (page) {
- 		lp->rssi_base_val = -98;
-+		page = 1;
-+	} else {
-+		lp->rssi_base_val = -100;
- 	}
-+
-+	rc = at86rf230_write_subreg(lp, SR_BPSK_QPSK, page);
- 	if (rc < 0)
- 		return rc;
+>> There is a risk that the variable will be used without being initialized.
+>>
+>> This was largely found by using a static code analysis program called cppcheck.
+>>
+>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+>> ---
+>> net/bluetooth/hci_core.c |    2 +-
+>> 1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+>> index 1c6ffaa..1d93d2f 100644
+>> --- a/net/bluetooth/hci_core.c
+>> +++ b/net/bluetooth/hci_core.c
+>> @@ -4603,7 +4603,7 @@ static struct hci_chan *hci_chan_sent(struct hci_dev *hdev, __u8 type,
+>>       struct hci_chan *chan = NULL;
+>>       unsigned int num = 0, min = ~0, cur_prio = 0;
+>>       struct hci_conn *conn;
+>> -     int cnt, q, conn_num = 0;
+>> +     int cnt, q = 0, conn_num = 0;
+>
+> I have no idea on how the variable will be used without being initialized. Have you actually looked through that function. The only thing we do with q is assign it and then use it. That is it.
+>
+> Regards
+>
+> Marcel
+>
