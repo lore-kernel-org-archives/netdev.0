@@ -1,160 +1,187 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 1/2] bridge fdb dumping takes a filter device Dumping a bridge fdb dumps every fdb entry held. With this change we are going to filter on selected bridge port.
-Date: Sun,  1 Jun 2014 07:56:19 -0400
-Message-ID: <1401623780-4297-1-git-send-email-jhs@emojatatu.com>
+Subject: [net-next PATCH 2/2] bridge netlink dump interface at par with brctl Actually better than brctl showmacs because we can filter by bridge port in the kernel
+Date: Sun,  1 Jun 2014 07:56:20 -0400
+Message-ID: <1401623780-4297-2-git-send-email-jhs@emojatatu.com>
+References: <1401623780-4297-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
 	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
 	roopa@cumulusnetworks.com, Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f175.google.com ([209.85.213.175]:57817 "EHLO
-	mail-ig0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929AbaFAL4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 07:56:34 -0400
-Received: by mail-ig0-f175.google.com with SMTP id uq10so2359967igb.8
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 04:56:33 -0700 (PDT)
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:61455 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbaFAL4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 07:56:45 -0400
+Received: by mail-ie0-f181.google.com with SMTP id rp18so3390657iec.40
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 04:56:44 -0700 (PDT)
+In-Reply-To: <1401623780-4297-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
+The current bridge netlink interface doesnt scale when you have many bridges each
+with large fdbs or even bridges with many bridge ports
+
+Example usage:
+
+Lets start with two bridges each with a port...
+
+root@moja-mojo:bridge# ./bridge link
+8: eth1 state DOWN : <BROADCAST,MULTICAST> mtu 1500 master br0 state disabled priority 32 cost 19
+17: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master sw1 state disabled priority 32 cost 100
+
+show all...
+root@moja-mojo:bridge# ./bridge fdb show
+33:33:00:00:00:01 dev bond0 self permanent
+33:33:00:00:00:01 dev dummy0 self permanent
+33:33:00:00:00:01 dev ifb0 self permanent
+33:33:00:00:00:01 dev ifb1 self permanent
+33:33:00:00:00:01 dev eth0 self permanent
+01:00:5e:00:00:01 dev eth0 self permanent
+33:33:ff:22:01:01 dev eth0 self permanent
+02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:07 dev eth1 self permanent
+33:33:00:00:00:01 dev eth1 self permanent
+33:33:00:00:00:01 dev gretap0 self permanent
+33:33:00:00:00:01 dev br0 self permanent
+33:33:00:00:00:01 dev sw1 self permanent
+a2:fb:21:4c:47:25 dev sw1-p1 vlan 0 master sw1 permanent
+33:33:00:00:00:01 dev sw1-p1 self permanent
+
+Lets see a port that is not attached to a bridge
+root@moja-mojo:bridge# ./bridge fdb show brport eth0
+33:33:00:00:00:01 self permanent
+01:00:5e:00:00:01 self permanent
+33:33:ff:22:01:01 self permanent
+
+Lets see a port that is attached to a bridge
+root@moja-mojo:bridge# ./bridge fdb show brport eth1
+02:00:00:12:01:02 vlan 0 master br0 permanent
+00:17:42:8a:b4:05 vlan 0 master br0 permanent
+00:17:42:8a:b4:07 self permanent
+33:33:00:00:00:01 self permanent
+
+Specify the correct bridge and you get good stuff
+root@moja-mojo:bridge# ./bridge fdb show brport eth1 br br0
+02:00:00:12:01:02 vlan 0 master br0 permanent
+00:17:42:8a:b4:05 vlan 0 master br0 permanent
+00:17:42:8a:b4:07 self permanent
+33:33:00:00:00:01 self permanent
+
+Specify the wrong bridge and you get good nada
+root@moja-mojo:bridge# ./bridge fdb show brport eth1 br sw1
+
+dump only br0
+root@moja-mojo:bridge# ./bridge fdb show br br0
+02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:07 dev eth1 self permanent
+33:33:00:00:00:01 dev eth1 self permanent
+
+Lets move a port from one bridge to another for shits-and-giggles
+(as they say in New Brunswick)
+root@moja-mojo:bridge# ip link set sw1-p1 master br0
+
+Now dump again br0
+root@moja-mojo:bridge# ./bridge fdb show br br0
+02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
+00:17:42:8a:b4:07 dev eth1 self permanent
+33:33:00:00:00:01 dev eth1 self permanent
+a2:fb:21:4c:47:25 dev sw1-p1 vlan 0 master br0 permanent
+33:33:00:00:00:01 dev sw1-p1 self permanent
+
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 ++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    5 +++--
- include/linux/netdevice.h                        |    1 +
- include/linux/rtnetlink.h                        |    1 +
- net/bridge/br_fdb.c                              |    5 +++++
- net/bridge/br_private.h                          |    2 +-
- net/core/rtnetlink.c                             |    7 ++++---
- 7 files changed, 17 insertions(+), 7 deletions(-)
+ net/core/rtnetlink.c |   68 +++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 56 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 8e15ced..6636e64 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6691,13 +6691,14 @@ static int i40e_ndo_fdb_del(struct ndmsg *ndm,
- static int i40e_ndo_fdb_dump(struct sk_buff *skb,
- 			     struct netlink_callback *cb,
- 			     struct net_device *dev,
-+			     struct net_device *filter_dev,
- 			     int idx)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
- 	struct i40e_pf *pf = np->vsi->back;
- 
- 	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
--		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
- 
- 	return idx;
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index f06ba90b..233f282 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -427,12 +427,13 @@ static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- }
- 
- static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
--			struct net_device *netdev, int idx)
-+			struct net_device *netdev, struct net_device *filter_dev,
-+			int idx)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 
- 	if (!adapter->fdb_mac_learn)
--		return ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
-+		return ndo_dflt_fdb_dump(skb, ncb, netdev, filter_dev, idx);
- 
- 	if ((adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
- 	    qlcnic_sriov_check(adapter))
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 2db1610..dd9a354 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1114,6 +1114,7 @@ struct net_device_ops {
- 	int			(*ndo_fdb_dump)(struct sk_buff *skb,
- 						struct netlink_callback *cb,
- 						struct net_device *dev,
-+						struct net_device *filter_dev,
- 						int idx);
- 
- 	int			(*ndo_bridge_setlink)(struct net_device *dev,
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 953937e..167bae7 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -78,6 +78,7 @@ extern void __rtnl_unlock(void);
- extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 			     struct netlink_callback *cb,
- 			     struct net_device *dev,
-+			     struct net_device *filter_dev,
- 			     int idx);
- extern int ndo_dflt_fdb_add(struct ndmsg *ndm,
- 			    struct nlattr *tb[],
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 2c45c06..e803180 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -672,6 +672,7 @@ errout:
- int br_fdb_dump(struct sk_buff *skb,
- 		struct netlink_callback *cb,
- 		struct net_device *dev,
-+		struct net_device *filter_dev,
- 		int idx)
- {
- 	struct net_bridge *br = netdev_priv(dev);
-@@ -687,6 +688,10 @@ int br_fdb_dump(struct sk_buff *skb,
- 			if (idx < cb->args[0])
- 				goto skip;
- 
-+			if (filter_dev && (!f->dst || !f->dst->dev ||
-+					   f->dst->dev != filter_dev))
-+				goto skip;
-+
- 			if (fdb_fill_info(skb, br, f,
- 					  NETLINK_CB(cb->skb).portid,
- 					  cb->nlh->nlmsg_seq,
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 53d6e32..403e948 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -398,7 +398,7 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
- 	       const unsigned char *addr, u16 nlh_flags);
- int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
--		struct net_device *dev, int idx);
-+		struct net_device *dev, struct net_device *fdev, int idx);
- int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
- void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
- 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f31268d..064418e 100644
+index 064418e..71e6bc8 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -2490,6 +2490,7 @@ skip:
- int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 		      struct netlink_callback *cb,
- 		      struct net_device *dev,
-+		      struct net_device *filter_dev,
- 		      int idx)
+@@ -2508,26 +2508,70 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
+ 
+ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
  {
- 	int err;
-@@ -2520,13 +2521,13 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 			br_dev = netdev_master_upper_dev_get(dev);
+-	int idx = 0;
+-	struct net *net = sock_net(skb->sk);
+ 	struct net_device *dev;
++	struct net_device *br_dev;
++	struct nlattr *tb[IFLA_MAX+1];
++	const struct net_device_ops *ops;
++	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
++	struct net *net = sock_net(skb->sk);
++	int brport_idx = 0;
++	int br_idx = 0;
++	int idx = 0;
++
++	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
++			ifla_policy) == 0) {
++		if (tb[IFLA_MASTER])
++			br_idx = nla_get_u32(tb[IFLA_MASTER]);
++	}
++	
++	brport_idx = ifm->ifi_index;
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+-		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+-			struct net_device *br_dev;
+-			const struct net_device_ops *ops;
+ 
+-			br_dev = netdev_master_upper_dev_get(dev);
++		if (brport_idx && (dev->ifindex != brport_idx))
++			continue;
++
++		if (!br_idx) {
++			if (dev->priv_flags & IFF_BRIDGE_PORT) {
++				br_dev = netdev_master_upper_dev_get(dev);
++				ops = br_dev->netdev_ops;
++				if (ops->ndo_fdb_dump)
++					idx = ops->ndo_fdb_dump(skb, cb, br_dev,
++								dev, idx);
++			}
++
++			/* all of bridge fdb entries are dumped via brports fdb
++			 * therefore only allow for selfies for bridges
++			*/
++			if (!(dev->priv_flags & IFF_EBRIDGE) &&
++			      dev->netdev_ops->ndo_fdb_dump)
++				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
++								    NULL, idx);
++			else
++				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
++
++		} else {
++			if (!(dev->priv_flags & IFF_BRIDGE_PORT))
++				continue;
++
++			br_dev = __dev_get_by_index(net, br_idx);
++			if (!br_dev)
++				return -ENODEV;
++
++			if (br_dev != netdev_master_upper_dev_get(dev))
++				continue;
++
  			ops = br_dev->netdev_ops;
  			if (ops->ndo_fdb_dump)
--				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
-+				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
- 		}
+-				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+-		}
++				idx = ops->ndo_fdb_dump(skb, cb, br_dev, dev, idx);
  
- 		if (dev->netdev_ops->ndo_fdb_dump)
--			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
-+			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
- 		else
--			idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
-+			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+-		if (dev->netdev_ops->ndo_fdb_dump)
+-			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+-		else
+-			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
++			if (dev->netdev_ops->ndo_fdb_dump)
++				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
++								    NULL, idx);
++			else
++				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
++		}
  	}
  	rcu_read_unlock();
  
