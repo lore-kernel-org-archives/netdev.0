@@ -1,25 +1,72 @@
-From: "Connell, Jill M" <Jill.Connell@acegroup.com>
-Subject: Awarded Grant
-Date: Sun, 1 Jun 2014 13:23:55 -0400
-Message-ID: <09DD97DF84EDB84784425D134531858C652DC8615E@USSBYEX7UVS4.aceins.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net-next] ieee802154: use helper function to get rid of
+ redundancy
+Date: Sun, 1 Jun 2014 11:49:29 -0600
+Message-ID: <20140601174929.GB20143@mail.gmail.com>
+References: <1401579542-17108-1-git-send-email-sakiwit@gmail.com>
+ <20140601072655.GA12277@omega>
+ <20140601142317.GA19754@mail.gmail.com>
+ <20140601143550.GA13168@omega>
+ <20140601153546.GA20143@mail.gmail.com>
+ <20140601163926.GA1527@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.bemta8.messagelabs.com ([216.82.243.205]:53569 "EHLO
-	mail1.bemta8.messagelabs.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752113AbaFARbF convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2014 13:31:05 -0400
-Content-Language: en-US
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:37765 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751751AbaFARtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 13:49:39 -0400
+Received: by mail-pd0-f171.google.com with SMTP id y13so2649441pdi.2
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 10:49:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140601163926.GA1527@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Sun, 01 Jun 2014 18:39:28 +0200
+>
+> > You mean something like the following will be less confusing?
+> 
+> Yes that's less but there are issues and I don't see any reason why we
+> should do that.
+> 
+> > 
+> > diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+> > index 4517b149ed07..06b494bacc44 100644
+> > --- a/drivers/net/ieee802154/at86rf230.c
+> > +++ b/drivers/net/ieee802154/at86rf230.c
+> > @@ -602,20 +602,21 @@ at86rf212_set_channel(struct at86rf230_local *lp, int page, int channel)
+> >  {
+> >  	int rc;
+> >  
+> > -	if (channel == 0)
+> > -		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 0);
+> > -	else
+> > -		rc = at86rf230_write_subreg(lp, SR_SUB_MODE, 1);
+> > +	if (channel)
+> > +		channel = 1;
+> > +
+> > +	rc = at86rf230_write_subreg(lp, SR_SUB_MODE, channel);
+> >  	if (rc < 0)
+> >  		return rc;
+> >  
+> 
+> First:
+> 
+> This will break the at86rf212_set_channel function. At the end of this
+> function we need the channel parameter and you overwrite it here.
+> At the end of this function stands:
+> 
+> "return at86rf230_write_subreg(lp, SR_CHANNEL, channel);"
 
-This is to bring to your notice that the United Nations have selected you for the 2014 grant sum award. The exact amount of the award will be disclosed to you upon your reply to this email. Contact Mr. Robert Daniel via email: unclaim81@rogers.com<mailto:unclaim81@rogers.com>
+You are right, but we can:
 
-___________________________________________________________________
-This email is intended for the designated recipient(s) only, and may be confidential, non-public, proprietary, protected by the attorney/client or other privilege. Unauthorized reading, distribution, copying or other use of this communication is prohibited and may be unlawful. Receipt by anyone other than the intended recipient(s) should not be deemed a waiver of any privilege or protection. If you are not the intended recipient or if you believe that you have received this email in error, please notify the sender immediately and delete all copies from your computer system without reading, saving, or using it in any manner. Although it has been checked for viruses and other malicious software ("malware"), we do not warrant, represent or guarantee in any way that this communication is free 
- of malware or potentially damaging defects. All liability for any actual or alleged loss, damage, or injury arising out of or resulting in any way from the receipt, opening or use of this email is expressly disclaimed.
-______________________________________________________________________
+	if (channel)
+		rc = 1;
+
+	rc = at86rf230_write_subreg(lp, SR_SUB_MODE, rc);
