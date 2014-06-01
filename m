@@ -1,47 +1,54 @@
-From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Subject: [PATCH] net: wireless: rtlwifi: rtl8192de: phy.c:  Cleaning up uninitialized variables
-Date: Sun,  1 Jun 2014 14:49:08 +0200
-Message-ID: <1401626948-16183-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 4/11] via-ircc: Remove useless return variables
+Date: Sun, 1 Jun 2014 16:34:21 +0300
+Message-ID: <20140601133421.GQ15585@mwanda>
+References: <1401542051-3174-4-git-send-email-peter.senna@gmail.com>
+ <20140531203658.GO15585@mwanda>
+ <538B11A6.30306@bfs.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Senna Tschudin <peter.senna@gmail.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	kernel-janitors@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: walter harms <wharms@bfs.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <538B11A6.30306@bfs.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is a risk that the variable will be used without being initialized.
+On Sun, Jun 01, 2014 at 01:42:30PM +0200, walter harms wrote:
+> >>  static int via_ircc_read_dongle_id(int iobase)
+> >> -{
+> >> -	int dongle_id = 9;	/* Default to IBM */
+> >> -
+> >> +{/* Default to IBM */
+> > 
+> > Yuck.  And anyway, the comment should be on return line.  (And of course
+> > there should have been a #define IBM_DONGLE_ID 9, but that's probably
+> > something for another patch.
+> > 
+> >>  	IRDA_ERROR("via-ircc: dongle probing not supported, please specify dongle_id module parameter.\n");
+> >> -	return dongle_id;
+> >> +	return 9;
+> 
+> 
+> more over code and error msg do not fit,
+> it returns a default of 9 (what ever that means) it does not look like
+> an error. Sow the warning should be
+> 
+> via-ircc: dongle probing not supported, please specify dongle_id module parameter. settting dongle_id=9
+>
 
-This was largely found by using a static code analysis program called cppcheck.
+The print is ok.  It's called like this:
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
----
- drivers/net/wireless/rtlwifi/rtl8192de/phy.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+   328          /* Check if user has supplied the dongle id or not */
+   329          if (!dongle_id)
+   330                  dongle_id = via_ircc_read_dongle_id(self->io.fir_base);
+   331          self->io.dongle_id = dongle_id;
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
-index 3d1f0dd..66abaf6 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/phy.c
-@@ -203,11 +203,11 @@ u32 rtl92d_phy_query_bb_reg(struct ieee80211_hw *hw, u32 regaddr, u32 bitmask)
- 	struct rtl_priv *rtlpriv = rtl_priv(hw);
- 	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
- 	u32 returnvalue, originalvalue, bitshift;
--	u8 dbi_direct;
- 
- 	RT_TRACE(rtlpriv, COMP_RF, DBG_TRACE, "regaddr(%#x), bitmask(%#x)\n",
- 		 regaddr, bitmask);
- 	if (rtlhal->during_mac1init_radioa || rtlhal->during_mac0init_radiob) {
-+		u8 dbi_direct = 0;
- 		/* mac1 use phy0 read radio_b. */
- 		/* mac0 use phy1 read radio_b. */
- 		if (rtlhal->during_mac1init_radioa)
--- 
-1.7.10.4
+If you don't use a module id then it acts like an IBM dongle by default.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+regards,
+dan carpenter
