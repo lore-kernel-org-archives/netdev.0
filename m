@@ -1,45 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: phy.c: Cleaning up
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH] net: ethernet: chelsio: cxgb4: t4_hw.c: Cleaning up
  uninitialized variables
-Date: Sun, 01 Jun 2014 23:32:27 +0400
-Message-ID: <538B7FCB.5090106@cogentembedded.com>
-References: <1401626948-16183-1-git-send-email-rickard_strandqvist@spectrumdigital.se>	<538B5714.6060107@cogentembedded.com> <CAFo99gYJ_K9qEaHihtvaFT4Wv3ApUZMJmTK=nuqK+=sA2NaYsA@mail.gmail.com>
+Date: Sun, 1 Jun 2014 21:36:57 +0200
+Message-ID: <CAFo99gbeRu=D4LqO=i43GfCY+opR_o+wwOo0u4VuxUKBNG+Xmw@mail.gmail.com>
+References: <1401626055-15144-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<CBA48B605613B640864883107238931C13AC20@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:63369 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752251AbaFATc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 15:32:29 -0400
-Received: by mail-lb0-f181.google.com with SMTP id q8so2022198lbi.40
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 12:32:27 -0700 (PDT)
-In-Reply-To: <CAFo99gYJ_K9qEaHihtvaFT4Wv3ApUZMJmTK=nuqK+=sA2NaYsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Dimitrios Michailidis <dm@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CBA48B605613B640864883107238931C13AC20@nice.asicdesigners.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi Dimitrios!
 
-On 06/01/2014 08:44 PM, Rickard Strandqvist wrote:
+Okay sorry, I see what you mean...
 
-> Okay, sorry. But you agree with what it is doing in general then?
+Best regards
+Rickard Strandqvist
 
-    Now that you asked, I do agree. But generally my reply doesn't mean that I 
-went and studied the patch context and verified that the patch is indeed correct.
 
-> In this case, I am sending a new patch...
-
-    BTW, it's worth mentioning in the change log that you're moving the 
-variable in question into the block.
-
-> Best regards
-> Rickard Strandqvist
-
-WBR, Sergei
+2014-06-01 21:11 GMT+02:00 Dimitrios Michailidis <dm@chelsio.com>:
+> Rickard Strandqvist wrote:
+>> There is a risk that the variable will be used without being initialized.
+>
+> There isn't actual risk here, this variable is not used uninitialized AFAICS.
+>
+>> This was largely found by using a static code analysis program called cppcheck.
+>
+> It seems this is a false inference by the tool.  I think the preferred method to suppress false tool warnings is to use uninitialized_var.
+>
+>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+>> ---
+>>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> index bba6768..326c005 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> @@ -571,7 +571,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool
+>> enable)
+>>   */
+>>  int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+>>  {
+>> -     u32 cclk_param, cclk_val;
+>> +     u32 cclk_param, cclk_val = 0;
+>>       int i, ret, addr;
+>>       int ec, sn, pn;
+>>       u8 *vpd, csum;
+>> --
+>> 1.7.10.4
+>
