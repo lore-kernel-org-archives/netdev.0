@@ -1,62 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH v1 6/6] net: fec: Add software TSO support
-Date: Sat, 31 May 2014 18:39:30 -0700
-Message-ID: <1401586770.3645.139.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401415552-2263-1-git-send-email-b38611@freescale.com>
-	 <1401415552-2263-7-git-send-email-b38611@freescale.com>
-	 <1401431422.3645.89.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <b5c16b8cd7874a8a979c3965984f768c@BLUPR03MB373.namprd03.prod.outlook.com>
-	 <1401466898.3645.127.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <4961e71606b94f9d812f90dff0ed0ab1@BLUPR03MB373.namprd03.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f177.google.com ([209.85.223.177]:46117 "EHLO
-	mail-ie0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbaFABjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 31 May 2014 21:39:33 -0400
-Received: by mail-ie0-f177.google.com with SMTP id y20so3162837ier.36
-        for <netdev@vger.kernel.org>; Sat, 31 May 2014 18:39:32 -0700 (PDT)
-In-Reply-To: <4961e71606b94f9d812f90dff0ed0ab1@BLUPR03MB373.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net-next 0/2] split BPF out of core networking
+Date: Sat, 31 May 2014 18:42:19 -0700
+Message-ID: <1401586941-4274-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-06-01 at 00:55 +0000, fugang.duan@freescale.com wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com> Data: Saturday, May 31, 2014 12:22 AM
-> >
-> >How cpu handles misaligned 32bit accesses ?
-> 
-> You mean use extra descriptor for misaligned bytes ? Or attach the misaligned bytes to header descriptor ?
+This patch set splits BPF out of core networking into generic component
 
-I meant, maybe you could not force alignment of the IP/TCP headers on a
-4byte boundary, but using +2 bytes offset
+patch #1 splits filter.c into two logical pieces: generic BPF core and socket
+filters. It only moves functions around. No real changes.
 
-This way, frames would be 4-bytes aligned from the Etnernet Header.
+patch #2 adds hidden CONFIG_BPF that seccomp/tracing can select
 
-> So I connect to APPLE MAC book to test again, test result (applied the patches to our internal kernel 3.10.31):
-> High mem disable: tx bandwidth 942Mbps, cpu loading is 65%.
-> High mem enable: tx bandwidth 930Mbps, cpu loading is 100%. 
-> => I don't know why kernel highmem config enable cause so much performance drop ???
-> 
-> For your above suggestion "using one descriptor per MSS, instead of two":
-> Yes, for imx6dl soc, we just do it like this.  For imx6sx soc FEC that support byte alignment,  so it also use one descriptor per MSS.
-> 
-> Thanks for your suggestion and response. Do you know why highmem cause much performance drop for SW TSO ?
+the split was proposed in the previous thread:
+http://article.gmane.org/gmane.linux.network/316050
 
-Check NETIF_F_HIGHDMA : your driver might be able to advertise its
-support.
+The main value of the patch is not a NET separation, but rather logical boundary
+between generic BPF core and socket filtering. All socket specific code stays in
+net/core/filter.c and net/bpf/core.c is for generic BPF infrastructure (both
+classic and internal).
 
-Check your copies, because you might then need kmap()
+Note that CONFIG_BPF_JIT is still under NET, so NET-less configs cannot use
+BPF JITs yet. This can be cleaned up in the future. Also it seems to makes sense
+to split up filter.h into generic and socket specific as well to cleanup the
+boundary further.
 
-For an example, read efx_skb_copy_bits_to_pio() in
-drivers/net/ethernet/sfc/tx.c
+The patches are on top of Daniel's cleanup to minimize conflicts:
+http://patchwork.ozlabs.org/patch/353700/
+http://patchwork.ozlabs.org/patch/353699/
+
+Unfortunately they conflict with Chema's patches which in turn conflict
+with Daniel's. But since Daniel got in the queue first, I've rebased mine
+on top of Daniel's.
+
+Tested with several NET and NET-less configs on arm and x86
+
+Alexei Starovoitov (2):
+  net: filter: split filter.c into two files
+  net: filter: split BPF out of core networking
+
+ arch/Kconfig           |    3 +-
+ include/linux/filter.h |    2 +
+ net/Kconfig            |    4 +
+ net/Makefile           |    1 +
+ net/bpf/Makefile       |    5 +
+ net/bpf/core.c         | 1063 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/filter.c      | 1023 +---------------------------------------------
+ 7 files changed, 1079 insertions(+), 1022 deletions(-)
+ create mode 100644 net/bpf/Makefile
+ create mode 100644 net/bpf/core.c
+
+-- 
+1.7.9.5
