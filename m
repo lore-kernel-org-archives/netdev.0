@@ -1,25 +1,60 @@
-From: "Buranen, Cindy P" <Cindy.Buranen@acegroup.com>
-Subject: Donation From Mrs. Magaret Crawford
-Date: Sun, 1 Jun 2014 23:06:52 -0400
-Message-ID: <9360890ED6AAC04B9F0B547398DFFEE2064AC48E82__35595.1431593441$1401678858$gmane$org@USSBYEX7UVS3.aceins.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the infiniband tree with the net-next
+ tree
+Date: Mon, 2 Jun 2014 13:46:18 +1000
+Message-ID: <20140602134618.6cb5e747@canb.auug.org.au>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/mRobN0mJrb0Au./P44JdCYQ"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joe Perches <joe@perches.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Roland Dreier <roland@kernel.org>, linux-rdma@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Sig_/mRobN0mJrb0Au./P44JdCYQ
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.bemta8.messagelabs.com ([216.82.243.201]:8683 "EHLO
-	mail1.bemta8.messagelabs.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753171AbaFBDNv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 1 Jun 2014 23:13:51 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
+Hi all,
 
-I am Mrs. Magaret Crawford. I have decided pick you for a donation. Please, contact my attorney via email: mark.lawson8@rogers.com
+Today's linux-next merge of the infiniband tree got a conflict in
+drivers/net/ethernet/mellanox/mlx4/cmd.c between commit 1a91de28831a
+("mellanox: Logging message cleanups") from the net-next tree and
+commit 97982f5a91e9 ("IB/mlx4: Preparation for VFs to issue/receive SMI
+(QP0) requests/responses") from the infiniband tree.
 
-___________________________________________________________________
-This email is intended for the designated recipient(s) only, and may be confidential, non-public, proprietary, protected by the attorney/client or other privilege. Unauthorized reading, distribution, copying or other use of this communication is prohibited and may be unlawful. Receipt by anyone other than the intended recipient(s) should not be deemed a waiver of any privilege or protection. If you are not the intended recipient or if you believe that you have received this email in error, please notify the sender immediately and delete all copies from your computer system without reading, saving, or using it in any manner. Although it has been checked for viruses and other malicious software ("malware"), we do not warrant, represent or guarantee in any way that this communication is free 
- of malware or potentially damaging defects. All liability for any actual or alleged loss, damage, or injury arising out of or resulting in any way from the receipt, opening or use of this email is expressly disclaimed.
-______________________________________________________________________
+I fixed it up (the latter seems to be a superset of the former, so I
+just used that) and can carry the fix as necessary (no action is
+required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/mRobN0mJrb0Au./P44JdCYQ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTi/OOAAoJEMDTa8Ir7ZwVfb4P/R5DOcfR+0KLeYvHxiNltReC
++Ypw1fr48KcayqHuLBwnwncz8t9YmOopTAgoZuoTX7YSRnrskzDW7+5Gl4uV3iqB
+bBXBpq2uAJx4FwfMHqmAVwTZYLHLo7kyeXHmemZgdqMRpqEZZgJKCbK5KwaEG2fZ
+UbRJM57DGViFqEnncoR7RpBAHFP+prd7BXWKzUYe48Z7HjtiQTCG533XMnST+hXM
+5tjNVTrd0fWoJyHp4GdUy50ymryYwmfofsharwYEEbxs4XVoNETnyWXp8cDxZMoN
+2Fdk56Xu1RX+tBNIPT/jO9wf88GAhfGJDAkwm37Gk9bz+myy2qxFf/YuDJCa80HQ
+Dhe+GDLyDV/gtI1e3xvzp/3SJ9i3NXrkxq8Yy4pxAtmCMUwatxDMieIjQs1fbOhd
+iEQyHjpSQGHY8nLrkl2E/6ULqkqVoehpY2WCk4jIaayxeD8q8Zq8C27gmsIvwWNs
+l8EUh+925pVr+XlQqA5tDnw9QhTKDNW9aenIpQY97hqdlPdKqPmLaxMPpJeok+12
+5GzyCYFeM89/aNA9tlrMx29zH26hnRZ/h1G7QVEOGjrWAvp7wgSXIwnmjZMNFIWO
+1QcgwvU+xn5C3P3ihlTPCzlXJuizMsMlIQnGdmCNDwd5cQYX26sqU/sVZ64G9/zP
+leGrj7Zu21M9oSHQ7L9+
+=aVAm
+-----END PGP SIGNATURE-----
+
+--Sig_/mRobN0mJrb0Au./P44JdCYQ--
