@@ -1,37 +1,28 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] 6lowpan_rtnl: fix
- fragmentation with two fragments
-Date: Mon, 2 Jun 2014 11:53:24 +0200
-Message-ID: <20140602095322.GA1148@omega>
-References: <1401701427-1082-1-git-send-email-alex.aring@gmail.com>
+From: Alex <d77190@mail.ru>
+Subject: Re: Bug 75571
+Date: Mon, 02 Jun 2014 17:32:28 +0700
+Message-ID: <1401705148.1775.29.camel@anpws>
+References: <1401085231.1775.9.camel@anpws> <20140601144341.GA4382@lianli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1401701427-1082-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mxnat3.880.ru ([194.8.85.227]:29494 "EHLO stk-gw0.880.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754069AbaFBKcU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2014 06:32:20 -0400
+Received: from [198.18.184.34] (unknown [198.18.184.34])
+	by stk-gw0.880.ru (Postfix) with ESMTP id C095FCC042
+	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 17:32:16 +0700 (NOVT)
+In-Reply-To: <20140601144341.GA4382@lianli>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> Perhaps you would like to try version 3.15-rc7 of the kernel and
+> see if you can reproduce the bug?
+I cannot reproduce bug on 3.15-rc7.
 
-please ignore this one, I also detected a off by one error on a corner
-of a multiple fragment payload length if we have 3 fragments or above.
-
-- Alex
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their 
-applications. Written by three acclaimed leaders in the field, 
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/NeoTech
+In changelog of 3.15-rc7 I see: "net_sched: fix an oops in tcindex
+filter."
+Is there any backport of this patch to 3.2 to check if it fixes problem?
