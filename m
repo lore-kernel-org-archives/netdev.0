@@ -1,124 +1,72 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 2/8] ethtool: Name the 'no change' value for
- setting RSS hash key but not indir table
-Date: Mon, 02 Jun 2014 02:01:36 +0100
-Message-ID: <1401670896.14007.96.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 3/8] ethtool: Improve explanation of the two arrays
+ following struct ethtool_rxfh
+Date: Mon, 02 Jun 2014 02:01:43 +0100
+Message-ID: <1401670903.14007.97.camel@deadeye.wl.decadent.org.uk>
 References: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-ot+/+SvASWzGjJQdi8pA"
+	protocol="application/pgp-signature"; boundary="=-bZCP2XTB1ga1bNgWdvO+"
 Cc: netdev <netdev@vger.kernel.org>,
 	Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46326 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46331 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752656AbaFBBBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 21:01:43 -0400
+	by vger.kernel.org with ESMTP id S1752656AbaFBBBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 21:01:50 -0400
 In-Reply-To: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-ot+/+SvASWzGjJQdi8pA
+--=-bZCP2XTB1ga1bNgWdvO+
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-We usually allocate special values of u32 fields starting from the top
-down, so also change the value to 0xffffffff.  As these operations
-haven't been included in a stable release yet, it's not too late to
-change.
+The use of two variable-length arrays is unusual so deserves a bit
+more explanation.
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- include/uapi/linux/ethtool.h | 12 +++++++-----
- net/core/ethtool.c           | 12 +++++++-----
- 2 files changed, 14 insertions(+), 10 deletions(-)
+ include/uapi/linux/ethtool.h | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
 diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index d47d31d..cba18e3 100644
+index cba18e3..e3c7a71 100644
 --- a/include/uapi/linux/ethtool.h
 +++ b/include/uapi/linux/ethtool.h
-@@ -850,7 +850,8 @@ struct ethtool_rxfh_indir {
+@@ -850,16 +850,17 @@ struct ethtool_rxfh_indir {
   * struct ethtool_rxfh - command to get/set RX flow hash indir or/and hash=
  key.
   * @cmd: Specific command number - %ETHTOOL_GRSSH or %ETHTOOL_SRSSH
   * @rss_context: RSS context identifier.
 - * @indir_size: On entry, the array size of the user buffer, which may be =
-zero.
-+ * @indir_size: On entry, the array size of the user buffer, which may be =
 zero,
-+ *		or (for %ETHTOOL_SRSSH), %ETH_RXFH_INDIR_NO_CHANGE.
-  *		On return from %ETHTOOL_GRSSH, the array size of the hardware
-  *		indirection table.
-  * @key_size:	On entry, the array size of the user buffer in bytes,
-@@ -861,10 +862,10 @@ struct ethtool_rxfh_indir {
-  *		of size @indir_size followed by hash key of size @key_size.
+- *		or (for %ETHTOOL_SRSSH), %ETH_RXFH_INDIR_NO_CHANGE.
+- *		On return from %ETHTOOL_GRSSH, the array size of the hardware
+- *		indirection table.
+- * @key_size:	On entry, the array size of the user buffer in bytes,
+- *		which may be zero.
+- *		On return from %ETHTOOL_GRSSH, the size of the RSS hash key.
++ * @indir_size: On entry, the array size of the user buffer for the
++ *	indirection table, which may be zero, or (for %ETHTOOL_SRSSH),
++ *	%ETH_RXFH_INDIR_NO_CHANGE.  On return from %ETHTOOL_GRSSH,
++ *	the array size of the hardware indirection table.
++ * @key_size: On entry, the array size of the user buffer for the hash key=
+,
++ *	which may be zero.  On return from %ETHTOOL_GRSSH, the size of the
++ *	hardware hash key.
+  * @rsvd:	Reserved for future extensions.
+  * @rss_config: RX ring/queue index for each hash value i.e., indirection =
+table
+- *		of size @indir_size followed by hash key of size @key_size.
++ *	of @indir_size __u32 elements, followed by hash key of @key_size
++ *	bytes.
   *
   * For %ETHTOOL_GRSSH, a @indir_size and key_size of zero means that only =
 the
-- * size should be returned.  For %ETHTOOL_SRSSH, a @indir_size of 0xDEADBE=
-EF
-- * means that indir table setting is not requested and a @indir_size of ze=
-ro
-- * means the indir table should be reset to default values.  This last fea=
-ture
-- * is not supported by the original implementations.
-+ * size should be returned.  For %ETHTOOL_SRSSH, an @indir_size of
-+ * %ETH_RXFH_INDIR_NO_CHANGE means that indir table setting is not request=
-ed
-+ * and a @indir_size of zero means the indir table should be reset to defa=
-ult
-+ * values.
-  */
- struct ethtool_rxfh {
- 	__u32   cmd;
-@@ -874,6 +875,7 @@ struct ethtool_rxfh {
- 	__u32	rsvd[2];
- 	__u32   rss_config[0];
- };
-+#define ETH_RXFH_INDIR_NO_CHANGE	0xffffffff
-=20
- /**
-  * struct ethtool_rx_ntuple_flow_spec - specification for RX flow filter
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c834cb2..7156fe5 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -803,12 +803,13 @@ static noinline_for_stack int ethtool_set_rxfh(struct=
- net_device *dev,
-=20
- 	/* If either indir or hash key is valid, proceed further.
- 	 */
--	if ((user_indir_size && ((user_indir_size !=3D 0xDEADBEEF) &&
--				 user_indir_size !=3D dev_indir_size)) ||
-+	if ((user_indir_size &&
-+	     user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE &&
-+	     user_indir_size !=3D dev_indir_size) ||
- 	    (user_key_size && (user_key_size !=3D dev_key_size)))
- 		return -EINVAL;
-=20
--	if (user_indir_size !=3D 0xDEADBEEF)
-+	if (user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE)
- 		indir_bytes =3D dev_indir_size * sizeof(indir[0]);
-=20
- 	rss_config =3D kzalloc(indir_bytes + user_key_size, GFP_USER);
-@@ -821,9 +822,10 @@ static noinline_for_stack int ethtool_set_rxfh(struct =
-net_device *dev,
- 		goto out;
-=20
- 	/* user_indir_size =3D=3D 0 means reset the indir table to default.
--	 * user_indir_size =3D=3D 0xDEADBEEF means indir setting is not requested=
-.
-+	 * user_indir_size =3D=3D ETH_RXFH_INDIR_NO_CHANGE means leave it unchang=
-ed.
- 	 */
--	if (user_indir_size && user_indir_size !=3D 0xDEADBEEF) {
-+	if (user_indir_size &&
-+	    user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE) {
- 		indir =3D (u32 *)rss_config;
- 		ret =3D ethtool_copy_validate_indir(indir,
- 						  useraddr + rss_cfg_offset,
+  * size should be returned.  For %ETHTOOL_SRSSH, an @indir_size of
 
 
 --=20
@@ -126,26 +74,26 @@ Ben Hutchings
 Any smoothly functioning technology is indistinguishable from a rigged demo=
 .
 
---=-ot+/+SvASWzGjJQdi8pA
+--=-bZCP2XTB1ga1bNgWdvO+
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIVAwUAU4vM8Oe/yOyVhhEJAQoUrBAAry1s6yjQDC142bptHx5GFwi1hBVyPr+C
-PnkrkplQl01qqf1m/R26td9gMGVPEpQUU8RyjnLMf4hI0eY+WPk723z6QP8AN7YR
-yb9VayBSp1RJuCnaDgIt9Cv5jzVZ6mHaAuOhTBzN7ZosWHkL6ryyosyxKXoR5SQC
-bfAQ2d2fGj2213GLRXkXlaDHTGQjhQhd6stKrCQyyh6GQbgNWkuTBXBQIQksNkMj
-rAMROefFlRepVDfJ855dfF9uUwImcuNX6HNxr0ozX7tH4cH3mXK63ftHG6lqJtkk
-78bze7wAO+JE6XhXhnbPr1ZZkg9658E9H8VYKkMB+efXa5kh9lKbCkEFPcFdqajS
-DexJ19ptCtBRzgihavVR7EuiwpqNbFzb49xu5hV1/m7OgdyREIILEu/rqeFBX8Fe
-UQd9no5dWCu08b1XqyAq8oT+b22d01J0QTh0Snixt36GXYaFIh/AyJMscJQ9mrHa
-OXiNqfvGsTjTbHStUkC5wleG+LAixfSN+vE/jLXec5XoU4CE7807C626JMIq8KZZ
-E9euAVIaa7Hl8n36V468bf52FG348ur4aCLLqxs6/J/6zLLwmFIvK13VjD1J7Vtd
-MZRG8a3WnnspwZxPkryyj7d7q7md7hUP91Dyxc3GWS2Snk5WSZihqn4tHHeTsxU/
-dCVi1jtAznE=
-=P6pm
+iQIVAwUAU4vM9+e/yOyVhhEJAQqJmhAAjOfeKKKe2NOABA15I+vcIZa4Qz4qGmab
+b00RP4YV2ijbvMd8+G5RVYoQJ7HbYI7qHovjvZpfxGJgF1W6+gJ1BuUt4Eh64kbR
+3BSeip1x/8H8Rt+gm+et4yhHi6SARQDXew2unXxUFAbl32B/x/8LsbtwLFQHx76W
+Ic4o+7Zqe2ftKrSz80xam6i37tg+iICE7jZYUkO76jXmLOcD/b2ZLhknTFiwFixF
+RCgtHtjTPnH4PCTHfSa44LUXrDQzFZ931c1SGAsvCLGJYMpTXyu2isosKG1TQFEx
+BRGY42gIekSfyucd6CiM8AdIHw+DnQ/DGQtFzIsdzIC/RcUgvXAtRDMW6WgeX3o2
+WcUs3PJZq1KFhjPPLbBG9p9cS9AUWNFh/BILXv43HsZpTvKsy7St8DV6b7q58jI4
+ZFokjmlKm9IizBtj9x46WFLgVR60hZE3r01fHs25yi34CcahSCijKLrAh9OHshHA
+rVr+gXLthUb1p6ehtFEHSQ9tXltjhDRTN65ebi5X/evDQmveXmx9H1k8LXCrIwwn
+VO37mGfr3kOrasbyhj6jb7nmlb7ojGlMcEBYd8DfZ50bVuhI2iIkbjBxP3Nhb/Nn
+uj1jI8Bws9kk9HnS9oeNmZu1A/CyDOA61cvrR71pmJ6e01deDw/OQ6L4VNEygkVe
+LbOSaUMRaqc=
+=ve9/
 -----END PGP SIGNATURE-----
 
---=-ot+/+SvASWzGjJQdi8pA--
+--=-bZCP2XTB1ga1bNgWdvO+--
