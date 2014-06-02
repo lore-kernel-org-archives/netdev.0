@@ -1,36 +1,40 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Bug 75571
-Date: Mon, 2 Jun 2014 10:38:33 -0700
-Message-ID: <CAHA+R7P0Xh88FNL_SG9AX3dWFzKJCa_Axe4dKEDCWhaLh9m+FQ@mail.gmail.com>
-References: <1401085231.1775.9.camel@anpws>
-	<20140601144341.GA4382@lianli>
-	<1401705148.1775.29.camel@anpws>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] stmmac: Remove spin_lock call in
+ stmmac_get_pauseparam()
+Date: Mon, 02 Jun 2014 10:38:34 -0700 (PDT)
+Message-ID: <20140602.103834.1994455666478487120.davem@davemloft.net>
+References: <1401701450-1203-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Alex <d77190@mail.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:60122 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751229AbaFBRie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 13:38:34 -0400
-Received: by mail-qa0-f46.google.com with SMTP id w8so3151706qac.33
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 10:38:33 -0700 (PDT)
-In-Reply-To: <1401705148.1775.29.camel@anpws>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Wei.Yang@windriver.com, peppe.cavallaro@st.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: emilgoode@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401701450-1203-1-git-send-email-emilgoode@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 2, 2014 at 3:32 AM, Alex <d77190@mail.ru> wrote:
->> Perhaps you would like to try version 3.15-rc7 of the kernel and
->> see if you can reproduce the bug?
-> I cannot reproduce bug on 3.15-rc7.
->
-> In changelog of 3.15-rc7 I see: "net_sched: fix an oops in tcindex
-> filter."
-> Is there any backport of this patch to 3.2 to check if it fixes problem?
->
+From: Emil Goode <emilgoode@gmail.com>
+Date: Mon,  2 Jun 2014 11:30:50 +0200
 
-It fixes a regression introduced in 3.14. It makes no sense to backport
-it to 3.2, nor it is relevant with the bug you reported.
+> The following patch removed unnecessary spin_lock/unlock calls
+> in ethtool_ops callback functions. In the second and final version
+> of the patch one spin_lock call was left behind.
+> 
+> commit cab6715c3e8029e98b0b5d4056ceda007c0f6380
+> Author: Yang Wei <Wei.Yang@windriver.com>
+> Date:   Sun May 25 09:53:44 2014 +0800
+> 
+>     net: driver: stmicro: Remove some useless the lock protection
+> 
+> This introduced the following sparse warning:
+> 
+> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c:424:1: warning:
+> 	context imbalance in 'stmmac_get_pauseparam' -
+> 	different lock contexts for basic block
+> 
+> Signed-off-by: Emil Goode <emilgoode@gmail.com>
 
-You should try a recent (stable) kernel to help us to debug the problem.
+Good catch, applied, thanks Emil.
