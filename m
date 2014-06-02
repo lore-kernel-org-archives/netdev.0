@@ -1,18 +1,45 @@
-From: David Kurlins <private_contact_22@yahoo.co.jp>
-Subject: Attention;My name is David Kurlins.I'm contacting you to assist me for the transfer of some funds to your country for investment. I will give you detail of the funds and let you know also how we will proceed and conclude the transfer without delay if you declare your interest to work with me. Thanks and waiting to hear from you. Sincerely yours, David Kurlins
-Date: Tue, 3 Jun 2014 06:20:54 +0900 (JST)
-Message-ID: <289239.50513.qm@web101618.mail.kks.yahoo.co.jp>
-Reply-To: David Kurlins <privateinffo20122@yahoo.co.jp>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL 0/2] vhost enhancements for 3.16
+Date: Tue, 3 Jun 2014 00:30:12 +0300
+Message-ID: <1401744482-17764-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web101618.mail.kks.yahoo.co.jp ([183.79.150.105]:31189 "HELO
-	web101618.mail.kks.yahoo.co.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751721AbaFBV1h convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2014 17:27:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+Reposting with actual patches included.
+
+The following changes since commit 96b2e73c5471542cb9c622c4360716684f8797ed:
+
+  Revert "net/mlx4_en: Use affinity hint" (2014-06-02 00:18:48 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-next
+
+for you to fetch changes up to 2ae76693b8bcabf370b981cd00c36cd41d33fabc:
+
+  vhost: replace rcu with mutex (2014-06-02 23:47:59 +0300)
+
+----------------------------------------------------------------
+Michael S. Tsirkin (2):
+      vhost-net: extend device allocation to vmalloc
+      vhost: replace rcu with mutex
+
+ drivers/vhost/net.c   | 23 ++++++++++++++++++-----
+ drivers/vhost/vhost.c | 10 +++++++++-
+ 2 files changed, 27 insertions(+), 6 deletions(-)
