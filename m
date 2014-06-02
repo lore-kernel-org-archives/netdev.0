@@ -1,114 +1,99 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Pull request: Fixes for new ethtool RSS commands
-Date: Mon, 02 Jun 2014 01:57:39 +0100
-Message-ID: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH net-next 1/8] ethtool: Return immediately on error in
+ ethtool_copy_validate_indir()
+Date: Mon, 02 Jun 2014 02:01:20 +0100
+Message-ID: <1401670880.14007.95.camel@deadeye.wl.decadent.org.uk>
+References: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-KIWD7KaguMVNJkdRMAKO"
-Cc: netdev <netdev@vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-TCw97kog30aaIYkbVH56"
+Cc: netdev <netdev@vger.kernel.org>,
+	Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46310 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:46323 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752472AbaFBA5z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 20:57:55 -0400
+	by vger.kernel.org with ESMTP id S1752472AbaFBBB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 21:01:27 -0400
+In-Reply-To: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-KIWD7KaguMVNJkdRMAKO
+--=-TCw97kog30aaIYkbVH56
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-The following changes since commit eb02a272c97b6e25d8e5fcf1ea93923e6f155595=
-:
+We must return -EFAULT immediately rather than continuing into
+the loop.
 
-  driver/net/ethernet/ec_bhf.c: fix sparse warnings (2014-05-14 16:09:33 -0=
-400)
+Similarly, we may as well return -EINVAL directly.
 
-are available in the git repository at:
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ net/core/ethtool.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/net-next.git ethtool-rs=
-sh-fixes
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index aa8978a..c834cb2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -561,19 +561,17 @@ static int ethtool_copy_validate_indir(u32 *indir, vo=
+id __user *useraddr,
+ 					struct ethtool_rxnfc *rx_rings,
+ 					u32 size)
+ {
+-	int ret =3D 0, i;
++	int i;
+=20
+ 	if (copy_from_user(indir, useraddr, size * sizeof(indir[0])))
+-		ret =3D -EFAULT;
++		return -EFAULT;
+=20
+ 	/* Validate ring indices */
+-	for (i =3D 0; i < size; i++) {
+-		if (indir[i] >=3D rx_rings->data) {
+-			ret =3D -EINVAL;
+-			break;
+-		}
+-	}
+-	return ret;
++	for (i =3D 0; i < size; i++)
++		if (indir[i] >=3D rx_rings->data)
++			return -EINVAL;
++
++	return 0;
+ }
+=20
+ static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *de=
+v,
 
-for you to fetch changes up to dfe805c14a2018c5a58cfa3921f1897032740501:
-
-  ethtool: Check that reserved fields of struct ethtool_rxfh are 0 (2014-05=
--19 01:30:30 +0100)
-
-This addresses several problems I previously identified with the new
-ETHTOOL_{G,S}RSSH commands:
-
-1. Missing validation of reserved parameters
-2. Vague documentation
-3. Use of unnamed magic number
-4. No consolidation with existing driver operations
-
-I don't currently have access to suitable network hardware, but have
-tested these changes with a dummy driver that can support various
-combinations of operations and sizes, together with (a) Debian's ethtool
-3.13 (b) ethtool 3.14 with the submitted patch to use ETHTOOL_{G,S}RSSH
-and minor adjustment for fixes 1 and 3.
-
-Ben.
-
-----------------------------------------------------------------
-Ben Hutchings (8):
-      ethtool: Return immediately on error in ethtool_copy_validate_indir()
-      ethtool: Name the 'no change' value for setting RSS hash key but not =
-indir table
-      ethtool: Improve explanation of the two arrays following struct ethto=
-ol_rxfh
-      ethtool: Expand documentation of ethtool_ops::{get,set}_rxfh()
-      ethtool: Disallow ETHTOOL_SRSSH with both indir table and hash key un=
-changed
-      ethtool, be2net: constify array pointer parameters to ethtool_ops::se=
-t_rxfh
-      ethtool: Replace ethtool_ops::{get,set}_rxfh_indir() with {get,set}_r=
-xfh()
-      ethtool: Check that reserved fields of struct ethtool_rxfh are 0
-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |  15 +--
- drivers/net/ethernet/broadcom/tg3.c                |   8 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   8 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c        |   2 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h        |   2 +-
- drivers/net/ethernet/emulex/benet/be_ethtool.c     |   3 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  15 +--
- drivers/net/ethernet/intel/igb/igb_ethtool.c       |   9 +-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  10 +-
- drivers/net/ethernet/sfc/ethtool.c                 |  10 +-
- include/linux/ethtool.h                            |  24 ++---
- include/uapi/linux/ethtool.h                       |  25 ++---
- net/core/ethtool.c                                 | 110 +++++++++--------=
-----
- 13 files changed, 116 insertions(+), 125 deletions(-)
 
 --=20
 Ben Hutchings
 Any smoothly functioning technology is indistinguishable from a rigged demo=
 .
 
---=-KIWD7KaguMVNJkdRMAKO
+--=-TCw97kog30aaIYkbVH56
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.22 (GNU/Linux)
 
-iQIVAwUAU4vMC+e/yOyVhhEJAQpoYhAAlXSg+nvC2p0gIYTSen+dsmM9XfBqNnh0
-DyeUd187elysKztsS41Uop7kjfah8KMt6T6ZXZBJH608C7xUSo6lIr8Fv+V/aM/F
-zmwTKqrrEJM6G5ipd9HIa76hzkvR4fO+5+F3Rq/93qsGLvDGkLaBETv4I0KLuN0+
-rqXkn87KTVY/bTkqfTzgXQOAmnmhFqdhJQvEO2/Xi4TyIK1d0QK9dgT1bMDAF+2I
-0D9MUs0LzASflGeFEeU2IoAgmxegnzNNUYiQ+NEEiau8pFwA7mij/cHXC3zwv4nL
-YRnZiHkMlD+Rp3wug1vos6FtOF8Jv5UsyjDCB+/AHkkcI33PhWWyxvPwfVyWpxtM
-bgSm0TUdjjDfw+tQcL4BuJmow5goBp7xEpFlX6tIGS86WPk34D+sxvyQuTQgZ4wY
-nKuI/fcN0A0f0+Bre1fmfiU9fLJhYM9xzqruDWWVS9ov6UPcFSDgSwmXVan1AMdv
-bYb01rsKLUV7lSej8KSiD99dPakUf15q1+sea7jzXtCVAtgjG3u6uKl4S/3XgPXn
-TyjLyPeYTGJEyS7OWqbXBs3G50p8vW4DCKjlmRv27fIsSSroVcJO4oGsjC9D+q3h
-bkgE4VVbmbdTcNEQe3xnB61PU3ys1/soU+bki4rEZ/cLo0nTIVmiufMnCrGU3qFL
-CACpY+Z2V2g=
-=Ab/+
+iQIVAwUAU4vM4Oe/yOyVhhEJAQoO4A//cKtg5DjV8DLYE+i9eYFrAOh5ypwSJksN
+9mYdz6o5rt18Cy3nTX+v36j4Wrgi4+YEQCPa3TFA8LlVYvb/Da5Tx2prtNe2iuUo
+7ccSf7CTvlEAVLujUie4ABRugvTn4ctkwQImjVjMsbD2QxU3QjZdQ1h1WvZsMhkQ
+fsv8MkxfVgspaIYkCPXrIV4dk2ADOY98eG93Hmsk2TYUDwnZkVOgP42QspFt01aQ
+l1yQq7A48WIPs+vlai67SwBHBIFI43/LH2cWqerFfAqqq2NaFV68XoOCBZ0megjM
+Yji+FHV61dyzezlMHj+zCyiHEEOjboNAnT93VENgbXZmbNOmvBdAVK0sMvLaTQuO
+yW8oy/NvzH6RnhzpvIFbkeU7meTtM+m9YhbacFHQiuT6i03XMedvb9ZCuI1iATv2
+/j0uqBZ9K/a7QHWMCCy5SYZLnsXgLa/VauQY+1qCzg4WuGwEeIYt0DajO/TtLKd2
+wl1wS0vvaV82Qcgy+YMb9fTw2uTpOeUDUW6fezL0Q+bgQEJigT3BErRnaQUosJmm
+6frMU+oH/ypwtHPB13LV4X0G0Gwp1UwpHAH/o58QT28qSXzPjcCucRky3GuGhhJ9
+mI2HmvFSXf3MKxmc7jpOQnIHQCKtV6FRMVSPZQ9fJ0XNi1Z5Fr/91wNT9JCBlOpT
+ujwx9UNKk9E=
+=Oc19
 -----END PGP SIGNATURE-----
 
---=-KIWD7KaguMVNJkdRMAKO--
+--=-TCw97kog30aaIYkbVH56--
