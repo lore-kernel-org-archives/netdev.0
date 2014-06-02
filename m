@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-sysfs: Report link speed as signed integer
-Date: Mon, 02 Jun 2014 11:10:50 -0700 (PDT)
-Message-ID: <20140602.111050.54996809312556969.davem@davemloft.net>
-References: <06d53256e3bf2d0deedb16249082200500da3ee6.1401718809.git.mprivozn@redhat.com>
-	<20140602143557.GA2925@minipsycho.orion>
-	<20140602150150.GF6295@redhat.com>
+Subject: Re: [PATCH] stmmac: add DMA initialization delay to device tree
+Date: Mon, 02 Jun 2014 11:15:43 -0700 (PDT)
+Message-ID: <20140602.111543.1026699389707378851.davem@davemloft.net>
+References: <1401720835-21507-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, mprivozn@redhat.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: vfalico@redhat.com
+Cc: netdev@vger.kernel.org, hdegoede@redhat.com,
+	peppe.cavallaro@st.com, wens@csie.org,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Vineet.Gupta1@synopsys.com
+To: Alexey.Brodkin@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140602150150.GF6295@redhat.com>
+In-Reply-To: <1401720835-21507-1-git-send-email-abrodkin@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Mon, 2 Jun 2014 17:01:50 +0200
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Date: Mon,  2 Jun 2014 18:53:55 +0400
 
-> I wonder, though, if we should document it or just output "Unknown"
-> instead of -1.
+> On some platforms existing 100 msecond delay is not enough for DMA block to
+> recover after reset.
+> For example MAC DMA waits for all PHY input clocks are present and depending
+> on the board reset bit deassertion may take different amount of time.
+> 
+> Having this parameter easily configurable allows each board to have its own
+> value, while all exisiting boards will continue to use current default value of
+> 100 msec.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
 
-All of this discussion means that we can't change the format string
-without potentially breaking something out there interpreting the -1
-value, however it gets output now.
+Is there an upper bound for this you can just use?
 
-I think we just have to leave things as-is and document them in the
-sysfs ABI docs.
+It taking too long and timing out is an error condition, so just
+using a limit value of "100" or something should be perfectly fine.
 
-I'm not applying this patch.
+I don't think it's reasonable to put every conceivable nuance into
+the DT nodes.
+
+I'm not applying this patch, sorry.
