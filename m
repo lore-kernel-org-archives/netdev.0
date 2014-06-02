@@ -1,61 +1,70 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Mon, 2 Jun 2014 07:57:33 -0700
-Message-ID: <CAMEtUuxZQuyJaTfoNECnZCJ=q8A_aMpncGwUgWNm9Huxm=bynw@mail.gmail.com>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
-	<20140602081545.7baf4a91@lwn.net>
-	<20140602092456.2114440a@gandalf.local.home>
-	<20140602141606.GC2544@kernel.org>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: Re: [PATCH] net-sysfs: Report link speed as signed integer
+Date: Mon, 2 Jun 2014 17:01:50 +0200
+Message-ID: <20140602150150.GF6295@redhat.com>
+References: <06d53256e3bf2d0deedb16249082200500da3ee6.1401718809.git.mprivozn@redhat.com>
+ <20140602143557.GA2925@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	Jonathan Corbet <corbet@lwn.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:64169 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755137AbaFBO5g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 10:57:36 -0400
-Received: by mail-wi0-f176.google.com with SMTP id n15so4692079wiw.15
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 07:57:34 -0700 (PDT)
-In-Reply-To: <20140602141606.GC2544@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Michal Privoznik <mprivozn@redhat.com>, davem@davemloft.net,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140602143557.GA2925@minipsycho.orion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 2, 2014 at 7:16 AM, Arnaldo Carvalho de Melo
-<acme@kernel.org> wrote:
-> Em Mon, Jun 02, 2014 at 09:24:56AM -0400, Steven Rostedt escreveu:
->> On Mon, 2 Jun 2014 08:15:45 -0500
->> Jonathan Corbet <corbet@lwn.net> wrote:
+On Mon, Jun 02, 2014 at 04:35:57PM +0200, Jiri Pirko wrote:
+>Mon, Jun 02, 2014 at 04:25:15PM CEST, mprivozn@redhat.com wrote:
+>>The link speed is available at /sys/class/net/$nic/speed.
+>>However, the speed is printed in unsigned integer format. This
+>>makes userspace applications read an incorrect value (which
+>>moreover changes through several architectures) while in fact
+>>'-1' should be reported.
+>>
+>>Before the change:
+>>  # cat /sys/class/net/eth0/speed
+>>  4294967295
+>>
+>>After the change:
+>>  # cat /sys/class/net/eth0/speed
+>>  -1
+>>
+>>Signed-off-by: Michal Privoznik <mprivozn@redhat.com>
+>>---
+>> net/core/net-sysfs.c | 2 +-
+>> 1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>>diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+>>index 1cac29e..99afdea 100644
+>>--- a/net/core/net-sysfs.c
+>>+++ b/net/core/net-sysfs.c
+>>@@ -173,7 +173,7 @@ static ssize_t speed_show(struct device *dev,
+>> 	if (netif_running(netdev)) {
+>> 		struct ethtool_cmd cmd;
+>> 		if (!__ethtool_get_settings(netdev, &cmd))
+>>-			ret = sprintf(buf, fmt_udec, ethtool_cmd_speed(&cmd));
+>>+			ret = sprintf(buf, fmt_dec, ethtool_cmd_speed(&cmd));
 >
->> > On Mon,  2 Jun 2014 00:01:44 -0700
->> > Alexei Starovoitov <ast@plumgrid.com> wrote:
->
->> > > This patch set splits BPF out of core networking into generic component
->
->> > Quick, probably dumb question: if you're going to split it out, why not
->> > split it out entirely, into kernel/ or (perhaps better) lib/?  The
->> > whole point seems to be that BPF is outgrowing its networking home, so
->> > it seems like it might be better to make it truly generic.
->
->> I believe this is what Ingo suggested as well. If it is become generic,
->> it belongs in lib/
->
-> Yes, that was his suggestion, which I agree with, FWIW.
+>I wonder why this should be signed. What -1 means? What driver reports
+>this?
 
-I guess I posted v2 too quickly :) v2 splits filter.c into kernel/bpf/.
-I think it's a better location than lib/bpf, since lib feels too constrained
-by definition of 'library'. bpf is more than a set of library calls.
+My first thoughts were exactly this. There is SPEED_UNKOWN (along with
+_10, _100, _1000 etc.) that's -1, and quite a few drivers use it/set it.
+
+I wonder, though, if we should document it or just output "Unknown" instead
+of -1.
+
+>
+>> 	}
+>> 	rtnl_unlock();
+>> 	return ret;
+>>--
+>>2.0.0
+>>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
