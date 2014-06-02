@@ -1,49 +1,66 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH] fec: Include pinctrl header file
-Date: Mon, 2 Jun 2014 15:44:30 -0300
-Message-ID: <1401734670-30141-1-git-send-email-fabio.estevam@freescale.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH RFC]: new-CWV for Linux
+Date: Mon, 2 Jun 2014 11:50:14 -0700
+Message-ID: <CADVnQymKpdepbykfz-3GTvqA9zGwmF1PeqZyzckKchZYHGUorA@mail.gmail.com>
+References: <CAKUix-6-DM=qprmeNQ7fKtGZJocjrCb=QRNFqNT7WC1DmYAS9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <B38611@freescale.com>, <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Yuchung Cheng <ycheng@google.com>, Netdev <netdev@vger.kernel.org>,
+	Gorry Fairhurst <gorry@erg.abdn.ac.uk>,
+	"Hossain, Ziaul" <ziaul.hossain@abdn.ac.uk>, tom@erg.abdn.ac.uk
+To: r.secchi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0183.outbound.protection.outlook.com ([207.46.163.183]:38492
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752543AbaFBSor (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2014 14:44:47 -0400
+Received: from mail-we0-f179.google.com ([74.125.82.179]:33565 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbaFBSuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 14:50:15 -0400
+Received: by mail-we0-f179.google.com with SMTP id q59so5732203wes.10
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 11:50:14 -0700 (PDT)
+In-Reply-To: <CAKUix-6-DM=qprmeNQ7fKtGZJocjrCb=QRNFqNT7WC1DmYAS9A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 5bbde4d2ec ("net: fec: use pinctrl PM helpers") caused the following
-build error on m68k:
+On Mon, Jun 2, 2014 at 11:34 AM, Raffaello Secchi <r.secchi@gmail.com> wrote:
+> Hi Yuchung,
+>
+> We modified the newcwv patch so to be CC independent and
+> comply with draft-ietf-tcpm-newcwv-06. We submit this patch to this list
+> hoping that could be incorporated in mainstream kernel.
+>
+> We tested both with Reno and Cubic by replaying TMIX traces of Internet web
+> traffic sessions over our Netem testbed. We saw clear latency improvements when
+> traces presented gap-burst behaviour of at least 100 KB after the idle period.
+>
+> For example the latency of individual HTTP request/responses was reduced of
+> about 1 sec when we used an emulated path of 4Mbps link and 100ms RTT delay.
+>
+> We also experimented with combining this with the Linux FQ scheduler and under
+> some patterns of traffic this reduced the number of packet drops - indicating
+> that this may be useful.
+>
+> We would be grateful if you or someone from your group could consider
+> this code and give us an independent evaluation.
+>
+> Thanks,
+>
+> Raffaello
+>
+> Signed-off-by: Raffaello Secchi <raffaello@erg.abdn.ac.uk>
+> Reviewed-by: Tom Jones <tom@erg.abdn.ac.uk>
 
-drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_open':
-drivers/net/ethernet/freescale/fec_main.c:1819:2: error: implicit declaration of function 'pinctrl_pm_select_default_state' [-Werror=implicit-function-declaration]
-drivers/net/ethernet/freescale/fec_main.c: In function 'fec_enet_close':
-drivers/net/ethernet/freescale/fec_main.c:1863:2: error: implicit declaration of function 'pinctrl_pm_select_sleep_state' [-Werror=implicit-function-declaration]
+We are interested in experimenting with this, but the patch seems to
+have formatting issues, probably due to the email client corrupting
+formatting.
 
-In order to fix the build error, include the linux/pinctrl/consumer.h header
-file.
+Assuming you have this in the form of a git commit, can you please try
+something like:
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com> 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 1 +
- 1 file changed, 1 insertion(+)
+rm 0001-*.patch
+git format-patch --subject-prefix='PATCH RFC' HEAD~1
+./scripts/checkpatch.pl 0001-*.patch
+git send-email --to 'David Miller <davem@davemloft.net>' --cc
+'netdev@vger.kernel.org'  0001-*.patch
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 4d989b2..802be17 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -54,6 +54,7 @@
- #include <linux/of_net.h>
- #include <linux/regulator/consumer.h>
- #include <linux/if_vlan.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include <asm/cacheflush.h>
- 
--- 
-1.8.3.2
+Thanks!
+
+neal
