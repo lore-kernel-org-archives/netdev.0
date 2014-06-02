@@ -1,71 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 net-next] inetpeer: get rid of ip_id_count
-Date: Sun, 01 Jun 2014 19:01:47 -0700 (PDT)
-Message-ID: <20140601.190147.889157989845313443.davem@davemloft.net>
-References: <1401668284.3645.165.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH net-next V6 0/2] cpumask,net: Affinity hint helper
+ function
+Date: Sun, 01 Jun 2014 19:17:37 -0700 (PDT)
+Message-ID: <20140601.191737.1821014891784987464.davem@davemloft.net>
+References: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: ogerlitz@mellanox.com, netdev@vger.kernel.org,
+	yevgenyp@mellanox.com, yuvala@mellanox.com,
+	linux-kernel@vger.kernel.org
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55293 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55355 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694AbaFBCBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 22:01:48 -0400
-In-Reply-To: <1401668284.3645.165.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1752438AbaFBCRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 22:17:39 -0400
+In-Reply-To: <1401029247-15196-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 01 Jun 2014 17:18:04 -0700
+From: Amir Vadai <amirv@mellanox.com>
+Date: Sun, 25 May 2014 17:47:25 +0300
 
-> From: Eric Dumazet <edumazet@google.com>
+> This patchset will set affinity hint to influence IRQs to be allocated on the
+> same NUMA node as the one where the card resides. As discussed in
+> http://www.spinics.net/lists/netdev/msg271497.html
 > 
-> Ideally, we would need to generate IP ID using a per destination IP
-> generator.
+> If the number of IRQs allocated is greater than the number of local NUMA cores, all
+> local cores will be used first, and the rest of the IRQs will be on a remote
+> NUMA node.
+> If no NUMA support - IRQ's and cores will be mapped 1:1
 > 
-> linux kernels used inet_peer cache for this purpose, but this had a huge
-> cost on servers disabling MTU discovery.
+> Since the utility function to calculate the mapping could be useful in other mq
+> drivers in the kernel, it was added to cpumask.[ch]
 > 
-> 1) each inet_peer struct consumes 192 bytes
+> This patchset was tested and applied on top of net-next since the first
+> consumer is a network device (mlx4_en).  Over commit 506724c: "tg3: Override
+> clock, link aware and link idle mode during NVRAM dump"
 > 
-> 2) inetpeer cache uses a binary tree of inet_peer structs,
->    with a nominal size of ~66000 elements under load.
-> 
-> 3) lookups in this tree are hitting a lot of cache lines, as tree depth
->    is about 20.
-> 
-> 4) If server deals with many tcp flows, we have a high probability of
->    not finding the inet_peer, allocating a fresh one, inserting it in
->    the tree with same initial ip_id_count, (cf secure_ip_id())
-> 
-> 5) We garbage collect inet_peer aggressively.
-> 
-> IP ID generation do not have to be 'perfect'
-> 
-> Goal is trying to avoid duplicates in a short period of time,
-> so that reassembly units have a chance to complete reassembly of
-> fragments belonging to one message before receiving other fragments
-> with a recycled ID.
-> 
-> We simply use an array of generators, and a Jenkin hash using the dst IP
-> as a key.
-> 
-> ipv6_select_ident() is put back into net/ipv6/ip6_output.c where it
-> belongs (it is only used from this file)
-> 
-> secure_ip_id() and secure_ipv6_id() no longer are needed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> Note: Based on current net-next, but needs a respin or merge resolution
-> after other patch [1] is merged.
+> I couldn't find a maintainer for cpumask.c, so only added the kernel mailing
+> list
 
-I like it.
-
-I think we should get rid of the 'dst' argument from __ip_select_ident() (and thus
-ip_select_ident() and ip_select_ident_mode()), it is completely unused.
-
-It might even help to do so for ipv6_select_ident(), having it just pass the
-dest addr pointer in instead.
+Applied to net-next, thanks.
