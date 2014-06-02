@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PULL net-next] vhost enhancements for 3.16
-Date: Mon, 02 Jun 2014 14:03:12 -0700 (PDT)
-Message-ID: <20140602.140312.98558447285279661.davem@davemloft.net>
-References: <20140602205515.GA10287@redhat.com>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Mon, 02 Jun 2014 14:05:04 -0700 (PDT)
+Message-ID: <20140602.140504.1151986761253502538.davem@davemloft.net>
+References: <538CD19B.5060208@cogentembedded.com>
+	<20140602.134915.1162774321657125992.davem@davemloft.net>
+	<538CE4CA.4090301@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mimu@linux.vnet.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	romain@orebokech.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, arei.gonglei@huawei.com
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140602205515.GA10287@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: ben.dooks@codethink.co.uk, linux-kernel@codethink.co.uk,
+	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	magnus.damn@opensource.se, horms@verge.net.au,
+	yoshihiro.shimoda.uh@renesas.com, cm-hiep@jinso.co.jp
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36788 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753442AbaFBVFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 17:05:05 -0400
+In-Reply-To: <538CE4CA.4090301@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 2 Jun 2014 23:55:15 +0300
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 03 Jun 2014 00:55:38 +0400
 
-> The following changes since commit 96b2e73c5471542cb9c622c4360716684f8797ed:
+> On 06/03/2014 12:49 AM, David Miller wrote:
 > 
->   Revert "net/mlx4_en: Use affinity hint" (2014-06-02 00:18:48 -0700)
+>>>     Looks like the early SH2/3 SoCs didn't implement the whole register.
+>>> Despite that, sh_eth_dev_init() always writes to this register... :-/
+>>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
+>>> controllers, however that rule wasn't strictly followed. Well, this
+>>> driver is still a mess, and it's hard to deal with it without the
+>>> necessary documentation.
 > 
-> are available in the git repository at:
+>> Why don't we therefore:
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-next
+>> 1) Skip the register write if the per-chip value is zero.
 > 
-> for you to fetch changes up to 2ae76693b8bcabf370b981cd00c36cd41d33fabc:
+>    I rather thought about not writing when the register is not
+>    implemented.
+> I'll probably look into this when I have time.
 > 
->   vhost: replace rcu with mutex (2014-06-02 23:47:59 +0300)
+>> 2) Add the RNC bit to all of the gigabit capable controllers.
+> 
+>    I probably misspoke -- all the Gigabit controllers already have it
+>    set, it's just that some 100 MBbps ones have it set, but most don't.
 
-Can you please post the actual patches as part of your pull request just
-like the other maintainers do?
-
-Thanks.
+So these chips that do not implement the register, they only process
+one RX descriptor at a time until the interrupt handler re-enables
+DMA receive?
