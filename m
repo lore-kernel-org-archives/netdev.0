@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipheth: Add support for iPad 2 and iPad 3
-Date: Mon, 02 Jun 2014 16:12:17 -0700 (PDT)
-Message-ID: <20140602.161217.1136496149550873922.davem@davemloft.net>
-References: <1401445020-14027-1-git-send-email-kristian.evensen@gmail.com>
+Subject: Re: [PATCH 0/8] ethernet: marvell: After-TSO fixes
+Date: Mon, 02 Jun 2014 16:16:40 -0700 (PDT)
+Message-ID: <20140602.161640.476343365462203974.davem@davemloft.net>
+References: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kristian.evensen@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, alior@marvell.com,
+	tawfik@marvell.com, fugang.duan@freescale.com, w@1wt.eu
+To: ezequiel.garcia@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37559 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37614 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752485AbaFBXMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:12:18 -0400
-In-Reply-To: <1401445020-14027-1-git-send-email-kristian.evensen@gmail.com>
+	with ESMTP id S1752520AbaFBXQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:16:41 -0400
+In-Reply-To: <1401468011-10609-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Evensen <kristian.evensen@gmail.com>
-Date: Fri, 30 May 2014 12:17:00 +0200
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Fri, 30 May 2014 13:40:03 -0300
 
-> From: Kristian Evensen <kristian.evensen@gmail.com>
+> This patchset consists of different fixes and improvements in the mvneta
+> and mv643xx_eth drivers. The most important change is the one that allows
+> to support small MSS values (see patches 2 and 6).
 > 
-> Each iPad model has a different product id, this patch adds support for iPad 2
-> (pid 0x12a2) and iPad 3 (pid 0x12a6). Note that iPad 2 must be jailbroken and a
-> third-party app must be used for tethering to work. On iPad 3, tethering works
-> out of the box (assuming your ISP is nice).
+> This is done following the Solarflare driver (see commit 7e6d06f0de3f7).
 > 
-> Signed-off-by: Kristian Evensen <kristian.evensen@gmail.com>
+> While doing this some other fixes were spotted and so they are included.
+> 
+> Finally, notice that the TSO support introduced a wrong DMA unmapping
+> of the TSO header buffers, so patches 4 and 8 provide a couple patches to
+> fix that in the drivers.
 
-These are just device ID additions, so I applied this to 'net'.
+Series applied, but please address the feedback from Eric Dumazet.
 
-Thanks.
+Thanks!
