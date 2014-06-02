@@ -1,44 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: filter: fix length calculation in BPF
- testsuite
-Date: Mon, 02 Jun 2014 16:33:14 -0700 (PDT)
-Message-ID: <20140602.163314.1117003983759957990.davem@davemloft.net>
-References: <53879B78.5050106@redhat.com>
-	<1401470112-3933-1-git-send-email-chema@google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] Force speed and duplex mode setting if link down
+Date: Mon, 2 Jun 2014 16:32:52 -0700
+Message-ID: <CAGVrzcZMkjFHjE3O80nPe4hmRUgfjWsoY0_g6dNPHKvBRKpOmg@mail.gmail.com>
+References: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, dborkman@redhat.com, ast@plumgrid.com,
-	netdev@vger.kernel.org
-To: chema@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@cumulusnetworks.com>
+To: stannous@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37727 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751318AbaFBXdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:33:15 -0400
-In-Reply-To: <1401470112-3933-1-git-send-email-chema@google.com>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:59007 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752527AbaFBXdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:33:33 -0400
+Received: by mail-qa0-f53.google.com with SMTP id x12so3776326qac.26
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 16:33:32 -0700 (PDT)
+In-Reply-To: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chema Gonzalez <chema@google.com>
-Date: Fri, 30 May 2014 10:15:12 -0700
+2014-06-02 16:07 GMT-07:00  <stannous@cumulusnetworks.com>:
+> From: Sam Tannous <stannous@cumulusnetworks.com>
+>
+> This patch forces the user to set both the speed and the duplex
+> mode if the user only specifies the speed while the interface is down.
 
-> The current probe_filter_length() (the function that calculates the
-> length of a test BPF filter) behavior is to declare the end of the
-> filter as soon as it finds {0, *, *, 0}. This is actually a valid
-> insn ("ld #0"), so any filter with includes "BPF_STMT(BPF_LD | BPF_IMM, 0)"
-> fails (its length is cut short).
-> 
-> We are changing probe_filter_length() so as to start from the end, and
-> declare the end of the filter as the first instruction which is not
-> {0, *, *, 0}. This solution produces a simpler patch than the
-> alternative of using an explicit end-of-filter mark. It is technically
-> incorrect if your filter ends up with "ld #0", but that should not
-> happen anyway.
-> 
-> We also add a new test (LD_IMM_0) that includes ld #0 (does not work
-> without this patch).
-> 
-> Signed-off-by: Chema Gonzalez <chema@google.com>
+Is there a valid use case for that, even with auto-negotiation disabled?
 
-Applied, thank you.
+>
+> If the interface is down, we'll get an ecmd speed
+> and duplex mode of 0. This has the ill effect of
+> setting the duplex to HALF and this often results in an
+> error since many higher speed will not support HALF duplex.
+
+Is this happening under the following scenario:
+
+- interface is forced to a given speed and duplex parameter,
+auto-negotiation is disabled
+- interface is administratively brought down
+- speed and parameters are changed while the interface is down
+- interface is brought up with potentially invalid parameters, and
+with auto-negotiation disabled resulting in no link
+
+If that's the case, the driver implementing the set_settings()
+callback should refuse changing the link parameters while the
+interface is down to avoid creating such a situation.
+
+Just curious...
+
+>
+> Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
+> ---
+>  ethtool.c |   16 ++++++++++++++++
+>  1 file changed, 16 insertions(+)
+>
+> diff --git a/ethtool.c b/ethtool.c
+> index 8e968a8..9cd3103 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
+>                 if (err < 0) {
+>                         perror("Cannot get current device settings");
+>                 } else {
+> +                       /* If the interface is down, we'll get an ecmd speed and
+> +                          duplex of 0.  This has the effect of defaulting
+> +                          the duplex mode to HALF.  This results in an
+> +                          error since many of our speeds will not support HALF
+> +                          any more.  To prevent this, we need to insist that
+> +                          the user provide us with specific duplex mode if
+> +                          they haven't already (likely FULL) if both the speed
+> +                          and duplex are 0 here.
+> +                       */
+> +                       if (speed_wanted != -1 && duplex_wanted == -1
+> +                           && !(ecmd.speed || ecmd.duplex)) {
+> +                           fprintf(stderr, "Setting the speed while the link "
+> +                                   "is down requires both the speed and the "
+> +                                   "duplex mode to be set");
+> +                           exit_bad_args();
+> +                       }
+>                         /* Change everything the user specified. */
+>                         if (speed_wanted != -1)
+>                                 ethtool_cmd_speed_set(&ecmd, speed_wanted);
+> --
+> 1.7.10.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
