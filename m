@@ -1,34 +1,29 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH v2 1/7] udp: Generic functions to set checksum
-Date: Mon, 2 Jun 2014 16:43:04 -0700
-Message-ID: <CAHA+R7NYRg8Mt3_=G3728pN2cJSTth49EVfDADCzZCoZ10npJQ@mail.gmail.com>
-References: <alpine.DEB.2.02.1406012047250.9052@tomh.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fib_trie: use seq_file_net rather than seq->private
+Date: Mon, 02 Jun 2014 16:43:16 -0700 (PDT)
+Message-ID: <20140602.164316.804260910451090978.davem@davemloft.net>
+References: <1401478479-77986-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f41.google.com ([209.85.216.41]:45710 "EHLO
-	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752786AbaFBXnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:43:06 -0400
-Received: by mail-qa0-f41.google.com with SMTP id dc16so3784873qab.28
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 16:43:04 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406012047250.9052@tomh.mtv.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37777 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752786AbaFBXnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:43:17 -0400
+In-Reply-To: <1401478479-77986-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 1, 2014 at 9:00 PM, Tom Herbert <therbert@google.com> wrote:
-> +
-> +
-> +/* Function to set UDP checksum for an IPv6 UDP packet. This is intended
-> + * for the simple case like when setting the checksum for a UDP tunnel.
-> + */
-> +static inline void udp6_set_csum(struct sock *sk, struct sk_buff *skb,
-> +                                const struct in6_addr *saddr,
-> +                                const struct in6_addr *daddr, int len)
-> +{
+From: David Ahern <dsahern@gmail.com>
+Date: Fri, 30 May 2014 13:34:39 -0600
 
-I think this function might be too big to be inlined.
+> Make fib_triestat_seq_show consistent with other /proc/net files and
+> use seq_file_net.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Ditto for udp_set_csum().
+Applied to net-next, thanks.
