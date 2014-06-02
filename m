@@ -1,46 +1,60 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Mon, 2 Jun 2014 09:24:56 -0400
-Message-ID: <20140602092456.2114440a@gandalf.local.home>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
-	<20140602081545.7baf4a91@lwn.net>
+From: Stanislav Meduna <stano@meduna.org>
+Subject: RSTP with a hardware switch?
+Date: Mon, 02 Jun 2014 15:25:11 +0200
+Message-ID: <538C7B37.3000909@meduna.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jonathan Corbet <corbet@lwn.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140602081545.7baf4a91@lwn.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.meduna.org ([92.240.244.38]:59548 "EHLO meduna.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754399AbaFBNZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 2 Jun 2014 09:25:20 -0400
+Received: from dial-95-105-163-217-orange.orange.sk ([95.105.163.217] helo=[127.0.0.1])
+	by meduna.org with esmtpsa (TLS1.0:DHE_RSA_AES_128_CBC_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <stano@meduna.org>)
+	id 1WrSEk-0000hZ-NP
+	for netdev@vger.kernel.org; Mon, 02 Jun 2014 15:25:16 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2 Jun 2014 08:15:45 -0500
-Jonathan Corbet <corbet@lwn.net> wrote:
+Hi,
 
-> On Mon,  2 Jun 2014 00:01:44 -0700
-> Alexei Starovoitov <ast@plumgrid.com> wrote:
-> 
-> > This patch set splits BPF out of core networking into generic component
-> 
-> Quick, probably dumb question: if you're going to split it out, why not
-> split it out entirely, into kernel/ or (perhaps better) lib/?  The
-> whole point seems to be that BPF is outgrowing its networking home, so
-> it seems like it might be better to make it truly generic.
+I have a 3-port (1 CPU, 2 external) LAN9303 switch with an ability
+to set the port status to learning, forwarding etc, pass BPDUs
+to CPU even if not forwarding and similar tasks. Using the vlan
+tagging feature it is principially possible to expose the ports
+as eth0.1, eth0.2 etc, send packets only to specific ports etc.
 
-I believe this is what Ingo suggested as well. If it is become generic,
-it belongs in lib/
+This is an embedded device where the main task is not the
+networking. It "just" needs to have redundant connections
+to the same network, as it will be typically wired in a ring
+with other such devices and to a RSTP-capable switch at the
+end of the ring.
 
--- Steve
+So I need to run a RSTP with this switch and as the CPU power
+is limited, I would like to let the hardware do all the
+learning and forwarding and only run the RSTP state machine
+in software. Unfortunately the existing implementations
+such as http://sourceforge.net/projects/mstpd/ expect to
+see the bridge and its ports via the bridging infrastructure.
+
+Is there anything in the kernel to help with this task?
+If not, what is the suggested way of implementing this?
+
+My present idea is to patch the network driver to use specific
+VLANs for the BPDUs and normal traffic and do everything else
+in userspace (basically take the daemon and hack other ways
+of setting the port status). This however means duplicating
+existing interfaces which seems a bit ugly.
+
+Anyone already doing something like this?
+
+If there is a better place to ask this, please suggest it.
+Please Cc: when replying.
+
+Thanks
+-- 
+                                      Stano
