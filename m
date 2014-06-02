@@ -1,37 +1,51 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH net-next v2 0/2] 6lowpan: fragmentation fixes
-Date: Mon,  2 Jun 2014 13:21:56 +0200
-Message-ID: <1401708118-16436-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, phoebe.buckheister@itwm.fraunhofer.de,
-	werner@almesberger.net, Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:58719 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753101AbaFBLWO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 07:22:14 -0400
-Received: by mail-wg0-f52.google.com with SMTP id l18so4879667wgh.11
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 04:22:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benoit Taine <benoit.taine@lip6.fr>
+Subject: [PATCH 2/2 v2] lpc_eth: Use resource_size instead of computation
+Date: Mon, 2 Jun 2014 13:24:19 +0200
+Message-ID: <20140602112419.GA3625@lip6.fr>
+References: <1401290047-30005-1-git-send-email-benoit.taine@lip6.fr>
+ <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
+ <20140601.192705.693805935389177182.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140601.192705.693805935389177182.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch series fix the 6LoWPAN fragmentation which are in two cases broken.
+This issue was reported by coccicheck using the semantic patch 
+at scripts/coccinelle/api/resource_size.cocci
 
-The first case is if we have exactly two 6LoWPAN fragments only. This is fixed
-by patch "6lowpan_rtnl: fix fragmentation with two fragments".
-The second case is a off by one issue if we have payload which hits the fragment
-boundary.
+Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
+---
+Not compile tested, due incompatible architecture.
 
-Both issues are introduced by commit d4b2816d67d6e07b2f27037f282d8db03a5829d7
-("6lowpan: fix fragmentation").
-
-Alexander Aring (2):
-  6lowpan_rtnl: fix fragmentation with two fragments
-  6lowpan_rtnl: fix off by one while fragmentation
-
- net/ieee802154/6lowpan_rtnl.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
--- 
-1.9.3
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 422d9b5..645dac3 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1361,7 +1361,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+        __lpc_eth_clock_enable(pldat, true);
+ 
+        /* Map IO space */
+-       pldat->net_base = ioremap(res->start, res->end - res->start + 1);
++       pldat->net_base = ioremap(res->start, resource_size(res));
+        if (!pldat->net_base) {
+                dev_err(&pdev->dev, "failed to map registers\n");
+                ret = -ENOMEM;
+@@ -1417,10 +1417,8 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
+        }
+        pldat->dma_buff_base_p = dma_handle;
+ 
+-       netdev_dbg(ndev, "IO address start     :0x%08x\n",
+-                       res->start);
+-       netdev_dbg(ndev, "IO address size      :%d\n",
+-                       res->end - res->start + 1);
++       netdev_dbg(ndev, "IO address space     :%pR", res);
++       netdev_dbg(ndev, "IO address size      :%d\n", resource_size(res));
+        netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
+                        pldat->net_base);
+        netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
