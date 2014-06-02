@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] 6lowpan: fragmentation fixes
-Date: Mon, 02 Jun 2014 10:40:25 -0700 (PDT)
-Message-ID: <20140602.104025.2073329000274245328.davem@davemloft.net>
-References: <1401708118-16436-1-git-send-email-alex.aring@gmail.com>
+Subject: Re: [net-next PATCH 0/2] Provide common means for device address
+ sync
+Date: Mon, 02 Jun 2014 10:41:47 -0700 (PDT)
+Message-ID: <20140602.104147.434358215603709678.davem@davemloft.net>
+References: <20140529013440.21464.2499.stgit@ahduyck-cp2.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	phoebe.buckheister@itwm.fraunhofer.de, werner@almesberger.net
-To: alex.aring@gmail.com
+Cc: ssujith@cisco.com, neepatel@cisco.com, _govind@gmx.com,
+	benve@cisco.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35174 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35187 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbaFBRk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 13:40:27 -0400
-In-Reply-To: <1401708118-16436-1-git-send-email-alex.aring@gmail.com>
+	with ESMTP id S1751279AbaFBRls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 13:41:48 -0400
+In-Reply-To: <20140529013440.21464.2499.stgit@ahduyck-cp2.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Aring <alex.aring@gmail.com>
-Date: Mon,  2 Jun 2014 13:21:56 +0200
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Wed, 28 May 2014 18:44:41 -0700
 
-> This patch series fix the 6LoWPAN fragmentation which are in two cases broken.
+> The following series implements a means for synchronizing both unicast and
+> multicast addresses on a device interface.  The code is based on the original
+> implementation of dev_uc_sync that was available for syncing a VLAN to the
+> lower dev.
 > 
-> The first case is if we have exactly two 6LoWPAN fragments only. This is fixed
-> by patch "6lowpan_rtnl: fix fragmentation with two fragments".
-> The second case is a off by one issue if we have payload which hits the fragment
-> boundary.
+> The original reason for coming up for this patch is a driver that is still in
+> the early stages of development.  The nearest driver I could find that
+> appeared to have the same limitations as the driver I was working on was the
+> Cisco enic driver.  For this reason I chose it as the first driver to make use
+> of this interface publicly.
 > 
-> Both issues are introduced by commit d4b2816d67d6e07b2f27037f282d8db03a5829d7
-> ("6lowpan: fix fragmentation").
+> However, I do not have a Cisco enic interface so I have only been able to
+> compile test any changes made to the driver.  I tried to keep this change as
+> simple as possible to avoid any issues.  Any help with testing would be
+> greatly appreciated.
 
 Series applied, thanks Alexander.
