@@ -1,15 +1,13 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL 1/2] vhost-net: extend device allocation to vmalloc
-Date: Tue, 3 Jun 2014 00:30:15 +0300
-Message-ID: <1401744482-17764-2-git-send-email-mst@redhat.com>
+Subject: [PULL 2/2] vhost: replace rcu with mutex
+Date: Tue, 3 Jun 2014 00:30:18 +0300
+Message-ID: <1401744482-17764-3-git-send-email-mst@redhat.com>
 References: <1401744482-17764-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Mueller <mimu@linux.vnet.ibm.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, Romain Francoise <romain@orebokech.com>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
@@ -25,86 +23,45 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Michael Mueller provided a patch to reduce the size of
-vhost-net structure as some allocations could fail under
-memory pressure/fragmentation. We are still left with
-high order allocations though.
+All memory accesses are done under some VQ mutex.
+So lock/unlock all VQs is a faster equivalent of synchronize_rcu()
+for memory access changes.
+Some guests cause a lot of these changes, so it's helpful
+to make them faster.
 
-This patch is handling the problem at the core level, allowing
-vhost structures to use vmalloc() if kmalloc() failed.
-
-As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
-to kzalloc() flags to do this fallback only when really needed.
-
-People are still looking at cleaner ways to handle the problem
-at the API level, probably passing in multiple iovecs.
-This hack seems consistent with approaches
-taken since then by drivers/vhost/scsi.c and net/core/dev.c
-
-Based on patch by Romain Francoise.
-
-Cc: Michael Mueller <mimu@linux.vnet.ibm.com>
-Signed-off-by: Romain Francoise <romain@orebokech.com>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Reported-by: "Gonglei (Arei)" <arei.gonglei@huawei.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 23 ++++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
+ drivers/vhost/vhost.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index be414d2b..e489161 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -17,6 +17,7 @@
- #include <linux/workqueue.h>
- #include <linux/file.h>
- #include <linux/slab.h>
-+#include <linux/vmalloc.h>
- 
- #include <linux/net.h>
- #include <linux/if_packet.h>
-@@ -699,18 +700,30 @@ static void handle_rx_net(struct vhost_work *work)
- 	handle_rx(net);
- }
- 
-+static void vhost_net_free(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
- static int vhost_net_open(struct inode *inode, struct file *f)
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 78987e4..1c05e60 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -593,6 +593,7 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
  {
--	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
-+	struct vhost_net *n;
- 	struct vhost_dev *dev;
- 	struct vhost_virtqueue **vqs;
- 	int i;
+ 	struct vhost_memory mem, *newmem, *oldmem;
+ 	unsigned long size = offsetof(struct vhost_memory, regions);
++	int i;
  
--	if (!n)
--		return -ENOMEM;
-+	n = kmalloc(sizeof *n, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-+	if (!n) {
-+		n = vmalloc(sizeof *n);
-+		if (!n)
-+			return -ENOMEM;
+ 	if (copy_from_user(&mem, m, size))
+ 		return -EFAULT;
+@@ -619,7 +620,14 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+ 	oldmem = rcu_dereference_protected(d->memory,
+ 					   lockdep_is_held(&d->mutex));
+ 	rcu_assign_pointer(d->memory, newmem);
+-	synchronize_rcu();
++
++	/* All memory accesses are done under some VQ mutex.
++	 * So below is a faster equivalent of synchronize_rcu()
++	 */
++	for (i = 0; i < d->nvqs; ++i) {
++		mutex_lock(&d->vqs[i]->mutex);
++		mutex_unlock(&d->vqs[i]->mutex);
 +	}
- 	vqs = kmalloc(VHOST_NET_VQ_MAX * sizeof(*vqs), GFP_KERNEL);
- 	if (!vqs) {
--		kfree(n);
-+		vhost_net_free(n);
- 		return -ENOMEM;
- 	}
- 
-@@ -827,7 +840,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
- 	kfree(n->dev.vqs);
--	kfree(n);
-+	vhost_net_free(n);
+ 	kfree(oldmem);
  	return 0;
  }
- 
 -- 
 MST
