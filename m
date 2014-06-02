@@ -1,66 +1,50 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH RFC]: new-CWV for Linux
-Date: Mon, 2 Jun 2014 11:50:14 -0700
-Message-ID: <CADVnQymKpdepbykfz-3GTvqA9zGwmF1PeqZyzckKchZYHGUorA@mail.gmail.com>
-References: <CAKUix-6-DM=qprmeNQ7fKtGZJocjrCb=QRNFqNT7WC1DmYAS9A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Mon, 02 Jun 2014 11:53:03 -0700 (PDT)
+Message-ID: <20140602.115303.1283021229124256917.davem@davemloft.net>
+References: <1401729456-23514-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yuchung Cheng <ycheng@google.com>, Netdev <netdev@vger.kernel.org>,
-	Gorry Fairhurst <gorry@erg.abdn.ac.uk>,
-	"Hossain, Ziaul" <ziaul.hossain@abdn.ac.uk>, tom@erg.abdn.ac.uk
-To: r.secchi@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@codethink.co.uk, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au, yoshihiro.shimoda.uh@renesas.com,
+	cm-hiep@jinso.co.jp
+To: ben.dooks@codethink.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:33565 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750723AbaFBSuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 14:50:15 -0400
-Received: by mail-we0-f179.google.com with SMTP id q59so5732203wes.10
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 11:50:14 -0700 (PDT)
-In-Reply-To: <CAKUix-6-DM=qprmeNQ7fKtGZJocjrCb=QRNFqNT7WC1DmYAS9A@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35745 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753008AbaFBSxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 14:53:06 -0400
+In-Reply-To: <1401729456-23514-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 2, 2014 at 11:34 AM, Raffaello Secchi <r.secchi@gmail.com> wrote:
-> Hi Yuchung,
->
-> We modified the newcwv patch so to be CC independent and
-> comply with draft-ietf-tcpm-newcwv-06. We submit this patch to this list
-> hoping that could be incorporated in mainstream kernel.
->
-> We tested both with Reno and Cubic by replaying TMIX traces of Internet web
-> traffic sessions over our Netem testbed. We saw clear latency improvements when
-> traces presented gap-burst behaviour of at least 100 KB after the idle period.
->
-> For example the latency of individual HTTP request/responses was reduced of
-> about 1 sec when we used an emulated path of 4Mbps link and 100ms RTT delay.
->
-> We also experimented with combining this with the Linux FQ scheduler and under
-> some patterns of traffic this reduced the number of packet drops - indicating
-> that this may be useful.
->
-> We would be grateful if you or someone from your group could consider
-> this code and give us an independent evaluation.
->
-> Thanks,
->
-> Raffaello
->
-> Signed-off-by: Raffaello Secchi <raffaello@erg.abdn.ac.uk>
-> Reviewed-by: Tom Jones <tom@erg.abdn.ac.uk>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Date: Mon,  2 Jun 2014 18:17:36 +0100
 
-We are interested in experimenting with this, but the patch seems to
-have formatting issues, probably due to the email client corrupting
-formatting.
+> The current behaviour of the sh_eth driver is not to use the RNC bit
+> for the receive ring. This means that every packet recieved is not only
+> generating an IRQ but it also stops the receive ring DMA as well until
+> the driver re-enables it after unloading the packet.
+> 
+> This means that a number of the following errors are generated due to
+> the receive packet FIFO overflowing due to nowhere to put packets:
+> 
+> 	net eth0: Receive FIFO Overflow
+> 
+> I have tested the RMCR_RNC configuration with NFS root filesystem and
+> the driver has not failed yet.  There are further test reports from
+> Sergei Shtylov and others for both the R8A7790 and R8A7791.
+> 
+> There is also feedback fron Cao Minh Hiep[1] which reports the
+> same issue in (http://comments.gmane.org/gmane.linux.network/316285)
+> showing this fixes issues with losing UDP datagrams under iperf.
+> 
+> Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
-Assuming you have this in the form of a git commit, can you please try
-something like:
+Given the description, I can't fathom a reason why this wouldn't be
+set always, for every chip.
 
-rm 0001-*.patch
-git format-patch --subject-prefix='PATCH RFC' HEAD~1
-./scripts/checkpatch.pl 0001-*.patch
-git send-email --to 'David Miller <davem@davemloft.net>' --cc
-'netdev@vger.kernel.org'  0001-*.patch
-
-Thanks!
-
-neal
+Do some chips not implement this bit at all?
