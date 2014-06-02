@@ -1,62 +1,91 @@
-From: stannous@cumulusnetworks.com
-Subject: [PATCH] Force speed and duplex mode setting if link down
-Date: Mon,  2 Jun 2014 19:07:00 -0400
-Message-ID: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
-	stannous@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 2/2] net: hisilicon: add hix5hd2 mac driver
+Date: Mon, 02 Jun 2014 16:11:31 -0700 (PDT)
+Message-ID: <20140602.161131.783479189097234753.davem@davemloft.net>
+References: <1401440528-7804-1-git-send-email-zhangfei.gao@linaro.org>
+	<1401440528-7804-3-git-send-email-zhangfei.gao@linaro.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: arnd@arndb.de, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
+	haifeng.yan@linaro.org, jchxue@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: zhangfei.gao@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:54832 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753171AbaFBXGu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:06:50 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by ext3.cumulusnetworks.com (Postfix) with ESMTP id 12D8C17C53CE
-	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 16:06:50 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:37551 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752132AbaFBXLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:11:33 -0400
+In-Reply-To: <1401440528-7804-3-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Tannous <stannous@cumulusnetworks.com>
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Date: Fri, 30 May 2014 17:02:08 +0800
 
-This patch forces the user to set both the speed and the duplex
-mode if the user only specifies the speed while the interface is down.
+> +			skb = netdev_alloc_skb_ip_align(priv->netdev,
+> +				MAC_MAX_FRAME_SIZE);
 
-If the interface is down, we'll get an ecmd speed
-and duplex mode of 0. This has the ill effect of
-setting the duplex to HALF and this often results in an
-error since many higher speed will not support HALF duplex.
+When a function call, declaration, or definition spans multiple lines,
+you must start the arguments on the second and subsequent lines exactly
+at the first column after the openning parenthesis.
 
-Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
----
- ethtool.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+Please therefore reindent this properly.
 
-diff --git a/ethtool.c b/ethtool.c
-index 8e968a8..9cd3103 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
- 		if (err < 0) {
- 			perror("Cannot get current device settings");
- 		} else {
-+			/* If the interface is down, we'll get an ecmd speed and
-+			   duplex of 0.  This has the effect of defaulting
-+			   the duplex mode to HALF.  This results in an
-+			   error since many of our speeds will not support HALF
-+			   any more.  To prevent this, we need to insist that
-+			   the user provide us with specific duplex mode if
-+			   they haven't already (likely FULL) if both the speed
-+			   and duplex are 0 here.
-+			*/
-+			if (speed_wanted != -1 && duplex_wanted == -1
-+			    && !(ecmd.speed || ecmd.duplex)) {
-+			    fprintf(stderr, "Setting the speed while the link "
-+				    "is down requires both the speed and the "
-+				    "duplex mode to be set");
-+			    exit_bad_args();
-+			}
- 			/* Change everything the user specified. */
- 			if (speed_wanted != -1)
- 				ethtool_cmd_speed_set(&ecmd, speed_wanted);
--- 
-1.7.10.4
+> +		addr = dma_map_single(priv->dev, skb->data,
+> +					MAC_MAX_FRAME_SIZE, DMA_FROM_DEVICE);
+
+Likewise.
+
+> +		desc->cmd = cpu_to_le32(DESC_VLD_FREE |
+> +			(MAC_MAX_FRAME_SIZE - 1) << DESC_BUFF_LEN_OFF);
+
+Likewise.
+
+> +	desc->cmd = cpu_to_le32(DESC_VLD_BUSY | DESC_FL_FULL |
+> +			(skb->len & DESC_DATA_MASK) << DESC_DATA_LEN_OFF |
+> +			(skb->len & DESC_DATA_MASK) << DESC_BUFF_LEN_OFF);
+
+Likewise.
+
+> +	priv->phy = of_phy_connect(dev, priv->phy_node,
+> +		&hix5hd2_adjust_link, 0, priv->phy_mode);
+
+Likewise.
+
+> +static int hix5hd2_mdio_wait_ready(struct mii_bus *bus)
+> +{
+> +	struct hix5hd2_priv *priv = bus->priv;
+> +	void __iomem *base = priv->base;
+> +	int i, timeout = 10000;
+> +
+> +	for (i = 0; readl_relaxed(base + MDIO_SINGLE_CMD) & MDIO_START; i++) {
+> +		if (i == timeout)
+> +			return -ETIMEDOUT;
+> +		udelay(1);
+> +	}
+> +
+> +	return 0;
+> +}
+
+10,000 udelay(1)'s is a long time, consider changing to usleep() or
+similar.
+
+> +			dma_free_coherent(priv->dev, priv->pool[i].size,
+> +					priv->pool[i].desc,
+> +					priv->pool[i].phys_addr);
+
+Indentation.
+
+> +		virt_addr = dma_alloc_coherent(dev, size, &phys_addr,
+> +				GFP_KERNEL);
+
+Likewise.
+
+> +		netdev_warn(ndev, "using random MAC address %pM\n",
+> +			 ndev->dev_addr);
+
+Likewise.
