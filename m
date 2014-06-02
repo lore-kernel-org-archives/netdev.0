@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: notify user space after fdb update
-Date: Sun, 01 Jun 2014 22:15:15 -0700 (PDT)
-Message-ID: <20140601.221515.360490928652338768.davem@davemloft.net>
-References: <1401348436-5187-1-git-send-email-jmaxwell37@gmail.com>
+Subject: Re: [PATCH net-next 0/4] BPF + test suite updates
+Date: Sun, 01 Jun 2014 22:18:28 -0700 (PDT)
+Message-ID: <20140601.221828.1183680100152290534.davem@davemloft.net>
+References: <1401351771-5367-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, jpirko@redhat.com, netdev@vger.kernel.org,
-	jmaxwell@redhat.com, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org
-To: jmaxwell37@gmail.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1401348436-5187-1-git-send-email-jmaxwell37@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@plumgrid.com, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56334 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854AbaFBFS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 01:18:29 -0400
+In-Reply-To: <1401351771-5367-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maxwell <jmaxwell37@gmail.com>
-Date: Thu, 29 May 2014 17:27:16 +1000
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 29 May 2014 10:22:47 +0200
 
-> There has been a number incidents recently where customers running KVM have
-> reported that VM hosts on different Hypervisors are unreachable. Based on
-> pcap traces we found that the bridge was broadcasting the ARP request out
-> onto the network. However some NICs have an inbuilt switch which on occasions
-> were broadcasting the VMs ARP request back through the physical NIC on the
-> Hypervisor. This resulted in the bridge changing ports and incorrectly learning
-> that the VMs mac address was external. As a result the ARP reply was directed
-> back onto the external network and VM never updated it's ARP cache. This patch
-> will notify the bridge command, after a fdb has been updated to identify such
-> port toggling.
+> These are the last bigger BPF changes that I had in my todo
+> queue for now. As the first two patches from this series
+> contain additional test cases for the test suite, I have
+> rebased them on top of current net-next with the set from [1]
+> applied to avoid introducing any unnecessary merge conflicts.
 > 
-> Signed-off-by: Jon Maxwell <jmaxwell37@gmail.com>
+> For details, please refer to the individual patches. Test
+> suite runs fine with the set applied.
+ ...
+>  [1] http://patchwork.ozlabs.org/patch/352599/
+>      http://patchwork.ozlabs.org/patch/352600/
 
-Applied, thanks.
+Series applied, thanks Daniel.
