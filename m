@@ -1,47 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V6 2/2] net/mlx4_en: Use affinity hint
-Date: Sun, 01 Jun 2014 21:56:50 -0700 (PDT)
-Message-ID: <20140601.215650.2131746246978305213.davem@davemloft.net>
-References: <1401029247-15196-3-git-send-email-amirv@mellanox.com>
-	<1401682610.3645.166.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1401683831.3645.169.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [net-next PATCH 0/2] Provide common means for device address
+ sync
+Date: Sun, 01 Jun 2014 22:04:30 -0700 (PDT)
+Message-ID: <20140601.220430.307052434202546542.davem@davemloft.net>
+References: <20140529013440.21464.2499.stgit@ahduyck-cp2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: amirv@mellanox.com, ogerlitz@mellanox.com, netdev@vger.kernel.org,
-	yevgenyp@mellanox.com, yuvala@mellanox.com,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401683831.3645.169.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ssujith@cisco.com, neepatel@cisco.com, _govind@gmx.com,
+	benve@cisco.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56245 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbaFBFEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 01:04:31 -0400
+In-Reply-To: <20140529013440.21464.2499.stgit@ahduyck-cp2.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogU3VuLCAw
-MSBKdW4gMjAxNCAyMTozNzoxMSAtMDcwMA0KDQo+IE9uIFN1biwgMjAxNC0wNi0wMSBhdCAyMTox
-NiAtMDcwMCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPj4gICBDQyBbTV0gIGRyaXZlcnMvbmV0L2V0
-aGVybmV0L21lbGxhbm94L21seDQvZW5fbmV0ZGV2Lm8NCj4+IGRyaXZlcnMvbmV0L2V0aGVybmV0
-L21lbGxhbm94L21seDQvZW5fbmV0ZGV2LmM6IEluIGZ1bmN0aW9uIKFtbHg0X2VuX2luaXRfYWZm
-aW5pdHlfaGludKI6DQo+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L2VuX25l
-dGRldi5jOjE1NDY6MjM6IGVycm9yOiBpbmNvbXBhdGlibGUgdHlwZXMgd2hlbiBhc3NpZ25pbmcg
-dG8gdHlwZSChY3B1bWFza192YXJfdKIgZnJvbSB0eXBlIKF2b2lkICqiDQo+PiBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9tZWxsYW5veC9tbHg0L2VuX25ldGRldi5jOiBJbiBmdW5jdGlvbiChbWx4NF9l
-bl9mcmVlX2FmZmluaXR5X2hpbnSiOg0KPj4gZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gv
-bWx4NC9lbl9uZXRkZXYuYzoxNTUzOjQxOiBlcnJvcjogaW5jb21wYXRpYmxlIHR5cGVzIHdoZW4g
-YXNzaWduaW5nIHRvIHR5cGUgoWNwdW1hc2tfdmFyX3SiIGZyb20gdHlwZSChdm9pZCAqog0KPiAN
-Cj4gDQo+IEFuZCA6DQo+IA0KPiBFUlJPUjogImNwdW1hc2tfc2V0X2NwdV9sb2NhbF9maXJzdCIg
-W2RyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvbWx4NF9lbi5rb10gdW5kZWZpbmVk
-IQ0KPiANCj4gDQo+ICQgZ2l0IGdyZXAgLW4gY3B1bWFza19zZXRfY3B1X2xvY2FsX2ZpcnN0DQo+
-IGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDQvZW5fbmV0ZGV2LmM6MTU0MjogICAg
-aWYgKGNwdW1hc2tfc2V0X2NwdV9sb2NhbF9maXJzdChyaW5nX2lkeCwgbnVtYV9ub2RlLA0KPiBp
-bmNsdWRlL2xpbnV4L2NwdW1hc2suaDoyNjA6aW50IGNwdW1hc2tfc2V0X2NwdV9sb2NhbF9maXJz
-dChpbnQgaSwgaW50IG51bWFfbm9kZSwgY3B1bWFza190ICpkc3RwKTsNCj4gbGliL2NwdW1hc2su
-YzoxNjg6ICogY3B1bWFza19zZXRfY3B1X2xvY2FsX2ZpcnN0IC0gc2V0IGkndGggY3B1IHdpdGgg
-bG9jYWwgbnVtYSBjcHUncyBmaXJzdA0KPiBsaWIvY3B1bWFzay5jOjE4MjppbnQgY3B1bWFza19z
-ZXRfY3B1X2xvY2FsX2ZpcnN0KGludCBpLCBpbnQgbnVtYV9ub2RlLCBjcHVtYXNrX3QgKmRzdHAp
-DQo+IGxpYi9jcHVtYXNrLmM6MjI4OkVYUE9SVF9TWU1CT0woY3B1bWFza19zZXRfY3B1X2xvY2Fs
-X2ZpcnN0KTsNCj4gDQo+IEZpeGVzIGFyZSBuZWVkZWQgaWYgQ09ORklHX0NQVU1BU0tfT0ZGU1RB
-Q0sgaXMgbm90IHVzZWQuDQo+IAkNCj4gJCBncmVwIENPTkZJR19DUFVNQVNLX09GRlNUQUNLIC5j
-b25maWcNCj4gJCBlY2hvICQ/DQo+IDENCj4gDQoNCkluZGVlZCB5b3UgaGF2ZSB0byBwcm92aWRl
-IGEgZHVtbXkgdmVyc2lvbiBmb3IgYSBub24tU01QIGJ1aWxkIGV0Yy4NCg0KSSdtIHJldmVydGlu
-Zy4NCg0K
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Wed, 28 May 2014 18:44:41 -0700
+
+> The following series implements a means for synchronizing both unicast and
+> multicast addresses on a device interface.  The code is based on the original
+> implementation of dev_uc_sync that was available for syncing a VLAN to the
+> lower dev.
+> 
+> The original reason for coming up for this patch is a driver that is still in
+> the early stages of development.  The nearest driver I could find that
+> appeared to have the same limitations as the driver I was working on was the
+> Cisco enic driver.  For this reason I chose it as the first driver to make use
+> of this interface publicly.
+> 
+> However, I do not have a Cisco enic interface so I have only been able to
+> compile test any changes made to the driver.  I tried to keep this change as
+> simple as possible to avoid any issues.  Any help with testing would be
+> greatly appreciated.
+
+I'll apply this series once there is some testing feedback, thanks.
