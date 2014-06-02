@@ -1,91 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2] net: hisilicon: add hix5hd2 mac driver
-Date: Mon, 02 Jun 2014 16:11:31 -0700 (PDT)
-Message-ID: <20140602.161131.783479189097234753.davem@davemloft.net>
-References: <1401440528-7804-1-git-send-email-zhangfei.gao@linaro.org>
-	<1401440528-7804-3-git-send-email-zhangfei.gao@linaro.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
-	haifeng.yan@linaro.org, jchxue@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: zhangfei.gao@linaro.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] ipv4: use skb frags api in udp4_hwcsum()
+Date: Mon,  2 Jun 2014 16:12:02 -0700
+Message-ID: <1401750722-4324-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37551 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752132AbaFBXLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:11:33 -0400
-In-Reply-To: <1401440528-7804-3-git-send-email-zhangfei.gao@linaro.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:62879 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752485AbaFBXMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:12:16 -0400
+Received: by mail-pb0-f52.google.com with SMTP id rr13so4718728pbb.11
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 16:12:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhangfei Gao <zhangfei.gao@linaro.org>
-Date: Fri, 30 May 2014 17:02:08 +0800
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/ipv4/udp.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-> +			skb = netdev_alloc_skb_ip_align(priv->netdev,
-> +				MAC_MAX_FRAME_SIZE);
-
-When a function call, declaration, or definition spans multiple lines,
-you must start the arguments on the second and subsequent lines exactly
-at the first column after the openning parenthesis.
-
-Please therefore reindent this properly.
-
-> +		addr = dma_map_single(priv->dev, skb->data,
-> +					MAC_MAX_FRAME_SIZE, DMA_FROM_DEVICE);
-
-Likewise.
-
-> +		desc->cmd = cpu_to_le32(DESC_VLD_FREE |
-> +			(MAC_MAX_FRAME_SIZE - 1) << DESC_BUFF_LEN_OFF);
-
-Likewise.
-
-> +	desc->cmd = cpu_to_le32(DESC_VLD_BUSY | DESC_FL_FULL |
-> +			(skb->len & DESC_DATA_MASK) << DESC_DATA_LEN_OFF |
-> +			(skb->len & DESC_DATA_MASK) << DESC_BUFF_LEN_OFF);
-
-Likewise.
-
-> +	priv->phy = of_phy_connect(dev, priv->phy_node,
-> +		&hix5hd2_adjust_link, 0, priv->phy_mode);
-
-Likewise.
-
-> +static int hix5hd2_mdio_wait_ready(struct mii_bus *bus)
-> +{
-> +	struct hix5hd2_priv *priv = bus->priv;
-> +	void __iomem *base = priv->base;
-> +	int i, timeout = 10000;
-> +
-> +	for (i = 0; readl_relaxed(base + MDIO_SINGLE_CMD) & MDIO_START; i++) {
-> +		if (i == timeout)
-> +			return -ETIMEDOUT;
-> +		udelay(1);
-> +	}
-> +
-> +	return 0;
-> +}
-
-10,000 udelay(1)'s is a long time, consider changing to usleep() or
-similar.
-
-> +			dma_free_coherent(priv->dev, priv->pool[i].size,
-> +					priv->pool[i].desc,
-> +					priv->pool[i].phys_addr);
-
-Indentation.
-
-> +		virt_addr = dma_alloc_coherent(dev, size, &phys_addr,
-> +				GFP_KERNEL);
-
-Likewise.
-
-> +		netdev_warn(ndev, "using random MAC address %pM\n",
-> +			 ndev->dev_addr);
-
-Likewise.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index e07d52b..3c07422 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -727,13 +727,12 @@ EXPORT_SYMBOL(udp_flush_pending_frames);
+ void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst)
+ {
+ 	struct udphdr *uh = udp_hdr(skb);
+-	struct sk_buff *frags = skb_shinfo(skb)->frag_list;
+ 	int offset = skb_transport_offset(skb);
+ 	int len = skb->len - offset;
+ 	int hlen = len;
+ 	__wsum csum = 0;
+ 
+-	if (!frags) {
++	if (!skb_has_frag_list(skb)) {
+ 		/*
+ 		 * Only one fragment on the socket.
+ 		 */
+@@ -742,15 +741,17 @@ void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst)
+ 		uh->check = ~csum_tcpudp_magic(src, dst, len,
+ 					       IPPROTO_UDP, 0);
+ 	} else {
++		struct sk_buff *frags;
++
+ 		/*
+ 		 * HW-checksum won't work as there are two or more
+ 		 * fragments on the socket so that all csums of sk_buffs
+ 		 * should be together
+ 		 */
+-		do {
++		skb_walk_frags(skb, frags) {
+ 			csum = csum_add(csum, frags->csum);
+ 			hlen -= frags->len;
+-		} while ((frags = frags->next));
++		}
+ 
+ 		csum = skb_checksum(skb, offset, hlen, csum);
+ 		skb->ip_summed = CHECKSUM_NONE;
+-- 
+1.8.3.1
