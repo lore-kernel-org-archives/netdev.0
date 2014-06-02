@@ -1,52 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
-Date: Mon, 02 Jun 2014 14:05:04 -0700 (PDT)
-Message-ID: <20140602.140504.1151986761253502538.davem@davemloft.net>
-References: <538CD19B.5060208@cogentembedded.com>
-	<20140602.134915.1162774321657125992.davem@davemloft.net>
-	<538CE4CA.4090301@cogentembedded.com>
+Subject: Re: [PATCH net-next v2] net: stmmac: Handle different error codes
+ from platform_get_irq_byname
+Date: Mon, 02 Jun 2014 14:05:20 -0700 (PDT)
+Message-ID: <20140602.140520.1193655810822953539.davem@davemloft.net>
+References: <1401373900-30253-1-git-send-email-wens@csie.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ben.dooks@codethink.co.uk, linux-kernel@codethink.co.uk,
-	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	magnus.damn@opensource.se, horms@verge.net.au,
-	yoshihiro.shimoda.uh@renesas.com, cm-hiep@jinso.co.jp
-To: sergei.shtylyov@cogentembedded.com
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	grygorii.strashko@ti.com, linux@arm.linux.org.uk, robh@kernel.org,
+	maxime.ripard@free-electrons.com
+To: wens@csie.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36788 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36796 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442AbaFBVFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 17:05:05 -0400
-In-Reply-To: <538CE4CA.4090301@cogentembedded.com>
+	with ESMTP id S1752465AbaFBVFU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 17:05:20 -0400
+In-Reply-To: <1401373900-30253-1-git-send-email-wens@csie.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Tue, 03 Jun 2014 00:55:38 +0400
+From: Chen-Yu Tsai <wens@csie.org>
+Date: Thu, 29 May 2014 22:31:40 +0800
 
-> On 06/03/2014 12:49 AM, David Miller wrote:
+> The following patch moved device tree interrupt resolution into
+> platform_get_irq_byname:
 > 
->>>     Looks like the early SH2/3 SoCs didn't implement the whole register.
->>> Despite that, sh_eth_dev_init() always writes to this register... :-/
->>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
->>> controllers, however that rule wasn't strictly followed. Well, this
->>> driver is still a mess, and it's hard to deal with it without the
->>> necessary documentation.
+>   ad69674 of/irq: do irq resolution in platform_get_irq_byname()
 > 
->> Why don't we therefore:
+> As a result, the function no longer only return -ENXIO on error.
+> This breaks DT based probing of stmmac, as seen in test runs of
+> linux-next next-20140526 cubie2-sunxi_defconfig:
 > 
->> 1) Skip the register write if the per-chip value is zero.
+>   http://lists.linaro.org/pipermail/kernel-build-reports/2014-May/003659.html
 > 
->    I rather thought about not writing when the register is not
->    implemented.
-> I'll probably look into this when I have time.
+> This patch makes the stmmac_platform probe function properly handle
+> error codes, such as returning for deferred probing, and other codes
+> returned by of_irq_get_by_name.
 > 
->> 2) Add the RNC bit to all of the gigabit capable controllers.
-> 
->    I probably misspoke -- all the Gigabit controllers already have it
->    set, it's just that some 100 MBbps ones have it set, but most don't.
+> Signed-off-by: Chen-Yu Tsai <wens@csie.org>
 
-So these chips that do not implement the register, they only process
-one RX descriptor at a time until the interrupt handler re-enables
-DMA receive?
+Applied, thanks.
