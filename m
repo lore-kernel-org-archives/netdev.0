@@ -1,36 +1,67 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
- cnic_alloc_uio_rings()
-Date: Mon, 2 Jun 2014 13:31:54 -0700
-Message-ID: <1401741114.6344.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
-	 <1401491923-5480-2-git-send-email-mchan@broadcom.com>
-	 <1401491923-5480-3-git-send-email-mchan@broadcom.com>
-	 <20140530223320.GA23581@f1.synalogic.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bridge: Prevent insertion of FDB entry
+ with disallowed vlan
+Date: Mon, 02 Jun 2014 13:38:51 -0700 (PDT)
+Message-ID: <20140602.133851.291905043809990099.davem@davemloft.net>
+References: <1401084953-10135-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20140530.154857.23436038195529720.davem@davemloft.net>
+	<538C8892.8030800@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<nhorman@tuxdriver.com>
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:5938 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751642AbaFBUbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 16:31:55 -0400
-In-Reply-To: <20140530223320.GA23581@f1.synalogic.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: vyasevic@redhat.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <538C8892.8030800@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-05-30 at 15:33 -0700, Benjamin Poirier wrote: 
-> On 2014/05/30 16:18, Michael Chan wrote:
-> > We are allocating memory with GFP_KERNEL under spinlock.  Since this is
-> > the only call manipulating the cnic_udev_list and it is always under
-> > rtnl_lock, cnic_dev_lock can be safely removed.
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Mon, 02 Jun 2014 10:22:10 -0400
+
+> On 05/30/2014 06:48 PM, David Miller wrote:
+>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> Date: Mon, 26 May 2014 15:15:53 +0900
+>> 
+>>> br_handle_local_finish() is allowing us to insert an FDB entry with
+>>> disallowed vlan. For example, when port 1 and 2 are communicating in
+>>> vlan 10, and even if vlan 10 is disallowed on port 3, port 3 can
+>>> interfere with their communication by spoofed src mac address with
+>>> vlan id 10.
+>>>
+>>> Note: Even if it is judged that a frame should not be learned, it should
+>>> not be dropped because it is destined for not forwarding layer but higher
+>>> layer. See IEEE 802.1Q-2011 8.13.10.
+>>>
+>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> 
+>> In reference to Vlad's suggestion to try to reuse the logic of the
+>> existing br_allowed_ingress() function, I don't think that's so
+>> easy.
+>> 
+>> As stated already, it drops packets whilst we don't want that here.
+>> 
+>> Another difference is that it does vlan_untag(), which we also do
+>> not want here.
+>> 
+>> Let's just stay with this version of the fix, Vlad if you're OK with
+>> that can you please give your ACK?  Thanks.
+>> 
 > 
-> In that case, the many other instances of cnic_dev_lock throughout cnic
-> should also be removed, no? 
+> 
+> Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-I don't think so.  cnic_dev_list still needs to be protected using
-cnic_dev_lock.  cnic_register_driver() for example is not called with
-rtnl_lock().
+Applied, thanks everyone.
+
+> I need to spend a little time and figure out how to make it more re-usable.
+
+Ok.
