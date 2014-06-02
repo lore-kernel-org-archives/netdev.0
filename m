@@ -1,133 +1,99 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Mon, 2 Jun 2014 08:41:24 -0700
-Message-ID: <CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
-	<538C3C94.3080206@redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
+ probed into the Host
+Date: Mon, 2 Jun 2014 10:10:01 -0600
+Message-ID: <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com> <20140602142947.GB28523@richard>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <538C3C94.3080206@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Wei Yang <weiyang@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:52127 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951AbaFBQKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 12:10:22 -0400
+Received: by mail-ig0-f176.google.com with SMTP id hl10so3540114igb.3
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 09:10:21 -0700 (PDT)
+In-Reply-To: <20140602142947.GB28523@richard>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 2, 2014 at 1:57 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 06/02/2014 09:01 AM, Alexei Starovoitov wrote:
+On Mon, Jun 2, 2014 at 8:29 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+> On Sun, Jun 01, 2014 at 01:49:43PM +0300, Or Gerlitz wrote:
+>>From: Jack Morgenstein <jackm@dev.mellanox.co.il>
 >>
->> This patch set splits BPF out of core networking into generic component
->>
->> patch #1 splits filter.c into two logical pieces: generic BPF core and
->> socket
->> filters. It only moves functions around. No real changes.
->>
->> patch #2 adds hidden CONFIG_BPF that seccomp/tracing can select
->>
->> The main value of the patch is not a NET separation, but rather logical
->> boundary
->> between generic BPF core and socket filtering. All socket specific code
->> stays in
->> net/core/filter.c and kernel/bpf/core.c is for generic BPF infrastructure
->> (both
->> classic and internal).
->>
->> Note that CONFIG_BPF_JIT is still under NET, so NET-less configs cannot
->> use
->> BPF JITs yet. This can be cleaned up in the future. Also it seems to makes
->> sense
->> to split up filter.h into generic and socket specific as well to cleanup
->> the
->> boundary further.
+>>Commit befdf89 did not take into account the case where the Host
+>>driver is being unloaded. In this case, pci_get_drvdata for the VF
 >
+> In my mind, unloading PF's driver when there is alive VFs is not allowed.
+> Quoted in driver code:
 >
-> Hm, I really don't like that 'ripping code and headers apart' and then we
-> believe
-> it's a generic abstraction. So far seccomp-BPF could live with the current
-> state
-> since it was introduced, the rest of users (vast majority) is in the
-> networking
-> domain (and invoked through tcpdump et al) ...
+>         /* in SRIOV it is not allowed to unload the pf's
+>          * driver while there are alive vf's */
+>         if (mlx4_is_master(dev) && mlx4_how_many_lives_vf(dev))
+>                 printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
 >
-> There are still parts in seccomp that show some BPF weaknesses in terms of
-> being
-> 'generic', for example shown in seccomp, we need to go once again over the
-> filter
-> instructions after doing the usual filter sanity checks, just to whitelist
-> what
-> seccomp may do in BPF.
+> Actually, I don't understand this restriction clearly. Maybe my understanding
+> of alive VF is not correct.
 >
-> I have not yet thought about it deeply enough, but I think we should avoid
-> something similar in other non-networking areas but abstract that cleanly
-> w/o
-> such hacks first, for example.
+> And in your code, unload PF's driver would call pci_disable_sriov() which will
+> destroy the VFs. While in your test, the VF's driver is still there?
+>
+>>remove_one call may return NULL, so that dereferencing the priv
+>>struct results in a kernel oops.
+>
+> Sorry for my poor mind, I still can't understand this situation.
+> Would you describe the situation more? You are unloading PF's driver in Host
+> at first, and then try to release the VF's driver?
+>
+>>
+>>The fix is to also test that the dev pointer returned by
+>>pci_get_drvdata is non-NULL.
+>>
+>>Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
+>>Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>>---
+>> drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+>> 1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>>diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>index c187d74..a6ae089 100644
+>>--- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>@@ -2629,7 +2629,7 @@ static void __mlx4_remove_one(struct pci_dev *pdev)
+>>       int               pci_dev_data;
+>>       int p;
+>>
+>>-      if (priv->removed)
+>>+      if (!dev || priv->removed)
+>>               return;
+>
+> This fix looks good to me.
+>
+> As I remembered, I had this check in my first version, but I removed the check
+> on dev based on the suggestion from Bjorn. Since I agreed that there is no
+> chance for dev to be NULL. Bjorn, seems we are not correct :(
 
-Glad you brought up this point :)
-100% agree that current double verification done by seccomp is far from
-being generic and quite hard to maintain, since any change done to
-classic BPF verifier needs to be thought through from seccomp_check_filter()
-perspective as well.
-imo lack of generality in classic BPF is the main reason why we should stop
-adding extensions to classic and switch to eBPF for any new features.
-the eBPF verifier I posted now long ago is trying to be generic through
-customization. The verifier core needs to stay independent of the use case.
-BPF's input context, set of allowed calls need to be expressed in a generic way.
-Obviously this split by itself won't make classic BPF all of a sudden generic.
-It rather defines a boundary of eBPF core.
-In eBPF only two instructions are not generic. It's LD_ABS/LD_IND
-which are legacy instruction that we had to carry over from classic.
-They require input context == sk_buff. That's why core.c had to
-#include <skbuff.h> and do '__weak skb_copy_bits()'.
-Alternative to that was to #ifdef these two instructions out of interpreter
-and #ifndef NET #include <skbuff.h> and ld_abs helper functions in core.c
-IMO that would have been ugly for code style, maintenance and testing,
-but then core.c would have only one #include <filter.h> and we can
-say: 'look eBPF core.c is really generic'
+Writing a driver is not an empirical process of trying things to see
+what works.  You need to actively design a consistent structure so you
+know why and when things are safe.  I object to gratuitous "dev ==
+NULL" checks because often they are just a way of patching up a driver
+design that isn't well thought-out.
 
-In the next set of patches I'll repost verifier and will explain how single
-eBPF verifier core can be used for socket, seccomp, tracing and other
-things. Note I'm not saying that we should use eBPF now everywhere.
-Classic BPF has its niche and that niche we have to maintain forever.
-So let's make sure that eBPF interpreter, its instruction set and its
-verifier are staying generic.
-This split is only first step in that direction that creates a file boundary
-between eBPF core and sockets.
+As I wrote before:
 
->
->> Tested with several NET and NET-less configs on arm and x86
->>
->> V1->V2:
->> rebase on top of net-next
->> split filter.c into kernel/bpf/core.c instead of net/bpf/core.c
->>
->> Alexei Starovoitov (2):
->>    net: filter: split filter.c into two files
->>    net: filter: split BPF out of core networking
->>
->>   arch/Kconfig           |    6 +-
->>   include/linux/filter.h |    2 +
->>   kernel/Makefile        |    1 +
->>   kernel/bpf/Makefile    |    5 +
->>   kernel/bpf/core.c      | 1063
->> ++++++++++++++++++++++++++++++++++++++++++++++++
->>   net/Kconfig            |    1 +
->>   net/core/filter.c      | 1023
->> +---------------------------------------------
->>   7 files changed, 1079 insertions(+), 1022 deletions(-)
->>   create mode 100644 kernel/bpf/Makefile
->>   create mode 100644 kernel/bpf/core.c
->>
->
+  From the PCI core's perspective, after .probe() returns successfully,
+  we can call any driver entry point and pass the pci_dev to it, and
+  expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
+  sort of breaks that assumption because you clear out pci_drvdata().
+  Right now, the only other entry point mlx4 really implements is
+  mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
+  is NULL.  But that's ... a hack, and you'll have to do the same
+  if/when you implement suspend/resume/sriov_configure/etc.
+
+Bjorn
