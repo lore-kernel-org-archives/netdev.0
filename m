@@ -1,54 +1,44 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Bug 75571
-Date: Mon, 2 Jun 2014 14:19:52 -0700
-Message-ID: <CAHA+R7Oog=fAGjcfVTus2HdCt_Vv-1XDFePR3mLb0FM1N3q0ow@mail.gmail.com>
-References: <1401085231.1775.9.camel@anpws>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
+ cnic_alloc_uio_rings()
+Date: Mon, 2 Jun 2014 14:24:27 -0700
+Message-ID: <20140602212427.GC17916@f1.synalogic.ca>
+References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
+ <1401491923-5480-2-git-send-email-mchan@broadcom.com>
+ <1401491923-5480-3-git-send-email-mchan@broadcom.com>
+ <20140530223320.GA23581@f1.synalogic.ca>
+ <1401741114.6344.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a11c29e0aba38b204fae0f478
-Cc: netdev <netdev@vger.kernel.org>
-To: Alex <d77190@mail.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: Michael Chan <mchan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:41245 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088AbaFBVTx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 17:19:53 -0400
-Received: by mail-qa0-f52.google.com with SMTP id cm18so3565803qab.25
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 14:19:52 -0700 (PDT)
-In-Reply-To: <1401085231.1775.9.camel@anpws>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:36763 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaFBVYa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 17:24:30 -0400
+Received: by mail-pb0-f45.google.com with SMTP id um1so4619452pbc.4
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 14:24:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1401741114.6344.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a11c29e0aba38b204fae0f478
-Content-Type: text/plain; charset=UTF-8
+On 2014/06/02 13:31, Michael Chan wrote:
+> On Fri, 2014-05-30 at 15:33 -0700, Benjamin Poirier wrote: 
+> > On 2014/05/30 16:18, Michael Chan wrote:
+> > > We are allocating memory with GFP_KERNEL under spinlock.  Since this is
+> > > the only call manipulating the cnic_udev_list and it is always under
+> > > rtnl_lock, cnic_dev_lock can be safely removed.
+> > 
+> > In that case, the many other instances of cnic_dev_lock throughout cnic
+> > should also be removed, no? 
+> 
+> I don't think so.  cnic_dev_list still needs to be protected using
+> cnic_dev_lock.  cnic_register_driver() for example is not called with
+> rtnl_lock().
+> 
 
-On Sun, May 25, 2014 at 11:20 PM, Alex <d77190@mail.ru> wrote:
-> Hello!
-> I caught a bug and adviced to post it to this list from
-> https://bugzilla.kernel.org/show_bug.cgi?id=75571
->
-> I tried ifconfig interfaces down (both tun and ifb) before setting rules
-> with no luck. This is new trace from kernel 3.2.59.
->
-> [ 2945.851717] skb_under_panic: text:f9ca8566 len:209 put:148
-> head:ece89000 data:ece88fce tail:0xece8909f end:0xece89140 dev:tun4177
-
-Could you try the following patch? We need to call skb_cow_head() before
-skb_push().
-
---001a11c29e0aba38b204fae0f478
-Content-Type: text/plain; charset=US-ASCII; name="mirred.diff"
-Content-Disposition: attachment; filename="mirred.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hvya5jbu0
-
-ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9hY3RfbWlycmVkLmMgYi9uZXQvc2NoZWQvYWN0X21pcnJl
-ZC5jCmluZGV4IDRmOTEyYzAuLjM1YjhiOGUgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9hY3RfbWly
-cmVkLmMKKysrIGIvbmV0L3NjaGVkL2FjdF9taXJyZWQuYwpAQCAtMTU2LDggKzE1NiwxNCBAQCBz
-dGF0aWMgaW50IHRjZl9taXJyZWQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgY29uc3Qgc3RydWN0IHRj
-X2FjdGlvbiAqYSwKIAkJZ290byBvdXQ7CiAKIAlpZiAoIShhdCAmIEFUX0VHUkVTUykpIHsKLQkJ
-aWYgKG0tPnRjZm1fb2tfcHVzaCkKKwkJaWYgKG0tPnRjZm1fb2tfcHVzaCkgeworCQkJZXJyID0g
-c2tiX2Nvd19oZWFkKHNrYjIsIHNrYjItPmRldi0+aGFyZF9oZWFkZXJfbGVuKTsKKwkJCWlmIChl
-cnIpIHsKKwkJCQlrZnJlZV9za2Ioc2tiMik7CisJCQkJZ290byBvdXQ7CisJCQl9CiAJCQlza2Jf
-cHVzaChza2IyLCBza2IyLT5kZXYtPmhhcmRfaGVhZGVyX2xlbik7CisJCX0KIAl9CiAKIAkvKiBt
-aXJyb3IgaXMgYWx3YXlzIHN3YWxsb3dlZCAqLwo=
---001a11c29e0aba38b204fae0f478--
+Ah, that's right. I had not paid attention to the fact that the same
+lock protected cnic_dev_list and cnic_udev_list. Thanks for pointing it
+out.
