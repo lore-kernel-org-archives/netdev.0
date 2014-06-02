@@ -1,41 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [QUESTION] multi-core, multi-crypto,  ipsec/udp out of order.
-Date: Mon, 2 Jun 2014 20:46:49 +0800
-Message-ID: <20140602124649.GA2503@gondor.apana.org.au>
-References: <A83C99F8370D4D42BEB2D2B3153A6BBC30807AE1@NASANEXD02C.na.qualcomm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v9 1/7] xen-netback: Move grant_copy_op array back into
+ struct xenvif.
+Date: Mon, 02 Jun 2014 16:50:01 +0400
+Message-ID: <538C72F9.5040809@cogentembedded.com>
+References: <1401706212-8208-1-git-send-email-wei.liu2@citrix.com> <1401706212-8208-2-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>
-To: "Hsieh, Che-Min" <cheminh@qti.qualcomm.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <A83C99F8370D4D42BEB2D2B3153A6BBC30807AE1@NASANEXD02C.na.qualcomm.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, david.vrabel@citrix.com,
+	zoltan.kiss@citrix.com, paul.durrant@citrix.com,
+	a.j.bennieston@gmail.com,
+	"Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:44462 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753009AbaFBMuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 08:50:03 -0400
+Received: by mail-la0-f54.google.com with SMTP id pv20so2571753lab.13
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 05:50:00 -0700 (PDT)
+In-Reply-To: <1401706212-8208-2-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 02:22:17PM +0000, Hsieh, Che-Min wrote:
-> Hi! Herbert:
-> 
->   In a system of multi cpu core, with multiple crypto hardware, different irq for each, is it possible the udp receive get out of order for the same tfm?
->  
-> Let us say, of the same tfm, driver distributes requests to any available crypto hardware.  For the same tfm, driver re-sequences response before complete callout to the same arrival sequence of the requests. The complete callout is running at tasklet level of the system.
-> 
-> Each irq is assigned to a different irq affinity cpu core to improve the performance. Therefore the iprecv and ipsec processing can be done by multiple cpu cores at the same time for the same tfm/udp.
-> 
-> I am seeing the following -   if I assign irq affinity to different cpu cores, iperf server of udp session displays receive out of order message. If I assign them to the same core, or take default, then message stops. The assignment is done by hand while the system is running, by updating  /proc/irq/xxx/smp_affinity, where xxx is the irq number. This scenario is very repeatable. 
-> 
-> We are on linux-3.10.
-> 
-> Does it make sense?
+Hello.
 
-Are we talking about an in-tree driver? If so which one?
+On 02-06-2014 14:50, Wei Liu wrote:
 
-It's not certainly not meant to change packet ordering.
+> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> This array was allocated separately in commit ac3d5ac2 due to it being
+
+    Please also specify that commit's summary in parens.
+
+> very large, and a struct xenvif is allocated as the netdev_priv part of
+> a struct net_device, i.e. via kmalloc() but falling back to vmalloc() if
+> the initial alloc. fails.
+
+> In preparation for the multi-queue patches, where this array becomes
+> part of struct xenvif_queue and is always allocated through vzalloc(),
+> move this back into the struct xenvif.
+
+> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+WBR, Sergei
