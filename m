@@ -1,72 +1,59 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH v2 net-next repost] MPLS: Use mpls_features to
- activate software MPLS GSO segmentation
-Date: Mon, 2 Jun 2014 09:08:00 +0900
-Message-ID: <20140602000800.GD20022@verge.net.au>
-References: <20140530053519.GA3444@verge.net.au>
- <20140530.154318.305349726927694948.davem@davemloft.net>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH] atm: fore200e.c: Cleaning up uninitialized variables
+Date: Sun, 1 Jun 2014 17:10:39 -0700
+Message-ID: <CAOesGMi4SGRP6_WMgv3xz_QrGScktYGQEK-muCrE=ohFBfeBeQ@mail.gmail.com>
+References: <1401577712-4447-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20140530.154318.305349726927694948.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	linux-atm-general@lists.sourceforge.net,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:40685 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753301AbaFBAKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 20:10:40 -0400
+Received: by mail-qa0-f41.google.com with SMTP id dc16so1764237qab.14
+        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 17:10:40 -0700 (PDT)
+In-Reply-To: <1401577712-4447-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 03:43:18PM -0700, David Miller wrote:
-> From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-> Date: Fri, 30 May 2014 14:35:19 +0900
-> 
-> > If an MPLS packet requires segmentation then use mpls_features
-> > to determine if the software implementation should be used.
-> > 
-> > As no driver advertises MPLS GSO segmentation this will always be
-> > the case.
-> > 
-> > I had not noticed that this was necessary before as software MPLS GSO
-> > segmentation was already being used in my test environment. I believe that
-> > the reason for that is the skbs in question always had fragments and the
-> > driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
-> > case for most drivers). Thus software segmentation was activated by
-> > skb_gso_ok().
-> > 
-> > Thanks to Jesse Gross for prompting me to investigate this.
-> > 
-> > Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-> 
-> Just requesting some stylistic changes:
-> 
-> > +/* If MPLS offload request, verify we are testing hardware MPLS features
-> > + * instead of standard features for the netdev.
-> > + */
-> > +#ifdef CONFIG_NET_MPLS_GSO
-> > +static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
-> > +	struct net_device *dev, netdev_features_t features)
-> 
-> Do not use inline in a foo.c file, let the compiler make the decision.
-> 
-> Also, line up the arguments on the second line correctly, they should
-> start exactly at the first column after the openning parenthesis of
-> the previous line.
-> 
-> > +static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
-> > +	struct net_device *dev, netdev_features_t features)
-> > +{
-> > +	return features;
-> > +}
-> 
-> Similarly.
+On Sat, May 31, 2014 at 4:08 PM, Rickard Strandqvist
+<rickard_strandqvist@spectrumdigital.se> wrote:
+> There is a risk that the variable will be used without being initialized.
+>
+> This was largely found by using a static code analysis program called cppcheck.
+>
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+>  drivers/atm/fore200e.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+> index 204814e..d4725fc 100644
+> --- a/drivers/atm/fore200e.c
+> +++ b/drivers/atm/fore200e.c
+> @@ -2780,7 +2780,7 @@ static struct pci_driver fore200e_pca_driver = {
+>
+>  static int __init fore200e_module_init(void)
+>  {
+> -       int err;
+> +       int err = 0;
+>
+>         printk(FORE200E "FORE Systems 200E-series ATM driver - version " FORE200E_VERSION "\n");
 
-Thanks, I'll fix things up and repost.
+
+I can see how a tool that doesn't know about Kconfig dependencies
+might think so, but if you look at Kconfig you'll see that for this
+driver to be enabled for building either CONFIG_SBUS or CONFIG_PCI
+must be set, and if either of them is then this variable will not be
+used without first being set.
+
+
+-Olof
