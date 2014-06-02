@@ -1,105 +1,72 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 3/3] isdn/capi: fix (middleware) device nodes
-Date: Sun, 1 Jun 2014 14:52:14 -0700
-Message-ID: <20140601215214.GA16029@kroah.com>
-References: <cover.1401475962.git.tilman@imap.cc>
- <b97b151835aecb1f13eb924bef9d04b25cc4cbf3.1401475962.git.tilman@imap.cc>
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2 net-next repost] MPLS: Use mpls_features to
+ activate software MPLS GSO segmentation
+Date: Mon, 2 Jun 2014 09:08:00 +0900
+Message-ID: <20140602000800.GD20022@verge.net.au>
+References: <20140530053519.GA3444@verge.net.au>
+ <20140530.154318.305349726927694948.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Paul Bolle <pebolle@tiscali.nl>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	isdn4linux@listserv.isdn4linux.de, Jiri Slaby <jslaby@suse.cz>
-To: Tilman Schmidt <tilman@imap.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:57396 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbaFAVwS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 17:52:18 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <b97b151835aecb1f13eb924bef9d04b25cc4cbf3.1401475962.git.tilman@imap.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140530.154318.305349726927694948.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 01, 2014 at 11:47:24PM +0200, Tilman Schmidt wrote:
-> From: Paul Bolle <pebolle@tiscali.nl>
+On Fri, May 30, 2014 at 03:43:18PM -0700, David Miller wrote:
+> From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+> Date: Fri, 30 May 2014 14:35:19 +0900
 > 
-> Since v2.4 the capi driver used the following device nodes if
-> "middleware" support was enabled:
->     /dev/capi20
->     /dev/capi/0
->     /dev/capi/1
->     [...]
+> > If an MPLS packet requires segmentation then use mpls_features
+> > to determine if the software implementation should be used.
+> > 
+> > As no driver advertises MPLS GSO segmentation this will always be
+> > the case.
+> > 
+> > I had not noticed that this was necessary before as software MPLS GSO
+> > segmentation was already being used in my test environment. I believe that
+> > the reason for that is the skbs in question always had fragments and the
+> > driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+> > case for most drivers). Thus software segmentation was activated by
+> > skb_gso_ok().
+> > 
+> > Thanks to Jesse Gross for prompting me to investigate this.
+> > 
+> > Acked-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+> > Signed-off-by: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
 > 
-> /dev/capi20 is a character device node. /dev/capi/0 (and up) are tty
-> device nodes (with a different major).
+> Just requesting some stylistic changes:
 > 
-> This device node (naming) scheme is not documented anywhere, as far as I
-> know. It was originally provided by the capifs pseudo filesystem (before
-> udev became available). It is required for example by the pppd
-> capiplugin. It was supported until a few years ago. But a number of
-> developments broke it:
-> - v2.6.6 (May 2004) renamed /dev/capi20 to /dev/capi and removed the
->   "/" from the name of capi's tty driver. The explanation of the patch
->   that did this included two examples of udev rules "to restore the old
->   namespace";
-> - either udev 154 (May 2010) or udev 179 (January 2012) stopped
->   allowing to rename device nodes, and thus the ability to have
->   /dev/capi20 appear instead of /dev/capi and /dev/capi/0 (and up)
->   instead of /dev/capi0 (and up);
-> - v3.0 (July 2011) also removed capifs. That disabled another method to
->   create the /dev/capi/0 (and up) device nodes.
+> > +/* If MPLS offload request, verify we are testing hardware MPLS features
+> > + * instead of standard features for the netdev.
+> > + */
+> > +#ifdef CONFIG_NET_MPLS_GSO
+> > +static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
+> > +	struct net_device *dev, netdev_features_t features)
 > 
-> So now users need to manually tweak their setup (eg, create /dev/capi/
-> and fill that with symlinks) to get things working. This is all rather
-> hacky and only discoverable by searching the web. Fix all this by
-> renaming /dev/capi back to /dev/capi20, and by setting the name of the
-> "capi_nc" tty driver to "capi!" so the tty device nodes appear as
-> /dev/capi/0 (and up).
+> Do not use inline in a foo.c file, let the compiler make the decision.
 > 
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> ---
->  drivers/isdn/capi/Kconfig | 2 +-
->  drivers/isdn/capi/capi.c  | 4 ++--
->  2 files changed, 3 insertions(+), 3 deletions(-)
+> Also, line up the arguments on the second line correctly, they should
+> start exactly at the first column after the openning parenthesis of
+> the previous line.
 > 
-> diff --git a/drivers/isdn/capi/Kconfig b/drivers/isdn/capi/Kconfig
-> index 1d7adff..7641b30 100644
-> --- a/drivers/isdn/capi/Kconfig
-> +++ b/drivers/isdn/capi/Kconfig
-> @@ -9,7 +9,7 @@ config CAPI_TRACE
->  	  If unsure, say Y.
->  
->  config ISDN_CAPI_CAPI20
-> -	tristate "CAPI2.0 /dev/capi support"
-> +	tristate "CAPI2.0 /dev/capi20 support"
->  	help
->  	  This option will provide the CAPI 2.0 interface to userspace
->  	  applications via /dev/capi20. Applications should use the
-> diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
-> index ac6f72b..f9a87ed 100644
-> --- a/drivers/isdn/capi/capi.c
-> +++ b/drivers/isdn/capi/capi.c
-> @@ -1271,7 +1271,7 @@ static int __init capinc_tty_init(void)
->  		return -ENOMEM;
->  	}
->  	drv->driver_name = "capi_nc";
-> -	drv->name = "capi";
-> +	drv->name = "capi!";
->  	drv->major = 0;
->  	drv->minor_start = 0;
->  	drv->type = TTY_DRIVER_TYPE_SERIAL;
-> @@ -1417,7 +1417,7 @@ static int __init capi_init(void)
->  		return PTR_ERR(capi_class);
->  	}
->  
-> -	device_create(capi_class, NULL, MKDEV(capi_major, 0), NULL, "capi");
-> +	device_create(capi_class, NULL, MKDEV(capi_major, 0), NULL, "capi20");
->  
->  	if (capinc_tty_init() < 0) {
->  		device_destroy(capi_class, MKDEV(capi_major, 0));
+> > +static inline netdev_features_t net_mpls_features(struct sk_buff *skb,
+> > +	struct net_device *dev, netdev_features_t features)
+> > +{
+> > +	return features;
+> > +}
+> 
+> Similarly.
 
-Much nicer than the previous patches to resolve this issue :)
-
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Thanks, I'll fix things up and repost.
