@@ -1,58 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Mon, 2 Jun 2014 18:36:01 +1000
-Message-ID: <20140602183601.65742dfa@canb.auug.org.au>
+From: Kevin Curtis <Kevin.Curtis@farsite.com>
+Subject: RE: [PATCH] wan: Use usleep_range()
+Date: Mon, 2 Jun 2014 09:56:26 +0100
+Message-ID: <E603DC592C92B54A89CEF6B0919A0B1CAFDE223D13@SOLO.hq.farsitecommunications.com>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAFDE223C6D@SOLO.hq.farsitecommunications.com>
+ <1401548871-12352-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/cJNPMS80ZHeOaELJrIHw7ig"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"joe@perches.com" <joe@perches.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: =?utf-8?B?TWFudWVsIFNjaMO2bGxpbmc=?= <manuel.schoelling@gmx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401548871-12352-1-git-send-email-manuel.schoelling@gmx.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/cJNPMS80ZHeOaELJrIHw7ig
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
-
-Hi all,
-
-After merging the net-next tree, today's linux-next build (sparc64
-defconfig) failed like this:
-
-ERROR: "of_mdiobus_link_phydev" [drivers/net/phy/libphy.ko] undefined!
-
-Caused by commit 86f6cf41272d ("net: of_mdio: add
-of_mdiobus_link_phydev()") from te net-next tree.
-
-CONFIG_PHYLIB=3Dm for this build.
-
-I have reverted that commit for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/cJNPMS80ZHeOaELJrIHw7ig
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTjDd3AAoJEMDTa8Ir7ZwVy6UP/1PiE3Q3x3Uy8/0yykAM/jm5
-io0m0YSsjoraoi9sYoPgFTAH88hK9CTJed0KEiCm36ZdJ0xxbl77XGC/dU5wJNyO
-bJuvLiJ0b/Mcx/ZjIMA1UhRa8DBjHohcnbl2Enc3IzJohc+1782u41xU4kC11u2N
-6G1as2BHz2ZFL0YxkepcGXYkQ6czfyLx/v4NxH4dJeBjpH0ZKty2xwUot2i6/WNu
-uLJKL6osTl9BhBIVOWe2L9uJfyOFVTCUXgqgF2mJhHD3KSg+wpToc/zoPnPVyxZh
-kZAQ8hpuUCb35kiBHQGGX1f2TXLIxRWSOKUBX3dVnkNhuR3VVFaQcheirNGU42s8
-MLTTQe2HY2HhwBVXt8klK9m5hO5yp0CdRPRxdGxVRKa7gV9R3gzwyOG3Tp4w4qbL
-GbjHBk1/pa8nKn7MzHkqRsG0GptPaxiaWTR+sHLgKLw7nIYWoBUpOwVWsQWXvb/i
-buWTIpIRwpAr0Srwjvd6ByczZeIQVyidWpacxSGtCwjUvEgS7r0wxxwEQxMN6IyN
-2WKxs3qVZZEghcJnRA1omjwrRULTczbOADXNUWdL42B6gr54rFJ6lau35PJazPOL
-2nsuYmOnFvvizcDt5A+ZPw5xaHU5EOIVoh/rd/sz7ecgIQUmldFcbQBxdWuaPLsO
-s9pfBQ6jUhoL7H719SsU
-=5UMp
------END PGP SIGNATURE-----
-
---Sig_/cJNPMS80ZHeOaELJrIHw7ig--
+SGkgTWFudWVsLA0KICAgVGhpcyBsb29rIGZpbmUgdG8gbWUuDQoNClJlZ2FyZHMNCg0KS2V2aW4N
+Cg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IE1hbnVlbCBTY2jDtmxsaW5nIFtt
+YWlsdG86bWFudWVsLnNjaG9lbGxpbmdAZ214LmRlXSANClNlbnQ6IDMxIE1heSAyMDE0IDE2OjA4
+DQpUbzogS2V2aW4gQ3VydGlzDQpDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgam9lQHBlcmNoZXMu
+Y29tOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
+OyBNYW51ZWwgU2Now7ZsbGluZw0KU3ViamVjdDogW1BBVENIXSB3YW46IFVzZSB1c2xlZXBfcmFu
+Z2UoKQ0KDQpJbnN0ZWFkIG9mIHVzaW5nIGEgamlmZmllcyBoYWNrIHdlIGNhbiB1c2UgdGhlIHN0
+YW5kYXJkIGFwaSBmb3IgZGVsYXlzLg0KDQpTaWduZWQtb2ZmLWJ5OiBNYW51ZWwgU2Now7ZsbGlu
+ZyA8bWFudWVsLnNjaG9lbGxpbmdAZ214LmRlPg0KLS0tDQogZHJpdmVycy9uZXQvd2FuL2ZhcnN5
+bmMuYyB8ICAgMTAgKysrLS0tLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyks
+IDcgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC93YW4vZmFyc3luYy5j
+IGIvZHJpdmVycy9uZXQvd2FuL2ZhcnN5bmMuYyBpbmRleCBiY2ZmZjBkLi4wMmY2ZDFjIDEwMDY0
+NA0KLS0tIGEvZHJpdmVycy9uZXQvd2FuL2ZhcnN5bmMuYw0KKysrIGIvZHJpdmVycy9uZXQvd2Fu
+L2ZhcnN5bmMuYw0KQEAgLTI2LDYgKzI2LDcgQEANCiAjaW5jbHVkZSA8bGludXgvaW9wb3J0Lmg+
+DQogI2luY2x1ZGUgPGxpbnV4L2luaXQuaD4NCiAjaW5jbHVkZSA8bGludXgvaW50ZXJydXB0Lmg+
+DQorI2luY2x1ZGUgPGxpbnV4L2RlbGF5Lmg+DQogI2luY2x1ZGUgPGxpbnV4L2lmLmg+DQogI2lu
+Y2x1ZGUgPGxpbnV4L2hkbGMuaD4NCiAjaW5jbHVkZSA8YXNtL2lvLmg+DQpAQCAtNjc4LDcgKzY3
+OSw2IEBAIHN0YXRpYyBpbmxpbmUgdm9pZA0KIGZzdF9jcHVyZXNldChzdHJ1Y3QgZnN0X2NhcmRf
+aW5mbyAqY2FyZCkgIHsNCiAJdW5zaWduZWQgY2hhciBpbnRlcnJ1cHRfbGluZV9yZWdpc3RlcjsN
+Ci0JdW5zaWduZWQgbG9uZyBqID0gamlmZmllcyArIDE7DQogCXVuc2lnbmVkIGludCByZWd2YWw7
+DQogDQogCWlmIChjYXJkLT5mYW1pbHkgPT0gRlNUX0ZBTUlMWV9UWFUpIHsNCkBAIC02OTYsMTYg
+KzY5NiwxMiBAQCBmc3RfY3B1cmVzZXQoc3RydWN0IGZzdF9jYXJkX2luZm8gKmNhcmQpDQogCQkv
+Kg0KIAkJICogV2UgYXJlIGRlbGF5aW5nIGhlcmUgdG8gYWxsb3cgdGhlIDkwNTQgdG8gcmVzZXQg
+aXRzZWxmDQogCQkgKi8NCi0JCWogPSBqaWZmaWVzICsgMTsNCi0JCXdoaWxlIChqaWZmaWVzIDwg
+aikNCi0JCQkvKiBEbyBub3RoaW5nICovIDsNCisJCXVzbGVlcF9yYW5nZSgxMCwgMjApOw0KIAkJ
+b3V0dygweDI0MGYsIGNhcmQtPnBjaV9jb25mICsgQ05UUkxfOTA1NCArIDIpOw0KIAkJLyoNCiAJ
+CSAqIFdlIGFyZSBkZWxheWluZyBoZXJlIHRvIGFsbG93IHRoZSA5MDU0IHRvIHJlbG9hZCBpdHMg
+ZWVwcm9tDQogCQkgKi8NCi0JCWogPSBqaWZmaWVzICsgMTsNCi0JCXdoaWxlIChqaWZmaWVzIDwg
+aikNCi0JCQkvKiBEbyBub3RoaW5nICovIDsNCisJCXVzbGVlcF9yYW5nZSgxMCwgMjApOw0KIAkJ
+b3V0dygweDA0MGYsIGNhcmQtPnBjaV9jb25mICsgQ05UUkxfOTA1NCArIDIpOw0KIA0KIAkJaWYg
+KHBjaV93cml0ZV9jb25maWdfYnl0ZQ0KLS0NCjEuNy4xMC40DQoNCg==
