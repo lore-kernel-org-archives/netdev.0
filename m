@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: of_mdio: use int type for address variable
-Date: Mon, 02 Jun 2014 10:43:23 -0700 (PDT)
-Message-ID: <20140602.104323.2040619784965255513.davem@davemloft.net>
-References: <1401708766-5530-1-git-send-email-zonque@gmail.com>
+Subject: Re: [PATCH 2/2 v3] lpc_eth: Use resource_size instead of
+ computation
+Date: Mon, 02 Jun 2014 10:58:59 -0700 (PDT)
+Message-ID: <20140602.105859.1728862913327118150.davem@davemloft.net>
+References: <20140601.192705.693805935389177182.davem@davemloft.net>
+	<20140602112419.GA3625@lip6.fr>
+	<20140602113430.GA3823@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, netdev@vger.kernel.org,
-	sfr@canb.auug.org.au
-To: zonque@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35197 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404AbaFBRnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 13:43:24 -0400
-In-Reply-To: <1401708766-5530-1-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: benoit.taine@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140602113430.GA3823@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Mack <zonque@gmail.com>
-Date: Mon,  2 Jun 2014 13:32:45 +0200
+From: Benoit Taine <benoit.taine@lip6.fr>
+Date: Mon, 2 Jun 2014 13:34:30 +0200
 
-> Use int rather than u32 to fix the following warning:
+> This issue was reported by coccicheck using the semantic patch 
+> at scripts/coccinelle/api/resource_size.cocci
 > 
-> drivers/of/of_mdio.c:147 of_mdiobus_register() warn: unsigned 'addr' is
-> never less than zero.
-> 
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> Fixes: 8f8382888cba ("net: of_mdio: factor out code to parse a phy's 'reg' property")
+> Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
 
-Applied.
+This patch doesn't apply cleanly to any of my trees.
