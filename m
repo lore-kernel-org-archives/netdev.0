@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: Remove spin_lock call in
- stmmac_get_pauseparam()
-Date: Mon, 02 Jun 2014 10:38:34 -0700 (PDT)
-Message-ID: <20140602.103834.1994455666478487120.davem@davemloft.net>
-References: <1401701450-1203-1-git-send-email-emilgoode@gmail.com>
+Subject: Re: [PATCH net-next v2 0/2] 6lowpan: fragmentation fixes
+Date: Mon, 02 Jun 2014 10:40:25 -0700 (PDT)
+Message-ID: <20140602.104025.2073329000274245328.davem@davemloft.net>
+References: <1401708118-16436-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Wei.Yang@windriver.com, peppe.cavallaro@st.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: emilgoode@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401701450-1203-1-git-send-email-emilgoode@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	phoebe.buckheister@itwm.fraunhofer.de, werner@almesberger.net
+To: alex.aring@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35174 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750998AbaFBRk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 13:40:27 -0400
+In-Reply-To: <1401708118-16436-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Emil Goode <emilgoode@gmail.com>
-Date: Mon,  2 Jun 2014 11:30:50 +0200
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Mon,  2 Jun 2014 13:21:56 +0200
 
-> The following patch removed unnecessary spin_lock/unlock calls
-> in ethtool_ops callback functions. In the second and final version
-> of the patch one spin_lock call was left behind.
+> This patch series fix the 6LoWPAN fragmentation which are in two cases broken.
 > 
-> commit cab6715c3e8029e98b0b5d4056ceda007c0f6380
-> Author: Yang Wei <Wei.Yang@windriver.com>
-> Date:   Sun May 25 09:53:44 2014 +0800
+> The first case is if we have exactly two 6LoWPAN fragments only. This is fixed
+> by patch "6lowpan_rtnl: fix fragmentation with two fragments".
+> The second case is a off by one issue if we have payload which hits the fragment
+> boundary.
 > 
->     net: driver: stmicro: Remove some useless the lock protection
-> 
-> This introduced the following sparse warning:
-> 
-> drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c:424:1: warning:
-> 	context imbalance in 'stmmac_get_pauseparam' -
-> 	different lock contexts for basic block
-> 
-> Signed-off-by: Emil Goode <emilgoode@gmail.com>
+> Both issues are introduced by commit d4b2816d67d6e07b2f27037f282d8db03a5829d7
+> ("6lowpan: fix fragmentation").
 
-Good catch, applied, thanks Emil.
+Series applied, thanks Alexander.
