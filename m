@@ -1,50 +1,62 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Mon, 2 Jun 2014 11:16:06 -0300
-Message-ID: <20140602141606.GC2544@kernel.org>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
- <20140602081545.7baf4a91@lwn.net>
- <20140602092456.2114440a@gandalf.local.home>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net] bridge: Prevent insertion of FDB entry
+ with disallowed vlan
+Date: Mon, 02 Jun 2014 10:22:10 -0400
+Message-ID: <538C8892.8030800@redhat.com>
+References: <1401084953-10135-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20140530.154857.23436038195529720.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jonathan Corbet <corbet@lwn.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140602092456.2114440a@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>, makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140530.154857.23436038195529720.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Jun 02, 2014 at 09:24:56AM -0400, Steven Rostedt escreveu:
-> On Mon, 2 Jun 2014 08:15:45 -0500
-> Jonathan Corbet <corbet@lwn.net> wrote:
- 
-> > On Mon,  2 Jun 2014 00:01:44 -0700
-> > Alexei Starovoitov <ast@plumgrid.com> wrote:
+On 05/30/2014 06:48 PM, David Miller wrote:
+> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> Date: Mon, 26 May 2014 15:15:53 +0900
+> 
+>> br_handle_local_finish() is allowing us to insert an FDB entry with
+>> disallowed vlan. For example, when port 1 and 2 are communicating in
+>> vlan 10, and even if vlan 10 is disallowed on port 3, port 3 can
+>> interfere with their communication by spoofed src mac address with
+>> vlan id 10.
+>>
+>> Note: Even if it is judged that a frame should not be learned, it should
+>> not be dropped because it is destined for not forwarding layer but higher
+>> layer. See IEEE 802.1Q-2011 8.13.10.
+>>
+>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> 
+> In reference to Vlad's suggestion to try to reuse the logic of the
+> existing br_allowed_ingress() function, I don't think that's so
+> easy.
+> 
+> As stated already, it drops packets whilst we don't want that here.
+> 
+> Another difference is that it does vlan_untag(), which we also do
+> not want here.
+> 
+> Let's just stay with this version of the fix, Vlad if you're OK with
+> that can you please give your ACK?  Thanks.
+> 
 
-> > > This patch set splits BPF out of core networking into generic component
 
-> > Quick, probably dumb question: if you're going to split it out, why not
-> > split it out entirely, into kernel/ or (perhaps better) lib/?  The
-> > whole point seems to be that BPF is outgrowing its networking home, so
-> > it seems like it might be better to make it truly generic.
- 
-> I believe this is what Ingo suggested as well. If it is become generic,
-> it belongs in lib/
+Acked-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Yes, that was his suggestion, which I agree with, FWIW.
+I need to spend a little time and figure out how to make it more re-usable.
 
-- Arnaldo
+-vlad
