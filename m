@@ -1,55 +1,62 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next] net: filter: fix length calculation in BPF testsuite
-Date: Sun, 1 Jun 2014 23:33:16 -0700
-Message-ID: <CAMEtUuzw8CzUvaNi_OxaChXK0GKVxy5yaK5ztauRf8eiavzGkw@mail.gmail.com>
-References: <53879B78.5050106@redhat.com>
-	<1401470112-3933-1-git-send-email-chema@google.com>
-	<538A2BCE.7070805@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chema Gonzalez <chema@google.com>,
-	David Miller <davem@davemloft.net>,
+Subject: [PATCH v2 net-next 0/2] split BPF out of core networking
+Date: Mon,  2 Jun 2014 00:01:44 -0700
+Message-ID: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:60935 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbaFBGdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 02:33:17 -0400
-Received: by mail-wi0-f171.google.com with SMTP id cc10so3907675wib.16
-        for <netdev@vger.kernel.org>; Sun, 01 Jun 2014 23:33:16 -0700 (PDT)
-In-Reply-To: <538A2BCE.7070805@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 31, 2014 at 12:21 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 05/30/2014 07:15 PM, Chema Gonzalez wrote:
->>
->> The current probe_filter_length() (the function that calculates the
->> length of a test BPF filter) behavior is to declare the end of the
->> filter as soon as it finds {0, *, *, 0}. This is actually a valid
->> insn ("ld #0"), so any filter with includes "BPF_STMT(BPF_LD | BPF_IMM,
->> 0)"
->> fails (its length is cut short).
->>
->> We are changing probe_filter_length() so as to start from the end, and
->> declare the end of the filter as the first instruction which is not
->> {0, *, *, 0}. This solution produces a simpler patch than the
->> alternative of using an explicit end-of-filter mark. It is technically
->> incorrect if your filter ends up with "ld #0", but that should not
->> happen anyway.
->>
->> We also add a new test (LD_IMM_0) that includes ld #0 (does not work
->> without this patch).
->>
->> Signed-off-by: Chema Gonzalez <chema@google.com>
+This patch set splits BPF out of core networking into generic component
 
-Thank you for addressing all our comments.
+patch #1 splits filter.c into two logical pieces: generic BPF core and socket
+filters. It only moves functions around. No real changes.
 
-Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+patch #2 adds hidden CONFIG_BPF that seccomp/tracing can select
 
->
-> Thanks (sorry for the delay as I'm currently on travel).
->
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+The main value of the patch is not a NET separation, but rather logical boundary
+between generic BPF core and socket filtering. All socket specific code stays in
+net/core/filter.c and kernel/bpf/core.c is for generic BPF infrastructure (both
+classic and internal).
+
+Note that CONFIG_BPF_JIT is still under NET, so NET-less configs cannot use
+BPF JITs yet. This can be cleaned up in the future. Also it seems to makes sense
+to split up filter.h into generic and socket specific as well to cleanup the
+boundary further.
+
+Tested with several NET and NET-less configs on arm and x86
+
+V1->V2:
+rebase on top of net-next
+split filter.c into kernel/bpf/core.c instead of net/bpf/core.c
+
+Alexei Starovoitov (2):
+  net: filter: split filter.c into two files
+  net: filter: split BPF out of core networking
+
+ arch/Kconfig           |    6 +-
+ include/linux/filter.h |    2 +
+ kernel/Makefile        |    1 +
+ kernel/bpf/Makefile    |    5 +
+ kernel/bpf/core.c      | 1063 ++++++++++++++++++++++++++++++++++++++++++++++++
+ net/Kconfig            |    1 +
+ net/core/filter.c      | 1023 +---------------------------------------------
+ 7 files changed, 1079 insertions(+), 1022 deletions(-)
+ create mode 100644 kernel/bpf/Makefile
+ create mode 100644 kernel/bpf/core.c
+
+-- 
+1.7.9.5
