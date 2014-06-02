@@ -1,95 +1,58 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Mon, 2 Jun 2014 12:02:03 -0700
-Message-ID: <CAMEtUuwxJOgYgFjg9deQZOffeg6-JUGZXZ1Rj344eQmriQ0F0Q@mail.gmail.com>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
-	<538C3C94.3080206@redhat.com>
-	<CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com>
-	<538CAEA6.4060307@redhat.com>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Mon, 02 Jun 2014 20:06:52 +0100
+Message-ID: <538CCB4C.1080901@codethink.co.uk>
+References: <1401729456-23514-1-git-send-email-ben.dooks@codethink.co.uk> <20140602.115303.1283021229124256917.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <538CAEA6.4060307@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@codethink.co.uk, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au, yoshihiro.shimoda.uh@renesas.com,
+	cm-hiep@jinso.co.jp
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:51277 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751338AbaFBTHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 15:07:01 -0400
+In-Reply-To: <20140602.115303.1283021229124256917.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 2, 2014 at 10:04 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 06/02/2014 05:41 PM, Alexei Starovoitov wrote:
-> ...
->
->> Glad you brought up this point :)
->> 100% agree that current double verification done by seccomp is far from
->> being generic and quite hard to maintain, since any change done to
->> classic BPF verifier needs to be thought through from
->> seccomp_check_filter()
->> perspective as well.
->
->
-> Glad we're on the same page.
->
->
->> BPF's input context, set of allowed calls need to be expressed in a
->> generic way.
->> Obviously this split by itself won't make classic BPF all of a sudden
->> generic.
->> It rather defines a boundary of eBPF core.
->
->
-> Note, I'm not at all against using it in tracing, I think it's probably
-> a good idea, but shouldn't we _first_ think about how to overcome such
-> deficits as above by improving upon its in-kernel API design, thus to
-> better prepare it to be generic? I feel this step is otherwise just
-> skipped and quickly 'hacked' around ... ;)
+On 02/06/14 19:53, David Miller wrote:
+> From: Ben Dooks <ben.dooks@codethink.co.uk>
+> Date: Mon,  2 Jun 2014 18:17:36 +0100
+> 
+>> The current behaviour of the sh_eth driver is not to use the RNC bit
+>> for the receive ring. This means that every packet recieved is not only
+>> generating an IRQ but it also stops the receive ring DMA as well until
+>> the driver re-enables it after unloading the packet.
+>>
+>> This means that a number of the following errors are generated due to
+>> the receive packet FIFO overflowing due to nowhere to put packets:
+>>
+>> 	net eth0: Receive FIFO Overflow
+>>
+>> I have tested the RMCR_RNC configuration with NFS root filesystem and
+>> the driver has not failed yet.  There are further test reports from
+>> Sergei Shtylov and others for both the R8A7790 and R8A7791.
+>>
+>> There is also feedback fron Cao Minh Hiep[1] which reports the
+>> same issue in (http://comments.gmane.org/gmane.linux.network/316285)
+>> showing this fixes issues with losing UDP datagrams under iperf.
+>>
+>> Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> 
+> Given the description, I can't fathom a reason why this wouldn't be
+> set always, for every chip.
+> 
+> Do some chips not implement this bit at all?
 
-Are you talking about classic 'deficit' or eBPF 'deficit' ?
-Classic has all sorts of hard coded assumptions. The whole
-concept of 'load from magic constant' to mean different things
-is flawed. We all got used to it and now think that it's normal
-for "ld_abs -4056" to mean "a ^= x"
-This split is not trying to make classic easier to hack.
-With eBPF underneath classic, it got a lot easier to add extensions
-to classic, but we shouldn't be doing it.
-Classic BPF is not generic and cannot become one. It's eBPF's job.
+I do not have access to enough of the sh-eth capable data-sheets
+to know why this is.
 
-The split is mainly helping to clearly see the boundary of eBPF core
-vs its socket use case. It doesn't change or add any API.
-We need to carefully design eBPF APIs when we expose it
-to user space. I have a proposal for that too, but that's separate
-discussion.
-In terms of in-kernel eBPF API there is nothing to be done.
-eBPF program 'prog' is generated by whatever means and then:
-      struct sk_filter *fp;
-
-      fp = kzalloc(sk_filter_size(prog_len), GFP_KERNEL);
-      memcpy(fp->insni, prog, prog_len * sizeof(fp->insni[0]));
-      fp->len = prog_len;
-
-      sk_filter_select_runtime(fp); // select interpreter or JIT
-      SK_RUN_FILTER(fp, ctx);  // run the program
-      sk_filter_free(fp); // free program
-
-that's how sockets, testsuite, seccomp, tracing are doing it.
-All have different ways of producing 'prog' and 'prog_len'.
-This in-kernel API cleanup was done in commit 5fe821a9dee2
-You even acked it back then :)
-
-If you're referring to eBPF verifier in-kernel API then yeah, it's
-missing, just like the whole eBPF verifier :)
-Ideally any kernel component that generates eBPF on the fly
-sends eBPF program to verifier first just to double check
-that generated program is valid.
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
