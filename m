@@ -1,38 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ks8851: Don't use regulator_get_optional()
-Date: Sun, 01 Jun 2014 19:48:02 -0700 (PDT)
-Message-ID: <20140601.194802.439655175826998004.davem@davemloft.net>
-References: <1401307872-23190-1-git-send-email-sboyd@codeaurora.org>
+Subject: Re: [PATCH 1/7] udp: Generic functions to set checksum
+Date: Sun, 01 Jun 2014 19:49:42 -0700 (PDT)
+Message-ID: <20140601.194942.1014308083943595457.davem@davemloft.net>
+References: <alpine.DEB.2.02.1405282113290.6331@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	nm@ti.com, broonie@kernel.org
-To: sboyd@codeaurora.org
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1401307872-23190-1-git-send-email-sboyd@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55607 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753804AbaFBCtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 1 Jun 2014 22:49:43 -0400
+In-Reply-To: <alpine.DEB.2.02.1405282113290.6331@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Boyd <sboyd@codeaurora.org>
-Date: Wed, 28 May 2014 13:11:12 -0700
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 28 May 2014 21:23:27 -0700 (PDT)
 
-> We shouldn't be using regulator_get_optional() here. These
-> regulators are always present as part of the physical design and
-> there isn't any way to use an internal regulator or change the
-> source of the reference voltage via software. Given that the only
-> users of this driver in the kernel are DT based, this change
-> should be transparent to them even if they don't specify any
-> supplies because the regulator framework will insert dummy
-> supplies as needed.
+> Added udp_set_csum and udp6_set_csum functions to set UDP checksums
+> in packets. These are for simple UDP packets such as those that might
+> be created in UDP tunnels.
 > 
-> Cc: Nishanth Menon <nm@ti.com>
-> Cc: Mark Brown <broonie@kernel.org>
-> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  include/net/ip6_checksum.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
+>  include/net/udp.h          | 42 ++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 87 insertions(+)
+> 
+> diff --git a/include/net/ip6_checksum.h b/include/net/ip6_checksum.h
+> index 8ac5c21..7382a12 100644
+> --- a/include/net/ip6_checksum.h
+> +++ b/include/net/ip6_checksum.h
+> @@ -82,5 +82,50 @@ static inline void tcp_v6_send_check(struct sock *sk, struct sk_buff *skb)
+>  }
+>  #endif
+>  
+> +static inline __sum16 udp_v6_check(int len,
+> +				       const struct in6_addr *saddr,
+> +				       const struct in6_addr *daddr,
+> +				       __wsum base)
 
-This patch only applies to net-next, please make that explicit in your
-future submissions by saying something like "[PATCH net-next] ..."
-in your Subject line.
+Tom, please indent this correctly.  I applied this patch and double checked
+and it comes out like this:
 
-Applied, thanks.
+static inline __sum16 udp_v6_check(int len,
+				       const struct in6_addr *saddr,
+				       const struct in6_addr *daddr,
+				       __wsum base)
+
+Those arguments must start precisely at the first column after the
+openning parenthesis of the function declaration.
