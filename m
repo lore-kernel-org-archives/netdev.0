@@ -1,51 +1,48 @@
-From: Benoit Taine <benoit.taine@lip6.fr>
-Subject: [PATCH 2/2 v2] lpc_eth: Use resource_size instead of computation
-Date: Mon, 2 Jun 2014 13:24:19 +0200
-Message-ID: <20140602112419.GA3625@lip6.fr>
-References: <1401290047-30005-1-git-send-email-benoit.taine@lip6.fr>
- <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
- <20140601.192705.693805935389177182.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140601.192705.693805935389177182.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH 1/2] net: of_mdio: use int type for address variable
+Date: Mon,  2 Jun 2014 13:32:45 +0200
+Message-ID: <1401708766-5530-1-git-send-email-zonque@gmail.com>
+Cc: netdev@vger.kernel.org, sfr@canb.auug.org.au,
+	Daniel Mack <zonque@gmail.com>
+To: linux-next@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This issue was reported by coccicheck using the semantic patch 
-at scripts/coccinelle/api/resource_size.cocci
+Use int rather than u32 to fix the following warning:
 
-Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
+drivers/of/of_mdio.c:147 of_mdiobus_register() warn: unsigned 'addr' is
+never less than zero.
+
+Signed-off-by: Daniel Mack <zonque@gmail.com>
+Fixes: 8f8382888cba ("net: of_mdio: factor out code to parse a phy's 'reg' property")
 ---
-Not compile tested, due incompatible architecture.
+David,
 
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 422d9b5..645dac3 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1361,7 +1361,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
-        __lpc_eth_clock_enable(pldat, true);
+this patch and the next one fix warnings and build breakage reported
+by Stephen and the build test system. They were both introduced by
+my patches that you applied lately.
+
+Thanks,
+Daniel
+
+ drivers/of/of_mdio.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index c719601..cb36018 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -147,9 +147,8 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ {
+ 	struct device_node *child;
+ 	const __be32 *paddr;
+-	u32 addr;
+ 	bool scanphys = false;
+-	int rc, i;
++	int addr, rc, i;
  
-        /* Map IO space */
--       pldat->net_base = ioremap(res->start, res->end - res->start + 1);
-+       pldat->net_base = ioremap(res->start, resource_size(res));
-        if (!pldat->net_base) {
-                dev_err(&pdev->dev, "failed to map registers\n");
-                ret = -ENOMEM;
-@@ -1417,10 +1417,8 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
-        }
-        pldat->dma_buff_base_p = dma_handle;
- 
--       netdev_dbg(ndev, "IO address start     :0x%08x\n",
--                       res->start);
--       netdev_dbg(ndev, "IO address size      :%d\n",
--                       res->end - res->start + 1);
-+       netdev_dbg(ndev, "IO address space     :%pR", res);
-+       netdev_dbg(ndev, "IO address size      :%d\n", resource_size(res));
-        netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
-                        pldat->net_base);
-        netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
+ 	/* Mask out all PHYs from auto probing.  Instead the PHYs listed in
+ 	 * the device tree are populated after the bus has been registered */
+-- 
+1.9.0
