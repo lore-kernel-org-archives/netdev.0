@@ -1,63 +1,82 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
-Date: Tue, 03 Jun 2014 02:26:16 +0400
-Message-ID: <538CFA08.3010302@cogentembedded.com>
-References: <538CD19B.5060208@cogentembedded.com>	<20140602.134915.1162774321657125992.davem@davemloft.net>	<538CE4CA.4090301@cogentembedded.com> <20140602.140504.1151986761253502538.davem@davemloft.net> <538CE9EB.1010506@cogentembedded.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [bug report] buffer overflow in isdn capi
+Date: Tue, 03 Jun 2014 00:48:02 +0200
+Message-ID: <538CFF22.5020800@imap.cc>
+References: <20140401154830.GA16759@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ben.dooks@codethink.co.uk, linux-kernel@codethink.co.uk,
-	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	magnus.damn@opensource.se, horms@verge.net.au,
-	yoshihiro.shimoda.uh@renesas.com, cm-hiep@jinso.co.jp,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <538CE9EB.1010506@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55359 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752116AbaFBWsD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 18:48:03 -0400
+Received: from compute2.internal (compute2.nyi.mail.srv.osa [10.202.2.42])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 2902F21522
+	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 18:48:02 -0400 (EDT)
+In-Reply-To: <20140401154830.GA16759@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-On 06/03/2014 01:17 AM, Sergei Shtylyov wrote:
+Hello all,
 
->>>>>      Looks like the early SH2/3 SoCs didn't implement the whole register.
->>>>> Despite that, sh_eth_dev_init() always writes to this register... :-/
->>>>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
->>>>> controllers, however that rule wasn't strictly followed. Well, this
->>>>> driver is still a mess, and it's hard to deal with it without the
->>>>> necessary documentation.
+on 01.04.2014 17:48, Dan Carpenter wrote:
+> The command_2_index() function is buggy and leads to a buffer
+> overflow. Does anyone know how to fix this?
 
->>>> Why don't we therefore:
+AFAICS this is still unfixed.
+As an easy fix I propose:
 
->>>> 1) Skip the register write if the per-chip value is zero.
+- --- a/drivers/isdn/capi/capiutil.c
++++ b/drivers/isdn/capi/capiutil.c
+@@ -203,14 +203,7 @@ static unsigned char *cpars[] =3D
+ /*-------------------------------------------------------*/
+ static unsigned command_2_index(unsigned c, unsigned sc)
+ {
+- -       if (c & 0x80)
+- -               c =3D 0x9 + (c & 0x0f);
+- -       else if (c <=3D 0x0f);
+- -       else if (c =3D=3D 0x41)
+- -               c =3D 0x9 + 0x1;
+- -       else if (c =3D=3D 0xff)
+- -               c =3D 0x00;
+- -       return (sc & 3) * (0x9 + 0x9) + c;
++       return (sc & 3) * (0x9 + 0x9) + ((c & 0xf0) ? 0x9 : 0) + (c &
+0x0f);
+ }
 
->>>     I rather thought about not writing when the register is not
->>>     implemented.
->>> I'll probably look into this when I have time.
+ /*-------------------------------------------------------*/
 
->>>> 2) Add the RNC bit to all of the gigabit capable controllers.
+This produces identical results to the current function for
+all legal values of c (0x00..0x08, 0x41, 0x80..0x88, 0xff)
+and guarantees that the result is <=3D 0x4e for all possible
+inputs, whether legal or not. It also makes it clearer what
+that function actually does.
 
->>>     I probably misspoke -- all the Gigabit controllers already have it
->>>     set, it's just that some 100 MBbps ones have it set, but most don't.
+Unless somebody points out a serious flaw with this I'll test it
+and submit a formal patch.
 
->> So these chips that do not implement the register, they only process
->> one RX descriptor at a time until the interrupt handler re-enables
->> DMA receive?
+Karsten's other concern about unhandled NULL pointers in the
+mnames[] and cpars[] arrays should be addressed separately IMHO.
 
->     I just don't know. Looks like the driver is broken on SH2/3 even more than
-> I thought: it always reads the EDRRR register in sh_eth_rx() trying to
-> understand if the reception has been stopped but that register doesn't seem to
-> exist on SH2/3. Moreover, sh_eth_interrupt() reads EESR in order to determine
-> the interrupt status but that register doesn't seem to exist on SH2/3 either!
+Regards,
+Tilman
 
-    OK, I've chased down the commit that broke SH2/3 support 3+ years ago; 
-here it is:
+- --=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (MingW32)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=4a55530f38e4eeee3afb06093e81309138fe8360
-
-    All the registers I've mentioned did exist on SH2/3, they just got missed 
-in the mapping arrays.
-
-WBR, Sergei
-
+iEYEARECAAYFAlOM/yIACgkQQ3+did9BuFuwMwCfVZq5Lx0P+ddhe/5WlxuO5zzp
+VV4AoIn50I1wa4r4DtWfHFErMysgjsxr
+=3Dk/+h
+-----END PGP SIGNATURE-----
