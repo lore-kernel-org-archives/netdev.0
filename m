@@ -1,35 +1,63 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] bridge: Add bridge ifindex to bridge fdb notify
- msgs
-Date: Mon, 02 Jun 2014 18:18:41 -0400
-Message-ID: <538CF841.9010000@mojatatu.com>
-References: <1401255577-30602-1-git-send-email-roopa@cumulusnetworks.com> <20140602.135014.17031590643529626.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Tue, 03 Jun 2014 02:26:16 +0400
+Message-ID: <538CFA08.3010302@cogentembedded.com>
+References: <538CD19B.5060208@cogentembedded.com>	<20140602.134915.1162774321657125992.davem@davemloft.net>	<538CE4CA.4090301@cogentembedded.com> <20140602.140504.1151986761253502538.davem@davemloft.net> <538CE9EB.1010506@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	wkok@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
-	shm@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>, roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:41214 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751875AbaFBWSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 18:18:43 -0400
-Received: by mail-ie0-f180.google.com with SMTP id tp5so4992431ieb.25
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 15:18:43 -0700 (PDT)
-In-Reply-To: <20140602.135014.17031590643529626.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ben.dooks@codethink.co.uk, linux-kernel@codethink.co.uk,
+	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	magnus.damn@opensource.se, horms@verge.net.au,
+	yoshihiro.shimoda.uh@renesas.com, cm-hiep@jinso.co.jp,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <538CE9EB.1010506@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/02/14 16:50, David Miller wrote:
->
-> Jamal, how did the testing go?
->
+Hello.
 
-Works as advertised.
+On 06/03/2014 01:17 AM, Sergei Shtylyov wrote:
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>>>      Looks like the early SH2/3 SoCs didn't implement the whole register.
+>>>>> Despite that, sh_eth_dev_init() always writes to this register... :-/
+>>>>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
+>>>>> controllers, however that rule wasn't strictly followed. Well, this
+>>>>> driver is still a mess, and it's hard to deal with it without the
+>>>>> necessary documentation.
 
-cheers,
-jamal
+>>>> Why don't we therefore:
+
+>>>> 1) Skip the register write if the per-chip value is zero.
+
+>>>     I rather thought about not writing when the register is not
+>>>     implemented.
+>>> I'll probably look into this when I have time.
+
+>>>> 2) Add the RNC bit to all of the gigabit capable controllers.
+
+>>>     I probably misspoke -- all the Gigabit controllers already have it
+>>>     set, it's just that some 100 MBbps ones have it set, but most don't.
+
+>> So these chips that do not implement the register, they only process
+>> one RX descriptor at a time until the interrupt handler re-enables
+>> DMA receive?
+
+>     I just don't know. Looks like the driver is broken on SH2/3 even more than
+> I thought: it always reads the EDRRR register in sh_eth_rx() trying to
+> understand if the reception has been stopped but that register doesn't seem to
+> exist on SH2/3. Moreover, sh_eth_interrupt() reads EESR in order to determine
+> the interrupt status but that register doesn't seem to exist on SH2/3 either!
+
+    OK, I've chased down the commit that broke SH2/3 support 3+ years ago; 
+here it is:
+
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=4a55530f38e4eeee3afb06093e81309138fe8360
+
+    All the registers I've mentioned did exist on SH2/3, they just got missed 
+in the mapping arrays.
+
+WBR, Sergei
+
