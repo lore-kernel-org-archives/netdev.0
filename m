@@ -1,48 +1,40 @@
-From: Michal Privoznik <mprivozn@redhat.com>
-Subject: [PATCH] net-sysfs: Report link speed as signed integer
-Date: Mon,  2 Jun 2014 16:25:15 +0200
-Message-ID: <06d53256e3bf2d0deedb16249082200500da3ee6.1401718809.git.mprivozn@redhat.com>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [Xen-devel] [PATCH v9 0/7] xen-net{back, front}: Multiple transmit and receive queues
+Date: Mon, 2 Jun 2014 16:27:04 +0200
+Message-ID: <1172078435.20140602162704@eikelenboom.it>
+References: <1401706212-8208-1-git-send-email-wei.liu2@citrix.com> <20140602105209.GB6043@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: gregkh@linuxfoundation.org, jiri@resnulli.us,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	ian.campbell@citrix.com, <paul.durrant@citrix.com>,
+	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>,
+	<a.j.bennieston@gmail.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vserver.eikelenboom.it ([84.200.39.61]:38446 "EHLO
+	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754301AbaFBO1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 10:27:09 -0400
+In-Reply-To: <20140602105209.GB6043@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The link speed is available at /sys/class/net/$nic/speed.
-However, the speed is printed in unsigned integer format. This
-makes userspace applications read an incorrect value (which
-moreover changes through several architectures) while in fact
-'-1' should be reported.
 
-Before the change:
-  # cat /sys/class/net/eth0/speed
-  4294967295
+Monday, June 2, 2014, 12:52:09 PM, you wrote:
 
-After the change:
-  # cat /sys/class/net/eth0/speed
-  -1
+> And of course this series is targeting "net-next" tree.
 
-Signed-off-by: Michal Privoznik <mprivozn@redhat.com>
----
- net/core/net-sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> I forgot to add it to subject line. Sorry.
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 1cac29e..99afdea 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -173,7 +173,7 @@ static ssize_t speed_show(struct device *dev,
- 	if (netif_running(netdev)) {
- 		struct ethtool_cmd cmd;
- 		if (!__ethtool_get_settings(netdev, &cmd))
--			ret = sprintf(buf, fmt_udec, ethtool_cmd_speed(&cmd));
-+			ret = sprintf(buf, fmt_dec, ethtool_cmd_speed(&cmd));
- 	}
- 	rtnl_unlock();
- 	return ret;
--- 
-2.0.0
+> Wei.
+
+Hi Wei,
+
+Just to let you know, i applied this series and with my basic testing i haven't 
+spotted any issue so far.
+
+Thx for rebasing !
+
+--
+Sander 
