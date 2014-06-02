@@ -1,29 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] macvlan: add netpoll support
-Date: Mon, 02 Jun 2014 16:05:49 -0700 (PDT)
-Message-ID: <20140602.160549.2151475814195029218.davem@davemloft.net>
-References: <53883AB8.6030205@huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+From: stannous@cumulusnetworks.com
+Subject: [PATCH] Force speed and duplex mode setting if link down
+Date: Mon,  2 Jun 2014 19:07:00 -0400
+Message-ID: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
+Cc: shm@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
+	stannous@cumulusnetworks.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37516 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751132AbaFBXFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:05:50 -0400
-In-Reply-To: <53883AB8.6030205@huawei.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:54832 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753171AbaFBXGu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:06:50 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by ext3.cumulusnetworks.com (Postfix) with ESMTP id 12D8C17C53CE
+	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 16:06:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Fri, 30 May 2014 16:00:56 +0800
+From: Sam Tannous <stannous@cumulusnetworks.com>
 
-> Add netpoll support to macvlan devices. Based on the netpoll support in the 802.1q vlan code.
-> 
-> Tested and macvlan could work well with netconsole.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+This patch forces the user to set both the speed and the duplex
+mode if the user only specifies the speed while the interface is down.
 
-Applied, thanks.
+If the interface is down, we'll get an ecmd speed
+and duplex mode of 0. This has the ill effect of
+setting the duplex to HALF and this often results in an
+error since many higher speed will not support HALF duplex.
+
+Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
+---
+ ethtool.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/ethtool.c b/ethtool.c
+index 8e968a8..9cd3103 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
+ 		if (err < 0) {
+ 			perror("Cannot get current device settings");
+ 		} else {
++			/* If the interface is down, we'll get an ecmd speed and
++			   duplex of 0.  This has the effect of defaulting
++			   the duplex mode to HALF.  This results in an
++			   error since many of our speeds will not support HALF
++			   any more.  To prevent this, we need to insist that
++			   the user provide us with specific duplex mode if
++			   they haven't already (likely FULL) if both the speed
++			   and duplex are 0 here.
++			*/
++			if (speed_wanted != -1 && duplex_wanted == -1
++			    && !(ecmd.speed || ecmd.duplex)) {
++			    fprintf(stderr, "Setting the speed while the link "
++				    "is down requires both the speed and the "
++				    "duplex mode to be set");
++			    exit_bad_args();
++			}
+ 			/* Change everything the user specified. */
+ 			if (speed_wanted != -1)
+ 				ethtool_cmd_speed_set(&ecmd, speed_wanted);
+-- 
+1.7.10.4
