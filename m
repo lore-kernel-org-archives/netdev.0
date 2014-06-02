@@ -1,96 +1,66 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] Force speed and duplex mode setting if link down
-Date: Mon, 2 Jun 2014 16:32:52 -0700
-Message-ID: <CAGVrzcZMkjFHjE3O80nPe4hmRUgfjWsoY0_g6dNPHKvBRKpOmg@mail.gmail.com>
-References: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH urgent] netlink: Only check file credentials for
+ implicit destinations
+Date: Mon, 02 Jun 2014 16:34:51 -0700 (PDT)
+Message-ID: <20140602.163451.2020310558428252845.davem@davemloft.net>
+References: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>
-To: stannous@cumulusnetworks.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, security@kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org, jorge@dti2.net, jbenc@redhat.com,
+	vgoyal@redhat.com, ssorce@redhat.com, serge@hallyn.com
+To: luto@amacapital.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:59007 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527AbaFBXdd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:33:33 -0400
-Received: by mail-qa0-f53.google.com with SMTP id x12so3776326qac.26
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 16:33:32 -0700 (PDT)
-In-Reply-To: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37741 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751658AbaFBXew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 19:34:52 -0400
+In-Reply-To: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-02 16:07 GMT-07:00  <stannous@cumulusnetworks.com>:
-> From: Sam Tannous <stannous@cumulusnetworks.com>
->
-> This patch forces the user to set both the speed and the duplex
-> mode if the user only specifies the speed while the interface is down.
+From: Andy Lutomirski <luto@amacapital.net>
+Date: Fri, 30 May 2014 11:04:00 -0700
 
-Is there a valid use case for that, even with auto-negotiation disabled?
+> From: "Eric W. Biederman" <ebiederm@xmission.com>
+> 
+> It was possible to get a setuid root or setcap executable to write to
+> it's stdout or stderr (which has been set made a netlink socket) and
+> inadvertently reconfigure the networking stack.
+> 
+> To prevent this we check that both the creator of the socket and
+> the currentl applications has permission to reconfigure the network
+> stack.
+> 
+> Unfortunately this breaks Zebra which always uses sendto/sendmsg
+> and creates it's socket without any privileges.
+> 
+> To keep Zebra working don't bother checking if the creator of the
+> socket has privilege when a destination address is specified.  Instead
+> rely exclusively on the privileges of the sender of the socket.
+> 
+> Note from Andy: This is exactly Eric's code except for some comment
+> clarifications and formatting fixes.  Neither I nor, I think, anyone
+> else is thrilled with this approach, but I'm hesitant to wait on a
+> better fix since 3.15 is almost here.
+> 
+> Note to stable maintainers: This is a mess.  An earlier series of
+> patches in 3.15 fix a rather serious security issue (CVE-2014-0181),
+> but they did so in a way that breaks Zebra.  The offending series
+> includes:
+> 
+>     commit aa4cf9452f469f16cea8c96283b641b4576d4a7b
+>     Author: Eric W. Biederman <ebiederm@xmission.com>
+>     Date:   Wed Apr 23 14:28:03 2014 -0700
+> 
+>         net: Add variants of capable for use on netlink messages
+> 
+> If a given kernel version is missing that series of fixes, it's
+> probably worth backporting it and this patch.  if that series is
+> present, then this fix is critical if you care about Zebra.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
 
->
-> If the interface is down, we'll get an ecmd speed
-> and duplex mode of 0. This has the ill effect of
-> setting the duplex to HALF and this often results in an
-> error since many higher speed will not support HALF duplex.
-
-Is this happening under the following scenario:
-
-- interface is forced to a given speed and duplex parameter,
-auto-negotiation is disabled
-- interface is administratively brought down
-- speed and parameters are changed while the interface is down
-- interface is brought up with potentially invalid parameters, and
-with auto-negotiation disabled resulting in no link
-
-If that's the case, the driver implementing the set_settings()
-callback should refuse changing the link parameters while the
-interface is down to avoid creating such a situation.
-
-Just curious...
-
->
-> Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
-> ---
->  ethtool.c |   16 ++++++++++++++++
->  1 file changed, 16 insertions(+)
->
-> diff --git a/ethtool.c b/ethtool.c
-> index 8e968a8..9cd3103 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
->                 if (err < 0) {
->                         perror("Cannot get current device settings");
->                 } else {
-> +                       /* If the interface is down, we'll get an ecmd speed and
-> +                          duplex of 0.  This has the effect of defaulting
-> +                          the duplex mode to HALF.  This results in an
-> +                          error since many of our speeds will not support HALF
-> +                          any more.  To prevent this, we need to insist that
-> +                          the user provide us with specific duplex mode if
-> +                          they haven't already (likely FULL) if both the speed
-> +                          and duplex are 0 here.
-> +                       */
-> +                       if (speed_wanted != -1 && duplex_wanted == -1
-> +                           && !(ecmd.speed || ecmd.duplex)) {
-> +                           fprintf(stderr, "Setting the speed while the link "
-> +                                   "is down requires both the speed and the "
-> +                                   "duplex mode to be set");
-> +                           exit_bad_args();
-> +                       }
->                         /* Change everything the user specified. */
->                         if (speed_wanted != -1)
->                                 ethtool_cmd_speed_set(&ecmd, speed_wanted);
-> --
-> 1.7.10.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-
--- 
-Florian
+Applied, thanks Andy.
