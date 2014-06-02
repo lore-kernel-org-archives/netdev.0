@@ -1,80 +1,58 @@
-From: crquan@gmail.com
-Subject: [PATCH] genetlink: remove superfluous assignment
-Date: Mon,  2 Jun 2014 01:18:01 -0700
-Message-ID: <1401697081-17093-1-git-send-email-crquan@gmail.com>
-References: <1401346448-17105-1-git-send-email-crquan@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:48268 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806AbaFBISP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 04:18:15 -0400
-Received: by mail-pb0-f51.google.com with SMTP id ma3so3970247pbc.38
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 01:18:14 -0700 (PDT)
-In-Reply-To: <1401346448-17105-1-git-send-email-crquan@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 2 Jun 2014 18:36:01 +1000
+Message-ID: <20140602183601.65742dfa@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/cJNPMS80ZHeOaELJrIHw7ig"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Mack <zonque@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-the local variable ops and n_ops were just read out from family,
-and not changed, hence no need to assign back.
+--Sig_/cJNPMS80ZHeOaELJrIHw7ig
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Validation functions should operate on const parameters and not
-change anything.
+Hi all,
 
-Signed-off-by: Cheng Renquan <crquan@gmail.com>
----
- net/netlink/genetlink.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
+After merging the net-next tree, today's linux-next build (sparc64
+defconfig) failed like this:
 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index a3ba3ca..76393f2 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -309,46 +309,42 @@ static void genl_unregister_mc_groups(struct genl_family *family)
- 
- 	for (i = 0; i < family->n_mcgrps; i++) {
- 		int grp_id = family->mcgrp_offset + i;
- 
- 		if (grp_id != 1)
- 			clear_bit(grp_id, mc_groups);
- 		genl_ctrl_event(CTRL_CMD_DELMCAST_GRP, family,
- 				&family->mcgrps[i], grp_id);
- 	}
- }
- 
--static int genl_validate_ops(struct genl_family *family)
-+static int genl_validate_ops(const struct genl_family *family)
- {
- 	const struct genl_ops *ops = family->ops;
- 	unsigned int n_ops = family->n_ops;
- 	int i, j;
- 
- 	if (WARN_ON(n_ops && !ops))
- 		return -EINVAL;
- 
- 	if (!n_ops)
- 		return 0;
- 
- 	for (i = 0; i < n_ops; i++) {
- 		if (ops[i].dumpit == NULL && ops[i].doit == NULL)
- 			return -EINVAL;
- 		for (j = i + 1; j < n_ops; j++)
- 			if (ops[i].cmd == ops[j].cmd)
- 				return -EINVAL;
- 	}
- 
--	/* family is not registered yet, so no locking needed */
--	family->ops = ops;
--	family->n_ops = n_ops;
--
- 	return 0;
- }
- 
- /**
-  * __genl_register_family - register a generic netlink family
-  * @family: generic netlink family
-  *
-  * Registers the specified family after validating it first. Only one
-  * family may be registered with the same family name or identifier.
-  * The family id may equal GENL_ID_GENERATE causing an unique id to
-  * be automatically generated and assigned.
+ERROR: "of_mdiobus_link_phydev" [drivers/net/phy/libphy.ko] undefined!
+
+Caused by commit 86f6cf41272d ("net: of_mdio: add
+of_mdiobus_link_phydev()") from te net-next tree.
+
+CONFIG_PHYLIB=3Dm for this build.
+
+I have reverted that commit for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/cJNPMS80ZHeOaELJrIHw7ig
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTjDd3AAoJEMDTa8Ir7ZwVy6UP/1PiE3Q3x3Uy8/0yykAM/jm5
+io0m0YSsjoraoi9sYoPgFTAH88hK9CTJed0KEiCm36ZdJ0xxbl77XGC/dU5wJNyO
+bJuvLiJ0b/Mcx/ZjIMA1UhRa8DBjHohcnbl2Enc3IzJohc+1782u41xU4kC11u2N
+6G1as2BHz2ZFL0YxkepcGXYkQ6czfyLx/v4NxH4dJeBjpH0ZKty2xwUot2i6/WNu
+uLJKL6osTl9BhBIVOWe2L9uJfyOFVTCUXgqgF2mJhHD3KSg+wpToc/zoPnPVyxZh
+kZAQ8hpuUCb35kiBHQGGX1f2TXLIxRWSOKUBX3dVnkNhuR3VVFaQcheirNGU42s8
+MLTTQe2HY2HhwBVXt8klK9m5hO5yp0CdRPRxdGxVRKa7gV9R3gzwyOG3Tp4w4qbL
+GbjHBk1/pa8nKn7MzHkqRsG0GptPaxiaWTR+sHLgKLw7nIYWoBUpOwVWsQWXvb/i
+buWTIpIRwpAr0Srwjvd6ByczZeIQVyidWpacxSGtCwjUvEgS7r0wxxwEQxMN6IyN
+2WKxs3qVZZEghcJnRA1omjwrRULTczbOADXNUWdL42B6gr54rFJ6lau35PJazPOL
+2nsuYmOnFvvizcDt5A+ZPw5xaHU5EOIVoh/rd/sz7ecgIQUmldFcbQBxdWuaPLsO
+s9pfBQ6jUhoL7H719SsU
+=5UMp
+-----END PGP SIGNATURE-----
+
+--Sig_/cJNPMS80ZHeOaELJrIHw7ig--
