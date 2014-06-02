@@ -1,54 +1,36 @@
-From: Daniel Kiper <daniel.kiper@oracle.com>
-Subject: [PATCH 3.4] xen-netback: allow changing the MAC address of the interface
-Date: Mon,  2 Jun 2014 21:46:20 +0200
-Message-ID: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
-Cc: Matt Wilson <msw@amazon.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Kiper <daniel.kiper@oracle.com>
-To: gregkh@linuxfoundation.org, stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <mchan@broadcom.com>
+Subject: Re: [PATCH 2/3] cnic: Don't take cnic_dev_lock in
+ cnic_alloc_uio_rings()
+Date: Mon, 2 Jun 2014 13:31:54 -0700
+Message-ID: <1401741114.6344.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
+	 <1401491923-5480-2-git-send-email-mchan@broadcom.com>
+	 <1401491923-5480-3-git-send-email-mchan@broadcom.com>
+	 <20140530223320.GA23581@f1.synalogic.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<nhorman@tuxdriver.com>
+To: Benjamin Poirier <benjamin.poirier@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:5938 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751642AbaFBUbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 16:31:55 -0400
+In-Reply-To: <20140530223320.GA23581@f1.synalogic.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matt Wilson <msw@amazon.com>
+On Fri, 2014-05-30 at 15:33 -0700, Benjamin Poirier wrote: 
+> On 2014/05/30 16:18, Michael Chan wrote:
+> > We are allocating memory with GFP_KERNEL under spinlock.  Since this is
+> > the only call manipulating the cnic_udev_list and it is always under
+> > rtnl_lock, cnic_dev_lock can be safely removed.
+> 
+> In that case, the many other instances of cnic_dev_lock throughout cnic
+> should also be removed, no? 
 
-Sometimes it is useful to be able to change the MAC address of the
-interface for netback devices. For example, when using ebtables it may
-be useful to be able to distinguish traffic from different interfaces
-without depending on the interface name.
-
-Reported-by: Nikita Borzykh <sample.n@gmail.com>
-Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-Cc: netdev@vger.kernel.org
-Cc: xen-devel@lists.xen.org
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-Signed-off-by: Matt Wilson <msw@amazon.com>
-Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-(cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
-
-Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
-Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
-Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
----
- drivers/net/xen-netback/interface.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index cfaaf68..13aa5c1 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -239,6 +239,8 @@ static const struct net_device_ops xenvif_netdev_ops = {
- 	.ndo_stop	= xenvif_close,
- 	.ndo_change_mtu	= xenvif_change_mtu,
- 	.ndo_fix_features = xenvif_fix_features,
-+	.ndo_set_mac_address = eth_mac_addr,
-+	.ndo_validate_addr   = eth_validate_addr,
- };
- 
- struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
--- 
-1.7.10.4
+I don't think so.  cnic_dev_list still needs to be protected using
+cnic_dev_lock.  cnic_register_driver() for example is not called with
+rtnl_lock().
