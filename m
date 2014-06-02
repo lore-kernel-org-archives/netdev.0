@@ -1,208 +1,133 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [net-next PATCH 2/2] bridge netlink dump interface at par with
- brctl Actually better than brctl showmacs because we can filter by bridge
- port in the kernel
-Date: Mon, 02 Jun 2014 11:34:32 -0400
-Message-ID: <538C9988.3040902@redhat.com>
-References: <1401623780-4297-1-git-send-email-jhs@emojatatu.com> <1401623780-4297-2-git-send-email-jhs@emojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
+Date: Mon, 2 Jun 2014 08:41:24 -0700
+Message-ID: <CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com>
+References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
+	<538C3C94.3080206@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6501 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752278AbaFBPfG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2014 11:35:06 -0400
-In-Reply-To: <1401623780-4297-2-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <538C3C94.3080206@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/01/2014 07:56 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> The current bridge netlink interface doesnt scale when you have many bridges each
-> with large fdbs or even bridges with many bridge ports
-> 
-> Example usage:
-> 
-> Lets start with two bridges each with a port...
-> 
-> root@moja-mojo:bridge# ./bridge link
-> 8: eth1 state DOWN : <BROADCAST,MULTICAST> mtu 1500 master br0 state disabled priority 32 cost 19
-> 17: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master sw1 state disabled priority 32 cost 100
-> 
-> show all...
-> root@moja-mojo:bridge# ./bridge fdb show
-> 33:33:00:00:00:01 dev bond0 self permanent
-> 33:33:00:00:00:01 dev dummy0 self permanent
-> 33:33:00:00:00:01 dev ifb0 self permanent
-> 33:33:00:00:00:01 dev ifb1 self permanent
-> 33:33:00:00:00:01 dev eth0 self permanent
-> 01:00:5e:00:00:01 dev eth0 self permanent
-> 33:33:ff:22:01:01 dev eth0 self permanent
-> 02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:07 dev eth1 self permanent
-> 33:33:00:00:00:01 dev eth1 self permanent
-> 33:33:00:00:00:01 dev gretap0 self permanent
-> 33:33:00:00:00:01 dev br0 self permanent
-> 33:33:00:00:00:01 dev sw1 self permanent
-> a2:fb:21:4c:47:25 dev sw1-p1 vlan 0 master sw1 permanent
-> 33:33:00:00:00:01 dev sw1-p1 self permanent
-> 
-> Lets see a port that is not attached to a bridge
-> root@moja-mojo:bridge# ./bridge fdb show brport eth0
-> 33:33:00:00:00:01 self permanent
-> 01:00:5e:00:00:01 self permanent
-> 33:33:ff:22:01:01 self permanent
-> 
-> Lets see a port that is attached to a bridge
-> root@moja-mojo:bridge# ./bridge fdb show brport eth1
-> 02:00:00:12:01:02 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:05 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:07 self permanent
-> 33:33:00:00:00:01 self permanent
-> 
-> Specify the correct bridge and you get good stuff
-> root@moja-mojo:bridge# ./bridge fdb show brport eth1 br br0
-> 02:00:00:12:01:02 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:05 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:07 self permanent
-> 33:33:00:00:00:01 self permanent
-> 
-> Specify the wrong bridge and you get good nada
-> root@moja-mojo:bridge# ./bridge fdb show brport eth1 br sw1
-> 
-> dump only br0
-> root@moja-mojo:bridge# ./bridge fdb show br br0
-> 02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:07 dev eth1 self permanent
-> 33:33:00:00:00:01 dev eth1 self permanent
-> 
-> Lets move a port from one bridge to another for shits-and-giggles
-> (as they say in New Brunswick)
-> root@moja-mojo:bridge# ip link set sw1-p1 master br0
-> 
-> Now dump again br0
-> root@moja-mojo:bridge# ./bridge fdb show br br0
-> 02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-> 00:17:42:8a:b4:07 dev eth1 self permanent
-> 33:33:00:00:00:01 dev eth1 self permanent
-> a2:fb:21:4c:47:25 dev sw1-p1 vlan 0 master br0 permanent
-> 33:33:00:00:00:01 dev sw1-p1 self permanent
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/core/rtnetlink.c |   68 +++++++++++++++++++++++++++++++++++++++++---------
->  1 file changed, 56 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 064418e..71e6bc8 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2508,26 +2508,70 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
->  
->  static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  {
-> -	int idx = 0;
-> -	struct net *net = sock_net(skb->sk);
->  	struct net_device *dev;
-> +	struct net_device *br_dev;
-> +	struct nlattr *tb[IFLA_MAX+1];
-> +	const struct net_device_ops *ops;
-> +	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-> +	struct net *net = sock_net(skb->sk);
-> +	int brport_idx = 0;
-> +	int br_idx = 0;
-> +	int idx = 0;
-> +
-> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-> +			ifla_policy) == 0) {
-> +		if (tb[IFLA_MASTER])
-> +			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-> +	}
-> +	
-> +	brport_idx = ifm->ifi_index;
->  
->  	rcu_read_lock();
->  	for_each_netdev_rcu(net, dev) {
-> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
-> -			struct net_device *br_dev;
-> -			const struct net_device_ops *ops;
->  
-> -			br_dev = netdev_master_upper_dev_get(dev);
-> +		if (brport_idx && (dev->ifindex != brport_idx))
-> +			continue;
-> +
-> +		if (!br_idx) {
-> +			if (dev->priv_flags & IFF_BRIDGE_PORT) {
-> +				br_dev = netdev_master_upper_dev_get(dev);
-> +				ops = br_dev->netdev_ops;
-> +				if (ops->ndo_fdb_dump)
-> +					idx = ops->ndo_fdb_dump(skb, cb, br_dev,
-> +								dev, idx);
-> +			}
-> +
-> +			/* all of bridge fdb entries are dumped via brports fdb
-> +			 * therefore only allow for selfies for bridges
-> +			*/
-> +			if (!(dev->priv_flags & IFF_EBRIDGE) &&
-> +			      dev->netdev_ops->ndo_fdb_dump)
-> +				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
-> +								    NULL, idx);
-> +			else
-> +				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-> +
-> +		} else {
-> +			if (!(dev->priv_flags & IFF_BRIDGE_PORT))
-> +				continue;
-> +
-> +			br_dev = __dev_get_by_index(net, br_idx);
-> +			if (!br_dev)
-> +				return -ENODEV;
-> +
-> +			if (br_dev != netdev_master_upper_dev_get(dev))
-> +				continue;
-> +
+On Mon, Jun 2, 2014 at 1:57 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 06/02/2014 09:01 AM, Alexei Starovoitov wrote:
+>>
+>> This patch set splits BPF out of core networking into generic component
+>>
+>> patch #1 splits filter.c into two logical pieces: generic BPF core and
+>> socket
+>> filters. It only moves functions around. No real changes.
+>>
+>> patch #2 adds hidden CONFIG_BPF that seccomp/tracing can select
+>>
+>> The main value of the patch is not a NET separation, but rather logical
+>> boundary
+>> between generic BPF core and socket filtering. All socket specific code
+>> stays in
+>> net/core/filter.c and kernel/bpf/core.c is for generic BPF infrastructure
+>> (both
+>> classic and internal).
+>>
+>> Note that CONFIG_BPF_JIT is still under NET, so NET-less configs cannot
+>> use
+>> BPF JITs yet. This can be cleaned up in the future. Also it seems to makes
+>> sense
+>> to split up filter.h into generic and socket specific as well to cleanup
+>> the
+>> boundary further.
+>
+>
+> Hm, I really don't like that 'ripping code and headers apart' and then we
+> believe
+> it's a generic abstraction. So far seccomp-BPF could live with the current
+> state
+> since it was introduced, the rest of users (vast majority) is in the
+> networking
+> domain (and invoked through tcpdump et al) ...
+>
+> There are still parts in seccomp that show some BPF weaknesses in terms of
+> being
+> 'generic', for example shown in seccomp, we need to go once again over the
+> filter
+> instructions after doing the usual filter sanity checks, just to whitelist
+> what
+> seccomp may do in BPF.
+>
+> I have not yet thought about it deeply enough, but I think we should avoid
+> something similar in other non-networking areas but abstract that cleanly
+> w/o
+> such hacks first, for example.
 
-I think that after this code, if you set a bridge mac address thus
-causing an fdb like:
-  <mac> dev br0 vlan 0 master permanent  (old notation)
+Glad you brought up this point :)
+100% agree that current double verification done by seccomp is far from
+being generic and quite hard to maintain, since any change done to
+classic BPF verifier needs to be thought through from seccomp_check_filter()
+perspective as well.
+imo lack of generality in classic BPF is the main reason why we should stop
+adding extensions to classic and switch to eBPF for any new features.
+the eBPF verifier I posted now long ago is trying to be generic through
+customization. The verifier core needs to stay independent of the use case.
+BPF's input context, set of allowed calls need to be expressed in a generic way.
+Obviously this split by itself won't make classic BPF all of a sudden generic.
+It rather defines a boundary of eBPF core.
+In eBPF only two instructions are not generic. It's LD_ABS/LD_IND
+which are legacy instruction that we had to carry over from classic.
+They require input context == sk_buff. That's why core.c had to
+#include <skbuff.h> and do '__weak skb_copy_bits()'.
+Alternative to that was to #ifdef these two instructions out of interpreter
+and #ifndef NET #include <skbuff.h> and ld_abs helper functions in core.c
+IMO that would have been ugly for code style, maintenance and testing,
+but then core.c would have only one #include <filter.h> and we can
+say: 'look eBPF core.c is really generic'
 
-you will not show it if you set the br_idx with
-  # bridge fdb show br br0
+In the next set of patches I'll repost verifier and will explain how single
+eBPF verifier core can be used for socket, seccomp, tracing and other
+things. Note I'm not saying that we should use eBPF now everywhere.
+Classic BPF has its niche and that niche we have to maintain forever.
+So let's make sure that eBPF interpreter, its instruction set and its
+verifier are staying generic.
+This split is only first step in that direction that creates a file boundary
+between eBPF core and sockets.
 
-
-I looks like the only way to show such fdb is not set any filters at all
-since if you set a port filter, you will not see it either as it will be
-filtered out in bridge code.
-
--vlad
-
->  			ops = br_dev->netdev_ops;
->  			if (ops->ndo_fdb_dump)
-> -				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
-> -		}
-> +				idx = ops->ndo_fdb_dump(skb, cb, br_dev, dev, idx);
->  
-> -		if (dev->netdev_ops->ndo_fdb_dump)
-> -			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
-> -		else
-> -			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-> +			if (dev->netdev_ops->ndo_fdb_dump)
-> +				idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev,
-> +								    NULL, idx);
-> +			else
-> +				idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-> +		}
->  	}
->  	rcu_read_unlock();
->  
-> 
+>
+>> Tested with several NET and NET-less configs on arm and x86
+>>
+>> V1->V2:
+>> rebase on top of net-next
+>> split filter.c into kernel/bpf/core.c instead of net/bpf/core.c
+>>
+>> Alexei Starovoitov (2):
+>>    net: filter: split filter.c into two files
+>>    net: filter: split BPF out of core networking
+>>
+>>   arch/Kconfig           |    6 +-
+>>   include/linux/filter.h |    2 +
+>>   kernel/Makefile        |    1 +
+>>   kernel/bpf/Makefile    |    5 +
+>>   kernel/bpf/core.c      | 1063
+>> ++++++++++++++++++++++++++++++++++++++++++++++++
+>>   net/Kconfig            |    1 +
+>>   net/core/filter.c      | 1023
+>> +---------------------------------------------
+>>   7 files changed, 1079 insertions(+), 1022 deletions(-)
+>>   create mode 100644 kernel/bpf/Makefile
+>>   create mode 100644 kernel/bpf/core.c
+>>
+>
