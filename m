@@ -1,52 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: Fixes for new ethtool RSS commands
-Date: Mon, 02 Jun 2014 17:23:59 -0700 (PDT)
-Message-ID: <20140602.172359.1089625839083920695.davem@davemloft.net>
-References: <1401670659.14007.94.camel@deadeye.wl.decadent.org.uk>
-	<20140602.171314.565532478564496551.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Trying to ping from a subinterface.
+Date: Mon, 2 Jun 2014 17:35:54 -0700
+Message-ID: <20140602173554.1dc77101@nehalam.linuxnetplumber.net>
+References: <538CE2CA.9060806@us.thalesgroup.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: CLOSE Dave <Dave.Close@us.thalesgroup.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38057 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbaFCAYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:24:00 -0400
-In-Reply-To: <20140602.171314.565532478564496551.davem@davemloft.net>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:55595 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933234AbaFCAf6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:35:58 -0400
+Received: by mail-pd0-f174.google.com with SMTP id r10so3957937pdi.33
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 17:35:57 -0700 (PDT)
+In-Reply-To: <538CE2CA.9060806@us.thalesgroup.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMiBK
-dW4gMjAxNCAxNzoxMzoxNCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEJlbiBIdXRjaGluZ3MgPGJl
-bkBkZWNhZGVudC5vcmcudWs+DQo+IERhdGU6IE1vbiwgMDIgSnVuIDIwMTQgMDE6NTc6MzkgKzAx
-MDANCj4gDQo+PiBUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IGViMDJhMjcyYzk3
-YjZlMjVkOGU1ZmNmMWVhOTM5MjNlNmYxNTU1OTU6DQo+PiANCj4+ICAgZHJpdmVyL25ldC9ldGhl
-cm5ldC9lY19iaGYuYzogZml4IHNwYXJzZSB3YXJuaW5ncyAoMjAxNC0wNS0xNCAxNjowOTozMyAt
-MDQwMCkNCj4+IA0KPj4gYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQo+
-PiANCj4+ICAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2J3
-aC9uZXQtbmV4dC5naXQgZXRodG9vbC1yc3NoLWZpeGVzDQo+PiANCj4+IGZvciB5b3UgdG8gZmV0
-Y2ggY2hhbmdlcyB1cCB0byBkZmU4MDVjMTRhMjAxOGM1YTU4Y2ZhMzkyMWYxODk3MDMyNzQwNTAx
-Og0KPj4gDQo+PiAgIGV0aHRvb2w6IENoZWNrIHRoYXQgcmVzZXJ2ZWQgZmllbGRzIG9mIHN0cnVj
-dCBldGh0b29sX3J4ZmggYXJlIDAgKDIwMTQtMDUtMTkgMDE6MzA6MzAgKzAxMDApDQo+PiANCj4+
-IFRoaXMgYWRkcmVzc2VzIHNldmVyYWwgcHJvYmxlbXMgSSBwcmV2aW91c2x5IGlkZW50aWZpZWQg
-d2l0aCB0aGUgbmV3DQo+PiBFVEhUT09MX3tHLFN9UlNTSCBjb21tYW5kczoNCj4gDQo+IFB1bGxl
-ZCBpbnRvIG5ldC1uZXh0LCB0aGFua3MgQmVuLg0KDQpBY3R1YWxseSwgaXQgbG9va3MgbGlrZSB5
-b3UgbWlzc2VkIHNvbWUgZHJpdmVycywgcGxlYXNlIGZpeCB0aGlzIHVwIGFuZA0KcmVzdWJtaXQ6
-DQoNCmRyaXZlcnMvbmV0L3ZteG5ldDMvdm14bmV0M19ldGh0b29sLmM6NjMxOjI6IGVycm9yOiB1
-bmtub3duIGZpZWxkIKFnZXRfcnhmaF9pbmRpcqIgc3BlY2lmaWVkIGluIGluaXRpYWxpemVyDQpk
-cml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZXRodG9vbC5jOjYzMToyOiB3YXJuaW5nOiBpbml0
-aWFsaXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVm
-YXVsdF0NCmRyaXZlcnMvbmV0L3ZteG5ldDMvdm14bmV0M19ldGh0b29sLmM6NjMxOjI6IHdhcm5p
-bmc6IChuZWFyIGluaXRpYWxpemF0aW9uIGZvciChdm14bmV0M19ldGh0b29sX29wcy5nZXRfcnhm
-aKIpIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZXRo
-dG9vbC5jOjYzMjoyOiBlcnJvcjogdW5rbm93biBmaWVsZCChc2V0X3J4ZmhfaW5kaXKiIHNwZWNp
-ZmllZCBpbiBpbml0aWFsaXplcg0KZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQzX2V0aHRvb2wu
-Yzo2MzI6Mjogd2FybmluZzogaW5pdGlhbGl6YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRl
-ciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNf
-ZXRodG9vbC5jOjYzMjoyOiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXZteG5l
-dDNfZXRodG9vbF9vcHMuc2V0X3J4ZmiiKSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KbWFrZVszXTog
-KioqIFtkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZXRodG9vbC5vXSBFcnJvciAxDQptYWtl
-WzJdOiAqKiogW2RyaXZlcnMvbmV0L3ZteG5ldDNdIEVycm9yIDINCm1ha2VbMl06ICoqKiBXYWl0
-aW5nIGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQo=
+On Mon, 2 Jun 2014 13:47:06 -0700
+CLOSE Dave <Dave.Close@us.thalesgroup.com> wrote:
+
+> On Fedora 20 x86_64.
+>=20
+> According to "man ping", ping should work from a subinterface specify=
+ing
+> either the interface name or its address:
+>=20
+> > -I interface
+> >    interface is either an address, or an interface name.  If inter=E2=
+=80=90
+> >    face is an address, it sets source address to  specified  inter=E2=
+=80=90
+> >    face address.  If interface in an interface name, it sets source
+> >    interface to specified interface.
+>=20
+> I've got a subinterface and I'm trying to ping from it.
+>=20
+> > # ifconfig eth3:sub1
+> > eth3:sub1: flags=3D4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+> >        inet 172.17.30.143  netmask 255.255.254.0  broadcast 172.17.=
+31.255
+> >        ether 90:e2:ba:34:46:41  txqueuelen 1000  (Ethernet)
+> >        device memory 0xdc7e0000-dc800000
+>=20
+> If I ping from the address, it works as specified. If I specify the
+> interface name instead, I see:
+>=20
+> > # ping -I eth3:sub1 172.17.30.1
+> > ping: SO_BINDTODEVICE: Invalid argument
+>=20
+> Investigating a little deeper:
+>=20
+> > # strace ping -I eth3:sub1 172.17.30.1
+> > execve("/usr/bin/ping", ["ping", "-I", "eth3:sub1", "172.17.30.1"],=
+ [/* 38 vars */]) =3D 0
+> > ...
+> > setsockopt(4, SOL_SOCKET, SO_BINDTODEVICE, "eth3:sub1\0", 13) =3D -=
+1 ENODEV (No such device)
+> > ...
+> > +++ exited with 2 +++
+>=20
+> Any thoughts?
+
+Interface aliases (sub interfaces) aren't real interfaces in Linux.
+They are a deprecated way of doing multiple addresses on the same devic=
+e.
+Aliases aren't real devices, they don't behave like devices, and they
+only are useful with ancient tools like ifconfig.
+
+Don't use them unless you have to deal with systems older than 10 years=
+=2E
