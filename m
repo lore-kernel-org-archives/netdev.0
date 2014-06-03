@@ -1,45 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs
- are probed into the Host
-Date: Mon, 02 Jun 2014 17:58:16 -0700 (PDT)
-Message-ID: <20140602.175816.1677581007124366598.davem@davemloft.net>
-References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
-	<20140602142947.GB28523@richard>
-	<CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.58] datapath: Add basic MPLS support to kernel
+Date: Mon, 2 Jun 2014 17:58:10 -0700
+Message-ID: <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
+References: <1401063743-30997-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: weiyang@linux.vnet.ibm.com, ogerlitz@mellanox.com,
-	netdev@vger.kernel.org, amirv@mellanox.com,
-	jackm@dev.mellanox.co.il
-To: bhelgaas@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38238 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212AbaFCA6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:58:18 -0400
-In-Reply-To: <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:34020 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753212AbaFCA6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:58:31 -0400
+Received: by mail-qg0-f50.google.com with SMTP id z60so12159932qgd.9
+        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 17:58:30 -0700 (PDT)
+In-Reply-To: <1401063743-30997-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Mon, 2 Jun 2014 10:10:01 -0600
+On Sun, May 25, 2014 at 5:22 PM, Simon Horman <horms@verge.net.au> wrote:
+> diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
+> index 803a94c..8ce596c 100644
+> --- a/datapath/flow_netlink.c
+> +++ b/datapath/flow_netlink.c
+> +               case OVS_ACTION_ATTR_POP_MPLS:
+> +                       if (!eth_p_mpls(eth_type))
+> +                               return -EINVAL;
 
-> Writing a driver is not an empirical process of trying things to see
-> what works.  You need to actively design a consistent structure so you
-> know why and when things are safe.  I object to gratuitous "dev ==
-> NULL" checks because often they are just a way of patching up a driver
-> design that isn't well thought-out.
-> 
-> As I wrote before:
-> 
->   From the PCI core's perspective, after .probe() returns successfully,
->   we can call any driver entry point and pass the pci_dev to it, and
->   expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
->   sort of breaks that assumption because you clear out pci_drvdata().
->   Right now, the only other entry point mlx4 really implements is
->   mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
->   is NULL.  But that's ... a hack, and you'll have to do the same
->   if/when you implement suspend/resume/sriov_configure/etc.
+Should this also take into account the VLAN tag? It's really part of
+the EtherType although it has been stripped out here. Actually, maybe
+it's better to not track the vlan_tci separately at all during
+validation but just fold it into the EtherType.
 
-Agreed.
+The practical implication of this is that you wouldn't be able to pop
+out from underneath a VLAN. This may be a good thing if we are trying
+to avoid tag order issues - after all, you can't push underneath a
+VLAN either. I'm not sure what effects this has on the need to track
+mac_len, if any.
+
+Otherwise, I'm happy with this. I think that we need to conclude the
+discussion on the other patch and update this appropriately first.
