@@ -1,40 +1,28 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: cpsw forwards broadcasts on all interfaces in dual_emac mode
-Date: Tue, 3 Jun 2014 08:16:17 +0200
-Message-ID: <CAGm1_kuw07q725bPZH8CAfQBkVDj06ZF9G2fQq0F5CNx4+UjGQ@mail.gmail.com>
-References: <538C2878.903@linutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3 v2] cnic fixes.
+Date: Mon, 02 Jun 2014 23:17:22 -0700 (PDT)
+Message-ID: <20140602.231722.1254992955908033401.davem@davemloft.net>
+References: <1401775728-21043-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mugunthan V N <mugunthanvnm@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jan Altenberg <jan@linutronix.de>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:56739 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932076AbaFCGQi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 02:16:38 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so4742193pad.11
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 23:16:37 -0700 (PDT)
-In-Reply-To: <538C2878.903@linutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39613 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732AbaFCGRX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 02:17:23 -0400
+In-Reply-To: <1401775728-21043-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sebastian,
+From: Michael Chan <mchan@broadcom.com>
+Date: Mon, 2 Jun 2014 23:08:45 -0700
 
-On Mon, Jun 2, 2014 at 9:32 AM, Sebastian Andrzej Siewior
-<bigeasy@linutronix.de> wrote:
-> Hi Mugunthan,
->
-> I've been playing with the dual_emac mode and I noticed that if eth0
-> receives broadcasts packets then it will forward them to eth1. I assume
-> that it either has one ALE rule too much or is missing one. Do you have
-> any idea what it might be?
+> Fix 2 sleeping function from invalid context bugs and 1 missing iscsi netlink
+> message bug.
+> 
+> v2: Fixed typo in rcu_dereference_protected() and tested with CONFIG_PROVE_RCU
 
-I've also encountered this problem. See this thread:
-http://e2e.ti.com/support/arm/sitara_arm/f/791/t/338292.aspx?pi301021=1
-
-Still had no time to dig the driver and TRM. Hope Mugunthan can help
-to sort the things out.
-
-Yegor
+Looks a lot better, series applied, thanks.
