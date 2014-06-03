@@ -1,47 +1,58 @@
-From: Michael Chan <mchan@broadcom.com>
-Subject: Re: [PATCH 0/3] cnic fixes.
-Date: Mon, 2 Jun 2014 17:08:49 -0700
-Message-ID: <1401754129.6344.5.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1401491923-5480-1-git-send-email-mchan@broadcom.com>
-	 <20140602.165336.1418034972875163602.davem@davemloft.net>
-	 <20140602.165728.1529037806527079682.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] atm: fore200e.c: Cleaning up uninitialized variables
+Date: Mon, 02 Jun 2014 17:11:20 -0700 (PDT)
+Message-ID: <20140602.171120.192669833635400682.davem@davemloft.net>
+References: <1401577712-4447-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	<CAOesGMi4SGRP6_WMgv3xz_QrGScktYGQEK-muCrE=ohFBfeBeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <nhorman@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:36060 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635AbaFCAIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:08:50 -0400
-In-Reply-To: <20140602.165728.1529037806527079682.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org, chas-vT06rRrALxcmhCb6mdbn6A@public.gmane.org,
+	grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-atm-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAOesGMi4SGRP6_WMgv3xz_QrGScktYGQEK-muCrE=ohFBfeBeQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-06-02 at 16:57 -0700, David Miller wrote:=20
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 02 Jun 2014 16:53:36 -0700 (PDT)
->=20
-> > From: Michael Chan <mchan@broadcom.com>
-> > Date: Fri, 30 May 2014 16:18:40 -0700
-> >=20
-> >> Fix 2 sleeping function from invalid context bugs and 1 missing is=
-csi netlink
-> >> message bug.
-> >=20
-> > Series applied, thanks Michael.
->=20
-> Michael, any chance you can compile test the changes you send to me?
->=20
-> drivers/net/ethernet/broadcom/cnic.c: In function =CA=BDcnic_rcv_nete=
-vent=CA=BC:
-> drivers/net/ethernet/broadcom/cnic.c:5628:13: error: =CA=BDlockdep_is=
-=CA=BC undeclared (first use in this function)
-> drivers/net/ethernet/broadcom/cnic.c:5628:13: note: each undeclared i=
-dentifier is reported only once for each function it appears in
-> drivers/net/ethernet/broadcom/cnic.c:5628:13: error: expected =CA=BD)=
-=CA=BC before =CA=BDheld=CA=BC
+From: Olof Johansson <olof-nZhT3qVonbNeoWH0uzbU5w@public.gmane.org>
+Date: Sun, 1 Jun 2014 17:10:39 -0700
 
-Sorry, I think LOCKDEP was not defined in my kernel.  I'll get it fixed
-and resend the patches.
+> On Sat, May 31, 2014 at 4:08 PM, Rickard Strandqvist
+> <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org> wrote:
+>> There is a risk that the variable will be used without being initialized.
+>>
+>> This was largely found by using a static code analysis program called cppcheck.
+>>
+>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+>> ---
+>>  drivers/atm/fore200e.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+>> index 204814e..d4725fc 100644
+>> --- a/drivers/atm/fore200e.c
+>> +++ b/drivers/atm/fore200e.c
+>> @@ -2780,7 +2780,7 @@ static struct pci_driver fore200e_pca_driver = {
+>>
+>>  static int __init fore200e_module_init(void)
+>>  {
+>> -       int err;
+>> +       int err = 0;
+>>
+>>         printk(FORE200E "FORE Systems 200E-series ATM driver - version " FORE200E_VERSION "\n");
+> 
+> 
+> I can see how a tool that doesn't know about Kconfig dependencies
+> might think so, but if you look at Kconfig you'll see that for this
+> driver to be enabled for building either CONFIG_SBUS or CONFIG_PCI
+> must be set, and if either of them is then this variable will not be
+> used without first being set.
+
+Yeah but it's harmless to apply this, which I've done.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
