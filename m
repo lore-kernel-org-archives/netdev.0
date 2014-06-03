@@ -1,66 +1,96 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net v4 1/2] sfc: use 64-bit writes for PIO.
-Date: Tue, 03 Jun 2014 20:45:35 +0400
-Message-ID: <538DFBAF.2030703@cogentembedded.com>
-References: <538D9D1E.3090608@solarflare.com> <538D9DB3.4080905@solarflare.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack: fix checkpatch errors
+Date: Tue, 03 Jun 2014 20:58:09 +0400
+Message-ID: <538DFEA1.1030309@cogentembedded.com>
+References: <1401806702-3251-1-git-send-email-luca.ellero@brickedbrain.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Shradha Shah <sshah@solarflare.com>,
-	David Miller <davem@davemloft.net>
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, coreteam@netfilter.org, netdev@vger.kernel.org
+To: Luca Ellero <luca.ellero@brickedbrain.com>,
+	netfilter@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:57276 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933566AbaFCQpd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 12:45:33 -0400
-Received: by mail-lb0-f171.google.com with SMTP id 10so3580654lbg.2
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 09:45:31 -0700 (PDT)
-In-Reply-To: <538D9DB3.4080905@solarflare.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:59715 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933577AbaFCQ6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 12:58:05 -0400
+Received: by mail-la0-f46.google.com with SMTP id ec20so3672492lab.19
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 09:58:04 -0700 (PDT)
+In-Reply-To: <1401806702-3251-1-git-send-email-luca.ellero@brickedbrain.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 06/03/2014 02:04 PM, Shradha Shah wrote:
+On 06/03/2014 06:45 PM, Luca Ellero wrote:
 
-> From: Jon Cooper <jcooper@solarflare.com>
+> Add parenthesis around complex macros
 
-> Patch to open-code the memory copy routines.
-> 32bit writes over the PCI bus causes data corruption.
+    You should have thought a bit before doing that... :-)
 
-> Fixes:ee45fd92c739
-> ("sfc: Use TX PIO for sufficiently small packets")
-
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> Signed-off-by: Luca Ellero <luca.ellero@brickedbrain.com>
 > ---
->   drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
->   1 file changed, 19 insertions(+), 5 deletions(-)
+>   net/netfilter/nf_conntrack_pptp.c       |    6 +++---
+>   net/netfilter/nf_conntrack_proto_sctp.c |    8 ++++----
+>   net/netfilter/nf_conntrack_proto_tcp.c  |    8 ++++----
+>   3 files changed, 11 insertions(+), 11 deletions(-)
 
-> diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-> index fa94753..d2c9ca0 100644
-> --- a/drivers/net/ethernet/sfc/tx.c
-> +++ b/drivers/net/ethernet/sfc/tx.c
-> @@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
->   	u8 buf[L1_CACHE_BYTES];
+> diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+> index 825c3e3..a505263 100644
+> --- a/net/netfilter/nf_conntrack_pptp.c
+> +++ b/net/netfilter/nf_conntrack_pptp.c
+> @@ -92,9 +92,9 @@ const char *const pptp_msg_name[] = {
+>   EXPORT_SYMBOL(pptp_msg_name);
+>   #endif
+>
+> -#define SECS *HZ
+> -#define MINS * 60 SECS
+> -#define HOURS * 60 MINS
+> +#define SECS  (*HZ)
+> +#define MINS  (*60 SECS)
+> +#define HOURS (*60 MINS)
+
+    This is complete nonsense which would lead to syntax error.
+
+[...]
+> diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+> index 1314d33..387cda5 100644
+> --- a/net/netfilter/nf_conntrack_proto_sctp.c
+> +++ b/net/netfilter/nf_conntrack_proto_sctp.c
+> @@ -44,10 +44,10 @@ static const char *const sctp_conntrack_names[] = {
+>   	"SHUTDOWN_ACK_SENT",
 >   };
 >
-> +/* Copy in explicit 64-bit writes. */
-> +static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
-> +{
-> +	u64 *src64 = src, __iomem *dest64 = dest;
-> +	size_t i, l64 = len / 8;
-> +
-> +	WARN_ON_ONCE(len % 8 != 0);
-> +	WARN_ON_ONCE(((u8 __iomem *)dest - (u8 __iomem *)0) % 8 != 0);
-> +	BUILD_BUG_ON(sizeof(uint64_t) != 8);
-> +
-> +	for (i = 0; i < l64; ++i)
-> +		writeq(src64[i], dest64+i);
+> -#define SECS  * HZ
+> -#define MINS  * 60 SECS
+> -#define HOURS * 60 MINS
+> -#define DAYS  * 24 HOURS
+> +#define SECS  (*HZ)
+> +#define MINS  (*60 SECS)
+> +#define HOURS (*60 MINS)
+> +#define DAYS  (*24 HOURS)
 
-    Could you please surround + by spaces for consistency?
+    This as well.
 
-> +}
-> +
+[...]
+> diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+> index 44d1ea3..6a7d6f8 100644
+> --- a/net/netfilter/nf_conntrack_proto_tcp.c
+> +++ b/net/netfilter/nf_conntrack_proto_tcp.c
+> @@ -63,10 +63,10 @@ static const char *const tcp_conntrack_names[] = {
+>   	"SYN_SENT2",
+>   };
+>
+> -#define SECS * HZ
+> -#define MINS * 60 SECS
+> -#define HOURS * 60 MINS
+> -#define DAYS * 24 HOURS
+> +#define SECS  (*HZ)
+> +#define MINS  (*60 SECS)
+> +#define HOURS (*60 MINS)
+> +#define DAYS  (*24 HOURS)
+
+    This too.
 
 WBR, Sergei
