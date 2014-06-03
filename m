@@ -1,71 +1,42 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH net] rtnetlink: fix userspace API breakage for iproute2
- < v3.9.0
-Date: Tue, 03 Jun 2014 14:21:07 +0200
-Message-ID: <538DBDB3.7030505@redhat.com>
-References: <1401279319-29088-1-git-send-email-mschmidt@redhat.com> <20140530.174248.715408523447246496.davem@davemloft.net>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
+Date: Tue, 03 Jun 2014 14:48:34 +0200
+Message-ID: <538DC422.1050303@redhat.com>
+References: <1401744482-17764-1-git-send-email-mst@redhat.com>	<1401744482-17764-3-git-send-email-mst@redhat.com>
+	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	alexander.h.duyck@intel.com, michael.riesch@omicron.at,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42015 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754347AbaFCMVt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2014 08:21:49 -0400
-In-Reply-To: <20140530.174248.715408523447246496.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 05/31/2014 02:42 AM, David Miller wrote:
-> From: Michal Schmidt <mschmidt@redhat.com>
-> Date: Wed, 28 May 2014 14:15:19 +0200
-> 
->> When running RHEL6 userspace on a current upstream kernel, "ip link"
->> fails to show VF information.
->>
->> The reason is a kernel<->userspace API change introduced by commit
->> 88c5b5ce5cb57 ("rtnetlink: Call nlmsg_parse() with correct header length"),
->> after which the kernel does not see iproute2's IFLA_EXT_MASK attribute
->> in the netlink request.
->>
->> iproute2 adjusted for the API change in its commit 63338dca4513
->> ("libnetlink: Use ifinfomsg instead of rtgenmsg in rtnl_wilddump_req_filter").
->>
->> The problem has been noticed before:
->> http://marc.info/?l=linux-netdev&m=136692296022182&w=2
->> (Subject: Re: getting VF link info seems to be broken in 3.9-rc8)
->>
->> We can do better than tell those with old userspace to upgrade. We can
->> recognize the old iproute2 in the kernel by checking the netlink message
->> length. Even when including the IFLA_EXT_MASK attribute, its netlink
->> message is shorter than struct ifinfomsg.
->>
->> With this patch "ip link" shows VF information in both old and new
->> iproute2 versions.
->>
->> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> 
-> The userspace tool should be fixed on the system, rather than having the
-> kernel cater to a user tool bug.
-> 
-> I'm not applying this, sorry.
+Il 02/06/2014 23:58, Eric Dumazet ha scritto:
+> This looks dubious
+>
+> What about using kfree_rcu() instead ?
 
-David,
+It would lead to unbound allocation from userspace.
 
-the old version of the userspace tool did what it had to do in order to
-work with a contemporary kernel. You can call that a bug, but the fact
-is that it used to work that way.
+> translate_desc() still uses rcu_read_lock(), its not clear if the mutex
+> is really held.
 
-I do not see a difference between "catering to a user tool bug" and
-"not breaking applications, whether we like them or not" (paraphrasing
-Linus's message on this very mailing list just 10 days ago).
+Yes, vhost_get_vq_desc must be called with the vq mutex held.
 
-I could understand your objection if my proposed patch could break
-something else, but you are not saying that, are you?
+The rcu_read_lock/unlock in translate_desc is unnecessary.
 
-Regards,
-Michal
+Paolo
