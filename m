@@ -1,60 +1,80 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: netfront: Compound pages problem
-Date: Tue, 3 Jun 2014 23:03:17 +0100
-Message-ID: <538E4625.3080804@citrix.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] rtlwifi: Add firmware for r8723au
+Date: Tue, 03 Jun 2014 23:14:11 +0100
+Message-ID: <1401833651.2412.35.camel@deadeye.wl.decadent.org.uk>
+References: <1388709729-28496-1-git-send-email-Larry.Finger@lwfinger.net>
+	 <1390174519.3651.3.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Malcolm Crossley <malcolm.crossley@citrix.com>,
-	David Miller <davem@davemloft.net>
-To: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-uFxdRWA2LqEvmmNjulyK"
+Cc: dwmw2@infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:35305 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbaFCWDV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 18:03:21 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52763 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934155AbaFCWKD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 18:10:03 -0400
+In-Reply-To: <1390174519.3651.3.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-There were already discussions on this list and at Xen Hackathon about a 
-netback/netfront issue:
+--=-uFxdRWA2LqEvmmNjulyK
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-http://lists.xenproject.org/archives/html/xen-devel/2014-06/msg00300.html
+On Sun, 2014-01-19 at 23:35 +0000, Ben Hutchings wrote:
+> On Thu, 2014-01-02 at 18:42 -0600, Larry Finger wrote:
+> > This firmware is for a driver that will soon be submitted to the kernel=
+.
+> > It occurs as data statements in Realtek driver rtl8723A_WiFi_linux_v4.1=
+.3_6044.20121224.
+> >=20
+> > Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> > ---
+> >  WHENCE                         |  13 +++++++++++++
+> >  rtlwifi/rtl8723aufw_A.bin      | Bin 0 -> 22172 bytes
+> >  rtlwifi/rtl8723aufw_B.bin      | Bin 0 -> 24118 bytes
+> >  rtlwifi/rtl8723aufw_B_NoBT.bin | Bin 0 -> 19200 bytes
+> >  4 files changed, 13 insertions(+)
+> >  create mode 100644 rtlwifi/rtl8723aufw_A.bin
+> >  create mode 100644 rtlwifi/rtl8723aufw_B.bin
+> >  create mode 100644 rtlwifi/rtl8723aufw_B_NoBT.bin
+> [...]
+>=20
+> Applied, thanks.
 
-In a nutshell: due to compound pages an skb can consume more slots than 
-we can transfer for a single packet. Lots of ideas came up about how to 
-solve this problem, the preferred short term one is to poke the buffer 
-layout of the affected skbs so they will finally fit onto the ring.
-That might sound simple, but after 2 days of implementing an algorithm, 
-which is:
-- handle all the possible weird scenarios
-- try to do as few memcpy's as possible
-I can tell that it's not :). Now I'm at 110 lines without comments, and 
-it's not ready yet.
+I just noticed that the driver in Linux 3.15 seems to ask for
+rtlwifi/rtl8723aufw.bin and not rtlwifi/rtl8723aufw_A.bin.  You'll need
+to change the filename on one side or the other.
 
-Paul came up with an idea today: we can call dev_gso_segment() which 
-will slice up the problematic skb into MTU size chunks. Then we can add 
-this list of skbs to our queues and transmit them separately.
+Ben.
 
-Pros:
-- it already exists and works
-- doesn't copy the payload apart from the headers
+--=20
+Ben Hutchings
+If more than one person is responsible for a bug, no one is at fault.
 
-Cons:
-- it is also very complicated, but at least a well tested code
-- it creates new skbs and copies the header there, worst case 
-max_gso_size / MTU times
+--=-uFxdRWA2LqEvmmNjulyK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-I tend to say this could be a good solution for us, but I want to hear 
-other opinions as well.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-Regards,
+iQIVAwUAU45IuOe/yOyVhhEJAQpOtQ//fCTrLy3weegSvvE3U5JgojNe8rTHotee
+8+8KRWcTsAAYSf54qQmRK6yK02XaCXC2e0Yu1B5uGodX+g2JMzoyyP+2QrhGtEkX
+rUvQM4oc8NP6GFvUTz39cpYScNfoIQaxNFxFTlqqq1TsoPEx4NPfWfW86knyVcU+
+WM6dO4x1nXcmkAiPSm4DaaE6+7w/RCyiUepGzvA8a6/KGTo763GLIk/oec3MGB6k
+3XxhFiNw0RSOjWOEWTyOd5ShjDv50oDw874bkkQSqSpy5malPIjiwd4wk4nQxBdS
+Id/C7a4qbOZ417q77j4YohQCoN5cgbG8+0tN0CNZK88MviqRVa54u9vdaF2LNA75
+vWwphpImepHv43lNvK36q27iVvrTRXtuXOJZwZdHCikTGhlCP0pn1m+eZuWzwRrg
+g5ApCUsXOfFpP3WVvCgEPPvk4Lr9vuwL3qQAvCh4Yi392v+nVt31DqP8LFl6VmSx
+aKpT3PU/Lt3wPtNn93SndzgG+R89veyC8myGcdr/Scqmphvm6iR9eB8aP6iW+YTf
+L/c71eaiZCfPdTaSD9v5S+RM0k0fssjYDUFDLjCJxyjw36YComoVCAKIZas6CH7P
+5md7NbrUBAdjmO08e0/t72urJwN5M28FKhqF9rKgOvULMWzan1Hxa/ScXOYOZD3M
+Imm5H2YFxjM=
+=2rRW
+-----END PGP SIGNATURE-----
 
-Zoli
+--=-uFxdRWA2LqEvmmNjulyK--
