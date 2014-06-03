@@ -1,59 +1,79 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
-Date: Tue, 03 Jun 2014 16:20:28 +0200
-Message-ID: <538DD9AC.8050606@redhat.com>
-References: <1401744482-17764-1-git-send-email-mst@redhat.com>		<1401744482-17764-3-git-send-email-mst@redhat.com>	
-	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>	
-	<538DC422.1050303@redhat.com>
-	<1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Luca Ellero <luca.ellero@brickedbrain.com>
+Subject: [PATCH] netfilter: nf_conntrack: fix checkpatch errors
+Date: Tue,  3 Jun 2014 16:45:02 +0200
+Message-ID: <1401806702-3251-1-git-send-email-luca.ellero@brickedbrain.com>
+Cc: pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	davem@davemloft.net, coreteam@netfilter.org,
+	netdev@vger.kernel.org, Luca Ellero <luca.ellero@brickedbrain.com>
+To: netfilter@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Il 03/06/2014 15:57, Eric Dumazet ha scritto:
-> On Tue, 2014-06-03 at 14:48 +0200, Paolo Bonzini wrote:
->> Il 02/06/2014 23:58, Eric Dumazet ha scritto:
->>> This looks dubious
->>>
->>> What about using kfree_rcu() instead ?
->>
->> It would lead to unbound allocation from userspace.
->
-> Look at how we did this in commit
-> c3059477fce2d956a0bb3e04357324780c5d8eeb
+Add parenthesis around complex macros
 
-That would make VHOST_SET_MEMORY as slow as before (even though once 
-every few times).
+Signed-off-by: Luca Ellero <luca.ellero@brickedbrain.com>
+---
+ net/netfilter/nf_conntrack_pptp.c       |    6 +++---
+ net/netfilter/nf_conntrack_proto_sctp.c |    8 ++++----
+ net/netfilter/nf_conntrack_proto_tcp.c  |    8 ++++----
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
->>> translate_desc() still uses rcu_read_lock(), its not clear if the mutex
->>> is really held.
->>
->> Yes, vhost_get_vq_desc must be called with the vq mutex held.
->>
->> The rcu_read_lock/unlock in translate_desc is unnecessary.
->
-> Yep, this is what I pointed out. This is not only necessary, but
-> confusing and might be incorrectly copy/pasted in the future.
->
-> This patch is a partial one and leaves confusion.
+diff --git a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+index 825c3e3..a505263 100644
+--- a/net/netfilter/nf_conntrack_pptp.c
++++ b/net/netfilter/nf_conntrack_pptp.c
+@@ -92,9 +92,9 @@ const char *const pptp_msg_name[] = {
+ EXPORT_SYMBOL(pptp_msg_name);
+ #endif
+ 
+-#define SECS *HZ
+-#define MINS * 60 SECS
+-#define HOURS * 60 MINS
++#define SECS  (*HZ)
++#define MINS  (*60 SECS)
++#define HOURS (*60 MINS)
+ 
+ #define PPTP_GRE_TIMEOUT 		(10 MINS)
+ #define PPTP_GRE_STREAM_TIMEOUT 	(5 HOURS)
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+index 1314d33..387cda5 100644
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -44,10 +44,10 @@ static const char *const sctp_conntrack_names[] = {
+ 	"SHUTDOWN_ACK_SENT",
+ };
+ 
+-#define SECS  * HZ
+-#define MINS  * 60 SECS
+-#define HOURS * 60 MINS
+-#define DAYS  * 24 HOURS
++#define SECS  (*HZ)
++#define MINS  (*60 SECS)
++#define HOURS (*60 MINS)
++#define DAYS  (*24 HOURS)
+ 
+ static unsigned int sctp_timeouts[SCTP_CONNTRACK_MAX] __read_mostly = {
+ 	[SCTP_CONNTRACK_CLOSED]			= 10 SECS,
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 44d1ea3..6a7d6f8 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -63,10 +63,10 @@ static const char *const tcp_conntrack_names[] = {
+ 	"SYN_SENT2",
+ };
+ 
+-#define SECS * HZ
+-#define MINS * 60 SECS
+-#define HOURS * 60 MINS
+-#define DAYS * 24 HOURS
++#define SECS  (*HZ)
++#define MINS  (*60 SECS)
++#define HOURS (*60 MINS)
++#define DAYS  (*24 HOURS)
+ 
+ static unsigned int tcp_timeouts[TCP_CONNTRACK_TIMEOUT_MAX] __read_mostly = {
+ 	[TCP_CONNTRACK_SYN_SENT]	= 2 MINS,
+-- 
+1.7.10.4
 
-I agree.
-
-Paolo
