@@ -1,41 +1,59 @@
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Subject: Re: [PATCH 1/1] driver: net: smsc911x: set NOCARRIER flag in driver initialization
-Date: Tue, 3 Jun 2014 19:45:39 +0530
-Message-ID: <CAHPKR9+H1gmJBqtO-4c7YBQrx+xbLenzWE6sky9Pq7=yF4bHUw@mail.gmail.com>
-References: <5380EAF6.1090402@gmail.com>
-	<20140529.152809.871745461296745132.davem@davemloft.net>
-	<CAHPKR9KmDSgC9EstJLfhqY9SB462OSJhQCEPS7Ka=VvnqbH6iQ@mail.gmail.com>
-	<20140530.134245.1805237850303710369.davem@davemloft.net>
+From: Paolo Bonzini <pbonzini@redhat.com>
+Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
+Date: Tue, 03 Jun 2014 16:20:28 +0200
+Message-ID: <538DD9AC.8050606@redhat.com>
+References: <1401744482-17764-1-git-send-email-mst@redhat.com>		<1401744482-17764-3-git-send-email-mst@redhat.com>	
+	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>	
+	<538DC422.1050303@redhat.com>
+	<1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f182.google.com ([74.125.82.182]:58880 "EHLO
-	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753785AbaFCOPl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 10:15:41 -0400
-Received: by mail-we0-f182.google.com with SMTP id t60so6921423wes.13
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 07:15:40 -0700 (PDT)
-In-Reply-To: <20140530.134245.1805237850303710369.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 31, 2014 at 2:12 AM, David Miller <davem@davemloft.net> wrote:
-> From: Balakumaran Kannan <kumaran.4353@gmail.com>
-> Date: Fri, 30 May 2014 18:35:43 +0530
+Il 03/06/2014 15:57, Eric Dumazet ha scritto:
+> On Tue, 2014-06-03 at 14:48 +0200, Paolo Bonzini wrote:
+>> Il 02/06/2014 23:58, Eric Dumazet ha scritto:
+>>> This looks dubious
+>>>
+>>> What about using kfree_rcu() instead ?
+>>
+>> It would lead to unbound allocation from userspace.
 >
->> All these drivers call netif_carrier_off function after registering
->> the network device using register_netdev.
+> Look at how we did this in commit
+> c3059477fce2d956a0bb3e04357324780c5d8eeb
+
+That would make VHOST_SET_MEMORY as slow as before (even though once 
+every few times).
+
+>>> translate_desc() still uses rcu_read_lock(), its not clear if the mutex
+>>> is really held.
+>>
+>> Yes, vhost_get_vq_desc must be called with the vq mutex held.
+>>
+>> The rcu_read_lock/unlock in translate_desc is unnecessary.
 >
-> I can quote more counter-examples than your list, starting with the
-> Broadcom tg3 driver.
+> Yep, this is what I pointed out. This is not only necessary, but
+> confusing and might be incorrectly copy/pasted in the future.
+>
+> This patch is a partial one and leaves confusion.
 
-Thank you David for this information. I'll send updated patch as version-2.
+I agree.
 
-Still I couldn't understand the reason behind this. I should be grateful if you
-would explain me little bit.
-
-Regards,
-K.Balakumaran
+Paolo
