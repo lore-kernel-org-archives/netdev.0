@@ -1,84 +1,70 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net v4 1/2] sfc: use 64-bit writes for PIO.
-Date: Tue, 03 Jun 2014 10:55:23 -0700
-Message-ID: <1401818123.18833.17.camel@joe-AO725>
-References: <538D9D1E.3090608@solarflare.com>
-	 <538D9DB3.4080905@solarflare.com> <538DFBAF.2030703@cogentembedded.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
+Date: Tue, 3 Jun 2014 20:16:46 +0200
+Message-ID: <20140603181646.GA5028@gmail.com>
+References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
+ <20140602081545.7baf4a91@lwn.net>
+ <20140602092456.2114440a@gandalf.local.home>
+ <20140602141606.GC2544@kernel.org>
+ <CAMEtUuxZQuyJaTfoNECnZCJ=q8A_aMpncGwUgWNm9Huxm=bynw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Shradha Shah <sshah@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0198.hostedemail.com ([216.40.44.198]:40068 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751607AbaFCRz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 13:55:26 -0400
-In-Reply-To: <538DFBAF.2030703@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Jonathan Corbet <corbet@lwn.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuxZQuyJaTfoNECnZCJ=q8A_aMpncGwUgWNm9Huxm=bynw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-06-03 at 20:45 +0400, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 06/03/2014 02:04 PM, Shradha Shah wrote:
-> 
-> > From: Jon Cooper <jcooper@solarflare.com>
-> 
-> > Patch to open-code the memory copy routines.
-> > 32bit writes over the PCI bus causes data corruption.
-> 
-> > Fixes:ee45fd92c739
-> > ("sfc: Use TX PIO for sufficiently small packets")
-> 
-> > Signed-off-by: Shradha Shah <sshah@solarflare.com>
-> > ---
-> >   drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
-> >   1 file changed, 19 insertions(+), 5 deletions(-)
-> 
-> > diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-> > index fa94753..d2c9ca0 100644
-> > --- a/drivers/net/ethernet/sfc/tx.c
-> > +++ b/drivers/net/ethernet/sfc/tx.c
-> > @@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
-> >   	u8 buf[L1_CACHE_BYTES];
-> >   };
+
+* Alexei Starovoitov <ast@plumgrid.com> wrote:
+
+> On Mon, Jun 2, 2014 at 7:16 AM, Arnaldo Carvalho de Melo
+> <acme@kernel.org> wrote:
+> > Em Mon, Jun 02, 2014 at 09:24:56AM -0400, Steven Rostedt escreveu:
+> >> On Mon, 2 Jun 2014 08:15:45 -0500
+> >> Jonathan Corbet <corbet@lwn.net> wrote:
 > >
-> > +/* Copy in explicit 64-bit writes. */
-> > +static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
-> > +{
-> > +	u64 *src64 = src, __iomem *dest64 = dest;
-> > +	size_t i, l64 = len / 8;
-> > +
-> > +	WARN_ON_ONCE(len % 8 != 0);
-> > +	WARN_ON_ONCE(((u8 __iomem *)dest - (u8 __iomem *)0) % 8 != 0);
-> > +	BUILD_BUG_ON(sizeof(uint64_t) != 8);
-> > +
-> > +	for (i = 0; i < l64; ++i)
-> > +		writeq(src64[i], dest64+i);
+> >> > On Mon,  2 Jun 2014 00:01:44 -0700
+> >> > Alexei Starovoitov <ast@plumgrid.com> wrote:
+> >
+> >> > > This patch set splits BPF out of core networking into generic component
+> >
+> >> > Quick, probably dumb question: if you're going to split it out, why not
+> >> > split it out entirely, into kernel/ or (perhaps better) lib/?  The
+> >> > whole point seems to be that BPF is outgrowing its networking home, so
+> >> > it seems like it might be better to make it truly generic.
+> >
+> >> I believe this is what Ingo suggested as well. If it is become generic,
+> >> it belongs in lib/
+> >
+> > Yes, that was his suggestion, which I agree with, FWIW.
 > 
->     Could you please surround + by spaces for consistency?
-> 
-> > +}
-> > +
+> I guess I posted v2 too quickly :) v2 splits filter.c into 
+> kernel/bpf/. I think it's a better location than lib/bpf, since lib 
+> feels too constrained by definition of 'library'. bpf is more than a 
+> set of library calls.
 
-The BUILD_BUG_ON seems unnecessary.
-The separate WARN_ON_ONCEs could be combined.
-The subtraction of 0 just seems odd.
+Yeah, the upgrade to kernel/bpf/ is a better place for BPF IMO: BPF is 
+really an 'active', stateful subsystem, with non-trivial per arch 
+implementations, while lib/ is generally for standalone, generic, 
+platform-decoupled library functions (with a few exceptions).
 
-Would this be clearer as:
+Thanks,
 
-static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
-{
-	u64 *src64 = src,
-	u64 __iomem *dest64 = dest;
-	size_t l64 = len / 8;
-	size_t i;
-
-	WARN_ON_ONCE(len % 8 || dest64 % 8);
-
-	for (i = 0; i < l64; i++)
-		writeq(src64[i], &dest64[i]);
- }
+	Ingo
