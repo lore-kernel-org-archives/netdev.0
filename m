@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ec_bhf: Add runtime dependencies
-Date: Mon, 02 Jun 2014 17:02:42 -0700 (PDT)
-Message-ID: <20140602.170242.312834831748145787.davem@davemloft.net>
-References: <20140531173227.693f6429@endymion.delvare>
+Subject: Re: [PATCH 10/11] vxge: Remove useless return variables
+Date: Mon, 02 Jun 2014 17:02:58 -0700 (PDT)
+Message-ID: <20140602.170258.144328105696750793.davem@davemloft.net>
+References: <1401542051-3174-10-git-send-email-peter.senna@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, reksio@newterm.pl
-To: jdelvare@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37876 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbaFCACn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:02:43 -0400
-In-Reply-To: <20140531173227.693f6429@endymion.delvare>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jdmason@kudzu.us, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: peter.senna@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401542051-3174-10-git-send-email-peter.senna@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Sat, 31 May 2014 17:32:27 +0200
+From: Peter Senna Tschudin <peter.senna@gmail.com>
+Date: Sat, 31 May 2014 10:14:10 -0300
 
-> The ec_bhf driver is specific to the Beckhoff CX embedded PC series.
-> These are based on Intel x86 CPU. So we can add a dependency on
-> X86, with COMPILE_TEST as an alternative to still allow for broader
-> build-testing.
+> This patch remove variables that are initialized with a constant,
+> are never updated, and are only used as parameter of return.
+> Return the constant instead of using a variable.
 > 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Verified by compilation only.
+...
+> Signed-off-by: Peter Senna Tschudin <peter.senna@gmail.com>
 
-Applied, thanks.
+Applied.
