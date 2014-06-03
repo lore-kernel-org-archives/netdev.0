@@ -1,69 +1,160 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
- probed into the Host
-Date: Tue, 3 Jun 2014 11:15:43 +0300
-Message-ID: <CAJZOPZK94-hZfBtpjFMEd5m1STRxbs-wTYsKB5SoC=zES5XfPg@mail.gmail.com>
-References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
-	<20140602142947.GB28523@richard>
-	<CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Tal Alon <talal@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-	David Miller <davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH ipsec] xfrm: fix race between netns cleanup and state expire
+ notification
+Date: Tue,  3 Jun 2014 10:26:06 +0200 (CEST)
+Message-ID: <20140603082606.C28C1A3A9B@unicorn.suse.cz>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:37458 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbaFCIPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 04:15:44 -0400
-Received: by mail-qa0-f47.google.com with SMTP id s7so4304480qap.20
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 01:15:43 -0700 (PDT)
-In-Reply-To: <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+Received: from cantor2.suse.de ([195.135.220.15]:34813 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932171AbaFCI0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 3 Jun 2014 04:26:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 2, 2014 at 7:10 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
-> Writing a driver is not an empirical process of trying things to see
-> what works.  You need to actively design a consistent structure so you
-> know why and when things are safe.  I object to gratuitous "dev ==
-> NULL" checks because often they are just a way of patching up a driver
-> design that isn't well thought-out.
+The xfrm_user module registers its pernet init/exit after xfrm
+itself so that its net exit function xfrm_user_net_exit() is
+executed before xfrm_net_exit() which calls xfrm_state_fini() to
+cleanup the SA's (xfrm states). This opens a window between
+zeroing net->xfrm.nlsk pointer and deleting all xfrm_state
+instances which may access it (via the timer). If an xfrm state
+expires in this window, xfrm_exp_state_notify() will pass null
+pointer as socket to nlmsg_multicast().
 
-Bjorn, 1st and most -- Agreed.
+As the notifications are called inside rcu_read_lock() block, it
+is sufficient to retrieve the nlsk socket with rcu_dereference()
+and check the it for null.
 
-Next, to be precise, the use case of rebooting the host while the
-driver was loaded in SRIOV mode and NO VFs probed to VMs worked before
-commit befdf89 and is now broken.
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/xfrm/xfrm_user.c | 36 +++++++++++++++++++++++++-----------
+ 1 file changed, 25 insertions(+), 11 deletions(-)
 
-Reading further your response, I understand that the code was probably
-using a sort of hackish branching to make that to happen, and you
-suggest we re-write that section properly so it can serve well when
-(hopefully soon) implemenet
-sriov_configure and possibly also suspend/resume, point taken.
-
-Dave, as for this patch, again, the regression of inability to reboot
-the host node
-while the driver is loaded exists in the latest upstream code as of
-befdf89 / 3.15-rc1
-
-Now, taking into account that 3.15 is after rc8 and the IL devel team
-has a holiday this week, I don't see us coming in time with a more
-deeper fix for 3.15, so maybe you can eventaully go and merge this one
-liner for 3.15?
-
-Or.
-
-
-> As I wrote before:
->   From the PCI core's perspective, after .probe() returns successfully,
->   we can call any driver entry point and pass the pci_dev to it, and
->   expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
->   sort of breaks that assumption because you clear out pci_drvdata().
->   Right now, the only other entry point mlx4 really implements is
->   mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
->   is NULL.  But that's ... a hack, and you'll have to do the same
->   if/when you implement suspend/resume/sriov_configure/etc.
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8f131c1..c3b7d19 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -955,6 +955,20 @@ static struct sk_buff *xfrm_state_netlink(struct sk_buff *in_skb,
+ 	return skb;
+ }
+ 
++/* A wrapper for nlmsg_multicast() checking that nlsk is still available.
++ * Must be called with RCU read lock.
++ */
++static inline int xfrm_nlmsg_multicast(struct net *net, struct sk_buff *skb,
++				       u32 pid, unsigned int group)
++{
++	struct sock *nlsk = rcu_dereference(net->xfrm.nlsk);
++
++	if (nlsk)
++		return nlmsg_multicast(nlsk, skb, pid, group, GFP_ATOMIC);
++	else
++		return -1;
++}
++
+ static inline size_t xfrm_spdinfo_msgsize(void)
+ {
+ 	return NLMSG_ALIGN(4)
+@@ -2265,7 +2279,7 @@ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+ 	if (build_migrate(skb, m, num_migrate, k, sel, dir, type) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_MIGRATE, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MIGRATE);
+ }
+ #else
+ static int xfrm_send_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
+@@ -2456,7 +2470,7 @@ static int xfrm_exp_state_notify(struct xfrm_state *x, const struct km_event *c)
+ 		return -EMSGSIZE;
+ 	}
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_EXPIRE, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_EXPIRE);
+ }
+ 
+ static int xfrm_aevent_state_notify(struct xfrm_state *x, const struct km_event *c)
+@@ -2471,7 +2485,7 @@ static int xfrm_aevent_state_notify(struct xfrm_state *x, const struct km_event
+ 	if (build_aevent(skb, x, c) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_AEVENTS, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_AEVENTS);
+ }
+ 
+ static int xfrm_notify_sa_flush(const struct km_event *c)
+@@ -2497,7 +2511,7 @@ static int xfrm_notify_sa_flush(const struct km_event *c)
+ 
+ 	nlmsg_end(skb, nlh);
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_SA, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_SA);
+ }
+ 
+ static inline size_t xfrm_sa_len(struct xfrm_state *x)
+@@ -2584,7 +2598,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
+ 
+ 	nlmsg_end(skb, nlh);
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_SA, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_SA);
+ 
+ out_free_skb:
+ 	kfree_skb(skb);
+@@ -2675,7 +2689,7 @@ static int xfrm_send_acquire(struct xfrm_state *x, struct xfrm_tmpl *xt,
+ 	if (build_acquire(skb, x, xt, xp) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_ACQUIRE, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_ACQUIRE);
+ }
+ 
+ /* User gives us xfrm_user_policy_info followed by an array of 0
+@@ -2789,7 +2803,7 @@ static int xfrm_exp_policy_notify(struct xfrm_policy *xp, int dir, const struct
+ 	if (build_polexpire(skb, xp, dir, c) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_EXPIRE, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_EXPIRE);
+ }
+ 
+ static int xfrm_notify_policy(struct xfrm_policy *xp, int dir, const struct km_event *c)
+@@ -2851,7 +2865,7 @@ static int xfrm_notify_policy(struct xfrm_policy *xp, int dir, const struct km_e
+ 
+ 	nlmsg_end(skb, nlh);
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_POLICY, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_POLICY);
+ 
+ out_free_skb:
+ 	kfree_skb(skb);
+@@ -2879,7 +2893,7 @@ static int xfrm_notify_policy_flush(const struct km_event *c)
+ 
+ 	nlmsg_end(skb, nlh);
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_POLICY, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_POLICY);
+ 
+ out_free_skb:
+ 	kfree_skb(skb);
+@@ -2948,7 +2962,7 @@ static int xfrm_send_report(struct net *net, u8 proto,
+ 	if (build_report(skb, proto, sel, addr) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_REPORT, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_REPORT);
+ }
+ 
+ static inline size_t xfrm_mapping_msgsize(void)
+@@ -3000,7 +3014,7 @@ static int xfrm_send_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr,
+ 	if (build_mapping(skb, x, ipaddr, sport) < 0)
+ 		BUG();
+ 
+-	return nlmsg_multicast(net->xfrm.nlsk, skb, 0, XFRMNLGRP_MAPPING, GFP_ATOMIC);
++	return xfrm_nlmsg_multicast(net, skb, 0, XFRMNLGRP_MAPPING);
+ }
+ 
+ static bool xfrm_is_alive(const struct km_event *c)
+-- 
+1.8.4.5
