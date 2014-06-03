@@ -1,75 +1,91 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 77221] New: Clear tx_flags when transhdrlen == 0 in
- ip_append_data without checking?
-Date: Tue, 3 Jun 2014 08:33:06 -0700
-Message-ID: <20140603083306.40ff45ee@nehalam.linuxnetplumber.net>
+Subject: [PATCH net-next] hyper-v: make uuid_le const
+Date: Tue, 3 Jun 2014 08:38:15 -0700
+Message-ID: <20140603083815.14688f8a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:37163 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754815AbaFCPdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 11:33:10 -0400
-Received: by mail-pb0-f48.google.com with SMTP id rr13so5624781pbb.35
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 08:33:10 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
-        by mx.google.com with ESMTPSA id ko10sm29288792pbd.52.2014.06.03.08.33.08
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Tue, 03 Jun 2014 08:33:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org
+To: "K. Y. Srinivasan" <kys@microsoft.com>, Haiyang Zhang
+ <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
+
+The uuid structure could be managed as a const in several places.
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+---
+Patch against net-next because that is where most recent
+hyper-v related changes are.
 
 
-
-Begin forwarded message:
-
-Date: Tue, 3 Jun 2014 00:46:20 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 77221] New: Clear tx_flags when transhdrlen == 0 in ip_append_data without checking?
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=77221
-
-            Bug ID: 77221
-           Summary: Clear tx_flags when transhdrlen == 0 in ip_append_data
-                    without checking?
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.14
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-          Assignee: shemminger@linux-foundation.org
-          Reporter: yangzhe1990@gmail.com
-        Regression: No
-
-Hi,
-
-While I was tracing why TX_TIMESTAMP won't work with RAW socket and
-Non-privileged ICMP socket, I found that both raw.c and ping.c call
-ip_append_data with transhdrlen set to 0, and in ip_append_data, there are
-timestamp specific 
-
-924                                 else
-925                                         /* only the initial fragment is
-926                                            time stamped */
-927                                         cork->tx_flags = 0;
-
-To my understanding in ping.c transhdrlen should be set to sizeof(struct
-icmphdr) just like what icmp.c did.
-
-And for RAW socket, since there are no concept of fragmentation, should we
-check the protocol and only set cork->tx_flags = 0 when the socket_type !=
-SOCK_RAW
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+--- a/drivers/hv/channel_mgmt.c	2014-02-12 08:21:54.627887619 -0800
++++ b/drivers/hv/channel_mgmt.c	2014-06-03 08:08:47.030901345 -0700
+@@ -365,7 +365,7 @@ static u32  next_vp;
+  * performance critical channels (IDE, SCSI and Network) will be uniformly
+  * distributed across all available CPUs.
+  */
+-static u32 get_vp_index(uuid_le *type_guid)
++static u32 get_vp_index(const uuid_le *type_guid)
+ {
+ 	u32 cur_cpu;
+ 	int i;
+--- a/drivers/hv/vmbus_drv.c	2014-04-07 11:21:05.704486433 -0700
++++ b/drivers/hv/vmbus_drv.c	2014-06-03 08:11:14.771854064 -0700
+@@ -435,7 +435,7 @@ static int vmbus_uevent(struct device *d
+ 	return ret;
+ }
+ 
+-static uuid_le null_guid;
++static const uuid_le null_guid;
+ 
+ static inline bool is_null_guid(const __u8 *guid)
+ {
+@@ -450,7 +450,7 @@ static inline bool is_null_guid(const __
+  */
+ static const struct hv_vmbus_device_id *hv_vmbus_get_id(
+ 					const struct hv_vmbus_device_id *id,
+-					__u8 *guid)
++					const __u8 *guid)
+ {
+ 	for (; !is_null_guid(id->guid); id++)
+ 		if (!memcmp(&id->guid, guid, sizeof(uuid_le)))
+@@ -779,9 +779,9 @@ EXPORT_SYMBOL_GPL(vmbus_driver_unregiste
+  * vmbus_device_create - Creates and registers a new child device
+  * on the vmbus.
+  */
+-struct hv_device *vmbus_device_create(uuid_le *type,
+-					    uuid_le *instance,
+-					    struct vmbus_channel *channel)
++struct hv_device *vmbus_device_create(const uuid_le *type,
++				      const uuid_le *instance,
++				      struct vmbus_channel *channel)
+ {
+ 	struct hv_device *child_device_obj;
+ 
+--- a/drivers/hv/hyperv_vmbus.h	2014-04-07 11:21:05.704486433 -0700
++++ b/drivers/hv/hyperv_vmbus.h	2014-06-03 08:27:12.618223800 -0700
+@@ -644,9 +644,9 @@ extern struct vmbus_connection vmbus_con
+ 
+ /* General vmbus interface */
+ 
+-struct hv_device *vmbus_device_create(uuid_le *type,
+-					 uuid_le *instance,
+-					 struct vmbus_channel *channel);
++struct hv_device *vmbus_device_create(const uuid_le *type,
++				      const uuid_le *instance,
++				      struct vmbus_channel *channel);
+ 
+ int vmbus_device_register(struct hv_device *child_device_obj);
+ void vmbus_device_unregister(struct hv_device *device_obj);
