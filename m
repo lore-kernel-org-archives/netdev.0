@@ -1,84 +1,111 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] gianfar: Call netif_carrier_off() prior to registration
-Date: Tue, 3 Jun 2014 16:04:49 -0700
-Message-ID: <CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
-References: <1401836138-13253-1-git-send-email-festevam@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	netdev <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Fabio Estevam <festevam@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch iproute2] do not exit silently when link is not found
+Date: Tue,  3 Jun 2014 16:06:45 -0700
+Message-ID: <1401836805-26937-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f44.google.com ([209.85.192.44]:53303 "EHLO
-	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933973AbaFCXFa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 19:05:30 -0400
-Received: by mail-qg0-f44.google.com with SMTP id i50so14447347qgf.31
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 16:05:29 -0700 (PDT)
-In-Reply-To: <1401836138-13253-1-git-send-email-festevam@gmail.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:56274 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069AbaFCXHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 19:07:01 -0400
+Received: by mail-pd0-f177.google.com with SMTP id g10so5237442pdj.36
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 16:07:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-03 15:55 GMT-07:00 Fabio Estevam <festevam@gmail.com>:
-> From: Fabio Estevam <fabio.estevam@freescale.com>
->
-> Quoting David Miller:
-> "At the moment you call register_netdev() the device is visible, notifications
-> are sent to userspace, and userland tools can try to bring the interface up
-> and see the incorrect link state, before you do the netif_carrier_off().
->
-> Said another way, between the register_netdev() and netif_carrier_off() call,
-> userspace can see the device in an inconsistent state."
->
-> So call netif_carrier_off() prior to register_netdev().
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-Potentially all drivers implementing libphy correctly should be fixed
-to start with a carrier off until the phy library has determined
-otherwise.
+When we create a tunnel on top of a link and the link specified
+in cmdline doesn't exist, an error message should be shown.
 
->
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-> ---
-> This is untested
->
->  drivers/net/ethernet/freescale/gianfar.c | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index a7fe6a7..861e0c9 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -1384,6 +1384,9 @@ static int gfar_probe(struct platform_device *ofdev)
->
->         gfar_hw_init(priv);
->
-> +       /* Carrier starts down, phylib will bring it up */
-> +       netif_carrier_off(dev);
-> +
->         err = register_netdev(dev);
->
->         if (err) {
-> @@ -1391,9 +1394,6 @@ static int gfar_probe(struct platform_device *ofdev)
->                 goto register_fail;
->         }
->
-> -       /* Carrier starts down, phylib will bring it up */
-> -       netif_carrier_off(dev);
-> -
->         device_init_wakeup(&dev->dev,
->                            priv->device_flags &
->                            FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
-> --
-> 1.8.3.2
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-
-
--- 
-Florian
+---
+diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+index b9a516e..53c50ac 100644
+--- a/ip/iplink_vxlan.c
++++ b/ip/iplink_vxlan.c
+@@ -99,8 +99,11 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 		} else if (!matches(*argv, "dev")) {
+ 			NEXT_ARG();
+ 			link = if_nametoindex(*argv);
+-			if (link == 0)
++			if (link == 0) {
++				fprintf(stderr, "Cannot find device \"%s\"\n",
++					*argv);
+ 				exit(-1);
++			}
+ 		} else if (!matches(*argv, "ttl") ||
+ 			   !matches(*argv, "hoplimit")) {
+ 			unsigned uval;
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 9ae8847..f96ce45 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -250,8 +250,11 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ 
+ 	if (medium[0]) {
+ 		p->link = if_nametoindex(medium);
+-		if (p->link == 0)
++		if (p->link == 0) {
++			fprintf(stderr, "Cannot find device \"%s\"\n",
++				medium);
+ 			return -1;
++		}
+ 	}
+ 
+ 	if (p->i_key == 0 && IN_MULTICAST(ntohl(p->iph.daddr))) {
+diff --git a/ip/link_gre.c b/ip/link_gre.c
+index 1747886..fda84d8 100644
+--- a/ip/link_gre.c
++++ b/ip/link_gre.c
+@@ -207,8 +207,11 @@ get_failed:
+ 		} else if (!matches(*argv, "dev")) {
+ 			NEXT_ARG();
+ 			link = if_nametoindex(*argv);
+-			if (link == 0)
++			if (link == 0) {
++				fprintf(stderr, "Cannot find device \"%s\"\n",
++					*argv);
+ 				exit(-1);
++			}
+ 		} else if (!matches(*argv, "ttl") ||
+ 			   !matches(*argv, "hoplimit")) {
+ 			unsigned uval;
+diff --git a/ip/link_gre6.c b/ip/link_gre6.c
+index 4c9c536..c7183e2 100644
+--- a/ip/link_gre6.c
++++ b/ip/link_gre6.c
+@@ -225,8 +225,11 @@ get_failed:
+ 		} else if (!matches(*argv, "dev")) {
+ 			NEXT_ARG();
+ 			link = if_nametoindex(*argv);
+-			if (link == 0)
++			if (link == 0) {
++				fprintf(stderr, "Cannot find device \"%s\"\n",
++					*argv);
+ 				exit(-1);
++			}
+ 		} else if (!matches(*argv, "ttl") ||
+ 			   !matches(*argv, "hoplimit")) {
+ 			__u8 uval;
+diff --git a/ip/link_vti.c b/ip/link_vti.c
+index 77a7482..6274c83 100644
+--- a/ip/link_vti.c
++++ b/ip/link_vti.c
+@@ -171,8 +171,11 @@ get_failed:
+ 		} else if (!matches(*argv, "dev")) {
+ 			NEXT_ARG();
+ 			link = if_nametoindex(*argv);
+-			if (link == 0)
++			if (link == 0) {
++				fprintf(stderr, "Cannot find device \"%s\"\n",
++					*argv);
+ 				exit(-1);
++			}
+ 		} else
+ 			usage();
+ 		argc--; argv++;
