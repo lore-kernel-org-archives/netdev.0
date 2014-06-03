@@ -1,12 +1,13 @@
 From: Benoit Taine <benoit.taine@lip6.fr>
-Subject: [PATCH 2/2 v4] lpc_eth: Use resource_size instead of computation
-Date: Tue, 3 Jun 2014 12:32:54 +0200
-Message-ID: <20140603103254.GA20794@lip6.fr>
+Subject: [PATCH 2/2 v5] lpc_eth: Use resource_size instead of computation
+Date: Tue, 3 Jun 2014 12:45:59 +0200
+Message-ID: <20140603104559.GA21087@lip6.fr>
 References: <1401290047-30005-1-git-send-email-benoit.taine@lip6.fr>
  <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
  <20140601.192705.693805935389177182.davem@davemloft.net>
  <20140602112419.GA3625@lip6.fr>
  <20140602113430.GA3823@lip6.fr>
+ <20140603103254.GA20794@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -14,7 +15,7 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140602113430.GA3823@lip6.fr>
+In-Reply-To: <20140603103254.GA20794@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -24,6 +25,10 @@ at scripts/coccinelle/api/resource_size.cocci
 Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
 ---
 Not compile tested, due incompatible architecture.
+
+Changes from V4:
+ - Added blank line a the end of the diff (Thank to David Miller for your
+   patience)
 
 Changes from V3:
  - should now apply correctly
