@@ -1,48 +1,62 @@
-From: CLOSE Dave <Dave.Close@us.thalesgroup.com>
-Subject: Re: Trying to ping from a subinterface.
-Date: Tue, 3 Jun 2014 09:29:45 -0700
-Message-ID: <538DF7F9.4020306@us.thalesgroup.com>
-References: <538CE2CA.9060806@us.thalesgroup.com>
- <20140602173554.1dc77101@nehalam.linuxnetplumber.net>
- <538D19C9.3090801@us.thalesgroup.com> <538D4B7F.4080302@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: Ben Greear <greearb@candelatech.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Scott Feldman <sfeldma@cumulusnetworks.com>
+Subject: Re: [PATCH] Force speed and duplex mode setting if link down
+Date: Tue, 3 Jun 2014 10:12:11 -0700
+Message-ID: <285C9B27-0A11-4532-90B6-AF7595057F51@cumulusnetworks.com>
+References: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com> <CAGVrzcZMkjFHjE3O80nPe4hmRUgfjWsoY0_g6dNPHKvBRKpOmg@mail.gmail.com> <1075088676.3395812.1401760022657.JavaMail.zimbra@cumulusnetworks.com> <063D6719AE5E284EB5DD2968C1650D6D17256451@AcuExch.aculab.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.2 \(1874\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Sam Tannous <stannous@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thsbbuxrt02p.us.thalesgroup.com ([192.93.163.26]:31825 "EHLO
-	thsbbuxrt02p.us.thalesgroup.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933126AbaFCQfa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 12:35:30 -0400
-Received: from thsbbuxrt02p.us.thalesgroup.com (localhost [127.0.0.1])
-	by localhost (Postfix) with SMTP id 6DF9570007D
-	for <netdev@vger.kernel.org>; Tue,  3 Jun 2014 12:34:57 -0400 (EDT)
-Received: from thsbbuirt02p.us.thales (unknown [10.95.3.16])
-	by thsbbuxrt02p.us.thalesgroup.com (Postfix) with ESMTP id 54A9270005A
-	for <netdev@vger.kernel.org>; Tue,  3 Jun 2014 12:34:57 -0400 (EDT)
-Received: from THSBBUIAV02P.us.thales (mcafee2.us.thales [10.95.3.12])
-	by thsbbuirt02p.us.thales (Postfix) with ESMTPS id 1C1F420001F
-	for <netdev@vger.kernel.org>; Tue,  3 Jun 2014 12:35:22 -0400 (EDT)
-In-Reply-To: <538D4B7F.4080302@candelatech.com>
-Content-Language: en-US
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:46059 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933133AbaFCRMb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 13:12:31 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17256451@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SSB3cm90ZToNCg0KPiBJIGFwb2xvZ2l6ZSB0byB0aGUgZ3JvdXAuIEkgaGFkIGJlZW4gbGVkIHRv
-IGJlbGlldmUgdGhpcyB3YXMgd29ya2luZyBvbg0KPiBlYXJsaWVyIEZlZG9yYSByZWxlYXNlcy4g
-SW4gZmFjdCwgaXQgd2FzIGNvbXBsYWluaW5nIGJ1dCB0aGVuIGZhbGxpbmcNCj4gYmFjayB0byB0
-aGUgbWFpbiBpbnRlcmZhY2UgYW5kIHBlcmZvcm1pbmcgdGhlIHBpbmcgYW55d2F5LiBXaGF0IGlz
-IG5ldw0KPiBpcyB0aGUgcmVmdXNhbCB0byBmYWxsIGJhY2suDQoNCkJlbiBHcmVlYXIgYW5zd2Vy
-ZWQ6DQoNCj4gU09fQklORFRPREVWSUNFIGNvdWxkIG5ldmVyIHdvcmsgb24gc3ViLWludGVyZmFj
-ZXMgYXMgZmFyIGFzIEkga25vdywNCj4gYnV0IG1heWJlIG9sZGVyIHZlcnNpb25zIG9mIHBpbmcg
-anVzdCBkaWRuJ3QgYm90aGVyIGRvaW5nIFNPX0JJTkRUT0RFVklDRS4NCg0KSXQgYXBwZWFycyB0
-aGF0IHRoZSBvbGRlciB2ZXJzaW9uIHRyaWVkIHRoZSBjYWxsLCBnb3QgYSBmYWlsdXJlLA0KY29t
-cGxhaW5lZCBhYm91dCBpdCwgYW5kIHRoZW4gY29udGludWVkIGJ5IHVzaW5nIHRoZSBtYWluIGlu
-dGVyZmFjZQ0KaW5zdGVhZC4gVGhlIGV4aXQgY29kZSB3YXMgbm90IGFmZmVjdGVkLg0KDQpUaGUg
-Y3VycmVudCB2ZXJzaW9uIHRyaWVzIHRoZSBjYWxsLCBmYWlscywgY29tcGxhaW5zLCBhbmQgZXhp
-dHMgd2l0aA0KY29kZSAyLg0KDQo+IERvIHlvdSBhY3R1YWxseSBuZWVkIHN1Yi1pbnRlcmZhY2Vz
-IGZvciBzb21lIHJlYXNvbiwgb3IgY2FuIHlvdSBqdXN0IHVzZQ0KPiBtdWx0aXBsZSBJUHMgb24g
-b25lIGludGVyZmFjZSAob3IgbWF5YmUgbWFjLXZsYW5zKT8NCg0KSSBjYW4gbGl2ZSB3aXRob3V0
-IHRoZW0uIEJ1dCB0aGV5IGRvIHByb3ZpZGUgYSBuaWNlIHdheSB0byByZWZlcmVuY2UNCmFuIGFk
-ZHJlc3MgYnkgbmFtZS4NCi0tIA0KRGF2ZSBDbG9zZQ==
+
+On Jun 3, 2014, at 2:13 AM, David Laight <David.Laight@ACULAB.COM> wrote:
+
+> From: Of Sam Tannous
+>> 
+>> I probably didn't make this clear enough in the description.
+>> I'm not describing a use case.   I'm simply changing the
+>> speed on two interfaces that are directly connected.
+>> I don't have autoneg on at all.
+>> 
+>> 1. I start with a working link where the speed is
+>>   10G and duplex is full on both sides.
+>> 
+>> 2. I change the speed on one side to 1G with
+>> 
+>>      ethtool -s speed 1000
+>> 
+>>   and the command appears to work (at least there is no error message).
+>>   Once I issue this command, the link is no longer usable
+>>   since the speed changed on one side but not the other.  Autoneg
+>>   is disabled (by default).
+> 
+> You really want to leave autoneg enabled and just limit the advertised
+> speeds.
+
+This patch is about the forced speed/duplex case, which is one way to set settings.  Autoneg is another.
+
+> I suspect there are plenty of ways ethtool can be used to make
+> non-working interfaces, some of them might be needed be developers
+> or in unusual circumstances.
+> So I don't think ethtool should be policing this specific condition.
+
+Why not?  The patch enforces the specific condition when input from the user is ambiguous.  When link is down, and user is forcing speed only, there is not enough information to know duplex, and ethtool app is defaulting to HDX, which is usually the wrong choice for most interfaces.  The patch forces the user to be explicit on speed and duplex in this ambiguous case.
+
+> Maybe the driver should just use FDX when HDX is invalid for the
+> speed.
+
+No, the driver should fail an attempt to set HDX when not supported.
+
+-scott
