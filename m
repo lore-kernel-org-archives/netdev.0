@@ -1,28 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 v2] cnic fixes.
-Date: Mon, 02 Jun 2014 23:17:22 -0700 (PDT)
-Message-ID: <20140602.231722.1254992955908033401.davem@davemloft.net>
-References: <1401775728-21043-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH v4 0/2] add hix5hd2 mac driver
+Date: Mon, 02 Jun 2014 23:39:37 -0700 (PDT)
+Message-ID: <20140602.233937.182448049174382056.davem@davemloft.net>
+References: <1401774577-16683-1-git-send-email-zhangfei.gao@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: mchan@broadcom.com
+Cc: arnd@arndb.de, f.fainelli@gmail.com,
+	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
+	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
+	haifeng.yan@linaro.org, jchxue@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+To: zhangfei.gao@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39613 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39680 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751732AbaFCGRX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 02:17:23 -0400
-In-Reply-To: <1401775728-21043-1-git-send-email-mchan@broadcom.com>
+	with ESMTP id S1752525AbaFCGjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 02:39:39 -0400
+In-Reply-To: <1401774577-16683-1-git-send-email-zhangfei.gao@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <mchan@broadcom.com>
-Date: Mon, 2 Jun 2014 23:08:45 -0700
+From: Zhangfei Gao <zhangfei.gao@linaro.org>
+Date: Tue,  3 Jun 2014 13:49:35 +0800
 
-> Fix 2 sleeping function from invalid context bugs and 1 missing iscsi netlink
-> message bug.
+> v4:
+> Update indent
+> Use usleep_range instead of udelay
 > 
-> v2: Fixed typo in rcu_dereference_protected() and tested with CONFIG_PROVE_RCU
+> v3:
+> Remove .ndo_get_stats as mentioned by Tobias
+> Add __le32 conversion pointed by Mark
+> 
+> v2:
+> Update binding accoring to Sergei comments
+> Update descriptor as Arnd's suggestion
 
-Looks a lot better, series applied, thanks.
+Series applied, thanks.
