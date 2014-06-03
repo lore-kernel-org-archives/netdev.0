@@ -1,44 +1,55 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.58] datapath: Add basic MPLS support to kernel
-Date: Mon, 2 Jun 2014 17:58:10 -0700
-Message-ID: <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
-References: <1401063743-30997-1-git-send-email-horms@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bridge: Add bridge ifindex to bridge fdb
+ notify msgs
+Date: Mon, 02 Jun 2014 17:59:22 -0700 (PDT)
+Message-ID: <20140602.175922.306402966694605258.davem@davemloft.net>
+References: <1401255577-30602-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	jhs@mojatatu.com, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
+To: roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:34020 "HELO
-	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753212AbaFCA6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:58:31 -0400
-Received: by mail-qg0-f50.google.com with SMTP id z60so12159932qgd.9
-        for <netdev@vger.kernel.org>; Mon, 02 Jun 2014 17:58:30 -0700 (PDT)
-In-Reply-To: <1401063743-30997-1-git-send-email-horms@verge.net.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38254 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932442AbaFCA7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 20:59:24 -0400
+In-Reply-To: <1401255577-30602-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 25, 2014 at 5:22 PM, Simon Horman <horms@verge.net.au> wrote:
-> diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
-> index 803a94c..8ce596c 100644
-> --- a/datapath/flow_netlink.c
-> +++ b/datapath/flow_netlink.c
-> +               case OVS_ACTION_ATTR_POP_MPLS:
-> +                       if (!eth_p_mpls(eth_type))
-> +                               return -EINVAL;
+From: roopa@cumulusnetworks.com
+Date: Tue, 27 May 2014 22:39:37 -0700
 
-Should this also take into account the VLAN tag? It's really part of
-the EtherType although it has been stripped out here. Actually, maybe
-it's better to not track the vlan_tci separately at all during
-validation but just fold it into the EtherType.
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> (This patch was previously posted as RFC at
+> http://patchwork.ozlabs.org/patch/352677/)
+> 
+> This patch adds NDA_MASTER attribute to neighbour attributes enum for
+> bridge/master ifindex. And adds NDA_MASTER to bridge fdb notify msgs.
+> 
+> Today bridge fdb notifications dont contain bridge information.
+> Userspace can derive it from the port information in the fdb
+> notification. However this is tricky in some scenarious.
+> 
+> Example, bridge port delete notification comes before bridge fdb
+> delete notifications. And we have seen problems in userspace
+> when using libnl where, the bridge fdb delete notification handling code
+> does not understand which bridge this fdb entry is part of because
+> the bridge and port association has already been deleted.
+> And these notifications (port membership and fdb) are generated on
+> separate rtnl groups.
+> 
+> Fixing the order of notifications could possibly solve the problem
+> for some cases (I can submit a separate patch for that).
+> 
+> This patch chooses to add NDA_MASTER to bridge fdb notify msgs
+> because it not only solves the problem described above, but also helps
+> userspace avoid another lookup into link msgs to derive the master index.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-The practical implication of this is that you wouldn't be able to pop
-out from underneath a VLAN. This may be a good thing if we are trying
-to avoid tag order issues - after all, you can't push underneath a
-VLAN either. I'm not sure what effects this has on the need to track
-mac_len, if any.
-
-Otherwise, I'm happy with this. I think that we need to conclude the
-discussion on the other patch and update this appropriately first.
+Applied, thanks.
