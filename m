@@ -1,23 +1,26 @@
-From: Osbornes Solicitors LLP <mlbaa@uevora.pt>
-Subject: Legal Notice
-Date: Tue, 03 Jun 2014 00:50:06 +0100
-Message-ID: <d7efabc8c2302b50591a434b0b80fd17@uevora.pt>
-Reply-To: <mfreed.man@rogers.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] wan: Use usleep_range()
+Date: Mon, 02 Jun 2014 17:01:57 -0700 (PDT)
+Message-ID: <20140602.170157.1949471057816808999.davem@davemloft.net>
+References: <E603DC592C92B54A89CEF6B0919A0B1CAFDE223C6D@SOLO.hq.farsitecommunications.com>
+	<1401548871-12352-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from evunix.uevora.pt ([193.136.216.1]:55850 "EHLO evunix.uevora.pt"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751966AbaFBX65 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 2 Jun 2014 19:58:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kevin.curtis@farsite.co.uk, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: manuel.schoelling@gmx.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401548871-12352-1-git-send-email-manuel.schoelling@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-My late client made his last will and testament in your favour, i sent 
-letters to you but got no response, i advise you contact me immediately.
+=46rom: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
+Date: Sat, 31 May 2014 17:07:51 +0200
 
-Barr Mark Freedman
+> Instead of using a jiffies hack we can use the standard api for delay=
+s.
+>=20
+> Signed-off-by: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
+
+Applied, thanks.
