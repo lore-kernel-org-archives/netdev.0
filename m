@@ -1,46 +1,109 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] driver: net: smsc911x: set NOCARRIER flag in
- driver initialization
-Date: Tue, 03 Jun 2014 15:24:49 -0700 (PDT)
-Message-ID: <20140603.152449.715925744030919276.davem@davemloft.net>
-References: <CAHPKR9KmDSgC9EstJLfhqY9SB462OSJhQCEPS7Ka=VvnqbH6iQ@mail.gmail.com>
-	<20140530.134245.1805237850303710369.davem@davemloft.net>
-	<CAHPKR9+H1gmJBqtO-4c7YBQrx+xbLenzWE6sky9Pq7=yF4bHUw@mail.gmail.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v2.58] datapath: Add basic MPLS support to
+	kernel
+Date: Tue, 3 Jun 2014 15:40:27 -0700
+Message-ID: <CAEP_g=9mMSwReBQjrm835dSCvLJQW2rgaLUts02YC+7uidTHkw@mail.gmail.com>
+References: <1401063743-30997-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
+ <20140603040406.GA22191@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org
-To: kumaran.4353@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49508 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965166AbaFCWYv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 18:24:51 -0400
-In-Reply-To: <CAHPKR9+H1gmJBqtO-4c7YBQrx+xbLenzWE6sky9Pq7=yF4bHUw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140603040406.GA22191-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Balakumaran Kannan <kumaran.4353@gmail.com>
-Date: Tue, 3 Jun 2014 19:45:39 +0530
-
-> On Sat, May 31, 2014 at 2:12 AM, David Miller <davem@davemloft.net> wrote:
->> From: Balakumaran Kannan <kumaran.4353@gmail.com>
->> Date: Fri, 30 May 2014 18:35:43 +0530
+On Mon, Jun 2, 2014 at 9:04 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+> Hi Jesse,
+>
+> thanks for your feedback.
+>
+> On Mon, Jun 02, 2014 at 05:58:10PM -0700, Jesse Gross wrote:
+>> On Sun, May 25, 2014 at 5:22 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
+>> > diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
+>> > index 803a94c..8ce596c 100644
+>> > --- a/datapath/flow_netlink.c
+>> > +++ b/datapath/flow_netlink.c
+>> > +               case OVS_ACTION_ATTR_POP_MPLS:
+>> > +                       if (!eth_p_mpls(eth_type))
+>> > +                               return -EINVAL;
 >>
->>> All these drivers call netif_carrier_off function after registering
->>> the network device using register_netdev.
+>> Should this also take into account the VLAN tag? It's really part of
+>> the EtherType although it has been stripped out here. Actually, maybe
+>> it's better to not track the vlan_tci separately at all during
+>> validation but just fold it into the EtherType.
 >>
->> I can quote more counter-examples than your list, starting with the
->> Broadcom tg3 driver.
-> 
-> Thank you David for this information. I'll send updated patch as version-2.
-> 
-> Still I couldn't understand the reason behind this. I should be grateful if you
-> would explain me little bit.
+>> The practical implication of this is that you wouldn't be able to pop
+>> out from underneath a VLAN. This may be a good thing if we are trying
+>> to avoid tag order issues - after all, you can't push underneath a
+>> VLAN either. I'm not sure what effects this has on the need to track
+>> mac_len, if any.
+>
+> My thinking is that the ordering problem only surfaces in relation
+> to push MPLS actions where should it go in relation to VLAN tags.
+> For pop actions it seems to me that the outermost tag should be removed
+> regardless of its position in relation to other tags.
+>
+> So I think that the code above is safe. Though now you mention
+> it I do notice that it only allows pop MPLS if there is at most
+> one VLAN tag present.
+>
+> That said, I would not mind particularly disabling pop MPLS in the
+> presence of VLAN tags. At the very least it is related to the
+> painful issue of tag ordering.
 
-At the moment you call register_netdev() the device is visible, notifications
-are sent to userspace, and userland tools can try to bring the interface up
-and see the incorrect link state, before you do the netif_carrier_off().
+I agree that it is safe but my thought was the it avoids a number of
+potential corner cases such as:
+ * Difference between push and pop underneath vlan tags.
+ * Pop with multiple vlan tags
+ * Differences with varying EtherTypes used for vlans
 
-Said another way, between the register_netdev() and netif_carrier_off() call,
-userspace can see the device in an inconsistent state.
+> I explored your idea of tracking only eth_type rather than both
+> it and vlan_tci. I did this by adding the following logic to
+> ovs_nla_copy_actions().
+>
+>         if (key->eth.tci & htons(VLAN_TAG_PRESENT))
+>                 eth_type = htons(ETH_P_8021Q);
+>         else
+>                 eth_type = key->eth.type;
+>
+> I then updated the usage of eth_type in ovs_nla_copy_actions__() accordingly.
+> One problem that I have run into is what to do about pop VLAN.
+>
+> I don't believe its possible to know what the new eth type is.
+> This makes subsequent checks of the eth type for validate_set()
+> a little awkward. And seems to indicate that an extra parameter would
+> be needed.
+>
+> For this reason I am inclined to leave the eth_type and vlan_tci
+> parameters in place. In this case there is no problem with pop VLAN
+> as the ether type inside the VLAN tag should be the value of eth_type.
+
+Can't we populate eth_type with the EtherType from the flow key in
+pop_vlan? This doesn't provide us with the ability to look arbitrarily
+deep into the packet but it should at least retain the functionality
+that we have today.
+
+>> Otherwise, I'm happy with this. I think that we need to conclude the
+>> discussion on the other patch and update this appropriately first.
+>
+> Yes, lets get that sorted out.
+>
+> Assuming the other patch is accepted do you want me to increase the
+> coverage of the compatibility code (in this patch) up to whichever version
+> of the kernel the other patch is included in? It seems logical to me but I
+> do not have strong feelings about it.
+
+Yes, I think that probably makes sense.
