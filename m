@@ -1,21 +1,23 @@
 From: Chema Gonzalez <chema@google.com>
-Subject: Re: [PATCH v6 net-next 1/4] net: flow_dissector: avoid multiple calls
- in eBPF
-Date: Tue, 3 Jun 2014 14:12:19 -0700
-Message-ID: <CA+ZOOTPdDDeGxZVGXVRZmjkxqkGefgDLrawo_9YXbjwTQ_FLzA@mail.gmail.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com>
-	<1401389758-13252-1-git-send-email-chema@google.com>
-	<5387C8AD.6000909@redhat.com>
-	<CA+ZOOTNobzzJPgQnVVZ+b6rRD=0_pdjUB8q5FQVkbO+dob0BSg@mail.gmail.com>
-	<538C6FD8.9040305@redhat.com>
-	<CAMEtUuyduk1sHBeVm=d5GYEgB4ma7sVFYeBLdapbeEpQY9nA1Q@mail.gmail.com>
-	<538D884E.5030007@redhat.com>
-	<CAMEtUuxK5hV_eORRLaSHSiwF5X82Ae91vL6W0-6au48v8H6bAA@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
+Date: Tue, 3 Jun 2014 14:40:39 -0700
+Message-ID: <CA+ZOOTOfq705CbUjx9ppw4gLxJ8JFCaFsphwhAS+NskHVjd86Q@mail.gmail.com>
+References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
+	<538C3C94.3080206@redhat.com>
+	<CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com>
+	<538CAEA6.4060307@redhat.com>
+	<CAMEtUuwxJOgYgFjg9deQZOffeg6-JUGZXZ1Rj344eQmriQ0F0Q@mail.gmail.com>
+	<538D8DAA.7090105@redhat.com>
+	<CAMEtUuw8uyCGeLeUB0PXm5cCpqcsjPLZt6y9FcKjapbVPjWTuw@mail.gmail.com>
+	<538E319B.3000606@redhat.com>
+	<CAMEtUuzsHJioXZtuGje6UmwZmcmDZEn8PdkkYanA9j1sp242+Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Ingo Molnar <mingo@kernel.org>,
 	Steven Rostedt <rostedt@goodmis.org>,
+	Eric Dumazet <edumazet@google.com>,
 	Peter Zijlstra <a.p.zijlstra@chello.nl>,
 	Arnaldo Carvalho de Melo <acme@infradead.org>,
 	Jiri Olsa <jolsa@redhat.com>,
@@ -23,167 +25,89 @@ Cc: Daniel Borkmann <dborkman@redhat.com>,
 	"H. Peter Anvin" <hpa@zytor.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Kees Cook <keescook@chromium.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
 	Network Development <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>
 To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuxK5hV_eORRLaSHSiwF5X82Ae91vL6W0-6au48v8H6bAA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:46402 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965087AbaFCVkj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 17:40:39 -0400
+Received: by mail-ie0-f182.google.com with SMTP id x19so6557519ier.13
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 14:40:39 -0700 (PDT)
+In-Reply-To: <CAMEtUuzsHJioXZtuGje6UmwZmcmDZEn8PdkkYanA9j1sp242+Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 3, 2014 at 1:15 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Tue, Jun 3, 2014 at 1:33 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->> On 06/02/2014 06:48 PM, Alexei Starovoitov wrote:
+First of all, and just to join the crowd, kernel/bpf/ FTW.
+
+Now, I have some suggestions about eBPF. IMO classic BPF is an ISA
+oriented to filter (meaning returning a single integer that states how
+many bytes of the packet must be captured) packets (e.g. consider the
+6 load modes, where 3 provide access the packet -- abs, ind, msh --,
+one to an skb field -- len--, the 5th one to the memory itself -- mem
+--, and the 6th is an immediate set mode --imm-- ) that has been used
+in other environments (seccomp, tracing, etc.) by (a) extending the
+idea of a "packet" into a "buffer", and (b) adding ancillary loads.
+
+eBPF should be a generic ISA that can be used by many environments,
+including those served today by classic BPF. IMO, we should get a
+nicely-defined ISA (MIPS anyone?) and check what should go into eBPF
+and what should not.
+
+- 1. we should considering separating the eBPF ISA farther from classic BPF
+  - eBPF still uses a_reg and x_reg as the names of the 2 op
+registers. This is very confusing, especially when dealing with
+translated filters that do move data between A and X. I've had a_reg
+being X, and x_reg being A. We should rename them d_reg and s_reg.
+  - BPF_LD vs. BPF_LDX: this made sense in classic BPF, as there was
+only one register, and d_reg was implicit in the name of the insn
+code. Now, why are we keeping both in eBPF, when the register we're
+writing to is made explicit in d_reg (I already forgot if d_reg was
+a_reg or x_reg ;) ? Removing one of them will save us 1/8th of the
+insns.
+  - BPF_ST vs. BPF_STX: same here. Note that the current
+sk_convert_filter() just converts all stores to BPF_STX.
+
+- 2. there are other insn that we should consider adding:
+  - lui: AFAICT, there is no clean way to build a 64-bit number (you
+can LD_IMM the upper part, lsh 32, and then add the lower part).
+  - nop: I'd like to have a nop. Do I know why? Nope.
+
+
+On Tue, Jun 3, 2014 at 1:58 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Tue, Jun 3, 2014 at 1:35 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> On 06/03/2014 05:44 PM, Alexei Starovoitov wrote:
+>> ...
 >>>
->>> imo there are pros and cons in Daniel's and Chema's proposals
->>> for classic BPF extensions.
->>> I like Chema's a bit more, since his proposal doesn't require to
->>> change classic BPF verifier and that's always a delicate area
->>> (seccomp also allows to use M[] slots).
+>>> All of your points are valid. They are right questions to ask. I just
+>>>
+>>> don't see why you're still arguing about first step of filter.c split,
+>>> whereas your concerns are about steps 2, 3, 4.
 >>
 >>
->> What bothers me is that you have to *special case* this extension
->> all over the BPF converter and stack, even you need to introduce a
->> prologue just to walk the whole filter program and to check if the
->> extension is present; next to that instead of one extension you
->> need to add a couple of them to uapi. I understand Chema's proposal
+>> Fair enough, lets keep them in mind though for future work. Btw,
 >
-> Agree. The walking part and multiple anc loads are not clean, but in your
-> approach you'd need to hack sk_chk_filter() to recognize very specific
-> anc load and do even fancier things in check_load_and_stores()
-> to make sure that 'ld #5, ld #keys' is safe from M[] usage point of view.
-I think you may be confusing the two parts of the patch, namely
-whether we implement the code as 1 anc load with N parameters or as N
-anc loads, and the existence of a prologue.
-
-- Adding just 1 anc load ("ld #keys" in your pseudo-code) requires
-less UAPI changes, but effectively exports the flow_keys struct to the
-user (which means we cannot change it in the future). The fact that
-you're proposing your own version of the flow_keys ( {nhoff, nproto,
-thoff, tproto, poff} ) does not make it less of a problem: You're just
-exporting an alternative (albeit IMO way better one, as all the
-dissected info can be obtained from your 5-tuple) flow_keys. From a
-usability PoV, the user may have to either do "ld #0; ld #keys"
-(knowing that "#0" refers to "nhoff"), or "ld #nhoff". I definitely
-prefer the second, but I can easily rewrite the patch to use the
-first.
-
-- Now, the existence of a prologue is a must if you want to ensure the
-filter only calls the actual flow dissector once (this is the main
-goal of the patch, actually). Having 2 insns separated by N insns that
-access data obtained from the same flow dissector call means you have
-to both (a) ensure the first caller -- whether it's the first or the
-second insn -- does perform the BPF_CALL, and (b) ensure that none of
-the N insns in the middle mucks with the result of the first call (my
-solution deals with (b) by using the stack outside of M[], while yours
-requires verifying the code. I find mine easier).
-
-In order to achieve (a), you need the prologue code: Because the code
-can have jumps, you can never know whether the "ld #keys" was actually
-called or not. What my solution's prologue does is to write a 0 on a
-flow_inited u32, which states that the flow dissector hasn't been
-called. Now, every call for any of the sub-fields checks this
-flow_inited field, and runs the flow dissector iff it's zero (hasn't
-been called yet), in which case it also sets flow_inited to 1.
-
-Your approach needs it too. Citing from your pseudo-code:
-
-> ld #5     <-- indicates to fill the first 5 slots of M[], so M[0] to M[4]
-> ld #keys  <-- triggers the extension to fill the M[] slots
-> ld M[0]   <-- loads nhoff from M[0] into accu
-
-How does the "ld M[0]" know that the actual flow dissector has already
-been called? What if the insn just before the "ld #5" was "jmp +2" ?
-In that case, the "ld #keys" would have never been called.
-
-> ld M[0]   <-- loads nhoff from M[0] into accu
-> <do sth with it>
-> ld M[3]   <-- loads tproto into accu, etc
-
->> or his need to easily access these data but that's why I proposed
->> the above if he wants to go for that. Btw, seccomp doesn't allow
->> for loading BPF extensions, you said so yourself Alexei.
+> Ok :)
 >
-> of course, but seccomp does use ld/st M[] which will overlap
-> with your socket extension and since check_load_and_stores()
-> will be hacked, seccomp verification needs to be considered as well.
-> From user api point of view, your approach is cleaner than Chema's,
-> but from implementation Chema's is much safer and smaller.
+>> are other files planned for kernel/bpf/ or should it instead just
+>> simply be kernel/bpf.c?
 >
-> Anyway as I said before I'm not excited about either.
-> I don't think we should be adding classic BPF extensions any more.
-> The long term headache of supporting classic BPF extensions
-> outweighs the short term benefits.
-I see a couple of issues with (effectively) freezing classic BPF
-development while waiting for direct eBPF access to happen. The first
-one is that the kernel has to accept it. I can see many questions
-about this, especially security and usability (I'll send an email
-about the "split BPF out of core later"). Now, the main issue is
-whether/when the tools will support it. IMO, this is useful iff I can
-quickly write/reuse filters and run tcpdump filters based on them. I'm
-trying to get upstream libpcap to accept support for raw (classic) BPF
-filters, and it's taking a long time. I can imagine how they may be
-less receptive about supporting a Linux-only eBPF mechanism. Tools do
-matter.
+> The most obvious one is eBPF verifier in separate file (kernel/bpf/verifier.c)
+> bpf maps is yet another thing, but that's different topic.
+> Probably a set of bpf-callable functions in another file. Like right now
+> for sockets these helpers are __skb_get_pay_offset(), __skb_get_nlattr()
+> For tracing there will be a different set of helper functions and eventually
+> some will be common. Like __get_raw_cpu_id() from filter.c could
+> eventually move to kernel/bpf/helpers.c
+LGTM.
 
-Even if eBPF happens, it's not that the extensions are so hard to port
-to eBPF: It's one BPF_CALL per extension. And they have a
-straightforward porting path to the C-like code.
+I like the idea of every user (packet filter, seccomp, etc.) providing
+a map of the bpf calls that are ok, as in the packet filter stating
+that {1->__skb_get_pay_offset(), 2->__skb_get_nlattr(), ...}, but
+seccomp providing a completely different (or even empty) map.
 
 -Chema
 
 
-> Not having to constantly tweak kernel for such cases was the key
-> goal of eBPF. My two eBPF approaches to solve Chema's need
-> are both cleaner, since nothing special is being done in eBPF
-> core to support this new need. Both instruction set and verifier
-> stay generic and cover tracing and this new socket use at once.
-> I do realize that I'm talking here about future eBPF verifier that
-> is not in tree yet and eBPF is not exposed to user space, but
-> I think we should consider longer term perspective.
-> If I'm forced to pick between yours or Chema's classic extensions,
-> I would pick Chema's because it's lesser evil :)
->
->>> I think exposing eBPF to user space is not a matter of 'if' but 'when'.
->>>
->>> I'm not sure how pressing it is now to add another extension to classic,
->>> when the goal of this patch set fits into eBPF model just fine.
->>> yes, eBPF verifier is not in tree yet and it will obviously take longer to
->>> review than Chema's or Daniel's set.
->>>
->>> When eBPF is exposed to user space the inner header access can
->>> be done in two ways without changing eBPF instruction set or eBPF
->>> verifier.
->>>
->>> eBPF approach #1:
->>> -- code packet parser in restricted C
->>> Pros:
->>> skb_flow_dissect() stays hidden in kernel.
->>> No additional uapi headache which exist if we start reusing
->>> in-kernel skb_flow_dissect() either via classic or eBPF.
->>> Such eBPF program will be just as fast as in-kernel skb_flow_dissect()
->>> (I provided performance numbers before)
->>> Cons:
->>> in-kernel skb_flow_dissect() is not reused, but mostly copy-pasted to
->>> userspace.
->>>
->>> eBPF approach #2:
->>> -- reuse in-kernel skb_flow_dissect() via bpf_call insn from eBPF program
->>> Pros:
->>> eBPF program becomes much shorter and can be done in asm like:
->>> bpf_mov r2, fp
->>> bpf_sub r2, 64
->>> bpf_call bpf_skb_flow_dissect  // call in-kernel helper function from
->>> eBPF program
->>> bpf_ldx r1, [fp - 64]  // access flow_keys data
->>> bpf_ldx r2, [fp - 60]
->>>
->>> Cons:
->>> bpf_skb_flow_dissect() (wrapper on top of skb_flow_dissect()) becomes
->>> uapi visible helper function
->>>
->>> imo both eBPF approaches are cleaner than extending classic.
->>>
->>
+> I'm not a fan of squeezing different logic into one file.
