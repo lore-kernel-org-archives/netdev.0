@@ -1,110 +1,84 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next] hyper-v: make uuid_le const
-Date: Tue, 3 Jun 2014 17:30:28 +0000
-Message-ID: <04f86b9536044961bb702ecf554fc146@BL2PR03MB291.namprd03.prod.outlook.com>
-References: <20140603083815.14688f8a@nehalam.linuxnetplumber.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net v4 1/2] sfc: use 64-bit writes for PIO.
+Date: Tue, 03 Jun 2014 10:55:23 -0700
+Message-ID: <1401818123.18833.17.camel@joe-AO725>
+References: <538D9D1E.3090608@solarflare.com>
+	 <538D9DB3.4080905@solarflare.com> <538DFBAF.2030703@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>, Haiyang Zhang
- <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140603083815.14688f8a@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: Shradha Shah <sshah@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0198.hostedemail.com ([216.40.44.198]:40068 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751607AbaFCRz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 13:55:26 -0400
+In-Reply-To: <538DFBAF.2030703@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2014-06-03 at 20:45 +0400, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 06/03/2014 02:04 PM, Shradha Shah wrote:
+> 
+> > From: Jon Cooper <jcooper@solarflare.com>
+> 
+> > Patch to open-code the memory copy routines.
+> > 32bit writes over the PCI bus causes data corruption.
+> 
+> > Fixes:ee45fd92c739
+> > ("sfc: Use TX PIO for sufficiently small packets")
+> 
+> > Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> > ---
+> >   drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
+> >   1 file changed, 19 insertions(+), 5 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+> > index fa94753..d2c9ca0 100644
+> > --- a/drivers/net/ethernet/sfc/tx.c
+> > +++ b/drivers/net/ethernet/sfc/tx.c
+> > @@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
+> >   	u8 buf[L1_CACHE_BYTES];
+> >   };
+> >
+> > +/* Copy in explicit 64-bit writes. */
+> > +static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
+> > +{
+> > +	u64 *src64 = src, __iomem *dest64 = dest;
+> > +	size_t i, l64 = len / 8;
+> > +
+> > +	WARN_ON_ONCE(len % 8 != 0);
+> > +	WARN_ON_ONCE(((u8 __iomem *)dest - (u8 __iomem *)0) % 8 != 0);
+> > +	BUILD_BUG_ON(sizeof(uint64_t) != 8);
+> > +
+> > +	for (i = 0; i < l64; ++i)
+> > +		writeq(src64[i], dest64+i);
+> 
+>     Could you please surround + by spaces for consistency?
+> 
+> > +}
+> > +
 
+The BUILD_BUG_ON seems unnecessary.
+The separate WARN_ON_ONCEs could be combined.
+The subtraction of 0 just seems odd.
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Tuesday, June 3, 2014 8:38 AM
-> To: KY Srinivasan; Haiyang Zhang
-> Cc: devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org
-> Subject: [PATCH net-next] hyper-v: make uuid_le const
-> 
-> The uuid structure could be managed as a const in several places.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Would this be clearer as:
 
-Thanks Stephen.
+static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
+{
+	u64 *src64 = src,
+	u64 __iomem *dest64 = dest;
+	size_t l64 = len / 8;
+	size_t i;
 
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+	WARN_ON_ONCE(len % 8 || dest64 % 8);
 
-> 
-> ---
-> Patch against net-next because that is where most recent hyper-v related
-> changes are.
-> 
-> 
-> --- a/drivers/hv/channel_mgmt.c	2014-02-12 08:21:54.627887619 -0800
-> +++ b/drivers/hv/channel_mgmt.c	2014-06-03 08:08:47.030901345 -0700
-> @@ -365,7 +365,7 @@ static u32  next_vp;
->   * performance critical channels (IDE, SCSI and Network) will be uniformly
->   * distributed across all available CPUs.
->   */
-> -static u32 get_vp_index(uuid_le *type_guid)
-> +static u32 get_vp_index(const uuid_le *type_guid)
->  {
->  	u32 cur_cpu;
->  	int i;
-> --- a/drivers/hv/vmbus_drv.c	2014-04-07 11:21:05.704486433 -0700
-> +++ b/drivers/hv/vmbus_drv.c	2014-06-03 08:11:14.771854064 -0700
-> @@ -435,7 +435,7 @@ static int vmbus_uevent(struct device *d
->  	return ret;
->  }
-> 
-> -static uuid_le null_guid;
-> +static const uuid_le null_guid;
-> 
->  static inline bool is_null_guid(const __u8 *guid)  { @@ -450,7 +450,7 @@
-> static inline bool is_null_guid(const __
->   */
->  static const struct hv_vmbus_device_id *hv_vmbus_get_id(
->  					const struct hv_vmbus_device_id
-> *id,
-> -					__u8 *guid)
-> +					const __u8 *guid)
->  {
->  	for (; !is_null_guid(id->guid); id++)
->  		if (!memcmp(&id->guid, guid, sizeof(uuid_le))) @@ -779,9
-> +779,9 @@ EXPORT_SYMBOL_GPL(vmbus_driver_unregiste
->   * vmbus_device_create - Creates and registers a new child device
->   * on the vmbus.
->   */
-> -struct hv_device *vmbus_device_create(uuid_le *type,
-> -					    uuid_le *instance,
-> -					    struct vmbus_channel *channel)
-> +struct hv_device *vmbus_device_create(const uuid_le *type,
-> +				      const uuid_le *instance,
-> +				      struct vmbus_channel *channel)
->  {
->  	struct hv_device *child_device_obj;
-> 
-> --- a/drivers/hv/hyperv_vmbus.h	2014-04-07 11:21:05.704486433 -0700
-> +++ b/drivers/hv/hyperv_vmbus.h	2014-06-03 08:27:12.618223800 -0700
-> @@ -644,9 +644,9 @@ extern struct vmbus_connection vmbus_con
-> 
->  /* General vmbus interface */
-> 
-> -struct hv_device *vmbus_device_create(uuid_le *type,
-> -					 uuid_le *instance,
-> -					 struct vmbus_channel *channel);
-> +struct hv_device *vmbus_device_create(const uuid_le *type,
-> +				      const uuid_le *instance,
-> +				      struct vmbus_channel *channel);
-> 
->  int vmbus_device_register(struct hv_device *child_device_obj);  void
-> vmbus_device_unregister(struct hv_device *device_obj);
+	for (i = 0; i < l64; i++)
+		writeq(src64[i], &dest64[i]);
+ }
