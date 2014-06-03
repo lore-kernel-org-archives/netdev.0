@@ -1,48 +1,41 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] Force speed and duplex mode setting if link down
-Date: Tue, 3 Jun 2014 09:13:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17256451@AcuExch.aculab.com>
-References: <1401750420-6668-1-git-send-email-stannous@cumulusnetworks.com>
- <CAGVrzcZMkjFHjE3O80nPe4hmRUgfjWsoY0_g6dNPHKvBRKpOmg@mail.gmail.com>
- <1075088676.3395812.1401760022657.JavaMail.zimbra@cumulusnetworks.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net v4 0/2] sfc: Restrict PIO for 64bit arch in order to avoid
+ data corruption
+Date: Tue, 3 Jun 2014 11:02:06 +0100
+Message-ID: <538D9D1E.3090608@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Shrijeet Mukherjee <shm@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@cumulusnetworks.com>
-To: 'Sam Tannous' <stannous@cumulusnetworks.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59970 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750930AbaFCJNl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 3 Jun 2014 05:13:41 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04897-01 for <netdev@vger.kernel.org>;
- Tue,  3 Jun 2014 10:13:33 +0100 (BST)
-In-Reply-To: <1075088676.3395812.1401760022657.JavaMail.zimbra@cumulusnetworks.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:62215 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750709AbaFCKCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 06:02:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogT2YgU2FtIFRhbm5vdXMNCj4gDQo+IEkgcHJvYmFibHkgZGlkbid0IG1ha2UgdGhpcyBj
-bGVhciBlbm91Z2ggaW4gdGhlIGRlc2NyaXB0aW9uLg0KPiBJJ20gbm90IGRlc2NyaWJpbmcgYSB1
-c2UgY2FzZS4gICBJJ20gc2ltcGx5IGNoYW5naW5nIHRoZQ0KPiBzcGVlZCBvbiB0d28gaW50ZXJm
-YWNlcyB0aGF0IGFyZSBkaXJlY3RseSBjb25uZWN0ZWQuDQo+IEkgZG9uJ3QgaGF2ZSBhdXRvbmVn
-IG9uIGF0IGFsbC4NCj4gDQo+IDEuIEkgc3RhcnQgd2l0aCBhIHdvcmtpbmcgbGluayB3aGVyZSB0
-aGUgc3BlZWQgaXMNCj4gICAgMTBHIGFuZCBkdXBsZXggaXMgZnVsbCBvbiBib3RoIHNpZGVzLg0K
-PiANCj4gMi4gSSBjaGFuZ2UgdGhlIHNwZWVkIG9uIG9uZSBzaWRlIHRvIDFHIHdpdGgNCj4gDQo+
-ICAgICAgIGV0aHRvb2wgLXMgc3BlZWQgMTAwMA0KPiANCj4gICAgYW5kIHRoZSBjb21tYW5kIGFw
-cGVhcnMgdG8gd29yayAoYXQgbGVhc3QgdGhlcmUgaXMgbm8gZXJyb3IgbWVzc2FnZSkuDQo+ICAg
-IE9uY2UgSSBpc3N1ZSB0aGlzIGNvbW1hbmQsIHRoZSBsaW5rIGlzIG5vIGxvbmdlciB1c2FibGUN
-Cj4gICAgc2luY2UgdGhlIHNwZWVkIGNoYW5nZWQgb24gb25lIHNpZGUgYnV0IG5vdCB0aGUgb3Ro
-ZXIuICBBdXRvbmVnDQo+ICAgIGlzIGRpc2FibGVkIChieSBkZWZhdWx0KS4NCg0KWW91IHJlYWxs
-eSB3YW50IHRvIGxlYXZlIGF1dG9uZWcgZW5hYmxlZCBhbmQganVzdCBsaW1pdCB0aGUgYWR2ZXJ0
-aXNlZA0Kc3BlZWRzLg0KDQpJIHN1c3BlY3QgdGhlcmUgYXJlIHBsZW50eSBvZiB3YXlzIGV0aHRv
-b2wgY2FuIGJlIHVzZWQgdG8gbWFrZQ0Kbm9uLXdvcmtpbmcgaW50ZXJmYWNlcywgc29tZSBvZiB0
-aGVtIG1pZ2h0IGJlIG5lZWRlZCBiZSBkZXZlbG9wZXJzDQpvciBpbiB1bnVzdWFsIGNpcmN1bXN0
-YW5jZXMuDQpTbyBJIGRvbid0IHRoaW5rIGV0aHRvb2wgc2hvdWxkIGJlIHBvbGljaW5nIHRoaXMg
-c3BlY2lmaWMgY29uZGl0aW9uLg0KDQpNYXliZSB0aGUgZHJpdmVyIHNob3VsZCBqdXN0IHVzZSBG
-RFggd2hlbiBIRFggaXMgaW52YWxpZCBmb3IgdGhlDQpzcGVlZC4NCg0KCURhdmlkDQoNCg==
+This patch series 
+Fixes: ee45fd92c739("sfc: Use TX PIO for sufficiently small packets")
+
+The linux net driver uses memcpy_toio() in order to copy into
+the PIO buffers.
+Even on a 64bit machine this causes 32bit accesses to a write-
+combined memory region.
+There are hardware limitations that mean that only
+64bit naturally aligned accesses are safe in all cases. Due to being
+write-combined memory region two 32bit accesses may be coalesced to
+form a 64bit non 64bit aligned access.
+Solution was to open-code the memory copy routines using pointers
+and to only enable PIO for x86_64 machines.
+
+This bug fix applies to v3.13 and v3.14 stable branches.
+
+Jon Cooper (2):
+  sfc: use 64-bit writes for PIO.
+  sfc: Restrict PIO to 64-bit architectures
+
+ drivers/net/ethernet/sfc/io.h |  8 ++++++++
+ drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
+ 2 files changed, 27 insertions(+), 5 deletions(-)
