@@ -1,47 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4 1/2] sfc: use 64-bit writes for PIO.
-Date: Tue, 03 Jun 2014 15:58:07 -0700 (PDT)
-Message-ID: <20140603.155807.2227032324368753328.davem@davemloft.net>
-References: <538D9D1E.3090608@solarflare.com>
-	<538D9DB3.4080905@solarflare.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] gianfar: Call netif_carrier_off() prior to registration
+Date: Tue, 3 Jun 2014 16:04:49 -0700
+Message-ID: <CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
+References: <1401836138-13253-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	netdev <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49780 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932485AbaFCW6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 18:58:10 -0400
-In-Reply-To: <538D9DB3.4080905@solarflare.com>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:53303 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933973AbaFCXFa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 19:05:30 -0400
+Received: by mail-qg0-f44.google.com with SMTP id i50so14447347qgf.31
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 16:05:29 -0700 (PDT)
+In-Reply-To: <1401836138-13253-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU2hyYWRoYSBTaGFoIDxzc2hhaEBzb2xhcmZsYXJlLmNvbT4NCkRhdGU6IFR1ZSwgMyBK
-dW4gMjAxNCAxMTowNDozNSArMDEwMA0KDQo+ICsJCXdyaXRlcShzcmM2NFtpXSwgZGVzdDY0K2kp
-Ow0KDQpXaGF0IGRvZXMgd3JpdGVxKCkgZG8gb24gYSAzMi1iaXQgbWFjaGluZT8NCg0KRGlkIHlv
-dSBkbyBhbnkgZnVuY3Rpb25hbCB0ZXN0aW5nIG9mIHRoaXMgb24gc3VjaCBhIG1hY2hpbmU/DQoN
-CkknbSBleHRyZW1lbHkgZGlzYXBwb2ludGVkIGluIHRoaXMgcGF0Y2ggc3VibWlzc2lvbiwgYmVj
-YXVzZSB5b3UNCmRpZG4ndCBldmVuIF9jb21waWxlXyB0ZXN0IHRoaXMgaW4gdGhlIGVudmlyb25t
-ZW50IHdoZXJlIHlvdSBjbGFpbQ0KdGhlIHByb2JsZW0gZXhpc3RzLg0KDQpBIDMyLWJpdCBidWls
-ZCB3aXRoIHRoaXMgcGF0Y2ggYXBwbGllZCByZXN1bHRzIGluOg0KDQogIENDICAgICAgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvc2ZjL3R4Lm8NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3NmYy90eC5jOiBJ
-biBmdW5jdGlvbiChZWZ4X21lbWNweV82NKI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9zZmMvdHgu
-YzoyMDM6MzogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKF3cml0ZXGi
-IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KY2MxOiBzb21lIHdhcm5p
-bmdzIGJlaW5nIHRyZWF0ZWQgYXMgZXJyb3JzDQptYWtlWzFdOiAqKiogW2RyaXZlcnMvbmV0L2V0
-aGVybmV0L3NmYy90eC5vXSBFcnJvciAxDQptYWtlOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVybmV0
-L3NmYy90eC5vXSBFcnJvciAyDQoNClRoaXMgaXMgYW4gZXh0cmVtZWx5IF9MT1dfIHF1YWxpdHkg
-cGF0Y2ggc3VibWlzc2lvbi4NCg0KWW91IHB1dCB2ZXJ5IGxpdHRsZSB0aW1lIGFuZCBlZmZvcnQg
-aW50byB0aGUgY2hhbmdlcyBJIGFza2VkIHlvdSB0bw0KbWFrZS4gIEFuZCBjbGVhcmx5IHlvdSBk
-aWQgYWJzb2x1dGVseSBub3QgZnVuY3Rpb25hbCB0ZXN0aW5nIG9mIHRoaXMNCmNoYW5nZSwgd2hh
-dCBpZiB3aXRoIHRoZSBtb2RpZmljYXRpb24gaXQgZGlkbid0IGZpeCB0aGUgYnVnIGFueQ0KbG9u
-Z2VyPw0KDQpJdCBpcyBpbXBlcml0aXZlIHRoYXQgeW91IHRha2UgeW91ciB0aW1lIGFuZCBnbyBp
-bXBsZW1lbnQgdGhlc2UNCmNoYW5nZXMgcHJvcGVybHkuICBZZXMsIHlvdSBjYW4gY2xlYXJseSBz
-ZWUgbm93IHRoYXQgYSBwcm9wZXINCmludGVyZmFjZSBmb3Igd3JpdGVxKCkgaXMgbm90IHByb3Zp
-ZGVkIHRoYXQgYWN0dWFsbHkgdXNlcyA2NC1iaXQNCm9wZXJhdGlvbnMgb24gMzItYml0IHN5c3Rl
-bXMuICBBbmQgeWVzLCBfeW91XyB3aWxsIG5lZWQgdG8gcmVzb2x2ZQ0KdGhpcyBzb21laG93Lg0K
-DQpBbmQgbW9zdCBpbXBvcnRhbnRseSwgeW91IHdpbGwgbmVlZCB0byBib3RoIGNvbXBpbGUgYW5k
-IGZ1bmN0aW9uYWxseQ0KdGVzdCB0aGUgY2hhbmdlIGJlZm9yZSB5b3UgZXZlbiB0aGluayBhYm91
-dCBwb3N0aW5nIGl0IGFnYWluIGhlcmUuDQoNClRoYW5rcy4NCg==
+2014-06-03 15:55 GMT-07:00 Fabio Estevam <festevam@gmail.com>:
+> From: Fabio Estevam <fabio.estevam@freescale.com>
+>
+> Quoting David Miller:
+> "At the moment you call register_netdev() the device is visible, notifications
+> are sent to userspace, and userland tools can try to bring the interface up
+> and see the incorrect link state, before you do the netif_carrier_off().
+>
+> Said another way, between the register_netdev() and netif_carrier_off() call,
+> userspace can see the device in an inconsistent state."
+>
+> So call netif_carrier_off() prior to register_netdev().
+
+Potentially all drivers implementing libphy correctly should be fixed
+to start with a carrier off until the phy library has determined
+otherwise.
+
+>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> ---
+> This is untested
+>
+>  drivers/net/ethernet/freescale/gianfar.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+> index a7fe6a7..861e0c9 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -1384,6 +1384,9 @@ static int gfar_probe(struct platform_device *ofdev)
+>
+>         gfar_hw_init(priv);
+>
+> +       /* Carrier starts down, phylib will bring it up */
+> +       netif_carrier_off(dev);
+> +
+>         err = register_netdev(dev);
+>
+>         if (err) {
+> @@ -1391,9 +1394,6 @@ static int gfar_probe(struct platform_device *ofdev)
+>                 goto register_fail;
+>         }
+>
+> -       /* Carrier starts down, phylib will bring it up */
+> -       netif_carrier_off(dev);
+> -
+>         device_init_wakeup(&dev->dev,
+>                            priv->device_flags &
+>                            FSL_GIANFAR_DEV_HAS_MAGIC_PACKET);
+> --
+> 1.8.3.2
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
