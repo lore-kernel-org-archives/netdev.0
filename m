@@ -1,88 +1,92 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 net-next] MPLS: Use mpls_features to
- activate software MPLS GSO segmentation
-Date: Mon, 02 Jun 2014 20:42:02 -0700
-Message-ID: <1401766922.3645.195.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1401684215-14713-1-git-send-email-horms@verge.net.au>
- <20140602162145.GA3836@casper.infradead.org>
- <20140603001640.GA31821@verge.net.au>
- <CAEP_g=8T6kzvQrxQ8f9B9QKiTJq0t3-Eu26c2hycfHTfZNyJbg@mail.gmail.com>
- <20140603023852.GA20728@verge.net.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.58] datapath: Add basic MPLS support to kernel
+Date: Tue, 3 Jun 2014 13:04:08 +0900
+Message-ID: <20140603040406.GA22191@verge.net.au>
+References: <1401063743-30997-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, YAMAMOTO Takashi <yamamoto-jCdQPDEk3idL9jVzuh4AOg@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140603023852.GA20728-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:60414 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750915AbaFCEEM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 00:04:12 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Simon
+Hi Jesse,
 
-On Tue, 2014-06-03 at 11:38 +0900, Simon Horman wrote:
-> +/* If MPLS offload request, verify we are testing hardware MPLS features
-> + * instead of standard features for the netdev.
-> + */
-> +#ifdef CONFIG_NET_MPLS_GSO
-> +static netdev_features_t net_mpls_features(struct sk_buff *skb,
-> +					   netdev_features_t features)
-> +{
-> +	int tmp;
-> +	__be16 type;
-> +
-> +	type = skb_network_protocol(skb, &tmp);
-> +	if (unlikely(type == cpu_to_be16(ETH_P_MPLS_UC) ||
-> +		     type == cpu_to_be16(ETH_P_MPLS_MC)))
+thanks for your feedback.
 
-I believe net/core/dev.c prefers to use htons(ETH_P_MPLS_UC)
+On Mon, Jun 02, 2014 at 05:58:10PM -0700, Jesse Gross wrote:
+> On Sun, May 25, 2014 at 5:22 PM, Simon Horman <horms@verge.net.au> wrote:
+> > diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
+> > index 803a94c..8ce596c 100644
+> > --- a/datapath/flow_netlink.c
+> > +++ b/datapath/flow_netlink.c
+> > +               case OVS_ACTION_ATTR_POP_MPLS:
+> > +                       if (!eth_p_mpls(eth_type))
+> > +                               return -EINVAL;
+> 
+> Should this also take into account the VLAN tag? It's really part of
+> the EtherType although it has been stripped out here. Actually, maybe
+> it's better to not track the vlan_tci separately at all during
+> validation but just fold it into the EtherType.
+> 
+> The practical implication of this is that you wouldn't be able to pop
+> out from underneath a VLAN. This may be a good thing if we are trying
+> to avoid tag order issues - after all, you can't push underneath a
+> VLAN either. I'm not sure what effects this has on the need to track
+> mac_len, if any.
 
-(check netif_skb_features())
+My thinking is that the ordering problem only surfaces in relation
+to push MPLS actions where should it go in relation to VLAN tags.
+For pop actions it seems to me that the outermost tag should be removed
+regardless of its position in relation to other tags.
 
-> +		features &= skb->dev->mpls_features;
-> +
-> +	return features;
-> +}
-> +#else
-> +static netdev_features_t net_mpls_features(struct sk_buff *skb,
-> +					   netdev_features_t features)
-> +{
-> +	return features;
-> +}
-> +#endif
-> +
->  static netdev_features_t harmonize_features(struct sk_buff *skb,
->  	netdev_features_t features)
->  {
->  	int tmp;
+So I think that the code above is safe. Though now you mention
+it I do notice that it only allows pop MPLS if there is at most
+one VLAN tag present.
 
-	_be16 type;
-
-	type = skb_network_protocol(skb, &tmp);
-
->  
-> +	features = net_mpls_features(skb, features);
-
-	features = net_mpls_features(skb, features, type);
-
-> +
->  	if (skb->ip_summed != CHECKSUM_NONE &&
->  	    !can_checksum_protocol(features, skb_network_protocol(skb, &tmp))) {
-
-	!can_checksum_protocol(features, type)) {
-
->  		features &= ~NETIF_F_ALL_CSUM;
+That said, I would not mind particularly disabling pop MPLS in the
+presence of VLAN tags. At the very least it is related to the
+painful issue of tag ordering.
 
 
+I explored your idea of tracking only eth_type rather than both
+it and vlan_tci. I did this by adding the following logic to
+ovs_nla_copy_actions().
 
-I guess CONFIG_NET_MPLS_GSO will be set by all distros, right ?
+	if (key->eth.tci & htons(VLAN_TAG_PRESENT))
+		eth_type = htons(ETH_P_8021Q);
+	else
+		eth_type = key->eth.type;
+
+I then updated the usage of eth_type in ovs_nla_copy_actions__() accordingly.
+One problem that I have run into is what to do about pop VLAN.
+
+I don't believe its possible to know what the new eth type is.
+This makes subsequent checks of the eth type for validate_set()
+a little awkward. And seems to indicate that an extra parameter would
+be needed.
+
+For this reason I am inclined to leave the eth_type and vlan_tci
+parameters in place. In this case there is no problem with pop VLAN
+as the ether type inside the VLAN tag should be the value of eth_type.
+
+
+> Otherwise, I'm happy with this. I think that we need to conclude the
+> discussion on the other patch and update this appropriately first.
+
+Yes, lets get that sorted out.
+
+Assuming the other patch is accepted do you want me to increase the
+coverage of the compatibility code (in this patch) up to whichever version
+of the kernel the other patch is included in? It seems logical to me but I
+do not have strong feelings about it.
