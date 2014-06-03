@@ -1,40 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ipsec] xfrm: fix race between netns cleanup and state
- expire notification
-Date: Tue, 03 Jun 2014 16:07:59 -0700 (PDT)
-Message-ID: <20140603.160759.1806413663422270154.davem@davemloft.net>
-References: <20140603082606.C28C1A3A9B@unicorn.suse.cz>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Request for stable inclusion
+Date: Tue, 3 Jun 2014 16:12:00 -0700
+Message-ID: <20140603231200.GD16316@kroah.com>
+References: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	David Ertman <davidx.m.ertman@intel.com>,
 	netdev@vger.kernel.org
-To: mkubecek@suse.cz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49835 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933847AbaFCXIA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 19:08:00 -0400
-In-Reply-To: <20140603082606.C28C1A3A9B@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1404302055200.6261@ionos.tec.linutronix.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Tue,  3 Jun 2014 10:26:06 +0200 (CEST)
-
-> The xfrm_user module registers its pernet init/exit after xfrm
-> itself so that its net exit function xfrm_user_net_exit() is
-> executed before xfrm_net_exit() which calls xfrm_state_fini() to
-> cleanup the SA's (xfrm states). This opens a window between
-> zeroing net->xfrm.nlsk pointer and deleting all xfrm_state
-> instances which may access it (via the timer). If an xfrm state
-> expires in this window, xfrm_exp_state_notify() will pass null
-> pointer as socket to nlmsg_multicast().
+On Wed, Apr 30, 2014 at 09:03:36PM +0200, Thomas Gleixner wrote:
+> Hi,
 > 
-> As the notifications are called inside rcu_read_lock() block, it
-> is sufficient to retrieve the nlsk socket with rcu_dereference()
-> and check the it for null.
+> commit b20a774495671f037e7160ea2ce8789af6b61533
+> Author: David Ertman <davidx.m.ertman@intel.com>
+> Date:   Tue Mar 25 04:27:55 2014 +0000
 > 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+>     e1000e: Fix no connectivity when driver loaded with cable out
+> 
+> fixes an issue which affects quite some of the newer Laptops and also
+> Desktops (e.g. AOI-PCs) which are based on mobile chipsets.
+> 
+> I don't know how far this reaches back, but at least the 3.13 and 3.14
+> kernels need this fix. Jeff, David, can you tell?
 
-Looks good, applied, thanks Michal.
+Now applied to 3.14-stable, thanks.
+
+greg k-h
