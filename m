@@ -1,67 +1,75 @@
-From: Benoit Taine <benoit.taine@lip6.fr>
-Subject: [PATCH 2/2 v5] lpc_eth: Use resource_size instead of computation
-Date: Tue, 3 Jun 2014 12:45:59 +0200
-Message-ID: <20140603104559.GA21087@lip6.fr>
-References: <1401290047-30005-1-git-send-email-benoit.taine@lip6.fr>
- <1401290047-30005-3-git-send-email-benoit.taine@lip6.fr>
- <20140601.192705.693805935389177182.davem@davemloft.net>
- <20140602112419.GA3625@lip6.fr>
- <20140602113430.GA3823@lip6.fr>
- <20140603103254.GA20794@lip6.fr>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Tue, 03 Jun 2014 12:19:22 +0100
+Message-ID: <538DAF3A.2020903@codethink.co.uk>
+References: <538CD19B.5060208@cogentembedded.com>	<20140602.134915.1162774321657125992.davem@davemloft.net>	<538CE4CA.4090301@cogentembedded.com> <20140602.140504.1151986761253502538.davem@davemloft.net> <538CE9EB.1010506@cogentembedded.com> <538CFA08.3010302@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140603103254.GA20794@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@codethink.co.uk, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, magnus.damn@opensource.se,
+	horms@verge.net.au, yoshihiro.shimoda.uh@renesas.com,
+	cm-hiep@jinso.co.jp, linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <538CFA08.3010302@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This issue was reported by coccicheck using the semantic patch 
-at scripts/coccinelle/api/resource_size.cocci
+On 02/06/14 23:26, Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 06/03/2014 01:17 AM, Sergei Shtylyov wrote:
+> 
+>>>>>>      Looks like the early SH2/3 SoCs didn't implement the whole
+>>>>>> register.
+>>>>>> Despite that, sh_eth_dev_init() always writes to this register... :-/
+>>>>>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
+>>>>>> controllers, however that rule wasn't strictly followed. Well, this
+>>>>>> driver is still a mess, and it's hard to deal with it without the
+>>>>>> necessary documentation.
+> 
+>>>>> Why don't we therefore:
+> 
+>>>>> 1) Skip the register write if the per-chip value is zero.
+> 
+>>>>     I rather thought about not writing when the register is not
+>>>>     implemented.
+>>>> I'll probably look into this when I have time.
+> 
+>>>>> 2) Add the RNC bit to all of the gigabit capable controllers.
+> 
+>>>>     I probably misspoke -- all the Gigabit controllers already have it
+>>>>     set, it's just that some 100 MBbps ones have it set, but most
+>>>> don't.
+> 
+>>> So these chips that do not implement the register, they only process
+>>> one RX descriptor at a time until the interrupt handler re-enables
+>>> DMA receive?
+> 
+>>     I just don't know. Looks like the driver is broken on SH2/3 even
+>> more than
+>> I thought: it always reads the EDRRR register in sh_eth_rx() trying to
+>> understand if the reception has been stopped but that register doesn't
+>> seem to
+>> exist on SH2/3. Moreover, sh_eth_interrupt() reads EESR in order to
+>> determine
+>> the interrupt status but that register doesn't seem to exist on SH2/3
+>> either!
+> 
+>    OK, I've chased down the commit that broke SH2/3 support 3+ years
+> ago; here it is:
+> 
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=4a55530f38e4eeee3afb06093e81309138fe8360
+> 
+> 
+>    All the registers I've mentioned did exist on SH2/3, they just got
+> missed in the mapping arrays.
 
-Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
----
-Not compile tested, due incompatible architecture.
+I suppose it would be a good idea to submit a patch to add these then.
 
-Changes from V4:
- - Added blank line a the end of the diff (Thank to David Miller for your
-   patience)
 
-Changes from V3:
- - should now apply correctly
-
-Changes from V2:
- - added line break to debug message
-
-Changes from V1:
- - Use %pR format type with the debug message (Thanks to Joe Perches)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 422d9b5..8706c0d 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1361,7 +1361,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	__lpc_eth_clock_enable(pldat, true);
- 
- 	/* Map IO space */
--	pldat->net_base = ioremap(res->start, res->end - res->start + 1);
-+	pldat->net_base = ioremap(res->start, resource_size(res));
- 	if (!pldat->net_base) {
- 		dev_err(&pdev->dev, "failed to map registers\n");
- 		ret = -ENOMEM;
-@@ -1417,10 +1417,8 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	}
- 	pldat->dma_buff_base_p = dma_handle;
- 
--	netdev_dbg(ndev, "IO address start     :0x%08x\n",
--			res->start);
--	netdev_dbg(ndev, "IO address size      :%d\n",
--			res->end - res->start + 1);
-+	netdev_dbg(ndev, "IO address space     :%pR\n", res);
-+	netdev_dbg(ndev, "IO address size      :%d\n", resource_size(res));
- 	netdev_dbg(ndev, "IO address (mapped)  :0x%p\n",
- 			pldat->net_base);
- 	netdev_dbg(ndev, "IRQ number           :%d\n", ndev->irq);
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
