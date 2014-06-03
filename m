@@ -1,65 +1,66 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: Ethernet bug at Upstream-v3.15-rcx on Lager.
-Date: Tue, 3 Jun 2014 11:43:26 +0900
-Message-ID: <538D364E.6040605@renesas.com>
-References: <53745E88.7040108@jinso.co.jp> <5374F753.70203@cogentembedded.com> <537564FC.4090905@jinso.co.jp> <5375A877.1090606@renesas.com> <53888FF2.8040505@codethink.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	<netdev@vger.kernel.org>, <linux-sh@vger.kernel.org>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Ben Dooks <ben.dooks@codethink.co.uk>, <cm-hiep@jinso.co.jp>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <53888FF2.8040505@codethink.co.uk>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: stannous@cumulusnetworks.com
+Subject: [PATCH v2 ethtool] Force speed and duplex mode setting if link down
+Date: Mon,  2 Jun 2014 22:45:17 -0400
+Message-ID: <1401763517-13439-1-git-send-email-stannous@cumulusnetworks.com>
+Cc: shm@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
+	stannous@cumulusnetworks.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48373 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751518AbaFCCpH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 22:45:07 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by ext3.cumulusnetworks.com (Postfix) with ESMTP id EB7A517A398C
+	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 19:45:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ben,
+From: Sam Tannous <stannous@cumulusnetworks.com>
 
-(2014/05/30 23:04), Ben Dooks wrote:
-> On 16/05/14 06:56, Yoshihiro Shimoda wrote:
->> Hi Hiep-san,
->>
->> (2014/05/16 10:08), =E3=82=AB=E3=82=AA=E3=80=80=E3=83=9F=E3=83=B3=E3=
-=80=80=E3=83=92=E3=82=A7=E3=83=83=E3=83=97 wrote:
->>>>
->>>>> Please review it when you have time.
->>>>
->>>>    Please try this patch:
->>>>
->>>> http://marc.info/?l=3Dlinux-netdev&m=3D139602519809181
->>>>
->>> I have tested this patch on v3.15.0-rc5-00077-g14186fe, and results=
- are the message of
->>> "sh-eth r8a7790-ether eth0: Receive FIFO Overflow" has disappeared =
-and sending datagrams is good.
->>> (Bandwidth 10M to 100M: Test with 5/5 times by script and by hand a=
-re good)
->>>
->>
->> It's nice!
->> So, I hope the patch is merged in upstream.
->> However, the patch's change log mentioned r8a7790 only.
->> The r8a7791's ethernet controller also has this bit.
->=20
-> The bit update covers both of them as the r8a7790 and r8a7791 both sh=
-are
-> the same configuration structure.
->=20
-> I re-sent the patch but didn't find your email post until after I had
-> sent it, otherwise I would have mentioned your testing specifically. =
-In
-> future it would be helpful if you could do the following
->=20
-> - Mention driver by name in the subject line
-> - Search the list for previous mentions and reply to that/those threa=
-ds.
->=20
+This patch forces the user to set both the speed and the duplex
+mode if the user only specifies the speed while the interface is down.
 
-Thank you very much for the comment and your v2 patch!
-I understood it.
+If the interface is down, we'll get an ecmd speed
+and duplex mode of 0. This has the ill effect of
+setting the duplex to HALF and this often results in an
+error since many higher speed will not support HALF duplex.
 
-Best regards,
-Yoshihiro Shimoda
+Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
+
+---
+v2:
+* Corrected comment block.
+---
+ ethtool.c |   16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/ethtool.c b/ethtool.c
+index 8e968a8..9285284 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
+ 		if (err < 0) {
+ 			perror("Cannot get current device settings");
+ 		} else {
++			/* If the interface is down, we'll get an ecmd speed and
++			 * duplex of 0.  This has the effect of defaulting
++			 * the duplex mode to HALF.  This results in an
++			 * error since many of our speeds will not support HALF
++			 * any more.  To prevent this, we need to insist that
++			 * the user provide us with specific duplex mode if
++			 * they haven't already (likely FULL) if both the speed
++			 * and duplex are 0 here.
++			 */
++			if (speed_wanted != -1 && duplex_wanted == -1
++			    && !(ecmd.speed || ecmd.duplex)) {
++			    fprintf(stderr, "Setting the speed while the link "
++				    "is down requires both the speed and the "
++				    "duplex mode to be set");
++			    exit_bad_args();
++			}
+ 			/* Change everything the user specified. */
+ 			if (speed_wanted != -1)
+ 				ethtool_cmd_speed_set(&ecmd, speed_wanted);
+-- 
+1.7.10.4
