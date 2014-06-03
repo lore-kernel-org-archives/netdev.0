@@ -1,239 +1,145 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next 8/8] ethtool: Check that reserved fields of struct
- ethtool_rxfh are 0
-Date: Tue, 03 Jun 2014 02:51:21 +0100
-Message-ID: <1401760281.14007.187.camel@deadeye.wl.decadent.org.uk>
-References: <1401760161.14007.179.camel@deadeye.wl.decadent.org.uk>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
+ probed into the Host
+Date: Tue, 3 Jun 2014 10:00:01 +0800
+Message-ID: <20140603020001.GA4903@richard>
+References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
+ <20140602142947.GB28523@richard>
+ <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-y4K5ZuzqRd26TypE3FKX"
-Cc: netdev <netdev@vger.kernel.org>,
-	Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Bjorn Helgaas <bhelgaas@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:49662 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753084AbaFCBv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 21:51:28 -0400
-In-Reply-To: <1401760161.14007.179.camel@deadeye.wl.decadent.org.uk>
+Received: from e28smtp03.in.ibm.com ([122.248.162.3]:33239 "EHLO
+	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbaFCCAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 22:00:09 -0400
+Received: from /spool/local
+	by e28smtp03.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Tue, 3 Jun 2014 07:30:06 +0530
+Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
+	by d28dlp02.in.ibm.com (Postfix) with ESMTP id 38A6E394003E
+	for <netdev@vger.kernel.org>; Tue,  3 Jun 2014 07:30:05 +0530 (IST)
+Received: from d28av03.in.ibm.com (d28av03.in.ibm.com [9.184.220.65])
+	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s5320HDR9503148
+	for <netdev@vger.kernel.org>; Tue, 3 Jun 2014 07:30:17 +0530
+Received: from d28av03.in.ibm.com (localhost [127.0.0.1])
+	by d28av03.in.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s53202TW021338
+	for <netdev@vger.kernel.org>; Tue, 3 Jun 2014 07:30:04 +0530
+Content-Disposition: inline
+In-Reply-To: <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 02, 2014 at 10:10:01AM -0600, Bjorn Helgaas wrote:
+>On Mon, Jun 2, 2014 at 8:29 AM, Wei Yang <weiyang@linux.vnet.ibm.com> wrote:
+>> On Sun, Jun 01, 2014 at 01:49:43PM +0300, Or Gerlitz wrote:
+>>>From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>>>
+>>>Commit befdf89 did not take into account the case where the Host
+>>>driver is being unloaded. In this case, pci_get_drvdata for the VF
+>>
+>> In my mind, unloading PF's driver when there is alive VFs is not allowed.
+>> Quoted in driver code:
+>>
+>>         /* in SRIOV it is not allowed to unload the pf's
+>>          * driver while there are alive vf's */
+>>         if (mlx4_is_master(dev) && mlx4_how_many_lives_vf(dev))
+>>                 printk(KERN_ERR "Removing PF when there are assigned VF's !!!\n");
+>>
+>> Actually, I don't understand this restriction clearly. Maybe my understanding
+>> of alive VF is not correct.
+>>
+>> And in your code, unload PF's driver would call pci_disable_sriov() which will
+>> destroy the VFs. While in your test, the VF's driver is still there?
+>>
+>>>remove_one call may return NULL, so that dereferencing the priv
+>>>struct results in a kernel oops.
+>>
+>> Sorry for my poor mind, I still can't understand this situation.
+>> Would you describe the situation more? You are unloading PF's driver in Host
+>> at first, and then try to release the VF's driver?
+>>
+>>>
+>>>The fix is to also test that the dev pointer returned by
+>>>pci_get_drvdata is non-NULL.
+>>>
+>>>Fixes: befdf89 ("preserve pcd_dev_data after __mlx4_remove_one()")
+>>>Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
+>>>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+>>>---
+>>> drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
+>>> 1 files changed, 1 insertions(+), 1 deletions(-)
+>>>
+>>>diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>index c187d74..a6ae089 100644
+>>>--- a/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+>>>@@ -2629,7 +2629,7 @@ static void __mlx4_remove_one(struct pci_dev *pdev)
+>>>       int               pci_dev_data;
+>>>       int p;
+>>>
+>>>-      if (priv->removed)
+>>>+      if (!dev || priv->removed)
+>>>               return;
+>>
+>> This fix looks good to me.
+>>
+>> As I remembered, I had this check in my first version, but I removed the check
+>> on dev based on the suggestion from Bjorn. Since I agreed that there is no
+>> chance for dev to be NULL. Bjorn, seems we are not correct :(
+>
+>Writing a driver is not an empirical process of trying things to see
+>what works.  You need to actively design a consistent structure so you
+>know why and when things are safe.  I object to gratuitous "dev ==
+>NULL" checks because often they are just a way of patching up a driver
+>design that isn't well thought-out.
+>
+>As I wrote before:
+>
+>  From the PCI core's perspective, after .probe() returns successfully,
+>  we can call any driver entry point and pass the pci_dev to it, and
+>  expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
+>  sort of breaks that assumption because you clear out pci_drvdata().
+>  Right now, the only other entry point mlx4 really implements is
+>  mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
+>  is NULL.  But that's ... a hack, and you'll have to do the same
+>  if/when you implement suspend/resume/sriov_configure/etc.
 
---=-y4K5ZuzqRd26TypE3FKX
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Thanks for your kindness. After re-reading it, I understand it more, it is not
+only related to the Mellanox driver, but also the whole picture about how to
+write a driver.
 
-We should fail rather than silently ignoring use of these extensions.
+1. We should make the driver entry save, after .probe() returns successfully.
+2. If there is an exception and a hack to test the pci_drvdata(), we need to
+   have this hack in suspend/resum/etc.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- net/core/ethtool.c | 89 ++++++++++++++++++++++----------------------------=
-----
- 1 file changed, 36 insertions(+), 53 deletions(-)
+Now back to the current mlx4 driver, mlx4_remove_one() is called by .shutdown
+and .remove. In my mind, these two hook is invoked by rmmod or reboot. By
+doing so, it is trying to comply with rule 1, make sure the pci_drvdata() is
+valid, after .probe() succeed.
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 8ae452a..17cb912 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -681,11 +681,11 @@ static noinline_for_stack int ethtool_get_rxfh(struct=
- net_device *dev,
- {
- 	int ret;
- 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
--	u32 user_indir_size =3D 0, user_key_size =3D 0;
-+	u32 user_indir_size, user_key_size;
- 	u32 dev_indir_size =3D 0, dev_key_size =3D 0;
-+	struct ethtool_rxfh rxfh;
- 	u32 total_size;
--	u32 indir_offset, indir_bytes;
--	u32 key_offset;
-+	u32 indir_bytes;
- 	u32 *indir =3D NULL;
- 	u8 *hkey =3D NULL;
- 	u8 *rss_config;
-@@ -697,33 +697,24 @@ static noinline_for_stack int ethtool_get_rxfh(struct=
- net_device *dev,
-=20
- 	if (ops->get_rxfh_indir_size)
- 		dev_indir_size =3D ops->get_rxfh_indir_size(dev);
--
--	indir_offset =3D offsetof(struct ethtool_rxfh, indir_size);
--
--	if (copy_from_user(&user_indir_size,
--			   useraddr + indir_offset,
--			   sizeof(user_indir_size)))
--		return -EFAULT;
--
--	if (copy_to_user(useraddr + indir_offset,
--			 &dev_indir_size, sizeof(dev_indir_size)))
--		return -EFAULT;
--
- 	if (ops->get_rxfh_key_size)
- 		dev_key_size =3D ops->get_rxfh_key_size(dev);
-=20
- 	if ((dev_key_size + dev_indir_size) =3D=3D 0)
- 		return -EOPNOTSUPP;
-=20
--	key_offset =3D offsetof(struct ethtool_rxfh, key_size);
--
--	if (copy_from_user(&user_key_size,
--			   useraddr + key_offset,
--			   sizeof(user_key_size)))
-+	if (copy_from_user(&rxfh, useraddr, sizeof(rxfh)))
- 		return -EFAULT;
-+	user_indir_size =3D rxfh.indir_size;
-+	user_key_size =3D rxfh.key_size;
-=20
--	if (copy_to_user(useraddr + key_offset,
--			 &dev_key_size, sizeof(dev_key_size)))
-+	/* Check that reserved fields are 0 for now */
-+	if (rxfh.rss_context || rxfh.rsvd[0] || rxfh.rsvd[1])
-+		return -EINVAL;
-+
-+	rxfh.indir_size =3D dev_indir_size;
-+	rxfh.key_size =3D dev_key_size;
-+	if (copy_to_user(useraddr, &rxfh, sizeof(rxfh)))
- 		return -EFAULT;
-=20
- 	/* If the user buffer size is 0, this is just a query for the
-@@ -768,12 +759,11 @@ static noinline_for_stack int ethtool_set_rxfh(struct=
- net_device *dev,
- 	int ret;
- 	const struct ethtool_ops *ops =3D dev->ethtool_ops;
- 	struct ethtool_rxnfc rx_rings;
--	u32 user_indir_size =3D 0, dev_indir_size =3D 0, i;
--	u32 user_key_size =3D 0, dev_key_size =3D 0;
-+	struct ethtool_rxfh rxfh;
-+	u32 dev_indir_size =3D 0, dev_key_size =3D 0, i;
- 	u32 *indir =3D NULL, indir_bytes =3D 0;
- 	u8 *hkey =3D NULL;
- 	u8 *rss_config;
--	u32 indir_offset, key_offset;
- 	u32 rss_cfg_offset =3D offsetof(struct ethtool_rxfh, rss_config[0]);
-=20
- 	if (!(ops->get_rxfh_indir_size || ops->get_rxfh_key_size) ||
-@@ -782,40 +772,33 @@ static noinline_for_stack int ethtool_set_rxfh(struct=
- net_device *dev,
-=20
- 	if (ops->get_rxfh_indir_size)
- 		dev_indir_size =3D ops->get_rxfh_indir_size(dev);
--
--	indir_offset =3D offsetof(struct ethtool_rxfh, indir_size);
--	if (copy_from_user(&user_indir_size,
--			   useraddr + indir_offset,
--			   sizeof(user_indir_size)))
--		return -EFAULT;
--
- 	if (ops->get_rxfh_key_size)
- 		dev_key_size =3D dev->ethtool_ops->get_rxfh_key_size(dev);
--
- 	if ((dev_key_size + dev_indir_size) =3D=3D 0)
- 		return -EOPNOTSUPP;
-=20
--	key_offset =3D offsetof(struct ethtool_rxfh, key_size);
--	if (copy_from_user(&user_key_size,
--			   useraddr + key_offset,
--			   sizeof(user_key_size)))
-+	if (copy_from_user(&rxfh, useraddr, sizeof(rxfh)))
- 		return -EFAULT;
-=20
-+	/* Check that reserved fields are 0 for now */
-+	if (rxfh.rss_context || rxfh.rsvd[0] || rxfh.rsvd[1])
-+		return -EINVAL;
-+
- 	/* If either indir or hash key is valid, proceed further.
- 	 * It is not valid to request that both be unchanged.
- 	 */
--	if ((user_indir_size &&
--	     user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE &&
--	     user_indir_size !=3D dev_indir_size) ||
--	    (user_key_size && (user_key_size !=3D dev_key_size)) ||
--	    (user_indir_size =3D=3D ETH_RXFH_INDIR_NO_CHANGE &&
--	     user_key_size =3D=3D 0))
-+	if ((rxfh.indir_size &&
-+	     rxfh.indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE &&
-+	     rxfh.indir_size !=3D dev_indir_size) ||
-+	    (rxfh.key_size && (rxfh.key_size !=3D dev_key_size)) ||
-+	    (rxfh.indir_size =3D=3D ETH_RXFH_INDIR_NO_CHANGE &&
-+	     rxfh.key_size =3D=3D 0))
- 		return -EINVAL;
-=20
--	if (user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE)
-+	if (rxfh.indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE)
- 		indir_bytes =3D dev_indir_size * sizeof(indir[0]);
-=20
--	rss_config =3D kzalloc(indir_bytes + user_key_size, GFP_USER);
-+	rss_config =3D kzalloc(indir_bytes + rxfh.key_size, GFP_USER);
- 	if (!rss_config)
- 		return -ENOMEM;
-=20
-@@ -824,29 +807,29 @@ static noinline_for_stack int ethtool_set_rxfh(struct=
- net_device *dev,
- 	if (ret)
- 		goto out;
-=20
--	/* user_indir_size =3D=3D 0 means reset the indir table to default.
--	 * user_indir_size =3D=3D ETH_RXFH_INDIR_NO_CHANGE means leave it unchang=
-ed.
-+	/* rxfh.indir_size =3D=3D 0 means reset the indir table to default.
-+	 * rxfh.indir_size =3D=3D ETH_RXFH_INDIR_NO_CHANGE means leave it unchang=
-ed.
- 	 */
--	if (user_indir_size &&
--	    user_indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE) {
-+	if (rxfh.indir_size &&
-+	    rxfh.indir_size !=3D ETH_RXFH_INDIR_NO_CHANGE) {
- 		indir =3D (u32 *)rss_config;
- 		ret =3D ethtool_copy_validate_indir(indir,
- 						  useraddr + rss_cfg_offset,
- 						  &rx_rings,
--						  user_indir_size);
-+						  rxfh.indir_size);
- 		if (ret)
- 			goto out;
--	} else if (user_indir_size =3D=3D 0) {
-+	} else if (rxfh.indir_size =3D=3D 0) {
- 		indir =3D (u32 *)rss_config;
- 		for (i =3D 0; i < dev_indir_size; i++)
- 			indir[i] =3D ethtool_rxfh_indir_default(i, rx_rings.data);
- 	}
-=20
--	if (user_key_size) {
-+	if (rxfh.key_size) {
- 		hkey =3D rss_config + indir_bytes;
- 		if (copy_from_user(hkey,
- 				   useraddr + rss_cfg_offset + indir_bytes,
--				   user_key_size)) {
-+				   rxfh.key_size)) {
- 			ret =3D -EFAULT;
- 			goto out;
- 		}
+Then I am curious about in which case the driver break this rule. 
 
---=20
-Ben Hutchings
-If more than one person is responsible for a bug, no one is at fault.
+Following is my suggestion:
+1. To comply with rule 1, it would be better to fix this point instead of add
+   a hack.
+2. Or to comply with rule 2, the driver needs to check pci_drvdata() in every
+   driver's entry instead of just in one driver entry. For example,
+   mlx4_pci_slot_reset() need this check too.
 
---=-y4K5ZuzqRd26TypE3FKX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Bjorn, thanks again, hope my understanding this time is correct :-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+>
+>Bjorn
 
-iQIVAwUAU40qGee/yOyVhhEJAQrCMQ//eE/dh9tlcDtMoLpWBdouxsDNLQ0mvlzy
-b+HC+VzfOs1RW6fcMUn/7HIHuC1Jxbt4CEInbGQax0eJ+m5TLgsYtZvHYjpqAzdu
-WqPYvvxR4IVor3UQsGS0oJxDXCOPVoPcWCN6OQIKefnbiFjPaB1mERZe5L1diEM1
-4DccLq70mlqYuauFYPeju48rNQZZWxTVKuKWmXVTPHsiBhxoMakFWFcLhQb91NqL
-vgUAk6QxXH4EtQ1bq0+5K01P5t2LcGRkmnrhlrGhL+iGMYAvASrYFdQGs1DXY8AI
-1sFSuCpVoHC17/qb/udSO3k0JEMubzeHrW0cQjO/O7P7u2dNdBkjHTilPPJBmOT5
-NXI1Xtvn1gqvM9btTlV0x7zFzEptLriU6hAv31zQsgN4oEMaxW8swGssARhYf5wb
-mAGDY3eMjAwg1Jh8cT5af06rUs6/tKt0yOKQiGtfKTRDOm8RT5iuiyfCCnUW8vMt
-/f2OIFFFNuk8FmI/n0HPu0uqQcM6QCw1qGUeltWSgkSEttwvt3bzIogM1gEcsfh/
-JabKXBtMz89dM+EigFEWPTx4TIvVxo6tY0sxMmnnJnml/Srqj5h95+HpOLwe6biq
-8tcpu88a8K+WWhvoDafWSBGMQoGVLxjoc0mQb6lzZ8Dl51rMdXslkwcM0o+kjXu4
-wwjrU4uDceE=
-=JtJ8
------END PGP SIGNATURE-----
-
---=-y4K5ZuzqRd26TypE3FKX--
+-- 
+Richard Yang
+Help you, Help me
