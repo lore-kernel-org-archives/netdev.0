@@ -1,7 +1,7 @@
 From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net v4 1/2] sfc: use 64-bit writes for PIO.
-Date: Tue, 3 Jun 2014 11:04:35 +0100
-Message-ID: <538D9DB3.4080905@solarflare.com>
+Subject: [PATCH net v4 2/2] sfc: Restrict PIO to 64-bit architectures
+Date: Tue, 3 Jun 2014 11:05:07 +0100
+Message-ID: <538D9DD3.5030800@solarflare.com>
 References: <538D9D1E.3090608@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
@@ -9,87 +9,47 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:62300 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:62306 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbaFCKEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 06:04:39 -0400
+	with ESMTP id S1751747AbaFCKFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 06:05:12 -0400
 In-Reply-To: <538D9D1E.3090608@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jon Cooper <jcooper@solarflare.com>
 
-Patch to open-code the memory copy routines.
-32bit writes over the PCI bus causes data corruption.
+Enable PIO for x86_64 architecture only.
+Not tested on platforms other than x86_64.
 
 Fixes:ee45fd92c739
 ("sfc: Use TX PIO for sufficiently small packets")
 
 Signed-off-by: Shradha Shah <sshah@solarflare.com>
 ---
- drivers/net/ethernet/sfc/tx.c | 24 +++++++++++++++++++-----
- 1 file changed, 19 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/sfc/io.h | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index fa94753..d2c9ca0 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -189,6 +189,20 @@ struct efx_short_copy_buffer {
- 	u8 buf[L1_CACHE_BYTES];
- };
+diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
+index 4d3f119..adadcf0 100644
+--- a/drivers/net/ethernet/sfc/io.h
++++ b/drivers/net/ethernet/sfc/io.h
+@@ -66,10 +66,18 @@
+ #define EFX_USE_QWORD_IO 1
+ #endif
  
-+/* Copy in explicit 64-bit writes. */
-+static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
-+{
-+	u64 *src64 = src, __iomem *dest64 = dest;
-+	size_t i, l64 = len / 8;
-+
-+	WARN_ON_ONCE(len % 8 != 0);
-+	WARN_ON_ONCE(((u8 __iomem *)dest - (u8 __iomem *)0) % 8 != 0);
-+	BUILD_BUG_ON(sizeof(uint64_t) != 8);
-+
-+	for (i = 0; i < l64; ++i)
-+		writeq(src64[i], dest64+i);
-+}
-+
- /* Copy to PIO, respecting that writes to PIO buffers must be dword aligned.
-  * Advances piobuf pointer. Leaves additional data in the copy buffer.
-  */
-@@ -198,7 +212,7 @@ static void efx_memcpy_toio_aligned(struct efx_nic *efx, u8 __iomem **piobuf,
- {
- 	int block_len = len & ~(sizeof(copy_buf->buf) - 1);
++/* PIO only works on 64-bit architectures */
++#if BITS_PER_LONG == 64
++/* not strictly necessary to restrict to x86 arch, but done for safety
++ * since unusual write combining behaviour can break PIO.
++ */
++#ifdef CONFIG_X86_64
+ /* PIO is a win only if write-combining is possible */
+ #ifdef ARCH_HAS_IOREMAP_WC
+ #define EFX_USE_PIO 1
+ #endif
++#endif
++#endif
  
--	memcpy_toio(*piobuf, data, block_len);
-+	efx_memcpy_64(*piobuf, data, block_len);
- 	*piobuf += block_len;
- 	len -= block_len;
- 
-@@ -230,7 +244,7 @@ static void efx_memcpy_toio_aligned_cb(struct efx_nic *efx, u8 __iomem **piobuf,
- 		if (copy_buf->used < sizeof(copy_buf->buf))
- 			return;
- 
--		memcpy_toio(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-+		efx_memcpy_64(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
- 		*piobuf += sizeof(copy_buf->buf);
- 		data += copy_to_buf;
- 		len -= copy_to_buf;
-@@ -245,7 +259,7 @@ static void efx_flush_copy_buffer(struct efx_nic *efx, u8 __iomem *piobuf,
- {
- 	/* if there's anything in it, write the whole buffer, including junk */
- 	if (copy_buf->used)
--		memcpy_toio(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
-+		efx_memcpy_64(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
- }
- 
- /* Traverse skb structure and copy fragments in to PIO buffer.
-@@ -304,8 +318,8 @@ efx_enqueue_skb_pio(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
- 		 */
- 		BUILD_BUG_ON(L1_CACHE_BYTES >
- 			     SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
--		memcpy_toio(tx_queue->piobuf, skb->data,
--			    ALIGN(skb->len, L1_CACHE_BYTES));
-+		efx_memcpy_64(tx_queue->piobuf, skb->data,
-+			      ALIGN(skb->len, L1_CACHE_BYTES));
- 	}
- 
- 	EFX_POPULATE_QWORD_5(buffer->option,
+ #ifdef EFX_USE_QWORD_IO
+ static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
