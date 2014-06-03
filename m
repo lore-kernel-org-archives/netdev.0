@@ -1,121 +1,238 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Tue, 3 Jun 2014 08:44:15 -0700
-Message-ID: <CAMEtUuw8uyCGeLeUB0PXm5cCpqcsjPLZt6y9FcKjapbVPjWTuw@mail.gmail.com>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com>
-	<538C3C94.3080206@redhat.com>
-	<CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com>
-	<538CAEA6.4060307@redhat.com>
-	<CAMEtUuwxJOgYgFjg9deQZOffeg6-JUGZXZ1Rj344eQmriQ0F0Q@mail.gmail.com>
-	<538D8DAA.7090105@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+From: raffaello@erg.abdn.ac.uk
+Subject: [PATCH RFC] new-CWV for Linux
+Date: Tue,  3 Jun 2014 16:46:54 +0100
+Message-ID: <1401810414-18891-1-git-send-email-raffaello@erg.abdn.ac.uk>
+Cc: netdev@vger.kernel.org, Raffaello Secchi <raffaello@erg.abdn.ac.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:58881 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932627AbaFCPoQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 11:44:16 -0400
-Received: by mail-we0-f169.google.com with SMTP id u56so7138594wes.14
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 08:44:15 -0700 (PDT)
-In-Reply-To: <538D8DAA.7090105@redhat.com>
+Received: from spey.erg.abdn.ac.uk ([139.133.204.173]:49954 "EHLO
+	spey.erg.abdn.ac.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932400AbaFCQTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 12:19:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 3, 2014 at 1:56 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 06/02/2014 09:02 PM, Alexei Starovoitov wrote:
-> ...
->>
->> Classic has all sorts of hard coded assumptions. The whole
->>
->> concept of 'load from magic constant' to mean different things
->> is flawed. We all got used to it and now think that it's normal
->> for "ld_abs -4056" to mean "a ^= x"
->
->
-> I think everyone knows that, no? Sure it doesn't fit into the
-> concept, but I think at the time BPF extensions were introduced,
-> it was probably seen as the best trade-off available to access
-> useful skb fields while still trying to minimize exposure to uapi
-> as much as possible.
+Thanks Neal for the hints on how to send from git.
 
-Exactly. It _was_ seen as right trade-off in the past.
-Now we have a lot more bpf users, so considerations are different.
+Please consider this corrected patch for new-CWV.
 
->> This split is not trying to make classic easier to hack.
->> With eBPF underneath classic, it got a lot easier to add extensions
->> to classic, but we shouldn't be doing it.
->> Classic BPF is not generic and cannot become one. It's eBPF's job.
->>
->> The split is mainly helping to clearly see the boundary of eBPF core
->> vs its socket use case. It doesn't change or add any API.
->
->
-> So what's the plan with everything in arch/*/net/, tools/net/ and
-> in Documentation/networking/filter.txt, plus MAINTAINERS file, that
-> the current patch doesn't address?
+Raffaello
 
-I have multi-year long plan of actions in eBPF area and as
-was seen in past several month I would have to adjust it many times
-based on community feedback.
-The plan includes taking care of arch/*/net, but I'm not bringing it up
-right now, since the filter.c split itself doesn't depend on what
-we're going to do with JITs in arch/*/net/
-As you saw I mentioned JITs in the cover letter, so I obviously
-thought about it before proposing this filter.c split.
-I even have rough patches to take care of it, but let's not get ahead
-of ourselves.
-My plan also includes upstreaming of LLVM eBPF backend, but linux
-needs to expose it to userspace first.
-It includes eBPF assembler to write programs like:
- r1 = r5
- *(u32 *) (fp - 10) = 0
- call foo
- if (r0 == 0) goto Label
-^^above is assembler. I don't like current bpf_asm syntax,
-since it's too assemblish. C-looking assembler is easier to understand.
-It includes bpf maps, 'perf run filter.c' and all sorts of other things.
-I cannot put the year long plan in one email, since tl;dr kicks in.
 
-filter.c split is a tiny first step.
-next step is filter.h split
-renaming arch/*/net/bpf_jit_comp.c into arch/*/bpf/jit_comp.c is
-the least of my concerns. If JITs stay with strong dependency
-to NET, it's also fine.
-As I said in cover letter filter.c split is not about NET dependency.
-Even tiny embedded systems rely on networking, so all real world
-.config's will include 'NET'. The split is about logical separation
-of eBPF vs sockets. Having them in one file just not doing any good,
-since people are jumping into hacking things quickly without seeing
-that eBPF is not only about sockets.
+---
+ include/linux/tcp.h        |   13 +++++++++++++
+ include/net/tcp.h          |   14 +++++++++++++-
+ net/ipv4/Makefile          |    2 +-
+ net/ipv4/sysctl_net_ipv4.c |    7 +++++++
+ net/ipv4/tcp_cong.c        |   13 ++++++++++---
+ net/ipv4/tcp_input.c       |   20 ++++++++++++++++++++
+ net/ipv4/tcp_output.c      |    3 +++
+ 7 files changed, 67 insertions(+), 5 deletions(-)
 
-MAINTAINERS file is a good question too.
-I would be happy to maintain bpf/ebpf, since it's my full time job anyway,
-but again let's not jump the gun.
-
-> We want changes to go via netdev@vger.kernel.org as they always
-> did, since [ although other use cases pop up ] the main user, as
-> I said, is simply still packet filtering in various networking
-> subsystems, no?
-
-Obviously sockets is the main, but not the only user, so I think
-both lkml and netdev would need to be cc-ed in the future.
-Or we can create 'bpf' alias for anyone interested.
-
-All of your points are valid. They are right questions to ask. I just
-don't see why you're still arguing about first step of filter.c split,
-whereas your concerns are about steps 2, 3, 4.
+Signed-off-by: Raffaello Secchi <raffaello@erg.abdn.ac.uk>
+Reviewed-by: Tom Jones <tom@erg.abdn.ac.uk>
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 2399468..fb82343 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -323,6 +323,19 @@ struct tcp_sock {
+ 	 * socket. Used to retransmit SYNACKs etc.
+ 	 */
+ 	struct request_sock *fastopen_rsk;
++
++/* TCP newcwv related information */
++	u32 psample[4];		/* pipeACK samples circular buffer */
++	u32 time_stamp[4];
++	u32 head;		/* index for psample buffer */
++
++	u32 pipeack;		/* pipeACK value after filtering */
++	u32 loss_flight_size;	/* flightsize at loss detection */
++	u32 prior_retrans;	/* Retransmission before going into FR */
++	u32 prev_snd_una;	/* snd_una of last record */
++	u32 prev_snd_nxt;	/* snd_nxt of last record */
++	u32 cwnd_valid_ts;	/* last time cwnd was found valid */
++
+ };
+ 
+ enum tsq_flags {
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 87d8774..6d71de5 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -235,6 +235,10 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+  */
+ #define	TFO_SERVER_ALWAYS	0x1000
+ 
++/* NewCWV defaults */
++#define NCWV_UNDEF			0xFFFFFFFF
++#define NCWV_FIVEMIN			(HZ*300)
++
+ extern struct inet_timewait_death_row tcp_death_row;
+ 
+ /* sysctl variables for tcp */
+@@ -284,6 +288,7 @@ extern int sysctl_tcp_challenge_ack_limit;
+ extern unsigned int sysctl_tcp_notsent_lowat;
+ extern int sysctl_tcp_min_tso_segs;
+ extern int sysctl_tcp_autocorking;
++extern int sysctl_tcp_newcwv;
+ 
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+@@ -975,7 +980,7 @@ static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
+ {
+ 	return tp->snd_una + tp->snd_wnd;
+ }
+-bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight);
++bool tcp_is_cwnd_limited(struct sock *sk, u32 in_flight);
+ 
+ static inline void tcp_check_probe_timer(struct sock *sk)
+ {
+@@ -1324,6 +1329,13 @@ struct tcp_fastopen_context {
+ 	struct rcu_head		rcu;
+ };
+ 
++/* TCP New CWV functions */
++void tcp_newcwv_update_pipeack(struct sock *sk);
++void tcp_newcwv_datalim_closedown(struct sock *sk);
++void tcp_newcwv_enter_recovery(struct sock *sk);
++void tcp_newcwv_end_recovery(struct sock *sk);
++void tcp_newcwv_reset(struct sock *sk);
++
+ /* write queue abstraction */
+ static inline void tcp_write_queue_purge(struct sock *sk)
+ {
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index f032688..f687746 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -10,7 +10,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+ 	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
+ 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+ 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+-	     fib_frontend.o fib_semantics.o fib_trie.o \
++	     fib_frontend.o fib_semantics.o fib_trie.o tcp_newcwv.o \
+ 	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
+ 
+ obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 5cde8f2..bfdf30e 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -493,6 +493,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname	= "tcp_newcwv",
++		.data		= &sysctl_tcp_newcwv,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++	{
+ 		.procname	= "tcp_reordering",
+ 		.data		= &sysctl_tcp_reordering,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+index 2b9464c..6fb0719 100644
+--- a/net/ipv4/tcp_cong.c
++++ b/net/ipv4/tcp_cong.c
+@@ -93,6 +93,9 @@ void tcp_init_congestion_control(struct sock *sk)
+ 		rcu_read_unlock();
+ 	}
+ 
++	/* draft-ietf-tcpm-newcwv initial state */
++	tcp_newcwv_reset(sk);
++
+ 	if (icsk->icsk_ca_ops->init)
+ 		icsk->icsk_ca_ops->init(sk);
+ }
+@@ -279,13 +282,17 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+ /* RFC2861 Check whether we are limited by application or congestion window
+  * This is the inverse of cwnd check in tcp_tso_should_defer
+  */
+-bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
++bool tcp_is_cwnd_limited(struct sock *sk, u32 in_flight)
+ {
+-	const struct tcp_sock *tp = tcp_sk(sk);
++	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 left;
+ 
+-	if (in_flight >= tp->snd_cwnd)
++	/* draft-ietf-tcpm-newcwv relaxes conditions for growing cwnd */
++	if (in_flight >= tp->snd_cwnd || (sysctl_tcp_newcwv &&
++	    tp->pipeack >= (tp->snd_cwnd*tp->mss_cache >> 1))) {
++		tp->cwnd_valid_ts = tcp_time_stamp;
+ 		return true;
++	}
+ 
+ 	left = tp->snd_cwnd - in_flight;
+ 	if (sk_can_gso(sk) &&
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 3a26b3b..f2d855e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1927,6 +1927,7 @@ void tcp_enter_loss(struct sock *sk, int how)
+ 	tp->snd_cwnd	   = 1;
+ 	tp->snd_cwnd_cnt   = 0;
+ 	tp->snd_cwnd_stamp = tcp_time_stamp;
++	tcp_newcwv_reset(sk);
+ 
+ 	tcp_clear_retrans_partial(tp);
+ 
+@@ -2522,7 +2523,16 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
+ 	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
+ 		tp->snd_cwnd = tp->snd_ssthresh;
+ 		tp->snd_cwnd_stamp = tcp_time_stamp;
++
++		/* draft-ietf-tcpm-newcwv actions at the end of recovery */
++		if (sysctl_tcp_newcwv) {
++			if (tp->loss_flight_size)
++				tcp_newcwv_end_recovery(sk);
++			tcp_newcwv_reset(sk);
++		}
+ 	}
++	tp->loss_flight_size = 0;
++
+ 	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
+ }
+ 
+@@ -2666,6 +2676,11 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+ 	tp->undo_marker = tp->snd_una;
+ 	tp->undo_retrans = tp->retrans_out;
+ 
++	/* draft-ietf-tcpm-newcwv reduction at start of recovery */
++	if (sysctl_tcp_newcwv &&
++	    tp->pipeack <= (tp->snd_cwnd*tp->mss_cache >> 1))
++		tcp_newcwv_enter_recovery(sk);
++
+ 	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
+ 		if (!ece_ack)
+ 			tp->prior_ssthresh = tcp_current_ssthresh(sk);
+@@ -3449,6 +3464,11 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 				    sack_rtt_us);
+ 	acked -= tp->packets_out;
+ 
++	/* draft-ietf-tcpm-newcwv pipeack estimation */
++	if (sysctl_tcp_newcwv && icsk->icsk_ca_state <= TCP_CA_Disorder
++	    && (flag & FLAG_DATA_ACKED))
++		tcp_newcwv_update_pipeack(sk);
++
+ 	/* Advance cwnd if state allows */
+ 	if (tcp_may_raise_cwnd(sk, flag))
+ 		tcp_cong_avoid(sk, ack, acked, prior_in_flight);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 12d6016..e868211 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -168,6 +168,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+ 	const u32 now = tcp_time_stamp;
+ 	const struct dst_entry *dst = __sk_dst_get(sk);
+ 
++	if (sysctl_tcp_newcwv)
++		tcp_newcwv_datalim_closedown(sk);
++
+ 	if (sysctl_tcp_slow_start_after_idle &&
+ 	    (!tp->packets_out && (s32)(now - tp->lsndtime) > icsk->icsk_rto))
+ 		tcp_cwnd_restart(sk, __sk_dst_get(sk));
+-- 
+1.7.9.5
