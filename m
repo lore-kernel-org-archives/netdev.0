@@ -1,66 +1,64 @@
-From: stannous@cumulusnetworks.com
-Subject: [PATCH v2 ethtool] Force speed and duplex mode setting if link down
-Date: Mon,  2 Jun 2014 22:45:17 -0400
-Message-ID: <1401763517-13439-1-git-send-email-stannous@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
-	stannous@cumulusnetworks.com
-To: netdev@vger.kernel.org
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH v2] sh_eth: use RNC mode for R8A7790/R87791
+Date: Tue, 3 Jun 2014 11:45:03 +0900
+Message-ID: <538D36AF.6050303@renesas.com>
+References: <1401729456-23514-1-git-send-email-ben.dooks@codethink.co.uk>	<20140602.115303.1283021229124256917.davem@davemloft.net>	<538CD19B.5060208@cogentembedded.com> <20140602.134915.1162774321657125992.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "sergei.shtylyov@cogentembedded.com"
+	<sergei.shtylyov@cogentembedded.com>,
+	"ben.dooks@codethink.co.uk" <ben.dooks@codethink.co.uk>,
+	"linux-kernel@codethink.co.uk" <linux-kernel@codethink.co.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
+	"magnus.damn@opensource.se" <magnus.damn@opensource.se>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	"cm-hiep@jinso.co.jp" <cm-hiep@jinso.co.jp>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48373 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751518AbaFCCpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 22:45:07 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by ext3.cumulusnetworks.com (Postfix) with ESMTP id EB7A517A398C
-	for <netdev@vger.kernel.org>; Mon,  2 Jun 2014 19:45:06 -0700 (PDT)
+Received: from relmlor3.renesas.com ([210.160.252.173]:64449 "EHLO
+	relmlie2.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752610AbaFCCpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 2 Jun 2014 22:45:13 -0400
+In-Reply-To: <20140602.134915.1162774321657125992.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sam Tannous <stannous@cumulusnetworks.com>
+Hi David,
 
-This patch forces the user to set both the speed and the duplex
-mode if the user only specifies the speed while the interface is down.
+(2014/06/03 5:49), David Miller wrote:
+> From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Date: Mon, 02 Jun 2014 23:33:47 +0400
+> 
+>>    Looks like the early SH2/3 SoCs didn't implement the whole register.
+>> Despite that, sh_eth_dev_init() always writes to this register... :-/
+>> So far, the RMCR.RNC bit was mostly set for the Gigabit-capable
+>> controllers, however that rule wasn't strictly followed. Well, this
+>> driver is still a mess, and it's hard to deal with it without the
+>> necessary documentation.
+> 
+> Why don't we therefore:
+> 
+> 1) Skip the register write if the per-chip value is zero.
+> 
+> 2) Add the RNC bit to all of the gigabit capable controllers.
+> 
 
-If the interface is down, we'll get an ecmd speed
-and duplex mode of 0. This has the ill effect of
-setting the duplex to HALF and this often results in an
-error since many higher speed will not support HALF duplex.
+Thank you for the suggestion.
 
-Signed-off-by: Sam Tannous <stannous@cumulusnetworks.com>
+I checked all of datasheets about the following LSIs.
+ - sh7619, sh7710, sh7724, sh7734, sh7757(ether, gther),
+   sh7763, r7s72100, r8a7740, r8a7778, r8a7790, r8a7791
+   (There are in the "static struct platform_device_id sh_eth_id_table[]".)
 
----
-v2:
-* Corrected comment block.
----
- ethtool.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+And then, I found all of these LSIs have the "RNC" bit in the register.
+Accurately some LSIs have a difference bit name like "RNR" or "RR". (I don't know why...)
+However, the behavior of the bit is the same as all of these LSIs.
 
-diff --git a/ethtool.c b/ethtool.c
-index 8e968a8..9285284 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -2461,6 +2461,22 @@ static int do_sset(struct cmd_context *ctx)
- 		if (err < 0) {
- 			perror("Cannot get current device settings");
- 		} else {
-+			/* If the interface is down, we'll get an ecmd speed and
-+			 * duplex of 0.  This has the effect of defaulting
-+			 * the duplex mode to HALF.  This results in an
-+			 * error since many of our speeds will not support HALF
-+			 * any more.  To prevent this, we need to insist that
-+			 * the user provide us with specific duplex mode if
-+			 * they haven't already (likely FULL) if both the speed
-+			 * and duplex are 0 here.
-+			 */
-+			if (speed_wanted != -1 && duplex_wanted == -1
-+			    && !(ecmd.speed || ecmd.duplex)) {
-+			    fprintf(stderr, "Setting the speed while the link "
-+				    "is down requires both the speed and the "
-+				    "duplex mode to be set");
-+			    exit_bad_args();
-+			}
- 			/* Change everything the user specified. */
- 			if (speed_wanted != -1)
- 				ethtool_cmd_speed_set(&ecmd, speed_wanted);
--- 
-1.7.10.4
+So, I think we are able to:
+ - add the RNC bit to all of the ethernet controllers.
+ - remove ".rmcr_value" in the "struct sh_eth_cpu_data".
+
+Best regargds,
+Yoshihiro Shimoda
