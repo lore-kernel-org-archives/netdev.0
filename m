@@ -1,77 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 3/7] igb: rename igb_ptp_enable to igb_ptp_feature_enable
-Date: Wed,  4 Jun 2014 00:04:56 -0700
-Message-ID: <1401865500-18081-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: [PATCH v2 net] qlcnic: Initialize mailbox cmd structure to zero
+Date: Wed, 4 Jun 2014 03:40:54 -0400
+Message-ID: <1401867654-16691-1-git-send-email-rajesh.borundia@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21696 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755308AbaFDHFF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 03:05:05 -0400
-In-Reply-To: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:54819 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750773AbaFDIKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 04:10:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+o Uninitialzed fields in mailbox command structure
+  caused commands to time out randomly due to garbage
+  values so initialize it to zero.
 
-The name igb_ptp_enable is not synonymous with the purpose of this
-function, so rename it to better explain its purpose.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 ---
-v2: Fix indentation on wrapped line based on feedback from David Miller
+Changes in v2: Initialized cmd structure where it is allocated as
+	       per David Miller's review comment.
+---
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
- drivers/net/ethernet/intel/igb/igb_ptp.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index ab25e49..e291be2 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -360,8 +360,8 @@ static int igb_ptp_settime_i210(struct ptp_clock_info *ptp,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index 6afe9c1..d9216af 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -454,6 +454,7 @@ static int qlcnic_sriov_get_vf_acl(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_cmd_args cmd;
+ 	int ret = 0;
  
--static int igb_ptp_enable(struct ptp_clock_info *ptp,
--			  struct ptp_clock_request *rq, int on)
-+static int igb_ptp_feature_enable(struct ptp_clock_info *ptp,
-+				  struct ptp_clock_request *rq, int on)
- {
- 	return -EOPNOTSUPP;
- }
-@@ -745,7 +745,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		adapter->ptp_caps.adjtime = igb_ptp_adjtime_82576;
- 		adapter->ptp_caps.gettime = igb_ptp_gettime_82576;
- 		adapter->ptp_caps.settime = igb_ptp_settime_82576;
--		adapter->ptp_caps.enable = igb_ptp_enable;
-+		adapter->ptp_caps.enable = igb_ptp_feature_enable;
- 		adapter->cc.read = igb_ptp_read_82576;
- 		adapter->cc.mask = CLOCKSOURCE_MASK(64);
- 		adapter->cc.mult = 1;
-@@ -765,7 +765,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		adapter->ptp_caps.adjtime = igb_ptp_adjtime_82576;
- 		adapter->ptp_caps.gettime = igb_ptp_gettime_82576;
- 		adapter->ptp_caps.settime = igb_ptp_settime_82576;
--		adapter->ptp_caps.enable = igb_ptp_enable;
-+		adapter->ptp_caps.enable = igb_ptp_feature_enable;
- 		adapter->cc.read = igb_ptp_read_82580;
- 		adapter->cc.mask = CLOCKSOURCE_MASK(IGB_NBITS_82580);
- 		adapter->cc.mult = 1;
-@@ -784,7 +784,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 		adapter->ptp_caps.adjtime = igb_ptp_adjtime_i210;
- 		adapter->ptp_caps.gettime = igb_ptp_gettime_i210;
- 		adapter->ptp_caps.settime = igb_ptp_settime_i210;
--		adapter->ptp_caps.enable = igb_ptp_enable;
-+		adapter->ptp_caps.enable = igb_ptp_feature_enable;
- 		/* Enable the timer functions by clearing bit 31. */
- 		wr32(E1000_TSAUXC, 0x0);
- 		break;
++	memset(&cmd, 0, sizeof(cmd));
+ 	ret = qlcnic_sriov_alloc_bc_mbx_args(&cmd, QLCNIC_BC_CMD_GET_ACL);
+ 	if (ret)
+ 		return ret;
+@@ -1441,6 +1442,7 @@ static int qlcnic_sriov_channel_cfg_cmd(struct qlcnic_adapter *adapter, u8 cmd_o
+ 	struct qlcnic_vf_info *vf = &adapter->ahw->sriov->vf_info[0];
+ 	int ret;
+ 
++	memset(&cmd, 0, sizeof(cmd));
+ 	if (qlcnic_sriov_alloc_bc_mbx_args(&cmd, cmd_op))
+ 		return -ENOMEM;
+ 
+@@ -1998,6 +2000,7 @@ int qlcnic_sriov_cfg_vf_guest_vlan(struct qlcnic_adapter *adapter,
+ 	struct qlcnic_cmd_args cmd;
+ 	int ret;
+ 
++	memset(&cmd, 0, sizeof(cmd));
+ 	if (vid == 0)
+ 		return 0;
+ 
 -- 
-1.9.3
+1.6.3.3
