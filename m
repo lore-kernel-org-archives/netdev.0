@@ -1,67 +1,48 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: RE: [PATCH 0/10] use safer test on the result of
- find_first_zero_bit
-Date: Wed, 4 Jun 2014 11:52:32 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1406041148590.2441@hadrien>
-References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr> <CAMuHMdXsoFUXj4jLMWN6NY7Um19KwWO9Rhx=9=gqWu_K5Ev2kQ@mail.gmail.com> <alpine.DEB.2.10.1406041137270.2441@hadrien> <063D6719AE5E284EB5DD2968C1650D6D1725705F@AcuExch.aculab.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v5 net-next] MPLS: Use mpls_features to activate software
+ MPLS GSO segmentation
+Date: Wed, 4 Jun 2014 11:13:36 +0100
+Message-ID: <20140604101336.GE17695@casper.infradead.org>
+References: <1401839597-8961-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: 'Julia Lawall' <julia.lawall@lip6.fr>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	linux-rdma <linux-rdma@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	driverdevel <devel@driverdev.osuosl.org>,
-	"iss_storagedev@hp.com" <iss_storagedev@hp.com>,
-	scsi <linux-scsi@vger.kernel.org>,
-	linux-s390 <linux-s390@vger.kernel.org>,
-	"adi-buildroot-devel@lists.sourceforge.net"
-	<adi-buildroot-devel@lists.sourceforge.net>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725705F@AcuExch.aculab.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	YAMAMOTO Takashi <yamamoto@valinux.co.jp>, dev@openvswitch.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:45912 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752133AbaFDKNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 06:13:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1401839597-8961-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 06/04/14 at 08:53am, Simon Horman wrote:
+> If an MPLS packet requires segmentation then use mpls_features
+> to determine if the software implementation should be used.
+> 
+> As no driver advertises MPLS GSO segmentation this will always be
+> the case.
+> 
+> I had not noticed that this was necessary before as software MPLS GSO
+> segmentation was already being used in my test environment. I believe that
+> the reason for that is the skbs in question always had fragments and the
+> driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+> case for most drivers). Thus software segmentation was activated by
+> skb_gso_ok().
+> 
+> This introduces the overhead of an extra call to skb_network_protocol()
+> in the case where where CONFIG_NET_MPLS_GSO is set and
+> skb->ip_summed == CHECKSUM_NONE.
+> 
+> Thanks to Jesse Gross for prompting me to investigate this.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Acked-by: YAMAMOTO Takashi <yamamoto@valinux.co.jp>
 
+LGTM
 
-On Wed, 4 Jun 2014, David Laight wrote:
-
-> From: Julia Lawall
-> > On Wed, 4 Jun 2014, Geert Uytterhoeven wrote:
-> >
-> > > Hi Julia,
-> > >
-> > > On Wed, Jun 4, 2014 at 11:07 AM, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
-> > > > Find_first_zero_bit considers BITS_PER_LONG bits at a time, and thus may
-> > > > return a larger number than the maximum position argument if that position
-> > > > is not a multiple of BITS_PER_LONG.
-> > >
-> > > Shouldn't this be fixed in find_first_zero_bit() instead?
-> >
-> > OK, I could do that as well.  Most of the callers currently test with >=.
-> > Should they be left as is, or changed to use ==?
->
-> Do we want to add an extra test to find_first_zero_bit() and effectively
-> slow down all the calls - especially those where the length is a
-> multiple of 8 (probably the most common).
-
-Currently, most of the calls test with >=, and most of the others seem to
-need to (either the size value did not look like a multiple of anything in
-particular, or it was eg read from a device).
-
-Note that it is BITS_PER_LONG, so it seems like it is typically 32 or 64,
-not 8.
-
-> Maybe the documented return code should be changed to allow for the
-> existing behaviour.
-
-Sorry, I'm not sure to understand what you suggest here.
-
-thanks,
-julia
+Acked-by: Thomas Graf <tgraf@suug.ch>
