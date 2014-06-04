@@ -1,27 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 09/12] trivial:
- drivers/net/ethernet/nvidia/forcedeth.c: fix typo s/SUBSTRACT1/SUBTRACT1/
-Date: Wed, 04 Jun 2014 15:08:05 -0700 (PDT)
-Message-ID: <20140604.150805.499472050971422643.davem@davemloft.net>
-References: <1401883430-19492-1-git-send-email-ao2@ao2.it>
-	<1401883430-19492-10-git-send-email-ao2@ao2.it>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: Revert "fib_trie: use seq_file_net rather than seq->private"
+Date: Thu, 05 Jun 2014 02:11:54 +0400
+Message-ID: <538F99AA.2080005@cogentembedded.com>
+References: <1401919352-32263-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, agordeev@redhat.com, netdev@vger.kernel.org
-To: ao2@ao2.it
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37293 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751547AbaFDWIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:08:07 -0400
-In-Reply-To: <1401883430-19492-10-git-send-email-ao2@ao2.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dsahern@gmail.com
+To: Sasha Levin <sasha.levin@oracle.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401919352-32263-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Ospite <ao2@ao2.it>
-Date: Wed,  4 Jun 2014 14:03:47 +0200
+On 06/05/2014 02:02 AM, Sasha Levin wrote:
 
-> Signed-off-by: Antonio Ospite <ao2@ao2.it>
+> This reverts commit 30f38d2fdd79f13fc929489f7e6e517b4a4bfe63.
 
-Applied, thanks.
+> fib_triestat is surrounded by a big lie: while it claims that it's a
+> seq_file (fib_triestat_seq_open, fib_triestat_seq_show), it isn't:
+
+> 	static const struct file_operations fib_triestat_fops = {
+> 	        .owner  = THIS_MODULE,
+> 	        .open   = fib_triestat_seq_open,
+> 	        .read   = seq_read,
+> 	        .llseek = seq_lseek,
+> 	        .release = single_release_net,
+> 	};
+
+> Yes, fib_triestat is just a regular file.
+
+> A small detail (assuming CONFIG_NET_NS=y) is that while for seq_files
+> you could do seq_file_net() to get the net ptr, doing so for a regular
+> file would be wrong and would dereference an invalid pointer.
+>
+> The fib_triestat lie claimed a victim, and trying to show the file would
+> be bad for the kernel. This patch just reverts the issue and fixes
+> fib_triestat, which still needs a rewrite to either be a seq_file or
+> stop claiming it is.
+
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> ---
+>   net/ipv4/fib_trie.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+
+> diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+> index 243c7f4..5afeb5a 100644
+> --- a/net/ipv4/fib_trie.c
+> +++ b/net/ipv4/fib_trie.c
+> @@ -2166,7 +2166,7 @@ static void fib_table_print(struct seq_file *seq, struct fib_table *tb)
+>
+>   static int fib_triestat_seq_show(struct seq_file *seq, void *v)
+>   {
+> -	struct net *net = seq_file_net(seq);
+> +	struct net *net = (struct net *)seq->private;
+
+    'void *' doesn't need any explicit casting to another pointer type, the 
+cast it automatic.
+
+WBR, Sergei
