@@ -1,121 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: Linux stack performance drop (TCP and UDP) in 3.10 kernel
- in routed scenario
-Date: Wed, 04 Jun 2014 05:34:41 -0700
-Message-ID: <1401885281.3645.245.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
-	 <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix SH7619/771x support
+Date: Wed, 04 Jun 2014 16:37:05 +0400
+Message-ID: <538F12F1.5000701@cogentembedded.com>
+References: <201406032342.27160.sergei.shtylyov@cogentembedded.com> <538E69B0.1030706@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.ne
-To: Suprasad Mutalik Desai <suprasad.desai@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:50075 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbaFDMeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 08:34:44 -0400
-Received: by mail-pb0-f41.google.com with SMTP id uo5so6942294pbc.14
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 05:34:43 -0700 (PDT)
-In-Reply-To: <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>
+To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <538E69B0.1030706@renesas.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-06-04 at 14:34 +0530, Suprasad Mutalik Desai wrote:
-> Hi,
->=20
->=20
->     Currently i am working on 3.10.12 kernel and it seems the Linux
-> stack performance (TCP and UDP) has degraded drastically as compared
-> to 2.6 kernel.
->=20
-> Results :
->=20
-> Linux 2.6.32
-> ---------------------
-> TCP traffic using iperf
->     - Upstream : 140 Mbps
->     - Downstream : 148 Mbps
->=20
-> UDP traffic using iperf
->     - Upstream : 200 Mbps
->     - Downstream : 245 Mbps
->=20
-> Linux 3.10.12
-> --------------------
-> TCP traffic using iperf
->     - Upstream : 101 Mbps
->     - Downstream : 106 Mbps
->=20
-> UDP traffic using iperf
->     - Upstream : 140 Mbps
->     - Downstream : 170 Mbps
->=20
-> Analysis:
-> ---------------
-> 1.   As per profiling data on Linux-3.10.12 it seems,
->              -   fib_table_lookup and ip_route_input_noref is being
-> called most of the times and thus causing the degradation in
-> performance.
->=20
->     8.77    csum_partial 0x80009A20 1404
+Hello.
 
-Main problem here is lack of checksums. What kind of NIC is used ?
+On 06/04/2014 04:34 AM, Yoshihiro Shimoda wrote:
 
->     4.53    ipt_do_table 0x80365C34 1352
->     3.45    eth_xmit 0x870D0C88 5460
->     3.41    fib_table_lookup 0x8035240C 856    <----------
->     3.38    __netif_receive_skb_core 0x802B5C00 2276
->     3.07    dma_device_write 0x80013BD4 752
->     2.94    nf_iterate 0x802EA380 256
->     2.69    ip_route_input_noref 0x8030CE14 2520    <--------------
->     2.24    ip_forward 0x8031108C 1040
->     2.04    tcp_packet 0x802F45BC 3956
->     1.93    nf_conntrack_in 0x802EEAF4 2284
->=20
-> 2.    Based on the above observation, when searched,  it seems Routin=
-g
-> cache code has been removed from Linux-3.6 kernel and thus every
-> packet has to go through ip_route_input_noref to find the destination=
-=2E
->=20
-> 3.    Related to this, a patch from David Miller adds "ipv4: Early TC=
-P
-> socket demux" which caches the "dst per socket" and maintains
-> tcp_hashinfo and uses early_demux(skb) (TCP --> tcp_v4_early_demux an=
-d
-> UDP --> NULL i.e not defined) to get the "dst" of that skb and thus
-> avoids ip_route_input_noref being called everytime.
->           -  But this still doesn=E2=80=99t handle routing scenarios =
-(LAN <-->  WAN).
->=20
-> 4.    A patch for UDP early demux has been added in Linux 3.13 and
-> certain bugfixes has gone in Linux-3.14 .
->=20
-> 5.    As we are based on 3.10 thus no UDP early_demux support . This
-> means we have to backport the UDP early demux patch to 3.10 kernel .
+>> Commit 4a55530f38e4 (net: sh_eth: modify the definitions of register) managed
+>> to leave out the E-DMAC register entries in sh_eth_offset_fast_sh3_sh2[], thus
+>> totally breaking SH7619/771x support.  Add the missing entries using  the data
+>> from before that commit.
 
-Nope : This will be of no use on a router. It even will slow down the
-router.
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
->=20
->=20
-> Issue :
-> -----------
->=20
-> 1.    The implementation of "Early TCP socket demux" doesn't address
-> the routing scenario (LAN <---> WAN) . This means TCP and UDP routing
-> performance will be less in 3.10 kernel and also in 3.14 kernel as
-> every packet has to go through route lookup.
->=20
->=20
-> Is there an alternative to get back the Linux stack performance of 2.=
-6
-> or 3.4 kernel where we have the route cache ?
->=20
-> I guess plain routing scenario was NOT thought through while removing
-> the routing cache code.
+>> ---
+>> The patch is against Dave Miller's 'net.git' repo.
+>> Although there have been no complaints during 3+ years of this being broken, I
+>> think it's probably worth queuing the patch for the stable trees...
 
-This is the opposite. Route cache was easily targeted by DDOS attacks.
+>>   drivers/net/ethernet/renesas/sh_eth.c |   21 +++++++++++++++++++++
+>>   1 file changed, 21 insertions(+)
 
-This was a nightmare.
+>> Index: net/drivers/net/ethernet/renesas/sh_eth.c
+>> ===================================================================
+>> --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ net/drivers/net/ethernet/renesas/sh_eth.c
+>> @@ -307,6 +307,27 @@ static const u16 sh_eth_offset_fast_sh4[
+>>   };
+>>
+>>   static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
+>> +	[EDMR]		= 0x0000,
+>> +	[EDTRR]		= 0x0004,
+>> +	[EDRRR]		= 0x0008,
+>> +	[TDLAR]		= 0x000c,
+>> +	[RDLAR]		= 0x0010,
+>> +	[EESR]		= 0x0014,
+>> +	[EESIPR]	= 0x0018,
+>> +	[TRSCER]	= 0x001c,
+>> +	[RMFCR]		= 0x0020,
+>> +	[TFTR]		= 0x0024,
+>> +	[FDR]		= 0x0028,
+>> +	[RMCR]		= 0x002c,
+>> +	[EDOCR]		= 0x0030,
+>> +	[FCFTR]		= 0x0034,
+>> +	[RPADIR]	= 0x0038,
+
+> I checked sh7710 and sh7619 datasheet, but they don't have RPADIR register.
+> Since I would like to check a datasheet you looked into, would you tell me about this?
+
+    As I wrote in the changelog, I used the driver source. I don't have access 
+to SH7619/771x datasheets.
+
+WBR, Sergei
+
