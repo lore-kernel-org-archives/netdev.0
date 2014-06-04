@@ -1,65 +1,51 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: Fix handling of skbs requiring
- too many slots
-Date: Wed, 04 Jun 2014 11:59:45 -0400
-Message-ID: <538F4271.7080505@oracle.com>
-References: <1401827406-9341-1-git-send-email-zoltan.kiss@citrix.com> <538F369B.7010100@oracle.com> <538F3E6A.7000002@citrix.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH urgent] netlink: Only check file credentials for
+ implicit destinations
+Date: Wed, 4 Jun 2014 18:01:31 +0200
+Message-ID: <20140604180131.1bc17fe8@griffin>
+References: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, linux@eikelenboom.it,
-	paul.durrant@citrix.com, david.vrabel@citrix.com,
-	xen-devel@lists.xenproject.org, davem@davemloft.net
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Network Development <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:32490 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbaFDP75 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 11:59:57 -0400
-In-Reply-To: <538F3E6A.7000002@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:45825 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752134AbaFDQBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 12:01:36 -0400
+In-Reply-To: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 30 May 2014 11:04:00 -0700, Andy Lutomirski wrote:
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+> @@ -1373,7 +1373,9 @@ retry:
+>  bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
+>  			struct user_namespace *user_ns, int cap)
+>  {
+> -	return sk_ns_capable(nsp->sk, user_ns, cap);
+> +	return ((nsp->flags & NETLINK_SKB_DST) ||
+> +		file_ns_capable(nsp->sk->sk_socket->file, user_ns, cap)) &&
+> +		ns_capable(user_ns, cap);
 
-On 2014/6/4 11:42, Zoltan Kiss wrote:
-> On 04/06/14 16:09, annie li wrote:
->>
->> On 2014/6/3 16:30, Zoltan Kiss wrote:
->>> A recent commit (a02eb4 "xen-netback: worse-case estimate in
->>> xenvif_rx_action is
->>> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but
->>> that triggers
->>> the next BUG_ON a few lines down, as the packet consumes more slots 
->>> than
->>> estimated.
->>> This patch introduces full_coalesce on the skb callback buffer, which
->>> is used in
->>> start_new_rx_buffer() to decide whether netback needs coalescing more
->>> aggresively. By doing that, no packet should need more than
->>> XEN_NETIF_MAX_TX_SIZE / PAGE_SIZE data slots,
->>
->> (XEN_NETIF_MAX_TX_SIZE+1) / PAGE_SIZE here?
->
-> Do you think about the GSO slot? That's why I wrote "data slot", 
-> however that's probably not a clear terminology.
+Sorry if I'm missing something. Is socket->file valid (non-NULL) in
+kernel->kernel netlink communication? I don't think it's assigned for
+sockets created by netlink_kernel_create, is it? Seems this would cause
+NULL ptr dereference.
 
-What I mean is: XEN_NETIF_MAX_TX_SIZE is 0xFFFF, and 
-XEN_NETIF_MAX_TX_SIZE / PAGE_SIZE turns out to be 15 slots when 
-PAGE_SIZE is 4096. You was trying to use XEN_NETIF_MAX_TX_SIZE as max 
-size of packet - 64k?
+But then, I don't even know whether kernel->kernel netlink
+communication is allowed.
 
-> I'll add then that excluding GSO slot, as it doesn't carry data 
-> directly, therefore it's irrelevant from this point of view.
+(I'm aware that if this is really the case the NULL ptr deref is not
+caused by this patch but by the one this is fixing.)
 
-Correct.:-)
+Thanks,
 
-Thanks
-Annie
->
-> Zoli
->
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
+ Jiri
+
+-- 
+Jiri Benc
