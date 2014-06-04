@@ -1,56 +1,58 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net: remove some useless list_del()
-Date: Tue,  3 Jun 2014 17:11:55 -0700
-Message-ID: <1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: remove some useless list_del()
+Date: Tue, 03 Jun 2014 17:24:51 -0700 (PDT)
+Message-ID: <20140603.172451.2132501802596004067.davem@davemloft.net>
 References: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+	<1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:33604 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753815AbaFDAMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:12:18 -0400
-Received: by mail-pb0-f41.google.com with SMTP id uo5so6200610pbc.0
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 17:12:17 -0700 (PDT)
-In-Reply-To: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50353 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934101AbaFDAYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:24:53 -0400
+In-Reply-To: <1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"list_kill" is allocated on stack and it's a list head,
-it is pointless to call list_del(&kill_list) especially
-after unregister_netdevice_many().
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  3 Jun 2014 17:11:55 -0700
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/macvlan.c | 1 -
- net/core/rtnetlink.c  | 1 -
- 2 files changed, 2 deletions(-)
+> "list_kill" is allocated on stack and it's a list head,
+> it is pointless to call list_del(&kill_list) especially
+> after unregister_netdevice_many().
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index eee9106..cd80245 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1204,7 +1204,6 @@ static int macvlan_device_event(struct notifier_block *unused,
- 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
- 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, &list_kill);
- 		unregister_netdevice_many(&list_kill);
--		list_del(&list_kill);
- 		break;
- 	case NETDEV_PRE_TYPE_CHANGE:
- 		/* Forbid underlaying device to change its type. */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f31268d..4a1cff6 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1770,7 +1770,6 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- 	ops->dellink(dev, &list_kill);
- 	unregister_netdevice_many(&list_kill);
--	list_del(&list_kill);
- 	return 0;
- }
- 
--- 
-1.8.3.1
+Do not edit what you do not understand:
+
+commit ceaaec98ad99859ac90ac6863ad0a6cd075d8e0e                                                                         
+Author: Eric Dumazet <eric.dumazet@gmail.com>                                                                           
+Date:   Thu Feb 17 22:59:19 2011 +0000                                                                                  
+                                                                                                                        
+    net: deinit automatic LIST_HEAD                                                                                     
+                                                                                                                        
+    commit 9b5e383c11b08784 (net: Introduce                                                                             
+    unregister_netdevice_many()) left an active LIST_HEAD() in                                                          
+    rollback_registered(), with possible memory corruption.                                                             
+                                                                                                                        
+    Even if device is freed without touching its unreg_list (and therefore                                              
+    touching the previous memory location holding LISTE_HEAD(single), better                                            
+    close the bug for good, since its really subtle.                                                                    
+                                                                                                                        
+    (Same fix for default_device_exit_batch() for completeness)                                                         
+                                                                                                                        
+    Reported-by: Michal Hocko <mhocko@suse.cz>                                                                          
+    Tested-by: Michal Hocko <mhocko@suse.cz>                                                                            
+    Reported-by: Eric W. Biderman <ebiderman@xmission.com>                                                              
+    Tested-by: Eric W. Biderman <ebiderman@xmission.com>                                                                
+    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>                                                       
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>                                                                
+    CC: Ingo Molnar <mingo@elte.hu>                                                                                     
+    CC: Octavian Purdila <opurdila@ixiacom.com>                                                                         
+    CC: stable <stable@kernel.org> [.33+]                                                                               
+    Signed-off-by: David S. Miller <davem@davemloft.net>                                                                
