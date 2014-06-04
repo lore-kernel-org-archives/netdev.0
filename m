@@ -1,49 +1,71 @@
-From: Andrew Ruder <andrew.ruder@elecsyscorp.com>
-Subject: [PATCH 5/6] dm9000: handle initial link status
-Date: Wed,  4 Jun 2014 17:28:48 -0500
-Message-ID: <d785fb5ebfd4e6e9f0dc293452914f172dfe061c.1401920694.git.andrew.ruder@elecsyscorp.com>
-References: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
-Cc: Andrew Ruder <andrew.ruder@elecsyscorp.com>,
-	Joseph CHANG <josright123@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from new1-smtp.messagingengine.com ([66.111.4.221]:59704 "EHLO
-	new1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751919AbaFDWh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:37:57 -0400
-Received: from compute3.internal (compute3.nyi.mail.srv.osa [10.202.2.43])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id C78F643F
-	for <netdev@vger.kernel.org>; Wed,  4 Jun 2014 18:29:15 -0400 (EDT)
-In-Reply-To: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
-In-Reply-To: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
-References: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH] pci/msi: fix memory leak in free_msi_irqs()
+Date: Wed,  4 Jun 2014 15:49:50 -0700
+Message-ID: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On the DM9000A/DM9000B force the initial check of the link status.  The
-DM9000A/B has a link status changed event and this interrupt bit isn't
-always set out of reset when a cable is plugged in.  This results in the
-driver not seeing the cable attached link status until the cable is
-removed and plugged in again.
+free_msi_irqs() is leaking memory, since
+list_for_each_entry(entry, &dev->msi_list, list) {...}
+is never executed, because dev->msi_list is made empty by
+the loop just above this one.
 
-Signed-off-by: Andrew Ruder <andrew.ruder@elecsyscorp.com>
+Fix it by relying on zero termination of attribute array like
+populate_msi_sysfs() does.
+
+Fixes: 1c51b50c2995 ("PCI/MSI: Export MSI mode using attributes, not kobjects")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- drivers/net/ethernet/davicom/dm9000.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index d1a5b2f..eb9b704 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -1326,7 +1326,8 @@ dm9000_open(struct net_device *dev)
- 	mii_check_media(&db->mii, netif_msg_link(db), 1);
- 	netif_start_queue(dev);
- 
--	dm9000_schedule_poll(db);
-+	/* Poll initial link status */
-+	schedule_delayed_work(&db->phy_poll, 1);
- 
- 	return 0;
- }
+This was found by kmemleak report:
+unreferenced object 0xffff880808eda600 (size 64):
+  comm "modprobe", pid 1526, jiffies 4294902299 (age 58422.716s)
+  hex dump (first 32 bytes):
+    20 c4 66 09 08 88 ff ff 24 01 00 00 00 00 00 00   .f.....$.......
+    50 97 77 82 ff ff ff ff 00 00 00 00 00 00 00 00  P.w.............
+  backtrace:
+    [<ffffffff816e5fc8>] kmemleak_alloc+0x28/0x50
+    [<ffffffff811b885e>] kmem_cache_alloc_trace+0xde/0x230
+    [<ffffffff813aa286>] populate_msi_sysfs+0xc6/0x250
+    [<ffffffff813aafdb>] pci_enable_msix+0x34b/0x430
+    [<ffffffff813ab0ec>] pci_enable_msix_range+0x2c/0x70
+    [<ffffffffa0034ade>] igb_init_interrupt_scheme+0x9e/0x420 [igb]
+    [<ffffffffa003d668>] igb_probe+0x4a8/0x1250 [igb]
+    [<ffffffff813930de>] local_pci_probe+0x4e/0xa0
+    [<ffffffff813933e9>] pci_device_probe+0xd9/0x120
+    [<ffffffff814697cd>] driver_probe_device+0x8d/0x250
+    [<ffffffff81469a3b>] __driver_attach+0xab/0xb0
+    [<ffffffff8146799d>] bus_for_each_dev+0x5d/0xa0
+    [<ffffffff814691de>] driver_attach+0x1e/0x20
+    [<ffffffff81468e57>] bus_add_driver+0x117/0x220
+    [<ffffffff8146a104>] driver_register+0x64/0xf0
+    [<ffffffff813923f4>] __pci_register_driver+0x64/0x70
+
+IGB driver is calling pci_enable_msix_range() and immediately pci_disable_msix()
+which leaks the memory.
+Obviously the leak happens with any driver.
+
+ drivers/pci/msi.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 955ab7990c5b..fb02fc2fb034 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -414,7 +414,7 @@ static void free_msi_irqs(struct pci_dev *dev)
+ 	if (dev->msi_irq_groups) {
+ 		sysfs_remove_groups(&dev->dev.kobj, dev->msi_irq_groups);
+ 		msi_attrs = dev->msi_irq_groups[0]->attrs;
+-		list_for_each_entry(entry, &dev->msi_list, list) {
++		while (msi_attrs[count]) {
+ 			dev_attr = container_of(msi_attrs[count],
+ 						struct device_attribute, attr);
+ 			kfree(dev_attr->attr.name);
 -- 
-1.9.0.rc3.12.gbc97e2d
+1.7.9.5
