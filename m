@@ -1,60 +1,48 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Linux stack performance drop (TCP and UDP) in 3.10 kernel in
- routed scenario
-Date: Wed, 4 Jun 2014 14:12:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17257279@AcuExch.aculab.com>
-References: <CAJMXqXbfEj1pq0nfLCeJuqWOeW1xfGwCmeKm_u4ZKdLepzwKiA@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next v10 1/7] xen-netback: Move grant_copy_op array
+ back into struct xenvif.
+Date: Wed, 04 Jun 2014 18:46:42 +0400
+Message-ID: <538F3152.80501@cogentembedded.com>
+References: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com> <1401874247-3202-2-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: 'Suprasad Mutalik Desai' <suprasad.desai@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ian.campbell@citrix.com, david.vrabel@citrix.com,
+	zoltan.kiss@citrix.com, paul.durrant@citrix.com,
+	a.j.bennieston@gmail.com,
+	"Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59055 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752406AbaFDONI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 10:13:08 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15906-08 for <netdev@vger.kernel.org>;
- Wed,  4 Jun 2014 15:12:56 +0100 (BST)
-In-Reply-To: <CAJMXqXbfEj1pq0nfLCeJuqWOeW1xfGwCmeKm_u4ZKdLepzwKiA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:64761 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751329AbaFDOqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 10:46:38 -0400
+Received: by mail-lb0-f170.google.com with SMTP id w7so4430846lbi.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 07:46:36 -0700 (PDT)
+In-Reply-To: <1401874247-3202-2-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3VwcmFzYWQgTXV0YWxpayBEZXNhaQ0KPiAgICAgQ3VycmVudGx5IGkgYW0gd29ya2lu
-ZyBvbiAzLjEwLjEyIGtlcm5lbCBhbmQgaXQgc2VlbXMgdGhlIExpbnV4DQo+IHN0YWNrIHBlcmZv
-cm1hbmNlIChUQ1AgYW5kIFVEUCkgaGFzIGRlZ3JhZGVkIGRyYXN0aWNhbGx5IGFzIGNvbXBhcmVk
-DQo+IHRvIDIuNiBrZXJuZWwuDQo+IA0KPiBSZXN1bHRzIDoNCj4gDQo+IExpbnV4IDIuNi4zMg0K
-PiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gVENQIHRyYWZmaWMgdXNpbmcgaXBlcmYNCj4gICAg
-IC0gVXBzdHJlYW0gOiAxNDAgTWJwcw0KPiAgICAgLSBEb3duc3RyZWFtIDogMTQ4IE1icHMNCj4g
-DQo+IFVEUCB0cmFmZmljIHVzaW5nIGlwZXJmDQo+ICAgICAtIFVwc3RyZWFtIDogMjAwIE1icHMN
-Cj4gICAgIC0gRG93bnN0cmVhbSA6IDI0NSBNYnBzDQo+IA0KPiBMaW51eCAzLjEwLjEyDQo+IC0t
-LS0tLS0tLS0tLS0tLS0tLS0tDQo+IFRDUCB0cmFmZmljIHVzaW5nIGlwZXJmDQo+ICAgICAtIFVw
-c3RyZWFtIDogMTAxIE1icHMNCj4gICAgIC0gRG93bnN0cmVhbSA6IDEwNiBNYnBzDQo+IA0KPiBV
-RFAgdHJhZmZpYyB1c2luZyBpcGVyZg0KPiAgICAgLSBVcHN0cmVhbSA6IDE0MCBNYnBzDQo+ICAg
-ICAtIERvd25zdHJlYW0gOiAxNzAgTWJwcw0KPiANCj4gQW5hbHlzaXM6DQo+IC0tLS0tLS0tLS0t
-LS0tLQ0KPiAxLiAgIEFzIHBlciBwcm9maWxpbmcgZGF0YSBvbiBMaW51eC0zLjEwLjEyIGl0IHNl
-ZW1zLA0KPiAgICAgICAgICAgICAgLSAgIGZpYl90YWJsZV9sb29rdXAgYW5kIGlwX3JvdXRlX2lu
-cHV0X25vcmVmIGlzIGJlaW5nDQo+IGNhbGxlZCBtb3N0IG9mIHRoZSB0aW1lcyBhbmQgdGh1cyBj
-YXVzaW5nIHRoZSBkZWdyYWRhdGlvbiBpbg0KPiBwZXJmb3JtYW5jZS4NCj4gDQo+ICAgICA4Ljc3
-ICAgIGNzdW1fcGFydGlhbCAweDgwMDA5QTIwIDE0MDQNCj4gICAgIDQuNTMgICAgaXB0X2RvX3Rh
-YmxlIDB4ODAzNjVDMzQgMTM1Mg0KPiAgICAgMy40NSAgICBldGhfeG1pdCAweDg3MEQwQzg4IDU0
-NjANCj4gICAgIDMuNDEgICAgZmliX3RhYmxlX2xvb2t1cCAweDgwMzUyNDBDIDg1NiAgICA8LS0t
-LS0tLS0tLQ0KPiAgICAgMy4zOCAgICBfX25ldGlmX3JlY2VpdmVfc2tiX2NvcmUgMHg4MDJCNUMw
-MCAyMjc2DQo+ICAgICAzLjA3ICAgIGRtYV9kZXZpY2Vfd3JpdGUgMHg4MDAxM0JENCA3NTINCj4g
-ICAgIDIuOTQgICAgbmZfaXRlcmF0ZSAweDgwMkVBMzgwIDI1Ng0KPiAgICAgMi42OSAgICBpcF9y
-b3V0ZV9pbnB1dF9ub3JlZiAweDgwMzBDRTE0IDI1MjAgICAgPC0tLS0tLS0tLS0tLS0tDQo+ICAg
-ICAyLjI0ICAgIGlwX2ZvcndhcmQgMHg4MDMxMTA4QyAxMDQwDQo+ICAgICAyLjA0ICAgIHRjcF9w
-YWNrZXQgMHg4MDJGNDVCQyAzOTU2DQo+ICAgICAxLjkzICAgIG5mX2Nvbm50cmFja19pbiAweDgw
-MkVFQUY0IDIyODQNCj4gDQo+IDIuICAgIEJhc2VkIG9uIHRoZSBhYm92ZSBvYnNlcnZhdGlvbiwg
-d2hlbiBzZWFyY2hlZCwgIGl0IHNlZW1zIFJvdXRpbmcNCj4gY2FjaGUgY29kZSBoYXMgYmVlbiBy
-ZW1vdmVkIGZyb20gTGludXgtMy42IGtlcm5lbCBhbmQgdGh1cyBldmVyeQ0KPiBwYWNrZXQgaGFz
-IHRvIGdvICAgICAgIHRocm91Z2ggaXBfcm91dGVfaW5wdXRfbm9yZWYgdG8gZmluZCB0aGUNCj4g
-ZGVzdGluYXRpb24uDQoNClRoYXQgZG9lc24ndCBsb29rIGxpa2UgZW5vdWdoIGNwdSB0aW1lIHRv
-IGdpdmUgdGhlIG9ic2VydmVkIHJlZHVjdGlvbg0KaW4gdGhyb3VnaHB1dCAoYXNzdW1pbmcgdGhv
-c2UgbnVtYmVycyBhcmUgaW4gJSkuDQoNCkFyZSB5b3Ugc3VyZSB0aGUgc3lzdGVtIGlzIGFjdHVh
-bGx5IHJ1bm5pbmcgYXQgMTAwJSBjcHU/DQooQWx0aG91Z2ggSSdtIG5vdCBzdXJlIHdoYXQgdG8g
-dHJ1c3QgZm9yIGNwdSB1c2FnZSB3aXRoIHRoZXNlIHNvcnRzIG9mIHRlc3RzLikNCg0KCURhdmlk
-DQoNCg==
+Hello.
+
+On 06/04/2014 01:30 PM, Wei Liu wrote:
+
+> From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+
+> This array was allocated separately in commit ac3d5ac2 ("xen-netback:
+> fix guest-receive-side array sizes") due to it being very large, and a
+> struct xenvif is allocated as the netdev_priv part of a struct
+> net_device, i.e. via kmalloc() but falling back to vmalloc() if the
+> initial alloc. fails.
+
+> In preparation for the multi-queue patches, where this array becomes
+> part of struct xenvif_queue and is always allocated through vzalloc(),
+> move this back into the struct xenvif.
+
+    Won't this cause an allocation failure and so break bisection at this patch?
+
+> Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
+
+WBR, Sergei
