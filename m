@@ -1,45 +1,35 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next v10 0/7]
-Date: Wed, 4 Jun 2014 23:27:10 +0100
-Message-ID: <20140604222710.GA29148@zion.uk.xensource.com>
-References: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
- <20140604.144924.1049991748432893469.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/6] net: fec: Enable Software TSO to improve the tx
+ performance
+Date: Wed, 04 Jun 2014 15:28:50 -0700 (PDT)
+Message-ID: <20140604.152850.1591854206282161278.davem@davemloft.net>
+References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>,
-	<david.vrabel@citrix.com>, <zoltan.kiss@citrix.com>,
-	<paul.durrant@citrix.com>, <a.j.bennieston@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shawn.guo@linaro.org, R49496@freescale.com,
+	ezequiel.garcia@free-electrons.com, bhutchings@solarflare.com,
+	stephen@networkplumber.org, b20596@freescale.com,
+	David.Laight@ACULAB.COM, eric.dumazet@gmail.com
+To: b38611@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:15796 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751432AbaFDW1M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 18:27:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20140604.144924.1049991748432893469.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbaFDW2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:28:52 -0400
+In-Reply-To: <1401867571-11684-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2014 at 02:49:24PM -0700, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Wed, 4 Jun 2014 10:30:40 +0100
-> 
-> > This is rebased version of Andrew's V8 patch series. The original cover letter
-> > can be found at
-> >   http://lwn.net/Articles/598559/
-> > or with message ID:
-> >   <1400075550-4580-1-git-send-email-andrew.bennieston@citrix.com>
-> 
-> Please don't do this, include the full cover letter content in the
-> text of this email posting.
-> 
-> I did this for you, but in the future I'm just going to push this
-> back to you.
-> 
-> Your Subject line in this email was empty as well, another no-no.
 
-Oops. I will double check this in the future. And thanks for fixing this
-up.
+I think you need to start taking David Laight's feedback more seriously.
 
-Wei.
+He's right, it makes no sense at all the increase the number of RX
+descriptors for the sake of a send side feature like TSO.
+
+If you have a another reason to increase the RX descriptor count, do
+it as a separate change and with an appropriate commit log message
+explaining WHY you are doing this.
+
+I'm not applying this patch series until you start taking the feedback
+you are receiving to heart.
