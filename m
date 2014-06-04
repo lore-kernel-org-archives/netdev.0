@@ -1,127 +1,81 @@
-From: "Andrew J. Bennieston" <a.j.bennieston@gmail.com>
-Subject: Re: [PATCH net-next v10 7/7] xen-netfront: initialise
-	queue name in xennet_init_queue
-Date: Wed, 4 Jun 2014 10:35:41 +0100
-Message-ID: <CAN48k6n1X5sk-f=F28Xo-OL1iKDXQprNj-x87xm2UPZm=sF4HQ@mail.gmail.com>
-References: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
-	<1401874247-3202-8-git-send-email-wei.liu2@citrix.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v2 4/6] net: fec: Increase buffer descriptor entry number
+Date: Wed, 4 Jun 2014 09:39:58 +0000
+Message-ID: <ff20c13735154f8dac1a8d9c22887e05@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
+ <1401867571-11684-5-git-send-email-b38611@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17256FBF@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3679649638515838623=="
-Cc: "ian.campbell@citrix.com" <ian.campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"paul.durrant@citrix.com" <paul.durrant@citrix.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"zoltan.kiss@citrix.com" <zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1401874247-3202-8-git-send-email-wei.liu2@citrix.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
-
---===============3679649638515838623==
-Content-Type: multipart/alternative; boundary=001a11c2c9ca1919c304faff5a56
-
---001a11c2c9ca1919c304faff5a56
-Content-Type: text/plain; charset=UTF-8
-
-On Wednesday, 4 June 2014, Wei Liu <wei.liu2@citrix.com> wrote:
-
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com <javascript:;>>
-> Reviewed-by: David Vrabel <david.vrabel@citrix.com <javascript:;>>
-> ---
->  drivers/net/xen-netfront.c |    3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 55bf834..5a7872a 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1665,6 +1665,9 @@ static int xennet_init_queue(struct netfront_queue
-> *queue)
->         queue->rx_refill_timer.data = (unsigned long)queue;
->         queue->rx_refill_timer.function = rx_refill_timeout;
->
-> +       snprintf(queue->name, sizeof(queue->name), "%s-q%u",
-> +                queue->info->netdev->name, queue->id);
-> +
->         /* Initialise tx_skbs as a free chain containing every entry. */
->         queue->tx_skb_freelist = 0;
->         for (i = 0; i < NET_TX_RING_SIZE; i++) {
-> --
-> 1.7.10.4
->
->
-Reviewed-by: Andrew Bennieston <a.j.bennieston@gmail.com>
-
-
--- 
-Andrew J. Bennieston
-
---001a11c2c9ca1919c304faff5a56
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On Wednesday, 4 June 2014, Wei Liu &lt;<a href=3D"mailto:wei.liu2@citrix.co=
-m">wei.liu2@citrix.com</a>&gt; wrote:<br><blockquote class=3D"gmail_quote" =
-style=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">Sig=
-ned-off-by: Wei Liu &lt;<a href=3D"javascript:;" onclick=3D"_e(event, &#39;=
-cvml&#39;, &#39;wei.liu2@citrix.com&#39;)">wei.liu2@citrix.com</a>&gt;<br>
-
-Reviewed-by: David Vrabel &lt;<a href=3D"javascript:;" onclick=3D"_e(event,=
- &#39;cvml&#39;, &#39;david.vrabel@citrix.com&#39;)">david.vrabel@citrix.co=
-m</a>&gt;<br>
----<br>
-=C2=A0drivers/net/xen-netfront.c | =C2=A0 =C2=A03 +++<br>
-=C2=A01 file changed, 3 insertions(+)<br>
-<br>
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c<br>
-index 55bf834..5a7872a 100644<br>
---- a/drivers/net/xen-netfront.c<br>
-+++ b/drivers/net/xen-netfront.c<br>
-@@ -1665,6 +1665,9 @@ static int xennet_init_queue(struct netfront_queue *q=
-ueue)<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 queue-&gt;rx_refill_timer.data =3D (unsigned lo=
-ng)queue;<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 queue-&gt;rx_refill_timer.function =3D rx_refil=
-l_timeout;<br>
-<br>
-+ =C2=A0 =C2=A0 =C2=A0 snprintf(queue-&gt;name, sizeof(queue-&gt;name), &qu=
-ot;%s-q%u&quot;,<br>
-+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0queue-&gt;info-&gt=
-;netdev-&gt;name, queue-&gt;id);<br>
-+<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 /* Initialise tx_skbs as a free chain containin=
-g every entry. */<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 queue-&gt;tx_skb_freelist =3D 0;<br>
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i &lt; NET_TX_RING_SIZE; i++) {<b=
-r>
---<br>
-1.7.10.4<br>
-<br>
-</blockquote><br><div>Reviewed-by: Andrew=C2=A0Bennieston &lt;<a href=3D"ma=
-ilto:a.j.bennieston@gmail.com">a.j.bennieston@gmail.com</a>&gt;=C2=A0</div>=
-<br><br>-- <br>Andrew J. Bennieston<br><br>
-
---001a11c2c9ca1919c304faff5a56--
-
-
---===============3679649638515838623==
 Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1blp0189.outbound.protection.outlook.com ([207.46.163.189]:33333
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752074AbaFDJkB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:40:01 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17256FBF@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Xen-devel mailing list
-Xen-devel@lists.xen.org
-http://lists.xen.org/xen-devel
+From: David Laight <David.Laight@ACULAB.COM> Data: Wednesday, June 04, 2014 5:27 PM
+> To: Duan Fugang-B38611; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; shawn.guo@linaro.org; Estevam Fabio-R49496;
+> ezequiel.garcia@free-electrons.com; bhutchings@solarflare.com;
+> stephen@networkplumber.org; Li Frank-B20596; eric.dumazet@gmail.com
+> Subject: RE: [PATCH v2 4/6] net: fec: Increase buffer descriptor entry
+> number
+> 
+> From: Fugang Duan
+> > In order to support SG, software TSO, let's increase BD entry number.
+> >
+> > CC: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> > CC: Eric Dumazet <eric.dumazet@gmail.com>
+> > CC: David Laight <David.Laight@ACULAB.COM>
+> > Signed-off-by: Fugang Duan <B38611@freescale.com>
+> > ---
+> >  drivers/net/ethernet/freescale/fec.h      |    6 +++---
+> >  drivers/net/ethernet/freescale/fec_main.c |   21 ++++++++++++-------
+> --
+> >  2 files changed, 15 insertions(+), 12 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/freescale/fec.h
+> b/drivers/net/ethernet/freescale/fec.h
+> > index 3b8d6d1..798ad88 100644
+> > --- a/drivers/net/ethernet/freescale/fec.h
+> > +++ b/drivers/net/ethernet/freescale/fec.h
+> > @@ -240,14 +240,14 @@ struct bufdesc_ex {
+> >   * the skbuffer directly.
+> >   */
+> >
+> > -#define FEC_ENET_RX_PAGES	8
+> > +#define FEC_ENET_RX_PAGES	128
+> >  #define FEC_ENET_RX_FRSIZE	2048
+> >  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
+> >  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
+> > ...
+> 
+> You are changing the number of rx descriptors as well.
+> This isn't mentioned in the description.
+> 
+> And, as I said before, basing this on PAGE_SIZE cannot be right.
+> 
+> 	David
+> 
+The patch just increase tx and rx BD entry number,  and from previous discuss, we set tx number to 512, rx number to 256.
 
---===============3679649638515838623==--
+
+Thanks,
+Andy
