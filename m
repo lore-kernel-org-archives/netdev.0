@@ -1,43 +1,45 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: Re: [PATCH v3 2/4] net: Allow for more then a single subclass for
- netif_addr_lock
-Date: Wed, 4 Jun 2014 22:50:22 +0000
-Message-ID: <1401922221.4508.0.camel@jekeller-desk1.amr.corp.intel.com>
-References: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>
-	 <1400274296-14765-3-git-send-email-vyasevic@redhat.com>
-	 <1401918131.24086.9.camel@jekeller-desk1.amr.corp.intel.com>
-	 <20140604.145344.1776321352568977848.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v2 0/7] net: Support checksum in UDP tunnels
+Date: Wed, 4 Jun 2014 16:11:37 -0700
+Message-ID: <CA+mtBx8hBvZ6dH1BEZaASQH2bh9=w-TMpF2_NZVRYOAy6cR-Fg@mail.gmail.com>
+References: <alpine.DEB.2.02.1406012046040.20298@tomh.mtv.corp.google.com>
+	<CAEP_g=9=rCQz6fsZ0c4KP7Kd4L8Q2yk8tKON0GVk52Napj5ufA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"vfalico@gmail.com" <vfalico@gmail.com>,
-	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
-	"jiri@resnulli.us" <jiri@resnulli.us>,
-	"kaber@trash.net" <kaber@trash.net>
-To: "davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15723 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751122AbaFDWur (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 18:50:47 -0400
-In-Reply-To: <20140604.145344.1776321352568977848.davem@davemloft.net>
-Content-Language: en-US
-Content-ID: <25E1FE691CDF7345A2F9A7356CE4B0B7@intel.com>
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:59132 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbaFDXLi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 19:11:38 -0400
+Received: by mail-ig0-f176.google.com with SMTP id a13so2574216igq.15
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 16:11:38 -0700 (PDT)
+In-Reply-To: <CAEP_g=9=rCQz6fsZ0c4KP7Kd4L8Q2yk8tKON0GVk52Napj5ufA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gV2VkLCAyMDE0LTA2LTA0IGF0IDE0OjUzIC0wNzAwLCBEYXZpZCBNaWxsZXIgd3JvdGU6DQo+
-IEZyb206ICJLZWxsZXIsIEphY29iIEUiIDxqYWNvYi5lLmtlbGxlckBpbnRlbC5jb20+DQo+IERh
-dGU6IFdlZCwgNCBKdW4gMjAxNCAyMTo0MjoxMiArMDAwMA0KPiANCj4gPiBUaGlzIG9ubHkgb2Nj
-dXJzIGlmIENPTkZJR19ERUJVR19MT0NLX0FMTE9DPVksIGFuZCB0aGVyZSBzZWVtcyB0byBiZSBu
-bw0KPiA+IGVhc3kgZml4IGZvciB0aGUgd2FybmluZywgZHVlIHRvIGhvdyBzcGluX2xvY2tfbmVz
-dGVkIGlzIGEgbWFjcm8gdGhhdA0KPiA+IGRpc2NhcmRzIHRoZSBzZWNvbmQgcGFyYW1ldGVyIHdo
-ZW4gREVCVUdfTE9DS19BTExPQyBpcyBkaXNhYmxlZC4NCj4gDQo+IHNwaW5fbG9ja19uZXN0ZWQo
-KSwgaW4gdGhhdCBjYXNlLCBzaG91bGQgbWFyayB0aGUgYXJndW1lbnQgYXMgdW51c2VkLg0KPiAN
-Cj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
-c3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9t
-b0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIu
-a2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCkNhbiBpdCBkbyB0aGF0PyBzcGluX2xv
-Y2tfbmVzdGVkIGlzIGEgbWFjcm8uDQoNClRoYW5rcywNCkpha2UNCg==
+On Wed, Jun 4, 2014 at 3:28 PM, Jesse Gross <jesse@nicira.com> wrote:
+> On Sun, Jun 1, 2014 at 9:00 PM, Tom Herbert <therbert@google.com> wrote:
+>> This patch series adds support for using checksums in UDP tunnels. With
+>> this it is possible that two or more checksums may be set within the
+>> same packet and we would like to do that efficiently.
+>
+> Do you also plan to implement double checksum offload in the absence
+> of TSO? I know it is functionally correct now but it's not offloaded.
+
+We'd need HW support for that (like NETIF_F_HW_CSUM2). I think there
+is some justification in light of tunneling protocols over UDP that
+carry sensitive data, like virtual network ID, and don't otherwise
+have any provision at L3 to detect data corruption (e.g. vxlan).
+
+To implement, I think this is just another pair of checksum offsets
+(csum_start, csum_offset) (CHECKSUM_PARTIAL2?) that a driver would
+implement. Both csum_start and csum_offset could also be stored in 8
+bits (right shifted to give values up to 510) if there are concerns
+about space in TX descriptors.
+
+Are any vendors interested in this functionality?
+
+Thanks,
+Tom
