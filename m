@@ -1,67 +1,42 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 4/6] net: fec: Increase buffer descriptor entry number
-Date: Wed, 4 Jun 2014 09:26:52 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17256FBF@AcuExch.aculab.com>
-References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
- <1401867571-11684-5-git-send-email-b38611@freescale.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net-next v10 7/7] xen-netfront: initialise queue name in xennet_init_queue
+Date: Wed, 4 Jun 2014 10:30:47 +0100
+Message-ID: <1401874247-3202-8-git-send-email-wei.liu2@citrix.com>
+References: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"R49496@freescale.com" <R49496@freescale.com>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"b20596@freescale.com" <b20596@freescale.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: 'Fugang Duan' <b38611@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <ian.campbell@citrix.com>, <david.vrabel@citrix.com>,
+	<zoltan.kiss@citrix.com>, <paul.durrant@citrix.com>,
+	<a.j.bennieston@gmail.com>, <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53177 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751320AbaFDJ1R convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:27:17 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 00316-01 for <netdev@vger.kernel.org>;
- Wed,  4 Jun 2014 10:27:07 +0100 (BST)
-In-Reply-To: <1401867571-11684-5-git-send-email-b38611@freescale.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:22339 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751332AbaFDJat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:30:49 -0400
+In-Reply-To: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan
-> In order to support SG, software TSO, let's increase BD entry number.
-> 
-> CC: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: David Laight <David.Laight@ACULAB.COM>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec.h      |    6 +++---
->  drivers/net/ethernet/freescale/fec_main.c |   21 ++++++++++++---------
->  2 files changed, 15 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-> index 3b8d6d1..798ad88 100644
-> --- a/drivers/net/ethernet/freescale/fec.h
-> +++ b/drivers/net/ethernet/freescale/fec.h
-> @@ -240,14 +240,14 @@ struct bufdesc_ex {
->   * the skbuffer directly.
->   */
-> 
-> -#define FEC_ENET_RX_PAGES	8
-> +#define FEC_ENET_RX_PAGES	128
->  #define FEC_ENET_RX_FRSIZE	2048
->  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
->  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
-> ...
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netfront.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-You are changing the number of rx descriptors as well.
-This isn't mentioned in the description.
-
-And, as I said before, basing this on PAGE_SIZE cannot be right.
-
-	David
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 55bf834..5a7872a 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1665,6 +1665,9 @@ static int xennet_init_queue(struct netfront_queue *queue)
+ 	queue->rx_refill_timer.data = (unsigned long)queue;
+ 	queue->rx_refill_timer.function = rx_refill_timeout;
+ 
++	snprintf(queue->name, sizeof(queue->name), "%s-q%u",
++		 queue->info->netdev->name, queue->id);
++
+ 	/* Initialise tx_skbs as a free chain containing every entry. */
+ 	queue->tx_skb_freelist = 0;
+ 	for (i = 0; i < NET_TX_RING_SIZE; i++) {
+-- 
+1.7.10.4
