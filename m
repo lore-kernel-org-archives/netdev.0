@@ -1,73 +1,96 @@
 From: Suprasad Mutalik Desai <suprasad.desai@gmail.com>
-Subject: Re: Fwd: Linux stack performance drop (TCP and UDP) in 3.10 kernel in
+Subject: Re: Linux stack performance drop (TCP and UDP) in 3.10 kernel in
  routed scenario
-Date: Wed, 4 Jun 2014 23:11:05 +0530
-Message-ID: <CAJMXqXbf_bua3X8Q6-xutSutY7UYNtt+u=tCTaSBqb1NuKsS3w@mail.gmail.com>
-References: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
-	<CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
-	<1401885281.3645.245.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAJMXqXaqXG03e+OHr0aMh9x_N4BzBVWTkQLKgNVvq-QmDaX5Ng@mail.gmail.com>
-	<1401893993.3645.253.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Wed, 4 Jun 2014 23:16:40 +0530
+Message-ID: <CAJMXqXY-1_OiOh+BttA-E97M05QWW8S7KyWP3p9ZJK_FzgtroA@mail.gmail.com>
+References: <CAJMXqXbfEj1pq0nfLCeJuqWOeW1xfGwCmeKm_u4ZKdLepzwKiA@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D17257279@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, davem@davemloft.ne
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f171.google.com ([209.85.128.171]:60953 "EHLO
-	mail-ve0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbaFDRlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 13:41:07 -0400
-Received: by mail-ve0-f171.google.com with SMTP id oz11so9191976veb.2
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 10:41:05 -0700 (PDT)
-In-Reply-To: <1401893993.3645.253.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-vc0-f182.google.com ([209.85.220.182]:61452 "EHLO
+	mail-vc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933AbaFDRql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 13:46:41 -0400
+Received: by mail-vc0-f182.google.com with SMTP id id10so9253025vcb.27
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 10:46:40 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17257279@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Hi David,
 
-
-On Wed, Jun 4, 2014 at 8:29 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-06-04 at 19:23 +0530, Suprasad Mutalik Desai wrote:
->
->> I understood from you that the old route cache mechanism had DoS
->> vulnerabilities, so the new mechanism is implemented. What I am trying
->> to figure out is whether that will cause the kind of throughput drop
->> that I am seeing ?
+On Wed, Jun 4, 2014 at 7:42 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Suprasad Mutalik Desai
+>>     Currently i am working on 3.10.12 kernel and it seems the Linux
+>> stack performance (TCP and UDP) has degraded drastically as compared
+>> to 2.6 kernel.
 >>
->> TCP performance
->>             - Upstream : 140 Mbps(Linux 2.6.32) --> 101Mbps (Linux 3.10.12)
->>             - Downstream : 148 Mbps(Linux 2.6.32) --> 106Mbps (Linux 3.10.12)
+>> Results :
+>>
+>> Linux 2.6.32
+>> ---------------------
+>> TCP traffic using iperf
+>>     - Upstream : 140 Mbps
+>>     - Downstream : 148 Mbps
+>>
+>> UDP traffic using iperf
+>>     - Upstream : 200 Mbps
+>>     - Downstream : 245 Mbps
+>>
+>> Linux 3.10.12
+>> --------------------
+>> TCP traffic using iperf
+>>     - Upstream : 101 Mbps
+>>     - Downstream : 106 Mbps
+>>
+>> UDP traffic using iperf
+>>     - Upstream : 140 Mbps
+>>     - Downstream : 170 Mbps
+>>
+>> Analysis:
+>> ---------------
+>> 1.   As per profiling data on Linux-3.10.12 it seems,
+>>              -   fib_table_lookup and ip_route_input_noref is being
+>> called most of the times and thus causing the degradation in
+>> performance.
+>>
+>>     8.77    csum_partial 0x80009A20 1404
+>>     4.53    ipt_do_table 0x80365C34 1352
+>>     3.45    eth_xmit 0x870D0C88 5460
+>>     3.41    fib_table_lookup 0x8035240C 856    <----------
+>>     3.38    __netif_receive_skb_core 0x802B5C00 2276
+>>     3.07    dma_device_write 0x80013BD4 752
+>>     2.94    nf_iterate 0x802EA380 256
+>>     2.69    ip_route_input_noref 0x8030CE14 2520    <--------------
+>>     2.24    ip_forward 0x8031108C 1040
+>>     2.04    tcp_packet 0x802F45BC 3956
+>>     1.93    nf_conntrack_in 0x802EEAF4 2284
+>>
+>> 2.    Based on the above observation, when searched,  it seems Routing
+>> cache code has been removed from Linux-3.6 kernel and thus every
+>> packet has to go       through ip_route_input_noref to find the
+>> destination.
 >
-> Sure.
->
-> A cache is supposed to help performance, right ?
->
-> Problem with IPv4 route cache is that is was too easy to flood it and
-> get worse performance.
->
-> It had simply huge memory costs, and non predictable behavior [1]
->
-> Better have a system behaving correctly at 99 percentile,
-> than a system working well _only_ if workload is very gentle.
->
->
-> [1] Well, sort of : prediction was : it's so easy to remotely crash the
-> host.
->
-> Your host has very little cache on cpu, very little bandwidth, so the
-> previous IPv4 cache was probably helping.
+> That doesn't look like enough cpu time to give the observed reduction
+> in throughput (assuming those numbers are in %).
 >
 
-Yes , you are correct . We are working on an embedded router which has
-limited cache .
+Yes, you are correct.We are running the test for a short duration .
+Currently we run iperf for 50 iterations .
 
-So, could you please suggest on how to address this topic w.r.t
-embedded devices ( routers) which has limited memory resources ?
+I cross checked by running more iterations but the behaviour is same
+as we observe performance degradation .
 
-> Its yet not clear why a router has to checksum TCP packets.
+
+> Are you sure the system is actually running at 100% cpu?
+> (Although I'm not sure what to trust for cpu usage with these sorts of tests.)
 >
-> Maybe a conntracking requirement...
->
+>         David
 
-Yes, in our case the checksum is done in Linux stack as NIC doesn't
-support checksum offloading .
+Yes, we checked with mpstat and cpu loading was 100%.
+
+Regards,
+Suprasad
