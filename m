@@ -1,62 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 0/2] Adapter not recovery from EEH error injection
-Date: Tue, 03 Jun 2014 18:38:53 -0700 (PDT)
-Message-ID: <20140603.183853.1053149522065945120.davem@davemloft.net>
-References: <20140603191444.269911990@linux.vnet.ibm.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH 3.14-stable] net/mlx4_core: Preserve pci_dev_data after
+ __mlx4_remove_one()
+Date: Wed, 4 Jun 2014 09:44:19 +0800
+Message-ID: <20140604014419.GA8817@richard>
+References: <1401607475-8367-1-git-send-email-weiyang@linux.vnet.ibm.com>
+ <20140601073853.GA8635@richard>
+ <538AF2CB.20603@mellanox.com>
+ <20140602135334.GA28523@richard>
+ <CAJZOPZJLwJrsEDMeJVmdJ3ykJWQJjSthYOTCPCrWOTws-Wta-Q@mail.gmail.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
-To: wenxiong@linux.vnet.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50755 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750723AbaFDBiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 21:38:54 -0400
-In-Reply-To: <20140603191444.269911990@linux.vnet.ibm.com>
+Received: from e23smtp04.au.ibm.com ([202.81.31.146]:36117 "EHLO
+	e23smtp04.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752408AbaFDBo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 21:44:29 -0400
+Received: from /spool/local
+	by e23smtp04.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Wed, 4 Jun 2014 11:44:26 +1000
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 9E93C2BB0054
+	for <netdev@vger.kernel.org>; Wed,  4 Jun 2014 11:44:22 +1000 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s541MT3f57212942
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2014 11:22:30 +1000
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s541iKvc026370
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2014 11:44:21 +1000
+Content-Disposition: inline
+In-Reply-To: <CAJZOPZJLwJrsEDMeJVmdJ3ykJWQJjSthYOTCPCrWOTws-Wta-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogd2VueGlvbmdAbGludXgudm5ldC5pYm0uY29tDQpEYXRlOiBUdWUsIDAzIEp1biAyMDE0
-IDE0OjE0OjQ0IC0wNTAwDQoNCj4gUmUtc3VibWl0dGVkIHdpdGggc3BhY2UgZml4IGFuZCBuZXcg
-c2lnbi1vZmYgYWRkcmVzcyBmb3IgTWlsdG9uLg0KDQpBcHBsaWVkLCB0aGFua3MuDQoNCkJUVywg
-aXQgaXNuJ3QgeW91ciBmYXVsdCwgYnV0IHRoaXMgZHJpdmVyIGRvZXMgbm90IGJ1aWxkIHZlcnkg
-d2VsbA0Kd2l0aCBCTlgyWF9TUklPViBkaXNhYmxlZDoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X21haW4ubw0KSW4gZmlsZSBpbmNsdWRlZCBm
-cm9tIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5oOjI3OjAs
-DQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54
-MngvYm54MnhfbWFpbi5jOjYyOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54Mngv
-Ym54Mnhfc3Jpb3YuaDo1NzQ6NDg6IHdhcm5pbmc6IKFzdHJ1Y3QgYm54MqIgZGVjbGFyZWQgaW5z
-aWRlIHBhcmFtZXRlciBsaXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhl
-cm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDo0ODogd2FybmluZzogaXRzIHNj
-b3BlIGlzIG9ubHkgdGhpcyBkZWZpbml0aW9uIG9yIGRlY2xhcmF0aW9uLCB3aGljaCBpcyBwcm9i
-YWJseSBub3Qgd2hhdCB5b3Ugd2FudCBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhfc3Jpb3YuaDogSW4gZnVuY3Rpb24goWJueDJ4
-X3ZmX3BjaV9kZWFsbG9jojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2Ju
-eDJ4X3NyaW92Lmg6NTc0OjU5OiB3YXJuaW5nOiChcmV0dXJuoiB3aXRoIGEgdmFsdWUsIGluIGZ1
-bmN0aW9uIHJldHVybmluZyB2b2lkIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9l
-dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6IEluIGZ1bmN0aW9uIKFfX2JueDJ4
-X3JlbW92ZaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWlu
-LmM6MTMyNDE6NDogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFibngyeF92Zl9wY2lf
-ZGVhbGxvY6IgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1
-bHRdDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20v
-Ym54MngvYm54MnhfY21uLmg6Mjc6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6NjI6DQpkcml2ZXJzL25ldC9l
-dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDoyMDogbm90ZTogZXhwZWN0
-ZWQgoXN0cnVjdCBibngyICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFzdHJ1Y3QgYm54Mngg
-KqINCiAgQ0MgW01dICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9j
-bW4ubw0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
-L2JueDJ4L2JueDJ4X2Ntbi5oOjI3OjAsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmM6Mjk6DQpkcml2ZXJzL25ldC9l
-dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDo0ODogd2FybmluZzogoXN0
-cnVjdCBibngyoiBkZWNsYXJlZCBpbnNpZGUgcGFyYW1ldGVyIGxpc3QgW2VuYWJsZWQgYnkgZGVm
-YXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3NyaW92Lmg6
-NTc0OjQ4OiB3YXJuaW5nOiBpdHMgc2NvcGUgaXMgb25seSB0aGlzIGRlZmluaXRpb24gb3IgZGVj
-bGFyYXRpb24sIHdoaWNoIGlzIHByb2JhYmx5IG5vdCB3aGF0IHlvdSB3YW50IFtlbmFibGVkIGJ5
-IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlv
-di5oOiBJbiBmdW5jdGlvbiChYm54MnhfdmZfcGNpX2RlYWxsb2OiOg0KZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhfc3Jpb3YuaDo1NzQ6NTk6IHdhcm5pbmc6IKFyZXR1
-cm6iIHdpdGggYSB2YWx1ZSwgaW4gZnVuY3Rpb24gcmV0dXJuaW5nIHZvaWQgW2VuYWJsZWQgYnkg
-ZGVmYXVsdF0NCg0KQWxzbywgaWYgcWxvZ2ljLmNvbSBpcyB0aGUgY29ycmVjdCBlbWFpbCBhZGRy
-ZXNzIGZvciB0aGUgZHJpdmVyIG1haW50YWluZXIsDQp0aGUgdG9wLWxldmVsIE1BSU5UQUlORVJT
-IGZpbGUgbmVlZHMgdG8gYmUgdXBkYXRlZC4NCg==
+On Tue, Jun 03, 2014 at 11:43:05AM +0300, Or Gerlitz wrote:
+>On Mon, Jun 2, 2014 at 4:53 PM, Wei Yang <weiyang@linux.vnet.ibm.com> >
+>
+>> Thanks for your notification, I saw your patch to fix this issue.
+>> Sorry for bringing a bug in the driver and thanks for your test :-)
+>
+>sure
+>
+>> Hmm... actually I don't understand how you trigger this crash?
+>
+>1. load the driver with num_vfs = (say) four and probe_vf (say) = two
+>2. reboot
+>
+
+Thanks, I would do some tests to see why this happens.
+
+>[...]
+>
+>> Last but not the least, based on the fix you have submitted, the porting here
+>> is correct. My suggestion is after your fix is merged, you could do the
+>> porting to those version too.
+>
+>As I wrote in the other thread to Bjorn, we're practically OOO for the
+>rest of this week, and anyway, I suggest we 1st see what ends up
+>happening with the fix to the regression introduced by your commit and
+>take it from there.
+
+Sure :-)
+
+-- 
+Richard Yang
+Help you, Help me
