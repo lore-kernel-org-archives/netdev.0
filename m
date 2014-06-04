@@ -1,67 +1,402 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: fix SH7619/771x support
-Date: Wed, 04 Jun 2014 16:37:05 +0400
-Message-ID: <538F12F1.5000701@cogentembedded.com>
-References: <201406032342.27160.sergei.shtylyov@cogentembedded.com> <538E69B0.1030706@renesas.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH RFC] Resubmitting patch - new-CWV for Linux
+Date: Wed, 04 Jun 2014 09:10:09 -0400
+Message-ID: <538F1AB1.5090002@gmail.com>
+References: <1401836228-14731-1-git-send-email-raffaello@erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <538E69B0.1030706@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Raffaello Secchi <r.secchi@gmail.com>
+To: raffaello@erg.abdn.ac.uk, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f52.google.com ([209.85.192.52]:65059 "EHLO
+	mail-qg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752780AbaFDNKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 09:10:13 -0400
+Received: by mail-qg0-f52.google.com with SMTP id a108so15387488qge.39
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 06:10:12 -0700 (PDT)
+In-Reply-To: <1401836228-14731-1-git-send-email-raffaello@erg.abdn.ac.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 06/03/2014 06:57 PM, raffaello@erg.abdn.ac.uk wrote:
+> From: Raffaello Secchi <r.secchi@gmail.com>
+> 
+> One file was missing.
+> 
+> Thanks Vlad.
+> 
+> Raffaello
+> 
+> 
+> ---
+>  include/linux/tcp.h        |   13 ++++
+>  include/net/tcp.h          |   14 ++++-
+>  net/ipv4/Makefile          |    2 +-
+>  net/ipv4/sysctl_net_ipv4.c |    7 +++
+>  net/ipv4/tcp_cong.c        |   13 +++-
+>  net/ipv4/tcp_input.c       |   20 +++++++
+>  net/ipv4/tcp_newcwv.c      |  140 ++++++++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_output.c      |    3 +
+>  8 files changed, 207 insertions(+), 5 deletions(-)
+>  create mode 100644 net/ipv4/tcp_newcwv.c
+> 
+> Signed-off-by: Raffaello Secchi <raffaello@erg.abdn.ac.uk>
+> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> index 2399468..fb82343 100644
+> --- a/include/linux/tcp.h
+> +++ b/include/linux/tcp.h
+> @@ -323,6 +323,19 @@ struct tcp_sock {
+>  	 * socket. Used to retransmit SYNACKs etc.
+>  	 */
+>  	struct request_sock *fastopen_rsk;
+> +
+> +/* TCP newcwv related information */
+> +	u32 psample[4];		/* pipeACK samples circular buffer */
+> +	u32 time_stamp[4];
+> +	u32 head;		/* index for psample buffer */
+> +
+> +	u32 pipeack;		/* pipeACK value after filtering */
+> +	u32 loss_flight_size;	/* flightsize at loss detection */
+> +	u32 prior_retrans;	/* Retransmission before going into FR */
+> +	u32 prev_snd_una;	/* snd_una of last record */
+> +	u32 prev_snd_nxt;	/* snd_nxt of last record */
+> +	u32 cwnd_valid_ts;	/* last time cwnd was found valid */
+> +
+>  };
+>  
+>  enum tsq_flags {
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 87d8774..738292c 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -235,6 +235,10 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
+>   */
+>  #define	TFO_SERVER_ALWAYS	0x1000
+>  
+> +/* NewCWV defaults */
+> +#define NCWV_UNDEF		0xFFFFFFFF
+> +#define NCWV_FIVEMINS		(HZ*300)
+> +
+>  extern struct inet_timewait_death_row tcp_death_row;
+>  
+>  /* sysctl variables for tcp */
+> @@ -284,6 +288,7 @@ extern int sysctl_tcp_challenge_ack_limit;
+>  extern unsigned int sysctl_tcp_notsent_lowat;
+>  extern int sysctl_tcp_min_tso_segs;
+>  extern int sysctl_tcp_autocorking;
+> +extern int sysctl_tcp_newcwv;
+>  
+>  extern atomic_long_t tcp_memory_allocated;
+>  extern struct percpu_counter tcp_sockets_allocated;
+> @@ -975,7 +980,7 @@ static inline u32 tcp_wnd_end(const struct tcp_sock *tp)
+>  {
+>  	return tp->snd_una + tp->snd_wnd;
+>  }
+> -bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight);
+> +bool tcp_is_cwnd_limited(struct sock *sk, u32 in_flight);
+>  
+>  static inline void tcp_check_probe_timer(struct sock *sk)
+>  {
+> @@ -1324,6 +1329,13 @@ struct tcp_fastopen_context {
+>  	struct rcu_head		rcu;
+>  };
+>  
+> +/* TCP New CWV functions */
+> +void tcp_newcwv_update_pipeack(struct sock *sk);
+> +void tcp_newcwv_datalim_closedown(struct sock *sk);
+> +void tcp_newcwv_enter_recovery(struct sock *sk);
+> +void tcp_newcwv_end_recovery(struct sock *sk);
+> +void tcp_newcwv_reset(struct sock *sk);
+> +
+>  /* write queue abstraction */
+>  static inline void tcp_write_queue_purge(struct sock *sk)
+>  {
+> diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+> index f032688..f687746 100644
+> --- a/net/ipv4/Makefile
+> +++ b/net/ipv4/Makefile
+> @@ -10,7 +10,7 @@ obj-y     := route.o inetpeer.o protocol.o \
+>  	     tcp_minisocks.o tcp_cong.o tcp_metrics.o tcp_fastopen.o \
+>  	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
+>  	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
+> -	     fib_frontend.o fib_semantics.o fib_trie.o \
+> +	     fib_frontend.o fib_semantics.o fib_trie.o tcp_newcwv.o \
+>  	     inet_fragment.o ping.o ip_tunnel_core.o gre_offload.o
+>  
+>  obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
+> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+> index 5cde8f2..bfdf30e 100644
+> --- a/net/ipv4/sysctl_net_ipv4.c
+> +++ b/net/ipv4/sysctl_net_ipv4.c
+> @@ -493,6 +493,13 @@ static struct ctl_table ipv4_table[] = {
+>  		.proc_handler	= proc_dointvec
+>  	},
+>  	{
+> +		.procname	= "tcp_newcwv",
+> +		.data		= &sysctl_tcp_newcwv,
+> +		.maxlen		= sizeof(int),
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec
+> +	},
+> +	{
+>  		.procname	= "tcp_reordering",
+>  		.data		= &sysctl_tcp_reordering,
+>  		.maxlen		= sizeof(int),
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index 2b9464c..6fb0719 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -93,6 +93,9 @@ void tcp_init_congestion_control(struct sock *sk)
+>  		rcu_read_unlock();
+>  	}
+>  
+> +	/* draft-ietf-tcpm-newcwv initial state */
+> +	tcp_newcwv_reset(sk);
+> +
+>  	if (icsk->icsk_ca_ops->init)
+>  		icsk->icsk_ca_ops->init(sk);
+>  }
+> @@ -279,13 +282,17 @@ int tcp_set_congestion_control(struct sock *sk, const char *name)
+>  /* RFC2861 Check whether we are limited by application or congestion window
+>   * This is the inverse of cwnd check in tcp_tso_should_defer
+>   */
+> -bool tcp_is_cwnd_limited(const struct sock *sk, u32 in_flight)
+> +bool tcp_is_cwnd_limited(struct sock *sk, u32 in_flight)
+>  {
+> -	const struct tcp_sock *tp = tcp_sk(sk);
+> +	struct tcp_sock *tp = tcp_sk(sk);
+>  	u32 left;
+>  
+> -	if (in_flight >= tp->snd_cwnd)
+> +	/* draft-ietf-tcpm-newcwv relaxes conditions for growing cwnd */
+> +	if (in_flight >= tp->snd_cwnd || (sysctl_tcp_newcwv &&
+> +	    tp->pipeack >= (tp->snd_cwnd*tp->mss_cache >> 1))) {
+> +		tp->cwnd_valid_ts = tcp_time_stamp;
+>  		return true;
+> +	}
+>  
+>  	left = tp->snd_cwnd - in_flight;
+>  	if (sk_can_gso(sk) &&
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 3a26b3b..274fbf3 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -1927,6 +1927,7 @@ void tcp_enter_loss(struct sock *sk, int how)
+>  	tp->snd_cwnd	   = 1;
+>  	tp->snd_cwnd_cnt   = 0;
+>  	tp->snd_cwnd_stamp = tcp_time_stamp;
+> +	tcp_newcwv_reset(sk);
+>  
+>  	tcp_clear_retrans_partial(tp);
+>  
+> @@ -2522,7 +2523,16 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
+>  	    (tp->undo_marker && tp->snd_ssthresh < TCP_INFINITE_SSTHRESH)) {
+>  		tp->snd_cwnd = tp->snd_ssthresh;
+>  		tp->snd_cwnd_stamp = tcp_time_stamp;
+> +
+> +		/* draft-ietf-tcpm-newcwv actions at the end of recovery */
+> +		if (sysctl_tcp_newcwv) {
+> +			if (tp->loss_flight_size)
+> +				tcp_newcwv_end_recovery(sk);
+> +			tcp_newcwv_reset(sk);
+> +		}
+>  	}
+> +	tp->loss_flight_size = 0;
+> +
+>  	tcp_ca_event(sk, CA_EVENT_COMPLETE_CWR);
+>  }
+>  
+> @@ -2666,6 +2676,11 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+>  	tp->undo_marker = tp->snd_una;
+>  	tp->undo_retrans = tp->retrans_out;
+>  
+> +	/* draft-ietf-tcpm-newcwv reduction at start of recovery */
+> +	if (sysctl_tcp_newcwv &&
+> +	    tp->pipeack <= (tp->snd_cwnd*tp->mss_cache >> 1))
+> +		tcp_newcwv_enter_recovery(sk);
+> +
+>  	if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
+>  		if (!ece_ack)
+>  			tp->prior_ssthresh = tcp_current_ssthresh(sk);
+> @@ -3449,6 +3464,11 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>  				    sack_rtt_us);
+>  	acked -= tp->packets_out;
+>  
+> +	/* draft-ietf-tcpm-newcwv pipeack estimation */
+> +	if (sysctl_tcp_newcwv && icsk->icsk_ca_state <= TCP_CA_Disorder
+> +	    && (flag & FLAG_DATA_ACKED))
+> +		tcp_newcwv_update_pipeack(sk);
+> +
 
-On 06/04/2014 04:34 AM, Yoshihiro Shimoda wrote:
+All these calls to update the new CWV state are predicated on the sysctl
+setting.  What happens if the sysctl value changes in the middle of the
+transfer?  It looks like you will end up with the incorrect CWV state
+variables.
 
->> Commit 4a55530f38e4 (net: sh_eth: modify the definitions of register) managed
->> to leave out the E-DMAC register entries in sh_eth_offset_fast_sh3_sh2[], thus
->> totally breaking SH7619/771x support.  Add the missing entries using  the data
->> from before that commit.
+-vlad
 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
->> ---
->> The patch is against Dave Miller's 'net.git' repo.
->> Although there have been no complaints during 3+ years of this being broken, I
->> think it's probably worth queuing the patch for the stable trees...
-
->>   drivers/net/ethernet/renesas/sh_eth.c |   21 +++++++++++++++++++++
->>   1 file changed, 21 insertions(+)
-
->> Index: net/drivers/net/ethernet/renesas/sh_eth.c
->> ===================================================================
->> --- net.orig/drivers/net/ethernet/renesas/sh_eth.c
->> +++ net/drivers/net/ethernet/renesas/sh_eth.c
->> @@ -307,6 +307,27 @@ static const u16 sh_eth_offset_fast_sh4[
->>   };
->>
->>   static const u16 sh_eth_offset_fast_sh3_sh2[SH_ETH_MAX_REGISTER_OFFSET] = {
->> +	[EDMR]		= 0x0000,
->> +	[EDTRR]		= 0x0004,
->> +	[EDRRR]		= 0x0008,
->> +	[TDLAR]		= 0x000c,
->> +	[RDLAR]		= 0x0010,
->> +	[EESR]		= 0x0014,
->> +	[EESIPR]	= 0x0018,
->> +	[TRSCER]	= 0x001c,
->> +	[RMFCR]		= 0x0020,
->> +	[TFTR]		= 0x0024,
->> +	[FDR]		= 0x0028,
->> +	[RMCR]		= 0x002c,
->> +	[EDOCR]		= 0x0030,
->> +	[FCFTR]		= 0x0034,
->> +	[RPADIR]	= 0x0038,
-
-> I checked sh7710 and sh7619 datasheet, but they don't have RPADIR register.
-> Since I would like to check a datasheet you looked into, would you tell me about this?
-
-    As I wrote in the changelog, I used the driver source. I don't have access 
-to SH7619/771x datasheets.
-
-WBR, Sergei
-
+>  	/* Advance cwnd if state allows */
+>  	if (tcp_may_raise_cwnd(sk, flag))
+>  		tcp_cong_avoid(sk, ack, acked, prior_in_flight);
+> diff --git a/net/ipv4/tcp_newcwv.c b/net/ipv4/tcp_newcwv.c
+> new file mode 100644
+> index 0000000..5a19549
+> --- /dev/null
+> +++ b/net/ipv4/tcp_newcwv.c
+> @@ -0,0 +1,140 @@
+> +/*
+> + * New-CWV implementation for Linux: draft-ietf-tcpm-newcwv.txt
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <net/tcp.h>
+> +
+> +#define nextbin(x)  (((x)+1) & 0x03)
+> +#define prevbin(x)  (((x)-1) & 0x03)
+> +
+> +int sysctl_tcp_newcwv __read_mostly;
+> +
+> +/* returns pipeack in MSSs */
+> +static u32 pa_pkts(struct tcp_sock *tp)
+> +{
+> +	if (tp->pipeack == NCWV_UNDEF || !tp->mss_cache)
+> +		return 0;
+> +
+> +	return (tp->pipeack)/tp->mss_cache;
+> +}
+> +
+> +/* initialies newcwv variables */
+> +void tcp_newcwv_reset(struct sock *sk)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +
+> +	tp->prev_snd_una = tp->snd_una;
+> +	tp->prev_snd_nxt = tp->snd_nxt;
+> +	tp->cwnd_valid_ts = tcp_time_stamp;
+> +	tp->loss_flight_size = 0;
+> +
+> +	tp->head = 0;
+> +	tp->psample[0] = NCWV_UNDEF;
+> +	tp->pipeack = NCWV_UNDEF;
+> +}
+> +
+> +/* This fuction removes all the expired elements from the circular buffer
+> + * and returns the maximum from the remaining elements
+> + */
+> +static int remove_expired_element(struct tcp_sock *tp, u32 psp)
+> +{
+> +	int k = tp->head;
+> +	int tmp = tp->psample[tp->head];
+> +
+> +	while (tp->psample[k] != NCWV_UNDEF) {
+> +		/* remove expired */
+> +		if (tp->time_stamp[k] < tcp_time_stamp - psp) {
+> +			tp->psample[k] = NCWV_UNDEF;
+> +			continue;
+> +		}
+> +
+> +		/* search the maximum */
+> +		if (tp->psample[k] > tmp)
+> +			tmp = tp->psample[k];
+> +
+> +		k = prevbin(k);
+> +		if (k == tp->head)
+> +			return tmp;
+> +	}
+> +
+> +	return tmp;
+> +}
+> +
+> +/* updates pipeack when an ACK is received */
+> +void tcp_newcwv_update_pipeack(struct sock *sk)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +	u32 tmp_pipeack, psp, h;
+> +
+> +	psp = max_t(u32, 3*usecs_to_jiffies(tp->srtt_us>>3), (u32) HZ);
+> +
+> +	if (tp->snd_una >= tp->prev_snd_nxt) {
+> +
+> +		/* now get a new pipeack sample */
+> +		tmp_pipeack = tp->snd_una - tp->prev_snd_una;
+> +		tp->prev_snd_una = tp->snd_una;
+> +		tp->prev_snd_nxt = tp->snd_nxt;
+> +
+> +		h = tp->head;
+> +
+> +		/* create a new element at the end of current pmp */
+> +		if (tp->psample[h] == NCWV_UNDEF ||
+> +		    tcp_time_stamp > tp->time_stamp[h] + (psp >> 2)) {
+> +
+> +			/* Add an element to circular the buffer */
+> +			tp->head = nextbin(h);
+> +			tp->psample[tp->head] = tmp_pipeack;
+> +			tp->time_stamp[tp->head] = tcp_time_stamp;
+> +
+> +		} else if (tmp_pipeack > tp->psample[h])
+> +			tp->psample[h] = tmp_pipeack;
+> +	}
+> +
+> +	tp->pipeack = remove_expired_element(tp, psp);
+> +}
+> +
+> +/* newcwv actions at loss detection */
+> +void tcp_newcwv_enter_recovery(struct sock *sk)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +	u32 pipe;
+> +
+> +	if (tp->pipeack == NCWV_UNDEF)
+> +		return;
+> +
+> +	tp->prior_retrans = tp->total_retrans;
+> +	tp->loss_flight_size = tcp_packets_in_flight(tp);
+> +
+> +	pipe =  max_t(u32, pa_pkts(tp), tp->loss_flight_size);
+> +	tp->snd_cwnd = max_t(u32, pipe >> 1, 1UL);
+> +}
+> +
+> +/* newcwv actions at the end of recovery */
+> +void tcp_newcwv_end_recovery(struct sock *sk)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +	u32 retrans, pipe;
+> +
+> +	retrans = tp->total_retrans - tp->prior_retrans;
+> +	pipe = max_t(u32, pa_pkts(tp), tp->loss_flight_size) - retrans;
+> +	tp->snd_ssthresh = max_t(u32, pipe >> 1, 1UL);
+> +	tp->snd_cwnd = tp->snd_ssthresh;
+> +}
+> +
+> +
+> +/* reduces the cwnd after 5mins of non-validated phase */
+> +void tcp_newcwv_datalim_closedown(struct sock *sk)
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +
+> +	while ((tcp_time_stamp -  tp->cwnd_valid_ts) > NCWV_FIVEMINS &&
+> +		tp->snd_cwnd > TCP_INIT_CWND) {
+> +		tp->cwnd_valid_ts += NCWV_FIVEMINS;
+> +
+> +		tp->snd_ssthresh =
+> +		    max_t(u32, (3 * tp->snd_cwnd) >> 2, tp->snd_ssthresh);
+> +		tp->snd_cwnd =
+> +		    max_t(u32, tp->snd_cwnd >> 1, TCP_INIT_CWND);
+> +	}
+> +}
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 12d6016..e868211 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -168,6 +168,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+>  	const u32 now = tcp_time_stamp;
+>  	const struct dst_entry *dst = __sk_dst_get(sk);
+>  
+> +	if (sysctl_tcp_newcwv)
+> +		tcp_newcwv_datalim_closedown(sk);
+> +
+>  	if (sysctl_tcp_slow_start_after_idle &&
+>  	    (!tp->packets_out && (s32)(now - tp->lsndtime) > icsk->icsk_rto))
+>  		tcp_cwnd_restart(sk, __sk_dst_get(sk));
+> 
