@@ -1,83 +1,121 @@
-From: Antonio Ospite <ao2@ao2.it>
-Subject: [PATCH 09/12] trivial: drivers/net/ethernet/nvidia/forcedeth.c: fix typo s/SUBSTRACT1/SUBTRACT1/
-Date: Wed,  4 Jun 2014 14:03:47 +0200
-Message-ID: <1401883430-19492-10-git-send-email-ao2@ao2.it>
-References: <1401883430-19492-1-git-send-email-ao2@ao2.it>
-Cc: Antonio Ospite <ao2@ao2.it>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexander Gordeev <agordeev@redhat.com>, netdev@vger.kernel.org
-To: Jiri Kosina <trivial@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Fwd: Linux stack performance drop (TCP and UDP) in 3.10 kernel
+ in routed scenario
+Date: Wed, 04 Jun 2014 05:34:41 -0700
+Message-ID: <1401885281.3645.245.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
+	 <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.ne
+To: Suprasad Mutalik Desai <suprasad.desai@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp207.alice.it ([82.57.200.103]:29086 "EHLO smtp207.alice.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752912AbaFDMK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 08:10:27 -0400
-In-Reply-To: <1401883430-19492-1-git-send-email-ao2@ao2.it>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:50075 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752737AbaFDMeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 08:34:44 -0400
+Received: by mail-pb0-f41.google.com with SMTP id uo5so6942294pbc.14
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 05:34:43 -0700 (PDT)
+In-Reply-To: <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Antonio Ospite <ao2@ao2.it>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexander Gordeev <agordeev@redhat.com>
-Cc: netdev@vger.kernel.org
----
+On Wed, 2014-06-04 at 14:34 +0530, Suprasad Mutalik Desai wrote:
+> Hi,
+>=20
+>=20
+>     Currently i am working on 3.10.12 kernel and it seems the Linux
+> stack performance (TCP and UDP) has degraded drastically as compared
+> to 2.6 kernel.
+>=20
+> Results :
+>=20
+> Linux 2.6.32
+> ---------------------
+> TCP traffic using iperf
+>     - Upstream : 140 Mbps
+>     - Downstream : 148 Mbps
+>=20
+> UDP traffic using iperf
+>     - Upstream : 200 Mbps
+>     - Downstream : 245 Mbps
+>=20
+> Linux 3.10.12
+> --------------------
+> TCP traffic using iperf
+>     - Upstream : 101 Mbps
+>     - Downstream : 106 Mbps
+>=20
+> UDP traffic using iperf
+>     - Upstream : 140 Mbps
+>     - Downstream : 170 Mbps
+>=20
+> Analysis:
+> ---------------
+> 1.   As per profiling data on Linux-3.10.12 it seems,
+>              -   fib_table_lookup and ip_route_input_noref is being
+> called most of the times and thus causing the degradation in
+> performance.
+>=20
+>     8.77    csum_partial 0x80009A20 1404
 
-The define is local to the file so the rename is safe.
+Main problem here is lack of checksums. What kind of NIC is used ?
 
-Also, in the patch the indentation in the first hunk seems to be messed up,
-but once you apply it, it is actually fine.
+>     4.53    ipt_do_table 0x80365C34 1352
+>     3.45    eth_xmit 0x870D0C88 5460
+>     3.41    fib_table_lookup 0x8035240C 856    <----------
+>     3.38    __netif_receive_skb_core 0x802B5C00 2276
+>     3.07    dma_device_write 0x80013BD4 752
+>     2.94    nf_iterate 0x802EA380 256
+>     2.69    ip_route_input_noref 0x8030CE14 2520    <--------------
+>     2.24    ip_forward 0x8031108C 1040
+>     2.04    tcp_packet 0x802F45BC 3956
+>     1.93    nf_conntrack_in 0x802EEAF4 2284
+>=20
+> 2.    Based on the above observation, when searched,  it seems Routin=
+g
+> cache code has been removed from Linux-3.6 kernel and thus every
+> packet has to go through ip_route_input_noref to find the destination=
+=2E
+>=20
+> 3.    Related to this, a patch from David Miller adds "ipv4: Early TC=
+P
+> socket demux" which caches the "dst per socket" and maintains
+> tcp_hashinfo and uses early_demux(skb) (TCP --> tcp_v4_early_demux an=
+d
+> UDP --> NULL i.e not defined) to get the "dst" of that skb and thus
+> avoids ip_route_input_noref being called everytime.
+>           -  But this still doesn=E2=80=99t handle routing scenarios =
+(LAN <-->  WAN).
+>=20
+> 4.    A patch for UDP early demux has been added in Linux 3.13 and
+> certain bugfixes has gone in Linux-3.14 .
+>=20
+> 5.    As we are based on 3.10 thus no UDP early_demux support . This
+> means we have to backport the UDP early demux patch to 3.10 kernel .
 
- drivers/net/ethernet/nvidia/forcedeth.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Nope : This will be of no use on a router. It even will slow down the
+router.
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index fddb464..c6c379d 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -406,7 +406,7 @@ union ring_type {
- 
- #define NV_RX_DESCRIPTORVALID	(1<<16)
- #define NV_RX_MISSEDFRAME	(1<<17)
--#define NV_RX_SUBSTRACT1	(1<<18)
-+#define NV_RX_SUBTRACT1		(1<<18)
- #define NV_RX_ERROR1		(1<<23)
- #define NV_RX_ERROR2		(1<<24)
- #define NV_RX_ERROR3		(1<<25)
-@@ -423,7 +423,7 @@ union ring_type {
- #define NV_RX2_CHECKSUM_IP_TCP	(0x14000000)
- #define NV_RX2_CHECKSUM_IP_UDP	(0x18000000)
- #define NV_RX2_DESCRIPTORVALID	(1<<29)
--#define NV_RX2_SUBSTRACT1	(1<<25)
-+#define NV_RX2_SUBTRACT1	(1<<25)
- #define NV_RX2_ERROR1		(1<<18)
- #define NV_RX2_ERROR2		(1<<19)
- #define NV_RX2_ERROR3		(1<<20)
-@@ -2832,7 +2832,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					}
- 					/* framing errors are soft errors */
- 					else if ((flags & NV_RX_ERROR_MASK) == NV_RX_FRAMINGERR) {
--						if (flags & NV_RX_SUBSTRACT1)
-+						if (flags & NV_RX_SUBTRACT1)
- 							len--;
- 					}
- 					/* the rest are hard errors */
-@@ -2863,7 +2863,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 					}
- 					/* framing errors are soft errors */
- 					else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
--						if (flags & NV_RX2_SUBSTRACT1)
-+						if (flags & NV_RX2_SUBTRACT1)
- 							len--;
- 					}
- 					/* the rest are hard errors */
-@@ -2937,7 +2937,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 				}
- 				/* framing errors are soft errors */
- 				else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
--					if (flags & NV_RX2_SUBSTRACT1)
-+					if (flags & NV_RX2_SUBTRACT1)
- 						len--;
- 				}
- 				/* the rest are hard errors */
--- 
-2.0.0
+>=20
+>=20
+> Issue :
+> -----------
+>=20
+> 1.    The implementation of "Early TCP socket demux" doesn't address
+> the routing scenario (LAN <---> WAN) . This means TCP and UDP routing
+> performance will be less in 3.10 kernel and also in 3.14 kernel as
+> every packet has to go through route lookup.
+>=20
+>=20
+> Is there an alternative to get back the Linux stack performance of 2.=
+6
+> or 3.4 kernel where we have the route cache ?
+>=20
+> I guess plain routing scenario was NOT thought through while removing
+> the routing cache code.
+
+This is the opposite. Route cache was easily targeted by DDOS attacks.
+
+This was a nightmare.
