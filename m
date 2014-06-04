@@ -1,221 +1,181 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH 3/3] net: phy: at803x: Add support for hardware reset
-Date: Wed,  4 Jun 2014 11:00:39 +0200
-Message-ID: <1401872439-30107-4-git-send-email-zonque@gmail.com>
-References: <1401872439-30107-1-git-send-email-zonque@gmail.com>
-Cc: davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v2 1/6] net: fec: Factorize the .xmit transmit function
+Date: Wed, 4 Jun 2014 15:39:26 +0800
+Message-ID: <1401867571-11684-2-git-send-email-b38611@freescale.com>
+References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
+	<b38611@freescale.com>, <R49496@freescale.com>,
+	<ezequiel.garcia@free-electrons.com>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b20596@freescale.com>,
+	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:61163 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751580AbaFDJA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:00:58 -0400
-Received: by mail-wg0-f48.google.com with SMTP id k14so8076684wgh.19
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 02:00:56 -0700 (PDT)
-In-Reply-To: <1401872439-30107-1-git-send-email-zonque@gmail.com>
+Received: from mail-bn1blp0181.outbound.protection.outlook.com ([207.46.163.181]:4575
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751121AbaFDJCq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 05:02:46 -0400
+In-Reply-To: <1401867571-11684-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The AT8030 will enter a FIFO error mode if a packet is transmitted while
-the cable is unplugged. This hardware issue is acknowledged by the
-vendor, and the only proposed solution is to conduct a hardware reset
-via the external pin each time the link goes down. There is apparantly
-no way to fix up the state via the register set.
+Make the code more readable and easy to support other features like
+SG, TSO, moving the common transmit function to one api.
 
-This patch adds support for reading a 'reset-gpios' property from the DT
-node of the PHY. If present, this gpio is used to apply a hardware reset
-each time a 'link down' condition is detected. All relevant registers
-are read out before, and written back after the reset cycle.
+And the patch also factorize the getting BD index to it own function.
 
-Doing this every time the link goes down might seem like overkill, but
-there is unfortunately no way of figuring out whether the PHY is in
-such a lock-up state. Hence, this is the only way of reliably fixing up
-things.
-
-Signed-off-by: Daniel Mack <zonque@gmail.com>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
- drivers/net/phy/at803x.c | 103 +++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 103 insertions(+)
+ drivers/net/ethernet/freescale/fec_main.c |   87 ++++++++++++++++++-----------
+ 1 files changed, 54 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index 045e446..edadb7f 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -16,9 +16,13 @@
- #include <linux/string.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/of_gpio.h>
-+#include <linux/gpio/consumer.h>
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 802be17..32c2276 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -287,6 +287,25 @@ struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, struct fec_enet_priva
+ 		return (new_bd < base) ? (new_bd + ring_size) : new_bd;
+ }
  
- #define AT803X_INTR_ENABLE			0x12
- #define AT803X_INTR_STATUS			0x13
-+#define AT803X_SMART_SPEED			0x14
-+#define AT803X_LED_CONTROL			0x18
- #define AT803X_WOL_ENABLE			0x01
- #define AT803X_DEVICE_ADDR			0x03
- #define AT803X_LOC_MAC_ADDR_0_15_OFFSET		0x804C
-@@ -43,6 +47,44 @@ MODULE_DESCRIPTION("Atheros 803x PHY driver");
- MODULE_AUTHOR("Matus Ujhelyi");
- MODULE_LICENSE("GPL");
- 
-+struct at803x_priv {
-+	bool phy_reset:1;
-+	struct gpio_desc *gpiod_reset;
-+};
-+
-+struct at803x_context {
-+	u16 bmcr;
-+	u16 advertise;
-+	u16 control1000;
-+	u16 int_enable;
-+	u16 smart_speed;
-+	u16 led_control;
-+};
-+
-+/* save relevant PHY registers to private copy */
-+static void at803x_context_save(struct phy_device *phydev,
-+				struct at803x_context *context)
++static inline
++int fec_enet_get_bd_index(struct bufdesc *bdp, struct fec_enet_private *fep)
 +{
-+	context->bmcr = phy_read(phydev, MII_BMCR);
-+	context->advertise = phy_read(phydev, MII_ADVERTISE);
-+	context->control1000 = phy_read(phydev, MII_CTRL1000);
-+	context->int_enable = phy_read(phydev, AT803X_INTR_ENABLE);
-+	context->smart_speed = phy_read(phydev, AT803X_SMART_SPEED);
-+	context->led_control = phy_read(phydev, AT803X_LED_CONTROL);
++	struct bufdesc *base;
++	int index;
++
++	if (bdp >= fep->tx_bd_base)
++		base = fep->tx_bd_base;
++	else
++		base = fep->rx_bd_base;
++
++	if (fep->bufdesc_ex)
++		index = (struct bufdesc_ex *)bdp - (struct bufdesc_ex *)base;
++	else
++		index = bdp - base;
++
++	return index;
 +}
 +
-+/* restore relevant PHY registers from private copy */
-+static void at803x_context_restore(struct phy_device *phydev,
-+				   const struct at803x_context *context)
-+{
-+	phy_write(phydev, MII_BMCR, context->bmcr);
-+	phy_write(phydev, MII_ADVERTISE, context->advertise);
-+	phy_write(phydev, MII_CTRL1000, context->control1000);
-+	phy_write(phydev, AT803X_INTR_ENABLE, context->int_enable);
-+	phy_write(phydev, AT803X_SMART_SPEED, context->smart_speed);
-+	phy_write(phydev, AT803X_LED_CONTROL, context->led_control);
-+}
-+
- static int at803x_set_wol(struct phy_device *phydev,
- 			  struct ethtool_wolinfo *wol)
+ static void *swap_buffer(void *bufaddr, int len)
  {
-@@ -146,6 +188,26 @@ static int at803x_resume(struct phy_device *phydev)
+ 	int i;
+@@ -313,8 +332,7 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
  	return 0;
  }
  
-+static int at803x_probe(struct phy_device *phydev)
-+{
-+	struct device *dev = &phydev->dev;
-+	struct at803x_priv *priv;
-+
-+	priv = devm_kzalloc(dev, sizeof(priv), GFP_KERNEL);
-+	if (!priv)
-+		return -ENOMEM;
-+
-+	priv->gpiod_reset = devm_gpiod_get(dev, "reset");
-+	if (IS_ERR(priv->gpiod_reset))
-+		priv->gpiod_reset = NULL;
-+	else
-+		gpiod_direction_output(priv->gpiod_reset, 1);
-+
-+	phydev->priv = priv;
-+
-+	return 0;
-+}
-+
- static int at803x_config_init(struct phy_device *phydev)
+-static netdev_tx_t
+-fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
++static int txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
  {
- 	int ret;
-@@ -193,12 +255,48 @@ static int at803x_config_intr(struct phy_device *phydev)
- 	return err;
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	const struct platform_device_id *id_entry =
+@@ -329,14 +347,6 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	status = bdp->cbd_sc;
+ 
+-	if (status & BD_ENET_TX_READY) {
+-		/* Ooops.  All transmit buffers are full.  Bail out.
+-		 * This should not happen, since ndev->tbusy should be set.
+-		 */
+-		netdev_err(ndev, "tx queue full!\n");
+-		return NETDEV_TX_BUSY;
+-	}
+-
+ 	/* Protocol checksum off-load for TCP and UDP. */
+ 	if (fec_enet_clear_csum(skb, ndev)) {
+ 		dev_kfree_skb_any(skb);
+@@ -350,16 +360,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	bufaddr = skb->data;
+ 	bdp->cbd_datlen = skb->len;
+ 
+-	/*
+-	 * On some FEC implementations data must be aligned on
+-	 * 4-byte boundaries. Use bounce buffers to copy data
+-	 * and get it aligned. Ugh.
+-	 */
+-	if (fep->bufdesc_ex)
+-		index = (struct bufdesc_ex *)bdp -
+-			(struct bufdesc_ex *)fep->tx_bd_base;
+-	else
+-		index = bdp - fep->tx_bd_base;
++	index = fec_enet_get_bd_index(bdp, fep);
+ 
+ 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+ 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
+@@ -433,15 +434,43 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 
+ 	fep->cur_tx = bdp;
+ 
+-	if (fep->cur_tx == fep->dirty_tx)
+-		netif_stop_queue(ndev);
+-
+ 	/* Trigger transmission start */
+ 	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+ 
+ 	return NETDEV_TX_OK;
  }
  
-+static void at803x_adjust_state(struct phy_device *phydev)
++static netdev_tx_t
++fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 +{
-+	struct at803x_priv *priv = phydev->priv;
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	struct bufdesc *bdp;
++	unsigned short	status;
++	int ret;
 +
-+	/*
-+	 * Conduct a hardware reset for AT8030 every time a link loss is
-+	 * signalled. This is necessary to circumvent a hardware bug that
-+	 * occurs when the cable is unplugged while packets are pending in
-+	 * the FIFO. In such cases, the FIFO enters an error mode it cannot
-+	 * recover from by software.
-+	 */
-+	if (phydev->drv->phy_id == ATH8030_PHY_ID) {
-+		if (phydev->state == PHY_NOLINK) {
-+			if (priv->gpiod_reset && !priv->phy_reset) {
-+				struct at803x_context context;
++	/* Fill in a Tx ring entry */
++	bdp = fep->cur_tx;
 +
-+				at803x_context_save(phydev, &context);
++	status = bdp->cbd_sc;
 +
-+				gpiod_set_value(priv->gpiod_reset, 0);
-+				msleep(1);
-+				gpiod_set_value(priv->gpiod_reset, 1);
-+				msleep(1);
-+
-+				at803x_context_restore(phydev, &context);
-+
-+				dev_dbg(&phydev->dev, "%s(): phy was reset\n",
-+					__func__);
-+				priv->phy_reset = true;
-+			}
-+		} else {
-+			priv->phy_reset = false;
-+		}
++	if (status & BD_ENET_TX_READY) {
++		/* Ooops.  All transmit buffers are full.  Bail out.
++		 * This should not happen, since ndev->tbusy should be set.
++		 */
++		netdev_err(ndev, "tx queue full!\n");
++		return NETDEV_TX_BUSY;
 +	}
++
++	ret = txq_submit_skb(skb, ndev);
++	if (ret == -EBUSY)
++		return NETDEV_TX_BUSY;
++
++	if (fep->cur_tx == fep->dirty_tx)
++		netif_stop_queue(ndev);
++
++	return NETDEV_TX_OK;
 +}
 +
- static struct phy_driver at803x_driver[] = {
- {
- 	/* ATHEROS 8035 */
- 	.phy_id		= ATH8035_PHY_ID,
- 	.name		= "Atheros 8035 ethernet",
- 	.phy_id_mask	= 0xffffffef,
-+	.probe		= at803x_probe,
- 	.config_init	= at803x_config_init,
- 	.set_wol	= at803x_set_wol,
- 	.get_wol	= at803x_get_wol,
-@@ -208,6 +306,7 @@ static struct phy_driver at803x_driver[] = {
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.adjust_state	= at803x_adjust_state,
- 	.driver		= {
- 		.owner = THIS_MODULE,
- 	},
-@@ -216,6 +315,7 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id		= ATH8030_PHY_ID,
- 	.name		= "Atheros 8030 ethernet",
- 	.phy_id_mask	= 0xffffffef,
-+	.probe		= at803x_probe,
- 	.config_init	= at803x_config_init,
- 	.set_wol	= at803x_set_wol,
- 	.get_wol	= at803x_get_wol,
-@@ -225,6 +325,7 @@ static struct phy_driver at803x_driver[] = {
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.adjust_state	= at803x_adjust_state,
- 	.driver		= {
- 		.owner = THIS_MODULE,
- 	},
-@@ -233,6 +334,7 @@ static struct phy_driver at803x_driver[] = {
- 	.phy_id		= ATH8031_PHY_ID,
- 	.name		= "Atheros 8031 ethernet",
- 	.phy_id_mask	= 0xffffffef,
-+	.probe		= at803x_probe,
- 	.config_init	= at803x_config_init,
- 	.set_wol	= at803x_set_wol,
- 	.get_wol	= at803x_get_wol,
-@@ -242,6 +344,7 @@ static struct phy_driver at803x_driver[] = {
- 	.flags		= PHY_HAS_INTERRUPT,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.adjust_state	= at803x_adjust_state,
- 	.ack_interrupt  = &at803x_ack_interrupt,
- 	.config_intr    = &at803x_config_intr,
- 	.driver		= {
+ /* Init RX & TX buffer descriptors
+  */
+ static void fec_enet_bd_init(struct net_device *dev)
+@@ -770,11 +799,7 @@ fec_enet_tx(struct net_device *ndev)
+ 		if (bdp == fep->cur_tx)
+ 			break;
+ 
+-		if (fep->bufdesc_ex)
+-			index = (struct bufdesc_ex *)bdp -
+-				(struct bufdesc_ex *)fep->tx_bd_base;
+-		else
+-			index = bdp - fep->tx_bd_base;
++		index = fec_enet_get_bd_index(bdp, fep);
+ 
+ 		skb = fep->tx_skbuff[index];
+ 		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, skb->len,
+@@ -921,11 +946,7 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		pkt_len = bdp->cbd_datlen;
+ 		ndev->stats.rx_bytes += pkt_len;
+ 
+-		if (fep->bufdesc_ex)
+-			index = (struct bufdesc_ex *)bdp -
+-				(struct bufdesc_ex *)fep->rx_bd_base;
+-		else
+-			index = bdp - fep->rx_bd_base;
++		index = fec_enet_get_bd_index(bdp, fep);
+ 		data = fep->rx_skbuff[index]->data;
+ 		dma_sync_single_for_cpu(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
 -- 
-1.9.3
+1.7.8
