@@ -1,31 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [QUESTION] multi-core, multi-crypto,  ipsec/udp out of order.
-Date: Wed, 4 Jun 2014 08:00:49 +0800
-Message-ID: <20140604000049.GA27951@gondor.apana.org.au>
-References: <A83C99F8370D4D42BEB2D2B3153A6BBC30807AE1@NASANEXD02C.na.qualcomm.com>
- <20140602124649.GA2503@gondor.apana.org.au>
- <A83C99F8370D4D42BEB2D2B3153A6BBC30808594@NASANEXD02C.na.qualcomm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	"Bronstein, Dan" <dbronste@qti.qualcomm.com>
-To: "Hsieh, Che-Min" <cheminh@qti.qualcomm.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <A83C99F8370D4D42BEB2D2B3153A6BBC30808594@NASANEXD02C.na.qualcomm.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net: remove some unless free on failure in alloc_netdev_mqs()
+Date: Tue,  3 Jun 2014 17:11:54 -0700
+Message-ID: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:48225 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753815AbaFDAMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:12:16 -0400
+Received: by mail-pd0-f173.google.com with SMTP id v10so5288338pde.4
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 17:12:16 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 03, 2014 at 01:48:56PM +0000, Hsieh, Che-Min wrote:
-> Herbert:
-> Sorry, what is "in-tree" driver? This is Qcom crypto driver. It is part of android linux 3-10. I think Stanimir Varbanov is working on upstreaming the crypto driver. The driver version he cuts off, does static crypto engine assignment, i.e. crypto HW is assigned to a TFM on  cra_init. That scheme is simple. But, under the same TFM, it does not take advantage of multiple crypto HW working in parallel. Later, we put in dynamic engine assignment per request, as described in the previous mail thread.
+When we jump to free_pcpu on failure in alloc_netdev_mqs()
+rx and tx queues are not yet allocated, so no need to free them.
 
-An in-tree driver is one that's in the mainline kernel.
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/core/dev.c | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Cheers,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0355ca5..1ba2cfe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6503,11 +6503,6 @@ free_all:
+ 
+ free_pcpu:
+ 	free_percpu(dev->pcpu_refcnt);
+-	netif_free_tx_queues(dev);
+-#ifdef CONFIG_SYSFS
+-	kfree(dev->_rx);
+-#endif
+-
+ free_dev:
+ 	netdev_freemem(dev);
+ 	return NULL;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.8.3.1
