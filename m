@@ -1,414 +1,108 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v2 6/6] net: fec: Add software TSO support
-Date: Wed, 4 Jun 2014 15:39:31 +0800
-Message-ID: <1401867571-11684-7-git-send-email-b38611@freescale.com>
-References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
+From: Suprasad Mutalik Desai <suprasad.desai@gmail.com>
+Subject: Fwd: Linux stack performance drop (TCP and UDP) in 3.10 kernel in
+ routed scenario
+Date: Wed, 4 Jun 2014 14:34:10 +0530
+Message-ID: <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
+References: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
-	<b38611@freescale.com>, <R49496@freescale.com>,
-	<ezequiel.garcia@free-electrons.com>, <bhutchings@solarflare.com>,
-	<stephen@networkplumber.org>, <b20596@freescale.com>,
-	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, davem@davemloft.ne
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0186.outbound.protection.outlook.com ([207.46.163.186]:54690
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751736AbaFDJDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 05:03:06 -0400
-In-Reply-To: <1401867571-11684-1-git-send-email-b38611@freescale.com>
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:54082 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751807AbaFDJEL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:04:11 -0400
+Received: by mail-vc0-f180.google.com with SMTP id hq11so6131176vcb.25
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 02:04:10 -0700 (PDT)
+In-Reply-To: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add software TSO support for FEC.
-This feature allows to improve outbound throughput performance.
+Hi,
 
-Tested on imx6dl sabresd board, running iperf tcp tests shows:
-- 16.2% improvement comparing with FEC SG patch
-- 82% improvement comparing with NO SG & TSO patch
 
-$ ethtool -K eth0 tso on
-$ iperf -c 10.192.242.167 -t 3 &
-[  3] local 10.192.242.108 port 35388 connected with 10.192.242.167 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0- 3.0 sec   181 MBytes   506 Mbits/sec
+    Currently i am working on 3.10.12 kernel and it seems the Linux
+stack performance (TCP and UDP) has degraded drastically as compared
+to 2.6 kernel.
 
-During the testing, CPU loading is 30%.
-Since imx6dl FEC Bandwidth is limited to SOC system bus bandwidth, the
-performance with SW TSO is a milestone.
+Results :
 
-CC: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: David Laight <David.Laight@ACULAB.COM>
-CC: Li Frank <B20596@freescale.com>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h      |    6 +
- drivers/net/ethernet/freescale/fec_main.c |  254 ++++++++++++++++++++++++++---
- 2 files changed, 237 insertions(+), 23 deletions(-)
+Linux 2.6.32
+---------------------
+TCP traffic using iperf
+    - Upstream : 140 Mbps
+    - Downstream : 148 Mbps
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index f321ff1..e8d4813 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -298,6 +298,12 @@ struct fec_enet_private {
- 
- 	unsigned short tx_ring_size;
- 	unsigned short rx_ring_size;
-+	unsigned short tx_stop_threshold;
-+	unsigned short tx_wake_threshold;
-+
-+	/* Software TSO */
-+	char *tso_hdrs;
-+	dma_addr_t tso_hdrs_dma;
- 
- 	struct	platform_device *pdev;
- 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 0ce8de6..fba1adf 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -36,6 +36,7 @@
- #include <linux/in.h>
- #include <linux/ip.h>
- #include <net/ip.h>
-+#include <net/tso.h>
- #include <linux/tcp.h>
- #include <linux/udp.h>
- #include <linux/icmp.h>
-@@ -228,6 +229,15 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #define FEC_PAUSE_FLAG_AUTONEG	0x1
- #define FEC_PAUSE_FLAG_ENABLE	0x2
- 
-+#define TSO_HEADER_SIZE		128
-+/* Max number of allowed TCP segments for software TSO */
-+#define FEC_MAX_TSO_SEGS	100
-+#define FEC_MAX_SKB_DESCS	(FEC_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
-+
-+#define IS_TSO_HEADER(txq, addr) \
-+	((addr >= txq->tso_hdrs_dma) && \
-+	(addr < txq->tso_hdrs_dma + txq->tx_ring_size * TSO_HEADER_SIZE))
-+
- static int mii_cnt;
- 
- static inline
-@@ -458,8 +468,17 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 	unsigned short buflen;
- 	unsigned int estatus = 0;
- 	unsigned int index;
-+	int entries_free;
- 	int ret;
- 
-+	entries_free = fec_enet_get_free_txdesc_num(fep);
-+	if (entries_free < MAX_SKB_FRAGS + 1) {
-+		dev_kfree_skb_any(skb);
-+		if (net_ratelimit())
-+			netdev_err(ndev, "NOT enough BD for SG!\n");
-+		return NETDEV_TX_OK;
-+	}
-+
- 	/* Protocol checksum off-load for TCP and UDP. */
- 	if (fec_enet_clear_csum(skb, ndev)) {
- 		dev_kfree_skb_any(skb);
-@@ -554,35 +573,209 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 	return 0;
- }
- 
--static netdev_tx_t
--fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-+static int
-+fec_enet_txq_put_data_tso(struct sk_buff *skb, struct net_device *ndev,
-+			struct bufdesc *bdp, int index, char *data,
-+			int size, bool last_tcp, bool is_last)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
--	struct bufdesc *bdp;
--	unsigned short	status;
--	int entries_free;
--	int ret;
--
--	/* Fill in a Tx ring entry */
--	bdp = fep->cur_tx;
-+	const struct platform_device_id *id_entry =
-+				platform_get_device_id(fep->pdev);
-+	struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+	unsigned short status;
-+	unsigned int estatus = 0;
- 
- 	status = bdp->cbd_sc;
-+	status &= ~BD_ENET_TX_STATS;
- 
--	if (status & BD_ENET_TX_READY) {
--		/* Ooops.  All transmit buffers are full.  Bail out.
--		 * This should not happen, since ndev->tbusy should be set.
--		 */
-+	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
-+	bdp->cbd_datlen = size;
-+
-+	if (((unsigned long) data) & FEC_ALIGNMENT ||
-+		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
-+		memcpy(fep->tx_bounce[index], data, size);
-+		data = fep->tx_bounce[index];
-+
-+		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
-+			swap_buffer(data, size);
-+	}
-+
-+	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
-+					size, DMA_TO_DEVICE);
-+	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+		dev_kfree_skb_any(skb);
- 		if (net_ratelimit())
--			netdev_err(ndev, "tx queue full!\n");
-+			netdev_err(ndev, "Tx DMA memory map failed\n");
- 		return NETDEV_TX_BUSY;
- 	}
- 
--	ret = fec_enet_txq_submit_skb(skb, ndev);
-+	if (fep->bufdesc_ex) {
-+		if (skb->ip_summed == CHECKSUM_PARTIAL)
-+			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
-+		ebdp->cbd_bdu = 0;
-+		ebdp->cbd_esc = estatus;
-+	}
-+
-+	/* Handle the last BD specially */
-+	if (last_tcp)
-+		status |= (BD_ENET_TX_LAST | BD_ENET_TX_TC);
-+	if (is_last) {
-+		status |= BD_ENET_TX_INTR;
-+		if (fep->bufdesc_ex)
-+			ebdp->cbd_esc |= BD_ENET_TX_INT;
-+	}
-+
-+	bdp->cbd_sc = status;
-+
-+	return 0;
-+}
-+
-+static int
-+fec_enet_txq_put_hdr_tso(struct sk_buff *skb, struct net_device *ndev,
-+			struct bufdesc *bdp, int index)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	const struct platform_device_id *id_entry =
-+				platform_get_device_id(fep->pdev);
-+	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+	void *bufaddr;
-+	unsigned long dmabuf;
-+	unsigned short status;
-+	unsigned int estatus = 0;
-+
-+	status = bdp->cbd_sc;
-+	status &= ~BD_ENET_TX_STATS;
-+	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
-+
-+	bufaddr = fep->tso_hdrs + index * TSO_HEADER_SIZE;
-+	dmabuf = fep->tso_hdrs_dma + index * TSO_HEADER_SIZE;
-+	if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
-+		memcpy(fep->tx_bounce[index], skb->data, hdr_len);
-+		bufaddr = fep->tx_bounce[index];
-+
-+		if (id_entry->driver_data & FEC_QUIRK_SWAP_FRAME)
-+			swap_buffer(bufaddr, hdr_len);
-+
-+		dmabuf = dma_map_single(&fep->pdev->dev, bufaddr,
-+					hdr_len, DMA_TO_DEVICE);
-+		if (dma_mapping_error(&fep->pdev->dev, dmabuf)) {
-+			dev_kfree_skb_any(skb);
-+			if (net_ratelimit())
-+				netdev_err(ndev, "Tx DMA memory map failed\n");
-+			return NETDEV_TX_BUSY;
-+		}
-+	}
-+
-+	bdp->cbd_bufaddr = dmabuf;
-+	bdp->cbd_datlen = hdr_len;
-+
-+	if (fep->bufdesc_ex) {
-+		if (skb->ip_summed == CHECKSUM_PARTIAL)
-+			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
-+		ebdp->cbd_bdu = 0;
-+		ebdp->cbd_esc = estatus;
-+	}
-+
-+	bdp->cbd_sc = status;
-+
-+	return 0;
-+}
-+
-+static int fec_enet_txq_submit_tso(struct sk_buff *skb, struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	int total_len, data_left;
-+	struct bufdesc *bdp = fep->cur_tx;
-+	struct tso_t tso;
-+	unsigned int index = 0;
-+	int ret;
-+
-+	if (tso_count_descs(skb) >= fec_enet_get_free_txdesc_num(fep)) {
-+		dev_kfree_skb_any(skb);
-+		if (net_ratelimit())
-+			netdev_err(ndev, "NOT enough BD for TSO!\n");
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* Protocol checksum off-load for TCP and UDP. */
-+	if (fec_enet_clear_csum(skb, ndev)) {
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* Initialize the TSO handler, and prepare the first payload */
-+	tso_start(skb, &tso);
-+
-+	total_len = skb->len - hdr_len;
-+	while (total_len > 0) {
-+		char *hdr;
-+
-+		index = fec_enet_get_bd_index(bdp, fep);
-+		data_left = min_t(int, skb_shinfo(skb)->gso_size, total_len);
-+		total_len -= data_left;
-+
-+		/* prepare packet headers: MAC + IP + TCP */
-+		hdr = fep->tso_hdrs + index * TSO_HEADER_SIZE;
-+		tso_build_hdr(skb, hdr, &tso, data_left, total_len == 0);
-+		ret = fec_enet_txq_put_hdr_tso(skb, ndev, bdp, index);
-+		if (ret)
-+			goto err_release;
-+
-+		while (data_left > 0) {
-+			int size;
-+
-+			size = min_t(int, tso.size, data_left);
-+			bdp = fec_enet_get_nextdesc(bdp, fep);
-+			index = fec_enet_get_bd_index(bdp, fep);
-+			ret = fec_enet_txq_put_data_tso(skb, ndev, bdp, index, tso.data,
-+							size, size == data_left,
-+							total_len == 0);
-+			if (ret)
-+				goto err_release;
-+
-+			data_left -= size;
-+			tso_build_data(skb, &tso, size);
-+		}
-+
-+		bdp = fec_enet_get_nextdesc(bdp, fep);
-+	}
-+
-+	/* Save skb pointer */
-+	fep->tx_skbuff[index] = skb;
-+
-+	fec_enet_submit_work(bdp, fep);
-+
-+	skb_tx_timestamp(skb);
-+	fep->cur_tx = bdp;
-+
-+	/* Trigger transmission start */
-+	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-+
-+	return 0;
-+
-+err_release:
-+	/* TODO: Release all used data descriptors for TSO */
-+	return ret;
-+}
-+
-+static netdev_tx_t
-+fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int entries_free;
-+	int ret;
-+
-+	if (skb_is_gso(skb))
-+		ret = fec_enet_txq_submit_tso(skb, ndev);
-+	else
-+		ret = fec_enet_txq_submit_skb(skb, ndev);
- 	if (ret)
- 		return ret;
- 
- 	entries_free = fec_enet_get_free_txdesc_num(fep);
--	if (entries_free < MAX_SKB_FRAGS + 1)
-+	if (entries_free <= fep->tx_stop_threshold)
- 		netif_stop_queue(ndev);
- 
- 	return NETDEV_TX_OK;
-@@ -903,7 +1096,7 @@ fec_enet_tx(struct net_device *ndev)
- 	unsigned short status;
- 	struct	sk_buff	*skb;
- 	int	index = 0;
--	int	entries;
-+	int	entries_free;
- 
- 	fep = netdev_priv(ndev);
- 	bdp = fep->dirty_tx;
-@@ -920,8 +1113,9 @@ fec_enet_tx(struct net_device *ndev)
- 		index = fec_enet_get_bd_index(bdp, fep);
- 
- 		skb = fep->tx_skbuff[index];
--		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr, bdp->cbd_datlen,
--				DMA_TO_DEVICE);
-+		if (!IS_TSO_HEADER(fep, bdp->cbd_bufaddr))
-+			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
-+					bdp->cbd_datlen, DMA_TO_DEVICE);
- 		bdp->cbd_bufaddr = 0;
- 		if (!skb) {
- 			bdp = fec_enet_get_nextdesc(bdp, fep);
-@@ -982,9 +1176,11 @@ fec_enet_tx(struct net_device *ndev)
- 
- 		/* Since we have freed up a buffer, the ring is no longer full
- 		 */
--		entries = fec_enet_get_free_txdesc_num(fep);
--		if (entries >= MAX_SKB_FRAGS + 1 && netif_queue_stopped(ndev))
--			netif_wake_queue(ndev);
-+		if (netif_queue_stopped(ndev)) {
-+			entries_free = fec_enet_get_free_txdesc_num(fep);
-+			if (entries_free >= fep->tx_wake_threshold)
-+				netif_wake_queue(ndev);
-+		}
- 	}
- 	return;
- }
-@@ -2186,6 +2382,9 @@ static int fec_enet_init(struct net_device *ndev)
- 	fep->tx_ring_size = TX_RING_SIZE;
- 	fep->rx_ring_size = RX_RING_SIZE;
- 
-+	fep->tx_stop_threshold = FEC_MAX_SKB_DESCS;
-+	fep->tx_wake_threshold = (fep->tx_ring_size - fep->tx_stop_threshold) / 2;
-+
- 	if (fep->bufdesc_ex)
- 		bd_size = sizeof(struct bufdesc_ex);
- 	else
-@@ -2198,6 +2397,13 @@ static int fec_enet_init(struct net_device *ndev)
- 	if (!cbd_base)
- 		return -ENOMEM;
- 
-+	fep->tso_hdrs = dma_alloc_coherent(NULL, fep->tx_ring_size * TSO_HEADER_SIZE,
-+						&fep->tso_hdrs_dma, GFP_KERNEL);
-+	if (!fep->tso_hdrs) {
-+		dma_free_coherent(NULL, bd_size, cbd_base, fep->bd_dma);
-+		return -ENOMEM;
-+	}
-+
- 	memset(cbd_base, 0, PAGE_SIZE);
- 
- 	fep->netdev = ndev;
-@@ -2228,9 +2434,11 @@ static int fec_enet_init(struct net_device *ndev)
- 		ndev->features |= NETIF_F_HW_VLAN_CTAG_RX;
- 
- 	if (id_entry->driver_data & FEC_QUIRK_HAS_CSUM) {
-+		ndev->gso_max_segs = FEC_MAX_TSO_SEGS;
-+
- 		/* enable hw accelerator */
- 		ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
--				| NETIF_F_RXCSUM | NETIF_F_SG);
-+				| NETIF_F_RXCSUM | NETIF_F_SG | NETIF_F_TSO);
- 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
- 	}
- 
--- 
-1.7.8
+UDP traffic using iperf
+    - Upstream : 200 Mbps
+    - Downstream : 245 Mbps
+
+Linux 3.10.12
+--------------------
+TCP traffic using iperf
+    - Upstream : 101 Mbps
+    - Downstream : 106 Mbps
+
+UDP traffic using iperf
+    - Upstream : 140 Mbps
+    - Downstream : 170 Mbps
+
+Analysis:
+---------------
+1.   As per profiling data on Linux-3.10.12 it seems,
+             -   fib_table_lookup and ip_route_input_noref is being
+called most of the times and thus causing the degradation in
+performance.
+
+    8.77    csum_partial 0x80009A20 1404
+    4.53    ipt_do_table 0x80365C34 1352
+    3.45    eth_xmit 0x870D0C88 5460
+    3.41    fib_table_lookup 0x8035240C 856    <----------
+    3.38    __netif_receive_skb_core 0x802B5C00 2276
+    3.07    dma_device_write 0x80013BD4 752
+    2.94    nf_iterate 0x802EA380 256
+    2.69    ip_route_input_noref 0x8030CE14 2520    <--------------
+    2.24    ip_forward 0x8031108C 1040
+    2.04    tcp_packet 0x802F45BC 3956
+    1.93    nf_conntrack_in 0x802EEAF4 2284
+
+2.    Based on the above observation, when searched,  it seems Routing
+cache code has been removed from Linux-3.6 kernel and thus every
+packet has to go through ip_route_input_noref to find the destination.
+
+3.    Related to this, a patch from David Miller adds "ipv4: Early TCP
+socket demux" which caches the "dst per socket" and maintains
+tcp_hashinfo and uses early_demux(skb) (TCP --> tcp_v4_early_demux and
+UDP --> NULL i.e not defined) to get the "dst" of that skb and thus
+avoids ip_route_input_noref being called everytime.
+          -  But this still doesn=E2=80=99t handle routing scenarios (L=
+AN <-->  WAN).
+
+4.    A patch for UDP early demux has been added in Linux 3.13 and
+certain bugfixes has gone in Linux-3.14 .
+
+5.    As we are based on 3.10 thus no UDP early_demux support . This
+means we have to backport the UDP early demux patch to 3.10 kernel .
+
+
+Issue :
+-----------
+
+1.    The implementation of "Early TCP socket demux" doesn't address
+the routing scenario (LAN <---> WAN) . This means TCP and UDP routing
+performance will be less in 3.10 kernel and also in 3.14 kernel as
+every packet has to go through route lookup.
+
+
+Is there an alternative to get back the Linux stack performance of 2.6
+or 3.4 kernel where we have the route cache ?
+
+I guess plain routing scenario was NOT thought through while removing
+the routing cache code.
+
+Please guide .
+
+
+Thanks and Regards,
+Suprasad.
