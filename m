@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Call netif_carrier_off() prior to registration
-Date: Tue, 03 Jun 2014 19:05:26 -0700 (PDT)
-Message-ID: <20140603.190526.241247147331404487.davem@davemloft.net>
-References: <1401836138-13253-1-git-send-email-festevam@gmail.com>
-	<CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
+Subject: Re: [Patch net] rtnetlink: fix a memory leak when ->newlink fails
+Date: Tue, 03 Jun 2014 19:17:06 -0700 (PDT)
+Message-ID: <20140603.191706.1773783531239967313.davem@davemloft.net>
+References: <1401838847-5982-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: festevam@gmail.com, claudiu.manoil@freescale.com,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50852 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50894 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbaFDCF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:05:27 -0400
-In-Reply-To: <CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
+	with ESMTP id S1752110AbaFDCRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:17:07 -0400
+In-Reply-To: <1401838847-5982-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 3 Jun 2014 16:04:49 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  3 Jun 2014 16:40:47 -0700
 
-> 2014-06-03 15:55 GMT-07:00 Fabio Estevam <festevam@gmail.com>:
->> From: Fabio Estevam <fabio.estevam@freescale.com>
->>
->> Quoting David Miller:
->> "At the moment you call register_netdev() the device is visible, notifications
->> are sent to userspace, and userland tools can try to bring the interface up
->> and see the incorrect link state, before you do the netif_carrier_off().
->>
->> Said another way, between the register_netdev() and netif_carrier_off() call,
->> userspace can see the device in an inconsistent state."
->>
->> So call netif_carrier_off() prior to register_netdev().
+> From: Cong Wang <cwang@twopensource.com>
 > 
-> Potentially all drivers implementing libphy correctly should be fixed
-> to start with a carrier off until the phy library has determined
-> otherwise.
+> It is possible that ->newlink() fails before registering
+> the device, in this case we should just free it, it's
+> safe to call free_netdev().
+> 
+> Fixes: commit 0e0eee2465df77bcec2 (net: correct error path in rtnl_newlink())
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Are you saying we should hold off on this gianfar patch?
+It's a bit ugly, but I can't come up with a better fix, so applied.
+
+This is difficult because it is the one set of code paths where the
+netdev allocator and the register are decoupled.
