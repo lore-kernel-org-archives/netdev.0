@@ -1,71 +1,83 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: Re: [PATCH 0/10] use safer test on the result of find_first_zero_bit
-Date: Wed, 4 Jun 2014 13:07:34 +0200
-Message-ID: <CAMuHMdV2wP43Lxf-UtCum37HyMPSboRb6RLNTHzm_ZNOBeJR0g@mail.gmail.com>
-References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
-	<CAMuHMdXsoFUXj4jLMWN6NY7Um19KwWO9Rhx=9=gqWu_K5Ev2kQ@mail.gmail.com>
-	<alpine.DEB.2.10.1406041137270.2441@hadrien>
-	<063D6719AE5E284EB5DD2968C1650D6D1725705F@AcuExch.aculab.com>
-	<alpine.DEB.2.10.1406041148590.2441@hadrien>
-	<CAMuHMdXPBQTYA0c=1hkC7943-_J59TVSFaEKsfY1F2ogV=Ld+A@mail.gmail.com>
-	<alpine.DEB.2.10.1406041258200.2441@hadrien>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Fbdev development list <linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux-sh list <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	driverdevel <devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>,
-	"iss_storagedev-VXdhtT5mjnY@public.gmane.org" <iss_storagedev-VXdhtT5mjnY@public.gmane.org>,
-	scsi <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-s390 <linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
-	<adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-To: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.DEB.2.10.1406041258200.2441@hadrien>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Ospite <ao2@ao2.it>
+Subject: [PATCH 09/12] trivial: drivers/net/ethernet/nvidia/forcedeth.c: fix typo s/SUBSTRACT1/SUBTRACT1/
+Date: Wed,  4 Jun 2014 14:03:47 +0200
+Message-ID: <1401883430-19492-10-git-send-email-ao2@ao2.it>
+References: <1401883430-19492-1-git-send-email-ao2@ao2.it>
+Cc: Antonio Ospite <ao2@ao2.it>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Gordeev <agordeev@redhat.com>, netdev@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp207.alice.it ([82.57.200.103]:29086 "EHLO smtp207.alice.it"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752912AbaFDMK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 08:10:27 -0400
+In-Reply-To: <1401883430-19492-1-git-send-email-ao2@ao2.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Julia,
+Signed-off-by: Antonio Ospite <ao2@ao2.it>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexander Gordeev <agordeev@redhat.com>
+Cc: netdev@vger.kernel.org
+---
 
-On Wed, Jun 4, 2014 at 1:00 PM, Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org> wrote:
-> OK, thanks.  I was only looking at the C code.
->
-> But the C code contains a loop that is followed by:
->
->         if (!size)
->                 return result;
->         tmp = *p;
->
-> found_first:
->         tmp |= ~0UL << size;
->         if (tmp == ~0UL)        /* Are any bits zero? */
->                 return result + size;   /* Nope. */
->
-> In the first return, it would seem that result == size.  Could the second
-> one be changed to just return size?  It should not hurt performance.
+The define is local to the file so the rename is safe.
 
-"size" may have been changed between function entry and this line.
-So you have to store it in a temporary.
+Also, in the patch the indentation in the first hunk seems to be messed up,
+but once you apply it, it is actually fine.
 
-Gr{oetje,eeting}s,
+ drivers/net/ethernet/nvidia/forcedeth.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index fddb464..c6c379d 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -406,7 +406,7 @@ union ring_type {
+ 
+ #define NV_RX_DESCRIPTORVALID	(1<<16)
+ #define NV_RX_MISSEDFRAME	(1<<17)
+-#define NV_RX_SUBSTRACT1	(1<<18)
++#define NV_RX_SUBTRACT1		(1<<18)
+ #define NV_RX_ERROR1		(1<<23)
+ #define NV_RX_ERROR2		(1<<24)
+ #define NV_RX_ERROR3		(1<<25)
+@@ -423,7 +423,7 @@ union ring_type {
+ #define NV_RX2_CHECKSUM_IP_TCP	(0x14000000)
+ #define NV_RX2_CHECKSUM_IP_UDP	(0x18000000)
+ #define NV_RX2_DESCRIPTORVALID	(1<<29)
+-#define NV_RX2_SUBSTRACT1	(1<<25)
++#define NV_RX2_SUBTRACT1	(1<<25)
+ #define NV_RX2_ERROR1		(1<<18)
+ #define NV_RX2_ERROR2		(1<<19)
+ #define NV_RX2_ERROR3		(1<<20)
+@@ -2832,7 +2832,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 					}
+ 					/* framing errors are soft errors */
+ 					else if ((flags & NV_RX_ERROR_MASK) == NV_RX_FRAMINGERR) {
+-						if (flags & NV_RX_SUBSTRACT1)
++						if (flags & NV_RX_SUBTRACT1)
+ 							len--;
+ 					}
+ 					/* the rest are hard errors */
+@@ -2863,7 +2863,7 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 					}
+ 					/* framing errors are soft errors */
+ 					else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
+-						if (flags & NV_RX2_SUBSTRACT1)
++						if (flags & NV_RX2_SUBTRACT1)
+ 							len--;
+ 					}
+ 					/* the rest are hard errors */
+@@ -2937,7 +2937,7 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 				}
+ 				/* framing errors are soft errors */
+ 				else if ((flags & NV_RX2_ERROR_MASK) == NV_RX2_FRAMINGERR) {
+-					if (flags & NV_RX2_SUBSTRACT1)
++					if (flags & NV_RX2_SUBTRACT1)
+ 						len--;
+ 				}
+ 				/* the rest are hard errors */
+-- 
+2.0.0
