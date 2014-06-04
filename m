@@ -1,81 +1,62 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH v2 4/6] net: fec: Increase buffer descriptor entry number
-Date: Wed, 4 Jun 2014 09:39:58 +0000
-Message-ID: <ff20c13735154f8dac1a8d9c22887e05@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1401867571-11684-1-git-send-email-b38611@freescale.com>
- <1401867571-11684-5-git-send-email-b38611@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D17256FBF@AcuExch.aculab.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH 0/10] use safer test on the result of find_first_zero_bit
+Date: Wed, 4 Jun 2014 09:46:17 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725705F@AcuExch.aculab.com>
+References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
+ <CAMuHMdXsoFUXj4jLMWN6NY7Um19KwWO9Rhx=9=gqWu_K5Ev2kQ@mail.gmail.com>
+ <alpine.DEB.2.10.1406041137270.2441@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"stephen@networkplumber.org" <stephen@networkplumber.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0189.outbound.protection.outlook.com ([207.46.163.189]:33333
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752074AbaFDJkB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:40:01 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17256FBF@AcuExch.aculab.com>
+Cc: linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Fbdev development list <linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux-sh list <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <ath10k-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	driverdevel <devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>,
+	"iss_storagedev-VXdhtT5mjnY@public.gmane.org" <iss_storagedev-VXdhtT5mjnY@public.gmane.org>,
+	scsi <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-s390 <linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org"
+	<adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: 'Julia Lawall' <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.DEB.2.10.1406041137270.2441@hadrien>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM> Data: Wednesday, June 04, 2014 5:27 PM
-> To: Duan Fugang-B38611; davem@davemloft.net
-> Cc: netdev@vger.kernel.org; shawn.guo@linaro.org; Estevam Fabio-R49496;
-> ezequiel.garcia@free-electrons.com; bhutchings@solarflare.com;
-> stephen@networkplumber.org; Li Frank-B20596; eric.dumazet@gmail.com
-> Subject: RE: [PATCH v2 4/6] net: fec: Increase buffer descriptor entry
-> number
+From: Julia Lawall
+> On Wed, 4 Jun 2014, Geert Uytterhoeven wrote:
 > 
-> From: Fugang Duan
-> > In order to support SG, software TSO, let's increase BD entry number.
+> > Hi Julia,
 > >
-> > CC: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> > CC: Eric Dumazet <eric.dumazet@gmail.com>
-> > CC: David Laight <David.Laight@ACULAB.COM>
-> > Signed-off-by: Fugang Duan <B38611@freescale.com>
-> > ---
-> >  drivers/net/ethernet/freescale/fec.h      |    6 +++---
-> >  drivers/net/ethernet/freescale/fec_main.c |   21 ++++++++++++-------
-> --
-> >  2 files changed, 15 insertions(+), 12 deletions(-)
+> > On Wed, Jun 4, 2014 at 11:07 AM, Julia Lawall <Julia.Lawall-L2FTfq7BK8M@public.gmane.org> wrote:
+> > > Find_first_zero_bit considers BITS_PER_LONG bits at a time, and thus may
+> > > return a larger number than the maximum position argument if that position
+> > > is not a multiple of BITS_PER_LONG.
 > >
-> > diff --git a/drivers/net/ethernet/freescale/fec.h
-> b/drivers/net/ethernet/freescale/fec.h
-> > index 3b8d6d1..798ad88 100644
-> > --- a/drivers/net/ethernet/freescale/fec.h
-> > +++ b/drivers/net/ethernet/freescale/fec.h
-> > @@ -240,14 +240,14 @@ struct bufdesc_ex {
-> >   * the skbuffer directly.
-> >   */
-> >
-> > -#define FEC_ENET_RX_PAGES	8
-> > +#define FEC_ENET_RX_PAGES	128
-> >  #define FEC_ENET_RX_FRSIZE	2048
-> >  #define FEC_ENET_RX_FRPPG	(PAGE_SIZE / FEC_ENET_RX_FRSIZE)
-> >  #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
-> > ...
+> > Shouldn't this be fixed in find_first_zero_bit() instead?
 > 
-> You are changing the number of rx descriptors as well.
-> This isn't mentioned in the description.
-> 
-> And, as I said before, basing this on PAGE_SIZE cannot be right.
-> 
-> 	David
-> 
-The patch just increase tx and rx BD entry number,  and from previous discuss, we set tx number to 512, rx number to 256.
+> OK, I could do that as well.  Most of the callers currently test with >=.
+> Should they be left as is, or changed to use ==?
+
+Do we want to add an extra test to find_first_zero_bit() and effectively
+slow down all the calls - especially those where the length is a
+multiple of 8 (probably the most common).
+
+Maybe the documented return code should be changed to allow for the
+existing behaviour.
+
+	David
 
 
-Thanks,
-Andy
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
