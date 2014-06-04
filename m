@@ -1,36 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: fix SH7619/771x support
-Date: Tue, 03 Jun 2014 19:02:29 -0700 (PDT)
-Message-ID: <20140603.190229.1248289002649714904.davem@davemloft.net>
-References: <201406032342.27160.sergei.shtylyov@cogentembedded.com>
-	<538E69B0.1030706@renesas.com>
+Subject: Re: [PATCH] gianfar: Call netif_carrier_off() prior to registration
+Date: Tue, 03 Jun 2014 19:05:26 -0700 (PDT)
+Message-ID: <20140603.190526.241247147331404487.davem@davemloft.net>
+References: <1401836138-13253-1-git-send-email-festevam@gmail.com>
+	<CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <538E69B0.1030706@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: festevam@gmail.com, claudiu.manoil@freescale.com,
+	netdev@vger.kernel.org, fabio.estevam@freescale.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50852 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbaFDCF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:05:27 -0400
+In-Reply-To: <CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Date: Wed, 4 Jun 2014 09:34:56 +0900
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 3 Jun 2014 16:04:49 -0700
 
-> (2014/06/04 4:42), Sergei Shtylyov wrote:
->> Commit 4a55530f38e4 (net: sh_eth: modify the definitions of register) managed
->> to leave out the E-DMAC register entries in sh_eth_offset_fast_sh3_sh2[], thus
->> totally breaking SH7619/771x support.  Add the missing entries using  the data
->> from before that commit.
->> 
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
- ...
-> I checked sh7710 and sh7619 datasheet, but they don't have RPADIR register.
-> Since I would like to check a datasheet you looked into, would you tell me about this?
+> 2014-06-03 15:55 GMT-07:00 Fabio Estevam <festevam@gmail.com>:
+>> From: Fabio Estevam <fabio.estevam@freescale.com>
+>>
+>> Quoting David Miller:
+>> "At the moment you call register_netdev() the device is visible, notifications
+>> are sent to userspace, and userland tools can try to bring the interface up
+>> and see the incorrect link state, before you do the netif_carrier_off().
+>>
+>> Said another way, between the register_netdev() and netif_carrier_off() call,
+>> userspace can see the device in an inconsistent state."
+>>
+>> So call netif_carrier_off() prior to register_netdev().
+> 
+> Potentially all drivers implementing libphy correctly should be fixed
+> to start with a carrier off until the phy library has determined
+> otherwise.
 
-I think what Sergei simply did is take what was used for register offsets
-before the mentioned commits.
-
-The RPADIR register write is guarded by "mdp->cd->rpadir" being non-zero,
-so his change is very safe.
+Are you saying we should hold off on this gianfar patch?
