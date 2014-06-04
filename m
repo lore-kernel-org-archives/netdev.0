@@ -1,75 +1,82 @@
-From: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH] mwifiex: Remove custom world regulatory domain
-Date: Wed,  4 Jun 2014 15:32:32 +0200
-Message-ID: <1401888752-11224-1-git-send-email-mpa@pengutronix.de>
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 0/10] use safer test on the result of find_first_zero_bit
+Date: Wed, 4 Jun 2014 13:34:08 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172571DB@AcuExch.aculab.com>
+References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
+ <CAMuHMdXsoFUXj4jLMWN6NY7Um19KwWO9Rhx=9=gqWu_K5Ev2kQ@mail.gmail.com>
+ <alpine.DEB.2.10.1406041137270.2441@hadrien>
+ <063D6719AE5E284EB5DD2968C1650D6D1725705F@AcuExch.aculab.com>
+ <alpine.DEB.2.10.1406041148590.2441@hadrien>
+ <CAMuHMdXPBQTYA0c=1hkC7943-_J59TVSFaEKsfY1F2ogV=Ld+A@mail.gmail.com>
+ <alpine.DEB.2.10.1406041258200.2441@hadrien>
+ <CAMuHMdV2wP43Lxf-UtCum37HyMPSboRb6RLNTHzm_ZNOBeJR0g@mail.gmail.com>
+ <alpine.DEB.2.10.1406041510520.2441@hadrien>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-rdma <linux-rdma@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	driverdevel <devel@driverdev.osuosl.org>,
+	"iss_storagedev@hp.com" <iss_storagedev@hp.com>,
+	scsi <linux-scsi@vger.kernel.org>,
+	linux-s390 <linux-s390@vger.kernel.org>,
+	"adi-buildroot-devel@lists.sourceforge.net"
+	<adi-buildroot-devel@lists.sourceforge.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"sebott@linux.vnet.ibm.com" <sebott@linux.vnet.ibm.com>
+To: 'Julia Lawall' <julia.lawall@lip6.fr>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.10.1406041510520.2441@hadrien>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A custom regulatory domain was introduced in this commit:
-cc0ba0d mwifiex: support custom world regulatory domain
+From: Julia Lawall
+> On Wed, 4 Jun 2014, Geert Uytterhoeven wrote:
+> 
+> > Hi Julia,
+> >
+> > On Wed, Jun 4, 2014 at 1:00 PM, Julia Lawall <julia.lawall@lip6.fr> wrote:
+> > > OK, thanks.  I was only looking at the C code.
+> > >
+> > > But the C code contains a loop that is followed by:
+> > >
+> > >         if (!size)
+> > >                 return result;
+> > >         tmp = *p;
+> > >
+> > > found_first:
+> > >         tmp |= ~0UL << size;
+> > >         if (tmp == ~0UL)        /* Are any bits zero? */
+> > >                 return result + size;   /* Nope. */
+> > >
+> > > In the first return, it would seem that result == size.  Could the second
+> > > one be changed to just return size?  It should not hurt performance.
+> >
+> > "size" may have been changed between function entry and this line.
+> > So you have to store it in a temporary.
+> 
+> Sorry, after reflection it seems that indeed size + result is always the
+> original size, so it is actually all of the code that uses >= that is
+> doing something unnecessary.  == for the failure test is fine.
 
-The commit description says that it was introduced because the world
-regulatory domain does not include channels 52-64 and 100-140. These
-channels are described in the world regulatory domain now, so we can
-drop this custom regulatory domain.
+There is nothing wrong with defensive coding.
+The 'tmp |= ~0UL << size' ensures that the return value is 'correct'
+when there are no bits set.
+The function could have been defined so that this wasn't needed.
 
-Signed-off-by: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- drivers/net/wireless/mwifiex/cfg80211.c | 36 ---------------------------------
- 1 file changed, 36 deletions(-)
+If you assume that the 'no zero bits' is unlikely, then checking the
+return value from ffz() could well be slightly faster.
+Not that anything is likely to notice.
 
-diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
-index 21ee27a..2b35a97 100644
---- a/drivers/net/wireless/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/mwifiex/cfg80211.c
-@@ -42,36 +42,6 @@ static const struct ieee80211_iface_combination mwifiex_iface_comb_ap_sta = {
- 	.beacon_int_infra_match = true,
- };
- 
--static const struct ieee80211_regdomain mwifiex_world_regdom_custom = {
--	.n_reg_rules = 7,
--	.alpha2 =  "99",
--	.reg_rules = {
--		/* Channel 1 - 11 */
--		REG_RULE(2412-10, 2462+10, 40, 3, 20, 0),
--		/* Channel 12 - 13 */
--		REG_RULE(2467-10, 2472+10, 20, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 14 */
--		REG_RULE(2484-10, 2484+10, 20, 3, 20,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_NO_OFDM),
--		/* Channel 36 - 48 */
--		REG_RULE(5180-10, 5240+10, 40, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 149 - 165 */
--		REG_RULE(5745-10, 5825+10, 40, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 52 - 64 */
--		REG_RULE(5260-10, 5320+10, 40, 3, 30,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_DFS),
--		/* Channel 100 - 140 */
--		REG_RULE(5500-10, 5700+10, 40, 3, 30,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_DFS),
--	}
--};
--
- /*
-  * This function maps the nl802.11 channel type into driver channel type.
-  *
-@@ -2917,12 +2887,6 @@ int mwifiex_register_cfg80211(struct mwifiex_adapter *adapter)
- 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS |
- 				WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
- 
--	wiphy->regulatory_flags |=
--			REGULATORY_CUSTOM_REG |
--			REGULATORY_STRICT_REG;
--
--	wiphy_apply_custom_regulatory(wiphy, &mwifiex_world_regdom_custom);
+	David
+
+
+
