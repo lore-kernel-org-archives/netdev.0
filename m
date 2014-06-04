@@ -1,39 +1,46 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH V2 net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver
-Date: Wed, 04 Jun 2014 14:36:05 -0700 (PDT)
-Message-ID: <20140604.143605.960519678688904189.davem@davemloft.net>
+Date: Wed, 04 Jun 2014 14:39:03 -0700 (PDT)
+Message-ID: <20140604.143903.1213688714066322891.davem@davemloft.net>
 References: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
+	<20140604.143605.960519678688904189.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, jcm@redhat.com
 To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37068 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37081 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751421AbaFDVgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 17:36:08 -0400
-In-Reply-To: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1751329AbaFDVjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 17:39:04 -0400
+In-Reply-To: <20140604.143605.960519678688904189.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 4 Jun 2014 11:11:31 -0500
-
-> The following series implements support for the new AMD 10Gb Ethernet
-> driver (amd-xgbe).  It includes the 10Gb Ethernet driver as well as
-> a 10Gb Ethernet PHY driver.
-> 
-> This patch series is based on net-next.
-> 
-> Changes in V2:
->   - Add phy-mode to the amd-xgbe device bindings
->   - Obtain the phy-mode from the device tree
->   - Reference ethernet.txt device bindings for phy-handle and phy-mode
->   - Connect/disconnect to/from phy during probe/remove, instead of open/close
->   - Fixes for jumbo packet support / MTU changes
->   - Formatting changes for debug packet dump
->   - Free resources in the phylib driver remove function
->   - Proper NP NULL message during auto-negotiation
-
-Series applied, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwNCBK
+dW4gMjAxNCAxNDozNjowNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFRvbSBMZW5kYWNreSA8dGhv
+bWFzLmxlbmRhY2t5QGFtZC5jb20+DQo+IERhdGU6IFdlZCwgNCBKdW4gMjAxNCAxMToxMTozMSAt
+MDUwMA0KPiANCj4+IFRoZSBmb2xsb3dpbmcgc2VyaWVzIGltcGxlbWVudHMgc3VwcG9ydCBmb3Ig
+dGhlIG5ldyBBTUQgMTBHYiBFdGhlcm5ldA0KPj4gZHJpdmVyIChhbWQteGdiZSkuICBJdCBpbmNs
+dWRlcyB0aGUgMTBHYiBFdGhlcm5ldCBkcml2ZXIgYXMgd2VsbCBhcw0KPj4gYSAxMEdiIEV0aGVy
+bmV0IFBIWSBkcml2ZXIuDQo+PiANCj4+IFRoaXMgcGF0Y2ggc2VyaWVzIGlzIGJhc2VkIG9uIG5l
+dC1uZXh0Lg0KPj4gDQo+PiBDaGFuZ2VzIGluIFYyOg0KPj4gICAtIEFkZCBwaHktbW9kZSB0byB0
+aGUgYW1kLXhnYmUgZGV2aWNlIGJpbmRpbmdzDQo+PiAgIC0gT2J0YWluIHRoZSBwaHktbW9kZSBm
+cm9tIHRoZSBkZXZpY2UgdHJlZQ0KPj4gICAtIFJlZmVyZW5jZSBldGhlcm5ldC50eHQgZGV2aWNl
+IGJpbmRpbmdzIGZvciBwaHktaGFuZGxlIGFuZCBwaHktbW9kZQ0KPj4gICAtIENvbm5lY3QvZGlz
+Y29ubmVjdCB0by9mcm9tIHBoeSBkdXJpbmcgcHJvYmUvcmVtb3ZlLCBpbnN0ZWFkIG9mIG9wZW4v
+Y2xvc2UNCj4+ICAgLSBGaXhlcyBmb3IganVtYm8gcGFja2V0IHN1cHBvcnQgLyBNVFUgY2hhbmdl
+cw0KPj4gICAtIEZvcm1hdHRpbmcgY2hhbmdlcyBmb3IgZGVidWcgcGFja2V0IGR1bXANCj4+ICAg
+LSBGcmVlIHJlc291cmNlcyBpbiB0aGUgcGh5bGliIGRyaXZlciByZW1vdmUgZnVuY3Rpb24NCj4+
+ICAgLSBQcm9wZXIgTlAgTlVMTCBtZXNzYWdlIGR1cmluZyBhdXRvLW5lZ290aWF0aW9uDQo+IA0K
+PiBTZXJpZXMgYXBwbGllZCwgdGhhbmtzLg0KDQpJIGhhZCB0byByZXZlcnQsIHRoaXMgYnJlYWtz
+IHRoZSBidWlsZDoNCg0KZHJpdmVycy9uZXQvcGh5L2FtZC14Z2JlLXBoeS5jOiBJbiBmdW5jdGlv
+biChYW1kX3hnYmVfcGh5X3Byb2JlojoNCmRyaXZlcnMvbmV0L3BoeS9hbWQteGdiZS1waHkuYzox
+MjUxOjI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChb2ZfZGV2X3B1
+dKIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQpjYzE6IHNvbWUgd2Fy
+bmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCm1ha2VbM106ICoqKiBbZHJpdmVycy9uZXQv
+cGh5L2FtZC14Z2JlLXBoeS5vXSBFcnJvciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L3Bo
+eV0gRXJyb3IgMg0KbWFrZVsyXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4N
+Cm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0aW5n
+IGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQptYWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCg==
