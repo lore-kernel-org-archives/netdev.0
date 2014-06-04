@@ -1,46 +1,32 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH] sh_eth: fix SH7619/771x support
-Date: Wed, 4 Jun 2014 11:20:33 +0900
-Message-ID: <538E8271.6040406@renesas.com>
-References: <201406032342.27160.sergei.shtylyov@cogentembedded.com>	<538E69B0.1030706@renesas.com> <20140603.190229.1248289002649714904.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 3/7] igb: rename igb_ptp_enable to
+ igb_ptp_feature_enable
+Date: Tue, 03 Jun 2014 19:27:23 -0700 (PDT)
+Message-ID: <20140603.192723.524325475036717233.davem@davemloft.net>
+References: <1401781509-6435-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1401781509-6435-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <sergei.shtylyov@cogentembedded.com>, <netdev@vger.kernel.org>,
-	<linux-sh@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20140603.190229.1248289002649714904.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jacob.e.keller@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50936 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752408AbaFDC1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:27:24 -0400
+In-Reply-To: <1401781509-6435-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  3 Jun 2014 00:45:05 -0700
 
-(2014/06/04 11:02), David Miller wrote:
-> From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> Date: Wed, 4 Jun 2014 09:34:56 +0900
-> 
->> (2014/06/04 4:42), Sergei Shtylyov wrote:
->>> Commit 4a55530f38e4 (net: sh_eth: modify the definitions of register) managed
->>> to leave out the E-DMAC register entries in sh_eth_offset_fast_sh3_sh2[], thus
->>> totally breaking SH7619/771x support.  Add the missing entries using  the data
->>> from before that commit.
->>>
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->  ...
->> I checked sh7710 and sh7619 datasheet, but they don't have RPADIR register.
->> Since I would like to check a datasheet you looked into, would you tell me about this?
-> 
-> I think what Sergei simply did is take what was used for register offsets
-> before the mentioned commits.
-> 
-> The RPADIR register write is guarded by "mdp->cd->rpadir" being non-zero,
-> so his change is very safe.
+> -static int igb_ptp_enable(struct ptp_clock_info *ptp,
+> +static int igb_ptp_feature_enable(struct ptp_clock_info *ptp,
+>  			  struct ptp_clock_request *rq, int on)
 
-Thank you for the reply. I understood it.
-
-Since I checked all of the registers offset in this patch and they are good:
-Acked-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-
-Best regards,
-Yoshihiro Shimoda
+The argument on the second line needs to be adjusted if the location
+of the openning parenthesis on the first line changes, as it does
+here.
