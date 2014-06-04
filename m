@@ -1,71 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
-Date: Wed, 4 Jun 2014 22:51:12 +0300
-Message-ID: <20140604195112.GB10676@redhat.com>
-References: <1401744482-17764-1-git-send-email-mst@redhat.com>
-	<1401744482-17764-3-git-send-email-mst@redhat.com>
-	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>
-	<538DC422.1050303@redhat.com>
-	<1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net-next 2/3] macvlan: Support bonding events
+Date: Wed,  4 Jun 2014 16:23:37 -0400
+Message-ID: <1401913418-31307-3-git-send-email-vyasevic@redhat.com>
+References: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
+Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
+	kaber@trash.net, Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61624 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750925AbaFDUXs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 16:23:48 -0400
+In-Reply-To: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 03, 2014 at 06:57:43AM -0700, Eric Dumazet wrote:
-> On Tue, 2014-06-03 at 14:48 +0200, Paolo Bonzini wrote:
-> > Il 02/06/2014 23:58, Eric Dumazet ha scritto:
-> > > This looks dubious
-> > >
-> > > What about using kfree_rcu() instead ?
-> > 
-> > It would lead to unbound allocation from userspace.
-> 
-> Look at how we did this in commit
-> c3059477fce2d956a0bb3e04357324780c5d8eeb
-> 
-> > 
-> > > translate_desc() still uses rcu_read_lock(), its not clear if the mutex
-> > > is really held.
-> > 
-> > Yes, vhost_get_vq_desc must be called with the vq mutex held.
-> > 
-> > The rcu_read_lock/unlock in translate_desc is unnecessary.
-> 
-> Yep, this is what I pointed out. This is not only necessary, but
-> confusing and might be incorrectly copy/pasted in the future.
-> 
-> This patch is a partial one and leaves confusion.
-> 
-> Some places uses the proper 
-> 
-> mp = rcu_dereference_protected(dev->memory,
-> 		 lockdep_is_held(&dev->mutex));
-> 
-> others use the now incorrect :
-> 
-> rcu_read_lock();
-> mp = rcu_dereference(dev->memory);
-> ...
-> 
+Bonding and team drivers generate specific events during failover
+that trigger switch updates.  When a macvlan device is configured
+on top of bonding, we want switches to learn about the macvlan
+devices as well.   This patch adds a handler to macvlan driver to
+propagate these events to all macvlan devices.  We let the generic
+inetdev event handler do the work.
 
-I agree, working on a cleanup patch on top now.
+This allows macvlan to operated correctly over active-backup
+mode bond.
 
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ drivers/net/macvlan.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index eee9106..453d55a 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1209,6 +1209,13 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 	case NETDEV_PRE_TYPE_CHANGE:
+ 		/* Forbid underlaying device to change its type. */
+ 		return NOTIFY_BAD;
++
++	case NETDEV_NOTIFY_PEERS:
++	case NETDEV_BONDING_FAILOVER:
++	case NETDEV_RESEND_IGMP:
++		/* Propagate to all vlans */
++		list_for_each_entry(vlan, &port->vlans, list)
++			call_netdevice_notifiers(event, vlan->dev);
+ 	}
+ 	return NOTIFY_DONE;
+ }
 -- 
-MST
+1.9.0
