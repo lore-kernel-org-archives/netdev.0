@@ -1,45 +1,52 @@
-From: Xiubo Li <Li.Xiubo@freescale.com>
-Subject: [PATCH] gianfar: Fix the section mismatch warnings.
-Date: Wed, 4 Jun 2014 16:49:16 +0800
-Message-ID: <1401871756-29231-1-git-send-email-Li.Xiubo@freescale.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 0/10] use safer test on the result of find_first_zero_bit
+Date: Wed, 4 Jun 2014 11:35:37 +0200
+Message-ID: <CAMuHMdXsoFUXj4jLMWN6NY7Um19KwWO9Rhx=9=gqWu_K5Ev2kQ@mail.gmail.com>
+References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, Xiubo Li <Li.Xiubo@freescale.com>
-To: <claudiu.manoil@freescale.com>, <davem@davemloft.net>,
-	<jingchang.lu@freescale.com>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: driverdevel <devel@driverdev.osuosl.org>,
+ linux-s390 <linux-s390@vger.kernel.org>,
+ Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
+ scsi <linux-scsi@vger.kernel.org>, iss_storagedev@hp.com,
+ Linux-sh list <linux-sh@vger.kernel.org>,
+ linux-rdma <linux-rdma@vger.kernel.org>,
+ linux-wireless <linux-wireless@vger.kernel.org>,
+ "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ ath10k@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Building with CONFIG_DEBUG_SECTION_MISMATCH enabled, the following
-WARNING is occured:
+Hi Julia,
 
-  LD      drivers/net/built-in.o
-WARNING: drivers/net/built-in.o(.text+0xcd4c): Section mismatch in
-reference from the function gfar_probe() to the function
-.init.text:gfar_init_addr_hash_table()
-The function gfar_probe() references
-the function __init gfar_init_addr_hash_table().
-This is often because gfar_probe lacks a __init
-annotation or the annotation of gfar_init_addr_hash_table is wrong.
+On Wed, Jun 4, 2014 at 11:07 AM, Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+> Find_first_zero_bit considers BITS_PER_LONG bits at a time, and thus may
+> return a larger number than the maximum position argument if that position
+> is not a multiple of BITS_PER_LONG.
 
-Signed-off-by: Xiubo Li <Li.Xiubo@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Shouldn't this be fixed in find_first_zero_bit() instead?
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index a7fe6a7..1fde3e6 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1242,7 +1242,7 @@ static void gfar_hw_init(struct gfar_private *priv)
- 		gfar_write_isrg(priv);
- }
- 
--static void __init gfar_init_addr_hash_table(struct gfar_private *priv)
-+static void gfar_init_addr_hash_table(struct gfar_private *priv)
- {
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
- 
--- 
-1.8.5
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
