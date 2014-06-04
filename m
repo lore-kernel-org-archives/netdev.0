@@ -1,57 +1,106 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 2/10] ath10k: use safer test on the result of find_first_zero_bit
-Date: Wed,  4 Jun 2014 11:07:52 +0200
-Message-ID: <1401872880-23685-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1401872880-23685-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Suprasad Mutalik Desai <suprasad.desai@gmail.com>
+Subject: Linux stack performance drop (TCP and UDP) in 3.10 kernel in routed scenario
+Date: Wed, 4 Jun 2014 14:44:31 +0530
+Message-ID: <CAJMXqXbfEj1pq0nfLCeJuqWOeW1xfGwCmeKm_u4ZKdLepzwKiA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f181.google.com ([209.85.128.181]:54626 "EHLO
+	mail-ve0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752320AbaFDJOc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:14:32 -0400
+Received: by mail-ve0-f181.google.com with SMTP id pa12so8432116veb.12
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 02:14:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+Hi,
 
-Find_first_zero_bit considers BITS_PER_LONG bits at a time, and thus may
-return a larger number than the maximum position argument if that position
-is not a multiple of BITS_PER_LONG.
 
-The semantic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
+    Currently i am working on 3.10.12 kernel and it seems the Linux
+stack performance (TCP and UDP) has degraded drastically as compared
+to 2.6 kernel.
 
-// <smpl>
-@@
-expression e1,e2,e3;
-statement S1,S2;
-@@
+Results :
 
-e1 = find_first_zero_bit(e2,e3)
-...
-if (e1 
-- ==
-+ >=
-  e3)
-S1 else S2
-// </smpl>
+Linux 2.6.32
+---------------------
+TCP traffic using iperf
+    - Upstream : 140 Mbps
+    - Downstream : 148 Mbps
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+UDP traffic using iperf
+    - Upstream : 200 Mbps
+    - Downstream : 245 Mbps
 
----
- drivers/net/wireless/ath/ath10k/htt_tx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Linux 3.10.12
+--------------------
+TCP traffic using iperf
+    - Upstream : 101 Mbps
+    - Downstream : 106 Mbps
 
-diff -u -p a/drivers/net/wireless/ath/ath10k/htt_tx.c b/drivers/net/wireless/ath/ath10k/htt_tx.c
---- a/drivers/net/wireless/ath/ath10k/htt_tx.c
-+++ b/drivers/net/wireless/ath/ath10k/htt_tx.c
-@@ -64,7 +64,7 @@ int ath10k_htt_tx_alloc_msdu_id(struct a
- 
- 	msdu_id = find_first_zero_bit(htt->used_msdu_ids,
- 				      htt->max_num_pending_tx);
--	if (msdu_id == htt->max_num_pending_tx)
-+	if (msdu_id >= htt->max_num_pending_tx)
- 		return -ENOBUFS;
- 
- 	ath10k_dbg(ATH10K_DBG_HTT, "htt tx alloc msdu_id %d\n", msdu_id);
+UDP traffic using iperf
+    - Upstream : 140 Mbps
+    - Downstream : 170 Mbps
+
+Analysis:
+---------------
+1.   As per profiling data on Linux-3.10.12 it seems,
+             -   fib_table_lookup and ip_route_input_noref is being
+called most of the times and thus causing the degradation in
+performance.
+
+    8.77    csum_partial 0x80009A20 1404
+    4.53    ipt_do_table 0x80365C34 1352
+    3.45    eth_xmit 0x870D0C88 5460
+    3.41    fib_table_lookup 0x8035240C 856    <----------
+    3.38    __netif_receive_skb_core 0x802B5C00 2276
+    3.07    dma_device_write 0x80013BD4 752
+    2.94    nf_iterate 0x802EA380 256
+    2.69    ip_route_input_noref 0x8030CE14 2520    <--------------
+    2.24    ip_forward 0x8031108C 1040
+    2.04    tcp_packet 0x802F45BC 3956
+    1.93    nf_conntrack_in 0x802EEAF4 2284
+
+2.    Based on the above observation, when searched,  it seems Routing
+cache code has been removed from Linux-3.6 kernel and thus every
+packet has to go       through ip_route_input_noref to find the
+destination.
+
+3.    Related to this, a patch from David Miller adds "ipv4: Early TCP
+socket demux" which caches the "dst per socket" and maintains
+tcp_hashinfo and uses  early_demux(skb) (TCP --> tcp_v4_early_demux
+and UDP --> NULL i.e not defined) to get the "dst" of that skb and
+thus avoids ip_route_input_noref being called  everytime.
+          -  But this still doesn=E2=80=99t handle routing scenarios (L=
+AN <-->  WAN).
+
+4.    A patch for UDP early demux has been added in Linux 3.13 and
+certain bugfixes has gone in Linux-3.14 .
+
+5.    As we are based on 3.10 thus no UDP early_demux support . This
+means we have to backport the UDP early demux patch to 3.10 kernel .
+
+
+Issue :
+-----------
+
+1.    The implementation of "Early TCP socket demux" doesn't address
+the routing scenario (LAN <---> WAN) . This means TCP and UDP routing
+performance will be less in 3.10 kernel and also in 3.14 kernel as
+every packet has to go through route lookup.
+
+
+Is there an alternative to get back the Linux stack performance of 2.6
+or 3.4 kernel where we have the route cache ?
+
+I guess plain routing scenario was NOT thought through while removing
+the routing cache code.
+
+Please guide .
+
+
+Thanks and Regards,
+Suprasad.
