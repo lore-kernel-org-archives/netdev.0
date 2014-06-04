@@ -1,27 +1,47 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2 0/7] net: Support checksum in UDP tunnels
-Date: Wed, 4 Jun 2014 15:28:40 -0700
-Message-ID: <CAEP_g=9=rCQz6fsZ0c4KP7Kd4L8Q2yk8tKON0GVk52Napj5ufA@mail.gmail.com>
-References: <alpine.DEB.2.02.1406012046040.20298@tomh.mtv.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+From: Andrew Ruder <andrew.ruder@elecsyscorp.com>
+Subject: [PATCH 1/6] dm9000: acquire irq flags from device tree
+Date: Wed,  4 Jun 2014 17:28:44 -0500
+Message-ID: <1994ef1f22c99cf021b0e096b12509f29ac400d5.1401920694.git.andrew.ruder@elecsyscorp.com>
+References: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
+Cc: Andrew Ruder <andrew.ruder@elecsyscorp.com>,
+	Joseph CHANG <josright123@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:54350 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751803AbaFDW3C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:29:02 -0400
-Received: by mail-qa0-f44.google.com with SMTP id j7so228699qaq.31
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 15:29:01 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406012046040.20298@tomh.mtv.corp.google.com>
+Received: from new1-smtp.messagingengine.com ([66.111.4.221]:34831 "EHLO
+	new1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751826AbaFDWh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:37:56 -0400
+Received: from compute4.internal (compute4.nyi.mail.srv.osa [10.202.2.44])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 3D4754A8
+	for <netdev@vger.kernel.org>; Wed,  4 Jun 2014 18:29:13 -0400 (EDT)
+In-Reply-To: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
+In-Reply-To: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
+References: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 1, 2014 at 9:00 PM, Tom Herbert <therbert@google.com> wrote:
-> This patch series adds support for using checksums in UDP tunnels. With
-> this it is possible that two or more checksums may be set within the
-> same packet and we would like to do that efficiently.
+The DM9000 supports both active high interrupts and active low interrupts.
+This is configured via the attached EEPROM.  In the device-tree case, make sure
+that the DM9000 driver passes the correct flags to request_irq.
 
-Do you also plan to implement double checksum offload in the absence
-of TSO? I know it is functionally correct now but it's not offloaded.
+Signed-off-by: Andrew Ruder <andrew.ruder@elecsyscorp.com>
+---
+ drivers/net/ethernet/davicom/dm9000.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index a1a2b40..9d44c3f 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -1292,6 +1292,9 @@ dm9000_open(struct net_device *dev)
+ 	 * may work, and tell the user that this is a problem */
+ 
+ 	if (irqflags == IRQF_TRIGGER_NONE)
++		irqflags = irq_get_trigger_type(dev->irq);
++
++	if (irqflags == IRQF_TRIGGER_NONE)
+ 		dev_warn(db->dev, "WARNING: no IRQ resource flags set.\n");
+ 
+ 	irqflags |= IRQF_SHARED;
+-- 
+1.9.0.rc3.12.gbc97e2d
