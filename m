@@ -1,7 +1,7 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next v10 6/7] xen-net{back,front}: Document multi-queue feature in netif.h
-Date: Wed, 4 Jun 2014 10:30:46 +0100
-Message-ID: <1401874247-3202-7-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH net-next v10 1/7] xen-netback: Move grant_copy_op array back into struct xenvif.
+Date: Wed, 4 Jun 2014 10:30:41 +0100
+Message-ID: <1401874247-3202-2-git-send-email-wei.liu2@citrix.com>
 References: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,90 +11,73 @@ Cc: <ian.campbell@citrix.com>, <david.vrabel@citrix.com>,
 	"Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:21057 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751438AbaFDJau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 05:30:50 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:55395 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751364AbaFDJau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 05:30:50 -0400
 In-Reply-To: <1401874247-3202-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Andrew J. Bennieston" <andrew.bennieston@citrix.com>
 
-Document the multi-queue feature in terms of XenStore keys to be written
-by the backend and by the frontend.
+This array was allocated separately in commit ac3d5ac2 ("xen-netback:
+fix guest-receive-side array sizes") due to it being very large, and a
+struct xenvif is allocated as the netdev_priv part of a struct
+net_device, i.e. via kmalloc() but falling back to vmalloc() if the
+initial alloc. fails.
+
+In preparation for the multi-queue patches, where this array becomes
+part of struct xenvif_queue and is always allocated through vzalloc(),
+move this back into the struct xenvif.
 
 Signed-off-by: Andrew J. Bennieston <andrew.bennieston@citrix.com>
 Acked-by: Wei Liu <wei.liu2@citrix.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
 ---
- include/xen/interface/io/netif.h |   53 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
+ drivers/net/xen-netback/common.h    |    3 +--
+ drivers/net/xen-netback/interface.c |    9 ---------
+ 2 files changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/include/xen/interface/io/netif.h b/include/xen/interface/io/netif.h
-index c50061d..70054cc 100644
---- a/include/xen/interface/io/netif.h
-+++ b/include/xen/interface/io/netif.h
-@@ -51,6 +51,59 @@
-  */
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 0d4a285..2c283d6 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -158,8 +158,7 @@ struct xenvif {
  
- /*
-+ * Multiple transmit and receive queues:
-+ * If supported, the backend will write the key "multi-queue-max-queues" to
-+ * the directory for that vif, and set its value to the maximum supported
-+ * number of queues.
-+ * Frontends that are aware of this feature and wish to use it can write the
-+ * key "multi-queue-num-queues", set to the number they wish to use, which
-+ * must be greater than zero, and no more than the value reported by the backend
-+ * in "multi-queue-max-queues".
-+ *
-+ * Queues replicate the shared rings and event channels.
-+ * "feature-split-event-channels" may optionally be used when using
-+ * multiple queues, but is not mandatory.
-+ *
-+ * Each queue consists of one shared ring pair, i.e. there must be the same
-+ * number of tx and rx rings.
-+ *
-+ * For frontends requesting just one queue, the usual event-channel and
-+ * ring-ref keys are written as before, simplifying the backend processing
-+ * to avoid distinguishing between a frontend that doesn't understand the
-+ * multi-queue feature, and one that does, but requested only one queue.
-+ *
-+ * Frontends requesting two or more queues must not write the toplevel
-+ * event-channel (or event-channel-{tx,rx}) and {tx,rx}-ring-ref keys,
-+ * instead writing those keys under sub-keys having the name "queue-N" where
-+ * N is the integer ID of the queue for which those keys belong. Queues
-+ * are indexed from zero. For example, a frontend with two queues and split
-+ * event channels must write the following set of queue-related keys:
-+ *
-+ * /local/domain/1/device/vif/0/multi-queue-num-queues = "2"
-+ * /local/domain/1/device/vif/0/queue-0 = ""
-+ * /local/domain/1/device/vif/0/queue-0/tx-ring-ref = "<ring-ref-tx0>"
-+ * /local/domain/1/device/vif/0/queue-0/rx-ring-ref = "<ring-ref-rx0>"
-+ * /local/domain/1/device/vif/0/queue-0/event-channel-tx = "<evtchn-tx0>"
-+ * /local/domain/1/device/vif/0/queue-0/event-channel-rx = "<evtchn-rx0>"
-+ * /local/domain/1/device/vif/0/queue-1 = ""
-+ * /local/domain/1/device/vif/0/queue-1/tx-ring-ref = "<ring-ref-tx1>"
-+ * /local/domain/1/device/vif/0/queue-1/rx-ring-ref = "<ring-ref-rx1"
-+ * /local/domain/1/device/vif/0/queue-1/event-channel-tx = "<evtchn-tx1>"
-+ * /local/domain/1/device/vif/0/queue-1/event-channel-rx = "<evtchn-rx1>"
-+ *
-+ * If there is any inconsistency in the XenStore data, the backend may
-+ * choose not to connect any queues, instead treating the request as an
-+ * error. This includes scenarios where more (or fewer) queues were
-+ * requested than the frontend provided details for.
-+ *
-+ * Mapping of packets to queues is considered to be a function of the
-+ * transmitting system (backend or frontend) and is not negotiated
-+ * between the two. Guests are free to transmit packets on any queue
-+ * they choose, provided it has been set up correctly. Guests must be
-+ * prepared to receive packets on any queue they have requested be set up.
-+ */
-+
-+/*
-  * "feature-no-csum-offload" should be used to turn IPv4 TCP/UDP checksum
-  * offload off or on. If it is missing then the feature is assumed to be on.
-  * "feature-ipv6-csum-offload" should be used to turn IPv6 TCP/UDP checksum
+ 	struct timer_list wake_queue;
+ 
+-	/* This array is allocated seperately as it is large */
+-	struct gnttab_copy *grant_copy_op;
++	struct gnttab_copy grant_copy_op[MAX_GRANT_COPY_OPS];
+ 
+ 	/* We create one meta structure per ring request we consume, so
+ 	 * the maximum number is the same as the ring size.
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 53cdcdf..8fdedac 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -334,14 +334,6 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 
+ 	vif = netdev_priv(dev);
+ 
+-	vif->grant_copy_op = vmalloc(sizeof(struct gnttab_copy) *
+-				     MAX_GRANT_COPY_OPS);
+-	if (vif->grant_copy_op == NULL) {
+-		pr_warn("Could not allocate grant copy space for %s\n", name);
+-		free_netdev(dev);
+-		return ERR_PTR(-ENOMEM);
+-	}
+-
+ 	vif->domid  = domid;
+ 	vif->handle = handle;
+ 	vif->can_sg = 1;
+@@ -601,7 +593,6 @@ void xenvif_free(struct xenvif *vif)
+ 
+ 	unregister_netdev(vif->dev);
+ 
+-	vfree(vif->grant_copy_op);
+ 	free_netdev(vif->dev);
+ 
+ 	module_put(THIS_MODULE);
 -- 
 1.7.10.4
