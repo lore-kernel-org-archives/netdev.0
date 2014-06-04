@@ -1,30 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 04 Jun 2014 14:40:36 -0700 (PDT)
-Message-ID: <20140604.144036.436617974092408509.davem@davemloft.net>
-References: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH v3 2/4] net: Allow for more then a single subclass for
+ netif_addr_lock
+Date: Wed, 4 Jun 2014 21:42:12 +0000
+Message-ID: <1401918131.24086.9.camel@jekeller-desk1.amr.corp.intel.com>
+References: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>
+	 <1400274296-14765-3-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
+	"vfalico@gmail.com" <vfalico@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jiri@resnulli.us" <jiri@resnulli.us>
+To: "vyasevic@redhat.com" <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37096 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751861AbaFDVkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 17:40:37 -0400
-In-Reply-To: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mga11.intel.com ([192.55.52.93]:20183 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751290AbaFDVmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 17:42:13 -0400
+In-Reply-To: <1400274296-14765-3-git-send-email-vyasevic@redhat.com>
+Content-Language: en-US
+Content-ID: <5CF8ABF49D0F8F449F65571E5022C4D1@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed,  4 Jun 2014 00:04:53 -0700
-
-> This series contains updates to e1000, igb and ixgbe.
- ...
-> The following are changes since commit 92ff71b8fe9cd9c673615fc6f3870af7376d7c84:
->   net: remove some unless free on failure in alloc_netdev_mqs()
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Pulled, thanks Jeff.
+T24gRnJpLCAyMDE0LTA1LTE2IGF0IDE3OjA0IC0wNDAwLCBWbGFkIFlhc2V2aWNoIHdyb3RlOg0K
+PiBDdXJyZW50bHkgbmV0aWZfYWRkcl9sb2NrX25lc3RlZCBhc3N1bWVzIHRoYXQgdGhlcmUgY2Fu
+IGJlIG9ubHkNCj4gYSBzaW5nbGUgbmVzdGluZyBsZXZlbCBiZXR3ZWVuIDIgZGV2aWNlcy4gIEhv
+d2V2ZXIsIGlmIHdlDQo+IGhhdmUgbXVsdGlwbGUgZGV2aWNlcyBvZiB0aGUgc2FtZSB0eXBlIHN0
+YWNrZWQsIHRoaXMgZmFpbHMuDQo+IEZvciBleGFtcGxlOg0KPiAgZXRoMCA8LS0gdmxhbjAuMTAg
+PC0tIHZsYW4wLjEwLjIwDQo+IA0KPiBBIG1vcmUgY29tcGxpY2F0ZWQgY29uZmlndXJhdGlvbiBt
+YXkgc3RhY2sgbW9yZSB0aGVuIG9uZSB0eXBlIG9mDQo+IGRldmljZSBpbiBkaWZmZXJlbnQgb3Jk
+ZXIuDQo+IEV4Og0KPiAgIGV0aDAgPC0tIHZsYW4wLjEwIDwtLSBtYWN2bGFuMCA8LS0gdmxhbjEu
+MTAuMjAgPC0tIG1hY3ZsYW4xDQo+IA0KPiBUaGlzIHBhdGNoIGFkZHMgYW4gbmRvXyogZnVuY3Rp
+b24gdGhhdCBhbGxvd3MgZWFjaCBzdGFja2FibGUNCj4gZGV2aWNlIHRvIHJlcG9ydCBpdHMgbmVz
+dGluZyBsZXZlbC4gIElmIHRoZSBkZXZpY2UgZG9lc24ndA0KPiBwcm92aWRlIHRoaXMgZnVuY3Rp
+b24gZGVmYXVsdCBzdWJjbGFzcyBvZiAxIGlzIHVzZWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBW
+bGFkIFlhc2V2aWNoIDx2eWFzZXZpY0ByZWRoYXQuY29tPg0KPiAtLS0NCj4gIGluY2x1ZGUvbGlu
+dXgvbmV0ZGV2aWNlLmggfCA4ICsrKysrKystDQo+ICAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9u
+ZXRkZXZpY2UuaCBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgNCj4gaW5kZXggZmI5MTJlOC4u
+OWQ0YjFmMSAxMDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaA0KPiArKysg
+Yi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oDQo+IEBAIC0xMTQ0LDYgKzExNDQsNyBAQCBzdHJ1
+Y3QgbmV0X2RldmljZV9vcHMgew0KPiAgCW5ldGRldl90eF90CQkoKm5kb19kZndkX3N0YXJ0X3ht
+aXQpIChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLA0KPiAgCQkJCQkJCXN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYsDQo+ICAJCQkJCQkJdm9pZCAqcHJpdik7DQo+ICsJaW50CQkJKCpuZG9fZ2V0X2xvY2tfc3Vi
+Y2xhc3MpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KPiAgfTsNCj4gIA0KPiAgLyoqDQo+IEBA
+IC0yOTUwLDcgKzI5NTEsMTIgQEAgc3RhdGljIGlubGluZSB2b2lkIG5ldGlmX2FkZHJfbG9jayhz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiAgDQo+ICBzdGF0aWMgaW5saW5lIHZvaWQgbmV0aWZf
+YWRkcl9sb2NrX25lc3RlZChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiAgew0KPiAtCXNwaW5f
+bG9ja19uZXN0ZWQoJmRldi0+YWRkcl9saXN0X2xvY2ssIFNJTkdMRV9ERVBUSF9ORVNUSU5HKTsN
+Cj4gKwlpbnQgc3ViY2xhc3MgPSBTSU5HTEVfREVQVEhfTkVTVElORzsNCj4gKw0KPiArCWlmIChk
+ZXYtPm5ldGRldl9vcHMtPm5kb19nZXRfbG9ja19zdWJjbGFzcykNCj4gKwkJc3ViY2xhc3MgPSBk
+ZXYtPm5ldGRldl9vcHMtPm5kb19nZXRfbG9ja19zdWJjbGFzcyhkZXYpOw0KPiArDQo+ICsJc3Bp
+bl9sb2NrX25lc3RlZCgmZGV2LT5hZGRyX2xpc3RfbG9jaywgc3ViY2xhc3MpOw0KPiAgfQ0KPiAg
+DQoNCkhpLA0KDQpJIGtub3cgdGhpcyBoYXMgYWxyZWFkeSBiZWVuIGFwcGxpZWQuIEhvd2V2ZXIs
+IHRoaXMgY29tbWl0IGNhdXNlcyBhDQp3YXJuaW5nIGluIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNl
+Lmggd2hlbiBXPTENCg0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGl4Z2JlL2l4Z2JlLmg6MzU6MCwN
+CiAgICAgICAgICAgICAgICAgZnJvbSBpeGdiZS9peGdiZV9saWIuYzoyOToNCmluY2x1ZGUvbGlu
+dXgvbmV0ZGV2aWNlLmg6IEluIGZ1bmN0aW9uIOKAmG5ldGlmX2FkZHJfbG9ja19uZXN0ZWTigJk6
+DQppbmNsdWRlL2xpbnV4L25ldGRldmljZS5oOjI5NTQ6Njogd2FybmluZzogdmFyaWFibGUg4oCY
+c3ViY2xhc3PigJkgc2V0IGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtYnV0LXNldC12YXJpYWJsZV0N
+CiAgaW50IHN1YmNsYXNzID0gU0lOR0xFX0RFUFRIX05FU1RJTkc7DQogICAgICBeDQoNClRoaXMg
+b25seSBvY2N1cnMgaWYgQ09ORklHX0RFQlVHX0xPQ0tfQUxMT0M9WSwgYW5kIHRoZXJlIHNlZW1z
+IHRvIGJlIG5vDQplYXN5IGZpeCBmb3IgdGhlIHdhcm5pbmcsIGR1ZSB0byBob3cgc3Bpbl9sb2Nr
+X25lc3RlZCBpcyBhIG1hY3JvIHRoYXQNCmRpc2NhcmRzIHRoZSBzZWNvbmQgcGFyYW1ldGVyIHdo
+ZW4gREVCVUdfTE9DS19BTExPQyBpcyBkaXNhYmxlZC4NCg0KSSdtIG5vdCBzdXJlIGhvdyBiaWcg
+YSBkZWFsIHRoaXMgaXMsIGNvbnNpZGVyaW5nIHRoYXQgaXQgb25seSBvY2N1cnMgYXQNClc9MSwg
+YW5kIHRoZSBwYXRjaCBpcyBhbHJlYWR5IGNvbW1pdHRlZC4NCg0KPiAgc3RhdGljIGlubGluZSB2
+b2lkIG5ldGlmX2FkZHJfbG9ja19iaChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KDQpSZWdhcmRz
+LA0KSmFrZQ0KDQo=
