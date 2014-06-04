@@ -1,71 +1,78 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH] pci/msi: fix memory leak in free_msi_irqs()
-Date: Wed,  4 Jun 2014 15:49:50 -0700
-Message-ID: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-pci@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH] net: Revert "fib_trie: use seq_file_net rather than seq->private"
+Date: Wed, 04 Jun 2014 16:44:09 -0600
+Message-ID: <538FA139.4020501@gmail.com>
+References: <1401919352-32263-1-git-send-email-sasha.levin@oracle.com> <538F99A2.2090102@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sasha Levin <sasha.levin@oracle.com>, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:49173 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbaFDWoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:44:13 -0400
+In-Reply-To: <538F99A2.2090102@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-free_msi_irqs() is leaking memory, since
-list_for_each_entry(entry, &dev->msi_list, list) {...}
-is never executed, because dev->msi_list is made empty by
-the loop just above this one.
+On 6/4/14, 4:11 PM, David Ahern wrote:
+> On 6/4/14, 4:02 PM, Sasha Levin wrote:
+>> This reverts commit 30f38d2fdd79f13fc929489f7e6e517b4a4bfe63.
+>>
+>> fib_triestat is surrounded by a big lie: while it claims that it's a
+>> seq_file (fib_triestat_seq_open, fib_triestat_seq_show), it isn't:
+>>
+>>     static const struct file_operations fib_triestat_fops = {
+>>             .owner  = THIS_MODULE,
+>>             .open   = fib_triestat_seq_open,
+>>             .read   = seq_read,
+>>             .llseek = seq_lseek,
+>>             .release = single_release_net,
+>>     };
+>>
+>> Yes, fib_triestat is just a regular file.
 
-Fix it by relying on zero termination of attribute array like
-populate_msi_sysfs() does.
+If you compare fib_trie to fib_triestat the only difference is the use 
+of single_open_net and single_release_net by fib_triestat.
 
-Fixes: 1c51b50c2995 ("PCI/MSI: Export MSI mode using attributes, not kobjects")
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
+single_open_net is a wrapper to single_open passing struct net as the 
+private data. single_open is for seq_files:
 
-This was found by kmemleak report:
-unreferenced object 0xffff880808eda600 (size 64):
-  comm "modprobe", pid 1526, jiffies 4294902299 (age 58422.716s)
-  hex dump (first 32 bytes):
-    20 c4 66 09 08 88 ff ff 24 01 00 00 00 00 00 00   .f.....$.......
-    50 97 77 82 ff ff ff ff 00 00 00 00 00 00 00 00  P.w.............
-  backtrace:
-    [<ffffffff816e5fc8>] kmemleak_alloc+0x28/0x50
-    [<ffffffff811b885e>] kmem_cache_alloc_trace+0xde/0x230
-    [<ffffffff813aa286>] populate_msi_sysfs+0xc6/0x250
-    [<ffffffff813aafdb>] pci_enable_msix+0x34b/0x430
-    [<ffffffff813ab0ec>] pci_enable_msix_range+0x2c/0x70
-    [<ffffffffa0034ade>] igb_init_interrupt_scheme+0x9e/0x420 [igb]
-    [<ffffffffa003d668>] igb_probe+0x4a8/0x1250 [igb]
-    [<ffffffff813930de>] local_pci_probe+0x4e/0xa0
-    [<ffffffff813933e9>] pci_device_probe+0xd9/0x120
-    [<ffffffff814697cd>] driver_probe_device+0x8d/0x250
-    [<ffffffff81469a3b>] __driver_attach+0xab/0xb0
-    [<ffffffff8146799d>] bus_for_each_dev+0x5d/0xa0
-    [<ffffffff814691de>] driver_attach+0x1e/0x20
-    [<ffffffff81468e57>] bus_add_driver+0x117/0x220
-    [<ffffffff8146a104>] driver_register+0x64/0xf0
-    [<ffffffff813923f4>] __pci_register_driver+0x64/0x70
 
-IGB driver is calling pci_enable_msix_range() and immediately pci_disable_msix()
-which leaks the memory.
-Obviously the leak happens with any driver.
+int single_open(struct file *file, int (*show)(struct seq_file *, void *),
+         void *data)
+{
+     struct seq_operations *op = kmalloc(sizeof(*op), GFP_KERNEL);
+     int res = -ENOMEM;
 
- drivers/pci/msi.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+     if (op) {
+         op->start = single_start;
+         op->next = single_next;
+         op->stop = single_stop;
+         op->show = show;
+         res = seq_open(file, op);
+         if (!res)
+             ((struct seq_file *)file->private_data)->private = data;
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index 955ab7990c5b..fb02fc2fb034 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -414,7 +414,7 @@ static void free_msi_irqs(struct pci_dev *dev)
- 	if (dev->msi_irq_groups) {
- 		sysfs_remove_groups(&dev->dev.kobj, dev->msi_irq_groups);
- 		msi_attrs = dev->msi_irq_groups[0]->attrs;
--		list_for_each_entry(entry, &dev->msi_list, list) {
-+		while (msi_attrs[count]) {
- 			dev_attr = container_of(msi_attrs[count],
- 						struct device_attribute, attr);
- 			kfree(dev_attr->attr.name);
--- 
-1.7.9.5
+Where is the problem using seq_file_net in fib_triestat_seq_show:
+
+static int fib_triestat_seq_show(struct seq_file *seq, void *v)
+{
+     struct net *net = (struct net *)seq->private;
+
+where
+
+static inline struct net *seq_file_net(struct seq_file *seq)
+{
+#ifdef CONFIG_NET_NS
+     return ((struct seq_net_private *)seq->private)->net;
+#else
+     return &init_net;
+#endif
+}
+
+David
