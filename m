@@ -1,102 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCH] net: ethernet: intel: ixgbe:
- ixgbe_main.c: Cleaning up missing null-terminate after strncpy call
-Date: Wed, 04 Jun 2014 16:45:17 -0700
-Message-ID: <1401925517.19767.175.camel@jtkirshe-mobl>
-References: <1401917380-2772-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2 0/7] net: Support checksum in UDP tunnels
+Date: Wed, 4 Jun 2014 16:46:04 -0700
+Message-ID: <CAEP_g=8Yf6Ur=znFTDZ_Bc0NV_sDuAabCdLJ5f=23qwf5p87hQ@mail.gmail.com>
+References: <alpine.DEB.2.02.1406012046040.20298@tomh.mtv.corp.google.com>
+ <CAEP_g=9=rCQz6fsZ0c4KP7Kd4L8Q2yk8tKON0GVk52Napj5ufA@mail.gmail.com> <CA+mtBx8hBvZ6dH1BEZaASQH2bh9=w-TMpF2_NZVRYOAy6cR-Fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5675933098046855784=="
-Cc: Don@isotope.jf.intel.com, NICS <linux.nics@intel.com>,
-	Linux@isotope.jf.intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1401917380-2772-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:57752 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753853AbaFDXqY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 19:46:24 -0400
+Received: by mail-qg0-f43.google.com with SMTP id 63so386169qgz.16
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 16:46:24 -0700 (PDT)
+In-Reply-To: <CA+mtBx8hBvZ6dH1BEZaASQH2bh9=w-TMpF2_NZVRYOAy6cR-Fg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jun 4, 2014 at 4:11 PM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Jun 4, 2014 at 3:28 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Sun, Jun 1, 2014 at 9:00 PM, Tom Herbert <therbert@google.com> wrote:
+>>> This patch series adds support for using checksums in UDP tunnels. With
+>>> this it is possible that two or more checksums may be set within the
+>>> same packet and we would like to do that efficiently.
+>>
+>> Do you also plan to implement double checksum offload in the absence
+>> of TSO? I know it is functionally correct now but it's not offloaded.
+>
+> We'd need HW support for that (like NETIF_F_HW_CSUM2). I think there
+> is some justification in light of tunneling protocols over UDP that
+> carry sensitive data, like virtual network ID, and don't otherwise
+> have any provision at L3 to detect data corruption (e.g. vxlan).
+>
+> To implement, I think this is just another pair of checksum offsets
+> (csum_start, csum_offset) (CHECKSUM_PARTIAL2?) that a driver would
+> implement. Both csum_start and csum_offset could also be stored in 8
+> bits (right shifted to give values up to 510) if there are concerns
+> about space in TX descriptors.
+>
+> Are any vendors interested in this functionality?
 
---===============5675933098046855784==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-XKWcFaUQst+hbSnjUrfr"
-
-
---=-XKWcFaUQst+hbSnjUrfr
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2014-06-04 at 23:29 +0200, Rickard Strandqvist wrote:
-> Added a guaranteed null-terminate after call to strncpy.
->=20
-> This was partly found using a static code analysis program called
-> cppcheck.
->=20
-> Signed-off-by: Rickard Strandqvist
-> <rickard_strandqvist@spectrumdigital.se>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-
-NAK, I won't be picking this patch up based on Mark's and Joe's
-feedback.
-
---=-XKWcFaUQst+hbSnjUrfr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABCgAGBQJTj6+NAAoJEOVv75VaS+3OVJUP/1YONvsZ0hxDz5IMn59SXzNf
-359R8nBq00KUIKxCgb9StrPdXCsxaAIPCDTmaU3/bixQq2R36lrlxT3im6MtoBDG
-R/Mbh/TDokG9/UTV+5RBw+n+s5sojeL2HRZzhrUCid0NmQVdJYdPWxji5d+DSBnT
-pYLBTyWV0drXYflK8S2nRtyE2qg7TwXN1L0ZMFadzN8T0D/1OFaXmhrVkQRnteYQ
-ozJ+O8rRDggltWn/nc+zHwvce7aDVXFJGo5pUTtsZ2dwC3p1nB/pkA/5ooT82Z2t
-zn8KD15XA9WSKRkaWmYOhV6+bahUar2uXhGJ8+EcUTkJEbuWZHLS9RBAAdgQVsAf
-m1rlouzi9Zxia2KP+HHixlsoPor/8lO39WVUPgmsDxMK3K88FE/R73DZ3pYUMdQo
-TK2OIR1LY2wEGVXqErHl80rLDp/ZVU/vj+fSjQzd47x3bMcMY/jsDgwU2akjms4O
-nC/cVox/xPg3LdzFCW4S1XEm+Q/2LkniclFhCpVUJzOWjldzbQ+Ng44LJYNxoxmS
-Qd9xRce9dKOOdNbWDXjEL0yvSTis9hi/8+glsfp080BoObN2QbtxynRfG9mLWRCk
-WObnciTF9ya4/AKpvV+RiW79dRVmdxRwb+1Hcagjj2umKaHV53bSbKIgJPJOXHoj
-aOK7rDaP1B3lVvbQLk1D
-=9W/H
------END PGP SIGNATURE-----
-
---=-XKWcFaUQst+hbSnjUrfr--
-
-
-
---===============5675933098046855784==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and their 
-applications. Written by three acclaimed leaders in the field, 
-this first edition is now available. Download your free book today!
-http://p.sf.net/sfu/NeoTech
---===============5675933098046855784==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============5675933098046855784==--
+My guess is that you won't get too many vendors to respond here but
+without going into specifics, I know that a few are planning this. I
+guess there isn't too much benefit until the hardware exists (which is
+a different situation from GSO) but I was just wondering if you were
+planning on building out the infrastructure.
