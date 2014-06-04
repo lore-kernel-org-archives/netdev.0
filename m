@@ -1,51 +1,58 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH urgent] netlink: Only check file credentials for
- implicit destinations
-Date: Wed, 4 Jun 2014 18:01:31 +0200
-Message-ID: <20140604180131.1bc17fe8@griffin>
-References: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: Add firmware for r8723au
+Date: Wed, 04 Jun 2014 11:11:44 -0500
+Message-ID: <538F4540.9080002@lwfinger.net>
+References: <1388709729-28496-1-git-send-email-Larry.Finger@lwfinger.net>	 <1390174519.3651.3.camel@deadeye.wl.decadent.org.uk> <1401833651.2412.35.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45825 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbaFDQBg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 12:01:36 -0400
-In-Reply-To: <06bbac8182aa1054ab8f6392f14e9148def0f561.1401472882.git.luto@amacapital.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1401833651.2412.35.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 30 May 2014 11:04:00 -0700, Andy Lutomirski wrote:
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-> @@ -1373,7 +1373,9 @@ retry:
->  bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
->  			struct user_namespace *user_ns, int cap)
->  {
-> -	return sk_ns_capable(nsp->sk, user_ns, cap);
-> +	return ((nsp->flags & NETLINK_SKB_DST) ||
-> +		file_ns_capable(nsp->sk->sk_socket->file, user_ns, cap)) &&
-> +		ns_capable(user_ns, cap);
+On 06/03/2014 05:14 PM, Ben Hutchings wrote:
+> On Sun, 2014-01-19 at 23:35 +0000, Ben Hutchings wrote:
+>> On Thu, 2014-01-02 at 18:42 -0600, Larry Finger wrote:
+>>> This firmware is for a driver that will soon be submitted to the kernel.
+>>> It occurs as data statements in Realtek driver rtl8723A_WiFi_linux_v4.1.3_6044.20121224.
+>>>
+>>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>>> ---
+>>>   WHENCE                         |  13 +++++++++++++
+>>>   rtlwifi/rtl8723aufw_A.bin      | Bin 0 -> 22172 bytes
+>>>   rtlwifi/rtl8723aufw_B.bin      | Bin 0 -> 24118 bytes
+>>>   rtlwifi/rtl8723aufw_B_NoBT.bin | Bin 0 -> 19200 bytes
+>>>   4 files changed, 13 insertions(+)
+>>>   create mode 100644 rtlwifi/rtl8723aufw_A.bin
+>>>   create mode 100644 rtlwifi/rtl8723aufw_B.bin
+>>>   create mode 100644 rtlwifi/rtl8723aufw_B_NoBT.bin
+>> [...]
+>>
+>> Applied, thanks.
+>
+> I just noticed that the driver in Linux 3.15 seems to ask for
+> rtlwifi/rtl8723aufw.bin and not rtlwifi/rtl8723aufw_A.bin.  You'll need
+> to change the filename on one side or the other.
 
-Sorry if I'm missing something. Is socket->file valid (non-NULL) in
-kernel->kernel netlink communication? I don't think it's assigned for
-sockets created by netlink_kernel_create, is it? Seems this would cause
-NULL ptr dereference.
+Jes,
 
-But then, I don't even know whether kernel->kernel netlink
-communication is allowed.
+As Ben points out, I messed up the firmware names, and one of them needs to be 
+changed. Keeping the name "rtlwifi/rtl8723aufw_A.bin" would retain a certain 
+amount of symmetry, but is may be easier to retain "rtlwifi/rtl8723aufw.bin" in 
+the code. A third option would be to try for one of the names and fall back to 
+the other if it fails. What do you think?
 
-(I'm aware that if this is really the case the NULL ptr deref is not
-caused by this patch but by the one this is fixing.)
+In any case, we need additional MODULE_FIRMWARE macros for the other two 
+firmware files.
 
-Thanks,
+Larry
 
- Jiri
 
--- 
-Jiri Benc
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
