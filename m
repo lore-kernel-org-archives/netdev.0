@@ -1,52 +1,47 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next 2/3] macvlan: Support bonding events
-Date: Wed,  4 Jun 2014 16:23:37 -0400
-Message-ID: <1401913418-31307-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next 1/3] bonding: Turn on IFF_UNICAST_FLT on bond devices
+Date: Wed,  4 Jun 2014 16:23:36 -0400
+Message-ID: <1401913418-31307-2-git-send-email-vyasevic@redhat.com>
 References: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
 Cc: j.vosburgh@gmail.com, vfalico@gmail.com, andy@greyhouse.net,
 	kaber@trash.net, Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61624 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54895 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750925AbaFDUXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 16:23:48 -0400
+	id S1750925AbaFDUXr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 16:23:47 -0400
 In-Reply-To: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Bonding and team drivers generate specific events during failover
-that trigger switch updates.  When a macvlan device is configured
-on top of bonding, we want switches to learn about the macvlan
-devices as well.   This patch adds a handler to macvlan driver to
-propagate these events to all macvlan devices.  We let the generic
-inetdev event handler do the work.
+Bonding devices manage the unicast filters of the underlying
+interfaces, but do not turn on IFF_UNICAST_FLT flag.  Thus
+anytime a unicast address is added to the bond, the bond is
+places in promiscuous mode.
 
-This allows macvlan to operated correctly over active-backup
-mode bond.
+Turn on IFF_UNICAST_FLT on the bond device so that the bond does
+not go into promiscuous mode needlesly.  If an underlying device
+does not support unicast filtering, that device will automaticall
+enter promiscuous mode already.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/macvlan.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index eee9106..453d55a 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1209,6 +1209,13 @@ static int macvlan_device_event(struct notifier_block *unused,
- 	case NETDEV_PRE_TYPE_CHANGE:
- 		/* Forbid underlaying device to change its type. */
- 		return NOTIFY_BAD;
-+
-+	case NETDEV_NOTIFY_PEERS:
-+	case NETDEV_BONDING_FAILOVER:
-+	case NETDEV_RESEND_IGMP:
-+		/* Propagate to all vlans */
-+		list_for_each_entry(vlan, &port->vlans, list)
-+			call_netdevice_notifiers(event, vlan->dev);
- 	}
- 	return NOTIFY_DONE;
- }
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 59a12c61..a89bf18 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3945,7 +3945,7 @@ void bond_setup(struct net_device *bond_dev)
+ 	/* Initialize the device options */
+ 	bond_dev->tx_queue_len = 0;
+ 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
+-	bond_dev->priv_flags |= IFF_BONDING;
++	bond_dev->priv_flags |= IFF_BONDING | IFF_UNICAST_FLT;
+ 	bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
+ 
+ 	/* At first, we block adding VLANs. That's the only way to
 -- 
 1.9.0
