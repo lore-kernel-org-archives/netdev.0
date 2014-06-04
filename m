@@ -1,92 +1,164 @@
 From: Andrew Ruder <andrew.ruder@elecsyscorp.com>
-Subject: [PATCH 6/6] dm9000: avoid sleeping in dm9000_timeout callback
-Date: Wed,  4 Jun 2014 17:28:49 -0500
-Message-ID: <770572506d1d2b64a5616e0ae6438cf32cf5a28a.1401920694.git.andrew.ruder@elecsyscorp.com>
+Subject: [PATCH 3/6] dm9000: clean up edge-triggered irq compatibility
+Date: Wed,  4 Jun 2014 17:28:46 -0500
+Message-ID: <2f4a1c28e0bf9c8d4443cce345bbf79274851384.1401920694.git.andrew.ruder@elecsyscorp.com>
 References: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
 Cc: Andrew Ruder <andrew.ruder@elecsyscorp.com>,
 	Joseph CHANG <josright123@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from new1-smtp.messagingengine.com ([66.111.4.221]:50410 "EHLO
+Received: from new1-smtp.messagingengine.com ([66.111.4.221]:37743 "EHLO
 	new1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751917AbaFDWh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:37:57 -0400
-Received: from compute3.internal (compute3.nyi.mail.srv.osa [10.202.2.43])
-	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 171424C3
-	for <netdev@vger.kernel.org>; Wed,  4 Jun 2014 18:29:16 -0400 (EDT)
+	by vger.kernel.org with ESMTP id S1751569AbaFDWh4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:37:56 -0400
+Received: from compute1.internal (compute1.nyi.mail.srv.osa [10.202.2.41])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 24E414BA
+	for <netdev@vger.kernel.org>; Wed,  4 Jun 2014 18:29:15 -0400 (EDT)
 In-Reply-To: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
 In-Reply-To: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
 References: <cover.1401920694.git.andrew.ruder@elecsyscorp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On the DM9000B, dm9000_msleep() is called during the dm9000_timeout()
-routine.  Since dm9000_timeout() holds the main spinlock through the
-entire routine, mdelay() needs to be used rather than msleep().
-Furthermore, the mutex_lock()/mutex_unlock() should be avoided so as to
-not sleep with spinlocks held.
+DM9000 uses level-triggered interrupts.  Some systems (PXA270) only
+support edge-triggered interrupts on GPIOs.  Some changes are necessary
+to ensure that interrupts are not triggered while the GPIO interrupt is
+masked or we will miss the interrupt forever.
+
+* Make some helper functions called dm9000_mask_interrupts() and
+  dm9000_unmask_interrupts() for readability.
+
+* dm9000_init_dm9000(): ensure that this function always leaves interrupts
+  masked regardless of the state when it entered the function.  This is
+  primarily to support the situation in dm9000_open where the logic used
+  to go:
+
+    dm9000_open()
+        dm9000_init_dm9000()
+            unmask interrupts
+        request_irq()
+
+  If an interrupt occurred between unmasking the interrupt and
+  requesting the irq, it would be missed forever as the edge event would
+  never be seen by the GPIO hardware in the PXA270.  This allows us to
+  change the logic to:
+
+    dm9000_open()
+        dm9000_init_dm9000()
+            dm9000_mask_interrupts()
+        request_irq()
+        dm9000_unmask_interrupts()
+
+* dm9000_timeout(), dm9000_drv_resume(): Add the missing
+  dm9000_unmask_interrupts() now required by the change above.
+
+* dm9000_shutdown(): Use mask helper function
+
+* dm9000_interrupt(): Use mask/unmask helper functions
 
 Signed-off-by: Andrew Ruder <andrew.ruder@elecsyscorp.com>
 ---
- drivers/net/ethernet/davicom/dm9000.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/davicom/dm9000.c | 32 ++++++++++++++++++++++----------
+ 1 file changed, 22 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index eb9b704..785afa5 100644
+index e6b1bc3..c508a33 100644
 --- a/drivers/net/ethernet/davicom/dm9000.c
 +++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -109,6 +109,7 @@ typedef struct board_info {
- 	u8		imr_all;
- 
- 	unsigned int	flags;
-+	unsigned int	in_timeout:1;
- 	unsigned int	in_suspend:1;
- 	unsigned int	wake_supported:1;
- 
-@@ -273,7 +274,7 @@ static void dm9000_dumpblk_32bit(void __iomem *reg, int count)
-  */
- static void dm9000_msleep(board_info_t *db, unsigned int ms)
- {
--	if (db->in_suspend)
-+	if (db->in_suspend || db->in_timeout)
- 		mdelay(ms);
- 	else
- 		msleep(ms);
-@@ -334,7 +335,8 @@ dm9000_phy_write(struct net_device *dev,
- 	unsigned long reg_save;
- 
- 	dm9000_dbg(db, 5, "phy_write[%02x] = %04x\n", reg, value);
--	mutex_lock(&db->addr_lock);
-+	if (!db->in_timeout)
-+		mutex_lock(&db->addr_lock);
- 
- 	spin_lock_irqsave(&db->lock, flags);
- 
-@@ -365,7 +367,8 @@ dm9000_phy_write(struct net_device *dev,
- 	writeb(reg_save, db->io_addr);
- 
+@@ -882,6 +882,18 @@ dm9000_hash_table(struct net_device *dev)
  	spin_unlock_irqrestore(&db->lock, flags);
--	mutex_unlock(&db->addr_lock);
-+	if (!db->in_timeout)
-+		mutex_unlock(&db->addr_lock);
  }
  
- /* dm9000_set_io
-@@ -971,6 +974,7 @@ static void dm9000_timeout(struct net_device *dev)
++static void
++dm9000_mask_interrupts(board_info_t *db)
++{
++	iow(db, DM9000_IMR, IMR_PAR);
++}
++
++static void
++dm9000_unmask_interrupts(board_info_t *db)
++{
++	iow(db, DM9000_IMR, db->imr_all);
++}
++
+ /*
+  * Initialize dm9000 board
+  */
+@@ -895,6 +907,7 @@ dm9000_init_dm9000(struct net_device *dev)
+ 	dm9000_dbg(db, 1, "entering %s\n", __func__);
  
- 	/* Save previous register address */
- 	spin_lock_irqsave(&db->lock, flags);
-+	db->in_timeout = 1;
- 	reg_save = readb(db->io_addr);
+ 	dm9000_reset(db);
++	dm9000_mask_interrupts(db);
+ 
+ 	/* I/O mode */
+ 	db->io_mode = ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mode */
+@@ -943,9 +956,6 @@ dm9000_init_dm9000(struct net_device *dev)
+ 
+ 	db->imr_all = imr;
+ 
+-	/* Enable TX/RX interrupt mask */
+-	iow(db, DM9000_IMR, imr);
+-
+ 	/* Init Driver variable */
+ 	db->tx_pkt_cnt = 0;
+ 	db->queue_pkt_len = 0;
+@@ -965,6 +975,7 @@ static void dm9000_timeout(struct net_device *dev)
  
  	netif_stop_queue(dev);
-@@ -982,6 +986,7 @@ static void dm9000_timeout(struct net_device *dev)
+ 	dm9000_init_dm9000(dev);
++	dm9000_unmask_interrupts(db);
+ 	/* We can accept TX packets again */
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+ 	netif_wake_queue(dev);
+@@ -1194,9 +1205,7 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 	/* Save previous register address */
+ 	reg_save = readb(db->io_addr);
  
+-	/* Disable all interrupts */
+-	iow(db, DM9000_IMR, IMR_PAR);
+-
++	dm9000_mask_interrupts(db);
+ 	/* Got DM9000 interrupt status */
+ 	int_status = ior(db, DM9000_ISR);	/* Got ISR */
+ 	iow(db, DM9000_ISR, int_status);	/* Clear ISR status */
+@@ -1219,9 +1228,7 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
+ 		}
+ 	}
+ 
+-	/* Re-enable interrupt mask */
+-	iow(db, DM9000_IMR, db->imr_all);
+-
++	dm9000_unmask_interrupts(db);
  	/* Restore previous register address */
  	writeb(reg_save, db->io_addr);
-+	db->in_timeout = 0;
- 	spin_unlock_irqrestore(&db->lock, flags);
+ 
+@@ -1309,6 +1316,10 @@ dm9000_open(struct net_device *dev)
+ 
+ 	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev))
+ 		return -EAGAIN;
++	/* Now that we have an interrupt handler hooked up we can unmask
++	 * our interrupts
++	 */
++	dm9000_unmask_interrupts(db);
+ 
+ 	/* Init driver variable */
+ 	db->dbug_cnt = 0;
+@@ -1329,7 +1340,7 @@ dm9000_shutdown(struct net_device *dev)
+ 	/* RESET device */
+ 	dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET);	/* PHY RESET */
+ 	iow(db, DM9000_GPR, 0x01);	/* Power-Down PHY */
+-	iow(db, DM9000_IMR, IMR_PAR);	/* Disable all interrupt */
++	dm9000_mask_interrupts(db);
+ 	iow(db, DM9000_RCR, 0x00);	/* Disable RX */
  }
  
+@@ -1694,6 +1705,7 @@ dm9000_drv_resume(struct device *dev)
+ 			 * the device was powered off it is in a known state */
+ 			if (!db->wake_state) {
+ 				dm9000_init_dm9000(ndev);
++				dm9000_unmask_interrupts(db);
+ 			}
+ 
+ 			netif_device_attach(ndev);
 -- 
 1.9.0.rc3.12.gbc97e2d
