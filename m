@@ -1,50 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fwd: Linux stack performance drop (TCP and UDP) in 3.10 kernel
- in routed scenario
-Date: Wed, 04 Jun 2014 11:44:18 -0700
-Message-ID: <1401907458.3645.257.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJMXqXZQ_S27LCZNJDjcQ9jy2qyJ0UT2nk+wdZOTQep+5rQZhQ@mail.gmail.com>
-	 <CAJMXqXaf6P=F4+jLhRFrv9GTRK6K9h5boSgyVCS7e9C31a_YzA@mail.gmail.com>
-	 <1401885281.3645.245.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CAJMXqXaqXG03e+OHr0aMh9x_N4BzBVWTkQLKgNVvq-QmDaX5Ng@mail.gmail.com>
-	 <1401893993.3645.253.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <CACP96tQsfN9REHKZBJ7uWEr5kK04ScFPFMC8Zx7PMykoQg3yyg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net] tap: Mark devices of type "tun" as IFF_DONT_BRIDGE
+Date: Wed, 4 Jun 2014 11:54:48 -0700
+Message-ID: <20140604115448.644073d0@nehalam.linuxnetplumber.net>
+References: <1401905168-21559-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Suprasad Mutalik Desai <suprasad.desai@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.ne>
-To: sowmini varadhan <sowmini05@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:50605 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaFDSoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 14:44:20 -0400
-Received: by mail-pd0-f172.google.com with SMTP id fp1so6415654pdb.31
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 11:44:19 -0700 (PDT)
-In-Reply-To: <CACP96tQsfN9REHKZBJ7uWEr5kK04ScFPFMC8Zx7PMykoQg3yyg@mail.gmail.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:45934 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751098AbaFDSyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 14:54:52 -0400
+Received: by mail-pb0-f48.google.com with SMTP id rr13so7381699pbb.21
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 11:54:52 -0700 (PDT)
+In-Reply-To: <1401905168-21559-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-06-04 at 14:26 -0400, sowmini varadhan wrote:
-> On Wed, Jun 4, 2014 at 10:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed,  4 Jun 2014 14:06:08 -0400
+Vlad Yasevich <vyasevic@redhat.com> wrote:
+
+> Tun devices are layer 3 devices and do not work correctly
+> when bridged.  Mark then as IFF_DONT_BRIDGE so that people
+> trying to bridge will get an error.
 > 
-> > Problem with IPv4 route cache is that is was too easy to flood it and
-> > get worse performance.
-> >
-> > It had simply huge memory costs, and non predictable behavior [1]
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/tun.c | 1 +
+>  1 file changed, 1 insertion(+)
 > 
-> Can you elaborate? Caches usually have an upper bound on
-> the memory to be consumed by the cache, and from my reading
-> of the 2.6.32 code, seems like it also had such limits (there was
-> a sysctl tunable to turn off hashing, and rt_intern_hash() also had
-> other bounds. Were these not enough?
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index ee328ba..0161aa3 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -931,6 +931,7 @@ static void tun_net_init(struct net_device *dev)
+>  		/* Zero header length */
+>  		dev->type = ARPHRD_NONE;
+>  		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+> +		dev->priv_flags |= IFF_DONT_BRIDGE;
+>  		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
+>  		break;
+>  
 
+This should not be necessary since bridge already checks for non-ethernet
+devices.
 
-http://vger.kernel.org/~davem/columbia2012.pdf
-
-
-For gory details :
-
-git log net/ipv4/route.c
+	/* Don't allow bridging non-ethernet like devices */
+	if ((dev->flags & IFF_LOOPBACK) ||
+	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
+	    !is_valid_ether_addr(dev->dev_addr))
+		return -EINVAL;
