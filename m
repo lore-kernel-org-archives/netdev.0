@@ -1,63 +1,71 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net] tap: Mark devices of type "tun" as IFF_DONT_BRIDGE
-Date: Wed, 04 Jun 2014 15:40:18 -0400
-Message-ID: <538F7622.2080104@redhat.com>
-References: <1401905168-21559-1-git-send-email-vyasevic@redhat.com> <20140604115448.644073d0@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
+Date: Wed, 4 Jun 2014 22:51:12 +0300
+Message-ID: <20140604195112.GB10676@redhat.com>
+References: <1401744482-17764-1-git-send-email-mst@redhat.com>
+	<1401744482-17764-3-git-send-email-mst@redhat.com>
+	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>
+	<538DC422.1050303@redhat.com>
+	<1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17451 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751201AbaFDTkZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 15:40:25 -0400
-In-Reply-To: <20140604115448.644073d0@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Paolo Bonzini <pbonzini@redhat.com>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 06/04/2014 02:54 PM, Stephen Hemminger wrote:
-> On Wed,  4 Jun 2014 14:06:08 -0400
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
+On Tue, Jun 03, 2014 at 06:57:43AM -0700, Eric Dumazet wrote:
+> On Tue, 2014-06-03 at 14:48 +0200, Paolo Bonzini wrote:
+> > Il 02/06/2014 23:58, Eric Dumazet ha scritto:
+> > > This looks dubious
+> > >
+> > > What about using kfree_rcu() instead ?
+> > 
+> > It would lead to unbound allocation from userspace.
 > 
->> Tun devices are layer 3 devices and do not work correctly
->> when bridged.  Mark then as IFF_DONT_BRIDGE so that people
->> trying to bridge will get an error.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>  drivers/net/tun.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index ee328ba..0161aa3 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -931,6 +931,7 @@ static void tun_net_init(struct net_device *dev)
->>  		/* Zero header length */
->>  		dev->type = ARPHRD_NONE;
->>  		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
->> +		dev->priv_flags |= IFF_DONT_BRIDGE;
->>  		dev->tx_queue_len = TUN_READQ_SIZE;  /* We prefer our own queue length */
->>  		break;
->>  
+> Look at how we did this in commit
+> c3059477fce2d956a0bb3e04357324780c5d8eeb
 > 
-> This should not be necessary since bridge already checks for non-ethernet
-> devices.
+> > 
+> > > translate_desc() still uses rcu_read_lock(), its not clear if the mutex
+> > > is really held.
+> > 
+> > Yes, vhost_get_vq_desc must be called with the vq mutex held.
+> > 
+> > The rcu_read_lock/unlock in translate_desc is unnecessary.
 > 
-> 	/* Don't allow bridging non-ethernet like devices */
-> 	if ((dev->flags & IFF_LOOPBACK) ||
-> 	    dev->type != ARPHRD_ETHER || dev->addr_len != ETH_ALEN ||
-> 	    !is_valid_ether_addr(dev->dev_addr))
-> 		return -EINVAL;
+> Yep, this is what I pointed out. This is not only necessary, but
+> confusing and might be incorrectly copy/pasted in the future.
+> 
+> This patch is a partial one and leaves confusion.
+> 
+> Some places uses the proper 
+> 
+> mp = rcu_dereference_protected(dev->memory,
+> 		 lockdep_is_held(&dev->mutex));
+> 
+> others use the now incorrect :
+> 
+> rcu_read_lock();
+> mp = rcu_dereference(dev->memory);
+> ...
 > 
 
-You are right...  I was shown a snippet of the configure where this
-worked, but I never asked which kernel version they were using...
+I agree, working on a cleanup patch on top now.
 
-Looks like the above code has been around since 3.2...
-
-Thanks
--vlad
+-- 
+MST
