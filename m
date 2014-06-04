@@ -1,58 +1,95 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: Add firmware for r8723au
-Date: Wed, 04 Jun 2014 11:11:44 -0500
-Message-ID: <538F4540.9080002@lwfinger.net>
-References: <1388709729-28496-1-git-send-email-Larry.Finger@lwfinger.net>	 <1390174519.3651.3.camel@deadeye.wl.decadent.org.uk> <1401833651.2412.35.camel@deadeye.wl.decadent.org.uk>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH V2 net-next 1/5] amd-xgbe: AMD 10GbE device bindings
+ documentation
+Date: Wed, 4 Jun 2014 11:12:06 -0500
+Message-ID: <20140604161206.6242.89015.stgit@tlendack-t1.amdoffice.net>
+References: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jes Sorensen <Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1401833651.2412.35.camel-nDn/Rdv9kqW9Jme8/bJn5UCKIB8iOfG2tUK59QYPAWc@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <jcm@redhat.com>, <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:17483
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750723AbaFDQMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 12:12:15 -0400
+In-Reply-To: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2014 05:14 PM, Ben Hutchings wrote:
-> On Sun, 2014-01-19 at 23:35 +0000, Ben Hutchings wrote:
->> On Thu, 2014-01-02 at 18:42 -0600, Larry Finger wrote:
->>> This firmware is for a driver that will soon be submitted to the kernel.
->>> It occurs as data statements in Realtek driver rtl8723A_WiFi_linux_v4.1.3_6044.20121224.
->>>
->>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
->>> ---
->>>   WHENCE                         |  13 +++++++++++++
->>>   rtlwifi/rtl8723aufw_A.bin      | Bin 0 -> 22172 bytes
->>>   rtlwifi/rtl8723aufw_B.bin      | Bin 0 -> 24118 bytes
->>>   rtlwifi/rtl8723aufw_B_NoBT.bin | Bin 0 -> 19200 bytes
->>>   4 files changed, 13 insertions(+)
->>>   create mode 100644 rtlwifi/rtl8723aufw_A.bin
->>>   create mode 100644 rtlwifi/rtl8723aufw_B.bin
->>>   create mode 100644 rtlwifi/rtl8723aufw_B_NoBT.bin
->> [...]
->>
->> Applied, thanks.
->
-> I just noticed that the driver in Linux 3.15 seems to ask for
-> rtlwifi/rtl8723aufw.bin and not rtlwifi/rtl8723aufw_A.bin.  You'll need
-> to change the filename on one side or the other.
+This patch provides the documentation of the device bindings
+for the AMD 10GbE platform driver.
 
-Jes,
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+---
+ .../devicetree/bindings/net/amd-xgbe-phy.txt       |   17 ++++++++++
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   34 ++++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+ create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe.txt
 
-As Ben points out, I messed up the firmware names, and one of them needs to be 
-changed. Keeping the name "rtlwifi/rtl8723aufw_A.bin" would retain a certain 
-amount of symmetry, but is may be easier to retain "rtlwifi/rtl8723aufw.bin" in 
-the code. A third option would be to try for one of the names and fall back to 
-the other if it fails. What do you think?
-
-In any case, we need additional MODULE_FIRMWARE macros for the other two 
-firmware files.
-
-Larry
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+new file mode 100644
+index 0000000..cd821d0
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
+@@ -0,0 +1,17 @@
++* AMD 10GbE PHY driver (amd-xgbe-phy)
++
++Required properties:
++- compatible: Should be "amd,xgbe-phy-seattle-v1a" and 
++  "ethernet-phy-ieee802.3-c45"
++- reg: Address and length of the register sets for the device
++   - SerDes Rx/Tx registers
++   - SerDes integration registers (1/2)
++   - SerDes integration registers (2/2)
++
++Example:
++	xgbe_phy@e1240800 {
++		compatible = "amd,xgbe-phy-seattle-v1a", "ethernet-phy-ieee802.3-c45";
++		reg = <0 0xe1240800 0 0x00400>,
++		      <0 0xe1250000 0 0x00060>,
++		      <0 0xe1250080 0 0x00004>;
++	};
+diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+new file mode 100644
+index 0000000..ea0c790
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
+@@ -0,0 +1,34 @@
++* AMD 10GbE driver (amd-xgbe)
++
++Required properties:
++- compatible: Should be "amd,xgbe-seattle-v1a"
++- reg: Address and length of the register sets for the device
++   - MAC registers
++   - PCS registers
++- interrupt-parent: Should be the phandle for the interrupt controller
++  that services interrupts for this device
++- interrupts: Should contain the amd-xgbe interrupt
++- clocks: Should be the DMA clock for the amd-xgbe device (used for
++  calculating the correct Rx interrupt watchdog timer value on a DMA
++  channel for coalescing)
++- clock-names: Should be the name of the DMA clock, "dma_clk"
++- phy-handle: See ethernet.txt file in the same directory
++- phy-mode: See ethernet.txt file in the same directory
++
++Optional properties:
++- mac-address: mac address to be assigned to the device. Can be overridden
++  by UEFI.
++
++Example:
++	xgbe@e0700000 {
++		compatible = "amd,xgbe-seattle-v1a";
++		reg = <0 0xe0700000 0 0x80000>,
++		      <0 0xe0780000 0 0x80000>;
++		interrupt-parent = <&gic>;
++		interrupts = <0 325 4>;
++		clocks = <&xgbe_clk>;
++		clock-names = "dma_clk";
++		phy-handle = <&phy>;
++		phy-mode = "xgmii";
++		mac-address = [ 02 a1 a2 a3 a4 a5 ];
++	};
