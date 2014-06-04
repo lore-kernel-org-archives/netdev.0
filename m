@@ -1,44 +1,56 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] net: remove some unless free on failure in alloc_netdev_mqs()
-Date: Tue,  3 Jun 2014 17:11:54 -0700
-Message-ID: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net: remove some useless list_del()
+Date: Tue,  3 Jun 2014 17:11:55 -0700
+Message-ID: <1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+References: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:48225 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753815AbaFDAMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:12:16 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v10so5288338pde.4
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 17:12:16 -0700 (PDT)
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:33604 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753815AbaFDAMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:12:18 -0400
+Received: by mail-pb0-f41.google.com with SMTP id uo5so6200610pbc.0
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 17:12:17 -0700 (PDT)
+In-Reply-To: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we jump to free_pcpu on failure in alloc_netdev_mqs()
-rx and tx queues are not yet allocated, so no need to free them.
+"list_kill" is allocated on stack and it's a list head,
+it is pointless to call list_del(&kill_list) especially
+after unregister_netdevice_many().
 
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/core/dev.c | 5 -----
- 1 file changed, 5 deletions(-)
+ drivers/net/macvlan.c | 1 -
+ net/core/rtnetlink.c  | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 0355ca5..1ba2cfe 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6503,11 +6503,6 @@ free_all:
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index eee9106..cd80245 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1204,7 +1204,6 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 		list_for_each_entry_safe(vlan, next, &port->vlans, list)
+ 			vlan->dev->rtnl_link_ops->dellink(vlan->dev, &list_kill);
+ 		unregister_netdevice_many(&list_kill);
+-		list_del(&list_kill);
+ 		break;
+ 	case NETDEV_PRE_TYPE_CHANGE:
+ 		/* Forbid underlaying device to change its type. */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index f31268d..4a1cff6 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1770,7 +1770,6 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
  
- free_pcpu:
- 	free_percpu(dev->pcpu_refcnt);
--	netif_free_tx_queues(dev);
--#ifdef CONFIG_SYSFS
--	kfree(dev->_rx);
--#endif
--
- free_dev:
- 	netdev_freemem(dev);
- 	return NULL;
+ 	ops->dellink(dev, &list_kill);
+ 	unregister_netdevice_many(&list_kill);
+-	list_del(&list_kill);
+ 	return 0;
+ }
+ 
 -- 
 1.8.3.1
