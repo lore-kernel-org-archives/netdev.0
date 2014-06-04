@@ -1,175 +1,127 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2.58] datapath: Add basic MPLS support to
-	kernel
-Date: Wed, 4 Jun 2014 16:15:24 -0700
-Message-ID: <CAEP_g=-v=n06U4+Pvt2YrRDOnFZvA9ymZN5WH5E839wzTSAwgA@mail.gmail.com>
-References: <1401063743-30997-1-git-send-email-horms@verge.net.au>
- <CAEP_g=8Ub64M29TQx82KrFMLcdsAPfKmC8w92d-Ofr9cVhNKFQ@mail.gmail.com>
- <20140603040406.GA22191@verge.net.au>
- <CAEP_g=9mMSwReBQjrm835dSCvLJQW2rgaLUts02YC+7uidTHkw@mail.gmail.com>
- <20140604010115.GC22191@verge.net.au>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v3 2/4] net: Allow for more then a single subclass for
+ netif_addr_lock
+Date: Wed, 04 Jun 2014 19:17:33 -0400
+Message-ID: <538FA90D.3050307@gmail.com>
+References: <1400274296-14765-1-git-send-email-vyasevic@redhat.com>	 <1400274296-14765-3-git-send-email-vyasevic@redhat.com> <1401918131.24086.9.camel@jekeller-desk1.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20140604010115.GC22191-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dingtianhong@huawei.com" <dingtianhong@huawei.com>,
+	"vfalico@gmail.com" <vfalico@gmail.com>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"jiri@resnulli.us" <jiri@resnulli.us>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:52792 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751376AbaFDXRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 19:17:36 -0400
+Received: by mail-qa0-f51.google.com with SMTP id w8so296807qac.24
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 16:17:36 -0700 (PDT)
+In-Reply-To: <1401918131.24086.9.camel@jekeller-desk1.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 3, 2014 at 6:01 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
-> On Tue, Jun 03, 2014 at 03:40:27PM -0700, Jesse Gross wrote:
->> On Mon, Jun 2, 2014 at 9:04 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
->> > Hi Jesse,
->> >
->> > thanks for your feedback.
->> >
->> > On Mon, Jun 02, 2014 at 05:58:10PM -0700, Jesse Gross wrote:
->> >> On Sun, May 25, 2014 at 5:22 PM, Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org> wrote:
->> >> > diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
->> >> > index 803a94c..8ce596c 100644
->> >> > --- a/datapath/flow_netlink.c
->> >> > +++ b/datapath/flow_netlink.c
->> >> > +               case OVS_ACTION_ATTR_POP_MPLS:
->> >> > +                       if (!eth_p_mpls(eth_type))
->> >> > +                               return -EINVAL;
->> >>
->> >> Should this also take into account the VLAN tag? It's really part of
->> >> the EtherType although it has been stripped out here. Actually, maybe
->> >> it's better to not track the vlan_tci separately at all during
->> >> validation but just fold it into the EtherType.
->> >>
->> >> The practical implication of this is that you wouldn't be able to pop
->> >> out from underneath a VLAN. This may be a good thing if we are trying
->> >> to avoid tag order issues - after all, you can't push underneath a
->> >> VLAN either. I'm not sure what effects this has on the need to track
->> >> mac_len, if any.
->> >
->> > My thinking is that the ordering problem only surfaces in relation
->> > to push MPLS actions where should it go in relation to VLAN tags.
->> > For pop actions it seems to me that the outermost tag should be removed
->> > regardless of its position in relation to other tags.
->> >
->> > So I think that the code above is safe. Though now you mention
->> > it I do notice that it only allows pop MPLS if there is at most
->> > one VLAN tag present.
->> >
->> > That said, I would not mind particularly disabling pop MPLS in the
->> > presence of VLAN tags. At the very least it is related to the
->> > painful issue of tag ordering.
+On 06/04/2014 05:42 PM, Keller, Jacob E wrote:
+> On Fri, 2014-05-16 at 17:04 -0400, Vlad Yasevich wrote:
+>> Currently netif_addr_lock_nested assumes that there can be only
+>> a single nesting level between 2 devices.  However, if we
+>> have multiple devices of the same type stacked, this fails.
+>> For example:
+>>  eth0 <-- vlan0.10 <-- vlan0.10.20
 >>
->> I agree that it is safe but my thought was the it avoids a number of
->> potential corner cases such as:
->>  * Difference between push and pop underneath vlan tags.
->>  * Pop with multiple vlan tags
->>  * Differences with varying EtherTypes used for vlans
+>> A more complicated configuration may stack more then one type of
+>> device in different order.
+>> Ex:
+>>   eth0 <-- vlan0.10 <-- macvlan0 <-- vlan1.10.20 <-- macvlan1
 >>
->> > I explored your idea of tracking only eth_type rather than both
->> > it and vlan_tci. I did this by adding the following logic to
->> > ovs_nla_copy_actions().
->> >
->> >         if (key->eth.tci & htons(VLAN_TAG_PRESENT))
->> >                 eth_type = htons(ETH_P_8021Q);
->> >         else
->> >                 eth_type = key->eth.type;
->> >
->> > I then updated the usage of eth_type in ovs_nla_copy_actions__() accordingly.
->> > One problem that I have run into is what to do about pop VLAN.
->> >
->> > I don't believe its possible to know what the new eth type is.
->> > This makes subsequent checks of the eth type for validate_set()
->> > a little awkward. And seems to indicate that an extra parameter would
->> > be needed.
->> >
->> > For this reason I am inclined to leave the eth_type and vlan_tci
->> > parameters in place. In this case there is no problem with pop VLAN
->> > as the ether type inside the VLAN tag should be the value of eth_type.
+>> This patch adds an ndo_* function that allows each stackable
+>> device to report its nesting level.  If the device doesn't
+>> provide this function default subclass of 1 is used.
 >>
->> Can't we populate eth_type with the EtherType from the flow key in
->> pop_vlan? This doesn't provide us with the ability to look arbitrarily
->> deep into the packet but it should at least retain the functionality
->> that we have today.
->
-> I think that things are still a bit tricky for at least two reasons.
->
-> 1. Tracking eth_type if there are more push VLAN actions than pop VLAN actions
->
->    e.g.: A packet with no VLAN tags with the following
->          actions applied: push VLAN, push VLAN, pop VLAN
->
->    I believe that with the change your propose eth_type would end up being
->    that of the original packet than of the packet with one VLAN tag removed
->    after two are added.
->
->    I think would allow a push MPLS action but it should be rejected.
->
->    I think this could be resolved by setting eth_type to a bogus value
->    (e.g. 0) but that would may cause subsequent calls to validate_set()
->    to fail when they should pass.
->
-> 2. The use of eth_type in validate_set().
->
->    Suppose we have an IPv6 packet with one VLAN.
->
->    validate_set() allows an IPv6 set operation if the eth_type is IPv6.
->    Which would be true if the eth_type is that of the inner rather
->    than the outer packet. However, I believe with the scheme
->    you are proposing this becomes a bit tricky as the eth_type will
->    be that of the outer packet.
->
->    I suppose this particular problem could be resolved using something like
->    this in validate_set():
->
->         if (eth_type == htons(ETH_P_8021Q))
->                 eth_type = flow_key.eth_type;
->
->    But that may get a bit tricky. For example suppose there is
->    an IPv6 packet with no VLAN tags and the following actions are applied.
->
->    push MPLS, push VLAN, set IPv6
->
->    validate_set() would be passed:
->    eth_type: htons(ETH_P_8021Q)
->    flow_key.eth_type: htons(ETH_P_IPV6)
->
->    But validate_set should be checking against an MPLS ethtype.
->
->    I think this particular problem could be resolved with a new
->    restriction, prohibiting push VLAN in the presence of MPLS.
->
-> My general feeling is that tracking both eth_type and vlan_tci gives
-> us a richer set of information to work with for various cases the
-> code handles.
->
-> I would like to propose leaving the eth_type and vlan_tci scheme in place
-> and using something like the following (untested) to address your concern
-> about pop MPLS.
->
-> diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
-> index 8ce596c..bcd05b3 100644
-> --- a/datapath/flow_netlink.c
-> +++ b/datapath/flow_netlink.c
-> @@ -1571,7 +1571,8 @@ static int ovs_nla_copy_actions__(const struct nlattr *attr,
->                 }
->
->                 case OVS_ACTION_ATTR_POP_MPLS:
-> -                       if (!eth_p_mpls(eth_type))
-> +                       if (vlan_tci & htons(VLAN_TAG_PRESENT) ||
-> +                           !eth_p_mpls(eth_type))
->                                 return -EINVAL;
->
->                         /* Disallow subsequent L2.5+ set and mpls_pop actions
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>  include/linux/netdevice.h | 8 +++++++-
+>>  1 file changed, 7 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index fb912e8..9d4b1f1 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -1144,6 +1144,7 @@ struct net_device_ops {
+>>  	netdev_tx_t		(*ndo_dfwd_start_xmit) (struct sk_buff *skb,
+>>  							struct net_device *dev,
+>>  							void *priv);
+>> +	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+>>  };
+>> =20
+>>  /**
+>> @@ -2950,7 +2951,12 @@ static inline void netif_addr_lock(struct net=
+_device *dev)
+>> =20
+>>  static inline void netif_addr_lock_nested(struct net_device *dev)
+>>  {
+>> -	spin_lock_nested(&dev->addr_list_lock, SINGLE_DEPTH_NESTING);
+>> +	int subclass =3D SINGLE_DEPTH_NESTING;
+>> +
+>> +	if (dev->netdev_ops->ndo_get_lock_subclass)
+>> +		subclass =3D dev->netdev_ops->ndo_get_lock_subclass(dev);
+>> +
+>> +	spin_lock_nested(&dev->addr_list_lock, subclass);
+>>  }
+>> =20
+>=20
+> Hi,
+>=20
+> I know this has already been applied. However, this commit causes a
+> warning in include/linux/netdevice.h when W=3D1
+>=20
+> In file included from ixgbe/ixgbe.h:35:0,
+>                  from ixgbe/ixgbe_lib.c:29:
+> include/linux/netdevice.h: In function =E2=80=98netif_addr_lock_neste=
+d=E2=80=99:
+> include/linux/netdevice.h:2954:6: warning: variable =E2=80=98subclass=
+=E2=80=99 set but not used [-Wunused-but-set-variable]
+>   int subclass =3D SINGLE_DEPTH_NESTING;
+>       ^
+>=20
+> This only occurs if CONFIG_DEBUG_LOCK_ALLOC=3DY, and there seems to b=
+e no
+> easy fix for the warning, due to how spin_lock_nested is a macro that
+> discards the second parameter when DEBUG_LOCK_ALLOC is disabled.
+>=20
+> I'm not sure how big a deal this is, considering that it only occurs =
+at
+> W=3D1, and the patch is already committed.
+>=20
 
-OK, that's fine. I was hoping that we could simplify things a little
-bit and make the checks more robust but if it makes it more complex
-then there's no point.
+Yuck.  It's actually raw_spin_lock_nested() macro that discards the
+subclass argument...
+
+We could do something really silly like:
+
+# define raw_spin_lock_nested(lock, subclass) \
+                             sublcass;_raw_spin_lock(lock)
+
+That seems to get rid of the warning for me.
+
+-vlad
+
+>>  static inline void netif_addr_lock_bh(struct net_device *dev)
+>=20
+> Regards,
+> Jake
+>=20
+> N=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDr=EF=BF=BD=EF=BF=BDy=EF=
+=BF=BD=EF=BF=BD=EF=BF=BDb=EF=BF=BDX=EF=BF=BD=EF=BF=BD=C7=A7v=EF=BF=BD^=EF=
+=BF=BD)=DE=BA{.n=EF=BF=BD+=EF=BF=BD=EF=BF=BD=EF=BF=BDz=EF=BF=BD^=EF=BF=BD=
+)=EF=BF=BD=EF=BF=BD=EF=BF=BDw*=1Fjg=EF=BF=BD=EF=BF=BD=EF=BF=BD=1E=EF=BF=
+=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=DD=A2j/=EF=BF=BD=EF=BF=BD=EF=BF=
+=BDz=EF=BF=BD=DE=96=EF=BF=BD=EF=BF=BD2=EF=BF=BD=DE=99=EF=BF=BD=EF=BF=BD=
+=EF=BF=BD&=EF=BF=BD)=DF=A1=EF=BF=BDa=EF=BF=BD=EF=BF=BD=7F=EF=BF=BD=EF=BF=
+=BD=1E=EF=BF=BDG=EF=BF=BD=EF=BF=BD=EF=BF=BDh=EF=BF=BD=0F=EF=BF=BDj:+v=EF=
+=BF=BD=EF=BF=BD=EF=BF=BDw=EF=BF=BD=D9=A5
+>=20
