@@ -1,46 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver
-Date: Wed, 04 Jun 2014 14:39:03 -0700 (PDT)
-Message-ID: <20140604.143903.1213688714066322891.davem@davemloft.net>
-References: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
-	<20140604.143605.960519678688904189.davem@davemloft.net>
+Subject: Re: [net-next v2 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 04 Jun 2014 14:40:36 -0700 (PDT)
+Message-ID: <20140604.144036.436617974092408509.davem@davemloft.net>
+References: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jcm@redhat.com
-To: thomas.lendacky@amd.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37081 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37096 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329AbaFDVjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 17:39:04 -0400
-In-Reply-To: <20140604.143605.960519678688904189.davem@davemloft.net>
+	with ESMTP id S1751861AbaFDVkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 17:40:37 -0400
+In-Reply-To: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwNCBK
-dW4gMjAxNCAxNDozNjowNSAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFRvbSBMZW5kYWNreSA8dGhv
-bWFzLmxlbmRhY2t5QGFtZC5jb20+DQo+IERhdGU6IFdlZCwgNCBKdW4gMjAxNCAxMToxMTozMSAt
-MDUwMA0KPiANCj4+IFRoZSBmb2xsb3dpbmcgc2VyaWVzIGltcGxlbWVudHMgc3VwcG9ydCBmb3Ig
-dGhlIG5ldyBBTUQgMTBHYiBFdGhlcm5ldA0KPj4gZHJpdmVyIChhbWQteGdiZSkuICBJdCBpbmNs
-dWRlcyB0aGUgMTBHYiBFdGhlcm5ldCBkcml2ZXIgYXMgd2VsbCBhcw0KPj4gYSAxMEdiIEV0aGVy
-bmV0IFBIWSBkcml2ZXIuDQo+PiANCj4+IFRoaXMgcGF0Y2ggc2VyaWVzIGlzIGJhc2VkIG9uIG5l
-dC1uZXh0Lg0KPj4gDQo+PiBDaGFuZ2VzIGluIFYyOg0KPj4gICAtIEFkZCBwaHktbW9kZSB0byB0
-aGUgYW1kLXhnYmUgZGV2aWNlIGJpbmRpbmdzDQo+PiAgIC0gT2J0YWluIHRoZSBwaHktbW9kZSBm
-cm9tIHRoZSBkZXZpY2UgdHJlZQ0KPj4gICAtIFJlZmVyZW5jZSBldGhlcm5ldC50eHQgZGV2aWNl
-IGJpbmRpbmdzIGZvciBwaHktaGFuZGxlIGFuZCBwaHktbW9kZQ0KPj4gICAtIENvbm5lY3QvZGlz
-Y29ubmVjdCB0by9mcm9tIHBoeSBkdXJpbmcgcHJvYmUvcmVtb3ZlLCBpbnN0ZWFkIG9mIG9wZW4v
-Y2xvc2UNCj4+ICAgLSBGaXhlcyBmb3IganVtYm8gcGFja2V0IHN1cHBvcnQgLyBNVFUgY2hhbmdl
-cw0KPj4gICAtIEZvcm1hdHRpbmcgY2hhbmdlcyBmb3IgZGVidWcgcGFja2V0IGR1bXANCj4+ICAg
-LSBGcmVlIHJlc291cmNlcyBpbiB0aGUgcGh5bGliIGRyaXZlciByZW1vdmUgZnVuY3Rpb24NCj4+
-ICAgLSBQcm9wZXIgTlAgTlVMTCBtZXNzYWdlIGR1cmluZyBhdXRvLW5lZ290aWF0aW9uDQo+IA0K
-PiBTZXJpZXMgYXBwbGllZCwgdGhhbmtzLg0KDQpJIGhhZCB0byByZXZlcnQsIHRoaXMgYnJlYWtz
-IHRoZSBidWlsZDoNCg0KZHJpdmVycy9uZXQvcGh5L2FtZC14Z2JlLXBoeS5jOiBJbiBmdW5jdGlv
-biChYW1kX3hnYmVfcGh5X3Byb2JlojoNCmRyaXZlcnMvbmV0L3BoeS9hbWQteGdiZS1waHkuYzox
-MjUxOjI6IGVycm9yOiBpbXBsaWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiChb2ZfZGV2X3B1
-dKIgWy1XZXJyb3I9aW1wbGljaXQtZnVuY3Rpb24tZGVjbGFyYXRpb25dDQpjYzE6IHNvbWUgd2Fy
-bmluZ3MgYmVpbmcgdHJlYXRlZCBhcyBlcnJvcnMNCm1ha2VbM106ICoqKiBbZHJpdmVycy9uZXQv
-cGh5L2FtZC14Z2JlLXBoeS5vXSBFcnJvciAxDQptYWtlWzJdOiAqKiogW2RyaXZlcnMvbmV0L3Bo
-eV0gRXJyb3IgMg0KbWFrZVsyXTogKioqIFdhaXRpbmcgZm9yIHVuZmluaXNoZWQgam9icy4uLi4N
-Cm1ha2VbMV06ICoqKiBbZHJpdmVycy9uZXRdIEVycm9yIDINCm1ha2VbMV06ICoqKiBXYWl0aW5n
-IGZvciB1bmZpbmlzaGVkIGpvYnMuLi4uDQptYWtlOiAqKiogW2RyaXZlcnNdIEVycm9yIDINCg==
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  4 Jun 2014 00:04:53 -0700
+
+> This series contains updates to e1000, igb and ixgbe.
+ ...
+> The following are changes since commit 92ff71b8fe9cd9c673615fc6f3870af7376d7c84:
+>   net: remove some unless free on failure in alloc_netdev_mqs()
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Pulled, thanks Jeff.
