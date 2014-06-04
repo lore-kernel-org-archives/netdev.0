@@ -1,61 +1,62 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [RFC/PATCH v3] sh_eth: use RNC mode for packet reception
-Date: Wed, 4 Jun 2014 10:26:56 +0900
-Message-ID: <20140604012656.GE25936@verge.net.au>
-References: <1401794473-30050-1-git-send-email-ben.dooks@codethink.co.uk>
- <538E685A.1000505@renesas.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 0/2] Adapter not recovery from EEH error injection
+Date: Tue, 03 Jun 2014 18:38:53 -0700 (PDT)
+Message-ID: <20140603.183853.1053149522065945120.davem@davemloft.net>
+References: <20140603191444.269911990@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
-	linux-kernel@codethink.co.uk, netdev@vger.kernel.org,
-	nobuhiro.iwamatsu.yj@renesas.com, magnus.damm@opensource.se,
-	cm-hiep@jinso.co.jp
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: ariel.elior@qlogic.com, netdev@vger.kernel.org
+To: wenxiong@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57411 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaFDB07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 21:26:59 -0400
-Content-Disposition: inline
-In-Reply-To: <538E685A.1000505@renesas.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50755 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750723AbaFDBiy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 21:38:54 -0400
+In-Reply-To: <20140603191444.269911990@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2014 at 09:29:14AM +0900, Yoshihiro Shimoda wrote:
-> Hi Ben,
-> 
-> (2014/06/03 20:21), Ben Dooks wrote:
-> > The current behaviour of the sh_eth driver is not to use the RNC bit
-> > for the receive ring. This means that every packet recieved is not only
-> > generating an IRQ but it also stops the receive ring DMA as well until
-> > the driver re-enables it after unloading the packet.
-> > 
-> > This means that a number of the following errors are generated due to
-> > the receive packet FIFO overflowing due to nowhere to put packets:
-> > 
-> > 	net eth0: Receive FIFO Overflow
-> > 
-> > Since feedback from Yoshihiro Shimoda shows that every supported LSI
-> > for this driver should have the bit enabled it seems the best way is
-> > to remove the RMCR default value from the per-system data and just
-> > write it when initialising the RMCR value. This is discussed in
-> > the message (http://www.spinics.net/lists/netdev/msg284912.html).
-> > 
-> > I have tested the RMCR_RNC configuration with NFS root filesystem and
-> > the driver has not failed yet.  There are further test reports from
-> > Sergei Shtylov and others for both the R8A7790 and R8A7791.
-> > 
-> > There is also feedback fron Cao Minh Hiep[1] which reports the
-> > same issue in (http://comments.gmane.org/gmane.linux.network/316285)
-> > showing this fixes issues with losing UDP datagrams under iperf.
-> > 
-> > Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> > Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> 
-> Thank you very much for the patch.
-> 
-> Acked-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-
-If this patch is fine by Shimoda-san then its fine be me too.
-
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
+RnJvbTogd2VueGlvbmdAbGludXgudm5ldC5pYm0uY29tDQpEYXRlOiBUdWUsIDAzIEp1biAyMDE0
+IDE0OjE0OjQ0IC0wNTAwDQoNCj4gUmUtc3VibWl0dGVkIHdpdGggc3BhY2UgZml4IGFuZCBuZXcg
+c2lnbi1vZmYgYWRkcmVzcyBmb3IgTWlsdG9uLg0KDQpBcHBsaWVkLCB0aGFua3MuDQoNCkJUVywg
+aXQgaXNuJ3QgeW91ciBmYXVsdCwgYnV0IHRoaXMgZHJpdmVyIGRvZXMgbm90IGJ1aWxkIHZlcnkg
+d2VsbA0Kd2l0aCBCTlgyWF9TUklPViBkaXNhYmxlZDoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X21haW4ubw0KSW4gZmlsZSBpbmNsdWRlZCBm
+cm9tIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5oOjI3OjAs
+DQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54
+MngvYm54MnhfbWFpbi5jOjYyOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54Mngv
+Ym54Mnhfc3Jpb3YuaDo1NzQ6NDg6IHdhcm5pbmc6IKFzdHJ1Y3QgYm54MqIgZGVjbGFyZWQgaW5z
+aWRlIHBhcmFtZXRlciBsaXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhl
+cm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDo0ODogd2FybmluZzogaXRzIHNj
+b3BlIGlzIG9ubHkgdGhpcyBkZWZpbml0aW9uIG9yIGRlY2xhcmF0aW9uLCB3aGljaCBpcyBwcm9i
+YWJseSBub3Qgd2hhdCB5b3Ugd2FudCBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhfc3Jpb3YuaDogSW4gZnVuY3Rpb24goWJueDJ4
+X3ZmX3BjaV9kZWFsbG9jojoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2Ju
+eDJ4X3NyaW92Lmg6NTc0OjU5OiB3YXJuaW5nOiChcmV0dXJuoiB3aXRoIGEgdmFsdWUsIGluIGZ1
+bmN0aW9uIHJldHVybmluZyB2b2lkIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6IEluIGZ1bmN0aW9uIKFfX2JueDJ4
+X3JlbW92ZaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWlu
+LmM6MTMyNDE6NDogd2FybmluZzogcGFzc2luZyBhcmd1bWVudCAxIG9mIKFibngyeF92Zl9wY2lf
+ZGVhbGxvY6IgZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1
+bHRdDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20v
+Ym54MngvYm54MnhfY21uLmg6Mjc6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6NjI6DQpkcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDoyMDogbm90ZTogZXhwZWN0
+ZWQgoXN0cnVjdCBibngyICqiIGJ1dCBhcmd1bWVudCBpcyBvZiB0eXBlIKFzdHJ1Y3QgYm54Mngg
+KqINCiAgQ0MgW01dICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9j
+bW4ubw0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
+L2JueDJ4L2JueDJ4X2Ntbi5oOjI3OjAsDQogICAgICAgICAgICAgICAgIGZyb20gZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmM6Mjk6DQpkcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlvdi5oOjU3NDo0ODogd2FybmluZzogoXN0
+cnVjdCBibngyoiBkZWNsYXJlZCBpbnNpZGUgcGFyYW1ldGVyIGxpc3QgW2VuYWJsZWQgYnkgZGVm
+YXVsdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X3NyaW92Lmg6
+NTc0OjQ4OiB3YXJuaW5nOiBpdHMgc2NvcGUgaXMgb25seSB0aGlzIGRlZmluaXRpb24gb3IgZGVj
+bGFyYXRpb24sIHdoaWNoIGlzIHByb2JhYmx5IG5vdCB3aGF0IHlvdSB3YW50IFtlbmFibGVkIGJ5
+IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9zcmlv
+di5oOiBJbiBmdW5jdGlvbiChYm54MnhfdmZfcGNpX2RlYWxsb2OiOg0KZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvYnJvYWRjb20vYm54MngvYm54Mnhfc3Jpb3YuaDo1NzQ6NTk6IHdhcm5pbmc6IKFyZXR1
+cm6iIHdpdGggYSB2YWx1ZSwgaW4gZnVuY3Rpb24gcmV0dXJuaW5nIHZvaWQgW2VuYWJsZWQgYnkg
+ZGVmYXVsdF0NCg0KQWxzbywgaWYgcWxvZ2ljLmNvbSBpcyB0aGUgY29ycmVjdCBlbWFpbCBhZGRy
+ZXNzIGZvciB0aGUgZHJpdmVyIG1haW50YWluZXIsDQp0aGUgdG9wLWxldmVsIE1BSU5UQUlORVJT
+IGZpbGUgbmVlZHMgdG8gYmUgdXBkYXRlZC4NCg==
