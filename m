@@ -1,33 +1,48 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH] gianfar: Call netif_carrier_off() prior to registration
-Date: Tue, 3 Jun 2014 23:51:32 -0300
-Message-ID: <CAOMZO5C6FU-8ggwtxmi=PyHVKLu1CGPzFK0dCENkd=750gQoeg@mail.gmail.com>
-References: <1401836138-13253-1-git-send-email-festevam@gmail.com>
-	<CAGVrzcaK6n53=W+ixN9Hibc3oOgEGe7FFMVTwWzUNOyL3jotfw@mail.gmail.com>
-	<20140603.190526.241247147331404487.davem@davemloft.net>
-	<538E877C.7080509@gmail.com>
+From: BintouSawadogo <bintousawadogo4@gmail.com>
+Subject: Confidential Respond.
+Date: Tue, 3 Jun 2014 19:52:22 -0700
+Message-ID: <CANCj5oZZW5Xu5_2zRX5wwC0Dg+6BVZ_+k6xhqx2QUPUcfwE0-A@mail.gmail.com>
+Reply-To: mrs.bintousawadogo@gmail.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f175.google.com ([209.85.128.175]:48496 "EHLO
-	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110AbaFDCvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:51:33 -0400
-Received: by mail-ve0-f175.google.com with SMTP id jw12so8057006veb.34
-        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 19:51:32 -0700 (PDT)
-In-Reply-To: <538E877C.7080509@gmail.com>
+Received: from mail-ob0-f195.google.com ([209.85.214.195]:53437 "EHLO
+	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754134AbaFDCwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 22:52:23 -0400
+Received: by mail-ob0-f195.google.com with SMTP id wm4so2048307obc.2
+        for <netdev@vger.kernel.org>; Tue, 03 Jun 2014 19:52:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 3, 2014 at 11:42 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+Good Day,
+I am Mrs. Bintou Sawadogo director auditing and accounting department"
+bank Here in Ouagadougou, Burkina Faso .I discovered the sum of seven
+million, two hundred thousand dollars (usd7.2) belonging to a deceased
+customer of this bank the fund has been lying in a suspense account
+without anybody coming to put claim over the money since the account
+owner late, Mr. Salla khat from Lebanese who was involved in the
+December 28th 2008 Benin car crash.
 
-> Not at all, I think this patch is fine. If Fabio wants/can audit the other
-> Freescale drivers I think this should be beneficial.
+it is therefore, upon this discovery that i decided to take this
+ultimatum and make this business proposal to you as the fund will be
+release to you as the next of kin or relation to the deceased for
+safety and subsequent disbursement since nobody is coming for it and i
+don't want this money to go into the bank treasury as unclaimed bill
+the banking rules here stipulates that if such money remained
+unclaimed after seven years, the money will be transferred into the
+bank treasury as unclaimed fund. The request of foreigner as next of
+kin in this business is occasioned by the fact that the deceased
+customer was a foreigner and a Burkina be cannot stand as next of kin
+to a foreigner.
 
-Yes, I have checked the other Freescale net drivers and the only one
-with this particular problem was gianfar.
+Therefore, I am soliciting for your assistance to come forward as the
+next of kin. I have agreed that 40% of this money will be for you as
+the beneficiary respect of the provision of your account and service
+rendered, 60% will be for me. Then immediately the money transferred
+to your account from this bank, I will proceed to your country for the
+sharing of the fund.
+
+Yours faithful,
+Mrs.Bintou Sawadogo
