@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Fix support for macvlan devices on top
- bonding
-Date: Wed, 04 Jun 2014 15:14:38 -0700 (PDT)
-Message-ID: <20140604.151438.219076689159376438.davem@davemloft.net>
-References: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH v2 1/7] udp: Generic functions to set checksum
+Date: Wed, 04 Jun 2014 15:16:26 -0700 (PDT)
+Message-ID: <20140604.151626.2115057173229567050.davem@davemloft.net>
+References: <alpine.DEB.2.02.1406012047250.9052@tomh.mtv.corp.google.com>
+	<CAHA+R7NYRg8Mt3_=G3728pN2cJSTth49EVfDADCzZCoZ10npJQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	andy@greyhouse.net, kaber@trash.net
-To: vyasevic@redhat.com
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37394 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37403 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578AbaFDWOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:14:40 -0400
-In-Reply-To: <1401913418-31307-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1751554AbaFDWQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 18:16:27 -0400
+In-Reply-To: <CAHA+R7NYRg8Mt3_=G3728pN2cJSTth49EVfDADCzZCoZ10npJQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed,  4 Jun 2014 16:23:35 -0400
+From: Cong Wang <cwang@twopensource.com>
+Date: Mon, 2 Jun 2014 16:43:04 -0700
 
-> Currently, macvlan devices do not work well over bond interfaces.
-> Everything works well, untill a failover is triggered in the bond
-> device and then macvlan becomes unreachble untill arp entries
-> are flushed.   This series adds needed functionality to
-> handle correct notifications and update switches with mac addresses
-> assigned to macvlans.
+> On Sun, Jun 1, 2014 at 9:00 PM, Tom Herbert <therbert@google.com> wrote:
+>> +
+>> +
+>> +/* Function to set UDP checksum for an IPv6 UDP packet. This is intended
+>> + * for the simple case like when setting the checksum for a UDP tunnel.
+>> + */
+>> +static inline void udp6_set_csum(struct sock *sk, struct sk_buff *skb,
+>> +                                const struct in6_addr *saddr,
+>> +                                const struct in6_addr *daddr, int len)
+>> +{
 > 
-> The first patch simply addes IFF_UNICAST_FLT flag to bonds since they
-> already correctly manage the unicast filter list of the slaves, so
-> we might as well prevent the bond from needlessly going into promiscuous
-> mode.
+> I think this function might be too big to be inlined.
 > 
-> The second patch adds notifier handler to macvlan to trigger correct
-> ARP notifications.
-> 
-> The third patch adds handling for TLB and RLB modes that use special
-> ETH_P_LOOPBACK type packets to teach switch about mac addresses.
-> It also allow ARPs for the macvlan mac addresses to be handled by
-> RLB mode.
+> Ditto for udp_set_csum().
 
-Series applied, thanks Vlad.
+Agreed, Tom please put these into a *.c file and export them.
