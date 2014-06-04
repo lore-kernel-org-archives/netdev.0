@@ -1,77 +1,80 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 1/7] ixgbe: fix detection of SFP+ capable interfaces
-Date: Wed,  4 Jun 2014 00:04:54 -0700
-Message-ID: <1401865500-18081-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 5/7] igb: add defaults for i210 TX/RX PBSIZE
+Date: Wed,  4 Jun 2014 00:04:58 -0700
+Message-ID: <1401865500-18081-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21696 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:21703 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755223AbaFDHFE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 4 Jun 2014 03:05:04 -0400
+	id S1754659AbaFDHFG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 4 Jun 2014 03:05:06 -0400
 In-Reply-To: <1401865500-18081-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Todd Fujinaka <todd.fujinaka@intel.com>
 
-In cases where the driver is loaded while there are no SFP+ modules in
-the cage the interface was not being detected as SFP capable. To account
-for this the driver called identify_sfp in ixgbe_get_settings to make
-sure the data is correct. However when there is no SFP+ module in the cage
-the driver waits for the I2C reads to time out which can take more than a
-second and will cause issues with tools (like net-snmp) that may poll
-for that information.
+Set the defaults on probe for the packet buffer size registers for the
+i210.
 
-This patch resolves the issue by identifying interfaces with no PHY
-type set as SFP capable which allows the driver to detect the SFP module
-when the interface is brought up. As result of this we can also remove the
-identify_sfp call from ixgbe_get_settings.
-
-v2: remove the 82599 specific check since we have 82598 devices that are SFP
-capable.
-
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 7 -------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 2 ++
- 2 files changed, 2 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 3 +++
+ drivers/net/ethernet/intel/igb/e1000_regs.h    | 4 ++++
+ drivers/net/ethernet/intel/igb/igb_main.c      | 6 ++++++
+ 3 files changed, 13 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index cc70de2..23e4e6a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -161,13 +161,6 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 	bool autoneg = false;
- 	bool link_up;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index f85be66..11ffdba 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -329,6 +329,9 @@
+ /* Timestamp in Rx buffer */
+ #define E1000_RXPBS_CFG_TS_EN           0x80000000
  
--	/* SFP type is needed for get_link_capabilities */
--	if (hw->phy.media_type & (ixgbe_media_type_fiber |
--				  ixgbe_media_type_fiber_qsfp)) {
--		if (hw->phy.sfp_type == ixgbe_sfp_type_not_present)
--				hw->phy.ops.identify_sfp(hw);
--	}
--
- 	hw->mac.ops.get_link_capabilities(hw, &supported_link, &autoneg);
++#define I210_RXPBSIZE_DEFAULT		0x000000A2 /* RXPBSIZE default */
++#define I210_TXPBSIZE_DEFAULT		0x04000014 /* TXPBSIZE default */
++
+ /* SerDes Control */
+ #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
  
- 	/* set the supported link speeds */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ea11e2c..e22278a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4656,6 +4656,8 @@ static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
- 	case ixgbe_phy_qsfp_active_unknown:
- 	case ixgbe_phy_qsfp_intel:
- 	case ixgbe_phy_qsfp_unknown:
-+	/* ixgbe_phy_none is set when no SFP module is present */
-+	case ixgbe_phy_none:
- 		return true;
- 	case ixgbe_phy_nl:
- 		if (hw->mac.type == ixgbe_mac_82598EB)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 833bbb9..1cc4b1a7 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -192,6 +192,10 @@
+ 				    : (0x0E038 + ((_n) * 0x40)))
+ #define E1000_TDWBAH(_n)  ((_n) < 4 ? (0x0383C + ((_n) * 0x100)) \
+ 				    : (0x0E03C + ((_n) * 0x40)))
++
++#define E1000_RXPBS	0x02404  /* Rx Packet Buffer Size - RW */
++#define E1000_TXPBS	0x03404  /* Tx Packet Buffer Size - RW */
++
+ #define E1000_TDFH     0x03410  /* TX Data FIFO Head - RW */
+ #define E1000_TDFT     0x03418  /* TX Data FIFO Tail - RW */
+ #define E1000_TDFHS    0x03420  /* TX Data FIFO Head Saved - RW */
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index ea2868b..33b3a16 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2433,6 +2433,12 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* get firmware version for ethtool -i */
+ 	igb_set_fw_version(adapter);
+ 
++	/* configure RXPBSIZE and TXPBSIZE */
++	if (hw->mac.type == e1000_i210) {
++		wr32(E1000_RXPBS, I210_RXPBSIZE_DEFAULT);
++		wr32(E1000_TXPBS, I210_TXPBSIZE_DEFAULT);
++	}
++
+ 	setup_timer(&adapter->watchdog_timer, igb_watchdog,
+ 		    (unsigned long) adapter);
+ 	setup_timer(&adapter->phy_info_timer, igb_update_phy_info,
 -- 
 1.9.3
