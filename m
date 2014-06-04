@@ -1,58 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: remove some useless list_del()
-Date: Tue, 03 Jun 2014 17:24:51 -0700 (PDT)
-Message-ID: <20140603.172451.2132501802596004067.davem@davemloft.net>
-References: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [RFC/PATCH v3] sh_eth: use RNC mode for packet reception
+Date: Wed, 4 Jun 2014 09:29:14 +0900
+Message-ID: <538E685A.1000505@renesas.com>
+References: <1401794473-30050-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: <nobuhiro.iwamatsu.yj@renesas.com>, <magnus.damm@opensource.se>,
+	<horms@verge.net.au>, <cm-hiep@jinso.co.jp>
+To: Ben Dooks <ben.dooks@codethink.co.uk>,
+	<linux-kernel@codethink.co.uk>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50353 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934101AbaFDAYx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:24:53 -0400
-In-Reply-To: <1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+Received: from relmlor2.renesas.com ([210.160.252.172]:63483 "EHLO
+	relmlie1.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751589AbaFDA3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 3 Jun 2014 20:29:22 -0400
+In-Reply-To: <1401794473-30050-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  3 Jun 2014 17:11:55 -0700
+Hi Ben,
 
-> "list_kill" is allocated on stack and it's a list head,
-> it is pointless to call list_del(&kill_list) especially
-> after unregister_netdevice_many().
+(2014/06/03 20:21), Ben Dooks wrote:
+> The current behaviour of the sh_eth driver is not to use the RNC bit
+> for the receive ring. This means that every packet recieved is not only
+> generating an IRQ but it also stops the receive ring DMA as well until
+> the driver re-enables it after unloading the packet.
 > 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> This means that a number of the following errors are generated due to
+> the receive packet FIFO overflowing due to nowhere to put packets:
+> 
+> 	net eth0: Receive FIFO Overflow
+> 
+> Since feedback from Yoshihiro Shimoda shows that every supported LSI
+> for this driver should have the bit enabled it seems the best way is
+> to remove the RMCR default value from the per-system data and just
+> write it when initialising the RMCR value. This is discussed in
+> the message (http://www.spinics.net/lists/netdev/msg284912.html).
+> 
+> I have tested the RMCR_RNC configuration with NFS root filesystem and
+> the driver has not failed yet.  There are further test reports from
+> Sergei Shtylov and others for both the R8A7790 and R8A7791.
+> 
+> There is also feedback fron Cao Minh Hiep[1] which reports the
+> same issue in (http://comments.gmane.org/gmane.linux.network/316285)
+> showing this fixes issues with losing UDP datagrams under iperf.
+> 
+> Tested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
-Do not edit what you do not understand:
+Thank you very much for the patch.
 
-commit ceaaec98ad99859ac90ac6863ad0a6cd075d8e0e                                                                         
-Author: Eric Dumazet <eric.dumazet@gmail.com>                                                                           
-Date:   Thu Feb 17 22:59:19 2011 +0000                                                                                  
-                                                                                                                        
-    net: deinit automatic LIST_HEAD                                                                                     
-                                                                                                                        
-    commit 9b5e383c11b08784 (net: Introduce                                                                             
-    unregister_netdevice_many()) left an active LIST_HEAD() in                                                          
-    rollback_registered(), with possible memory corruption.                                                             
-                                                                                                                        
-    Even if device is freed without touching its unreg_list (and therefore                                              
-    touching the previous memory location holding LISTE_HEAD(single), better                                            
-    close the bug for good, since its really subtle.                                                                    
-                                                                                                                        
-    (Same fix for default_device_exit_batch() for completeness)                                                         
-                                                                                                                        
-    Reported-by: Michal Hocko <mhocko@suse.cz>                                                                          
-    Tested-by: Michal Hocko <mhocko@suse.cz>                                                                            
-    Reported-by: Eric W. Biderman <ebiderman@xmission.com>                                                              
-    Tested-by: Eric W. Biderman <ebiderman@xmission.com>                                                                
-    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>                                                       
-    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>                                                                
-    CC: Ingo Molnar <mingo@elte.hu>                                                                                     
-    CC: Octavian Purdila <opurdila@ixiacom.com>                                                                         
-    CC: stable <stable@kernel.org> [.33+]                                                                               
-    Signed-off-by: David S. Miller <davem@davemloft.net>                                                                
+Acked-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+
+Best regards,
+Yoshihiro Shimoda
