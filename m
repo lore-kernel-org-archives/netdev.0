@@ -1,47 +1,57 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v5 4/4] drivers: net: Add APM X-Gene SoC ethernet
- driver support.
-Date: Thu, 05 Jun 2014 00:45:55 -0700 (PDT)
-Message-ID: <20140605.004555.658378024391856482.davem@davemloft.net>
-References: <1401737954-26152-1-git-send-email-isubramanian@apm.com>
-	<1401737954-26152-5-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, rapatel-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org
-To: isubramanian-qTEPVZfXA3Y@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1401737954-26152-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/14] i40e: don't use OR to check a value
+Date: Thu,  5 Jun 2014 00:49:14 -0700
+Message-ID: <1401954567-13557-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Dave Jones <davej@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:52015 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750916AbaFEHtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 03:49:35 -0400
+In-Reply-To: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Date: Mon,  2 Jun 2014 12:39:14 -0700
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> +	netdev_err(ndev, "LERR: %d ring_num: %d ", status, ring->num);
-> +	switch (status) {
-> +	case HBF_READ_DATA:
-> +		netdev_err(ndev, "HBF read data error\n");
-> +		break;
+A couple of FD checks ended up using bitwise OR to check
+a value, which ends up always being evaluated to true.
 
-This is not really appropriate.
+This should fix the issue.  Thanks to DaveJ for noticing
+and reporting the issue!
 
-We have statistics like the ones you are incrementing in this
-function as the mechanism people can use to learn what events
-happened on an interface, and how many times they happened.
+CC: Dave Jones <davej@redhat.com>
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Therefore, emitting a log message for each one of those events too is
-not necessary.
-
-We don't emit a netdev_err() for every packet that the IPv4 stack
-drops due to a bad checksum, for example.
-
-Please get rid of this.
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5a22187..1fe28ca 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -458,13 +458,13 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		 */
+ 		if (fcnt_prog >= (fcnt_avail - I40E_FDIR_BUFFER_FULL_MARGIN)) {
+ 			/* Turn off ATR first */
+-			if (pf->flags | I40E_FLAG_FD_ATR_ENABLED) {
++			if (pf->flags & I40E_FLAG_FD_ATR_ENABLED) {
+ 				pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
+ 				dev_warn(&pdev->dev, "FD filter space full, ATR for further flows will be turned off\n");
+ 				pf->auto_disable_flags |=
+ 						       I40E_FLAG_FD_ATR_ENABLED;
+ 				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
+-			} else if (pf->flags | I40E_FLAG_FD_SB_ENABLED) {
++			} else if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
+ 				pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
+ 				dev_warn(&pdev->dev, "FD filter space full, new ntuple rules will not be added\n");
+ 				pf->auto_disable_flags |=
+-- 
+1.9.3
