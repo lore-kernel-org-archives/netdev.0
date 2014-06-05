@@ -1,79 +1,53 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6] netfilter: nf_tables: atomic allocation in set notifications from rcu callback
-Date: Thu,  5 Jun 2014 17:08:26 +0200
-Message-ID: <1401980906-25290-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/6] netfilter: nf_tables: fix wrong transaction ordering in set elements
+Date: Thu,  5 Jun 2014 17:08:22 +0200
+Message-ID: <1401980906-25290-3-git-send-email-pablo@netfilter.org>
 References: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39227 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752638AbaFEPIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 11:08:36 -0400
 In-Reply-To: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use GFP_ATOMIC allocations when sending removal notifications of
-anonymous sets from rcu callback context. Sleeping in that context
-is illegal.
+The transaction needs to be placed at the end of the commit list,
+otherwise event notifications are reordered and we may crash when
+releasing object via call_rcu.
 
+This problem was introduced in 60319eb ("netfilter: nf_tables: use new
+transaction infrastructure to handle elements").
+
+Reported-by: Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ net/netfilter/nf_tables_api.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index dbf8236..624e083 100644
+index 0478847..9365531 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -2191,7 +2191,7 @@ nla_put_failure:
+@@ -3077,7 +3077,7 @@ static int nft_add_set_elem(struct nft_ctx *ctx, struct nft_set *set,
+ 		goto err4;
  
- static int nf_tables_set_notify(const struct nft_ctx *ctx,
- 				const struct nft_set *set,
--				int event)
-+				int event, gfp_t gfp_flags)
- {
- 	struct sk_buff *skb;
- 	u32 portid = ctx->portid;
-@@ -2202,7 +2202,7 @@ static int nf_tables_set_notify(const struct nft_ctx *ctx,
- 		return 0;
+ 	nft_trans_elem(trans) = elem;
+-	list_add(&trans->list, &ctx->net->nft.commit_list);
++	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
+ 	return 0;
  
- 	err = -ENOBUFS;
--	skb = nlmsg_new(NLMSG_GOODSIZE, GFP_KERNEL);
-+	skb = nlmsg_new(NLMSG_GOODSIZE, gfp_flags);
- 	if (skb == NULL)
- 		goto err;
+ err4:
+@@ -3161,7 +3161,7 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+ 		goto err2;
  
-@@ -2213,7 +2213,7 @@ static int nf_tables_set_notify(const struct nft_ctx *ctx,
- 	}
+ 	nft_trans_elem(trans) = elem;
+-	list_add(&trans->list, &ctx->net->nft.commit_list);
++	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
  
- 	err = nfnetlink_send(skb, ctx->net, portid, NFNLGRP_NFTABLES,
--			     ctx->report, GFP_KERNEL);
-+			     ctx->report, gfp_flags);
- err:
- 	if (err < 0)
- 		nfnetlink_set_err(ctx->net, portid, NFNLGRP_NFTABLES, err);
-@@ -2613,7 +2613,7 @@ static void nft_set_destroy(struct nft_set *set)
- static void nf_tables_set_destroy(const struct nft_ctx *ctx, struct nft_set *set)
- {
- 	list_del(&set->list);
--	nf_tables_set_notify(ctx, set, NFT_MSG_DELSET);
-+	nf_tables_set_notify(ctx, set, NFT_MSG_DELSET, GFP_ATOMIC);
- 	nft_set_destroy(set);
- }
- 
-@@ -3409,12 +3409,12 @@ static int nf_tables_commit(struct sk_buff *skb)
- 				trans->ctx.table->use--;
- 
- 			nf_tables_set_notify(&trans->ctx, nft_trans_set(trans),
--					     NFT_MSG_NEWSET);
-+					     NFT_MSG_NEWSET, GFP_KERNEL);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELSET:
- 			nf_tables_set_notify(&trans->ctx, nft_trans_set(trans),
--					     NFT_MSG_DELSET);
-+					     NFT_MSG_DELSET, GFP_KERNEL);
- 			break;
- 		case NFT_MSG_NEWSETELEM:
- 			nf_tables_setelem_notify(&trans->ctx,
+ 	nft_data_uninit(&elem.key, NFT_DATA_VALUE);
+ 	if (set->flags & NFT_SET_MAP)
 -- 
 1.7.10.4
-
