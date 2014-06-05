@@ -1,53 +1,54 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] bridge: Fix incorrect judgment of promisc
-Date: Thu, 5 Jun 2014 13:47:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17257DCF@AcuExch.aculab.com>
-References: <1401965851-6449-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
- <063D6719AE5E284EB5DD2968C1650D6D17257C08@AcuExch.aculab.com>
- <539052C0.2090409@lab.ntt.co.jp>
- <063D6719AE5E284EB5DD2968C1650D6D17257D43@AcuExch.aculab.com>
- <53906B30.7080907@lab.ntt.co.jp>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 1/4] macvlan: don't update the uc and vlan list
+ for L2 forwarding offload
+Date: Thu, 05 Jun 2014 09:52:26 -0400
+Message-ID: <5390761A.5030808@gmail.com>
+References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-2-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>
-To: 'Toshiaki Makita' <makita.toshiaki@lab.ntt.co.jp>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net, edumazet@google.com, vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49575 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751174AbaFENr7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:47:59 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16976-10 for <netdev@vger.kernel.org>;
- Thu,  5 Jun 2014 14:47:51 +0100 (BST)
-In-Reply-To: <53906B30.7080907@lab.ntt.co.jp>
-Content-Language: en-US
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:38644 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751368AbaFENwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:52:30 -0400
+Received: by mail-qa0-f51.google.com with SMTP id w8so1379386qac.24
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 06:52:29 -0700 (PDT)
+In-Reply-To: <1401951028-9800-2-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Toshiaki Makita 
-> > A quick truth table:
-> > 	auto_cnt	auto_port	set/clear
-> > 		0		0	clear
-> > 		0		1	clear
-> > 		1		0	set
-> > 		1		1	clear
-> > 		2+		0/1	clear
+On 06/05/2014 02:50 AM, Ding Tianhong wrote:
+> If lowerdev supports L2 forwarding offload, no need to set mac address
+> to uc list and vlan list, so also don't do that when the macvlan mac address
+> changes.
 > 
-> The last line should be set.
 
-I've clearly not drunk enough coffee today...
+Are you sure about this?  How would the lower dev receive traffic
+destined to the new HW address if it is not in the device unicast filter
+list?
 
-I suspect the 0-1 line is impossible.
-Since the check is probably for 'any other ports in 'auto' mode'.
-So:
-	if (auto_cnt - auto_port > 0)
-(which is much the same as the original) is a good descriptive test.
+-vlad
 
-	David
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/macvlan.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 453d55a..c3a54a6 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>  	struct net_device *lowerdev = vlan->lowerdev;
+>  	int err;
+>  
+> -	if (!(dev->flags & IFF_UP)) {
+> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
+>  		/* Just copy in the new address */
+>  		ether_addr_copy(dev->dev_addr, addr);
+>  	} else {
+> 
