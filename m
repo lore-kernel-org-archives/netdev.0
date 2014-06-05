@@ -1,93 +1,156 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/13][pull request] Intel Wired LAN Driver Updates 2014-06-05
-Date: Thu,  5 Jun 2014 03:12:48 -0700
-Message-ID: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next v2 07/13] i40evf: fix crash when changing ring sizes
+Date: Thu,  5 Jun 2014 03:12:55 -0700
+Message-ID: <1401963181-11110-8-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:19636 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751809AbaFEKNE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 06:13:04 -0400
+	id S1751839AbaFEKNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 06:13:06 -0400
+In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Jesse fixes an issue reported by Dave Jones where a couple of FD checks
-ended up using bitwise OR where it should have been bitwise AND.
+i40evf_set_ringparam was broken in several ways. First, it only changed
+the size of the first ring, and second, changing the ring size would
+often result in a panic because it would change the count before
+deallocating resources, causing the driver to either free nonexistent
+buffers, or leak leftover buffers.
 
-Neerav removes unused defines and macros for receive LRO.  Fix the driver
-from allowing the user to set a larger MTU size that the hardware was
-being configured to support.  Refactors send version which moves code in
-two places into a small helper function.
+Fix this by storing the descriptor count in the adapter structure, and
+updating the count for each ring each time we allocate them. This
+ensures that we always free the right size ring, and always end up with
+the requested count when the device is (re)opened.
 
-Kamil modifies register diagnostics since register ranges can vary among
-the different NVMs to avoid false test results.  So now we try to identify
-the full range and use it for a register test and if we fail to define the
-proper register range, we will only test the first register from that
-group.  Then removes the check for large buffer since this was added in the
-case this structure changed in the future, since the AQ definition is now
-mature enough that this check is no longer necessary.
+Change-ID: I298396cd3d452ba8509d9f2d33a93f25868a9a55
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 18 +++++++-----------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  8 ++++++--
+ 3 files changed, 15 insertions(+), 13 deletions(-)
 
-Mitch fixes i40evf driver to allocate descriptors in groups of 32 since the
-hardware requires it.  Also fixes a crash when the ring size changed because
-it would change the count before deallocating resources, causing the driver
-to either free nonexistent buffers or leak leftover buffers.  Fixed the
-driver to notify the VF for all types of resets so the VF can attempt a
-graceful reinit.
-
-Shannon refactors stats collection to create a unifying stats update routine
-to call the various stat collection routines.  Removes rx_errors and
-rx_missed stats since they were removed from the chip design.  Added
-missing VSI statistics that the hardware offers but are not apart of the
-standard netdev stats.
-
-v2: dropped patch "i40e: Allow disabling of DCB via debugfs" from Neerav
-    based on feedback from David Miller.
-
-The following are changes since commit ebbe495f19d565bb39be31ca28126a222b6a66dd:
-  ipv4: use skb frags api in udp4_hwcsum()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Jesse Brandeburg (4):
-  i40e: don't use OR to check a value
-  i40e/i40evf: remove unused RX_LRO define
-  i40e: clamp jumbo frame size
-  i40e: refactor send version
-
-Kamil Krawczyk (3):
-  i40e: Rework register diagnostic
-  i40e: remove check for large buffer
-  i40e/i40evf: VEB structure added, GTIME macro update
-
-Mitch Williams (3):
-  i40evf: set descriptor multiple to 32
-  i40evf: fix crash when changing ring sizes
-  i40e: notify VF of all types of resets
-
-Shannon Nelson (3):
-  i40e: refactor stats collection
-  i40e/i40evf: remove rx_errors and rx_missed
-  i40e: add missing VSI statistics
-
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   6 -
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_diag.c        |  50 ++-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  19 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 404 +++++++++++----------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   7 -
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  16 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   7 -
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |  16 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         |   4 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |  20 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   8 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   3 +-
- 14 files changed, 321 insertions(+), 252 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index bfd8542..30ef519 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -196,10 +196,12 @@ struct i40evf_adapter {
+ 	struct i40e_ring *tx_rings[I40E_MAX_VSI_QP];
+ 	u32 tx_timeout_count;
+ 	struct list_head mac_filter_list;
++	u32 tx_desc_count;
+ 
+ 	/* RX */
+ 	struct i40e_ring *rx_rings[I40E_MAX_VSI_QP];
+ 	u64 hw_csum_rx_error;
++	u32 rx_desc_count;
+ 	int num_msix_vectors;
+ 	struct msix_entry *msix_entries;
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 9cd381a..8d41a88 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -224,13 +224,11 @@ static void i40evf_get_ringparam(struct net_device *netdev,
+ 				  struct ethtool_ringparam *ring)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+-	struct i40e_ring *tx_ring = adapter->tx_rings[0];
+-	struct i40e_ring *rx_ring = adapter->rx_rings[0];
+ 
+ 	ring->rx_max_pending = I40EVF_MAX_RXD;
+ 	ring->tx_max_pending = I40EVF_MAX_TXD;
+-	ring->rx_pending = rx_ring->count;
+-	ring->tx_pending = tx_ring->count;
++	ring->rx_pending = adapter->rx_desc_count;
++	ring->tx_pending = adapter->tx_desc_count;
+ }
+ 
+ /**
+@@ -246,7 +244,6 @@ static int i40evf_set_ringparam(struct net_device *netdev,
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	u32 new_rx_count, new_tx_count;
+-	int i;
+ 
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+@@ -262,17 +259,16 @@ static int i40evf_set_ringparam(struct net_device *netdev,
+ 	new_rx_count = ALIGN(new_rx_count, I40EVF_REQ_DESCRIPTOR_MULTIPLE);
+ 
+ 	/* if nothing to do return success */
+-	if ((new_tx_count == adapter->tx_rings[0]->count) &&
+-	    (new_rx_count == adapter->rx_rings[0]->count))
++	if ((new_tx_count == adapter->tx_desc_count) &&
++	    (new_rx_count == adapter->rx_desc_count))
+ 		return 0;
+ 
+-	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
+-		adapter->tx_rings[0]->count = new_tx_count;
+-		adapter->rx_rings[0]->count = new_rx_count;
+-	}
++	adapter->tx_desc_count = new_tx_count;
++	adapter->rx_desc_count = new_rx_count;
+ 
+ 	if (netif_running(netdev))
+ 		i40evf_reinit_locked(adapter);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 632c2b3..d24f40f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1091,14 +1091,14 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
+ 		tx_ring->queue_index = i;
+ 		tx_ring->netdev = adapter->netdev;
+ 		tx_ring->dev = &adapter->pdev->dev;
+-		tx_ring->count = I40EVF_DEFAULT_TXD;
++		tx_ring->count = adapter->tx_desc_count;
+ 		adapter->tx_rings[i] = tx_ring;
+ 
+ 		rx_ring = &tx_ring[1];
+ 		rx_ring->queue_index = i;
+ 		rx_ring->netdev = adapter->netdev;
+ 		rx_ring->dev = &adapter->pdev->dev;
+-		rx_ring->count = I40EVF_DEFAULT_RXD;
++		rx_ring->count = adapter->rx_desc_count;
+ 		adapter->rx_rings[i] = rx_ring;
+ 	}
+ 
+@@ -1669,6 +1669,7 @@ static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
++		adapter->tx_rings[i]->count = adapter->tx_desc_count;
+ 		err = i40evf_setup_tx_descriptors(adapter->tx_rings[i]);
+ 		if (!err)
+ 			continue;
+@@ -1696,6 +1697,7 @@ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
++		adapter->rx_rings[i]->count = adapter->rx_desc_count;
+ 		err = i40evf_setup_rx_descriptors(adapter->rx_rings[i]);
+ 		if (!err)
+ 			continue;
+@@ -2092,6 +2094,8 @@ static void i40evf_init_task(struct work_struct *work)
+ 	adapter->watchdog_timer.data = (unsigned long)adapter;
+ 	mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 
++	adapter->tx_desc_count = I40EVF_DEFAULT_TXD;
++	adapter->rx_desc_count = I40EVF_DEFAULT_RXD;
+ 	err = i40evf_init_interrupt_scheme(adapter);
+ 	if (err)
+ 		goto err_sw_init;
 -- 
 1.9.3
