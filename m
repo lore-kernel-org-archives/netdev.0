@@ -1,48 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] xen-netback: Fix handling of skbs requiring too
- many slots
-Date: Thu, 05 Jun 2014 15:09:52 -0700 (PDT)
-Message-ID: <20140605.150952.1419101660779617906.davem@davemloft.net>
-References: <1401908331-13297-1-git-send-email-zoltan.kiss@citrix.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH V2 net-next] LISP: Locator/Identifier Separation Protocol
+Date: Thu, 5 Jun 2014 15:12:08 -0700
+Message-ID: <CAHA+R7MU6mcQjvqzHT5qSsPzxdbPC=pSh3MbNF2yOUNJocKiJg@mail.gmail.com>
+References: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xenproject.org, ian.campbell@citrix.com,
-	wei.liu2@citrix.com, paul.durrant@citrix.com, linux@eikelenboom.it,
-	netdev@vger.kernel.org, david.vrabel@citrix.com
-To: zoltan.kiss@citrix.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
+	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
+	<lojakab@cisco.com>
+To: Christopher White <chris@logicalelegance.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51373 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752631AbaFEWJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:09:53 -0400
-In-Reply-To: <1401908331-13297-1-git-send-email-zoltan.kiss@citrix.com>
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:51816 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007AbaFEWMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:12:09 -0400
+Received: by mail-qa0-f52.google.com with SMTP id cm18so2403077qab.25
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 15:12:08 -0700 (PDT)
+In-Reply-To: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Wed, 4 Jun 2014 19:58:51 +0100
+On Thu, Jun 5, 2014 at 2:14 PM, Christopher White
+<chris@logicalelegance.com> wrote:
+> +void lisp_sock_release(struct lisp_sock *s)
+> +{
+> +       struct sock *sk = s->sock->sk;
+> +       struct net *net = sock_net(sk);
+> +       struct lisp_net *ln = net_generic(net, lisp_net_id);
+> +
+> +       if (!atomic_dec_and_test(&s->refcnt))
+> +               return;
+> +       spin_lock(&ln->sock_lock);
+> +       hlist_del_rcu(&s->hlist);
+> +       rcu_assign_sk_user_data(s->sock->sk, NULL);
+> +       spin_unlock(&ln->sock_lock);
+> +       queue_work(lisp_wq, &s->del_work);
+> +}
+> +EXPORT_SYMBOL_GPL(lisp_sock_release);
 
-> A recent commit (a02eb4 "xen-netback: worse-case estimate in xenvif_rx_action is
-> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but that triggers
-> the next BUG_ON a few lines down, as the packet consumes more slots than
-> estimated.
-> This patch introduces full_coalesce on the skb callback buffer, which is used in
-> start_new_rx_buffer() to decide whether netback needs coalescing more
-> aggresively. By doing that, no packet should need more than
-> (XEN_NETIF_MAX_TX_SIZE + 1) / PAGE_SIZE data slots (excluding the optional GSO
-> slot, it doesn't carry data, therefore irrelevant in this case), as the provided
-> buffers are fully utilized.
-> 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Why do you export this symbol?
 
-Applied, and:
 
-> -		if (max_slots_needed > MAX_SKB_FRAGS)
-> +		if (max_slots_needed > MAX_SKB_FRAGS) {
->  			max_slots_needed = MAX_SKB_FRAGS;
-> +			XENVIF_RX_CB(skb)->full_coalesce = true;
-> +		} else
-> +			XENVIF_RX_CB(skb)->full_coalesce = false;
+> +
+> +static int create_v4_sock(struct net *net, __be16 port, struct socket **psock,
+> +                         u32 flags)
+> +{
 
-I took care of adding the {} to the else block, as suggested by Wei Liu.
+
+It looks like this function is very similar to the one in vxlan tunnel,
+it would be better to unify and move it to net/core/sock.c.
