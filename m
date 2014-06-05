@@ -1,62 +1,78 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH 1/3] net: phylib: add adjust_state callback to phy device
-Date: Thu, 05 Jun 2014 23:39:15 +0200
-Message-ID: <5390E383.50805@zonque.org>
-References: <1401872439-30107-1-git-send-email-zonque@gmail.com> <1401872439-30107-2-git-send-email-zonque@gmail.com> <CAGVrzcYfa6rwhqpZ8NB9Za0WdJDi3eePoYLcHsqQnUhuP3ui=w@mail.gmail.com> <539018D6.4000806@zonque.org> <CAGVrzcbas_A=prheBFeczuC+gRyWdACVrAHY0_zhy0N+fePTWQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"marek.belisko" <marek.belisko@gmail.com>,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH net] net: filter: fix SKF_AD_PKTTYPE extension on big-endian
+Date: Thu,  5 Jun 2014 14:39:36 -0700
+Message-ID: <1402004376-1814-1-git-send-email-ast@plumgrid.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:52524 "EHLO mail.zonque.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751559AbaFEVjT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 17:39:19 -0400
-In-Reply-To: <CAGVrzcbas_A=prheBFeczuC+gRyWdACVrAHY0_zhy0N+fePTWQ@mail.gmail.com>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:55678 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466AbaFEVju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 17:39:50 -0400
+Received: by mail-pd0-f178.google.com with SMTP id v10so1639221pde.9
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 14:39:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+BPF classic->internal converter broke SKF_AD_PKTTYPE extension, since
+pkt_type_offset() was failing to find skb->pkt_type field which is defined as:
+__u8 pkt_type:3,
+     fclone:2,
+     ipvs_property:1,
+     peeked:1,
+     nf_trace:1;
 
-On 06/05/2014 08:12 PM, Florian Fainelli wrote:
-> 2014-06-05 0:14 GMT-07:00 Daniel Mack <daniel@zonque.org>:
+Fix it by searching for 3 most significant bits and shift them by 5 at run-time
 
->>> This sounds potentially dangerous if misused, PHY drivers would
->>> basically be allowed to do arbitrary link state changes based on their
->>> custom needs.
->>
->> Yes, and this is basically what my quirk handler does. It takes action
->> when the link goes down (PHY_NOLINK), as we unfortunately need to reset
->> the chip every time this happens.
-> 
-> In fact, the callback name is sort of a misnomer here, as you are not
-> really adjusting the PHY device state here, you are reading from it to
-> do something about the PHY device based on this state.
-> 
-> Could you rename it to "state_notify" for instance to make it clear
-> that this must absolutely be a read-only operation and the PHY driver
-> is by no means allow to mess with the PHY device structure at all?
-> Constifying the phy_device argument here would not really help
-> unfortunately, and providing you with just the 'state' as a RO
-> argument would not help either since you need to access the PHY
-> device...
+Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Tested-by: Daniel Borkmann <dborkman@redhat.com>
+---
 
-Sure, I can rename it, no problem.
+backported BPF testsuite to 'net' and tested with qemu-sparc64.
+Daniel tested it on s390.
 
-> I was thinking about having a notifier callchain here that would
-> execute synchronously and in the same context as your proposed
-> adjust_link() callback, although that might be be too heavy weighted
-> for basically just one notified callback.
+Dave,
+The fix doesn't apply cleanly to 'net-next'.
+There 2nd hunk needs to be:
+               insn++;
+               *insn = BPF_ALU32_IMM(BPF_RSH, BPF_REG_A, 5);
+I have 'net-next' patch ready and tested as well. Let me know if I should
+send it or you'll take care of it while doing the merge of 'net'.
 
-Plus, it wouldn't really solve the issue you described above, right?
+ net/core/filter.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-
-I'll resend after -rc1 is out, with the changed name for the callback.
-
-
-Again, thanks!
-Daniel
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 4aec7b9..ab3c74e 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -578,7 +578,11 @@ EXPORT_SYMBOL_GPL(sk_run_filter_int_skb);
+  * to make sure its still a 3bit field starting at a byte boundary;
+  * taken from arch/x86/net/bpf_jit_comp.c.
+  */
++#ifdef __BIG_ENDIAN_BITFIELD
++#define PKT_TYPE_MAX	(7 << 5)
++#else
+ #define PKT_TYPE_MAX	7
++#endif
+ static unsigned int pkt_type_offset(void)
+ {
+ 	struct sk_buff skb_probe = { .pkt_type = ~0, };
+@@ -685,6 +689,13 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
+ 		insn->code = BPF_ALU | BPF_AND | BPF_K;
+ 		insn->a_reg = A_REG;
+ 		insn->imm = PKT_TYPE_MAX;
++#ifdef __BIG_ENDIAN_BITFIELD
++		insn++;
++
++		insn->code = BPF_ALU | BPF_RSH | BPF_K;
++		insn->a_reg = A_REG;
++		insn->imm = 5;
++#endif
+ 		break;
+ 
+ 	case SKF_AD_OFF + SKF_AD_IFINDEX:
+-- 
+1.7.9.5
