@@ -1,61 +1,57 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net v2] xen-netback: Fix handling of skbs requiring too
- many slots
-Date: Thu, 5 Jun 2014 11:07:34 +0100
-Message-ID: <20140605100734.GM6043@zion.uk.xensource.com>
-References: <1401908331-13297-1-git-send-email-zoltan.kiss@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
-	<wei.liu2@citrix.com>, <paul.durrant@citrix.com>,
-	<linux@eikelenboom.it>, <netdev@vger.kernel.org>,
-	<david.vrabel@citrix.com>, <davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/13] i40e: don't use OR to check a value
+Date: Thu,  5 Jun 2014 03:12:49 -0700
+Message-ID: <1401963181-11110-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Dave Jones <davej@redhat.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:37746 "EHLO SMTP.CITRIX.COM"
+Received: from mga14.intel.com ([192.55.52.115]:19645 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750925AbaFEKHw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 06:07:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1401908331-13297-1-git-send-email-zoltan.kiss@citrix.com>
+	id S1751328AbaFEKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 06:13:05 -0400
+In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2014 at 07:58:51PM +0100, Zoltan Kiss wrote:
-> A recent commit (a02eb4 "xen-netback: worse-case estimate in xenvif_rx_action is
-> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but that triggers
-> the next BUG_ON a few lines down, as the packet consumes more slots than
-> estimated.
-> This patch introduces full_coalesce on the skb callback buffer, which is used in
-> start_new_rx_buffer() to decide whether netback needs coalescing more
-> aggresively. By doing that, no packet should need more than
-> (XEN_NETIF_MAX_TX_SIZE + 1) / PAGE_SIZE data slots (excluding the optional GSO
-> slot, it doesn't carry data, therefore irrelevant in this case), as the provided
-> buffers are fully utilized.
-> 
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+A couple of FD checks ended up using bitwise OR to check
+a value, which ends up always being evaluated to true.
 
-Minor nit below.
+This should fix the issue.  Thanks to DaveJ for noticing
+and reporting the issue!
 
-[...]
-> @@ -602,10 +611,14 @@ static void xenvif_rx_action(struct xenvif *vif)
->  
->  		/* To avoid the estimate becoming too pessimal for some
->  		 * frontends that limit posted rx requests, cap the estimate
-> -		 * at MAX_SKB_FRAGS.
-> +		 * at MAX_SKB_FRAGS. In this case netback will fully coalesce
-> +		 * the skb into the provided slots.
->  		 */
-> -		if (max_slots_needed > MAX_SKB_FRAGS)
-> +		if (max_slots_needed > MAX_SKB_FRAGS) {
->  			max_slots_needed = MAX_SKB_FRAGS;
-> +			XENVIF_RX_CB(skb)->full_coalesce = true;
-> +		} else
-> +			XENVIF_RX_CB(skb)->full_coalesce = false;
->  
+CC: Dave Jones <davej@redhat.com>
+Reported-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Please enclose this line with {}, which is required by kernel coding
-style.
-
-Wei.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 5a22187..1fe28ca 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -458,13 +458,13 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
+ 		 */
+ 		if (fcnt_prog >= (fcnt_avail - I40E_FDIR_BUFFER_FULL_MARGIN)) {
+ 			/* Turn off ATR first */
+-			if (pf->flags | I40E_FLAG_FD_ATR_ENABLED) {
++			if (pf->flags & I40E_FLAG_FD_ATR_ENABLED) {
+ 				pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
+ 				dev_warn(&pdev->dev, "FD filter space full, ATR for further flows will be turned off\n");
+ 				pf->auto_disable_flags |=
+ 						       I40E_FLAG_FD_ATR_ENABLED;
+ 				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
+-			} else if (pf->flags | I40E_FLAG_FD_SB_ENABLED) {
++			} else if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
+ 				pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
+ 				dev_warn(&pdev->dev, "FD filter space full, new ntuple rules will not be added\n");
+ 				pf->auto_disable_flags |=
+-- 
+1.9.3
