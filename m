@@ -1,45 +1,49 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next] bridge: Fix incorrect judgment of
-	promisc
-Date: Thu,  5 Jun 2014 20:53:32 +0900
-Message-ID: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>, bridge@lists.linux-foundation.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 3/3] macvlan: don't set the same mac address for non-passthru mode
+Date: Thu, 5 Jun 2014 20:01:03 +0800
+Message-ID: <1401969663-4464-4-git-send-email-dingtianhong@huawei.com>
+References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
+	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:3502 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbaFEMB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 08:01:28 -0400
+In-Reply-To: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-br_manage_promisc() incorrectly expects br_auto_port() to return only 0
-or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+The macvlan should have the same mac address only for passthru mode,
+so the underlying device couldn't set a new address if it is in use
+by macvlan for non-passthru mode, otherwise it will break the work
+mechanism.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/bridge/br_if.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/macvlan.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index a08d2b8..3eca3fd 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -153,7 +153,8 @@ void br_manage_promisc(struct net_bridge *br)
- 			 * This lets us disable promiscuous mode and write
- 			 * this config to hw.
- 			 */
--			if (br->auto_cnt <= br_auto_port(p))
-+			if (br->auto_cnt == 0 ||
-+			    (br->auto_cnt == 1 && br_auto_port(p)))
- 				br_port_clear_promisc(p);
- 			else
- 				br_port_set_promisc(p);
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index c3a54a6..edf1a1c 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1185,8 +1185,12 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 		}
+ 		break;
+ 	case NETDEV_CHANGEADDR:
+-		if (!port->passthru)
++		if (!port->passthru) {
++			if (macvlan_hash_lookup(port, dev->dev_addr))
++				return NOTIFY_BAD;
++
+ 			return NOTIFY_DONE;
++		}
+ 
+ 		vlan = list_first_entry_or_null(&port->vlans,
+ 						struct macvlan_dev,
 -- 
-1.8.1.2
+1.8.0
