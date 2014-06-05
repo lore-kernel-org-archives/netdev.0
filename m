@@ -1,57 +1,110 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/13] i40e: don't use OR to check a value
-Date: Thu,  5 Jun 2014 03:12:49 -0700
-Message-ID: <1401963181-11110-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/13] i40e: add missing VSI statistics
+Date: Thu,  5 Jun 2014 03:13:01 -0700
+Message-ID: <1401963181-11110-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Dave Jones <davej@redhat.com>,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19645 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:19636 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751328AbaFEKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 06:13:05 -0400
+	id S1751814AbaFEKNJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 06:13:09 -0400
 In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-A couple of FD checks ended up using bitwise OR to check
-a value, which ends up always being evaluated to true.
+Add a couple more statistics that the hardware offers but aren't part
+of the standard netdev stats.
 
-This should fix the issue.  Thanks to DaveJ for noticing
-and reporting the issue!
-
-CC: Dave Jones <davej@redhat.com>
-Reported-by: Dave Jones <davej@redhat.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I201db2898f2c284aee3d9631470bc5edd349e9a5
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 18 ++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c    |  8 ++++++++
+ 2 files changed, 26 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 5a22187..1fe28ca 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -458,13 +458,13 @@ static void i40e_fd_handle_status(struct i40e_ring *rx_ring,
- 		 */
- 		if (fcnt_prog >= (fcnt_avail - I40E_FDIR_BUFFER_FULL_MARGIN)) {
- 			/* Turn off ATR first */
--			if (pf->flags | I40E_FLAG_FD_ATR_ENABLED) {
-+			if (pf->flags & I40E_FLAG_FD_ATR_ENABLED) {
- 				pf->flags &= ~I40E_FLAG_FD_ATR_ENABLED;
- 				dev_warn(&pdev->dev, "FD filter space full, ATR for further flows will be turned off\n");
- 				pf->auto_disable_flags |=
- 						       I40E_FLAG_FD_ATR_ENABLED;
- 				pf->flags |= I40E_FLAG_FDIR_REQUIRES_REINIT;
--			} else if (pf->flags | I40E_FLAG_FD_SB_ENABLED) {
-+			} else if (pf->flags & I40E_FLAG_FD_SB_ENABLED) {
- 				pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
- 				dev_warn(&pdev->dev, "FD filter space full, new ntuple rules will not be added\n");
- 				pf->auto_disable_flags |=
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index e23d514..1bb470b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -62,6 +62,12 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
+ 	I40E_NETDEV_STAT(rx_crc_errors),
+ };
+ 
++static const struct i40e_stats i40e_gstrings_misc_stats[] = {
++	I40E_VSI_STAT("rx_unknown_protocol", eth_stats.rx_unknown_protocol),
++	I40E_VSI_STAT("rx_broadcast", eth_stats.rx_broadcast),
++	I40E_VSI_STAT("tx_broadcast", eth_stats.tx_broadcast),
++};
++
+ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 				 struct ethtool_rxnfc *cmd);
+ 
+@@ -125,7 +131,9 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	    * (sizeof(struct i40e_queue_stats) / sizeof(u64)))
+ #define I40E_GLOBAL_STATS_LEN	ARRAY_SIZE(i40e_gstrings_stats)
+ #define I40E_NETDEV_STATS_LEN   ARRAY_SIZE(i40e_gstrings_net_stats)
++#define I40E_MISC_STATS_LEN	ARRAY_SIZE(i40e_gstrings_misc_stats)
+ #define I40E_VSI_STATS_LEN(n)   (I40E_NETDEV_STATS_LEN + \
++				 I40E_MISC_STATS_LEN + \
+ 				 I40E_QUEUE_STATS_LEN((n)))
+ #define I40E_PFC_STATS_LEN ( \
+ 		(FIELD_SIZEOF(struct i40e_pf, stats.priority_xoff_rx) + \
+@@ -648,6 +656,11 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
+ 		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
+ 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
+ 	}
++	for (j = 0; j < I40E_MISC_STATS_LEN; j++) {
++		p = (char *)vsi + i40e_gstrings_misc_stats[j].stat_offset;
++		data[i++] = (i40e_gstrings_misc_stats[j].sizeof_stat ==
++			    sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
++	}
+ 	rcu_read_lock();
+ 	for (j = 0; j < vsi->num_queue_pairs; j++) {
+ 		tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
+@@ -714,6 +727,11 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
+ 				 i40e_gstrings_net_stats[i].stat_string);
+ 			p += ETH_GSTRING_LEN;
+ 		}
++		for (i = 0; i < I40E_MISC_STATS_LEN; i++) {
++			snprintf(p, ETH_GSTRING_LEN, "%s",
++				 i40e_gstrings_misc_stats[i].stat_string);
++			p += ETH_GSTRING_LEN;
++		}
+ 		for (i = 0; i < vsi->num_queue_pairs; i++) {
+ 			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_packets", i);
+ 			p += ETH_GSTRING_LEN;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 76bd168..35e5ba4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -530,6 +530,12 @@ void i40e_update_eth_stats(struct i40e_vsi *vsi)
+ 	i40e_stat_update32(hw, I40E_GLV_RDPC(stat_idx),
+ 			   vsi->stat_offsets_loaded,
+ 			   &oes->rx_discards, &es->rx_discards);
++	i40e_stat_update32(hw, I40E_GLV_RUPP(stat_idx),
++			   vsi->stat_offsets_loaded,
++			   &oes->rx_unknown_protocol, &es->rx_unknown_protocol);
++	i40e_stat_update32(hw, I40E_GLV_TEPC(stat_idx),
++			   vsi->stat_offsets_loaded,
++			   &oes->tx_errors, &es->tx_errors);
+ 
+ 	i40e_stat_update48(hw, I40E_GLV_GORCH(stat_idx),
+ 			   I40E_GLV_GORCL(stat_idx),
+@@ -807,6 +813,8 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
+ 	ns->tx_errors = es->tx_errors;
+ 	ons->multicast = oes->rx_multicast;
+ 	ns->multicast = es->rx_multicast;
++	ons->rx_dropped = oes->rx_discards;
++	ns->rx_dropped = es->rx_discards;
+ 	ons->tx_dropped = oes->tx_discards;
+ 	ns->tx_dropped = es->tx_discards;
+ 
 -- 
 1.9.3
