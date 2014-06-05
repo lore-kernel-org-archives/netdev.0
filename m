@@ -1,83 +1,66 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next] bridge: Fix incorrect judgment of promisc
-Date: Thu, 05 Jun 2014 22:05:52 +0900
-Message-ID: <53906B30.7080907@lab.ntt.co.jp>
-References: <1401965851-6449-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <063D6719AE5E284EB5DD2968C1650D6D17257C08@AcuExch.aculab.com> <539052C0.2090409@lab.ntt.co.jp> <063D6719AE5E284EB5DD2968C1650D6D17257D43@AcuExch.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH iproute2] ss: display pacing_rate/max_pacing_rate
+Date: Thu, 05 Jun 2014 06:47:37 -0700
+Message-ID: <1401976057.3645.277.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:44932 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaFENGL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:06:11 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17257D43@AcuExch.aculab.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:51690 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426AbaFENrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:47:39 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so1105740pdi.41
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 06:47:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2014/06/05 21:55), David Laight wrote:
-> From: Toshiaki Makita
->> (2014/06/05 20:03), David Laight wrote:
->>> From: Toshiaki Makita
->>>> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
->>>> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
->>>>
->>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>>> ---
->>>>  net/bridge/br_if.c | 2 +-
->>>>  1 file changed, 1 insertion(+), 1 deletion(-)
->>>>
->>>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->>>> index a08d2b8..6a07a40 100644
->>>> --- a/net/bridge/br_if.c
->>>> +++ b/net/bridge/br_if.c
->>>> @@ -153,7 +153,7 @@ void br_manage_promisc(struct net_bridge *br)
->>>>  			 * This lets us disable promiscuous mode and write
->>>>  			 * this config to hw.
->>>>  			 */
->>>> -			if (br->auto_cnt <= br_auto_port(p))
->>>> +			if (br->auto_cnt <= !!br_auto_port(p))
->>>>  				br_port_clear_promisc(p);
->>>>  			else
->>>>  				br_port_set_promisc(p);
->>>
->>> Why not the less confusing:
->>> 			if (br->auto_cnt || br_auto_port(p))
->>> and reverse the then/else lines?
->>
->> I'm respecting the original style, but I'm not particular about this style.
->> I'll make less confusing one, thanks :)
->>
->> (Your suggested condition is not exactly the same as current one, even
->> if reversing if/else. v2 will be different than it. Anyway, thanks.)
-> 
-> A quick truth table:
-> 	auto_cnt	auto_port	set/clear
-> 		0		0	clear
-> 		0		1	clear
-> 		1		0	set
-> 		1		1	clear
-> 		2+		0/1	clear
+From: Eric Dumazet <edumazet@google.com>
 
-The last line should be set.
+Since linux-3.15, kernel exports tcpi_pacing_rate and
+tcpi_max_pacing_rate in tcp_info
 
-Thanks,
-Toshiaki Makita
+Add TCP pacing_rate information on ss -i output :
 
-> 
-> So you want:
-> 	if (br->auto_cnt && !br_auto_port(p))
-> 		br_port_set_promisc(p);
-> 	else
-> 		br_port_clear_promisc(p);
-> 
-> Does seem like a strange condition.
-> 
-> 	David
+lpaa23:~# ./ss -ti dst 10.246.7.151
+State      Recv-Q Send-Q   Local Address:Port       Peer Address:Port   
+ESTAB      0      325800    10.246.7.151:57614
+10.246.7.152:46811   
+	 cubic wscale:7,7 rto:201 rtt:0.081/0.006 mss:1448 cwnd:90 ssthresh:63
+send 12871.1Mbps pacing_rate 15397.8Mbps unacked:90 retrans:0/305
+rcv_space:29200
+
+
+If SO_MAX_PACING_RATE is set on the socket, we add /max_pacing_rate as
+in :
+
+... pacing_rate 1570.5Mbps/2.0Gbps ...
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ misc/ss.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 187c852..c847954 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1583,6 +1583,16 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
+ 					 / rtt));
+ 		}
+ 
++		if (info->tcpi_pacing_rate &&
++		    info->tcpi_pacing_rate != ~0ULL) {
++			printf(" pacing_rate %sbps",
++				sprint_bw(b1, info->tcpi_pacing_rate * 8.));
++
++			if (info->tcpi_max_pacing_rate &&
++			    info->tcpi_max_pacing_rate != ~0ULL)
++				printf("/%sbps",
++					sprint_bw(b1, info->tcpi_max_pacing_rate * 8.));
++		}
+ 		if (info->tcpi_unacked)
+ 			printf(" unacked:%u", info->tcpi_unacked);
+ 		if (info->tcpi_retrans || info->tcpi_total_retrans)
