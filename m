@@ -1,46 +1,48 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] mwifiex: Remove custom world regulatory domain
-Date: Thu, 5 Jun 2014 00:12:58 -0700
-Message-ID: <477F20668A386D41ADCC57781B1F70430F768A292B@SC-VEXCH1.marvell.com>
-References: <1401888752-11224-1-git-send-email-mpa@pengutronix.de>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH 1/3] net: phylib: add adjust_state callback to phy device
+Date: Thu, 05 Jun 2014 09:14:30 +0200
+Message-ID: <539018D6.4000806@zonque.org>
+References: <1401872439-30107-1-git-send-email-zonque@gmail.com> <1401872439-30107-2-git-send-email-zonque@gmail.com> <CAGVrzcYfa6rwhqpZ8NB9Za0WdJDi3eePoYLcHsqQnUhuP3ui=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>
-To: Markus Pargmann <mpa@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, marek.belisko@gmail.com,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:64199 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750939AbaFEHNN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 03:13:13 -0400
-In-Reply-To: <1401888752-11224-1-git-send-email-mpa@pengutronix.de>
-Content-Language: en-US
+Received: from svenfoo.org ([82.94.215.22]:33800 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750827AbaFEHOe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 03:14:34 -0400
+In-Reply-To: <CAGVrzcYfa6rwhqpZ8NB9Za0WdJDi3eePoYLcHsqQnUhuP3ui=w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Markus,
+Hi Florian,
 
-Thanks for the patch.
-
-> A custom regulatory domain was introduced in this commit:
-> cc0ba0d mwifiex: support custom world regulatory domain
+On 06/05/2014 07:11 AM, Florian Fainelli wrote:
+> 2014-06-04 2:00 GMT-07:00 Daniel Mack <zonque@gmail.com>:
+>> Allow phy drivers to take action when the core does its link adjustment.
+>> No change for drivers that do not implement this callback.
 > 
-> The commit description says that it was introduced because the world
-> regulatory domain does not include channels 52-64 and 100-140. These
-> channels are described in the world regulatory domain now, so we can drop
-> this custom regulatory domain.
-> 
-> Signed-off-by: Markus Pargmann <mpa@pengutronix.de>
+> This sounds potentially dangerous if misused, PHY drivers would
+> basically be allowed to do arbitrary link state changes based on their
+> custom needs.
 
-Acked-by: Bing Zhao <bzhao@marvell.com>
+Yes, and this is basically what my quirk handler does. It takes action
+when the link goes down (PHY_NOLINK), as we unfortunately need to reset
+the chip every time this happens.
 
-Thanks,
-Bing
+> I really need to review your workaround here to better
+> understand whether we can come up with a solution that allows for less
+> liberty in PHY drivers.
 
-> ---
->  drivers/net/wireless/mwifiex/cfg80211.c | 36 ---------------------------------
->  1 file changed, 36 deletions(-)
+Sure, any other way of calling back to the PHY when the core enters the
+PHY_NOLINK state would do. I just thought that an adjust_state callback
+is most versatile, but I understand that it could be misused.
+
+
+Thanks for having a look!
+
+Daniel
