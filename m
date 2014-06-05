@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
- interface
-Date: Thu, 05 Jun 2014 14:58:44 -0700 (PDT)
-Message-ID: <20140605.145844.382754247234672637.davem@davemloft.net>
-References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
+Subject: Re: [PATCH net] xen-netback: Fix slot estimation
+Date: Thu, 05 Jun 2014 15:02:09 -0700 (PDT)
+Message-ID: <20140605.150209.365488173138758921.davem@davemloft.net>
+References: <1401802336-25182-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, stable@vger.kernel.org, msw@amazon.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	konrad.wilk@oracle.com
-To: daniel.kiper@oracle.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xen-devel@lists.xenproject.org, ian.campbell@citrix.com,
+	wei.liu2@citrix.com, paul.durrant@citrix.com, linux@eikelenboom.it,
+	netdev@vger.kernel.org, david.vrabel@citrix.com
+To: zoltan.kiss@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51245 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752013AbaFEWCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:02:11 -0400
+In-Reply-To: <1401802336-25182-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Kiper <daniel.kiper@oracle.com>
-Date: Mon,  2 Jun 2014 21:46:20 +0200
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Tue, 3 Jun 2014 14:32:16 +0100
 
-> From: Matt Wilson <msw@amazon.com>
+> A recent commit (a02eb4 "xen-netback: worse-case estimate in xenvif_rx_action is
+> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but that triggers
+> the next BUG_ON a few lines down, as the packet consumes more slots than
+> estimated.
+> This patch remove that cap, and if the frontend doesn't provide enough slot,
+> put back the skb to the top of the queue and caps rx_last_skb_slots. When the
+> next try also fails, it drops the packet.
+> Capping rx_last_skb_slots is needed because if the frontend never gives enough
+> slots, the ring gets stalled.
 > 
-> Sometimes it is useful to be able to change the MAC address of the
-> interface for netback devices. For example, when using ebtables it may
-> be useful to be able to distinguish traffic from different interfaces
-> without depending on the interface name.
-> 
-> Reported-by: Nikita Borzykh <sample.n@gmail.com>
-> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-> Cc: netdev@vger.kernel.org
-> Cc: xen-devel@lists.xen.org
-> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> Signed-off-by: Matt Wilson <msw@amazon.com>
-> Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
-> 
-> Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
-> Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
-> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-I don't think this is suitable for -stable.
+Like David Laight, I do not like this patch at all.
 
--stable should be restricted bug fixes for things that either
-are extremely serious, or hit a very huge segment of the user
-base.
+Yes a crash or BUG_ON triggered is bad, but fixing it by deadlocking
+TCP connections (a silent failure) is not an improvement.
 
-This issue does not quality for either condition.
+I'm not applying this, sorry.
