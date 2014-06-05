@@ -1,37 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 0/4] bridge: multicast snooping
- patches / exports
-Date: Thu, 05 Jun 2014 14:50:59 -0700 (PDT)
-Message-ID: <20140605.145059.8146842085083371.davem@davemloft.net>
-References: <20140602184215.GA2460@Linus-Debian>
-	<20140605.004311.19890338095820543.davem@davemloft.net>
-	<20140605212016.GE2544@Linus-Debian>
+Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
+ interface
+Date: Thu, 05 Jun 2014 14:58:44 -0700 (PDT)
+Message-ID: <20140605.145844.382754247234672637.davem@davemloft.net>
+References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: b.a.t.m.a.n@lists.open-mesh.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140605212016.GE2544@Linus-Debian>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, stable@vger.kernel.org, msw@amazon.com,
+	netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com
+To: daniel.kiper@oracle.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Thu, 5 Jun 2014 23:20:16 +0200
+From: Daniel Kiper <daniel.kiper@oracle.com>
+Date: Mon,  2 Jun 2014 21:46:20 +0200
 
-> Oh, I'm sorry, I thought it'd only be necessary for the v1
-> patchset. Going to change that from now on. Anyways, here it is
-> (copied 'n' pasted):
+> From: Matt Wilson <msw@amazon.com>
+> 
+> Sometimes it is useful to be able to change the MAC address of the
+> interface for netback devices. For example, when using ebtables it may
+> be useful to be able to distinguish traffic from different interfaces
+> without depending on the interface name.
+> 
+> Reported-by: Nikita Borzykh <sample.n@gmail.com>
+> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
+> Cc: netdev@vger.kernel.org
+> Cc: xen-devel@lists.xen.org
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Matt Wilson <msw@amazon.com>
+> Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
+> 
+> Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+> Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
+> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
-When I ask for changes, you need to make a new fresh submission
-of your patch(s).
+I don't think this is suitable for -stable.
+
+-stable should be restricted bug fixes for things that either
+are extremely serious, or hit a very huge segment of the user
+base.
+
+This issue does not quality for either condition.
