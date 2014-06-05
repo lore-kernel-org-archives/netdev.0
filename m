@@ -1,47 +1,35 @@
-From: Alex <d77190@mail.ru>
-Subject: Re: Bug 75571
-Date: Thu, 05 Jun 2014 12:22:12 +0700
-Message-ID: <1401945732.29664.6.camel@anpws>
-References: <1401085231.1775.9.camel@anpws>
-	 <CAHA+R7Oog=fAGjcfVTus2HdCt_Vv-1XDFePR3mLb0FM1N3q0ow@mail.gmail.com>
-	 <1401870692.29664.1.camel@anpws>
-	 <CAHA+R7N74QODqvWyvP1gHsK2dm_Zgrkq0+k8LZnqnA8EqnMOZw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 0/7] net: Support checksum in UDP
+Date: Wed, 04 Jun 2014 23:02:19 -0700 (PDT)
+Message-ID: <20140604.230219.1252048889879684806.davem@davemloft.net>
+References: <alpine.DEB.2.02.1406041705230.14524@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Cong Wang <cwang@twopensource.com>
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mxnat3.880.ru ([194.8.85.227]:6439 "EHLO stk-gw0.880.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750876AbaFEFV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 01:21:59 -0400
-In-Reply-To: <CAHA+R7N74QODqvWyvP1gHsK2dm_Zgrkq0+k8LZnqnA8EqnMOZw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40566 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916AbaFEGCX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 02:02:23 -0400
+In-Reply-To: <alpine.DEB.2.02.1406041705230.14524@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D0=92 =D0=A1=D1=80, 04/06/2014 =D0=B2 17:27 -0700, Cong Wang =D0=BF=D0=
-=B8=D1=88=D0=B5=D1=82:
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 4 Jun 2014 17:19:42 -0700 (PDT)
 
-> Thanks for testing!
->=20
-> Thinking a bit more, the question is why
-> skb_push(skb->dev->hard_header_len) is not correct here? It looks
-> like we don't calculate tunnel->dev->hard_header_len correctly. But
-> ipip_tunnel_bind_dev() should do the right thing less your setup is n=
-ot
-> correct, in that case your ipip tunnel should not receive any packet.
-> We should be safe.
->=20
-> Which is the interface routing to 192.168.18.17 on your system? Which
-> driver does it use?
+> This patch series adds support for using checksums in UDP tunnels. With
+> this it is possible that two or more checksums may be set within the
+> same packet and we would like to do that efficiently.
+> 
+> This series also creates some new helper functions to be used by various
+> tunnel protocol implementations.
+> 
+> v2: Fixed indentation in tcp_v6_send_check arguments.
+> v3: Move udp_set_csum and udp6_set_csum to be not inlined
+>     Also have this functions call with a nocheck boolean argument
+>     instead of passing a sock structure.
 
-Its a stock e1000e from kernel with no special options. No jumbo frames=
-,
-etc.
-
-lspci says:
-Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet
-Controller (Copper) (rev 06)
-
-IPIP tunnel runs on top of this interface.
+Series applied, thanks for all of your hard work Tom.
