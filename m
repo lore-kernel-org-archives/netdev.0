@@ -1,81 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] net: phylib: add adjust_state callback to phy device
-Date: Wed, 4 Jun 2014 22:11:29 -0700
-Message-ID: <CAGVrzcYfa6rwhqpZ8NB9Za0WdJDi3eePoYLcHsqQnUhuP3ui=w@mail.gmail.com>
-References: <1401872439-30107-1-git-send-email-zonque@gmail.com> <1401872439-30107-2-git-send-email-zonque@gmail.com>
+From: Alex <d77190@mail.ru>
+Subject: Re: Bug 75571
+Date: Thu, 05 Jun 2014 12:22:12 +0700
+Message-ID: <1401945732.29664.6.camel@anpws>
+References: <1401085231.1775.9.camel@anpws>
+	 <CAHA+R7Oog=fAGjcfVTus2HdCt_Vv-1XDFePR3mLb0FM1N3q0ow@mail.gmail.com>
+	 <1401870692.29664.1.camel@anpws>
+	 <CAHA+R7N74QODqvWyvP1gHsK2dm_Zgrkq0+k8LZnqnA8EqnMOZw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, marek.belisko@gmail.com,
-	Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Daniel Mack <zonque@gmail.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:54251 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751854AbaFEFMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 01:12:10 -0400
-Received: by mail-qg0-f50.google.com with SMTP id z60so769484qgd.23
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 22:12:09 -0700 (PDT)
-In-Reply-To: <1401872439-30107-2-git-send-email-zonque@gmail.com>
+Received: from mxnat3.880.ru ([194.8.85.227]:6439 "EHLO stk-gw0.880.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750876AbaFEFV7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 01:21:59 -0400
+In-Reply-To: <CAHA+R7N74QODqvWyvP1gHsK2dm_Zgrkq0+k8LZnqnA8EqnMOZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-04 2:00 GMT-07:00 Daniel Mack <zonque@gmail.com>:
-> Allow phy drivers to take action when the core does its link adjustment.
-> No change for drivers that do not implement this callback.
+=D0=92 =D0=A1=D1=80, 04/06/2014 =D0=B2 17:27 -0700, Cong Wang =D0=BF=D0=
+=B8=D1=88=D0=B5=D1=82:
 
-This sounds potentially dangerous if misused, PHY drivers would
-basically be allowed to do arbitrary link state changes based on their
-custom needs. I really need to review your workaround here to better
-understand whether we can come up with a solution that allows for less
-liberty in PHY drivers.
+> Thanks for testing!
+>=20
+> Thinking a bit more, the question is why
+> skb_push(skb->dev->hard_header_len) is not correct here? It looks
+> like we don't calculate tunnel->dev->hard_header_len correctly. But
+> ipip_tunnel_bind_dev() should do the right thing less your setup is n=
+ot
+> correct, in that case your ipip tunnel should not receive any packet.
+> We should be safe.
+>=20
+> Which is the interface routing to 192.168.18.17 on your system? Which
+> driver does it use?
 
-Thanks
+Its a stock e1000e from kernel with no special options. No jumbo frames=
+,
+etc.
 
->
-> Signed-off-by: Daniel Mack <zonque@gmail.com>
-> ---
->  drivers/net/phy/phy.c | 3 +++
->  include/linux/phy.h   | 3 +++
->  2 files changed, 6 insertions(+)
->
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 3bc079a..f9c5577 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -720,6 +720,9 @@ void phy_state_machine(struct work_struct *work)
->
->         mutex_lock(&phydev->lock);
->
-> +       if (phydev->drv->adjust_state)
-> +               phydev->drv->adjust_state(phydev);
-> +
->         switch (phydev->state) {
->         case PHY_DOWN:
->         case PHY_STARTING:
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index 51d15f6..27cbdf4 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -529,6 +529,9 @@ struct phy_driver {
->         /* See set_wol, but for checking whether Wake on LAN is enabled. */
->         void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
->
-> +       /* Called when the PHY core adjusts the link of a PHY device */
-> +       void (*adjust_state)(struct phy_device *dev);
-> +
->         struct device_driver driver;
->  };
->  #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
-> --
-> 1.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+lspci says:
+Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet
+Controller (Copper) (rev 06)
 
-
-
--- 
-Florian
+IPIP tunnel runs on top of this interface.
