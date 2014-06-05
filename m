@@ -1,37 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ipconfig: allow IP-Config over DSA
- devices
-Date: Thu, 05 Jun 2014 00:01:32 -0700 (PDT)
-Message-ID: <20140605.000132.501712848318656492.davem@davemloft.net>
-References: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH] dns_resolver: Do not accept domain names longer than
+ 255 chars
+Date: Thu, 05 Jun 2014 00:06:30 -0700 (PDT)
+Message-ID: <20140605.000630.1200115376924354358.davem@davemloft.net>
+References: <1401554673-16311-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, buytenh@wantstofly.org, jiri@resnulli.us
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40991 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750722AbaFEHBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 03:01:33 -0400
-In-Reply-To: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: manuel.schoelling@gmx.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1401554673-16311-1-git-send-email-manuel.schoelling@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 30 May 2014 11:08:45 -0700
+=46rom: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
+Date: Sat, 31 May 2014 18:44:33 +0200
 
-> Let me know your thoughts. If you feel like something like:
-> netdev_is_upper_dev() or something like that is better.
+> According to RFC1035 "[...] the total length of a domain name (i.e.,
+> label octets and label length octets) is restricted to 255 octets or
+> less."
+>=20
+> Signed-off-by: Manuel Sch=F6lling <manuel.schoelling@gmx.de>
 
-I'm not happy with this change for several reasons.
-
-First, I don't like the idea that ipconfig works for some stacked
-devices and not for others.  I'd rather that we simply accept that
-direct devices are the only thing supported.
-
-Secondly, the logic in that ipconfig loop is so confusing.  I can't
-even figure out what that dsa pointer test is trying to really
-accomplish in the second hunk of your patch.
-
-I'd like to defer this for now, sorry.
+Applied to net-next, thanks.
