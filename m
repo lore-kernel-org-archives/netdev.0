@@ -1,53 +1,62 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 06/14] i40e: clamp jumbo frame size
-Date: Thu, 5 Jun 2014 08:17:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17257A04@AcuExch.aculab.com>
-References: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1401954567-13557-7-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v3 2/6] net: fec: Enable IP header hardware checksum
+Date: Thu, 5 Jun 2014 14:59:28 +0800
+Message-ID: <1401951572-6538-3-git-send-email-b38611@freescale.com>
+References: <1401951572-6538-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <shawn.guo@linaro.org>,
+	<b38611@freescale.com>, <R49496@freescale.com>,
+	<ezequiel.garcia@free-electrons.com>, <bhutchings@solarflare.com>,
+	<stephen@networkplumber.org>, <b20596@freescale.com>,
+	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42952 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750916AbaFEISD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 04:18:03 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10807-04 for <netdev@vger.kernel.org>;
- Thu,  5 Jun 2014 09:17:53 +0100 (BST)
-In-Reply-To: <1401954567-13557-7-git-send-email-jeffrey.t.kirsher@intel.com>
-Content-Language: en-US
+Received: from mail-bn1blp0181.outbound.protection.outlook.com ([207.46.163.181]:57779
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751701AbaFEIXK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 04:23:10 -0400
+In-Reply-To: <1401951572-6538-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> 
-> The driver was allowing the user to set larger size MTU
-> than the hardware was being configured to support.
-> 
-> The driver was already using VLAN_HLEN when setting the
-> hardware max receivable frame size, so just add it to the
-> netdev MTU set entry point as well.
-...
-> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-> @@ -1698,7 +1698,7 @@ static void i40e_sync_filters_subtask(struct i40e_pf *pf)
->  static int i40e_change_mtu(struct net_device *netdev, int new_mtu)
->  {
->  	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> -	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-> +	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+IP header checksum is calcalated by network layer in default.
+To support software TSO, it is better to use HW calculate the
+IP header checksum.
 
-Personally I'd write that sum as:
-	int max_frame = ETH_HLEN + VLAN_HLEN + new_mtu + ETH_FCS_LEN;
-so that the lengths are in the order the fields appear in the frame.
+FEC hw checksum feature request the checksum field in frame
+is zero, otherwise the calculative CRC is not correct.
 
-	David
+For segmentated TCP packet, HW calculate the IP header checksum again,
+it doesn't bring any impact. For SW TSO, HW calculated checksum bring
+better performance.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 32c2276..299f7f5 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -327,6 +327,7 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ 	if (unlikely(skb_cow_head(skb, 0)))
+ 		return -1;
+ 
++	ip_hdr(skb)->check = 0;
+ 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+ 
+ 	return 0;
+@@ -408,7 +409,7 @@ static int txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 			 * are done by the kernel
+ 			 */
+ 			if (skb->ip_summed == CHECKSUM_PARTIAL)
+-				ebdp->cbd_esc |= BD_ENET_TX_PINS;
++				ebdp->cbd_esc |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
+ 		}
+ 	}
+ 
+-- 
+1.7.8
