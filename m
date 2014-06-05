@@ -1,47 +1,42 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] stmmac: extend DMA initialization delay to 2.5 seconds
-Date: Thu, 05 Jun 2014 15:24:59 -0700 (PDT)
-Message-ID: <20140605.152459.1082790961637060914.davem@davemloft.net>
-References: <1401973080-10085-1-git-send-email-abrodkin@synopsys.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver
+Date: Thu, 05 Jun 2014 15:27:20 -0700 (PDT)
+Message-ID: <20140605.152720.251044247420485501.davem@davemloft.net>
+References: <20140605141454.19317.87165.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Vineet.Gupta1-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
-To: Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1401973080-10085-1-git-send-email-abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jcm@redhat.com
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51570 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751884AbaFEW1V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:27:21 -0400
+In-Reply-To: <20140605141454.19317.87165.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Date: Thu,  5 Jun 2014 16:58:00 +0400
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Thu, 5 Jun 2014 09:14:54 -0500
 
-> On some platforms existing 100 msecond delay is not enough for DMA block to
-> recover after reset. This is because MAC DMA waits for all PHY input clocks
-> to present and depending on the board reset bit deassertion may take much
-> longer than previously used 100 milliseconds
+> The following series implements support for the new AMD 10Gb Ethernet
+> driver (amd-xgbe).  It includes the 10Gb Ethernet driver as well as
+> a 10Gb Ethernet PHY driver.
 > 
-> I have a board that requires more than 2 seconds for DMA to zero "reset" bit.
-> If for other boards it's still not long enough this value should be extended
-> once again.
+> This patch series is based on net-next.
 > 
-> In the same change I convert "mdelay" to "msleep" to make CPU available for
-> other processes during DMA init delay which is especially useful in case of
-> delay for a few seconds.
+> Changes in V3:
+>   - Add OF dependency to the phylib driver configuration
 > 
-> Signed-off-by: Alexey Brodkin <abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+> Changes in V2:
+>   - Add phy-mode to the amd-xgbe device bindings
+>   - Obtain the phy-mode from the device tree
+>   - Reference ethernet.txt device bindings for phy-handle and phy-mode
+>   - Connect/disconnect to/from phy during probe/remove, instead of open/close
+>   - Fixes for jumbo packet support / MTU changes
+>   - Formatting changes for debug packet dump
+>   - Free resources in the phylib driver remove function
+>   - Proper NP NULL message during auto-negotiation
 
-This will not work, you cannot sleep with spinlocks held, and this code is
-absolutely called in such a context.
-
-For example stmmac_resume() --> stmmac_hw_setup() -> stmmac_init_dma_engine().
-
-stmmac_resume() holds priv->lock over all of these operations, and even has
-interrupts disabled.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thank you.
