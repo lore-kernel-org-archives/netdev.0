@@ -1,71 +1,83 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH V2 net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver
-Date: Thu, 5 Jun 2014 08:03:51 -0500
-Message-ID: <53906AB7.20508@amd.com>
-References: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
-	<20140604.143605.960519678688904189.davem@davemloft.net>
- <20140604.143903.1213688714066322891.davem@davemloft.net>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next] bridge: Fix incorrect judgment of promisc
+Date: Thu, 05 Jun 2014 22:05:52 +0900
+Message-ID: <53906B30.7080907@lab.ntt.co.jp>
+References: <1401965851-6449-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <063D6719AE5E284EB5DD2968C1650D6D17257C08@AcuExch.aculab.com> <539052C0.2090409@lab.ntt.co.jp> <063D6719AE5E284EB5DD2968C1650D6D17257D43@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <jcm@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0206.outbound.protection.outlook.com ([207.46.163.206]:9988
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751641AbaFENE2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:04:28 -0400
-In-Reply-To: <20140604.143903.1213688714066322891.davem@davemloft.net>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:44932 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742AbaFENGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:06:11 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17257D43@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 06/04/2014 04:39 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 04 Jun 2014 14:36:05 -0700 (PDT)
->
->> From: Tom Lendacky <thomas.lendacky@amd.com>
->> Date: Wed, 4 Jun 2014 11:11:31 -0500
->>
->>> The following series implements support for the new AMD 10Gb Ethern=
-et
->>> driver (amd-xgbe).  It includes the 10Gb Ethernet driver as well as
->>> a 10Gb Ethernet PHY driver.
+(2014/06/05 21:55), David Laight wrote:
+> From: Toshiaki Makita
+>> (2014/06/05 20:03), David Laight wrote:
+>>> From: Toshiaki Makita
+>>>> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+>>>> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+>>>>
+>>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>> ---
+>>>>  net/bridge/br_if.c | 2 +-
+>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>>>> index a08d2b8..6a07a40 100644
+>>>> --- a/net/bridge/br_if.c
+>>>> +++ b/net/bridge/br_if.c
+>>>> @@ -153,7 +153,7 @@ void br_manage_promisc(struct net_bridge *br)
+>>>>  			 * This lets us disable promiscuous mode and write
+>>>>  			 * this config to hw.
+>>>>  			 */
+>>>> -			if (br->auto_cnt <= br_auto_port(p))
+>>>> +			if (br->auto_cnt <= !!br_auto_port(p))
+>>>>  				br_port_clear_promisc(p);
+>>>>  			else
+>>>>  				br_port_set_promisc(p);
 >>>
->>> This patch series is based on net-next.
->>>
->>> Changes in V2:
->>>    - Add phy-mode to the amd-xgbe device bindings
->>>    - Obtain the phy-mode from the device tree
->>>    - Reference ethernet.txt device bindings for phy-handle and phy-=
-mode
->>>    - Connect/disconnect to/from phy during probe/remove, instead of=
- open/close
->>>    - Fixes for jumbo packet support / MTU changes
->>>    - Formatting changes for debug packet dump
->>>    - Free resources in the phylib driver remove function
->>>    - Proper NP NULL message during auto-negotiation
+>>> Why not the less confusing:
+>>> 			if (br->auto_cnt || br_auto_port(p))
+>>> and reverse the then/else lines?
 >>
->> Series applied, thanks.
->
-> I had to revert, this breaks the build:
->
-> drivers/net/phy/amd-xgbe-phy.c: In function =A1amd_xgbe_phy_probe=A2:
-> drivers/net/phy/amd-xgbe-phy.c:1251:2: error: implicit declaration of=
- function =A1of_dev_put=A2 [-Werror=3Dimplicit-function-declaration]
-> cc1: some warnings being treated as errors
-> make[3]: *** [drivers/net/phy/amd-xgbe-phy.o] Error 1
-> make[2]: *** [drivers/net/phy] Error 2
-> make[2]: *** Waiting for unfinished jobs....
-> make[1]: *** [drivers/net] Error 2
-> make[1]: *** Waiting for unfinished jobs....
-> make: *** [drivers] Error 2
->
+>> I'm respecting the original style, but I'm not particular about this style.
+>> I'll make less confusing one, thanks :)
+>>
+>> (Your suggested condition is not exactly the same as current one, even
+>> if reversing if/else. v2 will be different than it. Anyway, thanks.)
+> 
+> A quick truth table:
+> 	auto_cnt	auto_port	set/clear
+> 		0		0	clear
+> 		0		1	clear
+> 		1		0	set
+> 		1		1	clear
+> 		2+		0/1	clear
 
-Sorry about that, I'll fix the config dependencies and send out a
-V3.
+The last line should be set.
 
-Tom
+Thanks,
+Toshiaki Makita
+
+> 
+> So you want:
+> 	if (br->auto_cnt && !br_auto_port(p))
+> 		br_port_set_promisc(p);
+> 	else
+> 		br_port_clear_promisc(p);
+> 
+> Does seem like a strange condition.
+> 
+> 	David
