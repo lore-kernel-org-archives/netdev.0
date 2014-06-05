@@ -1,65 +1,143 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/6] Netfilter/nf_tables fixes for net-next
-Date: Thu,  5 Jun 2014 17:08:20 +0200
-Message-ID: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/6] netfilter: nft_rbtree: introduce locking
+Date: Thu,  5 Jun 2014 17:08:24 +0200
+Message-ID: <1401980906-25290-5-git-send-email-pablo@netfilter.org>
+References: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+There's no rbtree rcu version yet, so let's fall back on the spinlock
+to protect the concurrent access of this structure both from user
+(to update the set content) and kernel-space (in the packet path).
 
-This patchset contains fixes for recent updates available in your
-net-next, they are:
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nft_rbtree.c |   22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-1) Fix double memory allocation for accounting objects that results
-   in a leak, this slipped through with the new quota extension,
-   patch from Mathieu Poirier.
+diff --git a/net/netfilter/nft_rbtree.c b/net/netfilter/nft_rbtree.c
+index 072e611..e1836ff 100644
+--- a/net/netfilter/nft_rbtree.c
++++ b/net/netfilter/nft_rbtree.c
+@@ -18,6 +18,8 @@
+ #include <linux/netfilter/nf_tables.h>
+ #include <net/netfilter/nf_tables.h>
+ 
++static DEFINE_SPINLOCK(nft_rbtree_lock);
++
+ struct nft_rbtree {
+ 	struct rb_root		root;
+ };
+@@ -38,6 +40,7 @@ static bool nft_rbtree_lookup(const struct nft_set *set,
+ 	const struct rb_node *parent = priv->root.rb_node;
+ 	int d;
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	while (parent != NULL) {
+ 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
+ 
+@@ -53,6 +56,8 @@ found:
+ 				goto out;
+ 			if (set->flags & NFT_SET_MAP)
+ 				nft_data_copy(data, rbe->data);
++
++			spin_unlock_bh(&nft_rbtree_lock);
+ 			return true;
+ 		}
+ 	}
+@@ -62,6 +67,7 @@ found:
+ 		goto found;
+ 	}
+ out:
++	spin_unlock_bh(&nft_rbtree_lock);
+ 	return false;
+ }
+ 
+@@ -124,9 +130,12 @@ static int nft_rbtree_insert(const struct nft_set *set,
+ 	    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
+ 		nft_data_copy(rbe->data, &elem->data);
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	err = __nft_rbtree_insert(set, rbe);
+ 	if (err < 0)
+ 		kfree(rbe);
++
++	spin_unlock_bh(&nft_rbtree_lock);
+ 	return err;
+ }
+ 
+@@ -136,7 +145,9 @@ static void nft_rbtree_remove(const struct nft_set *set,
+ 	struct nft_rbtree *priv = nft_set_priv(set);
+ 	struct nft_rbtree_elem *rbe = elem->cookie;
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	rb_erase(&rbe->node, &priv->root);
++	spin_unlock_bh(&nft_rbtree_lock);
+ 	kfree(rbe);
+ }
+ 
+@@ -147,6 +158,7 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
+ 	struct nft_rbtree_elem *rbe;
+ 	int d;
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	while (parent != NULL) {
+ 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
+ 
+@@ -161,9 +173,11 @@ static int nft_rbtree_get(const struct nft_set *set, struct nft_set_elem *elem)
+ 			    !(rbe->flags & NFT_SET_ELEM_INTERVAL_END))
+ 				nft_data_copy(&elem->data, rbe->data);
+ 			elem->flags = rbe->flags;
++			spin_unlock_bh(&nft_rbtree_lock);
+ 			return 0;
+ 		}
+ 	}
++	spin_unlock_bh(&nft_rbtree_lock);
+ 	return -ENOENT;
+ }
+ 
+@@ -176,6 +190,7 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
+ 	struct nft_set_elem elem;
+ 	struct rb_node *node;
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	for (node = rb_first(&priv->root); node != NULL; node = rb_next(node)) {
+ 		if (iter->count < iter->skip)
+ 			goto cont;
+@@ -188,11 +203,14 @@ static void nft_rbtree_walk(const struct nft_ctx *ctx,
+ 		elem.flags = rbe->flags;
+ 
+ 		iter->err = iter->fn(ctx, set, iter, &elem);
+-		if (iter->err < 0)
++		if (iter->err < 0) {
++			spin_unlock_bh(&nft_rbtree_lock);
+ 			return;
++		}
+ cont:
+ 		iter->count++;
+ 	}
++	spin_unlock_bh(&nft_rbtree_lock);
+ }
+ 
+ static unsigned int nft_rbtree_privsize(const struct nlattr * const nla[])
+@@ -216,11 +234,13 @@ static void nft_rbtree_destroy(const struct nft_set *set)
+ 	struct nft_rbtree_elem *rbe;
+ 	struct rb_node *node;
+ 
++	spin_lock_bh(&nft_rbtree_lock);
+ 	while ((node = priv->root.rb_node) != NULL) {
+ 		rb_erase(node, &priv->root);
+ 		rbe = rb_entry(node, struct nft_rbtree_elem, node);
+ 		nft_rbtree_elem_destroy(set, rbe);
+ 	}
++	spin_unlock_bh(&nft_rbtree_lock);
+ }
+ 
+ static bool nft_rbtree_estimate(const struct nft_set_desc *desc, u32 features,
+-- 
+1.7.10.4
 
-2) Fix broken ordering when adding set element transactions.
-
-3) Make sure that objects are released in reverse order in the abort
-   path, to avoid possible use-after-free when accessing dependencies.
-
-4) Allow to delete several objects (as long as dependencies are
-   fulfilled) by using one batch. This includes changes in the use
-   counter semantics of the nf_tables objects.
-
-5) Fix illegal sleeping allocation from rcu callback.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 96b2e73c5471542cb9c622c4360716684f8797ed:
-
-  Revert "net/mlx4_en: Use affinity hint" (2014-06-02 00:18:48 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to 31f8441c328b1c038c3e44bec740fb29393a56ad:
-
-  netfilter: nf_tables: atomic allocation in set notifications from rcu callback (2014-06-02 10:54:38 +0200)
-
-----------------------------------------------------------------
-Mathieu Poirier (1):
-      netfilter: nfnetlink_acct: Fix memory leak
-
-Pablo Neira Ayuso (5):
-      netfilter: nf_tables: fix wrong transaction ordering in set elements
-      netfilter: nf_tables: release objects in reverse order in the abort path
-      netfilter: nft_rbtree: introduce locking
-      netfilter: nf_tables: allow to delete several objects from a batch
-      netfilter: nf_tables: atomic allocation in set notifications from rcu callback
-
- net/netfilter/nf_tables_api.c  |   59 ++++++++++++++++++++++++++++------------
- net/netfilter/nfnetlink_acct.c |    1 -
- net/netfilter/nft_rbtree.c     |   22 ++++++++++++++-
- 3 files changed, 62 insertions(+), 20 deletions(-)
