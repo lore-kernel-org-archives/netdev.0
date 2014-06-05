@@ -1,33 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] bridge: Fix incorrect judgment of promisc
-Date: Thu, 05 Jun 2014 15:21:51 -0700 (PDT)
-Message-ID: <20140605.152151.1874961526019573838.davem@davemloft.net>
-References: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] stmmac: extend DMA initialization delay to 2.5 seconds
+Date: Thu, 05 Jun 2014 15:24:59 -0700 (PDT)
+Message-ID: <20140605.152459.1082790961637060914.davem@davemloft.net>
+References: <1401973080-10085-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, David.Laight@ACULAB.COM,
-	vyasevic@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: makita.toshiaki@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306AbaFEWVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:21:52 -0400
-In-Reply-To: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Vineet.Gupta1-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
+To: Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1401973080-10085-1-git-send-email-abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Thu,  5 Jun 2014 20:53:32 +0900
+From: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Date: Thu,  5 Jun 2014 16:58:00 +0400
 
-> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
-> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+> On some platforms existing 100 msecond delay is not enough for DMA block to
+> recover after reset. This is because MAC DMA waits for all PHY input clocks
+> to present and depending on the board reset bit deassertion may take much
+> longer than previously used 100 milliseconds
 > 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> I have a board that requires more than 2 seconds for DMA to zero "reset" bit.
+> If for other boards it's still not long enough this value should be extended
+> once again.
+> 
+> In the same change I convert "mdelay" to "msleep" to make CPU available for
+> other processes during DMA init delay which is especially useful in case of
+> delay for a few seconds.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
 
-I'm applying this as-is for now, even though I saw the other
-suggestions in this thread (which BTW didn't get picked up by
-patchwork, maybe some of you dropped the Message-Id in your replies by
-accident).
+This will not work, you cannot sleep with spinlocks held, and this code is
+absolutely called in such a context.
+
+For example stmmac_resume() --> stmmac_hw_setup() -> stmmac_init_dma_engine().
+
+stmmac_resume() holds priv->lock over all of these operations, and even has
+interrupts disabled.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
