@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/6] net: fec: Factorize the .xmit transmit function
-Date: Thu, 05 Jun 2014 15:17:52 -0700 (PDT)
-Message-ID: <20140605.151752.1006020454313961670.davem@davemloft.net>
-References: <d93f47b1073f46319b170dee27206bed@BLUPR03MB373.namprd03.prod.outlook.com>
-	<063D6719AE5E284EB5DD2968C1650D6D17257ACC@AcuExch.aculab.com>
-	<f3588131770d48dbbfa8387db06d6c23@BLUPR03MB373.namprd03.prod.outlook.com>
+Subject: Re: [PATCH v2 1/6] pch_gbe: print invalid MAC address during probe
+Date: Thu, 05 Jun 2014 15:19:29 -0700 (PDT)
+Message-ID: <20140605.151929.853679355962389356.davem@davemloft.net>
+References: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, netdev@vger.kernel.org,
-	shawn.guo@linaro.org, Fabio.Estevam@freescale.com,
-	ezequiel.garcia@free-electrons.com, bhutchings@solarflare.com,
-	stephen@networkplumber.org, Frank.Li@freescale.com,
-	eric.dumazet@gmail.com
-To: fugang.duan@freescale.com
+Cc: daniel.krueger@systec-electronic.com, netdev@vger.kernel.org
+To: alexander.stein@systec-electronic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51471 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51505 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752007AbaFEWRy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:17:54 -0400
-In-Reply-To: <f3588131770d48dbbfa8387db06d6c23@BLUPR03MB373.namprd03.prod.outlook.com>
+	with ESMTP id S1753180AbaFEWTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:19:30 -0400
+In-Reply-To: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Date: Thu, 5 Jun 2014 10:21:37 +0000
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Date: Thu,  5 Jun 2014 10:53:02 +0200
 
-> You think the conditional has measurable performance impact on
-> ethernet code paths, I agree your thinking.  But in the driver,
-> there have many site/apis use the method.
+> From: Daniel Krueger <daniel.krueger@systec-electronic.com>
 > 
-> So, I don't want to change it for the patch set.  It have no meaningful.
-> I will submit another patch to solve all APIs with conditional for the driver.
+> It is also neat to show the actual offending MAC address instead of just
+> rejecting it
+> 
+> Signed-off-by: Daniel Krueger <daniel.krueger@systec-electronic.com>
+> Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
+> ---
+> 
+> Changes in v2:
+> * Use just a single line
 
-You're adding this test, it did not exist beforehand.
+I agree with other's feedback in that this code is not legitimate.
 
-For the second time I'm asking you to follow David Laight's feedback
-seriously, every time he asks you to make a change your initial reaction
-is to not do it, or to do it "later".  If it's for something this patch
-set uniquely is doing, "later" is not an acceptable response.
+It should generate a random MAC address via the standard interfaces we
+have for doing so, rather than failing to bring up the interface.
 
-I'm not applying this series until you intergrate his legitimate
-feedback.
-
-Thank you.
+Interface bringup failure should be the absolute last resort, and we
+should recover and still bring the interface up whenever we can.
