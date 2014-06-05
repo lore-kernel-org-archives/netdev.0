@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 1/2] vhost: move acked_features to VQs
-Date: Thu, 5 Jun 2014 13:44:14 +0300
-Message-ID: <1401962195-15066-1-git-send-email-mst@redhat.com>
+Subject: [PATCH 2/2] vhost: move memory pointer to VQs
+Date: Thu, 5 Jun 2014 13:44:19 +0300
+Message-ID: <1401962195-15066-2-git-send-email-mst@redhat.com>
+References: <1401962195-15066-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: pbonzini@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
 To: linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
+In-Reply-To: <1401962195-15066-1-git-send-email-mst@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,278 +24,294 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Refactor code to make sure features are only accessed
-under VQ mutex. This makes everything simpler, no need
-for RCU here anymore.
+commit 2ae76693b8bcabf370b981cd00c36cd41d33fabc
+    vhost: replace rcu with mutex
+replaced rcu sync for memory accesses with VQ mutex locl/unlock.
+This is correct since all accesses are under VQ mutex, but incomplete:
+we still do useless rcu lock/unlock operations, someone might copy this
+code into some other context where this won't be right.
+This use of RCU is also non standard and hard to understand.
+Let's copy the pointer to each VQ structure, this way
+the access rules become straight-forward, and there's
+no need for RCU anymore.
 
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
 
-This is on top of the recent pull request that I sent.
+This is on top of the recent pull request that I sent,
+including the commit above.
 
- drivers/vhost/vhost.h | 11 +++--------
- drivers/vhost/net.c   |  8 +++-----
- drivers/vhost/scsi.c  | 22 +++++++++++++---------
- drivers/vhost/test.c  |  9 ++++++---
- drivers/vhost/vhost.c | 31 ++++++++++++++++---------------
- 5 files changed, 41 insertions(+), 40 deletions(-)
+
+ drivers/vhost/vhost.h |  8 +++-----
+ drivers/vhost/net.c   |  4 ++--
+ drivers/vhost/scsi.c  |  4 ++--
+ drivers/vhost/test.c  |  2 +-
+ drivers/vhost/vhost.c | 54 ++++++++++++++++++++++-----------------------------
+ 5 files changed, 31 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 35eeb2a..ff454a0 100644
+index ff454a0..3eda654 100644
 --- a/drivers/vhost/vhost.h
 +++ b/drivers/vhost/vhost.h
-@@ -105,6 +105,7 @@ struct vhost_virtqueue {
+@@ -104,6 +104,7 @@ struct vhost_virtqueue {
+ 	struct iovec *indirect;
  	struct vring_used_elem *heads;
  	/* Protected by virtqueue mutex. */
++	struct vhost_memory *memory;
  	void *private_data;
-+	unsigned acked_features;
+ 	unsigned acked_features;
  	/* Log write descriptors */
- 	void __user *log_base;
- 	struct vhost_log *log;
-@@ -117,7 +118,6 @@ struct vhost_dev {
- 	struct vhost_memory __rcu *memory;
- 	struct mm_struct *mm;
- 	struct mutex mutex;
--	unsigned acked_features;
- 	struct vhost_virtqueue **vqs;
- 	int nvqs;
- 	struct file *log_file;
-@@ -174,13 +174,8 @@ enum {
- 			 (1ULL << VHOST_F_LOG_ALL),
+@@ -112,10 +113,7 @@ struct vhost_virtqueue {
  };
  
--static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
-+static inline int vhost_has_feature(struct vhost_virtqueue *vq, int bit)
- {
--	unsigned acked_features;
--
--	/* TODO: check that we are running from vhost_worker or dev mutex is
--	 * held? */
--	acked_features = rcu_dereference_index_check(dev->acked_features, 1);
--	return acked_features & (1 << bit);
-+	return vq->acked_features & (1 << bit);
- }
- #endif
+ struct vhost_dev {
+-	/* Readers use RCU to access memory table pointer
+-	 * log base pointer and features.
+-	 * Writers use mutex below.*/
+-	struct vhost_memory __rcu *memory;
++	struct vhost_memory *memory;
+ 	struct mm_struct *mm;
+ 	struct mutex mutex;
+ 	struct vhost_virtqueue **vqs;
+@@ -140,7 +138,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp);
+ int vhost_vq_access_ok(struct vhost_virtqueue *vq);
+ int vhost_log_access_ok(struct vhost_dev *);
+ 
+-int vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
++int vhost_get_vq_desc(struct vhost_virtqueue *,
+ 		      struct iovec iov[], unsigned int iov_count,
+ 		      unsigned int *out_num, unsigned int *in_num,
+ 		      struct vhost_log *log, unsigned int *log_num);
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index e489161..7635b59 100644
+index 7635b59..3807f71 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -585,9 +585,9 @@ static void handle_rx(struct vhost_net *net)
- 	vhost_hlen = nvq->vhost_hlen;
- 	sock_hlen = nvq->sock_hlen;
+@@ -374,7 +374,7 @@ static void handle_tx(struct vhost_net *net)
+ 			      % UIO_MAXIOV == nvq->done_idx))
+ 			break;
  
--	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
-+	vq_log = unlikely(vhost_has_feature(vq, VHOST_F_LOG_ALL)) ?
- 		vq->log : NULL;
--	mergeable = vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF);
-+	mergeable = vhost_has_feature(vq, VIRTIO_NET_F_MRG_RXBUF);
- 
- 	while ((sock_len = peek_head_len(sock->sk))) {
- 		sock_len += sock_hlen;
-@@ -1051,15 +1051,13 @@ static int vhost_net_set_features(struct vhost_net *n, u64 features)
- 		mutex_unlock(&n->dev.mutex);
- 		return -EFAULT;
- 	}
--	n->dev.acked_features = features;
--	smp_wmb();
- 	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
- 		mutex_lock(&n->vqs[i].vq.mutex);
-+		n->vqs[i].acked_features = features;
- 		n->vqs[i].vhost_hlen = vhost_hlen;
- 		n->vqs[i].sock_hlen = sock_hlen;
- 		mutex_unlock(&n->vqs[i].vq.mutex);
- 	}
--	vhost_net_flush(n);
- 	mutex_unlock(&n->dev.mutex);
- 	return 0;
- }
+-		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
++		head = vhost_get_vq_desc(vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+ 					 &out, &in,
+ 					 NULL, NULL);
+@@ -506,7 +506,7 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+ 			r = -ENOBUFS;
+ 			goto err;
+ 		}
+-		r = vhost_get_vq_desc(vq->dev, vq, vq->iov + seg,
++		r = vhost_get_vq_desc(vq, vq->iov + seg,
+ 				      ARRAY_SIZE(vq->iov) - seg, &out,
+ 				      &in, log, log_num);
+ 		if (unlikely(r < 0))
 diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index cf50ce9..f1f284f 100644
+index f1f284f..83b834b 100644
 --- a/drivers/vhost/scsi.c
 +++ b/drivers/vhost/scsi.c
-@@ -1373,6 +1373,9 @@ err_dev:
+@@ -606,7 +606,7 @@ tcm_vhost_do_evt_work(struct vhost_scsi *vs, struct tcm_vhost_evt *evt)
  
- static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
- {
-+	struct vhost_virtqueue *vq;
-+	int i;
-+
- 	if (features & ~VHOST_SCSI_FEATURES)
- 		return -EOPNOTSUPP;
+ again:
+ 	vhost_disable_notify(&vs->dev, vq);
+-	head = vhost_get_vq_desc(&vs->dev, vq, vq->iov,
++	head = vhost_get_vq_desc(vq, vq->iov,
+ 			ARRAY_SIZE(vq->iov), &out, &in,
+ 			NULL, NULL);
+ 	if (head < 0) {
+@@ -945,7 +945,7 @@ vhost_scsi_handle_vq(struct vhost_scsi *vs, struct vhost_virtqueue *vq)
+ 	vhost_disable_notify(&vs->dev, vq);
  
-@@ -1382,9 +1385,13 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
- 		mutex_unlock(&vs->dev.mutex);
- 		return -EFAULT;
- 	}
--	vs->dev.acked_features = features;
--	smp_wmb();
--	vhost_scsi_flush(vs);
-+
-+	for (i = 0; i < VHOST_SCSI_MAX_VQ; i++) {
-+		vq = &vs->vqs[i].vq;
-+		mutex_lock(&vq->mutex);
-+		vq->acked_features = features;
-+		mutex_unlock(&vq->mutex);
-+	}
- 	mutex_unlock(&vs->dev.mutex);
- 	return 0;
- }
-@@ -1591,10 +1598,6 @@ tcm_vhost_do_plug(struct tcm_vhost_tpg *tpg,
- 		return;
- 
- 	mutex_lock(&vs->dev.mutex);
--	if (!vhost_has_feature(&vs->dev, VIRTIO_SCSI_F_HOTPLUG)) {
--		mutex_unlock(&vs->dev.mutex);
--		return;
--	}
- 
- 	if (plug)
- 		reason = VIRTIO_SCSI_EVT_RESET_RESCAN;
-@@ -1603,8 +1606,9 @@ tcm_vhost_do_plug(struct tcm_vhost_tpg *tpg,
- 
- 	vq = &vs->vqs[VHOST_SCSI_VQ_EVT].vq;
- 	mutex_lock(&vq->mutex);
--	tcm_vhost_send_evt(vs, tpg, lun,
--			VIRTIO_SCSI_T_TRANSPORT_RESET, reason);
-+	if (vhost_has_feature(vq, VIRTIO_SCSI_F_HOTPLUG))
-+		tcm_vhost_send_evt(vs, tpg, lun,
-+				   VIRTIO_SCSI_T_TRANSPORT_RESET, reason);
- 	mutex_unlock(&vq->mutex);
- 	mutex_unlock(&vs->dev.mutex);
- }
+ 	for (;;) {
+-		head = vhost_get_vq_desc(&vs->dev, vq, vq->iov,
++		head = vhost_get_vq_desc(vq, vq->iov,
+ 					ARRAY_SIZE(vq->iov), &out, &in,
+ 					NULL, NULL);
+ 		pr_debug("vhost_get_vq_desc: head: %d, out: %u in: %u\n",
 diff --git a/drivers/vhost/test.c b/drivers/vhost/test.c
-index c2a54fb..6fa3bf8 100644
+index 6fa3bf8..d9c501e 100644
 --- a/drivers/vhost/test.c
 +++ b/drivers/vhost/test.c
-@@ -241,15 +241,18 @@ done:
+@@ -53,7 +53,7 @@ static void handle_vq(struct vhost_test *n)
+ 	vhost_disable_notify(&n->dev, vq);
  
- static int vhost_test_set_features(struct vhost_test *n, u64 features)
- {
-+	struct vhost_virtqueue *vq;
-+
- 	mutex_lock(&n->dev.mutex);
- 	if ((features & (1 << VHOST_F_LOG_ALL)) &&
- 	    !vhost_log_access_ok(&n->dev)) {
- 		mutex_unlock(&n->dev.mutex);
- 		return -EFAULT;
- 	}
--	n->dev.acked_features = features;
--	smp_wmb();
--	vhost_test_flush(n);
-+	vq = &n->vqs[VHOST_TEST_VQ];
-+	mutex_lock(&vq->mutex);
-+	vq->acked_features = features;
-+	mutex_unlock(&vq->mutex);
- 	mutex_unlock(&n->dev.mutex);
- 	return 0;
- }
+ 	for (;;) {
+-		head = vhost_get_vq_desc(&n->dev, vq, vq->iov,
++		head = vhost_get_vq_desc(vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+ 					 &out, &in,
+ 					 NULL, NULL);
 diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 1c05e60..9183f0b 100644
+index 9183f0b..c80609b 100644
 --- a/drivers/vhost/vhost.c
 +++ b/drivers/vhost/vhost.c
-@@ -524,11 +524,13 @@ static int memory_access_ok(struct vhost_dev *d, struct vhost_memory *mem,
- 
- 	for (i = 0; i < d->nvqs; ++i) {
- 		int ok;
-+		bool log;
-+
- 		mutex_lock(&d->vqs[i]->mutex);
-+		log = log_all || vhost_has_feature(d->vqs[i], VHOST_F_LOG_ALL);
- 		/* If ring is inactive, will check when it's enabled. */
- 		if (d->vqs[i]->private_data)
--			ok = vq_memory_access_ok(d->vqs[i]->log_base, mem,
--						 log_all);
-+			ok = vq_memory_access_ok(d->vqs[i]->log_base, mem, log);
- 		else
- 			ok = 1;
- 		mutex_unlock(&d->vqs[i]->mutex);
-@@ -538,12 +540,12 @@ static int memory_access_ok(struct vhost_dev *d, struct vhost_memory *mem,
- 	return 1;
+@@ -18,7 +18,6 @@
+ #include <linux/mmu_context.h>
+ #include <linux/miscdevice.h>
+ #include <linux/mutex.h>
+-#include <linux/rcupdate.h>
+ #include <linux/poll.h>
+ #include <linux/file.h>
+ #include <linux/highmem.h>
+@@ -198,6 +197,7 @@ static void vhost_vq_reset(struct vhost_dev *dev,
+ 	vq->call_ctx = NULL;
+ 	vq->call = NULL;
+ 	vq->log_ctx = NULL;
++	vq->memory = NULL;
  }
  
--static int vq_access_ok(struct vhost_dev *d, unsigned int num,
-+static int vq_access_ok(struct vhost_virtqueue *vq, unsigned int num,
- 			struct vring_desc __user *desc,
- 			struct vring_avail __user *avail,
- 			struct vring_used __user *used)
- {
--	size_t s = vhost_has_feature(d, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
-+	size_t s = vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
- 	return access_ok(VERIFY_READ, desc, num * sizeof *desc) &&
- 	       access_ok(VERIFY_READ, avail,
- 			 sizeof *avail + num * sizeof *avail->ring + s) &&
-@@ -565,16 +567,16 @@ EXPORT_SYMBOL_GPL(vhost_log_access_ok);
+ static int vhost_worker(void *data)
+@@ -419,7 +419,12 @@ void vhost_dev_reset_owner(struct vhost_dev *dev, struct vhost_memory *memory)
  
- /* Verify access for write logging. */
- /* Caller should have vq mutex and device mutex */
--static int vq_log_access_ok(struct vhost_dev *d, struct vhost_virtqueue *vq,
-+static int vq_log_access_ok(struct vhost_virtqueue *vq,
- 			    void __user *log_base)
+ 	/* Restore memory to default empty mapping. */
+ 	memory->nregions = 0;
+-	RCU_INIT_POINTER(dev->memory, memory);
++	dev->memory = memory;
++	/* We don't need VQ locks below since vhost_dev_cleanup makes sure
++	 * VQs aren't running.
++	 */
++	for (i = 0; i < dev->nvqs; ++i)
++		dev->vqs[i]->memory = memory;
+ }
+ EXPORT_SYMBOL_GPL(vhost_dev_reset_owner);
+ 
+@@ -462,10 +467,8 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
+ 		fput(dev->log_file);
+ 	dev->log_file = NULL;
+ 	/* No one will access memory at this point */
+-	kfree(rcu_dereference_protected(dev->memory,
+-					locked ==
+-						lockdep_is_held(&dev->mutex)));
+-	RCU_INIT_POINTER(dev->memory, NULL);
++	kfree(dev->memory);
++	dev->memory = NULL;
+ 	WARN_ON(!list_empty(&dev->work_list));
+ 	if (dev->worker) {
+ 		kthread_stop(dev->worker);
+@@ -557,11 +560,7 @@ static int vq_access_ok(struct vhost_virtqueue *vq, unsigned int num,
+ /* Caller should have device mutex but not vq mutex */
+ int vhost_log_access_ok(struct vhost_dev *dev)
  {
+-	struct vhost_memory *mp;
+-
+-	mp = rcu_dereference_protected(dev->memory,
+-				       lockdep_is_held(&dev->mutex));
+-	return memory_access_ok(dev, mp, 1);
++	return memory_access_ok(dev, dev->memory, 1);
+ }
+ EXPORT_SYMBOL_GPL(vhost_log_access_ok);
+ 
+@@ -573,9 +572,7 @@ static int vq_log_access_ok(struct vhost_virtqueue *vq,
  	struct vhost_memory *mp;
--	size_t s = vhost_has_feature(d, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
-+	size_t s = vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
+ 	size_t s = vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX) ? 2 : 0;
  
- 	mp = rcu_dereference_protected(vq->dev->memory,
- 				       lockdep_is_held(&vq->mutex));
- 	return vq_memory_access_ok(log_base, mp,
--			    vhost_has_feature(vq->dev, VHOST_F_LOG_ALL)) &&
-+				   vhost_has_feature(vq, VHOST_F_LOG_ALL)) &&
+-	mp = rcu_dereference_protected(vq->dev->memory,
+-				       lockdep_is_held(&vq->mutex));
+-	return vq_memory_access_ok(log_base, mp,
++	return vq_memory_access_ok(log_base, vq->memory,
+ 				   vhost_has_feature(vq, VHOST_F_LOG_ALL)) &&
  		(!vq->log_used || log_access_ok(log_base, vq->log_addr,
  					sizeof *vq->used +
- 					vq->num * sizeof *vq->used->ring + s));
-@@ -584,8 +586,8 @@ static int vq_log_access_ok(struct vhost_dev *d, struct vhost_virtqueue *vq,
- /* Caller should have vq mutex and device mutex */
- int vhost_vq_access_ok(struct vhost_virtqueue *vq)
- {
--	return vq_access_ok(vq->dev, vq->num, vq->desc, vq->avail, vq->used) &&
--		vq_log_access_ok(vq->dev, vq, vq->log_base);
-+	return vq_access_ok(vq, vq->num, vq->desc, vq->avail, vq->used) &&
-+		vq_log_access_ok(vq, vq->log_base);
- }
- EXPORT_SYMBOL_GPL(vhost_vq_access_ok);
- 
-@@ -612,8 +614,7 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
- 		return -EFAULT;
- 	}
- 
--	if (!memory_access_ok(d, newmem,
--			      vhost_has_feature(d, VHOST_F_LOG_ALL))) {
-+	if (!memory_access_ok(d, newmem, 0)) {
+@@ -618,15 +615,13 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
  		kfree(newmem);
  		return -EFAULT;
  	}
-@@ -1434,11 +1435,11 @@ static bool vhost_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	 * interrupts. */
- 	smp_mb();
+-	oldmem = rcu_dereference_protected(d->memory,
+-					   lockdep_is_held(&d->mutex));
+-	rcu_assign_pointer(d->memory, newmem);
++	oldmem = d->memory;
++	d->memory = newmem;
  
--	if (vhost_has_feature(dev, VIRTIO_F_NOTIFY_ON_EMPTY) &&
-+	if (vhost_has_feature(vq, VIRTIO_F_NOTIFY_ON_EMPTY) &&
- 	    unlikely(vq->avail_idx == vq->last_avail_idx))
- 		return true;
+-	/* All memory accesses are done under some VQ mutex.
+-	 * So below is a faster equivalent of synchronize_rcu()
+-	 */
++	/* All memory accesses are done under some VQ mutex. */
+ 	for (i = 0; i < d->nvqs; ++i) {
+ 		mutex_lock(&d->vqs[i]->mutex);
++		d->vqs[i]->memory = newmem;
+ 		mutex_unlock(&d->vqs[i]->mutex);
+ 	}
+ 	kfree(oldmem);
+@@ -1053,7 +1048,7 @@ int vhost_init_used(struct vhost_virtqueue *vq)
+ }
+ EXPORT_SYMBOL_GPL(vhost_init_used);
  
--	if (!vhost_has_feature(dev, VIRTIO_RING_F_EVENT_IDX)) {
-+	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
- 		__u16 flags;
- 		if (__get_user(flags, &vq->avail->flags)) {
- 			vq_err(vq, "Failed to get flags");
-@@ -1499,7 +1500,7 @@ bool vhost_enable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
- 		return false;
- 	vq->used_flags &= ~VRING_USED_F_NO_NOTIFY;
--	if (!vhost_has_feature(dev, VIRTIO_RING_F_EVENT_IDX)) {
-+	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
- 		r = vhost_update_used_flags(vq);
- 		if (r) {
- 			vq_err(vq, "Failed to enable notification at %p: %d\n",
-@@ -1536,7 +1537,7 @@ void vhost_disable_notify(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- 	if (vq->used_flags & VRING_USED_F_NO_NOTIFY)
- 		return;
- 	vq->used_flags |= VRING_USED_F_NO_NOTIFY;
--	if (!vhost_has_feature(dev, VIRTIO_RING_F_EVENT_IDX)) {
-+	if (!vhost_has_feature(vq, VIRTIO_RING_F_EVENT_IDX)) {
- 		r = vhost_update_used_flags(vq);
- 		if (r)
- 			vq_err(vq, "Failed to enable notification at %p: %d\n",
+-static int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
++static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
+ 			  struct iovec iov[], int iov_size)
+ {
+ 	const struct vhost_memory_region *reg;
+@@ -1062,9 +1057,7 @@ static int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
+ 	u64 s = 0;
+ 	int ret = 0;
+ 
+-	rcu_read_lock();
+-
+-	mem = rcu_dereference(dev->memory);
++	mem = vq->memory;
+ 	while ((u64)len > s) {
+ 		u64 size;
+ 		if (unlikely(ret >= iov_size)) {
+@@ -1086,7 +1079,6 @@ static int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
+ 		++ret;
+ 	}
+ 
+-	rcu_read_unlock();
+ 	return ret;
+ }
+ 
+@@ -1111,7 +1103,7 @@ static unsigned next_desc(struct vring_desc *desc)
+ 	return next;
+ }
+ 
+-static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
++static int get_indirect(struct vhost_virtqueue *vq,
+ 			struct iovec iov[], unsigned int iov_size,
+ 			unsigned int *out_num, unsigned int *in_num,
+ 			struct vhost_log *log, unsigned int *log_num,
+@@ -1130,7 +1122,7 @@ static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 		return -EINVAL;
+ 	}
+ 
+-	ret = translate_desc(dev, indirect->addr, indirect->len, vq->indirect,
++	ret = translate_desc(vq, indirect->addr, indirect->len, vq->indirect,
+ 			     UIO_MAXIOV);
+ 	if (unlikely(ret < 0)) {
+ 		vq_err(vq, "Translation failure %d in indirect.\n", ret);
+@@ -1170,7 +1162,7 @@ static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 			return -EINVAL;
+ 		}
+ 
+-		ret = translate_desc(dev, desc.addr, desc.len, iov + iov_count,
++		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
+ 				     iov_size - iov_count);
+ 		if (unlikely(ret < 0)) {
+ 			vq_err(vq, "Translation failure %d indirect idx %d\n",
+@@ -1207,7 +1199,7 @@ static int get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+  * This function returns the descriptor number found, or vq->num (which is
+  * never a valid descriptor number) if none was found.  A negative code is
+  * returned on error. */
+-int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
++int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 		      struct iovec iov[], unsigned int iov_size,
+ 		      unsigned int *out_num, unsigned int *in_num,
+ 		      struct vhost_log *log, unsigned int *log_num)
+@@ -1281,7 +1273,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 			return -EFAULT;
+ 		}
+ 		if (desc.flags & VRING_DESC_F_INDIRECT) {
+-			ret = get_indirect(dev, vq, iov, iov_size,
++			ret = get_indirect(vq, iov, iov_size,
+ 					   out_num, in_num,
+ 					   log, log_num, &desc);
+ 			if (unlikely(ret < 0)) {
+@@ -1292,7 +1284,7 @@ int vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 			continue;
+ 		}
+ 
+-		ret = translate_desc(dev, desc.addr, desc.len, iov + iov_count,
++		ret = translate_desc(vq, desc.addr, desc.len, iov + iov_count,
+ 				     iov_size - iov_count);
+ 		if (unlikely(ret < 0)) {
+ 			vq_err(vq, "Translation failure %d descriptor idx %d\n",
 -- 
 MST
