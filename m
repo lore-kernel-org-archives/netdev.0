@@ -1,58 +1,69 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: ipconfig: allow IP-Config over DSA devices
-Date: Thu, 5 Jun 2014 10:47:15 -0700
-Message-ID: <CAGVrzcbu6vCKDdDuz+aPCxFGL3rhSREugb17Y_sAzSLmg9Jvaw@mail.gmail.com>
-References: <1401473326-21828-1-git-send-email-f.fainelli@gmail.com> <20140605.000132.501712848318656492.davem@davemloft.net>
+Subject: Re: [PATCH v2 1/6] pch_gbe: print invalid MAC address during probe
+Date: Thu, 5 Jun 2014 11:00:13 -0700
+Message-ID: <CAGVrzcbyD7xKHCeE0S28+bjdja82EGWr9TXute7uQjsefsu8NQ@mail.gmail.com>
+References: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	=?UTF-8?B?SmnFmcOtIFDDrXJrbw==?= <jiri@resnulli.us>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Krueger <daniel.krueger@systec-electronic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Alexander Stein <alexander.stein@systec-electronic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f48.google.com ([209.85.216.48]:64243 "EHLO
-	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055AbaFERr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 13:47:56 -0400
-Received: by mail-qa0-f48.google.com with SMTP id i13so1868362qae.35
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 10:47:55 -0700 (PDT)
-In-Reply-To: <20140605.000132.501712848318656492.davem@davemloft.net>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:49789 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751809AbaFESAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 14:00:54 -0400
+Received: by mail-qg0-f50.google.com with SMTP id z60so2190527qgd.9
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 11:00:53 -0700 (PDT)
+In-Reply-To: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-05 0:01 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Fri, 30 May 2014 11:08:45 -0700
+2014-06-05 1:53 GMT-07:00 Alexander Stein
+<alexander.stein@systec-electronic.com>:
+> From: Daniel Krueger <daniel.krueger@systec-electronic.com>
 >
->> Let me know your thoughts. If you feel like something like:
->> netdev_is_upper_dev() or something like that is better.
->
-> I'm not happy with this change for several reasons.
->
-> First, I don't like the idea that ipconfig works for some stacked
-> devices and not for others.
+> It is also neat to show the actual offending MAC address instead of just
+> rejecting it
 
-Right, although as I described DSA devices are likely to be the only
-real kernel-only created devices here, other stacked devices such as
-bonds, vlans and tunnels for instance do require either kernel
-modifications to be created by the kernel, or user-space.
-
->  I'd rather that we simply accept that
-> direct devices are the only thing supported.
-
-Would you be willing to revise this position if we can come up with a
-generic infrastructure for telling whether a network device depends on
-another one and its master device needs to be opened first? Should we
-instead force the slave devices in net/dsa/slave.c to open its master
-device if it is not UP?
+Most drivers do use a random Ethernet MAC address instead of bailing
+out, which might be a more sensible option.
 
 >
-> Secondly, the logic in that ipconfig loop is so confusing.  I can't
-> even figure out what that dsa pointer test is trying to really
-> accomplish in the second hunk of your patch.
+> Signed-off-by: Daniel Krueger <daniel.krueger@systec-electronic.com>
+> Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
+> ---
 >
-> I'd like to defer this for now, sorry.
+> Changes in v2:
+> * Use just a single line
+>
+>  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> index 73e6683..cf3101c 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> @@ -2672,8 +2672,7 @@ static int pch_gbe_probe(struct pci_dev *pdev,
+>                  * prevent the interface from being brought up until a valid MAC
+>                  * is set.
+>                  */
+> -               dev_err(&pdev->dev, "Invalid MAC address, "
+> -                                   "interface disabled.\n");
+> +               dev_err(&pdev->dev, "Invalid MAC address %pM - interface disabled.\n", adapter->hw.mac.addr);
+>         }
+>         setup_timer(&adapter->watchdog_timer, pch_gbe_watchdog,
+>                     (unsigned long)adapter);
+> --
+> 1.8.5.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Thanks for your comments.
+
+
 -- 
 Florian
