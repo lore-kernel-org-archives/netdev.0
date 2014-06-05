@@ -1,98 +1,70 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
- for netdev
-Date: Thu, 05 Jun 2014 10:06:58 -0400
-Message-ID: <53907982.8030700@gmail.com>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 1/4] macvlan: don't update the uc and vlan list
+ for L2 forwarding offload
+Date: Thu, 05 Jun 2014 07:12:24 -0700
+Message-ID: <53907AC8.50607@intel.com>
+References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-2-git-send-email-dingtianhong@huawei.com> <5390761A.5030808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	kaber@trash.net, davem@davemloft.net, edumazet@google.com,
-	vyasevic@redhat.com
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net, edumazet@google.com, vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:57330 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134AbaFEOHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 10:07:02 -0400
-Received: by mail-qg0-f49.google.com with SMTP id a108so1582469qge.22
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 07:07:01 -0700 (PDT)
-In-Reply-To: <53903D5A.7050702@huawei.com>
+Received: from mga01.intel.com ([192.55.52.88]:4429 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750864AbaFEOMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 10:12:41 -0400
+In-Reply-To: <5390761A.5030808@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/2014 05:50 AM, Ding Tianhong wrote:
-> On 2014/6/5 17:09, Toshiaki Makita wrote:
->> (2014/06/05 15:50), Ding Tianhong wrote:
->>> Most of netdev just like bond, team, vlan will set the mac address
->>> and propagate to the upperdev or lowerdev regardless the mac address
->>> is  same or not, I could not find that the same mac address could
->>> make affect, so add equal check when set mac address.
->>>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> ---
->>>  net/core/dev.c | 2 ++
->>>  1 file changed, 2 insertions(+)
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 5367bfb..4008a51 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>>  		return -EINVAL;
->>>  	if (!netif_device_present(dev))
->>>  		return -ENODEV;
->>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>> +		return 0;
->>>  	err = ops->ndo_set_mac_address(dev, sa);
->>>  	if (err)
->>>  		return err;
->>>
+On 6/5/2014 6:52 AM, Vlad Yasevich wrote:
+> On 06/05/2014 02:50 AM, Ding Tianhong wrote:
+>> If lowerdev supports L2 forwarding offload, no need to set mac address
+>> to uc list and vlan list, so also don't do that when the macvlan mac address
+>> changes.
 >>
->> Bridge uses addr_assign_type to check if bridge_id can be propageted by
->> bridge ports. If user set mac address, and even if it is the same as
->> current one, bridge uses the fact that the mac address is set by user.
+>
+> Are you sure about this?  How would the lower dev receive traffic
+> destined to the new HW address if it is not in the device unicast filter
+> list?
+
+I don't think the offload path works as it is either though (need to
+test). The issue is sync'ing with the lowerdev doesn't give the lowerdev
+any information on which fwd_priv to set so the lowerdev sets the normal
+path with the address. It won't "break" traffic just receive flows wont
+use the direct hardware queues. This will be a bigger issue once we get
+support for metering and hardware ACLs.
+
+Agreed though, Ding how does this work? Looks like a step back to me. At
+very least can we get the commit message to explain this a bit better.
+
+.John
+
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>   drivers/net/macvlan.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
 >>
-> 
-> OK
-> 
->> Although I'm not aware of a driver that needs calling of
->> ndo_set_mac_address() for the same mac address, this change looks a bit
->> risky to me.
->> (For example, old bridge code needed this call because it managed
->> BR_SET_MAC_ADDR in bridge flags.)
+>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>> index 453d55a..c3a54a6 100644
+>> --- a/drivers/net/macvlan.c
+>> +++ b/drivers/net/macvlan.c
+>> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>   	struct net_device *lowerdev = vlan->lowerdev;
+>>   	int err;
 >>
-> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
-> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
-> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
-> 
-
-Ok so may be a check like:
-    /* If the address has already been set by user and it
-     * is the same as before, don't do anything.
-     */
-    if (dev->addr_assign_type == NET_ADDR_SET &&
-        ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
-            return 0;
-
-This way, if the device does it's own address management (like bridge),
-the user can still pin the mac address, but subsequent setting to the
-same value don't cause all sorts of propagation.
-
--vlad
-
-> Ding 
-> 
->> Thanks,
->> Toshiaki Makita
+>> -	if (!(dev->flags & IFF_UP)) {
+>> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
+>>   		/* Just copy in the new address */
+>>   		ether_addr_copy(dev->dev_addr, addr);
+>>   	} else {
 >>
-> 
-> 
-> 
+>
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>
