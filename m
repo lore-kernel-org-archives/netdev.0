@@ -1,221 +1,112 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v3 5/7] net: Add GSO support for UDP tunnels with checksum
-Date: Wed, 4 Jun 2014 17:20:16 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406041706450.14949@tomh.mtv.corp.google.com>
+From: Wayne Badger <badger@yahoo-inc.com>
+Subject: TCP_DEFER_ACCEPT wakes up without data
+Date: Wed, 4 Jun 2014 19:14:30 -0500
+Message-ID: <538FB666.9050303@yahoo-inc.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:52813 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167AbaFEAUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 20:20:19 -0400
-Received: by mail-ob0-f202.google.com with SMTP id wm4so66261obc.1
-        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 17:20:18 -0700 (PDT)
+Received: from mrout2-b.corp.bf1.yahoo.com ([98.139.253.105]:40545 "EHLO
+	mrout2-b.corp.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932305AbaFEA03 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 4 Jun 2014 20:26:29 -0400
+Received: from BF1-EX10-CAHT14.y.corp.yahoo.com (bf1-ex10-caht14.corp.bf1.yahoo.com [10.74.226.58])
+	by mrout2-b.corp.bf1.yahoo.com (8.14.4/8.14.4/y.out) with ESMTP id s550EVQ3091963
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 4 Jun 2014 17:14:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added a new netif feature for GSO_UDP_TUNNEL_CSUM. This indicates
-that a device is capable of computing the UDP checksum in the
-encapsulating header of a UDP tunnel.
+I would like to revisit the current state of TCP_DEFER_ACCEPT.  I know
+that it has been discussed in the past and the discussion about 4.5
+years ago led to commit d1b99ba41d6c5aa1ed2fc634323449dd656899e9 (tcp:
+accept socket after TCP_DEFER_ACCEPT period) being introduced which
+changed the semantics of TCP_DEFER_ACCEPT.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- include/linux/netdev_features.h |  1 +
- include/linux/skbuff.h          |  2 ++
- net/ipv4/af_inet.c              |  1 +
- net/ipv4/tcp_offload.c          |  1 +
- net/ipv4/udp.c                  | 40 +++++++++++++++++++---------------------
- net/ipv4/udp_offload.c          |  4 +++-
- net/ipv6/ip6_offload.c          |  1 +
- net/ipv6/udp_offload.c          |  4 +++-
- 8 files changed, 31 insertions(+), 23 deletions(-)
+Prior to commit d1b99ba41d, the open request was never queued to the
+listener for accepting if no data was ever received.  After the commit,
+the open request is queued to the listener upon receipt of an ACK from
+the retransmitted SYN-ACK, which is sent TCP_DEFER_ACCEPT seconds
+(which value is provided in the TCP_DEFER_ACCEPT setsockopt) after the
+3-way handshake occurs (with appropriate rounding up to account for the
+geometric rexmit algorithm).
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index c26d0ec..f1338e0 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -45,6 +45,7 @@ enum {
- 	NETIF_F_GSO_IPIP_BIT,		/* ... IPIP tunnel with TSO */
- 	NETIF_F_GSO_SIT_BIT,		/* ... SIT tunnel with TSO */
- 	NETIF_F_GSO_UDP_TUNNEL_BIT,	/* ... UDP TUNNEL with TSO */
-+	NETIF_F_GSO_UDP_TUNNEL_CSUM_BIT,/* ... UDP TUNNEL with TSO & CSUM */
- 	NETIF_F_GSO_MPLS_BIT,		/* ... MPLS segmentation */
- 	/**/NETIF_F_GSO_LAST =		/* last bit, see GSO_MASK */
- 		NETIF_F_GSO_MPLS_BIT,
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index d8d397a..5a6d10a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -345,6 +345,8 @@ enum {
- 	SKB_GSO_UDP_TUNNEL = 1 << 9,
+The tcp(7) man page says that the listener is awakened _only_ when data
+arrives on the socket.  We prefer this behavior because it reduces
+memory (minisock vs. sock) and scheduling/context switch overhead.  When
+no data is ever sent by the client, letting the kernel dispose of the
+open request is more efficient than letting the listener dispose of it.
+Is there a way to get this behavior with a recent kernel that I have not
+discovered?
+
+This discussion is not just academic.  We constantly receive dataless
+connection requests from clients.  On some machines, we have seen these
+types of connections comprise up to 20% of our connections.  With the
+current TCP_DEFER_ACCEPT behavior, apache creates many threads that end
+up just waiting for data, timing out, and then closing the connection.
+We can increase the TCP_DEFER_ACCEPT value, but that means that we are
+just consuming kernel resources for longer than we want and end up
+having apache close the connection anyway.
+
+A few questions.
+
+If the new behavior was desired at the time of the commit, why was the
+existing TCP_DEFER_ACCEPT behavior changed instead of just adding a new
+sockopt that implements the new behavior?  Why was the tcp(7) man page
+not modified to describe the new behavior?
+
+I propose the following patch to regain the tcp(7) semantics.  The patch
+resolves dataless connections in one of two ways.  After the initial
+timeout, a SYN-ACK is retransmitted and if a bare ACK is received, then
+a RST is sent to the client and the connection is immediately dropped.
+If nothing is received from the client, then the connection is silently
+dropped after another rexmit timeout (the next one in the geometric
+sequence).
+
+I understand that the patch is incomplete.  For example, it doesn't
+handle syncookies but I wanted to initiate the discussion.
+
+Thanks,
+Wayne
+
+--- tcp_minisocks.c     2014-05-01 15:53:47.000000000 -0500
++++ tcp_minisocks.c.new 2014-05-16 16:08:59.000000000 -0500
+@@ -672,12 +672,31 @@ struct sock *tcp_check_req(struct sock *
+        if (fastopen)
+                return sk;
  
- 	SKB_GSO_MPLS = 1 << 10,
+-       /* While TCP_DEFER_ACCEPT is active, drop bare ACK. */
+-       if (req->num_timeout < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept &&
+-           TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
+-               inet_rsk(req)->acked = 1;
+-               NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPDEFERACCEPTDROP);
+-               return NULL;
++       if (inet_csk(sk)->icsk_accept_queue.rskq_defer_accept) {
++               /* While TCP_DEFER_ACCEPT is active, drop bare ACK.
++                * Send a RST and drop the connection if the timer has expired.
++                */
++               if (TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 1) {
++                       if (req->retrans < inet_csk(sk)->icsk_accept_queue.rskq_defer_accept) {
++                               inet_rsk(req)->acked = 1;
++                               NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPDEFERACCEPTDROP);
++                       } else {
++                               req->rsk_ops->send_reset(sk, skb);
++                               inet_csk_reqsk_queue_drop(sk, req, prev);
++                       }
++                       return NULL;
++               }
 +
-+	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 11,
- };
++               /* Make a finished and dataless TCP_DEFER_ACCEPT connection
++                * request "disappear" without instantiating the socket or
++                * bothering user space.
++                */
++               if ((TCP_SKB_CB(skb)->end_seq == tcp_rsk(req)->rcv_isn + 2) &&
++                   (tcp_flag_word(th) & TCP_FLAG_FIN)) {
++                       req->rsk_ops->send_reset(sk, skb);
++                       inet_csk_reqsk_queue_drop(sk, req, prev);
++                       return NULL;
++               }
+        }
  
- #if BITS_PER_LONG > 32
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 0e9bb08..0070ab8 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1258,6 +1258,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_SIT |
- 		       SKB_GSO_TCPV6 |
- 		       SKB_GSO_UDP_TUNNEL |
-+		       SKB_GSO_UDP_TUNNEL_CSUM |
- 		       SKB_GSO_MPLS |
- 		       0)))
- 		goto out;
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index d8de7b9..c02f2d2 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -61,6 +61,7 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 			       SKB_GSO_SIT |
- 			       SKB_GSO_MPLS |
- 			       SKB_GSO_UDP_TUNNEL |
-+			       SKB_GSO_UDP_TUNNEL_CSUM |
- 			       0) ||
- 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
- 			goto out;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index a84f676..8d8c33d 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2528,7 +2528,11 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
- 	__be16 protocol = skb->protocol;
- 	netdev_features_t enc_features;
--	int outer_hlen;
-+	int udp_offset, outer_hlen;
-+	unsigned int oldlen;
-+	bool need_csum;
-+
-+	oldlen = (u16)~skb->len;
- 
- 	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
- 		goto out;
-@@ -2540,6 +2544,10 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	skb->mac_len = skb_inner_network_offset(skb);
- 	skb->protocol = htons(ETH_P_TEB);
- 
-+	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
-+	if (need_csum)
-+		skb->encap_hdr_csum = 1;
-+
- 	/* segment inner packet. */
- 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
- 	segs = skb_mac_gso_segment(skb, enc_features);
-@@ -2550,10 +2558,11 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 	}
- 
- 	outer_hlen = skb_tnl_header_len(skb);
-+	udp_offset = outer_hlen - tnl_hlen;
- 	skb = segs;
- 	do {
- 		struct udphdr *uh;
--		int udp_offset = outer_hlen - tnl_hlen;
-+		int len;
- 
- 		skb_reset_inner_headers(skb);
- 		skb->encapsulation = 1;
-@@ -2564,31 +2573,20 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
- 		skb_reset_mac_header(skb);
- 		skb_set_network_header(skb, mac_len);
- 		skb_set_transport_header(skb, udp_offset);
-+		len = skb->len - udp_offset;
- 		uh = udp_hdr(skb);
--		uh->len = htons(skb->len - udp_offset);
--
--		/* csum segment if tunnel sets skb with csum. */
--		if (protocol == htons(ETH_P_IP) && unlikely(uh->check)) {
--			struct iphdr *iph = ip_hdr(skb);
-+		uh->len = htons(len);
- 
--			uh->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
--						       skb->len - udp_offset,
--						       IPPROTO_UDP, 0);
--			uh->check = csum_fold(skb_checksum(skb, udp_offset,
--							   skb->len - udp_offset, 0));
--			if (uh->check == 0)
--				uh->check = CSUM_MANGLED_0;
-+		if (need_csum) {
-+			__be32 delta = htonl(oldlen + len);
- 
--		} else if (protocol == htons(ETH_P_IPV6)) {
--			struct ipv6hdr *ipv6h = ipv6_hdr(skb);
--			u32 len = skb->len - udp_offset;
-+			uh->check = ~csum_fold((__force __wsum)
-+					       ((__force u32)uh->check +
-+						(__force u32)delta));
-+			uh->check = gso_make_checksum(skb, ~uh->check);
- 
--			uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
--						     len, IPPROTO_UDP, 0);
--			uh->check = csum_fold(skb_checksum(skb, udp_offset, len, 0));
- 			if (uh->check == 0)
- 				uh->check = CSUM_MANGLED_0;
--			skb->ip_summed = CHECKSUM_NONE;
- 		}
- 
- 		skb->protocol = protocol;
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 88b4023..5c23f47 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -56,7 +56,8 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 	__wsum csum;
- 
- 	if (skb->encapsulation &&
--	    skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL) {
-+	    (skb_shinfo(skb)->gso_type &
-+	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
- 		segs = skb_udp_tunnel_segment(skb, features);
- 		goto out;
- 	}
-@@ -71,6 +72,7 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 
- 		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
- 				      SKB_GSO_UDP_TUNNEL |
-+				      SKB_GSO_UDP_TUNNEL_CSUM |
- 				      SKB_GSO_IPIP |
- 				      SKB_GSO_GRE | SKB_GSO_MPLS) ||
- 			     !(type & (SKB_GSO_UDP))))
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index b2f0915..d54c574 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -100,6 +100,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_IPIP |
- 		       SKB_GSO_SIT |
- 		       SKB_GSO_UDP_TUNNEL |
-+		       SKB_GSO_UDP_TUNNEL_CSUM |
- 		       SKB_GSO_MPLS |
- 		       SKB_GSO_TCPV6 |
- 		       0)))
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index b261ee8..79da8b3 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -63,6 +63,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		if (unlikely(type & ~(SKB_GSO_UDP |
- 				      SKB_GSO_DODGY |
- 				      SKB_GSO_UDP_TUNNEL |
-+				      SKB_GSO_UDP_TUNNEL_CSUM |
- 				      SKB_GSO_GRE |
- 				      SKB_GSO_IPIP |
- 				      SKB_GSO_SIT |
-@@ -76,7 +77,8 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		goto out;
- 	}
- 
--	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
-+	if (skb->encapsulation && skb_shinfo(skb)->gso_type &
-+	    (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))
- 		segs = skb_udp_tunnel_segment(skb, features);
- 	else {
- 		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
--- 
-2.0.0.526.g5318336
+        /* OK, ACK is valid, create big socket and
