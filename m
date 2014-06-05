@@ -1,104 +1,122 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH] stmmac: extend DMA initialization delay to 2.5 seconds
-Date: Thu, 5 Jun 2014 15:30:15 +0100
-Message-ID: <20140605143015.GD24240@lee--X1>
-References: <1401973080-10085-1-git-send-email-abrodkin@synopsys.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2 net-next] bridge: Fix incorrect judgment of promisc
+Date: Thu, 05 Jun 2014 10:57:41 -0400
+Message-ID: <53908565.5050402@gmail.com>
+References: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp> <20140605123039.GA18310@redhat.com> <53906A23.5040006@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Chen-Yu Tsai <wens@csie.org>, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	srinivas.kandagatla@linaro.org, kernel@stlinux.com
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1401973080-10085-1-git-send-email-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:42437 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555AbaFEO5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 10:57:44 -0400
+Received: by mail-qa0-f49.google.com with SMTP id cm18so1493524qab.36
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 07:57:44 -0700 (PDT)
+In-Reply-To: <53906A23.5040006@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+Srinivas and the ST list.
+On 06/05/2014 09:01 AM, Toshiaki Makita wrote:
+> (2014/06/05 21:30), Michael S. Tsirkin wrote:
+>> On Thu, Jun 05, 2014 at 08:53:32PM +0900, Toshiaki Makita wrote:
+>>> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+>>> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+>>>
+>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>> ---
+>>>  net/bridge/br_if.c | 3 ++-
+>>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>>> index a08d2b8..3eca3fd 100644
+>>> --- a/net/bridge/br_if.c
+>>> +++ b/net/bridge/br_if.c
+>>> @@ -153,7 +153,8 @@ void br_manage_promisc(struct net_bridge *br)
+>>>  			 * This lets us disable promiscuous mode and write
+>>>  			 * this config to hw.
+>>>  			 */
+>>> -			if (br->auto_cnt <= br_auto_port(p))
+>>> +			if (br->auto_cnt == 0 ||
+>>> +			    (br->auto_cnt == 1 && br_auto_port(p)))
+>>>  				br_port_clear_promisc(p);
+>>>  			else
+>>>  				br_port_set_promisc(p);
+>>
+>> It's all a nasty side-effect of using macros IMHO.
+>>
+>> How about we just make these inline functions returning bool?
+>>
+>> The bugfix will fall out naturally.
+>>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>
+>> Warning: untested.
+>>
+>>
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 53d6e32..5818dd2 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -200,8 +200,15 @@ struct net_bridge_port
+>>  #endif
+>>  };
+>>  
+>> -#define br_auto_port(p) ((p)->flags & BR_AUTO_MASK)
+>> -#define br_promisc_port(p) ((p)->flags & BR_PROMISC)
+>> +static inline bool br_auto_port(struct net_bridge_port *p)
+>> +{
+>> +	return p->flags & BR_AUTO_MASK;
+>> +}
+>> +
+>> +static inline bool br_promisc_port(struct net_bridge_port *p)
+>> +{
+>> +	return p->flags & BR_PROMISC;
+>> +}
+>>  
+>>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+> 
+> This also looks good.
+> 
+> IMHO, the caller side should not assume these macros (or inline
+> functions) return boolean value.  There exists similar macro such as
+> br_port_exists() that doesn't return boolean.
+> 
+> Ohterwise, we should change all macros into boolean functions, but it
+> might affect performance a little if such a macro is used in fast path?
+> (I'm worried about the cost of casting non-zero values into 1.)
 
-> On some platforms existing 100 msecond delay is not enough for DMA bl=
-ock to
-> recover after reset. This is because MAC DMA waits for all PHY input =
-clocks
-> to present and depending on the board reset bit deassertion may take =
-much
-> longer than previously used 100 milliseconds
->=20
-> I have a board that requires more than 2 seconds for DMA to zero "res=
-et" bit.
-> If for other boards it's still not long enough this value should be e=
-xtended
-> once again.
->=20
-> In the same change I convert "mdelay" to "msleep" to make CPU availab=
-le for
-> other processes during DMA init delay which is especially useful in c=
-ase of
-> delay for a few seconds.
->=20
-> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
->=20
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Hans de Goede <hdegoede@redhat.com>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> Cc: Chen-Yu Tsai <wens@csie.org>
-> Cc: linux-kernel@vger.kernel.org
-> Cc: devicetree@vger.kernel.org
-> Cc: Vineet Gupta <vgupta@synopsys.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c | 4 ++--
->  drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c  | 4 ++--
->  2 files changed, 4 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/dr=
-ivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-> index 0c2058a..f713ea7 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-> @@ -39,11 +39,11 @@ static int dwmac1000_dma_init(void __iomem *ioadd=
-r, int pbl, int fb, int mb,
->  	/* DMA SW reset */
->  	value |=3D DMA_BUS_MODE_SFT_RESET;
->  	writel(value, ioaddr + DMA_BUS_MODE);
-> -	limit =3D 10;
-> +	limit =3D 100;
->  	while (limit--) {
->  		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
->  			break;
-> -		mdelay(10);
-> +		msleep(25);
->  	}
->  	if (limit < 0)
->  		return -EBUSY;
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/dri=
-vers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-> index 7d1dce9..043585f 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-> @@ -41,11 +41,11 @@ static int dwmac100_dma_init(void __iomem *ioaddr=
-, int pbl, int fb, int mb,
->  	/* DMA SW reset */
->  	value |=3D DMA_BUS_MODE_SFT_RESET;
->  	writel(value, ioaddr + DMA_BUS_MODE);
-> -	limit =3D 10;
-> +	limit =3D 100;
->  	while (limit--) {
->  		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
->  			break;
-> -		mdelay(10);
-> +		msleep(25);
->  	}
->  	if (limit < 0)
->  		return -EBUSY;
+The following works correctly for me:
+#define br_auto_port(p) !!((p)->flags & BR_AUTO_MASK)
 
---=20
-Lee Jones
-Linaro STMicroelectronics Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+Small test shows:
+
+printf("%d\n", br_auto_port(0x20);
+1 <-- correct.  learning is set.
+
+printf("%d\n", br_auto_port(0x40);
+1 <-- correct.  flooding is set.
+
+printf("%d\n", br_auto_port(0x60);
+1 <-- correct, both are set.
+
+printf("%d\n", br_auto_port(0x08);
+0 <-- correct.  neither are set.
+
+-vlad
+
+> 
+> Thanks,
+> Toshiaki Makita
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
