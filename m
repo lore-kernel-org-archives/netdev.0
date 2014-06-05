@@ -1,182 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 2/6] pch_gbe: Add module parameter for RGMII/GMII PHY
- mode selection
-Date: Thu, 5 Jun 2014 11:15:31 -0700
-Message-ID: <CAGVrzcaqg4AjnecXKD8woRGnSF+-+caC3s61KErUoU892M4odw@mail.gmail.com>
-References: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
- <1401958387-8154-2-git-send-email-alexander.stein@systec-electronic.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Krueger <daniel.krueger@systec-electronic.com>
-To: Alexander Stein <alexander.stein@systec-electronic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:34998 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbaFESQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 14:16:12 -0400
-Received: by mail-qg0-f48.google.com with SMTP id i50so2246116qgf.7
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 11:16:11 -0700 (PDT)
-In-Reply-To: <1401958387-8154-2-git-send-email-alexander.stein@systec-electronic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Konrad Zapalowicz <bergo.torino@gmail.com>
+Subject: [PATCH] net: phy: fix sparse warning in fixed.c
+Date: Thu,  5 Jun 2014 20:27:42 +0200
+Message-ID: <1401992862-8427-1-git-send-email-bergo.torino@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Konrad Zapalowicz <bergo.torino@gmail.com>
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2014-06-05 1:53 GMT-07:00 Alexander Stein
-<alexander.stein@systec-electronic.com>:
-> The mode register has to be set even in GMII mode. Otherwise the 125 MHz
-> RXCLK is not detected after MAC reset.
+This commit fixes the following sparse warning:
 
-Should not that information come from some platform or device
-configuration data? Having a module to toggle between GMII and RGMII
-mode does not sound like something an user should be aware of.
+drivers/net/phy/fixed.c:207
+    - warning: symbol 'fixed_phy_del' was not declared.
+      Should it be static?
 
->
-> Signed-off-by: Daniel Krueger <daniel.krueger@systec-electronic.com>
-> Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
-> ---
->  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  1 +
->  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |  6 +--
->  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 47 ++++++++++++----------
->  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h    |  1 -
->  4 files changed, 30 insertions(+), 25 deletions(-)
->
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> index 2a55d6d..956dc68 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-> @@ -390,6 +390,7 @@ struct pch_gbe_phy_info {
->         u32 revision;
->         u32 reset_delay_us;
->         u16 autoneg_advertised;
-> +       bool is_rgmii;
->  };
->
->  /*!
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-> index 5125036..c97e738 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-> @@ -77,9 +77,9 @@ static s32 pch_gbe_plat_init_hw(struct pch_gbe_hw *hw)
->         }
->         pch_gbe_phy_init_setting(hw);
->         /* Setup Mac interface option RGMII */
-> -#ifdef PCH_GBE_MAC_IFOP_RGMII
-> -       pch_gbe_phy_set_rgmii(hw);
-> -#endif
-> +       if (hw->phy.is_rgmii)
-> +               pch_gbe_phy_set_rgmii(hw);
-> +
->         return ret_val;
->  }
->
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> index cf3101c..e7acbd7 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-> @@ -114,6 +114,7 @@ const char pch_driver_version[] = DRV_VERSION;
->  #define MINNOW_PHY_RESET_GPIO          13
->
->  static unsigned int copybreak __read_mostly = PCH_GBE_COPYBREAK_DEFAULT;
-> +static bool is_rgmii __read_mostly = 1;
->
->  static int pch_gbe_mdio_read(struct net_device *netdev, int addr, int reg);
->  static void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg,
-> @@ -369,9 +370,7 @@ static void pch_gbe_mac_reset_hw(struct pch_gbe_hw *hw)
->         /* Read the MAC address. and store to the private data */
->         pch_gbe_mac_read_mac_addr(hw);
->         iowrite32(PCH_GBE_ALL_RST, &hw->reg->RESET);
-> -#ifdef PCH_GBE_MAC_IFOP_RGMII
->         iowrite32(PCH_GBE_MODE_GMII_ETHER, &hw->reg->MODE);
-> -#endif
->         pch_gbe_wait_clr_bit(&hw->reg->RESET, PCH_GBE_ALL_RST);
->         /* Setup the receive addresses */
->         pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
-> @@ -1039,26 +1038,26 @@ static void pch_gbe_set_rgmii_ctrl(struct pch_gbe_adapter *adapter, u16 speed,
->         unsigned long rgmii = 0;
->
->         /* Set the RGMII control. */
-> -#ifdef PCH_GBE_MAC_IFOP_RGMII
-> -       switch (speed) {
-> -       case SPEED_10:
-> -               rgmii = (PCH_GBE_RGMII_RATE_2_5M |
-> -                        PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> -               break;
-> -       case SPEED_100:
-> -               rgmii = (PCH_GBE_RGMII_RATE_25M |
-> -                        PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> -               break;
-> -       case SPEED_1000:
-> -               rgmii = (PCH_GBE_RGMII_RATE_125M |
-> -                        PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> -               break;
-> -       }
-> -       iowrite32(rgmii, &hw->reg->RGMII_CTRL);
-> -#else  /* GMII */
-> -       rgmii = 0;
-> +       if (hw->phy.is_rgmii) {
-> +               switch (speed) {
-> +               case SPEED_10:
-> +                       rgmii = (PCH_GBE_RGMII_RATE_2_5M |
-> +                               PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> +                       break;
-> +               case SPEED_100:
-> +                       rgmii = (PCH_GBE_RGMII_RATE_25M |
-> +                               PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> +                       break;
-> +               case SPEED_1000:
-> +                       rgmii = (PCH_GBE_RGMII_RATE_125M |
-> +                               PCH_GBE_MAC_RGMII_CTRL_SETTING);
-> +                       break;
-> +               }
-> +       } else
-> +               /* GMII */
-> +               rgmii = 0;
-> +
->         iowrite32(rgmii, &hw->reg->RGMII_CTRL);
-> -#endif
->  }
->  static void pch_gbe_set_mode(struct pch_gbe_adapter *adapter, u16 speed,
->                               u16 duplex)
-> @@ -2629,6 +2628,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
->         if (adapter->pdata && adapter->pdata->platform_init)
->                 adapter->pdata->platform_init(pdev);
->
-> +       adapter->hw.phy.is_rgmii = is_rgmii;
-> +
->         adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
->                                                PCI_DEVFN(12, 4));
->
-> @@ -2841,4 +2842,8 @@ module_param(copybreak, uint, 0644);
->  MODULE_PARM_DESC(copybreak,
->         "Maximum size of packet that is copied to a new buffer on receive");
->
-> +module_param(is_rgmii, bool, 0644);
-> +MODULE_PARM_DESC(is_rgmii,
-> +                "Selection of RGMII/GMII PHY mode. true: RGMII (default). false: GMII");
-> +
->  /* pch_gbe_main.c */
-> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-> index 95ad015..1c1e711 100644
-> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-> @@ -21,7 +21,6 @@
->
->  #define PCH_GBE_PHY_REGS_LEN           32
->  #define        PCH_GBE_PHY_RESET_DELAY_US      10
-> -#define PCH_GBE_MAC_IFOP_RGMII
->
->  s32 pch_gbe_phy_get_id(struct pch_gbe_hw *hw);
->  s32 pch_gbe_phy_read_reg_miic(struct pch_gbe_hw *hw, u32 offset, u16 *data);
-> --
-> 1.8.5.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+by adding symbol definition to the phy_fixed.h API file. It is ok to do
+because the function in question is an exported symbol.
 
+Signed-off-by: Konrad Zapalowicz <bergo.torino@gmail.com>
+---
+ include/linux/phy_fixed.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-
+diff --git a/include/linux/phy_fixed.h b/include/linux/phy_fixed.h
+index 4f2478b..ae612ac 100644
+--- a/include/linux/phy_fixed.h
++++ b/include/linux/phy_fixed.h
+@@ -17,6 +17,7 @@ extern int fixed_phy_add(unsigned int irq, int phy_id,
+ extern int fixed_phy_register(unsigned int irq,
+ 			      struct fixed_phy_status *status,
+ 			      struct device_node *np);
++extern void fixed_phy_del(int phy_addr);
+ #else
+ static inline int fixed_phy_add(unsigned int irq, int phy_id,
+ 				struct fixed_phy_status *status)
+@@ -29,6 +30,10 @@ static inline int fixed_phy_register(unsigned int irq,
+ {
+ 	return -ENODEV;
+ }
++static inline int fixed_phy_del(int phy_addr)
++{
++	return -ENODEV;
++}
+ #endif /* CONFIG_FIXED_PHY */
+ 
+ /*
 -- 
-Florian
+1.8.1.2
