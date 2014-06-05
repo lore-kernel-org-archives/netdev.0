@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/13] i40e/i40evf: remove rx_errors and rx_missed
-Date: Thu,  5 Jun 2014 03:13:00 -0700
-Message-ID: <1401963181-11110-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/13] i40e: refactor stats collection
+Date: Thu,  5 Jun 2014 03:12:59 -0700
+Message-ID: <1401963181-11110-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19675 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:19636 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751880AbaFEKNI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751810AbaFEKNI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 5 Jun 2014 06:13:08 -0400
 In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,121 +18,433 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The rx_errors (GLV_REPC) and rx_missed (GLV_RMPC) were removed
-from the chip design.
+Pull the PF stat collection out of the VSI collection routine, and
+add a unifying stats update routine to call the various stat collection
+routines.
 
-Change-ID: Ifdeb69c90feac64ec95c36d3d32c75e3a06de3b7
+Change-ID: I224192455bb3a6e5dc0a426935e67dffc123e306
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c      | 9 ++++-----
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c      | 1 -
- drivers/net/ethernet/intel/i40e/i40e_main.c         | 2 --
- drivers/net/ethernet/intel/i40e/i40e_type.h         | 2 --
- drivers/net/ethernet/intel/i40evf/i40e_type.h       | 2 --
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c  | 2 --
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 3 +--
- 7 files changed, 5 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 355 +++++++++++++++-------------
+ 1 file changed, 189 insertions(+), 166 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-index 1aaec40..1bd0adb 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
-@@ -862,12 +862,11 @@ static void i40e_dbg_dump_eth_stats(struct i40e_pf *pf,
- 		 "    rx_bytes = \t%lld \trx_unicast = \t\t%lld \trx_multicast = \t%lld\n",
- 		estats->rx_bytes, estats->rx_unicast, estats->rx_multicast);
- 	dev_info(&pf->pdev->dev,
--		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld \trx_errors = \t%lld\n",
--		 estats->rx_broadcast, estats->rx_discards, estats->rx_errors);
-+		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld\n",
-+		 estats->rx_broadcast, estats->rx_discards);
- 	dev_info(&pf->pdev->dev,
--		 "    rx_missed = \t%lld \trx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
--		 estats->rx_missed, estats->rx_unknown_protocol,
--		 estats->tx_bytes);
-+		 "    rx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
-+		 estats->rx_unknown_protocol, estats->tx_bytes);
- 	dev_info(&pf->pdev->dev,
- 		 "    tx_unicast = \t%lld \ttx_multicast = \t\t%lld \ttx_broadcast = \t%lld\n",
- 		 estats->tx_unicast, estats->tx_multicast, estats->tx_broadcast);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 354181d..e23d514 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -78,7 +78,6 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
- 	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
--	I40E_PF_STAT("rx_errors", stats.eth.rx_errors),
- 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
- 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
- 	I40E_PF_STAT("tx_dropped", stats.eth.tx_discards),
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e340e3b..76bd168 100644
+index 1954e19..e340e3b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -803,8 +803,6 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
+@@ -720,19 +720,18 @@ static void i40e_update_prio_xoff_rx(struct i40e_pf *pf)
+ }
  
+ /**
+- * i40e_update_stats - Update the board statistics counters.
++ * i40e_update_vsi_stats - Update the vsi statistics counters.
+  * @vsi: the VSI to be updated
+  *
+  * There are a few instances where we store the same stat in a
+  * couple of different structs.  This is partly because we have
+  * the netdev stats that need to be filled out, which is slightly
+  * different from the "eth_stats" defined by the chip and used in
+- * VF communications.  We sort it all out here in a central place.
++ * VF communications.  We sort it out here.
+  **/
+-void i40e_update_stats(struct i40e_vsi *vsi)
++static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+-	struct i40e_hw *hw = &pf->hw;
+ 	struct rtnl_link_stats64 *ons;
+ 	struct rtnl_link_stats64 *ns;   /* netdev stats */
+ 	struct i40e_eth_stats *oes;
+@@ -741,8 +740,6 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	u32 rx_page, rx_buf;
+ 	u64 rx_p, rx_b;
+ 	u64 tx_p, tx_b;
+-	u32 val;
+-	int i;
+ 	u16 q;
+ 
+ 	if (test_bit(__I40E_DOWN, &vsi->state) ||
+@@ -804,8 +801,8 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	ns->tx_packets = tx_p;
+ 	ns->tx_bytes = tx_b;
+ 
+-	i40e_update_eth_stats(vsi);
  	/* update netdev stats from eth stats */
- 	i40e_update_eth_stats(vsi);
--	ons->rx_errors = oes->rx_errors;
--	ns->rx_errors = es->rx_errors;
++	i40e_update_eth_stats(vsi);
+ 	ons->rx_errors = oes->rx_errors;
+ 	ns->rx_errors = es->rx_errors;
  	ons->tx_errors = oes->tx_errors;
- 	ns->tx_errors = es->tx_errors;
- 	ons->multicast = oes->rx_multicast;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 02e8f9a4..5a930b3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -972,8 +972,6 @@ struct i40e_eth_stats {
- 	u64 rx_multicast;		/* mprc */
- 	u64 rx_broadcast;		/* bprc */
- 	u64 rx_discards;		/* rdpc */
--	u64 rx_errors;			/* repc */
--	u64 rx_missed;			/* rmpc */
- 	u64 rx_unknown_protocol;	/* rupp */
- 	u64 tx_bytes;			/* gotc */
- 	u64 tx_unicast;			/* uptc */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index eb2e9f3..4fc9835 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -972,8 +972,6 @@ struct i40e_eth_stats {
- 	u64 rx_multicast;		/* mprc */
- 	u64 rx_broadcast;		/* bprc */
- 	u64 rx_discards;		/* rdpc */
--	u64 rx_errors;			/* repc */
--	u64 rx_missed;			/* rmpc */
- 	u64 rx_unknown_protocol;	/* rupp */
- 	u64 tx_bytes;			/* gotc */
- 	u64 tx_unicast;			/* uptc */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 8d41a88..60407a9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -47,8 +47,6 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
- 	I40EVF_STAT("rx_multicast", current_stats.rx_multicast),
- 	I40EVF_STAT("rx_broadcast", current_stats.rx_broadcast),
- 	I40EVF_STAT("rx_discards", current_stats.rx_discards),
--	I40EVF_STAT("rx_errors", current_stats.rx_errors),
--	I40EVF_STAT("rx_missed", current_stats.rx_missed),
- 	I40EVF_STAT("rx_unknown_protocol", current_stats.rx_unknown_protocol),
- 	I40EVF_STAT("tx_bytes", current_stats.tx_bytes),
- 	I40EVF_STAT("tx_unicast", current_stats.tx_unicast),
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 7f80bb4..b3cd3cd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -748,9 +748,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 						 stats->tx_broadcast;
- 		adapter->net_stats.rx_bytes = stats->rx_bytes;
- 		adapter->net_stats.tx_bytes = stats->tx_bytes;
--		adapter->net_stats.rx_errors = stats->rx_errors;
- 		adapter->net_stats.tx_errors = stats->tx_errors;
--		adapter->net_stats.rx_dropped = stats->rx_missed;
-+		adapter->net_stats.rx_dropped = stats->rx_discards;
- 		adapter->net_stats.tx_dropped = stats->tx_discards;
- 		adapter->current_stats = *stats;
- 		}
+@@ -815,185 +812,211 @@ void i40e_update_stats(struct i40e_vsi *vsi)
+ 	ons->tx_dropped = oes->tx_discards;
+ 	ns->tx_dropped = es->tx_discards;
+ 
+-	/* Get the port data only if this is the main PF VSI */
++	/* pull in a couple PF stats if this is the main vsi */
+ 	if (vsi == pf->vsi[pf->lan_vsi]) {
+-		struct i40e_hw_port_stats *nsd = &pf->stats;
+-		struct i40e_hw_port_stats *osd = &pf->stats_offsets;
+-
+-		i40e_stat_update48(hw, I40E_GLPRT_GORCH(hw->port),
+-				   I40E_GLPRT_GORCL(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->eth.rx_bytes, &nsd->eth.rx_bytes);
+-		i40e_stat_update48(hw, I40E_GLPRT_GOTCH(hw->port),
+-				   I40E_GLPRT_GOTCL(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->eth.tx_bytes, &nsd->eth.tx_bytes);
+-		i40e_stat_update32(hw, I40E_GLPRT_RDPC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->eth.rx_discards,
+-				   &nsd->eth.rx_discards);
+-		i40e_stat_update32(hw, I40E_GLPRT_TDPC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->eth.tx_discards,
+-				   &nsd->eth.tx_discards);
+-		i40e_stat_update48(hw, I40E_GLPRT_MPRCH(hw->port),
+-				   I40E_GLPRT_MPRCL(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->eth.rx_multicast,
+-				   &nsd->eth.rx_multicast);
++		ns->rx_crc_errors = pf->stats.crc_errors;
++		ns->rx_errors = pf->stats.crc_errors + pf->stats.illegal_bytes;
++		ns->rx_length_errors = pf->stats.rx_length_errors;
++	}
++}
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_TDOLD(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_dropped_link_down,
+-				   &nsd->tx_dropped_link_down);
++/**
++ * i40e_update_pf_stats - Update the pf statistics counters.
++ * @pf: the PF to be updated
++ **/
++static void i40e_update_pf_stats(struct i40e_pf *pf)
++{
++	struct i40e_hw_port_stats *osd = &pf->stats_offsets;
++	struct i40e_hw_port_stats *nsd = &pf->stats;
++	struct i40e_hw *hw = &pf->hw;
++	u32 val;
++	int i;
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_CRCERRS(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->crc_errors, &nsd->crc_errors);
+-		ns->rx_crc_errors = nsd->crc_errors;
++	i40e_stat_update48(hw, I40E_GLPRT_GORCH(hw->port),
++			   I40E_GLPRT_GORCL(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->eth.rx_bytes, &nsd->eth.rx_bytes);
++	i40e_stat_update48(hw, I40E_GLPRT_GOTCH(hw->port),
++			   I40E_GLPRT_GOTCL(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->eth.tx_bytes, &nsd->eth.tx_bytes);
++	i40e_stat_update32(hw, I40E_GLPRT_RDPC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->eth.rx_discards,
++			   &nsd->eth.rx_discards);
++	i40e_stat_update32(hw, I40E_GLPRT_TDPC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->eth.tx_discards,
++			   &nsd->eth.tx_discards);
++	i40e_stat_update48(hw, I40E_GLPRT_MPRCH(hw->port),
++			   I40E_GLPRT_MPRCL(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->eth.rx_multicast,
++			   &nsd->eth.rx_multicast);
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_ILLERRC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->illegal_bytes, &nsd->illegal_bytes);
+-		ns->rx_errors = nsd->crc_errors
+-				+ nsd->illegal_bytes;
++	i40e_stat_update32(hw, I40E_GLPRT_TDOLD(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_dropped_link_down,
++			   &nsd->tx_dropped_link_down);
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_MLFC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->mac_local_faults,
+-				   &nsd->mac_local_faults);
+-		i40e_stat_update32(hw, I40E_GLPRT_MRFC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->mac_remote_faults,
+-				   &nsd->mac_remote_faults);
++	i40e_stat_update32(hw, I40E_GLPRT_CRCERRS(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->crc_errors, &nsd->crc_errors);
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_RLEC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_length_errors,
+-				   &nsd->rx_length_errors);
+-		ns->rx_length_errors = nsd->rx_length_errors;
++	i40e_stat_update32(hw, I40E_GLPRT_ILLERRC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->illegal_bytes, &nsd->illegal_bytes);
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_LXONRXC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->link_xon_rx, &nsd->link_xon_rx);
+-		i40e_stat_update32(hw, I40E_GLPRT_LXONTXC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->link_xon_tx, &nsd->link_xon_tx);
+-		i40e_update_prio_xoff_rx(pf);  /* handles I40E_GLPRT_LXOFFRXC */
+-		i40e_stat_update32(hw, I40E_GLPRT_LXOFFTXC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->link_xoff_tx, &nsd->link_xoff_tx);
+-
+-		for (i = 0; i < 8; i++) {
+-			i40e_stat_update32(hw, I40E_GLPRT_PXONRXC(hw->port, i),
+-					   pf->stat_offsets_loaded,
+-					   &osd->priority_xon_rx[i],
+-					   &nsd->priority_xon_rx[i]);
+-			i40e_stat_update32(hw, I40E_GLPRT_PXONTXC(hw->port, i),
+-					   pf->stat_offsets_loaded,
+-					   &osd->priority_xon_tx[i],
+-					   &nsd->priority_xon_tx[i]);
+-			i40e_stat_update32(hw, I40E_GLPRT_PXOFFTXC(hw->port, i),
+-					   pf->stat_offsets_loaded,
+-					   &osd->priority_xoff_tx[i],
+-					   &nsd->priority_xoff_tx[i]);
+-			i40e_stat_update32(hw,
+-					   I40E_GLPRT_RXON2OFFCNT(hw->port, i),
+-					   pf->stat_offsets_loaded,
+-					   &osd->priority_xon_2_xoff[i],
+-					   &nsd->priority_xon_2_xoff[i]);
+-		}
++	i40e_stat_update32(hw, I40E_GLPRT_MLFC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->mac_local_faults,
++			   &nsd->mac_local_faults);
++	i40e_stat_update32(hw, I40E_GLPRT_MRFC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->mac_remote_faults,
++			   &nsd->mac_remote_faults);
+ 
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC64H(hw->port),
+-				   I40E_GLPRT_PRC64L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_64, &nsd->rx_size_64);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC127H(hw->port),
+-				   I40E_GLPRT_PRC127L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_127, &nsd->rx_size_127);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC255H(hw->port),
+-				   I40E_GLPRT_PRC255L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_255, &nsd->rx_size_255);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC511H(hw->port),
+-				   I40E_GLPRT_PRC511L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_511, &nsd->rx_size_511);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC1023H(hw->port),
+-				   I40E_GLPRT_PRC1023L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_1023, &nsd->rx_size_1023);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC1522H(hw->port),
+-				   I40E_GLPRT_PRC1522L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_1522, &nsd->rx_size_1522);
+-		i40e_stat_update48(hw, I40E_GLPRT_PRC9522H(hw->port),
+-				   I40E_GLPRT_PRC9522L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_size_big, &nsd->rx_size_big);
++	i40e_stat_update32(hw, I40E_GLPRT_RLEC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_length_errors,
++			   &nsd->rx_length_errors);
+ 
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC64H(hw->port),
+-				   I40E_GLPRT_PTC64L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_64, &nsd->tx_size_64);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC127H(hw->port),
+-				   I40E_GLPRT_PTC127L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_127, &nsd->tx_size_127);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC255H(hw->port),
+-				   I40E_GLPRT_PTC255L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_255, &nsd->tx_size_255);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC511H(hw->port),
+-				   I40E_GLPRT_PTC511L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_511, &nsd->tx_size_511);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC1023H(hw->port),
+-				   I40E_GLPRT_PTC1023L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_1023, &nsd->tx_size_1023);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC1522H(hw->port),
+-				   I40E_GLPRT_PTC1522L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_1522, &nsd->tx_size_1522);
+-		i40e_stat_update48(hw, I40E_GLPRT_PTC9522H(hw->port),
+-				   I40E_GLPRT_PTC9522L(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->tx_size_big, &nsd->tx_size_big);
++	i40e_stat_update32(hw, I40E_GLPRT_LXONRXC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->link_xon_rx, &nsd->link_xon_rx);
++	i40e_stat_update32(hw, I40E_GLPRT_LXONTXC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->link_xon_tx, &nsd->link_xon_tx);
++	i40e_update_prio_xoff_rx(pf);  /* handles I40E_GLPRT_LXOFFRXC */
++	i40e_stat_update32(hw, I40E_GLPRT_LXOFFTXC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->link_xoff_tx, &nsd->link_xoff_tx);
+ 
+-		i40e_stat_update32(hw, I40E_GLPRT_RUC(hw->port),
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_undersize, &nsd->rx_undersize);
+-		i40e_stat_update32(hw, I40E_GLPRT_RFC(hw->port),
++	for (i = 0; i < 8; i++) {
++		i40e_stat_update32(hw, I40E_GLPRT_PXONRXC(hw->port, i),
+ 				   pf->stat_offsets_loaded,
+-				   &osd->rx_fragments, &nsd->rx_fragments);
+-		i40e_stat_update32(hw, I40E_GLPRT_ROC(hw->port),
++				   &osd->priority_xon_rx[i],
++				   &nsd->priority_xon_rx[i]);
++		i40e_stat_update32(hw, I40E_GLPRT_PXONTXC(hw->port, i),
+ 				   pf->stat_offsets_loaded,
+-				   &osd->rx_oversize, &nsd->rx_oversize);
+-		i40e_stat_update32(hw, I40E_GLPRT_RJC(hw->port),
++				   &osd->priority_xon_tx[i],
++				   &nsd->priority_xon_tx[i]);
++		i40e_stat_update32(hw, I40E_GLPRT_PXOFFTXC(hw->port, i),
+ 				   pf->stat_offsets_loaded,
+-				   &osd->rx_jabber, &nsd->rx_jabber);
+-
+-		val = rd32(hw, I40E_PRTPM_EEE_STAT);
+-		nsd->tx_lpi_status =
+-			       (val & I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_MASK) >>
+-				I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_SHIFT;
+-		nsd->rx_lpi_status =
+-			       (val & I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_MASK) >>
+-				I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_SHIFT;
+-		i40e_stat_update32(hw, I40E_PRTPM_TLPIC,
++				   &osd->priority_xoff_tx[i],
++				   &nsd->priority_xoff_tx[i]);
++		i40e_stat_update32(hw,
++				   I40E_GLPRT_RXON2OFFCNT(hw->port, i),
+ 				   pf->stat_offsets_loaded,
+-				   &osd->tx_lpi_count, &nsd->tx_lpi_count);
+-		i40e_stat_update32(hw, I40E_PRTPM_RLPIC,
+-				   pf->stat_offsets_loaded,
+-				   &osd->rx_lpi_count, &nsd->rx_lpi_count);
++				   &osd->priority_xon_2_xoff[i],
++				   &nsd->priority_xon_2_xoff[i]);
+ 	}
+ 
++	i40e_stat_update48(hw, I40E_GLPRT_PRC64H(hw->port),
++			   I40E_GLPRT_PRC64L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_64, &nsd->rx_size_64);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC127H(hw->port),
++			   I40E_GLPRT_PRC127L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_127, &nsd->rx_size_127);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC255H(hw->port),
++			   I40E_GLPRT_PRC255L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_255, &nsd->rx_size_255);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC511H(hw->port),
++			   I40E_GLPRT_PRC511L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_511, &nsd->rx_size_511);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC1023H(hw->port),
++			   I40E_GLPRT_PRC1023L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_1023, &nsd->rx_size_1023);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC1522H(hw->port),
++			   I40E_GLPRT_PRC1522L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_1522, &nsd->rx_size_1522);
++	i40e_stat_update48(hw, I40E_GLPRT_PRC9522H(hw->port),
++			   I40E_GLPRT_PRC9522L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_size_big, &nsd->rx_size_big);
++
++	i40e_stat_update48(hw, I40E_GLPRT_PTC64H(hw->port),
++			   I40E_GLPRT_PTC64L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_64, &nsd->tx_size_64);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC127H(hw->port),
++			   I40E_GLPRT_PTC127L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_127, &nsd->tx_size_127);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC255H(hw->port),
++			   I40E_GLPRT_PTC255L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_255, &nsd->tx_size_255);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC511H(hw->port),
++			   I40E_GLPRT_PTC511L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_511, &nsd->tx_size_511);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC1023H(hw->port),
++			   I40E_GLPRT_PTC1023L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_1023, &nsd->tx_size_1023);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC1522H(hw->port),
++			   I40E_GLPRT_PTC1522L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_1522, &nsd->tx_size_1522);
++	i40e_stat_update48(hw, I40E_GLPRT_PTC9522H(hw->port),
++			   I40E_GLPRT_PTC9522L(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->tx_size_big, &nsd->tx_size_big);
++
++	i40e_stat_update32(hw, I40E_GLPRT_RUC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_undersize, &nsd->rx_undersize);
++	i40e_stat_update32(hw, I40E_GLPRT_RFC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_fragments, &nsd->rx_fragments);
++	i40e_stat_update32(hw, I40E_GLPRT_ROC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_oversize, &nsd->rx_oversize);
++	i40e_stat_update32(hw, I40E_GLPRT_RJC(hw->port),
++			   pf->stat_offsets_loaded,
++			   &osd->rx_jabber, &nsd->rx_jabber);
++
++	val = rd32(hw, I40E_PRTPM_EEE_STAT);
++	nsd->tx_lpi_status =
++		       (val & I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_MASK) >>
++			I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_SHIFT;
++	nsd->rx_lpi_status =
++		       (val & I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_MASK) >>
++			I40E_PRTPM_EEE_STAT_RX_LPI_STATUS_SHIFT;
++	i40e_stat_update32(hw, I40E_PRTPM_TLPIC,
++			   pf->stat_offsets_loaded,
++			   &osd->tx_lpi_count, &nsd->tx_lpi_count);
++	i40e_stat_update32(hw, I40E_PRTPM_RLPIC,
++			   pf->stat_offsets_loaded,
++			   &osd->rx_lpi_count, &nsd->rx_lpi_count);
++
+ 	pf->stat_offsets_loaded = true;
+ }
+ 
+ /**
++ * i40e_update_stats - Update the various statistics counters.
++ * @vsi: the VSI to be updated
++ *
++ * Update the various stats for this VSI and its related entities.
++ **/
++void i40e_update_stats(struct i40e_vsi *vsi)
++{
++	struct i40e_pf *pf = vsi->back;
++
++	if (vsi == pf->vsi[pf->lan_vsi])
++		i40e_update_pf_stats(pf);
++
++	i40e_update_vsi_stats(vsi);
++}
++
++/**
+  * i40e_find_filter - Search VSI filter list for specific mac/vlan filter
+  * @vsi: the VSI to be searched
+  * @macaddr: the MAC address
 -- 
 1.9.3
