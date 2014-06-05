@@ -1,110 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] i40e: add missing VSI statistics
-Date: Thu,  5 Jun 2014 00:49:27 -0700
-Message-ID: <1401954567-13557-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/14] i40e/i40evf: VEB structure added, GTIME macro update
+Date: Thu,  5 Jun 2014 00:49:23 -0700
+Message-ID: <1401954567-13557-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52015 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:52024 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751915AbaFEHtn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 03:49:43 -0400
+	id S1751898AbaFEHtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 03:49:42 -0400
 In-Reply-To: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-Add a couple more statistics that the hardware offers but aren't part
-of the standard netdev stats.
+Structure for VEB context added. Update macro for
+transition from ms to GTIME (us) time units.
 
-Change-ID: I201db2898f2c284aee3d9631470bc5edd349e9a5
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Ib3a19587b4cf355348655df8f60c6f37bb1497a3
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 18 ++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c    |  8 ++++++++
- 2 files changed, 26 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 14 ++++++++++++--
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 14 ++++++++++++--
+ 2 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index e23d514..1bb470b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -62,6 +62,12 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
- 	I40E_NETDEV_STAT(rx_crc_errors),
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 71f9718..02e8f9a4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -60,8 +60,8 @@
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
+ 
+-/* Switch from mc to the 2usec global time (this is the GTIME resolution) */
+-#define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
++/* Switch from ms to the 1usec global time (this is the GTIME resolution) */
++#define I40E_MS_TO_GTIME(time)		((time) * 1000)
+ 
+ /* forward declaration */
+ struct i40e_hw;
+@@ -955,6 +955,16 @@ struct i40e_vsi_context {
+ 	struct i40e_aqc_vsi_properties_data info;
  };
  
-+static const struct i40e_stats i40e_gstrings_misc_stats[] = {
-+	I40E_VSI_STAT("rx_unknown_protocol", eth_stats.rx_unknown_protocol),
-+	I40E_VSI_STAT("rx_broadcast", eth_stats.rx_broadcast),
-+	I40E_VSI_STAT("tx_broadcast", eth_stats.tx_broadcast),
++struct i40e_veb_context {
++	u16 seid;
++	u16 uplink_seid;
++	u16 veb_number;
++	u16 vebs_allocated;
++	u16 vebs_unallocated;
++	u16 flags;
++	struct i40e_aqc_get_veb_parameters_completion info;
 +};
 +
- static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 				 struct ethtool_rxnfc *cmd);
+ /* Statistics collected by each port, VSI, VEB, and S-channel */
+ struct i40e_eth_stats {
+ 	u64 rx_bytes;			/* gorc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 67082f7..eb2e9f3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -60,8 +60,8 @@
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
  
-@@ -125,7 +131,9 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	    * (sizeof(struct i40e_queue_stats) / sizeof(u64)))
- #define I40E_GLOBAL_STATS_LEN	ARRAY_SIZE(i40e_gstrings_stats)
- #define I40E_NETDEV_STATS_LEN   ARRAY_SIZE(i40e_gstrings_net_stats)
-+#define I40E_MISC_STATS_LEN	ARRAY_SIZE(i40e_gstrings_misc_stats)
- #define I40E_VSI_STATS_LEN(n)   (I40E_NETDEV_STATS_LEN + \
-+				 I40E_MISC_STATS_LEN + \
- 				 I40E_QUEUE_STATS_LEN((n)))
- #define I40E_PFC_STATS_LEN ( \
- 		(FIELD_SIZEOF(struct i40e_pf, stats.priority_xoff_rx) + \
-@@ -648,6 +656,11 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 		data[i++] = (i40e_gstrings_net_stats[j].sizeof_stat ==
- 			sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 	}
-+	for (j = 0; j < I40E_MISC_STATS_LEN; j++) {
-+		p = (char *)vsi + i40e_gstrings_misc_stats[j].stat_offset;
-+		data[i++] = (i40e_gstrings_misc_stats[j].sizeof_stat ==
-+			    sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-+	}
- 	rcu_read_lock();
- 	for (j = 0; j < vsi->num_queue_pairs; j++) {
- 		tx_ring = ACCESS_ONCE(vsi->tx_rings[j]);
-@@ -714,6 +727,11 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 				 i40e_gstrings_net_stats[i].stat_string);
- 			p += ETH_GSTRING_LEN;
- 		}
-+		for (i = 0; i < I40E_MISC_STATS_LEN; i++) {
-+			snprintf(p, ETH_GSTRING_LEN, "%s",
-+				 i40e_gstrings_misc_stats[i].stat_string);
-+			p += ETH_GSTRING_LEN;
-+		}
- 		for (i = 0; i < vsi->num_queue_pairs; i++) {
- 			snprintf(p, ETH_GSTRING_LEN, "tx-%u.tx_packets", i);
- 			p += ETH_GSTRING_LEN;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 93fca66..f7e344e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -530,6 +530,12 @@ void i40e_update_eth_stats(struct i40e_vsi *vsi)
- 	i40e_stat_update32(hw, I40E_GLV_RDPC(stat_idx),
- 			   vsi->stat_offsets_loaded,
- 			   &oes->rx_discards, &es->rx_discards);
-+	i40e_stat_update32(hw, I40E_GLV_RUPP(stat_idx),
-+			   vsi->stat_offsets_loaded,
-+			   &oes->rx_unknown_protocol, &es->rx_unknown_protocol);
-+	i40e_stat_update32(hw, I40E_GLV_TEPC(stat_idx),
-+			   vsi->stat_offsets_loaded,
-+			   &oes->tx_errors, &es->tx_errors);
+-/* Switch from mc to the 2usec global time (this is the GTIME resolution) */
+-#define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
++/* Switch from ms to the 1usec global time (this is the GTIME resolution) */
++#define I40E_MS_TO_GTIME(time)		((time) * 1000)
  
- 	i40e_stat_update48(hw, I40E_GLV_GORCH(stat_idx),
- 			   I40E_GLV_GORCL(stat_idx),
-@@ -807,6 +813,8 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
- 	ns->tx_errors = es->tx_errors;
- 	ons->multicast = oes->rx_multicast;
- 	ns->multicast = es->rx_multicast;
-+	ons->rx_dropped = oes->rx_discards;
-+	ns->rx_dropped = es->rx_discards;
- 	ons->tx_dropped = oes->tx_discards;
- 	ns->tx_dropped = es->tx_discards;
+ /* forward declaration */
+ struct i40e_hw;
+@@ -955,6 +955,16 @@ struct i40e_vsi_context {
+ 	struct i40e_aqc_vsi_properties_data info;
+ };
  
++struct i40e_veb_context {
++	u16 seid;
++	u16 uplink_seid;
++	u16 veb_number;
++	u16 vebs_allocated;
++	u16 vebs_unallocated;
++	u16 flags;
++	struct i40e_aqc_get_veb_parameters_completion info;
++};
++
+ /* Statistics collected by each port, VSI, VEB, and S-channel */
+ struct i40e_eth_stats {
+ 	u64 rx_bytes;			/* gorc */
 -- 
 1.9.3
