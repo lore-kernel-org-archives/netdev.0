@@ -1,49 +1,138 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] i40e: clamp jumbo frame size
-Date: Thu,  5 Jun 2014 00:49:19 -0700
-Message-ID: <1401954567-13557-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] i40e/i40evf: remove rx_errors and rx_missed
+Date: Thu,  5 Jun 2014 00:49:26 -0700
+Message-ID: <1401954567-13557-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52015 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:52024 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751833AbaFEHtl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 03:49:41 -0400
+	id S1751912AbaFEHtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 03:49:43 -0400
 In-Reply-To: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-The driver was allowing the user to set larger size MTU
-than the hardware was being configured to support.
+The rx_errors (GLV_REPC) and rx_missed (GLV_RMPC) were removed
+from the chip design.
 
-The driver was already using VLAN_HLEN when setting the
-hardware max receivable frame size, so just add it to the
-netdev MTU set entry point as well.
-
-Change-ID: Ie20e2a35d04f8c411253e255bea79ca69aaeaea3
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Ifdeb69c90feac64ec95c36d3d32c75e3a06de3b7
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c      | 9 ++++-----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c      | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c         | 2 --
+ drivers/net/ethernet/intel/i40e/i40e_type.h         | 2 --
+ drivers/net/ethernet/intel/i40evf/i40e_type.h       | 2 --
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c  | 2 --
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 3 +--
+ 7 files changed, 5 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index ca06741..5efc94d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -862,12 +862,11 @@ static void i40e_dbg_dump_eth_stats(struct i40e_pf *pf,
+ 		 "    rx_bytes = \t%lld \trx_unicast = \t\t%lld \trx_multicast = \t%lld\n",
+ 		estats->rx_bytes, estats->rx_unicast, estats->rx_multicast);
+ 	dev_info(&pf->pdev->dev,
+-		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld \trx_errors = \t%lld\n",
+-		 estats->rx_broadcast, estats->rx_discards, estats->rx_errors);
++		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld\n",
++		 estats->rx_broadcast, estats->rx_discards);
+ 	dev_info(&pf->pdev->dev,
+-		 "    rx_missed = \t%lld \trx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
+-		 estats->rx_missed, estats->rx_unknown_protocol,
+-		 estats->tx_bytes);
++		 "    rx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
++		 estats->rx_unknown_protocol, estats->tx_bytes);
+ 	dev_info(&pf->pdev->dev,
+ 		 "    tx_unicast = \t%lld \ttx_multicast = \t\t%lld \ttx_broadcast = \t%lld\n",
+ 		 estats->tx_unicast, estats->tx_multicast, estats->tx_broadcast);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 354181d..e23d514 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -78,7 +78,6 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
+ 	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
+-	I40E_PF_STAT("rx_errors", stats.eth.rx_errors),
+ 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
+ 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
+ 	I40E_PF_STAT("tx_dropped", stats.eth.tx_discards),
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2412c71..b5a8a61 100644
+index 1693b56..93fca66 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1698,7 +1698,7 @@ static void i40e_sync_filters_subtask(struct i40e_pf *pf)
- static int i40e_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 	struct i40e_vsi *vsi = np->vsi;
+@@ -803,8 +803,6 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
  
- 	/* MTU < 68 is an error and causes problems on some kernels */
+ 	/* update netdev stats from eth stats */
+ 	i40e_update_eth_stats(vsi);
+-	ons->rx_errors = oes->rx_errors;
+-	ns->rx_errors = es->rx_errors;
+ 	ons->tx_errors = oes->tx_errors;
+ 	ns->tx_errors = es->tx_errors;
+ 	ons->multicast = oes->rx_multicast;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 02e8f9a4..5a930b3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -972,8 +972,6 @@ struct i40e_eth_stats {
+ 	u64 rx_multicast;		/* mprc */
+ 	u64 rx_broadcast;		/* bprc */
+ 	u64 rx_discards;		/* rdpc */
+-	u64 rx_errors;			/* repc */
+-	u64 rx_missed;			/* rmpc */
+ 	u64 rx_unknown_protocol;	/* rupp */
+ 	u64 tx_bytes;			/* gotc */
+ 	u64 tx_unicast;			/* uptc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index eb2e9f3..4fc9835 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -972,8 +972,6 @@ struct i40e_eth_stats {
+ 	u64 rx_multicast;		/* mprc */
+ 	u64 rx_broadcast;		/* bprc */
+ 	u64 rx_discards;		/* rdpc */
+-	u64 rx_errors;			/* repc */
+-	u64 rx_missed;			/* rmpc */
+ 	u64 rx_unknown_protocol;	/* rupp */
+ 	u64 tx_bytes;			/* gotc */
+ 	u64 tx_unicast;			/* uptc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 8d41a88..60407a9 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -47,8 +47,6 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
+ 	I40EVF_STAT("rx_multicast", current_stats.rx_multicast),
+ 	I40EVF_STAT("rx_broadcast", current_stats.rx_broadcast),
+ 	I40EVF_STAT("rx_discards", current_stats.rx_discards),
+-	I40EVF_STAT("rx_errors", current_stats.rx_errors),
+-	I40EVF_STAT("rx_missed", current_stats.rx_missed),
+ 	I40EVF_STAT("rx_unknown_protocol", current_stats.rx_unknown_protocol),
+ 	I40EVF_STAT("tx_bytes", current_stats.tx_bytes),
+ 	I40EVF_STAT("tx_unicast", current_stats.tx_unicast),
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 7f80bb4..b3cd3cd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -748,9 +748,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 						 stats->tx_broadcast;
+ 		adapter->net_stats.rx_bytes = stats->rx_bytes;
+ 		adapter->net_stats.tx_bytes = stats->tx_bytes;
+-		adapter->net_stats.rx_errors = stats->rx_errors;
+ 		adapter->net_stats.tx_errors = stats->tx_errors;
+-		adapter->net_stats.rx_dropped = stats->rx_missed;
++		adapter->net_stats.rx_dropped = stats->rx_discards;
+ 		adapter->net_stats.tx_dropped = stats->tx_discards;
+ 		adapter->current_stats = *stats;
+ 		}
 -- 
 1.9.3
