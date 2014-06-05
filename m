@@ -1,81 +1,45 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
- for netdev
-Date: Thu, 5 Jun 2014 19:42:09 +0800
-Message-ID: <53905791.4060401@huawei.com>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com> <53904BB6.7030803@lab.ntt.co.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>, <kaber@trash.net>,
-	<davem@davemloft.net>, <edumazet@google.com>, <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:61786 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866AbaFELmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 07:42:39 -0400
-In-Reply-To: <53904BB6.7030803@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next] bridge: Fix incorrect judgment of
+	promisc
+Date: Thu,  5 Jun 2014 20:53:32 +0900
+Message-ID: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	David Laight <David.Laight@ACULAB.COM>, bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/6/5 18:51, Toshiaki Makita wrote:
-> (2014/06/05 18:50), Ding Tianhong wrote:
->> On 2014/6/5 17:09, Toshiaki Makita wrote:
->>> (2014/06/05 15:50), Ding Tianhong wrote:
->>>> Most of netdev just like bond, team, vlan will set the mac address
->>>> and propagate to the upperdev or lowerdev regardless the mac address
->>>> is  same or not, I could not find that the same mac address could
->>>> make affect, so add equal check when set mac address.
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> ---
->>>>  net/core/dev.c | 2 ++
->>>>  1 file changed, 2 insertions(+)
->>>>
->>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>> index 5367bfb..4008a51 100644
->>>> --- a/net/core/dev.c
->>>> +++ b/net/core/dev.c
->>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>>>  		return -EINVAL;
->>>>  	if (!netif_device_present(dev))
->>>>  		return -ENODEV;
->>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>>> +		return 0;
->>>>  	err = ops->ndo_set_mac_address(dev, sa);
->>>>  	if (err)
->>>>  		return err;
->>>>
->>>
->>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
->>> bridge ports. If user set mac address, and even if it is the same as
->>> current one, bridge uses the fact that the mac address is set by user.
->>>
->>
->> OK
->>
->>> Although I'm not aware of a driver that needs calling of
->>> ndo_set_mac_address() for the same mac address, this change looks a bit
->>> risky to me.
->>> (For example, old bridge code needed this call because it managed
->>> BR_SET_MAC_ADDR in bridge flags.)
->>>
->> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
->> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
->> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
-> 
-> Though I don't know why you think this is safe, looking over some
-> drivers, br2684_mac_addr() seems to use a logic similar to old bridge's.
-> 
+br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
 
-Hm, I miss that, this improvement is risky for some drivers, I will remove this patch
-and resend the series later. thanks. 
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_if.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Ding
-
-> Thanks,
-> Toshiaki Makita
-> 
-> .
-> 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index a08d2b8..3eca3fd 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -153,7 +153,8 @@ void br_manage_promisc(struct net_bridge *br)
+ 			 * This lets us disable promiscuous mode and write
+ 			 * this config to hw.
+ 			 */
+-			if (br->auto_cnt <= br_auto_port(p))
++			if (br->auto_cnt == 0 ||
++			    (br->auto_cnt == 1 && br_auto_port(p)))
+ 				br_port_clear_promisc(p);
+ 			else
+ 				br_port_set_promisc(p);
+-- 
+1.8.1.2
