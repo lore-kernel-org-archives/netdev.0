@@ -1,86 +1,99 @@
-From: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH] stmmac: extend DMA initialization delay to 2.5 seconds
-Date: Thu,  5 Jun 2014 16:58:00 +0400
-Message-ID: <1401973080-10085-1-git-send-email-abrodkin@synopsys.com>
-Cc: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Vineet Gupta <Vineet.Gupta1-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH v2 net-next] bridge: Fix incorrect judgment of
+	promisc
+Date: Thu, 05 Jun 2014 22:01:23 +0900
+Message-ID: <53906A23.5040006@lab.ntt.co.jp>
+References: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20140605123039.GA18310@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	"David S . Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140605123039.GA18310@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On some platforms existing 100 msecond delay is not enough for DMA block to
-recover after reset. This is because MAC DMA waits for all PHY input clocks
-to present and depending on the board reset bit deassertion may take much
-longer than previously used 100 milliseconds
+(2014/06/05 21:30), Michael S. Tsirkin wrote:
+> On Thu, Jun 05, 2014 at 08:53:32PM +0900, Toshiaki Makita wrote:
+>> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+>> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+>>
+>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> ---
+>>  net/bridge/br_if.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+>> index a08d2b8..3eca3fd 100644
+>> --- a/net/bridge/br_if.c
+>> +++ b/net/bridge/br_if.c
+>> @@ -153,7 +153,8 @@ void br_manage_promisc(struct net_bridge *br)
+>>  			 * This lets us disable promiscuous mode and write
+>>  			 * this config to hw.
+>>  			 */
+>> -			if (br->auto_cnt <= br_auto_port(p))
+>> +			if (br->auto_cnt == 0 ||
+>> +			    (br->auto_cnt == 1 && br_auto_port(p)))
+>>  				br_port_clear_promisc(p);
+>>  			else
+>>  				br_port_set_promisc(p);
+> 
+> It's all a nasty side-effect of using macros IMHO.
+> 
+> How about we just make these inline functions returning bool?
+> 
+> The bugfix will fall out naturally.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Warning: untested.
+> 
+> 
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index 53d6e32..5818dd2 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -200,8 +200,15 @@ struct net_bridge_port
+>  #endif
+>  };
+>  
+> -#define br_auto_port(p) ((p)->flags & BR_AUTO_MASK)
+> -#define br_promisc_port(p) ((p)->flags & BR_PROMISC)
+> +static inline bool br_auto_port(struct net_bridge_port *p)
+> +{
+> +	return p->flags & BR_AUTO_MASK;
+> +}
+> +
+> +static inline bool br_promisc_port(struct net_bridge_port *p)
+> +{
+> +	return p->flags & BR_PROMISC;
+> +}
+>  
+>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
 
-I have a board that requires more than 2 seconds for DMA to zero "reset" bit.
-If for other boards it's still not long enough this value should be extended
-once again.
+This also looks good.
 
-In the same change I convert "mdelay" to "msleep" to make CPU available for
-other processes during DMA init delay which is especially useful in case of
-delay for a few seconds.
+IMHO, the caller side should not assume these macros (or inline
+functions) return boolean value.  There exists similar macro such as
+br_port_exists() that doesn't return boolean.
 
-Signed-off-by: Alexey Brodkin <abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Ohterwise, we should change all macros into boolean functions, but it
+might affect performance a little if such a macro is used in fast path?
+(I'm worried about the cost of casting non-zero values into 1.)
 
-Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: Vineet Gupta <vgupta-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c | 4 ++--
- drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c  | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 0c2058a..f713ea7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -39,11 +39,11 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
- 	/* DMA SW reset */
- 	value |= DMA_BUS_MODE_SFT_RESET;
- 	writel(value, ioaddr + DMA_BUS_MODE);
--	limit = 10;
-+	limit = 100;
- 	while (limit--) {
- 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
- 			break;
--		mdelay(10);
-+		msleep(25);
- 	}
- 	if (limit < 0)
- 		return -EBUSY;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-index 7d1dce9..043585f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_dma.c
-@@ -41,11 +41,11 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
- 	/* DMA SW reset */
- 	value |= DMA_BUS_MODE_SFT_RESET;
- 	writel(value, ioaddr + DMA_BUS_MODE);
--	limit = 10;
-+	limit = 100;
- 	while (limit--) {
- 		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
- 			break;
--		mdelay(10);
-+		msleep(25);
- 	}
- 	if (limit < 0)
- 		return -EBUSY;
--- 
-1.9.3
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Toshiaki Makita
