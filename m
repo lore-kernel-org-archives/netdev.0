@@ -1,57 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 08/13] i40e: notify VF of all types of resets
-Date: Thu,  5 Jun 2014 03:12:56 -0700
-Message-ID: <1401963181-11110-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 09/13] i40e/i40evf: VEB structure added, GTIME macro update
+Date: Thu,  5 Jun 2014 03:12:57 -0700
+Message-ID: <1401963181-11110-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19645 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:19671 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751851AbaFEKNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751854AbaFEKNH (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 5 Jun 2014 06:13:07 -0400
 In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-Currently, the PF driver only notifies the VFs for PF reset events.
-Instead, notify the VFs for all types of resets, so they can attempt a
-graceful reinit.
+Structure for VEB context added. Update macro for
+transition from ms to GTIME (us) time units.
 
-Change-ID: I03eb7afde25727198ef620f8b4e78bb667a11370
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Ib3a19587b4cf355348655df8f60c6f37bb1497a3
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 14 ++++++++++++--
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 14 ++++++++++++--
+ 2 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index cf67cf4..0f9ccc7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4412,6 +4412,9 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 71f9718..02e8f9a4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -60,8 +60,8 @@
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
  
- 	WARN_ON(in_interrupt());
+-/* Switch from mc to the 2usec global time (this is the GTIME resolution) */
+-#define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
++/* Switch from ms to the 1usec global time (this is the GTIME resolution) */
++#define I40E_MS_TO_GTIME(time)		((time) * 1000)
  
-+	if (i40e_check_asq_alive(&pf->hw))
-+		i40e_vc_notify_reset(pf);
+ /* forward declaration */
+ struct i40e_hw;
+@@ -955,6 +955,16 @@ struct i40e_vsi_context {
+ 	struct i40e_aqc_vsi_properties_data info;
+ };
+ 
++struct i40e_veb_context {
++	u16 seid;
++	u16 uplink_seid;
++	u16 veb_number;
++	u16 vebs_allocated;
++	u16 vebs_unallocated;
++	u16 flags;
++	struct i40e_aqc_get_veb_parameters_completion info;
++};
 +
- 	/* do the biggest reset indicated */
- 	if (reset_flags & (1 << __I40E_GLOBAL_RESET_REQUESTED)) {
+ /* Statistics collected by each port, VSI, VEB, and S-channel */
+ struct i40e_eth_stats {
+ 	u64 rx_bytes;			/* gorc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 67082f7..eb2e9f3 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -60,8 +60,8 @@
+ /* Max default timeout in ms, */
+ #define I40E_MAX_NVM_TIMEOUT		18000
  
-@@ -5328,9 +5331,6 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
+-/* Switch from mc to the 2usec global time (this is the GTIME resolution) */
+-#define I40E_MS_TO_GTIME(time)		(((time) * 1000) / 2)
++/* Switch from ms to the 1usec global time (this is the GTIME resolution) */
++#define I40E_MS_TO_GTIME(time)		((time) * 1000)
  
- 	dev_dbg(&pf->pdev->dev, "Tearing down internal switch for reset\n");
+ /* forward declaration */
+ struct i40e_hw;
+@@ -955,6 +955,16 @@ struct i40e_vsi_context {
+ 	struct i40e_aqc_vsi_properties_data info;
+ };
  
--	if (i40e_check_asq_alive(hw))
--		i40e_vc_notify_reset(pf);
--
- 	/* quiesce the VSIs and their queues that are not already DOWN */
- 	i40e_pf_quiesce_all_vsi(pf);
- 
++struct i40e_veb_context {
++	u16 seid;
++	u16 uplink_seid;
++	u16 veb_number;
++	u16 vebs_allocated;
++	u16 vebs_unallocated;
++	u16 flags;
++	struct i40e_aqc_get_veb_parameters_completion info;
++};
++
+ /* Statistics collected by each port, VSI, VEB, and S-channel */
+ struct i40e_eth_stats {
+ 	u64 rx_bytes;			/* gorc */
 -- 
 1.9.3
