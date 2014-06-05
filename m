@@ -1,67 +1,81 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Thu, 5 Jun 2014 03:26:45 +0000
-Message-ID: <1290247eb26c49229a7fcb49021a365f@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <20140605131359.771694b6@canb.auug.org.au>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 1/3] net: phylib: add adjust_state callback to phy device
+Date: Wed, 4 Jun 2014 22:11:29 -0700
+Message-ID: <CAGVrzcYfa6rwhqpZ8NB9Za0WdJDi3eePoYLcHsqQnUhuP3ui=w@mail.gmail.com>
+References: <1401872439-30107-1-git-send-email-zonque@gmail.com> <1401872439-30107-2-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	stephen hemminger <stephen@networkplumber.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140605131359.771694b6@canb.auug.org.au>
-Content-Language: en-US
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, marek.belisko@gmail.com,
+	Matus Ujhelyi <ujhelyi.m@gmail.com>
+To: Daniel Mack <zonque@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:54251 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbaFEFMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 01:12:10 -0400
+Received: by mail-qg0-f50.google.com with SMTP id z60so769484qgd.23
+        for <netdev@vger.kernel.org>; Wed, 04 Jun 2014 22:12:09 -0700 (PDT)
+In-Reply-To: <1401872439-30107-2-git-send-email-zonque@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+2014-06-04 2:00 GMT-07:00 Daniel Mack <zonque@gmail.com>:
+> Allow phy drivers to take action when the core does its link adjustment.
+> No change for drivers that do not implement this callback.
 
+This sounds potentially dangerous if misused, PHY drivers would
+basically be allowed to do arbitrary link state changes based on their
+custom needs. I really need to review your workaround here to better
+understand whether we can come up with a solution that allows for less
+liberty in PHY drivers.
 
-> -----Original Message-----
-> From: Stephen Rothwell [mailto:sfr@canb.auug.org.au]
-> Sent: Wednesday, June 4, 2014 8:14 PM
-> To: David Miller; netdev@vger.kernel.org
-> Cc: linux-next@vger.kernel.org; linux-kernel@vger.kernel.org; KY Srinivasan;
-> Greg Kroah-Hartman; stephen hemminger
-> Subject: linux-next: manual merge of the net-next tree with Linus' tree
-> 
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/hv/channel_mgmt.c between commit d3ba720dd58c ("Drivers: hv:
-> Eliminate the channel spinlock in the callback path") from Linus' tree and
-> commit 1b9d48f2a579 ("hyper-v: make uuid_le const") from the net-next
-> tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action is
-> required).
+Thanks
 
-Thanks Stephen.
-
-Regards,
-
-K. Y
-> 
+>
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> ---
+>  drivers/net/phy/phy.c | 3 +++
+>  include/linux/phy.h   | 3 +++
+>  2 files changed, 6 insertions(+)
+>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 3bc079a..f9c5577 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -720,6 +720,9 @@ void phy_state_machine(struct work_struct *work)
+>
+>         mutex_lock(&phydev->lock);
+>
+> +       if (phydev->drv->adjust_state)
+> +               phydev->drv->adjust_state(phydev);
+> +
+>         switch (phydev->state) {
+>         case PHY_DOWN:
+>         case PHY_STARTING:
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index 51d15f6..27cbdf4 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -529,6 +529,9 @@ struct phy_driver {
+>         /* See set_wol, but for checking whether Wake on LAN is enabled. */
+>         void (*get_wol)(struct phy_device *dev, struct ethtool_wolinfo *wol);
+>
+> +       /* Called when the PHY core adjusts the link of a PHY device */
+> +       void (*adjust_state)(struct phy_device *dev);
+> +
+>         struct device_driver driver;
+>  };
+>  #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
 > --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
-> 
-> diff --cc drivers/hv/channel_mgmt.c
-> index 6c8b032cacba,90d654556437..000000000000
-> --- a/drivers/hv/channel_mgmt.c
-> +++ b/drivers/hv/channel_mgmt.c
-> @@@ -404,7 -365,7 +404,7 @@@ static u32  next_vp
->    * performance critical channels (IDE, SCSI and Network) will be uniformly
->    * distributed across all available CPUs.
->    */
-> - static void init_vp_index(struct vmbus_channel *channel, uuid_le
-> *type_guid)  -static u32 get_vp_index(const uuid_le *type_guid)
-> ++static void init_vp_index(struct vmbus_channel *channel, const uuid_le
-> ++*type_guid)
->   {
->   	u32 cur_cpu;
->   	int i;
+> 1.9.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
