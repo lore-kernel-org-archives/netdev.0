@@ -1,54 +1,150 @@
-From: "Arankal, Nagaraj P" <nagaraj.p.arankal@hp.com>
-Subject: bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0
- resource_bit 0x1. Unlock was called but lock wasn't taken!
-Date: Thu, 5 Jun 2014 10:14:52 +0000
-Message-ID: <1C24E2A22F3B0C4CAC3C670E0EF37E72063072C6@G6W2489.americas.hpqcorp.net>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v3 1/6] net: fec: Factorize the .xmit transmit function
+Date: Thu, 5 Jun 2014 10:21:37 +0000
+Message-ID: <f3588131770d48dbbfa8387db06d6c23@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1401951572-6538-1-git-send-email-b38611@freescale.com>
+ <1401951572-6538-2-git-send-email-b38611@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17257A93@AcuExch.aculab.com>
+ <d93f47b1073f46319b170dee27206bed@BLUPR03MB373.namprd03.prod.outlook.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17257ACC@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"Fabio.Estevam@freescale.com" <Fabio.Estevam@freescale.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t1626.atlanta.hp.com ([15.192.137.9]:36555 "EHLO
-	g5t1626.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925AbaFEKQO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:16:14 -0400
-Received: from G6W4001.americas.hpqcorp.net (g6w4001.atlanta.hp.com [16.205.80.210])
-	(using TLSv1 with cipher AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by g5t1626.atlanta.hp.com (Postfix) with ESMTPS id 8038F287
-	for <netdev@vger.kernel.org>; Thu,  5 Jun 2014 10:16:13 +0000 (UTC)
+Received: from mail-by2lp0243.outbound.protection.outlook.com ([207.46.163.243]:8135
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750723AbaFEKVl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:21:41 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17257ACC@AcuExch.aculab.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-While executing some functional tests on one of my Server containing bnx2x card, I have observed following messages in /var/log/kern.log
+Hi, David,
 
+From: David Laight David.Laight@ACULAB.COM> Data: Thursday, June 05, 2014 5:58 PM
+> To: Duan Fugang-B38611; davem@davemloft.net
+> Cc: netdev@vger.kernel.org; shawn.guo@linaro.org; Estevam Fabio-R49496;
+> ezequiel.garcia@free-electrons.com; bhutchings@solarflare.com;
+> stephen@networkplumber.org; Li Frank-B20596; eric.dumazet@gmail.com
+> Subject: RE: [PATCH v3 1/6] net: fec: Factorize the .xmit transmit
+> function
+> 
+> From: fugang.duan@freescale.
+> > > From: Fugang Duan
+> > > > Make the code more readable and easy to support other features
+> > > > like SG, TSO, moving the common transmit function to one api.
+> > > >
+> > > > And the patch also factorize the getting BD index to it own
+> function.
+> > > >
+> > > > Signed-off-by: Fugang Duan <B38611@freescale.com>
+> > > > ---
+> > > >  drivers/net/ethernet/freescale/fec_main.c |   87
+> ++++++++++++++++++-----
+> > > ------
+> > > >  1 files changed, 54 insertions(+), 33 deletions(-)
+> > > >
+> > > > diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> > > > b/drivers/net/ethernet/freescale/fec_main.c
+> > > > index 802be17..32c2276 100644
+> > > > --- a/drivers/net/ethernet/freescale/fec_main.c
+> > > > +++ b/drivers/net/ethernet/freescale/fec_main.c
+> > > > @@ -287,6 +287,25 @@ struct bufdesc *fec_enet_get_prevdesc(struct
+> > > > bufdesc
+> > > *bdp, struct fec_enet_priva
+> > > >  		return (new_bd < base) ? (new_bd + ring_size) :
+> new_bd;  }
+> > > >
+> > > > +static inline
+> > > > +int fec_enet_get_bd_index(struct bufdesc *bdp, struct
+> > > > +fec_enet_private *fep) {
+> > > > +	struct bufdesc *base;
+> > > > +	int index;
+> > > > +
+> > > > +	if (bdp >= fep->tx_bd_base)
+> > > > +		base = fep->tx_bd_base;
+> > > > +	else
+> > > > +		base = fep->rx_bd_base;
+> > >
+> > > You really don't want the above conditional.
+> > > It is known from the call site - but the compiler can't determine
+> > > that and remove the test.
+> 
+> > Can you give me more training for this ?  Sorry, I don't understand
+> the means.
+> 
+> Single 'if' statements can have measurable performance impact on
+> ethernet code paths - so it isn't a good idea to add ones that aren't
+> strictly required.
+> 
+> If the function had an extra argument 'tx_ring' (don't add one) which
+> would be constant at all the call sites and the code read:
+> 	base = tx_ring ? fep->tx_bd_base : fep->rx_bd_base; when the
+> compiler inlines the function calls it would be able to optimise away
+> the conditional.
+> 
+> > > You may not want to rely on the tx and rx descriptors being
+> > > allocated as a single entity - particularly now that they (probably)
+> > > consume more than a single page.
+> > >
+> > BDs consumes more than single page, but it use "
+> dma_alloc_coherent()"
+> > to allocate continuous memory, I don't know why it is cannot do it
+> like this.
+> >
+> > > > +
+> > > > +	if (fep->bufdesc_ex)
+> > > > +		index = (struct bufdesc_ex *)bdp - (struct bufdesc_ex
+> *)base;
+> > > > +	else
+> > > > +		index = bdp - base;
+> > >
+> > > Save the sizeof the descriptor structure as (say) fep->bufdesc_size
+> > > (Possibly replacing bufdesc_ex) and then just calculate:
+> > > 	index = ((const char *)bdp - (const char *)base)/fep-
+> >bufdesc_size;
+> > >
+> > > 	David
+> > >
+> > You means:
+> > if (fep->bufdesc_ex)
+> > 	bufdesc_size = sizeof(struct bufdesc_ex); else
+> > 	bufdesc_size = sizeof(struct bufdesc); index = ((const char *)bdp
+> -
+> > (const char *)base)/bufdesc_size;
+> 
+> No, that is still a conditional in the normal path.
+> Assign fep->bufdesc_size during initialisation.
+> 
+> Then end up with something like:
+> static
+> int fec_enet_get_bd_index(struct bufdesc *base, struct bufdesc *bdp,
+> 		struct fec_enet_private *fep)
+> {
+> 	return ((const char *)bdp - (const char *)base)/fep-
+> >bufdesc_size; }
+> 
+> 	David
+> 
 
-root@dl380g8-2x:/var/log# cat /var/log/kern.log
-May 14 06:56:55 dl380g8-2x kernel: [59572.519249] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 06:56:55 dl380g8-2x kernel: [59572.519260] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 07:21:11 dl380g8-2x kernel: [61028.418935] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 07:21:11 dl380g8-2x kernel: [61028.418946] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 08:42:32 dl380g8-2x kernel: [65906.724350] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 08:42:32 dl380g8-2x kernel: [65906.724361] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 09:37:16 dl380g8-2x kernel: [69188.417427] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 09:37:16 dl380g8-2x kernel: [69188.417438] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 09:55:19 dl380g8-2x kernel: [70270.645449] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 09:55:19 dl380g8-2x kernel: [70270.645460] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 12:41:23 dl380g8-2x kernel: [80229.646043] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 12:41:23 dl380g8-2x kernel: [80229.646055] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 14:45:01 dl380g8-2x kernel: [87643.062018] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 14:45:01 dl380g8-2x kernel: [87643.062029] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-May 14 15:12:15 dl380g8-2x kernel: [89276.234304] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
-May 14 15:12:15 dl380g8-2x kernel: [89276.234315] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
-root@dl380g8-2x:/var/log# 
+You think the conditional has measurable performance impact on ethernet code paths, I agree your thinking.
+But in the driver, there have many site/apis use the method. 
 
-
-Any idea why?
-
-Kernel version : 3.6.26
-Bnx2x driver version : 1.78.80
+So, I don't want to change it for the patch set.  It have no meaningful.
+I will submit another patch to solve all APIs with conditional for the driver.
 
 Thanks,
-Nagaraj
+Andy
