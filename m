@@ -1,104 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/13] i40e: Rework register diagnostic
-Date: Thu,  5 Jun 2014 03:12:50 -0700
-Message-ID: <1401963181-11110-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/13] i40e: notify VF of all types of resets
+Date: Thu,  5 Jun 2014 03:12:56 -0700
+Message-ID: <1401963181-11110-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19636 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:19645 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751810AbaFEKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 06:13:05 -0400
+	id S1751851AbaFEKNH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 06:13:07 -0400
 In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Register range, being subject to register diagnostic, can vary among
-different NVMs. We will try to identify the full range and use it for
-a register test. This is needed to avoid false test results. If we fail
-to define the proper register range we will test only the first register
-from that group.
+Currently, the PF driver only notifies the VFs for PF reset events.
+Instead, notify the VFs for all types of resets, so they can attempt a
+graceful reinit.
 
-Change-ID: Ieee7173c719733b61d3733177a94dc557eb7b3fd
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-ID: I03eb7afde25727198ef620f8b4e78bb667a11370
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_diag.c | 50 +++++++++++++++++++++--------
- 1 file changed, 37 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-index b2380da..56438bd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-@@ -67,17 +67,25 @@ static i40e_status i40e_diag_reg_pattern_test(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index cf67cf4..0f9ccc7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4412,6 +4412,9 @@ void i40e_do_reset(struct i40e_pf *pf, u32 reset_flags)
  
- struct i40e_diag_reg_test_info i40e_reg_list[] = {
- 	/* offset               mask         elements   stride */
--	{I40E_QTX_CTL(0),       0x0000FFBF,   4, I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
--	{I40E_PFINT_ITR0(0),    0x00000FFF,   3, I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
--	{I40E_PFINT_ITRN(0, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
--	{I40E_PFINT_ITRN(1, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
--	{I40E_PFINT_ITRN(2, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
--	{I40E_PFINT_STAT_CTL0,  0x0000000C,   1, 0},
--	{I40E_PFINT_LNKLST0,    0x00001FFF,   1, 0},
--	{I40E_PFINT_LNKLSTN(0), 0x000007FF,  64, I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
--	{I40E_QINT_TQCTL(0),    0x000000FF,  64, I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
--	{I40E_QINT_RQCTL(0),    0x000000FF,  64, I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
--	{I40E_PFINT_ICR0_ENA,   0xF7F20000,   1, 0},
-+	{I40E_QTX_CTL(0),       0x0000FFBF, 1,
-+		I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
-+	{I40E_PFINT_ITR0(0),    0x00000FFF, 3,
-+		I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
-+	{I40E_PFINT_ITRN(0, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
-+	{I40E_PFINT_ITRN(1, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
-+	{I40E_PFINT_ITRN(2, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
-+	{I40E_PFINT_STAT_CTL0,  0x0000000C, 1, 0},
-+	{I40E_PFINT_LNKLST0,    0x00001FFF, 1, 0},
-+	{I40E_PFINT_LNKLSTN(0), 0x000007FF, 1,
-+		I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
-+	{I40E_QINT_TQCTL(0),    0x000000FF, 1,
-+		I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
-+	{I40E_QINT_RQCTL(0),    0x000000FF, 1,
-+		I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
-+	{I40E_PFINT_ICR0_ENA,   0xF7F20000, 1, 0},
- 	{ 0 }
- };
+ 	WARN_ON(in_interrupt());
  
-@@ -93,9 +101,25 @@ i40e_status i40e_diag_reg_test(struct i40e_hw *hw)
- 	u32 reg, mask;
- 	u32 i, j;
- 
--	for (i = 0; (i40e_reg_list[i].offset != 0) && !ret_code; i++) {
-+	for (i = 0; i40e_reg_list[i].offset != 0 &&
-+					     !ret_code; i++) {
++	if (i40e_check_asq_alive(&pf->hw))
++		i40e_vc_notify_reset(pf);
 +
-+		/* set actual reg range for dynamically allocated resources */
-+		if (i40e_reg_list[i].offset == I40E_QTX_CTL(0) &&
-+		    hw->func_caps.num_tx_qp != 0)
-+			i40e_reg_list[i].elements = hw->func_caps.num_tx_qp;
-+		if ((i40e_reg_list[i].offset == I40E_PFINT_ITRN(0, 0) ||
-+		     i40e_reg_list[i].offset == I40E_PFINT_ITRN(1, 0) ||
-+		     i40e_reg_list[i].offset == I40E_PFINT_ITRN(2, 0) ||
-+		     i40e_reg_list[i].offset == I40E_QINT_TQCTL(0) ||
-+		     i40e_reg_list[i].offset == I40E_QINT_RQCTL(0)) &&
-+		    hw->func_caps.num_msix_vectors != 0)
-+			i40e_reg_list[i].elements =
-+				hw->func_caps.num_msix_vectors - 1;
-+
-+		/* test register access */
- 		mask = i40e_reg_list[i].mask;
--		for (j = 0; (j < i40e_reg_list[i].elements) && !ret_code; j++) {
-+		for (j = 0; j < i40e_reg_list[i].elements && !ret_code; j++) {
- 			reg = i40e_reg_list[i].offset +
- 			      (j * i40e_reg_list[i].stride);
- 			ret_code = i40e_diag_reg_pattern_test(hw, reg, mask);
+ 	/* do the biggest reset indicated */
+ 	if (reset_flags & (1 << __I40E_GLOBAL_RESET_REQUESTED)) {
+ 
+@@ -5328,9 +5331,6 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
+ 
+ 	dev_dbg(&pf->pdev->dev, "Tearing down internal switch for reset\n");
+ 
+-	if (i40e_check_asq_alive(hw))
+-		i40e_vc_notify_reset(pf);
+-
+ 	/* quiesce the VSIs and their queues that are not already DOWN */
+ 	i40e_pf_quiesce_all_vsi(pf);
+ 
 -- 
 1.9.3
