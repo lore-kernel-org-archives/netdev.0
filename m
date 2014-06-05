@@ -1,71 +1,72 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
- for netdev
-Date: Thu, 05 Jun 2014 19:51:34 +0900
-Message-ID: <53904BB6.7030803@lab.ntt.co.jp>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com>
+From: Balakumaran Kannan <kumaran.4353@gmail.com>
+Subject: Re: bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0
+ resource_bit 0x1. Unlock was called but lock wasn't taken!
+Date: Thu, 5 Jun 2014 16:24:13 +0530
+Message-ID: <CAHPKR9J2FsGUC7kQU2WUMXOhzz0nWLwGn_KbOOp2YbjXOsFAOg@mail.gmail.com>
+References: <1C24E2A22F3B0C4CAC3C670E0EF37E72063072C6@G6W2489.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
-	davem@davemloft.net, edumazet@google.com, vyasevic@redhat.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Arankal, Nagaraj P" <nagaraj.p.arankal@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:44180 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507AbaFEKv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:51:58 -0400
-In-Reply-To: <53903D5A.7050702@huawei.com>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:62023 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaFEKyP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:54:15 -0400
+Received: by mail-wg0-f45.google.com with SMTP id m15so859535wgh.4
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 03:54:14 -0700 (PDT)
+In-Reply-To: <1C24E2A22F3B0C4CAC3C670E0EF37E72063072C6@G6W2489.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2014/06/05 18:50), Ding Tianhong wrote:
-> On 2014/6/5 17:09, Toshiaki Makita wrote:
->> (2014/06/05 15:50), Ding Tianhong wrote:
->>> Most of netdev just like bond, team, vlan will set the mac address
->>> and propagate to the upperdev or lowerdev regardless the mac address
->>> is  same or not, I could not find that the same mac address could
->>> make affect, so add equal check when set mac address.
->>>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> ---
->>>  net/core/dev.c | 2 ++
->>>  1 file changed, 2 insertions(+)
->>>
->>> diff --git a/net/core/dev.c b/net/core/dev.c
->>> index 5367bfb..4008a51 100644
->>> --- a/net/core/dev.c
->>> +++ b/net/core/dev.c
->>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>>  		return -EINVAL;
->>>  	if (!netif_device_present(dev))
->>>  		return -ENODEV;
->>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>> +		return 0;
->>>  	err = ops->ndo_set_mac_address(dev, sa);
->>>  	if (err)
->>>  		return err;
->>>
->>
->> Bridge uses addr_assign_type to check if bridge_id can be propageted by
->> bridge ports. If user set mac address, and even if it is the same as
->> current one, bridge uses the fact that the mac address is set by user.
->>
-> 
-> OK
-> 
->> Although I'm not aware of a driver that needs calling of
->> ndo_set_mac_address() for the same mac address, this change looks a bit
->> risky to me.
->> (For example, old bridge code needed this call because it managed
->> BR_SET_MAC_ADDR in bridge flags.)
->>
-> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
-> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
-> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
+Hi Arankal,
 
-Though I don't know why you think this is safe, looking over some
-drivers, br2684_mac_addr() seems to use a logic similar to old bridge's.
+'bnx2x_acquire_hw_lock' defined in
+'drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c' file could fail on
+multiple reasons. So it is mandatory to check the return value of that
+function.
 
-Thanks,
-Toshiaki Makita
+But I can see multiple functions call 'bnx2x_acquire_hw_lock' and
+proceed without checking the return value in the same file. It seems
+like a bug.
+
+Regards,
+K.Balakumaran
+
+On Thu, Jun 5, 2014 at 3:44 PM, Arankal, Nagaraj P
+<nagaraj.p.arankal@hp.com> wrote:
+> Hi,
+> While executing some functional tests on one of my Server containing bnx2x card, I have observed following messages in /var/log/kern.log
+>
+>
+> root@dl380g8-2x:/var/log# cat /var/log/kern.log
+> May 14 06:56:55 dl380g8-2x kernel: [59572.519249] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 06:56:55 dl380g8-2x kernel: [59572.519260] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 07:21:11 dl380g8-2x kernel: [61028.418935] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 07:21:11 dl380g8-2x kernel: [61028.418946] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 08:42:32 dl380g8-2x kernel: [65906.724350] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 08:42:32 dl380g8-2x kernel: [65906.724361] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 09:37:16 dl380g8-2x kernel: [69188.417427] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 09:37:16 dl380g8-2x kernel: [69188.417438] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 09:55:19 dl380g8-2x kernel: [70270.645449] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 09:55:19 dl380g8-2x kernel: [70270.645460] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 12:41:23 dl380g8-2x kernel: [80229.646043] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 12:41:23 dl380g8-2x kernel: [80229.646055] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 14:45:01 dl380g8-2x kernel: [87643.062018] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 14:45:01 dl380g8-2x kernel: [87643.062029] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> May 14 15:12:15 dl380g8-2x kernel: [89276.234304] bnx2x: [bnx2x_acquire_hw_lock:2192(eth3)]Timeout
+> May 14 15:12:15 dl380g8-2x kernel: [89276.234315] bnx2x: [bnx2x_release_hw_lock:2226(eth3)]lock_status 0x0 resource_bit 0x1. Unlock was called but lock wasn't taken!
+> root@dl380g8-2x:/var/log#
+>
+>
+> Any idea why?
+>
+> Kernel version : 3.6.26
+> Bnx2x driver version : 1.78.80
+>
+> Thanks,
+> Nagaraj
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
