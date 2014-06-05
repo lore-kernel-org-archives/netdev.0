@@ -1,99 +1,71 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH v2 net-next] bridge: Fix incorrect judgment of
-	promisc
-Date: Thu, 05 Jun 2014 22:01:23 +0900
-Message-ID: <53906A23.5040006@lab.ntt.co.jp>
-References: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<20140605123039.GA18310@redhat.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH V2 net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver
+Date: Thu, 5 Jun 2014 08:03:51 -0500
+Message-ID: <53906AB7.20508@amd.com>
+References: <20140604161130.6242.57741.stgit@tlendack-t1.amdoffice.net>
+	<20140604.143605.960519678688904189.davem@davemloft.net>
+ <20140604.143903.1213688714066322891.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Laight <David.Laight@ACULAB.COM>,
-	"David S . Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140605123039.GA18310@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-7;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <jcm@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0206.outbound.protection.outlook.com ([207.46.163.206]:9988
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751641AbaFENE2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 09:04:28 -0400
+In-Reply-To: <20140604.143903.1213688714066322891.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(2014/06/05 21:30), Michael S. Tsirkin wrote:
-> On Thu, Jun 05, 2014 at 08:53:32PM +0900, Toshiaki Makita wrote:
->> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
->> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+
+
+On 06/04/2014 04:39 PM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 04 Jun 2014 14:36:05 -0700 (PDT)
+>
+>> From: Tom Lendacky <thomas.lendacky@amd.com>
+>> Date: Wed, 4 Jun 2014 11:11:31 -0500
 >>
->> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> ---
->>  net/bridge/br_if.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>> The following series implements support for the new AMD 10Gb Ethern=
+et
+>>> driver (amd-xgbe).  It includes the 10Gb Ethernet driver as well as
+>>> a 10Gb Ethernet PHY driver.
+>>>
+>>> This patch series is based on net-next.
+>>>
+>>> Changes in V2:
+>>>    - Add phy-mode to the amd-xgbe device bindings
+>>>    - Obtain the phy-mode from the device tree
+>>>    - Reference ethernet.txt device bindings for phy-handle and phy-=
+mode
+>>>    - Connect/disconnect to/from phy during probe/remove, instead of=
+ open/close
+>>>    - Fixes for jumbo packet support / MTU changes
+>>>    - Formatting changes for debug packet dump
+>>>    - Free resources in the phylib driver remove function
+>>>    - Proper NP NULL message during auto-negotiation
 >>
->> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
->> index a08d2b8..3eca3fd 100644
->> --- a/net/bridge/br_if.c
->> +++ b/net/bridge/br_if.c
->> @@ -153,7 +153,8 @@ void br_manage_promisc(struct net_bridge *br)
->>  			 * This lets us disable promiscuous mode and write
->>  			 * this config to hw.
->>  			 */
->> -			if (br->auto_cnt <= br_auto_port(p))
->> +			if (br->auto_cnt == 0 ||
->> +			    (br->auto_cnt == 1 && br_auto_port(p)))
->>  				br_port_clear_promisc(p);
->>  			else
->>  				br_port_set_promisc(p);
-> 
-> It's all a nasty side-effect of using macros IMHO.
-> 
-> How about we just make these inline functions returning bool?
-> 
-> The bugfix will fall out naturally.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> Warning: untested.
-> 
-> 
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 53d6e32..5818dd2 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -200,8 +200,15 @@ struct net_bridge_port
->  #endif
->  };
->  
-> -#define br_auto_port(p) ((p)->flags & BR_AUTO_MASK)
-> -#define br_promisc_port(p) ((p)->flags & BR_PROMISC)
-> +static inline bool br_auto_port(struct net_bridge_port *p)
-> +{
-> +	return p->flags & BR_AUTO_MASK;
-> +}
-> +
-> +static inline bool br_promisc_port(struct net_bridge_port *p)
-> +{
-> +	return p->flags & BR_PROMISC;
-> +}
->  
->  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+>> Series applied, thanks.
+>
+> I had to revert, this breaks the build:
+>
+> drivers/net/phy/amd-xgbe-phy.c: In function =A1amd_xgbe_phy_probe=A2:
+> drivers/net/phy/amd-xgbe-phy.c:1251:2: error: implicit declaration of=
+ function =A1of_dev_put=A2 [-Werror=3Dimplicit-function-declaration]
+> cc1: some warnings being treated as errors
+> make[3]: *** [drivers/net/phy/amd-xgbe-phy.o] Error 1
+> make[2]: *** [drivers/net/phy] Error 2
+> make[2]: *** Waiting for unfinished jobs....
+> make[1]: *** [drivers/net] Error 2
+> make[1]: *** Waiting for unfinished jobs....
+> make: *** [drivers] Error 2
+>
 
-This also looks good.
+Sorry about that, I'll fix the config dependencies and send out a
+V3.
 
-IMHO, the caller side should not assume these macros (or inline
-functions) return boolean value.  There exists similar macro such as
-br_port_exists() that doesn't return boolean.
-
-Ohterwise, we should change all macros into boolean functions, but it
-might affect performance a little if such a macro is used in fast path?
-(I'm worried about the cost of casting non-zero values into 1.)
-
-Thanks,
-Toshiaki Makita
+Tom
