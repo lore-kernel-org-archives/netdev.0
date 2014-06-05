@@ -1,104 +1,156 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] i40e: Rework register diagnostic
-Date: Thu,  5 Jun 2014 00:49:16 -0700
-Message-ID: <1401954567-13557-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40evf: fix crash when changing ring sizes
+Date: Thu,  5 Jun 2014 00:49:21 -0700
+Message-ID: <1401954567-13557-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:52015 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:51477 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750916AbaFEHtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751592AbaFEHtg (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 5 Jun 2014 03:49:36 -0400
 In-Reply-To: <1401954567-13557-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Register range, being subject to register diagnostic, can vary among
-different NVMs. We will try to identify the full range and use it for
-a register test. This is needed to avoid false test results. If we fail
-to define the proper register range we will test only the first register
-from that group.
+i40evf_set_ringparam was broken in several ways. First, it only changed
+the size of the first ring, and second, changing the ring size would
+often result in a panic because it would change the count before
+deallocating resources, causing the driver to either free nonexistent
+buffers, or leak leftover buffers.
 
-Change-ID: Ieee7173c719733b61d3733177a94dc557eb7b3fd
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Fix this by storing the descriptor count in the adapter structure, and
+updating the count for each ring each time we allocate them. This
+ensures that we always free the right size ring, and always end up with
+the requested count when the device is (re)opened.
+
+Change-ID: I298396cd3d452ba8509d9f2d33a93f25868a9a55
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_diag.c | 50 +++++++++++++++++++++--------
- 1 file changed, 37 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  2 ++
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 18 +++++++-----------
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  8 ++++++--
+ 3 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_diag.c b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-index b2380da..56438bd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_diag.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_diag.c
-@@ -67,17 +67,25 @@ static i40e_status i40e_diag_reg_pattern_test(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
+index bfd8542..30ef519 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf.h
++++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
+@@ -196,10 +196,12 @@ struct i40evf_adapter {
+ 	struct i40e_ring *tx_rings[I40E_MAX_VSI_QP];
+ 	u32 tx_timeout_count;
+ 	struct list_head mac_filter_list;
++	u32 tx_desc_count;
  
- struct i40e_diag_reg_test_info i40e_reg_list[] = {
- 	/* offset               mask         elements   stride */
--	{I40E_QTX_CTL(0),       0x0000FFBF,   4, I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
--	{I40E_PFINT_ITR0(0),    0x00000FFF,   3, I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
--	{I40E_PFINT_ITRN(0, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
--	{I40E_PFINT_ITRN(1, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
--	{I40E_PFINT_ITRN(2, 0), 0x00000FFF,   8, I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
--	{I40E_PFINT_STAT_CTL0,  0x0000000C,   1, 0},
--	{I40E_PFINT_LNKLST0,    0x00001FFF,   1, 0},
--	{I40E_PFINT_LNKLSTN(0), 0x000007FF,  64, I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
--	{I40E_QINT_TQCTL(0),    0x000000FF,  64, I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
--	{I40E_QINT_RQCTL(0),    0x000000FF,  64, I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
--	{I40E_PFINT_ICR0_ENA,   0xF7F20000,   1, 0},
-+	{I40E_QTX_CTL(0),       0x0000FFBF, 1,
-+		I40E_QTX_CTL(1) - I40E_QTX_CTL(0)},
-+	{I40E_PFINT_ITR0(0),    0x00000FFF, 3,
-+		I40E_PFINT_ITR0(1) - I40E_PFINT_ITR0(0)},
-+	{I40E_PFINT_ITRN(0, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(0, 1) - I40E_PFINT_ITRN(0, 0)},
-+	{I40E_PFINT_ITRN(1, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(1, 1) - I40E_PFINT_ITRN(1, 0)},
-+	{I40E_PFINT_ITRN(2, 0), 0x00000FFF, 1,
-+		I40E_PFINT_ITRN(2, 1) - I40E_PFINT_ITRN(2, 0)},
-+	{I40E_PFINT_STAT_CTL0,  0x0000000C, 1, 0},
-+	{I40E_PFINT_LNKLST0,    0x00001FFF, 1, 0},
-+	{I40E_PFINT_LNKLSTN(0), 0x000007FF, 1,
-+		I40E_PFINT_LNKLSTN(1) - I40E_PFINT_LNKLSTN(0)},
-+	{I40E_QINT_TQCTL(0),    0x000000FF, 1,
-+		I40E_QINT_TQCTL(1) - I40E_QINT_TQCTL(0)},
-+	{I40E_QINT_RQCTL(0),    0x000000FF, 1,
-+		I40E_QINT_RQCTL(1) - I40E_QINT_RQCTL(0)},
-+	{I40E_PFINT_ICR0_ENA,   0xF7F20000, 1, 0},
- 	{ 0 }
- };
+ 	/* RX */
+ 	struct i40e_ring *rx_rings[I40E_MAX_VSI_QP];
+ 	u64 hw_csum_rx_error;
++	u32 rx_desc_count;
+ 	int num_msix_vectors;
+ 	struct msix_entry *msix_entries;
  
-@@ -93,9 +101,25 @@ i40e_status i40e_diag_reg_test(struct i40e_hw *hw)
- 	u32 reg, mask;
- 	u32 i, j;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 9cd381a..8d41a88 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -224,13 +224,11 @@ static void i40evf_get_ringparam(struct net_device *netdev,
+ 				  struct ethtool_ringparam *ring)
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+-	struct i40e_ring *tx_ring = adapter->tx_rings[0];
+-	struct i40e_ring *rx_ring = adapter->rx_rings[0];
  
--	for (i = 0; (i40e_reg_list[i].offset != 0) && !ret_code; i++) {
-+	for (i = 0; i40e_reg_list[i].offset != 0 &&
-+					     !ret_code; i++) {
+ 	ring->rx_max_pending = I40EVF_MAX_RXD;
+ 	ring->tx_max_pending = I40EVF_MAX_TXD;
+-	ring->rx_pending = rx_ring->count;
+-	ring->tx_pending = tx_ring->count;
++	ring->rx_pending = adapter->rx_desc_count;
++	ring->tx_pending = adapter->tx_desc_count;
+ }
+ 
+ /**
+@@ -246,7 +244,6 @@ static int i40evf_set_ringparam(struct net_device *netdev,
+ {
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
+ 	u32 new_rx_count, new_tx_count;
+-	int i;
+ 
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
+@@ -262,17 +259,16 @@ static int i40evf_set_ringparam(struct net_device *netdev,
+ 	new_rx_count = ALIGN(new_rx_count, I40EVF_REQ_DESCRIPTOR_MULTIPLE);
+ 
+ 	/* if nothing to do return success */
+-	if ((new_tx_count == adapter->tx_rings[0]->count) &&
+-	    (new_rx_count == adapter->rx_rings[0]->count))
++	if ((new_tx_count == adapter->tx_desc_count) &&
++	    (new_rx_count == adapter->rx_desc_count))
+ 		return 0;
+ 
+-	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
+-		adapter->tx_rings[0]->count = new_tx_count;
+-		adapter->rx_rings[0]->count = new_rx_count;
+-	}
++	adapter->tx_desc_count = new_tx_count;
++	adapter->rx_desc_count = new_rx_count;
+ 
+ 	if (netif_running(netdev))
+ 		i40evf_reinit_locked(adapter);
 +
-+		/* set actual reg range for dynamically allocated resources */
-+		if (i40e_reg_list[i].offset == I40E_QTX_CTL(0) &&
-+		    hw->func_caps.num_tx_qp != 0)
-+			i40e_reg_list[i].elements = hw->func_caps.num_tx_qp;
-+		if ((i40e_reg_list[i].offset == I40E_PFINT_ITRN(0, 0) ||
-+		     i40e_reg_list[i].offset == I40E_PFINT_ITRN(1, 0) ||
-+		     i40e_reg_list[i].offset == I40E_PFINT_ITRN(2, 0) ||
-+		     i40e_reg_list[i].offset == I40E_QINT_TQCTL(0) ||
-+		     i40e_reg_list[i].offset == I40E_QINT_RQCTL(0)) &&
-+		    hw->func_caps.num_msix_vectors != 0)
-+			i40e_reg_list[i].elements =
-+				hw->func_caps.num_msix_vectors - 1;
-+
-+		/* test register access */
- 		mask = i40e_reg_list[i].mask;
--		for (j = 0; (j < i40e_reg_list[i].elements) && !ret_code; j++) {
-+		for (j = 0; j < i40e_reg_list[i].elements && !ret_code; j++) {
- 			reg = i40e_reg_list[i].offset +
- 			      (j * i40e_reg_list[i].stride);
- 			ret_code = i40e_diag_reg_pattern_test(hw, reg, mask);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 632c2b3..d24f40f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1091,14 +1091,14 @@ static int i40evf_alloc_queues(struct i40evf_adapter *adapter)
+ 		tx_ring->queue_index = i;
+ 		tx_ring->netdev = adapter->netdev;
+ 		tx_ring->dev = &adapter->pdev->dev;
+-		tx_ring->count = I40EVF_DEFAULT_TXD;
++		tx_ring->count = adapter->tx_desc_count;
+ 		adapter->tx_rings[i] = tx_ring;
+ 
+ 		rx_ring = &tx_ring[1];
+ 		rx_ring->queue_index = i;
+ 		rx_ring->netdev = adapter->netdev;
+ 		rx_ring->dev = &adapter->pdev->dev;
+-		rx_ring->count = I40EVF_DEFAULT_RXD;
++		rx_ring->count = adapter->rx_desc_count;
+ 		adapter->rx_rings[i] = rx_ring;
+ 	}
+ 
+@@ -1669,6 +1669,7 @@ static int i40evf_setup_all_tx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
++		adapter->tx_rings[i]->count = adapter->tx_desc_count;
+ 		err = i40evf_setup_tx_descriptors(adapter->tx_rings[i]);
+ 		if (!err)
+ 			continue;
+@@ -1696,6 +1697,7 @@ static int i40evf_setup_all_rx_resources(struct i40evf_adapter *adapter)
+ 	int i, err = 0;
+ 
+ 	for (i = 0; i < adapter->vsi_res->num_queue_pairs; i++) {
++		adapter->rx_rings[i]->count = adapter->rx_desc_count;
+ 		err = i40evf_setup_rx_descriptors(adapter->rx_rings[i]);
+ 		if (!err)
+ 			continue;
+@@ -2092,6 +2094,8 @@ static void i40evf_init_task(struct work_struct *work)
+ 	adapter->watchdog_timer.data = (unsigned long)adapter;
+ 	mod_timer(&adapter->watchdog_timer, jiffies + 1);
+ 
++	adapter->tx_desc_count = I40EVF_DEFAULT_TXD;
++	adapter->rx_desc_count = I40EVF_DEFAULT_RXD;
+ 	err = i40evf_init_interrupt_scheme(adapter);
+ 	if (err)
+ 		goto err_sw_init;
 -- 
 1.9.3
