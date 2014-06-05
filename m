@@ -1,240 +1,55 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/6] netfilter: nf_tables: allow to delete several objects from a batch
-Date: Thu,  5 Jun 2014 17:08:25 +0200
-Message-ID: <1401980906-25290-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/6] netfilter: nf_tables: release objects in reverse order in the abort path
+Date: Thu,  5 Jun 2014 17:08:23 +0200
+Message-ID: <1401980906-25290-4-git-send-email-pablo@netfilter.org>
 References: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39258 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:39232 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752669AbaFEPIm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 11:08:42 -0400
+	id S1752644AbaFEPIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 11:08:36 -0400
 In-Reply-To: <1401980906-25290-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Three changes to allow the deletion of several objects with dependencies
-in one transaction, they are:
+The patch c7c32e7 ("netfilter: nf_tables: defer all object release via
+rcu") indicates that we always release deleted objects in the reverse
+order, but that is only needed in the abort path. These are the two
+possible scenarios when releasing objects:
 
-1) Introduce speculative counter increment/decrement that is undone in
-   the abort path if required, thus we avoid hitting -EBUSY when deleting
-   the chain. The counter updates are reverted in the abort path.
+1) Deletion scenario in the commit path: no need to release objects in
+the reverse order since userspace already ensures that dependencies are
+fulfilled), ie. userspace tells us to delete rule -> ... -> rule ->
+chain -> table. In this case, we have to release the objects in the
+*same order* as userspace provided.
 
-2) Increment/decrement table/chain use counter for each set/rule. We need
-   this to fully rely on the use counters instead of the list content,
-   eg. !list_empty(&chain->rules) which evaluate true in the middle of the
-   transaction.
-
-3) Decrement table use counter when an anonymous set is bound to the
-   rule in the commit path. This avoids hitting -EBUSY when deleting
-   the table that contains anonymous sets. The anonymous sets are released
-   in the nf_tables_rule_destroy path. This should not be a problem since
-   the rule already bumped the use counter of the chain, so the bound
-   anonymous set reflects dependencies through the rule object, which
-   already increases the chain use counter.
-
-So the general assumption after this patch is that the use counters are
-bumped by direct object dependencies.
+2) Deletion scenario in the abort path: we have to iterate in the reverse
+order to undo what it cannot be added, ie. userspace sent us a batch
+that includes: table -> chain -> rule -> ... -> rule, and that needs to
+be partially undone. In this case, we have to release objects in the
+reverse order to ensure that the set and chain objects point to valid
+rule and table objects.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   40 +++++++++++++++++++++++++++++++---------
- 1 file changed, 31 insertions(+), 9 deletions(-)
+ net/netfilter/nf_tables_api.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 4fffa36..dbf8236 100644
+index 9365531..4fffa36 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -538,8 +538,7 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 		return PTR_ERR(table);
- 	if (table->flags & NFT_TABLE_INACTIVE)
- 		return -ENOENT;
--
--	if (!list_empty(&table->chains) || !list_empty(&table->sets))
-+	if (table->use > 0)
- 		return -EBUSY;
- 
- 	nft_ctx_init(&ctx, skb, nlh, afi, table, NULL, nla);
-@@ -553,6 +552,8 @@ static int nf_tables_deltable(struct sock *nlsk, struct sk_buff *skb,
- 
- static void nf_tables_table_destroy(struct nft_ctx *ctx)
- {
-+	BUG_ON(ctx->table->use > 0);
-+
- 	kfree(ctx->table);
- 	module_put(ctx->afi->owner);
- }
-@@ -1128,6 +1129,7 @@ static int nf_tables_newchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (err < 0)
- 		goto err2;
- 
-+	table->use++;
- 	list_add_tail(&chain->list, &table->chains);
- 	return 0;
- err2:
-@@ -1169,7 +1171,7 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 		return PTR_ERR(chain);
- 	if (chain->flags & NFT_CHAIN_INACTIVE)
- 		return -ENOENT;
--	if (!list_empty(&chain->rules) || chain->use > 0)
-+	if (chain->use > 0)
- 		return -EBUSY;
- 
- 	nft_ctx_init(&ctx, skb, nlh, afi, table, chain, nla);
-@@ -1177,6 +1179,7 @@ static int nf_tables_delchain(struct sock *nlsk, struct sk_buff *skb,
- 	if (err < 0)
- 		return err;
- 
-+	table->use--;
- 	list_del(&chain->list);
- 	return 0;
- }
-@@ -1814,6 +1817,7 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
- 		err = -ENOMEM;
- 		goto err3;
- 	}
-+	chain->use++;
- 	return 0;
- 
- err3:
-@@ -1841,6 +1845,7 @@ nf_tables_delrule_one(struct nft_ctx *ctx, struct nft_rule *rule)
- 		if (nft_trans_rule_add(ctx, NFT_MSG_DELRULE, rule) == NULL)
- 			return -ENOMEM;
- 		nft_rule_disactivate_next(ctx->net, rule);
-+		ctx->chain->use--;
- 		return 0;
- 	}
- 	return -ENOENT;
-@@ -2588,6 +2593,7 @@ static int nf_tables_newset(struct sock *nlsk, struct sk_buff *skb,
- 		goto err2;
- 
- 	list_add_tail(&set->list, &table->sets);
-+	table->use++;
- 	return 0;
- 
- err2:
-@@ -2642,6 +2648,7 @@ static int nf_tables_delset(struct sock *nlsk, struct sk_buff *skb,
- 		return err;
- 
- 	list_del(&set->list);
-+	ctx.table->use--;
- 	return 0;
- }
- 
-@@ -3122,6 +3129,8 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
- 		err = nft_add_set_elem(&ctx, set, attr);
- 		if (err < 0)
- 			break;
-+
-+		set->nelems++;
- 	}
- 	return err;
- }
-@@ -3196,6 +3205,8 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
- 		err = nft_del_setelem(&ctx, set, attr);
- 		if (err < 0)
- 			break;
-+
-+		set->nelems--;
- 	}
- 	return err;
- }
-@@ -3361,15 +3372,13 @@ static int nf_tables_commit(struct sk_buff *skb)
- 		case NFT_MSG_NEWCHAIN:
- 			if (nft_trans_chain_update(trans))
- 				nft_chain_commit_update(trans);
--			else {
-+			else
- 				trans->ctx.chain->flags &= ~NFT_CHAIN_INACTIVE;
--				trans->ctx.table->use++;
--			}
-+
- 			nf_tables_chain_notify(&trans->ctx, NFT_MSG_NEWCHAIN);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELCHAIN:
--			trans->ctx.table->use--;
- 			nf_tables_chain_notify(&trans->ctx, NFT_MSG_DELCHAIN);
- 			if (!(trans->ctx.table->flags & NFT_TABLE_F_DORMANT) &&
- 			    trans->ctx.chain->flags & NFT_BASE_CHAIN) {
-@@ -3392,6 +3401,13 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			break;
- 		case NFT_MSG_NEWSET:
- 			nft_trans_set(trans)->flags &= ~NFT_SET_INACTIVE;
-+			/* This avoids hitting -EBUSY when deleting the table
-+			 * from the transaction.
-+			 */
-+			if (nft_trans_set(trans)->flags & NFT_SET_ANONYMOUS &&
-+			    !list_empty(&nft_trans_set(trans)->bindings))
-+				trans->ctx.table->use--;
-+
- 			nf_tables_set_notify(&trans->ctx, nft_trans_set(trans),
- 					     NFT_MSG_NEWSET);
- 			nft_trans_destroy(trans);
-@@ -3401,7 +3417,6 @@ static int nf_tables_commit(struct sk_buff *skb)
- 					     NFT_MSG_DELSET);
- 			break;
- 		case NFT_MSG_NEWSETELEM:
--			nft_trans_elem_set(trans)->nelems++;
- 			nf_tables_setelem_notify(&trans->ctx,
- 						 nft_trans_elem_set(trans),
- 						 &nft_trans_elem(trans),
-@@ -3409,7 +3424,6 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELSETELEM:
--			nft_trans_elem_set(trans)->nelems--;
- 			nf_tables_setelem_notify(&trans->ctx,
- 						 nft_trans_elem_set(trans),
- 						 &nft_trans_elem(trans),
-@@ -3487,6 +3501,7 @@ static int nf_tables_abort(struct sk_buff *skb)
- 
- 				nft_trans_destroy(trans);
- 			} else {
-+				trans->ctx.table->use--;
- 				list_del(&trans->ctx.chain->list);
- 				if (!(trans->ctx.table->flags & NFT_TABLE_F_DORMANT) &&
- 				    trans->ctx.chain->flags & NFT_BASE_CHAIN) {
-@@ -3496,32 +3511,39 @@ static int nf_tables_abort(struct sk_buff *skb)
- 			}
- 			break;
- 		case NFT_MSG_DELCHAIN:
-+			trans->ctx.table->use++;
- 			list_add_tail(&trans->ctx.chain->list,
- 				      &trans->ctx.table->chains);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_NEWRULE:
-+			trans->ctx.chain->use--;
- 			list_del_rcu(&nft_trans_rule(trans)->list);
- 			break;
- 		case NFT_MSG_DELRULE:
-+			trans->ctx.chain->use++;
- 			nft_rule_clear(trans->ctx.net, nft_trans_rule(trans));
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_NEWSET:
-+			trans->ctx.table->use--;
- 			list_del(&nft_trans_set(trans)->list);
- 			break;
- 		case NFT_MSG_DELSET:
-+			trans->ctx.table->use++;
- 			list_add_tail(&nft_trans_set(trans)->list,
- 				      &trans->ctx.table->sets);
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_NEWSETELEM:
-+			nft_trans_elem_set(trans)->nelems--;
- 			set = nft_trans_elem_set(trans);
- 			set->ops->get(set, &nft_trans_elem(trans));
- 			set->ops->remove(set, &nft_trans_elem(trans));
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELSETELEM:
-+			nft_trans_elem_set(trans)->nelems++;
- 			nft_trans_destroy(trans);
- 			break;
+@@ -3527,7 +3527,8 @@ static int nf_tables_abort(struct sk_buff *skb)
  		}
+ 	}
+ 
+-	list_for_each_entry_safe(trans, next, &net->nft.commit_list, list) {
++	list_for_each_entry_safe_reverse(trans, next,
++					 &net->nft.commit_list, list) {
+ 		list_del(&trans->list);
+ 		trans->ctx.nla = NULL;
+ 		call_rcu(&trans->rcu_head, nf_tables_abort_release_rcu);
 -- 
 1.7.10.4
