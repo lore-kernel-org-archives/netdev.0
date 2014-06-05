@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH V3 net-next 1/5] amd-xgbe: AMD 10GbE device bindings
- documentation
-Date: Thu, 5 Jun 2014 09:15:00 -0500
-Message-ID: <20140605141500.19317.11636.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH V3 net-next 4/5] amd-xgbe: Configuration and build support
+Date: Thu, 5 Jun 2014 09:15:18 -0500
+Message-ID: <20140605141518.19317.75592.stgit@tlendack-t1.amdoffice.net>
 References: <20140605141454.19317.87165.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,86 +9,89 @@ Content-Transfer-Encoding: 7bit
 Cc: <jcm@redhat.com>, <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0183.outbound.protection.outlook.com ([207.46.163.183]:54705
+Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:14027
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751152AbaFEOPG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 10:15:06 -0400
+	id S1751661AbaFEOPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 10:15:25 -0400
 In-Reply-To: <20140605141454.19317.87165.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides the documentation of the device bindings
-for the AMD 10GbE platform driver.
+This patch provides the Kconfig and Makefile changes needed
+to configure and build the AMD 10GbE platform driver and the
+AMD 10GbE phylib driver.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- .../devicetree/bindings/net/amd-xgbe-phy.txt       |   17 ++++++++++
- Documentation/devicetree/bindings/net/amd-xgbe.txt |   34 ++++++++++++++++++++
- 2 files changed, 51 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
- create mode 100644 Documentation/devicetree/bindings/net/amd-xgbe.txt
+ drivers/net/ethernet/amd/Kconfig  |   14 +++++++++++++-
+ drivers/net/ethernet/amd/Makefile |    1 +
+ drivers/net/phy/Kconfig           |    6 ++++++
+ drivers/net/phy/Makefile          |    1 +
+ 4 files changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
-new file mode 100644
-index 0000000..cd821d0
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/amd-xgbe-phy.txt
-@@ -0,0 +1,17 @@
-+* AMD 10GbE PHY driver (amd-xgbe-phy)
+diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
+index 562df46..bbaf36d 100644
+--- a/drivers/net/ethernet/amd/Kconfig
++++ b/drivers/net/ethernet/amd/Kconfig
+@@ -7,7 +7,7 @@ config NET_VENDOR_AMD
+ 	default y
+ 	depends on DIO || MACH_DECSTATION || MVME147 || ATARI || SUN3 || \
+ 		   SUN3X || SBUS || PCI || ZORRO || (ISA && ISA_DMA_API) || \
+-		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA
++		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA || ARM64
+ 	---help---
+ 	  If you have a network (Ethernet) chipset belonging to this class,
+ 	  say Y.
+@@ -177,4 +177,16 @@ config SUNLANCE
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called sunlance.
+ 
++config AMD_XGBE
++	tristate "AMD 10GbE Ethernet driver"
++	depends on OF_NET
++	select PHYLIB
++	select AMD_XGBE_PHY
++	---help---
++	  This driver supports the AMD 10GbE Ethernet device found on an
++	  AMD SoC.
 +
-+Required properties:
-+- compatible: Should be "amd,xgbe-phy-seattle-v1a" and 
-+  "ethernet-phy-ieee802.3-c45"
-+- reg: Address and length of the register sets for the device
-+   - SerDes Rx/Tx registers
-+   - SerDes integration registers (1/2)
-+   - SerDes integration registers (2/2)
++	  To compile this driver as a module, choose M here: the module
++	  will be called amd-xgbe.
 +
-+Example:
-+	xgbe_phy@e1240800 {
-+		compatible = "amd,xgbe-phy-seattle-v1a", "ethernet-phy-ieee802.3-c45";
-+		reg = <0 0xe1240800 0 0x00400>,
-+		      <0 0xe1250000 0 0x00060>,
-+		      <0 0xe1250080 0 0x00004>;
-+	};
-diff --git a/Documentation/devicetree/bindings/net/amd-xgbe.txt b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-new file mode 100644
-index 0000000..ea0c790
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/amd-xgbe.txt
-@@ -0,0 +1,34 @@
-+* AMD 10GbE driver (amd-xgbe)
+ endif # NET_VENDOR_AMD
+diff --git a/drivers/net/ethernet/amd/Makefile b/drivers/net/ethernet/amd/Makefile
+index cdd4301..a38a2dc 100644
+--- a/drivers/net/ethernet/amd/Makefile
++++ b/drivers/net/ethernet/amd/Makefile
+@@ -17,3 +17,4 @@ obj-$(CONFIG_NI65) += ni65.o
+ obj-$(CONFIG_PCNET32) += pcnet32.o
+ obj-$(CONFIG_SUN3LANCE) += sun3lance.o
+ obj-$(CONFIG_SUNLANCE) += sunlance.o
++obj-$(CONFIG_AMD_XGBE) += xgbe/
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 6a17f92..65de0ca 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -24,6 +24,12 @@ config AMD_PHY
+ 	---help---
+ 	  Currently supports the am79c874
+ 
++config AMD_XGBE_PHY
++	tristate "Driver for the AMD 10GbE (amd-xgbe) PHYs"
++	depends on OF
++	---help---
++	  Currently supports the AMD 10GbE PHY
 +
-+Required properties:
-+- compatible: Should be "amd,xgbe-seattle-v1a"
-+- reg: Address and length of the register sets for the device
-+   - MAC registers
-+   - PCS registers
-+- interrupt-parent: Should be the phandle for the interrupt controller
-+  that services interrupts for this device
-+- interrupts: Should contain the amd-xgbe interrupt
-+- clocks: Should be the DMA clock for the amd-xgbe device (used for
-+  calculating the correct Rx interrupt watchdog timer value on a DMA
-+  channel for coalescing)
-+- clock-names: Should be the name of the DMA clock, "dma_clk"
-+- phy-handle: See ethernet.txt file in the same directory
-+- phy-mode: See ethernet.txt file in the same directory
-+
-+Optional properties:
-+- mac-address: mac address to be assigned to the device. Can be overridden
-+  by UEFI.
-+
-+Example:
-+	xgbe@e0700000 {
-+		compatible = "amd,xgbe-seattle-v1a";
-+		reg = <0 0xe0700000 0 0x80000>,
-+		      <0 0xe0780000 0 0x80000>;
-+		interrupt-parent = <&gic>;
-+		interrupts = <0 325 4>;
-+		clocks = <&xgbe_clk>;
-+		clock-names = "dma_clk";
-+		phy-handle = <&phy>;
-+		phy-mode = "xgmii";
-+		mac-address = [ 02 a1 a2 a3 a4 a5 ];
-+	};
+ config MARVELL_PHY
+ 	tristate "Drivers for Marvell PHYs"
+ 	---help---
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 07d2402..7dc3d5b 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -33,3 +33,4 @@ obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
+ obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
++obj-$(CONFIG_AMD_XGBE_PHY)	+= amd-xgbe-phy.o
