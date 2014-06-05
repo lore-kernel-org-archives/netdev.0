@@ -1,159 +1,83 @@
-From: Alexander Stein <alexander.stein@systec-electronic.com>
-Subject: [PATCH v2 2/6] pch_gbe: Add module parameter for RGMII/GMII PHY mode selection
-Date: Thu,  5 Jun 2014 10:53:03 +0200
-Message-ID: <1401958387-8154-2-git-send-email-alexander.stein@systec-electronic.com>
-References: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
-Cc: Alexander Stein <alexander.stein@systec-electronic.com>,
-	netdev@vger.kernel.org,
-	Daniel Krueger <daniel.krueger@systec-electronic.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v3 1/6] net: fec: Factorize the .xmit transmit function
+Date: Thu, 5 Jun 2014 09:06:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17257A93@AcuExch.aculab.com>
+References: <1401951572-6538-1-git-send-email-b38611@freescale.com>
+ <1401951572-6538-2-git-send-email-b38611@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+	"R49496@freescale.com" <R49496@freescale.com>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"b20596@freescale.com" <b20596@freescale.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: 'Fugang Duan' <b38611@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webbox1416.server-home.net ([77.236.96.61]:42838 "EHLO
-	webbox1416.server-home.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751065AbaFEIyt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 04:54:49 -0400
-In-Reply-To: <1401958387-8154-1-git-send-email-alexander.stein@systec-electronic.com>
+Received: from mx0.aculab.com ([213.249.233.131]:44131 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750840AbaFEJHO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 05:07:14 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21118-09 for <netdev@vger.kernel.org>;
+ Thu,  5 Jun 2014 10:07:05 +0100 (BST)
+In-Reply-To: <1401951572-6538-2-git-send-email-b38611@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mode register has to be set even in GMII mode. Otherwise the 125 MHz
-RXCLK is not detected after MAC reset.
+From: Fugang Duan
+> Make the code more readable and easy to support other features like
+> SG, TSO, moving the common transmit function to one api.
+> 
+> And the patch also factorize the getting BD index to it own function.
+> 
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c |   87 ++++++++++++++++++-----------
+>  1 files changed, 54 insertions(+), 33 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 802be17..32c2276 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -287,6 +287,25 @@ struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, struct fec_enet_priva
+>  		return (new_bd < base) ? (new_bd + ring_size) : new_bd;
+>  }
+> 
+> +static inline
+> +int fec_enet_get_bd_index(struct bufdesc *bdp, struct fec_enet_private *fep)
+> +{
+> +	struct bufdesc *base;
+> +	int index;
+> +
+> +	if (bdp >= fep->tx_bd_base)
+> +		base = fep->tx_bd_base;
+> +	else
+> +		base = fep->rx_bd_base;
 
-Signed-off-by: Daniel Krueger <daniel.krueger@systec-electronic.com>
-Signed-off-by: Alexander Stein <alexander.stein@systec-electronic.com>
----
- drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |  1 +
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c    |  6 +--
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   | 47 ++++++++++++----------
- .../net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h    |  1 -
- 4 files changed, 30 insertions(+), 25 deletions(-)
+You really don't want the above conditional.
+It is known from the call site - but the compiler can't determine that
+and remove the test.
+You may not want to rely on the tx and rx descriptors being allocated
+as a single entity - particularly now that they (probably) consume
+more than a single page.
 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-index 2a55d6d..956dc68 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h
-@@ -390,6 +390,7 @@ struct pch_gbe_phy_info {
- 	u32 revision;
- 	u32 reset_delay_us;
- 	u16 autoneg_advertised;
-+	bool is_rgmii;
- };
- 
- /*!
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-index 5125036..c97e738 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_api.c
-@@ -77,9 +77,9 @@ static s32 pch_gbe_plat_init_hw(struct pch_gbe_hw *hw)
- 	}
- 	pch_gbe_phy_init_setting(hw);
- 	/* Setup Mac interface option RGMII */
--#ifdef PCH_GBE_MAC_IFOP_RGMII
--	pch_gbe_phy_set_rgmii(hw);
--#endif
-+	if (hw->phy.is_rgmii)
-+		pch_gbe_phy_set_rgmii(hw);
-+
- 	return ret_val;
- }
- 
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-index cf3101c..e7acbd7 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
-@@ -114,6 +114,7 @@ const char pch_driver_version[] = DRV_VERSION;
- #define MINNOW_PHY_RESET_GPIO		13
- 
- static unsigned int copybreak __read_mostly = PCH_GBE_COPYBREAK_DEFAULT;
-+static bool is_rgmii __read_mostly = 1;
- 
- static int pch_gbe_mdio_read(struct net_device *netdev, int addr, int reg);
- static void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg,
-@@ -369,9 +370,7 @@ static void pch_gbe_mac_reset_hw(struct pch_gbe_hw *hw)
- 	/* Read the MAC address. and store to the private data */
- 	pch_gbe_mac_read_mac_addr(hw);
- 	iowrite32(PCH_GBE_ALL_RST, &hw->reg->RESET);
--#ifdef PCH_GBE_MAC_IFOP_RGMII
- 	iowrite32(PCH_GBE_MODE_GMII_ETHER, &hw->reg->MODE);
--#endif
- 	pch_gbe_wait_clr_bit(&hw->reg->RESET, PCH_GBE_ALL_RST);
- 	/* Setup the receive addresses */
- 	pch_gbe_mac_mar_set(hw, hw->mac.addr, 0);
-@@ -1039,26 +1038,26 @@ static void pch_gbe_set_rgmii_ctrl(struct pch_gbe_adapter *adapter, u16 speed,
- 	unsigned long rgmii = 0;
- 
- 	/* Set the RGMII control. */
--#ifdef PCH_GBE_MAC_IFOP_RGMII
--	switch (speed) {
--	case SPEED_10:
--		rgmii = (PCH_GBE_RGMII_RATE_2_5M |
--			 PCH_GBE_MAC_RGMII_CTRL_SETTING);
--		break;
--	case SPEED_100:
--		rgmii = (PCH_GBE_RGMII_RATE_25M |
--			 PCH_GBE_MAC_RGMII_CTRL_SETTING);
--		break;
--	case SPEED_1000:
--		rgmii = (PCH_GBE_RGMII_RATE_125M |
--			 PCH_GBE_MAC_RGMII_CTRL_SETTING);
--		break;
--	}
--	iowrite32(rgmii, &hw->reg->RGMII_CTRL);
--#else	/* GMII */
--	rgmii = 0;
-+	if (hw->phy.is_rgmii) {
-+		switch (speed) {
-+		case SPEED_10:
-+			rgmii = (PCH_GBE_RGMII_RATE_2_5M |
-+				PCH_GBE_MAC_RGMII_CTRL_SETTING);
-+			break;
-+		case SPEED_100:
-+			rgmii = (PCH_GBE_RGMII_RATE_25M |
-+				PCH_GBE_MAC_RGMII_CTRL_SETTING);
-+			break;
-+		case SPEED_1000:
-+			rgmii = (PCH_GBE_RGMII_RATE_125M |
-+				PCH_GBE_MAC_RGMII_CTRL_SETTING);
-+			break;
-+		}
-+	} else
-+		/* GMII */
-+		rgmii = 0;
-+
- 	iowrite32(rgmii, &hw->reg->RGMII_CTRL);
--#endif
- }
- static void pch_gbe_set_mode(struct pch_gbe_adapter *adapter, u16 speed,
- 			      u16 duplex)
-@@ -2629,6 +2628,8 @@ static int pch_gbe_probe(struct pci_dev *pdev,
- 	if (adapter->pdata && adapter->pdata->platform_init)
- 		adapter->pdata->platform_init(pdev);
- 
-+	adapter->hw.phy.is_rgmii = is_rgmii;
-+
- 	adapter->ptp_pdev = pci_get_bus_and_slot(adapter->pdev->bus->number,
- 					       PCI_DEVFN(12, 4));
- 
-@@ -2841,4 +2842,8 @@ module_param(copybreak, uint, 0644);
- MODULE_PARM_DESC(copybreak,
- 	"Maximum size of packet that is copied to a new buffer on receive");
- 
-+module_param(is_rgmii, bool, 0644);
-+MODULE_PARM_DESC(is_rgmii,
-+		 "Selection of RGMII/GMII PHY mode. true: RGMII (default). false: GMII");
-+
- /* pch_gbe_main.c */
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-index 95ad015..1c1e711 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_phy.h
-@@ -21,7 +21,6 @@
- 
- #define PCH_GBE_PHY_REGS_LEN		32
- #define	PCH_GBE_PHY_RESET_DELAY_US	10
--#define PCH_GBE_MAC_IFOP_RGMII
- 
- s32 pch_gbe_phy_get_id(struct pch_gbe_hw *hw);
- s32 pch_gbe_phy_read_reg_miic(struct pch_gbe_hw *hw, u32 offset, u16 *data);
--- 
-1.8.5.5
+> +
+> +	if (fep->bufdesc_ex)
+> +		index = (struct bufdesc_ex *)bdp - (struct bufdesc_ex *)base;
+> +	else
+> +		index = bdp - base;
+
+Save the sizeof the descriptor structure as (say) fep->bufdesc_size
+(Possibly replacing bufdesc_ex)
+and then just calculate:
+	index = ((const char *)bdp - (const char *)base)/fep->bufdesc_size;
+
+	David
