@@ -1,49 +1,126 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH V2 net-next] LISP: Locator/Identifier Separation Protocol
-Date: Thu, 05 Jun 2014 16:26:40 -0700
-Message-ID: <1402010800.3645.279.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: hard_header_len vs needed_headroom
+Date: Thu, 5 Jun 2014 16:39:09 -0700
+Message-ID: <CAHA+R7Nyi9TvpN+fJrFt7krhLLXyJ5ify1ONvAse+rJFU0kbKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
-	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
-	<lojakab@cisco.com>
-To: Christopher White <chris@logicalelegance.com>
+Content-Type: multipart/mixed; boundary=001a1139a7e45e788504fb1f404f
+Cc: David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Timo_Ter=C3=A4s?= <timo.teras@iki.fi>,
+	netdev <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:34324 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527AbaFEX0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 19:26:41 -0400
-Received: by mail-pb0-f43.google.com with SMTP id up15so1790131pbc.2
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 16:26:41 -0700 (PDT)
-In-Reply-To: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:49141 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751222AbaFEXjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 19:39:10 -0400
+Received: by mail-qa0-f46.google.com with SMTP id w8so2440374qac.5
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 16:39:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-06-05 at 14:14 -0700, Christopher White wrote:
-> This is a static tunnel implementation of LISP as described in RFC 6830:
->   http://tools.ietf.org/html/rfc6830
-> 
+--001a1139a7e45e788504fb1f404f
+Content-Type: text/plain; charset=UTF-8
 
-> +static void lisp_sock_put(struct sk_buff *skb)
-> +{
-> +	sock_put(skb->sk);
-> +}
-> +
-> +/* On transmit, associate with the tunnel socket */
-> +static void lisp_set_owner(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	skb_orphan(skb);
-> +	sock_hold(sk);
-> +	skb->sk = sk;
-> +	skb->destructor = lisp_sock_put;
-> +}
-> +
+Hello,
 
-Please do not do that. 
 
-Read commit 8f646c922d55047ecd6c65ada49ead88ed0db61e
-("vxlan: keep original skb ownership")
-for details.
+While debugging a skb header push crash, I noticed that
+new ip tunnel code uses dev->needed_headroom as the
+length of hardware header:
+
+dev->needed_headroom = t_hlen + hlen;
+
+in IPIP tunnel case it's the ethernet header length plus IPv4
+header length. And it leaves dev->hard_header_len as 0.
+
+But there are some places assuming
+dev->hard_header_len is the length of L2 header, at least
+tcf_mirred() calls skb_push(skb, skb->dev->hard_header_len)
+to reset skb->data back to L2 header. Current code is broken.
+
+I think ip tunnel code is wrong, according to LL_RESERVED_SPACE(),
+it seems dev->hard_header_len should be the L2 header while
+dev->needed_headroom should be the *additional* headroom needed
+by hardware. That also means skb_push(dev->hard_header_len) is
+correct.
+
+Therefore, I think IP tunnel should set its dev->hard_header_len to
+lower_dev->hard_header_len + tunnel->hlen + sizeof(struct iphdr),
+and set its dev->needed_headroom to lower_dev->needed_headroom.
+See the attached patch for details.
+
+But gretap seems to be an exception, it calls ether_setup() to init its
+dev->hard_header_len to ETH_HLEN. My patch probably breaks it,
+I think it should set its tunnel->hlen = gre_hdr_len + ETH_HLEN.
+
+What do you think?
+
+
+Thanks.
+
+--001a1139a7e45e788504fb1f404f
+Content-Type: text/plain; charset=US-ASCII; name="tunnel-hard_header_len.diff"
+Content-Disposition: attachment; filename="tunnel-hard_header_len.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hw2pba500
+
+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX2dyZS5jIGIvbmV0L2lwdjQvaXBfZ3JlLmMKaW5kZXgg
+YzVhNTU3YS4uN2QzMGEzMyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfZ3JlLmMKKysrIGIvbmV0
+L2lwdjQvaXBfZ3JlLmMKQEAgLTI1Niw3ICsyNTYsNyBAQCBzdGF0aWMgbmV0ZGV2X3R4X3QgaXBn
+cmVfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCiAJaWYgKGRldi0+aGVhZGVyX29wcykgewog
+CQkvKiBOZWVkIHNwYWNlIGZvciBuZXcgaGVhZGVycyAqLwotCQlpZiAoc2tiX2Nvd19oZWFkKHNr
+YiwgZGV2LT5uZWVkZWRfaGVhZHJvb20gLQorCQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5o
+YXJkX2hlYWRlcl9sZW4gLQogCQkJCSAgICAgICh0dW5uZWwtPmhsZW4gKyBzaXplb2Yoc3RydWN0
+IGlwaGRyKSkpKQogCQkJZ290byBmcmVlX3NrYjsKIApAQCAtMjY3LDcgKzI2Nyw3IEBAIHN0YXRp
+YyBuZXRkZXZfdHhfdCBpcGdyZV94bWl0KHN0cnVjdCBza19idWZmICpza2IsCiAJCSAqLwogCQlz
+a2JfcHVsbChza2IsIHR1bm5lbC0+aGxlbiArIHNpemVvZihzdHJ1Y3QgaXBoZHIpKTsKIAl9IGVs
+c2UgewotCQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5uZWVkZWRfaGVhZHJvb20pKQorCQlp
+ZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5oYXJkX2hlYWRlcl9sZW4pKQogCQkJZ290byBmcmVl
+X3NrYjsKIAogCQl0bmxfcGFyYW1zID0gJnR1bm5lbC0+cGFybXMuaXBoOwpAQCAtMjkzLDcgKzI5
+Myw3IEBAIHN0YXRpYyBuZXRkZXZfdHhfdCBncmVfdGFwX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
+YiwKIAlpZiAoSVNfRVJSKHNrYikpCiAJCWdvdG8gb3V0OwogCi0JaWYgKHNrYl9jb3dfaGVhZChz
+a2IsIGRldi0+bmVlZGVkX2hlYWRyb29tKSkKKwlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5o
+YXJkX2hlYWRlcl9sZW4pKQogCQlnb3RvIGZyZWVfc2tiOwogCiAJX19ncmVfeG1pdChza2IsIGRl
+diwgJnR1bm5lbC0+cGFybXMuaXBoLCBodG9ucyhFVEhfUF9URUIpKTsKQEAgLTQ3NSw3ICs0NzUs
+MTAgQEAgc3RhdGljIHZvaWQgX19ncmVfdHVubmVsX2luaXQoc3RydWN0IG5ldF9kZXZpY2UgKmRl
+dikKIAl0dW5uZWwtPmhsZW4gPSBpcF9ncmVfY2FsY19obGVuKHR1bm5lbC0+cGFybXMub19mbGFn
+cyk7CiAJdHVubmVsLT5wYXJtcy5pcGgucHJvdG9jb2wgPSBJUFBST1RPX0dSRTsKIAotCWRldi0+
+bmVlZGVkX2hlYWRyb29tCT0gTExfTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXBoZHIpICsg
+NDsKKwlpZiAoIWRldi0+aGFyZF9oZWFkZXJfbGVuKQorCQlkZXYtPmhhcmRfaGVhZGVyX2xlbiA9
+IExMX01BWF9IRUFERVI7CisKKwlkZXYtPmhhcmRfaGVhZGVyX2xlbiAJKz0gc2l6ZW9mKHN0cnVj
+dCBpcGhkcikgKyA0OwogCWRldi0+bXR1CQk9IEVUSF9EQVRBX0xFTiAtIHNpemVvZihzdHJ1Y3Qg
+aXBoZHIpIC0gNDsKIAogCWRldi0+ZmVhdHVyZXMJCXw9IEdSRV9GRUFUVVJFUzsKZGlmZiAtLWdp
+dCBhL25ldC9pcHY0L2lwX3R1bm5lbC5jIGIvbmV0L2lwdjQvaXBfdHVubmVsLmMKaW5kZXggODZh
+MDBiZC4uZTdjMTE2ZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfdHVubmVsLmMKKysrIGIvbmV0
+L2lwdjQvaXBfdHVubmVsLmMKQEAgLTM1MSw2ICszNTEsNyBAQCBzdGF0aWMgaW50IGlwX3R1bm5l
+bF9iaW5kX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCWludCBobGVuID0gTExfTUFYX0hF
+QURFUjsKIAlpbnQgbXR1ID0gRVRIX0RBVEFfTEVOOwogCWludCB0X2hsZW4gPSB0dW5uZWwtPmhs
+ZW4gKyBzaXplb2Yoc3RydWN0IGlwaGRyKTsKKwlpbnQgaGVhZHJvb20gPSAwOwogCiAJaXBoID0g
+JnR1bm5lbC0+cGFybXMuaXBoOwogCkBAIC0zNzcsMTMgKzM3OCwxNSBAQCBzdGF0aWMgaW50IGlw
+X3R1bm5lbF9iaW5kX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQl0ZGV2ID0gX19kZXZf
+Z2V0X2J5X2luZGV4KHR1bm5lbC0+bmV0LCB0dW5uZWwtPnBhcm1zLmxpbmspOwogCiAJaWYgKHRk
+ZXYpIHsKLQkJaGxlbiA9IHRkZXYtPmhhcmRfaGVhZGVyX2xlbiArIHRkZXYtPm5lZWRlZF9oZWFk
+cm9vbTsKKwkJaGVhZHJvb20gPSB0ZGV2LT5uZWVkZWRfaGVhZHJvb207CisJCWhsZW4gPSB0ZGV2
+LT5oYXJkX2hlYWRlcl9sZW47CiAJCW10dSA9IHRkZXYtPm10dTsKIAl9CiAJZGV2LT5pZmxpbmsg
+PSB0dW5uZWwtPnBhcm1zLmxpbms7CiAKLQlkZXYtPm5lZWRlZF9oZWFkcm9vbSA9IHRfaGxlbiAr
+IGhsZW47Ci0JbXR1IC09IChkZXYtPmhhcmRfaGVhZGVyX2xlbiArIHRfaGxlbik7CisJZGV2LT5u
+ZWVkZWRfaGVhZHJvb20gPSBoZWFkcm9vbTsKKwlkZXYtPmhhcmRfaGVhZGVyX2xlbiA9IHRfaGxl
+biArIGhsZW47CisJbXR1IC09IHRfaGxlbjsKIAogCWlmIChtdHUgPCA2OCkKIAkJbXR1ID0gNjg7
+CkBAIC00ODMsMTIgKzQ4NiwxMSBAQCBzdGF0aWMgaW50IHRubF91cGRhdGVfcG10dShzdHJ1Y3Qg
+bmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJICAgIHN0cnVjdCBydGFi
+bGUgKnJ0LCBfX2JlMTYgZGYpCiB7CiAJc3RydWN0IGlwX3R1bm5lbCAqdHVubmVsID0gbmV0ZGV2
+X3ByaXYoZGV2KTsKLQlpbnQgcGt0X3NpemUgPSBza2ItPmxlbiAtIHR1bm5lbC0+aGxlbiAtIGRl
+di0+aGFyZF9oZWFkZXJfbGVuOworCWludCBwa3Rfc2l6ZSA9IHNrYi0+bGVuIC0gZGV2LT5oYXJk
+X2hlYWRlcl9sZW47CiAJaW50IG10dTsKIAogCWlmIChkZikKLQkJbXR1ID0gZHN0X210dSgmcnQt
+PmRzdCkgLSBkZXYtPmhhcmRfaGVhZGVyX2xlbgotCQkJCQktIHNpemVvZihzdHJ1Y3QgaXBoZHIp
+IC0gdHVubmVsLT5obGVuOworCQltdHUgPSBkc3RfbXR1KCZydC0+ZHN0KSAtIGRldi0+aGFyZF9o
+ZWFkZXJfbGVuOwogCWVsc2UKIAkJbXR1ID0gc2tiX2RzdChza2IpID8gZHN0X210dShza2JfZHN0
+KHNrYikpIDogZGV2LT5tdHU7CiAKQEAgLTY2MywxMCArNjY1LDggQEAgdm9pZCBpcF90dW5uZWxf
+eG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAogCiAJbWF4
+X2hlYWRyb29tID0gTExfUkVTRVJWRURfU1BBQ0UocnQtPmRzdC5kZXYpICsgc2l6ZW9mKHN0cnVj
+dCBpcGhkcikKIAkJCSsgcnQtPmRzdC5oZWFkZXJfbGVuOwotCWlmIChtYXhfaGVhZHJvb20gPiBk
+ZXYtPm5lZWRlZF9oZWFkcm9vbSkKLQkJZGV2LT5uZWVkZWRfaGVhZHJvb20gPSBtYXhfaGVhZHJv
+b207CiAKLQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5uZWVkZWRfaGVhZHJvb20pKSB7CisJ
+aWYgKHNrYl9jb3dfaGVhZChza2IsIG1heF9oZWFkcm9vbSkpIHsKIAkJZGV2LT5zdGF0cy50eF9k
+cm9wcGVkKys7CiAJCWtmcmVlX3NrYihza2IpOwogCQlyZXR1cm47Cg==
+--001a1139a7e45e788504fb1f404f--
