@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next 0/4] bridge: multicast snooping
- patches / exports
-Date: Thu, 05 Jun 2014 00:43:11 -0700 (PDT)
-Message-ID: <20140605.004311.19890338095820543.davem@davemloft.net>
-References: <1401732466-3027-1-git-send-email-linus.luessing@web.de>
-	<20140602184215.GA2460@Linus-Debian>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v5 4/4] drivers: net: Add APM X-Gene SoC ethernet
+ driver support.
+Date: Thu, 05 Jun 2014 00:45:55 -0700 (PDT)
+Message-ID: <20140605.004555.658378024391856482.davem@davemloft.net>
+References: <1401737954-26152-1-git-send-email-isubramanian@apm.com>
+	<1401737954-26152-5-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: b.a.t.m.a.n@lists.open-mesh.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140602184215.GA2460@Linus-Debian>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, rapatel-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org
+To: isubramanian-qTEPVZfXA3Y@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1401737954-26152-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Mon, 2 Jun 2014 20:42:15 +0200
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Date: Mon,  2 Jun 2014 12:39:14 -0700
 
-> Changes in v3:
-> =
+> +	netdev_err(ndev, "LERR: %d ring_num: %d ", status, ring->num);
+> +	switch (status) {
+> +	case HBF_READ_DATA:
+> +		netdev_err(ndev, "HBF read data error\n");
+> +		break;
 
-> * use EXPORT_SYMBOL_GPL() instead of EXPORT_SYMBOL()
+This is not really appropriate.
 
-This is not a sufficient header posting.
+We have statistics like the ones you are incrementing in this
+function as the mechanism people can use to learn what events
+happened on an interface, and how many times they happened.
 
-You must also describe at a high level what this patch series is
-doing, and why you are doing it.
+Therefore, emitting a log message for each one of those events too is
+not necessary.
+
+We don't emit a netdev_err() for every packet that the IPv4 stack
+drops due to a bad checksum, for example.
+
+Please get rid of this.
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
