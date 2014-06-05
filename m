@@ -1,52 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: filter: fix SKF_AD_PKTTYPE extension on
- big-endian
-Date: Thu, 05 Jun 2014 15:41:17 -0700 (PDT)
-Message-ID: <20140605.154117.1636370741582387143.davem@davemloft.net>
-References: <1402004376-1814-1-git-send-email-ast@plumgrid.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
+ interface
+Date: Thu, 5 Jun 2014 16:14:58 -0700
+Message-ID: <20140605231458.GA31114@kroah.com>
+References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
+ <20140605.145844.382754247234672637.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, netdev@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51702 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984AbaFEWlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:41:18 -0400
-In-Reply-To: <1402004376-1814-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel.kiper@oracle.com, stable@vger.kernel.org, msw@amazon.com,
+	netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140605.145844.382754247234672637.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Thu,  5 Jun 2014 14:39:36 -0700
+On Thu, Jun 05, 2014 at 02:58:44PM -0700, David Miller wrote:
+> From: Daniel Kiper <daniel.kiper@oracle.com>
+> Date: Mon,  2 Jun 2014 21:46:20 +0200
+> 
+> > From: Matt Wilson <msw@amazon.com>
+> > 
+> > Sometimes it is useful to be able to change the MAC address of the
+> > interface for netback devices. For example, when using ebtables it may
+> > be useful to be able to distinguish traffic from different interfaces
+> > without depending on the interface name.
+> > 
+> > Reported-by: Nikita Borzykh <sample.n@gmail.com>
+> > Reported-by: Paul Harvey <stockingpaul@hotmail.com>
+> > Cc: netdev@vger.kernel.org
+> > Cc: xen-devel@lists.xen.org
+> > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > Signed-off-by: Matt Wilson <msw@amazon.com>
+> > Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
+> > 
+> > Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> 
+> I don't think this is suitable for -stable.
+> 
+> -stable should be restricted bug fixes for things that either
+> are extremely serious, or hit a very huge segment of the user
+> base.
+> 
+> This issue does not quality for either condition.
 
-> BPF classic->internal converter broke SKF_AD_PKTTYPE extension, since
-> pkt_type_offset() was failing to find skb->pkt_type field which is defined as:
-> __u8 pkt_type:3,
->      fclone:2,
->      ipvs_property:1,
->      peeked:1,
->      nf_trace:1;
-> 
-> Fix it by searching for 3 most significant bits and shift them by 5 at run-time
-> 
-> Fixes: bd4cf0ed331a ("net: filter: rework/optimize internal BPF interpreter's instruction set")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> Acked-by: Daniel Borkmann <dborkman@redhat.com>
-> Tested-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
-> 
-> backported BPF testsuite to 'net' and tested with qemu-sparc64.
-> Daniel tested it on s390.
-> 
-> Dave,
-> The fix doesn't apply cleanly to 'net-next'.
-> There 2nd hunk needs to be:
->                insn++;
->                *insn = BPF_ALU32_IMM(BPF_RSH, BPF_REG_A, 5);
-> I have 'net-next' patch ready and tested as well. Let me know if I should
-> send it or you'll take care of it while doing the merge of 'net'.
+Yeah, it seems like a new feature to me, I'll drop it from my to-apply
+queue.
 
-Applied, and I'll take care of this when I merge net into net-next,
-thanks.
+thanks for the review,
+
+greg k-h
