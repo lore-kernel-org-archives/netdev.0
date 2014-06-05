@@ -1,29 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] miscellaneous dm9000 driver fixes
-Date: Thu, 05 Jun 2014 15:14:35 -0700 (PDT)
-Message-ID: <20140605.151435.1491638094612145907.davem@davemloft.net>
-References: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
+Subject: Re: [PATCH 0/2] trivial cleanup
+Date: Thu, 05 Jun 2014 15:14:48 -0700 (PDT)
+Message-ID: <20140605.151448.1538239168462492391.davem@davemloft.net>
+References: <1401937282-18345-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, josright123@gmail.com
-To: andrew.ruder@elecsyscorp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51437 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751936AbaFEWOh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 18:14:37 -0400
-In-Reply-To: <cover.1401920320.git.andrew.ruder@elecsyscorp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-m68k@vger.kernel.org, geert@linux-m68k.org,
+	netdev@vger.kernel.org, schwab@linux-m68k.org
+To: akong@redhat.com
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1401937282-18345-1-git-send-email-akong@redhat.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Ruder <andrew.ruder@elecsyscorp.com>
-Date: Wed,  4 Jun 2014 17:28:43 -0500
+From: Amos Kong <akong@redhat.com>
+Date: Thu,  5 Jun 2014 11:01:20 +0800
 
-> This is a collection of changes discovered while bringing a PXA270 based board
-> (Arcom ZEUS) with a Davicom DM9000A/B up to a more recent kernel (from 2.6.xx).
-> This addresses all of my earlier issues (August 2013) listed here:
-> 
-> http://marc.info/?l=linux-netdev&m=137598605603324&w=2
+> I found the RAM size in comments isn't correct,
+> fix it.
 
-Series applied to net-next, thanks.
+Both patches applied, thank you.
