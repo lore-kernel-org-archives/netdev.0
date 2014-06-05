@@ -1,80 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL 2/2] vhost: replace rcu with mutex
-Date: Thu, 5 Jun 2014 13:45:06 +0300
-Message-ID: <20140605104506.GA15379@redhat.com>
-References: <1401744482-17764-1-git-send-email-mst@redhat.com>
-	<1401744482-17764-3-git-send-email-mst@redhat.com>
-	<1401746280.3645.187.camel@edumazet-glaptop2.roam.corp.google.com>
-	<538DC422.1050303@redhat.com>
-	<1401803863.3645.208.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140604195112.GB10676@redhat.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
+ for netdev
+Date: Thu, 05 Jun 2014 19:51:34 +0900
+Message-ID: <53904BB6.7030803@lab.ntt.co.jp>
+References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Paolo Bonzini <pbonzini@redhat.com>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20140604195112.GB10676@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net, edumazet@google.com, vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:44180 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751507AbaFEKv6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:51:58 -0400
+In-Reply-To: <53903D5A.7050702@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 04, 2014 at 10:51:12PM +0300, Michael S. Tsirkin wrote:
-> On Tue, Jun 03, 2014 at 06:57:43AM -0700, Eric Dumazet wrote:
-> > On Tue, 2014-06-03 at 14:48 +0200, Paolo Bonzini wrote:
-> > > Il 02/06/2014 23:58, Eric Dumazet ha scritto:
-> > > > This looks dubious
-> > > >
-> > > > What about using kfree_rcu() instead ?
-> > > 
-> > > It would lead to unbound allocation from userspace.
-> > 
-> > Look at how we did this in commit
-> > c3059477fce2d956a0bb3e04357324780c5d8eeb
-> > 
-> > > 
-> > > > translate_desc() still uses rcu_read_lock(), its not clear if the mutex
-> > > > is really held.
-> > > 
-> > > Yes, vhost_get_vq_desc must be called with the vq mutex held.
-> > > 
-> > > The rcu_read_lock/unlock in translate_desc is unnecessary.
-> > 
-> > Yep, this is what I pointed out. This is not only necessary, but
-> > confusing and might be incorrectly copy/pasted in the future.
-> > 
-> > This patch is a partial one and leaves confusion.
-> > 
-> > Some places uses the proper 
-> > 
-> > mp = rcu_dereference_protected(dev->memory,
-> > 		 lockdep_is_held(&dev->mutex));
-> > 
-> > others use the now incorrect :
-> > 
-> > rcu_read_lock();
-> > mp = rcu_dereference(dev->memory);
-> > ...
-> > 
+(2014/06/05 18:50), Ding Tianhong wrote:
+> On 2014/6/5 17:09, Toshiaki Makita wrote:
+>> (2014/06/05 15:50), Ding Tianhong wrote:
+>>> Most of netdev just like bond, team, vlan will set the mac address
+>>> and propagate to the upperdev or lowerdev regardless the mac address
+>>> is  same or not, I could not find that the same mac address could
+>>> make affect, so add equal check when set mac address.
+>>>
+>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>> ---
+>>>  net/core/dev.c | 2 ++
+>>>  1 file changed, 2 insertions(+)
+>>>
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 5367bfb..4008a51 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+>>>  		return -EINVAL;
+>>>  	if (!netif_device_present(dev))
+>>>  		return -ENODEV;
+>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
+>>> +		return 0;
+>>>  	err = ops->ndo_set_mac_address(dev, sa);
+>>>  	if (err)
+>>>  		return err;
+>>>
+>>
+>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
+>> bridge ports. If user set mac address, and even if it is the same as
+>> current one, bridge uses the fact that the mac address is set by user.
+>>
 > 
-> I agree, working on a cleanup patch on top now.
+> OK
+> 
+>> Although I'm not aware of a driver that needs calling of
+>> ndo_set_mac_address() for the same mac address, this change looks a bit
+>> risky to me.
+>> (For example, old bridge code needed this call because it managed
+>> BR_SET_MAC_ADDR in bridge flags.)
+>>
+> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
+> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
+> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
 
-OK I just posted two cleanups as patches on top that address this.
-Eric, could you please confirm that you are fine with
-cleanups being patches on top?
-Bisect will be fine since this hack is ugly but technically correct.
+Though I don't know why you think this is safe, looking over some
+drivers, br2684_mac_addr() seems to use a logic similar to old bridge's.
 
-Thanks a lot for pointing out the issues!
-
-> -- 
-> MST
+Thanks,
+Toshiaki Makita
