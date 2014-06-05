@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 3/3] macvlan: don't set the same mac address for non-passthru mode
-Date: Thu, 5 Jun 2014 20:01:03 +0800
-Message-ID: <1401969663-4464-4-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 2/3] net: dev: revert the mac address when notifier failed
+Date: Thu, 5 Jun 2014 20:01:02 +0800
+Message-ID: <1401969663-4464-3-git-send-email-dingtianhong@huawei.com>
 References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,41 +9,67 @@ Cc: <netdev@vger.kernel.org>
 To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
 	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:3502 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbaFEMB2 (ORCPT
+Received: from szxga02-in.huawei.com ([119.145.14.65]:30565 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750944AbaFEMB2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 08:01:28 -0400
 In-Reply-To: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macvlan should have the same mac address only for passthru mode,
-so the underlying device couldn't set a new address if it is in use
-by macvlan for non-passthru mode, otherwise it will break the work
-mechanism.
+When set a new mac address to a netdev, the dev should propagate
+to the upperdev or lowerdev and make sure the new mac address could
+work well with other devs, otherwise the new mac address shouldn't
+be set and revert the old mac address.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/macvlan.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/core/dev.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index c3a54a6..edf1a1c 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1185,8 +1185,12 @@ static int macvlan_device_event(struct notifier_block *unused,
- 		}
- 		break;
- 	case NETDEV_CHANGEADDR:
--		if (!port->passthru)
-+		if (!port->passthru) {
-+			if (macvlan_hash_lookup(port, dev->dev_addr))
-+				return NOTIFY_BAD;
-+
- 			return NOTIFY_DONE;
-+		}
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5367bfb..b0fb3dd 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5562,6 +5562,7 @@ EXPORT_SYMBOL(dev_set_group);
+ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
++	struct sockaddr old_sa;
+ 	int err;
  
- 		vlan = list_first_entry_or_null(&port->vlans,
- 						struct macvlan_dev,
+ 	if (!ops->ndo_set_mac_address)
+@@ -5570,13 +5571,27 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ 		return -EINVAL;
+ 	if (!netif_device_present(dev))
+ 		return -ENODEV;
++
++	old_sa.sa_family = dev->type;
++	ether_addr_copy(old_sa.sa_data, dev->dev_addr);
++
+ 	err = ops->ndo_set_mac_address(dev, sa);
+ 	if (err)
+ 		return err;
+-	dev->addr_assign_type = NET_ADDR_SET;
+-	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+-	add_device_randomness(dev->dev_addr, dev->addr_len);
+-	return 0;
++
++	err = call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	err = notifier_to_errno(err);
++	if (err) {
++		/* setting mac address back and notify everyone again,
++		 * so that they have a chance to revert changes.
++		 */
++		ops->ndo_set_mac_address(dev, &old_sa);
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	} else {
++		dev->addr_assign_type = NET_ADDR_SET;
++		add_device_randomness(dev->dev_addr, dev->addr_len);
++	}
++	return err;
+ }
+ EXPORT_SYMBOL(dev_set_mac_address);
+ 
 -- 
 1.8.0
