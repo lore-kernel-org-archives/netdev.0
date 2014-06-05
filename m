@@ -1,44 +1,43 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Subject: Re: [PATCH net v2] xen-netback: Fix handling of skbs requiring too many slots
-Date: Thu, 5 Jun 2014 12:56:31 +0200
-Message-ID: <6210063250.20140605125631@eikelenboom.it>
-References: <1401908331-13297-1-git-send-email-zoltan.kiss@citrix.com> <20140605100734.GM6043@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org,
-	<ian.campbell@citrix.com>, <paul.durrant@citrix.com>,
-	<netdev@vger.kernel.org>, <david.vrabel@citrix.com>,
-	<davem@davemloft.net>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vserver.eikelenboom.it ([84.200.39.61]:39174 "EHLO
-	smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085AbaFEK4i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 06:56:38 -0400
-In-Reply-To: <20140605100734.GM6043@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next] bridge: Fix incorrect judgment of promisc
+Date: Thu,  5 Jun 2014 19:57:31 +0900
+Message-ID: <1401965851-6449-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
 
-Thursday, June 5, 2014, 12:07:34 PM, you wrote:
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_if.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> On Wed, Jun 04, 2014 at 07:58:51PM +0100, Zoltan Kiss wrote:
->> A recent commit (a02eb4 "xen-netback: worse-case estimate in xenvif_rx_action is
->> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but that triggers
->> the next BUG_ON a few lines down, as the packet consumes more slots than
->> estimated.
->> This patch introduces full_coalesce on the skb callback buffer, which is used in
->> start_new_rx_buffer() to decide whether netback needs coalescing more
->> aggresively. By doing that, no packet should need more than
->> (XEN_NETIF_MAX_TX_SIZE + 1) / PAGE_SIZE data slots (excluding the optional GSO
->> slot, it doesn't carry data, therefore irrelevant in this case), as the provided
->> buffers are fully utilized.
->> 
-
-Hi Zoltan,
-
-JFYI: tested this patch(v2) and it seems to work fine for my testcases, thanks !
-
---
-Sander
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index a08d2b8..6a07a40 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -153,7 +153,7 @@ void br_manage_promisc(struct net_bridge *br)
+ 			 * This lets us disable promiscuous mode and write
+ 			 * this config to hw.
+ 			 */
+-			if (br->auto_cnt <= br_auto_port(p))
++			if (br->auto_cnt <= !!br_auto_port(p))
+ 				br_port_clear_promisc(p);
+ 			else
+ 				br_port_set_promisc(p);
+-- 
+1.8.1.2
