@@ -1,75 +1,28 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next 3/4] net: dev: revert the mac address when notifier failed
-Date: Thu, 5 Jun 2014 14:50:27 +0800
-Message-ID: <1401951028-9800-4-git-send-email-dingtianhong@huawei.com>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6 net-next 1/4] net: flow_dissector: avoid multiple
+ calls in eBPF
+Date: Wed, 04 Jun 2014 23:55:41 -0700 (PDT)
+Message-ID: <20140604.235541.751933005917980567.davem@davemloft.net>
+References: <CAMEtUuxK5hV_eORRLaSHSiwF5X82Ae91vL6W0-6au48v8H6bAA@mail.gmail.com>
+	<CA+ZOOTPdDDeGxZVGXVRZmjkxqkGefgDLrawo_9YXbjwTQ_FLzA@mail.gmail.com>
+	<538EDE1A.8060305@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
-	<vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:25961 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065AbaFEGvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 02:51:25 -0400
-In-Reply-To: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chema@google.com, ast@plumgrid.com, mingo@kernel.org,
+	rostedt@goodmis.org, a.p.zijlstra@chello.nl, acme@infradead.org,
+	jolsa@redhat.com, tglx@linutronix.de, hpa@zytor.com,
+	akpm@linux-foundation.org, keescook@chromium.org,
+	edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <538EDE1A.8060305@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When set a new mac address to a netdev, the dev should propagate
-to the upperdev or lowerdev and make sure the new mac address could
-work well with other devs, otherwise the new mac address shouldn't
-be set and revert the old mac address.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/core/dev.c | 23 +++++++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
+FWIW, I'm not applying this series.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4008a51..fc07b8f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5562,6 +5562,7 @@ EXPORT_SYMBOL(dev_set_group);
- int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct sockaddr old_sa;
- 	int err;
- 
- 	if (!ops->ndo_set_mac_address)
-@@ -5572,13 +5573,27 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- 		return -ENODEV;
- 	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
- 		return 0;
-+
-+	old_sa.sa_family = dev->type;
-+	ether_addr_copy(old_sa.sa_data, dev->dev_addr);
-+
- 	err = ops->ndo_set_mac_address(dev, sa);
- 	if (err)
- 		return err;
--	dev->addr_assign_type = NET_ADDR_SET;
--	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
--	add_device_randomness(dev->dev_addr, dev->addr_len);
--	return 0;
-+
-+	err = call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-+	err = notifier_to_errno(err);
-+	if (err) {
-+		/* setting mac address back and notify everyone again,
-+		 *  so that they have a chance to revert changes.
-+		 */
-+		ops->ndo_set_mac_address(dev, &old_sa);
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-+	} else {
-+		dev->addr_assign_type = NET_ADDR_SET;
-+		add_device_randomness(dev->dev_addr, dev->addr_len);
-+	}
-+	return err;
- }
- EXPORT_SYMBOL(dev_set_mac_address);
- 
--- 
-1.8.0
+There is no real consensus and a lot more discussion and time is
+needed before anything happens here.
