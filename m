@@ -1,64 +1,138 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/13] i40e: remove check for large buffer
-Date: Thu,  5 Jun 2014 03:12:51 -0700
-Message-ID: <1401963181-11110-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/13] i40e/i40evf: remove rx_errors and rx_missed
+Date: Thu,  5 Jun 2014 03:13:00 -0700
+Message-ID: <1401963181-11110-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:19645 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:19675 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751814AbaFEKNF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 5 Jun 2014 06:13:05 -0400
+	id S1751880AbaFEKNI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 5 Jun 2014 06:13:08 -0400
 In-Reply-To: <1401963181-11110-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-We introduced this check in case this structure changed in the future,
-the AQ definition is now mature enough that this check is no longer necessary.
+The rx_errors (GLV_REPC) and rx_missed (GLV_RMPC) were removed
+from the chip design.
 
-Change-ID: Ic66321d0a08557dc9d8cb84029185352cb534330
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
+Change-ID: Ifdeb69c90feac64ec95c36d3d32c75e3a06de3b7
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c      | 9 ++++-----
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c      | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_main.c         | 2 --
+ drivers/net/ethernet/intel/i40e/i40e_type.h         | 2 --
+ drivers/net/ethernet/intel/i40evf/i40e_type.h       | 2 --
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c  | 2 --
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 3 +--
+ 7 files changed, 5 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 2329e2f..a31e3d7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1062,8 +1062,6 @@ i40e_status i40e_aq_add_vsi(struct i40e_hw *hw,
- 	cmd->vsi_flags = cpu_to_le16(vsi_ctx->flags);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index 1aaec40..1bd0adb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -862,12 +862,11 @@ static void i40e_dbg_dump_eth_stats(struct i40e_pf *pf,
+ 		 "    rx_bytes = \t%lld \trx_unicast = \t\t%lld \trx_multicast = \t%lld\n",
+ 		estats->rx_bytes, estats->rx_unicast, estats->rx_multicast);
+ 	dev_info(&pf->pdev->dev,
+-		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld \trx_errors = \t%lld\n",
+-		 estats->rx_broadcast, estats->rx_discards, estats->rx_errors);
++		 "    rx_broadcast = \t%lld \trx_discards = \t\t%lld\n",
++		 estats->rx_broadcast, estats->rx_discards);
+ 	dev_info(&pf->pdev->dev,
+-		 "    rx_missed = \t%lld \trx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
+-		 estats->rx_missed, estats->rx_unknown_protocol,
+-		 estats->tx_bytes);
++		 "    rx_unknown_protocol = \t%lld \ttx_bytes = \t%lld\n",
++		 estats->rx_unknown_protocol, estats->tx_bytes);
+ 	dev_info(&pf->pdev->dev,
+ 		 "    tx_unicast = \t%lld \ttx_multicast = \t\t%lld \ttx_broadcast = \t%lld\n",
+ 		 estats->tx_unicast, estats->tx_multicast, estats->tx_broadcast);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 354181d..e23d514 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -78,7 +78,6 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
+ 	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
+-	I40E_PF_STAT("rx_errors", stats.eth.rx_errors),
+ 	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
+ 	I40E_PF_STAT("rx_dropped", stats.eth.rx_discards),
+ 	I40E_PF_STAT("tx_dropped", stats.eth.tx_discards),
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e340e3b..76bd168 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -803,8 +803,6 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
  
- 	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (sizeof(vsi_ctx->info) > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
- 
- 	status = i40e_asq_send_command(hw, &desc, &vsi_ctx->info,
- 				    sizeof(vsi_ctx->info), cmd_details);
-@@ -1204,8 +1202,6 @@ i40e_status i40e_aq_get_vsi_params(struct i40e_hw *hw,
- 	cmd->uplink_seid = cpu_to_le16(vsi_ctx->seid);
- 
- 	desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
--	if (sizeof(vsi_ctx->info) > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
- 
- 	status = i40e_asq_send_command(hw, &desc, &vsi_ctx->info,
- 				    sizeof(vsi_ctx->info), NULL);
-@@ -1244,8 +1240,6 @@ i40e_status i40e_aq_update_vsi_params(struct i40e_hw *hw,
- 	cmd->uplink_seid = cpu_to_le16(vsi_ctx->seid);
- 
- 	desc.flags |= cpu_to_le16((u16)(I40E_AQ_FLAG_BUF | I40E_AQ_FLAG_RD));
--	if (sizeof(vsi_ctx->info) > I40E_AQ_LARGE_BUF)
--		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
- 
- 	status = i40e_asq_send_command(hw, &desc, &vsi_ctx->info,
- 				    sizeof(vsi_ctx->info), cmd_details);
+ 	/* update netdev stats from eth stats */
+ 	i40e_update_eth_stats(vsi);
+-	ons->rx_errors = oes->rx_errors;
+-	ns->rx_errors = es->rx_errors;
+ 	ons->tx_errors = oes->tx_errors;
+ 	ns->tx_errors = es->tx_errors;
+ 	ons->multicast = oes->rx_multicast;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 02e8f9a4..5a930b3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -972,8 +972,6 @@ struct i40e_eth_stats {
+ 	u64 rx_multicast;		/* mprc */
+ 	u64 rx_broadcast;		/* bprc */
+ 	u64 rx_discards;		/* rdpc */
+-	u64 rx_errors;			/* repc */
+-	u64 rx_missed;			/* rmpc */
+ 	u64 rx_unknown_protocol;	/* rupp */
+ 	u64 tx_bytes;			/* gotc */
+ 	u64 tx_unicast;			/* uptc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index eb2e9f3..4fc9835 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -972,8 +972,6 @@ struct i40e_eth_stats {
+ 	u64 rx_multicast;		/* mprc */
+ 	u64 rx_broadcast;		/* bprc */
+ 	u64 rx_discards;		/* rdpc */
+-	u64 rx_errors;			/* repc */
+-	u64 rx_missed;			/* rmpc */
+ 	u64 rx_unknown_protocol;	/* rupp */
+ 	u64 tx_bytes;			/* gotc */
+ 	u64 tx_unicast;			/* uptc */
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 8d41a88..60407a9 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -47,8 +47,6 @@ static const struct i40evf_stats i40evf_gstrings_stats[] = {
+ 	I40EVF_STAT("rx_multicast", current_stats.rx_multicast),
+ 	I40EVF_STAT("rx_broadcast", current_stats.rx_broadcast),
+ 	I40EVF_STAT("rx_discards", current_stats.rx_discards),
+-	I40EVF_STAT("rx_errors", current_stats.rx_errors),
+-	I40EVF_STAT("rx_missed", current_stats.rx_missed),
+ 	I40EVF_STAT("rx_unknown_protocol", current_stats.rx_unknown_protocol),
+ 	I40EVF_STAT("tx_bytes", current_stats.tx_bytes),
+ 	I40EVF_STAT("tx_unicast", current_stats.tx_unicast),
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 7f80bb4..b3cd3cd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -748,9 +748,8 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 						 stats->tx_broadcast;
+ 		adapter->net_stats.rx_bytes = stats->rx_bytes;
+ 		adapter->net_stats.tx_bytes = stats->tx_bytes;
+-		adapter->net_stats.rx_errors = stats->rx_errors;
+ 		adapter->net_stats.tx_errors = stats->tx_errors;
+-		adapter->net_stats.rx_dropped = stats->rx_missed;
++		adapter->net_stats.rx_dropped = stats->rx_discards;
+ 		adapter->net_stats.tx_dropped = stats->tx_discards;
+ 		adapter->current_stats = *stats;
+ 		}
 -- 
 1.9.3
