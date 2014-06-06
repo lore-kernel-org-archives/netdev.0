@@ -1,77 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net] net: filter: fix typo in sparc BPF JIT
-Date: Fri, 6 Jun 2014 08:36:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172584FF@AcuExch.aculab.com>
-References: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
+From: Michal Privoznik <mprivozn@redhat.com>
+Subject: [PATCH] net-sysfs: Report link speed only when possible
+Date: Fri,  6 Jun 2014 10:40:30 +0200
+Message-ID: <771f792d4d4391c656305a522557c53c4e84a666.1402043894.git.mprivozn@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Alexei Starovoitov' <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37116 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751390AbaFFIhE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 04:37:04 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10194-08 for <netdev@vger.kernel.org>;
- Fri,  6 Jun 2014 09:36:54 +0100 (BST)
-In-Reply-To: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: gregkh@linuxfoundation.org, jiri@resnulli.us,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov
-> fix typo in sparc codegen for SKF_AD_IFINDEX and SKF_AD_HATYPE
-> classic BPF extensions
-...
-> --- a/arch/sparc/net/bpf_jit_comp.c
-> +++ b/arch/sparc/net/bpf_jit_comp.c
-> @@ -83,9 +83,9 @@ static void bpf_flush_icache(void *start_, void *end_)
->  #define BNE		(F2(0, 2) | CONDNE)
-> 
->  #ifdef CONFIG_SPARC64
-> -#define BNE_PTR		(F2(0, 1) | CONDNE | (2 << 20))
-> +#define BE_PTR		(F2(0, 1) | CONDE | (2 << 20))
->  #else
-> -#define BNE_PTR		BNE
-> +#define BE_PTR		BNE
->  #endif
+The link speed is available at /sys/class/net/$nic/speed.
+However, in some cases, depending on the driver, if the link is
+not plugged, -1 is reported (this is the case of e1000e for
+instance). To make things worse, the value is printed out as an
+unsigned integer, so you'll get this shady number which you can't
+evaluate correctly. This is actually a regression in 3.X kernels
+as the commit that broke things is 8ae6daca. With this change,
+you'll get -EINVAL whenever a -1 is to be printed out.
 
-That doesn't look right.
-AFAICT you've had to invert the branch in the code (below) so need
-the alternate define - I presume this is the only place they are used.
-But the second is only partially inverted.
+Before the change:
+  # cat /sys/class/net/eth0/speed
+  4294967295
 
-I presume you only tested sparc64?
+After the change:
+  # cat /sys/class/net/eth0/speed
+  cat: /sys/class/net/eth0/speed: Invalid argument
 
-	David
+Signed-off-by: Michal Privoznik <mprivozn@redhat.com>
+---
+ net/core/net-sysfs.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1cac29e..ce4b298 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -172,8 +172,13 @@ static ssize_t speed_show(struct device *dev,
  
->  #define SETHI(K, REG)	\
-> @@ -600,7 +600,7 @@ void bpf_jit_compile(struct sk_filter *fp)
->  			case BPF_S_ANC_IFINDEX:
->  				emit_skb_loadptr(dev, r_A);
->  				emit_cmpi(r_A, 0);
-> -				emit_branch(BNE_PTR, cleanup_addr + 4);
-> +				emit_branch(BE_PTR, cleanup_addr + 4);
->  				emit_nop();
->  				emit_load32(r_A, struct net_device, ifindex, r_A);
->  				break;
-> @@ -613,7 +613,7 @@ void bpf_jit_compile(struct sk_filter *fp)
->  			case BPF_S_ANC_HATYPE:
->  				emit_skb_loadptr(dev, r_A);
->  				emit_cmpi(r_A, 0);
-> -				emit_branch(BNE_PTR, cleanup_addr + 4);
-> +				emit_branch(BE_PTR, cleanup_addr + 4);
->  				emit_nop();
->  				emit_load16(r_A, struct net_device, type, r_A);
->  				break;
-> --
-> 1.7.9.5
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	if (netif_running(netdev)) {
+ 		struct ethtool_cmd cmd;
+-		if (!__ethtool_get_settings(netdev, &cmd))
+-			ret = sprintf(buf, fmt_udec, ethtool_cmd_speed(&cmd));
++		if (!__ethtool_get_settings(netdev, &cmd)) {
++			__u32 speed = ethtool_cmd_speed(&cmd);
++
++			if (speed != (__u32) -1)
++				ret = sprintf(buf, fmt_udec,
++					      ethtool_cmd_speed(&cmd));
++		}
+ 	}
+ 	rtnl_unlock();
+ 	return ret;
+-- 
+2.0.0
