@@ -1,417 +1,153 @@
-From: Brian Candler <b.candler@pobox.com>
-Subject: tap interface being rate-limited to 1 packet per 12ms
-Date: Fri, 06 Jun 2014 13:41:39 +0100
-Message-ID: <5391B703.5060608@pobox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Potential race in ip4_datagram_release_cb
+Date: Fri, 06 Jun 2014 05:56:15 -0700
+Message-ID: <1402059375.3645.284.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Alexey Preobrazhensky <preobr@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.pobox.com ([208.72.237.35]:59860 "EHLO smtp.pobox.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751687AbaFFMlp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 08:41:45 -0400
-Received: from smtp.pobox.com (unknown [127.0.0.1])
-	by pb-smtp0.pobox.com (Postfix) with ESMTP id 294CF18A8C
-	for <netdev@vger.kernel.org>; Fri,  6 Jun 2014 08:41:44 -0400 (EDT)
-Received: from pb-smtp0.int.icgroup.com (unknown [127.0.0.1])
-	by pb-smtp0.pobox.com (Postfix) with ESMTP id 20B9618A8B
-	for <netdev@vger.kernel.org>; Fri,  6 Jun 2014 08:41:44 -0400 (EDT)
-Received: from [10.69.0.150] (unknown [84.92.42.166])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by pb-smtp0.pobox.com (Postfix) with ESMTPSA id 168BE18A84
-	for <netdev@vger.kernel.org>; Fri,  6 Jun 2014 08:41:40 -0400 (EDT)
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:34403 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921AbaFFM4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 08:56:17 -0400
+Received: by mail-pb0-f52.google.com with SMTP id rr13so2443673pbb.25
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 05:56:17 -0700 (PDT)
+In-Reply-To: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[My apologies if this is the wrong forum for this post; if there is a 
-more appropriate place please point me at it]
-
-I have a performance problem which I've narrowed down to some bizarre 
-behaviour of tap interfaces, and I've made an easily reproducible test case.
-
-It seems that no matter how fast you queue packets for a tap interface, 
-they are only being forwarded at one packet every 11 or 12 ms, limiting 
-you to around 80-90 packets per second. This is as shown by tcpdump on 
-the tap interface - not even on the userland process listening on the tap.
-
-To reproduce, open three root windows.
-
-(1)
-
-ip tuntap add dev tap99 mode tap
-ifconfig tap99 1.1.1.2/30 up
-arp -i tap99 -s 1.1.1.1 11:11:11:11:11:11
-gcc -Wall -o use_tap use_tap.c     # see source code below
-./use_tap
-
-(use_tap is just to open the device; without this the kernel thinks the 
-interface is "down" and won't send packets to it)
-
-(2)
-
-tcpdump -i tap99 -nn
-
-(3)
-
-ping -fq -c20 1.1.1.1
-
-You will see on the tcpdump screen something like this:
-
-# tcpdump -i tap99 -nn
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on tap99, link-type EN10MB (Ethernet), capture size 65535 bytes
-12:17:36.157450 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 1, 
-length 64
-12:17:36.169374 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 2, 
-length 64
-12:17:36.181378 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 3, 
-length 64
-12:17:36.193373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 4, 
-length 64
-12:17:36.205373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 5, 
-length 64
-12:17:36.217381 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 6, 
-length 64
-12:17:36.229373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 7, 
-length 64
-12:17:36.241372 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 8, 
-length 64
-12:17:36.253373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 9, 
-length 64
-12:17:36.265373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-10, length 64
-12:17:36.277373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-11, length 64
-12:17:36.289372 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-12, length 64
-12:17:36.301373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-13, length 64
-12:17:36.313373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-14, length 64
-12:17:36.325372 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-15, length 64
-12:17:36.337372 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-16, length 64
-12:17:36.349373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-17, length 64
-12:17:36.361373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-18, length 64
-12:17:36.373374 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-19, length 64
-12:17:36.385373 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 6417, seq 
-20, length 64
-
-Look at the timetamps of the packets. They are 0.012 seconds apart exactly.
-
-The above captures were made on an Intel DN2820 NUC running Debian 
-Wheezy with kernel 3.2.0-4-amd64
-
-I can find no evidence of configured rate limiting:
-
-# tc qdisc show dev tap99
-qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 
-1 1 1 1 1
-
-Now: I'm only using ping -fq as a simple way to generate packets. You 
-can easily demonstrate to yourself that this is not the source of the 
-delay (e.g. by sending the same ping -fq command to a random device on 
-your network, and looking at the timestamps of the outgoing pings; 
-expect to see 10 or more pings within the same millisecond).
-
-The real-world problem I am trying to fix is TCP throughput with 
-dynamips. Here's the setup:
-
-<KVM vnet0> ---- <br1> --- <tap1 DYNAMIPS1 tap11> --- <br-lan> --- host
-<KVM vnet1> ---'
-
-Here the platform is a Mac Mini i7 running Ubuntu 12.04.4 with kernel 
-3.8.0-41, and dynamips 0.2.12.
-
-When using wget on a KVM instance to fetch a large file form the host, 
-the total TCP throughput I was observing through the dynamips router was 
-around 130KB/s. Furthermore, if I ran a wget on the second KVM at the 
-same time, then the total bandwidth was divided between them. But if I 
-started another download from another KVM via another dynamips instance 
-(br2/tap2/tap12) then it got its own independent 130KB/s without 
-affecting the ones behind br1. CPU usage of dynamips was moderate (about 
-half a core of this four-core box).
-
-Transfers between two KVM instances both locally attached to br1 are 
-very fast.
-
-By comparing tcpdump on br-lan with tcpdump on tap11 (both taken at the 
-same time on the same host), I could see that the host was sending a 
-window-full of TCP segments in quick succession, but they were being 
-drip-fed out of tap11.
-
-Here's what I saw on br-lan:
-
-# tcpdump -r br-lan.pcap -nn | head -20
-reading from file br-lan.pcap, link-type EN10MB (Ethernet)
-10:24:01.446755 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [S], seq 
-1242930289, win 14600, options [mss 1460,sackOK,TS val 1325806 ecr 
-0,nop,wscale 3], length 0
-10:24:01.446805 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [S.], seq 
-976209917, ack 1242930290, win 14480, options [mss 1460,sackOK,TS val 
-2606216 ecr 1325806,nop,wscale 7], length 0
-10:24:01.466969 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 1, 
-win 1825, options [nop,nop,TS val 1325819 ecr 2606216], length 0
-10:24:01.497357 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [P.], seq 
-1:150, ack 1, win 1825, options [nop,nop,TS val 1325819 ecr 2606216], 
-length 149
-10:24:01.497395 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], ack 150, 
-win 122, options [nop,nop,TS val 2606229 ecr 1325819], length 0
-10:24:01.497705 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-1:1449, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 1325819], 
-length 1448
-10:24:01.497720 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-1449:2897, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.497726 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-2897:4345, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.497732 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-4345:5793, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.497737 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-5793:7241, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.497743 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-7241:8689, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.527775 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-1449, win 2187, options [nop,nop,TS val 1325834 ecr 2606229], length 0
-10:24:01.527827 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-8689:10137, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-10:24:01.527839 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-10137:11585, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-10:24:01.527847 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [P.], seq 
-11585:12596, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1011
-10:24:01.527856 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-12596:14044, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-10:24:01.527862 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-14044:15492, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-10:24:01.629571 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-2897, win 2549, options [nop,nop,TS val 1325837 ecr 2606229], length 0
-10:24:01.629593 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [P.], seq 
-15492:16940, ack 150, win 122, options [nop,nop,TS val 2606262 ecr 
-1325837], length 1448
-10:24:01.639742 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-4345, win 2911, options [nop,nop,TS val 1325839 ecr 2606229], length 0
-
-(notice burst of packets with timestamp 10:24:01.497xxx). 10.10.1.1 is 
-the KVM VM, and 10.10.0.241 is the host's own address on br-lan.
-
-And on tap1:
-
-root@kit1:~# tcpdump -r tap1.pcap -nn | head -20
-reading from file tap1.pcap, link-type EN10MB (Ethernet)
-10:24:01.406738 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [S], seq 
-1242930289, win 14600, options [mss 1460,sackOK,TS val 1325806 ecr 
-0,nop,wscale 3], length 0
-10:24:01.456885 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [S.], seq 
-976209917, ack 1242930290, win 14480, options [mss 1460,sackOK,TS val 
-2606216 ecr 1325806,nop,wscale 7], length 0
-10:24:01.457031 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 1, 
-win 1825, options [nop,nop,TS val 1325819 ecr 2606216], length 0
-10:24:01.457155 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [P.], seq 
-1:150, ack 1, win 1825, options [nop,nop,TS val 1325819 ecr 2606216], 
-length 149
-10:24:01.507498 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], ack 150, 
-win 122, options [nop,nop,TS val 2606229 ecr 1325819], length 0
-10:24:01.517653 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-1:1449, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 1325819], 
-length 1448
-10:24:01.517794 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-1449, win 2187, options [nop,nop,TS val 1325834 ecr 2606229], length 0
-10:24:01.527756 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-1449:2897, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.527866 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-2897, win 2549, options [nop,nop,TS val 1325837 ecr 2606229], length 0
-10:24:01.537982 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-2897:4345, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.538089 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-4345, win 2911, options [nop,nop,TS val 1325839 ecr 2606229], length 0
-10:24:01.548166 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-4345:5793, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.548363 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-5793, win 3273, options [nop,nop,TS val 1325842 ecr 2606229], length 0
-10:24:01.558361 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-5793:7241, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.558455 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-7241, win 3635, options [nop,nop,TS val 1325844 ecr 2606229], length 0
-10:24:01.568493 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-7241:8689, ack 150, win 122, options [nop,nop,TS val 2606229 ecr 
-1325819], length 1448
-10:24:01.568654 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-8689, win 3997, options [nop,nop,TS val 1325847 ecr 2606229], length 0
-10:24:01.588911 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-8689:10137, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-10:24:01.589087 IP 10.10.1.1.38590 > 10.10.0.241.80: Flags [.], ack 
-10137, win 4359, options [nop,nop,TS val 1325852 ecr 2606236], length 0
-10:24:01.599135 IP 10.10.0.241.80 > 10.10.1.1.38590: Flags [.], seq 
-10137:11585, ack 150, win 122, options [nop,nop,TS val 2606236 ecr 
-1325834], length 1448
-
-These appear to be at intervals of about 10.2 ms, or 98 packets per 
-second. tcpdump on the KVM VM also saw the packets arrive at these 
-intervals.
-
-So with a segment size of 1448 bytes, and limited to 98 packets per 
-second, this gives a theoretical throughput of 142KB/sec, close to what 
-I measured.
-
-I have one more machine I've tried this on: an older AMD Athlon X2 but 
-running Ubuntu 14.04 with kernel 3.13.0-27-generic. Using the 
-reproducing test case given at the start of this mail, I see:
-
-# tcpdump -i tap99 -nn
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on tap99, link-type EN10MB (Ethernet), capture size 65535 bytes
-13:28:00.381053 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 1, 
-length 64
-13:28:00.402796 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 2, 
-length 64
-13:28:00.414789 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 3, 
-length 64
-13:28:00.426785 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 4, 
-length 64
-13:28:00.438777 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 5, 
-length 64
-13:28:00.450781 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 6, 
-length 64
-13:28:00.462781 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 7, 
-length 64
-13:28:00.474783 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 8, 
-length 64
-13:28:00.486768 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 9, 
-length 64
-13:28:00.498768 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-10, length 64
-13:28:00.510766 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-11, length 64
-13:28:00.522767 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-12, length 64
-13:28:00.534767 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-13, length 64
-13:28:00.546766 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-14, length 64
-13:28:00.558766 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-15, length 64
-13:28:00.570766 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-16, length 64
-13:28:00.582767 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-17, length 64
-13:28:00.594767 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-18, length 64
-13:28:00.606768 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-19, length 64
-13:28:00.618766 IP 1.1.1.2 > 1.1.1.1: ICMP echo request, id 5141, seq 
-20, length 64
-
-These all appear to be at intervals of 12ms too.
-
-I'm stumped as to what could be the cause of this - does anyone have any 
-suggestions?
-
-Thanks,
-
-Brian.
-
------ 8< -----
-/* http://backreference.org/2010/03/26/tuntap-interface-tutorial/ */
-
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <string.h>
-#include <unistd.h>
-
-int tun_alloc(char *dev, int flags) {
-
-   struct ifreq ifr;
-   int fd, err;
-   char *clonedev = "/dev/net/tun";
-
-   /* Arguments taken by the function:
-    *
-    * char *dev: the name of an interface (or '\0'). MUST have enough
-    *   space to hold the interface name if '\0' is passed
-    * int flags: interface flags (eg, IFF_TUN etc.)
-    */
-
-    /* open the clone device */
-    if( (fd = open(clonedev, O_RDWR)) < 0 ) {
-      return fd;
-    }
-
-    /* preparation of the struct ifr, of type "struct ifreq" */
-    memset(&ifr, 0, sizeof(ifr));
-
-    ifr.ifr_flags = flags;   /* IFF_TUN or IFF_TAP, plus maybe IFF_NO_PI */
-
-    if (*dev) {
-      /* if a device name was specified, put it in the structure; otherwise,
-       * the kernel will try to allocate the "next" device of the
-       * specified type */
-      strncpy(ifr.ifr_name, dev, IFNAMSIZ);
-    }
-
-    /* try to create the device */
-    if( (err = ioctl(fd, TUNSETIFF, (void *) &ifr)) < 0 ) {
-      close(fd);
-      return err;
-    }
-
-   /* if the operation was successful, write back the name of the
-    * interface to the variable "dev", so the caller can know
-    * it. Note that the caller MUST reserve space in *dev (see calling
-    * code below) */
-   strcpy(dev, ifr.ifr_name);
-
-   /* this is the special file descriptor that the caller will use to talk
-    * with the virtual interface */
-   return fd;
-}
-
-#include <stdio.h>
-#include <unistd.h>
-
-int main(void) {
-   char buf[] = "tap99";
-   int fd = tun_alloc(buf, IFF_TAP);
-   if (fd < 0) { perror("tun_alloc"); return 1; }
-   fprintf(stderr,"%s open\n", buf);
-   while(1) { sleep(3600); }
-   return 0;
-}
+On Fri, 2014-06-06 at 15:29 +0400, Alexey Preobrazhensky wrote:
+> Hello,
+>=20
+> I=E2=80=99m working on AddressSanitizer[1] -- a tool that detects
+> use-after-free and out-of-bounds bugs in kernel.
+>=20
+> We=E2=80=99ve encountered a heap-use-after-free in ip4_datagram_relea=
+se_cb()
+> in linux kernel 3.15-rc5 (revision
+> 60b5f90d0fac7585f1a43ccdad06787b97eda0ab).
+>=20
+> It seems to be a race between dst_release() and
+> ip4_datagram_release_cb() on an object from ip_dst_cache slab, all
+> during the ip4_datagram_connect() call.
+>=20
+> This heap-use-after-free was triggered under trinity syscall fuzzer,
+> so there is no reproducer.
+>=20
+> It would be great if someone familiar with the code took time to look
+> into this report.
+>=20
+> Thanks,
+>  Alexey
+>=20
+> [1] https://code.google.com/p/address-sanitizer/wiki/AddressSanitizer=
+=46orKernel
+>=20
+>=20
+> AddressSanitizer: heap-use-after-free in ipv4_dst_check
+> Read of size 2 by thread T15453:
+>  [<ffffffff817daa3a>] ipv4_dst_check+0x1a/0x90 ./net/ipv4/route.c:111=
+6
+>  [<ffffffff8175b789>] __sk_dst_check+0x89/0xe0 ./net/core/sock.c:531
+>  [<ffffffff81830a36>] ip4_datagram_release_cb+0x46/0x390 ??:0
+>  [<ffffffff8175eaea>] release_sock+0x17a/0x230 ./net/core/sock.c:2413
+>  [<ffffffff81830882>] ip4_datagram_connect+0x462/0x5d0 ??:0
+>  [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet=
+=2Ec:534
+>  [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
+>  [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
+>  [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
+> ./arch/x86/kernel/entry_64.S:629
+>=20
+> Freed by thread T15455:
+>  [<ffffffff8178d9b8>] dst_destroy+0xa8/0x160 ./net/core/dst.c:251
+>  [<ffffffff8178de25>] dst_release+0x45/0x80 ./net/core/dst.c:280
+>  [<ffffffff818304c1>] ip4_datagram_connect+0xa1/0x5d0 ??:0
+>  [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet=
+=2Ec:534
+>  [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
+>  [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
+>  [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
+> ./arch/x86/kernel/entry_64.S:629
+>=20
+> Allocated by thread T15453:
+>  [<ffffffff8178d291>] dst_alloc+0x81/0x2b0 ./net/core/dst.c:171
+>  [<ffffffff817db3b7>] rt_dst_alloc+0x47/0x50 ./net/ipv4/route.c:1406
+>  [<     inlined    >] __ip_route_output_key+0x3e8/0xf70
+> __mkroute_output ./net/ipv4/route.c:1939
+>  [<ffffffff817dde08>] __ip_route_output_key+0x3e8/0xf70 ./net/ipv4/ro=
+ute.c:2161
+>  [<ffffffff817deb34>] ip_route_output_flow+0x14/0x30 ./net/ipv4/route=
+=2Ec:2249
+>  [<ffffffff81830737>] ip4_datagram_connect+0x317/0x5d0 ??:0
+>  [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet=
+=2Ec:534
+>  [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
+>  [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
+>  [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
+> ./arch/x86/kernel/entry_64.S:629
+>=20
+> The buggy address ffff880024ff2266 is located 102 bytes inside
+>  of 192-byte region [ffff880024ff2200, ffff880024ff22c0)
+>=20
+> Memory state around the buggy address:
+>  ffff880024ff1d00: ffffffff fffrrrrr rrrrrrrr rrrrrrrr
+>  ffff880024ff1e00: ffffffff ffffffff ffffffff fffrrrrr
+>  ffff880024ff1f00: rrrrrrrr rrrrrrrr rrrrrrrr rrrrrrrr
+>  ffff880024ff2000: rrrrrrrr rrrrrrrr rrrrrrrr rrrrrrrr
+>  ffff880024ff2100: rrrrrrrr rrrrrrrr rrrrrrrr rrrrrrrr
+> >ffff880024ff2200: ffffffff ffffffff ffffffff rrrrrrrr
+>                                 ^
+>  ffff880024ff2300: rrrrrrrr rrrrrrrr ........ ........
+>  ffff880024ff2400: ........ rrrrrrrr rrrrrrrr rrrrrrrr
+>  ffff880024ff2500: ffffffff ffffffff ffffffff rrrrrrrr
+>  ffff880024ff2600: rrrrrrrr rrrrrrrr ffffffff ffffffff
+>  ffff880024ff2700: ffffffff rrrrrrrr rrrrrrrr rrrrrrrr
+> Legend:
+>  f - 8 freed bytes
+>  r - 8 redzone bytes
+>  . - 8 allocated bytes
+>  x=3D1..7 - x allocated bytes + (8-x) redzone bytes
+> --
 
 
-/*
-NOTE: this program doesn't even read any packets. But it makes no 
-difference to
-behaviour if you change the while loop to:
+Yeah, we had many reports in the past that something was wrong ...
 
-   while(1) {
-     char b[4096];
-     long s = read(fd, b, sizeof(b));
-     fprintf(stderr,"%ld\n",s);
-     if (s < 0) return 1;
-   }
+Your nice report made me take a look, finally :(
 
-*/
+Problem comes from
+
+net/ipv4/udp.c:1008:                    sk_dst_set(sk, dst_clone(&rt->d=
+st));
+
+Could you try following patch ?
+
+Thanks !
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4468e1adc094..d5e68ee63b8f 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1004,8 +1004,11 @@ int udp_sendmsg(struct kiocb *iocb, struct sock =
+*sk, struct msghdr *msg,
+ 		if ((rt->rt_flags & RTCF_BROADCAST) &&
+ 		    !sock_flag(sk, SOCK_BROADCAST))
+ 			goto out;
+-		if (connected)
+-			sk_dst_set(sk, dst_clone(&rt->dst));
++		if (connected) {
++			spin_lock_bh(&sk->sk_lock.slock);
++			__sk_dst_set(sk, dst_clone(&rt->dst));
++			spin_unlock_bh(&sk->sk_lock.slock);
++		}
+ 	}
+=20
+ 	if (msg->msg_flags&MSG_CONFIRM)
