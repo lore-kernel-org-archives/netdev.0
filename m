@@ -1,215 +1,181 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 3/4] iw_cxgb4: don't truncate the recv window size
-Date: Fri,  6 Jun 2014 21:40:44 +0530
-Message-ID: <1402071045-14854-4-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 4/4] cxgb4: Change default Interrupt Holdoff Packet Count Threshold
+Date: Fri,  6 Jun 2014 21:40:45 +0530
+Message-ID: <1402071045-14854-5-git-send-email-hariprasad@chelsio.com>
 References: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	swise@opengridcomputing.com, santosh@chelsio.com,
-	leedom@chelsio.com, dm@chelsio.com, kumaras@chelsio.com,
-	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:40691
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752234AbaFFQYf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:24:35 -0400
-In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fixed a bug that shows up with recv window sizes that exceed the size of
-the RCV_BUFSIZ field in opt0 (>= 1024K).  If the recv window exceeds
-this, then we specify the max possible in opt0, add add the rest in via
-a RX_DATA_ACK credits.
+Based on original work by Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cm.c            |   54 +++++++++++++++++++++++++--
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h      |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |    1 +
- 3 files changed, 53 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   69 +++++++++++++----------
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |    1 -
+ 2 files changed, 40 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index d2e9f72..965eaaf 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -472,7 +472,7 @@ static void send_flowc(struct c4iw_ep *ep, struct sk_buff *skb)
- 	flowc->mnemval[5].mnemonic = FW_FLOWC_MNEM_RCVNXT;
- 	flowc->mnemval[5].val = cpu_to_be32(ep->rcv_seq);
- 	flowc->mnemval[6].mnemonic = FW_FLOWC_MNEM_SNDBUF;
--	flowc->mnemval[6].val = cpu_to_be32(snd_win);
-+	flowc->mnemval[6].val = cpu_to_be32(ep->snd_win);
- 	flowc->mnemval[7].mnemonic = FW_FLOWC_MNEM_MSS;
- 	flowc->mnemval[7].val = cpu_to_be32(ep->emss);
- 	/* Pad WR to 16 byte boundary */
-@@ -565,6 +565,7 @@ static int send_connect(struct c4iw_ep *ep)
- 	struct sockaddr_in *ra = (struct sockaddr_in *)&ep->com.remote_addr;
- 	struct sockaddr_in6 *la6 = (struct sockaddr_in6 *)&ep->com.local_addr;
- 	struct sockaddr_in6 *ra6 = (struct sockaddr_in6 *)&ep->com.remote_addr;
-+	int win;
- 
- 	wrlen = (ep->com.remote_addr.ss_family == AF_INET) ?
- 			roundup(sizev4, 16) :
-@@ -583,6 +584,15 @@ static int send_connect(struct c4iw_ep *ep)
- 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
- 		 enable_tcp_timestamps);
- 	wscale = compute_wscale(rcv_win);
-+
-+	/*
-+	 * Specify the largest window that will fit in opt0. The
-+	 * remainder will be specified in the rx_data_ack.
-+	 */
-+	win = ep->rcv_win >> 10;
-+	if (win > RCV_BUFSIZ_MASK)
-+		win = RCV_BUFSIZ_MASK;
-+
- 	opt0 = (nocong ? NO_CONG(1) : 0) |
- 	       KEEP_ALIVE(1) |
- 	       DELACK(1) |
-@@ -593,7 +603,7 @@ static int send_connect(struct c4iw_ep *ep)
- 	       SMAC_SEL(ep->smac_idx) |
- 	       DSCP(ep->tos) |
- 	       ULP_MODE(ULP_MODE_TCPDDP) |
--	       RCV_BUFSIZ(rcv_win>>10);
-+	       RCV_BUFSIZ(win);
- 	opt2 = RX_CHANNEL(0) |
- 	       CCTRL_ECN(enable_ecn) |
- 	       RSS_QUEUE_VALID | RSS_QUEUE(ep->rss_qid);
-@@ -1174,6 +1184,14 @@ static int update_rx_credits(struct c4iw_ep *ep, u32 credits)
- 		return 0;
- 	}
- 
-+	/*
-+	 * If we couldn't specify the entire rcv window at connection setup
-+	 * due to the limit in the number of bits in the RCV_BUFSIZ field,
-+	 * then add the overage in to the credits returned.
-+	 */
-+	if (ep->rcv_win > RCV_BUFSIZ_MASK * 1024)
-+		credits += ep->rcv_win - RCV_BUFSIZ_MASK * 1024;
-+
- 	req = (struct cpl_rx_data_ack *) skb_put(skb, wrlen);
- 	memset(req, 0, wrlen);
- 	INIT_TP_WR(req, ep->hwtid);
-@@ -1647,6 +1665,7 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 	unsigned int mtu_idx;
- 	int wscale;
- 	struct sockaddr_in *sin;
-+	int win;
- 
- 	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
- 	req = (struct fw_ofld_connection_wr *)__skb_put(skb, sizeof(*req));
-@@ -1672,6 +1691,15 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
- 		 enable_tcp_timestamps);
- 	wscale = compute_wscale(rcv_win);
-+
-+	/*
-+	 * Specify the largest window that will fit in opt0. The
-+	 * remainder will be specified in the rx_data_ack.
-+	 */
-+	win = ep->rcv_win >> 10;
-+	if (win > RCV_BUFSIZ_MASK)
-+		win = RCV_BUFSIZ_MASK;
-+
- 	req->tcb.opt0 = (__force __be64) (TCAM_BYPASS(1) |
- 		(nocong ? NO_CONG(1) : 0) |
- 		KEEP_ALIVE(1) |
-@@ -1683,7 +1711,7 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 		SMAC_SEL(ep->smac_idx) |
- 		DSCP(ep->tos) |
- 		ULP_MODE(ULP_MODE_TCPDDP) |
--		RCV_BUFSIZ(rcv_win >> 10));
-+		RCV_BUFSIZ(win));
- 	req->tcb.opt2 = (__force __be32) (PACE(1) |
- 		TX_QUEUE(ep->com.dev->rdev.lldi.tx_modq[ep->tx_chan]) |
- 		RX_CHANNEL(0) |
-@@ -1720,6 +1748,13 @@ static int is_neg_adv(unsigned int status)
- 	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 5fa5f2a..2f8d6b9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -2503,8 +2503,7 @@ static unsigned int qtimer_val(const struct adapter *adap,
  }
  
-+static void set_tcp_window(struct c4iw_ep *ep, struct port_info *pi)
-+{
-+	ep->snd_win = snd_win;
-+	ep->rcv_win = rcv_win;
-+	PDBG("%s snd_win %d rcv_win %d\n", __func__, ep->snd_win, ep->rcv_win);
+ /**
+- *	set_rxq_intr_params - set a queue's interrupt holdoff parameters
+- *	@adap: the adapter
++ *	set_rspq_intr_params - set a queue's interrupt holdoff parameters
+  *	@q: the Rx queue
+  *	@us: the hold-off time in us, or 0 to disable timer
+  *	@cnt: the hold-off packet count, or 0 to disable counter
+@@ -2512,9 +2511,11 @@ static unsigned int qtimer_val(const struct adapter *adap,
+  *	Sets an Rx queue's interrupt hold-off time and packet count.  At least
+  *	one of the two needs to be enabled for the queue to generate interrupts.
+  */
+-static int set_rxq_intr_params(struct adapter *adap, struct sge_rspq *q,
+-			       unsigned int us, unsigned int cnt)
++static int set_rspq_intr_params(struct sge_rspq *q,
++				unsigned int us, unsigned int cnt)
+ {
++	struct adapter *adap = q->adap;
++
+ 	if ((us | cnt) == 0)
+ 		cnt = 1;
+ 
+@@ -2541,24 +2542,34 @@ static int set_rxq_intr_params(struct adapter *adap, struct sge_rspq *q,
+ 	return 0;
+ }
+ 
+-static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
++/**
++ * set_rx_intr_params - set a net devices's RX interrupt holdoff paramete!
++ * @dev: the network device
++ * @us: the hold-off time in us, or 0 to disable timer
++ * @cnt: the hold-off packet count, or 0 to disable counter
++ *
++ * Set the RX interrupt hold-off parameters for a network device.
++ */
++static int set_rx_intr_params(struct net_device *dev,
++			      unsigned int us, unsigned int cnt)
+ {
+-	const struct port_info *pi = netdev_priv(dev);
++	int i, err;
++	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adap = pi->adapter;
+-	struct sge_rspq *q;
+-	int i;
+-	int r = 0;
+-
+-	for (i = pi->first_qset; i < pi->first_qset + pi->nqsets; i++) {
+-		q = &adap->sge.ethrxq[i].rspq;
+-		r = set_rxq_intr_params(adap, q, c->rx_coalesce_usecs,
+-			c->rx_max_coalesced_frames);
+-		if (r) {
+-			dev_err(&dev->dev, "failed to set coalesce %d\n", r);
+-			break;
+-		}
++	struct sge_eth_rxq *q = &adap->sge.ethrxq[pi->first_qset];
++
++	for (i = 0; i < pi->nqsets; i++, q++) {
++		err = set_rspq_intr_params(&q->rspq, us, cnt);
++		if (err)
++			return err;
+ 	}
+-	return r;
++	return 0;
 +}
 +
- #define ACT_OPEN_RETRY_COUNT 2
++static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
++{
++	return set_rx_intr_params(dev, c->rx_coalesce_usecs,
++				  c->rx_max_coalesced_frames);
+ }
  
- static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
-@@ -1768,6 +1803,7 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
- 		ep->ctrlq_idx = cxgb4_port_idx(pdev);
- 		ep->rss_qid = cdev->rdev.lldi.rxq_ids[
- 			cxgb4_port_idx(pdev) * step];
-+		set_tcp_window(ep, (struct port_info *)netdev_priv(pdev));
- 		dev_put(pdev);
- 	} else {
- 		pdev = get_real_dev(n->dev);
-@@ -1786,6 +1822,7 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
- 			cdev->rdev.lldi.nchan;
- 		ep->rss_qid = cdev->rdev.lldi.rxq_ids[
- 			cxgb4_port_idx(n->dev) * step];
-+		set_tcp_window(ep, (struct port_info *)netdev_priv(pdev));
+ static int get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
+@@ -5812,12 +5823,12 @@ static inline bool is_x_10g_port(const struct link_config *lc)
+ 	       (lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
+ }
  
- 		if (clear_mpa_v1) {
- 			ep->retry_with_mpa_v1 = 0;
-@@ -2017,6 +2054,7 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 	u32 opt2;
- 	int wscale;
- 	struct cpl_t5_pass_accept_rpl *rpl5 = NULL;
-+	int win;
+-static inline void init_rspq(struct sge_rspq *q, u8 timer_idx, u8 pkt_cnt_idx,
++static inline void init_rspq(struct adapter *adap, struct sge_rspq *q,
++			     unsigned int us, unsigned int cnt,
+ 			     unsigned int size, unsigned int iqe_size)
+ {
+-	q->intr_params = QINTR_TIMER_IDX(timer_idx) |
+-			 (pkt_cnt_idx < SGE_NCOUNTERS ? QINTR_CNT_EN : 0);
+-	q->pktcnt_idx = pkt_cnt_idx < SGE_NCOUNTERS ? pkt_cnt_idx : 0;
++	q->adap = adap;
++	set_rspq_intr_params(q, us, cnt);
+ 	q->iqe_len = iqe_size;
+ 	q->size = size;
+ }
+@@ -5876,7 +5887,7 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
+ 		struct sge_eth_rxq *r = &s->ethrxq[i];
  
- 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
- 	BUG_ON(skb_cloned(skb));
-@@ -2037,6 +2075,14 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
- 		 enable_tcp_timestamps && req->tcpopt.tstamp);
- 	wscale = compute_wscale(rcv_win);
-+
-+	/*
-+	 * Specify the largest window that will fit in opt0. The
-+	 * remainder will be specified in the rx_data_ack.
-+	 */
-+	win = ep->rcv_win >> 10;
-+	if (win > RCV_BUFSIZ_MASK)
-+		win = RCV_BUFSIZ_MASK;
- 	opt0 = (nocong ? NO_CONG(1) : 0) |
- 	       KEEP_ALIVE(1) |
- 	       DELACK(1) |
-@@ -2047,7 +2093,7 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 	       SMAC_SEL(ep->smac_idx) |
- 	       DSCP(ep->tos >> 2) |
- 	       ULP_MODE(ULP_MODE_TCPDDP) |
--	       RCV_BUFSIZ(rcv_win>>10);
-+	       RCV_BUFSIZ(win);
- 	opt2 = RX_CHANNEL(0) |
- 	       RSS_QUEUE_VALID | RSS_QUEUE(ep->rss_qid);
+-		init_rspq(&r->rspq, 0, 0, 1024, 64);
++		init_rspq(adap, &r->rspq, 5, 10, 1024, 64);
+ 		r->fl.size = 72;
+ 	}
  
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 7474b49..7493dfe 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -805,6 +805,8 @@ struct c4iw_ep {
- 	u8 retry_with_mpa_v1;
- 	u8 tried_with_mpa_v1;
- 	unsigned int retry_count;
-+	int snd_win;
-+	int rcv_win;
- };
+@@ -5892,7 +5903,7 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->ofldrxq); i++) {
+ 		struct sge_ofld_rxq *r = &s->ofldrxq[i];
  
- static inline struct c4iw_ep *to_ep(struct iw_cm_id *cm_id)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index a4d7bdb..973eb11 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -227,6 +227,7 @@ struct cpl_pass_open_req {
- #define DELACK(x)     ((x) << 5)
- #define ULP_MODE(x)   ((x) << 8)
- #define RCV_BUFSIZ(x) ((x) << 12)
-+#define RCV_BUFSIZ_MASK 0x3FFU
- #define DSCP(x)       ((x) << 22)
- #define SMAC_SEL(x)   ((u64)(x) << 28)
- #define L2T_IDX(x)    ((u64)(x) << 36)
+-		init_rspq(&r->rspq, 0, 0, 1024, 64);
++		init_rspq(adap, &r->rspq, 5, 1, 1024, 64);
+ 		r->rspq.uld = CXGB4_ULD_ISCSI;
+ 		r->fl.size = 72;
+ 	}
+@@ -5900,7 +5911,7 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->rdmarxq); i++) {
+ 		struct sge_ofld_rxq *r = &s->rdmarxq[i];
+ 
+-		init_rspq(&r->rspq, 0, 0, 511, 64);
++		init_rspq(adap, &r->rspq, 5, 1, 511, 64);
+ 		r->rspq.uld = CXGB4_ULD_RDMA;
+ 		r->fl.size = 72;
+ 	}
+@@ -5914,12 +5925,12 @@ static void cfg_queues(struct adapter *adap)
+ 	for (i = 0; i < ARRAY_SIZE(s->rdmaciq); i++) {
+ 		struct sge_ofld_rxq *r = &s->rdmaciq[i];
+ 
+-		init_rspq(&r->rspq, 0, 0, ciq_size, 64);
++		init_rspq(adap, &r->rspq, 5, 1, ciq_size, 64);
+ 		r->rspq.uld = CXGB4_ULD_RDMA;
+ 	}
+ 
+-	init_rspq(&s->fw_evtq, 6, 0, 512, 64);
+-	init_rspq(&s->intrq, 6, 0, 2 * MAX_INGQ, 64);
++	init_rspq(adap, &s->fw_evtq, 0, 1, 1024, 64);
++	init_rspq(adap, &s->intrq, 0, 1, 2 * MAX_INGQ, 64);
+ }
+ 
+ /*
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index bd82939..58bd213 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2215,7 +2215,6 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	iq->cntxt_id = ntohs(c.iqid);
+ 	iq->abs_id = ntohs(c.physiqid);
+ 	iq->size--;                           /* subtract status entry */
+-	iq->adap = adap;
+ 	iq->netdev = dev;
+ 	iq->handler = hnd;
+ 
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
