@@ -1,94 +1,83 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: SCTP seems to lose its socket state.
-Date: Fri, 6 Jun 2014 15:14:42 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net] net: filter: fix typo in sparc BPF JIT
+Date: Fri, 6 Jun 2014 08:27:16 -0700
+Message-ID: <CAMEtUux-zmM0Ry4kRiL5D+AvQnby0Qn-mCxJSEyyvoEyUBE7Zg@mail.gmail.com>
+References: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
+	<063D6719AE5E284EB5DD2968C1650D6D172584FF@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: David Laight <David.Laight@ACULAB.COM>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44433 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751646AbaFFPPP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 11:15:15 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 23074-06 for <netdev@vger.kernel.org>;
- Fri,  6 Jun 2014 16:15:06 +0100 (BST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:41258 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751460AbaFFP1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 11:27:17 -0400
+Received: by mail-wg0-f42.google.com with SMTP id y10so2936914wgg.13
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 08:27:16 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D172584FF@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight
-> I've been looking at an ethernet trace from one of our customers.
-> They seem to have got an SCTP socket into a rather confused state.
-> 
-> There seem to be a significant number of transmit ethernet frames
-> that don't read the far end.
-> This shouldn't cause a real problem, but we end up with the following:
-> This trace was taken on the linux system:
-> 
-> 39964   0.304473        ->      SCTP    INIT
-> 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
-> 39968   0.467935        <-      SCTP    INIT
-> 39969   0.000093        ->      SCTP    INIT_ACK
-> 39970   0.003947        <-      SCTP    COOKIE_ECHO
-> 39971   0.000072        ->      SCTP    COOKIE_ACK
-> 39972   0.000337        ->      M3UA    ASPUP
-> 39979   0.809659        <-      SCTP    COOKIE_ECHO
-> 39980   0.000058        ->      SCTP    COOKIE_ACK
-> shutdown() called here - seems to be ignored
-> 39983   0.949471        <-      SCTP    COOKIE_ECHO
-> 39984   0.000053        ->      SCTP    COOKIE_ACK
-> 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
-> 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
-> 40008   3.689088        <-      SCTP    HEARTBEAT
-> 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
-> 40014   0.261152        <-      SCTP    HEARTBEAT
-> 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
-> 40026   0.123048        <-      SCTP    HEARTBEAT
-> 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
-> 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
-> 
-> There are no signs of any SACKs for the ASPUP, I think they have the
-> correct TSN (the same value as in the INIT_ACK).
-> No signs of any shutdowns or aborts from either system.
-> 
-> As seems to be typical for M3UA the source and destination ports are
-> the same. No additional IP addresses appear in the INIT (etc) messages.
+On Fri, Jun 6, 2014 at 1:36 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Alexei Starovoitov
+>> fix typo in sparc codegen for SKF_AD_IFINDEX and SKF_AD_HATYPE
+>> classic BPF extensions
+> ...
+>> --- a/arch/sparc/net/bpf_jit_comp.c
+>> +++ b/arch/sparc/net/bpf_jit_comp.c
+>> @@ -83,9 +83,9 @@ static void bpf_flush_icache(void *start_, void *end_)
+>>  #define BNE          (F2(0, 2) | CONDNE)
+>>
+>>  #ifdef CONFIG_SPARC64
+>> -#define BNE_PTR              (F2(0, 1) | CONDNE | (2 << 20))
+>> +#define BE_PTR               (F2(0, 1) | CONDE | (2 << 20))
+>>  #else
+>> -#define BNE_PTR              BNE
+>> +#define BE_PTR               BNE
+>>  #endif
+>
+> That doesn't look right.
+> AFAICT you've had to invert the branch in the code (below) so need
+> the alternate define - I presume this is the only place they are used.
+> But the second is only partially inverted.
 
-I think I've reproduced this on a 3.14.0 kernel.
+Ohh. yes. sorry. It's a copy paste error from net-next into net :((
+I fixed it carefully in net-next first, then tried to git am, had to
+do it manually, built/ran sparc64 only.
 
-System A: Bind to port 1234, connect to B:1234.
-          If the connect fails, retry 10 seconds later.
-          When the connection completes send some data.
-          Disconnect if the reflected data isn't received within 2 seconds.
-System B: Bind to port 1234, connect to A:1234.
-          If the connect fails, retry 10 seconds later.
-          Reflect any received data.
+> I presume you only tested sparc64?
 
-Initially the INIT chunks generate ABORTs (no listener) so both
-programs just retry every 10 seconds.
+yes. I don't have it setup yet.
 
-On B run:
-    iptables -A INPUT -p sctp --chunk-types any INIT -j DROP
-    iptables -A INPUT -p sctp --chunk-types any DATA -j DROP
-The first allows the connection to complete.
-The second stops B acking the data.
-The data is resent on timeout, and the systems exchange HBs.
-
-I'd expect that a SHUTDOWN or ABORT be sent reasonably quickly.
-But the systems just exchange HBs for over 5 minutes.
-(I'm seeing an ABORT because B gives up waiting for the message.)
-
-If I discard the COOKIE_ECHO then I do see an outwards disconnect
-after a few retries.
-
-I'm testing with sockets created by our M3UA kernel driver,
-and system B is running a much older kernel (2.6.26).
-Neither should make any difference.
-
-	David
+>         David
+>
+>>  #define SETHI(K, REG)        \
+>> @@ -600,7 +600,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>                       case BPF_S_ANC_IFINDEX:
+>>                               emit_skb_loadptr(dev, r_A);
+>>                               emit_cmpi(r_A, 0);
+>> -                             emit_branch(BNE_PTR, cleanup_addr + 4);
+>> +                             emit_branch(BE_PTR, cleanup_addr + 4);
+>>                               emit_nop();
+>>                               emit_load32(r_A, struct net_device, ifindex, r_A);
+>>                               break;
+>> @@ -613,7 +613,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>                       case BPF_S_ANC_HATYPE:
+>>                               emit_skb_loadptr(dev, r_A);
+>>                               emit_cmpi(r_A, 0);
+>> -                             emit_branch(BNE_PTR, cleanup_addr + 4);
+>> +                             emit_branch(BE_PTR, cleanup_addr + 4);
+>>                               emit_nop();
+>>                               emit_load16(r_A, struct net_device, type, r_A);
+>>                               break;
+>> --
+>> 1.7.9.5
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
