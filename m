@@ -1,61 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Fri, 6 Jun 2014 16:45:43 +1000
-Message-ID: <20140606164543.6c5bbe67@canb.auug.org.au>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v5 net-next] MPLS: Use mpls_features to activate software
+ MPLS GSO segmentation
+Date: Fri, 6 Jun 2014 16:16:50 +0900
+Message-ID: <20140606071650.GB20042@verge.net.au>
+References: <1401839597-8961-1-git-send-email-horms@verge.net.au>
+ <20140605.150542.874543494136715316.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/gEOv7KSFIxcAdbyY343hlAJ"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Lendacky, Thomas" <Thomas.Lendacky@amd.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jesse@nicira.com, tgraf@suug.ch,
+	yamamoto@valinux.co.jp, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:35240 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbaFFHQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 03:16:52 -0400
+Content-Disposition: inline
+In-Reply-To: <20140605.150542.874543494136715316.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/gEOv7KSFIxcAdbyY343hlAJ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Thu, Jun 05, 2014 at 03:05:42PM -0700, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Wed,  4 Jun 2014 08:53:17 +0900
+> 
+> > If an MPLS packet requires segmentation then use mpls_features
+> > to determine if the software implementation should be used.
+> > 
+> > As no driver advertises MPLS GSO segmentation this will always be
+> > the case.
+> > 
+> > I had not noticed that this was necessary before as software MPLS GSO
+> > segmentation was already being used in my test environment. I believe that
+> > the reason for that is the skbs in question always had fragments and the
+> > driver I used does not advertise NETIF_F_FRAGLIST (which seems to be the
+> > case for most drivers). Thus software segmentation was activated by
+> > skb_gso_ok().
+> > 
+> > This introduces the overhead of an extra call to skb_network_protocol()
+> > in the case where where CONFIG_NET_MPLS_GSO is set and
+> > skb->ip_summed == CHECKSUM_NONE.
+> > 
+> > Thanks to Jesse Gross for prompting me to investigate this.
+> > 
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > Acked-by: YAMAMOTO Takashi <yamamoto@valinux.co.jp>
+> 
+> Applied to net-next, thanks Simon.
 
-Hi all,
-
-After merging the net-next tree, today's linux-next build (powerpc allyesco=
-nfig)
-failed like this:
-
-
-drivers/net/ethernet/amd/xgbe/xgbe-dev.c:119:25: fatal error: asm/cputype.h=
-: No such file or directory
- #include <asm/cputype.h>
-                         ^
-
-Caused by commit c5aa9e3b8156 ("amd-xgbe: Initial AMD 10GbE platform driver=
-").
-
-I reverted commit 54a4ca8e3730 ("Merge branch 'amd-xgbe'") for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/gEOv7KSFIxcAdbyY343hlAJ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTkWOXAAoJEMDTa8Ir7ZwV0z4P/itAG4q6wAp/nEHe1J9qfwVK
-/qfGRKwIK3saKbLlUdwCFXz3LsOvqnnxH7qT6apaV9ZGNUfFibwptgqoH4zAv8Mx
-TP/3N5n5Y8FBFNUWHCV53L+J5m1lLMNFv7gCj/Y6p1Pjr/U1Aa++CUvkva9jRE/n
-6NmqjCwQy7N/GNskvZt+bkDNYjQLyeQUNLMlBxcU1w9lRSXRhruEuKlS3Ry+buum
-5SoR1G9Mp5etLk0dMh2uuT9UPLgMHRgHAzSnjHUkjh5hP6JuqMAW4oEFFYfS7LYT
-PxZjdTlgjLqxl7CJx+m5nScrYB7uPuCbQBnhuPGVHfLmIydaObFGWjEwHFGsItmh
-uUgtMRtUxjz352eke/FWsAuYzKI6mmBkE70c/qFUwFrIbnxK3KkTnDdOUaVjjxPu
-T2Q8w0HprfQocvInCT6WUrB9ivqWpPLDsaFC+MxoOqUcBjus6aBwHUCrvI/2NJsA
-y2Ci8BRXXQBcOIqE/21eMN/Tg6vimgBVK3VnKxYuTNtSIaPoiJSvp7SS/4ZnXeBS
-dc3J0/yoThmHRjujje/H5YxQqK+aGEae4pX0X9yp2MFEZgTAJ0cR5I82vFlSYlWY
-0ZiHYfyEG8qy5iN09+qXrMEvSx3N9QIcgDcV0nIScB/f4j/RxCf/oegIh7sthFHJ
-0wZUt6ay1qYVzUS7RNLF
-=CSFu
------END PGP SIGNATURE-----
-
---Sig_/gEOv7KSFIxcAdbyY343hlAJ--
+Thanks!
