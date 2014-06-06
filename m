@@ -1,116 +1,85 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/4] net: systemport: fix transmit locking scheme
-Date: Fri, 6 Jun 2014 10:00:43 -0700
-Message-ID: <CAGVrzcZHxRN6sFvLPFJqC6T0ZbfkeWC1cGAcxdijs0ffifQYLw@mail.gmail.com>
-References: <1401988938-25940-1-git-send-email-f.fainelli@gmail.com>
- <1401988938-25940-2-git-send-email-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] macvlan: don't update the uc and vlan
+ list for L2 forwarding offload
+Date: Fri, 06 Jun 2014 13:11:34 -0400
+Message-ID: <5391F646.9090302@gmail.com>
+References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com> <1401969663-4464-2-git-send-email-dingtianhong@huawei.com> <53908814.8080303@gmail.com> <53913974.3080006@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@aculab.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
+To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net, edumazet@google.com, vyasevic@redhat.com,
+	makita.toshiaki@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f179.google.com ([209.85.214.179]:37359 "EHLO
-	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751866AbaFFRBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 13:01:23 -0400
-Received: by mail-ob0-f179.google.com with SMTP id nu7so506209obb.38
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 10:01:23 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:55426 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751851AbaFFRLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 13:11:37 -0400
+Received: by mail-qa0-f41.google.com with SMTP id dc16so4336885qab.28
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 10:11:37 -0700 (PDT)
+In-Reply-To: <53913974.3080006@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-06 2:29 GMT-07:00 David Laight <David.Laight@aculab.com>:
-> From: Florian Fainelli
->> Our transmit locking scheme did not account for the TX ring full
->> interrupt. If a TX ring full interrupt fires while we are attempting to
->> transmit, we will cause a deadlock to occur. Fix this by making sure
->> that we properly disable interrupts while acquiring the spinlock.
->
-> Presumably you mean a 'TX complete' interrupt?
-
-There is an additional interrupt that gets fired when one of the TX
-ring gets full, but it is in bcm_sysport_rx_isr() since it hooked to
-the first interrupt line we have.
-
->
-> It ought to be possible to arrange the logic so that you don't
-> need to disable interrupts for the entirety of the tx reclaim
-> and tx setup code.
->
-> If you have an absolutely accurate count of the number of
-> tx descriptors required, even the tx setup code probably only needs
-> the ring's lock while it advances the write pointer.
-> It can fill in the ring entries after releasing the lock.
-
-Right, I am currently experimenting with that and plan to remove the
-spinlock entirely, or grab it for as little time as possible.
-
->
->         David
->
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  drivers/net/ethernet/broadcom/bcmsysport.c | 12 +++++++-----
->>  1 file changed, 7 insertions(+), 5 deletions(-)
+On 06/05/2014 11:45 PM, Ding Tianhong wrote:
+> On 2014/6/5 23:09, Vlad Yasevich wrote:
+>> On 06/05/2014 08:01 AM, Ding Tianhong wrote:
+>>> If lowerdev supports L2 forwarding offload, no need to set mac address
+>>> to uc list and vlan list, so also don't do that when the macvlan mac address
+>>> changes.
 >>
->> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
->> index 25982b02f0ea..4dfc93fe9744 100644
->> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
->> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
->> @@ -637,10 +637,11 @@ static unsigned int bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
->>                                          struct bcm_sysport_tx_ring *ring)
->>  {
->>       unsigned int released;
->> +     unsigned long flags;
+>> Same issue as in v1.  Please explain how this actually works, since the
+>> new address never makes it to the hw.
 >>
->> -     spin_lock(&ring->lock);
->> +     spin_lock_irqsave(&ring->lock, flags);
->>       released = __bcm_sysport_tx_reclaim(priv, ring);
->> -     spin_unlock(&ring->lock);
->> +     spin_unlock_irqrestore(&ring->lock, flags);
->>
->>       return released;
->>  }
->> @@ -822,6 +823,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
->>       struct netdev_queue *txq;
->>       struct dma_desc *desc;
->>       unsigned int skb_len;
->> +     unsigned long flags;
->>       dma_addr_t mapping;
->>       u32 len_status;
->>       u16 queue;
->> @@ -831,8 +833,8 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
->>       txq = netdev_get_tx_queue(dev, queue);
->>       ring = &priv->tx_rings[queue];
->>
->> -     /* lock against tx reclaim in BH context */
->> -     spin_lock(&ring->lock);
->> +     /* lock against tx reclaim in BH context and TX ring full interrupt */
->> +     spin_lock_irqsave(&ring->lock, flags);
->>       if (unlikely(ring->desc_count == 0)) {
->>               netif_tx_stop_queue(txq);
->>               netdev_err(dev, "queue %d awake and ring full!\n", queue);
->> @@ -914,7 +916,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
->>
->>       ret = NETDEV_TX_OK;
->>  out:
->> -     spin_unlock(&ring->lock);
->> +     spin_unlock_irqrestore(&ring->lock, flags);
->>       return ret;
->>  }
->>
->> --
->> 1.9.1
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+> 
+> Hi, vlad:
+> 
+> The fwd only support 82599 nic, and when fwd_priv is true, this means the lowerdev support L2 forwarding offload, and will set the macvlan
+> to the ixgbe_fwd_adapter->netdev, and then it is clear that the lowerdev could know that the the upper device is macvlan and could handle
+> the skb to the upperdev.
+> 
+> If I miss something, please remind me, thanks.
 
+You've just changed the mac address of the macvlan device, but the
+address is not written to the card's RAR registers.
+So what allows the card to receive the traffic and place it into the
+queue in the first place?
 
+I can see it possibly working if the card is in promiscuous mode.
 
--- 
-Florian
+Also, I think John is right in that if we simply do dev_uc_add()
+to add the address to the card, we'll unmap the address from the vmdqs
+and lose the acceleration.  This needs more thought.
+
+-vlad
+
+> 
+> Ding
+> 
+>> -vlad
+>>>
+>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>> ---
+>>>  drivers/net/macvlan.c | 2 +-
+>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>>> index 453d55a..c3a54a6 100644
+>>> --- a/drivers/net/macvlan.c
+>>> +++ b/drivers/net/macvlan.c
+>>> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>>  	struct net_device *lowerdev = vlan->lowerdev;
+>>>  	int err;
+>>>  
+>>> -	if (!(dev->flags & IFF_UP)) {
+>>> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
+>>>  		/* Just copy in the new address */
+>>>  		ether_addr_copy(dev->dev_addr, addr);
+>>>  	} else {
+>>>
+>>
+>>
+>>
+> 
+> 
