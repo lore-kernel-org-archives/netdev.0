@@ -1,50 +1,66 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 2/2] net: use ethtool_cmd_speed_set helper to
- set ethtool speed value
-Date: Fri, 6 Jun 2014 15:02:11 +0200
-Message-ID: <20140606130211.GM2984@minipsycho.orion>
-References: <1402057021-12867-1-git-send-email-jiri@resnulli.us>
- <1402057021-12867-3-git-send-email-jiri@resnulli.us>
- <063D6719AE5E284EB5DD2968C1650D6D17258956@AcuExch.aculab.com>
+From: Daniel Kiper <daniel.kiper@oracle.com>
+Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
+ interface
+Date: Fri, 6 Jun 2014 15:04:17 +0200
+Message-ID: <20140606130417.GL12025@olila.local.net-space.pl>
+References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
+ <20140605.145844.382754247234672637.davem@davemloft.net>
+ <20140605231458.GA31114@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:50835 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407AbaFFNCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 09:02:15 -0400
-Received: by mail-we0-f171.google.com with SMTP id w62so2768909wes.2
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 06:02:14 -0700 (PDT)
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	msw@amazon.com, netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17258956@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140605231458.GA31114@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jun 06, 2014 at 02:24:49PM CEST, David.Laight@ACULAB.COM wrote:
->From: Jiri Pirko
->...
->> --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
->> @@ -141,6 +141,7 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
->>  	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
->>  	struct e1000_sfp_flags *eth_flags = &dev_spec->eth_flags;
->>  	u32 status;
->> +	u32 speed;
->...
->> +		speed = SPEED_UNKNOWN;
+On Thu, Jun 05, 2014 at 04:14:58PM -0700, Greg KH wrote:
+> On Thu, Jun 05, 2014 at 02:58:44PM -0700, David Miller wrote:
+> > From: Daniel Kiper <daniel.kiper@oracle.com>
+> > Date: Mon,  2 Jun 2014 21:46:20 +0200
+> >
+> > > From: Matt Wilson <msw@amazon.com>
+> > >
+> > > Sometimes it is useful to be able to change the MAC address of the
+> > > interface for netback devices. For example, when using ebtables it may
+> > > be useful to be able to distinguish traffic from different interfaces
+> > > without depending on the interface name.
+> > >
+> > > Reported-by: Nikita Borzykh <sample.n@gmail.com>
+> > > Reported-by: Paul Harvey <stockingpaul@hotmail.com>
+> > > Cc: netdev@vger.kernel.org
+> > > Cc: xen-devel@lists.xen.org
+> > > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > > Signed-off-by: Matt Wilson <msw@amazon.com>
+> > > Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > > (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
+> > >
+> > > Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > > Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > > Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> >
+> > I don't think this is suitable for -stable.
+> >
+> > -stable should be restricted bug fixes for things that either
+> > are extremely serious, or hit a very huge segment of the user
+> > base.
+> >
+> > This issue does not quality for either condition.
 >
->SPEED_UNKNOWN is defined as -1
+> Yeah, it seems like a new feature to me, I'll drop it from my to-apply
+> queue.
 
-Correct.
+Yes, in fact it is, however, without it toolstack pollute /var/log/xen/xen-hotplug.log
+with "RTNETLINK answers: Operation not supported" error when every domain is started.
+Additionally, it is simple two liner and it should not break anything (Konrad and
+I did some tests and everything looks OK). I do not mention that from time to time
+we add some features like support for new hardware with just new device ID (e.g.
+USB devices). So that is why I decided to post this patch to stable.
 
-static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep, __u32 speed)
-
->
->	David
->
->
->
+Daniel
