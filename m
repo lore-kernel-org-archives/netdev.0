@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: mISDN: dsp_cmx.c: Cleaning up a define that is
- no longer available
-Date: Fri, 06 Jun 2014 16:28:12 -0700 (PDT)
-Message-ID: <20140606.162812.1842868056512941704.davem@davemloft.net>
-References: <1402097131-10954-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: Re: [PATCH net,stable] net: qmi_wwan: add Olivetti Olicard modems
+Date: Fri, 06 Jun 2014 16:46:17 -0700 (PDT)
+Message-ID: <20140606.164617.14584327968118813.davem@davemloft.net>
+References: <1402068479-6803-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rickard_strandqvist@spectrumdigital.se
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402097131-10954-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33031 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256AbaFFXqS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 19:46:18 -0400
+In-Reply-To: <1402068479-6803-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Sat,  7 Jun 2014 01:25:30 +0200
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Fri,  6 Jun 2014 17:27:59 +0200
 
-> Removes an ifdef that is no longer available,
-> and that would cause a compile error if it was activated.
-> 
-> This was partly found using a static code analysis program called cppcheck.
-> 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> Lars writes: "I'm only 99% sure that the net interfaces are qmi
+> interfaces, nothing to lose by adding them in my opinion."
+>=20
+> And I tend to agree based on the similarity with the two Olicard
+> modems we already have here.
+>=20
+> Reported-by: Lars Melin <larsm17@gmail.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-This indentation looks wrong, and if you scan up you'll see why.
-
-A different set of CPP guards create the openning curly brace(s):
-
-	/* PROCESS DATA (two members) */
-#ifdef CMX_CONF_DEBUG
-	if (0) {
-#else
-		if (members == 2) {
-#endif
-
-This is crazy, and deleting only the DSP_NEVER_DEFINED part makes it
-even more confusing because less sophisticated code analysis tools and
-editing mode will think that the braces are unbalanced now.
-
-I'm not applying this, it makes things worse not better, sorry.
+Applied and queued up for -stable, thanks.
