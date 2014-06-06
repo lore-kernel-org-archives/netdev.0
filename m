@@ -1,361 +1,392 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/4] iw_cxgb4: Allocate and use IQs specifically for indirect interrupts
-Date: Fri,  6 Jun 2014 21:40:42 +0530
-Message-ID: <1402071045-14854-2-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next 2/4] iw_cxgb4: Choose appropriate hw mtu index and ISS for iWARP connections
+Date: Fri,  6 Jun 2014 21:40:43 +0530
+Message-ID: <1402071045-14854-3-git-send-email-hariprasad@chelsio.com>
 References: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, roland@purestorage.com,
-	swise@opengridcomputing.com, santosh@chelsio.com,
-	leedom@chelsio.com, dm@chelsio.com, kumaras@chelsio.com,
-	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:40691
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752241AbaFFQYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:24:37 -0400
-In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently indirect interrupts for RDMA CQs funnel through the LLD's RDMA
-RXQs, which also handle direct interrupts for offload CPLs during RDMA
-connection setup/teardown.  The intended T4 usage model, however, is to
-have indirect interrupts flow through dedicated IQs. IE not to mix
-indirect interrupts with CPL messages in an IQ.  This patch adds the
-concept of RDMA concentrator IQs, or CIQs, setup and maintained by the
-LLD and exported to iw_cxgb4 for use when creating CQs. RDMA CPLs will
-flow through the LLD's RDMA RXQs, and CQ interrupts flow through the
-CIQs.
+Select the appropriate hw mtu index and initial sequence number to optimize
+hw memory performance.
 
-Design:
+Add new cxgb4_best_aligned_mtu() which allows callers to provide enough
+information to be used to [possibly] select an MTU which will result in the
+TCP Data Segment Size (AKA Maximum Segment Size) to be an aligned value.
 
-cxgb4 creates and exports an array of CIQs for the RDMA ULD.  These IQs
-are sized according to the max available CQs available at adapter init.
-In addition, these IQs don't need FL buffers since they only service
-indirect interrupts.  One CIQ is setup per RX channel similar to the
-RDMA RXQs.
+If an RTR message exhange is required, then align the ISS to 8B - 1 + 4, so
+that after the SYN the send seqno will align on a 4B boundary. The RTR
+message exchange will leave the send seqno aligned on an 8B boundary.
+If an RTR is not required, then align the ISS to 8B - 1.  The goal is
+to have the send seqno be 8B aligned when we send the first FPDU.
 
-iw_cxgb4 will utilize these CIQs based on the vector value passed into
-create_cq().  The num_comp_vectors advertised by iw_cxgb4 will be the
-number of CIQs configured, and thus the vector value will be the index
-into the array of CIQs.
+Based on original work by Casey Leedom <leeedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> and
+Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 
-Based on original work by Steve Wise <swise@opengridcomputing.com>
-
-Signed-off-by: Steve Wise <swise@opengridcomputing.com>
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+Signed-off-by: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cq.c                |    7 ++-
- drivers/infiniband/hw/cxgb4/provider.c          |    2 +-
- drivers/infiniband/hw/cxgb4/t4.h                |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   14 ++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   62 +++++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    4 ++
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |    1 +
- 8 files changed, 84 insertions(+), 9 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                |   73 +++++++++++++---
+ drivers/infiniband/hw/cxgb4/t4fw_ri_api.h       |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  107 ++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    5 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    9 ++
+ 5 files changed, 180 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index cfaa56a..71fc2ef 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -134,7 +134,8 @@ static int create_cq(struct c4iw_rdev *rdev, struct t4_cq *cq,
- 			V_FW_RI_RES_WR_IQANUS(0) |
- 			V_FW_RI_RES_WR_IQANUD(1) |
- 			F_FW_RI_RES_WR_IQANDST |
--			V_FW_RI_RES_WR_IQANDSTINDEX(*rdev->lldi.rxq_ids));
-+			V_FW_RI_RES_WR_IQANDSTINDEX(
-+				rdev->lldi.ciq_ids[cq->vector]));
- 	res->u.cq.iqdroprss_to_iqesize = cpu_to_be16(
- 			F_FW_RI_RES_WR_IQDROPRSS |
- 			V_FW_RI_RES_WR_IQPCIECH(2) |
-@@ -870,6 +871,9 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 1f863a9..d2e9f72 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -232,12 +232,16 @@ static void release_tid(struct c4iw_rdev *rdev, u32 hwtid, struct sk_buff *skb)
  
- 	rhp = to_c4iw_dev(ibdev);
+ static void set_emss(struct c4iw_ep *ep, u16 opt)
+ {
+-	ep->emss = ep->com.dev->rdev.lldi.mtus[GET_TCPOPT_MSS(opt)] - 40;
++	ep->emss = ep->com.dev->rdev.lldi.mtus[GET_TCPOPT_MSS(opt)] -
++		   sizeof(struct iphdr) - sizeof(struct tcphdr);
+ 	ep->mss = ep->emss;
+ 	if (GET_TCPOPT_TSTAMP(opt))
+ 		ep->emss -= 12;
+ 	if (ep->emss < 128)
+ 		ep->emss = 128;
++	if (ep->emss & 7)
++		PDBG("Warning: misaligned mtu idx %u mss %u emss=%u\n",
++		     GET_TCPOPT_MSS(opt), ep->mss, ep->emss);
+ 	PDBG("%s mss_idx %u mss %u emss=%u\n", __func__, GET_TCPOPT_MSS(opt),
+ 	     ep->mss, ep->emss);
+ }
+@@ -528,6 +532,17 @@ static int send_abort(struct c4iw_ep *ep, struct sk_buff *skb, gfp_t gfp)
+ 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
+ }
  
-+	if (vector >= rhp->rdev.lldi.nciq)
-+		return ERR_PTR(-EINVAL);
++static void best_mtu(const unsigned short *mtus, unsigned short mtu,
++		     unsigned int *idx, int use_ts)
++{
++	unsigned short hdr_size = sizeof(struct iphdr) +
++				  sizeof(struct tcphdr) +
++				  (use_ts ? 12 : 0);
++	unsigned short data_size = mtu - hdr_size;
 +
- 	chp = kzalloc(sizeof(*chp), GFP_KERNEL);
- 	if (!chp)
- 		return ERR_PTR(-ENOMEM);
-@@ -915,6 +919,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
++	cxgb4_best_aligned_mtu(mtus, hdr_size, data_size, 8, idx);
++}
++
+ static int send_connect(struct c4iw_ep *ep)
+ {
+ 	struct cpl_act_open_req *req;
+@@ -565,7 +580,8 @@ static int send_connect(struct c4iw_ep *ep)
  	}
- 	chp->cq.size = hwentries;
- 	chp->cq.memsize = memsize;
-+	chp->cq.vector = vector;
+ 	set_wr_txq(skb, CPL_PRIORITY_SETUP, ep->ctrlq_idx);
  
- 	ret = create_cq(&rhp->rdev, &chp->cq,
- 			ucontext ? &ucontext->uctx : &rhp->rdev.uctx);
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index a94a3e1..31cd188 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -499,7 +499,7 @@ int c4iw_register_device(struct c4iw_dev *dev)
- 	dev->ibdev.node_type = RDMA_NODE_RNIC;
- 	memcpy(dev->ibdev.node_desc, C4IW_NODE_DESC, sizeof(C4IW_NODE_DESC));
- 	dev->ibdev.phys_port_cnt = dev->rdev.lldi.nports;
--	dev->ibdev.num_comp_vectors = 1;
-+	dev->ibdev.num_comp_vectors =  dev->rdev.lldi.nciq;
- 	dev->ibdev.dma_device = &(dev->rdev.lldi.pdev->dev);
- 	dev->ibdev.query_device = c4iw_query_device;
- 	dev->ibdev.query_port = c4iw_query_port;
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index 2178f31..68b0a6b 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -542,6 +542,7 @@ struct t4_cq {
- 	size_t memsize;
- 	__be64 bits_type_ts;
- 	u32 cqid;
-+	int vector;
- 	u16 size; /* including status page */
- 	u16 cidx;
- 	u16 sw_pidx;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 32db377..f503dce 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -357,11 +357,17 @@ enum {
- 	MAX_OFLD_QSETS = 16,          /* # of offload Tx/Rx queue sets */
- 	MAX_CTRL_QUEUES = NCHAN,      /* # of control Tx queues */
- 	MAX_RDMA_QUEUES = NCHAN,      /* # of streaming RDMA Rx queues */
-+	MAX_RDMA_CIQS = NCHAN,        /* # of  RDMA concentrator IQs */
-+	MAX_ISCSI_QUEUES = NCHAN,     /* # of streaming iSCSI Rx queues */
- };
+-	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
++	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
++		 enable_tcp_timestamps);
+ 	wscale = compute_wscale(rcv_win);
+ 	opt0 = (nocong ? NO_CONG(1) : 0) |
+ 	       KEEP_ALIVE(1) |
+@@ -633,6 +649,13 @@ static int send_connect(struct c4iw_ep *ep)
+ 			req6->opt2 = cpu_to_be32(opt2);
+ 		}
+ 	} else {
++		u32 isn = (prandom_u32() & ~7UL) - 1;
++
++		opt2 |= T5_OPT_2_VALID;
++		opt2 |= CONG_CNTRL_VALID; /* OPT_2_ISS for T5 */
++		if (peer2peer)
++			isn += 4;
++
+ 		if (ep->com.remote_addr.ss_family == AF_INET) {
+ 			t5_req = (struct cpl_t5_act_open_req *)
+ 				 skb_put(skb, wrlen);
+@@ -649,6 +672,9 @@ static int send_connect(struct c4iw_ep *ep)
+ 						     cxgb4_select_ntuple(
+ 					     ep->com.dev->rdev.lldi.ports[0],
+ 					     ep->l2t)));
++			t5_req->rsvd = cpu_to_be32(isn);
++			PDBG("%s snd_isn %u\n", __func__,
++			     be32_to_cpu(t5_req->rsvd));
+ 			t5_req->opt2 = cpu_to_be32(opt2);
+ 		} else {
+ 			t5_req6 = (struct cpl_t5_act_open_req6 *)
+@@ -672,6 +698,9 @@ static int send_connect(struct c4iw_ep *ep)
+ 							cxgb4_select_ntuple(
+ 						ep->com.dev->rdev.lldi.ports[0],
+ 						ep->l2t));
++			t5_req6->rsvd = cpu_to_be32(isn);
++			PDBG("%s snd_isn %u\n", __func__,
++			     be32_to_cpu(t5_req6->rsvd));
+ 			t5_req6->opt2 = cpu_to_be32(opt2);
+ 		}
+ 	}
+@@ -1640,7 +1669,8 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
+ 			htons(F_FW_OFLD_CONNECTION_WR_CPLRXDATAACK);
+ 	req->tcb.tx_max = (__force __be32) jiffies;
+ 	req->tcb.rcv_adv = htons(1);
+-	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
++	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
++		 enable_tcp_timestamps);
+ 	wscale = compute_wscale(rcv_win);
+ 	req->tcb.opt0 = (__force __be64) (TCAM_BYPASS(1) |
+ 		(nocong ? NO_CONG(1) : 0) |
+@@ -1986,12 +2016,26 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 	u64 opt0;
+ 	u32 opt2;
+ 	int wscale;
++	struct cpl_t5_pass_accept_rpl *rpl5 = NULL;
  
- enum {
--	MAX_EGRQ = 128,         /* max # of egress queues, including FLs */
--	MAX_INGQ = 64           /* max # of interrupt-capable ingress queues */
-+	INGQ_EXTRAS = 2,        /* firmware event queue and */
-+				/*   forwarded interrupts */
-+	MAX_EGRQ = MAX_ETH_QSETS*2 + MAX_OFLD_QSETS*2
-+		   + MAX_CTRL_QUEUES + MAX_RDMA_QUEUES + MAX_ISCSI_QUEUES,
-+	MAX_INGQ = MAX_ETH_QSETS + MAX_OFLD_QSETS + MAX_RDMA_QUEUES
-+		   + MAX_RDMA_CIQS + MAX_ISCSI_QUEUES + INGQ_EXTRAS,
- };
+ 	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
+ 	BUG_ON(skb_cloned(skb));
+-	skb_trim(skb, sizeof(*rpl));
++
+ 	skb_get(skb);
+-	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
++	rpl = cplhdr(skb);
++	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
++		skb_trim(skb, roundup(sizeof(*rpl5), 16));
++		rpl5 = (void *)rpl;
++		INIT_TP_WR(rpl5, ep->hwtid);
++	} else {
++		skb_trim(skb, sizeof(*rpl));
++		INIT_TP_WR(rpl, ep->hwtid);
++	}
++	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
++						    ep->hwtid));
++
++	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
++		 enable_tcp_timestamps && req->tcpopt.tstamp);
+ 	wscale = compute_wscale(rcv_win);
+ 	opt0 = (nocong ? NO_CONG(1) : 0) |
+ 	       KEEP_ALIVE(1) |
+@@ -2023,14 +2067,18 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 			opt2 |= CCTRL_ECN(1);
+ 	}
+ 	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
++		u32 isn = (prandom_u32() & ~7UL) - 1;
+ 		opt2 |= T5_OPT_2_VALID;
+ 		opt2 |= V_CONG_CNTRL(CONG_ALG_TAHOE);
++		opt2 |= CONG_CNTRL_VALID; /* OPT_2_ISS for T5 */
++		rpl5 = (void *)rpl;
++		memset(&rpl5->iss, 0, roundup(sizeof(*rpl5)-sizeof(*rpl), 16));
++		if (peer2peer)
++			isn += 4;
++		rpl5->iss = cpu_to_be32(isn);
++		PDBG("%s iss %u\n", __func__, be32_to_cpu(rpl5->iss));
+ 	}
  
- struct adapter;
-@@ -538,6 +544,7 @@ struct sge {
- 	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
- 	struct sge_ofld_rxq ofldrxq[MAX_OFLD_QSETS];
- 	struct sge_ofld_rxq rdmarxq[MAX_RDMA_QUEUES];
-+	struct sge_ofld_rxq rdmaciq[MAX_RDMA_CIQS];
- 	struct sge_rspq fw_evtq ____cacheline_aligned_in_smp;
+-	rpl = cplhdr(skb);
+-	INIT_TP_WR(rpl, ep->hwtid);
+-	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
+-				      ep->hwtid));
+ 	rpl->opt0 = cpu_to_be64(opt0);
+ 	rpl->opt2 = cpu_to_be32(opt2);
+ 	set_wr_txq(skb, CPL_PRIORITY_SETUP, ep->ctrlq_idx);
+@@ -2095,6 +2143,7 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	int err;
+ 	u16 peer_mss = ntohs(req->tcpopt.mss);
+ 	int iptype;
++	unsigned short hdrs;
  
- 	struct sge_rspq intrq ____cacheline_aligned_in_smp;
-@@ -548,8 +555,10 @@ struct sge {
- 	u16 ethtxq_rover;           /* Tx queue to clean up next */
- 	u16 ofldqsets;              /* # of active offload queue sets */
- 	u16 rdmaqs;                 /* # of available RDMA Rx queues */
-+	u16 rdmaciqs;               /* # of available RDMA concentrator IQs */
- 	u16 ofld_rxq[MAX_OFLD_QSETS];
- 	u16 rdma_rxq[NCHAN];
-+	u16 rdma_ciq[NCHAN];
- 	u16 timer_val[SGE_NTIMERS];
- 	u8 counter_val[SGE_NCOUNTERS];
- 	u32 fl_pg_order;            /* large page allocation size */
-@@ -577,6 +586,7 @@ struct sge {
- #define for_each_ethrxq(sge, i) for (i = 0; i < (sge)->ethqsets; i++)
- #define for_each_ofldrxq(sge, i) for (i = 0; i < (sge)->ofldqsets; i++)
- #define for_each_rdmarxq(sge, i) for (i = 0; i < (sge)->rdmaqs; i++)
-+#define for_each_rdmaciq(sge, i) for (i = 0; i < (sge)->rdmaciqs; i++)
+ 	parent_ep = lookup_stid(t, stid);
+ 	if (!parent_ep) {
+@@ -2152,8 +2201,10 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
  
- struct l2t_data;
+-	if (peer_mss && child_ep->mtu > (peer_mss + 40))
+-		child_ep->mtu = peer_mss + 40;
++	hdrs = sizeof(struct iphdr) + sizeof(struct tcphdr) +
++	       ((enable_tcp_timestamps && req->tcpopt.tstamp) ? 12 : 0);
++	if (peer_mss && child_ep->mtu > (peer_mss + hdrs))
++		child_ep->mtu = peer_mss + hdrs;
  
+ 	state_set(&child_ep->com, CONNECTING);
+ 	child_ep->com.dev = dev;
+diff --git a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+index 6121ca0..91289a0 100644
+--- a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
++++ b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+@@ -848,6 +848,7 @@ enum {                     /* TCP congestion control algorithms */
+ #define V_CONG_CNTRL(x) ((x) << S_CONG_CNTRL)
+ #define G_CONG_CNTRL(x) (((x) >> S_CONG_CNTRL) & M_CONG_CNTRL)
+ 
++#define CONG_CNTRL_VALID   (1 << 18)
+ #define T5_OPT_2_VALID       (1 << 31)
+ 
+ #endif /* _T4FW_RI_API_H_ */
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8cf6be9..c26c3f8 100644
+index c26c3f8..5fa5f2a 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -818,12 +818,17 @@ static void name_msix_vecs(struct adapter *adap)
- 	for_each_rdmarxq(&adap->sge, i)
- 		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma%d",
- 			 adap->port[0]->name, i);
-+
-+	for_each_rdmaciq(&adap->sge, i)
-+		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma-ciq%d",
-+			 adap->port[0]->name, i);
- }
- 
- static int request_msix_queue_irqs(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi_index = 2;
-+	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, rdmaciqqidx = 0;
-+	int msi_index = 2;
- 
- 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
- 			  adap->msix_info[1].desc, &s->fw_evtq);
-@@ -857,9 +862,21 @@ static int request_msix_queue_irqs(struct adapter *adap)
- 			goto unwind;
- 		msi_index++;
- 	}
-+	for_each_rdmaciq(s, rdmaciqqidx) {
-+		err = request_irq(adap->msix_info[msi_index].vec,
-+				  t4_sge_intr_msix, 0,
-+				  adap->msix_info[msi_index].desc,
-+				  &s->rdmaciq[rdmaciqqidx].rspq);
-+		if (err)
-+			goto unwind;
-+		msi_index++;
-+	}
- 	return 0;
- 
- unwind:
-+	while (--rdmaciqqidx >= 0)
-+		free_irq(adap->msix_info[--msi_index].vec,
-+			 &s->rdmaciq[rdmaciqqidx].rspq);
- 	while (--rdmaqidx >= 0)
- 		free_irq(adap->msix_info[--msi_index].vec,
- 			 &s->rdmarxq[rdmaqidx].rspq);
-@@ -885,6 +902,8 @@ static void free_msix_queue_irqs(struct adapter *adap)
- 		free_irq(adap->msix_info[msi_index++].vec, &s->ofldrxq[i].rspq);
- 	for_each_rdmarxq(s, i)
- 		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
-+	for_each_rdmaciq(s, i)
-+		free_irq(adap->msix_info[msi_index++].vec, &s->rdmaciq[i].rspq);
- }
+@@ -3428,6 +3428,77 @@ unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
+ EXPORT_SYMBOL(cxgb4_best_mtu);
  
  /**
-@@ -1047,7 +1066,8 @@ freeout:	t4_free_sge_resources(adap);
- 		if (msi_idx > 0)
- 			msi_idx++;
- 		err = t4_sge_alloc_rxq(adap, &q->rspq, false, dev, msi_idx,
--				       &q->fl, uldrx_handler);
-+				       q->fl.size ? &q->fl : NULL,
-+				       uldrx_handler);
- 		if (err)
- 			goto freeout;
- 		memset(&q->stats, 0, sizeof(q->stats));
-@@ -1064,13 +1084,28 @@ freeout:	t4_free_sge_resources(adap);
- 		if (msi_idx > 0)
- 			msi_idx++;
- 		err = t4_sge_alloc_rxq(adap, &q->rspq, false, adap->port[i],
--				       msi_idx, &q->fl, uldrx_handler);
-+				       msi_idx, q->fl.size ? &q->fl : NULL,
-+				       uldrx_handler);
- 		if (err)
- 			goto freeout;
- 		memset(&q->stats, 0, sizeof(q->stats));
- 		s->rdma_rxq[i] = q->rspq.abs_id;
- 	}
- 
-+	for_each_rdmaciq(s, i) {
-+		struct sge_ofld_rxq *q = &s->rdmaciq[i];
++ *     cxgb4_best_aligned_mtu - find best MTU, [hopefully] data size aligned
++ *     @mtus: the HW MTU table
++ *     @header_size: Header Size
++ *     @data_size_max: maximum Data Segment Size
++ *     @data_size_align: desired Data Segment Size Alignment (2^N)
++ *     @mtu_idxp: HW MTU Table Index return value pointer (possibly NULL)
++ *
++ *     Similar to cxgb4_best_mtu() but instead of searching the Hardware
++ *     MTU Table based solely on a Maximum MTU parameter, we break that
++ *     parameter up into a Header Size and Maximum Data Segment Size, and
++ *     provide a desired Data Segment Size Alignment.  If we find an MTU in
++ *     the Hardware MTU Table which will result in a Data Segment Size with
++ *     the requested alignment _and_ that MTU isn't "too far" from the
++ *     closest MTU, then we'll return that rather than the closest MTU.
++ */
++unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
++				    unsigned short header_size,
++				    unsigned short data_size_max,
++				    unsigned short data_size_align,
++				    unsigned int *mtu_idxp)
++{
++	unsigned short max_mtu = header_size + data_size_max;
++	unsigned short data_size_align_mask = data_size_align - 1;
++	int mtu_idx, aligned_mtu_idx;
 +
-+		if (msi_idx > 0)
-+			msi_idx++;
-+		err = t4_sge_alloc_rxq(adap, &q->rspq, false, adap->port[i],
-+				       msi_idx, q->fl.size ? &q->fl : NULL,
-+				       uldrx_handler);
-+		if (err)
-+			goto freeout;
-+		memset(&q->stats, 0, sizeof(q->stats));
-+		s->rdma_ciq[i] = q->rspq.abs_id;
++	/* Scan the MTU Table till we find an MTU which is larger than our
++	 * Maximum MTU or we reach the end of the table.  Along the way,
++	 * record the last MTU found, if any, which will result in a Data
++	 * Segment Length matching the requested alignment.
++	 */
++	for (mtu_idx = 0, aligned_mtu_idx = -1; mtu_idx < NMTUS; mtu_idx++) {
++		unsigned short data_size = mtus[mtu_idx] - header_size;
++
++		/* If this MTU minus the Header Size would result in a
++		 * Data Segment Size of the desired alignment, remember it.
++		 */
++		if ((data_size & data_size_align_mask) == 0)
++			aligned_mtu_idx = mtu_idx;
++
++		/* If we're not at the end of the Hardware MTU Table and the
++		 * next element is larger than our Maximum MTU, drop out of
++		 * the loop.
++		 */
++		if (mtu_idx+1 < NMTUS && mtus[mtu_idx+1] > max_mtu)
++			break;
 +	}
 +
- 	for_each_port(adap, i) {
- 		/*
- 		 * Note that ->rdmarxq[i].rspq.cntxt_id below is 0 if we don't
-@@ -3789,7 +3824,9 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.mtus = adap->params.mtus;
- 	if (uld == CXGB4_ULD_RDMA) {
- 		lli.rxq_ids = adap->sge.rdma_rxq;
-+		lli.ciq_ids = adap->sge.rdma_ciq;
- 		lli.nrxq = adap->sge.rdmaqs;
-+		lli.nciq = adap->sge.rdmaciqs;
- 	} else if (uld == CXGB4_ULD_ISCSI) {
- 		lli.rxq_ids = adap->sge.ofld_rxq;
- 		lli.nrxq = adap->sge.ofldqsets;
-@@ -5695,6 +5732,7 @@ static void cfg_queues(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
- 	int i, q10g = 0, n10g = 0, qidx = 0;
-+	int ciq_size;
++	/* If we fell out of the loop because we ran to the end of the table,
++	 * then we just have to use the last [largest] entry.
++	 */
++	if (mtu_idx == NMTUS)
++		mtu_idx--;
++
++	/* If we found an MTU which resulted in the requested Data Segment
++	 * Length alignment and that's "not far" from the largest MTU which is
++	 * less than or equal to the maximum MTU, then use that.
++	 */
++	if (aligned_mtu_idx >= 0 &&
++	    mtu_idx - aligned_mtu_idx <= 1)
++		mtu_idx = aligned_mtu_idx;
++
++	/* If the caller has passed in an MTU Index pointer, pass the
++	 * MTU Index back.  Return the MTU value.
++	 */
++	if (mtu_idxp)
++		*mtu_idxp = mtu_idx;
++	return mtus[mtu_idx];
++}
++EXPORT_SYMBOL(cxgb4_best_aligned_mtu);
++
++/**
+  *	cxgb4_port_chan - get the HW channel of a port
+  *	@dev: the net device for the port
+  *
+@@ -5572,13 +5643,41 @@ static int adap_init0(struct adapter *adap)
+ #undef FW_PARAM_PFVF
+ #undef FW_PARAM_DEV
  
- 	for_each_port(adap, i)
- 		n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
-@@ -5733,6 +5771,7 @@ static void cfg_queues(struct adapter *adap)
- 			s->ofldqsets = adap->params.nports;
- 		/* For RDMA one Rx queue per channel suffices */
- 		s->rdmaqs = adap->params.nports;
-+		s->rdmaciqs = adap->params.nports;
- 	}
+-	/*
+-	 * These are finalized by FW initialization, load their values now.
++	/* The MTU/MSS Table is initialized by now, so load their values.  If
++	 * we're initializing the adapter, then we'll make any modifications
++	 * we want to the MTU/MSS Table and also initialize the congestion
++	 * parameters.
+ 	 */
+ 	t4_read_mtu_tbl(adap, adap->params.mtus, NULL);
+-	t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
+-		     adap->params.b_wnd);
++	if (state != DEV_STATE_INIT) {
++		int i;
++
++		/* The default MTU Table contains values 1492 and 1500.
++		 * However, for TCP, it's better to have two values which are
++		 * a multiple of 8 +/- 4 bytes apart near this popular MTU.
++		 * This allows us to have a TCP Data Payload which is a
++		 * multiple of 8 regardless of what combination of TCP Options
++		 * are in use (always a multiple of 4 bytes) which is
++		 * important for performance reasons.  For instance, if no
++		 * options are in use, then we have a 20-byte IP header and a
++		 * 20-byte TCP header.  In this case, a 1500-byte MSS would
++		 * result in a TCP Data Payload of 1500 - 40 == 1460 bytes
++		 * which is not a multiple of 8.  So using an MSS of 1488 in
++		 * this case results in a TCP Data Payload of 1448 bytes which
++		 * is a multiple of 8.  On the other hand, if 12-byte TCP Time
++		 * Stamps have been negotiated, then an MTU of 1500 bytes
++		 * results in a TCP Data Payload of 1448 bytes which, as
++		 * above, is a multiple of 8 bytes ...
++		 */
++		for (i = 0; i < NMTUS; i++)
++			if (adap->params.mtus[i] == 1492) {
++				adap->params.mtus[i] = 1488;
++				break;
++			}
  
- 	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
-@@ -5767,6 +5806,19 @@ static void cfg_queues(struct adapter *adap)
- 		r->fl.size = 72;
- 	}
- 
-+	ciq_size = 64 + adap->vres.cq.size + adap->tids.nftids;
-+	if (ciq_size > SGE_MAX_IQ_SIZE) {
-+		CH_WARN(adap, "CIQ size too small for available IQs\n");
-+		ciq_size = SGE_MAX_IQ_SIZE;
++		t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
++			     adap->params.b_wnd);
 +	}
-+
-+	for (i = 0; i < ARRAY_SIZE(s->rdmaciq); i++) {
-+		struct sge_ofld_rxq *r = &s->rdmaciq[i];
-+
-+		init_rspq(&r->rspq, 0, 0, ciq_size, 64);
-+		r->rspq.uld = CXGB4_ULD_RDMA;
-+	}
-+
- 	init_rspq(&s->fw_evtq, 6, 0, 512, 64);
- 	init_rspq(&s->intrq, 6, 0, 2 * MAX_INGQ, 64);
- }
-@@ -5815,9 +5867,9 @@ static int enable_msix(struct adapter *adap)
- 
- 	want = s->max_ethqsets + EXTRA_VECS;
- 	if (is_offload(adap)) {
--		want += s->rdmaqs + s->ofldqsets;
-+		want += s->rdmaqs + s->rdmaciqs + s->ofldqsets;
- 		/* need nchan for each possible ULD */
--		ofld_need = 2 * nchan;
-+		ofld_need = 3 * nchan;
- 	}
- 	need = adap->params.nports + EXTRA_VECS + ofld_need;
- 
+ 	t4_init_tp_params(adap);
+ 	adap->flags |= FW_OK;
+ 	return 0;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index e274a04..87af314 100644
+index 87af314..55e9daf 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -232,8 +232,10 @@ struct cxgb4_lld_info {
- 	const struct cxgb4_virt_res *vr;     /* assorted HW resources */
- 	const unsigned short *mtus;          /* MTU table */
- 	const unsigned short *rxq_ids;       /* the ULD's Rx queue ids */
-+	const unsigned short *ciq_ids;       /* the ULD's concentrator IQ ids */
- 	unsigned short nrxq;                 /* # of Rx queues */
- 	unsigned short ntxq;                 /* # of Tx queues */
-+	unsigned short nciq;		     /* # of concentrator IQ */
- 	unsigned char nchan:4;               /* # of channels */
- 	unsigned char nports:4;              /* # of ports */
- 	unsigned char wr_cred;               /* WR 16-byte credits */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index cced1a3..bd82939 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2515,6 +2515,10 @@ void t4_free_sge_resources(struct adapter *adap)
- 		if (oq->rspq.desc)
- 			free_rspq_fl(adap, &oq->rspq, &oq->fl);
- 	}
-+	for (i = 0, oq = adap->sge.rdmaciq; i < adap->sge.rdmaciqs; i++, oq++) {
-+		if (oq->rspq.desc)
-+			free_rspq_fl(adap, &oq->rspq, &oq->fl);
-+	}
+@@ -276,6 +276,11 @@ unsigned int cxgb4_port_viid(const struct net_device *dev);
+ unsigned int cxgb4_port_idx(const struct net_device *dev);
+ unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
+ 			    unsigned int *idx);
++unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
++				    unsigned short header_size,
++				    unsigned short data_size_max,
++				    unsigned short data_size_align,
++				    unsigned int *mtu_idxp);
+ void cxgb4_get_tcp_stats(struct pci_dev *pdev, struct tp_tcp_stats *v4,
+ 			 struct tp_tcp_stats *v6);
+ void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index f2738c7..a4d7bdb 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -278,6 +278,15 @@ struct cpl_pass_accept_rpl {
+ 	__be64 opt0;
+ };
  
- 	/* clean up offload Tx queues */
- 	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-index 1d1623b..71b799b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
-@@ -68,6 +68,7 @@ enum {
- 	SGE_MAX_WR_LEN = 512,     /* max WR size in bytes */
- 	SGE_NTIMERS = 6,          /* # of interrupt holdoff timer values */
- 	SGE_NCOUNTERS = 4,        /* # of interrupt packet counter values */
-+	SGE_MAX_IQ_SIZE = 65520,
- 
- 	SGE_TIMER_RSTRT_CNTR = 6, /* restart RX packet threshold counter */
- 	SGE_TIMER_UPD_CIDX = 7,   /* update cidx only */
++struct cpl_t5_pass_accept_rpl {
++	WR_HDR;
++	union opcode_tid ot;
++	__be32 opt2;
++	__be64 opt0;
++	__be32 iss;
++	__be32 rsvd;
++};
++
+ struct cpl_act_open_req {
+ 	WR_HDR;
+ 	union opcode_tid ot;
 -- 
 1.7.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
