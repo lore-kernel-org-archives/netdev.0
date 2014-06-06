@@ -1,40 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-sysfs: Report link speed only when possible
-Date: Fri, 06 Jun 2014 12:54:47 -0700 (PDT)
-Message-ID: <20140606.125447.1665616708152334692.davem@davemloft.net>
-References: <771f792d4d4391c656305a522557c53c4e84a666.1402043894.git.mprivozn@redhat.com>
-	<20140606085733.GJ2984@minipsycho.orion>
+From: Daniel Kiper <daniel.kiper@oracle.com>
+Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
+ interface
+Date: Fri, 6 Jun 2014 22:02:47 +0200
+Message-ID: <20140606200247.GB15989@olila.local.net-space.pl>
+References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
+ <20140605.145844.382754247234672637.davem@davemloft.net>
+ <20140605231458.GA31114@kroah.com>
+ <20140606130417.GL12025@olila.local.net-space.pl>
+ <20140606135623.GA11781@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mprivozn@redhat.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: jiri@resnulli.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140606085733.GJ2984@minipsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
+	msw@amazon.com, netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140606135623.GA11781@kroah.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 6 Jun 2014 10:57:33 +0200
+On Fri, Jun 06, 2014 at 06:56:23AM -0700, Greg KH wrote:
+> On Fri, Jun 06, 2014 at 03:04:17PM +0200, Daniel Kiper wrote:
+> > On Thu, Jun 05, 2014 at 04:14:58PM -0700, Greg KH wrote:
+> > > On Thu, Jun 05, 2014 at 02:58:44PM -0700, David Miller wrote:
+> > > > From: Daniel Kiper <daniel.kiper@oracle.com>
+> > > > Date: Mon,  2 Jun 2014 21:46:20 +0200
+> > > >
+> > > > > From: Matt Wilson <msw@amazon.com>
+> > > > >
+> > > > > Sometimes it is useful to be able to change the MAC address of the
+> > > > > interface for netback devices. For example, when using ebtables it may
+> > > > > be useful to be able to distinguish traffic from different interfaces
+> > > > > without depending on the interface name.
+> > > > >
+> > > > > Reported-by: Nikita Borzykh <sample.n@gmail.com>
+> > > > > Reported-by: Paul Harvey <stockingpaul@hotmail.com>
+> > > > > Cc: netdev@vger.kernel.org
+> > > > > Cc: xen-devel@lists.xen.org
+> > > > > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > > > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > > > > Signed-off-by: Matt Wilson <msw@amazon.com>
+> > > > > Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > > > Signed-off-by: David S. Miller <davem@davemloft.net>
+> > > > > (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
+> > > > >
+> > > > > Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > > > > Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
+> > > > > Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > > >
+> > > > I don't think this is suitable for -stable.
+> > > >
+> > > > -stable should be restricted bug fixes for things that either
+> > > > are extremely serious, or hit a very huge segment of the user
+> > > > base.
+> > > >
+> > > > This issue does not quality for either condition.
+> > >
+> > > Yeah, it seems like a new feature to me, I'll drop it from my to-apply
+> > > queue.
+> >
+> > Yes, in fact it is, however, without it toolstack pollute /var/log/xen/xen-hotplug.log
+> > with "RTNETLINK answers: Operation not supported" error when every domain is started.
+> > Additionally, it is simple two liner and it should not break anything (Konrad and
+> > I did some tests and everything looks OK). I do not mention that from time to time
+> > we add some features like support for new hardware with just new device ID (e.g.
+> > USB devices). So that is why I decided to post this patch to stable.
+>
+> New device ids and quirks to existing drivers are valid stable patches
+> (see Documentation/stable_kernel_rules.txt), but new features usually
+> are not.
 
-> Fri, Jun 06, 2014 at 10:40:30AM CEST, mprivozn@redhat.com wrote:
->>The link speed is available at /sys/class/net/$nic/speed.
->>However, in some cases, depending on the driver, if the link is
->>not plugged, -1 is reported (this is the case of e1000e for
->>instance). To make things worse, the value is printed out as an
-> 
-> Actually, SPEED_UNKNOWN is also -1
-> So e1000e is not any exception.
+There is something like that:
+ - It must fix a problem that causes a build error (but not for things
+   marked CONFIG_BROKEN), an oops, a hang, data corruption, a real
+   security issue, or some "oh, that's not good" issue.  In short,
+   something critical.
 
-And pity the person who is handling this by evaluating that unsigned
-value, we'll break them.
+I think that this is "oh, that's not good" issue type. Of course it
+is not so critical but a bit annoying. Hence, could we have it in 3.4
+or "NO" is your the last word in that case?
 
-We can't keep changing behavior for the SPEED_UNKOWN case back and
-forth.
-
-A program that wants to work with all kernels now has to handle three
-different kinds of behavior if we apply this patch, that's not making
-things better, it's making things worse.
-
-I'm not applying a patch that does this, sorry.
+Daniel
