@@ -1,69 +1,135 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: Potential race in ip4_datagram_release_cb
-Date: Fri, 6 Jun 2014 11:13:54 -0700
-Message-ID: <CAADnVQJB_1aPJ4tz_BaHuZAf-vQqfEWxcaQSCb7s1nSySMomYw@mail.gmail.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	<1402059375.3645.284.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAADnVQL=D_KF2iRLO1Ufoih3Rg-WtSA9UYuU0OjOZebGBryVHA@mail.gmail.com>
-	<1402071367.3645.305.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CAADnVQL47b+nFo+WUJGw=oCEVwRHtK98poe8SJqw4F-jAUXoyw@mail.gmail.com>
-	<1402077364.3645.310.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net v5] sfc: PIO:Restrict to 64bit arch and use 64-bit writes.
+Date: Fri, 6 Jun 2014 19:24:01 +0100
+Message-ID: <53920741.4060704@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	dormando <dormando@rydia.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:36013 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbaFFSNz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 14:13:55 -0400
-Received: by mail-qg0-f49.google.com with SMTP id a108so5151128qge.36
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 11:13:55 -0700 (PDT)
-In-Reply-To: <1402077364.3645.310.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:26773 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaFFSYG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 14:24:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 6, 2014 at 10:56 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2014-06-06 at 10:44 -0700, Alexei Starovoitov wrote:
->> On Fri, Jun 6, 2014 at 9:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> > We should either :
->> >
->> > 1) use xchg() and no lock at all to change sk_dst_cache, as we did for
->> > sk_rx_dst ( cf udp_sk_rx_dst_set() )
->> >
->> > 2) No longer use sk_dst_lock, and always use the socket lock
->> > (sk->sk_lock.slock) instead.
->>
->> Probably needs some combination of both.
->
-> I do not think so.
->
-> If we use xchg(), then we do not need anything else.
->
-> If we use a spinlock, then xchg() seems useless.
->
-> Any combination is buggy.
->
-> In the past, UDP transmit was holding socket lock,
-> but we added a lockless path, and I suppose more people
-> use a UDP socket from different threads.
->
-> Then, Steffen added the ip4_datagram_release_cb() thing,
-> increasing the chance of mixing both 'protections'.
->
-> Setting sk_dst_cache should hardly be a hot path.
+From: Jon Cooper <jcooper@solarflare.com>
 
-yeah. if we use sk_lock.slock then xchg is obviously not needed.
-By 'both' I meant to do xchg() and get rid of sk_dst_lock to speed it up.
-Though not worth going too fancy if speed is not needed.
+Fixes:ee45fd92c739
+("sfc: Use TX PIO for sufficiently small packets")
 
->
+The linux net driver uses memcpy_toio() in order to copy into
+the PIO buffers.
+Even on a 64bit machine this causes 32bit accesses to a write-
+combined memory region.
+There are hardware limitations that mean that only 64bit
+naturally aligned accesses are safe in all cases.
+Due to being write-combined memory region two 32bit accesses
+may be coalesced to form a 64bit non 64bit aligned access.
+Solution was to open-code the memory copy routines using pointers
+and to only enable PIO for x86_64 machines.
+
+Not tested on platforms other than x86_64 because this patch
+disables the PIO feature on other platforms.
+Compile-tested on x86 to ensure that works.
+
+The WARN_ON_ONCE() code in the previous version of this patch
+has been moved into the internal sfc debug driver as the
+assertion was unnecessary in the upstream kernel code.
+
+This bug fix applies to v3.13 and v3.14 stable branches.
+
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/io.h | 10 ++++++++++
+ drivers/net/ethernet/sfc/tx.c | 22 +++++++++++++++++-----
+ 2 files changed, 27 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/io.h b/drivers/net/ethernet/sfc/io.h
+index 4d3f119..5adbc9f 100644
+--- a/drivers/net/ethernet/sfc/io.h
++++ b/drivers/net/ethernet/sfc/io.h
+@@ -66,10 +66,20 @@
+ #define EFX_USE_QWORD_IO 1
+ #endif
+ 
++/* Hardware issue requires that only 64-bit naturally aligned writes
++ * are seen by hardware.
++ */
++#if BITS_PER_LONG == 64
++/* not strictly necessary to restrict to x86 arch, but done for safety
++ * since unusual write combining behaviour can break PIO.
++ */
++#ifdef CONFIG_X86_64
+ /* PIO is a win only if write-combining is possible */
+ #ifdef ARCH_HAS_IOREMAP_WC
+ #define EFX_USE_PIO 1
+ #endif
++#endif
++#endif
+ 
+ #ifdef EFX_USE_QWORD_IO
+ static inline void _efx_writeq(struct efx_nic *efx, __le64 value,
+diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
+index fa94753..ede8dcc 100644
+--- a/drivers/net/ethernet/sfc/tx.c
++++ b/drivers/net/ethernet/sfc/tx.c
+@@ -189,6 +189,18 @@ struct efx_short_copy_buffer {
+ 	u8 buf[L1_CACHE_BYTES];
+ };
+ 
++/* Copy in explicit 64-bit writes. */
++static void efx_memcpy_64(void __iomem *dest, void *src, size_t len)
++{
++	u64 *src64 = src;
++	u64 __iomem *dest64 = dest;
++	size_t l64 = len / 8;
++	size_t i;
++
++	for (i = 0; i < l64; i++)
++		writeq(src64[i], &dest64[i]);
++}
++
+ /* Copy to PIO, respecting that writes to PIO buffers must be dword aligned.
+  * Advances piobuf pointer. Leaves additional data in the copy buffer.
+  */
+@@ -198,7 +210,7 @@ static void efx_memcpy_toio_aligned(struct efx_nic *efx, u8 __iomem **piobuf,
+ {
+ 	int block_len = len & ~(sizeof(copy_buf->buf) - 1);
+ 
+-	memcpy_toio(*piobuf, data, block_len);
++	efx_memcpy_64(*piobuf, data, block_len);
+ 	*piobuf += block_len;
+ 	len -= block_len;
+ 
+@@ -230,7 +242,7 @@ static void efx_memcpy_toio_aligned_cb(struct efx_nic *efx, u8 __iomem **piobuf,
+ 		if (copy_buf->used < sizeof(copy_buf->buf))
+ 			return;
+ 
+-		memcpy_toio(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
++		efx_memcpy_64(*piobuf, copy_buf->buf, sizeof(copy_buf->buf));
+ 		*piobuf += sizeof(copy_buf->buf);
+ 		data += copy_to_buf;
+ 		len -= copy_to_buf;
+@@ -245,7 +257,7 @@ static void efx_flush_copy_buffer(struct efx_nic *efx, u8 __iomem *piobuf,
+ {
+ 	/* if there's anything in it, write the whole buffer, including junk */
+ 	if (copy_buf->used)
+-		memcpy_toio(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
++		efx_memcpy_64(piobuf, copy_buf->buf, sizeof(copy_buf->buf));
+ }
+ 
+ /* Traverse skb structure and copy fragments in to PIO buffer.
+@@ -304,8 +316,8 @@ efx_enqueue_skb_pio(struct efx_tx_queue *tx_queue, struct sk_buff *skb)
+ 		 */
+ 		BUILD_BUG_ON(L1_CACHE_BYTES >
+ 			     SKB_DATA_ALIGN(sizeof(struct skb_shared_info)));
+-		memcpy_toio(tx_queue->piobuf, skb->data,
+-			    ALIGN(skb->len, L1_CACHE_BYTES));
++		efx_memcpy_64(tx_queue->piobuf, skb->data,
++			      ALIGN(skb->len, L1_CACHE_BYTES));
+ 	}
+ 
+ 	EFX_POPULATE_QWORD_5(buffer->option,
