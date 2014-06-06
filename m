@@ -1,46 +1,238 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] i40e: set lan_veb index
-Date: Fri,  6 Jun 2014 02:04:10 -0700
-Message-ID: <1402045462-10304-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] i40e/i40evf: check AQ register for valid data
+Date: Fri,  6 Jun 2014 02:04:14 -0700
+Message-ID: <1402045462-10304-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47817 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:47819 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752134AbaFFJEy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 05:04:54 -0400
+	id S1752628AbaFFJE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jun 2014 05:04:56 -0400
 In-Reply-To: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-When the VEB is created for the basic LAN device and its VSIs, we need to
-set the tracking lan_veb index for later use.
+B0 Si blocks AQ registers when in Blank Flash mode - write is dropped,
+read gives 0xDEADBEEF. Introduce a simple check for a correct value in one
+of the AQ registers to be sure that AQ was configured correctly.
+Without this check we get into an endless loop while trying to send
+GetVersion AQ cmd.
 
-Change-ID: I66bb74993bbda3621ca557437cb4b3517f9b315b
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Kavindya Deegala <kavindya.s.deegala@intel.com>
+Change-ID: I00102b8c5fa6c16d14289be677aafadf87f10f0d
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 34 ++++++++++++++++++++++---
+ drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 34 ++++++++++++++++++++++---
+ 2 files changed, 60 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 35e5ba4..a08f5a0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7735,6 +7735,8 @@ struct i40e_veb *i40e_veb_setup(struct i40e_pf *pf, u16 flags,
- 	ret = i40e_add_veb(veb, pf->vsi[vsi_idx]);
- 	if (ret)
- 		goto err_veb;
-+	if (vsi_idx == pf->lan_vsi)
-+		pf->lan_veb = veb->idx;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+index ba2811b..7a02749 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+@@ -291,8 +291,11 @@ static void i40e_free_asq_bufs(struct i40e_hw *hw)
+  *
+  *  Configure base address and length registers for the transmit queue
+  **/
+-static void i40e_config_asq_regs(struct i40e_hw *hw)
++static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
+ {
++	i40e_status ret_code = 0;
++	u32 reg = 0;
++
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the transmit queue */
+ 		wr32(hw, I40E_VF_ATQBAH1,
+@@ -301,6 +304,7 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
+ 					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
++		reg = rd32(hw, I40E_VF_ATQBAL1);
+ 	} else {
+ 		/* configure the transmit queue */
+ 		wr32(hw, I40E_PF_ATQBAH,
+@@ -309,7 +313,14 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
+ 					  I40E_PF_ATQLEN_ATQENABLE_MASK));
++		reg = rd32(hw, I40E_PF_ATQBAL);
+ 	}
++
++	/* Check one register to verify that config was applied */
++	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
++		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
++
++	return ret_code;
+ }
  
- 	return veb;
+ /**
+@@ -318,8 +329,11 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+  *
+  * Configure base address and length registers for the receive (event queue)
+  **/
+-static void i40e_config_arq_regs(struct i40e_hw *hw)
++static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
+ {
++	i40e_status ret_code = 0;
++	u32 reg = 0;
++
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the receive queue */
+ 		wr32(hw, I40E_VF_ARQBAH1,
+@@ -328,6 +342,7 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
+ 					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
++		reg = rd32(hw, I40E_VF_ARQBAL1);
+ 	} else {
+ 		/* configure the receive queue */
+ 		wr32(hw, I40E_PF_ARQBAH,
+@@ -336,10 +351,17 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
+ 					  I40E_PF_ARQLEN_ARQENABLE_MASK));
++		reg = rd32(hw, I40E_PF_ARQBAL);
+ 	}
  
+ 	/* Update tail in the HW to post pre-allocated buffers */
+ 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
++
++	/* Check one register to verify that config was applied */
++	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
++		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
++
++	return ret_code;
+ }
+ 
+ /**
+@@ -387,7 +409,9 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
+ 		goto init_adminq_free_rings;
+ 
+ 	/* initialize base registers */
+-	i40e_config_asq_regs(hw);
++	ret_code = i40e_config_asq_regs(hw);
++	if (ret_code)
++		goto init_adminq_free_rings;
+ 
+ 	/* success! */
+ 	goto init_adminq_exit;
+@@ -444,7 +468,9 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
+ 		goto init_adminq_free_rings;
+ 
+ 	/* initialize base registers */
+-	i40e_config_arq_regs(hw);
++	ret_code = i40e_config_arq_regs(hw);
++	if (ret_code)
++		goto init_adminq_free_rings;
+ 
+ 	/* success! */
+ 	goto init_adminq_exit;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+index 68b4aac..eb67cce 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
+@@ -289,8 +289,11 @@ static void i40e_free_asq_bufs(struct i40e_hw *hw)
+  *
+  *  Configure base address and length registers for the transmit queue
+  **/
+-static void i40e_config_asq_regs(struct i40e_hw *hw)
++static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
+ {
++	i40e_status ret_code = 0;
++	u32 reg = 0;
++
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the transmit queue */
+ 		wr32(hw, I40E_VF_ATQBAH1,
+@@ -299,6 +302,7 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
+ 					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
++		reg = rd32(hw, I40E_VF_ATQBAL1);
+ 	} else {
+ 		/* configure the transmit queue */
+ 		wr32(hw, I40E_PF_ATQBAH,
+@@ -307,7 +311,14 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
+ 					  I40E_PF_ATQLEN_ATQENABLE_MASK));
++		reg = rd32(hw, I40E_PF_ATQBAL);
+ 	}
++
++	/* Check one register to verify that config was applied */
++	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
++		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
++
++	return ret_code;
+ }
+ 
+ /**
+@@ -316,8 +327,11 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
+  *
+  * Configure base address and length registers for the receive (event queue)
+  **/
+-static void i40e_config_arq_regs(struct i40e_hw *hw)
++static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
+ {
++	i40e_status ret_code = 0;
++	u32 reg = 0;
++
+ 	if (hw->mac.type == I40E_MAC_VF) {
+ 		/* configure the receive queue */
+ 		wr32(hw, I40E_VF_ARQBAH1,
+@@ -326,6 +340,7 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
+ 					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
++		reg = rd32(hw, I40E_VF_ARQBAL1);
+ 	} else {
+ 		/* configure the receive queue */
+ 		wr32(hw, I40E_PF_ARQBAH,
+@@ -334,10 +349,17 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
+ 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
+ 		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
+ 					  I40E_PF_ARQLEN_ARQENABLE_MASK));
++		reg = rd32(hw, I40E_PF_ARQBAL);
+ 	}
+ 
+ 	/* Update tail in the HW to post pre-allocated buffers */
+ 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
++
++	/* Check one register to verify that config was applied */
++	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
++		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
++
++	return ret_code;
+ }
+ 
+ /**
+@@ -385,7 +407,9 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
+ 		goto init_adminq_free_rings;
+ 
+ 	/* initialize base registers */
+-	i40e_config_asq_regs(hw);
++	ret_code = i40e_config_asq_regs(hw);
++	if (ret_code)
++		goto init_adminq_free_rings;
+ 
+ 	/* success! */
+ 	goto init_adminq_exit;
+@@ -442,7 +466,9 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
+ 		goto init_adminq_free_rings;
+ 
+ 	/* initialize base registers */
+-	i40e_config_arq_regs(hw);
++	ret_code = i40e_config_arq_regs(hw);
++	if (ret_code)
++		goto init_adminq_free_rings;
+ 
+ 	/* success! */
+ 	goto init_adminq_exit;
 -- 
 1.9.3
