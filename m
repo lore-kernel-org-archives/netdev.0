@@ -1,130 +1,116 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: SCTP seems to lose its socket state.
-Date: Fri, 06 Jun 2014 12:50:23 -0400
-Message-ID: <5391F14F.7030800@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/4] net: systemport: fix transmit locking scheme
+Date: Fri, 6 Jun 2014 10:00:43 -0700
+Message-ID: <CAGVrzcZHxRN6sFvLPFJqC6T0ZbfkeWC1cGAcxdijs0ffifQYLw@mail.gmail.com>
+References: <1401988938-25940-1-git-send-email-f.fainelli@gmail.com>
+ <1401988938-25940-2-git-send-email-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:54157 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751624AbaFFQu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:50:26 -0400
-Received: by mail-qg0-f45.google.com with SMTP id z60so4871538qgd.4
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 09:50:26 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:37359 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbaFFRBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 13:01:23 -0400
+Received: by mail-ob0-f179.google.com with SMTP id nu7so506209obb.38
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 10:01:23 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2014 11:14 AM, David Laight wrote:
-> From: David Laight
->> I've been looking at an ethernet trace from one of our customers.
->> They seem to have got an SCTP socket into a rather confused state.
+2014-06-06 2:29 GMT-07:00 David Laight <David.Laight@aculab.com>:
+> From: Florian Fainelli
+>> Our transmit locking scheme did not account for the TX ring full
+>> interrupt. If a TX ring full interrupt fires while we are attempting to
+>> transmit, we will cause a deadlock to occur. Fix this by making sure
+>> that we properly disable interrupts while acquiring the spinlock.
+>
+> Presumably you mean a 'TX complete' interrupt?
+
+There is an additional interrupt that gets fired when one of the TX
+ring gets full, but it is in bcm_sysport_rx_isr() since it hooked to
+the first interrupt line we have.
+
+>
+> It ought to be possible to arrange the logic so that you don't
+> need to disable interrupts for the entirety of the tx reclaim
+> and tx setup code.
+>
+> If you have an absolutely accurate count of the number of
+> tx descriptors required, even the tx setup code probably only needs
+> the ring's lock while it advances the write pointer.
+> It can fill in the ring entries after releasing the lock.
+
+Right, I am currently experimenting with that and plan to remove the
+spinlock entirely, or grab it for as little time as possible.
+
+>
+>         David
+>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bcmsysport.c | 12 +++++++-----
+>>  1 file changed, 7 insertions(+), 5 deletions(-)
 >>
->> There seem to be a significant number of transmit ethernet frames
->> that don't read the far end.
->> This shouldn't cause a real problem, but we end up with the following:
->> This trace was taken on the linux system:
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> index 25982b02f0ea..4dfc93fe9744 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> @@ -637,10 +637,11 @@ static unsigned int bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
+>>                                          struct bcm_sysport_tx_ring *ring)
+>>  {
+>>       unsigned int released;
+>> +     unsigned long flags;
 >>
->> 39964   0.304473        ->      SCTP    INIT
->> 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
->> 39968   0.467935        <-      SCTP    INIT
->> 39969   0.000093        ->      SCTP    INIT_ACK
->> 39970   0.003947        <-      SCTP    COOKIE_ECHO
->> 39971   0.000072        ->      SCTP    COOKIE_ACK
->> 39972   0.000337        ->      M3UA    ASPUP
->> 39979   0.809659        <-      SCTP    COOKIE_ECHO
->> 39980   0.000058        ->      SCTP    COOKIE_ACK
->> shutdown() called here - seems to be ignored
->> 39983   0.949471        <-      SCTP    COOKIE_ECHO
->> 39984   0.000053        ->      SCTP    COOKIE_ACK
->> 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
->> 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
->> 40008   3.689088        <-      SCTP    HEARTBEAT
->> 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
->> 40014   0.261152        <-      SCTP    HEARTBEAT
->> 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
->> 40026   0.123048        <-      SCTP    HEARTBEAT
->> 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
->> 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
+>> -     spin_lock(&ring->lock);
+>> +     spin_lock_irqsave(&ring->lock, flags);
+>>       released = __bcm_sysport_tx_reclaim(priv, ring);
+>> -     spin_unlock(&ring->lock);
+>> +     spin_unlock_irqrestore(&ring->lock, flags);
 >>
->> There are no signs of any SACKs for the ASPUP, I think they have the
->> correct TSN (the same value as in the INIT_ACK).
->> No signs of any shutdowns or aborts from either system.
+>>       return released;
+>>  }
+>> @@ -822,6 +823,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>>       struct netdev_queue *txq;
+>>       struct dma_desc *desc;
+>>       unsigned int skb_len;
+>> +     unsigned long flags;
+>>       dma_addr_t mapping;
+>>       u32 len_status;
+>>       u16 queue;
+>> @@ -831,8 +833,8 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>>       txq = netdev_get_tx_queue(dev, queue);
+>>       ring = &priv->tx_rings[queue];
 >>
->> As seems to be typical for M3UA the source and destination ports are
->> the same. No additional IP addresses appear in the INIT (etc) messages.
-> 
-> I think I've reproduced this on a 3.14.0 kernel.
-> 
-> System A: Bind to port 1234, connect to B:1234.
->           If the connect fails, retry 10 seconds later.
->           When the connection completes send some data.
->           Disconnect if the reflected data isn't received within 2 seconds.
-> System B: Bind to port 1234, connect to A:1234.
->           If the connect fails, retry 10 seconds later.
->           Reflect any received data.
-> 
-> Initially the INIT chunks generate ABORTs (no listener) so both
-> programs just retry every 10 seconds.
-> 
+>> -     /* lock against tx reclaim in BH context */
+>> -     spin_lock(&ring->lock);
+>> +     /* lock against tx reclaim in BH context and TX ring full interrupt */
+>> +     spin_lock_irqsave(&ring->lock, flags);
+>>       if (unlikely(ring->desc_count == 0)) {
+>>               netif_tx_stop_queue(txq);
+>>               netdev_err(dev, "queue %d awake and ring full!\n", queue);
+>> @@ -914,7 +916,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>>
+>>       ret = NETDEV_TX_OK;
+>>  out:
+>> -     spin_unlock(&ring->lock);
+>> +     spin_unlock_irqrestore(&ring->lock, flags);
+>>       return ret;
+>>  }
+>>
+>> --
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
 
-Interesting...  I bet that if you drop the retry interval, or even
-maybe remove it completely, you might get a connection faster.
 
-You'll end up in the unexpected INIT cases, where the two ends are
-trying to establish an association at the same time.
 
-> On B run:
->     iptables -A INPUT -p sctp --chunk-types any INIT -j DROP
->     iptables -A INPUT -p sctp --chunk-types any DATA -j DROP
-> The first allows the connection to complete.
-> The second stops B acking the data.
-> The data is resent on timeout, and the systems exchange HBs.
-> 
-
-Ok, that makes sense.
-
-> I'd expect that a SHUTDOWN or ABORT be sent reasonably quickly.
-
-Whey do expect that?  Since you drop the data at B, it is never
-reflected back to A.  As such, A will continue retransmitting.
-When you disconnect on A, you have unacknowledged data, so the
-system will go into SHUTDOWN_PENDING state tying to get the remote
-to ack the data and continue sending HB.  Which is I think what
-you are observing.
-
-> But the systems just exchange HBs for over 5 minutes.
-> (I'm seeing an ABORT because B gives up waiting for the message.)
-
-I think you might be seeing a shutdown_guard timer firing on A.
-It defaults to 5 * rto_max and default rto_max is 1 min.
-
-Tweak rto_max lower and you should see the ABORT faster.
-
-I think for the above scenario applications, I'd recommend setting
-SO_LINGER to on so that when A disconnects, it sends an ABORT
-instead of waiting for unacked data to finish.
-
--vlad
-
-> 
-> If I discard the COOKIE_ECHO then I do see an outwards disconnect
-> after a few retries.
-> 
-> I'm testing with sockets created by our M3UA kernel driver,
-> and system B is running a much older kernel (2.6.26).
-> Neither should make any difference.
-> 
-> 	David
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+-- 
+Florian
