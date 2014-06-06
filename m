@@ -1,104 +1,97 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/4] net: systemport: fix transmit locking
- scheme
-Date: Fri, 6 Jun 2014 09:29:55 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
-References: <1401988938-25940-1-git-send-email-f.fainelli@gmail.com>
- <1401988938-25940-2-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>
-To: 'Florian Fainelli' <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38364 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751883AbaFFJa2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 05:30:28 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20892-05 for <netdev@vger.kernel.org>;
- Fri,  6 Jun 2014 10:30:19 +0100 (BST)
-In-Reply-To: <1401988938-25940-2-git-send-email-f.fainelli@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kiran Kumar Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [RFC] Bluetooth: Add ACL MTU, available buffers and total buffers to hci_conn_info.
+Date: Fri,  6 Jun 2014 15:48:00 +0530
+Message-ID: <1402049880-7686-1-git-send-email-kiran.kumar@linaro.org>
+Cc: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli
-> Our transmit locking scheme did not account for the TX ring full
-> interrupt. If a TX ring full interrupt fires while we are attempting to
-> transmit, we will cause a deadlock to occur. Fix this by making sure
-> that we properly disable interrupts while acquiring the spinlock.
+From: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 
-Presumably you mean a 'TX complete' interrupt?
+Add ACL MTU, available buffers and total buffers to hci_conn_info.
 
-It ought to be possible to arrange the logic so that you don't
-need to disable interrupts for the entirety of the tx reclaim 
-and tx setup code.
+This provides userspace debugging tools access to ACL flow control state.
 
-If you have an absolutely accurate count of the number of
-tx descriptors required, even the tx setup code probably only needs
-the ring's lock while it advances the write pointer.
-It can fill in the ring entries after releasing the lock.
+This is one of the number of patches from the Android AOSP common.git tree,
+which is used on almost all Android devices.  so I wanted to submit it for
+review to see if it should go upstream.
 
-	David
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+[kiran: Added context to commit message]
+Signed-off-by: Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+---
+ include/net/bluetooth/hci.h |  3 +++
+ net/bluetooth/hci_conn.c    | 18 ++++++++++++++++++
+ 2 files changed, 21 insertions(+)
 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/ethernet/broadcom/bcmsysport.c | 12 +++++++-----
->  1 file changed, 7 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index 25982b02f0ea..4dfc93fe9744 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -637,10 +637,11 @@ static unsigned int bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
->  					   struct bcm_sysport_tx_ring *ring)
->  {
->  	unsigned int released;
-> +	unsigned long flags;
-> 
-> -	spin_lock(&ring->lock);
-> +	spin_lock_irqsave(&ring->lock, flags);
->  	released = __bcm_sysport_tx_reclaim(priv, ring);
-> -	spin_unlock(&ring->lock);
-> +	spin_unlock_irqrestore(&ring->lock, flags);
-> 
->  	return released;
->  }
-> @@ -822,6 +823,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
->  	struct netdev_queue *txq;
->  	struct dma_desc *desc;
->  	unsigned int skb_len;
-> +	unsigned long flags;
->  	dma_addr_t mapping;
->  	u32 len_status;
->  	u16 queue;
-> @@ -831,8 +833,8 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
->  	txq = netdev_get_tx_queue(dev, queue);
->  	ring = &priv->tx_rings[queue];
-> 
-> -	/* lock against tx reclaim in BH context */
-> -	spin_lock(&ring->lock);
-> +	/* lock against tx reclaim in BH context and TX ring full interrupt */
-> +	spin_lock_irqsave(&ring->lock, flags);
->  	if (unlikely(ring->desc_count == 0)) {
->  		netif_tx_stop_queue(txq);
->  		netdev_err(dev, "queue %d awake and ring full!\n", queue);
-> @@ -914,7 +916,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
-> 
->  	ret = NETDEV_TX_OK;
->  out:
-> -	spin_unlock(&ring->lock);
-> +	spin_unlock_irqrestore(&ring->lock, flags);
->  	return ret;
->  }
-> 
-> --
-> 1.9.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/bluetooth/hci.h b/include/net/bluetooth/hci.h
+index be150cf..67dc0fb 100644
+--- a/include/net/bluetooth/hci.h
++++ b/include/net/bluetooth/hci.h
+@@ -1830,6 +1830,9 @@ struct hci_conn_info {
+ 	__u8     out;
+ 	__u16    state;
+ 	__u32    link_mode;
++	__u32    mtu;
++	__u32    cnt;
++	__u32    pkts;
+ };
+ 
+ struct hci_dev_req {
+diff --git a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+index 521fd4f..c2ba0fe 100644
+--- a/net/bluetooth/hci_conn.c
++++ b/net/bluetooth/hci_conn.c
+@@ -1064,6 +1064,15 @@ int hci_get_conn_list(void __user *arg)
+ 		(ci + n)->out   = c->out;
+ 		(ci + n)->state = c->state;
+ 		(ci + n)->link_mode = c->link_mode;
++		if (c->type == SCO_LINK) {
++			(ci + n)->mtu = hdev->sco_mtu;
++			(ci + n)->cnt = hdev->sco_cnt;
++			(ci + n)->pkts = hdev->sco_pkts;
++		} else {
++			(ci + n)->mtu = hdev->acl_mtu;
++			(ci + n)->cnt = hdev->acl_cnt;
++			(ci + n)->pkts = hdev->acl_pkts;
++		}
+ 		if (++n >= req.conn_num)
+ 			break;
+ 	}
+@@ -1100,6 +1109,15 @@ int hci_get_conn_info(struct hci_dev *hdev, void __user *arg)
+ 		ci.out   = conn->out;
+ 		ci.state = conn->state;
+ 		ci.link_mode = conn->link_mode;
++		if (req.type == SCO_LINK) {
++			ci.mtu = hdev->sco_mtu;
++			ci.cnt = hdev->sco_cnt;
++			ci.pkts = hdev->sco_pkts;
++		} else {
++			ci.mtu = hdev->acl_mtu;
++			ci.cnt = hdev->acl_cnt;
++			ci.pkts = hdev->acl_pkts;
++		}
+ 	}
+ 	hci_dev_unlock(hdev);
+ 
+-- 
+1.8.2.1
