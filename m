@@ -1,74 +1,123 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 3.4] xen-netback: allow changing the MAC address of the
- interface
-Date: Fri, 6 Jun 2014 06:56:23 -0700
-Message-ID: <20140606135623.GA11781@kroah.com>
-References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
- <20140605.145844.382754247234672637.davem@davemloft.net>
- <20140605231458.GA31114@kroah.com>
- <20140606130417.GL12025@olila.local.net-space.pl>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
+ for netdev
+Date: Fri, 06 Jun 2014 10:09:00 -0400
+Message-ID: <5391CB7C.8060100@gmail.com>
+References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com> <53907982.8030700@gmail.com> <53913B89.4020305@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, stable@vger.kernel.org,
-	msw@amazon.com, netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	konrad.wilk@oracle.com
-To: Daniel Kiper <daniel.kiper@oracle.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140606130417.GL12025@olila.local.net-space.pl>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	kaber@trash.net, davem@davemloft.net, edumazet@google.com,
+	vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:33101 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751638AbaFFOJF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 10:09:05 -0400
+Received: by mail-qa0-f51.google.com with SMTP id w8so3792796qac.38
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 07:09:03 -0700 (PDT)
+In-Reply-To: <53913B89.4020305@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2014 at 03:04:17PM +0200, Daniel Kiper wrote:
-> On Thu, Jun 05, 2014 at 04:14:58PM -0700, Greg KH wrote:
-> > On Thu, Jun 05, 2014 at 02:58:44PM -0700, David Miller wrote:
-> > > From: Daniel Kiper <daniel.kiper@oracle.com>
-> > > Date: Mon,  2 Jun 2014 21:46:20 +0200
-> > >
-> > > > From: Matt Wilson <msw@amazon.com>
-> > > >
-> > > > Sometimes it is useful to be able to change the MAC address of the
-> > > > interface for netback devices. For example, when using ebtables it may
-> > > > be useful to be able to distinguish traffic from different interfaces
-> > > > without depending on the interface name.
-> > > >
-> > > > Reported-by: Nikita Borzykh <sample.n@gmail.com>
-> > > > Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-> > > > Cc: netdev@vger.kernel.org
-> > > > Cc: xen-devel@lists.xen.org
-> > > > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > > > Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> > > > Signed-off-by: Matt Wilson <msw@amazon.com>
-> > > > Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > > > Signed-off-by: David S. Miller <davem@davemloft.net>
-> > > > (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
-> > > >
-> > > > Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
-> > > > Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
-> > > > Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > >
-> > > I don't think this is suitable for -stable.
-> > >
-> > > -stable should be restricted bug fixes for things that either
-> > > are extremely serious, or hit a very huge segment of the user
-> > > base.
-> > >
-> > > This issue does not quality for either condition.
-> >
-> > Yeah, it seems like a new feature to me, I'll drop it from my to-apply
-> > queue.
+On 06/05/2014 11:54 PM, Ding Tianhong wrote:
+> On 2014/6/5 22:06, Vlad Yasevich wrote:
+>> On 06/05/2014 05:50 AM, Ding Tianhong wrote:
+>>> On 2014/6/5 17:09, Toshiaki Makita wrote:
+>>>> (2014/06/05 15:50), Ding Tianhong wrote:
+>>>>> Most of netdev just like bond, team, vlan will set the mac address
+>>>>> and propagate to the upperdev or lowerdev regardless the mac address
+>>>>> is  same or not, I could not find that the same mac address could
+>>>>> make affect, so add equal check when set mac address.
+>>>>>
+>>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>>> ---
+>>>>>  net/core/dev.c | 2 ++
+>>>>>  1 file changed, 2 insertions(+)
+>>>>>
+>>>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>>>> index 5367bfb..4008a51 100644
+>>>>> --- a/net/core/dev.c
+>>>>> +++ b/net/core/dev.c
+>>>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+>>>>>  		return -EINVAL;
+>>>>>  	if (!netif_device_present(dev))
+>>>>>  		return -ENODEV;
+>>>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
+>>>>> +		return 0;
+>>>>>  	err = ops->ndo_set_mac_address(dev, sa);
+>>>>>  	if (err)
+>>>>>  		return err;
+>>>>>
+>>>>
+>>>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
+>>>> bridge ports. If user set mac address, and even if it is the same as
+>>>> current one, bridge uses the fact that the mac address is set by user.
+>>>>
+>>>
+>>> OK
+>>>
+>>>> Although I'm not aware of a driver that needs calling of
+>>>> ndo_set_mac_address() for the same mac address, this change looks a bit
+>>>> risky to me.
+>>>> (For example, old bridge code needed this call because it managed
+>>>> BR_SET_MAC_ADDR in bridge flags.)
+>>>>
+>>> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
+>>> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
+>>> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
+>>>
+>>
+>> Ok so may be a check like:
+>>     /* If the address has already been set by user and it
+>>      * is the same as before, don't do anything.
+>>      */
+>>     if (dev->addr_assign_type == NET_ADDR_SET &&
+>>         ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
+>>             return 0;
+>>
+>> This way, if the device does it's own address management (like bridge),
+>> the user can still pin the mac address, but subsequent setting to the
+>> same value don't cause all sorts of propagation.
+>>
 > 
-> Yes, in fact it is, however, without it toolstack pollute /var/log/xen/xen-hotplug.log
-> with "RTNETLINK answers: Operation not supported" error when every domain is started.
-> Additionally, it is simple two liner and it should not break anything (Konrad and
-> I did some tests and everything looks OK). I do not mention that from time to time
-> we add some features like support for new hardware with just new device ID (e.g.
-> USB devices). So that is why I decided to post this patch to stable.
+> Great solution for br, but I think it couldn't fix the problem in br2684_mac_addr() just like Toshiaki said, I am not
+> sure how many place in the kernel use like this.
+> 
 
-New device ids and quirks to existing drivers are valid stable patches
-(see Documentation/stable_kernel_rules.txt), but new features usually
-are not.
+Sure it would.  The first time through, we always call
+ndo_set_mac_address(), so br2684_mac_addr() would get called.
 
-thanks,
+The second time through, we check to see if the user is setting
+the same address and skip it if it's the same.  As far as br2684
+is concerned, the address is still the same and the flag is still
+set.
 
-greg k-h
+-vlad
+
+> Ding 
+> 
+>> -vlad
+>>
+>>> Ding 
+>>>
+>>>> Thanks,
+>>>> Toshiaki Makita
+>>>>
+>>>
+>>>
+>>>
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>>
+>>
+>>
+>> .
+>>
+> 
+> 
