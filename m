@@ -1,51 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/2] net: hisilicon: add hix5hd2 mac driver
-Date: Fri, 06 Jun 2014 01:24:24 -0700 (PDT)
-Message-ID: <20140606.012424.2191719134344576181.davem@davemloft.net>
-References: <1401774577-16683-1-git-send-email-zhangfei.gao@linaro.org>
-	<1401774577-16683-3-git-send-email-zhangfei.gao@linaro.org>
-	<20140606081917.GD31915@ulmo>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net] net: filter: fix typo in sparc BPF JIT
+Date: Fri, 6 Jun 2014 08:36:31 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172584FF@AcuExch.aculab.com>
+References: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zhangfei.gao@linaro.org, arnd@arndb.de, f.fainelli@gmail.com,
-	sergei.shtylyov@cogentembedded.com, mark.rutland@arm.com,
-	David.Laight@ACULAB.COM, eric.dumazet@gmail.com,
-	haifeng.yan@linaro.org, jchxue@gmail.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: thierry.reding@gmail.com
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Alexei Starovoitov' <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55097 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbaFFIY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 04:24:28 -0400
-In-Reply-To: <20140606081917.GD31915@ulmo>
+Received: from mx0.aculab.com ([213.249.233.131]:37116 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751390AbaFFIhE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 04:37:04 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10194-08 for <netdev@vger.kernel.org>;
+ Fri,  6 Jun 2014 09:36:54 +0100 (BST)
+In-Reply-To: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thierry Reding <thierry.reding@gmail.com>
-Date: Fri, 6 Jun 2014 10:19:18 +0200
-
-> On Tue, Jun 03, 2014 at 01:49:37PM +0800, Zhangfei Gao wrote:
-> [...]
->> diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
->> new file mode 100644
->> index 0000000..e942173
->> --- /dev/null
->> +++ b/drivers/net/ethernet/hisilicon/Kconfig
->> @@ -0,0 +1,27 @@
->> +#
->> +# HISILICON device configuration
->> +#
->> +
->> +config NET_VENDOR_HISILICON
->> +	bool "Hisilicon devices"
->> +	default y
+From: Alexei Starovoitov
+> fix typo in sparc codegen for SKF_AD_IFINDEX and SKF_AD_HATYPE
+> classic BPF extensions
+...
+> --- a/arch/sparc/net/bpf_jit_comp.c
+> +++ b/arch/sparc/net/bpf_jit_comp.c
+> @@ -83,9 +83,9 @@ static void bpf_flush_icache(void *start_, void *end_)
+>  #define BNE		(F2(0, 2) | CONDNE)
 > 
-> Can this default please be dropped? It's annoying because it will cause
-> this driver to be built for *every* ARM kernel by default, whether or
-> not that hardware is available on a given board.
+>  #ifdef CONFIG_SPARC64
+> -#define BNE_PTR		(F2(0, 1) | CONDNE | (2 << 20))
+> +#define BE_PTR		(F2(0, 1) | CONDE | (2 << 20))
+>  #else
+> -#define BNE_PTR		BNE
+> +#define BE_PTR		BNE
+>  #endif
 
-People mistakedly say this every time, this config option is not for
-the driver, it's a VENDOR guard.
+That doesn't look right.
+AFAICT you've had to invert the branch in the code (below) so need
+the alternate define - I presume this is the only place they are used.
+But the second is only partially inverted.
+
+I presume you only tested sparc64?
+
+	David
+ 
+>  #define SETHI(K, REG)	\
+> @@ -600,7 +600,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+>  			case BPF_S_ANC_IFINDEX:
+>  				emit_skb_loadptr(dev, r_A);
+>  				emit_cmpi(r_A, 0);
+> -				emit_branch(BNE_PTR, cleanup_addr + 4);
+> +				emit_branch(BE_PTR, cleanup_addr + 4);
+>  				emit_nop();
+>  				emit_load32(r_A, struct net_device, ifindex, r_A);
+>  				break;
+> @@ -613,7 +613,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+>  			case BPF_S_ANC_HATYPE:
+>  				emit_skb_loadptr(dev, r_A);
+>  				emit_cmpi(r_A, 0);
+> -				emit_branch(BNE_PTR, cleanup_addr + 4);
+> +				emit_branch(BE_PTR, cleanup_addr + 4);
+>  				emit_nop();
+>  				emit_load16(r_A, struct net_device, type, r_A);
+>  				break;
+> --
+> 1.7.9.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
