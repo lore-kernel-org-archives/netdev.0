@@ -1,43 +1,28 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Multitude of dst obsolescense race conditions
-Date: Fri, 6 Jun 2014 15:17:49 -0700
-Message-ID: <20140606221749.GX4581@linux.vnet.ibm.com>
-References: <alpine.DEB.2.02.1405140233210.16893@dtop>
- <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140606181236.GS4581@linux.vnet.ibm.com>
- <1402081030.3645.312.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 0/2] net: couple of facelifts around ethtool
+ speed and duplex values
+Date: Fri, 06 Jun 2014 16:24:20 -0700 (PDT)
+Message-ID: <20140606.162420.854669528512078928.davem@davemloft.net>
+References: <1402057021-12867-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dormando <dormando@rydia.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1402081030.3645.312.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32953 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752364AbaFFXY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 19:24:26 -0400
+In-Reply-To: <1402057021-12867-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2014 at 11:57:10AM -0700, Eric Dumazet wrote:
-> On Fri, 2014-06-06 at 11:12 -0700, Paul E. McKenney wrote:
-> 
-> > It is probably just be me getting lost in the code, but I am not seeing
-> > a synchronize_rcu(), call_rcu(), or synchronize_net() anywhere in
-> > dst_release() or the things that it calls.  If there really isn't such
-> > a call, then I don't see how the above code is safe in the case where
-> > __sk_dst_set() is invoked on one CPU just after sk_dst_get() executes
-> > the rcu_dereference() on some other CPU.
-> 
-> Well, this part is fine, dst_release() do not free dst that are
-> potentially stored in sk_dst_cache
-> 
-> Only the refcount is decremented.
-> 
-> The bug is elsewhere, we had another thread raising this issue on netdev
-> this morning.
-> 
-> I am cooking a patch to clear the mess.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri,  6 Jun 2014 14:16:59 +0200
 
-Ah, thank you, sorry for the noise!
+> Jiri Pirko (2):
+>   net: use SPEED_UNKNOWN and DUPLEX_UNKNOWN when appropriate
+>   net: use ethtool_cmd_speed_set helper to set ethtool speed value
 
-							Thanx, Paul
+Series applied to net-next, thanks Jiri.
