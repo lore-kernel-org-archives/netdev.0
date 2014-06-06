@@ -1,64 +1,47 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] net: filter: fix typo in sparc BPF JIT
-Date: Thu,  5 Jun 2014 22:47:44 -0700
-Message-ID: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net-next] net: remove some useless list_del()
+Date: Thu, 5 Jun 2014 23:40:47 -0700
+Message-ID: <CAM_iQpWeq6a+ighGoLXqDp06t+D97adFrtRpM+ACqtf3J4SUNg@mail.gmail.com>
+References: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>
+	<1401842581.3645.241.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:45071 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbaFFFrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 01:47:49 -0400
-Received: by mail-pd0-f174.google.com with SMTP id r10so2129725pdi.5
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 22:47:49 -0700 (PDT)
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:54184 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbaFFGks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 02:40:48 -0400
+Received: by mail-oa0-f42.google.com with SMTP id j17so2291092oag.15
+        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 23:40:47 -0700 (PDT)
+In-Reply-To: <1401842581.3645.241.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix typo in sparc codegen for SKF_AD_IFINDEX and SKF_AD_HATYPE
-classic BPF extensions
+On Tue, Jun 3, 2014 at 5:43 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Tue, 2014-06-03 at 17:11 -0700, Cong Wang wrote:
+>> "list_kill" is allocated on stack and it's a list head,
+>> it is pointless to call list_del(&kill_list) especially
+>> after unregister_netdevice_many().
+>
+> How pointless exactly ? Explain more please.
+>
+> I suggest you read various commits adding these list_del()
+>
+> f87e6f47933e3ebeced9bb12615e830a72cedce4 is a good start.
+>
 
-Fixes: 2809a2087cc4 ("net: filter: Just In Time compiler for sparc")
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
-tested with qemu-sparc64
-the patch doesn't apply cleanly to net-next, but logic is the same.
+If after unregister_netdevice_many() dev->unreg_list is still needed,
+then it's a nightmare to maintain these list_head's in dev:
 
- arch/sparc/net/bpf_jit_comp.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+struct list_head dev_list;
+struct list_head napi_list;
+struct list_head unreg_list;
+struct list_head close_list;
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index a82c6b2..b19a0c2 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -83,9 +83,9 @@ static void bpf_flush_icache(void *start_, void *end_)
- #define BNE		(F2(0, 2) | CONDNE)
- 
- #ifdef CONFIG_SPARC64
--#define BNE_PTR		(F2(0, 1) | CONDNE | (2 << 20))
-+#define BE_PTR		(F2(0, 1) | CONDE | (2 << 20))
- #else
--#define BNE_PTR		BNE
-+#define BE_PTR		BNE
- #endif
- 
- #define SETHI(K, REG)	\
-@@ -600,7 +600,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- 			case BPF_S_ANC_IFINDEX:
- 				emit_skb_loadptr(dev, r_A);
- 				emit_cmpi(r_A, 0);
--				emit_branch(BNE_PTR, cleanup_addr + 4);
-+				emit_branch(BE_PTR, cleanup_addr + 4);
- 				emit_nop();
- 				emit_load32(r_A, struct net_device, ifindex, r_A);
- 				break;
-@@ -613,7 +613,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- 			case BPF_S_ANC_HATYPE:
- 				emit_skb_loadptr(dev, r_A);
- 				emit_cmpi(r_A, 0);
--				emit_branch(BNE_PTR, cleanup_addr + 4);
-+				emit_branch(BE_PTR, cleanup_addr + 4);
- 				emit_nop();
- 				emit_load16(r_A, struct net_device, type, r_A);
- 				break;
--- 
-1.7.9.5
+struct list_head todo_list;
+
+Same for struct net.
