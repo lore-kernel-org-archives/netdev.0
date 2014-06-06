@@ -1,80 +1,107 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 6 Jun 2014 13:54:38 +1000
-Message-ID: <20140606135438.06d7b7a5@canb.auug.org.au>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
+ for netdev
+Date: Fri, 6 Jun 2014 11:54:49 +0800
+Message-ID: <53913B89.4020305@huawei.com>
+References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com> <53907982.8030700@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/xGsEp6NUHLEeZz8uk9qM=Ag"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alexei Starovoitov <ast@plumgrid.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	<kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
+	<vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:60731 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbaFFD4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 23:56:11 -0400
+In-Reply-To: <53907982.8030700@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/xGsEp6NUHLEeZz8uk9qM=Ag
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 2014/6/5 22:06, Vlad Yasevich wrote:
+> On 06/05/2014 05:50 AM, Ding Tianhong wrote:
+>> On 2014/6/5 17:09, Toshiaki Makita wrote:
+>>> (2014/06/05 15:50), Ding Tianhong wrote:
+>>>> Most of netdev just like bond, team, vlan will set the mac address
+>>>> and propagate to the upperdev or lowerdev regardless the mac address
+>>>> is  same or not, I could not find that the same mac address could
+>>>> make affect, so add equal check when set mac address.
+>>>>
+>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>> ---
+>>>>  net/core/dev.c | 2 ++
+>>>>  1 file changed, 2 insertions(+)
+>>>>
+>>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>>> index 5367bfb..4008a51 100644
+>>>> --- a/net/core/dev.c
+>>>> +++ b/net/core/dev.c
+>>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+>>>>  		return -EINVAL;
+>>>>  	if (!netif_device_present(dev))
+>>>>  		return -ENODEV;
+>>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
+>>>> +		return 0;
+>>>>  	err = ops->ndo_set_mac_address(dev, sa);
+>>>>  	if (err)
+>>>>  		return err;
+>>>>
+>>>
+>>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
+>>> bridge ports. If user set mac address, and even if it is the same as
+>>> current one, bridge uses the fact that the mac address is set by user.
+>>>
+>>
+>> OK
+>>
+>>> Although I'm not aware of a driver that needs calling of
+>>> ndo_set_mac_address() for the same mac address, this change looks a bit
+>>> risky to me.
+>>> (For example, old bridge code needed this call because it managed
+>>> BR_SET_MAC_ADDR in bridge flags.)
+>>>
+>> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
+>> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
+>> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
+>>
+> 
+> Ok so may be a check like:
+>     /* If the address has already been set by user and it
+>      * is the same as before, don't do anything.
+>      */
+>     if (dev->addr_assign_type == NET_ADDR_SET &&
+>         ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
+>             return 0;
+> 
+> This way, if the device does it's own address management (like bridge),
+> the user can still pin the mac address, but subsequent setting to the
+> same value don't cause all sorts of propagation.
+> 
 
-Hi all,
+Great solution for br, but I think it couldn't fix the problem in br2684_mac_addr() just like Toshiaki said, I am not
+sure how many place in the kernel use like this.
 
-Today's linux-next merge of the net-next tree got a conflict in
-net/core/filter.c between commit 0dcceabb0c1b ("net: filter: fix
-SKF_AD_PKTTYPE extension on big-endian") from the net tree and commit
-9739eef13c92 ("net: filter: make BPF conversion more readable") from
-the net-next tree.
+Ding 
 
-I fixed it up (not well, but see below) and can carry the fix as
-necessary (no action is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc net/core/filter.c
-index ab3c74e49f07,9de0c25323b4..000000000000
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@@ -685,17 -684,7 +688,14 @@@ static bool convert_bpf_extensions(stru
-  		if (insn->off < 0)
-  			return false;
-  		insn++;
--=20
-- 		insn->code =3D BPF_ALU | BPF_AND | BPF_K;
-- 		insn->a_reg =3D A_REG;
-- 		insn->imm =3D PKT_TYPE_MAX;
-+ 		*insn =3D BPF_ALU32_IMM(BPF_AND, BPF_REG_A, PKT_TYPE_MAX);
- +#ifdef __BIG_ENDIAN_BITFIELD
- +		insn++;
- +
- +		insn->code =3D BPF_ALU | BPF_RSH | BPF_K;
- +		insn->a_reg =3D A_REG;
- +		insn->imm =3D 5;
- +#endif
-  		break;
- =20
-  	case SKF_AD_OFF + SKF_AD_IFINDEX:
-
---Sig_/xGsEp6NUHLEeZz8uk9qM=Ag
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTkTuHAAoJEMDTa8Ir7ZwV06YP/3Y0xFPyuk+lSkWbdAHtUKT1
-Mo372rbFZvmtwZ2jlyS6ql4p0HgGOuv9W/hLsiLjmsI6rxfDPYGMp+n38M6Gobt9
-PwYvImST+B5eC6uBB1G0OCQWMbga9sCEozx8jPgSu7U1AzkouYFnhXVlcaZgyiDR
-kQEXqO/Rw/ZPSUzEsg4CTs0d2JjYvP5ldmKVKXs7Ed1cERpZXz342z9YxeEYaRYz
-temYrvzMo/aT1VtPVj6nC06dmTZn3zo+5IGBFh7pvtMzXe4uXDB7Lc9NI2ccPA24
-SwqxWP22mczGFVOki1nNY/7wjjZpe2P8bGm3XHrBNshzzY3RqqcbD4bpkesTGFnn
-630io8VOrF8yzHoe0q1HDpeOATyCj2ke1sac+jZUvHxozMniIlI6jSjs7JLh0ERG
-vaDpP9mjcHajYRNsLdFCDIqqbbsdAOl3a/6wRTLnHrHnmAbqXVwNUdZY785/z9wb
-DibvG5BEYkxY7OP4HvFyjp6E8gxmZ2LXTcOM+yiehNB3fAe5bX6waGGdFbQR1Esu
-Xd2CT5ueMsQpW9I/CVjARemROoYk/toWTuGya2c+hePArMz+l1uZWQwmrSz7XU6r
-v0EzmyXuUOStuMAFSvwtuPvNpjLwzdzPm+VKSyur5kbHeQhNMzDqS5XdsESPDK7y
-KqZ06/LloaMHjGLCd9OP
-=Dtsn
------END PGP SIGNATURE-----
-
---Sig_/xGsEp6NUHLEeZz8uk9qM=Ag--
+> -vlad
+> 
+>> Ding 
+>>
+>>> Thanks,
+>>> Toshiaki Makita
+>>>
+>>
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> 
+> 
+> .
+> 
