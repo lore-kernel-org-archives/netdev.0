@@ -1,238 +1,104 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/13] i40e/i40evf: check AQ register for valid data
-Date: Fri,  6 Jun 2014 02:04:14 -0700
-Message-ID: <1402045462-10304-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 1/4] net: systemport: fix transmit locking
+ scheme
+Date: Fri, 6 Jun 2014 09:29:55 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725866E@AcuExch.aculab.com>
+References: <1401988938-25940-1-git-send-email-f.fainelli@gmail.com>
+ <1401988938-25940-2-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47819 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752628AbaFFJE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 05:04:56 -0400
-In-Reply-To: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx0.aculab.com ([213.249.233.131]:38364 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751883AbaFFJa2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 05:30:28 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20892-05 for <netdev@vger.kernel.org>;
+ Fri,  6 Jun 2014 10:30:19 +0100 (BST)
+In-Reply-To: <1401988938-25940-2-git-send-email-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Florian Fainelli
+> Our transmit locking scheme did not account for the TX ring full
+> interrupt. If a TX ring full interrupt fires while we are attempting to
+> transmit, we will cause a deadlock to occur. Fix this by making sure
+> that we properly disable interrupts while acquiring the spinlock.
 
-B0 Si blocks AQ registers when in Blank Flash mode - write is dropped,
-read gives 0xDEADBEEF. Introduce a simple check for a correct value in one
-of the AQ registers to be sure that AQ was configured correctly.
-Without this check we get into an endless loop while trying to send
-GetVersion AQ cmd.
+Presumably you mean a 'TX complete' interrupt?
 
-Change-ID: I00102b8c5fa6c16d14289be677aafadf87f10f0d
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 34 ++++++++++++++++++++++---
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 34 ++++++++++++++++++++++---
- 2 files changed, 60 insertions(+), 8 deletions(-)
+It ought to be possible to arrange the logic so that you don't
+need to disable interrupts for the entirety of the tx reclaim 
+and tx setup code.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index ba2811b..7a02749 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -291,8 +291,11 @@ static void i40e_free_asq_bufs(struct i40e_hw *hw)
-  *
-  *  Configure base address and length registers for the transmit queue
-  **/
--static void i40e_config_asq_regs(struct i40e_hw *hw)
-+static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
- {
-+	i40e_status ret_code = 0;
-+	u32 reg = 0;
-+
- 	if (hw->mac.type == I40E_MAC_VF) {
- 		/* configure the transmit queue */
- 		wr32(hw, I40E_VF_ATQBAH1,
-@@ -301,6 +304,7 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
- 		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
- 					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
-+		reg = rd32(hw, I40E_VF_ATQBAL1);
- 	} else {
- 		/* configure the transmit queue */
- 		wr32(hw, I40E_PF_ATQBAH,
-@@ -309,7 +313,14 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
- 		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
- 					  I40E_PF_ATQLEN_ATQENABLE_MASK));
-+		reg = rd32(hw, I40E_PF_ATQBAL);
- 	}
-+
-+	/* Check one register to verify that config was applied */
-+	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
-+		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
-+
-+	return ret_code;
- }
- 
- /**
-@@ -318,8 +329,11 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
-  *
-  * Configure base address and length registers for the receive (event queue)
-  **/
--static void i40e_config_arq_regs(struct i40e_hw *hw)
-+static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
- {
-+	i40e_status ret_code = 0;
-+	u32 reg = 0;
-+
- 	if (hw->mac.type == I40E_MAC_VF) {
- 		/* configure the receive queue */
- 		wr32(hw, I40E_VF_ARQBAH1,
-@@ -328,6 +342,7 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
- 		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
- 					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
-+		reg = rd32(hw, I40E_VF_ARQBAL1);
- 	} else {
- 		/* configure the receive queue */
- 		wr32(hw, I40E_PF_ARQBAH,
-@@ -336,10 +351,17 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
- 		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
- 					  I40E_PF_ARQLEN_ARQENABLE_MASK));
-+		reg = rd32(hw, I40E_PF_ARQBAL);
- 	}
- 
- 	/* Update tail in the HW to post pre-allocated buffers */
- 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
-+
-+	/* Check one register to verify that config was applied */
-+	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
-+		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
-+
-+	return ret_code;
- }
- 
- /**
-@@ -387,7 +409,9 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* initialize base registers */
--	i40e_config_asq_regs(hw);
-+	ret_code = i40e_config_asq_regs(hw);
-+	if (ret_code)
-+		goto init_adminq_free_rings;
- 
- 	/* success! */
- 	goto init_adminq_exit;
-@@ -444,7 +468,9 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* initialize base registers */
--	i40e_config_arq_regs(hw);
-+	ret_code = i40e_config_arq_regs(hw);
-+	if (ret_code)
-+		goto init_adminq_free_rings;
- 
- 	/* success! */
- 	goto init_adminq_exit;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 68b4aac..eb67cce 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -289,8 +289,11 @@ static void i40e_free_asq_bufs(struct i40e_hw *hw)
-  *
-  *  Configure base address and length registers for the transmit queue
-  **/
--static void i40e_config_asq_regs(struct i40e_hw *hw)
-+static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
- {
-+	i40e_status ret_code = 0;
-+	u32 reg = 0;
-+
- 	if (hw->mac.type == I40E_MAC_VF) {
- 		/* configure the transmit queue */
- 		wr32(hw, I40E_VF_ATQBAH1,
-@@ -299,6 +302,7 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
- 		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
- 					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
-+		reg = rd32(hw, I40E_VF_ATQBAL1);
- 	} else {
- 		/* configure the transmit queue */
- 		wr32(hw, I40E_PF_ATQBAH,
-@@ -307,7 +311,14 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.asq.desc_buf.pa));
- 		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
- 					  I40E_PF_ATQLEN_ATQENABLE_MASK));
-+		reg = rd32(hw, I40E_PF_ATQBAL);
- 	}
-+
-+	/* Check one register to verify that config was applied */
-+	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
-+		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
-+
-+	return ret_code;
- }
- 
- /**
-@@ -316,8 +327,11 @@ static void i40e_config_asq_regs(struct i40e_hw *hw)
-  *
-  * Configure base address and length registers for the receive (event queue)
-  **/
--static void i40e_config_arq_regs(struct i40e_hw *hw)
-+static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
- {
-+	i40e_status ret_code = 0;
-+	u32 reg = 0;
-+
- 	if (hw->mac.type == I40E_MAC_VF) {
- 		/* configure the receive queue */
- 		wr32(hw, I40E_VF_ARQBAH1,
-@@ -326,6 +340,7 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
- 		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
- 					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
-+		reg = rd32(hw, I40E_VF_ARQBAL1);
- 	} else {
- 		/* configure the receive queue */
- 		wr32(hw, I40E_PF_ARQBAH,
-@@ -334,10 +349,17 @@ static void i40e_config_arq_regs(struct i40e_hw *hw)
- 		    lower_32_bits(hw->aq.arq.desc_buf.pa));
- 		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
- 					  I40E_PF_ARQLEN_ARQENABLE_MASK));
-+		reg = rd32(hw, I40E_PF_ARQBAL);
- 	}
- 
- 	/* Update tail in the HW to post pre-allocated buffers */
- 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
-+
-+	/* Check one register to verify that config was applied */
-+	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
-+		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
-+
-+	return ret_code;
- }
- 
- /**
-@@ -385,7 +407,9 @@ static i40e_status i40e_init_asq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* initialize base registers */
--	i40e_config_asq_regs(hw);
-+	ret_code = i40e_config_asq_regs(hw);
-+	if (ret_code)
-+		goto init_adminq_free_rings;
- 
- 	/* success! */
- 	goto init_adminq_exit;
-@@ -442,7 +466,9 @@ static i40e_status i40e_init_arq(struct i40e_hw *hw)
- 		goto init_adminq_free_rings;
- 
- 	/* initialize base registers */
--	i40e_config_arq_regs(hw);
-+	ret_code = i40e_config_arq_regs(hw);
-+	if (ret_code)
-+		goto init_adminq_free_rings;
- 
- 	/* success! */
- 	goto init_adminq_exit;
--- 
-1.9.3
+If you have an absolutely accurate count of the number of
+tx descriptors required, even the tx setup code probably only needs
+the ring's lock while it advances the write pointer.
+It can fill in the ring entries after releasing the lock.
+
+	David
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bcmsysport.c | 12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+> index 25982b02f0ea..4dfc93fe9744 100644
+> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+> @@ -637,10 +637,11 @@ static unsigned int bcm_sysport_tx_reclaim(struct bcm_sysport_priv *priv,
+>  					   struct bcm_sysport_tx_ring *ring)
+>  {
+>  	unsigned int released;
+> +	unsigned long flags;
+> 
+> -	spin_lock(&ring->lock);
+> +	spin_lock_irqsave(&ring->lock, flags);
+>  	released = __bcm_sysport_tx_reclaim(priv, ring);
+> -	spin_unlock(&ring->lock);
+> +	spin_unlock_irqrestore(&ring->lock, flags);
+> 
+>  	return released;
+>  }
+> @@ -822,6 +823,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>  	struct netdev_queue *txq;
+>  	struct dma_desc *desc;
+>  	unsigned int skb_len;
+> +	unsigned long flags;
+>  	dma_addr_t mapping;
+>  	u32 len_status;
+>  	u16 queue;
+> @@ -831,8 +833,8 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+>  	txq = netdev_get_tx_queue(dev, queue);
+>  	ring = &priv->tx_rings[queue];
+> 
+> -	/* lock against tx reclaim in BH context */
+> -	spin_lock(&ring->lock);
+> +	/* lock against tx reclaim in BH context and TX ring full interrupt */
+> +	spin_lock_irqsave(&ring->lock, flags);
+>  	if (unlikely(ring->desc_count == 0)) {
+>  		netif_tx_stop_queue(txq);
+>  		netdev_err(dev, "queue %d awake and ring full!\n", queue);
+> @@ -914,7 +916,7 @@ static netdev_tx_t bcm_sysport_xmit(struct sk_buff *skb,
+> 
+>  	ret = NETDEV_TX_OK;
+>  out:
+> -	spin_unlock(&ring->lock);
+> +	spin_unlock_irqrestore(&ring->lock, flags);
+>  	return ret;
+>  }
+> 
+> --
+> 1.9.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
