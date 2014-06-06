@@ -1,117 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/13] i40e: print full link message
-Date: Fri,  6 Jun 2014 02:04:19 -0700
-Message-ID: <1402045462-10304-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] i40e/i40evf: add Tx pre queue disable function
+Date: Fri,  6 Jun 2014 02:04:15 -0700
+Message-ID: <1402045462-10304-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Matt Jared <matthew.a.jared@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:5078 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:47817 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751870AbaFFJFc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 05:05:32 -0400
+	id S1752134AbaFFJE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jun 2014 05:04:56 -0400
 In-Reply-To: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Matt Jared <matthew.a.jared@intel.com>
 
-The i40e driver should print link messages like all the
-other Intel Ethernet drivers.
+Add a function which indicates our intention to enable or disable a particular
+Tx queue. Also add a function to notify the device's Tx unit that we're about
+to enable or disable a Tx queue.
 
-Change-ID: Ia88bdb96794e17a3962fcea94db176de01f921f7
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I6adf3cbb5bb3e3c984d1ec969e06577c19ef296d
+Signed-off-by: Matt Jared <matthew.a.jared@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 56 ++++++++++++++++++++++++++---
- 1 file changed, 51 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c     | 31 +++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c       |  6 +++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h  |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_register.h   |  8 ++++++
+ drivers/net/ethernet/intel/i40evf/i40e_register.h |  8 ++++++
+ 5 files changed, 54 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e9cd9bb..484ada97 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4135,6 +4135,54 @@ out:
- 	return err;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index a31e3d7..36607b0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -657,6 +657,37 @@ i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
  }
- #endif /* CONFIG_I40E_DCB */
-+#define SPEED_SIZE 14
-+#define FC_SIZE 8
-+/**
-+ * i40e_print_link_message - print link up or down
-+ * @vsi: the VSI for which link needs a message
-+ */
-+static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
-+{
-+	char speed[SPEED_SIZE] = "Unknown";
-+	char fc[FC_SIZE] = "RX/TX";
-+
-+	if (!isup) {
-+		netdev_info(vsi->netdev, "NIC Link is Down\n");
-+		return;
-+	}
-+
-+	switch (vsi->back->hw.phy.link_info.link_speed) {
-+	case I40E_LINK_SPEED_40GB:
-+		strncpy(speed, "40 Gbps", SPEED_SIZE);
-+		break;
-+	case I40E_LINK_SPEED_10GB:
-+		strncpy(speed, "10 Gbps", SPEED_SIZE);
-+		break;
-+	case I40E_LINK_SPEED_1GB:
-+		strncpy(speed, "1000 Mbps", SPEED_SIZE);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	switch (vsi->back->hw.fc.current_mode) {
-+	case I40E_FC_FULL:
-+		strncpy(fc, "RX/TX", FC_SIZE);
-+		break;
-+	case I40E_FC_TX_PAUSE:
-+		strncpy(fc, "TX", FC_SIZE);
-+		break;
-+	case I40E_FC_RX_PAUSE:
-+		strncpy(fc, "RX", FC_SIZE);
-+		break;
-+	default:
-+		strncpy(fc, "None", FC_SIZE);
-+		break;
-+	}
-+
-+	netdev_info(vsi->netdev, "NIC Link is Up %s Full Duplex, Flow Control: %s\n",
-+		    speed, fc);
-+}
  
  /**
-  * i40e_up_complete - Finish the last steps of bringing up a connection
-@@ -4161,11 +4209,11 @@ static int i40e_up_complete(struct i40e_vsi *vsi)
++ * i40e_pre_tx_queue_cfg - pre tx queue configure
++ * @hw: pointer to the HW structure
++ * @queue: target pf queue index
++ * @enable: state change request
++ *
++ * Handles hw requirement to indicate intention to enable
++ * or disable target queue.
++ **/
++void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable)
++{
++	u32 reg_val = rd32(hw, I40E_PFLAN_QALLOC);
++	u32 first_queue = (reg_val & I40E_PFLAN_QALLOC_FIRSTQ_MASK);
++	u32 abs_queue_idx = first_queue + queue;
++	u32 reg_block = 0;
++
++	if (abs_queue_idx >= 128)
++		reg_block = abs_queue_idx / 128;
++
++	reg_val = rd32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block));
++	reg_val &= ~I40E_GLLAN_TXPRE_QDIS_QINDX_MASK;
++	reg_val |= (abs_queue_idx << I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT);
++
++	if (enable)
++		reg_val |= I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_MASK;
++	else
++		reg_val |= I40E_GLLAN_TXPRE_QDIS_SET_QDIS_MASK;
++
++	wr32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block), reg_val);
++}
++
++/**
+  * i40e_get_media_type - Gets media type
+  * @hw: pointer to the hardware structure
+  **/
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 105d754..726eceb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3183,6 +3183,12 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
  
- 	if ((pf->hw.phy.link_info.link_info & I40E_AQ_LINK_UP) &&
- 	    (vsi->netdev)) {
--		netdev_info(vsi->netdev, "NIC Link is Up\n");
-+		i40e_print_link_message(vsi, true);
- 		netif_tx_start_all_queues(vsi->netdev);
- 		netif_carrier_on(vsi->netdev);
- 	} else if (vsi->netdev) {
--		netdev_info(vsi->netdev, "NIC Link is Down\n");
-+		i40e_print_link_message(vsi, false);
- 	}
- 
- 	/* replay FDIR SB filters */
-@@ -4886,10 +4934,8 @@ static void i40e_link_event(struct i40e_pf *pf)
- 
- 	if (new_link == old_link)
- 		return;
--
- 	if (!test_bit(__I40E_DOWN, &pf->vsi[pf->lan_vsi]->state))
--		netdev_info(pf->vsi[pf->lan_vsi]->netdev,
--			    "NIC Link is %s\n", (new_link ? "Up" : "Down"));
-+		i40e_print_link_message(pf->vsi[pf->lan_vsi], new_link);
- 
- 	/* Notify the base of the switch tree connected to
- 	 * the link.  Floating VEBs are not notified.
+ 	pf_q = vsi->base_queue;
+ 	for (i = 0; i < vsi->num_queue_pairs; i++, pf_q++) {
++
++		/* warn the TX unit of coming changes */
++		i40e_pre_tx_queue_cfg(&pf->hw, pf_q, enable);
++		if (!enable)
++			udelay(10);
++
+ 		for (j = 0; j < 50; j++) {
+ 			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
+ 			if (((tx_reg >> I40E_QTX_ENA_QENA_REQ_SHIFT) & 1) ==
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 57172f9..58c4e1e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -221,6 +221,7 @@ bool i40e_get_link_status(struct i40e_hw *hw);
+ i40e_status i40e_get_mac_addr(struct i40e_hw *hw,
+ 						u8 *mac_addr);
+ i40e_status i40e_validate_mac_addr(u8 *mac_addr);
++void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable);
+ /* prototype for functions used for NVM access */
+ i40e_status i40e_init_nvm(struct i40e_hw *hw);
+ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_register.h b/drivers/net/ethernet/intel/i40e/i40e_register.h
+index 25c9286..947de98 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_register.h
+@@ -1585,6 +1585,14 @@
+ #define I40E_GLLAN_TSOMSK_M 0x000442DC
+ #define I40E_GLLAN_TSOMSK_M_TCPMSKM_SHIFT 0
+ #define I40E_GLLAN_TSOMSK_M_TCPMSKM_MASK (0xFFF << I40E_GLLAN_TSOMSK_M_TCPMSKM_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS(_i) (0x000E6500 + ((_i) * 4)) /* i=0..11 */
++#define I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT 0
++#define I40E_GLLAN_TXPRE_QDIS_QINDX_MASK (0x7FF << I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS_SET_QDIS_SHIFT 30
++#define I40E_GLLAN_TXPRE_QDIS_SET_QDIS_MASK (0x1 << I40E_GLLAN_TXPRE_QDIS_SET_QDIS_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_SHIFT 31
++#define I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_MASK (0x1 << I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_SHIFT)
++
+ #define I40E_PFLAN_QALLOC 0x001C0400
+ #define I40E_PFLAN_QALLOC_FIRSTQ_SHIFT 0
+ #define I40E_PFLAN_QALLOC_FIRSTQ_MASK (0x7FF << I40E_PFLAN_QALLOC_FIRSTQ_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_register.h b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+index 7977205..3698396 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_register.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_register.h
+@@ -1585,6 +1585,14 @@
+ #define I40E_GLLAN_TSOMSK_M 0x000442DC
+ #define I40E_GLLAN_TSOMSK_M_TCPMSKM_SHIFT 0
+ #define I40E_GLLAN_TSOMSK_M_TCPMSKM_MASK (0xFFF << I40E_GLLAN_TSOMSK_M_TCPMSKM_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS(_i) (0x000E6500 + ((_i) * 4)) /* i=0..11 */
++#define I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT 0
++#define I40E_GLLAN_TXPRE_QDIS_QINDX_MASK (0x7FF << I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS_SET_QDIS_SHIFT 30
++#define I40E_GLLAN_TXPRE_QDIS_SET_QDIS_MASK (0x1 << I40E_GLLAN_TXPRE_QDIS_SET_QDIS_SHIFT)
++#define I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_SHIFT 31
++#define I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_MASK (0x1 << I40E_GLLAN_TXPRE_QDIS_CLEAR_QDIS_SHIFT)
++
+ #define I40E_PFLAN_QALLOC 0x001C0400
+ #define I40E_PFLAN_QALLOC_FIRSTQ_SHIFT 0
+ #define I40E_PFLAN_QALLOC_FIRSTQ_MASK (0x7FF << I40E_PFLAN_QALLOC_FIRSTQ_SHIFT)
 -- 
 1.9.3
