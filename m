@@ -1,54 +1,70 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [RFC] Bluetooth: Add ACL MTU, available buffers and total buffers to hci_conn_info.
-Date: Fri, 6 Jun 2014 12:44:55 +0200
-Message-ID: <39777AAC-6DB7-444D-9137-BCDDE99DA781@holtmann.org>
-References: <1402049880-7686-1-git-send-email-kiran.kumar@linaro.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [RFC] Bluetooth: Do not attempt to send dlci disconnect when in BT_CONFIG.
+Date: Fri, 6 Jun 2014 12:46:40 +0200
+Message-ID: <02B0CA51-A2BB-47D0-B526-229C12C8195C@holtmann.org>
+References: <1402049971-7762-1-git-send-email-kiran.kumar@linaro.org>
 Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: Kiran Kumar Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1402049880-7686-1-git-send-email-kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel@vger.kernel.org, Nick Pelly <npelly@google.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Peter Hurley <peter@hurleysoftware.com>,
+	Seung-Woo Kim <sw0312.kim@samsung.com>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	Android Kernel Team <kernel-team@android.com>,
+	John Stultz <john.stultz@linaro.org>
+To: Kiran Kumar Raparthy <kiran.kumar@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402049971-7762-1-git-send-email-kiran.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Kiran,
 
-> Add ACL MTU, available buffers and total buffers to hci_conn_info.
+> Do not attempt to send dlci disconnect when in BT_CONFIG.
 > 
-> This provides userspace debugging tools access to ACL flow control state.
+> This fixes a bug where shutdown() and close() on a rfcomm socket during ACL
+> connection would not cause HCI Create Connection Cancel.
 > 
 > This is one of the number of patches from the Android AOSP common.git tree,
 > which is used on almost all Android devices.  so I wanted to submit it for
 > review to see if it should go upstream.
 > 
-> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-> Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: Android Kernel Team <kernel-team-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-> Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> Signed-off-by: Nick Pelly <npelly-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Cc: Marcel Holtmann <marcel@holtmann.org>
+> Cc: Gustavo Padovan <gustavo@padovan.org>
+> Cc: Johan Hedberg <johan.hedberg@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Peter Hurley <peter@hurleysoftware.com>
+> Cc: Seung-Woo Kim <sw0312.kim@samsung.com>
+> Cc: Nick Pelly <npelly@google.com>
+> Cc: linux-bluetooth@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: Android Kernel Team <kernel-team@android.com>
+> Cc: John Stultz <john.stultz@linaro.org>
+> Signed-off-by: Nick Pelly <npelly@google.com>
 > [kiran: Added context to commit message]
-> Signed-off-by: Kiran Raparthy <kiran.kumar-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Kiran Raparthy <kiran.kumar@linaro.org>
 > ---
-> include/net/bluetooth/hci.h |  3 +++
-> net/bluetooth/hci_conn.c    | 18 ++++++++++++++++++
-> 2 files changed, 21 insertions(+)
+> net/bluetooth/rfcomm/core.c | 1 -
+> 1 file changed, 1 deletion(-)
+> 
+> diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+> index cf62026..6a531e7 100644
+> --- a/net/bluetooth/rfcomm/core.c
+> +++ b/net/bluetooth/rfcomm/core.c
+> @@ -456,7 +456,6 @@ static int __rfcomm_dlc_close(struct rfcomm_dlc *d, int err)
+> 
+> 	switch (d->state) {
+> 	case BT_CONNECT:
+> -	case BT_CONFIG:
+> 	case BT_OPEN:
+> 	case BT_CONNECT2:
+> 		if (test_and_clear_bit(RFCOMM_DEFER_SETUP, &d->flags)) {
 
-this would break existing API and can not be accepted. NAK.
+you can include traces and a test program that will demonstrate this behavior. I am hearing about this one for the first time. Nobody else has indicated an issue like this before.
 
 Regards
 
