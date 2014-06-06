@@ -1,41 +1,61 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH net] net: filter: fix sparc32 typo
-Date: Fri,  6 Jun 2014 08:35:59 -0700
-Message-ID: <1402068959-16914-1-git-send-email-ast@plumgrid.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:56216 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751939AbaFFPgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 11:36:06 -0400
-Received: by mail-pd0-f181.google.com with SMTP id z10so2510798pdj.26
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 08:36:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: net: llc: NULL ptr deref in llc_ui_sendmsg
+Date: Fri, 6 Jun 2014 11:42:31 -0400
+Message-ID: <20140606154231.GA7629@redhat.com>
+References: <5391D971.4030001@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5391D971.4030001@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: 569810d1e327 ("net: filter: fix typo in sparc BPF JIT")
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
+On Fri, Jun 06, 2014 at 11:08:33AM -0400, Sasha Levin wrote:
+ > Hi all,
+ > 
+ > While fuzzing with trinity inside a KVM tools guest running the latest -next
+ > kernel I've stumbled on the following spew:
+ > 
+ > [  269.531162] BUG: unable to handle kernel NULL pointer dereference at 000000000000021e
+ > [  269.531217] IP: llc_ui_sendmsg (net/llc/af_llc.c:912)
 
-sorry for not being careful enough first time around :(
+ 905         /* must bind connection to sap if user hasn't done it. */
+ 906         if (sock_flag(sk, SOCK_ZAPPED)) {
+ 907                 /* bind to sap with null dev, exclusive. */
+ 908                 rc = llc_ui_autobind(sock, addr);
+ 909                 if (rc)
+ 910                         goto release;
+ 911         }
+ 912         hdrlen = llc->dev->hard_header_len + llc_ui_header_len(sk, addr);
 
- arch/sparc/net/bpf_jit_comp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+looks like llc->dev was null, (understandable, given Trinity doesn't really know
+how to set up llc beyond random socket()/setsockopt() calls).
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index b19a0c2..49cee4a 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -85,7 +85,7 @@ static void bpf_flush_icache(void *start_, void *end_)
- #ifdef CONFIG_SPARC64
- #define BE_PTR		(F2(0, 1) | CONDE | (2 << 20))
- #else
--#define BE_PTR		BNE
-+#define BE_PTR		BE
- #endif
- 
- #define SETHI(K, REG)	\
--- 
-1.7.9.5
+llc_ui_autobind returns -ENODEV in that case, so it looks like the SOCK_ZAPPED test
+was false. Something like the patch below maybe ? It feels ugly to be duplicating that
+test there, but if this is agreed upon I'll resubmit this properly.
+
+	Dave
+
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index 0080d2b0a8ae..9b192db9883b 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -908,6 +908,11 @@ static int llc_ui_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		rc = llc_ui_autobind(sock, addr);
+ 		if (rc)
+ 			goto release;
++	} else {
++		if (!llc->dev) {
++			rc = -ENODEV;
++			goto release;
++		}
+ 	}
+ 	hdrlen = llc->dev->hard_header_len + llc_ui_header_len(sk, addr);
+ 	size = hdrlen + len;
