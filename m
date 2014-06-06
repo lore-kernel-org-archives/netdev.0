@@ -1,55 +1,66 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] net: filter: fix typo in sparc BPF JIT
-Date: Fri, 06 Jun 2014 18:11:19 +0400
-Message-ID: <5391CC07.4000002@cogentembedded.com>
-References: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2 net-next] bridge: Fix incorrect judgment of
+	promisc
+Date: Fri, 06 Jun 2014 10:13:29 -0400
+Message-ID: <5391CC89.1030104@gmail.com>
+References: <1401969212-19193-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20140605.152151.1874961526019573838.davem@davemloft.net>
+	<063D6719AE5E284EB5DD2968C1650D6D1725853E@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:36868 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbaFFOLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 10:11:08 -0400
-Received: by mail-lb0-f171.google.com with SMTP id 10so1580389lbg.30
-        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 07:11:07 -0700 (PDT)
-In-Reply-To: <1402033664-14551-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'David Miller' <davem@davemloft.net>,
+	"makita.toshiaki@lab.ntt.co.jp" <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725853E@AcuExch.aculab.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 06/06/2014 04:48 AM, David Laight wrote:
+> From: David Miller [mailto:davem@davemloft.net]
+>>> br_manage_promisc() incorrectly expects br_auto_port() to return only 0
+>>> or 1, while it actually returns flags, i.e., a subset of BR_AUTO_MASK.
+>>>
+>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>
+>> I'm applying this as-is for now, even though I saw the other
+>> suggestions in this thread (which BTW didn't get picked up by
+>> patchwork, maybe some of you dropped the Message-Id in your replies by
+>> accident).
+> 
+> I don't have a problem with that.
+> The condition looks odd, but it is enabling promiscuous mode
+> if any other ports are in 'auto' mode.
 
-On 06/06/2014 09:47 AM, Alexei Starovoitov wrote:
+No, the condition is correct and explicit.  The cases are:
+  0 auto ports == all ports are statically configured and non-promisc.
+  1 auto port == only this port can be non-promisc.  all others promisc.
+  > 1 auto port == all ports promisc.
 
-> fix typo in sparc codegen for SKF_AD_IFINDEX and SKF_AD_HATYPE
-> classic BPF extensions
+-vlad
 
-> Fixes: 2809a2087cc4 ("net: filter: Just In Time compiler for sparc")
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-> tested with qemu-sparc64
-> the patch doesn't apply cleanly to net-next, but logic is the same.
-
->   arch/sparc/net/bpf_jit_comp.c |    8 ++++----
->   1 file changed, 4 insertions(+), 4 deletions(-)
-
-> diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-> index a82c6b2..b19a0c2 100644
-> --- a/arch/sparc/net/bpf_jit_comp.c
-> +++ b/arch/sparc/net/bpf_jit_comp.c
-> @@ -83,9 +83,9 @@ static void bpf_flush_icache(void *start_, void *end_)
->   #define BNE		(F2(0, 2) | CONDNE)
->
->   #ifdef CONFIG_SPARC64
-> -#define BNE_PTR		(F2(0, 1) | CONDNE | (2 << 20))
-> +#define BE_PTR		(F2(0, 1) | CONDE | (2 << 20))
->   #else
-> -#define BNE_PTR		BNE
-> +#define BE_PTR		BNE
-
-    BNE, not BE?
-
-WBR, Sergei
+> Possibly the comment above made that clear, but it was truncated
+> in the diffs.
+> 
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
