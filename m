@@ -1,210 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40e: add VEB stats to ethtool
-Date: Fri,  6 Jun 2014 02:04:11 -0700
-Message-ID: <1402045462-10304-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/13] i40e: print message for pre-production hardware
+Date: Fri,  6 Jun 2014 02:04:12 -0700
+Message-ID: <1402045462-10304-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47817 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:47819 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386AbaFFJEz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 05:04:55 -0400
+	id S1752610AbaFFJE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jun 2014 05:04:56 -0400
 In-Reply-To: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Print the VEB statistics in the ethtool stats output.
+The driver and hardware are not expected to work correctly
+with revision_id 0 hardware.  Don't prevent the user from
+using it, but be sure to print a warning.
 
-Change-ID: Ic93d4c3922345c43e4cfd7f7e7a906844dd2f49f
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I3712d34752bfad458078a5f35dfd0aa0ae9fd20e
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 127 ++++++++++++++++---------
- 1 file changed, 84 insertions(+), 43 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 1bb470b..7f03b23 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -46,6 +46,8 @@ struct i40e_stats {
- 		I40E_STAT(struct i40e_pf, _name, _stat)
- #define I40E_VSI_STAT(_name, _stat) \
- 		I40E_STAT(struct i40e_vsi, _name, _stat)
-+#define I40E_VEB_STAT(_name, _stat) \
-+		I40E_STAT(struct i40e_veb, _name, _stat)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a08f5a0..105d754 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8298,6 +8298,10 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- static const struct i40e_stats i40e_gstrings_net_stats[] = {
- 	I40E_NETDEV_STAT(rx_packets),
-@@ -62,6 +64,21 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
- 	I40E_NETDEV_STAT(rx_crc_errors),
- };
+ 	i40e_verify_eeprom(pf);
  
-+static const struct i40e_stats i40e_gstrings_veb_stats[] = {
-+	I40E_VEB_STAT("rx_bytes", stats.rx_bytes),
-+	I40E_VEB_STAT("tx_bytes", stats.tx_bytes),
-+	I40E_VEB_STAT("rx_unicast", stats.rx_unicast),
-+	I40E_VEB_STAT("tx_unicast", stats.tx_unicast),
-+	I40E_VEB_STAT("rx_multicast", stats.rx_multicast),
-+	I40E_VEB_STAT("tx_multicast", stats.tx_multicast),
-+	I40E_VEB_STAT("rx_broadcast", stats.rx_broadcast),
-+	I40E_VEB_STAT("tx_broadcast", stats.tx_broadcast),
-+	I40E_VEB_STAT("rx_discards", stats.rx_discards),
-+	I40E_VEB_STAT("tx_discards", stats.tx_discards),
-+	I40E_VEB_STAT("tx_errors", stats.tx_errors),
-+	I40E_VEB_STAT("rx_unknown_protocol", stats.rx_unknown_protocol),
-+};
++	/* Rev 0 hardware was never productized */
++	if (hw->revision_id < 1)
++		dev_warn(&pdev->dev, "This device is a pre-production adapter/LOM. Please be aware there may be issues with your hardware. If you are experiencing problems please contact your Intel or hardware representative who provided you with this hardware.\n");
 +
- static const struct i40e_stats i40e_gstrings_misc_stats[] = {
- 	I40E_VSI_STAT("rx_unknown_protocol", eth_stats.rx_unknown_protocol),
- 	I40E_VSI_STAT("rx_broadcast", eth_stats.rx_broadcast),
-@@ -142,6 +159,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xon_tx) + \
- 		 FIELD_SIZEOF(struct i40e_pf, stats.priority_xon_2_xoff)) \
- 		 / sizeof(u64))
-+#define I40E_VEB_STATS_LEN	ARRAY_SIZE(i40e_gstrings_veb_stats)
- #define I40E_PF_STATS_LEN(n)	(I40E_GLOBAL_STATS_LEN + \
- 				 I40E_PFC_STATS_LEN + \
- 				 I40E_VSI_STATS_LEN((n)))
-@@ -627,10 +645,15 @@ static int i40e_get_sset_count(struct net_device *netdev, int sset)
- 	case ETH_SS_TEST:
- 		return I40E_TEST_LEN;
- 	case ETH_SS_STATS:
--		if (vsi == pf->vsi[pf->lan_vsi])
--			return I40E_PF_STATS_LEN(netdev);
--		else
-+		if (vsi == pf->vsi[pf->lan_vsi]) {
-+			int len = I40E_PF_STATS_LEN(netdev);
-+
-+			if (pf->lan_veb != I40E_NO_VEB)
-+				len += I40E_VEB_STATS_LEN;
-+			return len;
-+		} else {
- 			return I40E_VSI_STATS_LEN(netdev);
-+		}
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-@@ -686,23 +709,33 @@ static void i40e_get_ethtool_stats(struct net_device *netdev,
- 		i += 2;
- 	}
- 	rcu_read_unlock();
--	if (vsi == pf->vsi[pf->lan_vsi]) {
--		for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
--			p = (char *)pf + i40e_gstrings_stats[j].stat_offset;
--			data[i++] = (i40e_gstrings_stats[j].sizeof_stat ==
--				   sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
--		}
--		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
--			data[i++] = pf->stats.priority_xon_tx[j];
--			data[i++] = pf->stats.priority_xoff_tx[j];
--		}
--		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
--			data[i++] = pf->stats.priority_xon_rx[j];
--			data[i++] = pf->stats.priority_xoff_rx[j];
-+	if (vsi != pf->vsi[pf->lan_vsi])
-+		return;
-+
-+	if (pf->lan_veb != I40E_NO_VEB) {
-+		struct i40e_veb *veb = pf->veb[pf->lan_veb];
-+		for (j = 0; j < I40E_VEB_STATS_LEN; j++) {
-+			p = (char *)veb;
-+			p += i40e_gstrings_veb_stats[j].stat_offset;
-+			data[i++] = (i40e_gstrings_veb_stats[j].sizeof_stat ==
-+				     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
- 		}
--		for (j = 0; j < I40E_MAX_USER_PRIORITY; j++)
--			data[i++] = pf->stats.priority_xon_2_xoff[j];
- 	}
-+	for (j = 0; j < I40E_GLOBAL_STATS_LEN; j++) {
-+		p = (char *)pf + i40e_gstrings_stats[j].stat_offset;
-+		data[i++] = (i40e_gstrings_stats[j].sizeof_stat ==
-+			     sizeof(u64)) ? *(u64 *)p : *(u32 *)p;
-+	}
-+	for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
-+		data[i++] = pf->stats.priority_xon_tx[j];
-+		data[i++] = pf->stats.priority_xoff_tx[j];
-+	}
-+	for (j = 0; j < I40E_MAX_USER_PRIORITY; j++) {
-+		data[i++] = pf->stats.priority_xon_rx[j];
-+		data[i++] = pf->stats.priority_xoff_rx[j];
-+	}
-+	for (j = 0; j < I40E_MAX_USER_PRIORITY; j++)
-+		data[i++] = pf->stats.priority_xon_2_xoff[j];
- }
- 
- static void i40e_get_strings(struct net_device *netdev, u32 stringset,
-@@ -742,34 +775,42 @@ static void i40e_get_strings(struct net_device *netdev, u32 stringset,
- 			snprintf(p, ETH_GSTRING_LEN, "rx-%u.rx_bytes", i);
- 			p += ETH_GSTRING_LEN;
- 		}
--		if (vsi == pf->vsi[pf->lan_vsi]) {
--			for (i = 0; i < I40E_GLOBAL_STATS_LEN; i++) {
--				snprintf(p, ETH_GSTRING_LEN, "port.%s",
--					 i40e_gstrings_stats[i].stat_string);
--				p += ETH_GSTRING_LEN;
--			}
--			for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
--				snprintf(p, ETH_GSTRING_LEN,
--					 "port.tx_priority_%u_xon", i);
--				p += ETH_GSTRING_LEN;
--				snprintf(p, ETH_GSTRING_LEN,
--					 "port.tx_priority_%u_xoff", i);
--				p += ETH_GSTRING_LEN;
--			}
--			for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
--				snprintf(p, ETH_GSTRING_LEN,
--					 "port.rx_priority_%u_xon", i);
--				p += ETH_GSTRING_LEN;
--				snprintf(p, ETH_GSTRING_LEN,
--					 "port.rx_priority_%u_xoff", i);
--				p += ETH_GSTRING_LEN;
--			}
--			for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
--				snprintf(p, ETH_GSTRING_LEN,
--					 "port.rx_priority_%u_xon_2_xoff", i);
-+		if (vsi != pf->vsi[pf->lan_vsi])
-+			return;
-+
-+		if (pf->lan_veb != I40E_NO_VEB) {
-+			for (i = 0; i < I40E_VEB_STATS_LEN; i++) {
-+				snprintf(p, ETH_GSTRING_LEN, "veb.%s",
-+					i40e_gstrings_veb_stats[i].stat_string);
- 				p += ETH_GSTRING_LEN;
- 			}
- 		}
-+		for (i = 0; i < I40E_GLOBAL_STATS_LEN; i++) {
-+			snprintf(p, ETH_GSTRING_LEN, "port.%s",
-+				 i40e_gstrings_stats[i].stat_string);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
-+			snprintf(p, ETH_GSTRING_LEN,
-+				 "port.tx_priority_%u_xon", i);
-+			p += ETH_GSTRING_LEN;
-+			snprintf(p, ETH_GSTRING_LEN,
-+				 "port.tx_priority_%u_xoff", i);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
-+			snprintf(p, ETH_GSTRING_LEN,
-+				 "port.rx_priority_%u_xon", i);
-+			p += ETH_GSTRING_LEN;
-+			snprintf(p, ETH_GSTRING_LEN,
-+				 "port.rx_priority_%u_xoff", i);
-+			p += ETH_GSTRING_LEN;
-+		}
-+		for (i = 0; i < I40E_MAX_USER_PRIORITY; i++) {
-+			snprintf(p, ETH_GSTRING_LEN,
-+				 "port.rx_priority_%u_xon_2_xoff", i);
-+			p += ETH_GSTRING_LEN;
-+		}
- 		/* BUG_ON(p - data != I40E_STATS_LEN * ETH_GSTRING_LEN); */
- 		break;
- 	}
+ 	i40e_clear_pxe_mode(hw);
+ 	err = i40e_get_capabilities(pf);
+ 	if (err)
 -- 
 1.9.3
