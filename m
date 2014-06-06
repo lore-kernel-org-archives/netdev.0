@@ -1,85 +1,66 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 6 Jun 2014 13:45:47 +1000
-Message-ID: <20140606134547.7efed8a0@canb.auug.org.au>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 1/3] macvlan: don't update the uc and vlan
+ list for L2 forwarding offload
+Date: Fri, 6 Jun 2014 11:45:56 +0800
+Message-ID: <53913974.3080006@huawei.com>
+References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com> <1401969663-4464-2-git-send-email-dingtianhong@huawei.com> <53908814.8080303@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/YHucQCCqC3ys5Xyt/XyZ8KS"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"Andrew J. Bennieston" <andrew.bennieston@citrix.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>, <kaber@trash.net>,
+	<davem@davemloft.net>, <edumazet@google.com>,
+	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:55367 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774AbaFFDsP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 23:48:15 -0400
+In-Reply-To: <53908814.8080303@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/YHucQCCqC3ys5Xyt/XyZ8KS
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 2014/6/5 23:09, Vlad Yasevich wrote:
+> On 06/05/2014 08:01 AM, Ding Tianhong wrote:
+>> If lowerdev supports L2 forwarding offload, no need to set mac address
+>> to uc list and vlan list, so also don't do that when the macvlan mac address
+>> changes.
+> 
+> Same issue as in v1.  Please explain how this actually works, since the
+> new address never makes it to the hw.
+> 
 
-Hi all,
+Hi, vlad:
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/xen-netback/netback.c between commit 59ae9fc67007
-("xen-netback: Fix handling of skbs requiring too many slots") from the
-net tree and commit e9ce7cb6b107 ("xen-netback: Factor queue-specific
-data into queue struct") from the net-next tree.
+The fwd only support 82599 nic, and when fwd_priv is true, this means the lowerdev support L2 forwarding offload, and will set the macvlan
+to the ixgbe_fwd_adapter->netdev, and then it is clear that the lowerdev could know that the the upper device is macvlan and could handle
+the skb to the upperdev.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+If I miss something, please remind me, thanks.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Ding
 
-diff --cc drivers/net/xen-netback/netback.c
-index a160b4ef5ba0,49efff9b99f4..000000000000
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@@ -556,12 -548,18 +563,12 @@@ static void xenvif_add_frag_responses(s
-  	}
-  }
- =20
-- void xenvif_kick_thread(struct xenvif *vif)
- -struct xenvif_rx_cb {
- -	int meta_slots_used;
- -};
- -
- -#define XENVIF_RX_CB(skb) ((struct xenvif_rx_cb *)(skb)->cb)
- -
-+ void xenvif_kick_thread(struct xenvif_queue *queue)
-  {
-- 	wake_up(&vif->wq);
-+ 	wake_up(&queue->wq);
-  }
- =20
-- static void xenvif_rx_action(struct xenvif *vif)
-+ static void xenvif_rx_action(struct xenvif_queue *queue)
-  {
-  	s8 status;
-  	u16 flags;
-
---Sig_/YHucQCCqC3ys5Xyt/XyZ8KS
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJTkTlvAAoJEMDTa8Ir7ZwVt6IQAJQc/o54dMJALj7j3ZzKF2L6
-BPtPjUs1YX5nSgX9pK0xHw0cZ1GOgE8i255uABFqU79EXFvE0KN2IBgQKH+UPAsm
-NvwNMxJlycaqGwTM6P88hsw/IIQF0lUXZyz2iFC6vLIdXqQ6F1W60ZJLSUJNFd5b
-e7AXmNRXd1k8QJD0mUoTEOfPKgburpR292dC4ddL+0mrueorslPeGfPGnWmZRzKN
-5TxPqfOB89PTc7Sj0n1QBC2Blww9zScV68b+7VFtZqtpnFXWazQGxIJ+NyDM6BHI
-VqRLlezUxkKFeW0/0VrXLPwmffgKLUhs1vebYhgjA+hC8NYw9D+xwH8Z7dx+q97T
-AhWzCboFXhtCXZStiGG4UG4Tl7CtoanpVvZ4voN197EfrFW1tT4KQJJzYjSP2fkw
-Ke9gGCUsVUT5SrL12cWuFynBQrjfK60HRjGzbykpHXx//pUZGgPp/FicwBp0jdpW
-KPLrnYZxcCWrNj0xfUjvJZJyVnwG47sZaW6z4ZEz9tpOqw7IzlfvTV3GlXmxtTje
-plqjqOK58zGRoO39d9aKetQRZQ/XXRM8CFzcu2zSL1Mrd7qNj29Cz1MAKaEMJbRK
-3enzdLqiTS+0V0i1DEaYQI/6q4di6a2cEOgEZWQJS83e9pYB8IuMQmc6gx6090y0
-kvOrtfmoglKLWPPVdFCV
-=apKh
------END PGP SIGNATURE-----
-
---Sig_/YHucQCCqC3ys5Xyt/XyZ8KS--
+> -vlad
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  drivers/net/macvlan.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>> index 453d55a..c3a54a6 100644
+>> --- a/drivers/net/macvlan.c
+>> +++ b/drivers/net/macvlan.c
+>> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>  	struct net_device *lowerdev = vlan->lowerdev;
+>>  	int err;
+>>  
+>> -	if (!(dev->flags & IFF_UP)) {
+>> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
+>>  		/* Just copy in the new address */
+>>  		ether_addr_copy(dev->dev_addr, addr);
+>>  	} else {
+>>
+> 
+> 
+> 
