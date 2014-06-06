@@ -1,93 +1,78 @@
-From: Daniel Kiper <daniel.kiper@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 3.4] xen-netback: allow changing the MAC
- address of the interface
-Date: Fri, 6 Jun 2014 22:31:05 +0200
-Message-ID: <20140606203105.GE15989@olila.local.net-space.pl>
-References: <1401738380-11102-1-git-send-email-daniel.kiper@oracle.com>
- <20140605.145844.382754247234672637.davem@davemloft.net>
- <20140605231458.GA31114@kroah.com>
- <20140606130417.GL12025@olila.local.net-space.pl>
- <20140606135623.GA11781@kroah.com>
- <20140606200247.GB15989@olila.local.net-space.pl>
- <539220A4.2030406@citrix.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: [PATCH iproute2] fix ip tunnel for vti tunnels with ikey
+Date: Sat, 7 Jun 2014 00:33:49 +0400
+Message-ID: <20140607003349.d8b0fd526cb6403437c88c33@qrator.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <gregkh@linuxfoundation.org>, netdev@vger.kernel.org,
-	stable@vger.kernel.org, xen-devel@lists.xen.org, msw@amazon.com,
-	David Miller <davem@davemloft.net>
-To: Andrew Cooper <andrew.cooper3@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <539220A4.2030406@citrix.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ixaphire@qrator.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:38880 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbaFFUdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 16:33:54 -0400
+Received: by mail-la0-f52.google.com with SMTP id s18so1806907lam.25
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 13:33:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2014 at 09:12:20PM +0100, Andrew Cooper wrote:
-> On 06/06/14 21:02, Daniel Kiper wrote:
-> > On Fri, Jun 06, 2014 at 06:56:23AM -0700, Greg KH wrote:
-> >> On Fri, Jun 06, 2014 at 03:04:17PM +0200, Daniel Kiper wrote:
-> >>> On Thu, Jun 05, 2014 at 04:14:58PM -0700, Greg KH wrote:
-> >>>> On Thu, Jun 05, 2014 at 02:58:44PM -0700, David Miller wrote:
-> >>>>> From: Daniel Kiper <daniel.kiper@oracle.com>
-> >>>>> Date: Mon,  2 Jun 2014 21:46:20 +0200
-> >>>>>
-> >>>>>> From: Matt Wilson <msw@amazon.com>
-> >>>>>>
-> >>>>>> Sometimes it is useful to be able to change the MAC address of the
-> >>>>>> interface for netback devices. For example, when using ebtables it may
-> >>>>>> be useful to be able to distinguish traffic from different interfaces
-> >>>>>> without depending on the interface name.
-> >>>>>>
-> >>>>>> Reported-by: Nikita Borzykh <sample.n@gmail.com>
-> >>>>>> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-> >>>>>> Cc: netdev@vger.kernel.org
-> >>>>>> Cc: xen-devel@lists.xen.org
-> >>>>>> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> >>>>>> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> >>>>>> Signed-off-by: Matt Wilson <msw@amazon.com>
-> >>>>>> Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> >>>>>> Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>>>>> (cherry picked from commit 4a633a602c26497b8285a202830829d3be007c7b)
-> >>>>>>
-> >>>>>> Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
-> >>>>>> Tested-by: Daniel Kiper <daniel.kiper@oracle.com>
-> >>>>>> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> >>>>> I don't think this is suitable for -stable.
-> >>>>>
-> >>>>> -stable should be restricted bug fixes for things that either
-> >>>>> are extremely serious, or hit a very huge segment of the user
-> >>>>> base.
-> >>>>>
-> >>>>> This issue does not quality for either condition.
-> >>>> Yeah, it seems like a new feature to me, I'll drop it from my to-apply
-> >>>> queue.
-> >>> Yes, in fact it is, however, without it toolstack pollute /var/log/xen/xen-hotplug.log
-> >>> with "RTNETLINK answers: Operation not supported" error when every domain is started.
-> >>> Additionally, it is simple two liner and it should not break anything (Konrad and
-> >>> I did some tests and everything looks OK). I do not mention that from time to time
-> >>> we add some features like support for new hardware with just new device ID (e.g.
-> >>> USB devices). So that is why I decided to post this patch to stable.
-> >> New device ids and quirks to existing drivers are valid stable patches
-> >> (see Documentation/stable_kernel_rules.txt), but new features usually
-> >> are not.
-> > There is something like that:
-> >  - It must fix a problem that causes a build error (but not for things
-> >    marked CONFIG_BROKEN), an oops, a hang, data corruption, a real
-> >    security issue, or some "oh, that's not good" issue.  In short,
-> >    something critical.
-> >
-> > I think that this is "oh, that's not good" issue type. Of course it
-> > is not so critical but a bit annoying. Hence, could we have it in 3.4
-> > or "NO" is your the last word in that case?
-> >
-> > Daniel
->
-> The phrase "oh, that's not good" is usually said with a very distinctive
-> tone of voice, and has an habit of attracting a crowd of developers when
-> uttered in an office setting.
->
-> Its implied meaning is quite far from its literal meaning.
+Consider the following command:
 
-Got it... ;-)))
+ip tunnel add mode vti remote 12.0.0.1 local 12.0.0.3 ikey 15
 
-Daniel
+i_flags will be GRE_KEY|VTI_ISVTI. So, in order to distinguish between ipip and
+vti we have to check just VTI_ISVTI bit, not the equality of i_flags and 
+VTI_ISVTI.
+
+Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+---
+ ip/iptunnel.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/ip/iptunnel.c b/ip/iptunnel.c
+index 9ae8847..4d0fc21 100644
+--- a/ip/iptunnel.c
++++ b/ip/iptunnel.c
+@@ -287,10 +287,10 @@ static int do_add(int cmd, int argc, char **argv)
+ 
+ 	switch (p.iph.protocol) {
+ 	case IPPROTO_IPIP:
+-		if (p.i_flags != VTI_ISVTI)
+-			return tnl_add_ioctl(cmd, "tunl0", p.name, &p);
+-		else
++		if (p.i_flags & VTI_ISVTI)
+ 			return tnl_add_ioctl(cmd, "ip_vti0", p.name, &p);
++		else
++			return tnl_add_ioctl(cmd, "tunl0", p.name, &p);
+ 	case IPPROTO_GRE:
+ 		return tnl_add_ioctl(cmd, "gre0", p.name, &p);
+ 	case IPPROTO_IPV6:
+@@ -311,10 +311,10 @@ static int do_del(int argc, char **argv)
+ 
+ 	switch (p.iph.protocol) {
+ 	case IPPROTO_IPIP:
+-		if (p.i_flags != VTI_ISVTI)
+-			return tnl_del_ioctl("tunl0", p.name, &p);
+-		else
++		if (p.i_flags & VTI_ISVTI)
+ 			return tnl_del_ioctl("ip_vti0", p.name, &p);
++		else
++			return tnl_del_ioctl("tunl0", p.name, &p);
+ 	case IPPROTO_GRE:
+ 		return tnl_del_ioctl("gre0", p.name, &p);
+ 	case IPPROTO_IPV6:
+@@ -503,10 +503,10 @@ static int do_show(int argc, char **argv)
+ 
+ 	switch (p.iph.protocol) {
+ 	case IPPROTO_IPIP:
+-		if (p.i_flags != VTI_ISVTI)
+-			err = tnl_get_ioctl(p.name[0] ? p.name : "tunl0", &p);
+-		else
++		if (p.i_flags & VTI_ISVTI)
+ 			err = tnl_get_ioctl(p.name[0] ? p.name : "ip_vti0", &p);
++		else
++			err = tnl_get_ioctl(p.name[0] ? p.name : "tunl0", &p);
+ 		break;
+ 	case IPPROTO_GRE:
+ 		err = tnl_get_ioctl(p.name[0] ? p.name : "gre0", &p);
