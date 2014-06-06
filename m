@@ -1,130 +1,85 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
- probed into the Host
-Date: Fri, 6 Jun 2014 10:52:00 +0800
-Message-ID: <20140606025200.GA6981@richard>
-References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
- <20140602142947.GB28523@richard>
- <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
- <CAJZOPZK94-hZfBtpjFMEd5m1STRxbs-wTYsKB5SoC=zES5XfPg@mail.gmail.com>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 6 Jun 2014 13:45:47 +1000
+Message-ID: <20140606134547.7efed8a0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	David Miller <davem@davemloft.net>,
-	Wei Yang <weiyang@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Tal Alon <talal@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp01.au.ibm.com ([202.81.31.143]:35677 "EHLO
-	e23smtp01.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419AbaFFCwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 22:52:09 -0400
-Received: from /spool/local
-	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Fri, 6 Jun 2014 12:52:07 +1000
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id B93AC2BB0047
-	for <netdev@vger.kernel.org>; Fri,  6 Jun 2014 12:52:05 +1000 (EST)
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s562U8di3408236
-	for <netdev@vger.kernel.org>; Fri, 6 Jun 2014 12:30:09 +1000
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s562q2px029169
-	for <netdev@vger.kernel.org>; Fri, 6 Jun 2014 12:52:03 +1000
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZK94-hZfBtpjFMEd5m1STRxbs-wTYsKB5SoC=zES5XfPg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/YHucQCCqC3ys5Xyt/XyZ8KS"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	"Andrew J. Bennieston" <andrew.bennieston@citrix.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 03, 2014 at 11:15:43AM +0300, Or Gerlitz wrote:
->On Mon, Jun 2, 2014 at 7:10 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
->> Writing a driver is not an empirical process of trying things to see
->> what works.  You need to actively design a consistent structure so you
->> know why and when things are safe.  I object to gratuitous "dev ==
->> NULL" checks because often they are just a way of patching up a driver
->> design that isn't well thought-out.
->
->Bjorn, 1st and most -- Agreed.
->
->Next, to be precise, the use case of rebooting the host while the
->driver was loaded in SRIOV mode and NO VFs probed to VMs worked before
->commit befdf89 and is now broken.
->
->Reading further your response, I understand that the code was probably
->using a sort of hackish branching to make that to happen, and you
->suggest we re-write that section properly so it can serve well when
->(hopefully soon) implemenet
->sriov_configure and possibly also suspend/resume, point taken.
->
->Dave, as for this patch, again, the regression of inability to reboot
->the host node
->while the driver is loaded exists in the latest upstream code as of
->befdf89 / 3.15-rc1
->
->Now, taking into account that 3.15 is after rc8 and the IL devel team
->has a holiday this week, I don't see us coming in time with a more
->deeper fix for 3.15, so maybe you can eventaully go and merge this one
->liner for 3.15?
->
->Or.
->
+--Sig_/YHucQCCqC3ys5Xyt/XyZ8KS
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Hi, Or,
+Hi all,
 
-After understanding the root cause of this error, I come up with another kind
-of fix to this case. Verification has been done on my machine, it looks good
-to me. If your team could verify this, it would be better :-)
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/xen-netback/netback.c between commit 59ae9fc67007
+("xen-netback: Fix handling of skbs requiring too many slots") from the
+net tree and commit e9ce7cb6b107 ("xen-netback: Factor queue-specific
+data into queue struct") from the net-next tree.
 
-Hope you like it, and any problem please let me know :-)
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
->From 3dec04518a3a373c2d2cf2c4088fd5bbf36b4b7b Mon Sep 17 00:00:00 2001
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Date: Fri, 6 Jun 2014 10:16:45 +0800
-Subject: [PATCH] net/mlx4_core: keep only one driver entry release mlx4_priv
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-After commit befdf89(net/mlx4_core: Preserve pci_dev_data after
-__mlx4_remove_one()), there would be two driver entry which will try to
-release mlx4_priv, .shutdown and .remove. This will leads to a concequence that
-the mlx4_prive will be released twice in some case and trigger an oops "Oops:
-Kernel access of bad area".
+diff --cc drivers/net/xen-netback/netback.c
+index a160b4ef5ba0,49efff9b99f4..000000000000
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@@ -556,12 -548,18 +563,12 @@@ static void xenvif_add_frag_responses(s
+  	}
+  }
+ =20
+- void xenvif_kick_thread(struct xenvif *vif)
+ -struct xenvif_rx_cb {
+ -	int meta_slots_used;
+ -};
+ -
+ -#define XENVIF_RX_CB(skb) ((struct xenvif_rx_cb *)(skb)->cb)
+ -
++ void xenvif_kick_thread(struct xenvif_queue *queue)
+  {
+- 	wake_up(&vif->wq);
++ 	wake_up(&queue->wq);
+  }
+ =20
+- static void xenvif_rx_action(struct xenvif *vif)
++ static void xenvif_rx_action(struct xenvif_queue *queue)
+  {
+  	s8 status;
+  	u16 flags;
 
-One case for this error is doing reboot or kexec when VFs are enabled. During
-reboot or kexec, .shutdown will be called. When VFs are shutdown at first and
-then PF, PF will trigger VFs' .remove since VFs still have driver attached.
+--Sig_/YHucQCCqC3ys5Xyt/XyZ8KS
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-This patch resolve this case by keeping only one driver entry to release the
-mlx4_priv.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-CC: Or Gerlitz <ogerlitz@mellanox.com>
-CC: Jack Morgenstein <jackm@dev.mellanox.co.il>
-CC: Bjorn Helgaas <bhelgaas@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+iQIcBAEBCAAGBQJTkTlvAAoJEMDTa8Ir7ZwVt6IQAJQc/o54dMJALj7j3ZzKF2L6
+BPtPjUs1YX5nSgX9pK0xHw0cZ1GOgE8i255uABFqU79EXFvE0KN2IBgQKH+UPAsm
+NvwNMxJlycaqGwTM6P88hsw/IIQF0lUXZyz2iFC6vLIdXqQ6F1W60ZJLSUJNFd5b
+e7AXmNRXd1k8QJD0mUoTEOfPKgburpR292dC4ddL+0mrueorslPeGfPGnWmZRzKN
+5TxPqfOB89PTc7Sj0n1QBC2Blww9zScV68b+7VFtZqtpnFXWazQGxIJ+NyDM6BHI
+VqRLlezUxkKFeW0/0VrXLPwmffgKLUhs1vebYhgjA+hC8NYw9D+xwH8Z7dx+q97T
+AhWzCboFXhtCXZStiGG4UG4Tl7CtoanpVvZ4voN197EfrFW1tT4KQJJzYjSP2fkw
+Ke9gGCUsVUT5SrL12cWuFynBQrjfK60HRjGzbykpHXx//pUZGgPp/FicwBp0jdpW
+KPLrnYZxcCWrNj0xfUjvJZJyVnwG47sZaW6z4ZEz9tpOqw7IzlfvTV3GlXmxtTje
+plqjqOK58zGRoO39d9aKetQRZQ/XXRM8CFzcu2zSL1Mrd7qNj29Cz1MAKaEMJbRK
+3enzdLqiTS+0V0i1DEaYQI/6q4di6a2cEOgEZWQJS83e9pYB8IuMQmc6gx6090y0
+kvOrtfmoglKLWPPVdFCV
+=apKh
+-----END PGP SIGNATURE-----
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 7cf9dad..70a1356 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2799,7 +2799,7 @@ static struct pci_driver mlx4_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= mlx4_pci_table,
- 	.probe		= mlx4_init_one,
--	.shutdown	= mlx4_remove_one,
-+	.shutdown	= __mlx4_remove_one,
- 	.remove		= mlx4_remove_one,
- 	.err_handler    = &mlx4_err_handler,
- };
--- 
-1.7.9.5
-
-
--- 
-Richard Yang
-Help you, Help me
+--Sig_/YHucQCCqC3ys5Xyt/XyZ8KS--
