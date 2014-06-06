@@ -1,181 +1,99 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 4/4] cxgb4: Change default Interrupt Holdoff Packet Count Threshold
-Date: Fri,  6 Jun 2014 21:40:45 +0530
-Message-ID: <1402071045-14854-5-git-send-email-hariprasad@chelsio.com>
-References: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: SCTP seems to lose its socket state.
+Date: Fri, 6 Jun 2014 16:24:39 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17258B73@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45385 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752309AbaFFQZM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:25:12 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01290-09 for <netdev@vger.kernel.org>;
+ Fri,  6 Jun 2014 17:25:03 +0100 (BST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Based on original work by Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+From: David Laight
+> From: David Laight
+> > I've been looking at an ethernet trace from one of our customers.
+> > They seem to have got an SCTP socket into a rather confused state.
+> >
+> > There seem to be a significant number of transmit ethernet frames
+> > that don't read the far end.
+> > This shouldn't cause a real problem, but we end up with the following:
+> > This trace was taken on the linux system:
+> >
+> > 39964   0.304473        ->      SCTP    INIT
+> > 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
+> > 39968   0.467935        <-      SCTP    INIT
+> > 39969   0.000093        ->      SCTP    INIT_ACK
+> > 39970   0.003947        <-      SCTP    COOKIE_ECHO
+> > 39971   0.000072        ->      SCTP    COOKIE_ACK
+> > 39972   0.000337        ->      M3UA    ASPUP
+> > 39979   0.809659        <-      SCTP    COOKIE_ECHO
+> > 39980   0.000058        ->      SCTP    COOKIE_ACK
+> > shutdown() called here - seems to be ignored
+> > 39983   0.949471        <-      SCTP    COOKIE_ECHO
+> > 39984   0.000053        ->      SCTP    COOKIE_ACK
+> > 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
+> > 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
+> > 40008   3.689088        <-      SCTP    HEARTBEAT
+> > 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
+> > 40014   0.261152        <-      SCTP    HEARTBEAT
+> > 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
+> > 40026   0.123048        <-      SCTP    HEARTBEAT
+> > 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
+> > 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
+> >
+> > There are no signs of any SACKs for the ASPUP, I think they have the
+> > correct TSN (the same value as in the INIT_ACK).
+> > No signs of any shutdowns or aborts from either system.
+> >
+> > As seems to be typical for M3UA the source and destination ports are
+> > the same. No additional IP addresses appear in the INIT (etc) messages.
+> 
+> I think I've reproduced this on a 3.14.0 kernel.
+> 
+> System A: Bind to port 1234, connect to B:1234.
+>           If the connect fails, retry 10 seconds later.
+>           When the connection completes send some data.
+>           Disconnect if the reflected data isn't received within 2 seconds.
+> System B: Bind to port 1234, connect to A:1234.
+>           If the connect fails, retry 10 seconds later.
+>           Reflect any received data.
+> 
+> Initially the INIT chunks generate ABORTs (no listener) so both
+> programs just retry every 10 seconds.
+> 
+> On B run:
+>     iptables -A INPUT -p sctp --chunk-types any INIT -j DROP
+>     iptables -A INPUT -p sctp --chunk-types any DATA -j DROP
+> The first allows the connection to complete.
+> The second stops B acking the data.
+> The data is resent on timeout, and the systems exchange HBs.
+> 
+> I'd expect that a SHUTDOWN or ABORT be sent reasonably quickly.
+> But the systems just exchange HBs for over 5 minutes.
+> (I'm seeing an ABORT because B gives up waiting for the message.)
 
-Signed-off-by: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   69 +++++++++++++----------
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    1 -
- 2 files changed, 40 insertions(+), 30 deletions(-)
+Seems I wasn't waiting long enough.
+A does eventually send an ABORT after about 7 minutes.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5fa5f2a..2f8d6b9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2503,8 +2503,7 @@ static unsigned int qtimer_val(const struct adapter *adap,
- }
- 
- /**
-- *	set_rxq_intr_params - set a queue's interrupt holdoff parameters
-- *	@adap: the adapter
-+ *	set_rspq_intr_params - set a queue's interrupt holdoff parameters
-  *	@q: the Rx queue
-  *	@us: the hold-off time in us, or 0 to disable timer
-  *	@cnt: the hold-off packet count, or 0 to disable counter
-@@ -2512,9 +2511,11 @@ static unsigned int qtimer_val(const struct adapter *adap,
-  *	Sets an Rx queue's interrupt hold-off time and packet count.  At least
-  *	one of the two needs to be enabled for the queue to generate interrupts.
-  */
--static int set_rxq_intr_params(struct adapter *adap, struct sge_rspq *q,
--			       unsigned int us, unsigned int cnt)
-+static int set_rspq_intr_params(struct sge_rspq *q,
-+				unsigned int us, unsigned int cnt)
- {
-+	struct adapter *adap = q->adap;
-+
- 	if ((us | cnt) == 0)
- 		cnt = 1;
- 
-@@ -2541,24 +2542,34 @@ static int set_rxq_intr_params(struct adapter *adap, struct sge_rspq *q,
- 	return 0;
- }
- 
--static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-+/**
-+ * set_rx_intr_params - set a net devices's RX interrupt holdoff paramete!
-+ * @dev: the network device
-+ * @us: the hold-off time in us, or 0 to disable timer
-+ * @cnt: the hold-off packet count, or 0 to disable counter
-+ *
-+ * Set the RX interrupt hold-off parameters for a network device.
-+ */
-+static int set_rx_intr_params(struct net_device *dev,
-+			      unsigned int us, unsigned int cnt)
- {
--	const struct port_info *pi = netdev_priv(dev);
-+	int i, err;
-+	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adap = pi->adapter;
--	struct sge_rspq *q;
--	int i;
--	int r = 0;
--
--	for (i = pi->first_qset; i < pi->first_qset + pi->nqsets; i++) {
--		q = &adap->sge.ethrxq[i].rspq;
--		r = set_rxq_intr_params(adap, q, c->rx_coalesce_usecs,
--			c->rx_max_coalesced_frames);
--		if (r) {
--			dev_err(&dev->dev, "failed to set coalesce %d\n", r);
--			break;
--		}
-+	struct sge_eth_rxq *q = &adap->sge.ethrxq[pi->first_qset];
-+
-+	for (i = 0; i < pi->nqsets; i++, q++) {
-+		err = set_rspq_intr_params(&q->rspq, us, cnt);
-+		if (err)
-+			return err;
- 	}
--	return r;
-+	return 0;
-+}
-+
-+static int set_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-+{
-+	return set_rx_intr_params(dev, c->rx_coalesce_usecs,
-+				  c->rx_max_coalesced_frames);
- }
- 
- static int get_coalesce(struct net_device *dev, struct ethtool_coalesce *c)
-@@ -5812,12 +5823,12 @@ static inline bool is_x_10g_port(const struct link_config *lc)
- 	       (lc->supported & FW_PORT_CAP_SPEED_40G) != 0;
- }
- 
--static inline void init_rspq(struct sge_rspq *q, u8 timer_idx, u8 pkt_cnt_idx,
-+static inline void init_rspq(struct adapter *adap, struct sge_rspq *q,
-+			     unsigned int us, unsigned int cnt,
- 			     unsigned int size, unsigned int iqe_size)
- {
--	q->intr_params = QINTR_TIMER_IDX(timer_idx) |
--			 (pkt_cnt_idx < SGE_NCOUNTERS ? QINTR_CNT_EN : 0);
--	q->pktcnt_idx = pkt_cnt_idx < SGE_NCOUNTERS ? pkt_cnt_idx : 0;
-+	q->adap = adap;
-+	set_rspq_intr_params(q, us, cnt);
- 	q->iqe_len = iqe_size;
- 	q->size = size;
- }
-@@ -5876,7 +5887,7 @@ static void cfg_queues(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
- 		struct sge_eth_rxq *r = &s->ethrxq[i];
- 
--		init_rspq(&r->rspq, 0, 0, 1024, 64);
-+		init_rspq(adap, &r->rspq, 5, 10, 1024, 64);
- 		r->fl.size = 72;
- 	}
- 
-@@ -5892,7 +5903,7 @@ static void cfg_queues(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(s->ofldrxq); i++) {
- 		struct sge_ofld_rxq *r = &s->ofldrxq[i];
- 
--		init_rspq(&r->rspq, 0, 0, 1024, 64);
-+		init_rspq(adap, &r->rspq, 5, 1, 1024, 64);
- 		r->rspq.uld = CXGB4_ULD_ISCSI;
- 		r->fl.size = 72;
- 	}
-@@ -5900,7 +5911,7 @@ static void cfg_queues(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(s->rdmarxq); i++) {
- 		struct sge_ofld_rxq *r = &s->rdmarxq[i];
- 
--		init_rspq(&r->rspq, 0, 0, 511, 64);
-+		init_rspq(adap, &r->rspq, 5, 1, 511, 64);
- 		r->rspq.uld = CXGB4_ULD_RDMA;
- 		r->fl.size = 72;
- 	}
-@@ -5914,12 +5925,12 @@ static void cfg_queues(struct adapter *adap)
- 	for (i = 0; i < ARRAY_SIZE(s->rdmaciq); i++) {
- 		struct sge_ofld_rxq *r = &s->rdmaciq[i];
- 
--		init_rspq(&r->rspq, 0, 0, ciq_size, 64);
-+		init_rspq(adap, &r->rspq, 5, 1, ciq_size, 64);
- 		r->rspq.uld = CXGB4_ULD_RDMA;
- 	}
- 
--	init_rspq(&s->fw_evtq, 6, 0, 512, 64);
--	init_rspq(&s->intrq, 6, 0, 2 * MAX_INGQ, 64);
-+	init_rspq(adap, &s->fw_evtq, 0, 1, 1024, 64);
-+	init_rspq(adap, &s->intrq, 0, 1, 2 * MAX_INGQ, 64);
- }
- 
- /*
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index bd82939..58bd213 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -2215,7 +2215,6 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	iq->cntxt_id = ntohs(c.iqid);
- 	iq->abs_id = ntohs(c.physiqid);
- 	iq->size--;                           /* subtract status entry */
--	iq->adap = adap;
- 	iq->netdev = dev;
- 	iq->handler = hnd;
- 
--- 
-1.7.1
+In the customer's trace the remote (B) system has silently given up
+and then resends an INIT well before the 7 minutes have elapsed.
+I'm not sure how to go about reproducing that (without major
+kernel hacking).
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Maybe I can suppress the ABORT from B.
+
+	David
