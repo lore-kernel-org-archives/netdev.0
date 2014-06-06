@@ -1,107 +1,88 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
- for netdev
-Date: Fri, 6 Jun 2014 11:54:49 +0800
-Message-ID: <53913B89.4020305@huawei.com>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com> <53907982.8030700@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Fri, 6 Jun 2014 14:06:51 +1000
+Message-ID: <20140606140651.1c393d7a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	<kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
-	<vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:60731 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419AbaFFD4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 23:56:11 -0400
-In-Reply-To: <53907982.8030700@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/LpwfM8eg+rXoae73mu8hekU"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/6/5 22:06, Vlad Yasevich wrote:
-> On 06/05/2014 05:50 AM, Ding Tianhong wrote:
->> On 2014/6/5 17:09, Toshiaki Makita wrote:
->>> (2014/06/05 15:50), Ding Tianhong wrote:
->>>> Most of netdev just like bond, team, vlan will set the mac address
->>>> and propagate to the upperdev or lowerdev regardless the mac address
->>>> is  same or not, I could not find that the same mac address could
->>>> make affect, so add equal check when set mac address.
->>>>
->>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>> ---
->>>>  net/core/dev.c | 2 ++
->>>>  1 file changed, 2 insertions(+)
->>>>
->>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>> index 5367bfb..4008a51 100644
->>>> --- a/net/core/dev.c
->>>> +++ b/net/core/dev.c
->>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>>>  		return -EINVAL;
->>>>  	if (!netif_device_present(dev))
->>>>  		return -ENODEV;
->>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>>> +		return 0;
->>>>  	err = ops->ndo_set_mac_address(dev, sa);
->>>>  	if (err)
->>>>  		return err;
->>>>
->>>
->>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
->>> bridge ports. If user set mac address, and even if it is the same as
->>> current one, bridge uses the fact that the mac address is set by user.
->>>
->>
->> OK
->>
->>> Although I'm not aware of a driver that needs calling of
->>> ndo_set_mac_address() for the same mac address, this change looks a bit
->>> risky to me.
->>> (For example, old bridge code needed this call because it managed
->>> BR_SET_MAC_ADDR in bridge flags.)
->>>
->> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
->> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
->> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
->>
-> 
-> Ok so may be a check like:
->     /* If the address has already been set by user and it
->      * is the same as before, don't do anything.
->      */
->     if (dev->addr_assign_type == NET_ADDR_SET &&
->         ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->             return 0;
-> 
-> This way, if the device does it's own address management (like bridge),
-> the user can still pin the mac address, but subsequent setting to the
-> same value don't cause all sorts of propagation.
-> 
+--Sig_/LpwfM8eg+rXoae73mu8hekU
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Great solution for br, but I think it couldn't fix the problem in br2684_mac_addr() just like Toshiaki said, I am not
-sure how many place in the kernel use like this.
+Hi all,
 
-Ding 
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-> -vlad
-> 
->> Ding 
->>
->>> Thanks,
->>> Toshiaki Makita
->>>
->>
->>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
-> 
-> .
-> 
+net/core/filter.c: In function 'convert_bpf_extensions':
+net/core/filter.c:696:17: error: 'A_REG' undeclared (first use in this func=
+tion)
+   insn->a_reg =3D A_REG;
+                 ^
+
+Caused by my bad merge resolution :-(
+
+I applied this in the hope that it is correct (at least it builds):
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 6 Jun 2014 14:00:07 +1000
+Subject: [PATCH] net: filter: merge fix up
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/core/filter.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 7b46e4553c17..74dd87596257 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -691,10 +691,7 @@ static bool convert_bpf_extensions(struct sock_filter =
+*fp,
+ 		*insn =3D BPF_ALU32_IMM(BPF_AND, BPF_REG_A, PKT_TYPE_MAX);
+ #ifdef __BIG_ENDIAN_BITFIELD
+ 		insn++;
+-
+-		insn->code =3D BPF_ALU | BPF_RSH | BPF_K;
+-		insn->a_reg =3D A_REG;
+-		insn->imm =3D 5;
++		*insn =3D BPF_ALU32_IMM(BPF_RSH, BPF_REG_A, 5);
+ #endif
+ 		break;
+=20
+--=20
+2.0.0
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/LpwfM8eg+rXoae73mu8hekU
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTkT5hAAoJEMDTa8Ir7ZwVXkAP/jLiWO660gmEvDVpMHDYhg9J
+2naxz+DC8Nb4ZuUVIpdFJsQtLQuY6U+rVPGeeHALalHzs/WmGD35HDtaekIrxyuK
+VQPSdPea7RSNiUI5AMfHl6QHpXc1q2N1A0F0Q/pVmFfxG5DkyJ3oQLreDEPabIPe
+xctesY/hluDrfOaODpTdvB8SUCyV39QLKu4/xkHEv+N5DNPigGxaeniNbCMYkn/+
+wC61979gsJfufNrk2itLc8D/c9dsz0HCQ1H2dqZZblxVpgCJEN2oyyS+A3vRIn18
+iM1TG7liLukYrMCp/KGQ57XjGMxeDGVzqnc547VOlazmA9sqdeNHmoIV5mVhOfmK
+kYiU7kk2vDSKB1UXn435qee5rNdqCo0IfljyD80zBcKS90daTD+EovBqY5FcEU/V
+QaAXqJ9Y36qooQc4jWnrx8jhy/c+papSmOCZfzOsP4fQyAwElNu7Rfh+FIVRNNBp
+cy+kVsY2regdad3NDDFrUGh9tvx163ILmeSBWHM11CKocfBCBU6uWXq5cSarNFlj
+A/pXpJKdhdpD04m6VIqVE5VjFMvxe8ss7YQJcBsbyTV6S4fmWvCK5i4IuzYtrSdt
+ePI4IZwcClpBnkHG3ts9t+bXfpm1Xzz5NnWoiID4mwDFz0HYxl9IhF/n/5lmEr6u
+nFs7bAVnAfMCWl3ulXum
+=1poB
+-----END PGP SIGNATURE-----
+
+--Sig_/LpwfM8eg+rXoae73mu8hekU--
