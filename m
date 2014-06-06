@@ -1,38 +1,70 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Multitude of dst obsolescense race conditions
-Date: Fri, 06 Jun 2014 11:57:10 -0700
-Message-ID: <1402081030.3645.312.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1405140233210.16893@dtop>
-	 <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140606181236.GS4581@linux.vnet.ibm.com>
+Subject: Re: tcp: fixing TLP's FIN recovery
+Date: Fri, 06 Jun 2014 12:07:08 -0700
+Message-ID: <1402081628.3645.315.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140606184626.GA13509@kau.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: dormando <dormando@rydia.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140606181236.GS4581@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, anna.brunstrom@kau.se,
+	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: Per Hurtig <per.hurtig@kau.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:43560 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752423AbaFFTHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 15:07:10 -0400
+Received: by mail-pb0-f44.google.com with SMTP id rq2so2849418pbb.3
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 12:07:10 -0700 (PDT)
+In-Reply-To: <20140606184626.GA13509@kau.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-06-06 at 11:12 -0700, Paul E. McKenney wrote:
+On Fri, 2014-06-06 at 20:46 +0200, Per Hurtig wrote:
+> From ab1b16ef8aba4300b1a6e965c3ab7d0cb269bb2a Mon Sep 17 00:00:00 2001
+> From: Per Hurtig <per.hurtig@kau.se>
+> Date: Fri, 6 Jun 2014 18:36:19 +0200
+> Subject: [PATCH 1/1] tcp: fixing TLP's FIN recovery
+> 
+> Fix to a problem observed when losing a FIN segment that does not
+> contain data.  In such situations, TLP is unable to recover from
+> *any* tail loss and instead adds at least PTO ms to the
+> retransmission process, i.e., RTO = RTO + PTO.
 
-> It is probably just be me getting lost in the code, but I am not seeing
-> a synchronize_rcu(), call_rcu(), or synchronize_net() anywhere in
-> dst_release() or the things that it calls.  If there really isn't such
-> a call, then I don't see how the above code is safe in the case where
-> __sk_dst_set() is invoked on one CPU just after sk_dst_get() executes
-> the rcu_dereference() on some other CPU.
 
-Well, this part is fine, dst_release() do not free dst that are
-potentially stored in sk_dst_cache
 
-Only the refcount is decremented.
+> 
+> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
+> ---
+>  net/ipv4/tcp_output.c | 5 +++--
+>   1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+>   diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>   index d463c35..2c29926 100644
+>   --- a/net/ipv4/tcp_output.c
+>   +++ b/net/ipv4/tcp_output.c
+>   @@ -2130,8 +2130,9 @@ void tcp_send_loss_probe(struct sock *sk)
+>     if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
+> 	    goto rearm_timer;
+> 	     
+> 	     -	/* Probe with zero data doesn't trigger fast recovery.
+> 		*/
+> 		-	if (skb->len > 0)
+> 		+	/* Probe with zero data doesn't trigger fast
+> 		recovery, unless
+> 		+	 * FIN flag is set. */
+> 		+	if ((skb->len > 0) ||
+> 		(TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN))
+> 			err = __tcp_retransmit_skb(sk, skb);
+> 			 
+> 			    /* Record snd_nxt for loss detection. */
+> 			    -- 
+> 			    1.9.1
+> 
 
-The bug is elsewhere, we had another thread raising this issue on netdev
-this morning.
+Patch was mangled. Please fix and resend.
 
-I am cooking a patch to clear the mess.
+Please CC Nandita & Neal,
 
 Thanks
