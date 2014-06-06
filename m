@@ -1,57 +1,361 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 0/4] Adds support for CIQ and other misc. fixes for rdma/cxgb4
-Date: Fri,  6 Jun 2014 21:40:41 +0530
-Message-ID: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/4] iw_cxgb4: Allocate and use IQs specifically for indirect interrupts
+Date: Fri,  6 Jun 2014 21:40:42 +0530
+Message-ID: <1402071045-14854-2-git-send-email-hariprasad@chelsio.com>
+References: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, santosh@chelsio.com,
+	leedom@chelsio.com, dm@chelsio.com, kumaras@chelsio.com,
+	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:40691
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752241AbaFFQYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:24:37 -0400
+In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Currently indirect interrupts for RDMA CQs funnel through the LLD's RDMA
+RXQs, which also handle direct interrupts for offload CPLs during RDMA
+connection setup/teardown.  The intended T4 usage model, however, is to
+have indirect interrupts flow through dedicated IQs. IE not to mix
+indirect interrupts with CPL messages in an IQ.  This patch adds the
+concept of RDMA concentrator IQs, or CIQs, setup and maintained by the
+LLD and exported to iw_cxgb4 for use when creating CQs. RDMA CPLs will
+flow through the LLD's RDMA RXQs, and CQ interrupts flow through the
+CIQs.
 
-This patch series adds support to allocate and use IQs specifically for
-indirect interrupts, adds fixes to align ISS for iWARP connections & fixes
-related to tcp snd/rvd window for Chelsio T4/T5 adapters on iw_cxgb4.
-Also changes Interrupt Holdoff Packet Count threshold of response queues for
-cxgb4 driver.
+Design:
 
-The patches series is created against 'net-next' tree.
-And includes patches on cxgb4 and iw_cxgb4 driver.
+cxgb4 creates and exports an array of CIQs for the RDMA ULD.  These IQs
+are sized according to the max available CQs available at adapter init.
+In addition, these IQs don't need FL buffers since they only service
+indirect interrupts.  One CIQ is setup per RX channel similar to the
+RDMA RXQs.
 
-Since this patch-series contains cxgb4 and iw_cxgb4 patches, we would like to
-request this patch series to get merged via David Miller's 'net-next' tree.
+iw_cxgb4 will utilize these CIQs based on the vector value passed into
+create_cq().  The num_comp_vectors advertised by iw_cxgb4 will be the
+number of CIQs configured, and thus the vector value will be the index
+into the array of CIQs.
 
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
+Based on original work by Steve Wise <swise@opengridcomputing.com>
 
-Thanks 
-
-Hariprasad Shenai (4):
-  iw_cxgb4: Allocate and use IQs specifically for indirect interrupts
-  iw_cxgb4: Choose appropriate hw mtu index and ISS for iWARP
-    connections
-  iw_cxgb4: don't truncate the recv window size
-  cxgb4: Change default Interrupt Holdoff Packet Count Threshold
-
- drivers/infiniband/hw/cxgb4/cm.c                |  127 +++++++++++--
- drivers/infiniband/hw/cxgb4/cq.c                |    7 +-
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |    2 +
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/infiniband/hw/cxgb4/cq.c                |    7 ++-
  drivers/infiniband/hw/cxgb4/provider.c          |    2 +-
  drivers/infiniband/hw/cxgb4/t4.h                |    1 +
- drivers/infiniband/hw/cxgb4/t4fw_ri_api.h       |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   14 ++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  236 +++++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    7 +
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    5 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   14 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   62 +++++++++++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |    4 ++
  drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   10 +
- 12 files changed, 356 insertions(+), 57 deletions(-)
+ 8 files changed, 84 insertions(+), 9 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
+index cfaa56a..71fc2ef 100644
+--- a/drivers/infiniband/hw/cxgb4/cq.c
++++ b/drivers/infiniband/hw/cxgb4/cq.c
+@@ -134,7 +134,8 @@ static int create_cq(struct c4iw_rdev *rdev, struct t4_cq *cq,
+ 			V_FW_RI_RES_WR_IQANUS(0) |
+ 			V_FW_RI_RES_WR_IQANUD(1) |
+ 			F_FW_RI_RES_WR_IQANDST |
+-			V_FW_RI_RES_WR_IQANDSTINDEX(*rdev->lldi.rxq_ids));
++			V_FW_RI_RES_WR_IQANDSTINDEX(
++				rdev->lldi.ciq_ids[cq->vector]));
+ 	res->u.cq.iqdroprss_to_iqesize = cpu_to_be16(
+ 			F_FW_RI_RES_WR_IQDROPRSS |
+ 			V_FW_RI_RES_WR_IQPCIECH(2) |
+@@ -870,6 +871,9 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
+ 
+ 	rhp = to_c4iw_dev(ibdev);
+ 
++	if (vector >= rhp->rdev.lldi.nciq)
++		return ERR_PTR(-EINVAL);
++
+ 	chp = kzalloc(sizeof(*chp), GFP_KERNEL);
+ 	if (!chp)
+ 		return ERR_PTR(-ENOMEM);
+@@ -915,6 +919,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
+ 	}
+ 	chp->cq.size = hwentries;
+ 	chp->cq.memsize = memsize;
++	chp->cq.vector = vector;
+ 
+ 	ret = create_cq(&rhp->rdev, &chp->cq,
+ 			ucontext ? &ucontext->uctx : &rhp->rdev.uctx);
+diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
+index a94a3e1..31cd188 100644
+--- a/drivers/infiniband/hw/cxgb4/provider.c
++++ b/drivers/infiniband/hw/cxgb4/provider.c
+@@ -499,7 +499,7 @@ int c4iw_register_device(struct c4iw_dev *dev)
+ 	dev->ibdev.node_type = RDMA_NODE_RNIC;
+ 	memcpy(dev->ibdev.node_desc, C4IW_NODE_DESC, sizeof(C4IW_NODE_DESC));
+ 	dev->ibdev.phys_port_cnt = dev->rdev.lldi.nports;
+-	dev->ibdev.num_comp_vectors = 1;
++	dev->ibdev.num_comp_vectors =  dev->rdev.lldi.nciq;
+ 	dev->ibdev.dma_device = &(dev->rdev.lldi.pdev->dev);
+ 	dev->ibdev.query_device = c4iw_query_device;
+ 	dev->ibdev.query_port = c4iw_query_port;
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index 2178f31..68b0a6b 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -542,6 +542,7 @@ struct t4_cq {
+ 	size_t memsize;
+ 	__be64 bits_type_ts;
+ 	u32 cqid;
++	int vector;
+ 	u16 size; /* including status page */
+ 	u16 cidx;
+ 	u16 sw_pidx;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 32db377..f503dce 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -357,11 +357,17 @@ enum {
+ 	MAX_OFLD_QSETS = 16,          /* # of offload Tx/Rx queue sets */
+ 	MAX_CTRL_QUEUES = NCHAN,      /* # of control Tx queues */
+ 	MAX_RDMA_QUEUES = NCHAN,      /* # of streaming RDMA Rx queues */
++	MAX_RDMA_CIQS = NCHAN,        /* # of  RDMA concentrator IQs */
++	MAX_ISCSI_QUEUES = NCHAN,     /* # of streaming iSCSI Rx queues */
+ };
+ 
+ enum {
+-	MAX_EGRQ = 128,         /* max # of egress queues, including FLs */
+-	MAX_INGQ = 64           /* max # of interrupt-capable ingress queues */
++	INGQ_EXTRAS = 2,        /* firmware event queue and */
++				/*   forwarded interrupts */
++	MAX_EGRQ = MAX_ETH_QSETS*2 + MAX_OFLD_QSETS*2
++		   + MAX_CTRL_QUEUES + MAX_RDMA_QUEUES + MAX_ISCSI_QUEUES,
++	MAX_INGQ = MAX_ETH_QSETS + MAX_OFLD_QSETS + MAX_RDMA_QUEUES
++		   + MAX_RDMA_CIQS + MAX_ISCSI_QUEUES + INGQ_EXTRAS,
+ };
+ 
+ struct adapter;
+@@ -538,6 +544,7 @@ struct sge {
+ 	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
+ 	struct sge_ofld_rxq ofldrxq[MAX_OFLD_QSETS];
+ 	struct sge_ofld_rxq rdmarxq[MAX_RDMA_QUEUES];
++	struct sge_ofld_rxq rdmaciq[MAX_RDMA_CIQS];
+ 	struct sge_rspq fw_evtq ____cacheline_aligned_in_smp;
+ 
+ 	struct sge_rspq intrq ____cacheline_aligned_in_smp;
+@@ -548,8 +555,10 @@ struct sge {
+ 	u16 ethtxq_rover;           /* Tx queue to clean up next */
+ 	u16 ofldqsets;              /* # of active offload queue sets */
+ 	u16 rdmaqs;                 /* # of available RDMA Rx queues */
++	u16 rdmaciqs;               /* # of available RDMA concentrator IQs */
+ 	u16 ofld_rxq[MAX_OFLD_QSETS];
+ 	u16 rdma_rxq[NCHAN];
++	u16 rdma_ciq[NCHAN];
+ 	u16 timer_val[SGE_NTIMERS];
+ 	u8 counter_val[SGE_NCOUNTERS];
+ 	u32 fl_pg_order;            /* large page allocation size */
+@@ -577,6 +586,7 @@ struct sge {
+ #define for_each_ethrxq(sge, i) for (i = 0; i < (sge)->ethqsets; i++)
+ #define for_each_ofldrxq(sge, i) for (i = 0; i < (sge)->ofldqsets; i++)
+ #define for_each_rdmarxq(sge, i) for (i = 0; i < (sge)->rdmaqs; i++)
++#define for_each_rdmaciq(sge, i) for (i = 0; i < (sge)->rdmaciqs; i++)
+ 
+ struct l2t_data;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 8cf6be9..c26c3f8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -818,12 +818,17 @@ static void name_msix_vecs(struct adapter *adap)
+ 	for_each_rdmarxq(&adap->sge, i)
+ 		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma%d",
+ 			 adap->port[0]->name, i);
++
++	for_each_rdmaciq(&adap->sge, i)
++		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma-ciq%d",
++			 adap->port[0]->name, i);
+ }
+ 
+ static int request_msix_queue_irqs(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+-	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, msi_index = 2;
++	int err, ethqidx, ofldqidx = 0, rdmaqidx = 0, rdmaciqqidx = 0;
++	int msi_index = 2;
+ 
+ 	err = request_irq(adap->msix_info[1].vec, t4_sge_intr_msix, 0,
+ 			  adap->msix_info[1].desc, &s->fw_evtq);
+@@ -857,9 +862,21 @@ static int request_msix_queue_irqs(struct adapter *adap)
+ 			goto unwind;
+ 		msi_index++;
+ 	}
++	for_each_rdmaciq(s, rdmaciqqidx) {
++		err = request_irq(adap->msix_info[msi_index].vec,
++				  t4_sge_intr_msix, 0,
++				  adap->msix_info[msi_index].desc,
++				  &s->rdmaciq[rdmaciqqidx].rspq);
++		if (err)
++			goto unwind;
++		msi_index++;
++	}
+ 	return 0;
+ 
+ unwind:
++	while (--rdmaciqqidx >= 0)
++		free_irq(adap->msix_info[--msi_index].vec,
++			 &s->rdmaciq[rdmaciqqidx].rspq);
+ 	while (--rdmaqidx >= 0)
+ 		free_irq(adap->msix_info[--msi_index].vec,
+ 			 &s->rdmarxq[rdmaqidx].rspq);
+@@ -885,6 +902,8 @@ static void free_msix_queue_irqs(struct adapter *adap)
+ 		free_irq(adap->msix_info[msi_index++].vec, &s->ofldrxq[i].rspq);
+ 	for_each_rdmarxq(s, i)
+ 		free_irq(adap->msix_info[msi_index++].vec, &s->rdmarxq[i].rspq);
++	for_each_rdmaciq(s, i)
++		free_irq(adap->msix_info[msi_index++].vec, &s->rdmaciq[i].rspq);
+ }
+ 
+ /**
+@@ -1047,7 +1066,8 @@ freeout:	t4_free_sge_resources(adap);
+ 		if (msi_idx > 0)
+ 			msi_idx++;
+ 		err = t4_sge_alloc_rxq(adap, &q->rspq, false, dev, msi_idx,
+-				       &q->fl, uldrx_handler);
++				       q->fl.size ? &q->fl : NULL,
++				       uldrx_handler);
+ 		if (err)
+ 			goto freeout;
+ 		memset(&q->stats, 0, sizeof(q->stats));
+@@ -1064,13 +1084,28 @@ freeout:	t4_free_sge_resources(adap);
+ 		if (msi_idx > 0)
+ 			msi_idx++;
+ 		err = t4_sge_alloc_rxq(adap, &q->rspq, false, adap->port[i],
+-				       msi_idx, &q->fl, uldrx_handler);
++				       msi_idx, q->fl.size ? &q->fl : NULL,
++				       uldrx_handler);
+ 		if (err)
+ 			goto freeout;
+ 		memset(&q->stats, 0, sizeof(q->stats));
+ 		s->rdma_rxq[i] = q->rspq.abs_id;
+ 	}
+ 
++	for_each_rdmaciq(s, i) {
++		struct sge_ofld_rxq *q = &s->rdmaciq[i];
++
++		if (msi_idx > 0)
++			msi_idx++;
++		err = t4_sge_alloc_rxq(adap, &q->rspq, false, adap->port[i],
++				       msi_idx, q->fl.size ? &q->fl : NULL,
++				       uldrx_handler);
++		if (err)
++			goto freeout;
++		memset(&q->stats, 0, sizeof(q->stats));
++		s->rdma_ciq[i] = q->rspq.abs_id;
++	}
++
+ 	for_each_port(adap, i) {
+ 		/*
+ 		 * Note that ->rdmarxq[i].rspq.cntxt_id below is 0 if we don't
+@@ -3789,7 +3824,9 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
+ 	lli.mtus = adap->params.mtus;
+ 	if (uld == CXGB4_ULD_RDMA) {
+ 		lli.rxq_ids = adap->sge.rdma_rxq;
++		lli.ciq_ids = adap->sge.rdma_ciq;
+ 		lli.nrxq = adap->sge.rdmaqs;
++		lli.nciq = adap->sge.rdmaciqs;
+ 	} else if (uld == CXGB4_ULD_ISCSI) {
+ 		lli.rxq_ids = adap->sge.ofld_rxq;
+ 		lli.nrxq = adap->sge.ofldqsets;
+@@ -5695,6 +5732,7 @@ static void cfg_queues(struct adapter *adap)
+ {
+ 	struct sge *s = &adap->sge;
+ 	int i, q10g = 0, n10g = 0, qidx = 0;
++	int ciq_size;
+ 
+ 	for_each_port(adap, i)
+ 		n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
+@@ -5733,6 +5771,7 @@ static void cfg_queues(struct adapter *adap)
+ 			s->ofldqsets = adap->params.nports;
+ 		/* For RDMA one Rx queue per channel suffices */
+ 		s->rdmaqs = adap->params.nports;
++		s->rdmaciqs = adap->params.nports;
+ 	}
+ 
+ 	for (i = 0; i < ARRAY_SIZE(s->ethrxq); i++) {
+@@ -5767,6 +5806,19 @@ static void cfg_queues(struct adapter *adap)
+ 		r->fl.size = 72;
+ 	}
+ 
++	ciq_size = 64 + adap->vres.cq.size + adap->tids.nftids;
++	if (ciq_size > SGE_MAX_IQ_SIZE) {
++		CH_WARN(adap, "CIQ size too small for available IQs\n");
++		ciq_size = SGE_MAX_IQ_SIZE;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(s->rdmaciq); i++) {
++		struct sge_ofld_rxq *r = &s->rdmaciq[i];
++
++		init_rspq(&r->rspq, 0, 0, ciq_size, 64);
++		r->rspq.uld = CXGB4_ULD_RDMA;
++	}
++
+ 	init_rspq(&s->fw_evtq, 6, 0, 512, 64);
+ 	init_rspq(&s->intrq, 6, 0, 2 * MAX_INGQ, 64);
+ }
+@@ -5815,9 +5867,9 @@ static int enable_msix(struct adapter *adap)
+ 
+ 	want = s->max_ethqsets + EXTRA_VECS;
+ 	if (is_offload(adap)) {
+-		want += s->rdmaqs + s->ofldqsets;
++		want += s->rdmaqs + s->rdmaciqs + s->ofldqsets;
+ 		/* need nchan for each possible ULD */
+-		ofld_need = 2 * nchan;
++		ofld_need = 3 * nchan;
+ 	}
+ 	need = adap->params.nports + EXTRA_VECS + ofld_need;
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index e274a04..87af314 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -232,8 +232,10 @@ struct cxgb4_lld_info {
+ 	const struct cxgb4_virt_res *vr;     /* assorted HW resources */
+ 	const unsigned short *mtus;          /* MTU table */
+ 	const unsigned short *rxq_ids;       /* the ULD's Rx queue ids */
++	const unsigned short *ciq_ids;       /* the ULD's concentrator IQ ids */
+ 	unsigned short nrxq;                 /* # of Rx queues */
+ 	unsigned short ntxq;                 /* # of Tx queues */
++	unsigned short nciq;		     /* # of concentrator IQ */
+ 	unsigned char nchan:4;               /* # of channels */
+ 	unsigned char nports:4;              /* # of ports */
+ 	unsigned char wr_cred;               /* WR 16-byte credits */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index cced1a3..bd82939 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -2515,6 +2515,10 @@ void t4_free_sge_resources(struct adapter *adap)
+ 		if (oq->rspq.desc)
+ 			free_rspq_fl(adap, &oq->rspq, &oq->fl);
+ 	}
++	for (i = 0, oq = adap->sge.rdmaciq; i < adap->sge.rdmaciqs; i++, oq++) {
++		if (oq->rspq.desc)
++			free_rspq_fl(adap, &oq->rspq, &oq->fl);
++	}
+ 
+ 	/* clean up offload Tx queues */
+ 	for (i = 0; i < ARRAY_SIZE(adap->sge.ofldtxq); i++) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+index 1d1623b..71b799b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+@@ -68,6 +68,7 @@ enum {
+ 	SGE_MAX_WR_LEN = 512,     /* max WR size in bytes */
+ 	SGE_NTIMERS = 6,          /* # of interrupt holdoff timer values */
+ 	SGE_NCOUNTERS = 4,        /* # of interrupt packet counter values */
++	SGE_MAX_IQ_SIZE = 65520,
+ 
+ 	SGE_TIMER_RSTRT_CNTR = 6, /* restart RX packet threshold counter */
+ 	SGE_TIMER_UPD_CIDX = 7,   /* update cidx only */
+-- 
+1.7.1
