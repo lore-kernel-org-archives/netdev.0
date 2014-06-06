@@ -1,66 +1,80 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next v2 1/3] macvlan: don't update the uc and vlan
- list for L2 forwarding offload
-Date: Fri, 6 Jun 2014 11:45:56 +0800
-Message-ID: <53913974.3080006@huawei.com>
-References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com> <1401969663-4464-2-git-send-email-dingtianhong@huawei.com> <53908814.8080303@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 6 Jun 2014 13:54:38 +1000
+Message-ID: <20140606135438.06d7b7a5@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>, <kaber@trash.net>,
-	<davem@davemloft.net>, <edumazet@google.com>,
-	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:55367 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774AbaFFDsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 23:48:15 -0400
-In-Reply-To: <53908814.8080303@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/xGsEp6NUHLEeZz8uk9qM=Ag"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexei Starovoitov <ast@plumgrid.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/6/5 23:09, Vlad Yasevich wrote:
-> On 06/05/2014 08:01 AM, Ding Tianhong wrote:
->> If lowerdev supports L2 forwarding offload, no need to set mac address
->> to uc list and vlan list, so also don't do that when the macvlan mac address
->> changes.
-> 
-> Same issue as in v1.  Please explain how this actually works, since the
-> new address never makes it to the hw.
-> 
+--Sig_/xGsEp6NUHLEeZz8uk9qM=Ag
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Hi, vlad:
+Hi all,
 
-The fwd only support 82599 nic, and when fwd_priv is true, this means the lowerdev support L2 forwarding offload, and will set the macvlan
-to the ixgbe_fwd_adapter->netdev, and then it is clear that the lowerdev could know that the the upper device is macvlan and could handle
-the skb to the upperdev.
+Today's linux-next merge of the net-next tree got a conflict in
+net/core/filter.c between commit 0dcceabb0c1b ("net: filter: fix
+SKF_AD_PKTTYPE extension on big-endian") from the net tree and commit
+9739eef13c92 ("net: filter: make BPF conversion more readable") from
+the net-next tree.
 
-If I miss something, please remind me, thanks.
+I fixed it up (not well, but see below) and can carry the fix as
+necessary (no action is required).
 
-Ding
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> -vlad
->>
->> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->> ---
->>  drivers/net/macvlan.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->> index 453d55a..c3a54a6 100644
->> --- a/drivers/net/macvlan.c
->> +++ b/drivers/net/macvlan.c
->> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
->>  	struct net_device *lowerdev = vlan->lowerdev;
->>  	int err;
->>  
->> -	if (!(dev->flags & IFF_UP)) {
->> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
->>  		/* Just copy in the new address */
->>  		ether_addr_copy(dev->dev_addr, addr);
->>  	} else {
->>
-> 
-> 
-> 
+diff --cc net/core/filter.c
+index ab3c74e49f07,9de0c25323b4..000000000000
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@@ -685,17 -684,7 +688,14 @@@ static bool convert_bpf_extensions(stru
+  		if (insn->off < 0)
+  			return false;
+  		insn++;
+-=20
+- 		insn->code =3D BPF_ALU | BPF_AND | BPF_K;
+- 		insn->a_reg =3D A_REG;
+- 		insn->imm =3D PKT_TYPE_MAX;
++ 		*insn =3D BPF_ALU32_IMM(BPF_AND, BPF_REG_A, PKT_TYPE_MAX);
+ +#ifdef __BIG_ENDIAN_BITFIELD
+ +		insn++;
+ +
+ +		insn->code =3D BPF_ALU | BPF_RSH | BPF_K;
+ +		insn->a_reg =3D A_REG;
+ +		insn->imm =3D 5;
+ +#endif
+  		break;
+ =20
+  	case SKF_AD_OFF + SKF_AD_IFINDEX:
+
+--Sig_/xGsEp6NUHLEeZz8uk9qM=Ag
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJTkTuHAAoJEMDTa8Ir7ZwV06YP/3Y0xFPyuk+lSkWbdAHtUKT1
+Mo372rbFZvmtwZ2jlyS6ql4p0HgGOuv9W/hLsiLjmsI6rxfDPYGMp+n38M6Gobt9
+PwYvImST+B5eC6uBB1G0OCQWMbga9sCEozx8jPgSu7U1AzkouYFnhXVlcaZgyiDR
+kQEXqO/Rw/ZPSUzEsg4CTs0d2JjYvP5ldmKVKXs7Ed1cERpZXz342z9YxeEYaRYz
+temYrvzMo/aT1VtPVj6nC06dmTZn3zo+5IGBFh7pvtMzXe4uXDB7Lc9NI2ccPA24
+SwqxWP22mczGFVOki1nNY/7wjjZpe2P8bGm3XHrBNshzzY3RqqcbD4bpkesTGFnn
+630io8VOrF8yzHoe0q1HDpeOATyCj2ke1sac+jZUvHxozMniIlI6jSjs7JLh0ERG
+vaDpP9mjcHajYRNsLdFCDIqqbbsdAOl3a/6wRTLnHrHnmAbqXVwNUdZY785/z9wb
+DibvG5BEYkxY7OP4HvFyjp6E8gxmZ2LXTcOM+yiehNB3fAe5bX6waGGdFbQR1Esu
+Xd2CT5ueMsQpW9I/CVjARemROoYk/toWTuGya2c+hePArMz+l1uZWQwmrSz7XU6r
+v0EzmyXuUOStuMAFSvwtuPvNpjLwzdzPm+VKSyur5kbHeQhNMzDqS5XdsESPDK7y
+KqZ06/LloaMHjGLCd9OP
+=Dtsn
+-----END PGP SIGNATURE-----
+
+--Sig_/xGsEp6NUHLEeZz8uk9qM=Ag--
