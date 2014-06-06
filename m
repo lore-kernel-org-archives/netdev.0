@@ -1,91 +1,69 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: Multitude of dst obsolescense race conditions
-Date: Fri, 6 Jun 2014 11:12:36 -0700
-Message-ID: <20140606181236.GS4581@linux.vnet.ibm.com>
-References: <alpine.DEB.2.02.1405140233210.16893@dtop>
- <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: Potential race in ip4_datagram_release_cb
+Date: Fri, 6 Jun 2014 11:13:54 -0700
+Message-ID: <CAADnVQJB_1aPJ4tz_BaHuZAf-vQqfEWxcaQSCb7s1nSySMomYw@mail.gmail.com>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+	<1402059375.3645.284.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQL=D_KF2iRLO1Ufoih3Rg-WtSA9UYuU0OjOZebGBryVHA@mail.gmail.com>
+	<1402071367.3645.305.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CAADnVQL47b+nFo+WUJGw=oCEVwRHtK98poe8SJqw4F-jAUXoyw@mail.gmail.com>
+	<1402077364.3645.310.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: dormando <dormando@rydia.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Preobrazhensky <preobr@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
+	dormando <dormando@rydia.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1400067618.7973.72.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f49.google.com ([209.85.192.49]:36013 "EHLO
+	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352AbaFFSNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 14:13:55 -0400
+Received: by mail-qg0-f49.google.com with SMTP id a108so5151128qge.36
+        for <netdev@vger.kernel.org>; Fri, 06 Jun 2014 11:13:55 -0700 (PDT)
+In-Reply-To: <1402077364.3645.310.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 14, 2014 at 04:40:18AM -0700, Eric Dumazet wrote:
-> On Wed, 2014-05-14 at 02:57 -0700, dormando wrote:
-> > Hi,
-> > 
-> > Given a machine with frequently changing routes (ie; a router with an
-> > active internet BGP table and multiple interfaces), there're at least
-> > several places where obsolete dst's are handled improperly. If I pause the
-> > route changes, the crashes appear to stop. This first one has a crash
-> > utility we've made, so I was able to more quickly find a patch and test
-> > it. The others take time to reproduce.
-> > 
-> > I'm testing against 3.10.39, but I think if these were fixed they'd be
-> > backported to stable? I've also had recent 3.12's running that have
-> > crashed in the same spots. Anyway correct me if I'm wrong...
-> 
-> Is this a vanilla kernel ? I never had any issues like that.
-> 
-> I wonder if you have some RCU issues.
-> 
-> static inline struct dst_entry *
-> sk_dst_get(struct sock *sk)
-> {
->         struct dst_entry *dst;
-> 
->         rcu_read_lock();
->         dst = rcu_dereference(sk->sk_dst_cache);
->         if (dst)
->                 dst_hold(dst);
->         rcu_read_unlock();
->         return dst;
-> }
-> 
-> static inline void
-> __sk_dst_set(struct sock *sk, struct dst_entry *dst)
-> {
->         struct dst_entry *old_dst;
-> 
->         sk_tx_queue_clear(sk);
->         /*
->          * This can be called while sk is owned by the caller only,
->          * with no state that can be checked in a rcu_dereference_check() cond
->          */
->         old_dst = rcu_dereference_raw(sk->sk_dst_cache);
->         rcu_assign_pointer(sk->sk_dst_cache, dst);
->         dst_release(old_dst);
+On Fri, Jun 6, 2014 at 10:56 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2014-06-06 at 10:44 -0700, Alexei Starovoitov wrote:
+>> On Fri, Jun 6, 2014 at 9:16 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> > We should either :
+>> >
+>> > 1) use xchg() and no lock at all to change sk_dst_cache, as we did for
+>> > sk_rx_dst ( cf udp_sk_rx_dst_set() )
+>> >
+>> > 2) No longer use sk_dst_lock, and always use the socket lock
+>> > (sk->sk_lock.slock) instead.
+>>
+>> Probably needs some combination of both.
+>
+> I do not think so.
+>
+> If we use xchg(), then we do not need anything else.
+>
+> If we use a spinlock, then xchg() seems useless.
+>
+> Any combination is buggy.
+>
+> In the past, UDP transmit was holding socket lock,
+> but we added a lockless path, and I suppose more people
+> use a UDP socket from different threads.
+>
+> Then, Steffen added the ip4_datagram_release_cb() thing,
+> increasing the chance of mixing both 'protections'.
+>
+> Setting sk_dst_cache should hardly be a hot path.
 
-It is probably just be me getting lost in the code, but I am not seeing
-a synchronize_rcu(), call_rcu(), or synchronize_net() anywhere in
-dst_release() or the things that it calls.  If there really isn't such
-a call, then I don't see how the above code is safe in the case where
-__sk_dst_set() is invoked on one CPU just after sk_dst_get() executes
-the rcu_dereference() on some other CPU.
+yeah. if we use sk_lock.slock then xchg is obviously not needed.
+By 'both' I meant to do xchg() and get rid of sk_dst_lock to speed it up.
+Though not worth going too fancy if speed is not needed.
 
-							Thanx, Paul
-
-> }
-> 
-> static inline void
-> sk_dst_set(struct sock *sk, struct dst_entry *dst)
-> {
->         spin_lock(&sk->sk_dst_lock);
->         __sk_dst_set(sk, dst);
->         spin_unlock(&sk->sk_dst_lock);
-> }
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+>
