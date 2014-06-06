@@ -1,126 +1,79 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: hard_header_len vs needed_headroom
-Date: Thu, 5 Jun 2014 16:39:09 -0700
-Message-ID: <CAHA+R7Nyi9TvpN+fJrFt7krhLLXyJ5ify1ONvAse+rJFU0kbKg@mail.gmail.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] pci/msi: fix memory leak in free_msi_irqs()
+Date: Thu, 5 Jun 2014 17:02:57 -0700
+Message-ID: <20140606000257.GB16117@kroah.com>
+References: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1139a7e45e788504fb1f404f
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Timo_Ter=C3=A4s?= <timo.teras@iki.fi>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:49141 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751222AbaFEXjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 5 Jun 2014 19:39:10 -0400
-Received: by mail-qa0-f46.google.com with SMTP id w8so2440374qac.5
-        for <netdev@vger.kernel.org>; Thu, 05 Jun 2014 16:39:09 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---001a1139a7e45e788504fb1f404f
-Content-Type: text/plain; charset=UTF-8
+On Wed, Jun 04, 2014 at 03:49:50PM -0700, Alexei Starovoitov wrote:
+> free_msi_irqs() is leaking memory, since
+> list_for_each_entry(entry, &dev->msi_list, list) {...}
+> is never executed, because dev->msi_list is made empty by
+> the loop just above this one.
+> 
+> Fix it by relying on zero termination of attribute array like
+> populate_msi_sysfs() does.
+> 
+> Fixes: 1c51b50c2995 ("PCI/MSI: Export MSI mode using attributes, not kobjects")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+> 
+> This was found by kmemleak report:
+> unreferenced object 0xffff880808eda600 (size 64):
+>   comm "modprobe", pid 1526, jiffies 4294902299 (age 58422.716s)
+>   hex dump (first 32 bytes):
+>     20 c4 66 09 08 88 ff ff 24 01 00 00 00 00 00 00   .f.....$.......
+>     50 97 77 82 ff ff ff ff 00 00 00 00 00 00 00 00  P.w.............
+>   backtrace:
+>     [<ffffffff816e5fc8>] kmemleak_alloc+0x28/0x50
+>     [<ffffffff811b885e>] kmem_cache_alloc_trace+0xde/0x230
+>     [<ffffffff813aa286>] populate_msi_sysfs+0xc6/0x250
+>     [<ffffffff813aafdb>] pci_enable_msix+0x34b/0x430
+>     [<ffffffff813ab0ec>] pci_enable_msix_range+0x2c/0x70
+>     [<ffffffffa0034ade>] igb_init_interrupt_scheme+0x9e/0x420 [igb]
+>     [<ffffffffa003d668>] igb_probe+0x4a8/0x1250 [igb]
+>     [<ffffffff813930de>] local_pci_probe+0x4e/0xa0
+>     [<ffffffff813933e9>] pci_device_probe+0xd9/0x120
+>     [<ffffffff814697cd>] driver_probe_device+0x8d/0x250
+>     [<ffffffff81469a3b>] __driver_attach+0xab/0xb0
+>     [<ffffffff8146799d>] bus_for_each_dev+0x5d/0xa0
+>     [<ffffffff814691de>] driver_attach+0x1e/0x20
+>     [<ffffffff81468e57>] bus_add_driver+0x117/0x220
+>     [<ffffffff8146a104>] driver_register+0x64/0xf0
+>     [<ffffffff813923f4>] __pci_register_driver+0x64/0x70
+> 
+> IGB driver is calling pci_enable_msix_range() and immediately pci_disable_msix()
+> which leaks the memory.
+> Obviously the leak happens with any driver.
+> 
+>  drivers/pci/msi.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index 955ab7990c5b..fb02fc2fb034 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -414,7 +414,7 @@ static void free_msi_irqs(struct pci_dev *dev)
+>  	if (dev->msi_irq_groups) {
+>  		sysfs_remove_groups(&dev->dev.kobj, dev->msi_irq_groups);
+>  		msi_attrs = dev->msi_irq_groups[0]->attrs;
+> -		list_for_each_entry(entry, &dev->msi_list, list) {
+> +		while (msi_attrs[count]) {
+>  			dev_attr = container_of(msi_attrs[count],
+>  						struct device_attribute, attr);
+>  			kfree(dev_attr->attr.name);
 
-Hello,
+Looks good, thanks for catching this:
 
-
-While debugging a skb header push crash, I noticed that
-new ip tunnel code uses dev->needed_headroom as the
-length of hardware header:
-
-dev->needed_headroom = t_hlen + hlen;
-
-in IPIP tunnel case it's the ethernet header length plus IPv4
-header length. And it leaves dev->hard_header_len as 0.
-
-But there are some places assuming
-dev->hard_header_len is the length of L2 header, at least
-tcf_mirred() calls skb_push(skb, skb->dev->hard_header_len)
-to reset skb->data back to L2 header. Current code is broken.
-
-I think ip tunnel code is wrong, according to LL_RESERVED_SPACE(),
-it seems dev->hard_header_len should be the L2 header while
-dev->needed_headroom should be the *additional* headroom needed
-by hardware. That also means skb_push(dev->hard_header_len) is
-correct.
-
-Therefore, I think IP tunnel should set its dev->hard_header_len to
-lower_dev->hard_header_len + tunnel->hlen + sizeof(struct iphdr),
-and set its dev->needed_headroom to lower_dev->needed_headroom.
-See the attached patch for details.
-
-But gretap seems to be an exception, it calls ether_setup() to init its
-dev->hard_header_len to ETH_HLEN. My patch probably breaks it,
-I think it should set its tunnel->hlen = gre_hdr_len + ETH_HLEN.
-
-What do you think?
-
-
-Thanks.
-
---001a1139a7e45e788504fb1f404f
-Content-Type: text/plain; charset=US-ASCII; name="tunnel-hard_header_len.diff"
-Content-Disposition: attachment; filename="tunnel-hard_header_len.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hw2pba500
-
-ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX2dyZS5jIGIvbmV0L2lwdjQvaXBfZ3JlLmMKaW5kZXgg
-YzVhNTU3YS4uN2QzMGEzMyAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfZ3JlLmMKKysrIGIvbmV0
-L2lwdjQvaXBfZ3JlLmMKQEAgLTI1Niw3ICsyNTYsNyBAQCBzdGF0aWMgbmV0ZGV2X3R4X3QgaXBn
-cmVfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCiAJaWYgKGRldi0+aGVhZGVyX29wcykgewog
-CQkvKiBOZWVkIHNwYWNlIGZvciBuZXcgaGVhZGVycyAqLwotCQlpZiAoc2tiX2Nvd19oZWFkKHNr
-YiwgZGV2LT5uZWVkZWRfaGVhZHJvb20gLQorCQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5o
-YXJkX2hlYWRlcl9sZW4gLQogCQkJCSAgICAgICh0dW5uZWwtPmhsZW4gKyBzaXplb2Yoc3RydWN0
-IGlwaGRyKSkpKQogCQkJZ290byBmcmVlX3NrYjsKIApAQCAtMjY3LDcgKzI2Nyw3IEBAIHN0YXRp
-YyBuZXRkZXZfdHhfdCBpcGdyZV94bWl0KHN0cnVjdCBza19idWZmICpza2IsCiAJCSAqLwogCQlz
-a2JfcHVsbChza2IsIHR1bm5lbC0+aGxlbiArIHNpemVvZihzdHJ1Y3QgaXBoZHIpKTsKIAl9IGVs
-c2UgewotCQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5uZWVkZWRfaGVhZHJvb20pKQorCQlp
-ZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5oYXJkX2hlYWRlcl9sZW4pKQogCQkJZ290byBmcmVl
-X3NrYjsKIAogCQl0bmxfcGFyYW1zID0gJnR1bm5lbC0+cGFybXMuaXBoOwpAQCAtMjkzLDcgKzI5
-Myw3IEBAIHN0YXRpYyBuZXRkZXZfdHhfdCBncmVfdGFwX3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
-YiwKIAlpZiAoSVNfRVJSKHNrYikpCiAJCWdvdG8gb3V0OwogCi0JaWYgKHNrYl9jb3dfaGVhZChz
-a2IsIGRldi0+bmVlZGVkX2hlYWRyb29tKSkKKwlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5o
-YXJkX2hlYWRlcl9sZW4pKQogCQlnb3RvIGZyZWVfc2tiOwogCiAJX19ncmVfeG1pdChza2IsIGRl
-diwgJnR1bm5lbC0+cGFybXMuaXBoLCBodG9ucyhFVEhfUF9URUIpKTsKQEAgLTQ3NSw3ICs0NzUs
-MTAgQEAgc3RhdGljIHZvaWQgX19ncmVfdHVubmVsX2luaXQoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-dikKIAl0dW5uZWwtPmhsZW4gPSBpcF9ncmVfY2FsY19obGVuKHR1bm5lbC0+cGFybXMub19mbGFn
-cyk7CiAJdHVubmVsLT5wYXJtcy5pcGgucHJvdG9jb2wgPSBJUFBST1RPX0dSRTsKIAotCWRldi0+
-bmVlZGVkX2hlYWRyb29tCT0gTExfTUFYX0hFQURFUiArIHNpemVvZihzdHJ1Y3QgaXBoZHIpICsg
-NDsKKwlpZiAoIWRldi0+aGFyZF9oZWFkZXJfbGVuKQorCQlkZXYtPmhhcmRfaGVhZGVyX2xlbiA9
-IExMX01BWF9IRUFERVI7CisKKwlkZXYtPmhhcmRfaGVhZGVyX2xlbiAJKz0gc2l6ZW9mKHN0cnVj
-dCBpcGhkcikgKyA0OwogCWRldi0+bXR1CQk9IEVUSF9EQVRBX0xFTiAtIHNpemVvZihzdHJ1Y3Qg
-aXBoZHIpIC0gNDsKIAogCWRldi0+ZmVhdHVyZXMJCXw9IEdSRV9GRUFUVVJFUzsKZGlmZiAtLWdp
-dCBhL25ldC9pcHY0L2lwX3R1bm5lbC5jIGIvbmV0L2lwdjQvaXBfdHVubmVsLmMKaW5kZXggODZh
-MDBiZC4uZTdjMTE2ZSAxMDA2NDQKLS0tIGEvbmV0L2lwdjQvaXBfdHVubmVsLmMKKysrIGIvbmV0
-L2lwdjQvaXBfdHVubmVsLmMKQEAgLTM1MSw2ICszNTEsNyBAQCBzdGF0aWMgaW50IGlwX3R1bm5l
-bF9iaW5kX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCWludCBobGVuID0gTExfTUFYX0hF
-QURFUjsKIAlpbnQgbXR1ID0gRVRIX0RBVEFfTEVOOwogCWludCB0X2hsZW4gPSB0dW5uZWwtPmhs
-ZW4gKyBzaXplb2Yoc3RydWN0IGlwaGRyKTsKKwlpbnQgaGVhZHJvb20gPSAwOwogCiAJaXBoID0g
-JnR1bm5lbC0+cGFybXMuaXBoOwogCkBAIC0zNzcsMTMgKzM3OCwxNSBAQCBzdGF0aWMgaW50IGlw
-X3R1bm5lbF9iaW5kX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCQl0ZGV2ID0gX19kZXZf
-Z2V0X2J5X2luZGV4KHR1bm5lbC0+bmV0LCB0dW5uZWwtPnBhcm1zLmxpbmspOwogCiAJaWYgKHRk
-ZXYpIHsKLQkJaGxlbiA9IHRkZXYtPmhhcmRfaGVhZGVyX2xlbiArIHRkZXYtPm5lZWRlZF9oZWFk
-cm9vbTsKKwkJaGVhZHJvb20gPSB0ZGV2LT5uZWVkZWRfaGVhZHJvb207CisJCWhsZW4gPSB0ZGV2
-LT5oYXJkX2hlYWRlcl9sZW47CiAJCW10dSA9IHRkZXYtPm10dTsKIAl9CiAJZGV2LT5pZmxpbmsg
-PSB0dW5uZWwtPnBhcm1zLmxpbms7CiAKLQlkZXYtPm5lZWRlZF9oZWFkcm9vbSA9IHRfaGxlbiAr
-IGhsZW47Ci0JbXR1IC09IChkZXYtPmhhcmRfaGVhZGVyX2xlbiArIHRfaGxlbik7CisJZGV2LT5u
-ZWVkZWRfaGVhZHJvb20gPSBoZWFkcm9vbTsKKwlkZXYtPmhhcmRfaGVhZGVyX2xlbiA9IHRfaGxl
-biArIGhsZW47CisJbXR1IC09IHRfaGxlbjsKIAogCWlmIChtdHUgPCA2OCkKIAkJbXR1ID0gNjg7
-CkBAIC00ODMsMTIgKzQ4NiwxMSBAQCBzdGF0aWMgaW50IHRubF91cGRhdGVfcG10dShzdHJ1Y3Qg
-bmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCQkJICAgIHN0cnVjdCBydGFi
-bGUgKnJ0LCBfX2JlMTYgZGYpCiB7CiAJc3RydWN0IGlwX3R1bm5lbCAqdHVubmVsID0gbmV0ZGV2
-X3ByaXYoZGV2KTsKLQlpbnQgcGt0X3NpemUgPSBza2ItPmxlbiAtIHR1bm5lbC0+aGxlbiAtIGRl
-di0+aGFyZF9oZWFkZXJfbGVuOworCWludCBwa3Rfc2l6ZSA9IHNrYi0+bGVuIC0gZGV2LT5oYXJk
-X2hlYWRlcl9sZW47CiAJaW50IG10dTsKIAogCWlmIChkZikKLQkJbXR1ID0gZHN0X210dSgmcnQt
-PmRzdCkgLSBkZXYtPmhhcmRfaGVhZGVyX2xlbgotCQkJCQktIHNpemVvZihzdHJ1Y3QgaXBoZHIp
-IC0gdHVubmVsLT5obGVuOworCQltdHUgPSBkc3RfbXR1KCZydC0+ZHN0KSAtIGRldi0+aGFyZF9o
-ZWFkZXJfbGVuOwogCWVsc2UKIAkJbXR1ID0gc2tiX2RzdChza2IpID8gZHN0X210dShza2JfZHN0
-KHNrYikpIDogZGV2LT5tdHU7CiAKQEAgLTY2MywxMCArNjY1LDggQEAgdm9pZCBpcF90dW5uZWxf
-eG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAogCiAJbWF4
-X2hlYWRyb29tID0gTExfUkVTRVJWRURfU1BBQ0UocnQtPmRzdC5kZXYpICsgc2l6ZW9mKHN0cnVj
-dCBpcGhkcikKIAkJCSsgcnQtPmRzdC5oZWFkZXJfbGVuOwotCWlmIChtYXhfaGVhZHJvb20gPiBk
-ZXYtPm5lZWRlZF9oZWFkcm9vbSkKLQkJZGV2LT5uZWVkZWRfaGVhZHJvb20gPSBtYXhfaGVhZHJv
-b207CiAKLQlpZiAoc2tiX2Nvd19oZWFkKHNrYiwgZGV2LT5uZWVkZWRfaGVhZHJvb20pKSB7CisJ
-aWYgKHNrYl9jb3dfaGVhZChza2IsIG1heF9oZWFkcm9vbSkpIHsKIAkJZGV2LT5zdGF0cy50eF9k
-cm9wcGVkKys7CiAJCWtmcmVlX3NrYihza2IpOwogCQlyZXR1cm47Cg==
---001a1139a7e45e788504fb1f404f--
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
