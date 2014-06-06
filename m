@@ -1,52 +1,91 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] list: Fix order of arguments for hlist_add_after(_rcu)
-Date: Fri, 6 Jun 2014 10:22:51 -0700
-Message-ID: <20140606172250.GN4581@linux.vnet.ibm.com>
-References: <1402047743-3391-1-git-send-email-kenhelias@firemail.de>
- <063D6719AE5E284EB5DD2968C1650D6D17258AEA@AcuExch.aculab.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 04/13] i40evf: make messages less dire
+Date: Fri, 6 Jun 2014 17:23:52 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D656C8CB3@FMSMSX113.amr.corp.intel.com>
+References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1402045462-10304-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1402057157.3038.8.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
- "bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
- "b.a.t.m.a.n@lists.open-mesh.org" <b.a.t.m.a.n@lists.open-mesh.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- 'Ken Helias' <kenhelias@firemail.de>, lkml <linux-kernel@vger.kernel.org>,
- "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>,
- "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17258AEA@AcuExch.aculab.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Joe Perches <joe@perches.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:38175 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752072AbaFFRXy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 13:23:54 -0400
+In-Reply-To: <1402057157.3038.8.camel@joe-AO725>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2014 at 03:56:52PM +0000, David Laight wrote:
-> From: Behalf Of Ken Helias
-> > All other add functions for lists have the new item as first argument and the
-> > position where it is added as second argument. This was changed for no good
-> > reason in this function and makes using it unnecessary confusing.
-> > 
-> > Also the naming of the arguments in hlist_add_after was confusing. It was
-> > changed to use the same names as hlist_add_after_rcu.
-> ...
-> > -static inline void hlist_add_after_rcu(struct hlist_node *prev,
-> > -				       struct hlist_node *n)
-> > +static inline void hlist_add_after_rcu(struct hlist_node *n,
-> > +				       struct hlist_node *prev)
+
+
+> -----Original Message-----
+> From: Joe Perches [mailto:joe@perches.com]
+> Sent: Friday, June 06, 2014 5:19 AM
+> To: Kirsher, Jeffrey T
+> Cc: davem@davemloft.net; Williams, Mitch A; netdev@vger.kernel.org;
+> gospo@redhat.com; sassmann@redhat.com
+> Subject: Re: [net-next 04/13] i40evf: make messages less dire
 > 
-> It is rather a shame that the change doesn't generate a compilation
-> error for old source files.
+> On Fri, 2014-06-06 at 02:04 -0700, Jeff Kirsher wrote:
+> > Depending on the timing of what the PF driver is doing, it make take a
+> > few tries before the VF driver is able to communicate with the PF driver
+> > on init or reset recovery. In order to prevent confusion, make the most
+> > common messages less scary by lowering them to a less terrifying log
+> > level and indicate that the driver will retry.
+> []
+> > diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+> b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+> []
+> > @@ -1963,7 +1963,7 @@ static void i40evf_init_task(struct work_struct
+> *work)
+> >  		}
+> >  		err = i40evf_check_reset_complete(hw);
+> >  		if (err) {
+> > -			dev_err(&pdev->dev, "Device is still in reset (%d)\n",
+> > +			dev_info(&pdev->dev, "Device is still in reset (%d),
+> retrying\n",
+> >  				err);
+> >  			goto err;
+> >  		}
+> > @@ -1996,7 +1996,7 @@ static void i40evf_init_task(struct work_struct
+> *work)
+> >  		/* aq msg sent, awaiting reply */
+> >  		err = i40evf_verify_api_ver(adapter);
+> >  		if (err) {
+> > -			dev_err(&pdev->dev, "Unable to verify API version (%d)\n",
+> > +			dev_info(&pdev->dev, "Unable to verify API version (%d),
+> retrying\n",
+> >  				err);
+> >  			goto err;
+> >  		}
+> 
+> trivia:
+> 
+> It'd be nicer to reindent the multi-line statements.
+> 
+> CHECK: Alignment should match open parenthesis
+> #73: FILE: drivers/net/ethernet/intel/i40evf/i40evf_main.c:1967:
+> +			dev_info(&pdev->dev, "Device is still in reset (%d),
+> retrying\n",
+>  				err);
+> 
+> CHECK: Alignment should match open parenthesis
+> #82: FILE: drivers/net/ethernet/intel/i40evf/i40evf_main.c:2000:
+> +			dev_info(&pdev->dev, "Unable to verify API version (%d),
+> retrying\n",
+>  				err);
+> 
 
-I am also a bit concerned by this.
+Thanks, Joe. Thought I had those correct, but obviously I'm one character off here.
 
-							Thanx, Paul
+Now that checkpatch has been switch to pedantic mode, I think what I'll do is (once I get everything else working) run the entire driver through checkpatch and send out a single patch that fixes all of the formatting niggles.
+
+-Mitch
