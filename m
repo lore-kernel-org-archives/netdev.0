@@ -1,392 +1,215 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 2/4] iw_cxgb4: Choose appropriate hw mtu index and ISS for iWARP connections
-Date: Fri,  6 Jun 2014 21:40:43 +0530
-Message-ID: <1402071045-14854-3-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next 3/4] iw_cxgb4: don't truncate the recv window size
+Date: Fri,  6 Jun 2014 21:40:44 +0530
+Message-ID: <1402071045-14854-4-git-send-email-hariprasad@chelsio.com>
 References: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, santosh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, santosh@chelsio.com,
+	leedom@chelsio.com, dm@chelsio.com, kumaras@chelsio.com,
+	nirranjan@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:40691
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752234AbaFFQYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 12:24:35 -0400
+In-Reply-To: <1402071045-14854-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Select the appropriate hw mtu index and initial sequence number to optimize
-hw memory performance.
+Fixed a bug that shows up with recv window sizes that exceed the size of
+the RCV_BUFSIZ field in opt0 (>= 1024K).  If the recv window exceeds
+this, then we specify the max possible in opt0, add add the rest in via
+a RX_DATA_ACK credits.
 
-Add new cxgb4_best_aligned_mtu() which allows callers to provide enough
-information to be used to [possibly] select an MTU which will result in the
-TCP Data Segment Size (AKA Maximum Segment Size) to be an aligned value.
-
-If an RTR message exhange is required, then align the ISS to 8B - 1 + 4, so
-that after the SYN the send seqno will align on a 4B boundary. The RTR
-message exchange will leave the send seqno aligned on an 8B boundary.
-If an RTR is not required, then align the ISS to 8B - 1.  The goal is
-to have the send seqno be 8B aligned when we send the first FPDU.
-
-Based on original work by Casey Leedom <leeedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org> and
-Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-
-Signed-off-by: Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                |   73 +++++++++++++---
- drivers/infiniband/hw/cxgb4/t4fw_ri_api.h       |    1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  107 ++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    5 +
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    9 ++
- 5 files changed, 180 insertions(+), 15 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c            |   54 +++++++++++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h      |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h |    1 +
+ 3 files changed, 53 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index 1f863a9..d2e9f72 100644
+index d2e9f72..965eaaf 100644
 --- a/drivers/infiniband/hw/cxgb4/cm.c
 +++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -232,12 +232,16 @@ static void release_tid(struct c4iw_rdev *rdev, u32 hwtid, struct sk_buff *skb)
+@@ -472,7 +472,7 @@ static void send_flowc(struct c4iw_ep *ep, struct sk_buff *skb)
+ 	flowc->mnemval[5].mnemonic = FW_FLOWC_MNEM_RCVNXT;
+ 	flowc->mnemval[5].val = cpu_to_be32(ep->rcv_seq);
+ 	flowc->mnemval[6].mnemonic = FW_FLOWC_MNEM_SNDBUF;
+-	flowc->mnemval[6].val = cpu_to_be32(snd_win);
++	flowc->mnemval[6].val = cpu_to_be32(ep->snd_win);
+ 	flowc->mnemval[7].mnemonic = FW_FLOWC_MNEM_MSS;
+ 	flowc->mnemval[7].val = cpu_to_be32(ep->emss);
+ 	/* Pad WR to 16 byte boundary */
+@@ -565,6 +565,7 @@ static int send_connect(struct c4iw_ep *ep)
+ 	struct sockaddr_in *ra = (struct sockaddr_in *)&ep->com.remote_addr;
+ 	struct sockaddr_in6 *la6 = (struct sockaddr_in6 *)&ep->com.local_addr;
+ 	struct sockaddr_in6 *ra6 = (struct sockaddr_in6 *)&ep->com.remote_addr;
++	int win;
  
- static void set_emss(struct c4iw_ep *ep, u16 opt)
- {
--	ep->emss = ep->com.dev->rdev.lldi.mtus[GET_TCPOPT_MSS(opt)] - 40;
-+	ep->emss = ep->com.dev->rdev.lldi.mtus[GET_TCPOPT_MSS(opt)] -
-+		   sizeof(struct iphdr) - sizeof(struct tcphdr);
- 	ep->mss = ep->emss;
- 	if (GET_TCPOPT_TSTAMP(opt))
- 		ep->emss -= 12;
- 	if (ep->emss < 128)
- 		ep->emss = 128;
-+	if (ep->emss & 7)
-+		PDBG("Warning: misaligned mtu idx %u mss %u emss=%u\n",
-+		     GET_TCPOPT_MSS(opt), ep->mss, ep->emss);
- 	PDBG("%s mss_idx %u mss %u emss=%u\n", __func__, GET_TCPOPT_MSS(opt),
- 	     ep->mss, ep->emss);
- }
-@@ -528,6 +532,17 @@ static int send_abort(struct c4iw_ep *ep, struct sk_buff *skb, gfp_t gfp)
- 	return c4iw_l2t_send(&ep->com.dev->rdev, skb, ep->l2t);
- }
- 
-+static void best_mtu(const unsigned short *mtus, unsigned short mtu,
-+		     unsigned int *idx, int use_ts)
-+{
-+	unsigned short hdr_size = sizeof(struct iphdr) +
-+				  sizeof(struct tcphdr) +
-+				  (use_ts ? 12 : 0);
-+	unsigned short data_size = mtu - hdr_size;
-+
-+	cxgb4_best_aligned_mtu(mtus, hdr_size, data_size, 8, idx);
-+}
-+
- static int send_connect(struct c4iw_ep *ep)
- {
- 	struct cpl_act_open_req *req;
-@@ -565,7 +580,8 @@ static int send_connect(struct c4iw_ep *ep)
- 	}
- 	set_wr_txq(skb, CPL_PRIORITY_SETUP, ep->ctrlq_idx);
- 
--	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
-+	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		 enable_tcp_timestamps);
+ 	wrlen = (ep->com.remote_addr.ss_family == AF_INET) ?
+ 			roundup(sizev4, 16) :
+@@ -583,6 +584,15 @@ static int send_connect(struct c4iw_ep *ep)
+ 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
+ 		 enable_tcp_timestamps);
  	wscale = compute_wscale(rcv_win);
++
++	/*
++	 * Specify the largest window that will fit in opt0. The
++	 * remainder will be specified in the rx_data_ack.
++	 */
++	win = ep->rcv_win >> 10;
++	if (win > RCV_BUFSIZ_MASK)
++		win = RCV_BUFSIZ_MASK;
++
  	opt0 = (nocong ? NO_CONG(1) : 0) |
  	       KEEP_ALIVE(1) |
-@@ -633,6 +649,13 @@ static int send_connect(struct c4iw_ep *ep)
- 			req6->opt2 = cpu_to_be32(opt2);
- 		}
- 	} else {
-+		u32 isn = (prandom_u32() & ~7UL) - 1;
-+
-+		opt2 |= T5_OPT_2_VALID;
-+		opt2 |= CONG_CNTRL_VALID; /* OPT_2_ISS for T5 */
-+		if (peer2peer)
-+			isn += 4;
-+
- 		if (ep->com.remote_addr.ss_family == AF_INET) {
- 			t5_req = (struct cpl_t5_act_open_req *)
- 				 skb_put(skb, wrlen);
-@@ -649,6 +672,9 @@ static int send_connect(struct c4iw_ep *ep)
- 						     cxgb4_select_ntuple(
- 					     ep->com.dev->rdev.lldi.ports[0],
- 					     ep->l2t)));
-+			t5_req->rsvd = cpu_to_be32(isn);
-+			PDBG("%s snd_isn %u\n", __func__,
-+			     be32_to_cpu(t5_req->rsvd));
- 			t5_req->opt2 = cpu_to_be32(opt2);
- 		} else {
- 			t5_req6 = (struct cpl_t5_act_open_req6 *)
-@@ -672,6 +698,9 @@ static int send_connect(struct c4iw_ep *ep)
- 							cxgb4_select_ntuple(
- 						ep->com.dev->rdev.lldi.ports[0],
- 						ep->l2t));
-+			t5_req6->rsvd = cpu_to_be32(isn);
-+			PDBG("%s snd_isn %u\n", __func__,
-+			     be32_to_cpu(t5_req6->rsvd));
- 			t5_req6->opt2 = cpu_to_be32(opt2);
- 		}
+ 	       DELACK(1) |
+@@ -593,7 +603,7 @@ static int send_connect(struct c4iw_ep *ep)
+ 	       SMAC_SEL(ep->smac_idx) |
+ 	       DSCP(ep->tos) |
+ 	       ULP_MODE(ULP_MODE_TCPDDP) |
+-	       RCV_BUFSIZ(rcv_win>>10);
++	       RCV_BUFSIZ(win);
+ 	opt2 = RX_CHANNEL(0) |
+ 	       CCTRL_ECN(enable_ecn) |
+ 	       RSS_QUEUE_VALID | RSS_QUEUE(ep->rss_qid);
+@@ -1174,6 +1184,14 @@ static int update_rx_credits(struct c4iw_ep *ep, u32 credits)
+ 		return 0;
  	}
-@@ -1640,7 +1669,8 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
- 			htons(F_FW_OFLD_CONNECTION_WR_CPLRXDATAACK);
- 	req->tcb.tx_max = (__force __be32) jiffies;
- 	req->tcb.rcv_adv = htons(1);
--	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
-+	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		 enable_tcp_timestamps);
+ 
++	/*
++	 * If we couldn't specify the entire rcv window at connection setup
++	 * due to the limit in the number of bits in the RCV_BUFSIZ field,
++	 * then add the overage in to the credits returned.
++	 */
++	if (ep->rcv_win > RCV_BUFSIZ_MASK * 1024)
++		credits += ep->rcv_win - RCV_BUFSIZ_MASK * 1024;
++
+ 	req = (struct cpl_rx_data_ack *) skb_put(skb, wrlen);
+ 	memset(req, 0, wrlen);
+ 	INIT_TP_WR(req, ep->hwtid);
+@@ -1647,6 +1665,7 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
+ 	unsigned int mtu_idx;
+ 	int wscale;
+ 	struct sockaddr_in *sin;
++	int win;
+ 
+ 	skb = get_skb(NULL, sizeof(*req), GFP_KERNEL);
+ 	req = (struct fw_ofld_connection_wr *)__skb_put(skb, sizeof(*req));
+@@ -1672,6 +1691,15 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
+ 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
+ 		 enable_tcp_timestamps);
  	wscale = compute_wscale(rcv_win);
++
++	/*
++	 * Specify the largest window that will fit in opt0. The
++	 * remainder will be specified in the rx_data_ack.
++	 */
++	win = ep->rcv_win >> 10;
++	if (win > RCV_BUFSIZ_MASK)
++		win = RCV_BUFSIZ_MASK;
++
  	req->tcb.opt0 = (__force __be64) (TCAM_BYPASS(1) |
  		(nocong ? NO_CONG(1) : 0) |
-@@ -1986,12 +2016,26 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 	u64 opt0;
+ 		KEEP_ALIVE(1) |
+@@ -1683,7 +1711,7 @@ static void send_fw_act_open_req(struct c4iw_ep *ep, unsigned int atid)
+ 		SMAC_SEL(ep->smac_idx) |
+ 		DSCP(ep->tos) |
+ 		ULP_MODE(ULP_MODE_TCPDDP) |
+-		RCV_BUFSIZ(rcv_win >> 10));
++		RCV_BUFSIZ(win));
+ 	req->tcb.opt2 = (__force __be32) (PACE(1) |
+ 		TX_QUEUE(ep->com.dev->rdev.lldi.tx_modq[ep->tx_chan]) |
+ 		RX_CHANNEL(0) |
+@@ -1720,6 +1748,13 @@ static int is_neg_adv(unsigned int status)
+ 	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
+ }
+ 
++static void set_tcp_window(struct c4iw_ep *ep, struct port_info *pi)
++{
++	ep->snd_win = snd_win;
++	ep->rcv_win = rcv_win;
++	PDBG("%s snd_win %d rcv_win %d\n", __func__, ep->snd_win, ep->rcv_win);
++}
++
+ #define ACT_OPEN_RETRY_COUNT 2
+ 
+ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+@@ -1768,6 +1803,7 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+ 		ep->ctrlq_idx = cxgb4_port_idx(pdev);
+ 		ep->rss_qid = cdev->rdev.lldi.rxq_ids[
+ 			cxgb4_port_idx(pdev) * step];
++		set_tcp_window(ep, (struct port_info *)netdev_priv(pdev));
+ 		dev_put(pdev);
+ 	} else {
+ 		pdev = get_real_dev(n->dev);
+@@ -1786,6 +1822,7 @@ static int import_ep(struct c4iw_ep *ep, int iptype, __u8 *peer_ip,
+ 			cdev->rdev.lldi.nchan;
+ 		ep->rss_qid = cdev->rdev.lldi.rxq_ids[
+ 			cxgb4_port_idx(n->dev) * step];
++		set_tcp_window(ep, (struct port_info *)netdev_priv(pdev));
+ 
+ 		if (clear_mpa_v1) {
+ 			ep->retry_with_mpa_v1 = 0;
+@@ -2017,6 +2054,7 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
  	u32 opt2;
  	int wscale;
-+	struct cpl_t5_pass_accept_rpl *rpl5 = NULL;
+ 	struct cpl_t5_pass_accept_rpl *rpl5 = NULL;
++	int win;
  
  	PDBG("%s ep %p tid %u\n", __func__, ep, ep->hwtid);
  	BUG_ON(skb_cloned(skb));
--	skb_trim(skb, sizeof(*rpl));
-+
- 	skb_get(skb);
--	cxgb4_best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx);
-+	rpl = cplhdr(skb);
-+	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
-+		skb_trim(skb, roundup(sizeof(*rpl5), 16));
-+		rpl5 = (void *)rpl;
-+		INIT_TP_WR(rpl5, ep->hwtid);
-+	} else {
-+		skb_trim(skb, sizeof(*rpl));
-+		INIT_TP_WR(rpl, ep->hwtid);
-+	}
-+	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
-+						    ep->hwtid));
-+
-+	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
-+		 enable_tcp_timestamps && req->tcpopt.tstamp);
+@@ -2037,6 +2075,14 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 	best_mtu(ep->com.dev->rdev.lldi.mtus, ep->mtu, &mtu_idx,
+ 		 enable_tcp_timestamps && req->tcpopt.tstamp);
  	wscale = compute_wscale(rcv_win);
++
++	/*
++	 * Specify the largest window that will fit in opt0. The
++	 * remainder will be specified in the rx_data_ack.
++	 */
++	win = ep->rcv_win >> 10;
++	if (win > RCV_BUFSIZ_MASK)
++		win = RCV_BUFSIZ_MASK;
  	opt0 = (nocong ? NO_CONG(1) : 0) |
  	       KEEP_ALIVE(1) |
-@@ -2023,14 +2067,18 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
- 			opt2 |= CCTRL_ECN(1);
- 	}
- 	if (is_t5(ep->com.dev->rdev.lldi.adapter_type)) {
-+		u32 isn = (prandom_u32() & ~7UL) - 1;
- 		opt2 |= T5_OPT_2_VALID;
- 		opt2 |= V_CONG_CNTRL(CONG_ALG_TAHOE);
-+		opt2 |= CONG_CNTRL_VALID; /* OPT_2_ISS for T5 */
-+		rpl5 = (void *)rpl;
-+		memset(&rpl5->iss, 0, roundup(sizeof(*rpl5)-sizeof(*rpl), 16));
-+		if (peer2peer)
-+			isn += 4;
-+		rpl5->iss = cpu_to_be32(isn);
-+		PDBG("%s iss %u\n", __func__, be32_to_cpu(rpl5->iss));
- 	}
+ 	       DELACK(1) |
+@@ -2047,7 +2093,7 @@ static void accept_cr(struct c4iw_ep *ep, struct sk_buff *skb,
+ 	       SMAC_SEL(ep->smac_idx) |
+ 	       DSCP(ep->tos >> 2) |
+ 	       ULP_MODE(ULP_MODE_TCPDDP) |
+-	       RCV_BUFSIZ(rcv_win>>10);
++	       RCV_BUFSIZ(win);
+ 	opt2 = RX_CHANNEL(0) |
+ 	       RSS_QUEUE_VALID | RSS_QUEUE(ep->rss_qid);
  
--	rpl = cplhdr(skb);
--	INIT_TP_WR(rpl, ep->hwtid);
--	OPCODE_TID(rpl) = cpu_to_be32(MK_OPCODE_TID(CPL_PASS_ACCEPT_RPL,
--				      ep->hwtid));
- 	rpl->opt0 = cpu_to_be64(opt0);
- 	rpl->opt2 = cpu_to_be32(opt2);
- 	set_wr_txq(skb, CPL_PRIORITY_SETUP, ep->ctrlq_idx);
-@@ -2095,6 +2143,7 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
- 	int err;
- 	u16 peer_mss = ntohs(req->tcpopt.mss);
- 	int iptype;
-+	unsigned short hdrs;
- 
- 	parent_ep = lookup_stid(t, stid);
- 	if (!parent_ep) {
-@@ -2152,8 +2201,10 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
- 		goto reject;
- 	}
- 
--	if (peer_mss && child_ep->mtu > (peer_mss + 40))
--		child_ep->mtu = peer_mss + 40;
-+	hdrs = sizeof(struct iphdr) + sizeof(struct tcphdr) +
-+	       ((enable_tcp_timestamps && req->tcpopt.tstamp) ? 12 : 0);
-+	if (peer_mss && child_ep->mtu > (peer_mss + hdrs))
-+		child_ep->mtu = peer_mss + hdrs;
- 
- 	state_set(&child_ep->com, CONNECTING);
- 	child_ep->com.dev = dev;
-diff --git a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
-index 6121ca0..91289a0 100644
---- a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
-+++ b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
-@@ -848,6 +848,7 @@ enum {                     /* TCP congestion control algorithms */
- #define V_CONG_CNTRL(x) ((x) << S_CONG_CNTRL)
- #define G_CONG_CNTRL(x) (((x) >> S_CONG_CNTRL) & M_CONG_CNTRL)
- 
-+#define CONG_CNTRL_VALID   (1 << 18)
- #define T5_OPT_2_VALID       (1 << 31)
- 
- #endif /* _T4FW_RI_API_H_ */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c26c3f8..5fa5f2a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3428,6 +3428,77 @@ unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
- EXPORT_SYMBOL(cxgb4_best_mtu);
- 
- /**
-+ *     cxgb4_best_aligned_mtu - find best MTU, [hopefully] data size aligned
-+ *     @mtus: the HW MTU table
-+ *     @header_size: Header Size
-+ *     @data_size_max: maximum Data Segment Size
-+ *     @data_size_align: desired Data Segment Size Alignment (2^N)
-+ *     @mtu_idxp: HW MTU Table Index return value pointer (possibly NULL)
-+ *
-+ *     Similar to cxgb4_best_mtu() but instead of searching the Hardware
-+ *     MTU Table based solely on a Maximum MTU parameter, we break that
-+ *     parameter up into a Header Size and Maximum Data Segment Size, and
-+ *     provide a desired Data Segment Size Alignment.  If we find an MTU in
-+ *     the Hardware MTU Table which will result in a Data Segment Size with
-+ *     the requested alignment _and_ that MTU isn't "too far" from the
-+ *     closest MTU, then we'll return that rather than the closest MTU.
-+ */
-+unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
-+				    unsigned short header_size,
-+				    unsigned short data_size_max,
-+				    unsigned short data_size_align,
-+				    unsigned int *mtu_idxp)
-+{
-+	unsigned short max_mtu = header_size + data_size_max;
-+	unsigned short data_size_align_mask = data_size_align - 1;
-+	int mtu_idx, aligned_mtu_idx;
-+
-+	/* Scan the MTU Table till we find an MTU which is larger than our
-+	 * Maximum MTU or we reach the end of the table.  Along the way,
-+	 * record the last MTU found, if any, which will result in a Data
-+	 * Segment Length matching the requested alignment.
-+	 */
-+	for (mtu_idx = 0, aligned_mtu_idx = -1; mtu_idx < NMTUS; mtu_idx++) {
-+		unsigned short data_size = mtus[mtu_idx] - header_size;
-+
-+		/* If this MTU minus the Header Size would result in a
-+		 * Data Segment Size of the desired alignment, remember it.
-+		 */
-+		if ((data_size & data_size_align_mask) == 0)
-+			aligned_mtu_idx = mtu_idx;
-+
-+		/* If we're not at the end of the Hardware MTU Table and the
-+		 * next element is larger than our Maximum MTU, drop out of
-+		 * the loop.
-+		 */
-+		if (mtu_idx+1 < NMTUS && mtus[mtu_idx+1] > max_mtu)
-+			break;
-+	}
-+
-+	/* If we fell out of the loop because we ran to the end of the table,
-+	 * then we just have to use the last [largest] entry.
-+	 */
-+	if (mtu_idx == NMTUS)
-+		mtu_idx--;
-+
-+	/* If we found an MTU which resulted in the requested Data Segment
-+	 * Length alignment and that's "not far" from the largest MTU which is
-+	 * less than or equal to the maximum MTU, then use that.
-+	 */
-+	if (aligned_mtu_idx >= 0 &&
-+	    mtu_idx - aligned_mtu_idx <= 1)
-+		mtu_idx = aligned_mtu_idx;
-+
-+	/* If the caller has passed in an MTU Index pointer, pass the
-+	 * MTU Index back.  Return the MTU value.
-+	 */
-+	if (mtu_idxp)
-+		*mtu_idxp = mtu_idx;
-+	return mtus[mtu_idx];
-+}
-+EXPORT_SYMBOL(cxgb4_best_aligned_mtu);
-+
-+/**
-  *	cxgb4_port_chan - get the HW channel of a port
-  *	@dev: the net device for the port
-  *
-@@ -5572,13 +5643,41 @@ static int adap_init0(struct adapter *adap)
- #undef FW_PARAM_PFVF
- #undef FW_PARAM_DEV
- 
--	/*
--	 * These are finalized by FW initialization, load their values now.
-+	/* The MTU/MSS Table is initialized by now, so load their values.  If
-+	 * we're initializing the adapter, then we'll make any modifications
-+	 * we want to the MTU/MSS Table and also initialize the congestion
-+	 * parameters.
- 	 */
- 	t4_read_mtu_tbl(adap, adap->params.mtus, NULL);
--	t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
--		     adap->params.b_wnd);
-+	if (state != DEV_STATE_INIT) {
-+		int i;
-+
-+		/* The default MTU Table contains values 1492 and 1500.
-+		 * However, for TCP, it's better to have two values which are
-+		 * a multiple of 8 +/- 4 bytes apart near this popular MTU.
-+		 * This allows us to have a TCP Data Payload which is a
-+		 * multiple of 8 regardless of what combination of TCP Options
-+		 * are in use (always a multiple of 4 bytes) which is
-+		 * important for performance reasons.  For instance, if no
-+		 * options are in use, then we have a 20-byte IP header and a
-+		 * 20-byte TCP header.  In this case, a 1500-byte MSS would
-+		 * result in a TCP Data Payload of 1500 - 40 == 1460 bytes
-+		 * which is not a multiple of 8.  So using an MSS of 1488 in
-+		 * this case results in a TCP Data Payload of 1448 bytes which
-+		 * is a multiple of 8.  On the other hand, if 12-byte TCP Time
-+		 * Stamps have been negotiated, then an MTU of 1500 bytes
-+		 * results in a TCP Data Payload of 1448 bytes which, as
-+		 * above, is a multiple of 8 bytes ...
-+		 */
-+		for (i = 0; i < NMTUS; i++)
-+			if (adap->params.mtus[i] == 1492) {
-+				adap->params.mtus[i] = 1488;
-+				break;
-+			}
- 
-+		t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
-+			     adap->params.b_wnd);
-+	}
- 	t4_init_tp_params(adap);
- 	adap->flags |= FW_OK;
- 	return 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 87af314..55e9daf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -276,6 +276,11 @@ unsigned int cxgb4_port_viid(const struct net_device *dev);
- unsigned int cxgb4_port_idx(const struct net_device *dev);
- unsigned int cxgb4_best_mtu(const unsigned short *mtus, unsigned short mtu,
- 			    unsigned int *idx);
-+unsigned int cxgb4_best_aligned_mtu(const unsigned short *mtus,
-+				    unsigned short header_size,
-+				    unsigned short data_size_max,
-+				    unsigned short data_size_align,
-+				    unsigned int *mtu_idxp);
- void cxgb4_get_tcp_stats(struct pci_dev *pdev, struct tp_tcp_stats *v4,
- 			 struct tp_tcp_stats *v6);
- void cxgb4_iscsi_init(struct net_device *dev, unsigned int tag_mask,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index f2738c7..a4d7bdb 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -278,6 +278,15 @@ struct cpl_pass_accept_rpl {
- 	__be64 opt0;
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 7474b49..7493dfe 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -805,6 +805,8 @@ struct c4iw_ep {
+ 	u8 retry_with_mpa_v1;
+ 	u8 tried_with_mpa_v1;
+ 	unsigned int retry_count;
++	int snd_win;
++	int rcv_win;
  };
  
-+struct cpl_t5_pass_accept_rpl {
-+	WR_HDR;
-+	union opcode_tid ot;
-+	__be32 opt2;
-+	__be64 opt0;
-+	__be32 iss;
-+	__be32 rsvd;
-+};
-+
- struct cpl_act_open_req {
- 	WR_HDR;
- 	union opcode_tid ot;
+ static inline struct c4iw_ep *to_ep(struct iw_cm_id *cm_id)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index a4d7bdb..973eb11 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -227,6 +227,7 @@ struct cpl_pass_open_req {
+ #define DELACK(x)     ((x) << 5)
+ #define ULP_MODE(x)   ((x) << 8)
+ #define RCV_BUFSIZ(x) ((x) << 12)
++#define RCV_BUFSIZ_MASK 0x3FFU
+ #define DSCP(x)       ((x) << 22)
+ #define SMAC_SEL(x)   ((u64)(x) << 28)
+ #define L2T_IDX(x)    ((u64)(x) << 36)
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
