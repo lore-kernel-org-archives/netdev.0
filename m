@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] i40e: increase reset wait time
-Date: Fri,  6 Jun 2014 02:04:16 -0700
-Message-ID: <1402045462-10304-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] i40e: add vsi x-cast stats
+Date: Fri,  6 Jun 2014 02:04:17 -0700
+Message-ID: <1402045462-10304-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,38 +10,51 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:5078 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752386AbaFFJFb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 6 Jun 2014 05:05:31 -0400
+	id S1752661AbaFFJFc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 6 Jun 2014 05:05:32 -0400
 In-Reply-To: <1402045462-10304-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-The wait time was originally too optimistic and the resets were failing
-after EMPR.  This increases the loop count to wait considerably longer.
-This won't delay the actual wait longer than really needed, just allows
-us to poll more times as needed.
+Add VSI HW stats for unicast, multicast, and broadcast for Rx and Tx.
+Stop printing the netdev multicast value because it doesn't include Tx
+and would be confusing.
 
-Change-ID: If7b96f55cc25b8d06cbbe8665259d250188c53d7
+Change-ID: I08278b6657e7c838fd29a4a1f305f78fe1b150be
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 36607b0..fd2b573 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -734,7 +734,7 @@ static enum i40e_media_type i40e_get_media_type(struct i40e_hw *hw)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 7f03b23..d910b88 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -58,7 +58,6 @@ static const struct i40e_stats i40e_gstrings_net_stats[] = {
+ 	I40E_NETDEV_STAT(tx_errors),
+ 	I40E_NETDEV_STAT(rx_dropped),
+ 	I40E_NETDEV_STAT(tx_dropped),
+-	I40E_NETDEV_STAT(multicast),
+ 	I40E_NETDEV_STAT(collisions),
+ 	I40E_NETDEV_STAT(rx_length_errors),
+ 	I40E_NETDEV_STAT(rx_crc_errors),
+@@ -80,9 +79,13 @@ static const struct i40e_stats i40e_gstrings_veb_stats[] = {
+ };
  
- #define I40E_PF_RESET_WAIT_COUNT_A0	200
--#define I40E_PF_RESET_WAIT_COUNT	10
-+#define I40E_PF_RESET_WAIT_COUNT	100
- /**
-  * i40e_pf_reset - Reset the PF
-  * @hw: pointer to the hardware structure
+ static const struct i40e_stats i40e_gstrings_misc_stats[] = {
+-	I40E_VSI_STAT("rx_unknown_protocol", eth_stats.rx_unknown_protocol),
++	I40E_VSI_STAT("rx_unicast", eth_stats.rx_unicast),
++	I40E_VSI_STAT("tx_unicast", eth_stats.tx_unicast),
++	I40E_VSI_STAT("rx_multicast", eth_stats.rx_multicast),
++	I40E_VSI_STAT("tx_multicast", eth_stats.tx_multicast),
+ 	I40E_VSI_STAT("rx_broadcast", eth_stats.rx_broadcast),
+ 	I40E_VSI_STAT("tx_broadcast", eth_stats.tx_broadcast),
++	I40E_VSI_STAT("rx_unknown_protocol", eth_stats.rx_unknown_protocol),
+ };
+ 
+ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
 -- 
 1.9.3
