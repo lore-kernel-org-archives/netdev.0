@@ -1,73 +1,97 @@
-From: Behan Webster <behanw@converseincode.com>
-Subject: [GIT PULL] LLVMLinux patches for v3.16
-Date: Sat, 07 Jun 2014 12:35:01 -0700
-Message-ID: <53936965.2090403@converseincode.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: net: netlink executing RO memory
+Date: Sat, 7 Jun 2014 22:36:30 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1406072139410.3830@nanos>
+References: <5390D152.30702@oracle.com> <53915571.7050801@oracle.com> <53932AA2.4050204@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Michal Marek <mmarek@suse.cz>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Compiling the Linux Kernel with Clang/LLVM
-	<llvmlinux@lists.linuxfoundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:40730 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752927AbaFGUgk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 16:36:40 -0400
+In-Reply-To: <53932AA2.4050204@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Linus,
+On Sat, 7 Jun 2014, Sasha Levin wrote:
 
-Next set of patches to support compiling the kernel with clang. They've 
-been soaking in linux-next since the last merge window.
+> On 06/06/2014 01:45 AM, Sasha Levin wrote:
+> > On 06/05/2014 04:21 PM, Sasha Levin wrote:
+> >> Hi all,
+> >>
+> >> While fuzzing with trinity inside a KVM tools guest running the latest -next
+> >> kernel I've stumbled on the following spew:
+> >>
+> >> [  306.065161] kernel tried to execute NX-protected page - exploit attempt? (uid: 0)
+> >> [  306.067295] BUG: unable to handle kernel paging request at ffff880053b8fd08
+> > 
+> > Same issue reproduced multiple times with exactly the same trace, so I think that it
+> > rules out random memory corruption.
+> 
+> I might have another lead of this: I caught debug objects complaining about freeing
+> active objects:
+> 
+> [  592.020501] ODEBUG: free active (active state 1) object type: rcu_head hint:           (null)
 
-More still in the works for the next merge window...
+So something in the memory which is freed is queued in rcu. state 1:
+STATE_RCU_HEAD_QUEUED. But why is that rcu_head in the vmalloced skb
+memory?
+
+That's going to be a nice puzzle to find the culprit.
+
+So one thing which might give us at least some data is the debug patch
+below. With CONFIG_STACKTRACE enabled and 
+
+# echo 1 >/sys/kernel/debug/tracing/options/stacktrace
+
+we should get a recording of rcu_free() calls along with the
+stacktrace for each. So we should be able to see which code path
+actually queued the thing. Maybe that's enough of an hint, but at
+least it gives us an idea which code path to instrument further.
 
 Thanks,
 
-Behan
-
--- 
-Behan Webster
-behanw@converseincode.com
-
-
-
-The following changes since commit d4c54919ed86302094c0ca7d48a8cbd4ee753e92:
-
-   mm: add !pte_present() check on existing hugetlb_entry callbacks 
-(2014-06-06 13:21:16 -0700)
-
-are available in the git repository at:
-
-   git://git.linuxfoundation.org/llvmlinux/kernel.git 
-tags/llvmlinux-for-v3.16
-
-for you to fetch changes up to e6b80757700a11315dd81b161f8d86099214c185:
-
-   arm, unwind, LLVMLinux: Enable clang to be used for unwinding the 
-stack (2014-06-07 11:44:39 -0700)
-
-----------------------------------------------------------------
-LLVMLinux patches for v3.16
-
-----------------------------------------------------------------
-Behan Webster (2):
-       all: LLVMLinux: Change DWARF flag to support gcc and clang
-       ARM: LLVMLinux: Change "extern inline" to "static inline" in 
-glue-cache.h
-
-Mark Charlebois (3):
-       crypto: LLVMLinux: aligned-attribute.patch
-       net: netfilter: LLVMLinux: vlais-netfilter
-       arm, unwind, LLVMLinux: Enable clang to be used for unwinding the 
-stack
-
-  Makefile                          |  2 +-
-  arch/arm/include/asm/glue-cache.h | 22 +++++++++++-----------
-  arch/arm/kernel/unwind.c          |  2 +-
-  crypto/shash.c                    |  3 ++-
-  net/netfilter/xt_repldata.h       | 22 +++++++++++++++++-----
-  5 files changed, 32 insertions(+), 19 deletions(-)
+	tglx
+---------------------
+diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
+index 962d1d5..7241235 100644
+--- a/kernel/rcu/tree_plugin.h
++++ b/kernel/rcu/tree_plugin.h
+@@ -698,6 +698,7 @@ EXPORT_SYMBOL_GPL(call_rcu);
+ void kfree_call_rcu(struct rcu_head *head,
+ 		    void (*func)(struct rcu_head *rcu))
+ {
++	trace_printk("head: %p func: %pS\n", head, func);
+ 	__call_rcu(head, func, &rcu_preempt_state, -1, 1);
+ }
+ EXPORT_SYMBOL_GPL(kfree_call_rcu);
+@@ -1091,6 +1092,7 @@ static void rcu_preempt_check_callbacks(int cpu)
+ void kfree_call_rcu(struct rcu_head *head,
+ 		    void (*func)(struct rcu_head *rcu))
+ {
++	trace_printk("head: %p func: %pS\n", head, func);
+ 	__call_rcu(head, func, &rcu_sched_state, -1, 1);
+ }
+ EXPORT_SYMBOL_GPL(kfree_call_rcu);
+diff --git a/lib/debugobjects.c b/lib/debugobjects.c
+index e0731c3..7610834 100644
+--- a/lib/debugobjects.c
++++ b/lib/debugobjects.c
+@@ -252,8 +252,9 @@ static void debug_print_object(struct debug_obj *obj, char *msg)
+ 
+ 	if (limit < 5 && descr != descr_test) {
+ 		void *hint = descr->debug_hint ?
+-			descr->debug_hint(obj->object) : NULL;
++			descr->debug_hint(obj->object) : obj->object;
+ 		limit++;
++		tracing_off();
+ 		WARN(1, KERN_ERR "ODEBUG: %s %s (active state %u) "
+ 				 "object type: %s hint: %pS\n",
+ 			msg, obj_states[obj->state], obj->astate,
