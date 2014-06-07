@@ -1,7 +1,7 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 RESEND 4/4] net: dev: don't set the same mac address for netdev
-Date: Sat, 7 Jun 2014 15:45:43 +0800
-Message-ID: <1402127143-6456-5-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 RESEND 2/4] net: dev: revert the mac address when notifier failed
+Date: Sat, 7 Jun 2014 15:45:41 +0800
+Message-ID: <1402127143-6456-3-git-send-email-dingtianhong@huawei.com>
 References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,44 +9,67 @@ Cc: <netdev@vger.kernel.org>
 To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
 	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:48751 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:48739 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752813AbaFGHq2 (ORCPT
+	with ESMTP id S1752760AbaFGHq2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 03:46:28 -0400
 In-Reply-To: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Most of netdev just link bond, team, vlan will set the mac address
-and propagate to the upperdev or lowerdev regardless the mac address
-is same or not, setting a same mac address make no sense for most of
-the netdev, but some netdev need a flag to see whether the ndo_set_mac_address()
-is called and decide what to do next, so don't do anything if the address
-has already been set by user and it is the same as before, otherwise set
-the same address to the netdev.
+When set a new mac address to a netdev, the dev should propagate
+to the upperdev or lowerdev and make sure the new mac address could
+work well with other devs, otherwise the new mac address shouldn't
+be set and revert the old mac address.
 
 Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- net/core/dev.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/core/dev.c | 23 +++++++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index b0fb3dd..201d88b 100644
+index 5367bfb..b0fb3dd 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -5572,6 +5572,13 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+@@ -5562,6 +5562,7 @@ EXPORT_SYMBOL(dev_set_group);
+ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
++	struct sockaddr old_sa;
+ 	int err;
+ 
+ 	if (!ops->ndo_set_mac_address)
+@@ -5570,13 +5571,27 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ 		return -EINVAL;
  	if (!netif_device_present(dev))
  		return -ENODEV;
- 
-+	/* If the address has already been set by user and it
-+	 * is the same as before, don't do anything.
-+	 */
-+	if (dev->addr_assign_type == NET_ADDR_SET &&
-+	    ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
-+		return 0;
 +
- 	old_sa.sa_family = dev->type;
- 	ether_addr_copy(old_sa.sa_data, dev->dev_addr);
++	old_sa.sa_family = dev->type;
++	ether_addr_copy(old_sa.sa_data, dev->dev_addr);
++
+ 	err = ops->ndo_set_mac_address(dev, sa);
+ 	if (err)
+ 		return err;
+-	dev->addr_assign_type = NET_ADDR_SET;
+-	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+-	add_device_randomness(dev->dev_addr, dev->addr_len);
+-	return 0;
++
++	err = call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	err = notifier_to_errno(err);
++	if (err) {
++		/* setting mac address back and notify everyone again,
++		 *  so that they have a chance to revert changes.
++		 */
++		ops->ndo_set_mac_address(dev, &old_sa);
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
++	} else {
++		dev->addr_assign_type = NET_ADDR_SET;
++		add_device_randomness(dev->dev_addr, dev->addr_len);
++	}
++	return err;
+ }
+ EXPORT_SYMBOL(dev_set_mac_address);
  
 -- 
 1.8.0
