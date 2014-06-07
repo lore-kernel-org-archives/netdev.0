@@ -1,38 +1,40 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: [PATCH] ipip, sit: fix ipv4_{update_pmtu,redirect} calls
-Date: Sat, 7 Jun 2014 21:36:35 +0400
-Message-ID: <20140607213635.490493e5846e3c81704de67d@qrator.net>
-References: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
-	<CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
-	<20140607195412.94b079a97a6e1452e539037f@qrator.net>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] net: wan: wanxl.c:  Cleaning up declaration of a while loop
+Date: Sat, 07 Jun 2014 19:38:42 +0200
+Message-ID: <m3egz0mxgd.fsf@intrepid.localdomain>
+References: <1402139018-17208-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Kozlov <xeb@mail.ru>, Cong Wang <cwang@twopensource.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	trivial@kernel.org
-To: Dmitry Popov <ixaphire@qrator.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140607195412.94b079a97a6e1452e539037f@qrator.net>
+In-Reply-To: <1402139018-17208-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+	(Rickard Strandqvist's message of "Sat, 7 Jun 2014 13:03:38 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 7 Jun 2014 19:54:12 +0400
-Dmitry Popov <ixaphire@qrator.net> wrote:
+Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> writes:
 
-> 3) gre:
-> ipgre is a framework for subprotos which doesn't work with tunnel devices by
-> itself (see net/ipv4/gre_demux.c:gre_cisco_err). Although it uses 
-> skb->dev->ifindex for ipv4_{update_pmtu,redirect} which might be wrong for hosts
-> with asymmetric routing, this is not a big deal, because tunnels bound to device 
-> will not work with asymmetric routing anyway. So I think it is okay.
+> Unusual declaration of a while loop.
+> However, believe you also want to make sure that the pointer is not NULL
 
-Actually, yes, it may not work in case of unbound tunnel and asymmetric routing,
-but we'll need to put icmp redirects/frag_needed handling inside 
-gre_cisco_protocol->err_handler then, I am not sure if it's worth it.
+Not really. The code is meant to do exactly what it currently does -
+set variable desc and then check desc->stat.
+All rx_descs are at this point already initialized and not NULL
+(if desc was indeed NULL we better BUG*() or Oops on desc->stat access
+instead of failing silently).
+
+> --- a/drivers/net/wan/wanxl.c
+> +++ b/drivers/net/wan/wanxl.c
+> @@ -196,7 +196,7 @@ static inline void wanxl_tx_intr(port_t *port)
+>  static inline void wanxl_rx_intr(card_t *card)
+>  {
+>  	desc_t *desc;
+> -	while (desc = &card->status->rx_descs[card->rx_in],
+> +	while (desc = &card->status->rx_descs[card->rx_in] &&
+>  	       desc->stat != PACKET_EMPTY) {
+>  		if ((desc->stat & PACKET_PORT_MASK) > card->n_ports)
+>  			pr_crit("%s: received packet for nonexistent port\n",
+
+-- 
+Krzysztof Halasa
