@@ -1,76 +1,58 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: [PATCH] ip_vti: Fix 'ip tunnel add' with 'key' parameters
-Date: Sun, 8 Jun 2014 01:25:18 +0400
-Message-ID: <20140608012518.39affaff049874520ae5a0cc@qrator.net>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH v2] dns_resolver: assure that dns_query() result is
+ null-terminated
+Date: Sat, 7 Jun 2014 14:42:59 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406071441050.24927@chino.kir.corp.google.com>
+References: <CAHQdGtTtwS_DAXx-nhVjjO3D1wksuV+5br10gX0DheHzWDD+sw@mail.gmail.com> <1402167681-24676-1-git-send-email-manuel.schoelling@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: MULTIPART/MIXED; BOUNDARY="531381512-1747437259-1402177381=:24927"
+Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Manuel_Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402167681-24676-1-git-send-email-manuel.schoelling@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ip tunnel add remote 10.2.2.1 local 10.2.2.2 mode vti ikey 1 okey 2
-translates to p->iflags = VTI_ISVTI|GRE_KEY and p->i_key = 1, but GRE_KEY !=
-TUNNEL_KEY, so ip_tunnel_ioctl would set i_key to 0 (same story with o_key) 
-making us unable to create vti tunnels with [io]key via ip tunnel.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-We cannot simply translate GRE_KEY to TUNNEL_KEY (as GRE module does) because 
-vti_tunnels with same local/remote addresses but different ikeys will be treated
-as different then. So, imo the best option here is to move p->i_flags&*_KEY 
-check for vti tunnels from ip_tunnel.c to ip_vti.c and to think about [io]_mark
-field for ip_tunnel_parm in the future.
+--531381512-1747437259-1402177381=:24927
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
----
- net/ipv4/ip_tunnel.c | 10 ++++++----
- net/ipv4/ip_vti.c    |  8 +++++++-
- 2 files changed, 13 insertions(+), 5 deletions(-)
+On Sat, 7 Jun 2014, Manuel Schölling wrote:
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 2acc233..0a03ad1 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -747,10 +747,12 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
- 			goto done;
- 		if (p->iph.ttl)
- 			p->iph.frag_off |= htons(IP_DF);
--		if (!(p->i_flags&TUNNEL_KEY))
--			p->i_key = 0;
--		if (!(p->o_flags&TUNNEL_KEY))
--			p->o_key = 0;
-+		if (!(p->i_flags&VTI_ISVTI)) {
-+			if (!(p->i_flags&TUNNEL_KEY))
-+				p->i_key = 0;
-+			if (!(p->o_flags&TUNNEL_KEY))
-+				p->o_key = 0;
-+		}
- 
- 		t = ip_tunnel_find(itn, p, itn->fb_tunnel_dev->type);
- 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 13ef00f..b8960f3 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -313,7 +313,13 @@ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 			return -EINVAL;
- 	}
- 
--	p.i_flags |= VTI_ISVTI;
-+	if (!(p.i_flags & GRE_KEY))
-+		p.i_key = 0;
-+	if (!(p.o_flags & GRE_KEY))
-+		p.o_key = 0;
-+
-+	p.i_flags = VTI_ISVTI;
-+
- 	err = ip_tunnel_ioctl(dev, &p, cmd);
- 	if (err)
- 		return err;
+> dns_query() credulously assumes that keys are null-terminated and
+> returns a copy of a memory block that is off by one.
+
+No sign-off?  Please read Documentation/SubmittingPatches.
+
+> ---
+>  net/dns_resolver/dns_query.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.c
+> index e7b6d53..84871a2 100644
+> --- a/net/dns_resolver/dns_query.c
+> +++ b/net/dns_resolver/dns_query.c
+> @@ -145,11 +145,11 @@ int dns_query(const char *type, const char *name, size_t namelen,
+>  	len = upayload->datalen;
+>  
+>  	ret = -ENOMEM;
+> -	*_result = kmalloc(len + 1, GFP_KERNEL);
+> +	*_result = kzalloc(len + 1, GFP_KERNEL);
+>  	if (!*_result)
+>  		goto put;
+>  
+> -	memcpy(*_result, upayload->data, len + 1);
+> +	memcpy(*_result, upayload->data, len);
+>  	if (_expiry)
+>  		*_expiry = rkey->expiry;
+>  
+
+kzalloc() would be unnecessary overhead (zeroing definitely comes with a 
+cost) if you're going to copy to the memory immediately afterwards.  Just 
+leave the kmalloc(), do the memcpy() and explicitly zero terminate it 
+_result.
+--531381512-1747437259-1402177381=:24927--
