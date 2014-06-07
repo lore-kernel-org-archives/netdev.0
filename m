@@ -1,68 +1,58 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: TCP_DEFER_ACCEPT wakes up without data
-Date: Sat, 7 Jun 2014 18:41:45 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1406071441260.2287@ja.home.ssi.bg>
-References: <538FB666.9050303@yahoo-inc.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: [PATCH] ipip, sit: fix ipv4_{update_pmtu,redirect} calls
+Date: Sat, 7 Jun 2014 19:54:12 +0400
+Message-ID: <20140607195412.94b079a97a6e1452e539037f@qrator.net>
+References: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
+	<CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Wayne Badger <badger@yahoo-inc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:35059 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752947AbaFGPl5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jun 2014 11:41:57 -0400
-In-Reply-To: <538FB666.9050303@yahoo-inc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Fan Du <fan.du@windriver.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	trivial@kernel.org
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 6 Jun 2014 17:45:44 -0700
+Cong Wang <cwang@twopensource.com> wrote:
 
-	Hello,
+> I think vti (v4 and v6) tunnel needs to fix as well?
 
-On Wed, 4 Jun 2014, Wayne Badger wrote:
+1) vti:
+Well, probably it needs a fix, but:
+a) I don't know a scenario when vti4_err would be called, ah4/esp4/ipcomp4
+should handle icmp errors. vti_err was removed in aba826958830 but (don't know
+why, maybe someone can explain?) vti4_err was introduced back in df3893c176e9.
+b) vti uses complex routing through xfrm, see pt. 2).
 
-> I would like to revisit the current state of TCP_DEFER_ACCEPT.  I know
-> that it has been discussed in the past and the discussion about 4.5
-> years ago led to commit d1b99ba41d6c5aa1ed2fc634323449dd656899e9 (tcp:
-> accept socket after TCP_DEFER_ACCEPT period) being introduced which
-> changed the semantics of TCP_DEFER_ACCEPT.
+2) ah4/esp/ipcomp:
+They probably have a problem with ipv4_{update_pmtu,redirect} too, because
+ah4/esp/ipcomp use xfrm policies for correct routing, but ipv4_{update_pmtu,
+redirect} implementation do not xfrm_lookup. Moreover, the whole 
+ipv4_*_{update_pmtu, redirect} family looks like using __ip_route_output_key 
+which doesn't do xfrm_lookup, except ipv4_sk_update_pmtu which does it through
+ip_route_output_flow. I also do not understand ideas behind it, but I am not
+so familiar with xfrm stuff, so feel free to correct me.
+Also ah4/esp/ipcomp use oif=0 for ipv4_{update_pmtu,redirect} which should work 
+well with most setups (and wrong oif !=0 like in ipip/sit doesn't work), so I
+don't think it's a big problem.
 
-	This discussion (http://marc.info/?t=125541062900001&r=1&w=2)
-has some hints about using TCP_SYNCNT.
-
-> A few questions.
-> 
-> If the new behavior was desired at the time of the commit, why was the
-> existing TCP_DEFER_ACCEPT behavior changed instead of just adding a new
-> sockopt that implements the new behavior?  Why was the tcp(7) man page
-
-	May be because with help from TCP_SYNCNT we
-have more control.
-
-> not modified to describe the new behavior?
-
-> I propose the following patch to regain the tcp(7) semantics.  The patch
-> resolves dataless connections in one of two ways.  After the initial
-> timeout, a SYN-ACK is retransmitted and if a bare ACK is received, then
-> a RST is sent to the client and the connection is immediately dropped.
-> If nothing is received from the client, then the connection is silently
-> dropped after another rexmit timeout (the next one in the geometric
-> sequence).
-
-	After receiving the first bare ACK we do not
-retransmit SYN+ACKs, we send them after the period to
-trigger a new ACK[+DATA] that will lead to wakeup. You
-prefer if the next packet from client comes without DATA
-to send RST instead of more SYN+ACKs?
-
-	The best place would be to send this reset in 
-inet_csk_reqsk_queue_prune() after the /* Drop this request */
-comment if inet_rsk(req)->acked is set because we are not
-sure if our SYN+ACKs after the period will lead to new packets
-from client. But we have no skb to reply, not sure if
-the open request contains data to build a reset.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+3) gre:
+There are 2 gre protocols in kernel: pptp(drivers/net/ppp/pptp.c) and 
+cisco/ipgre(net/ipv4/gre_demux.c).
+Pptp simply ignores ICMP errors, I'd simply let it be. 
+ipgre is a framework for subprotos which doesn't work with tunnel devices by
+itself (see net/ipv4/gre_demux.c:gre_cisco_err). Although it uses 
+skb->dev->ifindex for ipv4_{update_pmtu,redirect} which might be wrong for hosts
+with asymmetric routing, this is not a big deal, because tunnels bound to device 
+will not work with asymmetric routing anyway. So I think it is okay.
