@@ -1,48 +1,54 @@
-From: Per Hurtig <per.hurtig@kau.se>
-Subject: [PATCH] tcp: fixing TLP's FIN recovery
-Date: Sat,  7 Jun 2014 16:34:40 +0200
-Message-ID: <1402151680-11434-1-git-send-email-per.hurtig@kau.se>
-References: <539319F6.2090907@cogentembedded.com>
-Cc: Per Hurtig <per.hurtig@kau.se>, eric.dumazet@gmail.com,
-	anna.brunstrom@kau.se, mohammad.rajiullah@kau.se,
-	ncardwell@google.com, nanditad@google.com,
-	sergei.shtylyov@cogentembedded.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.kau.se ([193.10.220.39]:15960 "EHLO nasse.dc.kau.se"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752775AbaFGOfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 7 Jun 2014 10:35:37 -0400
-In-Reply-To: <539319F6.2090907@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: net: llc: NULL ptr deref in llc_ui_sendmsg
+Date: Sat, 07 Jun 2014 11:02:51 -0400
+Message-ID: <5393299B.7070308@oracle.com>
+References: <5391D971.4030001@oracle.com> <20140606154231.GA7629@redhat.com> <5391FFFE.8000100@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Dave Jones <davej@redhat.com>,
+	Arnaldo Carvalho de Melo <acme@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5391FFFE.8000100@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix to a problem observed when losing a FIN segment that does not
-contain data.  In such situations, TLP is unable to recover from
-*any* tail loss and instead adds at least PTO ms to the
-retransmission process, i.e., RTO = RTO + PTO.
+On 06/06/2014 01:53 PM, Sasha Levin wrote:
+> On 06/06/2014 11:42 AM, Dave Jones wrote:
+>> On Fri, Jun 06, 2014 at 11:08:33AM -0400, Sasha Levin wrote:
+>>  > Hi all,
+>>  > 
+>>  > While fuzzing with trinity inside a KVM tools guest running the latest -next
+>>  > kernel I've stumbled on the following spew:
+>>  > 
+>>  > [  269.531162] BUG: unable to handle kernel NULL pointer dereference at 000000000000021e
+>>  > [  269.531217] IP: llc_ui_sendmsg (net/llc/af_llc.c:912)
+>>
+>>  905         /* must bind connection to sap if user hasn't done it. */
+>>  906         if (sock_flag(sk, SOCK_ZAPPED)) {
+>>  907                 /* bind to sap with null dev, exclusive. */
+>>  908                 rc = llc_ui_autobind(sock, addr);
+>>  909                 if (rc)
+>>  910                         goto release;
+>>  911         }
+>>  912         hdrlen = llc->dev->hard_header_len + llc_ui_header_len(sk, addr);
+>>
+>> looks like llc->dev was null, (understandable, given Trinity doesn't really know
+>> how to set up llc beyond random socket()/setsockopt() calls).
+>>
+>> llc_ui_autobind returns -ENODEV in that case, so it looks like the SOCK_ZAPPED test
+>> was false. Something like the patch below maybe ? It feels ugly to be duplicating that
+>> test there, but if this is agreed upon I'll resubmit this properly.
+> 
+> I figured it's something more complicated than that since trinity stumbled on it only
+> now and I don't see any code changes in that area. I'll test it with the patch.
 
-Signed-off-by: Per Hurtig <per.hurtig@kau.se>
----
- net/ipv4/tcp_output.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+Same thing can happen in recvmsg as well, I wonder if there's a more generic fix rather
+than check for llc->dev everywhere.
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index d463c35..6573765 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2130,8 +2130,10 @@ void tcp_send_loss_probe(struct sock *sk)
- 	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
- 		goto rearm_timer;
- 
--	/* Probe with zero data doesn't trigger fast recovery. */
--	if (skb->len > 0)
-+	/* Probe with zero data doesn't trigger fast recovery, if FIN
-+	 * flag is not set.
-+	 */
-+	if ((skb->len > 0) || (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN))
- 		err = __tcp_retransmit_skb(sk, skb);
- 
- 	/* Record snd_nxt for loss detection. */
--- 
-1.9.1
+
+Thanks,
+Sasha
