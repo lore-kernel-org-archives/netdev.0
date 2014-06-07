@@ -1,130 +1,92 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH net-next 2/4] net: dev: don't set the same mac address
- for netdev
-Date: Sat, 7 Jun 2014 13:53:13 +0800
-Message-ID: <5392A8C9.4000703@huawei.com>
-References: <1401951028-9800-1-git-send-email-dingtianhong@huawei.com> <1401951028-9800-3-git-send-email-dingtianhong@huawei.com> <539033BC.3000703@lab.ntt.co.jp> <53903D5A.7050702@huawei.com> <53907982.8030700@gmail.com> <53913B89.4020305@huawei.com> <5391CB7C.8060100@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] macvlan: don't update the uc and vlan
+ list for L2 forwarding offload
+Date: Sat, 7 Jun 2014 13:59:15 +0800
+Message-ID: <5392AA33.2030606@huawei.com>
+References: <1401969663-4464-1-git-send-email-dingtianhong@huawei.com> <1401969663-4464-2-git-send-email-dingtianhong@huawei.com> <53908814.8080303@gmail.com> <53913974.3080006@huawei.com> <5391F646.9090302@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>,
-	Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	<kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
-	<vyasevic@redhat.com>
+Cc: <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Vlad Yasevich <vyasevich@gmail.com>, <kaber@trash.net>,
+	<davem@davemloft.net>, <edumazet@google.com>,
+	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:12368 "EHLO
+Received: from szxga01-in.huawei.com ([119.145.14.64]:12949 "EHLO
 	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771AbaFGFxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 01:53:39 -0400
-In-Reply-To: <5391CB7C.8060100@gmail.com>
+	with ESMTP id S1750771AbaFGF75 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 01:59:57 -0400
+In-Reply-To: <5391F646.9090302@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/6/6 22:09, Vlad Yasevich wrote:
-> On 06/05/2014 11:54 PM, Ding Tianhong wrote:
->> On 2014/6/5 22:06, Vlad Yasevich wrote:
->>> On 06/05/2014 05:50 AM, Ding Tianhong wrote:
->>>> On 2014/6/5 17:09, Toshiaki Makita wrote:
->>>>> (2014/06/05 15:50), Ding Tianhong wrote:
->>>>>> Most of netdev just like bond, team, vlan will set the mac address
->>>>>> and propagate to the upperdev or lowerdev regardless the mac address
->>>>>> is  same or not, I could not find that the same mac address could
->>>>>> make affect, so add equal check when set mac address.
->>>>>>
->>>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>>>>> ---
->>>>>>  net/core/dev.c | 2 ++
->>>>>>  1 file changed, 2 insertions(+)
->>>>>>
->>>>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>>>> index 5367bfb..4008a51 100644
->>>>>> --- a/net/core/dev.c
->>>>>> +++ b/net/core/dev.c
->>>>>> @@ -5570,6 +5570,8 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>>>>>  		return -EINVAL;
->>>>>>  	if (!netif_device_present(dev))
->>>>>>  		return -ENODEV;
->>>>>> +	if (ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>>>>> +		return 0;
->>>>>>  	err = ops->ndo_set_mac_address(dev, sa);
->>>>>>  	if (err)
->>>>>>  		return err;
->>>>>>
->>>>>
->>>>> Bridge uses addr_assign_type to check if bridge_id can be propageted by
->>>>> bridge ports. If user set mac address, and even if it is the same as
->>>>> current one, bridge uses the fact that the mac address is set by user.
->>>>>
->>>>
->>>> OK
->>>>
->>>>> Although I'm not aware of a driver that needs calling of
->>>>> ndo_set_mac_address() for the same mac address, this change looks a bit
->>>>> risky to me.
->>>>> (For example, old bridge code needed this call because it managed
->>>>> BR_SET_MAC_ADDR in bridge flags.)
->>>>>
->>>> Except the old bridge, I still don't think any other driver need to call ndo_set_mac_address()
->>>> for the same mac address, if the dev_set_mac_address() don't do anything for the same address,
->>>> I think some drivers should ignore the same mac address themselves just like bonding, macvlan, vlan and so on.
->>>>
+On 2014/6/7 1:11, Vlad Yasevich wrote:
+> On 06/05/2014 11:45 PM, Ding Tianhong wrote:
+>> On 2014/6/5 23:09, Vlad Yasevich wrote:
+>>> On 06/05/2014 08:01 AM, Ding Tianhong wrote:
+>>>> If lowerdev supports L2 forwarding offload, no need to set mac address
+>>>> to uc list and vlan list, so also don't do that when the macvlan mac address
+>>>> changes.
 >>>
->>> Ok so may be a check like:
->>>     /* If the address has already been set by user and it
->>>      * is the same as before, don't do anything.
->>>      */
->>>     if (dev->addr_assign_type == NET_ADDR_SET &&
->>>         ether_addr_equal_64bits(dev->dev_addr, sa->sa_data))
->>>             return 0;
->>>
->>> This way, if the device does it's own address management (like bridge),
->>> the user can still pin the mac address, but subsequent setting to the
->>> same value don't cause all sorts of propagation.
+>>> Same issue as in v1.  Please explain how this actually works, since the
+>>> new address never makes it to the hw.
 >>>
 >>
->> Great solution for br, but I think it couldn't fix the problem in br2684_mac_addr() just like Toshiaki said, I am not
->> sure how many place in the kernel use like this.
+>> Hi, vlad:
 >>
+>> The fwd only support 82599 nic, and when fwd_priv is true, this means the lowerdev support L2 forwarding offload, and will set the macvlan
+>> to the ixgbe_fwd_adapter->netdev, and then it is clear that the lowerdev could know that the the upper device is macvlan and could handle
+>> the skb to the upperdev.
+>>
+>> If I miss something, please remind me, thanks.
 > 
-> Sure it would.  The first time through, we always call
-> ndo_set_mac_address(), so br2684_mac_addr() would get called.
+> You've just changed the mac address of the macvlan device, but the
+> address is not written to the card's RAR registers.
+> So what allows the card to receive the traffic and place it into the
+> queue in the first place?
 > 
-> The second time through, we check to see if the user is setting
-> the same address and skip it if it's the same.  As far as br2684
-> is concerned, the address is still the same and the flag is still
-> set.
+> I can see it possibly working if the card is in promiscuous mode.
 > 
-> -vlad
+> Also, I think John is right in that if we simply do dev_uc_add()
+> to add the address to the card, we'll unmap the address from the vmdqs
+> and lose the acceleration.  This needs more thought.
 > 
 
-Yep, you are right, the NET_ADDR_SET could show that the dev has calling ndo_set_mac_addreee() once
-and decide whether to set a same mac address again.
-
-I will resend this patch, thanks for your advise.
+Yes, I miss it, the new mac address should be set to the lowerdev by ndo_dfwd_add_station(),
+otherwise the lowerdev still use the old mac address and the macvlan could not work again,
+so I need to rethink this patch and resend, thanks, vlad.
 
 Ding
 
->> Ding 
+> -vlad
+> 
+>>
+>> Ding
 >>
 >>> -vlad
+>>>>
+>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>> ---
+>>>>  drivers/net/macvlan.c | 2 +-
+>>>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>
+>>>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>>>> index 453d55a..c3a54a6 100644
+>>>> --- a/drivers/net/macvlan.c
+>>>> +++ b/drivers/net/macvlan.c
+>>>> @@ -515,7 +515,7 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>>>  	struct net_device *lowerdev = vlan->lowerdev;
+>>>>  	int err;
+>>>>  
+>>>> -	if (!(dev->flags & IFF_UP)) {
+>>>> +	if (!(dev->flags & IFF_UP) || vlan->fwd_priv) {
+>>>>  		/* Just copy in the new address */
+>>>>  		ether_addr_copy(dev->dev_addr, addr);
+>>>>  	} else {
+>>>>
 >>>
->>>> Ding 
->>>>
->>>>> Thanks,
->>>>> Toshiaki Makita
->>>>>
->>>>
->>>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
 >>>
->>>
->>> .
 >>>
 >>
 >>
