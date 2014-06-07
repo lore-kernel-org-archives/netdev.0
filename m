@@ -1,75 +1,46 @@
 From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 RESEND 2/4] net: dev: revert the mac address when notifier failed
-Date: Sat, 7 Jun 2014 15:45:41 +0800
-Message-ID: <1402127143-6456-3-git-send-email-dingtianhong@huawei.com>
-References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
+Subject: [PATCH net-next v2 RESEND 0/4] macvlan: fix some problem if mac address changes
+Date: Sat, 7 Jun 2014 15:45:39 +0800
+Message-ID: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
 	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:48739 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760AbaFGHq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 03:46:28 -0400
-In-Reply-To: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:38486 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbaFGHqs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 03:46:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When set a new mac address to a netdev, the dev should propagate
-to the upperdev or lowerdev and make sure the new mac address could
-work well with other devs, otherwise the new mac address shouldn't
-be set and revert the old mac address.
+The macvlan may return failed when handle the NETDEV_CHANGEMTU message, and
+the current code could not process the error value, so modify the
+dev_set_mac_address to process the return value for notification chain,
+revert the old mac address if set new mac address failed.
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/core/dev.c | 23 +++++++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
+The macvlan and lowerdev should not have the same mac address for non-passthru
+mode, so add restriction for that.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5367bfb..b0fb3dd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5562,6 +5562,7 @@ EXPORT_SYMBOL(dev_set_group);
- int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- {
- 	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct sockaddr old_sa;
- 	int err;
- 
- 	if (!ops->ndo_set_mac_address)
-@@ -5570,13 +5571,27 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- 		return -EINVAL;
- 	if (!netif_device_present(dev))
- 		return -ENODEV;
-+
-+	old_sa.sa_family = dev->type;
-+	ether_addr_copy(old_sa.sa_data, dev->dev_addr);
-+
- 	err = ops->ndo_set_mac_address(dev, sa);
- 	if (err)
- 		return err;
--	dev->addr_assign_type = NET_ADDR_SET;
--	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
--	add_device_randomness(dev->dev_addr, dev->addr_len);
--	return 0;
-+
-+	err = call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-+	err = notifier_to_errno(err);
-+	if (err) {
-+		/* setting mac address back and notify everyone again,
-+		 *  so that they have a chance to revert changes.
-+		 */
-+		ops->ndo_set_mac_address(dev, &old_sa);
-+		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-+	} else {
-+		dev->addr_assign_type = NET_ADDR_SET;
-+		add_device_randomness(dev->dev_addr, dev->addr_len);
-+	}
-+	return err;
- }
- EXPORT_SYMBOL(dev_set_mac_address);
- 
+v1->v2: Now the current code support setting a same mac address for netdev, but
+	most of time, it make no sense, but drivers need the user set flag regardless
+	the address is same or not, so don't do anything only If the address has
+	already been set by user and it is the same as before.
+
+	If the lowerdev support L2 fwd offload, the macvlan address will be set to
+	the hw rar only, and it the address changes, the fwd for macvlan need be rebuild,
+	this patchset support this.
+
+Ding Tianhong (4):
+  macvlan: support mac address changes when fwd_priv is enable
+  net: dev: revert the mac address when notifier failed
+  macvlan: don't set the same mac address for non-passthru mode
+  net: dev: don't set the same mac address for netdev
+
+ drivers/net/macvlan.c | 27 ++++++++++++++++++++++++++-
+ net/core/dev.c        | 30 ++++++++++++++++++++++++++----
+ 2 files changed, 52 insertions(+), 5 deletions(-)
+
 -- 
 1.8.0
