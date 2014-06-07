@@ -1,32 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable] net: qmi_wwan: add Olivetti Olicard modems
-Date: Fri, 06 Jun 2014 16:46:17 -0700 (PDT)
-Message-ID: <20140606.164617.14584327968118813.davem@davemloft.net>
-References: <1402068479-6803-1-git-send-email-bjorn@mork.no>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH] ipip, sit: fix ipv4_{update_pmtu,redirect} calls
+Date: Fri, 6 Jun 2014 17:45:44 -0700
+Message-ID: <CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
+References: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33031 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752256AbaFFXqS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 6 Jun 2014 19:46:18 -0400
-In-Reply-To: <1402068479-6803-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	trivial@kernel.org
+To: Dmitry Popov <ixaphire@qrator.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri,  6 Jun 2014 17:27:59 +0200
+On Fri, Jun 6, 2014 at 12:19 PM, Dmitry Popov <ixaphire@qrator.net> wrote:
+> ipv4_{update_pmtu,redirect} were called with tunnel's ifindex (t->dev is a
+> tunnel netdevice). It caused wrong route lookup and failure of pmtu update or
+> redirect. We should use the same ifindex that we use in ip_route_output_* in
+> *tunnel_xmit code. It is t->parms.link .
+>
+> Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+> ---
+>  net/ipv4/ipip.c | 4 ++--
+>  net/ipv6/sit.c  | 4 ++--
+>  2 files changed, 4 insertions(+), 4 deletions(-)
 
-> Lars writes: "I'm only 99% sure that the net interfaces are qmi
-> interfaces, nothing to lose by adding them in my opinion."
->=20
-> And I tend to agree based on the similarity with the two Olicard
-> modems we already have here.
->=20
-> Reported-by: Lars Melin <larsm17@gmail.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-
-Applied and queued up for -stable, thanks.
+I think vti (v4 and v6) tunnel needs to fix as well?
