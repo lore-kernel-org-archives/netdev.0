@@ -1,72 +1,76 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: net: netlink executing RO memory
-Date: Sat, 7 Jun 2014 22:40:43 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1406072239580.3830@nanos>
-References: <5390D152.30702@oracle.com> <53915571.7050801@oracle.com> <53932AA2.4050204@oracle.com> <alpine.DEB.2.10.1406072139410.3830@nanos>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: [PATCH] ip_vti: Fix 'ip tunnel add' with 'key' parameters
+Date: Sun, 8 Jun 2014 01:25:18 +0400
+Message-ID: <20140608012518.39affaff049874520ae5a0cc@qrator.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1406072139410.3830@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 7 Jun 2014, Thomas Gleixner wrote:
-> On Sat, 7 Jun 2014, Sasha Levin wrote:
-> So one thing which might give us at least some data is the debug patch
-> below. With CONFIG_STACKTRACE enabled and 
-> 
-> # echo 1 >/sys/kernel/debug/tracing/options/stacktrace
-> 
-> we should get a recording of rcu_free() calls along with the
-> stacktrace for each. So we should be able to see which code path
-> actually queued the thing. Maybe that's enough of an hint, but at
-> least it gives us an idea which code path to instrument further.
+ip tunnel add remote 10.2.2.1 local 10.2.2.2 mode vti ikey 1 okey 2
+translates to p->iflags = VTI_ISVTI|GRE_KEY and p->i_key = 1, but GRE_KEY !=
+TUNNEL_KEY, so ip_tunnel_ioctl would set i_key to 0 (same story with o_key) 
+making us unable to create vti tunnels with [io]key via ip tunnel.
 
-This one is better..
+We cannot simply translate GRE_KEY to TUNNEL_KEY (as GRE module does) because 
+vti_tunnels with same local/remote addresses but different ikeys will be treated
+as different then. So, imo the best option here is to move p->i_flags&*_KEY 
+check for vti tunnels from ip_tunnel.c to ip_vti.c and to think about [io]_mark
+field for ip_tunnel_parm in the future.
 
-Thanks,
+Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+---
+ net/ipv4/ip_tunnel.c | 10 ++++++----
+ net/ipv4/ip_vti.c    |  8 +++++++-
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
-	tglx
----------------------
-
-diff --git a/kernel/rcu/tree_plugin.h b/kernel/rcu/tree_plugin.h
-index 962d1d5..7241235 100644
---- a/kernel/rcu/tree_plugin.h
-+++ b/kernel/rcu/tree_plugin.h
-@@ -698,6 +698,7 @@ EXPORT_SYMBOL_GPL(call_rcu);
- void kfree_call_rcu(struct rcu_head *head,
- 		    void (*func)(struct rcu_head *rcu))
- {
-+	trace_printk("head: %p func: %pS\n", head, func);
- 	__call_rcu(head, func, &rcu_preempt_state, -1, 1);
- }
- EXPORT_SYMBOL_GPL(kfree_call_rcu);
-@@ -1091,6 +1092,7 @@ static void rcu_preempt_check_callbacks(int cpu)
- void kfree_call_rcu(struct rcu_head *head,
- 		    void (*func)(struct rcu_head *rcu))
- {
-+	trace_printk("head: %p func: %pS\n", head, func);
- 	__call_rcu(head, func, &rcu_sched_state, -1, 1);
- }
- EXPORT_SYMBOL_GPL(kfree_call_rcu);
-diff --git a/lib/debugobjects.c b/lib/debugobjects.c
-index e0731c3..fd5cafd 100644
---- a/lib/debugobjects.c
-+++ b/lib/debugobjects.c
-@@ -693,6 +693,9 @@ repeat:
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 2acc233..0a03ad1 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -747,10 +747,12 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+ 			goto done;
+ 		if (p->iph.ttl)
+ 			p->iph.frag_off |= htons(IP_DF);
+-		if (!(p->i_flags&TUNNEL_KEY))
+-			p->i_key = 0;
+-		if (!(p->o_flags&TUNNEL_KEY))
+-			p->o_key = 0;
++		if (!(p->i_flags&VTI_ISVTI)) {
++			if (!(p->i_flags&TUNNEL_KEY))
++				p->i_key = 0;
++			if (!(p->o_flags&TUNNEL_KEY))
++				p->o_key = 0;
++		}
  
- 			switch (obj->state) {
- 			case ODEBUG_STATE_ACTIVE:
-+				trace_printk("free %p obj %p\n", address,
-+					     obj->object);
-+				tracing_off();
- 				debug_print_object(obj, "free");
- 				descr = obj->descr;
- 				state = obj->state;
+ 		t = ip_tunnel_find(itn, p, itn->fb_tunnel_dev->type);
  
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 13ef00f..b8960f3 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -313,7 +313,13 @@ vti_tunnel_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			return -EINVAL;
+ 	}
+ 
+-	p.i_flags |= VTI_ISVTI;
++	if (!(p.i_flags & GRE_KEY))
++		p.i_key = 0;
++	if (!(p.o_flags & GRE_KEY))
++		p.o_key = 0;
++
++	p.i_flags = VTI_ISVTI;
++
+ 	err = ip_tunnel_ioctl(dev, &p, cmd);
+ 	if (err)
+ 		return err;
