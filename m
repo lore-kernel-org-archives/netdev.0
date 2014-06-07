@@ -1,46 +1,49 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net-next v2 RESEND 0/4] macvlan: fix some problem if mac address changes
-Date: Sat, 7 Jun 2014 15:45:39 +0800
-Message-ID: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] amd-xgbe: fix unused variable compilation
+ warning in phylib driver
+Date: Sat, 7 Jun 2014 11:07:48 +0200
+Message-ID: <20140607090748.GA11521@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
-	<vyasevic@redhat.com>, <makita.toshiaki@lab.ntt.co.jp>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Lendacky <Thomas.Lendacky@amd.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:38486 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752789AbaFGHqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 03:46:48 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34880 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752831AbaFGJH4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 05:07:56 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The macvlan may return failed when handle the NETDEV_CHANGEMTU message, and
-the current code could not process the error value, so modify the
-dev_set_mac_address to process the return value for notification chain,
-revert the old mac address if set new mac address failed.
+=46ix following compilation warning:
+[...]
+  CC      drivers/net/phy/amd-xgbe-phy.o
+drivers/net/phy/amd-xgbe-phy.c:1353:30: warning:
+=E2=80=98amd_xgbe_phy_ids=E2=80=99 defined but not used [-Wunused-varia=
+ble]
+ static struct mdio_device_id amd_xgbe_phy_ids[] =3D {
+                              ^
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/phy/amd-xgbe-phy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The macvlan and lowerdev should not have the same mac address for non-passthru
-mode, so add restriction for that.
-
-v1->v2: Now the current code support setting a same mac address for netdev, but
-	most of time, it make no sense, but drivers need the user set flag regardless
-	the address is same or not, so don't do anything only If the address has
-	already been set by user and it is the same as before.
-
-	If the lowerdev support L2 fwd offload, the macvlan address will be set to
-	the hw rar only, and it the address changes, the fwd for macvlan need be rebuild,
-	this patchset support this.
-
-Ding Tianhong (4):
-  macvlan: support mac address changes when fwd_priv is enable
-  net: dev: revert the mac address when notifier failed
-  macvlan: don't set the same mac address for non-passthru mode
-  net: dev: don't set the same mac address for netdev
-
- drivers/net/macvlan.c | 27 ++++++++++++++++++++++++++-
- net/core/dev.c        | 30 ++++++++++++++++++++++++++----
- 2 files changed, 52 insertions(+), 5 deletions(-)
-
--- 
-1.8.0
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-=
+phy.c
+index d4b1c81..b57c224 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -1350,7 +1350,7 @@ static void __exit amd_xgbe_phy_exit(void)
+ module_init(amd_xgbe_phy_init);
+ module_exit(amd_xgbe_phy_exit);
+=20
+-static struct mdio_device_id amd_xgbe_phy_ids[] =3D {
++static struct mdio_device_id __maybe_unused amd_xgbe_phy_ids[] =3D {
+ 	{ XGBE_PHY_ID, XGBE_PHY_MASK },
+ 	{ }
+ };
+--=20
+1.9.3
