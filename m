@@ -1,58 +1,74 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: [PATCH] ipip, sit: fix ipv4_{update_pmtu,redirect} calls
-Date: Sat, 7 Jun 2014 19:54:12 +0400
-Message-ID: <20140607195412.94b079a97a6e1452e539037f@qrator.net>
-References: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
-	<CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCHv4 net-next 0/4] bridge: multicast snooping patches
+	/ exports
+Date: Sat,  7 Jun 2014 18:26:25 +0200
+Message-ID: <1402158389-13239-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Fan Du <fan.du@windriver.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	trivial@kernel.org
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7NUVPz47AKCTk7nYBkZXK=93vJOO8f6FTkyU0UkU6Q30Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: b.a.t.m.a.n@lists.open-mesh.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Jun 2014 17:45:44 -0700
-Cong Wang <cwang@twopensource.com> wrote:
+The first patch is simply a cosmetic patch. So far I (and maybe others
+too?) have been regularly confusing these two structs, therefore I'd
+suggest renaming them and therefore making the follow-up patches easier
+to understand and nicer to fit in.
 
-> I think vti (v4 and v6) tunnel needs to fix as well?
+The second patch fixes a minor issue, but probably not worth for stable.
 
-1) vti:
-Well, probably it needs a fix, but:
-a) I don't know a scenario when vti4_err would be called, ah4/esp4/ipcomp4
-should handle icmp errors. vti_err was removed in aba826958830 but (don't know
-why, maybe someone can explain?) vti4_err was introduced back in df3893c176e9.
-b) vti uses complex routing through xfrm, see pt. 2).
 
-2) ah4/esp/ipcomp:
-They probably have a problem with ipv4_{update_pmtu,redirect} too, because
-ah4/esp/ipcomp use xfrm policies for correct routing, but ipv4_{update_pmtu,
-redirect} implementation do not xfrm_lookup. Moreover, the whole 
-ipv4_*_{update_pmtu, redirect} family looks like using __ip_route_output_key 
-which doesn't do xfrm_lookup, except ipv4_sk_update_pmtu which does it through
-ip_route_output_flow. I also do not understand ideas behind it, but I am not
-so familiar with xfrm stuff, so feel free to correct me.
-Also ah4/esp/ipcomp use oif=0 for ipv4_{update_pmtu,redirect} which should work 
-well with most setups (and wrong oif !=0 like in ipip/sit doesn't work), so I
-don't think it's a big problem.
+On the other hand the first two patches are also preparations for the
+third and fourth patch:
 
-3) gre:
-There are 2 gre protocols in kernel: pptp(drivers/net/ppp/pptp.c) and 
-cisco/ipgre(net/ipv4/gre_demux.c).
-Pptp simply ignores ICMP errors, I'd simply let it be. 
-ipgre is a framework for subprotos which doesn't work with tunnel devices by
-itself (see net/ipv4/gre_demux.c:gre_cisco_err). Although it uses 
-skb->dev->ifindex for ipv4_{update_pmtu,redirect} which might be wrong for hosts
-with asymmetric routing, this is not a big deal, because tunnels bound to device 
-will not work with asymmetric routing anyway. So I think it is okay.
+These two patches are exporting functionality needed to marry the bridge
+multicast snooping with the batman-adv multicast optimizations recently
+added for the 3.15 kernel, allowing to use these optimzations in common
+setups having a bridge on top of e.g. bat0, too. So far these bridged
+setups would fall back to simple flooding through the batman-adv mesh
+network for any multicast packet entering bat0.
+
+More information about the batman-adv multicast optimizations currently
+implemented can be found here:
+
+http://www.open-mesh.org/projects/batman-adv/wiki/Basic-multicast-optimiz=
+ations
+
+The integration on the batman-adv side could afterwards look like this,
+for instance:
+
+http://git.open-mesh.org/batman-adv.git/commitdiff/576b59dd3e34737c702e54=
+8b21fa72059262f796?hp=3Df95ce7131746c65fbcdffcf2089cab59e2c2f7ac
+
+
+Changes in v4:
+ - merged header postings from all previous patchset versions
+
+Changes in v3:
+ - use EXPORT_SYMBOL_GPL() instead of EXPORT_SYMBOL()
+
+Changes in v2:
+ - fix a nasty typo in PATCH 1/4, br_multicast_update_query_timer():
+   "br->multicast_query_interval" vs. "br->multicast_querier_interval"
+   =3D> this accidentally reduced the other querier present timer=20
+      from 255 to 125 seconds
+ - fix a typo in PATCH 2/4, br_ip{4,6}_multicast_query():
+   ntohs(ETH_P_{IP,IPV6}) vs. htons(ETH_P_{IP,IPV6})
+ - add missing ntohl()s before address comparison in PATCH 2/4,
+   br_ip4_multicast_select_querier() (thanks David!)
+
+Cheers, Linus
