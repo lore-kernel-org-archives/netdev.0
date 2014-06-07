@@ -1,44 +1,33 @@
-From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-Subject: [PATCH v3] dns_resolver: assure that dns_query() result is null-terminated
-Date: Sat,  7 Jun 2014 23:57:25 +0200
-Message-ID: <1402178245-8076-1-git-send-email-manuel.schoelling@gmx.de>
-References: <1402167681-24676-1-git-send-email-manuel.schoelling@gmx.de>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: [PATCH] ip_vti: Fix 'ip tunnel add' with 'key' parameters
+Date: Sun, 8 Jun 2014 02:01:02 +0400
+Message-ID: <20140608020102.df3f38cfea0ff8193ea6316a@qrator.net>
+References: <20140608012518.39affaff049874520ae5a0cc@qrator.net>
+	<53938A4A.9010105@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402167681-24676-1-git-send-email-manuel.schoelling@gmx.de>
+In-Reply-To: <53938A4A.9010105@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dns_query() credulously assumes that keys are null-terminated and
-returns a copy of a memory block that is off by one.
+On Sun, 08 Jun 2014 01:55:22 +0400
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
 
-Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
----
- net/dns_resolver/dns_query.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+>     Please surround & with spaces for consistency; this also would follow the 
+> general kernel coding style.
 
-diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.=
-c
-index e7b6d53..6853d22 100644
---- a/net/dns_resolver/dns_query.c
-+++ b/net/dns_resolver/dns_query.c
-@@ -149,7 +149,9 @@ int dns_query(const char *type, const char *name, s=
-ize_t namelen,
- 	if (!*_result)
- 		goto put;
-=20
--	memcpy(*_result, upayload->data, len + 1);
-+	memcpy(*_result, upayload->data, len);
-+	*_result[len] =3D '\0';
-+
- 	if (_expiry)
- 		*_expiry =3D rkey->expiry;
-=20
---=20
-1.7.10.4
+> WBR, Sergei
+> 
+
+Okay, original code was without spaces, didn't want to break this, I will resend.
