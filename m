@@ -1,98 +1,136 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e/i40evf: fix rx descriptor status
-Date: Sun,  8 Jun 2014 07:33:43 -0700
-Message-ID: <1402238037-20661-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e/i40evf: fix TSO accounting
+Date: Sun,  8 Jun 2014 07:33:54 -0700
+Message-ID: <1402238037-20661-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64930 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449AbaFHOeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:01 -0400
+	id S1753544AbaFHOeI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:08 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-As reported by Eric Dumazet, the driver is not masking the right
-bits in the receive descriptor before it starts checking them.
+The TSO logic in the transmit path had some assumptions that
+have been broken now that the kernel can send as much as 32kB
+in a single skb->frag[.] entry, even on a system with 4kB pages.
 
-This patch extends the mask to allow for the right bits to be
-checked, and fixes the issue permanently via a define.
+This fixes the assumptions and allows the kernel to operate
+as efficiently as possible with both SENDFILE and SEND.
 
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-Change-ID: I3274f7619057a950f468143e6d7e11b129f54655
+In addition, the hardware limit of data contained in a descriptor is
+changed to the next power of two below where it currently is in
+order to align to a power of two value, preventing a single byte
+of data in a descriptor.
+
+Change-ID: I6af1f0b87c1458e10644dbd47541591075a52651
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 10 ++++++----
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 10 ++++++----
- 2 files changed, 12 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 +------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 4 ++--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 +------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 4 ++--
+ 4 files changed, 6 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 5a930b3..7fbbab4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -492,9 +492,6 @@ union i40e_32byte_rx_desc {
- 	} wb;  /* writeback */
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 1fe28ca..d1a9a05 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -2170,9 +2170,7 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+ 				      struct i40e_ring *tx_ring)
+ {
+-#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
+ 	unsigned int f;
+-#endif
+ 	int count = 0;
  
--#define I40E_RXD_QW1_STATUS_SHIFT	0
--#define I40E_RXD_QW1_STATUS_MASK	(0x7FFFUL << I40E_RXD_QW1_STATUS_SHIFT)
--
- enum i40e_rx_desc_status_bits {
- 	/* Note: These are predefined bit offsets */
- 	I40E_RX_DESC_STATUS_DD_SHIFT		= 0,
-@@ -511,9 +508,14 @@ enum i40e_rx_desc_status_bits {
- 	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
- 	I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT	= 15,
- 	I40E_RX_DESC_STATUS_RESERVED_SHIFT	= 16, /* 2 BITS */
--	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18
-+	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18,
-+	I40E_RX_DESC_STATUS_LAST /* this entry must be last!!! */
- };
- 
-+#define I40E_RXD_QW1_STATUS_SHIFT	0
-+#define I40E_RXD_QW1_STATUS_MASK	(((1 << I40E_RX_DESC_STATUS_LAST) - 1) \
-+					 << I40E_RXD_QW1_STATUS_SHIFT)
+ 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
+@@ -2181,12 +2179,9 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+ 	 *       + 1 desc for context descriptor,
+ 	 * otherwise try next time
+ 	 */
+-#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+-#else
+-	count += skb_shinfo(skb)->nr_frags;
+-#endif
 +
- #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
- #define I40E_RXD_QW1_STATUS_TSYNINDX_MASK	(0x3UL << \
- 					     I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 4fc9835..9c901fd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -492,9 +492,6 @@ union i40e_32byte_rx_desc {
- 	} wb;  /* writeback */
- };
+ 	count += TXD_USE_COUNT(skb_headlen(skb));
+ 	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
+ 		tx_ring->tx_stats.tx_busy++;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 30e5fe3..0277894 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -117,11 +117,11 @@ enum i40e_dyn_idx_t {
+ #define i40e_rx_desc i40e_32byte_rx_desc
  
--#define I40E_RXD_QW1_STATUS_SHIFT	0
--#define I40E_RXD_QW1_STATUS_MASK	(0x7FFFUL << I40E_RXD_QW1_STATUS_SHIFT)
--
- enum i40e_rx_desc_status_bits {
- 	/* Note: These are predefined bit offsets */
- 	I40E_RX_DESC_STATUS_DD_SHIFT		= 0,
-@@ -511,9 +508,14 @@ enum i40e_rx_desc_status_bits {
- 	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
- 	I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT	= 15,
- 	I40E_RX_DESC_STATUS_RESERVED_SHIFT	= 16, /* 2 BITS */
--	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18
-+	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18,
-+	I40E_RX_DESC_STATUS_LAST /* this entry must be last!!! */
- };
+ #define I40E_MIN_TX_LEN		17
+-#define I40E_MAX_DATA_PER_TXD	16383	/* aka 16kB - 1 */
++#define I40E_MAX_DATA_PER_TXD	8192
  
-+#define I40E_RXD_QW1_STATUS_SHIFT	0
-+#define I40E_RXD_QW1_STATUS_MASK	(((1 << I40E_RX_DESC_STATUS_LAST) - 1) \
-+					 << I40E_RXD_QW1_STATUS_SHIFT)
+ /* Tx Descriptors needed, worst case */
+ #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
+-#define DESC_NEEDED ((MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE)) + 4)
++#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
+ 
+ #define I40E_TX_FLAGS_CSUM		(u32)(1)
+ #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 82d6844..ae089df 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1511,9 +1511,7 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
+ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+ 				      struct i40e_ring *tx_ring)
+ {
+-#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
+ 	unsigned int f;
+-#endif
+ 	int count = 0;
+ 
+ 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
+@@ -1522,12 +1520,9 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
+ 	 *       + 1 desc for context descriptor,
+ 	 * otherwise try next time
+ 	 */
+-#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
+ 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+ 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
+-#else
+-	count += skb_shinfo(skb)->nr_frags;
+-#endif
 +
- #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
- #define I40E_RXD_QW1_STATUS_TSYNINDX_MASK	(0x3UL << \
- 					     I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT)
+ 	count += TXD_USE_COUNT(skb_headlen(skb));
+ 	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
+ 		tx_ring->tx_stats.tx_busy++;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index e297a3a..30d248b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -117,11 +117,11 @@ enum i40e_dyn_idx_t {
+ #define i40e_rx_desc i40e_32byte_rx_desc
+ 
+ #define I40E_MIN_TX_LEN		17
+-#define I40E_MAX_DATA_PER_TXD	16383	/* aka 16kB - 1 */
++#define I40E_MAX_DATA_PER_TXD	8192
+ 
+ /* Tx Descriptors needed, worst case */
+ #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
+-#define DESC_NEEDED ((MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE)) + 4)
++#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
+ 
+ #define I40E_TX_FLAGS_CSUM		(u32)(1)
+ #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
 -- 
 1.9.3
