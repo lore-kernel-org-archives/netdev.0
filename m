@@ -1,58 +1,95 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: [PATCH] ip_tunnel: fix i_key matching in ip_tunnel_find
-Date: Sun, 8 Jun 2014 03:03:08 +0400
-Message-ID: <20140608030308.77bc67a743827807737268f1@qrator.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: hw.c: Cleaning up
+ conjunction always evaluates to false
+Date: Sat, 07 Jun 2014 19:01:20 -0500
+Message-ID: <5393A7D0.2080700@lwfinger.net>
+References: <1402151419-18296-1-git-send-email-rickard_strandqvist@spectrumdigital.se>	<1670424.dXK6NPb10R@al> <CAFo99gZ+iu3FA9Nuwdo_AT1xZkno7w=6JidWYcm8g0bOvshwTw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Peter Wu <peter@lekensteyn.nl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFo99gZ+iu3FA9Nuwdo_AT1xZkno7w=6JidWYcm8g0bOvshwTw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some tunnels (though only vti as for now) can use i_key just for internal use: 
-for example vti uses it for fwmark'ing incoming packets. So raw i_key value 
-shouldn't be treated as a distinguisher for them. ip_tunnel_key_match exists for
-cases when we want to compare two ip_tunnel_parms' i_keys.
+On 06/07/2014 10:24 AM, Rickard Strandqvist wrote:
+> Hi!
+>
+> Yes, 0x3 was one of the most likely :)
+> But wanted someone who knows the code better would be heard.
+> All agreed? Then I do a new patch.
+>
+> Looks like it is the same error in the files below, I'll fix them all them to.
+>
+> rtl8192cu/hw.c:1363:    if ((bt_msr & 0xfc) == MSR_AP)
+> rtl8192ce/hw.c:1209:    if ((bt_msr & 0xfc) == MSR_AP)
+> rtl8188ee/hw.c:1234:    if ((bt_msr & 0xfc) == MSR_AP)
+> rtl8192de/hw.c:1131:    if ((bt_msr & 0xfc) == MSR_AP)
+>
+>
+> Best regards
+> Rickard Strandqvist
+>
+>
+> 2014-06-07 17:02 GMT+02:00 Peter Wu <peter@lekensteyn.nl>:
+>> On Saturday 07 June 2014 16:30:19 Rickard Strandqvist wrote:
+>>> Expression '(X & 0xfc) == 0x3' is always false
+>>
+>> While this is true, I believe that some other mistake is made.
+>>
+>>> I chose to remove this code, because it will not make any difference.
+>>> But obviously it is rather a properly designed if statement that is needed.
+>>>
+>>> This was partly found using a static code analysis program called cppcheck.
+>>>
+>>> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+>>> ---
+>>>   drivers/net/wireless/rtlwifi/rtl8192de/hw.c |    5 +----
+>>>   1 file changed, 1 insertion(+), 4 deletions(-)
+>>>
+>>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>>> index 2b08671..a1520d5 100644
+>>> --- a/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>>> +++ b/drivers/net/wireless/rtlwifi/rtl8192de/hw.c
+>>> @@ -1128,10 +1128,7 @@ static int _rtl92de_set_media_status(struct ieee80211_hw *hw,
+>>>        }
+>>>        rtl_write_byte(rtlpriv, REG_CR + 2, bt_msr);
+>>>        rtlpriv->cfg->ops->led_control(hw, ledaction);
+>>> -     if ((bt_msr & 0xfc) == MSR_AP)
+>>
+>> If you look a few lines up, then you see that bt_msr is OR-ed with MSR_AP
+>> for AP interfaces. The 0xfc should be 0x03, see other drivers for example:
+>>
+>> rtl8723ae/hw.c:1112:    if ((bt_msr & 0x03) == MSR_AP)
+>> rtl8723be/hw.c:1200:    if ((bt_msr & 0x03) == MSR_AP)
+>> rtl8192cu/hw.c:1363:    if ((bt_msr & 0xfc) == MSR_AP)
+>> rtl8192ce/hw.c:1209:    if ((bt_msr & 0xfc) == MSR_AP)
+>> rtl8188ee/hw.c:1234:    if ((bt_msr & 0xfc) == MSR_AP)
+>> rtl8192de/hw.c:1131:    if ((bt_msr & 0xfc) == MSR_AP)
+>>
+>>> -             rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
+>>> -     else
+>>> -             rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
+>>> +     rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
+>>>        return 0;
+>>>   }
 
-Example bug:
-ip link add type vti ikey 1 local 1.0.0.1 remote 2.0.0.2
-ip link add type vti ikey 2 local 1.0.0.1 remote 2.0.0.2
-spawned two tunnels, although it doesn't make sense.
+Peter,
 
-Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
----
- net/ipv4/ip_tunnel.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+As you have learned here, automatically making changes suggested by some tool 
+may convert a visible bug into one that is invisible, and only found by a 
+detailed line-by-line examination of the code, and that is unlikely to happen. 
+Please be careful.
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 2acc233..cf67fe1 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -268,6 +268,7 @@ static struct ip_tunnel *ip_tunnel_find(struct ip_tunnel_net *itn,
- 	__be32 remote = parms->iph.daddr;
- 	__be32 local = parms->iph.saddr;
- 	__be32 key = parms->i_key;
-+	__be16 flags = parms->i_flags;
- 	int link = parms->link;
- 	struct ip_tunnel *t = NULL;
- 	struct hlist_head *head = ip_bucket(itn, parms);
-@@ -275,9 +276,9 @@ static struct ip_tunnel *ip_tunnel_find(struct ip_tunnel_net *itn,
- 	hlist_for_each_entry_rcu(t, head, hash_node) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr &&
--		    key == t->parms.i_key &&
- 		    link == t->parms.link &&
--		    type == t->dev->type)
-+		    type == t->dev->type &&
-+		    ip_tunnel_key_match(&t->parms, flags, key))
- 			break;
- 	}
- 	return t;
+ From everything I see, the test in all drivers should be
+
+	if ((bt_msr & MSR_AP) == MSR_AP)
+
+Larry
