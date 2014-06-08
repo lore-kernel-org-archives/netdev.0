@@ -1,136 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e/i40evf: fix TSO accounting
-Date: Sun,  8 Jun 2014 07:33:54 -0700
-Message-ID: <1402238037-20661-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] i40evf: remove bogus comment
+Date: Sun,  8 Jun 2014 07:33:47 -0700
+Message-ID: <1402238037-20661-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64930 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753544AbaFHOeI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:08 -0400
+	id S1753301AbaFHOeE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:04 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-The TSO logic in the transmit path had some assumptions that
-have been broken now that the kernel can send as much as 32kB
-in a single skb->frag[.] entry, even on a system with 4kB pages.
+This comment is just plain false. VF drivers require MSI-X or they won't
+get interrupts at all.
 
-This fixes the assumptions and allows the kernel to operate
-as efficiently as possible with both SENDFILE and SEND.
-
-In addition, the hardware limit of data contained in a descriptor is
-changed to the next power of two below where it currently is in
-order to align to a power of two value, preventing a single byte
-of data in a descriptor.
-
-Change-ID: I6af1f0b87c1458e10644dbd47541591075a52651
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: Iaea5e30b6926948aa834a3c506d9a9223d9e3e29
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 7 +------
- drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 7 +------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 4 ++--
- 4 files changed, 6 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 1fe28ca..d1a9a05 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2170,9 +2170,7 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
- static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 				      struct i40e_ring *tx_ring)
- {
--#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
- 	unsigned int f;
--#endif
- 	int count = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 360a911..c8ad838 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1130,9 +1130,6 @@ static int i40evf_set_interrupt_capability(struct i40evf_adapter *adapter)
+ 	v_budget = min_t(int, pairs, (int)(num_online_cpus() * 2)) + NONQ_VECS;
+ 	v_budget = min_t(int, v_budget, (int)adapter->vf_res->max_vectors);
  
- 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
-@@ -2181,12 +2179,9 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
- 	 */
--#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
- 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
--#else
--	count += skb_shinfo(skb)->nr_frags;
--#endif
-+
- 	count += TXD_USE_COUNT(skb_headlen(skb));
- 	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
- 		tx_ring->tx_stats.tx_busy++;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-index 30e5fe3..0277894 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
-@@ -117,11 +117,11 @@ enum i40e_dyn_idx_t {
- #define i40e_rx_desc i40e_32byte_rx_desc
- 
- #define I40E_MIN_TX_LEN		17
--#define I40E_MAX_DATA_PER_TXD	16383	/* aka 16kB - 1 */
-+#define I40E_MAX_DATA_PER_TXD	8192
- 
- /* Tx Descriptors needed, worst case */
- #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
--#define DESC_NEEDED ((MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE)) + 4)
-+#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
- 
- #define I40E_TX_FLAGS_CSUM		(u32)(1)
- #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index 82d6844..ae089df 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1511,9 +1511,7 @@ static int i40e_maybe_stop_tx(struct i40e_ring *tx_ring, int size)
- static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 				      struct i40e_ring *tx_ring)
- {
--#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
- 	unsigned int f;
--#endif
- 	int count = 0;
- 
- 	/* need: 1 descriptor per page * PAGE_SIZE/I40E_MAX_DATA_PER_TXD,
-@@ -1522,12 +1520,9 @@ static int i40e_xmit_descriptor_count(struct sk_buff *skb,
- 	 *       + 1 desc for context descriptor,
- 	 * otherwise try next time
- 	 */
--#if PAGE_SIZE > I40E_MAX_DATA_PER_TXD
- 	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
- 		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
--#else
--	count += skb_shinfo(skb)->nr_frags;
--#endif
-+
- 	count += TXD_USE_COUNT(skb_headlen(skb));
- 	if (i40e_maybe_stop_tx(tx_ring, count + 4 + 1)) {
- 		tx_ring->tx_stats.tx_busy++;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-index e297a3a..30d248b 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
-@@ -117,11 +117,11 @@ enum i40e_dyn_idx_t {
- #define i40e_rx_desc i40e_32byte_rx_desc
- 
- #define I40E_MIN_TX_LEN		17
--#define I40E_MAX_DATA_PER_TXD	16383	/* aka 16kB - 1 */
-+#define I40E_MAX_DATA_PER_TXD	8192
- 
- /* Tx Descriptors needed, worst case */
- #define TXD_USE_COUNT(S) DIV_ROUND_UP((S), I40E_MAX_DATA_PER_TXD)
--#define DESC_NEEDED ((MAX_SKB_FRAGS * TXD_USE_COUNT(PAGE_SIZE)) + 4)
-+#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
- 
- #define I40E_TX_FLAGS_CSUM		(u32)(1)
- #define I40E_TX_FLAGS_HW_VLAN		(u32)(1 << 1)
+-	/* A failure in MSI-X entry allocation isn't fatal, but it does
+-	 * mean we disable MSI-X capabilities of the adapter.
+-	 */
+ 	adapter->msix_entries = kcalloc(v_budget,
+ 					sizeof(struct msix_entry), GFP_KERNEL);
+ 	if (!adapter->msix_entries) {
 -- 
 1.9.3
