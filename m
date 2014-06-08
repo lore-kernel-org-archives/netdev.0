@@ -1,117 +1,97 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 v3] bridge: Add master device name to bridge
- fdb show
-Date: Sun, 08 Jun 2014 07:24:38 -0400
-Message-ID: <539447F6.9040906@mojatatu.com>
-References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: wkok@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
-	shm@cumulusnetworks.com, Vlad Yasevich <vyasevic@redhat.com>
-To: roopa@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2014-06-08
+Date: Sun,  8 Jun 2014 07:33:42 -0700
+Message-ID: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:46213 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753481AbaFHLYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 07:24:48 -0400
-Received: by mail-ie0-f170.google.com with SMTP id to1so4490518ieb.29
-        for <netdev@vger.kernel.org>; Sun, 08 Jun 2014 04:24:47 -0700 (PDT)
-In-Reply-To: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753301AbaFHOeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series contains updates to i40e and i40evf.
 
-note: The "Self" addresses are derived from uni/multicast addresses of
-the port i.e they are _not_ part of the fdb.
-IMO, it is unfortunate that  the fdb command is being used for
-dealing with device specific multicast/unicast address management
-as is "ip link" - but the API is out there already.
-Therefore they dont really belong to the fdb table and displaying
-the master as the bridge maybe misleading.
+Jesse fixes an issue reported by Eric Dumazet where the driver was not
+masking the right bits in the receive descriptor before checking them.
+Also fixes TSO accounting since the kernel now can send as much as 32kB
+in a single skb->frag[.] entry, even on a system with 4kB pages.
 
-For that reason, I like your earlier patch.
-Vlad?
+Anjali cleans up registers which are no longer supported.
 
-cheers,
-jamal
+Akeem cleans up code comments and removes num_msix_entries from the
+interrupt setup routine since it was not being used.  Fixes an issue where
+FD SB/ATR and NTUPLE configuration status were reported erroneously, so
+now the driver reports FDir without further information.  Fixes a coding
+error where during the registration for NAPI, the driver was requesting
+256 budget.  The max recommended value for this NAPI_POLL_WEIGHT or 64.
+Lastly, removed deprecated device IDs because they will not be shipped.
 
+Mitch removes log messages which were redundant so therefore unnecessary.
+Also removes a bogus code comment since VF drivers require MSI-X or they
+won't get interrupts at all and cleans up the formatting of several log
+messages.  Mitch also fixes the possibility of null pointers in VSI, since
+not all VSIs have transmit rings.
 
-On 06/08/14 01:23, roopa@cumulusnetworks.com wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> This patch adds master dev name from NDA_MASTER netlink attribute
->   to bridge fdb show output
->
-> current iproute2 tries to print 'master' in the output if NTF_MASTER
-> is present. But, kernel today does not set NTF_MASTER during dump
-> requests. Which means I have not seen iproute2 bridge cmd print 'master' atall.
-> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is present.
->
-> Example output:
->
-> before this patch:
-> # bridge fdb show
-> 44:38:39:00:27:ba dev bond2.2003 permanent
-> 44:38:39:00:27:bb dev bond4.2003 permanent
-> 44:38:39:00:27:bc dev bond2.2004 permanent
->
-> After this patch:
-> # bridge fdb show
-> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
-> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
-> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
->
-> For comparision with the above, below is the output for NTF_SELF today,
-> # bridge fdb show
-> 33:33:00:00:00:01 dev eth0 self permanent
-> 01:00:5e:00:00:01 dev eth0 self permanent
-> 33:33:ff:00:01:cc dev eth0 self permanent
->
-> If change in output is a concern, 'master' can be put at the end of the fdb
-> output line or made optional with -d[etails] option.
->
-> change from v1 to v2:
->      use 'bridge' instead of 'master' in fdb show output
->
-> change from v2 to v3:
->      use 'master' instead of 'bridge' in fdb show output
->      (master could also be a vxlan device)
->
-> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->   bridge/fdb.c              |    5 ++++-
->   include/linux/neighbour.h |    1 +
->   2 files changed, 5 insertions(+), 1 deletion(-)
->
-> diff --git a/bridge/fdb.c b/bridge/fdb.c
-> index 9b720e3..d1c3da6 100644
-> --- a/bridge/fdb.c
-> +++ b/bridge/fdb.c
-> @@ -146,7 +146,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
->   	}
->   	if (r->ndm_flags & NTF_SELF)
->   		fprintf(fp, "self ");
-> -	if (r->ndm_flags & NTF_MASTER)
-> +	if (tb[NDA_MASTER])
-> +		fprintf(fp, "master %s ",
-> +			ll_index_to_name(rta_getattr_u32(tb[NDA_MASTER])));
-> +	else if (r->ndm_flags & NTF_MASTER)
->   		fprintf(fp, "master ");
->   	if (r->ndm_flags & NTF_ROUTER)
->   		fprintf(fp, "router ");
-> diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
-> index d3ef583..4a1d7e9 100644
-> --- a/include/linux/neighbour.h
-> +++ b/include/linux/neighbour.h
-> @@ -24,6 +24,7 @@ enum {
->   	NDA_PORT,
->   	NDA_VNI,
->   	NDA_IFINDEX,
-> +	NDA_MASTER,
->   	__NDA_MAX
->   };
->
->
+Shannon ensures to clear the PXE mode bit on each reset after the AdminQ
+has been rebuilt.
+
+Catherine bumps the driver versions for i40e and i40evf.
+
+The following are changes since commit fff1f59b1773fcbb563c503ad9c7ace54062144b:
+  mac802154: llsec: add forgotten list_del_rcu in key removal
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G Abodunrin (2):
+  i40e/i40evf: Clean up a few things
+  i40e: Fix incorrect feature configuration status
+
+Anjali Singhai Jain (1):
+  i40e/i40evf: Fix code to accommodate i40e_register.h changes
+
+Catherine Sullivan (1):
+  i40e/i40evf: Bump build version
+
+Jesse Brandeburg (4):
+  i40e/i40evf: fix rx descriptor status
+  i40e/i40evf: fix TSO accounting
+  i40e/i40evf: fix poll weight
+  i40e/i40evf: remove deprecated device IDs
+
+Mitch Williams (6):
+  i40evf: remove unnecessary log messages
+  i40evf: remove bogus comment
+  i40evf: clean up log message formatting
+  i40evf: use correct format for printing MAC addresses
+  i40e: not all VSIs have rings
+  i40e/i40evf: remove chatty reset messages
+
+Shannon Nelson (1):
+  i40e: clear pxe after adminq is rebuilt
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |  1 -
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 11 +----
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c         |  7 +--
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h         |  7 +--
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     | 11 ++---
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 24 ++++------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  7 +--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  4 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        | 12 ++---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  4 --
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  2 -
+ drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  7 +--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  7 +--
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      | 14 +++---
+ drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  4 --
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 55 ++++++++--------------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 49 +++++++------------
+ 18 files changed, 74 insertions(+), 156 deletions(-)
+
+-- 
+1.9.3
