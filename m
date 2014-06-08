@@ -1,58 +1,167 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: hw.c: Cleaning up
- conjunction always evaluates to false
-Date: Sun, 08 Jun 2014 10:45:50 -0500
-Message-ID: <5394852E.1000601@lwfinger.net>
-References: <1402151419-18296-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <1436639.AmJiDmeQZF@al> <CAFo99gb2gzLjv_4b3O-e0B1R8P5BTGbPJLuYYAmoyww9hkmrvA@mail.gmail.com> <3239222.FyGtueg2aO@al>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net-next] net: add skb allocation flags to __pskb_copy
+Date: Sun, 8 Jun 2014 17:59:41 +0200
+Message-ID: <20140608155941.GL5219@cpaasch-mac>
+References: <b75b291eb5364f13904268302d789357@UCL-MBX03.OASIS.UCLOUVAIN.BE>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Peter Wu <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>,
-	Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <3239222.FyGtueg2aO@al>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Octavian Purdila <octavian.purdila@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:50077 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753192AbaFHP7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 11:59:47 -0400
+Content-Disposition: inline
+In-Reply-To: <b75b291eb5364f13904268302d789357@UCL-MBX03.OASIS.UCLOUVAIN.BE>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2014 05:43 AM, Peter Wu wrote:
-> On Sunday 08 June 2014 12:36:11 Rickard Strandqvist wrote:
->> Then we use MSR_MASK instead, new patch then. But I will wait a day?
->> Or what is long enough to be sure that nobody else have any
->> objections? How is this usually resolved?
->
-> Well, Larry is the maintainer, so he will ultimately pick up patches.
-> One or two days should give people some time to read and reply.
+Hello Octavian,
 
-My role as maintainer is a little different than others. As I have a private 
-broadband connection with only 1 Mbps upload, it is not practical for me to 
-operate a git server. I used to have an account at kernel.org, but I lost it 
-after the break-in there. As I have never met face-to-face with another Linux 
-developer, I have had no chance to have my credentials signed, so that resource 
-is unavailable. As a result, I ACK or NACK patches and they are picked up by 
-John Linville for drivers in the regular wireless tree, and Greg Kroah-Hartman 
-for the staging drivers.
+On 07/06/14 - 22:19:29, Octavian Purdila wrote:
+> There are several instances where a __pskb_copy is immediately
+> followed by an skb_clone. Add a new parameter to __pskb_copy to allow
+> the skb to be allocated from the fclone cache and thus speed up
+> subsequent skb_clone calls.
+> 
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+> ---
+>  include/linux/skbuff.h   | 6 +++---
+>  net/bluetooth/hci_sock.c | 5 +++--
+>  net/core/skbuff.c        | 7 +++++--
+>  net/ipv4/tcp_output.c    | 2 +-
+>  net/nfc/llcp_core.c      | 2 +-
+>  net/nfc/rawsock.c        | 2 +-
+>  6 files changed, 14 insertions(+), 10 deletions(-)
 
-> As for MSR_MASK, that macro does not exist yet, I was wondering whether
-> it's OK to add a new macro? (Larry?)
+I found two more cases where the stack could benefit from using an FCLONE:
 
-Yes, that is OK.
+* batadv_nc_skb_store_before_coding() does a pskb_copy and later in
+  batadv_nc_skb_store_for_decoding() the skb_clone is done.
 
->> Sure, I can send a patch for all the files instead. However, earlier
->> received complaints when I sent patches extending over more than one
->> file.
+* tipc_bcbearer_send() also does a pskb_copy, and the send_msg-callback (in
+  tipc_bearer_send()) does a clone too later on in tipc_l2_send_msg().
 
-These do really need to be split a little. There must be at least one patch for 
-the wireless tree, and a second for staging. In fact, I prefer the way they are 
-with one for each driver.
 
-Larry
+Cheers,
+Christoph
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index c705808..7c5b56a 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -744,8 +744,8 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+>  int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask);
+>  struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t priority);
+>  struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t priority);
+> -struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask);
+> -
+> +struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask,
+> +			    int flags);
+>  int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail, gfp_t gfp_mask);
+>  struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
+>  				     unsigned int headroom);
+> @@ -2235,7 +2235,7 @@ static inline dma_addr_t skb_frag_dma_map(struct device *dev,
+>  static inline struct sk_buff *pskb_copy(struct sk_buff *skb,
+>  					gfp_t gfp_mask)
+>  {
+> -	return __pskb_copy(skb, skb_headroom(skb), gfp_mask);
+> +	return __pskb_copy(skb, skb_headroom(skb), gfp_mask, 0);
+>  }
+>  
+>  /**
+> diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+> index f608bff..c2f5db3 100644
+> --- a/net/bluetooth/hci_sock.c
+> +++ b/net/bluetooth/hci_sock.c
+> @@ -143,7 +143,8 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
+>  
+>  		if (!skb_copy) {
+>  			/* Create a private copy with headroom */
+> -			skb_copy = __pskb_copy(skb, 1, GFP_ATOMIC);
+> +			skb_copy = __pskb_copy(skb, 1, GFP_ATOMIC,
+> +					       SKB_ALLOC_FCLONE);
+>  			if (!skb_copy)
+>  				continue;
+>  
+> @@ -248,7 +249,7 @@ void hci_send_to_monitor(struct hci_dev *hdev, struct sk_buff *skb)
+>  
+>  			/* Create a private copy with headroom */
+>  			skb_copy = __pskb_copy(skb, HCI_MON_HDR_SIZE,
+> -					       GFP_ATOMIC);
+> +					       GFP_ATOMIC, SKB_ALLOC_FCLONE);
+>  			if (!skb_copy)
+>  				continue;
+>  
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 05f4bef..03863be 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -955,6 +955,7 @@ EXPORT_SYMBOL(skb_copy);
+>   *	@skb: buffer to copy
+>   *	@headroom: headroom of new skb
+>   *	@gfp_mask: allocation priority
+> + *	@flags: skb allocation flags (e.g. SKB_ALLOC_FCLONE)
+>   *
+>   *	Make a copy of both an &sk_buff and part of its data, located
+>   *	in header. Fragmented data remain shared. This is used when
+> @@ -964,11 +965,13 @@ EXPORT_SYMBOL(skb_copy);
+>   *	The returned buffer has a reference count of 1.
+>   */
+>  
+> -struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask)
+> +struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask,
+> +			    int flags)
+>  {
+>  	unsigned int size = skb_headlen(skb) + headroom;
+>  	struct sk_buff *n = __alloc_skb(size, gfp_mask,
+> -					skb_alloc_rx_flag(skb), NUMA_NO_NODE);
+> +					flags | skb_alloc_rx_flag(skb),
+> +					NUMA_NO_NODE);
+>  
+>  	if (!n)
+>  		goto out;
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index d463c35..17fe18d 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2490,7 +2490,7 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+>  	if (unlikely((NET_IP_ALIGN && ((unsigned long)skb->data & 3)) ||
+>  		     skb_headroom(skb) >= 0xFFFF)) {
+>  		struct sk_buff *nskb = __pskb_copy(skb, MAX_TCP_HEADER,
+> -						   GFP_ATOMIC);
+> +						   GFP_ATOMIC, 0);
+>  		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+>  			     -ENOBUFS;
+>  	} else {
+> diff --git a/net/nfc/llcp_core.c b/net/nfc/llcp_core.c
+> index f6278da..df960a3 100644
+> --- a/net/nfc/llcp_core.c
+> +++ b/net/nfc/llcp_core.c
+> @@ -681,7 +681,7 @@ void nfc_llcp_send_to_raw_sock(struct nfc_llcp_local *local,
+>  
+>  		if (skb_copy == NULL) {
+>  			skb_copy = __pskb_copy(skb, NFC_RAW_HEADER_SIZE,
+> -					       GFP_ATOMIC);
+> +					       GFP_ATOMIC, SKB_ALLOC_FCLONE);
+>  
+>  			if (skb_copy == NULL)
+>  				continue;
+> diff --git a/net/nfc/rawsock.c b/net/nfc/rawsock.c
+> index 55eefee..e8c1805 100644
+> --- a/net/nfc/rawsock.c
+> +++ b/net/nfc/rawsock.c
+> @@ -379,7 +379,7 @@ void nfc_send_to_raw_sock(struct nfc_dev *dev, struct sk_buff *skb,
+>  	sk_for_each(sk, &raw_sk_list.head) {
+>  		if (!skb_copy) {
+>  			skb_copy = __pskb_copy(skb, NFC_RAW_HEADER_SIZE,
+> -				     GFP_ATOMIC);
+> +					       GFP_ATOMIC, SKB_ALLOC_FCLONE);
+>  			if (!skb_copy)
+>  				continue;
+>  
+> -- 
+> 1.8.3.2
+> 
