@@ -1,43 +1,33 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: hw.c: Cleaning up conjunction always evaluates to false
-Date: Sun, 08 Jun 2014 12:43:25 +0200
-Message-ID: <3239222.FyGtueg2aO@al>
-References: <1402151419-18296-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <1436639.AmJiDmeQZF@al> <CAFo99gb2gzLjv_4b3O-e0B1R8P5BTGbPJLuYYAmoyww9hkmrvA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFo99gb2gzLjv_4b3O-e0B1R8P5BTGbPJLuYYAmoyww9hkmrvA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/2] mlx4 SRIOV fixes
+Date: Sun,  8 Jun 2014 13:49:44 +0300
+Message-ID: <1402224586-21187-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:46314 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752506AbaFHKtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 06:49:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 08 June 2014 12:36:11 Rickard Strandqvist wrote:
-> Then we use MSR_MASK instead, new patch then. But I will wait a day?
-> Or what is long enough to be sure that nobody else have any
-> objections? How is this usually resolved?
+Hi Dave, 
 
-Well, Larry is the maintainer, so he will ultimately pick up patches.
-One or two days should give people some time to read and reply.
+The patch from Wei Yang is a designed fix to a regression introduced by earlier commit
+of him. Jack added a fix to the resource management which we got from IBM.
 
-As for MSR_MASK, that macro does not exist yet, I was wondering whether
-it's OK to add a new macro? (Larry?)
+Let's get that into 3.16-rc1 1st and later see to what stable version/s this should go.
 
-> Sure, I can send a patch for all the files instead. However, earlier
-> received complaints when I sent patches extending over more than one
-> file.
-> 
-> I'll check again how the cover letter works. Although when I try with
-> my send patch mail script it did not work as I wanted.
+Or.
 
-See the manual page git-send-email(1) and git-format-patch(1). In
-particular the Example section of git-send-email(1).
+Jack Morgenstein (1):
+  net/mlx4_core: Fix SRIOV free-pool management when enforcing resource quotas
 
-Kind regards,
-Peter
+Wei Yang (1):
+  net/mlx4_core: Keep only one driver entry release mlx4_priv
+
+ drivers/net/ethernet/mellanox/mlx4/main.c          |    2 +-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   41 ++++++++++++++++++--
+ 2 files changed, 38 insertions(+), 5 deletions(-)
