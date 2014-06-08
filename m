@@ -1,88 +1,98 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf: remove chatty reset messages
-Date: Sun,  8 Jun 2014 07:33:53 -0700
-Message-ID: <1402238037-20661-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] i40e/i40evf: fix rx descriptor status
+Date: Sun,  8 Jun 2014 07:33:43 -0700
+Message-ID: <1402238037-20661-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64930 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753543AbaFHOeH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:07 -0400
+	id S1753449AbaFHOeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:01 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Both the PF side and the VF side of the VF reset process are too noisy.
-We already warn the user that a reset is happening, and that is
-sufficient.
+As reported by Eric Dumazet, the driver is not masking the right
+bits in the receive descriptor before it starts checking them.
 
-Because some of these message are inside if statements, we have to
-rejigger the brackets at the same time to keep our coding style
-consistent.
+This patch extends the mask to allow for the right bits to be
+checked, and fixes the issue permanently via a define.
 
-Change-ID: Id175562fb0ec7c396d9de156b4890e136f52d5f4
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+Change-ID: I3274f7619057a950f468143e6d7e11b129f54655
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     |  2 --
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 13 ++++---------
- 2 files changed, 4 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 10 ++++++----
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 10 ++++++----
+ 2 files changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 4502734..566eec1 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5623,8 +5623,6 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
- 	/* tell the firmware that we're starting */
- 	i40e_send_version(pf);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 5a930b3..7fbbab4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -492,9 +492,6 @@ union i40e_32byte_rx_desc {
+ 	} wb;  /* writeback */
+ };
  
--	dev_info(&pf->pdev->dev, "reset complete\n");
+-#define I40E_RXD_QW1_STATUS_SHIFT	0
+-#define I40E_RXD_QW1_STATUS_MASK	(0x7FFFUL << I40E_RXD_QW1_STATUS_SHIFT)
 -
- end_core_reset:
- 	clear_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state);
- }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 590a9a4..e32b8c5 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1486,15 +1486,12 @@ static void i40evf_reset_task(struct work_struct *work)
- 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
- 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
--		if (rstat_val != I40E_VFR_VFACTIVE) {
--			dev_info(&adapter->pdev->dev, "Reset now occurring\n");
-+		if (rstat_val != I40E_VFR_VFACTIVE)
- 			break;
--		} else {
-+		else
- 			msleep(I40EVF_RESET_WAIT_MS);
--		}
- 	}
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
--		dev_err(&adapter->pdev->dev, "Reset was not detected\n");
- 		adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
- 		goto continue_reset; /* act like the reset happened */
- 	}
-@@ -1503,12 +1500,10 @@ static void i40evf_reset_task(struct work_struct *work)
- 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
- 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
--		if (rstat_val == I40E_VFR_VFACTIVE) {
--			dev_info(&adapter->pdev->dev, "Reset complete, reinitializing\n");
-+		if (rstat_val == I40E_VFR_VFACTIVE)
- 			break;
--		} else {
-+		else
- 			msleep(I40EVF_RESET_WAIT_MS);
--		}
- 	}
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
- 		/* reset never finished */
+ enum i40e_rx_desc_status_bits {
+ 	/* Note: These are predefined bit offsets */
+ 	I40E_RX_DESC_STATUS_DD_SHIFT		= 0,
+@@ -511,9 +508,14 @@ enum i40e_rx_desc_status_bits {
+ 	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
+ 	I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT	= 15,
+ 	I40E_RX_DESC_STATUS_RESERVED_SHIFT	= 16, /* 2 BITS */
+-	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18
++	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18,
++	I40E_RX_DESC_STATUS_LAST /* this entry must be last!!! */
+ };
+ 
++#define I40E_RXD_QW1_STATUS_SHIFT	0
++#define I40E_RXD_QW1_STATUS_MASK	(((1 << I40E_RX_DESC_STATUS_LAST) - 1) \
++					 << I40E_RXD_QW1_STATUS_SHIFT)
++
+ #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
+ #define I40E_RXD_QW1_STATUS_TSYNINDX_MASK	(0x3UL << \
+ 					     I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 4fc9835..9c901fd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -492,9 +492,6 @@ union i40e_32byte_rx_desc {
+ 	} wb;  /* writeback */
+ };
+ 
+-#define I40E_RXD_QW1_STATUS_SHIFT	0
+-#define I40E_RXD_QW1_STATUS_MASK	(0x7FFFUL << I40E_RXD_QW1_STATUS_SHIFT)
+-
+ enum i40e_rx_desc_status_bits {
+ 	/* Note: These are predefined bit offsets */
+ 	I40E_RX_DESC_STATUS_DD_SHIFT		= 0,
+@@ -511,9 +508,14 @@ enum i40e_rx_desc_status_bits {
+ 	I40E_RX_DESC_STATUS_LPBK_SHIFT		= 14,
+ 	I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT	= 15,
+ 	I40E_RX_DESC_STATUS_RESERVED_SHIFT	= 16, /* 2 BITS */
+-	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18
++	I40E_RX_DESC_STATUS_UDP_0_SHIFT		= 18,
++	I40E_RX_DESC_STATUS_LAST /* this entry must be last!!! */
+ };
+ 
++#define I40E_RXD_QW1_STATUS_SHIFT	0
++#define I40E_RXD_QW1_STATUS_MASK	(((1 << I40E_RX_DESC_STATUS_LAST) - 1) \
++					 << I40E_RXD_QW1_STATUS_SHIFT)
++
+ #define I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT   I40E_RX_DESC_STATUS_TSYNINDX_SHIFT
+ #define I40E_RXD_QW1_STATUS_TSYNINDX_MASK	(0x3UL << \
+ 					     I40E_RXD_QW1_STATUS_TSYNINDX_SHIFT)
 -- 
 1.9.3
