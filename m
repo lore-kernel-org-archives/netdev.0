@@ -1,173 +1,43 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] i40e/i40evf: Fix code to accommodate i40e_register.h changes
-Date: Sun,  8 Jun 2014 07:33:44 -0700
-Message-ID: <1402238037-20661-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: clear pxe after adminq is rebuilt
+Date: Sun,  8 Jun 2014 07:33:51 -0700
+Message-ID: <1402238037-20661-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64915 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64921 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753461AbaFHOeC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:02 -0400
+	id S1753536AbaFHOeG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:06 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Remove use of registers no longer supported.
+Be sure to clear PXE mode bit on each reset after AdminQ has been rebuilt.
 
-Change-ID: I9d27399091cea78a926489d94f958edd762f5a20
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: I992d8c79594f8ca0660c50844ace675ecb9c9bf2
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c  |  9 +--------
- drivers/net/ethernet/intel/i40e/i40e_hmc.c     |  7 ++-----
- drivers/net/ethernet/intel/i40e/i40e_hmc.h     |  7 +------
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 11 +++--------
- drivers/net/ethernet/intel/i40evf/i40e_hmc.h   |  7 +------
- 5 files changed, 8 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index fd2b573..8bfb445 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2514,7 +2514,7 @@ static i40e_status i40e_validate_filter_settings(struct i40e_hw *hw,
- {
- 	u32 fcoe_cntx_size, fcoe_filt_size;
- 	u32 pe_cntx_size, pe_filt_size;
--	u32 fcoe_fmax, pe_fmax;
-+	u32 fcoe_fmax;
- 	u32 val;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8ab3c88..a8c9612 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5520,6 +5520,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ 		i40e_verify_eeprom(pf);
+ 	}
  
- 	/* Validate FCoE settings passed */
-@@ -2589,13 +2589,6 @@ static i40e_status i40e_validate_filter_settings(struct i40e_hw *hw,
- 	if (fcoe_filt_size + fcoe_cntx_size >  fcoe_fmax)
- 		return I40E_ERR_INVALID_SIZE;
- 
--	/* PEHSIZE + PEDSIZE should not be greater than PMPEXFMAX */
--	val = rd32(hw, I40E_GLHMC_PEXFMAX);
--	pe_fmax = (val & I40E_GLHMC_PEXFMAX_PMPEXFMAX_MASK)
--		   >> I40E_GLHMC_PEXFMAX_PMPEXFMAX_SHIFT;
--	if (pe_filt_size + pe_cntx_size >  pe_fmax)
--		return I40E_ERR_INVALID_SIZE;
--
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-index bf2d4cc..9b987cc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
-@@ -201,7 +201,7 @@ exit:
-  **/
- i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 					struct i40e_hmc_info *hmc_info,
--					u32 idx, bool is_pf)
-+					u32 idx)
- {
- 	i40e_status ret_code = 0;
- 	struct i40e_hmc_pd_entry *pd_entry;
-@@ -237,10 +237,7 @@ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 	pd_addr = (u64 *)pd_table->pd_page_addr.va;
- 	pd_addr += rel_pd_idx;
- 	memset(pd_addr, 0, sizeof(u64));
--	if (is_pf)
--		I40E_INVALIDATE_PF_HMC_PD(hw, sd_idx, idx);
--	else
--		I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, idx, hmc_info->hmc_fn_id);
-+	I40E_INVALIDATE_PF_HMC_PD(hw, sd_idx, idx);
- 
- 	/* free memory here */
- 	ret_code = i40e_free_dma_mem(hw, &(pd_entry->bp.addr));
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-index 0cd4701..b45d8fe 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
-@@ -163,11 +163,6 @@ struct i40e_hmc_info {
- 	    (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		\
- 	     ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
- 
--#define I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, pd_idx, hmc_fn_id)	   \
--	wr32((hw), I40E_GLHMC_VFPDINV((hmc_fn_id) - I40E_FIRST_VF_FPM_ID), \
--	     (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		   \
--	      ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
--
- /**
-  * I40E_FIND_SD_INDEX_LIMIT - finds segment descriptor index limit
-  * @hmc_info: pointer to the HMC configuration information structure
-@@ -226,7 +221,7 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 					      u32 pd_index);
- i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 					struct i40e_hmc_info *hmc_info,
--					u32 idx, bool is_pf);
-+					u32 idx);
- i40e_status i40e_prep_remove_sd_bp(struct i40e_hmc_info *hmc_info,
- 					     u32 idx);
- i40e_status i40e_remove_sd_bp_new(struct i40e_hw *hw,
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-index 5c341ae..870ab1e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
-@@ -397,7 +397,7 @@ static i40e_status i40e_create_lan_hmc_object(struct i40e_hw *hw,
- 				/* remove the backing pages from pd_idx1 to i */
- 				while (i && (i > pd_idx1)) {
- 					i40e_remove_pd_bp(hw, info->hmc_info,
--							  (i - 1), true);
-+							  (i - 1));
- 					i--;
- 				}
- 			}
-@@ -433,11 +433,7 @@ exit_sd_error:
- 				      ((j - 1) * I40E_HMC_MAX_BP_COUNT));
- 			pd_lmt1 = min(pd_lmt, (j * I40E_HMC_MAX_BP_COUNT));
- 			for (i = pd_idx1; i < pd_lmt1; i++) {
--				i40e_remove_pd_bp(
--					hw,
--					info->hmc_info,
--					i,
--					true);
-+				i40e_remove_pd_bp(hw, info->hmc_info, i);
- 			}
- 			i40e_remove_pd_page(hw, info->hmc_info, (j - 1));
- 			break;
-@@ -616,8 +612,7 @@ static i40e_status i40e_delete_lan_hmc_object(struct i40e_hw *hw,
- 		pd_table =
- 			&info->hmc_info->sd_table.sd_entry[sd_idx].u.pd_table;
- 		if (pd_table->pd_entry[rel_pd_idx].valid) {
--			ret_code = i40e_remove_pd_bp(hw, info->hmc_info,
--						     j, true);
-+			ret_code = i40e_remove_pd_bp(hw, info->hmc_info, j);
- 			if (ret_code)
- 				goto exit;
- 		}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-index 9d90651..a2ad9a4 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
-@@ -163,11 +163,6 @@ struct i40e_hmc_info {
- 	    (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		\
- 	     ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
- 
--#define I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, pd_idx, hmc_fn_id)	   \
--	wr32((hw), I40E_GLHMC_VFPDINV((hmc_fn_id) - I40E_FIRST_VF_FPM_ID), \
--	     (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		   \
--	      ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
--
- /**
-  * I40E_FIND_SD_INDEX_LIMIT - finds segment descriptor index limit
-  * @hmc_info: pointer to the HMC configuration information structure
-@@ -226,7 +221,7 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
- 					      u32 pd_index);
- i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
- 					struct i40e_hmc_info *hmc_info,
--					u32 idx, bool is_pf);
-+					u32 idx);
- i40e_status i40e_prep_remove_sd_bp(struct i40e_hmc_info *hmc_info,
- 					     u32 idx);
- i40e_status i40e_remove_sd_bp_new(struct i40e_hw *hw,
++	i40e_clear_pxe_mode(hw);
+ 	ret = i40e_get_capabilities(pf);
+ 	if (ret) {
+ 		dev_info(&pf->pdev->dev, "i40e_get_capabilities failed, %d\n",
 -- 
 1.9.3
