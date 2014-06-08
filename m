@@ -1,170 +1,173 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] i40evf: clean up log message formatting
-Date: Sun,  8 Jun 2014 07:33:48 -0700
-Message-ID: <1402238037-20661-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] i40e/i40evf: Fix code to accommodate i40e_register.h changes
+Date: Sun,  8 Jun 2014 07:33:44 -0700
+Message-ID: <1402238037-20661-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64920 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64915 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449AbaFHOeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:05 -0400
+	id S1753461AbaFHOeC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:02 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Clean up inconsistent log messages, mostly related to punctuation. Based
-on the dogma that "kernel messages are not sentences", remove all
-trailing periods. Reword a few of the messages to make them less
-sentence-like.
+Remove use of registers no longer supported.
 
-Change-ID: Ibd849aa7623a77549b0709988c66ab05d1311472
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Change-ID: I9d27399091cea78a926489d94f958edd762f5a20
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 14 +++++++-------
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 14 +++++++-------
- 2 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c  |  9 +--------
+ drivers/net/ethernet/intel/i40e/i40e_hmc.c     |  7 ++-----
+ drivers/net/ethernet/intel/i40e/i40e_hmc.h     |  7 +------
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 11 +++--------
+ drivers/net/ethernet/intel/i40evf/i40e_hmc.h   |  7 +------
+ 5 files changed, 8 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index c8ad838..5fd60dd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1028,7 +1028,7 @@ i40evf_acquire_msix_vectors(struct i40evf_adapter *adapter, int vectors)
- 	err = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
- 				    vector_threshold, vectors);
- 	if (err < 0) {
--		dev_err(&adapter->pdev->dev, "Unable to allocate MSI-X interrupts.\n");
-+		dev_err(&adapter->pdev->dev, "Unable to allocate MSI-X interrupts\n");
- 		kfree(adapter->msix_entries);
- 		adapter->msix_entries = NULL;
- 		return err;
-@@ -1504,7 +1504,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
- 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
- 		if (rstat_val == I40E_VFR_VFACTIVE) {
--			dev_info(&adapter->pdev->dev, "Reset is complete. Reinitializing.\n");
-+			dev_info(&adapter->pdev->dev, "Reset complete, reinitializing\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index fd2b573..8bfb445 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2514,7 +2514,7 @@ static i40e_status i40e_validate_filter_settings(struct i40e_hw *hw,
+ {
+ 	u32 fcoe_cntx_size, fcoe_filt_size;
+ 	u32 pe_cntx_size, pe_filt_size;
+-	u32 fcoe_fmax, pe_fmax;
++	u32 fcoe_fmax;
+ 	u32 val;
+ 
+ 	/* Validate FCoE settings passed */
+@@ -2589,13 +2589,6 @@ static i40e_status i40e_validate_filter_settings(struct i40e_hw *hw,
+ 	if (fcoe_filt_size + fcoe_cntx_size >  fcoe_fmax)
+ 		return I40E_ERR_INVALID_SIZE;
+ 
+-	/* PEHSIZE + PEDSIZE should not be greater than PMPEXFMAX */
+-	val = rd32(hw, I40E_GLHMC_PEXFMAX);
+-	pe_fmax = (val & I40E_GLHMC_PEXFMAX_PMPEXFMAX_MASK)
+-		   >> I40E_GLHMC_PEXFMAX_PMPEXFMAX_SHIFT;
+-	if (pe_filt_size + pe_cntx_size >  pe_fmax)
+-		return I40E_ERR_INVALID_SIZE;
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+index bf2d4cc..9b987cc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.c
+@@ -201,7 +201,7 @@ exit:
+  **/
+ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
+ 					struct i40e_hmc_info *hmc_info,
+-					u32 idx, bool is_pf)
++					u32 idx)
+ {
+ 	i40e_status ret_code = 0;
+ 	struct i40e_hmc_pd_entry *pd_entry;
+@@ -237,10 +237,7 @@ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
+ 	pd_addr = (u64 *)pd_table->pd_page_addr.va;
+ 	pd_addr += rel_pd_idx;
+ 	memset(pd_addr, 0, sizeof(u64));
+-	if (is_pf)
+-		I40E_INVALIDATE_PF_HMC_PD(hw, sd_idx, idx);
+-	else
+-		I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, idx, hmc_info->hmc_fn_id);
++	I40E_INVALIDATE_PF_HMC_PD(hw, sd_idx, idx);
+ 
+ 	/* free memory here */
+ 	ret_code = i40e_free_dma_mem(hw, &(pd_entry->bp.addr));
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
+index 0cd4701..b45d8fe 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_hmc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
+@@ -163,11 +163,6 @@ struct i40e_hmc_info {
+ 	    (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		\
+ 	     ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
+ 
+-#define I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, pd_idx, hmc_fn_id)	   \
+-	wr32((hw), I40E_GLHMC_VFPDINV((hmc_fn_id) - I40E_FIRST_VF_FPM_ID), \
+-	     (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		   \
+-	      ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
+-
+ /**
+  * I40E_FIND_SD_INDEX_LIMIT - finds segment descriptor index limit
+  * @hmc_info: pointer to the HMC configuration information structure
+@@ -226,7 +221,7 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
+ 					      u32 pd_index);
+ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
+ 					struct i40e_hmc_info *hmc_info,
+-					u32 idx, bool is_pf);
++					u32 idx);
+ i40e_status i40e_prep_remove_sd_bp(struct i40e_hmc_info *hmc_info,
+ 					     u32 idx);
+ i40e_status i40e_remove_sd_bp_new(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index 5c341ae..870ab1e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -397,7 +397,7 @@ static i40e_status i40e_create_lan_hmc_object(struct i40e_hw *hw,
+ 				/* remove the backing pages from pd_idx1 to i */
+ 				while (i && (i > pd_idx1)) {
+ 					i40e_remove_pd_bp(hw, info->hmc_info,
+-							  (i - 1), true);
++							  (i - 1));
+ 					i--;
+ 				}
+ 			}
+@@ -433,11 +433,7 @@ exit_sd_error:
+ 				      ((j - 1) * I40E_HMC_MAX_BP_COUNT));
+ 			pd_lmt1 = min(pd_lmt, (j * I40E_HMC_MAX_BP_COUNT));
+ 			for (i = pd_idx1; i < pd_lmt1; i++) {
+-				i40e_remove_pd_bp(
+-					hw,
+-					info->hmc_info,
+-					i,
+-					true);
++				i40e_remove_pd_bp(hw, info->hmc_info, i);
+ 			}
+ 			i40e_remove_pd_page(hw, info->hmc_info, (j - 1));
  			break;
- 		} else {
- 			msleep(I40EVF_RESET_WAIT_MS);
-@@ -1512,7 +1512,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 	}
- 	if (i == I40EVF_RESET_WAIT_COUNT) {
- 		/* reset never finished */
--		dev_err(&adapter->pdev->dev, "Reset never finished (%x). PF driver is dead, and so am I.\n",
-+		dev_err(&adapter->pdev->dev, "Reset never finished (%x)\n",
- 			rstat_val);
- 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
- 
-@@ -1577,7 +1577,7 @@ continue_reset:
- 	}
- 	return;
- reset_err:
--	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit.\n");
-+	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit\n");
- 	i40evf_close(adapter->netdev);
- }
- 
-@@ -1856,7 +1856,7 @@ void i40evf_reinit_locked(struct i40evf_adapter *adapter)
- 	return;
- 
- err_reinit:
--	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit.\n");
-+	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit\n");
- 	i40evf_close(netdev);
- }
- 
-@@ -1977,7 +1977,7 @@ static void i40evf_init_task(struct work_struct *work)
- 		break;
- 	case __I40EVF_INIT_VERSION_CHECK:
- 		if (!i40evf_asq_done(hw)) {
--			dev_err(&pdev->dev, "Admin queue command never completed.\n");
-+			dev_err(&pdev->dev, "Admin queue command never completed\n");
- 			goto err;
+@@ -616,8 +612,7 @@ static i40e_status i40e_delete_lan_hmc_object(struct i40e_hw *hw,
+ 		pd_table =
+ 			&info->hmc_info->sd_table.sd_entry[sd_idx].u.pd_table;
+ 		if (pd_table->pd_entry[rel_pd_idx].valid) {
+-			ret_code = i40e_remove_pd_bp(hw, info->hmc_info,
+-						     j, true);
++			ret_code = i40e_remove_pd_bp(hw, info->hmc_info, j);
+ 			if (ret_code)
+ 				goto exit;
  		}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
+index 9d90651..a2ad9a4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_hmc.h
+@@ -163,11 +163,6 @@ struct i40e_hmc_info {
+ 	    (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		\
+ 	     ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
  
-@@ -2140,7 +2140,7 @@ err_alloc:
- err:
- 	/* Things went into the weeds, so try again later */
- 	if (++adapter->aq_wait_count > I40EVF_AQ_MAX_ERR) {
--		dev_err(&pdev->dev, "Failed to communicate with PF; giving up.\n");
-+		dev_err(&pdev->dev, "Failed to communicate with PF; giving up\n");
- 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
- 		return; /* do not reschedule */
- 	}
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index 13faacd..cd414da 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -388,7 +388,7 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
- 	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
- 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
--		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
-+		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
- 			__func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
-@@ -450,7 +450,7 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
- 	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
- 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
--		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
-+		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
- 			__func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
-@@ -512,7 +512,7 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
- 	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
- 	      (count * sizeof(u16));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
--		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
-+		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
- 			__func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
-@@ -572,7 +572,7 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
- 	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
- 	      (count * sizeof(u16));
- 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
--		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
-+		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
- 			__func__);
- 		count = (I40EVF_MAX_AQ_BUF_SIZE -
- 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
-@@ -711,7 +711,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		return;
- 	}
- 	if (v_opcode != adapter->current_op) {
--		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d.\n",
-+		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d\n",
- 			__func__, adapter->current_op, v_opcode);
- 		/* We're probably completely screwed at this point, but clear
- 		 * the current op and try to carry on....
-@@ -720,7 +720,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		return;
- 	}
- 	if (v_retval) {
--		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d!\n",
-+		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d\n",
- 			__func__, v_retval, v_opcode);
- 	}
- 	switch (v_opcode) {
-@@ -770,7 +770,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_MAP_VECTORS);
- 		break;
- 	default:
--		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF.\n",
-+		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF\n",
- 			__func__, v_opcode);
- 		break;
- 	} /* switch v_opcode */
+-#define I40E_INVALIDATE_VF_HMC_PD(hw, sd_idx, pd_idx, hmc_fn_id)	   \
+-	wr32((hw), I40E_GLHMC_VFPDINV((hmc_fn_id) - I40E_FIRST_VF_FPM_ID), \
+-	     (((sd_idx) << I40E_PFHMC_PDINV_PMSDIDX_SHIFT) |		   \
+-	      ((pd_idx) << I40E_PFHMC_PDINV_PMPDIDX_SHIFT)))
+-
+ /**
+  * I40E_FIND_SD_INDEX_LIMIT - finds segment descriptor index limit
+  * @hmc_info: pointer to the HMC configuration information structure
+@@ -226,7 +221,7 @@ i40e_status i40e_add_pd_table_entry(struct i40e_hw *hw,
+ 					      u32 pd_index);
+ i40e_status i40e_remove_pd_bp(struct i40e_hw *hw,
+ 					struct i40e_hmc_info *hmc_info,
+-					u32 idx, bool is_pf);
++					u32 idx);
+ i40e_status i40e_prep_remove_sd_bp(struct i40e_hmc_info *hmc_info,
+ 					     u32 idx);
+ i40e_status i40e_remove_sd_bp_new(struct i40e_hw *hw,
 -- 
 1.9.3
