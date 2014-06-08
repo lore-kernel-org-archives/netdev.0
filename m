@@ -1,97 +1,170 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2014-06-08
-Date: Sun,  8 Jun 2014 07:33:42 -0700
-Message-ID: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 06/15] i40evf: clean up log message formatting
+Date: Sun,  8 Jun 2014 07:33:48 -0700
+Message-ID: <1402238037-20661-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64920 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753301AbaFHOeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:01 -0400
+	id S1753449AbaFHOeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 10:34:05 -0400
+In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Jesse fixes an issue reported by Eric Dumazet where the driver was not
-masking the right bits in the receive descriptor before checking them.
-Also fixes TSO accounting since the kernel now can send as much as 32kB
-in a single skb->frag[.] entry, even on a system with 4kB pages.
+Clean up inconsistent log messages, mostly related to punctuation. Based
+on the dogma that "kernel messages are not sentences", remove all
+trailing periods. Reword a few of the messages to make them less
+sentence-like.
 
-Anjali cleans up registers which are no longer supported.
+Change-ID: Ibd849aa7623a77549b0709988c66ab05d1311472
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 14 +++++++-------
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 14 +++++++-------
+ 2 files changed, 14 insertions(+), 14 deletions(-)
 
-Akeem cleans up code comments and removes num_msix_entries from the
-interrupt setup routine since it was not being used.  Fixes an issue where
-FD SB/ATR and NTUPLE configuration status were reported erroneously, so
-now the driver reports FDir without further information.  Fixes a coding
-error where during the registration for NAPI, the driver was requesting
-256 budget.  The max recommended value for this NAPI_POLL_WEIGHT or 64.
-Lastly, removed deprecated device IDs because they will not be shipped.
-
-Mitch removes log messages which were redundant so therefore unnecessary.
-Also removes a bogus code comment since VF drivers require MSI-X or they
-won't get interrupts at all and cleans up the formatting of several log
-messages.  Mitch also fixes the possibility of null pointers in VSI, since
-not all VSIs have transmit rings.
-
-Shannon ensures to clear the PXE mode bit on each reset after the AdminQ
-has been rebuilt.
-
-Catherine bumps the driver versions for i40e and i40evf.
-
-The following are changes since commit fff1f59b1773fcbb563c503ad9c7ace54062144b:
-  mac802154: llsec: add forgotten list_del_rcu in key removal
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Akeem G Abodunrin (2):
-  i40e/i40evf: Clean up a few things
-  i40e: Fix incorrect feature configuration status
-
-Anjali Singhai Jain (1):
-  i40e/i40evf: Fix code to accommodate i40e_register.h changes
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump build version
-
-Jesse Brandeburg (4):
-  i40e/i40evf: fix rx descriptor status
-  i40e/i40evf: fix TSO accounting
-  i40e/i40evf: fix poll weight
-  i40e/i40evf: remove deprecated device IDs
-
-Mitch Williams (6):
-  i40evf: remove unnecessary log messages
-  i40evf: remove bogus comment
-  i40evf: clean up log message formatting
-  i40evf: use correct format for printing MAC addresses
-  i40e: not all VSIs have rings
-  i40e/i40evf: remove chatty reset messages
-
-Shannon Nelson (1):
-  i40e: clear pxe after adminq is rebuilt
-
- drivers/net/ethernet/intel/i40e/i40e.h             |  1 -
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 11 +----
- drivers/net/ethernet/intel/i40e/i40e_hmc.c         |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_hmc.h         |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     | 11 ++---
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 24 ++++------
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  7 +--
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        | 12 ++---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h    |  4 --
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  2 -
- drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |  7 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  7 +--
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  4 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      | 14 +++---
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h  |  4 --
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 55 ++++++++--------------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 49 +++++++------------
- 18 files changed, 74 insertions(+), 156 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index c8ad838..5fd60dd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1028,7 +1028,7 @@ i40evf_acquire_msix_vectors(struct i40evf_adapter *adapter, int vectors)
+ 	err = pci_enable_msix_range(adapter->pdev, adapter->msix_entries,
+ 				    vector_threshold, vectors);
+ 	if (err < 0) {
+-		dev_err(&adapter->pdev->dev, "Unable to allocate MSI-X interrupts.\n");
++		dev_err(&adapter->pdev->dev, "Unable to allocate MSI-X interrupts\n");
+ 		kfree(adapter->msix_entries);
+ 		adapter->msix_entries = NULL;
+ 		return err;
+@@ -1504,7 +1504,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
+ 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+ 		if (rstat_val == I40E_VFR_VFACTIVE) {
+-			dev_info(&adapter->pdev->dev, "Reset is complete. Reinitializing.\n");
++			dev_info(&adapter->pdev->dev, "Reset complete, reinitializing\n");
+ 			break;
+ 		} else {
+ 			msleep(I40EVF_RESET_WAIT_MS);
+@@ -1512,7 +1512,7 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	}
+ 	if (i == I40EVF_RESET_WAIT_COUNT) {
+ 		/* reset never finished */
+-		dev_err(&adapter->pdev->dev, "Reset never finished (%x). PF driver is dead, and so am I.\n",
++		dev_err(&adapter->pdev->dev, "Reset never finished (%x)\n",
+ 			rstat_val);
+ 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
+ 
+@@ -1577,7 +1577,7 @@ continue_reset:
+ 	}
+ 	return;
+ reset_err:
+-	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit.\n");
++	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit\n");
+ 	i40evf_close(adapter->netdev);
+ }
+ 
+@@ -1856,7 +1856,7 @@ void i40evf_reinit_locked(struct i40evf_adapter *adapter)
+ 	return;
+ 
+ err_reinit:
+-	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit.\n");
++	dev_err(&adapter->pdev->dev, "failed to allocate resources during reinit\n");
+ 	i40evf_close(netdev);
+ }
+ 
+@@ -1977,7 +1977,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 		break;
+ 	case __I40EVF_INIT_VERSION_CHECK:
+ 		if (!i40evf_asq_done(hw)) {
+-			dev_err(&pdev->dev, "Admin queue command never completed.\n");
++			dev_err(&pdev->dev, "Admin queue command never completed\n");
+ 			goto err;
+ 		}
+ 
+@@ -2140,7 +2140,7 @@ err_alloc:
+ err:
+ 	/* Things went into the weeds, so try again later */
+ 	if (++adapter->aq_wait_count > I40EVF_AQ_MAX_ERR) {
+-		dev_err(&pdev->dev, "Failed to communicate with PF; giving up.\n");
++		dev_err(&pdev->dev, "Failed to communicate with PF; giving up\n");
+ 		adapter->flags |= I40EVF_FLAG_PF_COMMS_FAILED;
+ 		return; /* do not reschedule */
+ 	}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 13faacd..cd414da 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -388,7 +388,7 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
+ 	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
+ 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
+ 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
+-		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
++		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
+ 			__func__);
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
+@@ -450,7 +450,7 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 	len = sizeof(struct i40e_virtchnl_ether_addr_list) +
+ 	      (count * sizeof(struct i40e_virtchnl_ether_addr));
+ 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
+-		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request.\n",
++		dev_warn(&adapter->pdev->dev, "%s: Too many MAC address changes in one request\n",
+ 			__func__);
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_ether_addr_list)) /
+@@ -512,7 +512,7 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
+ 	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
+ 	      (count * sizeof(u16));
+ 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
+-		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
++		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
+ 			__func__);
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
+@@ -572,7 +572,7 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
+ 	len = sizeof(struct i40e_virtchnl_vlan_filter_list) +
+ 	      (count * sizeof(u16));
+ 	if (len > I40EVF_MAX_AQ_BUF_SIZE) {
+-		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request.\n",
++		dev_warn(&adapter->pdev->dev, "%s: Too many VLAN changes in one request\n",
+ 			__func__);
+ 		count = (I40EVF_MAX_AQ_BUF_SIZE -
+ 			 sizeof(struct i40e_virtchnl_vlan_filter_list)) /
+@@ -711,7 +711,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 		return;
+ 	}
+ 	if (v_opcode != adapter->current_op) {
+-		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d.\n",
++		dev_err(&adapter->pdev->dev, "%s: Pending op is %d, received %d\n",
+ 			__func__, adapter->current_op, v_opcode);
+ 		/* We're probably completely screwed at this point, but clear
+ 		 * the current op and try to carry on....
+@@ -720,7 +720,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 		return;
+ 	}
+ 	if (v_retval) {
+-		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d!\n",
++		dev_err(&adapter->pdev->dev, "%s: PF returned error %d to our request %d\n",
+ 			__func__, v_retval, v_opcode);
+ 	}
+ 	switch (v_opcode) {
+@@ -770,7 +770,7 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
+ 		adapter->aq_pending &= ~(I40EVF_FLAG_AQ_MAP_VECTORS);
+ 		break;
+ 	default:
+-		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF.\n",
++		dev_warn(&adapter->pdev->dev, "%s: Received unexpected message %d from PF\n",
+ 			__func__, v_opcode);
+ 		break;
+ 	} /* switch v_opcode */
 -- 
 1.9.3
