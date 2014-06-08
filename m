@@ -1,68 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fixing TLP's FIN recovery
-Date: Sat, 07 Jun 2014 19:58:25 -0700
-Message-ID: <1402196305.3645.318.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <539319F6.2090907@cogentembedded.com>
-	 <1402151680-11434-1-git-send-email-per.hurtig@kau.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, anna.brunstrom@kau.se,
-	mohammad.rajiullah@kau.se, ncardwell@google.com,
-	nanditad@google.com, sergei.shtylyov@cogentembedded.com
-To: Per Hurtig <per.hurtig@kau.se>
+From: roopa@cumulusnetworks.com
+Subject: [PATCH iproute2 v3] bridge: Add master device name to bridge fdb show
+Date: Sat,  7 Jun 2014 22:23:42 -0700
+Message-ID: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: jhs@mojatatu.com, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com
+To: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:49491 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753275AbaFHC61 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 7 Jun 2014 22:58:27 -0400
-Received: by mail-pb0-f42.google.com with SMTP id md12so4086419pbc.1
-        for <netdev@vger.kernel.org>; Sat, 07 Jun 2014 19:58:26 -0700 (PDT)
-In-Reply-To: <1402151680-11434-1-git-send-email-per.hurtig@kau.se>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:33218 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752321AbaFHFXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 01:23:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-06-07 at 16:34 +0200, Per Hurtig wrote:
-> Fix to a problem observed when losing a FIN segment that does not
-> contain data.  In such situations, TLP is unable to recover from
-> *any* tail loss and instead adds at least PTO ms to the
-> retransmission process, i.e., RTO = RTO + PTO.
-> 
-> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
-> ---
->  net/ipv4/tcp_output.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index d463c35..6573765 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2130,8 +2130,10 @@ void tcp_send_loss_probe(struct sock *sk)
->  	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
->  		goto rearm_timer;
->  
-> -	/* Probe with zero data doesn't trigger fast recovery. */
-> -	if (skb->len > 0)
-> +	/* Probe with zero data doesn't trigger fast recovery, if FIN
-> +	 * flag is not set.
-> +	 */
-> +	if ((skb->len > 0) || (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN))
->  		err = __tcp_retransmit_skb(sk, skb);
->  
->  	/* Record snd_nxt for loss detection. */
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
+This patch adds master dev name from NDA_MASTER netlink attribute
+ to bridge fdb show output
 
-You know, I believe the test was exactly to avoid sending data less FIN
-packets.
+current iproute2 tries to print 'master' in the output if NTF_MASTER
+is present. But, kernel today does not set NTF_MASTER during dump
+requests. Which means I have not seen iproute2 bridge cmd print 'master' atall.
+This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is present.
 
-If you write :
+Example output:
 
-    if (A  || !A)
+before this patch:
+# bridge fdb show
+44:38:39:00:27:ba dev bond2.2003 permanent
+44:38:39:00:27:bb dev bond4.2003 permanent
+44:38:39:00:27:bc dev bond2.2004 permanent
 
-Better remove the condition, completely ;)
+After this patch:
+# bridge fdb show
+44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
+44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
+44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
 
+For comparision with the above, below is the output for NTF_SELF today,
+# bridge fdb show
+33:33:00:00:00:01 dev eth0 self permanent
+01:00:5e:00:00:01 dev eth0 self permanent
+33:33:ff:00:01:cc dev eth0 self permanent
 
-Nandita, why FIN packet wont trigger fast retransnmits ?
+If change in output is a concern, 'master' can be put at the end of the fdb
+output line or made optional with -d[etails] option.
 
-It sounds like if the timer is the issue you want to fix, you might
-simply rearm a timer with RTO-PTO instead of RTO ?
+change from v1 to v2:
+    use 'bridge' instead of 'master' in fdb show output
+
+change from v2 to v3:
+    use 'master' instead of 'bridge' in fdb show output
+    (master could also be a vxlan device)
+
+Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ bridge/fdb.c              |    5 ++++-
+ include/linux/neighbour.h |    1 +
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 9b720e3..d1c3da6 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -146,7 +146,10 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	}
+ 	if (r->ndm_flags & NTF_SELF)
+ 		fprintf(fp, "self ");
+-	if (r->ndm_flags & NTF_MASTER)
++	if (tb[NDA_MASTER])
++		fprintf(fp, "master %s ",
++			ll_index_to_name(rta_getattr_u32(tb[NDA_MASTER])));
++	else if (r->ndm_flags & NTF_MASTER)
+ 		fprintf(fp, "master ");
+ 	if (r->ndm_flags & NTF_ROUTER)
+ 		fprintf(fp, "router ");
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index d3ef583..4a1d7e9 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -24,6 +24,7 @@ enum {
+ 	NDA_PORT,
+ 	NDA_VNI,
+ 	NDA_IFINDEX,
++	NDA_MASTER,
+ 	__NDA_MAX
+ };
+ 
+-- 
+1.7.10.4
