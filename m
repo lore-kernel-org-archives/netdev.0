@@ -1,9 +1,9 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [PATCH iproute2 v3] bridge: Add master device name to bridge
  fdb show
-Date: Sun, 08 Jun 2014 07:44:39 -0700
-Message-ID: <539476D7.8020300@cumulusnetworks.com>
-References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com> <539447F6.9040906@mojatatu.com>
+Date: Sun, 08 Jun 2014 11:24:13 -0400
+Message-ID: <5394801D.6080704@mojatatu.com>
+References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com> <539447F6.9040906@mojatatu.com> <539476D7.8020300@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -11,118 +11,35 @@ Cc: davem@davemloft.net, stephen@networkplumber.org,
 	netdev@vger.kernel.org, wkok@cumulusnetworks.com,
 	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com,
 	Vlad Yasevich <vyasevic@redhat.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:55130 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325AbaFHOoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 10:44:44 -0400
-In-Reply-To: <539447F6.9040906@mojatatu.com>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:61840 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325AbaFHPYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 11:24:18 -0400
+Received: by mail-ie0-f178.google.com with SMTP id rl12so4556301iec.23
+        for <netdev@vger.kernel.org>; Sun, 08 Jun 2014 08:24:17 -0700 (PDT)
+In-Reply-To: <539476D7.8020300@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/8/14, 4:24 AM, Jamal Hadi Salim wrote:
->
-> note: The "Self" addresses are derived from uni/multicast addresses of
-> the port i.e they are _not_ part of the fdb.
-> IMO, it is unfortunate that  the fdb command is being used for
-> dealing with device specific multicast/unicast address management
-> as is "ip link" - but the API is out there already.
-> Therefore they dont really belong to the fdb table and displaying
-> the master as the bridge maybe misleading.
+On 06/08/14 10:44, Roopa Prabhu wrote:
 
-sure, you seemed to be using my below patch in your examples for fdb 
-filtering.
-so thought i should resubmit. I am now ok with either.
+> sure, you seemed to be using my below patch in your examples for fdb
+> filtering.
+> so thought i should resubmit. I am now ok with either.
 
-Thanks,
-Roopa
+Yes, my patch is on top of your earlier (version 1) patch. I preferred
+that version.
 
+I looked at the code a little more after sending that email.
+There is some value in displaying a bridge port's unicast addresses
+and even setting them; but only in the case that the bridge port is
+itself an owner of an fdb. As an example of such a case when you have
+another bridge attached to a bridge as a port; or when you have
+something like a vxlan as a bridge port etc.
+However, current code does not discriminate. I cant make sense of
+why this would be intentional but possibly i am missing some use cases.
 
->
-> On 06/08/14 01:23, roopa@cumulusnetworks.com wrote:
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This patch adds master dev name from NDA_MASTER netlink attribute
->>   to bridge fdb show output
->>
->> current iproute2 tries to print 'master' in the output if NTF_MASTER
->> is present. But, kernel today does not set NTF_MASTER during dump
->> requests. Which means I have not seen iproute2 bridge cmd print 
->> 'master' atall.
->> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is 
->> present.
->>
->> Example output:
->>
->> before this patch:
->> # bridge fdb show
->> 44:38:39:00:27:ba dev bond2.2003 permanent
->> 44:38:39:00:27:bb dev bond4.2003 permanent
->> 44:38:39:00:27:bc dev bond2.2004 permanent
->>
->> After this patch:
->> # bridge fdb show
->> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
->> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
->> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
->>
->> For comparision with the above, below is the output for NTF_SELF today,
->> # bridge fdb show
->> 33:33:00:00:00:01 dev eth0 self permanent
->> 01:00:5e:00:00:01 dev eth0 self permanent
->> 33:33:ff:00:01:cc dev eth0 self permanent
->>
->> If change in output is a concern, 'master' can be put at the end of 
->> the fdb
->> output line or made optional with -d[etails] option.
->>
->> change from v1 to v2:
->>      use 'bridge' instead of 'master' in fdb show output
->>
->> change from v2 to v3:
->>      use 'master' instead of 'bridge' in fdb show output
->>      (master could also be a vxlan device)
->>
->> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>   bridge/fdb.c              |    5 ++++-
->>   include/linux/neighbour.h |    1 +
->>   2 files changed, 5 insertions(+), 1 deletion(-)
->>
->> diff --git a/bridge/fdb.c b/bridge/fdb.c
->> index 9b720e3..d1c3da6 100644
->> --- a/bridge/fdb.c
->> +++ b/bridge/fdb.c
->> @@ -146,7 +146,10 @@ int print_fdb(const struct sockaddr_nl *who, 
->> struct nlmsghdr *n, void *arg)
->>       }
->>       if (r->ndm_flags & NTF_SELF)
->>           fprintf(fp, "self ");
->> -    if (r->ndm_flags & NTF_MASTER)
->> +    if (tb[NDA_MASTER])
->> +        fprintf(fp, "master %s ",
->> +            ll_index_to_name(rta_getattr_u32(tb[NDA_MASTER])));
->> +    else if (r->ndm_flags & NTF_MASTER)
->>           fprintf(fp, "master ");
->>       if (r->ndm_flags & NTF_ROUTER)
->>           fprintf(fp, "router ");
->> diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
->> index d3ef583..4a1d7e9 100644
->> --- a/include/linux/neighbour.h
->> +++ b/include/linux/neighbour.h
->> @@ -24,6 +24,7 @@ enum {
->>       NDA_PORT,
->>       NDA_VNI,
->>       NDA_IFINDEX,
->> +    NDA_MASTER,
->>       __NDA_MAX
->>   };
->>
->>
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
