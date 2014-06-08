@@ -1,183 +1,128 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] i40evf: remove unnecessary log messages
-Date: Sun,  8 Jun 2014 07:33:46 -0700
-Message-ID: <1402238037-20661-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 v3] bridge: Add master device name to bridge
+ fdb show
+Date: Sun, 08 Jun 2014 07:44:39 -0700
+Message-ID: <539476D7.8020300@cumulusnetworks.com>
+References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com> <539447F6.9040906@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64915 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753488AbaFHOeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 10:34:03 -0400
-In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:55130 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325AbaFHOoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 10:44:44 -0400
+In-Reply-To: <539447F6.9040906@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On 6/8/14, 4:24 AM, Jamal Hadi Salim wrote:
+>
+> note: The "Self" addresses are derived from uni/multicast addresses of
+> the port i.e they are _not_ part of the fdb.
+> IMO, it is unfortunate that  the fdb command is being used for
+> dealing with device specific multicast/unicast address management
+> as is "ip link" - but the API is out there already.
+> Therefore they dont really belong to the fdb table and displaying
+> the master as the bridge maybe misleading.
 
-We don't need to print log messages when we encounter an out-of-memory
-condition, as the allocator will do this for us. Also, remove a Tx hang
-message that duplicates the one emitted by the netdev layer, and a
-duplicate message in the watchdog.
+sure, you seemed to be using my below patch in your examples for fdb 
+filtering.
+so thought i should resubmit. I am now ok with either.
 
-Change-ID: If2056e6135fe248f66ea939778f9895660f4d189
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 19 ++++--------
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 35 +++++++---------------
- 2 files changed, 16 insertions(+), 38 deletions(-)
+Thanks,
+Roopa
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index feff317..360a911 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -172,7 +172,6 @@ static void i40evf_tx_timeout(struct net_device *netdev)
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
- 	adapter->tx_timeout_count++;
--	dev_info(&adapter->pdev->dev, "TX timeout detected.\n");
- 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING)) {
- 		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
- 		schedule_work(&adapter->reset_task);
-@@ -662,12 +661,9 @@ i40evf_vlan_filter *i40evf_add_vlan(struct i40evf_adapter *adapter, u16 vlan)
- 	f = i40evf_find_vlan(adapter, vlan);
- 	if (NULL == f) {
- 		f = kzalloc(sizeof(*f), GFP_ATOMIC);
--		if (NULL == f) {
--			dev_info(&adapter->pdev->dev,
--				 "%s: no memory for new VLAN filter\n",
--				 __func__);
-+		if (NULL == f)
- 			return NULL;
--		}
-+
- 		f->vlan = vlan;
- 
- 		INIT_LIST_HEAD(&f->list);
-@@ -771,8 +767,6 @@ i40evf_mac_filter *i40evf_add_filter(struct i40evf_adapter *adapter,
- 	if (NULL == f) {
- 		f = kzalloc(sizeof(*f), GFP_ATOMIC);
- 		if (NULL == f) {
--			dev_info(&adapter->pdev->dev,
--				 "%s: no memory for new filter\n", __func__);
- 			clear_bit(__I40EVF_IN_CRITICAL_TASK,
- 				  &adapter->crit_section);
- 			return NULL;
-@@ -1332,8 +1326,7 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 	    (rd32(hw, I40E_VFGEN_RSTAT) & 0x3) != I40E_VFR_VFACTIVE) {
- 		adapter->state = __I40EVF_RESETTING;
- 		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
--		dev_err(&adapter->pdev->dev, "Hardware reset detected.\n");
--		dev_info(&adapter->pdev->dev, "Scheduling reset task\n");
-+		dev_err(&adapter->pdev->dev, "Hardware reset detected\n");
- 		schedule_work(&adapter->reset_task);
- 		adapter->aq_pending = 0;
- 		adapter->aq_required = 0;
-@@ -1610,11 +1603,9 @@ static void i40evf_adminq_task(struct work_struct *work)
- 
- 	event.msg_size = I40EVF_MAX_AQ_BUF_SIZE;
- 	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
--	if (!event.msg_buf) {
--		dev_info(&adapter->pdev->dev, "%s: no memory for ARQ clean\n",
--				 __func__);
-+	if (!event.msg_buf)
- 		return;
--	}
-+
- 	v_msg = (struct i40e_virtchnl_msg *)&event.desc;
- 	do {
- 		ret = i40evf_clean_arq_element(hw, &event, &pending);
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index b3cd3cd..13faacd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -219,11 +219,9 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
- 	len = sizeof(struct i40e_virtchnl_vsi_queue_config_info) +
- 		       (sizeof(struct i40e_virtchnl_queue_pair_info) * pairs);
- 	vqci = kzalloc(len, GFP_ATOMIC);
--	if (!vqci) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!vqci)
- 		return;
--	}
-+
- 	vqci->vsi_id = adapter->vsi_res->vsi_id;
- 	vqci->num_queue_pairs = pairs;
- 	vqpi = vqci->qpair;
-@@ -332,11 +330,8 @@ void i40evf_map_queues(struct i40evf_adapter *adapter)
- 	      (adapter->num_msix_vectors *
- 		sizeof(struct i40e_virtchnl_vector_map));
- 	vimi = kzalloc(len, GFP_ATOMIC);
--	if (!vimi) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!vimi)
- 		return;
--	}
- 
- 	vimi->num_vectors = adapter->num_msix_vectors;
- 	/* Queue vectors first */
-@@ -402,11 +397,9 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
- 	}
- 
- 	veal = kzalloc(len, GFP_ATOMIC);
--	if (!veal) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!veal)
- 		return;
--	}
-+
- 	veal->vsi_id = adapter->vsi_res->vsi_id;
- 	veal->num_elements = count;
- 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
-@@ -465,11 +458,9 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
- 		len = I40EVF_MAX_AQ_BUF_SIZE;
- 	}
- 	veal = kzalloc(len, GFP_ATOMIC);
--	if (!veal) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!veal)
- 		return;
--	}
-+
- 	veal->vsi_id = adapter->vsi_res->vsi_id;
- 	veal->num_elements = count;
- 	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
-@@ -529,11 +520,9 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
- 		len = I40EVF_MAX_AQ_BUF_SIZE;
- 	}
- 	vvfl = kzalloc(len, GFP_ATOMIC);
--	if (!vvfl) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!vvfl)
- 		return;
--	}
-+
- 	vvfl->vsi_id = adapter->vsi_res->vsi_id;
- 	vvfl->num_elements = count;
- 	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
-@@ -591,11 +580,9 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
- 		len = I40EVF_MAX_AQ_BUF_SIZE;
- 	}
- 	vvfl = kzalloc(len, GFP_ATOMIC);
--	if (!vvfl) {
--		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
--			__func__);
-+	if (!vvfl)
- 		return;
--	}
-+
- 	vvfl->vsi_id = adapter->vsi_res->vsi_id;
- 	vvfl->num_elements = count;
- 	list_for_each_entry_safe(f, ftmp, &adapter->vlan_filter_list, list) {
--- 
-1.9.3
+
+>
+> On 06/08/14 01:23, roopa@cumulusnetworks.com wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This patch adds master dev name from NDA_MASTER netlink attribute
+>>   to bridge fdb show output
+>>
+>> current iproute2 tries to print 'master' in the output if NTF_MASTER
+>> is present. But, kernel today does not set NTF_MASTER during dump
+>> requests. Which means I have not seen iproute2 bridge cmd print 
+>> 'master' atall.
+>> This patch overrides the NTF_MASTER flag if NDA_MASTER attribute is 
+>> present.
+>>
+>> Example output:
+>>
+>> before this patch:
+>> # bridge fdb show
+>> 44:38:39:00:27:ba dev bond2.2003 permanent
+>> 44:38:39:00:27:bb dev bond4.2003 permanent
+>> 44:38:39:00:27:bc dev bond2.2004 permanent
+>>
+>> After this patch:
+>> # bridge fdb show
+>> 44:38:39:00:27:ba dev bond2.2003 master br-2003 permanent
+>> 44:38:39:00:27:bb dev bond4.2003 master br-2003 permanent
+>> 44:38:39:00:27:bc dev bond2.2004 master br-2004 permanent
+>>
+>> For comparision with the above, below is the output for NTF_SELF today,
+>> # bridge fdb show
+>> 33:33:00:00:00:01 dev eth0 self permanent
+>> 01:00:5e:00:00:01 dev eth0 self permanent
+>> 33:33:ff:00:01:cc dev eth0 self permanent
+>>
+>> If change in output is a concern, 'master' can be put at the end of 
+>> the fdb
+>> output line or made optional with -d[etails] option.
+>>
+>> change from v1 to v2:
+>>      use 'bridge' instead of 'master' in fdb show output
+>>
+>> change from v2 to v3:
+>>      use 'master' instead of 'bridge' in fdb show output
+>>      (master could also be a vxlan device)
+>>
+>> Signed-off-by: Wilson Kok <wkok@cumulusnetworks.com>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>   bridge/fdb.c              |    5 ++++-
+>>   include/linux/neighbour.h |    1 +
+>>   2 files changed, 5 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/bridge/fdb.c b/bridge/fdb.c
+>> index 9b720e3..d1c3da6 100644
+>> --- a/bridge/fdb.c
+>> +++ b/bridge/fdb.c
+>> @@ -146,7 +146,10 @@ int print_fdb(const struct sockaddr_nl *who, 
+>> struct nlmsghdr *n, void *arg)
+>>       }
+>>       if (r->ndm_flags & NTF_SELF)
+>>           fprintf(fp, "self ");
+>> -    if (r->ndm_flags & NTF_MASTER)
+>> +    if (tb[NDA_MASTER])
+>> +        fprintf(fp, "master %s ",
+>> +            ll_index_to_name(rta_getattr_u32(tb[NDA_MASTER])));
+>> +    else if (r->ndm_flags & NTF_MASTER)
+>>           fprintf(fp, "master ");
+>>       if (r->ndm_flags & NTF_ROUTER)
+>>           fprintf(fp, "router ");
+>> diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+>> index d3ef583..4a1d7e9 100644
+>> --- a/include/linux/neighbour.h
+>> +++ b/include/linux/neighbour.h
+>> @@ -24,6 +24,7 @@ enum {
+>>       NDA_PORT,
+>>       NDA_VNI,
+>>       NDA_IFINDEX,
+>> +    NDA_MASTER,
+>>       __NDA_MAX
+>>   };
+>>
+>>
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
