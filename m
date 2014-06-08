@@ -1,134 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [linux-nics] [PATCHv3 2/3] list: Fix order of arguments for
- hlist_add_after(_rcu)
-Date: Sun, 08 Jun 2014 01:53:45 -0700
-Message-ID: <1402217625.3039.1.camel@jtkirshe-mobl>
-References: <1402159211-12629-1-git-send-email-kenhelias@web.de>
- <1402159211-12629-2-git-send-email-kenhelias@web.de>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net] net/mlx4_core: Fix Oops on reboot when SRIOV VFs are
+ probed into the Host
+Date: Sun, 8 Jun 2014 12:16:53 +0300
+Message-ID: <CAJZOPZJ2bvm31vB2skuWQ1tTYhX41cXwX0EzUyb_1KFN_zSeuA@mail.gmail.com>
+References: <1401619783-23659-1-git-send-email-ogerlitz@mellanox.com>
+	<20140602142947.GB28523@richard>
+	<CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8931175707816991347=="
-Cc: devel@driverdev.osuosl.org, b.a.t.m.a.n@lists.open-mesh.org,
- NICS <linux.nics@intel.com>, Linux@isotope.jf.intel.com,
- e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
- bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-fsdevel@vger.kernel.org,
- Ken Helias <kenhelias@firemail.de>, Andrew Morton <akpm@linux-foundation.org>,
- "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Ken Helias <kenhelias@web.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1402159211-12629-2-git-send-email-kenhelias@web.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:47198 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753469AbaFHJQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 05:16:54 -0400
+Received: by mail-qg0-f47.google.com with SMTP id j107so7482416qga.20
+        for <netdev@vger.kernel.org>; Sun, 08 Jun 2014 02:16:53 -0700 (PDT)
+In-Reply-To: <CAErSpo4GNxMMWyfcSnMKp65M6DAVwQkRCTuCbt+sWkOJTVt9Cw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 2, 2014 at 7:10 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+[...]
+>   From the PCI core's perspective, after .probe() returns successfully,
+>   we can call any driver entry point and pass the pci_dev to it, and
+>   expect it to work.  Doing mlx4_remove_one() in mlx4_pci_err_detected()
 
---===============8931175707816991347==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-o0coTsBl9GGr9ZZ4GW3Z"
+note that __mlx4_remove_one() is what called from mlx4_pci_err_detected()
+and the former is built in a way which allows it to be called twice.
 
+In that respect, I agree to the fix provided by Wei Yang over this thread, which
+essentially makes .shutdown to behave in a similar way and call
+__mlx4_remove_one()
+and will submit it for inclusion.
 
---=-o0coTsBl9GGr9ZZ4GW3Z
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Sat, 2014-06-07 at 18:40 +0200, Ken Helias wrote:
-> From: Ken Helias <kenhelias@firemail.de>
->=20
-> All other add functions for lists have the new item as first argument
-> and the
-> position where it is added as second argument. This was changed for no
-> good
-> reason in this function and makes using it unnecessary confusing.
->=20
-> The name was changed to let old code generate a compile errors instead
-> of
-> using the wrong parameter order.
->=20
-> Signed-off-by: Ken Helias <kenhelias@firemail.de>
-> Cc: Linux NICS <linux.nics@intel.com>
-> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Cc: dri-devel@lists.freedesktop.org
-> Cc: e1000-devel@lists.sourceforge.net
-> Cc: netdev@vger.kernel.org
-> Cc: devel@driverdev.osuosl.org
-> Cc: linux-fsdevel@vger.kernel.org
-> Cc: b.a.t.m.a.n@lists.open-mesh.org
-> Cc: bridge@lists.linux-foundation.org
-
-For the Intel driver changes...
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-> ---
-> Patch based on "Add linux-next specific files for 20140606"
->=20
-> v3:
-> renamed from hlist_add_after* to hlist_add_behind
->=20
-> v2:
-> Splitted into two patches
-> reduced number of Cc
->=20
->  Documentation/RCU/whatisRCU.txt                  | 2 +-
->  drivers/gpu/drm/drm_hashtab.c                    | 2 +-
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c   | 2 +-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 2 +-
->  drivers/staging/lustre/lustre/libcfs/hash.c      | 4 ++--
->  fs/namespace.c                                   | 2 +-
->  fs/notify/inode_mark.c                           | 2 +-
->  fs/notify/vfsmount_mark.c                        | 2 +-
->  include/linux/list.h                             | 4 ++--
->  include/linux/rculist.h                          | 8 ++++----
->  net/batman-adv/fragmentation.c                   | 2 +-
->  net/bridge/br_multicast.c                        | 2 +-
->  net/ipv4/fib_trie.c                              | 2 +-
->  net/ipv6/addrlabel.c                             | 2 +-
->  net/xfrm/xfrm_policy.c                           | 4 ++--
->  15 files changed, 21 insertions(+), 21 deletions(-)
-
-
-
---=-o0coTsBl9GGr9ZZ4GW3Z
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABCgAGBQJTlCSZAAoJEOVv75VaS+3Ok5UQAKJkXA4phG5ywUso5FFKUi7c
-GmuypU0v+yAQqOtyIApE0pzTbn4Sdm1Dr9ihhYSCM5om/iAEyzVFsyGBtW7SHMOE
-s9HxS+g6XBITslWreVlKpc/78cjvUNldUF1zbbySP7D+BrOWZNufXhJAlmQMt+rp
-cA5jAIELq1FrRDSWCaiWQio99Mp9I8b5WPLM1ruBgIBiHUkDUO7bkSi8pN4ph87Z
-/2QRmwTt4P1TLRSQe++4LXIl/fBFebr+dGWNSVHrehJPBorRejORRfGH++wsjzqS
-vR+lmTreMbWOY6LegOifBji0PBRuMcgqaCknb0bFsmsa/HKUokLgL7DoUhfRKPIQ
-EQznC+AJZop5QGbcIEiqr16UhySit/4kKBYOqMccz20wegL6Kpza4TUKzJdhZZ6a
-7toLQQSjcQGp26kJE0qQqh0qGIfc0cV3vX7shN66cjA/GwFhFUzHLvnnRRf5JbTd
-hJf7JJ4DDXBtr/qtOQTVwxwfaWqgOu41pO7/SZpBysL6KC5smifJFdKtPCW1/xet
-kbO9p7vMAJND78bCC45wjebJd6ir0Ul/W5QhNOSyWSLfSG69vBB3aiJYf+24wUn4
-3q6TvLgRPYeOqqwT1rRRNl00UWbPeoWEcbGIddU83D7xXhwbFRjqzDPXZjIMezyL
-7YK2Y4ACs689I34gyeKD
-=NPkK
------END PGP SIGNATURE-----
-
---=-o0coTsBl9GGr9ZZ4GW3Z--
-
-
---===============8931175707816991347==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---===============8931175707816991347==--
+>   sort of breaks that assumption because you clear out pci_drvdata().
+>   Right now, the only other entry point mlx4 really implements is
+>   mlx4_remove_one(), and it has a hack that tests whether pci_drvdata()
+>   is NULL.  But that's ... a hack, and you'll have to do the same
+>   if/when you implement suspend/resume/sriov_configure/etc.
