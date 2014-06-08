@@ -1,75 +1,429 @@
-From: "SAFIA RAHAJ HASSAN" <safiarahajhas@gmail.com>
-Subject: =?windows-1256?Q?=E1=D3=E1=C7=E3_=DA=E1=ED=DF_=E6=D1=CD=E3=C9?=
- =?windows-1256?Q?_=C7=E1=E1=E5?=
-Date: Sun, 08 Jun 2014 14:05:19 -0700
-Message-ID: <web-84435513@wavecable.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] net-next: ethernet driver: Fujist OGMA
+Date: Mon, 9 Jun 2014 00:19:41 +0200
+Message-ID: <20140608221941.GA28334@electric-eye.fr.zoreil.com>
+References: <20140608020913.17601.6638.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1256;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Andy Green <andy.green@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.wavecable.net ([76.14.0.250]:33146 "EHLO wavecable.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753707AbaFHWCP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 18:02:15 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36476 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753707AbaFHWTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 18:19:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20140608020913.17601.6638.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Assalamualaikum
-=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5 =E6=C8=D1=
-=DF=C7=CA=E5....=C7=CA=E3=E4=ED =C7=E4 =CA=DF=E6=E4 =C7=E4=CA=20
-=E6=C7=E1=DA=C7=C6=E1=C9 =C8=D5=CD=C9 =CC=ED=CF=C9 =E6=DD=EC =C7=CD=D3=E4=
- =CD=C7=E1 =C7=E4 =D4=C7=C1 =C7=E1=E1=C9...=E6=C7=CA=E3=E4=ED =C7=E4=20
-=CA=D5=E1=ED =E3=DA=ED =E1=E1=C9 =DA=D2 =E6=CC=E1 =C7=E4 =ED=CC=E1=C8 =C7=
-=E1=D3=E1=C7=E3 =E6=C7=E1=C7=D3=CA=DE=D1=C7=D1 =E1=E1=D4=DA=C8=20
-=C7=E1=D3=E6=D1=ED.
-=D5=CF=ED=DE=ED =C7=E1=DA=D2=ED=D2 =C7=CA=E3=E4=ED =C7=E4 =D1=D3=C7=E1=CA=
-=ED =E5=CF=C9 =E1=E3 =CA=D3=C8=C8 =E1=DF =C7=E1=C7=D2=DA=C7=CC =C7=E6=20
-=CA=DA=CA=DE=CF =C7=E4=E4=ED =C7=CD=C7=E6=E1 =C7=E4 =C7=CD=CA=C7=E1 =DA=
-=E1=ED=DF =E1=C7=E4=E4=ED =E1=D3=CA =E3=CB=E1 =C7=E1=E3=CD=CA=C7=E1=ED=E4=
- =DA=E1=ED=20
-=D4=C8=DF=C9 =C7=E1=C7=E4=CA=D1=E4=CA =E1=C7 =C7=E4=E4=ED =C7=E3=D1=C7=C9=
- =E3=D3=E1=E3=C9 =E6=C7=E3 =E6=CD=ED=CF=C9 =C7=D1=E3=E1=C9 =E1=D8=DD=E1=
-=ED=E4=20
-=E6=C7=E4=E4=ED =E3=E4
+Andy Green <andy.green@linaro.org> :
+[...]
 
-=D3=E6=D1=ED=C7... =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =D4=CE=D5 =D5=C7=CF=
-=DE =E6=E4=D2=ED=E5 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=ED =E6=E1=ED=D3=C7=DA=CF=
-=E4=ED=20
-=DD=ED =CA=C7=E3=ED=E4 =C7=E3=CA=DA=C9 =DA=C7=C6=E1=CA=ED =E1=C7=E4=E4=C7=
- =DA=E1=ED =E6=D4=DF =C7=E4 =E4=DB=C7=CF=D1 =D3=E6=D1=ED=C7 =E1=E3=DF=C7=
-=E4=20
-=C7=DF=CB=D1 =C7=E3=C7=E4=C7 =E6=C7=D1=ED=CF =C7=E1=C7=D3=CA=CB=E3=C7=D1=
- =E5=E4=C7=DF =E1=C7=E4=E5 =E1=C7 =ED=E6=CC=CF =C7=E3=E4 =C7=E6 =C7=ED=20
-=C7=D3=CA=DE=D1=C7=D1
+Partial review below. The driver needs more.
 
-=DD=ED =D3=E6=D1=ED=C7 =CD=C7=E1=ED=C7 =E6=C7=E4=C7 =DA=E4=CF=ED =C8=DA=
-=D6 =C7=E1=C7=DE=CA=D1=C7=CD=C7=CA =C7=D1=ED=CF =C7=E4 =E4=CA=D4=C7=D1=DF=
-=20
-=DD=ED=E5=C7 =D3=E6=ED=C7 =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =E3=D3=CA=CB=
-=E3=D1 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=C7 =E1=ED =E1=C7=E4=E4=ED =C7=D1=ED=
-=CF =C7=E4=20
-=C7=C8=CF=C1 =DD=ED =C8=E4=C7=C1 =C7=D3=CA=CB=E3=C7=D1 =E1=C8=DA=D6 =C7=
-=E1=C7=DA=E3=C7=E1 =CE=C7=D1=CC =D3=E6=D1=ED=C7 =E1=C7=E4=E5=C7 =E1=ED=D3=
-=CA=20
-=C8=E3=DF=C7=E4 =C7=E3=E4
+> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma.h b/drivers/net/ethernet/fujitsu/ogma/ogma.h
+> new file mode 100644
+> index 0000000..126e458
+> --- /dev/null
+> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma.h
+[...]
+> +struct ogma_priv {
+> +	u32 core_enabled_flag:1;
+> +	u32 gmac_rx_running_flag:1;
+> +	u32 gmac_tx_running_flag:1;
+> +	u32 gmac_mode_valid_flag:1;
+> +	u32 normal_desc_ring_valid:1;
+> +	void *base_addr;
 
-=CD=C7=E1=ED=C7...=C7=D1=ED=CF=DF =C7=E4 =CA=DA=D1=DD =C7=E4 =C7=CA=D5=E1=
- =C8=DF =E1=C8=CF=C7=C1 =D4=ED =DF=CA=ED=D1 =DF=E6=ED=D3 =E6=C7=E4=DF=20
-=D3=E6=DD =CA=D3=CA=DD=ED=CF =C7=CF=C7 =C7=D1=CA =C7=E4 =CA=DF=E6=E4 =D4=
-=D1=ED=DF=ED =DD=ED =E5=CF=C7 =C7=E1=C7=D3=CA=CB=E3=C7=D1 =C8=C7=E1=C7=ED=
-=E3=C7=E4=20
-=C7=CA=D5=E1 =C8=ED =DA=E1=ED =C7=E1=C8=ED=C7=E4=C7=CA =C7=E1=E3=E6=CC=E6=
-=CF=C9 =C8=C7=E1=C7=D3=DD=E1 =E6=D3=E6=DD =C7=DA=D8=ED=DF =C8=ED=C7=E4=C7=
-=CA =DA=E4
+Add __iomem annotation.
 
-=C7=E1=E3=E6=D6=E6=DA
+Please rename it (ioaddr, whatever). It looks like net_device.base_addr
 
-1)=C7=E1=C7=D3=E3 =C8=C7=E1=DF=C7=E3=E1
+[...]
+> +static inline void ogma_write_reg(struct ogma_priv *priv, u32 reg_addr,
+> +				    u32 value)
+> +{
+> +	writel(value, (priv->base_addr) + (reg_addr << 2));
 
-2)=D1=DE=E3 =C7=E1=CA=E1=ED=DD=E6=E4 =E1=E1=C7=CA=D5=C7=E1 =C8=DF
+Excess parenthesis. The driver contains quite some of those.
 
-=D3=E6=DD =C7=CA=D5=E1 =C8=DF =E1=E3=E4=C7=DE=D4=C9 =C8=DA=D6 =C7=E1=C7=
-=E3=E6=D1 =C7=E1=CE=C7=D5=C9 =C8=C7=E1=E3=E6=D6=E6=DA =C7=D1=CC=E6=20
-=C7=E1=C7=D1=D3=C7=E1 =DA=E1=EC =C8=D1=ED=CF=ED
+> +}
+> +
+> +static inline u32 ogma_read_reg(struct ogma_priv *priv, u32 reg_addr)
+> +{
+> +	return readl(priv->base_addr + (reg_addr << 2));
+> +}
+> +
+> +static inline void pfdep_set_pkt_buf_type(void *skb, bool recv_buf_flag)
+> +{
+> +	struct sk_buff *skb_p = (struct sk_buff *)skb;
+> +	(*((bool *) skb_p->cb)) = recv_buf_flag;
+
+Missing empty line.
+
+[...]
+> +extern const struct net_device_ops ogma_netdev_ops;
+> +extern const struct ethtool_ops ogma_ethtool_ops;
+> +
+> +int ogma_start_gmac(struct ogma_priv *priv, bool rx_flag, bool tx_flag);
+> +int ogma_stop_gmac(struct ogma_priv *priv, bool rx_flag, bool tx_flag);
+> +int ogma_set_gmac_mode(struct ogma_priv *priv,
+> +		       const struct ogma_gmac_mode *mode);
+> +void ogma_set_phy_reg(struct ogma_priv *priv, u8 phy_addr, u8 reg_addr,
+> +		      u16 value);
+> +u16 ogma_get_phy_reg(struct ogma_priv *priv, u8 phy_addr, u8 reg_addr);
+> +int ogma_start_desc_ring(struct ogma_priv *priv, unsigned int id);
+> +int ogma_stop_desc_ring(struct ogma_priv *priv, unsigned int id);
+> +u16 ogma_get_rx_num(struct ogma_priv *priv, unsigned int id);
+> +u16 ogma_get_tx_avail_num(struct ogma_priv *priv, unsigned int id);
+> +int ogma_clean_tx_desc_ring(struct ogma_priv *priv, unsigned int id);
+> +int ogma_clean_rx_desc_ring(struct ogma_priv *priv, unsigned int id);
+> +int ogma_set_tx_pkt_data(struct ogma_priv *priv, unsigned int id,
+> +	const struct ogma_tx_pkt_ctrl *tx_ctrl, u8 scat_num,
+> +		const struct ogma_frag_info *scat, struct sk_buff *skb);
+> +int ogma_get_rx_pkt_data(struct ogma_priv *priv, unsigned int id,
+> +	struct ogma_rx_pkt_info *rx_pkt_info_p, struct ogma_frag_info *frag,
+> +						u16 *len, struct sk_buff **skb);
+> +int ogma_ring_irq_enable(struct ogma_priv *priv,
+> +			      unsigned int id, u32 irq_factor);
+> +int ogma_ring_irq_disable(struct ogma_priv *priv,
+> +			       unsigned int id, u32 irq_factor);
+> +int ogma_set_irq_coalesce_param(struct ogma_priv *priv, unsigned int id,
+> +		u16 int_pktcnt, bool int_tmr_unit_ms_flag, u16 int_tmr_cnt);
+> +
+> +int ogma_alloc_desc_ring(struct ogma_priv *priv, unsigned int id);
+> +void ogma_free_desc_ring(struct ogma_priv *priv, struct ogma_desc_ring *desc);
+> +int ogma_setup_rx_desc_ring(struct ogma_priv *priv,
+> +						struct ogma_desc_ring *desc);
+> +int ogma_netdev_napi_poll(struct napi_struct *napi_p, int budget);
+
+Excess public scope ?
+
+> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma_desc_ring_access.c b/drivers/net/ethernet/fujitsu/ogma/ogma_desc_ring_access.c
+> new file mode 100644
+> index 0000000..f11a834
+> --- /dev/null
+> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma_desc_ring_access.c
+[...]
+> +static void desc_lock(struct ogma_desc_ring *desc, bool *ctx)
+> +{
+> +	if (in_softirq()) {
+> +		*ctx = 1;	/* Mark that bh is already disabled. */
+> +		spin_lock(&desc->spinlock_desc);
+> +	} else {
+> +		*ctx = 0;
+> +		spin_lock_bh(&desc->spinlock_desc);
+> +	}
+> +}
+
+Device drivers should not need this kind of locking.
+
+Let's see:
+- ogma_ring_irq_enable
+  Only called from the xmit handler, whence in locally disabled bh context.
+
+- ogma_start_desc_ring
+  Only called through ogma_netdev_ops.ndo_open, thus in bh enabled context.
+  One may ask if open() _really_ needs this lock anyway as it can delay
+  both napi processing and tx queueing.
+
+- ogma_stop_desc_ring
+  It's called in more places than ogma_start_desc_ring but it should
+  work the same (disable NAPI in close, wait for quiescence, etc.).
+
+- ogma_get_rx_num
+  Called from NAPI context. No need to disable bh.
+
+- ogma_get_tx_avail_num
+  Called from NAPI context or xmit handler. No need to disable bh.
+  
+- ogma_clean_tx_desc_ring
+  Called from NAPI, xmit or ogma_netdev_ops.ndo_open. The latter can
+  control the formers. Should be a plain spinlock.
+
+- ogma_clean_rx_desc_ring
+  Only called through ogma_netdev_ops.ndo_open. See above.
+
+- ogma_set_tx_pkt_data
+  Only called from the xmit handler, whence in locally disabled bh context.
+
+- ogma_get_rx_pkt_data
+  Only called from NAPI context. No need to disable bh.
+
+Executive summary: desc_lock should go away.
+
+> +
+> +static void desc_unlock(struct ogma_desc_ring *desc, bool *ctx)
+> +{
+> +	if (*ctx)
+> +		spin_unlock(&desc->spinlock_desc);
+> +	else
+> +		spin_unlock_bh(&desc->spinlock_desc);
+> +}
+> +
+> +static void ogma_check_desc_own_sanity(const struct ogma_desc_ring *desc,
+> +					u16 idx, unsigned int expected_own)
+> +{
+> +	u32 tmp = *(u32 *)((void *)desc->ring_vaddr + desc->len * idx);
+> +
+> +	BUG_ON((tmp >> 31) != expected_own);
+> +}
+> +
+> +int ogma_ring_irq_enable(struct ogma_priv *priv, unsigned int id,
+> +								u32 irq_factor)
+> +{
+> +	int ret = 0;
+> +	struct ogma_desc_ring *desc = &priv->desc_ring[id];
+> +	bool ctx;
+
+Please use inverted xmas tree style for variable declaration.
+
+> +
+> +	desc_lock(desc, &ctx);
+> +
+> +	if (!desc->running_flag) {
+> +		dev_err(priv->dev, "desc ring not running\n");
+> +		ret = -ENODEV;
+> +		goto bail;
+> +	}
+> +
+> +	ogma_write_reg(priv, ads_irq_set[id], irq_factor);
+> +
+> +bail:
+> +	desc_unlock(desc, &ctx);
+> +
+> +	return ret;
+> +}
+> +
+> +int ogma_ring_irq_disable(struct ogma_priv *priv,
+> +			       unsigned int id, u32 irq_factor)
+
+int ogma_ring_irq_disable(struct ogma_priv *priv, unsigned int id,
+			  u32 irq_factor)
+
+> +{
+> +	ogma_write_reg(priv, desc_ring_irq_inten_clr_reg_addr[id], irq_factor);
+> +
+> +	return 0;
+
+Why does it return anything ? It should be void.
+
+> +}
+> +
+> +static int alloc_pkt_buf(struct device *dev, u16 len, void **addr_p,
+> +				phys_addr_t *phys, struct sk_buff **pskb)
+> +{
+> +	struct sk_buff *skb = dev_alloc_skb(len + 2);
+> +	if (!skb)
+> +		return -ENOMEM;
+> +
+> +	/* Reserve leading 2 bytes to make IP header word-aligned. */
+> +	skb_reserve(skb, 2);
+
+netdev_alloc_skb_ip_align
+
+> +
+> +	*phys = dma_map_single(dev, skb->data, (size_t) len, DMA_FROM_DEVICE);
+> +	if (!*phys) {
+> +		dev_kfree_skb(skb);
+> +
+> +		return -ENOMEM;
+> +	}
+> +
+> +	*addr_p = (void *)skb->data;
+> +	*pskb = skb;
+> +
+> +	/* Mark that this is a receiving buffer. */
+> +	pfdep_set_pkt_buf_type(skb, 1);
+
+The comment underlines a poor naming.
+
+> +
+> +	return 0;
+> +}
+> +
+> +void kfree_pkt_buf(struct device *dev, u16 len, void *addr,
+> +	phys_addr_t phys_addr, bool last_flag, struct sk_buff *skb)
+> +{
+> +	dma_unmap_single(dev, phys_addr, (size_t) len,
+> +			 (pfdep_is_recv_pkt_buf(skb) ?
+> +			  DMA_FROM_DEVICE : DMA_TO_DEVICE));
+
+Excess parenthesis.
+
+> +
+> +	if (last_flag)
+> +		dev_kfree_skb(skb);
+> +}
+> +
+> +int ogma_alloc_desc_ring(struct ogma_priv *priv, unsigned int id)
+> +{
+> +	int ret = 0;
+> +	struct ogma_desc_ring *desc = &priv->desc_ring[id];
+> +	struct ogma_desc_param *param = &priv->desc_ring[id].param;
+> +	u8 rx_desc_entry_len = 0;
+> +
+> +	if ((priv->param.desc_param[id].valid_flag) &&
+> +	    ((priv->param.desc_param[id].entry_num < OGMA_DESC_MIN) ||
+> +	     (priv->param.desc_param[id].entry_num > OGMA_DESC_MAX))) {
+
+A local variable for &priv->param.desc_param[id] would not hurt.
+
+[...]
+> +	desc->ring_vaddr = dma_alloc_coherent(NULL,
+> +		desc->len * param->entry_num, &desc->deschys_addr, GFP_KERNEL);
+
+Indent should line things up with the first character after the parenthesis.
+
+> +	if (!desc->ring_vaddr) {
+> +		ret = -ENOMEM;
+> +		dev_err(priv->dev, "%s: failed to alloc\n", __func__);
+> +		goto err;
+> +	}
+> +
+> +	memset(desc->ring_vaddr, 0, (u32) desc->len * param->entry_num);
+> +	desc->frag = kmalloc(sizeof(struct ogma_frag_info) * param->entry_num,
+> +								GFP_NOWAIT);
+
+Indent.
+
+> +	if (!desc->frag) {
+> +		ret = -ENOMEM;
+> +		dev_err(priv->dev, "%s: failed to alloc\n", __func__);
+> +		goto err;
+> +	}
+> +
+> +	memset(desc->frag, 0, sizeof(struct ogma_frag_info) * param->entry_num);
+> +	desc->priv = kmalloc(sizeof(struct sk_buff *) * param->entry_num,
+> +								GFP_NOWAIT);
+
+Indent.
+
+> +	if (!desc->priv) {
+> +		ret = -ENOMEM;
+> +		dev_err(priv->dev, "%s: failed to alloc priv\n", __func__);
+> +		goto err;
+> +	}
+> +
+> +	memset(desc->priv, 0, sizeof(struct sk_buff *) * param->entry_num);
+> +
+> +	return 0;
+> +
+> +err:
+> +	ogma_free_desc_ring(priv, desc);
+> +
+> +	return ret;
+> +}
+> +
+> +void ogma_uninit_pkt_desc_ring(struct ogma_priv *priv,
+> +			       struct ogma_desc_ring *desc)
+> +{
+> +	u16 idx;
+> +	u32 tmp;
+> +	bool last_flag;
+> +	int count = desc->param.entry_num;
+> +
+> +	for (idx = 0; idx < count; idx++) {
+> +		if (!desc->frag[idx].addr)
+> +			continue;
+> +
+> +		tmp = *((u32 *)((void *)desc->ring_vaddr + (desc->len * idx)));
+> +		last_flag = (tmp >> 8) & 1;
+> +		kfree_pkt_buf(priv->dev, desc->frag[idx].len,
+> +			desc->frag[idx].addr, desc->frag[idx].phys_addr,
+> +			      last_flag, desc->priv[idx]);
+
+Broken indent. The driver contains a lot of those. :o(
+
+Please add a local variable for desc->frag[idx].
+
+[...]
+> +static void ogma_set_rx_desc_entry(struct ogma_priv *priv,
+> +	struct ogma_desc_ring *desc, u16 idx, const struct ogma_frag_info *frag,
+> +						     struct sk_buff *skb)
+> +{
+> +	struct ogma_rx_desc_entry rx_desc_entry;
+> +
+> +	ogma_check_desc_own_sanity(desc, idx, 0);
+> +
+> +	memset(&rx_desc_entry, 0, sizeof(rx_desc_entry));
+> +
+> +	rx_desc_entry.attr = (1 << OGMA_RX_PKT_DESC_RING_OWN_FIELD) |
+> +			     (1 << OGMA_RX_PKT_DESC_RING_FS_FIELD) |
+> +			     (1 << OGMA_RX_PKT_DESC_RING_LS_FIELD);
+> +
+> +	rx_desc_entry.data_buf_addr = frag->phys_addr;
+> +	rx_desc_entry.buf_len_info = frag->len;
+> +
+> +	if (idx == (desc->param.entry_num - 1))
+> +		rx_desc_entry.attr |= (0x1U << OGMA_RX_PKT_DESC_RING_LD_FIELD);
+> +
+> +	memcpy(((void *)((void *)desc->ring_vaddr + desc->len * idx + 4)),
+> +		(void *)((void *)&rx_desc_entry + 4), desc->len - 4);
+
+Scary void * fetish.
+
+[...]
+> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c b/drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c
+> new file mode 100644
+> index 0000000..2f69a29
+> --- /dev/null
+> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c
+[...]
+> +const struct net_device_ops ogma_netdev_ops = {
+> +	.ndo_open = ogma_netdev_open,
+> +	.ndo_stop = ogma_netdev_stop,
+> +	.ndo_start_xmit = ogma_netdev_start_xmit,
+> +	.ndo_set_features = ogma_netdev_set_features,
+> +	.ndo_get_stats = ogma_netdev_get_stats,
+> +	.ndo_change_mtu = ogma_netdev_change_mtu,
+> +	.ndo_set_mac_address = ogma_netdev_set_macaddr,
+> +	.ndo_validate_addr = eth_validate_addr,
+> +};
+
+Please use tabs before "=" to line things up.
+
+> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+> new file mode 100644
+> index 0000000..176d746
+> --- /dev/null
+> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+[...]
+> +int ogma_configure_normal_mode(struct ogma_priv *priv,
+> +			       const struct ogma_normal_mode_hwconf
+> +			       *normal_mode_hwconf_p)
+> +{
+[...]
+> +	timeout = WAIT_FW_RDY_TIMEOUT;
+> +	while (timeout-- && (ogma_read_reg(priv,
+> +					   desc_ads
+> +					   [OGMA_RING_NRM_RX])
+> +			     & (0x1UL << OGMA_REG_DESC_RING_CONFIG_CFG_UP)))
+
+:o(
+
+[...]
+> +static int ogma_probe(struct platform_device *pdev)
+> +{
+[...]
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	if (!res) {
+> +		dev_err(&pdev->dev, "Missing base resource\n");
+> +		goto bail1;
+> +	}
+> +
+> +	priv->base_addr = ioremap_nocache(res->start,
+> +						res->end - res->start + 1);
+> +	if (!priv->base_addr) {
+> +		dev_err(&pdev->dev, "ioremap_nocache() failed\n");
+> +		err = -EINVAL;
+> +		goto bail1;
+
+bail1, bail2, bail3 and friends are not sane label names.
+
+I haven't found any __le{8, 16, 32} nor cpu_to_xyz in the driver. I would
+had expected some in the descriptors.
+
+-- 
+Ueimor
