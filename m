@@ -1,102 +1,183 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e/i40evf: Clean up a few things
-Date: Sun,  8 Jun 2014 07:33:45 -0700
-Message-ID: <1402238037-20661-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] i40evf: remove unnecessary log messages
+Date: Sun,  8 Jun 2014 07:33:46 -0700
+Message-ID: <1402238037-20661-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64912 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:64915 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753475AbaFHOeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753488AbaFHOeD (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 8 Jun 2014 10:34:03 -0400
 In-Reply-To: <1402238037-20661-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-1. There is no ixgbe_watchdog_task function in the driver, so change
-   the comment to the correct function name, i40e_watchdog_subtask.
-2. Remove num_msix_entries from interrupt set_up routine
-   because it is never used.
-3. Remove some TBD comments that are not needed.
+We don't need to print log messages when we encounter an out-of-memory
+condition, as the allocator will do this for us. Also, remove a Tx hang
+message that duplicates the one emitted by the netdev layer, and a
+duplicate message in the watchdog.
 
-Change-ID: I37697a04007074b797f85fd83d626672e4df1ad1
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Change-ID: If2056e6135fe248f66ea939778f9895660f4d189
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h            | 1 -
- drivers/net/ethernet/intel/i40e/i40e_main.c       | 4 +---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl.h   | 4 ----
- drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h | 4 ----
- 4 files changed, 1 insertion(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 19 ++++--------
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 35 +++++++---------------
+ 2 files changed, 16 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 9c27d8b..dc6d7c6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -201,7 +201,6 @@ struct i40e_pf {
- 	unsigned long state;
- 	unsigned long link_check_timeout;
- 	struct msix_entry *msix_entries;
--	u16 num_msix_entries;
- 	bool fc_autoneg_status;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index feff317..360a911 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -172,7 +172,6 @@ static void i40evf_tx_timeout(struct net_device *netdev)
+ 	struct i40evf_adapter *adapter = netdev_priv(netdev);
  
- 	u16 eeprom_version;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 63147a6..00fdc30 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -397,7 +397,7 @@ static struct rtnl_link_stats64 *i40e_get_netdev_stats_struct(
+ 	adapter->tx_timeout_count++;
+-	dev_info(&adapter->pdev->dev, "TX timeout detected.\n");
+ 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING)) {
+ 		adapter->flags |= I40EVF_FLAG_RESET_NEEDED;
+ 		schedule_work(&adapter->reset_task);
+@@ -662,12 +661,9 @@ i40evf_vlan_filter *i40evf_add_vlan(struct i40evf_adapter *adapter, u16 vlan)
+ 	f = i40evf_find_vlan(adapter, vlan);
+ 	if (NULL == f) {
+ 		f = kzalloc(sizeof(*f), GFP_ATOMIC);
+-		if (NULL == f) {
+-			dev_info(&adapter->pdev->dev,
+-				 "%s: no memory for new VLAN filter\n",
+-				 __func__);
++		if (NULL == f)
+ 			return NULL;
+-		}
++
+ 		f->vlan = vlan;
+ 
+ 		INIT_LIST_HEAD(&f->list);
+@@ -771,8 +767,6 @@ i40evf_mac_filter *i40evf_add_filter(struct i40evf_adapter *adapter,
+ 	if (NULL == f) {
+ 		f = kzalloc(sizeof(*f), GFP_ATOMIC);
+ 		if (NULL == f) {
+-			dev_info(&adapter->pdev->dev,
+-				 "%s: no memory for new filter\n", __func__);
+ 			clear_bit(__I40EVF_IN_CRITICAL_TASK,
+ 				  &adapter->crit_section);
+ 			return NULL;
+@@ -1332,8 +1326,7 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 	    (rd32(hw, I40E_VFGEN_RSTAT) & 0x3) != I40E_VFR_VFACTIVE) {
+ 		adapter->state = __I40EVF_RESETTING;
+ 		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
+-		dev_err(&adapter->pdev->dev, "Hardware reset detected.\n");
+-		dev_info(&adapter->pdev->dev, "Scheduling reset task\n");
++		dev_err(&adapter->pdev->dev, "Hardware reset detected\n");
+ 		schedule_work(&adapter->reset_task);
+ 		adapter->aq_pending = 0;
+ 		adapter->aq_required = 0;
+@@ -1610,11 +1603,9 @@ static void i40evf_adminq_task(struct work_struct *work)
+ 
+ 	event.msg_size = I40EVF_MAX_AQ_BUF_SIZE;
+ 	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
+-	if (!event.msg_buf) {
+-		dev_info(&adapter->pdev->dev, "%s: no memory for ARQ clean\n",
+-				 __func__);
++	if (!event.msg_buf)
+ 		return;
+-	}
++
+ 	v_msg = (struct i40e_virtchnl_msg *)&event.desc;
+ 	do {
+ 		ret = i40evf_clean_arq_element(hw, &event, &pending);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index b3cd3cd..13faacd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -219,11 +219,9 @@ void i40evf_configure_queues(struct i40evf_adapter *adapter)
+ 	len = sizeof(struct i40e_virtchnl_vsi_queue_config_info) +
+ 		       (sizeof(struct i40e_virtchnl_queue_pair_info) * pairs);
+ 	vqci = kzalloc(len, GFP_ATOMIC);
+-	if (!vqci) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!vqci)
+ 		return;
+-	}
++
+ 	vqci->vsi_id = adapter->vsi_res->vsi_id;
+ 	vqci->num_queue_pairs = pairs;
+ 	vqpi = vqci->qpair;
+@@ -332,11 +330,8 @@ void i40evf_map_queues(struct i40evf_adapter *adapter)
+ 	      (adapter->num_msix_vectors *
+ 		sizeof(struct i40e_virtchnl_vector_map));
+ 	vimi = kzalloc(len, GFP_ATOMIC);
+-	if (!vimi) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!vimi)
+ 		return;
+-	}
+ 
+ 	vimi->num_vectors = adapter->num_msix_vectors;
+ 	/* Queue vectors first */
+@@ -402,11 +397,9 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
  	}
- 	rcu_read_unlock();
  
--	/* following stats updated by ixgbe_watchdog_task() */
-+	/* following stats updated by i40e_watchdog_subtask() */
- 	stats->multicast	= vsi_stats->multicast;
- 	stats->tx_errors	= vsi_stats->tx_errors;
- 	stats->tx_dropped	= vsi_stats->tx_dropped;
-@@ -6139,8 +6139,6 @@ static int i40e_reserve_msix_vectors(struct i40e_pf *pf, int vectors)
- 		vectors = 0;
+ 	veal = kzalloc(len, GFP_ATOMIC);
+-	if (!veal) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!veal)
+ 		return;
+-	}
++
+ 	veal->vsi_id = adapter->vsi_res->vsi_id;
+ 	veal->num_elements = count;
+ 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
+@@ -465,11 +458,9 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 		len = I40EVF_MAX_AQ_BUF_SIZE;
  	}
- 
--	pf->num_msix_entries = vectors;
--
- 	return vectors;
- }
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-index 22a1b69..70951d2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl.h
-@@ -341,10 +341,6 @@ struct i40e_virtchnl_pf_event {
- 	int severity;
- };
- 
--/* The following are TBD, not necessary for LAN functionality.
-- * I40E_VIRTCHNL_OP_FCOE
-- */
--
- /* VF reset states - these are written into the RSTAT register:
-  * I40E_VFGEN_RSTAT1 on the PF
-  * I40E_VFGEN_RSTAT on the VF
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-index 1ef5b31..cd18d56 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_virtchnl.h
-@@ -341,10 +341,6 @@ struct i40e_virtchnl_pf_event {
- 	int severity;
- };
- 
--/* The following are TBD, not necessary for LAN functionality.
-- * I40E_VIRTCHNL_OP_FCOE
-- */
--
- /* VF reset states - these are written into the RSTAT register:
-  * I40E_VFGEN_RSTAT1 on the PF
-  * I40E_VFGEN_RSTAT on the VF
+ 	veal = kzalloc(len, GFP_ATOMIC);
+-	if (!veal) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!veal)
+ 		return;
+-	}
++
+ 	veal->vsi_id = adapter->vsi_res->vsi_id;
+ 	veal->num_elements = count;
+ 	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
+@@ -529,11 +520,9 @@ void i40evf_add_vlans(struct i40evf_adapter *adapter)
+ 		len = I40EVF_MAX_AQ_BUF_SIZE;
+ 	}
+ 	vvfl = kzalloc(len, GFP_ATOMIC);
+-	if (!vvfl) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!vvfl)
+ 		return;
+-	}
++
+ 	vvfl->vsi_id = adapter->vsi_res->vsi_id;
+ 	vvfl->num_elements = count;
+ 	list_for_each_entry(f, &adapter->vlan_filter_list, list) {
+@@ -591,11 +580,9 @@ void i40evf_del_vlans(struct i40evf_adapter *adapter)
+ 		len = I40EVF_MAX_AQ_BUF_SIZE;
+ 	}
+ 	vvfl = kzalloc(len, GFP_ATOMIC);
+-	if (!vvfl) {
+-		dev_err(&adapter->pdev->dev, "%s: unable to allocate memory\n",
+-			__func__);
++	if (!vvfl)
+ 		return;
+-	}
++
+ 	vvfl->vsi_id = adapter->vsi_res->vsi_id;
+ 	vvfl->num_elements = count;
+ 	list_for_each_entry_safe(f, ftmp, &adapter->vlan_filter_list, list) {
 -- 
 1.9.3
