@@ -1,64 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: filter: cleanup A/X name usage
-Date: Sun, 08 Jun 2014 22:21:31 +0200
-Message-ID: <5394C5CB.7050000@redhat.com>
-References: <1402091166-5206-1-git-send-email-ast@plumgrid.com>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8723be: hw.c:  Cleaning up
+ if statement that always evaluates to false
+Date: Sun, 8 Jun 2014 13:35:15 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406081333550.19183@chino.kir.corp.google.com>
+References: <1402191743-26177-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64175 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753986AbaFHUVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 8 Jun 2014 16:21:44 -0400
-In-Reply-To: <1402091166-5206-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Joe Perches <joe@perches.com>, Peter Wu <lekensteyn@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402191743-26177-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/06/2014 11:46 PM, Alexei Starovoitov wrote:
-> The macro 'A' used in internal BPF interpreter:
->   #define A regs[insn->a_reg]
-> was easily confused with the name of classic BPF register 'A', since
-> 'A' would mean two different things depending on context.
->
-> This patch is trying to clean up the naming and clarify its usage in the
-> following way:
->
-> - A and X are names of two classic BPF registers
->
-> - BPF_REG_A denotes internal BPF register R0 used to map classic register A
->    in internal BPF programs generated from classic
->
-> - BPF_REG_X denotes internal BPF register R7 used to map classic register X
->    in internal BPF programs generated from classic
->
-> - internal BPF instruction format:
-> struct sock_filter_int {
->          __u8    code;           /* opcode */
->          __u8    dst_reg:4;      /* dest register */
->          __u8    src_reg:4;      /* source register */
->          __s16   off;            /* signed offset */
->          __s32   imm;            /* signed immediate constant */
-> };
->
-> - BPF_X/BPF_K is 1 bit used to encode source operand of instruction
-> In classic:
->    BPF_X - means use register X as source operand
->    BPF_K - means use 32-bit immediate as source operand
-> In internal:
->    BPF_X - means use 'src_reg' register as source operand
->    BPF_K - means use 32-bit immediate as source operand
->
-> Suggested-by: Chema Gonzalez <chema@google.com>
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+On Sun, 8 Jun 2014, Rickard Strandqvist wrote:
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> I find a logical error in an if statement '(X & 0xfc) == 0x3' is always false
+> 
 
-You could also have mentioned in the changelog that you replace
-direct access to ctx pointer with CTX register, it's valid since
-we emit a mov from ARG1 to CTX at the beginning which contains
-ctx. Anyway, looks good to me.
+Where is the 0xfc that your converting?
+
+> After pointing this out, Larry Finger informed what would be the correct one.
+> '(X & 0x3) == 0x3'
+> 
+
+This is already what it is, just say that you're replacing it with the 
+constant.
+
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+>  drivers/net/wireless/rtlwifi/rtl8723be/hw.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
+> index 0fdf090..b61044f 100644
+> --- a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
+> +++ b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
+> @@ -1197,7 +1197,7 @@ static int _rtl8723be_set_media_status(struct ieee80211_hw *hw,
+>  	}
+>  	rtl_write_byte(rtlpriv, (MSR), bt_msr);
+>  	rtlpriv->cfg->ops->led_control(hw, ledaction);
+> -	if ((bt_msr & 0x03) == MSR_AP)
+> +	if ((bt_msr & MSR_AP) == MSR_AP)
+>  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
+>  	else
+>  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
