@@ -1,91 +1,75 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH net-next v2 00/12] cdc_ncm: add buffer tuning and stats
- using ethtool
-Date: Sun, 08 Jun 2014 23:02:02 +0100
-Message-ID: <1402264922.23860.37.camel@deadeye.wl.decadent.org.uk>
-References: <1400269709-18854-1-git-send-email-bjorn@mork.no>
-	 <20140516.224032.2301577488192248796.davem@davemloft.net>
-	 <87d2fcoqay.fsf@nemi.mork.no> <20140518011917.11270.qmail@stuge.se>
-	 <alpine.LNX.2.03.1405181155310.7743@gmail.com>
-	 <87vbt3m98p.fsf@nemi.mork.no> <5378E985.1040206@gmail.com>
-	 <87egzqmd8h.fsf@nemi.mork.no>
+From: "SAFIA RAHAJ HASSAN" <safiarahajhas@gmail.com>
+Subject: =?windows-1256?Q?=E1=D3=E1=C7=E3_=DA=E1=ED=DF_=E6=D1=CD=E3=C9?=
+ =?windows-1256?Q?_=C7=E1=E1=E5?=
+Date: Sun, 08 Jun 2014 14:05:19 -0700
+Message-ID: <web-84435513@wavecable.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-cThyY+frzCEftZRVE+iA"
-Cc: Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Peter Stuge <peter-Y+HMSxxDrH8@public.gmane.org>,
-	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87egzqmd8h.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1256;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3.wavecable.net ([76.14.0.250]:33146 "EHLO wavecable.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753707AbaFHWCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 8 Jun 2014 18:02:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Assalamualaikum
+=C7=E1=D3=E1=C7=E3 =DA=E1=ED=DF=E3 =E6=D1=CD=E3=C9 =C7=E1=E1=E5 =E6=C8=D1=
+=DF=C7=CA=E5....=C7=CA=E3=E4=ED =C7=E4 =CA=DF=E6=E4 =C7=E4=CA=20
+=E6=C7=E1=DA=C7=C6=E1=C9 =C8=D5=CD=C9 =CC=ED=CF=C9 =E6=DD=EC =C7=CD=D3=E4=
+ =CD=C7=E1 =C7=E4 =D4=C7=C1 =C7=E1=E1=C9...=E6=C7=CA=E3=E4=ED =C7=E4=20
+=CA=D5=E1=ED =E3=DA=ED =E1=E1=C9 =DA=D2 =E6=CC=E1 =C7=E4 =ED=CC=E1=C8 =C7=
+=E1=D3=E1=C7=E3 =E6=C7=E1=C7=D3=CA=DE=D1=C7=D1 =E1=E1=D4=DA=C8=20
+=C7=E1=D3=E6=D1=ED.
+=D5=CF=ED=DE=ED =C7=E1=DA=D2=ED=D2 =C7=CA=E3=E4=ED =C7=E4 =D1=D3=C7=E1=CA=
+=ED =E5=CF=C9 =E1=E3 =CA=D3=C8=C8 =E1=DF =C7=E1=C7=D2=DA=C7=CC =C7=E6=20
+=CA=DA=CA=DE=CF =C7=E4=E4=ED =C7=CD=C7=E6=E1 =C7=E4 =C7=CD=CA=C7=E1 =DA=
+=E1=ED=DF =E1=C7=E4=E4=ED =E1=D3=CA =E3=CB=E1 =C7=E1=E3=CD=CA=C7=E1=ED=E4=
+ =DA=E1=ED=20
+=D4=C8=DF=C9 =C7=E1=C7=E4=CA=D1=E4=CA =E1=C7 =C7=E4=E4=ED =C7=E3=D1=C7=C9=
+ =E3=D3=E1=E3=C9 =E6=C7=E3 =E6=CD=ED=CF=C9 =C7=D1=E3=E1=C9 =E1=D8=DD=E1=
+=ED=E4=20
+=E6=C7=E4=E4=ED =E3=E4
 
---=-cThyY+frzCEftZRVE+iA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+=D3=E6=D1=ED=C7... =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =D4=CE=D5 =D5=C7=CF=
+=DE =E6=E4=D2=ED=E5 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=ED =E6=E1=ED=D3=C7=DA=CF=
+=E4=ED=20
+=DD=ED =CA=C7=E3=ED=E4 =C7=E3=CA=DA=C9 =DA=C7=C6=E1=CA=ED =E1=C7=E4=E4=C7=
+ =DA=E1=ED =E6=D4=DF =C7=E4 =E4=DB=C7=CF=D1 =D3=E6=D1=ED=C7 =E1=E3=DF=C7=
+=E4=20
+=C7=DF=CB=D1 =C7=E3=C7=E4=C7 =E6=C7=D1=ED=CF =C7=E1=C7=D3=CA=CB=E3=C7=D1=
+ =E5=E4=C7=DF =E1=C7=E4=E5 =E1=C7 =ED=E6=CC=CF =C7=E3=E4 =C7=E6 =C7=ED=20
+=C7=D3=CA=DE=D1=C7=D1
 
-On Mon, 2014-05-19 at 09:36 +0200, Bj=C3=B8rn Mork wrote:
-> Lars Melin <larsm17-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->=20
-> > Your target audience is embedded systems with limited cpu power and
-> > buffer memory, right?
-> > If so, then you can't expect them to have ethtool included and their
-> > developers are not likely to be happy over having to "waste" another
-> > 100KB in order to tune a 20KB driver.
-> > My vote goes for sysfs.
->=20
-> That's of course a very good point.
->=20
-> I will argue that you often need ethtool anyway for basic stuff like
-> forcing duplex/speed, enabling debug messages, turning on/off pause
-> frames etc.  But I don't doubt you know what you are talking about here
-> :-)  So I guess many small embedded devices don't include an ethtool
-> binary by default.  I do wonder how much we should adapt to that though?
-> I understand that you don't see it this way, but others might actually
-> see it as an advantage if we're forcing ethtool onto these devices...
-[...]
+=DD=ED =D3=E6=D1=ED=C7 =CD=C7=E1=ED=C7 =E6=C7=E4=C7 =DA=E4=CF=ED =C8=DA=
+=D6 =C7=E1=C7=DE=CA=D1=C7=CD=C7=CA =C7=D1=ED=CF =C7=E4 =E4=CA=D4=C7=D1=DF=
+=20
+=DD=ED=E5=C7 =D3=E6=ED=C7 =E6=C7=E4=ED =C7=C8=CD=CB =DA=E4 =E3=D3=CA=CB=
+=E3=D1 =E1=ED=DF=E6=E4 =D4=D1=ED=DF=C7 =E1=ED =E1=C7=E4=E4=ED =C7=D1=ED=
+=CF =C7=E4=20
+=C7=C8=CF=C1 =DD=ED =C8=E4=C7=C1 =C7=D3=CA=CB=E3=C7=D1 =E1=C8=DA=D6 =C7=
+=E1=C7=DA=E3=C7=E1 =CE=C7=D1=CC =D3=E6=D1=ED=C7 =E1=C7=E4=E5=C7 =E1=ED=D3=
+=CA=20
+=C8=E3=DF=C7=E4 =C7=E3=E4
 
-By the way, ethtool can now be configured without pretty-printing of
-register/EEPROM dumps.  This reduces it in size from ~240K to ~60K.
+=CD=C7=E1=ED=C7...=C7=D1=ED=CF=DF =C7=E4 =CA=DA=D1=DD =C7=E4 =C7=CA=D5=E1=
+ =C8=DF =E1=C8=CF=C7=C1 =D4=ED =DF=CA=ED=D1 =DF=E6=ED=D3 =E6=C7=E4=DF=20
+=D3=E6=DD =CA=D3=CA=DD=ED=CF =C7=CF=C7 =C7=D1=CA =C7=E4 =CA=DF=E6=E4 =D4=
+=D1=ED=DF=ED =DD=ED =E5=CF=C7 =C7=E1=C7=D3=CA=CB=E3=C7=D1 =C8=C7=E1=C7=ED=
+=E3=C7=E4=20
+=C7=CA=D5=E1 =C8=ED =DA=E1=ED =C7=E1=C8=ED=C7=E4=C7=CA =C7=E1=E3=E6=CC=E6=
+=CF=C9 =C8=C7=E1=C7=D3=DD=E1 =E6=D3=E6=DD =C7=DA=D8=ED=DF =C8=ED=C7=E4=C7=
+=CA =DA=E4
 
-If that's still not small enough, the answer might be to put a limited
-reimplementation of ethtool in busybox, toybox or similar.
+=C7=E1=E3=E6=D6=E6=DA
 
-Ben.
+1)=C7=E1=C7=D3=E3 =C8=C7=E1=DF=C7=E3=E1
 
---=20
-Ben Hutchings
-Never attribute to conspiracy what can adequately be explained by stupidity=
-.
+2)=D1=DE=E3 =C7=E1=CA=E1=ED=DD=E6=E4 =E1=E1=C7=CA=D5=C7=E1 =C8=DF
 
---=-cThyY+frzCEftZRVE+iA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIVAwUAU5TdX+e/yOyVhhEJAQrmog/+I7/ASfsEuk8XkRuxdWXITfCbPZ9zI2hC
-9uSmHZb1gHX4HJh7JRY7a0D6h++a7HvdK/85grZ1O5+OFDVJUt8KV7fdZfDVGZY/
-rUN35lmfVP0MzHZ7tZuYhmj+8pAUPxuTWfptB904Qd+W2kbKdcprhRjnG1etlGr1
-u2BW0R+ix1snELKqRXWY+/DJk0Dc0s8k5VOI4le6rlpB+TeL945waDcSe2pUbi95
-/WG+DLc6WkTX3HT1AZgNgCptlp021RwEFROuSj5Ytqoqyb6rRqut+1rxhD2PXCBP
-V2k1TfRbsZQBtPFANPGLzy8n/5f5/fmfpYN8kUdUgfbQ0lHdXmky/aWt+VE0MdX7
-82sHQ4zZNFlLx1gKcyQztNq4dR6oZcB2hckHJSeUuwpHD/1ga1z5MMs4kjDXqb78
-2z27WKaYLKN1vNF89Zurbjbv8GOA7mt7pfoOjsqPf7X9pYhm4fjwEBLAJqrYq9Xg
-8B9cDUB/IRgKyhv6o4Pv/noLO6Cboa1rsdvOh/41Wd67BpuhSx3D3xZgJh9JpJnt
-dBFsSvef/HzLrJZ/RjNImYpdZQ2Frw9ikRo4TuOdpr9pkfL5PGUC0K2FshAJtj+a
-lkdXWVWoj2VWvA4x5l68lMZKQAveeQUOiWJaCVRJMrGdrXQ2PXhEHodhJoUCBH8k
-oXiWFQ2ujDE=
-=i/YC
------END PGP SIGNATURE-----
-
---=-cThyY+frzCEftZRVE+iA--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=D3=E6=DD =C7=CA=D5=E1 =C8=DF =E1=E3=E4=C7=DE=D4=C9 =C8=DA=D6 =C7=E1=C7=
+=E3=E6=D1 =C7=E1=CE=C7=D5=C9 =C8=C7=E1=E3=E6=D6=E6=DA =C7=D1=CC=E6=20
+=C7=E1=C7=D1=D3=C7=E1 =DA=E1=EC =C8=D1=ED=CF=ED
