@@ -1,169 +1,126 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [net-next PATCH 2/2] bridge: netlink dump interface at par with
- brctl
-Date: Mon, 09 Jun 2014 12:41:40 -0400
-Message-ID: <5395E3C4.5080904@redhat.com>
-References: <1402151244-3324-1-git-send-email-jhs@emojatatu.com> <1402151244-3324-2-git-send-email-jhs@emojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest Customer
+ Bridge group addresses
+Date: Tue, 10 Jun 2014 01:45:51 +0900
+Message-ID: <1402332351.1742.16.camel@localhost.localdomain>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	 <20140609085243.32f88582@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-	stephen@networkplumber.org
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32728 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750734AbaFIQmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 12:42:17 -0400
-In-Reply-To: <1402151244-3324-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:55362 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751918AbaFIQpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 12:45:55 -0400
+Received: by mail-pd0-f169.google.com with SMTP id w10so5010478pde.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 09:45:55 -0700 (PDT)
+In-Reply-To: <20140609085243.32f88582@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/2014 10:27 AM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Mon, 2014-06-09 at 08:52 -0700, Stephen Hemminger wrote:
+> On Mon,  9 Jun 2014 20:34:46 +0900
+> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
 > 
-> Actually better than brctl showmacs because we can filter by bridge
-> port in the kernel.
-> The current bridge netlink interface doesnt scale when you have many
-> bridges each with large fdbs or even bridges with many bridge ports
+> > An 802.1ad bridge must forward the Nearest Customer Bridge group addresses.
+> >  01-80-C2-00-00-00
+> >  01-80-C2-00-00-0B
+> >  01-80-C2-00-00-0C
+> >  01-80-C2-00-00-0D
+> >  01-80-C2-00-00-0F
+> > (For details, see IEEE 802.1Q-2011 8.6.3.)
+> > 
+> > An exception is the br->group_addr, which needs to be passed to the higher
+> > layer entity so that STP works.
+> > 
+> > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> > ---
+> >  net/bridge/br_input.c   | 15 ++++++++++++++-
+> >  net/bridge/br_private.h | 10 ++++++++++
+> >  2 files changed, 24 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+> > index 04d6348..b05d419 100644
+> > --- a/net/bridge/br_input.c
+> > +++ b/net/bridge/br_input.c
+> > @@ -194,13 +194,26 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+> >  		case 0x00:	/* Bridge Group Address */
+> >  			/* If STP is turned off,
+> >  			   then must forward to keep loop detection */
+> > -			if (p->br->stp_enabled == BR_NO_STP)
+> > +			if (p->br->stp_enabled == BR_NO_STP ||
+> > +			    (br_vlan_enabled(p->br) &&
+> > +			     br_vlan_get_proto(p->br) == htons(ETH_P_8021AD) &&
+> > +			     p->br->group_addr[5] != dest[5]))
+> >  				goto forward;
+> >  			break;
+> >  
+> >  		case 0x01:	/* IEEE MAC (Pause) */
+> >  			goto drop;
+> >  
+> > +		case 0x0B:
+> > +		case 0x0C:
+> > +		case 0x0D:
+> > +		case 0x0F:
+> > +			/* The Nearest Customer Bridge group address */
+> > +			if (br_vlan_enabled(p->br) &&
+> > +			    br_vlan_get_proto(p->br) == htons(ETH_P_8021AD) &&
+> > +			    p->br->group_addr[5] != dest[5])
+> > +				goto forward;
+> > +			/* fall through */
+> >  		default:
+> >  			/* Allow selective forwarding for most other protocols */
+> >  			if (p->br->group_fwd_mask & (1u << dest[5]))
+> > diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> > index b65fee9..65204c2 100644
+> > --- a/net/bridge/br_private.h
+> > +++ b/net/bridge/br_private.h
+> > @@ -647,6 +647,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
+> >  {
+> >  	return br->vlan_enabled;
+> >  }
+> > +
+> > +static inline __be16 br_vlan_get_proto(struct net_bridge *br)
+> > +{
+> > +	return br->vlan_proto;
+> > +}
+> >  #else
+> >  static inline bool br_allowed_ingress(struct net_bridge *br,
+> >  				      struct net_port_vlans *v,
+> > @@ -742,6 +747,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
+> >  {
+> >  	return 0;
+> >  }
+> > +
+> > +static inline __be16 br_vlan_get_proto(struct net_bridge *br)
+> > +{
+> > +	return 0;
+> > +}
+> >  #endif
+> >  
+> >  /* br_netfilter.c */
 > 
-> For example usage look at accompanying iproute2 patch.
+> Rather than special casing this around vlan filtering, I would prefer
+> the code always forward these packets, or manipulate group_fwd_mask
+> to allow it that way.
 
-The code was a bit tough to follow.  I think the main reason is
-that you now always pass a filtering devices even when there was
-no filtering information requested.
+These addresses must be forwarded only if the bridge is an S-VLAN
+bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
+forwarded. So, I don't think we can forward them always.
 
-I am wondering if it could be made simpler...
+Using group_fwd_mask is a bit complicated. If we use it to forward them,
+user can optionally turn off forwarding ability of those addresses...
+but we maybe need another information (named like group_fwd_mask_set)
+that indicates which bit is set by user. (We have to set group_fwd_mask
+automatically when we set vlan_proto to 88a8.)
+Is this way acceptable?
 
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  net/bridge/br_fdb.c  |   17 +++++++++---
->  net/core/rtnetlink.c |   71 +++++++++++++++++++++++++++++++++++++++++---------
->  2 files changed, 72 insertions(+), 16 deletions(-)
-> 
-> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-> index 48449fc..7114382 100644
-> --- a/net/bridge/br_fdb.c
-> +++ b/net/bridge/br_fdb.c
-> @@ -694,9 +694,20 @@ int br_fdb_dump(struct sk_buff *skb,
->  			if (idx < cb->args[0])
->  				goto skip;
->  
-> -			if (filter_dev && (!f->dst || !f->dst->dev ||
-> -					   f->dst->dev != filter_dev))
-> -				goto skip;
-> +			if (filter_dev && (!f->dst || f->dst->dev != filter_dev)) {
-> +				if (filter_dev != dev)
-> +					goto skip;
-> +				else {
-> +					/* 
-> +					 * !f->dst is a speacial case for bridge
-> +					 * It means the MAC belongs to the bridge
-> +					 * Therefore need a little more filtering
-> +					 * we only want to dump the !f->dst case
-> +					 */
-> +					if (f->dst)
-> +						goto skip;
-> +				}
-> +			}
->  
->  			if (fdb_fill_info(skb, br, f,
->  					  NETLINK_CB(cb->skb).portid,
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 8721f1b..2a3c225 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2512,26 +2512,71 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
->  
->  static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  {
-> -	int idx = 0;
-> -	struct net *net = sock_net(skb->sk);
->  	struct net_device *dev;
-> +	struct nlattr *tb[IFLA_MAX+1];
-> +	struct net_device *bdev = NULL; /*pacify stoopid gcc*/
-> +	struct net_device *br_dev = NULL; /*pacify stoopid gcc*/
-> +	const struct net_device_ops *ops = NULL; /*pacify stoopid gcc*/
-> +	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-> +	struct net *net = sock_net(skb->sk);
-> +	int brport_idx = 0;
-> +	int br_idx = 0;
-> +	int idx = 0;
-> +
-> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-> +			ifla_policy) == 0) {
-> +		if (tb[IFLA_MASTER])
-> +			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-> +	}
-> +	
-> +	brport_idx = ifm->ifi_index;
->  
->  	rcu_read_lock();
-> +	if (br_idx) {
-> +		br_dev = __dev_get_by_index(net, br_idx);
-> +		if (!br_dev) {
-> +			rcu_read_unlock();
-> +			return -ENODEV;
-> +		}
-> +		ops = br_dev->netdev_ops;
-> +		bdev = br_dev;
-> +	}
-> +
-
-I think this can be outside of the rcu since you hold an rtnl at this time.
-
--vlad
-
->  	for_each_netdev_rcu(net, dev) {
-> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
-> -			struct net_device *br_dev;
-> -			const struct net_device_ops *ops;
-> -
-> -			br_dev = netdev_master_upper_dev_get(dev);
-> -			ops = br_dev->netdev_ops;
-> -			if (ops->ndo_fdb_dump)
-> -				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
-> +
-> +		if (brport_idx && (dev->ifindex != brport_idx))
-> +			continue;
-> +
-> +		if (!br_idx) { /* user did not specify a specific bridge */
-> +			if (dev->priv_flags & IFF_BRIDGE_PORT) {
-> +				br_dev = netdev_master_upper_dev_get(dev);
-> +				ops = br_dev->netdev_ops;
-> +				if (ops->ndo_fdb_dump)
-> +					idx = ops->ndo_fdb_dump(skb, cb, br_dev,
-> +								dev, idx);
-> +			}
-> +
-> +			bdev = dev;
-> +		} else {
-> +			if (dev != br_dev &&
-> +			    !(dev->priv_flags & IFF_BRIDGE_PORT))
-> +				continue;
-> +
-> +			if (br_dev != netdev_master_upper_dev_get(dev) &&
-> +			    !(dev->priv_flags & IFF_EBRIDGE))
-> +				continue;
-> +
-> +			if (dev->priv_flags & IFF_BRIDGE_PORT)
-> +				idx = ops->ndo_fdb_dump(skb, cb, br_dev,
-> +							dev, idx);
->  		}
->  
-> -		if (dev->netdev_ops->ndo_fdb_dump)
-> -			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
-> -		else
-> +		if (dev->netdev_ops->ndo_fdb_dump) {
-> +			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
-> +							    idx);
-> +		} else {
->  			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-> +		}
->  	}
->  	rcu_read_unlock();
->  
-> 
+Thanks,
+Toshiaki Makita
