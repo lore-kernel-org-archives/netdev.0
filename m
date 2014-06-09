@@ -1,41 +1,35 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: SCTP connect() both ways
-Date: Mon, 9 Jun 2014 09:41:51 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725978A@AcuExch.aculab.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 v3] bridge: Add master device name to bridge
+ fdb show
+Date: Mon, 09 Jun 2014 06:21:06 -0400
+Message-ID: <53958A92.4040100@mojatatu.com>
+References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com> <539447F6.9040906@mojatatu.com> <539476D7.8020300@cumulusnetworks.com> <5394801D.6080704@mojatatu.com> <5394E2F2.70301@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org, wkok@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36079 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S936747AbaFIJmf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 05:42:35 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 23636-07 for <netdev@vger.kernel.org>;
- Mon,  9 Jun 2014 10:42:25 +0100 (BST)
-Content-Language: en-US
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:49670 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932511AbaFIKVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 06:21:11 -0400
+Received: by mail-ig0-f180.google.com with SMTP id h18so154336igc.13
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 03:21:11 -0700 (PDT)
+In-Reply-To: <5394E2F2.70301@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When SCTP is used for protocols like M3UA it seems common
-to configure both port numbers for a connection (typically
-to the same value).
+On 06/08/14 18:25, Roopa Prabhu wrote:
 
-Rather than having one system call connect() and the other
-listen(), both systems really want to try to establish the
-connection by sending out INIT chunks.
+> ok, yes, i thought so. And  this version (v3) is same as v1
 
-The connection then gets established as soon as the second of the
-two systems attempts to establish it.
+Ignore my babbling then ;->
+I think the new paragraph in the commit message and the one line
+movement confused me.
 
-However if the remote system responds with an ABORT (or maybe
-an ICMP error is received) the Linux SCTP stack immediately
-reports 'connect failed'.
-For these sorts of connections it would be much better if the
-received ABORT just increased the retry timer to large value.
-
-Thoughts?
-
-	David
+cheers,
+jamal
