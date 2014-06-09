@@ -1,211 +1,107 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next 2/4] bridge: Prepare for 802.1ad vlan
-	filtering support
-Date: Mon,  9 Jun 2014 20:34:45 +0900
-Message-ID: <1402313687-28067-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+Subject: [PATCH net-next 0/4] bridge: 802.1ad vlan protocol support
+Date: Mon,  9 Jun 2014 20:34:43 +0900
+Message-ID: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
 	bridge@lists.linux-foundation.org
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:60940 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752027AbaFILfK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 07:35:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This enables a bridge to have vlan protocol informantion and allows vlan
-tag manipulation (retrieve, insert and remove tags) according to vlan
-protocols.
+Currently bridge vlan filtering doesn't work fine with 802.1ad protocol.
+Only if a bridge is configured without pvid, the bridge receives only
+802.1ad tagged frames and no STP is used, it will work.
+Otherwise:
+- If pvid is configured, it can put only 802.1Q tags but cannot put 802.1ad
+  tags.
+- If 802.1Q and 802.1ad tagged frames arrive in mixture, it applies filtering
+  regardless of their protocols.
+- While an 802.1ad bridge should use another mac address for STP BPDU and
+  should forward customer's BPDU frames, it can't.
+Thus, we can't properly handle frames once 802.1ad is used.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_device.c  |  1 +
- net/bridge/br_private.h |  6 ++++++
- net/bridge/br_vlan.c    | 56 ++++++++++++++++++++++++++++++++++++++-----------
- 3 files changed, 51 insertions(+), 12 deletions(-)
+Handling 802.1ad is useful if we want to allow stacked vlans to be used,
+e.g., guest VMs wants to use vlan tags and the host also wants to segregate
+guest's traffic from other guests' by vlan tags.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 82a410a..1b797c4 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -388,4 +388,5 @@ void br_dev_setup(struct net_device *dev)
- 	br_netfilter_rtable_init(br);
- 	br_stp_timer_init(br);
- 	br_multicast_init(br);
-+	br_vlan_init(br);
- }
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index bc17210..b65fee9 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -298,6 +298,7 @@ struct net_bridge
- 	u32				auto_cnt;
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	u8				vlan_enabled;
-+	__be16				vlan_proto;
- 	struct net_port_vlans __rcu	*vlan_info;
- #endif
- };
-@@ -598,6 +599,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid);
- void br_vlan_flush(struct net_bridge *br);
- bool br_vlan_find(struct net_bridge *br, u16 vid);
- int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
-+void br_vlan_init(struct net_bridge *br);
- int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
- int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
-@@ -693,6 +695,10 @@ static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
- 	return false;
- }
- 
-+static inline void br_vlan_init(struct net_bridge *br)
-+{
-+}
-+
- static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
- {
- 	return -EOPNOTSUPP;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index fcc9539..63bd981 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -60,7 +60,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- 		 * that ever changes this code will allow tagged
- 		 * traffic to enter the bridge.
- 		 */
--		err = vlan_vid_add(dev, htons(ETH_P_8021Q), vid);
-+		err = vlan_vid_add(dev, br->vlan_proto, vid);
- 		if (err)
- 			return err;
- 	}
-@@ -80,7 +80,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- 
- out_filt:
- 	if (p)
--		vlan_vid_del(dev, htons(ETH_P_8021Q), vid);
-+		vlan_vid_del(dev, br->vlan_proto, vid);
- 	return err;
- }
- 
-@@ -92,8 +92,10 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 	__vlan_delete_pvid(v, vid);
- 	clear_bit(vid, v->untagged_bitmap);
- 
--	if (v->port_idx)
--		vlan_vid_del(v->parent.port->dev, htons(ETH_P_8021Q), vid);
-+	if (v->port_idx) {
-+		struct net_bridge_port *p = v->parent.port;
-+		vlan_vid_del(p->dev, p->br->vlan_proto, vid);
-+	}
- 
- 	clear_bit(vid, v->vlan_bitmap);
- 	v->num_vlans--;
-@@ -158,7 +160,8 @@ out:
- bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			struct sk_buff *skb, u16 *vid)
- {
--	int err;
-+	bool tagged;
-+	__be16 proto;
- 
- 	/* If VLAN filtering is disabled on the bridge, all packets are
- 	 * permitted.
-@@ -172,19 +175,41 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	if (!v)
- 		goto drop;
- 
-+	proto = br->vlan_proto;
-+
- 	/* If vlan tx offload is disabled on bridge device and frame was
- 	 * sent from vlan device on the bridge device, it does not have
- 	 * HW accelerated vlan tag.
- 	 */
- 	if (unlikely(!vlan_tx_tag_present(skb) &&
--		     (skb->protocol == htons(ETH_P_8021Q) ||
--		      skb->protocol == htons(ETH_P_8021AD)))) {
-+		     skb->protocol == proto)) {
- 		skb = vlan_untag(skb);
- 		if (unlikely(!skb))
- 			return false;
- 	}
- 
--	err = br_vlan_get_tag(skb, vid);
-+	if (!br_vlan_get_tag(skb, vid)) {
-+		/* Tagged frame */
-+		if (skb->vlan_proto != proto) {
-+			/* Protocol-mismatch, empty out vlan_tci for new tag */
-+			skb_push(skb, ETH_HLEN);
-+			skb = __vlan_put_tag(skb, skb->vlan_proto,
-+					     vlan_tx_tag_get(skb));
-+			if (unlikely(!skb))
-+				return false;
-+
-+			skb_pull(skb, ETH_HLEN);
-+			skb_reset_mac_len(skb);
-+			*vid = 0;
-+			tagged = false;
-+		} else {
-+			tagged = true;
-+		}
-+	} else {
-+		/* Untagged frame */
-+		tagged = false;
-+	}
-+
- 	if (!*vid) {
- 		u16 pvid = br_get_pvid(v);
- 
-@@ -199,9 +224,9 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 		 * ingress frame is considered to belong to this vlan.
- 		 */
- 		*vid = pvid;
--		if (likely(err))
-+		if (likely(!tagged))
- 			/* Untagged Frame. */
--			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+			__vlan_hwaccel_put_tag(skb, proto, pvid);
- 		else
- 			/* Priority-tagged Frame.
- 			 * At this point, We know that skb->vlan_tci had
-@@ -254,7 +279,9 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
- 	if (!v)
- 		return false;
- 
--	br_vlan_get_tag(skb, vid);
-+	if (!br_vlan_get_tag(skb, vid) && skb->vlan_proto != br->vlan_proto)
-+		*vid = 0;
-+
- 	if (!*vid) {
- 		*vid = br_get_pvid(v);
- 		if (*vid == VLAN_N_VID)
-@@ -367,6 +394,11 @@ unlock:
- 	return 0;
- }
- 
-+void br_vlan_init(struct net_bridge *br)
-+{
-+	br->vlan_proto = htons(ETH_P_8021Q);
-+}
-+
- /* Must be protected by RTNL.
-  * Must be called with vid in range from 1 to 4094 inclusive.
-  */
-@@ -433,7 +465,7 @@ void nbp_vlan_flush(struct net_bridge_port *port)
- 		return;
- 
- 	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
--		vlan_vid_del(port->dev, htons(ETH_P_8021Q), vid);
-+		vlan_vid_del(port->dev, port->br->vlan_proto, vid);
- 
- 	__vlan_flush(pv);
- }
+Here is the image describing how to configure a bridge to filter VMs traffic.
+
+         +-------+p/u   +-----+  +---------+
+ +----+  |       |------|vnet0|--|User A VM|
+ |eth0|--|802.1ad|      +-----+  +---------+
+ +----+  |bridge |p/u   +-----+  +---------+
+         |       |------|vnet1|--|User B VM|
+         +-------+      +-----+  +---------+
+p/u: pvid/untagged
+
+This patch set enables us to set vlan protocols per bridge.
+This tries to implement a bridge like S-VLAN component in IEEE 802.1Q-2011
+spec.
+
+Note that there is another possible implementation that sets vlan protocols
+per port. Some HW switches seem to take that approach.
+However, I think per-bridge approach is better, because;
+- I think the typical usage of an 802.1ad bridge is segregating 802.1Q tagged
+  traffic (like what is described above), and this doesn't need the ability to
+  be set protocols per port. Also, If a bridge has many ports and it supports
+  per-port setting, we might have to make much more extra configurations to
+  change protocols of all ports.
+
+- I assume that the main perpose to set protocol per port is to assign S-VID
+  according to C-VID, or to realize two logical bridges (one is an 802.1Q
+  filtering bridge and the other is an 802.1ad filtering bridge) in one bridge.
+  The former usually needs additional features such as vlan id mapping, and
+  is likely to make bridge's code complicated. If a user wants, such enhanced
+  features can be accomplished by a combination of multiple bridges, so it is
+  not absolutely necessary to implement these features in a bridge itself.
+  The latter is simply unnecessary because we can easily make two bridges of
+  which one is an 802.1Q bridge and the other is an 802.1ad bridge.
+
+Here is an example of the enhanced feature that we can realize by using
+multiple bridges and veth interfaces. This way is documented in
+IEEE 802.1Q-2011 clause 15.4 (C-tagged service interface).
+
+ +----+  +-------+p/u         +------+  +----+  +--+
+ |eth0|--|802.1ad|----veth----|802.1Q|--|vnet|--|VM|
+ +----+  |bridge |----veth----|bridge|  +----+  +--+
+         +-------+p/u         +------+
+p/u: pvid/untagged
+
+In this configuration, we can map C-VIDs to any S-VID.
+For example;
+ C-VID 10 and 20 to S-VID 100
+ C-VID 30 to S-VID 110
+This is achieved through the 802.1Q bridge that forwards C-tagged frames to
+proper ports of the 802.1ad bridge.
+
+Changes:
+RFC -> v1:
+- Add S-TAG tx offload.
+- Remove a fix around stacked vlan which has already been fixed.
+- Take into account Bridge Group Addresses.
+- Separate handling of protocol-mismatch from br_vlan_get_tag().
+- Change the way to set vlan_proto from netlink to sysfs because no other
+  existing configuration per bridge can be set by netlink.
+
+Toshiaki Makita (4):
+  bridge: Add 802.1ad tx vlan acceleration
+  bridge: Prepare for 802.1ad vlan filtering support
+  bridge: Consider the Nearest Customer Bridge group addresses
+  bridge: Support 802.1ad vlan filtering
+
+ net/bridge/br_device.c   |   6 ++-
+ net/bridge/br_input.c    |  15 +++++-
+ net/bridge/br_private.h  |  18 +++++++
+ net/bridge/br_sysfs_br.c |  18 +++++++
+ net/bridge/br_vlan.c     | 137 ++++++++++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 179 insertions(+), 15 deletions(-)
+
 -- 
 1.8.1.2
