@@ -1,56 +1,41 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH] amd-xgbe: Rename MAX_DMA_CHANNELS to avoid powerpc conflict
-Date: Mon, 9 Jun 2014 09:19:32 -0500
-Message-ID: <20140609141931.30639.72028.stgit@tlendack-t1.amdoffice.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] amd-xgbe: Rename MAX_DMA_CHANNELS to avoid powerpc
+ conflict
+Date: Mon, 9 Jun 2014 14:25:58 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17259A7D@AcuExch.aculab.com>
+References: <20140609141931.30639.72028.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <kbuild-all@01.org>, <jet.chen@intel.com>
-To: <netdev@vger.kernel.org>, <fengguang.wu@intel.com>,
-	<davem@davemloft.net>
+Content-Transfer-Encoding: base64
+Cc: "kbuild-all@01.org" <kbuild-all@01.org>,
+	"jet.chen@intel.com" <jet.chen@intel.com>
+To: 'Tom Lendacky' <thomas.lendacky@amd.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"fengguang.wu@intel.com" <fengguang.wu@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:32780
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750720AbaFIOTi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 10:19:38 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:40733 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S933439AbaFIO0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 10:26:42 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 16387-03 for <netdev@vger.kernel.org>;
+ Mon,  9 Jun 2014 15:26:32 +0100 (BST)
+In-Reply-To: <20140609141931.30639.72028.stgit@tlendack-t1.amdoffice.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MAX_DMA_CHANNELS is defined in asm/scatterlist.h of the powerpc
-architecture.  Rename this #define in xgbe.h to avoid the
-redefined warning issued during compilation.
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    2 +-
- drivers/net/ethernet/amd/xgbe/xgbe.h      |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index b21f9b9..c83584a 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -230,7 +230,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	DBGPR("--> xgbe_probe\n");
- 
- 	netdev = alloc_etherdev_mq(sizeof(struct xgbe_prv_data),
--				   MAX_DMA_CHANNELS);
-+				   XGBE_MAX_DMA_CHANNELS);
- 	if (!netdev) {
- 		dev_err(dev, "alloc_etherdev failed\n");
- 		ret = -ENOMEM;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index 9a5bfe6..ab06271 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -138,7 +138,7 @@
- #define RX_MIN_BUF_SIZE		(ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
- #define RX_BUF_ALIGN		64
- 
--#define MAX_DMA_CHANNELS	16
-+#define XGBE_MAX_DMA_CHANNELS	16
- #define DMA_ARDOMAIN_SETTING	0x2
- #define DMA_ARCACHE_SETTING	0xb
- #define DMA_AWDOMAIN_SETTING	0x2
+RnJvbTogVG9tIExlbmRhY2t5DQo+IE1BWF9ETUFfQ0hBTk5FTFMgaXMgZGVmaW5lZCBpbiBhc20v
+c2NhdHRlcmxpc3QuaCBvZiB0aGUgcG93ZXJwYw0KPiBhcmNoaXRlY3R1cmUuICBSZW5hbWUgdGhp
+cyAjZGVmaW5lIGluIHhnYmUuaCB0byBhdm9pZCB0aGUNCj4gcmVkZWZpbmVkIHdhcm5pbmcgaXNz
+dWVkIGR1cmluZyBjb21waWxhdGlvbi4NCi4uLg0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9hbWQveGdiZS94Z2JlLmgNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYW1kL3hnYmUv
+eGdiZS5oDQo+IEBAIC0xMzgsNyArMTM4LDcgQEANCj4gICNkZWZpbmUgUlhfTUlOX0JVRl9TSVpF
+CQkoRVRIX0ZSQU1FX0xFTiArIEVUSF9GQ1NfTEVOICsgVkxBTl9ITEVOKQ0KPiAgI2RlZmluZSBS
+WF9CVUZfQUxJR04JCTY0DQo+IA0KPiAtI2RlZmluZSBNQVhfRE1BX0NIQU5ORUxTCTE2DQo+ICsj
+ZGVmaW5lIFhHQkVfTUFYX0RNQV9DSEFOTkVMUwkxNg0KPiAgI2RlZmluZSBETUFfQVJET01BSU5f
+U0VUVElORwkweDINCj4gICNkZWZpbmUgRE1BX0FSQ0FDSEVfU0VUVElORwkweGINCj4gICNkZWZp
+bmUgRE1BX0FXRE9NQUlOX1NFVFRJTkcJMHgyDQoNCk1pZ2h0IGJlIHdvcnRod2hpbGUgY2hhbmdp
+bmcgdGhlIG90aGVyIG5hbWVzIGF0IHRoZSBzYW1lIHRpbWUuDQoNCglEYXZpZA0KDQo=
