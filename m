@@ -1,371 +1,421 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 7/8] enic: add low latency socket busy_poll support
-Date: Tue, 10 Jun 2014 00:02:52 +0530
-Message-ID: <1402338773-5996-8-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next 5/8] enic: Add Accelerated RFS support
+Date: Tue, 10 Jun 2014 00:02:50 +0530
+Message-ID: <1402338773-5996-6-git-send-email-_govind@gmx.com>
 References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, gvaradar@cisco.com, benve@cisco.com,
 	_govind@gmx.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:57406 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:52979 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754501AbaFISeU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 14:34:20 -0400
+	id S1754501AbaFISeO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 14:34:14 -0400
 In-Reply-To: <1402338773-5996-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for low latency busy_poll.
+This patch adds supports for Accelerated Receive Flow Steering.
 
-* Introduce drivers ndo_busy_poll function enic_busy_poll, which is called by
-socket waiting for data.
+When the desired rx is different from current rq, for a flow, kernel calls the
+driver function enic_rx_flow_steer(). enic_rx_flow_steer adds a IP-TCP/UDP
+hardware filter.
 
-* Introduce locking between napi_poll nad busy_poll
+Driver registers a timer function enic_flow_may_expire. This function is called
+every HZ/4 seconds. In this function we check if the added filter has expired
+by calling rps_may_expire_flow(). If the flow has expired, it removes the hw
+filter.
 
-* enic_busy_poll cleans up all the rx pkts possible. While in busy_poll, rq
-holds the state ENIC_POLL_STATE_POLL. While in napi_poll, rq holds the state
-ENIC_POLL_STATE_NAPI.
-
-* in napi_poll we return if we are in busy_poll. Incase of INTx & msix, we just
-service wq and return if busy_poll is going on.
+As of now adaptor supports only IPv4 - TCP/UDP filters.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c |  85 ++++++++++++++++---
- drivers/net/ethernet/cisco/enic/vnic_rq.h   | 122 ++++++++++++++++++++++++++++
- 2 files changed, 195 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic.h      |  41 ++++++
+ drivers/net/ethernet/cisco/enic/enic_clsf.c | 203 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/enic_clsf.h |   9 ++
+ drivers/net/ethernet/cisco/enic/enic_main.c |  17 +++
+ drivers/net/ethernet/cisco/enic/enic_res.c  |   1 +
+ drivers/net/ethernet/cisco/enic/vnic_enet.h |   2 +
+ 6 files changed, 273 insertions(+)
 
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index 14f465f..b9b9178 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -99,6 +99,44 @@ struct enic_port_profile {
+ 	u8 mac_addr[ETH_ALEN];
+ };
+ 
++#ifdef CONFIG_RFS_ACCEL
++/* enic_rfs_fltr_node - rfs filter node in hash table
++ *	@@keys: IPv4 5 tuple
++ *	@flow_id: flow_id of clsf filter provided by kernel
++ *	@fltr_id: filter id of clsf filter returned by adaptor
++ *	@rq_id: desired rq index
++ *	@node: hlist_node
++ */
++struct enic_rfs_fltr_node {
++	struct flow_keys keys;
++	u32 flow_id;
++	u16 fltr_id;
++	u16 rq_id;
++	struct hlist_node node;
++};
++
++/* enic_rfs_flw_tbl - rfs flow table
++ *	@max: Maximum number of filters vNIC supports
++ *	@free: Number of free filters available
++ *	@toclean: hash table index to clean next
++ *	@ht_head: hash table list head
++ *	@lock: spin lock
++ *	@rfs_may_expire: timer function for enic_rps_may_expire_flow
++ */
++struct enic_rfs_flw_tbl {
++	u16 max;
++	int free;
++
++#define ENIC_RFS_FLW_BITSHIFT	(10)
++#define ENIC_RFS_FLW_MASK	((1 << ENIC_RFS_FLW_BITSHIFT) - 1)
++	u16 toclean:ENIC_RFS_FLW_BITSHIFT;
++	struct hlist_head ht_head[1 << ENIC_RFS_FLW_BITSHIFT];
++	spinlock_t lock;
++	struct timer_list rfs_may_expire;
++};
++
++#endif /* CONFIG_RFS_ACCEL */
++
+ /* Per-instance private data structure */
+ struct enic {
+ 	struct net_device *netdev;
+@@ -150,6 +188,9 @@ struct enic {
+ 	/* completion queue cache line section */
+ 	____cacheline_aligned struct vnic_cq cq[ENIC_CQ_MAX];
+ 	unsigned int cq_count;
++#ifdef CONFIG_RFS_ACCEL
++	struct enic_rfs_flw_tbl rfs_h;
++#endif
+ };
+ 
+ static inline struct device *enic_get_dev(struct enic *enic)
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+index f6703c4..1cabcfc 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+@@ -64,3 +64,206 @@ int enic_delfltr(struct enic *enic, u16 filter_id)
+ 
+ 	return ret;
+ }
++
++#ifdef CONFIG_RFS_ACCEL
++void enic_flow_may_expire(unsigned long data)
++{
++	struct enic *enic = (struct enic *) data;
++	bool res;
++	int j;
++
++	spin_lock(&enic->rfs_h.lock);
++	for (j = 0; j < ENIC_CLSF_EXPIRE_COUNT; j++) {
++		struct hlist_head *hhead;
++		struct hlist_node *tmp;
++		struct enic_rfs_fltr_node *n;
++
++		hhead = &enic->rfs_h.ht_head[enic->rfs_h.toclean++];
++		hlist_for_each_entry_safe(n, tmp, hhead, node) {
++			res = rps_may_expire_flow(enic->netdev, n->rq_id,
++						  n->flow_id, n->fltr_id);
++			if (res) {
++				res = enic_delfltr(enic, n->fltr_id);
++				if (unlikely(res))
++					continue;
++				hlist_del(&n->node);
++				kfree(n);
++				enic->rfs_h.free++;
++			}
++		}
++	}
++	spin_unlock(&enic->rfs_h.lock);
++	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
++}
++
++/* enic_rfs_flw_tbl_init - initialize enic->rfs_h members
++ *	@enic: enic data
++ */
++void enic_rfs_flw_tbl_init(struct enic *enic)
++{
++	int i;
++
++	spin_lock_init(&enic->rfs_h.lock);
++	for (i = 0; i <= ENIC_RFS_FLW_MASK; i++)
++		INIT_HLIST_HEAD(&enic->rfs_h.ht_head[i]);
++	enic->rfs_h.max = enic->config.num_arfs;
++	enic->rfs_h.free = enic->rfs_h.max;
++	enic->rfs_h.toclean = 0;
++	init_timer(&enic->rfs_h.rfs_may_expire);
++	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
++	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
++	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
++}
++
++void enic_rfs_flw_tbl_free(struct enic *enic)
++{
++	int i, res;
++
++	del_timer_sync(&enic->rfs_h.rfs_may_expire);
++	spin_lock(&enic->rfs_h.lock);
++	enic->rfs_h.free = 0;
++	for (i = 0; i < (1 << ENIC_RFS_FLW_BITSHIFT); i++) {
++		struct hlist_head *hhead;
++		struct hlist_node *tmp;
++		struct enic_rfs_fltr_node *n;
++
++		hhead = &enic->rfs_h.ht_head[i];
++		hlist_for_each_entry_safe(n, tmp, hhead, node) {
++			enic_delfltr(enic, n->fltr_id);
++			hlist_del(&n->node);
++			kfree(n);
++		}
++	}
++	spin_unlock(&enic->rfs_h.lock);
++}
++
++static struct enic_rfs_fltr_node *htbl_key_search(struct hlist_head *h,
++						  struct flow_keys *k)
++{
++	struct enic_rfs_fltr_node *tpos;
++
++	hlist_for_each_entry(tpos, h, node)
++		if (tpos->keys.src == k->src &&
++		    tpos->keys.dst == k->dst &&
++		    tpos->keys.ports == k->ports &&
++		    tpos->keys.ip_proto == k->ip_proto &&
++		    tpos->keys.n_proto == k->n_proto)
++			return tpos;
++	return NULL;
++}
++
++int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++		       u16 rxq_index, u32 flow_id)
++{
++	struct flow_keys keys;
++	struct enic_rfs_fltr_node *n;
++	struct enic *enic;
++	u16 tbl_idx;
++	int res, i;
++
++	enic = netdev_priv(dev);
++	res = skb_flow_dissect(skb, &keys);
++	if (!res || keys.n_proto != htons(ETH_P_IP) ||
++	    (keys.ip_proto != IPPROTO_TCP && keys.ip_proto != IPPROTO_UDP))
++		return -EPROTONOSUPPORT;
++
++	tbl_idx = skb_get_hash_raw(skb) & ENIC_RFS_FLW_MASK;
++	spin_lock(&enic->rfs_h.lock);
++	n = htbl_key_search(&enic->rfs_h.ht_head[tbl_idx], &keys);
++
++	if (n) { /* entry already present  */
++		if (rxq_index == n->rq_id) {
++			res = -EEXIST;
++			goto ret_unlock;
++		}
++
++		/* desired rq changed for the flow, we need to delete
++		 * old fltr and add new one
++		 *
++		 * The moment we delete the fltr, the upcoming pkts
++		 * are put it default rq based on rss. When we add
++		 * new filter, upcoming pkts are put in desired queue.
++		 * This could cause ooo pkts.
++		 *
++		 * Lets 1st try adding new fltr and then del old one.
++		 */
++		i = --enic->rfs_h.free;
++		/* clsf tbl is full, we have to del old fltr first*/
++		if (unlikely(i < 0)) {
++			enic->rfs_h.free++;
++			res = enic_delfltr(enic, n->fltr_id);
++			if (unlikely(res < 0))
++				goto ret_unlock;
++			res = enic_addfltr_5t(enic, &keys, rxq_index);
++			if (res < 0) {
++				hlist_del(&n->node);
++				enic->rfs_h.free++;
++				goto ret_unlock;
++			}
++		/* add new fltr 1st then del old fltr */
++		} else {
++			int ret;
++
++			res = enic_addfltr_5t(enic, &keys, rxq_index);
++			if (res < 0) {
++				enic->rfs_h.free++;
++				goto ret_unlock;
++			}
++			ret = enic_delfltr(enic, n->fltr_id);
++			/* deleting old fltr failed. Add old fltr to list.
++			 * enic_flow_may_expire() will try to delete it later.
++			 */
++			if (unlikely(ret < 0)) {
++				struct enic_rfs_fltr_node *d;
++				struct hlist_head *head;
++
++				head = &enic->rfs_h.ht_head[tbl_idx];
++				d = kmalloc(sizeof(*d), GFP_ATOMIC);
++				if (d) {
++					d->fltr_id = n->fltr_id;
++					INIT_HLIST_NODE(&d->node);
++					hlist_add_head(&d->node, head);
++				}
++			} else {
++				enic->rfs_h.free++;
++			}
++		}
++		n->rq_id = rxq_index;
++		n->fltr_id = res;
++		n->flow_id = flow_id;
++	/* entry not present */
++	} else {
++		i = --enic->rfs_h.free;
++		if (i <= 0) {
++			enic->rfs_h.free++;
++			res = -EBUSY;
++			goto ret_unlock;
++		}
++
++		n = kmalloc(sizeof(*n), GFP_ATOMIC);
++		if (!n) {
++			res = -ENOMEM;
++			enic->rfs_h.free++;
++			goto ret_unlock;
++		}
++
++		res = enic_addfltr_5t(enic, &keys, rxq_index);
++		if (res < 0) {
++			kfree(n);
++			enic->rfs_h.free++;
++			goto ret_unlock;
++		}
++		n->rq_id = rxq_index;
++		n->fltr_id = res;
++		n->flow_id = flow_id;
++		n->keys = keys;
++		INIT_HLIST_NODE(&n->node);
++		hlist_add_head(&n->node, &enic->rfs_h.ht_head[tbl_idx]);
++	}
++
++ret_unlock:
++	spin_unlock(&enic->rfs_h.lock);
++	return res;
++}
++
++#endif /* CONFIG_RFS_ACCEL */
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+index b6925b3..76a85bb 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+@@ -4,7 +4,16 @@
+ #include "vnic_dev.h"
+ #include "enic.h"
+ 
++#define ENIC_CLSF_EXPIRE_COUNT 128
++
+ int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq);
+ int enic_delfltr(struct enic *enic, u16 filter_id);
+ 
++#ifdef CONFIG_RFS_ACCEL
++void enic_rfs_flw_tbl_init(struct enic *enic);
++void enic_rfs_flw_tbl_free(struct enic *enic);
++int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++		       u16 rxq_index, u32 flow_id);
++#endif /* CONFIG_RFS_ACCEL */
++
+ #endif /* _ENIC_CLSF_H_ */
 diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index 33decff..558ee45 100644
+index f4508d9..67a12a7 100644
 --- a/drivers/net/ethernet/cisco/enic/enic_main.c
 +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -42,6 +42,9 @@
- #ifdef CONFIG_RFS_ACCEL
- #include <linux/cpu_rmap.h>
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#include <net/busy_poll.h>
+@@ -52,6 +52,7 @@
+ #include "enic.h"
+ #include "enic_dev.h"
+ #include "enic_pp.h"
++#include "enic_clsf.h"
+ 
+ #define ENIC_NOTIFY_TIMER_PERIOD	(2 * HZ)
+ #define WQ_ENET_MAX_DESC_LEN		(1 << WQ_ENET_LEN_BITS)
+@@ -1539,6 +1540,9 @@ static int enic_open(struct net_device *netdev)
+ 		vnic_intr_unmask(&enic->intr[i]);
+ 
+ 	enic_notify_timer_start(enic);
++#ifdef CONFIG_RFS_ACCEL
++	enic_rfs_flw_tbl_init(enic);
 +#endif
  
- #include "cq_enet_desc.h"
- #include "vnic_dev.h"
-@@ -1053,10 +1056,12 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
- 		if (vlan_stripped)
- 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
+ 	return 0;
  
--		if (netdev->features & NETIF_F_GRO)
--			napi_gro_receive(&enic->napi[q_number], skb);
--		else
-+		skb_mark_napi_id(skb, &enic->napi[rq->index]);
-+		if (enic_poll_busy_polling(rq) ||
-+		    !(netdev->features & NETIF_F_GRO))
- 			netif_receive_skb(skb);
-+		else
-+			napi_gro_receive(&enic->napi[q_number], skb);
- 		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
- 			enic_intr_update_pkt_size(&cq->pkt_size_counter,
- 						  bytes_written);
-@@ -1093,16 +1098,22 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 	unsigned int  work_done, rq_work_done = 0, wq_work_done;
- 	int err;
+@@ -1565,6 +1569,9 @@ static int enic_stop(struct net_device *netdev)
+ 	enic_synchronize_irqs(enic);
  
--	/* Service RQ (first) and WQ
--	 */
-+	wq_work_done = vnic_cq_service(&enic->cq[cq_wq], wq_work_to_do,
-+				       enic_wq_service, NULL);
-+
-+	if (!enic_poll_lock_napi(&enic->rq[cq_rq])) {
-+		if (wq_work_done > 0)
-+			vnic_intr_return_credits(&enic->intr[intr],
-+						 wq_work_done,
-+						 0 /* dont unmask intr */,
-+						 0 /* dont reset intr timer */);
-+		return rq_work_done;
-+	}
- 
- 	if (budget > 0)
- 		rq_work_done = vnic_cq_service(&enic->cq[cq_rq],
- 			rq_work_to_do, enic_rq_service, NULL);
- 
--	wq_work_done = vnic_cq_service(&enic->cq[cq_wq],
--		wq_work_to_do, enic_wq_service, NULL);
--
- 	/* Accumulate intr event credits for this polling
- 	 * cycle.  An intr event is the completion of a
- 	 * a WQ or RQ packet.
-@@ -1134,6 +1145,7 @@ static int enic_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
-+	enic_poll_unlock_napi(&enic->rq[cq_rq]);
- 
- 	return rq_work_done;
- }
-@@ -1223,6 +1235,34 @@ static inline void enic_set_rx_cpu_rmap(struct enic *enic)
- }
- #endif
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+int enic_busy_poll(struct napi_struct *napi)
-+{
-+	struct net_device *netdev = napi->dev;
-+	struct enic *enic = netdev_priv(netdev);
-+	unsigned int rq = (napi - &enic->napi[0]);
-+	unsigned int cq = enic_cq_rq(enic, rq);
-+	unsigned int intr = enic_msix_rq_intr(enic, rq);
-+	unsigned int work_to_do = -1; /* clean all pkts possible */
-+	unsigned int work_done;
-+
-+	if (!enic_poll_lock_poll(&enic->rq[rq]))
-+		return LL_FLUSH_BUSY;
-+	work_done = vnic_cq_service(&enic->cq[cq], work_to_do,
-+				    enic_rq_service, NULL);
-+
-+	if (work_done > 0)
-+		vnic_intr_return_credits(&enic->intr[intr],
-+					 work_done, 0, 0);
-+	vnic_rq_fill(&enic->rq[rq], enic_rq_alloc_buf);
-+	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
-+		enic_calc_int_moderation(enic, &enic->rq[rq]);
-+	enic_poll_unlock_poll(&enic->rq[rq]);
-+
-+	return work_done;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- static int enic_poll_msix(struct napi_struct *napi, int budget)
- {
- 	struct net_device *netdev = napi->dev;
-@@ -1234,6 +1274,8 @@ static int enic_poll_msix(struct napi_struct *napi, int budget)
- 	unsigned int work_done = 0;
- 	int err;
- 
-+	if (!enic_poll_lock_napi(&enic->rq[rq]))
-+		return work_done;
- 	/* Service RQ
- 	 */
- 
-@@ -1279,6 +1321,7 @@ static int enic_poll_msix(struct napi_struct *napi, int budget)
- 			enic_set_int_moderation(enic, &enic->rq[rq]);
- 		vnic_intr_unmask(&enic->intr[intr]);
- 	}
-+	enic_poll_unlock_napi(&enic->rq[rq]);
- 
- 	return work_done;
- }
-@@ -1531,8 +1574,10 @@ static int enic_open(struct net_device *netdev)
- 
- 	netif_tx_wake_all_queues(netdev);
- 
--	for (i = 0; i < enic->rq_count; i++)
-+	for (i = 0; i < enic->rq_count; i++) {
-+		enic_busy_poll_init_lock(&enic->rq[i]);
- 		napi_enable(&enic->napi[i]);
-+	}
- 
- 	enic_dev_enable(enic);
- 
-@@ -1575,8 +1620,13 @@ static int enic_stop(struct net_device *netdev)
+ 	del_timer_sync(&enic->notify_timer);
++#ifdef CONFIG_RFS_ACCEL
++	enic_rfs_flw_tbl_free(enic);
++#endif
  
  	enic_dev_disable(enic);
  
--	for (i = 0; i < enic->rq_count; i++)
-+	local_bh_disable();
-+	for (i = 0; i < enic->rq_count; i++) {
- 		napi_disable(&enic->napi[i]);
-+		while (!enic_poll_lock_napi(&enic->rq[i]))
-+			mdelay(1);
-+	}
-+	local_bh_enable();
- 
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
-@@ -2067,6 +2117,9 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= enic_rx_flow_steer,
+@@ -2057,6 +2064,9 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= enic_poll_controller,
  #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= enic_busy_poll,
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	= enic_rx_flow_steer,
 +#endif
  };
  
  static const struct net_device_ops enic_netdev_ops = {
-@@ -2090,14 +2143,19 @@ static const struct net_device_ops enic_netdev_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= enic_rx_flow_steer,
+@@ -2077,6 +2087,9 @@ static const struct net_device_ops enic_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= enic_poll_controller,
  #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= enic_busy_poll,
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	= enic_rx_flow_steer,
 +#endif
  };
  
  static void enic_dev_deinit(struct enic *enic)
- {
- 	unsigned int i;
+@@ -2422,6 +2435,10 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
--	for (i = 0; i < enic->rq_count; i++)
-+	for (i = 0; i < enic->rq_count; i++) {
-+		napi_hash_del(&enic->napi[i]);
- 		netif_napi_del(&enic->napi[i]);
-+	}
+ 	netdev->features |= netdev->hw_features;
  
- 	enic_free_vnic_resources(enic);
- 	enic_clear_intr_mode(enic);
-@@ -2163,11 +2221,14 @@ static int enic_dev_init(struct enic *enic)
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	default:
- 		netif_napi_add(netdev, &enic->napi[0], enic_poll, 64);
-+		napi_hash_add(&enic->napi[0]);
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSIX:
--		for (i = 0; i < enic->rq_count; i++)
-+		for (i = 0; i < enic->rq_count; i++) {
- 			netif_napi_add(netdev, &enic->napi[i],
- 				enic_poll_msix, 64);
-+			napi_hash_add(&enic->napi[i]);
-+		}
- 		break;
- 	}
++#ifdef CONFIG_RFS_ACCEL
++	netdev->hw_features |= NETIF_F_NTUPLE;
++#endif
++
+ 	if (using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
  
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-index ee7bc95..8111d52 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_rq.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_rq.h
-@@ -85,6 +85,21 @@ struct vnic_rq {
- 	struct vnic_rq_buf *to_clean;
- 	void *os_buf_head;
- 	unsigned int pkts_outstanding;
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+#define ENIC_POLL_STATE_IDLE		0
-+#define ENIC_POLL_STATE_NAPI		(1 << 0) /* NAPI owns this poll */
-+#define ENIC_POLL_STATE_POLL		(1 << 1) /* poll owns this poll */
-+#define ENIC_POLL_STATE_NAPI_YIELD	(1 << 2) /* NAPI yielded this poll */
-+#define ENIC_POLL_STATE_POLL_YIELD	(1 << 3) /* poll yielded this poll */
-+#define ENIC_POLL_YIELD			(ENIC_POLL_STATE_NAPI_YIELD |	\
-+					 ENIC_POLL_STATE_POLL_YIELD)
-+#define ENIC_POLL_LOCKED		(ENIC_POLL_STATE_NAPI |		\
-+					 ENIC_POLL_STATE_POLL)
-+#define ENIC_POLL_USER_PEND		(ENIC_POLL_STATE_POLL |		\
-+					 ENIC_POLL_STATE_POLL_YIELD)
-+	unsigned int bpoll_state;
-+	spinlock_t bpoll_lock;
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
+diff --git a/drivers/net/ethernet/cisco/enic/enic_res.c b/drivers/net/ethernet/cisco/enic/enic_res.c
+index 31d6588..9c96911 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_res.c
++++ b/drivers/net/ethernet/cisco/enic/enic_res.c
+@@ -71,6 +71,7 @@ int enic_get_vnic_config(struct enic *enic)
+ 	GET_CONFIG(intr_mode);
+ 	GET_CONFIG(intr_timer_usec);
+ 	GET_CONFIG(loop_tag);
++	GET_CONFIG(num_arfs);
+ 
+ 	c->wq_desc_count =
+ 		min_t(u32, ENIC_MAX_WQ_DESCS,
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+index 6095428..75aced2 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_enet.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+@@ -32,6 +32,8 @@ struct vnic_enet_config {
+ 	char devname[16];
+ 	u32 intr_timer_usec;
+ 	u16 loop_tag;
++	u16 vf_rq_count;
++	u16 num_arfs;
  };
  
- static inline unsigned int vnic_rq_desc_avail(struct vnic_rq *rq)
-@@ -197,6 +212,113 @@ static inline int vnic_rq_fill(struct vnic_rq *rq,
- 	return 0;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void enic_busy_poll_init_lock(struct vnic_rq *rq)
-+{
-+	spin_lock_init(&rq->bpoll_lock);
-+	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
-+}
-+
-+static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
-+{
-+	bool rc = true;
-+
-+	spin_lock(&rq->bpoll_lock);
-+	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
-+		WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
-+		rq->bpoll_state |= ENIC_POLL_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else {
-+		rq->bpoll_state = ENIC_POLL_STATE_NAPI;
-+	}
-+	spin_unlock(&rq->bpoll_lock);
-+
-+	return rc;
-+}
-+
-+static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
-+{
-+	bool rc = false;
-+
-+	spin_lock(&rq->bpoll_lock);
-+	WARN_ON(rq->bpoll_state &
-+		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
-+	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
-+	spin_unlock(&rq->bpoll_lock);
-+
-+	return rc;
-+}
-+
-+static inline bool enic_poll_lock_poll(struct vnic_rq *rq)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&rq->bpoll_lock);
-+	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
-+		rq->bpoll_state |= ENIC_POLL_STATE_POLL_YIELD;
-+		rc = false;
-+	} else {
-+		rq->bpoll_state |= ENIC_POLL_STATE_POLL;
-+	}
-+	spin_unlock_bh(&rq->bpoll_lock);
-+
-+	return rc;
-+}
-+
-+static inline bool enic_poll_unlock_poll(struct vnic_rq *rq)
-+{
-+	bool rc = false;
-+
-+	spin_lock_bh(&rq->bpoll_lock);
-+	WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
-+	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
-+		rc = true;
-+	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
-+	spin_unlock_bh(&rq->bpoll_lock);
-+
-+	return rc;
-+}
-+
-+static inline bool enic_poll_busy_polling(struct vnic_rq *rq)
-+{
-+	WARN_ON(!(rq->bpoll_state & ENIC_POLL_LOCKED));
-+	return rq->bpoll_state & ENIC_POLL_USER_PEND;
-+}
-+
-+#else
-+
-+static inline void enic_busy_poll_init_lock(struct vnic_rq *rq)
-+{
-+}
-+
-+static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
-+{
-+	return true;
-+}
-+
-+static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool enic_poll_lock_poll(struct vnic_rq *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool enic_poll_unlock_poll(struct vnic_rq *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool enic_poll_ll_polling(struct vnic_rq *rq)
-+{
-+	return false;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- void vnic_rq_free(struct vnic_rq *rq);
- int vnic_rq_alloc(struct vnic_dev *vdev, struct vnic_rq *rq, unsigned int index,
- 	unsigned int desc_count, unsigned int desc_size);
+ #define VENETF_TSO		0x1	/* TSO enabled */
 -- 
 2.0.0
