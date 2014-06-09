@@ -1,66 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e: Allow RSS table entry range and GPS to be any number, not necessarily power of 2
-Date: Mon,  9 Jun 2014 01:49:17 -0700
-Message-ID: <1402303758-1429-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/13] i40e: Delete stale MAC filters after change
+Date: Mon,  9 Jun 2014 01:49:16 -0700
+Message-ID: <1402303758-1429-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27481 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27489 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754408AbaFIItb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 04:49:31 -0400
+	id S1754681AbaFIIta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 04:49:30 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-We tell the HW upper boundary of power of 2 in VSI config,
-but the HW does not restrict us to use just power of 2 GPS in
-case of RSS as long as we are not sharing the RSS table with
-another VSI (VMDq). We at present are not doing RSS in VMDq
-VSI.
-If we were to enable that and if the system had CPU count which
-was not power 2, the VMDq VSIs will see a little skewed distribution.
+Delete all the old and stale MAC filters for the VF VSI when the host
+administrator changes the VF MAC address from under its feet.  Also don't
+bother to add a filter for the VSI when its going to go away anyway.
+Just record the new address and punch the VF reset.
 
-Change-ID: I3ea797ce9065a3ca4fc4d04251bf195463410473
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ic0d12055926f41989d1965ccf500053729c063ad
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2f11542..adbeac4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1366,7 +1366,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
- 	vsi->tc_config.numtc = numtc;
- 	vsi->tc_config.enabled_tc = enabled_tc ? enabled_tc : 1;
- 	/* Number of queues per enabled TC */
--	num_tc_qps = rounddown_pow_of_two(vsi->alloc_queue_pairs/numtc);
-+	num_tc_qps = vsi->alloc_queue_pairs/numtc;
- 	num_tc_qps = min_t(int, num_tc_qps, I40E_MAX_QUEUES_PER_TC);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 3f6cad4..385a46f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2063,14 +2063,11 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ 	i40e_del_filter(vsi, vf->default_lan_addr.addr, vf->port_vlan_id,
+ 			true, false);
  
- 	/* Setup queue offset/count for all TCs for given VSI */
-@@ -6498,7 +6498,6 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
- 		return 0;
+-	/* add the new mac address */
+-	f = i40e_add_filter(vsi, mac, vf->port_vlan_id, true, false);
+-	if (!f) {
+-		dev_err(&pf->pdev->dev,
+-			"Unable to add VF ucast filter\n");
+-		ret = -ENOMEM;
+-		goto error_param;
+-	}
++	/* Delete all the filters for this VSI - we're going to kill it
++	 * anyway.
++	 */
++	list_for_each_entry(f, &vsi->mac_filter_list, list)
++		i40e_del_filter(vsi, f->macaddr, f->vlan, true, false);
  
- 	queue_count = min_t(int, queue_count, pf->rss_size_max);
--	queue_count = rounddown_pow_of_two(queue_count);
- 
- 	if (queue_count != pf->rss_size) {
- 		i40e_prep_for_reset(pf);
-@@ -6554,7 +6553,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	if (pf->hw.func_caps.rss) {
- 		pf->flags |= I40E_FLAG_RSS_ENABLED;
- 		pf->rss_size = min_t(int, pf->rss_size_max, num_online_cpus());
--		pf->rss_size = rounddown_pow_of_two(pf->rss_size);
- 	} else {
- 		pf->rss_size = 1;
- 	}
+ 	dev_info(&pf->pdev->dev, "Setting MAC %pM on VF %d\n", mac, vf_id);
+ 	/* program mac filter */
 -- 
 1.9.3
