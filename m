@@ -1,66 +1,96 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/13] i40e: keep SR-IOV enabled in the case that RSS, VMDQ, FD_SB and DCB are disabled
-Date: Mon,  9 Jun 2014 01:49:13 -0700
-Message-ID: <1402303758-1429-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/13] i40e: Changes to Interrupt distribution policy
+Date: Mon,  9 Jun 2014 01:49:12 -0700
+Message-ID: <1402303758-1429-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Frank Zhang <frank_1.zhang@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27489 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27483 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754626AbaFIIt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 04:49:27 -0400
+	id S1754450AbaFIIt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 04:49:26 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Zhang <frank_1.zhang@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Modify the logic in i40e_determine_queue_usage() so that
-SR-IOV doesn't get turned off unnecessarily.
+This patch changes the way resources are distributed to special features.
 
-Change-ID: I86ca304fa9f742a50e9ea831b887f358a6a9d53d
-Signed-off-by: Frank Zhang <frank_1.zhang@intel.com>
+Change-ID: I847e49d714a1d70e97f3f994cb39bfb5e02ab016
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index eb32c5c..b5f0dea 100644
+index afc37d3..eb32c5c 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8180,9 +8180,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 	queues_left = pf->hw.func_caps.num_tx_qp;
- 
- 	if ((queues_left == 1) ||
--	    !(pf->flags & I40E_FLAG_MSIX_ENABLED) ||
--	    !(pf->flags & (I40E_FLAG_RSS_ENABLED | I40E_FLAG_FD_SB_ENABLED |
--			   I40E_FLAG_DCB_ENABLED))) {
-+	    !(pf->flags & I40E_FLAG_MSIX_ENABLED)) {
- 		/* one qp for PF, no queues for anything else */
- 		queues_left = 0;
- 		pf->rss_size = pf->num_lan_qps = 1;
-@@ -8194,6 +8192,18 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
- 			       I40E_FLAG_DCB_ENABLED	|
- 			       I40E_FLAG_SRIOV_ENABLED	|
- 			       I40E_FLAG_VMDQ_ENABLED);
-+	} else if (!(pf->flags & (I40E_FLAG_RSS_ENABLED |
-+				  I40E_FLAG_FD_SB_ENABLED |
-+				  I40E_FLAG_DCB_ENABLED))) {
-+		/* one qp for PF */
-+		pf->rss_size = pf->num_lan_qps = 1;
-+		queues_left -= pf->num_lan_qps;
+@@ -6228,6 +6228,16 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 	for (i = 0; i < v_budget; i++)
+ 		pf->msix_entries[i].entry = i;
+ 	vec = i40e_reserve_msix_vectors(pf, v_budget);
 +
-+		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
-+			       I40E_FLAG_FD_SB_ENABLED	|
-+			       I40E_FLAG_FD_ATR_ENABLED	|
-+			       I40E_FLAG_DCB_ENABLED	|
-+			       I40E_FLAG_VMDQ_ENABLED);
- 	} else {
- 		/* Not enough queues for all TCs */
- 		if ((pf->flags & I40E_FLAG_DCB_ENABLED) &&
++	if (vec != v_budget) {
++		/* If we have limited resources, we will start with no vectors
++		 * for the special features and then allocate vectors to some
++		 * of these features based on the policy and at the end disable
++		 * the features that did not get any vectors.
++		 */
++		pf->num_vmdq_msix = 0;
++	}
++
+ 	if (vec < I40E_MIN_MSIX) {
+ 		pf->flags &= ~I40E_FLAG_MSIX_ENABLED;
+ 		kfree(pf->msix_entries);
+@@ -6236,27 +6246,25 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 
+ 	} else if (vec == I40E_MIN_MSIX) {
+ 		/* Adjust for minimal MSIX use */
+-		dev_info(&pf->pdev->dev, "Features disabled, not enough MSI-X vectors\n");
+-		pf->flags &= ~I40E_FLAG_VMDQ_ENABLED;
+ 		pf->num_vmdq_vsis = 0;
+ 		pf->num_vmdq_qps = 0;
+-		pf->num_vmdq_msix = 0;
+ 		pf->num_lan_qps = 1;
+ 		pf->num_lan_msix = 1;
+ 
+ 	} else if (vec != v_budget) {
++		/* reserve the misc vector */
++		vec--;
++
+ 		/* Scale vector usage down */
+ 		pf->num_vmdq_msix = 1;    /* force VMDqs to only one vector */
+-		vec--;                    /* reserve the misc vector */
++		pf->num_vmdq_vsis = 1;
+ 
+ 		/* partition out the remaining vectors */
+ 		switch (vec) {
+ 		case 2:
+-			pf->num_vmdq_vsis = 1;
+ 			pf->num_lan_msix = 1;
+ 			break;
+ 		case 3:
+-			pf->num_vmdq_vsis = 1;
+ 			pf->num_lan_msix = 2;
+ 			break;
+ 		default:
+@@ -6268,6 +6276,11 @@ static int i40e_init_msix(struct i40e_pf *pf)
+ 		}
+ 	}
+ 
++	if ((pf->flags & I40E_FLAG_VMDQ_ENABLED) &&
++	    (pf->num_vmdq_msix == 0)) {
++		dev_info(&pf->pdev->dev, "VMDq disabled, not enough MSI-X vectors\n");
++		pf->flags &= ~I40E_FLAG_VMDQ_ENABLED;
++	}
+ 	return err;
+ }
+ 
 -- 
 1.9.3
