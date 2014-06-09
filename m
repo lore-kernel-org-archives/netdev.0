@@ -1,126 +1,83 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest Customer
- Bridge group addresses
-Date: Tue, 10 Jun 2014 01:45:51 +0900
-Message-ID: <1402332351.1742.16.camel@localhost.localdomain>
-References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	 <20140609085243.32f88582@nehalam.linuxnetplumber.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v2 RESEND 1/4] macvlan: support mac address changes
+ when fwd_priv is enable
+Date: Mon, 09 Jun 2014 12:51:35 -0400
+Message-ID: <5395E617.5080307@redhat.com>
+References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com> <1402127143-6456-2-git-send-email-dingtianhong@huawei.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	"David S . Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
+To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
+	davem@davemloft.net, edumazet@google.com,
+	makita.toshiaki@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:55362 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918AbaFIQpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 12:45:55 -0400
-Received: by mail-pd0-f169.google.com with SMTP id w10so5010478pde.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 09:45:55 -0700 (PDT)
-In-Reply-To: <20140609085243.32f88582@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:36160 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932653AbaFIQwD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 12:52:03 -0400
+In-Reply-To: <1402127143-6456-2-git-send-email-dingtianhong@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-09 at 08:52 -0700, Stephen Hemminger wrote:
-> On Mon,  9 Jun 2014 20:34:46 +0900
-> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+[.. CC John Fastabend <john.r.fastabend@intel.com> ]
+
+On 06/07/2014 03:45 AM, Ding Tianhong wrote:
+> If lowerdev supports L2 forwarding offload, the macvlan's hw address
+> will be set to the rar of the lowerdev and no need to set uc list,
+> and when the macvlan's hw address changes, the macvlan should remove
+> the old fwd and rebuild a new fwd for the macvlan.
 > 
-> > An 802.1ad bridge must forward the Nearest Customer Bridge group addresses.
-> >  01-80-C2-00-00-00
-> >  01-80-C2-00-00-0B
-> >  01-80-C2-00-00-0C
-> >  01-80-C2-00-00-0D
-> >  01-80-C2-00-00-0F
-> > (For details, see IEEE 802.1Q-2011 8.6.3.)
-> > 
-> > An exception is the br->group_addr, which needs to be passed to the higher
-> > layer entity so that STP works.
-> > 
-> > Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-> > ---
-> >  net/bridge/br_input.c   | 15 ++++++++++++++-
-> >  net/bridge/br_private.h | 10 ++++++++++
-> >  2 files changed, 24 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> > index 04d6348..b05d419 100644
-> > --- a/net/bridge/br_input.c
-> > +++ b/net/bridge/br_input.c
-> > @@ -194,13 +194,26 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
-> >  		case 0x00:	/* Bridge Group Address */
-> >  			/* If STP is turned off,
-> >  			   then must forward to keep loop detection */
-> > -			if (p->br->stp_enabled == BR_NO_STP)
-> > +			if (p->br->stp_enabled == BR_NO_STP ||
-> > +			    (br_vlan_enabled(p->br) &&
-> > +			     br_vlan_get_proto(p->br) == htons(ETH_P_8021AD) &&
-> > +			     p->br->group_addr[5] != dest[5]))
-> >  				goto forward;
-> >  			break;
-> >  
-> >  		case 0x01:	/* IEEE MAC (Pause) */
-> >  			goto drop;
-> >  
-> > +		case 0x0B:
-> > +		case 0x0C:
-> > +		case 0x0D:
-> > +		case 0x0F:
-> > +			/* The Nearest Customer Bridge group address */
-> > +			if (br_vlan_enabled(p->br) &&
-> > +			    br_vlan_get_proto(p->br) == htons(ETH_P_8021AD) &&
-> > +			    p->br->group_addr[5] != dest[5])
-> > +				goto forward;
-> > +			/* fall through */
-> >  		default:
-> >  			/* Allow selective forwarding for most other protocols */
-> >  			if (p->br->group_fwd_mask & (1u << dest[5]))
-> > diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> > index b65fee9..65204c2 100644
-> > --- a/net/bridge/br_private.h
-> > +++ b/net/bridge/br_private.h
-> > @@ -647,6 +647,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
-> >  {
-> >  	return br->vlan_enabled;
-> >  }
-> > +
-> > +static inline __be16 br_vlan_get_proto(struct net_bridge *br)
-> > +{
-> > +	return br->vlan_proto;
-> > +}
-> >  #else
-> >  static inline bool br_allowed_ingress(struct net_bridge *br,
-> >  				      struct net_port_vlans *v,
-> > @@ -742,6 +747,11 @@ static inline int br_vlan_enabled(struct net_bridge *br)
-> >  {
-> >  	return 0;
-> >  }
-> > +
-> > +static inline __be16 br_vlan_get_proto(struct net_bridge *br)
-> > +{
-> > +	return 0;
-> > +}
-> >  #endif
-> >  
-> >  /* br_netfilter.c */
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>  drivers/net/macvlan.c | 21 +++++++++++++++++++++
+>  1 file changed, 21 insertions(+)
 > 
-> Rather than special casing this around vlan filtering, I would prefer
-> the code always forward these packets, or manipulate group_fwd_mask
-> to allow it that way.
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 453d55a..67485ab 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -523,6 +523,27 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>  		if (macvlan_addr_busy(vlan->port, addr))
+>  			return -EBUSY;
+>  
+> +		if (vlan->fwd_priv) {
+> +			lowerdev->netdev_ops->ndo_dfwd_del_station(lowerdev,
+> +								   vlan->fwd_priv);
+> +			vlan->fwd_priv = NULL;
+> +			ether_addr_copy(dev->perm_addr, dev->dev_addr);
+> +			ether_addr_copy(dev->dev_addr, addr);
+> +			vlan->fwd_priv =
+> +			    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+> +								       dev);
+> +			/* If we get a NULL pointer back, or if we get an error
+> +			 * then we should restore the old mac address and fwd.
+> +			 */
+> +			if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+> +				ether_addr_copy(dev->dev_addr, dev->perm_addr);
+> +				vlan->fwd_priv =
+> +				    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+> +									       dev);
+> +				return -EINVAL;
+> +			}
+> +			return 0;
+> +		}
 
-These addresses must be forwarded only if the bridge is an S-VLAN
-bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
-forwarded. So, I don't think we can forward them always.
+Calling del_stations add_station causes all sorts of VMDQ/ring
+operations to happen...  Not sure if we can do that while we have a live
+macvlan/macvtap that is capable of transmitting data.
 
-Using group_fwd_mask is a bit complicated. If we use it to forward them,
-user can optionally turn off forwarding ability of those addresses...
-but we maybe need another information (named like group_fwd_mask_set)
-that indicates which bit is set by user. (We have to set group_fwd_mask
-automatically when we set vlan_proto to 88a8.)
-Is this way acceptable?
+Wouldn't it be sufficient to have a call to call to update with mac
+filter with the appropriate VMDQ.
 
-Thanks,
-Toshiaki Makita
+John, I defer to you here.  The above looks really heavy-weight and
+I am not sure if its correct.
+
+Thanks
+-vlad
+
+>  		if (!vlan->port->passthru) {
+>  			err = dev_uc_add(lowerdev, addr);
+>  			if (err)
+> 
