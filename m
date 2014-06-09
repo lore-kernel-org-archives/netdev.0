@@ -1,43 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/13] i40evf: Fix function header
-Date: Mon,  9 Jun 2014 01:49:07 -0700
-Message-ID: <1402303758-1429-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/13] i40e: add checks for AQ error status bits
+Date: Mon,  9 Jun 2014 01:49:06 -0700
+Message-ID: <1402303758-1429-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27480 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27476 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754214AbaFIItX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753950AbaFIItX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Jun 2014 04:49:23 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Catherine Sullivan <catherine.sullivan@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Fix function header comment to have the correct function name.
+Check for error status bits on the AdminQ event queue and announce them
+if seen.  If the Firmware sets these bits, it will trigger an AdminQ
+interrupt to get the driver's attention to process the ARQ, which will
+likely be enough to clear the actual issue.
 
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I009e0ebc8be764e40e193b29aed2863f43eb5cb0
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 36 +++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index e8d2481..af45d0c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1395,7 +1395,7 @@ restart_watchdog:
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 8c16e18..ab0b6e1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5132,11 +5132,47 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+ 	u16 pending, i = 0;
+ 	i40e_status ret;
+ 	u16 opcode;
++	u32 oldval;
+ 	u32 val;
  
- /**
-- * i40evf_configure_rss - increment to next available tx queue
-+ * next_queue - increment to next available tx queue
-  * @adapter: board private structure
-  * @j: queue counter
-  *
+ 	if (!test_bit(__I40E_ADMINQ_EVENT_PENDING, &pf->state))
+ 		return;
+ 
++	/* check for error indications */
++	val = rd32(&pf->hw, pf->hw.aq.arq.len);
++	oldval = val;
++	if (val & I40E_PF_ARQLEN_ARQVFE_MASK) {
++		dev_info(&pf->pdev->dev, "ARQ VF Error detected\n");
++		val &= ~I40E_PF_ARQLEN_ARQVFE_MASK;
++	}
++	if (val & I40E_PF_ARQLEN_ARQOVFL_MASK) {
++		dev_info(&pf->pdev->dev, "ARQ Overflow Error detected\n");
++		val &= ~I40E_PF_ARQLEN_ARQOVFL_MASK;
++	}
++	if (val & I40E_PF_ARQLEN_ARQCRIT_MASK) {
++		dev_info(&pf->pdev->dev, "ARQ Critical Error detected\n");
++		val &= ~I40E_PF_ARQLEN_ARQCRIT_MASK;
++	}
++	if (oldval != val)
++		wr32(&pf->hw, pf->hw.aq.arq.len, val);
++
++	val = rd32(&pf->hw, pf->hw.aq.asq.len);
++	oldval = val;
++	if (val & I40E_PF_ATQLEN_ATQVFE_MASK) {
++		dev_info(&pf->pdev->dev, "ASQ VF Error detected\n");
++		val &= ~I40E_PF_ATQLEN_ATQVFE_MASK;
++	}
++	if (val & I40E_PF_ATQLEN_ATQOVFL_MASK) {
++		dev_info(&pf->pdev->dev, "ASQ Overflow Error detected\n");
++		val &= ~I40E_PF_ATQLEN_ATQOVFL_MASK;
++	}
++	if (val & I40E_PF_ATQLEN_ATQCRIT_MASK) {
++		dev_info(&pf->pdev->dev, "ASQ Critical Error detected\n");
++		val &= ~I40E_PF_ATQLEN_ATQCRIT_MASK;
++	}
++	if (oldval != val)
++		wr32(&pf->hw, pf->hw.aq.asq.len, val);
++
+ 	event.msg_size = I40E_MAX_AQ_BUF_SIZE;
+ 	event.msg_buf = kzalloc(event.msg_size, GFP_KERNEL);
+ 	if (!event.msg_buf)
 -- 
 1.9.3
