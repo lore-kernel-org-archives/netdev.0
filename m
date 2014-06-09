@@ -1,57 +1,54 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [patch] qlcnic: remove duplicate QLC_83XX_GET_LSO_CAPABILITY
- define
-Date: Mon, 9 Jun 2014 19:01:13 +0000
-Message-ID: <0EA5B226BC5C7B45A71BF612AA8A019E01288C8977@AVMB1.qlogic.org>
-References: <20140609145539.GB9600@mwanda>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net-next 1/1] amd-xgbe: fix unused variable compilation
+ warning in phylib driver
+Date: Mon, 9 Jun 2014 14:07:28 -0500
+Message-ID: <539605F0.9080701@amd.com>
+References: <20140607090748.GA11521@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Dept-HSG Linux NIC Dev <Dept-HSGLinuxNICDev@qlogic.com>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>
+To: Francois Romieu <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:2371 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750992AbaFITBR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 15:01:17 -0400
-In-Reply-To: <20140609145539.GB9600@mwanda>
-Content-Language: en-US
+Received: from mail-bn1blp0184.outbound.protection.outlook.com ([207.46.163.184]:48474
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752679AbaFITHu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 15:07:50 -0400
+In-Reply-To: <20140607090748.GA11521@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com
-> [mailto:dept_hsg_linux_nic_dev-bounces@qlclistserver.qlogic.com] On
-> Behalf Of Dan Carpenter
-> Sent: Monday, June 09, 2014 7:56 AM
-> To: Shahed Shaikh
-> Cc: Dept-HSG Linux NIC Dev; kernel-janitors@vger.kernel.org; netdev
-> Subject: [patch] qlcnic: remove duplicate QLC_83XX_GET_LSO_CAPABILITY
-> define
-> 
-> The QLC_83XX_GET_LSO_CAPABILITY define is cut and pasted twice so we
-> can delete the second instance.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-> index 97784d0..2bf101a 100644
-> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-> @@ -418,7 +418,6 @@ enum qlcnic_83xx_states {
->  #define QLC_83XX_GET_FUNC_MODE_FROM_NPAR_INFO(val)	(val &
-> 0x80000000)
->  #define QLC_83XX_GET_LRO_CAPABILITY(val)		(val & 0x20)
->  #define QLC_83XX_GET_LSO_CAPABILITY(val)		(val & 0x40)
-> -#define QLC_83XX_GET_LSO_CAPABILITY(val)		(val & 0x40)
->  #define QLC_83XX_GET_HW_LRO_CAPABILITY(val)		(val & 0x400)
+On 06/07/2014 04:07 AM, Francois Romieu wrote:
+> Fix following compilation warning:
+> [...]
+>    CC      drivers/net/phy/amd-xgbe-phy.o
+> drivers/net/phy/amd-xgbe-phy.c:1353:30: warning:
+> =E2=80=98amd_xgbe_phy_ids=E2=80=99 defined but not used [-Wunused-var=
+iable]
+>   static struct mdio_device_id amd_xgbe_phy_ids[] =3D {
+>                                ^
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Acked-by: Sony Chacko <sony.chacko@qlogic.com>
+Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Thanks,
-Sony
+> ---
+>   drivers/net/phy/amd-xgbe-phy.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgb=
+e-phy.c
+> index d4b1c81..b57c224 100644
+> --- a/drivers/net/phy/amd-xgbe-phy.c
+> +++ b/drivers/net/phy/amd-xgbe-phy.c
+> @@ -1350,7 +1350,7 @@ static void __exit amd_xgbe_phy_exit(void)
+>   module_init(amd_xgbe_phy_init);
+>   module_exit(amd_xgbe_phy_exit);
+>
+> -static struct mdio_device_id amd_xgbe_phy_ids[] =3D {
+> +static struct mdio_device_id __maybe_unused amd_xgbe_phy_ids[] =3D {
+>   	{ XGBE_PHY_ID, XGBE_PHY_MASK },
+>   	{ }
+>   };
+>
