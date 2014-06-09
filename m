@@ -1,178 +1,140 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V7 2/2] net/mlx4_en: Use affinity hint
-Date: Mon,  9 Jun 2014 10:24:39 +0300
-Message-ID: <1402298679-22038-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V7 1/2] cpumask: Utility function to set n'th cpu - local cpu first
+Date: Mon,  9 Jun 2014 10:24:38 +0300
+Message-ID: <1402298679-22038-2-git-send-email-amirv@mellanox.com>
 References: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Yuval Atias <yuvala@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:46730 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:42665 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753076AbaFIH0N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 03:26:13 -0400
+	id S1753723AbaFIH0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 03:26:39 -0400
 In-Reply-To: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Yuval Atias <yuvala@mellanox.com>
+This function sets the n'th cpu - local cpu's first.
+For example: in a 16 cores server with even cpu's local, will get the
+following values:
+cpumask_set_cpu_local_first(0, numa, cpumask) => cpu 0 is set
+cpumask_set_cpu_local_first(1, numa, cpumask) => cpu 2 is set
+...
+cpumask_set_cpu_local_first(7, numa, cpumask) => cpu 14 is set
+cpumask_set_cpu_local_first(8, numa, cpumask) => cpu 1 is set
+cpumask_set_cpu_local_first(9, numa, cpumask) => cpu 3 is set
+...
+cpumask_set_cpu_local_first(15, numa, cpumask) => cpu 15 is set
 
-The =E2=80=9Caffinity hint=E2=80=9D mechanism is used by the user space
-daemon, irqbalancer, to indicate a preferred CPU mask for irqs.
-Irqbalancer can use this hint to balance the irqs between the
-cpus indicated by the mask.
+Curently this function will be used by multi queue networking devices to
+calculate the irq affinity mask, such that as many local cpu's as
+possible will be utilized to handle the mq device irq's.
 
-We wish the HCA to preferentially map the IRQs it uses to numa cores
-close to it.  To accomplish this, we use cpumask_set_cpu_local_first(),=
- that
-sets the affinity hint according the following policy:
-=46irst it maps IRQs to =E2=80=9Cclose=E2=80=9D numa cores.  If these a=
-re exhausted, the
-remaining IRQs are mapped to =E2=80=9Cfar=E2=80=9D numa cores.
-
-Signed-off-by: Yuval Atias <yuvala@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_cq.c     | 12 ++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 35 ++++++++++++++++++=
-+++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
- 3 files changed, 46 insertions(+), 2 deletions(-)
+ include/linux/cpumask.h |  8 +++++++
+ lib/cpumask.c           | 63 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 71 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/e=
-thernet/mellanox/mlx4/en_cq.c
-index 636963d..4b21307 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -163,6 +163,13 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv,=
- struct mlx4_en_cq *cq,
- 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_tx_cq,
- 			       NAPI_POLL_WEIGHT);
- 	} else {
-+		struct mlx4_en_rx_ring *ring =3D priv->rx_ring[cq->ring];
-+
-+		err =3D irq_set_affinity_hint(cq->mcq.irq,
-+					    ring->affinity_mask);
-+		if (err)
-+			mlx4_warn(mdev, "Failed setting affinity hint\n");
-+
- 		netif_napi_add(cq->dev, &cq->napi, mlx4_en_poll_rx_cq, 64);
- 		napi_hash_add(&cq->napi);
- 	}
-@@ -179,8 +186,11 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv,=
- struct mlx4_en_cq **pcq)
-=20
- 	mlx4_en_unmap_buffer(&cq->wqres.buf);
- 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
--	if (priv->mdev->dev->caps.comp_pool && cq->vector)
-+	if (priv->mdev->dev->caps.comp_pool && cq->vector) {
-+		if (!cq->is_tx)
-+			irq_set_affinity_hint(cq->mcq.irq, NULL);
- 		mlx4_release_eq(priv->mdev->dev, cq->vector);
-+	}
- 	cq->vector =3D 0;
- 	cq->buf_size =3D 0;
- 	cq->buf =3D NULL;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/n=
-et/ethernet/mellanox/mlx4/en_netdev.c
-index 58209bd..7d4fb7b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1526,6 +1526,27 @@ static void mlx4_en_linkstate(struct work_struct=
- *work)
- 	mutex_unlock(&mdev->state_lock);
+diff --git a/include/linux/cpumask.h b/include/linux/cpumask.h
+index d08e4d2..d5ef249 100644
+--- a/include/linux/cpumask.h
++++ b/include/linux/cpumask.h
+@@ -142,6 +142,13 @@ static inline unsigned int cpumask_any_but(const struct cpumask *mask,
+ 	return 1;
  }
-=20
-+static int mlx4_en_init_affinity_hint(struct mlx4_en_priv *priv, int r=
-ing_idx)
+ 
++static inline int cpumask_set_cpu_local_first(int i, int numa_node, cpumask_t *dstp)
 +{
-+	struct mlx4_en_rx_ring *ring =3D priv->rx_ring[ring_idx];
-+	int numa_node =3D priv->mdev->dev->numa_node;
-+	int ret =3D 0;
++	set_bit(0, cpumask_bits(dstp));
 +
-+	if (!zalloc_cpumask_var(&ring->affinity_mask, GFP_KERNEL))
++	return 0;
++}
++
+ #define for_each_cpu(cpu, mask)			\
+ 	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask)
+ #define for_each_cpu_not(cpu, mask)		\
+@@ -192,6 +199,7 @@ static inline unsigned int cpumask_next_zero(int n, const struct cpumask *srcp)
+ 
+ int cpumask_next_and(int n, const struct cpumask *, const struct cpumask *);
+ int cpumask_any_but(const struct cpumask *mask, unsigned int cpu);
++int cpumask_set_cpu_local_first(int i, int numa_node, cpumask_t *dstp);
+ 
+ /**
+  * for_each_cpu - iterate over every cpu in a mask
+diff --git a/lib/cpumask.c b/lib/cpumask.c
+index b810b75..c101230 100644
+--- a/lib/cpumask.c
++++ b/lib/cpumask.c
+@@ -164,3 +164,66 @@ void __init free_bootmem_cpumask_var(cpumask_var_t mask)
+ 	memblock_free_early(__pa(mask), cpumask_size());
+ }
+ #endif
++
++/**
++ * cpumask_set_cpu_local_first - set i'th cpu with local numa cpu's first
++ *
++ * @i: index number
++ * @numa_node: local numa_node
++ * @dstp: cpumask with the relevant cpu bit set according to the policy
++ *
++ * This function sets the cpumask according to a numa aware policy.
++ * cpumask could be used as an affinity hint for the IRQ related to a
++ * queue. When the policy is to spread queues across cores - local cores
++ * first.
++ *
++ * Returns 0 on success, -ENOMEM for no memory, and -EAGAIN when failed to set
++ * the cpu bit and need to re-call the function.
++ */
++int cpumask_set_cpu_local_first(int i, int numa_node, cpumask_t *dstp)
++{
++	cpumask_var_t mask;
++	int cpu;
++	int ret = 0;
++
++	if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
 +		return -ENOMEM;
 +
-+	ret =3D cpumask_set_cpu_local_first(ring_idx, numa_node,
-+					  ring->affinity_mask);
-+	if (ret)
-+		free_cpumask_var(ring->affinity_mask);
++	i %= num_online_cpus();
++
++	if (!cpumask_of_node(numa_node)) {
++		/* Use all online cpu's for non numa aware system */
++		cpumask_copy(mask, cpu_online_mask);
++	} else {
++		int n;
++
++		cpumask_and(mask,
++			    cpumask_of_node(numa_node), cpu_online_mask);
++
++		n = cpumask_weight(mask);
++		if (i >= n) {
++			i -= n;
++
++			/* If index > number of local cpu's, mask out local
++			 * cpu's
++			 */
++			cpumask_andnot(mask, cpu_online_mask, mask);
++		}
++	}
++
++	for_each_cpu(cpu, mask) {
++		if (--i < 0)
++			goto out;
++	}
++
++	ret = -EAGAIN;
++
++out:
++	free_cpumask_var(mask);
++
++	if (!ret)
++		cpumask_set_cpu(cpu, dstp);
 +
 +	return ret;
 +}
-+
-+static void mlx4_en_free_affinity_hint(struct mlx4_en_priv *priv, int =
-ring_idx)
-+{
-+	free_cpumask_var(priv->rx_ring[ring_idx]->affinity_mask);
-+}
-=20
- int mlx4_en_start_port(struct net_device *dev)
- {
-@@ -1567,9 +1588,16 @@ int mlx4_en_start_port(struct net_device *dev)
-=20
- 		mlx4_en_cq_init_lock(cq);
-=20
-+		err =3D mlx4_en_init_affinity_hint(priv, i);
-+		if (err) {
-+			en_err(priv, "Failed preparing IRQ affinity hint\n");
-+			goto cq_err;
-+		}
-+
- 		err =3D mlx4_en_activate_cq(priv, cq, i);
- 		if (err) {
- 			en_err(priv, "Failed activating Rx CQ\n");
-+			mlx4_en_free_affinity_hint(priv, i);
- 			goto cq_err;
- 		}
- 		for (j =3D 0; j < cq->size; j++)
-@@ -1578,6 +1606,7 @@ int mlx4_en_start_port(struct net_device *dev)
- 		if (err) {
- 			en_err(priv, "Failed setting cq moderation parameters\n");
- 			mlx4_en_deactivate_cq(priv, cq);
-+			mlx4_en_free_affinity_hint(priv, i);
- 			goto cq_err;
- 		}
- 		mlx4_en_arm_cq(priv, cq);
-@@ -1715,8 +1744,10 @@ rss_err:
- mac_err:
- 	mlx4_en_put_qp(priv);
- cq_err:
--	while (rx_index--)
-+	while (rx_index--) {
- 		mlx4_en_deactivate_cq(priv, priv->rx_cq[rx_index]);
-+		mlx4_en_free_affinity_hint(priv, i);
-+	}
- 	for (i =3D 0; i < priv->rx_ring_num; i++)
- 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
-=20
-@@ -1847,6 +1878,8 @@ void mlx4_en_stop_port(struct net_device *dev, in=
-t detach)
- 			msleep(1);
- 		mlx4_en_deactivate_rx_ring(priv, priv->rx_ring[i]);
- 		mlx4_en_deactivate_cq(priv, cq);
-+
-+		mlx4_en_free_affinity_hint(priv, i);
- 	}
- }
-=20
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net=
-/ethernet/mellanox/mlx4/mlx4_en.h
-index b5db1bf..0e15295 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -313,6 +313,7 @@ struct mlx4_en_rx_ring {
- 	unsigned long csum_ok;
- 	unsigned long csum_none;
- 	int hwtstamp_rx_filter;
-+	cpumask_var_t affinity_mask;
- };
-=20
- struct mlx4_en_cq {
---=20
++EXPORT_SYMBOL(cpumask_set_cpu_local_first);
+-- 
 1.8.3.4
