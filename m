@@ -1,58 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] i40e/i40evf: bump version to 0.4.7 for i40e and 0.9.31 for i40evf
-Date: Mon,  9 Jun 2014 01:49:18 -0700
-Message-ID: <1402303758-1429-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] i40e: Allow RSS table entry range and GPS to be any number, not necessarily power of 2
+Date: Mon,  9 Jun 2014 01:49:17 -0700
+Message-ID: <1402303758-1429-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27483 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27481 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754704AbaFIItg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 04:49:36 -0400
+	id S1754408AbaFIItb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 04:49:31 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Bumpity and Fred Worm say it's time to change the numbers again.
+We tell the HW upper boundary of power of 2 in VSI config,
+but the HW does not restrict us to use just power of 2 GPS in
+case of RSS as long as we are not sharing the RSS table with
+another VSI (VMDq). We at present are not doing RSS in VMDq
+VSI.
+If we were to enable that and if the system had CPU count which
+was not power 2, the VMDq VSIs will see a little skewed distribution.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Change-ID: I658731d022ea23cedede4be2bfecd8b4cc68d270
+Change-ID: I3ea797ce9065a3ca4fc4d04251bf195463410473
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index adbeac4..145cb9f 100644
+index 2f11542..adbeac4 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
+@@ -1366,7 +1366,7 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	vsi->tc_config.numtc = numtc;
+ 	vsi->tc_config.enabled_tc = enabled_tc ? enabled_tc : 1;
+ 	/* Number of queues per enabled TC */
+-	num_tc_qps = rounddown_pow_of_two(vsi->alloc_queue_pairs/numtc);
++	num_tc_qps = vsi->alloc_queue_pairs/numtc;
+ 	num_tc_qps = min_t(int, num_tc_qps, I40E_MAX_QUEUES_PER_TC);
  
- #define DRV_VERSION_MAJOR 0
- #define DRV_VERSION_MINOR 4
--#define DRV_VERSION_BUILD 5
-+#define DRV_VERSION_BUILD 7
- #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
- 	     __stringify(DRV_VERSION_MINOR) "." \
- 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index af45d0c..d415785 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
- static const char i40evf_driver_string[] =
- 	"Intel(R) XL710 X710 Virtual Function Network Driver";
+ 	/* Setup queue offset/count for all TCs for given VSI */
+@@ -6498,7 +6498,6 @@ int i40e_reconfig_rss_queues(struct i40e_pf *pf, int queue_count)
+ 		return 0;
  
--#define DRV_VERSION "0.9.29"
-+#define DRV_VERSION "0.9.31"
- const char i40evf_driver_version[] = DRV_VERSION;
- static const char i40evf_copyright[] =
- 	"Copyright (c) 2013 - 2014 Intel Corporation.";
+ 	queue_count = min_t(int, queue_count, pf->rss_size_max);
+-	queue_count = rounddown_pow_of_two(queue_count);
+ 
+ 	if (queue_count != pf->rss_size) {
+ 		i40e_prep_for_reset(pf);
+@@ -6554,7 +6553,6 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	if (pf->hw.func_caps.rss) {
+ 		pf->flags |= I40E_FLAG_RSS_ENABLED;
+ 		pf->rss_size = min_t(int, pf->rss_size_max, num_online_cpus());
+-		pf->rss_size = rounddown_pow_of_two(pf->rss_size);
+ 	} else {
+ 		pf->rss_size = 1;
+ 	}
 -- 
 1.9.3
