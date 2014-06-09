@@ -1,96 +1,170 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] i40e: Changes to Interrupt distribution policy
-Date: Mon,  9 Jun 2014 01:49:12 -0700
-Message-ID: <1402303758-1429-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] i40e: implement anti-spoofing for VFs
+Date: Mon,  9 Jun 2014 01:49:11 -0700
+Message-ID: <1402303758-1429-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27483 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27481 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754450AbaFIIt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754368AbaFIIt0 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 9 Jun 2014 04:49:26 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch changes the way resources are distributed to special features.
+Our hardware supports VF antispoofing for both MAC addresses and VLANs.
+Enable this feature by default for all VFs and implement the netdev op
+to control it from the command line.
 
-Change-ID: I847e49d714a1d70e97f3f994cb39bfb5e02ab016
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ifb941da22785848aa3aba6b2231be135b8ea8f31
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  8 ++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 52 +++++++++++++++++++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  2 +
+ 3 files changed, 60 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index afc37d3..eb32c5c 100644
+index d0bc05f..afc37d3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6228,6 +6228,16 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 	for (i = 0; i < v_budget; i++)
- 		pf->msix_entries[i].entry = i;
- 	vec = i40e_reserve_msix_vectors(pf, v_budget);
-+
-+	if (vec != v_budget) {
-+		/* If we have limited resources, we will start with no vectors
-+		 * for the special features and then allocate vectors to some
-+		 * of these features based on the policy and at the end disable
-+		 * the features that did not get any vectors.
-+		 */
-+		pf->num_vmdq_msix = 0;
-+	}
-+
- 	if (vec < I40E_MIN_MSIX) {
- 		pf->flags &= ~I40E_FLAG_MSIX_ENABLED;
- 		kfree(pf->msix_entries);
-@@ -6236,27 +6246,25 @@ static int i40e_init_msix(struct i40e_pf *pf)
+@@ -6887,6 +6887,7 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_set_vf_rate	= i40e_ndo_set_vf_bw,
+ 	.ndo_get_vf_config	= i40e_ndo_get_vf_config,
+ 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
++	.ndo_set_vf_spoofchk	= i40e_ndo_set_vf_spoofck,
+ #ifdef CONFIG_I40E_VXLAN
+ 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
+@@ -7121,6 +7122,13 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
  
- 	} else if (vec == I40E_MIN_MSIX) {
- 		/* Adjust for minimal MSIX use */
--		dev_info(&pf->pdev->dev, "Features disabled, not enough MSI-X vectors\n");
--		pf->flags &= ~I40E_FLAG_VMDQ_ENABLED;
- 		pf->num_vmdq_vsis = 0;
- 		pf->num_vmdq_qps = 0;
--		pf->num_vmdq_msix = 0;
- 		pf->num_lan_qps = 1;
- 		pf->num_lan_msix = 1;
- 
- 	} else if (vec != v_budget) {
-+		/* reserve the misc vector */
-+		vec--;
-+
- 		/* Scale vector usage down */
- 		pf->num_vmdq_msix = 1;    /* force VMDqs to only one vector */
--		vec--;                    /* reserve the misc vector */
-+		pf->num_vmdq_vsis = 1;
- 
- 		/* partition out the remaining vectors */
- 		switch (vec) {
- 		case 2:
--			pf->num_vmdq_vsis = 1;
- 			pf->num_lan_msix = 1;
- 			break;
- 		case 3:
--			pf->num_vmdq_vsis = 1;
- 			pf->num_lan_msix = 2;
- 			break;
- 		default:
-@@ -6268,6 +6276,11 @@ static int i40e_init_msix(struct i40e_pf *pf)
- 		}
+ 		ctxt.info.valid_sections |= cpu_to_le16(I40E_AQ_VSI_PROP_VLAN_VALID);
+ 		ctxt.info.port_vlan_flags |= I40E_AQ_VSI_PVLAN_MODE_ALL;
++		if (pf->vf[vsi->vf_id].spoofchk) {
++			ctxt.info.valid_sections |=
++				cpu_to_le16(I40E_AQ_VSI_PROP_SECURITY_VALID);
++			ctxt.info.sec_flags |=
++				(I40E_AQ_VSI_SEC_FLAG_ENABLE_VLAN_CHK |
++				 I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK);
++		}
+ 		/* Setup the VSI tx/rx queue map for TC0 only for now */
+ 		i40e_vsi_setup_queue_map(vsi, &ctxt, enabled_tc, true);
+ 		break;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 4e7634c..3f6cad4 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -899,6 +899,7 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 		ret = -ENOMEM;
+ 		goto err_alloc;
  	}
++	pf->vf = vfs;
  
-+	if ((pf->flags & I40E_FLAG_VMDQ_ENABLED) &&
-+	    (pf->num_vmdq_msix == 0)) {
-+		dev_info(&pf->pdev->dev, "VMDq disabled, not enough MSI-X vectors\n");
-+		pf->flags &= ~I40E_FLAG_VMDQ_ENABLED;
-+	}
- 	return err;
+ 	/* apply default profile */
+ 	for (i = 0; i < num_alloc_vfs; i++) {
+@@ -908,13 +909,13 @@ int i40e_alloc_vfs(struct i40e_pf *pf, u16 num_alloc_vfs)
+ 
+ 		/* assign default capabilities */
+ 		set_bit(I40E_VIRTCHNL_VF_CAP_L2, &vfs[i].vf_caps);
++		vfs[i].spoofchk = true;
+ 		/* vf resources get allocated during reset */
+ 		i40e_reset_vf(&vfs[i], false);
+ 
+ 		/* enable vf vplan_qtable mappings */
+ 		i40e_enable_vf_mappings(&vfs[i]);
+ 	}
+-	pf->vf = vfs;
+ 	pf->num_alloc_vfs = num_alloc_vfs;
+ 
+ 	i40e_enable_pf_switch_lb(pf);
+@@ -2328,7 +2329,7 @@ int i40e_ndo_get_vf_config(struct net_device *netdev,
+ 		ivi->linkstate = IFLA_VF_LINK_STATE_ENABLE;
+ 	else
+ 		ivi->linkstate = IFLA_VF_LINK_STATE_DISABLE;
+-
++	ivi->spoofchk = vf->spoofchk;
+ 	ret = 0;
+ 
+ error_param:
+@@ -2395,3 +2396,50 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
+ error_out:
+ 	return ret;
  }
++
++/**
++ * i40e_ndo_set_vf_spoofchk
++ * @netdev: network interface device structure
++ * @vf_id: vf identifier
++ * @enable: flag to enable or disable feature
++ *
++ * Enable or disable VF spoof checking
++ **/
++int i40e_ndo_set_vf_spoofck(struct net_device *netdev, int vf_id, bool enable)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_vsi_context ctxt;
++	struct i40e_hw *hw = &pf->hw;
++	struct i40e_vf *vf;
++	int ret = 0;
++
++	/* validate the request */
++	if (vf_id >= pf->num_alloc_vfs) {
++		dev_err(&pf->pdev->dev, "Invalid VF Identifier %d\n", vf_id);
++		ret = -EINVAL;
++		goto out;
++	}
++
++	vf = &(pf->vf[vf_id]);
++
++	if (enable == vf->spoofchk)
++		goto out;
++
++	vf->spoofchk = enable;
++	memset(&ctxt, 0, sizeof(ctxt));
++	ctxt.seid = pf->vsi[vf->lan_vsi_index]->seid;
++	ctxt.pf_num = pf->hw.pf_id;
++	ctxt.info.valid_sections = cpu_to_le16(I40E_AQ_VSI_PROP_SECURITY_VALID);
++	if (enable)
++		ctxt.info.sec_flags |= I40E_AQ_VSI_SEC_FLAG_ENABLE_MAC_CHK;
++	ret = i40e_aq_update_vsi_params(hw, &ctxt, NULL);
++	if (ret) {
++		dev_err(&pf->pdev->dev, "Error %d updating VSI parameters\n",
++			ret);
++		ret = -EIO;
++	}
++out:
++	return ret;
++}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 5a559be..63e7e0d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -101,6 +101,7 @@ struct i40e_vf {
+ 	unsigned int tx_rate;	/* Tx bandwidth limit in Mbps */
+ 	bool link_forced;
+ 	bool link_up;		/* only valid if vf link is forced */
++	bool spoofchk;
+ };
  
+ void i40e_free_vfs(struct i40e_pf *pf);
+@@ -121,6 +122,7 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ int i40e_ndo_get_vf_config(struct net_device *netdev,
+ 			   int vf_id, struct ifla_vf_info *ivi);
+ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link);
++int i40e_ndo_set_vf_spoofck(struct net_device *netdev, int vf_id, bool enable);
+ 
+ void i40e_vc_notify_link_state(struct i40e_pf *pf);
+ void i40e_vc_notify_reset(struct i40e_pf *pf);
 -- 
 1.9.3
