@@ -1,108 +1,211 @@
-From: Lars-Peter Clausen <lars@metafoo.de>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Mon, 09 Jun 2014 13:29:23 +0200
-Message-ID: <53959A93.7080308@metafoo.de>
-References: <20140530094025.3b78301e@canb.auug.org.au>
- <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>
- <1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
- <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
- <5388C0F1.90503@gmail.com> <5388CB1B.3090802@metafoo.de>
- <20140608231823.GB10112@trinity.fluff.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>, m@bues.ch,
- Linux-sh list <linux-sh@vger.kernel.org>,
- Linus Walleij <linus.walleij@linaro.org>, platform-driver-x86@vger.kernel.org,
- "linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org>,
- driverdevel <devel@driverdev.osuosl.org>, Alexandre Courbot <gnurou@gmail.com>,
- patches@opensource.wolfsonmicro.com, linux-samsungsoc@vger.kernel.org,
- Geert Uytterhoeven <geert@linux-m68k.org>,
- "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
- Linux Media Mailing List <linux-media@vger.kernel.org>,
- spear-devel@list.st.com,
- "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
- David Daney <ddaney.cavm@gmail.com>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- linux-wireless <linux-wireless@vger.kernel.org>,
- "linux-kernel@vger.kernel.
-To: Ben Dooks <ben@trinity.fluff.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140608231823.GB10112@trinity.fluff.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH net-next 2/4] bridge: Prepare for 802.1ad vlan
+	filtering support
+Date: Mon,  9 Jun 2014 20:34:45 +0900
+Message-ID: <1402313687-28067-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "David S . Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 06/09/2014 01:18 AM, Ben Dooks wrote:
-> On Fri, May 30, 2014 at 08:16:59PM +0200, Lars-Peter Clausen wrote:
->> On 05/30/2014 07:33 PM, David Daney wrote:
->>> On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
->>>> On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com>
->>>> wrote:
->>>>> --- a/drivers/gpio/gpiolib.c
->>>>> +++ b/drivers/gpio/gpiolib.c
->>>>> @@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct
->>>>> gpio_chip *gpiochip);
->>>>>    *
->>>>>    * A gpio_chip with any GPIOs still requested may not be removed.
->>>>>    */
->>>>> -int gpiochip_remove(struct gpio_chip *chip)
->>>>> +void gpiochip_remove(struct gpio_chip *chip)
->>>>>   {
->>>>>          unsigned long   flags;
->>>>> -       int             status = 0;
->>>>>          unsigned        id;
->>>>>
->>>>>          acpi_gpiochip_remove(chip);
->>>>> @@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
->>>>>          of_gpiochip_remove(chip);
->>>>>
->>>>>          for (id = 0; id < chip->ngpio; id++) {
->>>>> -               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
->>>>> -                       status = -EBUSY;
->>>>> -                       break;
->>>>> -               }
->>>>> -       }
->>>>> -       if (status == 0) {
->>>>> -               for (id = 0; id < chip->ngpio; id++)
->>>>> -                       chip->desc[id].chip = NULL;
->>>>> -
->>>>> -               list_del(&chip->list);
->>>>> +               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
->>>>> +                       panic("gpio: removing gpiochip with gpios still
->>>>> requested\n");
->>>>
->>>> panic?
->>>
->>> NACK to the patch for this reason.  The strongest thing you should do here
->>> is WARN.
->>>
->>> That said, I am not sure why we need this whole patch set in the first place.
->>
->> Well, what currently happens when you remove a device that is a
->> provider of a gpio_chip which is still in use, is that the kernel
->> crashes. Probably with a rather cryptic error message. So this patch
->> doesn't really change the behavior, but makes it more explicit what
->> is actually wrong. And even if you replace the panic() by a WARN()
->> it will again just crash slightly later.
->>
->> This is a design flaw in the GPIO subsystem that needs to be fixed.
->
-> Surely then the best way is to error out to the module unload and
-> stop the driver being unloaded?
->
+This enables a bridge to have vlan protocol informantion and allows vlan
+tag manipulation (retrieve, insert and remove tags) according to vlan
+protocols.
 
-You can't error out on module unload, although that's not really relevant 
-here. gpiochip_remove() is typically called when the device that registered 
-the GPIO chip is unbound. And despite some remove() callbacks having a 
-return type of int you can not abort the removal of a device.
+Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+---
+ net/bridge/br_device.c  |  1 +
+ net/bridge/br_private.h |  6 ++++++
+ net/bridge/br_vlan.c    | 56 ++++++++++++++++++++++++++++++++++++++-----------
+ 3 files changed, 51 insertions(+), 12 deletions(-)
 
-- Lars
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 82a410a..1b797c4 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -388,4 +388,5 @@ void br_dev_setup(struct net_device *dev)
+ 	br_netfilter_rtable_init(br);
+ 	br_stp_timer_init(br);
+ 	br_multicast_init(br);
++	br_vlan_init(br);
+ }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index bc17210..b65fee9 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -298,6 +298,7 @@ struct net_bridge
+ 	u32				auto_cnt;
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	u8				vlan_enabled;
++	__be16				vlan_proto;
+ 	struct net_port_vlans __rcu	*vlan_info;
+ #endif
+ };
+@@ -598,6 +599,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid);
+ void br_vlan_flush(struct net_bridge *br);
+ bool br_vlan_find(struct net_bridge *br, u16 vid);
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
++void br_vlan_init(struct net_bridge *br);
+ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
+ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+ void nbp_vlan_flush(struct net_bridge_port *port);
+@@ -693,6 +695,10 @@ static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
+ 	return false;
+ }
+ 
++static inline void br_vlan_init(struct net_bridge *br)
++{
++}
++
+ static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ {
+ 	return -EOPNOTSUPP;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index fcc9539..63bd981 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -60,7 +60,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 		 * that ever changes this code will allow tagged
+ 		 * traffic to enter the bridge.
+ 		 */
+-		err = vlan_vid_add(dev, htons(ETH_P_8021Q), vid);
++		err = vlan_vid_add(dev, br->vlan_proto, vid);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -80,7 +80,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ 
+ out_filt:
+ 	if (p)
+-		vlan_vid_del(dev, htons(ETH_P_8021Q), vid);
++		vlan_vid_del(dev, br->vlan_proto, vid);
+ 	return err;
+ }
+ 
+@@ -92,8 +92,10 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
+ 	__vlan_delete_pvid(v, vid);
+ 	clear_bit(vid, v->untagged_bitmap);
+ 
+-	if (v->port_idx)
+-		vlan_vid_del(v->parent.port->dev, htons(ETH_P_8021Q), vid);
++	if (v->port_idx) {
++		struct net_bridge_port *p = v->parent.port;
++		vlan_vid_del(p->dev, p->br->vlan_proto, vid);
++	}
+ 
+ 	clear_bit(vid, v->vlan_bitmap);
+ 	v->num_vlans--;
+@@ -158,7 +160,8 @@ out:
+ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 			struct sk_buff *skb, u16 *vid)
+ {
+-	int err;
++	bool tagged;
++	__be16 proto;
+ 
+ 	/* If VLAN filtering is disabled on the bridge, all packets are
+ 	 * permitted.
+@@ -172,19 +175,41 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 	if (!v)
+ 		goto drop;
+ 
++	proto = br->vlan_proto;
++
+ 	/* If vlan tx offload is disabled on bridge device and frame was
+ 	 * sent from vlan device on the bridge device, it does not have
+ 	 * HW accelerated vlan tag.
+ 	 */
+ 	if (unlikely(!vlan_tx_tag_present(skb) &&
+-		     (skb->protocol == htons(ETH_P_8021Q) ||
+-		      skb->protocol == htons(ETH_P_8021AD)))) {
++		     skb->protocol == proto)) {
+ 		skb = vlan_untag(skb);
+ 		if (unlikely(!skb))
+ 			return false;
+ 	}
+ 
+-	err = br_vlan_get_tag(skb, vid);
++	if (!br_vlan_get_tag(skb, vid)) {
++		/* Tagged frame */
++		if (skb->vlan_proto != proto) {
++			/* Protocol-mismatch, empty out vlan_tci for new tag */
++			skb_push(skb, ETH_HLEN);
++			skb = __vlan_put_tag(skb, skb->vlan_proto,
++					     vlan_tx_tag_get(skb));
++			if (unlikely(!skb))
++				return false;
++
++			skb_pull(skb, ETH_HLEN);
++			skb_reset_mac_len(skb);
++			*vid = 0;
++			tagged = false;
++		} else {
++			tagged = true;
++		}
++	} else {
++		/* Untagged frame */
++		tagged = false;
++	}
++
+ 	if (!*vid) {
+ 		u16 pvid = br_get_pvid(v);
+ 
+@@ -199,9 +224,9 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 		 * ingress frame is considered to belong to this vlan.
+ 		 */
+ 		*vid = pvid;
+-		if (likely(err))
++		if (likely(!tagged))
+ 			/* Untagged Frame. */
+-			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
++			__vlan_hwaccel_put_tag(skb, proto, pvid);
+ 		else
+ 			/* Priority-tagged Frame.
+ 			 * At this point, We know that skb->vlan_tci had
+@@ -254,7 +279,9 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
+ 	if (!v)
+ 		return false;
+ 
+-	br_vlan_get_tag(skb, vid);
++	if (!br_vlan_get_tag(skb, vid) && skb->vlan_proto != br->vlan_proto)
++		*vid = 0;
++
+ 	if (!*vid) {
+ 		*vid = br_get_pvid(v);
+ 		if (*vid == VLAN_N_VID)
+@@ -367,6 +394,11 @@ unlock:
+ 	return 0;
+ }
+ 
++void br_vlan_init(struct net_bridge *br)
++{
++	br->vlan_proto = htons(ETH_P_8021Q);
++}
++
+ /* Must be protected by RTNL.
+  * Must be called with vid in range from 1 to 4094 inclusive.
+  */
+@@ -433,7 +465,7 @@ void nbp_vlan_flush(struct net_bridge_port *port)
+ 		return;
+ 
+ 	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
+-		vlan_vid_del(port->dev, htons(ETH_P_8021Q), vid);
++		vlan_vid_del(port->dev, port->br->vlan_proto, vid);
+ 
+ 	__vlan_flush(pv);
+ }
+-- 
+1.8.1.2
