@@ -1,103 +1,217 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 4/8] enic: alloc/free rx_cpu_rmap
-Date: Mon, 09 Jun 2014 22:44:56 +0400
-Message-ID: <539600A8.3010703@cogentembedded.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-5-git-send-email-_govind@gmx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ssujith@cisco.com, gvaradar@cisco.com, benve@cisco.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Govindarajulu Varadarajan <govindarajulu90@gmail.com>
+Subject: [PATCH net-next 8/8] enic: do tx cleanup in napi poll
+Date: Tue, 10 Jun 2014 00:26:52 +0530
+Message-ID: <1402340212-6708-1-git-send-email-govindarajulu90@gmail.com>
+Cc: ssujith@cisco.com, gvaradar@cisco.com, benve@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:45502 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751009AbaFISo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 14:44:57 -0400
-Received: by mail-lb0-f176.google.com with SMTP id p9so3253162lbv.21
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 11:44:56 -0700 (PDT)
-In-Reply-To: <1402338773-5996-5-git-send-email-_govind@gmx.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:60119 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219AbaFIS5d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 14:57:33 -0400
+Received: by mail-pb0-f53.google.com with SMTP id md12so5193395pbc.26
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 11:57:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Govindarajulu Varadarajan <_govind@gmx.com>
 
-On 06/09/2014 10:32 PM, Govindarajulu Varadarajan wrote:
+Till now enic had been doing tx clean in isr.
 
-> rx_cpu_rmap provides the reverse irq cpu affinity. This patch allocates and
-> sets drivers netdev->rx_cpu_rmap accordingly.
+Using napi infrastructure to move the tx clean-up out of isr to softirq.
+Now, wq isr schedules napi poll. In enic_poll_msix_wq we clean up the tx queus.
 
-> rx_cpu_rmap is set in enic_request_intr() which is called by enic_open and
-> rx_cpu_rmap is freed in enic_free_intr() which is called by enic_stop.
+This is applicable only on MSIX. In INTx and MSI we use single napi to clean
+both rx & tx queues.
 
-> This is used by Accelerated RFS.
+Signed-off-by: Govindarajulu Varadarajulu <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h      |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c | 85 +++++++++++++++++------------
+ 2 files changed, 52 insertions(+), 35 deletions(-)
 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->   drivers/net/ethernet/cisco/enic/enic_main.c | 36 +++++++++++++++++++++++++++++
->   1 file changed, 36 insertions(+)
-
-> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-> index f32f828..f4508d9 100644
-> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-[...]
-> @@ -1192,6 +1195,33 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
->   	pkt_size_counter->small_pkt_bytes_cnt = 0;
->   }
->
-> +#ifdef CONFIG_RFS_ACCEL
-> +static void enic_free_rx_cpu_rmap(struct enic *enic)
-> +{
-> +	free_irq_cpu_rmap(enic->netdev->rx_cpu_rmap);
-> +	enic->netdev->rx_cpu_rmap = NULL;
-> +}
-> +
-> +static inline void enic_set_rx_cpu_rmap(struct enic *enic)
-
-    No need to use *inline* in a .c file, the compiler should figure it out.
-
-> +{
-> +	int i, res;
-> +
-> +	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
-> +		enic->netdev->rx_cpu_rmap = alloc_irq_cpu_rmap(enic->rq_count);
-> +		if (unlikely(!enic->netdev->rx_cpu_rmap))
-> +			return;
-> +		for (i = 0; i < enic->rq_count; i++) {
-> +			res = irq_cpu_rmap_add(enic->netdev->rx_cpu_rmap,
-> +					       enic->msix_entry[i].vector);
-> +			if (unlikely(res)) {
-> +				enic_free_rx_cpu_rmap(enic);
-> +				return;
-> +			}
-> +		}
-> +	}
-> +}
-
-    It's better to do the following here:
-
-#else
-static void enic_free_rx_cpu_rmap(struct enic *enic)
-{
-}
-static void enic_set_rx_cpu_rmap(struct enic *enic)
-{
-}
-
-> +#endif
-> +
->   static int enic_poll_msix(struct napi_struct *napi, int budget)
->   {
->   	struct net_device *netdev = napi->dev;
-> @@ -1267,6 +1297,9 @@ static void enic_free_intr(struct enic *enic)
->   	struct net_device *netdev = enic->netdev;
->   	unsigned int i;
->
-> +#ifdef CONFIG_RFS_ACCEL
-> +	enic_free_rx_cpu_rmap(enic);
-> +#endif
-
-    ... so that you can avoid #ifdef's at the call sites.
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index b9b9178..c8aa9fb 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -178,7 +178,7 @@ struct enic {
+ 	unsigned int rq_count;
+ 	u64 rq_truncated_pkts;
+ 	u64 rq_bad_fcs;
+-	struct napi_struct napi[ENIC_RQ_MAX];
++	struct napi_struct napi[ENIC_RQ_MAX + ENIC_WQ_MAX];
+ 
+ 	/* interrupt resource cache line section */
+ 	____cacheline_aligned struct vnic_intr intr[ENIC_INTR_MAX];
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 558ee45..78dacd0 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -316,40 +316,15 @@ static irqreturn_t enic_isr_msi(int irq, void *data)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static irqreturn_t enic_isr_msix_rq(int irq, void *data)
++static irqreturn_t enic_isr_msix(int irq, void *data)
+ {
+ 	struct napi_struct *napi = data;
+ 
+-	/* schedule NAPI polling for RQ cleanup */
+ 	napi_schedule(napi);
+ 
+ 	return IRQ_HANDLED;
+ }
+ 
+-static irqreturn_t enic_isr_msix_wq(int irq, void *data)
+-{
+-	struct enic *enic = data;
+-	unsigned int cq;
+-	unsigned int intr;
+-	unsigned int wq_work_to_do = -1; /* no limit */
+-	unsigned int wq_work_done;
+-	unsigned int wq_irq;
+-
+-	wq_irq = (u32)irq - enic->msix_entry[enic_msix_wq_intr(enic, 0)].vector;
+-	cq = enic_cq_wq(enic, wq_irq);
+-	intr = enic_msix_wq_intr(enic, wq_irq);
+-
+-	wq_work_done = vnic_cq_service(&enic->cq[cq],
+-		wq_work_to_do, enic_wq_service, NULL);
+-
+-	vnic_intr_return_credits(&enic->intr[intr],
+-		wq_work_done,
+-		1 /* unmask intr */,
+-		1 /* reset intr timer */);
+-
+-	return IRQ_HANDLED;
+-}
+-
+ static irqreturn_t enic_isr_msix_err(int irq, void *data)
+ {
+ 	struct enic *enic = data;
+@@ -1262,8 +1237,36 @@ int enic_busy_poll(struct napi_struct *napi)
+ 	return work_done;
+ }
+ #endif /* CONFIG_NET_RX_BUSY_POLL */
++static int enic_poll_msix_wq(struct napi_struct *napi, int budget)
++{
++	struct net_device *netdev = napi->dev;
++	struct enic *enic = netdev_priv(netdev);
++	unsigned int wq_index = (napi - &enic->napi[0]) - enic->rq_count;
++	struct vnic_wq *wq = &enic->wq[wq_index];
++	unsigned int cq;
++	unsigned int intr;
++	unsigned int wq_work_to_do = budget;
++	unsigned int wq_work_done;
++	unsigned int wq_irq;
++
++	wq_irq = wq->index;
++	cq = enic_cq_wq(enic, wq_irq);
++	intr = enic_msix_wq_intr(enic, wq_irq);
++	wq_work_done = vnic_cq_service(&enic->cq[cq], wq_work_to_do,
++				       enic_wq_service, NULL);
+ 
+-static int enic_poll_msix(struct napi_struct *napi, int budget)
++	vnic_intr_return_credits(&enic->intr[intr], wq_work_done,
++				 0 /* don't unmask intr */,
++				 1 /* reset intr timer */);
++	if (wq_work_done < wq_work_to_do) {
++		napi_complete(napi);
++		vnic_intr_unmask(&enic->intr[intr]);
++	}
++
++	return wq_work_done;
++}
++
++static int enic_poll_msix_rq(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *netdev = napi->dev;
+ 	struct enic *enic = netdev_priv(netdev);
+@@ -1392,17 +1395,19 @@ static int enic_request_intr(struct enic *enic)
+ 			snprintf(enic->msix[intr].devname,
+ 				sizeof(enic->msix[intr].devname),
+ 				"%.11s-rx-%d", netdev->name, i);
+-			enic->msix[intr].isr = enic_isr_msix_rq;
++			enic->msix[intr].isr = enic_isr_msix;
+ 			enic->msix[intr].devid = &enic->napi[i];
+ 		}
+ 
+ 		for (i = 0; i < enic->wq_count; i++) {
++			int wq = enic_cq_wq(enic, i);
++
+ 			intr = enic_msix_wq_intr(enic, i);
+ 			snprintf(enic->msix[intr].devname,
+ 				sizeof(enic->msix[intr].devname),
+ 				"%.11s-tx-%d", netdev->name, i);
+-			enic->msix[intr].isr = enic_isr_msix_wq;
+-			enic->msix[intr].devid = enic;
++			enic->msix[intr].isr = enic_isr_msix;
++			enic->msix[intr].devid = &enic->napi[wq];
+ 		}
+ 
+ 		intr = enic_msix_err_intr(enic);
+@@ -1578,7 +1583,9 @@ static int enic_open(struct net_device *netdev)
+ 		enic_busy_poll_init_lock(&enic->rq[i]);
+ 		napi_enable(&enic->napi[i]);
+ 	}
+-
++	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX)
++		for (i = 0; i < enic->wq_count; i++)
++			napi_enable(&enic->napi[enic_cq_wq(enic, i)]);
+ 	enic_dev_enable(enic);
+ 
+ 	for (i = 0; i < enic->intr_count; i++)
+@@ -1630,6 +1637,9 @@ static int enic_stop(struct net_device *netdev)
+ 
+ 	netif_carrier_off(netdev);
+ 	netif_tx_disable(netdev);
++	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX)
++		for (i = 0; i < enic->wq_count; i++)
++			napi_disable(&enic->napi[enic_cq_wq(enic, i)]);
+ 
+ 	if (!enic_is_dynamic(enic) && !enic_is_sriov_vf(enic))
+ 		enic_dev_del_station_addr(enic);
+@@ -1749,13 +1759,14 @@ static void enic_poll_controller(struct net_device *netdev)
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+ 		for (i = 0; i < enic->rq_count; i++) {
+ 			intr = enic_msix_rq_intr(enic, i);
+-			enic_isr_msix_rq(enic->msix_entry[intr].vector,
++			enic_isr_msix(enic->msix_entry[intr].vector,
+ 				&enic->napi[i]);
+ 		}
+ 
+ 		for (i = 0; i < enic->wq_count; i++) {
+ 			intr = enic_msix_wq_intr(enic, i);
+-			enic_isr_msix_wq(enic->msix_entry[intr].vector, enic);
++			enic_isr_msix(enic->msix_entry[intr].vector,
++				      &enic->napi[enic_cq_wq(enic, i)]);
+ 		}
+ 
+ 		break;
+@@ -2156,6 +2167,9 @@ static void enic_dev_deinit(struct enic *enic)
+ 		napi_hash_del(&enic->napi[i]);
+ 		netif_napi_del(&enic->napi[i]);
+ 	}
++	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX)
++		for (i = 0; i < enic->wq_count; i++)
++			netif_napi_del(&enic->napi[enic_cq_wq(enic, i)]);
+ 
+ 	enic_free_vnic_resources(enic);
+ 	enic_clear_intr_mode(enic);
+@@ -2226,9 +2240,12 @@ static int enic_dev_init(struct enic *enic)
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+ 		for (i = 0; i < enic->rq_count; i++) {
+ 			netif_napi_add(netdev, &enic->napi[i],
+-				enic_poll_msix, 64);
++				enic_poll_msix_rq, NAPI_POLL_WEIGHT);
+ 			napi_hash_add(&enic->napi[i]);
+ 		}
++		for (i = 0; i < enic->wq_count; i++)
++			netif_napi_add(netdev, &enic->napi[enic_cq_wq(enic, i)],
++				       enic_poll_msix_wq, NAPI_POLL_WEIGHT);
+ 		break;
+ 	}
+ 
+-- 
+2.0.0
