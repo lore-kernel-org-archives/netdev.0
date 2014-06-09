@@ -1,80 +1,169 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fixing TLP's FIN recovery
-Date: Mon, 09 Jun 2014 09:24:07 -0700
-Message-ID: <1402331047.3645.379.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <539319F6.2090907@cogentembedded.com>
-	 <1402151680-11434-1-git-send-email-per.hurtig@kau.se>
-	 <1402196305.3645.318.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <539413BA.7060903@kau.se>
-	 <CAB_+Fg5=Z0wfaAZgUMXKttHKx9WoVLQv5ZqDeUQJmGA0LJTwPg@mail.gmail.com>
-	 <5395B2FC.3070205@kau.se>
-	 <1402324388.3645.359.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5395C7E9.4050406@kau.se>
-	 <1402326259.3645.374.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <5395D937.5060801@kau.se>
-	 <1402330502.3645.378.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [net-next PATCH 2/2] bridge: netlink dump interface at par with
+ brctl
+Date: Mon, 09 Jun 2014 12:41:40 -0400
+Message-ID: <5395E3C4.5080904@redhat.com>
+References: <1402151244-3324-1-git-send-email-jhs@emojatatu.com> <1402151244-3324-2-git-send-email-jhs@emojatatu.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Nandita Dukkipati <nanditad@google.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
-	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Per Hurtig <per.hurtig@kau.se>
+Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:54567 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932692AbaFIQYK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 12:24:10 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kx10so889333pab.40
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 09:24:09 -0700 (PDT)
-In-Reply-To: <1402330502.3645.378.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:32728 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750734AbaFIQmR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 12:42:17 -0400
+In-Reply-To: <1402151244-3324-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-09 at 09:15 -0700, Eric Dumazet wrote:
-> On Mon, 2014-06-09 at 17:56 +0200, Per Hurtig wrote:
+On 06/07/2014 10:27 AM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 > 
-> > 
-> > Ok, I guess you mean that the retransmission was not fast enough? But 
-> > will the same not happen if the original FIN is not lost and triggers a 
-> > SACK (i.e., if the two last data segments are still lost)?
+> Actually better than brctl showmacs because we can filter by bridge
+> port in the kernel.
+> The current bridge netlink interface doesnt scale when you have many
+> bridges each with large fdbs or even bridges with many bridge ports
 > 
-> Yes, I'd like to understand why Nandita specifically added the original
-> test. In her tests, fast retransmit was not really effective.
-> 
-> Running packetdrill in a separate container gives me these interesting
-> counters :
-> 
-> # nstat
-> #kernel
-> IpInReceives                    4                  0.0
-> IpInDelivers                    4                  0.0
-> IpOutRequests                   5                  0.0
-> TcpPassiveOpens                 1                  0.0
-> TcpInSegs                       4                  0.0
-> TcpOutSegs                      10                 0.0
-> TcpRetransSegs                  2                  0.0
-> TcpExtTCPPureAcks               3                  0.0
-> TcpExtTCPSackRecovery           1                  0.0
-> TcpExtTCPFastRetrans            1                  0.0
-> TcpExtTCPLossProbes             1                  0.0
-> TcpExtTCPSackRecoveryFail       1                  0.0
-> TcpExtTCPSackShiftFallback      1                  0.0
-> TcpExtTCPRetransFail            4                  0.0   <<<< HERE >>>
-> TcpExtTCPOrigDataSent           9                  0.0
-> IpExtInOctets                   184                0.0
-> IpExtOutOctets                  9212               0.0
-> IpExtInNoECTPkts                4                  0.0
-> 
-> I guess we need to understand why the retransmit is in error.
-> 
-> I am investigating.
-> 
+> For example usage look at accompanying iproute2 patch.
 
+The code was a bit tough to follow.  I think the main reason is
+that you now always pass a filtering devices even when there was
+no filtering information requested.
 
-Hmm... We hit this point... This is embarrassing I guess.
+I am wondering if it could be made simpler...
 
-       if (inet_csk(sk)->icsk_af_ops->rebuild_header(sk))
-                return -EHOSTUNREACH; /* Routing failure or similar. */
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> ---
+>  net/bridge/br_fdb.c  |   17 +++++++++---
+>  net/core/rtnetlink.c |   71 +++++++++++++++++++++++++++++++++++++++++---------
+>  2 files changed, 72 insertions(+), 16 deletions(-)
+> 
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 48449fc..7114382 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -694,9 +694,20 @@ int br_fdb_dump(struct sk_buff *skb,
+>  			if (idx < cb->args[0])
+>  				goto skip;
+>  
+> -			if (filter_dev && (!f->dst || !f->dst->dev ||
+> -					   f->dst->dev != filter_dev))
+> -				goto skip;
+> +			if (filter_dev && (!f->dst || f->dst->dev != filter_dev)) {
+> +				if (filter_dev != dev)
+> +					goto skip;
+> +				else {
+> +					/* 
+> +					 * !f->dst is a speacial case for bridge
+> +					 * It means the MAC belongs to the bridge
+> +					 * Therefore need a little more filtering
+> +					 * we only want to dump the !f->dst case
+> +					 */
+> +					if (f->dst)
+> +						goto skip;
+> +				}
+> +			}
+>  
+>  			if (fdb_fill_info(skb, br, f,
+>  					  NETLINK_CB(cb->skb).portid,
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 8721f1b..2a3c225 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2512,26 +2512,71 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
+>  
+>  static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+>  {
+> -	int idx = 0;
+> -	struct net *net = sock_net(skb->sk);
+>  	struct net_device *dev;
+> +	struct nlattr *tb[IFLA_MAX+1];
+> +	struct net_device *bdev = NULL; /*pacify stoopid gcc*/
+> +	struct net_device *br_dev = NULL; /*pacify stoopid gcc*/
+> +	const struct net_device_ops *ops = NULL; /*pacify stoopid gcc*/
+> +	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
+> +	struct net *net = sock_net(skb->sk);
+> +	int brport_idx = 0;
+> +	int br_idx = 0;
+> +	int idx = 0;
+> +
+> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
+> +			ifla_policy) == 0) {
+> +		if (tb[IFLA_MASTER])
+> +			br_idx = nla_get_u32(tb[IFLA_MASTER]);
+> +	}
+> +	
+> +	brport_idx = ifm->ifi_index;
+>  
+>  	rcu_read_lock();
+> +	if (br_idx) {
+> +		br_dev = __dev_get_by_index(net, br_idx);
+> +		if (!br_dev) {
+> +			rcu_read_unlock();
+> +			return -ENODEV;
+> +		}
+> +		ops = br_dev->netdev_ops;
+> +		bdev = br_dev;
+> +	}
+> +
+
+I think this can be outside of the rcu since you hold an rtnl at this time.
+
+-vlad
+
+>  	for_each_netdev_rcu(net, dev) {
+> -		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+> -			struct net_device *br_dev;
+> -			const struct net_device_ops *ops;
+> -
+> -			br_dev = netdev_master_upper_dev_get(dev);
+> -			ops = br_dev->netdev_ops;
+> -			if (ops->ndo_fdb_dump)
+> -				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+> +
+> +		if (brport_idx && (dev->ifindex != brport_idx))
+> +			continue;
+> +
+> +		if (!br_idx) { /* user did not specify a specific bridge */
+> +			if (dev->priv_flags & IFF_BRIDGE_PORT) {
+> +				br_dev = netdev_master_upper_dev_get(dev);
+> +				ops = br_dev->netdev_ops;
+> +				if (ops->ndo_fdb_dump)
+> +					idx = ops->ndo_fdb_dump(skb, cb, br_dev,
+> +								dev, idx);
+> +			}
+> +
+> +			bdev = dev;
+> +		} else {
+> +			if (dev != br_dev &&
+> +			    !(dev->priv_flags & IFF_BRIDGE_PORT))
+> +				continue;
+> +
+> +			if (br_dev != netdev_master_upper_dev_get(dev) &&
+> +			    !(dev->priv_flags & IFF_EBRIDGE))
+> +				continue;
+> +
+> +			if (dev->priv_flags & IFF_BRIDGE_PORT)
+> +				idx = ops->ndo_fdb_dump(skb, cb, br_dev,
+> +							dev, idx);
+>  		}
+>  
+> -		if (dev->netdev_ops->ndo_fdb_dump)
+> -			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+> -		else
+> +		if (dev->netdev_ops->ndo_fdb_dump) {
+> +			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
+> +							    idx);
+> +		} else {
+>  			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+> +		}
+>  	}
+>  	rcu_read_unlock();
+>  
+> 
