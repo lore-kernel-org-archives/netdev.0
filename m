@@ -1,51 +1,67 @@
-From: musa ahmed <musaahmed0060@gmail.com>
-Subject: urgent respond needed
-Date: Mon, 9 Jun 2014 03:23:30 -0400
-Message-ID: <CAEJLTAy_Ai0Latj1oyGTW=mF+5FKyQFVrfg+gkYmebtOzeitBQ@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V7 0/2] cpumask,net: affinity hint helper function
+Date: Mon,  9 Jun 2014 10:24:37 +0300
+Message-ID: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Yuval Atias <yuvala@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f195.google.com ([209.85.220.195]:50830 "EHLO
-	mail-vc0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868AbaFIHXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 03:23:31 -0400
-Received: by mail-vc0-f195.google.com with SMTP id id10so1302512vcb.10
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 00:23:30 -0700 (PDT)
+Received: from mailp.voltaire.com ([193.47.165.129]:46729 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753635AbaFIH0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 03:26:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Friend
-I know that this message will come to you as a surprise. I Hope that you
-will not expose or betray this trust and confident that I am about to
-repose on you for the mutual benefit of our both families. I need your
-urgent assistance in transferring the sum of ($16) million dollars to your
+Hi,
 
-account .This money has been dormant for years in our Bank without claim.
-I want the bank to release the money to you as a next of kin to our
-deceased customer,
+This patchset will set affinity hint to influence IRQs to be allocated on the
+same NUMA node as the one where the card resides. As discussed in
+http://www.spinics.net/lists/netdev/msg271497.html
 
-I will give you full details on how the business will be executed and also
-note that you will have 40% of the above mentioned sum while 50% will be
-for me, and the other 10% will be for the expenses that will occur in this
-transaction your full date's will be required, if you are interested or
-you agree to handle this business with me as top secret.
-i am expecting your urgent respond.
-Contact me through this mail (ahmedmusa0070@gmail.com)
+If number of IRQs allocated is greater than the number of local NUMA cores, all
+local cores will be used first, and the rest of the IRQs will be on a remote
+NUMA node.
+If no NUMA support - IRQ's and cores will be mapped 1:1
 
-(FILL THIS FORM BELOW PLEASE AND RESEND IT TO ME).
+Since the utility function to calculate the mapping could be useful in other mq
+drivers in the kernel, it was added to cpumask.[ch]
 
-1) Your Full Name............
-2) Your Age...................
-3) Marital Status...........
-4) Your Cell Phone Number...
-5) Your Country...........
-6) Your Occupation.......
-7)YOUR SEX..............
-8) Your Religion........
+This patchset was tested and applied on top of net-next since the first
+consumer is a network device (mlx4_en).  Over commit fff1f59 "mac802154:
+llsec: add forgotten list_del_rcu in key removal"
 
-THANKS
+Amir
 
-YOURS BROTHER
+Changes from V6:
+- Patch 1/2: cpumask: Utility function to set n'th cpu - local cpu first
+  - Add a stub for cpumask_set_cpu_local_first() when SMP is not set
+  - Move cpumask_set_cpu_local_first() definition out of #ifdef
+    CONFIG_CPUMASK_OFFSTACK
+- Patch 2/2: net/mlx4_en: Use affinity hint
+  - cpumask_var_t is not a pointer when CONFIG_CPUMASK_OFFSTACK is not
+    set. Instead of adding affinity_mask as an argument to
+    mlx4_assign_eq() and using it only when not NULL - use affinity_mask
+    only for rx ring IRQ at mlx4_en_activate_cq() this also made the
+    code much simpler and elegant.
 
-MUSA AHMED
+Amir Vadai (1):
+  cpumask: Utility function to set n'th cpu - local cpu first
+
+Yuval Atias (1):
+  net/mlx4_en: Use affinity hint
+
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c     | 12 ++++-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 35 +++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  1 +
+ include/linux/cpumask.h                        |  8 ++++
+ lib/cpumask.c                                  | 63 ++++++++++++++++++++++++++
+ 5 files changed, 117 insertions(+), 2 deletions(-)
+
+-- 
+1.8.3.4
