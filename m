@@ -1,104 +1,36 @@
-From: Ben Dooks <ben@trinity.fluff.org>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Mon, 9 Jun 2014 00:18:23 +0100
-Message-ID: <20140608231823.GB10112@trinity.fluff.org>
-References: <20140530094025.3b78301e@canb.auug.org.au>
- <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>
- <1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
- <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
- <5388C0F1.90503@gmail.com>
- <5388CB1B.3090802@metafoo.de>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH net-next] net: force a list_del() in unregister_netdevice_many()
+Date: Mon, 9 Jun 2014 09:27:24 +0800
+Message-ID: <53950D7C.5060001@cn.fujitsu.com>
+References: <1401840715-16375-1-git-send-email-xiyou.wangcong@gmail.com>	 <1401840715-16375-2-git-send-email-xiyou.wangcong@gmail.com>	 <1401842581.3645.241.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAM_iQpWeq6a+ighGoLXqDp06t+D97adFrtRpM+ACqtf3J4SUNg@mail.gmail.com>	 <1402060661.3645.289.camel@edumazet-glaptop2.roam.corp.google.com> <1402062243.3645.295.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Daney <ddaney.cavm@gmail.com>,
-        abdoulaye berthe <berthe.ab@gmail.com>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        Linus Walleij <linus.walleij@linaro.org>,
-        Alexandre Courbot <gnurou@gmail.com>, m@bues.ch,
-        "linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Linux MIPS Mailing List <linux-mips@linux-mips.org>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        Linux-sh list <linux-sh@vger.kernel.org>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        patches@opensource.wolfsonmicro.com,
-        "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-        "linux-leds@vger.kernel.org" <linux-leds@vger.kernel.org
-To: Lars-Peter Clausen <lars@metafoo.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
-Content-Disposition: inline
-In-Reply-To: <5388CB1B.3090802@metafoo.de>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([59.151.112.132]:30403 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753487AbaFIB2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 8 Jun 2014 21:28:05 -0400
+In-Reply-To: <1402062243.3645.295.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 30, 2014 at 08:16:59PM +0200, Lars-Peter Clausen wrote:
-> On 05/30/2014 07:33 PM, David Daney wrote:
-> >On 05/30/2014 04:39 AM, Geert Uytterhoeven wrote:
-> >>On Fri, May 30, 2014 at 1:30 PM, abdoulaye berthe <berthe.ab@gmail.com>
-> >>wrote:
-> >>>--- a/drivers/gpio/gpiolib.c
-> >>>+++ b/drivers/gpio/gpiolib.c
-> >>>@@ -1263,10 +1263,9 @@ static void gpiochip_irqchip_remove(struct
-> >>>gpio_chip *gpiochip);
-> >>>   *
-> >>>   * A gpio_chip with any GPIOs still requested may not be removed.
-> >>>   */
-> >>>-int gpiochip_remove(struct gpio_chip *chip)
-> >>>+void gpiochip_remove(struct gpio_chip *chip)
-> >>>  {
-> >>>         unsigned long   flags;
-> >>>-       int             status = 0;
-> >>>         unsigned        id;
-> >>>
-> >>>         acpi_gpiochip_remove(chip);
-> >>>@@ -1278,24 +1277,15 @@ int gpiochip_remove(struct gpio_chip *chip)
-> >>>         of_gpiochip_remove(chip);
-> >>>
-> >>>         for (id = 0; id < chip->ngpio; id++) {
-> >>>-               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags)) {
-> >>>-                       status = -EBUSY;
-> >>>-                       break;
-> >>>-               }
-> >>>-       }
-> >>>-       if (status == 0) {
-> >>>-               for (id = 0; id < chip->ngpio; id++)
-> >>>-                       chip->desc[id].chip = NULL;
-> >>>-
-> >>>-               list_del(&chip->list);
-> >>>+               if (test_bit(FLAG_REQUESTED, &chip->desc[id].flags))
-> >>>+                       panic("gpio: removing gpiochip with gpios still
-> >>>requested\n");
-> >>
-> >>panic?
-> >
-> >NACK to the patch for this reason.  The strongest thing you should do here
-> >is WARN.
-> >
-> >That said, I am not sure why we need this whole patch set in the first place.
+On 06/06/2014 09:44 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Well, what currently happens when you remove a device that is a
-> provider of a gpio_chip which is still in use, is that the kernel
-> crashes. Probably with a rather cryptic error message. So this patch
-> doesn't really change the behavior, but makes it more explicit what
-> is actually wrong. And even if you replace the panic() by a WARN()
-> it will again just crash slightly later.
+> unregister_netdevice_many() API is error prone and we had too
+> many bugs because of dangling LIST_HEAD on stacks.
 > 
-> This is a design flaw in the GPIO subsystem that needs to be fixed.
+> See commit f87e6f47933e3e ("net: dont leave active on stack LIST_HEAD")
+> 
+> In fact, instead of making sure no caller leaves an active list_head,
+> just force a list_del() in the callee. No one seems to need to access
+> the list after unregister_netdevice_many()
+> 
 
-Surely then the best way is to error out to the module unload and
-stop the driver being unloaded?
-
--- 
-Ben Dooks, ben@fluff.org, http://www.fluff.org/ben/
-
-Large Hadron Colada: A large Pina Colada that makes the universe disappear.
+Just like the patch I posted one year ago, interesting :)
+http://patchwork.ozlabs.org/patch/223521/
