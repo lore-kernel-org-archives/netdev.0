@@ -1,60 +1,71 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/1] tipc: fix potential bug in function tipc_backlog_rcv
-Date: Mon,  9 Jun 2014 11:08:18 -0500
-Message-ID: <1402330098-4719-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: fixing TLP's FIN recovery
+Date: Mon, 09 Jun 2014 09:15:02 -0700
+Message-ID: <1402330502.3645.378.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <539319F6.2090907@cogentembedded.com>
+	 <1402151680-11434-1-git-send-email-per.hurtig@kau.se>
+	 <1402196305.3645.318.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <539413BA.7060903@kau.se>
+	 <CAB_+Fg5=Z0wfaAZgUMXKttHKx9WoVLQv5ZqDeUQJmGA0LJTwPg@mail.gmail.com>
+	 <5395B2FC.3070205@kau.se>
+	 <1402324388.3645.359.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5395C7E9.4050406@kau.se>
+	 <1402326259.3645.374.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <5395D937.5060801@kau.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nandita Dukkipati <nanditad@google.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
+	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Per Hurtig <per.hurtig@kau.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp106.biz.mail.gq1.yahoo.com ([98.137.12.181]:21597 "HELO
-	smtp106.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933116AbaFIQIq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 12:08:46 -0400
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:35747 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750734AbaFIQPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 12:15:05 -0400
+Received: by mail-pb0-f49.google.com with SMTP id jt11so4994338pbb.8
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 09:15:04 -0700 (PDT)
+In-Reply-To: <5395D937.5060801@kau.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In commit 4f4482dcd9a0606a30541ff165ddaca64748299b ("tipc: compensate
-for double accounting in socket rcv buffer") we access 'truesize' of
-a received buffer after it might have been released by the function
-filter_rcv().
+On Mon, 2014-06-09 at 17:56 +0200, Per Hurtig wrote:
 
-In this commit we correct this by reading the value of 'truesize' to
-the stack before delivering the buffer to filter_rcv().
+> 
+> Ok, I guess you mean that the retransmission was not fast enough? But 
+> will the same not happen if the original FIN is not lost and triggers a 
+> SACK (i.e., if the two last data segments are still lost)?
 
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/socket.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Yes, I'd like to understand why Nandita specifically added the original
+test. In her tests, fast retransmit was not really effective.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 08d87fc..ef04755 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1,5 +1,5 @@
- /*
--* net/tipc/socket.c: TIPC socket API
-+ * net/tipc/socket.c: TIPC socket API
-  *
-  * Copyright (c) 2001-2007, 2012-2014, Ericsson AB
-  * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-@@ -1431,13 +1431,14 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
- {
- 	u32 res;
- 	struct tipc_sock *tsk = tipc_sk(sk);
-+	uint truesize = buf->truesize;
- 
- 	res = filter_rcv(sk, buf);
- 	if (unlikely(res))
- 		tipc_reject_msg(buf, res);
- 
- 	if (atomic_read(&tsk->dupl_rcvcnt) < TIPC_CONN_OVERLOAD_LIMIT)
--		atomic_add(buf->truesize, &tsk->dupl_rcvcnt);
-+		atomic_add(truesize, &tsk->dupl_rcvcnt);
- 
- 	return 0;
- }
--- 
-1.7.9.5
+Running packetdrill in a separate container gives me these interesting
+counters :
+
+# nstat
+#kernel
+IpInReceives                    4                  0.0
+IpInDelivers                    4                  0.0
+IpOutRequests                   5                  0.0
+TcpPassiveOpens                 1                  0.0
+TcpInSegs                       4                  0.0
+TcpOutSegs                      10                 0.0
+TcpRetransSegs                  2                  0.0
+TcpExtTCPPureAcks               3                  0.0
+TcpExtTCPSackRecovery           1                  0.0
+TcpExtTCPFastRetrans            1                  0.0
+TcpExtTCPLossProbes             1                  0.0
+TcpExtTCPSackRecoveryFail       1                  0.0
+TcpExtTCPSackShiftFallback      1                  0.0
+TcpExtTCPRetransFail            4                  0.0   <<<< HERE >>>
+TcpExtTCPOrigDataSent           9                  0.0
+IpExtInOctets                   184                0.0
+IpExtOutOctets                  9212               0.0
+IpExtInNoECTPkts                4                  0.0
+
+I guess we need to understand why the retransmit is in error.
+
+I am investigating.
