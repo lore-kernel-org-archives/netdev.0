@@ -1,35 +1,30 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 v3] bridge: Add master device name to bridge
- fdb show
-Date: Mon, 09 Jun 2014 06:21:06 -0400
-Message-ID: <53958A92.4040100@mojatatu.com>
-References: <1402205022-7083-1-git-send-email-roopa@cumulusnetworks.com> <539447F6.9040906@mojatatu.com> <539476D7.8020300@cumulusnetworks.com> <5394801D.6080704@mojatatu.com> <5394E2F2.70301@cumulusnetworks.com>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
+Date: Mon, 9 Jun 2014 19:39:07 +0900
+Message-ID: <53958ECB.6080203@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org, wkok@cumulusnetworks.com,
-	sfeldma@cumulusnetworks.com, shm@cumulusnetworks.com,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:49670 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932511AbaFIKVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 06:21:11 -0400
-Received: by mail-ig0-f180.google.com with SMTP id h18so154336igc.13
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 03:21:11 -0700 (PDT)
-In-Reply-To: <5394E2F2.70301@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SH-Linux <linux-sh@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/08/14 18:25, Roopa Prabhu wrote:
+I used the latest net.git repository.
+ commit id = 87757a917b0b3c0787e0563c679762152be81312
+ (net: force a list_del() in unregister_netdevice_many())
 
-> ok, yes, i thought so. And  this version (v3) is same as v1
+I tested these patches on r8a7790.
 
-Ignore my babbling then ;->
-I think the new paragraph in the commit message and the one line
-movement confused me.
+Yoshihiro Shimoda (2):
+  net: sh_eth: Fix receive packet "exceeded" condition in sh_eth_rx()
+  net: sh_eth: Fix timing of RACT setting in sh_eth_rx()
 
-cheers,
-jamal
+ drivers/net/ethernet/renesas/sh_eth.c |    9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+-- 
+1.7.9.5
+
