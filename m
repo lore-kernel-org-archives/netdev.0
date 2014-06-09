@@ -1,320 +1,66 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/13] i40e/i40evf: add PPRS bit to error bits and fix bug in Rx checksum
-Date: Mon,  9 Jun 2014 01:49:14 -0700
-Message-ID: <1402303758-1429-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] i40e: keep SR-IOV enabled in the case that RSS, VMDQ, FD_SB and DCB are disabled
+Date: Mon,  9 Jun 2014 01:49:13 -0700
+Message-ID: <1402303758-1429-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Frank Zhang <frank_1.zhang@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:27481 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:27489 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754645AbaFIIt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 04:49:29 -0400
+	id S1754626AbaFIIt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 9 Jun 2014 04:49:27 -0400
 In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Frank Zhang <frank_1.zhang@intel.com>
 
-The driver was not marking packets with bad checksums
-correctly, especially IPv6 packets with a bad checksum.
-To do this correctly we need a define that may be set by
-hardware in rare cases.
+Modify the logic in i40e_determine_queue_usage() so that
+SR-IOV doesn't get turned off unnecessarily.
 
-Change-ID: I1a997b72b491ded27a78ac3bce1197b2d2611130
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I86ca304fa9f742a50e9ea831b887f358a6a9d53d
+Signed-off-by: Frank Zhang <frank_1.zhang@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  1 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    | 74 +++++++++++++++++++-------
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  3 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c  | 74 +++++++++++++++++++-------
- drivers/net/ethernet/intel/i40evf/i40e_type.h  |  3 +-
- 5 files changed, 115 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index df3917b..b16c251 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -119,6 +119,7 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("mac_local_faults", stats.mac_local_faults),
- 	I40E_PF_STAT("mac_remote_faults", stats.mac_remote_faults),
- 	I40E_PF_STAT("tx_timeout", tx_timeout_count),
-+	I40E_PF_STAT("rx_csum_bad", hw_csum_rx_error),
- 	I40E_PF_STAT("rx_length_errors", stats.rx_length_errors),
- 	I40E_PF_STAT("link_xon_rx", stats.link_xon_rx),
- 	I40E_PF_STAT("link_xoff_rx", stats.link_xoff_rx),
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 2622a86..d84f427 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1193,10 +1193,12 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				    u32 rx_error,
- 				    u16 rx_ptype)
- {
-+	struct i40e_rx_ptype_decoded decoded = decode_rx_desc_ptype(rx_ptype);
-+	bool ipv4 = false, ipv6 = false;
- 	bool ipv4_tunnel, ipv6_tunnel;
- 	__wsum rx_udp_csum;
--	__sum16 csum;
- 	struct iphdr *iph;
-+	__sum16 csum;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index eb32c5c..b5f0dea 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8180,9 +8180,7 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 	queues_left = pf->hw.func_caps.num_tx_qp;
  
- 	ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
- 		      (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
-@@ -1207,29 +1209,57 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	/* Rx csum enabled and ip headers found? */
--	if (!(vsi->netdev->features & NETIF_F_RXCSUM &&
--	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
-+	if (!(vsi->netdev->features & NETIF_F_RXCSUM))
-+		return;
+ 	if ((queues_left == 1) ||
+-	    !(pf->flags & I40E_FLAG_MSIX_ENABLED) ||
+-	    !(pf->flags & (I40E_FLAG_RSS_ENABLED | I40E_FLAG_FD_SB_ENABLED |
+-			   I40E_FLAG_DCB_ENABLED))) {
++	    !(pf->flags & I40E_FLAG_MSIX_ENABLED)) {
+ 		/* one qp for PF, no queues for anything else */
+ 		queues_left = 0;
+ 		pf->rss_size = pf->num_lan_qps = 1;
+@@ -8194,6 +8192,18 @@ static void i40e_determine_queue_usage(struct i40e_pf *pf)
+ 			       I40E_FLAG_DCB_ENABLED	|
+ 			       I40E_FLAG_SRIOV_ENABLED	|
+ 			       I40E_FLAG_VMDQ_ENABLED);
++	} else if (!(pf->flags & (I40E_FLAG_RSS_ENABLED |
++				  I40E_FLAG_FD_SB_ENABLED |
++				  I40E_FLAG_DCB_ENABLED))) {
++		/* one qp for PF */
++		pf->rss_size = pf->num_lan_qps = 1;
++		queues_left -= pf->num_lan_qps;
 +
-+	/* did the hardware decode the packet and checksum? */
-+	if (!(rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
-+		return;
-+
-+	/* both known and outer_ip must be set for the below code to work */
-+	if (!(decoded.known && decoded.outer_ip))
- 		return;
- 
-+	if (decoded.outer_ip == I40E_RX_PTYPE_OUTER_IP &&
-+	    decoded.outer_ip_ver == I40E_RX_PTYPE_OUTER_IPV4)
-+		ipv4 = true;
-+	else if (decoded.outer_ip == I40E_RX_PTYPE_OUTER_IP &&
-+		 decoded.outer_ip_ver == I40E_RX_PTYPE_OUTER_IPV6)
-+		ipv6 = true;
-+
-+	if (ipv4 &&
-+	    (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
-+			 (1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))))
-+		goto checksum_fail;
-+
- 	/* likely incorrect csum if alternate IP extension headers found */
--	if (rx_status & (1 << I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT))
-+	if (ipv6 &&
-+	    decoded.inner_prot == I40E_RX_PTYPE_INNER_PROT_TCP &&
-+	    rx_error & (1 << I40E_RX_DESC_ERROR_L4E_SHIFT) &&
-+	    rx_status & (1 << I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT))
-+		/* don't increment checksum err here, non-fatal err */
- 		return;
- 
--	/* IP or L4 or outmost IP checksum error */
--	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
--			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
--			(1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
--		vsi->back->hw_csum_rx_error++;
-+	/* there was some L4 error, count error and punt packet to the stack */
-+	if (rx_error & (1 << I40E_RX_DESC_ERROR_L4E_SHIFT))
-+		goto checksum_fail;
-+
-+	/* handle packets that were not able to be checksummed due
-+	 * to arrival speed, in this case the stack can compute
-+	 * the csum.
-+	 */
-+	if (rx_error & (1 << I40E_RX_DESC_ERROR_PPRS_SHIFT))
- 		return;
--	}
- 
-+	/* If VXLAN traffic has an outer UDPv4 checksum we need to check
-+	 * it in the driver, hardware does not do it for us.
-+	 * Since L3L4P bit was set we assume a valid IHL value (>=5)
-+	 * so the total length of IPv4 header is IHL*4 bytes
-+	 * The UDP_0 bit *may* bet set if the *inner* header is UDP
-+	 */
- 	if (ipv4_tunnel &&
-+	    (decoded.inner_prot != I40E_RX_PTYPE_INNER_PROT_UDP) &&
- 	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
--		/* If VXLAN traffic has an outer UDPv4 checksum we need to check
--		 * it in the driver, hardware does not do it for us.
--		 * Since L3L4P bit was set we assume a valid IHL value (>=5)
--		 * so the total length of IPv4 header is IHL*4 bytes
--		 */
- 		skb->transport_header = skb->mac_header +
- 					sizeof(struct ethhdr) +
- 					(ip_hdr(skb)->ihl * 4);
-@@ -1246,13 +1276,16 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				(skb->len - skb_transport_offset(skb)),
- 				IPPROTO_UDP, rx_udp_csum);
- 
--		if (udp_hdr(skb)->check != csum) {
--			vsi->back->hw_csum_rx_error++;
--			return;
--		}
-+		if (udp_hdr(skb)->check != csum)
-+			goto checksum_fail;
- 	}
- 
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	return;
-+
-+checksum_fail:
-+	vsi->back->hw_csum_rx_error++;
- }
- 
- /**
-@@ -1429,6 +1462,9 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		/* ERR_MASK will only have valid bits if EOP set */
- 		if (unlikely(rx_error & (1 << I40E_RX_DESC_ERROR_RXE_SHIFT))) {
- 			dev_kfree_skb_any(skb);
-+			/* TODO: shouldn't we increment a counter indicating the
-+			 * drop?
-+			 */
- 			goto next_desc;
- 		}
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 6c977d2..42bfb2a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -541,7 +541,8 @@ enum i40e_rx_desc_error_bits {
- 	I40E_RX_DESC_ERROR_IPE_SHIFT		= 3,
- 	I40E_RX_DESC_ERROR_L4E_SHIFT		= 4,
- 	I40E_RX_DESC_ERROR_EIPE_SHIFT		= 5,
--	I40E_RX_DESC_ERROR_OVERSIZE_SHIFT	= 6
-+	I40E_RX_DESC_ERROR_OVERSIZE_SHIFT	= 6,
-+	I40E_RX_DESC_ERROR_PPRS_SHIFT		= 7
- };
- 
- enum i40e_rx_desc_error_l3l4e_fcoe_masks {
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index ae089df..48ebb6c 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -728,10 +728,12 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				    u32 rx_error,
- 				    u16 rx_ptype)
- {
-+	struct i40e_rx_ptype_decoded decoded = decode_rx_desc_ptype(rx_ptype);
-+	bool ipv4 = false, ipv6 = false;
- 	bool ipv4_tunnel, ipv6_tunnel;
- 	__wsum rx_udp_csum;
--	__sum16 csum;
- 	struct iphdr *iph;
-+	__sum16 csum;
- 
- 	ipv4_tunnel = (rx_ptype > I40E_RX_PTYPE_GRENAT4_MAC_PAY3) &&
- 		      (rx_ptype < I40E_RX_PTYPE_GRENAT4_MACVLAN_IPV6_ICMP_PAY4);
-@@ -742,29 +744,57 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	/* Rx csum enabled and ip headers found? */
--	if (!(vsi->netdev->features & NETIF_F_RXCSUM &&
--	      rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
-+	if (!(vsi->netdev->features & NETIF_F_RXCSUM))
-+		return;
-+
-+	/* did the hardware decode the packet and checksum? */
-+	if (!(rx_status & (1 << I40E_RX_DESC_STATUS_L3L4P_SHIFT)))
-+		return;
-+
-+	/* both known and outer_ip must be set for the below code to work */
-+	if (!(decoded.known && decoded.outer_ip))
- 		return;
- 
-+	if (decoded.outer_ip == I40E_RX_PTYPE_OUTER_IP &&
-+	    decoded.outer_ip_ver == I40E_RX_PTYPE_OUTER_IPV4)
-+		ipv4 = true;
-+	else if (decoded.outer_ip == I40E_RX_PTYPE_OUTER_IP &&
-+		 decoded.outer_ip_ver == I40E_RX_PTYPE_OUTER_IPV6)
-+		ipv6 = true;
-+
-+	if (ipv4 &&
-+	    (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
-+			 (1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))))
-+		goto checksum_fail;
-+
- 	/* likely incorrect csum if alternate IP extension headers found */
--	if (rx_status & (1 << I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT))
-+	if (ipv6 &&
-+	    decoded.inner_prot == I40E_RX_PTYPE_INNER_PROT_TCP &&
-+	    rx_error & (1 << I40E_RX_DESC_ERROR_L4E_SHIFT) &&
-+	    rx_status & (1 << I40E_RX_DESC_STATUS_IPV6EXADD_SHIFT))
-+		/* don't increment checksum err here, non-fatal err */
- 		return;
- 
--	/* IP or L4 or outmost IP checksum error */
--	if (rx_error & ((1 << I40E_RX_DESC_ERROR_IPE_SHIFT) |
--			(1 << I40E_RX_DESC_ERROR_L4E_SHIFT) |
--			(1 << I40E_RX_DESC_ERROR_EIPE_SHIFT))) {
--		vsi->back->hw_csum_rx_error++;
-+	/* there was some L4 error, count error and punt packet to the stack */
-+	if (rx_error & (1 << I40E_RX_DESC_ERROR_L4E_SHIFT))
-+		goto checksum_fail;
-+
-+	/* handle packets that were not able to be checksummed due
-+	 * to arrival speed, in this case the stack can compute
-+	 * the csum.
-+	 */
-+	if (rx_error & (1 << I40E_RX_DESC_ERROR_PPRS_SHIFT))
- 		return;
--	}
- 
-+	/* If VXLAN traffic has an outer UDPv4 checksum we need to check
-+	 * it in the driver, hardware does not do it for us.
-+	 * Since L3L4P bit was set we assume a valid IHL value (>=5)
-+	 * so the total length of IPv4 header is IHL*4 bytes
-+	 * The UDP_0 bit *may* bet set if the *inner* header is UDP
-+	 */
- 	if (ipv4_tunnel &&
-+	    (decoded.inner_prot != I40E_RX_PTYPE_INNER_PROT_UDP) &&
- 	    !(rx_status & (1 << I40E_RX_DESC_STATUS_UDP_0_SHIFT))) {
--		/* If VXLAN traffic has an outer UDPv4 checksum we need to check
--		 * it in the driver, hardware does not do it for us.
--		 * Since L3L4P bit was set we assume a valid IHL value (>=5)
--		 * so the total length of IPv4 header is IHL*4 bytes
--		 */
- 		skb->transport_header = skb->mac_header +
- 					sizeof(struct ethhdr) +
- 					(ip_hdr(skb)->ihl * 4);
-@@ -781,13 +811,16 @@ static inline void i40e_rx_checksum(struct i40e_vsi *vsi,
- 				(skb->len - skb_transport_offset(skb)),
- 				IPPROTO_UDP, rx_udp_csum);
- 
--		if (udp_hdr(skb)->check != csum) {
--			vsi->back->hw_csum_rx_error++;
--			return;
--		}
-+		if (udp_hdr(skb)->check != csum)
-+			goto checksum_fail;
- 	}
- 
- 	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-+	return;
-+
-+checksum_fail:
-+	vsi->back->hw_csum_rx_error++;
- }
- 
- /**
-@@ -956,6 +989,9 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
- 		/* ERR_MASK will only have valid bits if EOP set */
- 		if (unlikely(rx_error & (1 << I40E_RX_DESC_ERROR_RXE_SHIFT))) {
- 			dev_kfree_skb_any(skb);
-+			/* TODO: shouldn't we increment a counter indicating the
-+			 * drop?
-+			 */
- 			goto next_desc;
- 		}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index e3c9ebb..0a7914d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -541,7 +541,8 @@ enum i40e_rx_desc_error_bits {
- 	I40E_RX_DESC_ERROR_IPE_SHIFT		= 3,
- 	I40E_RX_DESC_ERROR_L4E_SHIFT		= 4,
- 	I40E_RX_DESC_ERROR_EIPE_SHIFT		= 5,
--	I40E_RX_DESC_ERROR_OVERSIZE_SHIFT	= 6
-+	I40E_RX_DESC_ERROR_OVERSIZE_SHIFT	= 6,
-+	I40E_RX_DESC_ERROR_PPRS_SHIFT		= 7
- };
- 
- enum i40e_rx_desc_error_l3l4e_fcoe_masks {
++		pf->flags &= ~(I40E_FLAG_RSS_ENABLED	|
++			       I40E_FLAG_FD_SB_ENABLED	|
++			       I40E_FLAG_FD_ATR_ENABLED	|
++			       I40E_FLAG_DCB_ENABLED	|
++			       I40E_FLAG_VMDQ_ENABLED);
+ 	} else {
+ 		/* Not enough queues for all TCs */
+ 		if ((pf->flags & I40E_FLAG_DCB_ENABLED) &&
 -- 
 1.9.3
