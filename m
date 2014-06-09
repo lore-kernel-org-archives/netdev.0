@@ -1,97 +1,140 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in skb_flow_dissect()
-Date: Tue, 10 Jun 2014 00:02:46 +0530
-Message-ID: <1402338773-5996-2-git-send-email-_govind@gmx.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, gvaradar@cisco.com, benve@cisco.com,
-	_govind@gmx.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: SCTP seems to lose its socket state.
+Date: Mon, 09 Jun 2014 14:37:57 -0400
+Message-ID: <5395FF05.90101@gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D17259993@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:51966 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753861AbaFISdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 9 Jun 2014 14:33:54 -0400
-In-Reply-To: <1402338773-5996-1-git-send-email-_govind@gmx.com>
+Received: from mail-qg0-f42.google.com ([209.85.192.42]:53714 "EHLO
+	mail-qg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753758AbaFISiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 14:38:01 -0400
+Received: by mail-qg0-f42.google.com with SMTP id q107so9438511qgd.1
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 11:38:00 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17259993@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb_flow_dissect() dissects only transport header type in ip_proto. It dose not
-give any information about IPv4 or IPv6.
+On 06/09/2014 08:49 AM, David Laight wrote:
+> I think I have now reproduced the problem.
+> 
+>> From: David Laight
+>>> I've been looking at an ethernet trace from one of our customers.
+>>> They seem to have got an SCTP socket into a rather confused state.
+>>>
+>>> There seem to be a significant number of transmit ethernet frames
+>>> that don't read the far end.
+>>> This shouldn't cause a real problem, but we end up with the following:
+>>> This trace was taken on the linux system:
+>>>
+>>> 39964   0.304473        ->      SCTP    INIT
+>>> 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
+>>> 39968   0.467935        <-      SCTP    INIT
+>>> 39969   0.000093        ->      SCTP    INIT_ACK
+>>> 39970   0.003947        <-      SCTP    COOKIE_ECHO
+>>> 39971   0.000072        ->      SCTP    COOKIE_ACK
+>>> 39972   0.000337        ->      M3UA    ASPUP
+>>> 39979   0.809659        <-      SCTP    COOKIE_ECHO
+>>> 39980   0.000058        ->      SCTP    COOKIE_ACK
+>>> shutdown() called here - seems to be ignored
+>>> 39983   0.949471        <-      SCTP    COOKIE_ECHO
+>>> 39984   0.000053        ->      SCTP    COOKIE_ACK
+>>> 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
+>>> 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
+>>> 40008   3.689088        <-      SCTP    HEARTBEAT
+>>> 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
+>>> 40014   0.261152        <-      SCTP    HEARTBEAT
+>>> 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
+>>> 40026   0.123048        <-      SCTP    HEARTBEAT
+>>> 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
+>>> 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
+>>>
+>>> There are no signs of any SACKs for the ASPUP, I think they have the
+>>> correct TSN (the same value as in the INIT_ACK).
+>>> No signs of any shutdowns or aborts from either system.
+>>>
+>>> As seems to be typical for M3UA the source and destination ports are
+>>> the same. No additional IP addresses appear in the INIT (etc) messages.
+>>
+>> I think I've reproduced this on a 3.14.0 kernel.
+>>
+>> System A: Bind to port 1234, connect to B:1234.
+>>           If the connect fails, retry 10 seconds later.
+>>           When the connection completes send some data.
+>>           Disconnect if the reflected data isn't received within 2 seconds.
+>> System B: Bind to port 1234, connect to A:1234.
+>>           If the connect fails, retry 10 seconds later.
+>>           Reflect any received data.
+> 
+> Add here, setsockopt(sock, SO_LINGER, { 1, 0 }, ...);
+> If no data is received with a few seconds, close() the socket
+> (do not call shutdown()), and retry.
+> 
+> Initially the INIT chunks generate ABORTs (no listener) so both
+> programs just retry every 10 seconds.
+> 
+> On B run:
+>     iptables -A OUPUT -p sctp --chunk-types any ABORT -j DROP
+>     iptables -A INPUT -p sctp --chunk-types any DATA -j DROP
+> The first allows the connection to complete, and then drops the
+> ABORT sent by close().
+> The second stops B acking the data.
 
-This patch adds new member, n_proto, to struct flow_keys. Which records the
-IP layer type. i.e IPv4 or IPv6.
+Not only that, but the second entry stops B from accepting DATA.
+So, now system B is is guaranteed to destroy it's association after
+it hasn't heard anything for a while, but ABORT is dropped so A
+doesn't learn about it.
 
-This can be used in netdev->ndo_rx_flow_steer driver function to dissect flow.
+> 
+> System A now receives a new INIT (with a different TSN) and responds with
+> an INIT_ACK (followed by a COOKIE_ECHO and COOKIE_ACK) even though
+> it doesn't have a socket in a suitable state for the connection.
 
-Adding new member to flow_keys increases the struct size by around 4 bytes.
-This causes BUILD_BUG_ON(sizeof(qcb->data) < sz); to fail in
-qdisc_cb_private_validate()
+It still has an association in a SHUTDOWN-PENDING state.
+This is collision case A where one end has restarted while the other
+remains open.
 
-So increase data size by 4
+The troubling spot here is the ULP has closed the socket already, but
+the association is still around waiting for DATA to be acked.
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- include/net/flow_keys.h   | 14 ++++++++++++++
- include/net/sch_generic.h |  2 +-
- net/core/flow_dissector.c |  1 +
- 3 files changed, 16 insertions(+), 1 deletion(-)
+This appears to be a hole in the spec.  I think that the correct
+sequence here would be to send a COOKIE-ACK followed by SHUTDOWN
+so that the remote comes correctly configures an association and
+immediately enters statefull close.
 
-diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-index 7e64bd8..fbefdca 100644
---- a/include/net/flow_keys.h
-+++ b/include/net/flow_keys.h
-@@ -1,6 +1,19 @@
- #ifndef _NET_FLOW_KEYS_H
- #define _NET_FLOW_KEYS_H
- 
-+/* struct flow_keys:
-+ *	@src: source ip address in case of IPv4
-+ *	      For IPv6 it contains 32bit hash of src address
-+ *	@dst: destination ip address in case of IPv4
-+ *	      For IPv6 it contains 32bit hash of dst address
-+ *	@ports: port numbers of Transport header
-+ *		port16[0]: src port number
-+ *		port16[1]: dst port number
-+ *	@thoff: Transport header offset
-+ *	@n_proto: Network header protocol (eg. IPv4/IPv6)
-+ *	@ip_proto: Transport header protocol (eg. TCP/UDP)
-+ * All the members, except thoff, are in network byte order.
-+ */
- struct flow_keys {
- 	/* (src,dst) must be grouped, in the same way than in IP header */
- 	__be32 src;
-@@ -10,6 +23,7 @@ struct flow_keys {
- 		__be16 port16[2];
- 	};
- 	u16 thoff;
-+	u16 n_proto;
- 	u8 ip_proto;
- };
- 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 624f985..a3cfb8e 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -231,7 +231,7 @@ struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
- 	u16			slave_dev_queue_mapping;
- 	u16			_pad;
--	unsigned char		data[20];
-+	unsigned char		data[24];
- };
- 
- static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 107ed12..c2b53c1 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -175,6 +175,7 @@ ipv6:
- 		break;
- 	}
- 
-+	flow->n_proto = proto;
- 	flow->ip_proto = ip_proto;
- 	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
- 	flow->thoff = (u16) nhoff;
--- 
-2.0.0
+> 
+> I think the INIT should act as a received ABORT on the old connection,
+> and then be processed as a new connection - in this case generating
+> an ABORT because there is no listening socket.
+
+No.  The INIT almost never causes the ABORT itself.
+
+> 
+> With the code I'm running the INIT is repeated every 30 seconds.
+> No sign of any DATA retransmits after the first INIT (for over 20 minutes now).
+> 
+> I suspect that a simpler test of forcing a disconnect to use an ABORT and
+> using iptables to discard the ABORT would be enough to show the problem.
+> 
+
+The other solution would be to change the sending application to send
+an ABORT if the data hasn't been reflected back.
+
+I'll dig through the specs and see if I can come up with the proper
+solution.
+
+-vlad
+
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
