@@ -1,63 +1,103 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: SCTP connect() both ways
-Date: Mon, 09 Jun 2014 14:40:55 -0400
-Message-ID: <5395FFB7.4060604@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1725978A@AcuExch.aculab.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 4/8] enic: alloc/free rx_cpu_rmap
+Date: Mon, 09 Jun 2014 22:44:56 +0400
+Message-ID: <539600A8.3010703@cogentembedded.com>
+References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-5-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: ssujith@cisco.com, gvaradar@cisco.com, benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:49113 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753704AbaFISk6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 14:40:58 -0400
-Received: by mail-qa0-f44.google.com with SMTP id j7so8213780qaq.31
-        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 11:40:57 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725978A@AcuExch.aculab.com>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:45502 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751009AbaFISo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 14:44:57 -0400
+Received: by mail-lb0-f176.google.com with SMTP id p9so3253162lbv.21
+        for <netdev@vger.kernel.org>; Mon, 09 Jun 2014 11:44:56 -0700 (PDT)
+In-Reply-To: <1402338773-5996-5-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2014 05:41 AM, David Laight wrote:
-> When SCTP is used for protocols like M3UA it seems common
-> to configure both port numbers for a connection (typically
-> to the same value).
-> 
-> Rather than having one system call connect() and the other
-> listen(), both systems really want to try to establish the
-> connection by sending out INIT chunks.
+Hello.
 
-The correct way to do this is to not used connect() call.
-Both systems should do a listen() and then use an implicit
-connect by using an sctp_sendmsg() or similar calls to
-send the data.
+On 06/09/2014 10:32 PM, Govindarajulu Varadarajan wrote:
 
-> 
-> The connection then gets established as soon as the second of the
-> two systems attempts to establish it.
-> 
-> However if the remote system responds with an ABORT (or maybe
-> an ICMP error is received) the Linux SCTP stack immediately
-> reports 'connect failed'.
-> For these sorts of connections it would be much better if the
-> received ABORT just increased the retry timer to large value.
-> 
-> Thoughts?
+> rx_cpu_rmap provides the reverse irq cpu affinity. This patch allocates and
+> sets drivers netdev->rx_cpu_rmap accordingly.
 
-We don't know why the remote ABORTED.  There could be a lot of
-reasons.  It is up to the application to retry.  This is no
-different then receiving an RST in response to a SYN.
+> rx_cpu_rmap is set in enic_request_intr() which is called by enic_open and
+> rx_cpu_rmap is freed in enic_free_intr() which is called by enic_stop.
 
--vlad
+> This is used by Accelerated RFS.
 
-> 
-> 	David
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> ---
+>   drivers/net/ethernet/cisco/enic/enic_main.c | 36 +++++++++++++++++++++++++++++
+>   1 file changed, 36 insertions(+)
+
+> diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+> index f32f828..f4508d9 100644
+> --- a/drivers/net/ethernet/cisco/enic/enic_main.c
+> +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+[...]
+> @@ -1192,6 +1195,33 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
+>   	pkt_size_counter->small_pkt_bytes_cnt = 0;
+>   }
+>
+> +#ifdef CONFIG_RFS_ACCEL
+> +static void enic_free_rx_cpu_rmap(struct enic *enic)
+> +{
+> +	free_irq_cpu_rmap(enic->netdev->rx_cpu_rmap);
+> +	enic->netdev->rx_cpu_rmap = NULL;
+> +}
+> +
+> +static inline void enic_set_rx_cpu_rmap(struct enic *enic)
+
+    No need to use *inline* in a .c file, the compiler should figure it out.
+
+> +{
+> +	int i, res;
+> +
+> +	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
+> +		enic->netdev->rx_cpu_rmap = alloc_irq_cpu_rmap(enic->rq_count);
+> +		if (unlikely(!enic->netdev->rx_cpu_rmap))
+> +			return;
+> +		for (i = 0; i < enic->rq_count; i++) {
+> +			res = irq_cpu_rmap_add(enic->netdev->rx_cpu_rmap,
+> +					       enic->msix_entry[i].vector);
+> +			if (unlikely(res)) {
+> +				enic_free_rx_cpu_rmap(enic);
+> +				return;
+> +			}
+> +		}
+> +	}
+> +}
+
+    It's better to do the following here:
+
+#else
+static void enic_free_rx_cpu_rmap(struct enic *enic)
+{
+}
+static void enic_set_rx_cpu_rmap(struct enic *enic)
+{
+}
+
+> +#endif
+> +
+>   static int enic_poll_msix(struct napi_struct *napi, int budget)
+>   {
+>   	struct net_device *netdev = napi->dev;
+> @@ -1267,6 +1297,9 @@ static void enic_free_intr(struct enic *enic)
+>   	struct net_device *netdev = enic->netdev;
+>   	unsigned int i;
+>
+> +#ifdef CONFIG_RFS_ACCEL
+> +	enic_free_rx_cpu_rmap(enic);
+> +#endif
+
+    ... so that you can avoid #ifdef's at the call sites.
+
+WBR, Sergei
