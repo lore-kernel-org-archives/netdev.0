@@ -1,64 +1,69 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 2/2] bridge: netlink dump interface at par with
- brctl
-Date: Tue, 10 Jun 2014 07:41:53 -0400
-Message-ID: <5396EF01.7030009@mojatatu.com>
-References: <1402151244-3324-1-git-send-email-jhs@emojatatu.com> <1402151244-3324-2-git-send-email-jhs@emojatatu.com> <5395E3C4.5080904@redhat.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH v4 5/6] net: fec: Add Scatter/gather support
+Date: Tue, 10 Jun 2014 11:52:06 +0000
+Message-ID: <8591edbcb6e3411dbc9d475e71ddb3fd@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+ <1402392744-24368-6-git-send-email-b38611@freescale.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1725A303@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com
-To: vyasevic@redhat.com, davem@davemloft.net,
-	stephen@networkplumber.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:47966 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751035AbaFJLmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 07:42:12 -0400
-Received: by mail-ie0-f178.google.com with SMTP id rd18so95841iec.23
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 04:42:11 -0700 (PDT)
-In-Reply-To: <5395E3C4.5080904@redhat.com>
+Received: from mail-bl2lp0208.outbound.protection.outlook.com ([207.46.163.208]:27129
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751241AbaFJLw3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 07:52:29 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725A303@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/14 12:41, Vlad Yasevich wrote:
-> On 06/07/2014 10:27 AM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> Actually better than brctl showmacs because we can filter by bridge
->> port in the kernel.
->> The current bridge netlink interface doesnt scale when you have many
->> bridges each with large fdbs or even bridges with many bridge ports
->>
->> For example usage look at accompanying iproute2 patch.
+From: David Laight <David.Laight@ACULAB.COM> Sent: Tuesday, June 10, 2014 7:11 PM
+>To: Duan Fugang-B38611; davem@davemloft.net
+>Cc: netdev@vger.kernel.org; ezequiel.garcia@free-electrons.com; Li Frank-
+>B20596; eric.dumazet@gmail.com
+>Subject: RE: [PATCH v4 5/6] net: fec: Add Scatter/gather support
 >
-> The code was a bit tough to follow.  I think the main reason is
-> that you now always pass a filtering devices even when there was
-> no filtering information requested.
->
-> I am wondering if it could be made simpler...
->
-
-The patch may be hard to follow i think. I cant think of a simple
-way to do filtering by br and brport. If you have suggestions, shoot.
-
->>   	rcu_read_lock();
->> +	if (br_idx) {
->> +		br_dev = __dev_get_by_index(net, br_idx);
->> +		if (!br_dev) {
->> +			rcu_read_unlock();
->> +			return -ENODEV;
->> +		}
->> +		ops = br_dev->netdev_ops;
->> +		bdev = br_dev;
->> +	}
+>From: Fugang Duan
+>> Add Scatter/gather support for FEC.
+>> This feature allows to improve outbound throughput performance.
+>...
+>> +static int fec_enet_get_free_txdesc_num(struct fec_enet_private *fep)
+>> +{
+>> +	int entries;
 >> +
+>> +	entries = ((const char *)fep->dirty_tx -
+>> +			(const char *)fep->cur_tx) / fep->bufdesc_size;
+>> +
+>> +	return (fep->cur_tx >= fep->dirty_tx) ?
+>> +		entries += fep->tx_ring_size : entries; }
 >
-> I think this can be outside of the rcu since you hold an rtnl at this time.
+>That is a strange return statement - why += ??
 >
+>You could also check the sign of 'entries'.
+>Say:
+>	return entries > 0 ? entries : entries + fep->tx_ring_size;
+>
+Agree your suggestion.
 
-Will fix on next iteration.
+>Actually do you ever use the last entry?
+>If you do then the full and empty conditions are not separated.
+Don't use the last entry. When it is full condition, cur_tx is the last entry.
+If (fep->cur_tx == fep->dirty_tx)
+	Empty
+If (fep->cur_tx == fep->dirty_tx - 1)
+	Full
 
-cheers,
-jamal
+Since the patch set introduces tx_stop_threshold and tx_wake_threshold, it never uses the rest of entry while
+Free entry number is less than tx_stop_threshold. 
+
+Thanks,
+Andy
