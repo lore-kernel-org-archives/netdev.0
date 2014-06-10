@@ -1,8 +1,8 @@
 From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 2/2] mac802154: don't deliver
-	packets to devices that are down
-Date: Tue, 10 Jun 2014 17:08:42 +0200
-Message-ID: <1402412922-14180-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net-next 1/2] mac802154: properly free
+	incoming skbs on decryption failure
+Date: Tue, 10 Jun 2014 17:08:41 +0200
+Message-ID: <1402412922-14180-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 References: <1402412922-14180-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,46 +21,26 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Only one WPAN devices can be active at any given time, so only deliver
-packets to that one interface that is actually up.
+mac802154 RX did not free skbs on decryption failure, assuming that the
+caller would when the local rx handler returned _DROP. This was false.
 
 Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
- net/mac802154/wpan.c |   12 +++++++-----
- 1 file changed, 7 insertions(+), 5 deletions(-)
+ net/mac802154/wpan.c |    1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index c8cfd54..1ba648e 100644
+index 23bc91c..c8cfd54 100644
 --- a/net/mac802154/wpan.c
 +++ b/net/mac802154/wpan.c
-@@ -567,7 +567,6 @@ static int mac802154_parse_frame_start(struct sk_buff *skb,
- void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
- {
- 	int ret;
--	struct sk_buff *sskb;
- 	struct mac802154_sub_if_data *sdata;
- 	struct ieee802154_hdr hdr;
- 
-@@ -579,12 +578,15 @@ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
--		if (sdata->type != IEEE802154_DEV_WPAN)
-+		if (sdata->type != IEEE802154_DEV_WPAN ||
-+		    !netif_running(sdata->dev))
- 			continue;
- 
--		sskb = skb_clone(skb, GFP_ATOMIC);
--		if (sskb)
--			mac802154_subif_frame(sdata, sskb, &hdr);
-+		skb = skb_clone(skb, GFP_ATOMIC);
-+		if (skb)
-+			mac802154_subif_frame(sdata, skb, &hdr);
-+
-+		break;
+@@ -472,6 +472,7 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb,
+ 	rc = mac802154_llsec_decrypt(&sdata->sec, skb);
+ 	if (rc) {
+ 		pr_debug("decryption failed: %i\n", rc);
++		kfree_skb(skb);
+ 		return NET_RX_DROP;
  	}
- 	rcu_read_unlock();
- }
+ 
 -- 
 1.7.9.5
 
