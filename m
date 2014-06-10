@@ -1,86 +1,55 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Subject: Re: [PATCH 2/2] gpio: gpiolib: set gpiochip_remove retval to void
-Date: Tue, 10 Jun 2014 08:57:32 +0200
-Message-ID: <5396AC5C.2080108@samsung.com>
-References: <20140530094025.3b78301e@canb.auug.org.au>
- <1401449454-30895-1-git-send-email-berthe.ab@gmail.com>
- <1401449454-30895-2-git-send-email-berthe.ab@gmail.com>
- <CAMuHMdV6AtjD2aqO3buzj8Eo7A7xc_+ROYnxEi2sdjMaqFiAuA@mail.gmail.com>
- <5388C0F1.90503@gmail.com> <5388CB1B.3090802@metafoo.de>
- <20140608231823.GB10112@trinity.fluff.org> <53959A93.7080308@metafoo.de>
- <5395B379.2010706@samsung.com>
- <063D6719AE5E284EB5DD2968C1650D6D17259A1F@AcuExch.aculab.com>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest
+ Customer Bridge group addresses
+Date: Tue, 10 Jun 2014 16:05:07 +0900
+Message-ID: <5396AE23.80808@lab.ntt.co.jp>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	
+	<1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>	
+	<20140609085243.32f88582@nehalam.linuxnetplumber.net>
+	<1402332351.1742.16.camel@localhost.localdomain>
+	<5396363E.2020501@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: driverdevel <devel@driverdev.osuosl.org>,
-	Linux MIPS Mailing List <linux-mips@linux-mips.org>,
-	"spear-devel@list.st.com" <spear-devel@list.st.com>,
-	David Daney <ddaney.cavm@gmail.com>,
-	Linux-sh list <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	"patches@opensource.wolfsonmicro.com"
-	<patches@opensource.wolfsonmicro.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"platform-driver-x86@vger.kernel.org"
-	<platform-driver-x86@vger.kernel.org>,
-	"linux-gpio@vger.kernel.org" <linux-gpio@vger.kernel.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, "m@bues.ch" <m@bues.ch>,
-	"linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-	linux-samsung-soc@vger
-To: David Laight <David.Laight@ACULAB.COM>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Ben Dooks <ben@trinity.fluff.org>
-Return-path: <linux-gpio-owner@vger.kernel.org>
-In-reply-to: <063D6719AE5E284EB5DD2968C1650D6D17259A1F@AcuExch.aculab.com>
-Sender: linux-gpio-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	"David S . Miller" <davem@davemloft.net>
+To: vyasevic@redhat.com, Toshiaki Makita <toshiaki.makita1@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <5396363E.2020501@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 06/09/2014 03:43 PM, David Laight wrote:
-> From: Of Andrzej Hajda
-> ...
->>> You can't error out on module unload, although that's not really relevant
->>> here. gpiochip_remove() is typically called when the device that registered
->>> the GPIO chip is unbound. And despite some remove() callbacks having a
->>> return type of int you can not abort the removal of a device.
+(2014/06/10 7:33), Vlad Yasevich wrote:
+...
+>>> Rather than special casing this around vlan filtering, I would prefer
+>>> the code always forward these packets, or manipulate group_fwd_mask
+>>> to allow it that way.
 >>
->> It is a design flaw in many subsystems having providers and consumers,
->> not only GPIO. The same situation is with clock providers, regulators,
->> phys, drm_panels, ..., at least it was such last time I have tested it.
+>> These addresses must be forwarded only if the bridge is an S-VLAN
+>> bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
+>> forwarded. So, I don't think we can forward them always.
 >>
->> The problem is that many frameworks assumes that lifetime of provider is
->> always bigger than lifetime of its consumers, and this is wrong
->> assumption - usually it is not possible to prevent unbinding driver from
->> device, so if the device is a provider there is no way to inform
->> consumers about his removal.
->>
->> Some solution for such problems is to use some kind of availability
->> callbacks for requesting resources (gpios, clocks, regulators,...)
->> instead of simple 'getters' (clk_get, gpiod_get). Callbacks should
->> guarantee that the resource is always valid between callback reporting
->> its availability and callback reporting its removal. Such approach seems
->> to be complicated at the first sight but it should allow to make the
->> code safe and as a bonus it will allow to avoid deferred probing.
->> Btw I have send already RFC for such framework [1].
+>> Using group_fwd_mask is a bit complicated. If we use it to forward them,
+>> user can optionally turn off forwarding ability of those addresses...
+>> but we maybe need another information (named like group_fwd_mask_set)
+>> that indicates which bit is set by user. (We have to set group_fwd_mask
+>> automatically when we set vlan_proto to 88a8.)
+>> Is this way acceptable?
 > 
-> Callbacks for delete are generally a locking nightmare.
-> A two-way handshake is also usually needed to avoid problems
-> with concurrent disconnect requests.
+> May be separate it into required mask and user mask.  Set required
+> mask when this is an S-VLAN bridge.
 
-The framework I have proposed is lock-less[1] and concurrent requests
-are serialized so both objections are invalid.
+Sounds like a good idea.
+I'll give it a try, thank you for your suggestion.
 
-[1]: in fact the framework uses spinlock, but only to protect internal
-list simple operations, and even this could be converted to fully
-lock-less implementation.
-
-Andrzej
-
-> 
-> 	David
-> 
-
+Thanks,
+Toshiaki Makita
