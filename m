@@ -1,53 +1,70 @@
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Subject: [PATCH net-next 1/2] mac802154: properly free
-	incoming skbs on decryption failure
-Date: Tue, 10 Jun 2014 17:08:41 +0200
-Message-ID: <1402412922-14180-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] mac802154: don't deliver packets to
+ devices that are down
+Date: Tue, 10 Jun 2014 08:26:01 -0700
+Message-ID: <1402413961.3645.432.camel@edumazet-glaptop2.roam.corp.google.com>
 References: <1402412922-14180-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+	 <1402412922-14180-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1402412922-14180-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	davem@davemloft.net
+To: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:52501 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675AbaFJP0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 11:26:05 -0400
+Received: by mail-pb0-f51.google.com with SMTP id rp16so923280pbb.24
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 08:26:04 -0700 (PDT)
+In-Reply-To: <1402412922-14180-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mac802154 RX did not free skbs on decryption failure, assuming that the
-caller would when the local rx handler returned _DROP. This was false.
+On Tue, 2014-06-10 at 17:08 +0200, Phoebe Buckheister wrote:
+> Only one WPAN devices can be active at any given time, so only deliver
+> packets to that one interface that is actually up.
+> 
+> Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+> ---
+>  net/mac802154/wpan.c |   12 +++++++-----
+>  1 file changed, 7 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+> index c8cfd54..1ba648e 100644
+> --- a/net/mac802154/wpan.c
+> +++ b/net/mac802154/wpan.c
+> @@ -567,7 +567,6 @@ static int mac802154_parse_frame_start(struct sk_buff *skb,
+>  void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+>  {
+>  	int ret;
+> -	struct sk_buff *sskb;
+>  	struct mac802154_sub_if_data *sdata;
+>  	struct ieee802154_hdr hdr;
+>  
+> @@ -579,12 +578,15 @@ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+>  
+>  	rcu_read_lock();
+>  	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
+> -		if (sdata->type != IEEE802154_DEV_WPAN)
+> +		if (sdata->type != IEEE802154_DEV_WPAN ||
+> +		    !netif_running(sdata->dev))
+>  			continue;
+>  
+> -		sskb = skb_clone(skb, GFP_ATOMIC);
+> -		if (sskb)
+> -			mac802154_subif_frame(sdata, sskb, &hdr);
+> +		skb = skb_clone(skb, GFP_ATOMIC);
+> +		if (skb)
+> +			mac802154_subif_frame(sdata, skb, &hdr);
+> +
+> +		break;
+>  	}
+>  	rcu_read_unlock();
+>  }
 
-Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
----
- net/mac802154/wpan.c |    1 +
- 1 file changed, 1 insertion(+)
+If this is really the case, do not clone the skb, and fix
+mac802154_subif_rx().
 
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index 23bc91c..c8cfd54 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -472,6 +472,7 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb,
- 	rc = mac802154_llsec_decrypt(&sdata->sec, skb);
- 	if (rc) {
- 		pr_debug("decryption failed: %i\n", rc);
-+		kfree_skb(skb);
- 		return NET_RX_DROP;
- 	}
- 
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
-Find What Matters Most in Your Big Data with HPCC Systems
-Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
-Leverages Graph Analysis for Fast Processing & Easy Data Exploration
-http://p.sf.net/sfu/hpccsystems
+(mac802154_wpans_rx() would always consume the skb)
