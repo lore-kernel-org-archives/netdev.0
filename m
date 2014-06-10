@@ -1,45 +1,46 @@
-From: Ankur Patel <ankur@embertec.com>
-Subject: imx28evk: Ethernet Plug/Unplug Event not working
-Date: Tue, 10 Jun 2014 14:09:48 +0930
-Message-ID: <BD5E516FF3711A41B93DC005170007BB010D71B95FC0@EMBSVR01.ember.local>
+From: Xufeng Zhang <xufengzhang.main@gmail.com>
+Subject: sctp bug: sk_ack_backlog wrap-around problem
+Date: Tue, 10 Jun 2014 14:27:07 +0800
+Message-ID: <CA+=dFzg6gXDTXr6AusZ40_swrjQa-yoS1YLv3=SJAjKYgKzrbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-sctp <linux-sctp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	xufeng zhang <xufeng.zhang@windriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.embertec.com ([119.18.44.70]:3320 "EHLO mail.embertec.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751835AbaFJEjz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 00:39:55 -0400
-Received: from mail.embertec.com
-	by embertec.com (mail.embertec.com)
-	(SecurityGateway 2.0.6)
-	with SMTP id SG000832207.MSG
-	for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 14:09:52 +0930
-Content-Language: en-US
+Received: from mail-qc0-f173.google.com ([209.85.216.173]:39013 "EHLO
+	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754834AbaFJG1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 02:27:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Friends,
+Hi Vlad and Neil,
 
-I am using Linux kernel 3.10.32 on I.MX 28 EVK board. On that I couldn't able to get any netlink messages from kernel on Ethernet Plug/Unplug event.
+I found a sk_ack_backlog wrap-around problem during handling received
+COOKIE_ECHO.
 
-I am using opensource program netlink.c (http://pastebin.com/CA8NThAS) to listen on all the netlink messages from kernel.
+Consider the scenario:
+For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+sctp_sf_do_5_1D_ce(),
+after it has passed a series of sanity check, a new association would
+be created in
+sctp_unpack_cookie(), but afterwards, some processing maybe failed,
+and sctp_association_free()
+will be called to free the previously allocated association, in
+sctp_association_free(),
+sk_ack_backlog value is decremented for this socket, since the initial
+value for sk_ack_backlog is 0,
+after the decrement, it will be 65535, a wrap-around problem happens,
+and if we want to establish
+new associations afterward in the same socket, ABORT would be
+triggered since sctp deem the
+accept queue as full.
 
-root@imx28evk:~# ./netlink
-[   79.971113] libphy: 800f0000.etherne:00 - Link is Down
-[   85.291482] libphy: 800f0000.etherne:00 - Link is Up - 100/Full
-...
+Do you have any idea to fix such kind of issue?
 
-There is also udev rule defined as below which is not called: 
-root@imx28evk:~# cat /etc/udev/rules.d/autonet.rules
-# Handle network interface setup
-SUBSYSTEM=="net", ACTION=="add" RUN+="/etc/udev/scripts/network.sh"
-SUBSYSTEM=="net", ACTION=="remove" RUN+="/etc/udev/scripts/network.sh"
-
-Could anyone share what I need to add to Ethernet driver to enable the kernel to send the messages?
-
-Please share if you need more information.
-
-Regards,
-Ankur
+Thanks a lot!
+Xufeng
