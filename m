@@ -1,30 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next PATCH 2] net: ethernet driver: Fujitsu OGMA
-Date: Tue, 10 Jun 2014 10:20:49 -0700
-Message-ID: <20140610102049.4cad5ca1@nehalam.linuxnetplumber.net>
-References: <20140610010803.18695.88446.stgit@localhost.localdomain>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: Re: [patch net-next 3/5] ipv6: consider net.ipv6.conf.all sysctls
+ when making decisions
+Date: Tue, 10 Jun 2014 19:15:46 +0200
+Message-ID: <53973D42.4010209@enst-bretagne.fr>
+References: <1402417153-2551-1-git-send-email-milos.vyletel@gmail.com> <1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>,
-	patches@linaro.org
-To: Andy Green <andy.green@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:56360 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751162AbaFJRUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 13:20:53 -0400
-Received: by mail-pd0-f179.google.com with SMTP id fp1so6332739pdb.38
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 10:20:52 -0700 (PDT)
-In-Reply-To: <20140610010803.18695.88446.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	"open list:USB CDC ETHERNET..." <linux-usb@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Milos Vyletel <milos.vyletel@gmail.com>, davem@davemloft.net,
+	amwang@redhat.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2014 09:08:03 +0800
-Andy Green <andy.green@linaro.org> wrote:
+Hello,
 
-> +static inline bool skb_is_rx(void *skb)
-> +{
-> +	struct sk_buff *skb_p = (struct sk_buff *)skb;
+> 
+> IN6_DEV_MAXCONF
+> 	IN6_DEV_HOPLIMIT
+> 	IN6_DEV_MTU
 
-Cast of void* to type is unnecessary.
+I'm a little bit surprise to set the MTU as the maximum of all/dev
+value. Since the default for "all" is IPV6_MIN_MTU, it is probably
+harmless, but it could be a little bit surprising for administrators.
+
+>  IN6_DEV_USE_TEMPADDR
+
+For this one, the default is zero, except for point-to-point and
+loopback, with -1. I didn't see any difference between 0 and -1 in the
+current kernel code, but if I missed something, it could be a little
+problem.
