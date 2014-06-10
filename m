@@ -1,64 +1,33 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: hw.c: Cleaning up conjunction always evaluates to false
-Date: Tue, 10 Jun 2014 23:52:32 +0200
-Message-ID: <1846364.4CH2xgjm71@al>
-References: <1402151419-18296-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <CAFo99gZuPV=v1k90iPkAGVFrzVq-z=-h8UgD5a3VCN=wMDNU3w@mail.gmail.com> <CAFo99gYCYkONL9dZYeHwuJKQTCgFQTmg1aAGZdFAOT=MNARh7Q@mail.gmail.com>
+From: Info <freelotto1@freelotto739.onmicrosoft.com>
+Subject: Urgent Notification Free Lotto Award(Reference:WIN-37-14-29-14)
+Date: Wed, 11 Jun 2014 01:30:51 +0200
+Message-ID: <0c236299-d66a-40d7-b5c0-71a313e28061@AM3PR05MB306.eurprd05.prod.outlook.com>
+Reply-To: <freel26f@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFo99gYCYkONL9dZYeHwuJKQTCgFQTmg1aAGZdFAOT=MNARh7Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <freelotto1@freelotto739.onmicrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3hn0247.outbound.protection.outlook.com ([157.55.234.247]:13888
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752183AbaFJXbP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 19:31:15 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 10 June 2014 23:31:37 Rickard Strandqvist wrote:
-> I guess it's ok to do the patches?
-
-Right, you got some feedback from me and another person. You can
-send patches whenever you like.
-
-> But then again, I will then send them one by one, with the cover
-> letter? +35 email?
-
-Have you seen my other reply? Use git-format-patch --cover-letter.
-Why would you need 35 mails? A commit should logically group a
-change per driver. So, one commit probably touches rtlXXXX/reg.h
-and rtlXXXX/hw.c (perhaps others? grep for it!)
-
-Be sure to manually check each change. Your last patchset included
-non-sensial commit messages and subjects.
-
-> Then the macro I should add in all the:
-> 
-> net/wireless/rtlwifi/rtl****se/reg.h
-> 
-> 
-> And in the:
-> drivers/staging/rtl8188eu/include/rtl8188e_spec.h
-> drivers/staging/rtl8192e/rtl8192e/r8192E_hw.h
-> drivers/staging/rtl8712/rtl871x_wlan_sme.h
-> drivers/staging/rtl8723au/include/rtl8723a_spec.h
-> drivers/staging/rtl8821ae/rtl8821ae/reg.h
-
-The staging drivers will be taken by Greg KH, see MAINTAINERS
-for the addresses for staging drivers.
-
-> And should I put it like:
-> #define MSR_MASK 0x03
-> 
-> Or is this more accurate:
-> #define MSR_MASK   (MSR_INFRA | MSR_ADHOC)
-
-Since the integer resulting from the mask is a decimal sequence rather
-than a bitmap, it makes more sense to use 0x03 instead. Please have a
-look at the drivers and be sure to understand why the changes are needed.
-
-Peter
-
-PS. please do not top-post. For driver discussions, you should keep
-the list cc'd too. That makes it more likely for someone to respond to
-such queries.
+=46rom claim=B4s processing office.
+=46ree Lotto Lottery Award Notification
+Confirmation Ticket No: 33-48-19-H5H
+Reference:WIN-37-14-29-14
+You have won( 1 Million Euros )in the Free Lotto Lottery Award 2014 hel=
+d in Madrid Spain
+This email was sent to notify you officially as you are advise to conta=
+ct the claim=B4s processing office with your details immediately for cl=
+aim,
+Contact Person: Martinez Adela
+Contact Email: freelottoaward066@gmail.com
+Signed (Announcer)
+Director, Cooperate HR and Communication.
+=46REE LOTTO LOTTERY AWARD
