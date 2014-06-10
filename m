@@ -1,108 +1,108 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 4/8] enic: alloc/free rx_cpu_rmap
-Date: Tue, 10 Jun 2014 19:22:21 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1406101900400.2499@ws.cisco>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-5-git-send-email-_govind@gmx.com> <539600A8.3010703@cogentembedded.com>
+Subject: Re: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in
+ skb_flow_dissect()
+Date: Tue, 10 Jun 2014 19:38:00 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1406101923050.2499@ws.cisco>
+References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-2-git-send-email-_govind@gmx.com> <539703F5.8030707@redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
 	netdev@vger.kernel.org, ssujith@cisco.com, gvaradar@cisco.com,
-	benve@cisco.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+	benve@cisco.com, eric.dumazet@gmail.com
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:55509 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:53147 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752120AbaFJNxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 09:53:10 -0400
-In-Reply-To: <539600A8.3010703@cogentembedded.com>
+	id S1750945AbaFJOIj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2014 10:08:39 -0400
+In-Reply-To: <539703F5.8030707@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On Mon, 9 Jun 2014, Sergei Shtylyov wrote:
-
-> @@ -1192,6 +1195,33 @@ static void enic_calc_int_moderation(struct enic 
->> *enic, struct vnic_rq *rq)
->>   	pkt_size_counter->small_pkt_bytes_cnt = 0;
->>   }
+On Tue, 10 Jun 2014, Daniel Borkmann wrote:
+>> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
+>> index 7e64bd8..fbefdca 100644
+>> --- a/include/net/flow_keys.h
+>> +++ b/include/net/flow_keys.h
+>> @@ -1,6 +1,19 @@
+>>   #ifndef _NET_FLOW_KEYS_H
+>>   #define _NET_FLOW_KEYS_H
 >> 
->> +#ifdef CONFIG_RFS_ACCEL
->> +static void enic_free_rx_cpu_rmap(struct enic *enic)
->> +{
->> +	free_irq_cpu_rmap(enic->netdev->rx_cpu_rmap);
->> +	enic->netdev->rx_cpu_rmap = NULL;
->> +}
->> +
->> +static inline void enic_set_rx_cpu_rmap(struct enic *enic)
+>> +/* struct flow_keys:
+>> + *	@src: source ip address in case of IPv4
+>> + *	      For IPv6 it contains 32bit hash of src address
+>> + *	@dst: destination ip address in case of IPv4
+>> + *	      For IPv6 it contains 32bit hash of dst address
+>> + *	@ports: port numbers of Transport header
+>> + *		port16[0]: src port number
+>> + *		port16[1]: dst port number
+>> + *	@thoff: Transport header offset
+>> + *	@n_proto: Network header protocol (eg. IPv4/IPv6)
+>> + *	@ip_proto: Transport header protocol (eg. TCP/UDP)
+>> + * All the members, except thoff, are in network byte order.
+>> + */
+>>   struct flow_keys {
+>>   	/* (src,dst) must be grouped, in the same way than in IP header */
+>>   	__be32 src;
+>> @@ -10,6 +23,7 @@ struct flow_keys {
+>>   		__be16 port16[2];
+>>   	};
+>>   	u16 thoff;
+>> +	u16 n_proto;
+>>   	u8 ip_proto;
+>>   };
+>> 
+>> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+>> index 624f985..a3cfb8e 100644
+>> --- a/include/net/sch_generic.h
+>> +++ b/include/net/sch_generic.h
+>> @@ -231,7 +231,7 @@ struct qdisc_skb_cb {
+>>   	unsigned int		pkt_len;
+>>   	u16			slave_dev_queue_mapping;
+>>   	u16			_pad;
+>> -	unsigned char		data[20];
+>> +	unsigned char		data[24];
 >
->   No need to use *inline* in a .c file, the compiler should figure it out.
+> I'm wondering if this is actually needed. We add an extra
+> u16 n_proto into the flow_keys *just* to determine IPv4/v6
+> while if it finds anything else than this the dissector
+> returns false anyway w/o filling out the flow keys structure.
+> Plus, in case of IPv6 you'll have a hashed/folded src/dst
+> addr anyway.
 >
 
-Yes, I agree.
+determining IPv4/IPv6 is important because this can be used in dissecting flow
+in Accelerated RFS. Adaptor does not support IPv6 filters. Since Accelerated
+RFS is supported for IPV6, using skb_flow_dissect will return true with non-zero
+values in src/dst for IPv6.
 
->> +{
->> +	int i, res;
->> +
->> +	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
->> +		enic->netdev->rx_cpu_rmap = 
->> alloc_irq_cpu_rmap(enic->rq_count);
->> +		if (unlikely(!enic->netdev->rx_cpu_rmap))
->> +			return;
->> +		for (i = 0; i < enic->rq_count; i++) {
->> +			res = irq_cpu_rmap_add(enic->netdev->rx_cpu_rmap,
->> +					       enic->msix_entry[i].vector);
->> +			if (unlikely(res)) {
->> +				enic_free_rx_cpu_rmap(enic);
->> +				return;
->> +			}
->> +		}
->> +	}
->> +}
->
->   It's better to do the following here:
->
-> #else
-> static void enic_free_rx_cpu_rmap(struct enic *enic)
-> {
-> }
-> static void enic_set_rx_cpu_rmap(struct enic *enic)
-> {
-> }
->
+If I am going to write separate function for getting IP address and port
+numbers, its definition is going to be somewhat same as skb_flow_dissect.
+Why not improve whats already written and reuse it?
 
-How about
-
-static void enic_free_rx_cpu_rmap(struct enic *enic)
-{
-#ifdef CONFIG_RFS_ACCEL
-...
-...
-#endif
-}
-
-I prefer this over yours because, if I use yours tools like cscope finds two
-definitions of function enic_free_rx_cpu_rmap. Which makes code walk through
-little bit difficult.
+Is there any significant downside of adding u16 n_proto and increasing
+size of qdisc_skb_cb by 4 bytes?
 
 Thanks
 Govind
 
->> +#endif
->> +
->>   static int enic_poll_msix(struct napi_struct *napi, int budget)
->>   {
->>   	struct net_device *netdev = napi->dev;
->> @@ -1267,6 +1297,9 @@ static void enic_free_intr(struct enic *enic)
->>   	struct net_device *netdev = enic->netdev;
->>   	unsigned int i;
+>>   };
+>>
+>>   static inline void qdisc_cb_private_validate(const struct sk_buff *skb, 
+>> int sz)
+>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>> index 107ed12..c2b53c1 100644
+>> --- a/net/core/flow_dissector.c
+>> +++ b/net/core/flow_dissector.c
+>> @@ -175,6 +175,7 @@ ipv6:
+>>   		break;
+>>   	}
 >> 
->> +#ifdef CONFIG_RFS_ACCEL
->> +	enic_free_rx_cpu_rmap(enic);
->> +#endif
->
->   ... so that you can avoid #ifdef's at the call sites.
->
-> WBR, Sergei
->
+>> +	flow->n_proto = proto;
+>>   	flow->ip_proto = ip_proto;
+>>   	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
+>>   	flow->thoff = (u16) nhoff;
+>> 
 >
