@@ -1,102 +1,111 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 3/4] bridge: Prepare for forwarding another bridge group addresses
-Date: Tue, 10 Jun 2014 20:59:24 +0900
-Message-ID: <1402401565-15423-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-References: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 0/4] bridge: 802.1ad vlan protocol support
+Date: Tue, 10 Jun 2014 20:59:21 +0900
+Message-ID: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
 	bridge@lists.linux-foundation.org
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47065 "EHLO
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47064 "EHLO
 	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbaFJMAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:00:19 -0400
-In-Reply-To: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	with ESMTP id S1751163AbaFJMAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:00:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If a bridge is an 802.1ad bridge, it must forward another bridge group
-addresses (the Nearest Customer Bridge group addresses).
-(For details, see IEEE 802.1Q-2011 8.6.3.)
+Currently bridge vlan filtering doesn't work fine with 802.1ad protocol.
+Only if a bridge is configured without pvid, the bridge receives only
+802.1ad tagged frames and no STP is used, it will work.
+Otherwise:
+- If pvid is configured, it can put only 802.1Q tags but cannot put 802.1ad
+  tags.
+- If 802.1Q and 802.1ad tagged frames arrive in mixture, it applies filtering
+  regardless of their protocols.
+- While an 802.1ad bridge should use another mac address for STP BPDU and
+  should forward customer's BPDU frames, it can't.
+Thus, we can't properly handle frames once 802.1ad is used.
 
-As user might not want group_fwd_mask to be modified by enabling 802.1ad,
-introduce a new mask, group_fwd_mask_required, which indicates addresses
-the bridge wants to forward. This will be set by enabling 802.1ad.
+Handling 802.1ad is useful if we want to allow stacked vlans to be used,
+e.g., guest VMs wants to use vlan tags and the host also wants to segregate
+guest's traffic from other guests' by vlan tags.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
----
- net/bridge/br_device.c  | 1 +
- net/bridge/br_input.c   | 8 ++++++--
- net/bridge/br_private.h | 3 +++
- 3 files changed, 10 insertions(+), 2 deletions(-)
+Here is the image describing how to configure a bridge to filter VMs traffic.
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 1b797c4..568cccd 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -378,6 +378,7 @@ void br_dev_setup(struct net_device *dev)
- 
- 	br->stp_enabled = BR_NO_STP;
- 	br->group_fwd_mask = BR_GROUPFWD_DEFAULT;
-+	br->group_fwd_mask_required = BR_GROUPFWD_DEFAULT;
- 
- 	br->designated_root = br->bridge_id;
- 	br->bridge_max_age = br->max_age = 20 * HZ;
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 04d6348..366c436 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -177,6 +177,8 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 	p = br_port_get_rcu(skb->dev);
- 
- 	if (unlikely(is_link_local_ether_addr(dest))) {
-+		u16 fwd_mask = p->br->group_fwd_mask_required;
-+
- 		/*
- 		 * See IEEE 802.1D Table 7-10 Reserved addresses
- 		 *
-@@ -194,7 +196,8 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 		case 0x00:	/* Bridge Group Address */
- 			/* If STP is turned off,
- 			   then must forward to keep loop detection */
--			if (p->br->stp_enabled == BR_NO_STP)
-+			if (p->br->stp_enabled == BR_NO_STP ||
-+			    fwd_mask & (1u << dest[5]))
- 				goto forward;
- 			break;
- 
-@@ -203,7 +206,8 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 
- 		default:
- 			/* Allow selective forwarding for most other protocols */
--			if (p->br->group_fwd_mask & (1u << dest[5]))
-+			fwd_mask |= p->br->group_fwd_mask;
-+			if (fwd_mask & (1u << dest[5]))
- 				goto forward;
- 		}
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b65fee9..ba59880 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -35,6 +35,8 @@
- #define BR_GROUPFWD_DEFAULT	0
- /* Don't allow forwarding control protocols like STP and LLDP */
- #define BR_GROUPFWD_RESTRICTED	0x4007u
-+/* The Nearest Customer Bridge Group Address, 01-80-C2-00-00-[00,0B,0C,0D,0F] */
-+#define BR_GROUPFWD_8021AD	0xB801u
- 
- /* Path to usermode spanning tree program */
- #define BR_STP_PROG	"/sbin/bridge-stp"
-@@ -232,6 +234,7 @@ struct net_bridge
- 	bool				nf_call_arptables;
- #endif
- 	u16				group_fwd_mask;
-+	u16				group_fwd_mask_required;
- 
- 	/* STP */
- 	bridge_id			designated_root;
+         +-------+p/u   +-----+  +---------+
+ +----+  |       |------|vnet0|--|User A VM|
+ |eth0|--|802.1ad|      +-----+  +---------+
+ +----+  |bridge |p/u   +-----+  +---------+
+         |       |------|vnet1|--|User B VM|
+         +-------+      +-----+  +---------+
+p/u: pvid/untagged
+
+This patch set enables us to set vlan protocols per bridge.
+This tries to implement a bridge like S-VLAN component in IEEE 802.1Q-2011
+spec.
+
+Note that there is another possible implementation that sets vlan protocols
+per port. Some HW switches seem to take that approach.
+However, I think per-bridge approach is better, because;
+- I think the typical usage of an 802.1ad bridge is segregating 802.1Q tagged
+  traffic (like what is described above), and this doesn't need the ability to
+  be set protocols per port. Also, If a bridge has many ports and it supports
+  per-port setting, we might have to make much more extra configurations to
+  change protocols of all ports.
+
+- I assume that the main perpose to set protocol per port is to assign S-VID
+  according to C-VID, or to realize two logical bridges (one is an 802.1Q
+  filtering bridge and the other is an 802.1ad filtering bridge) in one bridge.
+  The former usually needs additional features such as vlan id mapping, and
+  is likely to make bridge's code complicated. If a user wants, such enhanced
+  features can be accomplished by a combination of multiple bridges, so it is
+  not absolutely necessary to implement these features in a bridge itself.
+  The latter is simply unnecessary because we can easily make two bridges of
+  which one is an 802.1Q bridge and the other is an 802.1ad bridge.
+
+Here is an example of the enhanced feature that we can realize by using
+multiple bridges and veth interfaces. This way is documented in
+IEEE 802.1Q-2011 clause 15.4 (C-tagged service interface).
+
+ +----+  +-------+p/u         +------+  +----+  +--+
+ |eth0|--|802.1ad|----veth----|802.1Q|--|vnet|--|VM|
+ +----+  |bridge |----veth----|bridge|  +----+  +--+
+         +-------+p/u         +------+
+p/u: pvid/untagged
+
+In this configuration, we can map C-VIDs to any S-VID.
+For example;
+ C-VID 10 and 20 to S-VID 100
+ C-VID 30 to S-VID 110
+This is achieved through the 802.1Q bridge that forwards C-tagged frames to
+proper ports of the 802.1ad bridge.
+
+Changes:
+v1 -> v2:
+- Make the way to forward bridge group addresses more generic by introducing
+  new mask, group_fwd_mask_required.
+
+RFC -> v1:
+- Add S-TAG tx offload.
+- Remove a fix around stacked vlan which has already been fixed.
+- Take into account Bridge Group Addresses.
+- Separate handling of protocol-mismatch from br_vlan_get_tag().
+- Change the way to set vlan_proto from netlink to sysfs because no other
+  existing configuration per bridge can be set by netlink.
+
+Toshiaki Makita (4):
+  bridge: Add 802.1ad tx vlan acceleration
+  bridge: Prepare for 802.1ad vlan filtering support
+  bridge: Prepare for forwarding another bridge group addresses
+  bridge: Support 802.1ad vlan filtering
+
+ net/bridge/br_device.c   |   7 ++-
+ net/bridge/br_input.c    |   8 ++-
+ net/bridge/br_private.h  |  16 +++++
+ net/bridge/br_sysfs_br.c |  26 ++++++++
+ net/bridge/br_vlan.c     | 153 +++++++++++++++++++++++++++++++++++++++++++----
+ 5 files changed, 194 insertions(+), 16 deletions(-)
+
 -- 
 1.8.1.2
