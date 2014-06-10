@@ -1,49 +1,71 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: net/hsr: not working :  High-availability Seamless Redundancy
- (HSRv0)
-Date: Tue, 10 Jun 2014 17:37:37 +0200
-Message-ID: <53972641.2070205@alten.se>
-References: <5396FD42.1070100@kalkitech.in>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
+ ll_addr_n2a
+Date: Tue, 10 Jun 2014 17:50:25 +0200
+Message-ID: <20140610155025.GC2991@minipsycho.orion>
+References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
+ <1400159422-11797-2-git-send-email-jiri@resnulli.us>
+ <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
+ <20140515165051.GA2939@minipsycho.orion>
+ <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
+ <20140517085031.GA3006@minipsycho.orion>
+ <20140609124722.33295eb5@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>
-To: Gokul C G <gokul.g@kalkitech.in>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mschmidt@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:55859 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752174AbaFJPpr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 11:45:47 -0400
-In-Reply-To: <5396FD42.1070100@kalkitech.in>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:61931 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842AbaFJPu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 11:50:28 -0400
+Received: by mail-wi0-f179.google.com with SMTP id cc10so2060240wib.12
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 08:50:27 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140609124722.33295eb5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-06-10 14:42, Gokul C G wrote:
-> Hi,
->=20
-> I am trying to incorporate the changes made for High-availability
-> Seamless Redundancy (HSRv0) in linux 3.13  into one of the older
-> version  Linux 3.0.48 . I had made changes as per patch in 3.0.48
-> kernel and modified  use of  NETLINK_CB(skb_in).portid to
-> NETLINK_CB(skb_in).pid and info->snd_portid to info->snd_pid since
-> the variable are renamed recently for better readability , added new
-> list related  macro(like list_for_each_entry_rcu) to old kernel .
->=20
-> I am doing this for a Big-endian system with powerpc architecture
-> with real-time functionality enabled . The kernel occurred while
-> probing hsr/prp driver and following  console information available.
-> I had tried to compile HSRv0 driver with kernel and also as kernel
-> module , in both cases following crash message found on console.
->=20
+Mon, Jun 09, 2014 at 09:47:22PM CEST, stephen@networkplumber.org wrote:
+>On Sat, 17 May 2014 10:50:31 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> Sat, May 17, 2014 at 05:58:16AM CEST, stephen@networkplumber.org wrote:
+>> >On Thu, 15 May 2014 18:50:51 +0200
+>> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >
+>> >> Thu, May 15, 2014 at 05:43:42PM CEST, stephen@networkplumber.org wrote:
+>> >> >On Thu, 15 May 2014 15:10:20 +0200
+>> >> >Jiri Pirko <jiri@resnulli.us> wrote:
+>> >> >
+>> >> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> >> >> ---
+>> >> >>  misc/arpd.c | 6 +++---
+>> >> >>  1 file changed, 3 insertions(+), 3 deletions(-)
+>> >> >> 
+>> >> >
+>> >> >Why not use more standard ether_ntoa ?
+>> >> 
+>> >> Because the rest of the code uses ll_addr_n2a. There is no user of
+>> >> ether_ntoa in iproute2.
+>> >
+>> >arpd is more of a standalone program.
+>> 
+>> I know but it is a part of the package (git tree). The other instances
+>> use ll_addr_n2a. I'm ok with using ether_ntoa, I just wanted to follow
+>> what is already there.
+>> 
+>> I can change it and post v2 it you want. I can also change other instances
+>> of usage ll_addr_n2a to ether_ntoa.
+>> 
+>> 
+>
+>This is fine, just went ahead and merged this version.
 
-This is of course impossible for anyone else but yourself to debug,=20
-since noone else has access to the exact code you are using.
 
-If you are able to recreate the bug on a current, vanilla kernel,=20
-someone might be able to help.
+Stephen, looks like you missed the last (3/3) patch from this set. I
+can't see it in the iproute2 git.
 
+Thanks
 
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+Jiri
