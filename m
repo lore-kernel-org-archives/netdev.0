@@ -1,43 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in
- skb_flow_dissect()
-Date: Tue, 10 Jun 2014 07:26:30 -0700
-Message-ID: <1402410390.3645.429.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com>
-	 <1402338773-5996-2-git-send-email-_govind@gmx.com>
-	 <539703F5.8030707@redhat.com> <alpine.LNX.2.03.1406101923050.2499@ws.cisco>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH] rpc_pipe: Drop memory allocation cast
+Date: Tue, 10 Jun 2014 20:19:17 +0530
+Message-ID: <20140610144917.GA3374@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, gvaradar@cisco.com,
-	benve@cisco.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f174.google.com ([209.85.192.174]:37516 "EHLO
-	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751276AbaFJO0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 10:26:32 -0400
-Received: by mail-pd0-f174.google.com with SMTP id y10so269710pdj.33
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 07:26:31 -0700 (PDT)
-In-Reply-To: <alpine.LNX.2.03.1406101923050.2499@ws.cisco>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr
+To: Trond Myklebust <trond.myklebust@primarydata.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-06-10 at 19:38 +0530, Govindarajulu Varadarajan wrote:
-> 
+Drop cast on the result of kmalloc and similar functions.
 
-> determining IPv4/IPv6 is important because this can be used in dissecting flow
-> in Accelerated RFS. Adaptor does not support IPv6 filters. Since Accelerated
-> RFS is supported for IPV6, using skb_flow_dissect will return true with non-zero
-> values in src/dst for IPv6.
-> 
-> If I am going to write separate function for getting IP address and port
-> numbers, its definition is going to be somewhat same as skb_flow_dissect.
-> Why not improve whats already written and reuse it?
-> 
-> Is there any significant downside of adding u16 n_proto and increasing
-> size of qdisc_skb_cb by 4 bytes?
+The semantic patch that makes this change is as follows:
 
-You can avoid this increase (might be bad for IB, hard to tell), by
-changing sch_choke.c to only store a part of the struct flow_keys.
+// <smpl>
+@@
+type T;
+@@
+
+- (T *)
+  (\(kmalloc\|kzalloc\|kcalloc\|kmem_cache_alloc\|kmem_cache_zalloc\|
+   kmem_cache_alloc_node\|kmalloc_node\|kzalloc_node\)(...))
+// </smpl>
+
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+ net/sunrpc/rpc_pipe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index b185548..2d12b76 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -195,7 +195,7 @@ static struct inode *
+ rpc_alloc_inode(struct super_block *sb)
+ {
+ 	struct rpc_inode *rpci;
+-	rpci = (struct rpc_inode *)kmem_cache_alloc(rpc_inode_cachep, GFP_KERNEL);
++	rpci = kmem_cache_alloc(rpc_inode_cachep, GFP_KERNEL);
+ 	if (!rpci)
+ 		return NULL;
+ 	return &rpci->vfs_inode;
+-- 
+1.9.1
