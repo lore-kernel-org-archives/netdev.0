@@ -1,64 +1,122 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: SCTP's processing of unexpected COOKIE_ECHO doesn't seem useful.
-Date: Tue, 10 Jun 2014 09:52:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17259B99@AcuExch.aculab.com>
+From: Florian Klink <flokli@flokli.de>
+Subject: cdc-wdm: unable to connect after suspend
+Date: Tue, 10 Jun 2014 12:20:02 +0200
+Message-ID: <ln6m4k$q49$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------040304020105080601080300"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59047 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751286AbaFJJwx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 05:52:53 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14299-08 for <netdev@vger.kernel.org>;
- Tue, 10 Jun 2014 10:52:44 +0100 (BST)
-Content-Language: en-US
+Received: from plane.gmane.org ([80.91.229.3]:55433 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750822AbaFJKZF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2014 06:25:05 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1WuJEl-0007MG-Sy
+	for netdev@vger.kernel.org; Tue, 10 Jun 2014 12:25:03 +0200
+Received: from 82.113.99.253 ([82.113.99.253])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 12:25:03 +0200
+Received: from flokli by 82.113.99.253 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 12:25:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm seeing some unexpected (to me) behaviour of the SCTP stack
-when the remote system restarts.
+This is a multi-part message in MIME format.
+--------------040304020105080601080300
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
 
-I've a socket that has a single association, and I'm rather
-expecting TCP-like behaviour.
-So I'd expect some kind of failure condition on my existing
-connection, and then a new connection be established on a
-different socket - eg though a listening socket.
-This would then go through all my code for correctly
-initialising a new connection.
+Hi,
 
-What happens is rather different.
+I recently bought a notebook (Fujitsu Lifebook T904) with integrated
+3G/4G modem (Sierra Wireless EM7305) thats powered by the cdc-wdm driver.
 
-The remote sends an INIT with the same port numbers as the
-previous connection, AFAICT the code sends an INIT_ACK with
-some numbers taken from the existing TCB.
+It works without any problems on a fresh bootup using Networkmanager.
 
-When the COOKIE_ECHO is received sctp_sf_do_5_2_4_dupcook()
-is called, condition 'A' is detected and sctp_sf_do_dupcook_a()
-called.
+However, after putting the notebook into standby and waking up again,
+I'm unable to get a connection (always reproducible, not signal quality
+related).
 
-RFC 2960 says that this should be treated as a received ABORT
-followed by a COOKIE echo - this sounds fine, I want the ABORT
-processing to kill the existing connection.
-However it then says that 'RESTART' should be indicated to the ULP
-rather than 'COMMUNICATION LOST'.
+I see the following error messages:
 
-AFAICT this is just silently ignored by the socket layer.
-I've a process sleeping in recv() (actually a kernel thread in
-sock_recvmsg()) and it is not woken up at all.
 
-This leaves the 'application' code in completely the wrong state for
-the SCTP connection.
+Couldn't reload current power state: Transaction timed out
+[/dev/cdc-wdm1] No transaction matched in received message
+<warn> (cdc-wdm1) failed to connect modem: Transaction timed out
+<info> (cdc-wdm1): device state change: prepare -> failed (reason
+'unknown') [40 120 1]
+modem_prepare_result: assertion 'state == NM_DEVICE_STATE_PREPARE' failed
 
-ISTM that the mapping of SCTP to connection-mode sockets should be
-treating this as a disconnect.
 
-This scenario can be reproduced by disconnecting with ABORT and
-getting iptables to discard the ABORT.
-It can happen with some connection retry algorithms if there is
-message loss.
+It looks like a driver bug for me, like the device not woken up
+correctly. I attached the syslog.
 
-	David
+I'm running Arch Linux amd64 with an 3.15.0-rc8 kernel, and
+NetworkManager 0.9.8.10.
+
+Is there anybody else who observed this behaviour?
+
+Florian
+
+--------------040304020105080601080300
+Content-Type: text/plain; charset=UTF-8;
+ name="cdc-wdm_syslog.txt"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+ filename="cdc-wdm_syslog.txt"
+
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) starting connection 'FONIC Vorgabe'
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> (cdc-wdm1): device s=
+tate change: disconnected -> prepare (reason 'none') [30 40 0]
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) scheduled...
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) started...
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> (cdc-wdm1): device s=
+tate change: prepare -> need-auth (reason 'none') [40 60 0]
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) complete.
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) scheduled...
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) started...
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> (cdc-wdm1): device s=
+tate change: need-auth -> prepare (reason 'none') [60 40 0]
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> Activation (cdc-wdm1=
+) Stage 1 of 5 (Device Prepare) complete.
+Jun 10 09:44:18 notebook ModemManager[332]: <info>  Simple connect starte=
+d...
+Jun 10 09:44:18 notebook ModemManager[332]: <info>  Simple connect state =
+(3/8): Enable
+Jun 10 09:44:18 notebook ModemManager[332]: <info>  Modem /org/freedeskto=
+p/ModemManager1/Modem/0: state changed (disabled -> enabling)
+Jun 10 09:44:18 notebook NetworkManager[321]: <info> (cdc-wdm1) modem sta=
+te changed, 'disabled' --> 'enabling' (reason: user-requested)
+Jun 10 09:44:28 notebook ModemManager[332]: Couldn't reload current power=
+ state: Transaction timed out
+Jun 10 09:44:28 notebook ModemManager[332]: <info>  Modem /org/freedeskto=
+p/ModemManager1/Modem/0: 3GPP Registration state changed (unknown -> sear=
+ching)
+Jun 10 09:44:51 notebook ModemManager[332]: [/dev/cdc-wdm1] No transactio=
+n matched in received message
+Jun 10 09:44:58 notebook ModemManager[332]: <info>  Modem /org/freedeskto=
+p/ModemManager1/Modem/0: state changed (enabling -> disabled)
+Jun 10 09:44:58 notebook NetworkManager[321]: <info> (cdc-wdm1) modem sta=
+te changed, 'enabling' --> 'disabled' (reason: unknown)
+Jun 10 09:44:58 notebook NetworkManager[321]: <warn> (cdc-wdm1) failed to=
+ connect modem: Transaction timed out
+Jun 10 09:44:58 notebook NetworkManager[321]: <info> (cdc-wdm1): device s=
+tate change: prepare -> failed (reason 'unknown') [40 120 1]
+Jun 10 09:44:58 notebook NetworkManager[321]: <warn> Activation (cdc-wdm1=
+) failed for connection 'FONIC Vorgabe'
+Jun 10 09:44:58 notebook NetworkManager[321]: <info> (cdc-wdm1): device s=
+tate change: failed -> disconnected (reason 'none') [120 30 0]
+Jun 10 09:44:58 notebook NetworkManager[321]: <info> (cdc-wdm1): deactiva=
+ting device (reason 'none') [0]
+
+--------------040304020105080601080300--
