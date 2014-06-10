@@ -1,7 +1,7 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH v2 net-next 2/4] bridge: Prepare for 802.1ad vlan filtering support
-Date: Tue, 10 Jun 2014 20:59:23 +0900
-Message-ID: <1402401565-15423-3-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: [PATCH v2 net-next 4/4] bridge: Support 802.1ad vlan filtering
+Date: Tue, 10 Jun 2014 20:59:25 +0900
+Message-ID: <1402401565-15423-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 References: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
@@ -9,199 +9,244 @@ Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
 To: "David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:47066 "EHLO
-	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314AbaFJMAY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:00:24 -0400
+Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:41697 "EHLO
+	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751314AbaFJMAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:00:19 -0400
 In-Reply-To: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This enables a bridge to have vlan protocol informantion and allows vlan
-tag manipulation (retrieve, insert and remove tags) according to the vlan
-protocol.
+This enables us to change the vlan protocol for vlan filtering.
+We come to be able to filter frames on the basis of 802.1ad vlan tags
+through a bridge.
+
+This also changes br->group_addr if it has not been set by user.
+This is needed for an 802.1ad bridge.
+(See IEEE 802.1Q-2011 8.13.5.)
+
+Furthermore, this sets br->group_fwd_mask_required so that an 802.1ad
+bridge can forward the Nearest Customer Bridge group addresses except
+for br->group_addr, which should be passed to higher layer.
+
+To change the vlan protocol, write a protocol in sysfs:
+# echo 0x88a8 > /sys/class/net/br0/bridge/vlan_protocol
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- net/bridge/br_device.c  |  1 +
- net/bridge/br_private.h |  6 ++++++
- net/bridge/br_vlan.c    | 56 ++++++++++++++++++++++++++++++++++++++-----------
- 3 files changed, 51 insertions(+), 12 deletions(-)
+ net/bridge/br_private.h  |  7 ++++
+ net/bridge/br_sysfs_br.c | 26 +++++++++++++
+ net/bridge/br_vlan.c     | 97 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 130 insertions(+)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 82a410a..1b797c4 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -388,4 +388,5 @@ void br_dev_setup(struct net_device *dev)
- 	br_netfilter_rtable_init(br);
- 	br_stp_timer_init(br);
- 	br_multicast_init(br);
-+	br_vlan_init(br);
- }
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index bc17210..b65fee9 100644
+index ba59880..bd95695 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -298,6 +298,7 @@ struct net_bridge
- 	u32				auto_cnt;
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- 	u8				vlan_enabled;
-+	__be16				vlan_proto;
- 	struct net_port_vlans __rcu	*vlan_info;
- #endif
- };
-@@ -598,6 +599,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid);
+@@ -249,6 +249,7 @@ struct net_bridge
+ 	unsigned long			bridge_forward_delay;
+ 
+ 	u8				group_addr[ETH_ALEN];
++	bool				group_addr_set;
+ 	u16				root_port;
+ 
+ 	enum {
+@@ -601,7 +602,9 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags);
+ int br_vlan_delete(struct net_bridge *br, u16 vid);
  void br_vlan_flush(struct net_bridge *br);
  bool br_vlan_find(struct net_bridge *br, u16 vid);
++void br_recalculate_fwd_mask(struct net_bridge *br);
  int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
-+void br_vlan_init(struct net_bridge *br);
++int br_vlan_set_proto(struct net_bridge *br, unsigned long val);
+ void br_vlan_init(struct net_bridge *br);
  int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
  int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- void nbp_vlan_flush(struct net_bridge_port *port);
-@@ -693,6 +695,10 @@ static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
+@@ -698,6 +701,10 @@ static inline bool br_vlan_find(struct net_bridge *br, u16 vid)
  	return false;
  }
  
-+static inline void br_vlan_init(struct net_bridge *br)
++static inline void br_recalculate_fwd_mask(struct net_bridge *br)
 +{
 +}
 +
- static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
+ static inline void br_vlan_init(struct net_bridge *br)
  {
- 	return -EOPNOTSUPP;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index fcc9539..63bd981 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -60,7 +60,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- 		 * that ever changes this code will allow tagged
- 		 * traffic to enter the bridge.
- 		 */
--		err = vlan_vid_add(dev, htons(ETH_P_8021Q), vid);
-+		err = vlan_vid_add(dev, br->vlan_proto, vid);
- 		if (err)
- 			return err;
- 	}
-@@ -80,7 +80,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+ }
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index 8dac6555..c9e2572 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -312,10 +312,19 @@ static ssize_t group_addr_store(struct device *d,
+ 	    new_addr[5] == 3)		/* 802.1X PAE address */
+ 		return -EINVAL;
  
- out_filt:
- 	if (p)
--		vlan_vid_del(dev, htons(ETH_P_8021Q), vid);
-+		vlan_vid_del(dev, br->vlan_proto, vid);
- 	return err;
++	if (!rtnl_trylock())
++		return restart_syscall();
++
+ 	spin_lock_bh(&br->lock);
+ 	for (i = 0; i < 6; i++)
+ 		br->group_addr[i] = new_addr[i];
+ 	spin_unlock_bh(&br->lock);
++
++	br->group_addr_set = true;
++	br_recalculate_fwd_mask(br);
++
++	rtnl_unlock();
++
+ 	return len;
  }
  
-@@ -92,8 +92,10 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 	__vlan_delete_pvid(v, vid);
- 	clear_bit(vid, v->untagged_bitmap);
+@@ -700,6 +709,22 @@ static ssize_t vlan_filtering_store(struct device *d,
+ 	return store_bridge_parm(d, buf, len, br_vlan_filter_toggle);
+ }
+ static DEVICE_ATTR_RW(vlan_filtering);
++
++static ssize_t vlan_protocol_show(struct device *d,
++				  struct device_attribute *attr,
++				  char *buf)
++{
++	struct net_bridge *br = to_bridge(d);
++	return sprintf(buf, "%#06x\n", ntohs(br->vlan_proto));
++}
++
++static ssize_t vlan_protocol_store(struct device *d,
++				   struct device_attribute *attr,
++				   const char *buf, size_t len)
++{
++	return store_bridge_parm(d, buf, len, br_vlan_set_proto);
++}
++static DEVICE_ATTR_RW(vlan_protocol);
+ #endif
  
--	if (v->port_idx)
--		vlan_vid_del(v->parent.port->dev, htons(ETH_P_8021Q), vid);
-+	if (v->port_idx) {
-+		struct net_bridge_port *p = v->parent.port;
-+		vlan_vid_del(p->dev, p->br->vlan_proto, vid);
+ static struct attribute *bridge_attrs[] = {
+@@ -745,6 +770,7 @@ static struct attribute *bridge_attrs[] = {
+ #endif
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ 	&dev_attr_vlan_filtering.attr,
++	&dev_attr_vlan_protocol.attr,
+ #endif
+ 	NULL
+ };
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 63bd981..2b2774f 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -378,6 +378,33 @@ out:
+ 	return found;
+ }
+ 
++/* Must be protected by RTNL. */
++static void recalculate_group_addr(struct net_bridge *br)
++{
++	if (br->group_addr_set)
++		return;
++
++	spin_lock_bh(&br->lock);
++	if (!br->vlan_enabled || br->vlan_proto == htons(ETH_P_8021Q)) {
++		/* Bridge Group Address */
++		br->group_addr[5] = 0x00;
++	} else { /* vlan_enabled && ETH_P_8021AD */
++		/* Provider Bridge Group Address */
++		br->group_addr[5] = 0x08;
 +	}
- 
- 	clear_bit(vid, v->vlan_bitmap);
- 	v->num_vlans--;
-@@ -158,7 +160,8 @@ out:
- bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			struct sk_buff *skb, u16 *vid)
++	spin_unlock_bh(&br->lock);
++}
++
++/* Must be protected by RTNL. */
++void br_recalculate_fwd_mask(struct net_bridge *br)
++{
++	if (!br->vlan_enabled || br->vlan_proto == htons(ETH_P_8021Q))
++		br->group_fwd_mask_required = BR_GROUPFWD_DEFAULT;
++	else /* vlan_enabled && ETH_P_8021AD */
++		br->group_fwd_mask_required = BR_GROUPFWD_8021AD &
++					      ~(1u << br->group_addr[5]);
++}
++
+ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
  {
--	int err;
-+	bool tagged;
-+	__be16 proto;
+ 	if (!rtnl_trylock())
+@@ -388,12 +415,82 @@ int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
  
- 	/* If VLAN filtering is disabled on the bridge, all packets are
- 	 * permitted.
-@@ -172,19 +175,41 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	if (!v)
- 		goto drop;
+ 	br->vlan_enabled = val;
+ 	br_manage_promisc(br);
++	recalculate_group_addr(br);
++	br_recalculate_fwd_mask(br);
  
-+	proto = br->vlan_proto;
-+
- 	/* If vlan tx offload is disabled on bridge device and frame was
- 	 * sent from vlan device on the bridge device, it does not have
- 	 * HW accelerated vlan tag.
- 	 */
- 	if (unlikely(!vlan_tx_tag_present(skb) &&
--		     (skb->protocol == htons(ETH_P_8021Q) ||
--		      skb->protocol == htons(ETH_P_8021AD)))) {
-+		     skb->protocol == proto)) {
- 		skb = vlan_untag(skb);
- 		if (unlikely(!skb))
- 			return false;
- 	}
- 
--	err = br_vlan_get_tag(skb, vid);
-+	if (!br_vlan_get_tag(skb, vid)) {
-+		/* Tagged frame */
-+		if (skb->vlan_proto != proto) {
-+			/* Protocol-mismatch, empty out vlan_tci for new tag */
-+			skb_push(skb, ETH_HLEN);
-+			skb = __vlan_put_tag(skb, skb->vlan_proto,
-+					     vlan_tx_tag_get(skb));
-+			if (unlikely(!skb))
-+				return false;
-+
-+			skb_pull(skb, ETH_HLEN);
-+			skb_reset_mac_len(skb);
-+			*vid = 0;
-+			tagged = false;
-+		} else {
-+			tagged = true;
-+		}
-+	} else {
-+		/* Untagged frame */
-+		tagged = false;
-+	}
-+
- 	if (!*vid) {
- 		u16 pvid = br_get_pvid(v);
- 
-@@ -199,9 +224,9 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 		 * ingress frame is considered to belong to this vlan.
- 		 */
- 		*vid = pvid;
--		if (likely(err))
-+		if (likely(!tagged))
- 			/* Untagged Frame. */
--			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), pvid);
-+			__vlan_hwaccel_put_tag(skb, proto, pvid);
- 		else
- 			/* Priority-tagged Frame.
- 			 * At this point, We know that skb->vlan_tci had
-@@ -254,7 +279,9 @@ bool br_should_learn(struct net_bridge_port *p, struct sk_buff *skb, u16 *vid)
- 	if (!v)
- 		return false;
- 
--	br_vlan_get_tag(skb, vid);
-+	if (!br_vlan_get_tag(skb, vid) && skb->vlan_proto != br->vlan_proto)
-+		*vid = 0;
-+
- 	if (!*vid) {
- 		*vid = br_get_pvid(v);
- 		if (*vid == VLAN_N_VID)
-@@ -367,6 +394,11 @@ unlock:
+ unlock:
+ 	rtnl_unlock();
  	return 0;
  }
  
-+void br_vlan_init(struct net_bridge *br)
++int br_vlan_set_proto(struct net_bridge *br, unsigned long val)
 +{
-+	br->vlan_proto = htons(ETH_P_8021Q);
++	int err = 0;
++	struct net_bridge_port *p;
++	struct net_port_vlans *pv;
++	__be16 proto, oldproto;
++	u16 vid, errvid;
++
++	if (val != ETH_P_8021Q && val != ETH_P_8021AD)
++		return -EPROTONOSUPPORT;
++
++	if (!rtnl_trylock())
++		return restart_syscall();
++
++	proto = htons(val);
++	if (br->vlan_proto == proto)
++		goto unlock;
++
++	/* Add VLANs for the new proto to the device filter. */
++	list_for_each_entry(p, &br->port_list, list) {
++		pv = rtnl_dereference(p->vlan_info);
++		if (!pv)
++			continue;
++
++		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID) {
++			err = vlan_vid_add(p->dev, proto, vid);
++			if (err)
++				goto err_filt;
++		}
++	}
++
++	oldproto = br->vlan_proto;
++	br->vlan_proto = proto;
++
++	recalculate_group_addr(br);
++	br_recalculate_fwd_mask(br);
++
++	/* Delete VLANs for the old proto from the device filter. */
++	list_for_each_entry(p, &br->port_list, list) {
++		pv = rtnl_dereference(p->vlan_info);
++		if (!pv)
++			continue;
++
++		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
++			vlan_vid_del(p->dev, oldproto, vid);
++	}
++
++unlock:
++	rtnl_unlock();
++	return err;
++
++err_filt:
++	errvid = vid;
++	for_each_set_bit(vid, pv->vlan_bitmap, errvid)
++		vlan_vid_del(p->dev, proto, vid);
++
++	list_for_each_entry_continue_reverse(p, &br->port_list, list) {
++		pv = rtnl_dereference(p->vlan_info);
++		if (!pv)
++			continue;
++
++		for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
++			vlan_vid_del(p->dev, proto, vid);
++	}
++
++	goto unlock;
 +}
 +
- /* Must be protected by RTNL.
-  * Must be called with vid in range from 1 to 4094 inclusive.
-  */
-@@ -433,7 +465,7 @@ void nbp_vlan_flush(struct net_bridge_port *port)
- 		return;
- 
- 	for_each_set_bit(vid, pv->vlan_bitmap, VLAN_N_VID)
--		vlan_vid_del(port->dev, htons(ETH_P_8021Q), vid);
-+		vlan_vid_del(port->dev, port->br->vlan_proto, vid);
- 
- 	__vlan_flush(pv);
- }
+ void br_vlan_init(struct net_bridge *br)
+ {
+ 	br->vlan_proto = htons(ETH_P_8021Q);
 -- 
 1.8.1.2
