@@ -1,108 +1,99 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in
- skb_flow_dissect()
-Date: Tue, 10 Jun 2014 19:38:00 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1406101923050.2499@ws.cisco>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-2-git-send-email-_govind@gmx.com> <539703F5.8030707@redhat.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: SCTP's processing of unexpected COOKIE_ECHO doesn't seem useful.
+Date: Tue, 10 Jun 2014 14:09:39 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725A469@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D17259B99@AcuExch.aculab.com>
+ <53970BB3.5010909@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, gvaradar@cisco.com,
-	benve@cisco.com, eric.dumazet@gmail.com
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:53147 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750945AbaFJOIj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 10:08:39 -0400
-In-Reply-To: <539703F5.8030707@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:36433 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751058AbaFJOK1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 10:10:27 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03184-02 for <netdev@vger.kernel.org>;
+ Tue, 10 Jun 2014 15:10:18 +0100 (BST)
+In-Reply-To: <53970BB3.5010909@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich [ 
+> On 06/10/2014 05:52 AM, David Laight wrote:
+> > I'm seeing some unexpected (to me) behaviour of the SCTP stack
+> > when the remote system restarts.
+> >
+> > I've a socket that has a single association, and I'm rather
+> > expecting TCP-like behaviour.
+> > So I'd expect some kind of failure condition on my existing
+> > connection, and then a new connection be established on a
+> > different socket - eg though a listening socket.
+> > This would then go through all my code for correctly
+> > initialising a new connection.
+> >
+> > What happens is rather different.
+> >
+> > The remote sends an INIT with the same port numbers as the
+> > previous connection, AFAICT the code sends an INIT_ACK with
+> > some numbers taken from the existing TCB.
+> >
+> > When the COOKIE_ECHO is received sctp_sf_do_5_2_4_dupcook()
+> > is called, condition 'A' is detected and sctp_sf_do_dupcook_a()
+> > called.
+> >
+> > RFC 2960 says that this should be treated as a received ABORT
+> > followed by a COOKIE echo - this sounds fine, I want the ABORT
+> > processing to kill the existing connection.
+> > However it then says that 'RESTART' should be indicated to the ULP
+> > rather than 'COMMUNICATION LOST'.
+> >
+> > AFAICT this is just silently ignored by the socket layer.
+> > I've a process sleeping in recv() (actually a kernel thread in
+> > sock_recvmsg()) and it is not woken up at all.
+> 
+> You haven't subscribed to receive notifications and as a result
+> you haven't been woken up.
 
+I've spent some time reading the morass^Wcode and discovered where
+the notification gets dropped.
 
-On Tue, 10 Jun 2014, Daniel Borkmann wrote:
->> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
->> index 7e64bd8..fbefdca 100644
->> --- a/include/net/flow_keys.h
->> +++ b/include/net/flow_keys.h
->> @@ -1,6 +1,19 @@
->>   #ifndef _NET_FLOW_KEYS_H
->>   #define _NET_FLOW_KEYS_H
->> 
->> +/* struct flow_keys:
->> + *	@src: source ip address in case of IPv4
->> + *	      For IPv6 it contains 32bit hash of src address
->> + *	@dst: destination ip address in case of IPv4
->> + *	      For IPv6 it contains 32bit hash of dst address
->> + *	@ports: port numbers of Transport header
->> + *		port16[0]: src port number
->> + *		port16[1]: dst port number
->> + *	@thoff: Transport header offset
->> + *	@n_proto: Network header protocol (eg. IPv4/IPv6)
->> + *	@ip_proto: Transport header protocol (eg. TCP/UDP)
->> + * All the members, except thoff, are in network byte order.
->> + */
->>   struct flow_keys {
->>   	/* (src,dst) must be grouped, in the same way than in IP header */
->>   	__be32 src;
->> @@ -10,6 +23,7 @@ struct flow_keys {
->>   		__be16 port16[2];
->>   	};
->>   	u16 thoff;
->> +	u16 n_proto;
->>   	u8 ip_proto;
->>   };
->> 
->> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
->> index 624f985..a3cfb8e 100644
->> --- a/include/net/sch_generic.h
->> +++ b/include/net/sch_generic.h
->> @@ -231,7 +231,7 @@ struct qdisc_skb_cb {
->>   	unsigned int		pkt_len;
->>   	u16			slave_dev_queue_mapping;
->>   	u16			_pad;
->> -	unsigned char		data[20];
->> +	unsigned char		data[24];
->
-> I'm wondering if this is actually needed. We add an extra
-> u16 n_proto into the flow_keys *just* to determine IPv4/v6
-> while if it finds anything else than this the dissector
-> returns false anyway w/o filling out the flow keys structure.
-> Plus, in case of IPv6 you'll have a hashed/folded src/dst
-> addr anyway.
->
+> The ABORT treatment above simply resets the state of the original
+> connection, thus simulating the ABORT and a new connection all
+> in one.
 
-determining IPv4/IPv6 is important because this can be used in dissecting flow
-in Accelerated RFS. Adaptor does not support IPv6 filters. Since Accelerated
-RFS is supported for IPV6, using skb_flow_dissect will return true with non-zero
-values in src/dst for IPv6.
+This might be nice for the remote side, but isn't really useful
+for many applications - imagine what ftp would have to do...
 
-If I am going to write separate function for getting IP address and port
-numbers, its definition is going to be somewhat same as skb_flow_dissect.
-Why not improve whats already written and reuse it?
+> This is where an application really needs to utilize and process
+> SCTP notifications.  You can also collect data like which messages
+> have not been send to the remote, so that you can re-queue them.
 
-Is there any significant downside of adding u16 n_proto and increasing
-size of qdisc_skb_cb by 4 bytes?
+Yes, I guess the last bit comes from trying to emulate the MTP2 'retrieval',
+however it is probably a waste of time unless all the timers have been
+reduced to a few 10s of milliseconds.
 
-Thanks
-Govind
+> > This leaves the 'application' code in completely the wrong state for
+> > the SCTP connection.
+> >
+> 
+> I can understand where you are coming from.  There are some useful
+> cases for association restart, but it could also be turned off
+> without much adverse effect to the applications.
 
->>   };
->>
->>   static inline void qdisc_cb_private_validate(const struct sk_buff *skb, 
->> int sz)
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index 107ed12..c2b53c1 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -175,6 +175,7 @@ ipv6:
->>   		break;
->>   	}
->> 
->> +	flow->n_proto = proto;
->>   	flow->ip_proto = ip_proto;
->>   	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
->>   	flow->thoff = (u16) nhoff;
->> 
->
+I can image the notifications being useful for UDP style sockets, or
+where the messages themselves are idempotent (maybe something like
+DNS lookups), but if there is any application level state processing
+the RESTART event is probably quite difficult.
+
+> May be a sysctl or a socket option that allows you control whether you
+> want association restart or not might be nice to have.
+
+A 1-1 TCP-style socket that doesn't have the notifications enabled would
+be a good start.
+
+	David
