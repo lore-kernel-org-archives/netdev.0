@@ -1,201 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Tue, 10 Jun 2014 06:43:01 -0700
-Message-ID: <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: SCTP's processing of unexpected COOKIE_ECHO doesn't seem useful.
+Date: Tue, 10 Jun 2014 09:44:19 -0400
+Message-ID: <53970BB3.5010909@gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D17259B99@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Alexey Preobrazhensky <preobr@google.com>,
-	dormando <dormando@rydia.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:49543 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752342AbaFJNnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 09:43:04 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so720942pad.38
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 06:43:02 -0700 (PDT)
-In-Reply-To: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:63290 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945AbaFJNoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 09:44:22 -0400
+Received: by mail-qa0-f46.google.com with SMTP id i13so2669351qae.5
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 06:44:22 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17259B99@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 06/10/2014 05:52 AM, David Laight wrote:
+> I'm seeing some unexpected (to me) behaviour of the SCTP stack
+> when the remote system restarts.
+> 
+> I've a socket that has a single association, and I'm rather
+> expecting TCP-like behaviour.
+> So I'd expect some kind of failure condition on my existing
+> connection, and then a new connection be established on a
+> different socket - eg though a listening socket.
+> This would then go through all my code for correctly
+> initialising a new connection.
+> 
+> What happens is rather different.
+> 
+> The remote sends an INIT with the same port numbers as the
+> previous connection, AFAICT the code sends an INIT_ACK with
+> some numbers taken from the existing TCB.
+> 
+> When the COOKIE_ECHO is received sctp_sf_do_5_2_4_dupcook()
+> is called, condition 'A' is detected and sctp_sf_do_dupcook_a()
+> called.
+> 
+> RFC 2960 says that this should be treated as a received ABORT
+> followed by a COOKIE echo - this sounds fine, I want the ABORT
+> processing to kill the existing connection.
+> However it then says that 'RESTART' should be indicated to the ULP
+> rather than 'COMMUNICATION LOST'.
+> 
+> AFAICT this is just silently ignored by the socket layer.
+> I've a process sleeping in recv() (actually a kernel thread in
+> sock_recvmsg()) and it is not woken up at all.
 
-Alexey gave a AddressSanitizer[1] report that finally gave a good hint
-at where was the origin of various problems already reported by Dormando
-in the past [2]
+You haven't subscribed to receive notifications and as a result
+you haven't been woken up.
 
-Problem comes from the fact that UDP can have a lockless TX path, and
-concurrent threads can manipulate sk_dst_cache, while another thread,
-is holding socket lock and calls __sk_dst_set() in
-ip4_datagram_release_cb() (this was added in linux-3.8)
+The ABORT treatment above simply resets the state of the original
+connection, thus simulating the ABORT and a new connection all
+in one.
 
-It seems that all we need to do is to use sk_dst_check() and
-sk_dst_set() so that all the writers hold same spinlock
-(sk->sk_dst_lock) to prevent corruptions.
+This is where an application really needs to utilize and process
+SCTP notifications.  You can also collect data like which messages
+have not been send to the remote, so that you can re-queue them.
 
-TCP stack do not need this protection, as all sk_dst_cache writers hold
-the socket lock.
+> 
+> This leaves the 'application' code in completely the wrong state for
+> the SCTP connection.
+>
 
-[1]
-https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+I can understand where you are coming from.  There are some useful
+cases for association restart, but it could also be turned off
+without much adverse effect to the applications.
 
-AddressSanitizer: heap-use-after-free in ipv4_dst_check
-Read of size 2 by thread T15453:
- [<ffffffff817daa3a>] ipv4_dst_check+0x1a/0x90 ./net/ipv4/route.c:1116
- [<ffffffff8175b789>] __sk_dst_check+0x89/0xe0 ./net/core/sock.c:531
- [<ffffffff81830a36>] ip4_datagram_release_cb+0x46/0x390 ??:0
- [<ffffffff8175eaea>] release_sock+0x17a/0x230 ./net/core/sock.c:2413
- [<ffffffff81830882>] ip4_datagram_connect+0x462/0x5d0 ??:0
- [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet.c:534
- [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
- [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
- [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
-./arch/x86/kernel/entry_64.S:629
+May be a sysctl or a socket option that allows you control whether you
+want association restart or not might be nice to have.
 
-Freed by thread T15455:
- [<ffffffff8178d9b8>] dst_destroy+0xa8/0x160 ./net/core/dst.c:251
- [<ffffffff8178de25>] dst_release+0x45/0x80 ./net/core/dst.c:280
- [<ffffffff818304c1>] ip4_datagram_connect+0xa1/0x5d0 ??:0
- [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet.c:534
- [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
- [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
- [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
-./arch/x86/kernel/entry_64.S:629
+-vlad
 
-Allocated by thread T15453:
- [<ffffffff8178d291>] dst_alloc+0x81/0x2b0 ./net/core/dst.c:171
- [<ffffffff817db3b7>] rt_dst_alloc+0x47/0x50 ./net/ipv4/route.c:1406
- [<     inlined    >] __ip_route_output_key+0x3e8/0xf70
-__mkroute_output ./net/ipv4/route.c:1939
- [<ffffffff817dde08>] __ip_route_output_key+0x3e8/0xf70 ./net/ipv4/route.c:2161
- [<ffffffff817deb34>] ip_route_output_flow+0x14/0x30 ./net/ipv4/route.c:2249
- [<ffffffff81830737>] ip4_datagram_connect+0x317/0x5d0 ??:0
- [<ffffffff81846d06>] inet_dgram_connect+0x76/0xd0 ./net/ipv4/af_inet.c:534
- [<ffffffff817580ac>] SYSC_connect+0x15c/0x1c0 ./net/socket.c:1701
- [<ffffffff817596ce>] SyS_connect+0xe/0x10 ./net/socket.c:1682
- [<ffffffff818b0a29>] system_call_fastpath+0x16/0x1b
-./arch/x86/kernel/entry_64.S:629
-
-[2]
-<4>[196727.311203] general protection fault: 0000 [#1] SMP
-<4>[196727.311224] Modules linked in: xt_TEE xt_dscp xt_DSCP macvlan bridge coretemp crc32_pclmul ghash_clmulni_intel gpio_ich microcode ipmi_watchdog ipmi_devintf sb_edac edac_core lpc_ich mfd_core tpm_tis tpm tpm_bios ipmi_si ipmi_msghandler isci igb libsas i2c_algo_bit ixgbe ptp pps_core mdio
-<4>[196727.311333] CPU: 17 PID: 0 Comm: swapper/17 Not tainted 3.10.26 #1
-<4>[196727.311344] Hardware name: Supermicro X9DRi-LN4+/X9DR3-LN4+/X9DRi-LN4+/X9DR3-LN4+, BIOS 3.0 07/05/2013
-<4>[196727.311364] task: ffff885e6f069700 ti: ffff885e6f072000 task.ti: ffff885e6f072000
-<4>[196727.311377] RIP: 0010:[<ffffffff815f8c7f>]  [<ffffffff815f8c7f>] ipv4_dst_destroy+0x4f/0x80
-<4>[196727.311399] RSP: 0018:ffff885effd23a70  EFLAGS: 00010282
-<4>[196727.311409] RAX: dead000000200200 RBX: ffff8854c398ecc0 RCX: 0000000000000040
-<4>[196727.311423] RDX: dead000000100100 RSI: dead000000100100 RDI: dead000000200200
-<4>[196727.311437] RBP: ffff885effd23a80 R08: ffffffff815fd9e0 R09: ffff885d5a590800
-<4>[196727.311451] R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
-<4>[196727.311464] R13: ffffffff81c8c280 R14: 0000000000000000 R15: ffff880e85ee16ce
-<4>[196727.311510] FS:  0000000000000000(0000) GS:ffff885effd20000(0000) knlGS:0000000000000000
-<4>[196727.311554] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-<4>[196727.311581] CR2: 00007a46751eb000 CR3: 0000005e65688000 CR4: 00000000000407e0
-<4>[196727.311625] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-<4>[196727.311669] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-<4>[196727.311713] Stack:
-<4>[196727.311733]  ffff8854c398ecc0 ffff8854c398ecc0 ffff885effd23ab0 ffffffff815b7f42
-<4>[196727.311784]  ffff88be6595bc00 ffff8854c398ecc0 0000000000000000 ffff8854c398ecc0
-<4>[196727.311834]  ffff885effd23ad0 ffffffff815b86c6 ffff885d5a590800 ffff8816827821c0
-<4>[196727.311885] Call Trace:
-<4>[196727.311907]  <IRQ>
-<4>[196727.311912]  [<ffffffff815b7f42>] dst_destroy+0x32/0xe0
-<4>[196727.311959]  [<ffffffff815b86c6>] dst_release+0x56/0x80
-<4>[196727.311986]  [<ffffffff81620bd5>] tcp_v4_do_rcv+0x2a5/0x4a0
-<4>[196727.312013]  [<ffffffff81622b5a>] tcp_v4_rcv+0x7da/0x820
-<4>[196727.312041]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
-<4>[196727.312070]  [<ffffffff815de02d>] ? nf_hook_slow+0x7d/0x150
-<4>[196727.312097]  [<ffffffff815fd9e0>] ? ip_rcv_finish+0x360/0x360
-<4>[196727.312125]  [<ffffffff815fda92>] ip_local_deliver_finish+0xb2/0x230
-<4>[196727.312154]  [<ffffffff815fdd9a>] ip_local_deliver+0x4a/0x90
-<4>[196727.312183]  [<ffffffff815fd799>] ip_rcv_finish+0x119/0x360
-<4>[196727.312212]  [<ffffffff815fe00b>] ip_rcv+0x22b/0x340
-<4>[196727.312242]  [<ffffffffa0339680>] ? macvlan_broadcast+0x160/0x160 [macvlan]
-<4>[196727.312275]  [<ffffffff815b0c62>] __netif_receive_skb_core+0x512/0x640
-<4>[196727.312308]  [<ffffffff811427fb>] ? kmem_cache_alloc+0x13b/0x150
-<4>[196727.312338]  [<ffffffff815b0db1>] __netif_receive_skb+0x21/0x70
-<4>[196727.312368]  [<ffffffff815b0fa1>] netif_receive_skb+0x31/0xa0
-<4>[196727.312397]  [<ffffffff815b1ae8>] napi_gro_receive+0xe8/0x140
-<4>[196727.312433]  [<ffffffffa00274f1>] ixgbe_poll+0x551/0x11f0 [ixgbe]
-<4>[196727.312463]  [<ffffffff815fe00b>] ? ip_rcv+0x22b/0x340
-<4>[196727.312491]  [<ffffffff815b1691>] net_rx_action+0x111/0x210
-<4>[196727.312521]  [<ffffffff815b0db1>] ? __netif_receive_skb+0x21/0x70
-<4>[196727.312552]  [<ffffffff810519d0>] __do_softirq+0xd0/0x270
-<4>[196727.312583]  [<ffffffff816cef3c>] call_softirq+0x1c/0x30
-<4>[196727.312613]  [<ffffffff81004205>] do_softirq+0x55/0x90
-<4>[196727.312640]  [<ffffffff81051c85>] irq_exit+0x55/0x60
-<4>[196727.312668]  [<ffffffff816cf5c3>] do_IRQ+0x63/0xe0
-<4>[196727.312696]  [<ffffffff816c5aaa>] common_interrupt+0x6a/0x6a
-<4>[196727.312722]  <EOI>
-<1>[196727.313071] RIP  [<ffffffff815f8c7f>] ipv4_dst_destroy+0x4f/0x80
-<4>[196727.313100]  RSP <ffff885effd23a70>
-<4>[196727.313377] ---[ end trace 64b3f14fae0f2e29 ]---
-<0>[196727.380908] Kernel panic - not syncing: Fatal exception in interrupt
-
-Reported-by: Alexey Preobrazhensky <preobr@google.com>
-Reported-by: dormando <dormando@rydia.ne>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 8141ed9fcedb2 ("ipv4: Add a socket release callback for datagram sockets")
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/datagram.c |   20 +++++++++++++++-----
- 1 file changed, 15 insertions(+), 5 deletions(-)
-
-diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
-index 8b5134c582f1..a3095fdefbed 100644
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -86,18 +86,26 @@ out:
- }
- EXPORT_SYMBOL(ip4_datagram_connect);
- 
-+/* Because UDP xmit path can manipulate sk_dst_cache without holding
-+ * socket lock, we need to use sk_dst_set() here,
-+ * even if we own the socket lock.
-+ */
- void ip4_datagram_release_cb(struct sock *sk)
- {
- 	const struct inet_sock *inet = inet_sk(sk);
- 	const struct ip_options_rcu *inet_opt;
- 	__be32 daddr = inet->inet_daddr;
-+	struct dst_entry *dst;
- 	struct flowi4 fl4;
- 	struct rtable *rt;
- 
--	if (! __sk_dst_get(sk) || __sk_dst_check(sk, 0))
--		return;
--
- 	rcu_read_lock();
-+
-+	dst = __sk_dst_get(sk);
-+	if (!dst || !dst->obsolete || dst->ops->check(dst, 0)) {
-+		rcu_read_unlock();
-+		return;
-+	}
- 	inet_opt = rcu_dereference(inet->inet_opt);
- 	if (inet_opt && inet_opt->opt.srr)
- 		daddr = inet_opt->opt.faddr;
-@@ -105,8 +113,10 @@ void ip4_datagram_release_cb(struct sock *sk)
- 				   inet->inet_saddr, inet->inet_dport,
- 				   inet->inet_sport, sk->sk_protocol,
- 				   RT_CONN_FLAGS(sk), sk->sk_bound_dev_if);
--	if (!IS_ERR(rt))
--		__sk_dst_set(sk, &rt->dst);
-+
-+	dst = !IS_ERR(rt) ? &rt->dst : NULL;
-+	sk_dst_set(sk, dst);
-+
- 	rcu_read_unlock();
- }
- EXPORT_SYMBOL_GPL(ip4_datagram_release_cb);
+> ISTM that the mapping of SCTP to connection-mode sockets should be
+> treating this as a disconnect.
+> 
+> This scenario can be reproduced by disconnecting with ABORT and
+> getting iptables to discard the ABORT.
+> It can happen with some connection retry algorithms if there is
+> message loss.
+> 
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
