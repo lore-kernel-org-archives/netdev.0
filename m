@@ -1,49 +1,66 @@
-From: Milos Vyletel <milos.vyletel@gmail.com>
-Subject: [patch net-next 0/5] ipv6: change sysctl to behave more like in ipv4
-Date: Tue, 10 Jun 2014 12:19:08 -0400
-Message-ID: <1402417153-2551-1-git-send-email-milos.vyletel@gmail.com>
-To: davem@davemloft.net, amwang@redhat.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f48.google.com ([209.85.216.48]:45409 "EHLO
-	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751564AbaFJQT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 12:19:29 -0400
-Received: by mail-qa0-f48.google.com with SMTP id x12so3420250qac.21
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 09:19:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest
+ Customer Bridge group addresses
+Date: Tue, 10 Jun 2014 09:21:27 -0700
+Message-ID: <20140610092127.5b4f528f@nehalam.linuxnetplumber.net>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20140609085243.32f88582@nehalam.linuxnetplumber.net>
+	<1402332351.1742.16.camel@localhost.localdomain>
+	<5396363E.2020501@redhat.com> <5396AE23.80808@lab.ntt.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org, "David S .
+	Miller" <davem@davemloft.net>, bridge@lists.linux-foundation.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <5396AE23.80808@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch series changes how we treat net.sysctl.conf.all settings in a same
-way it is done in ipv4. It is followup to my original patch submission at
-http://patchwork.ozlabs.org/patch/350346/ where Cong and David suggested that
-it should mimic IPv4 behaviour.
+On Tue, 10 Jun 2014 16:05:07 +0900
+Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
 
-Furthermore code was aligned to look more like ipv4 does to make the
-maintanance easier. List of patches and diffstat is below. Hopefully they are
-not too long. If that's the case I can split them some more.
+> (2014/06/10 7:33), Vlad Yasevich wrote:
+> ...
+> >>> Rather than special casing this around vlan filtering, I would prefer
+> >>> the code always forward these packets, or manipulate group_fwd_mask
+> >>> to allow it that way.
+> >>
+> >> These addresses must be forwarded only if the bridge is an S-VLAN
+> >> bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
+> >> forwarded. So, I don't think we can forward them always.
+> >>
+> >> Using group_fwd_mask is a bit complicated. If we use it to forward them,
+> >> user can optionally turn off forwarding ability of those addresses...
+> >> but we maybe need another information (named like group_fwd_mask_set)
+> >> that indicates which bit is set by user. (We have to set group_fwd_mask
+> >> automatically when we set vlan_proto to 88a8.)
+> >> Is this way acceptable?
+> > 
+> > May be separate it into required mask and user mask.  Set required
+> > mask when this is an S-VLAN bridge.
+> 
+> Sounds like a good idea.
+> I'll give it a try, thank you for your suggestion.
+> 
+> Thanks,
+> Toshiaki Makita
+> 
 
-ipv6: align sysctl table creation code with ipv4
-ipv6: rename DEVCONF* to IPV6_DEVCONF* to align
-ipv6: consider net.ipv6.conf.all sysctls when
-Documentation: update ipv6 part of
-ipv6: copy default config values to interfaces
+Looking again at the code.
 
- Documentation/networking/ip-sysctl.txt |  48 ++-
- drivers/net/usb/cdc_mbim.c             |   2 +-
- drivers/net/vxlan.c                    |   2 +-
- include/linux/ipv6.h                   |  44 +--
- include/net/addrconf.h                 |   4 +-
- include/net/ipv6.h                     |  98 ++++-
- include/uapi/linux/ipv6.h              |  68 ++--
- net/ipv6/addrconf.c                    | 666 ++++++++++++---------------------
- net/ipv6/anycast.c                     |   4 +-
- net/ipv6/exthdrs.c                     |   8 +-
- net/ipv6/ip6_input.c                   |   4 +-
- net/ipv6/ip6_output.c                  |   9 +-
- net/ipv6/ip6mr.c                       |   8 +-
- net/ipv6/ipv6_sockglue.c               |   2 +-
- net/ipv6/mcast.c                       |  31 +-
- net/ipv6/ndisc.c                       |  41 +-
- net/ipv6/output_core.c                 |   4 +-
- net/ipv6/route.c                       |  13 +-
- 18 files changed, 472 insertions(+), 584 deletions(-)
+1. If doing vlan then it should forward frames as defined in standard
+   by default.
+
+2. For compatiability, and for those users doing bump-on-wire, allow
+   forwarding via group mask.
