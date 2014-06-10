@@ -1,84 +1,64 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: 3.4.92 MTU issues
-Date: Tue, 10 Jun 2014 23:37:22 +0200
-Message-ID: <20140610213722.GE1970@breakpoint.cc>
-References: <53975FF9.5070803@egervary.hu>
- <CAADnVQ+q3wFf=j0TY57d6Ux4GyGLr0bVCFHDgA45n9rXiEEzjg@mail.gmail.com>
+From: Peter Wu <peter@lekensteyn.nl>
+Subject: Re: [PATCH] net: wireless: rtlwifi: rtl8192de: hw.c: Cleaning up conjunction always evaluates to false
+Date: Tue, 10 Jun 2014 23:52:32 +0200
+Message-ID: <1846364.4CH2xgjm71@al>
+References: <1402151419-18296-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <CAFo99gZuPV=v1k90iPkAGVFrzVq-z=-h8UgD5a3VCN=wMDNU3w@mail.gmail.com> <CAFo99gYCYkONL9dZYeHwuJKQTCgFQTmg1aAGZdFAOT=MNARh7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-15?Q?Egerv=E1ry?= Gergely <gergely@egervary.hu>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	stable@kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAADnVQ+q3wFf=j0TY57d6Ux4GyGLr0bVCFHDgA45n9rXiEEzjg@mail.gmail.com>
+In-Reply-To: <CAFo99gYCYkONL9dZYeHwuJKQTCgFQTmg1aAGZdFAOT=MNARh7Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+On Tuesday 10 June 2014 23:31:37 Rickard Strandqvist wrote:
+> I guess it's ok to do the patches?
 
-[ Cc'ing stable team since its stable specific regression ]
+Right, you got some feedback from me and another person. You can
+send patches whenever you like.
 
-> On Tue, Jun 10, 2014 at 12:43 PM, Egerv=E1ry Gergely <gergely@egervar=
-y.hu> wrote:
-> > Hi,
-> >
-> > we have just upgraded our systems from 3.4.91 (longterm) to 3.4.92.
-> > Since then we are experiencing dozens of MTU-related network timeou=
-t
-> > issues. Reverting back to 3.4.91 fixes all of these problems.
-> >
-> > Both kernel versions are built from vanilla sources with the same
-> > .config. These can be highly reproduced over VPN tunnels or even ov=
-er
-> > simple ethernet connections when using DNAT. (TCP port forward) It
-> > looks like MTU path discovery is somehow affected.
-> >
-> > ICMP is not filtered in our network. (For testing, we flushed all
-> > iptables rules, set all policies to ACCEPT, and problem still exist=
-s.)
-> > We do not use any special sysctl settings. Was there any changes
-> > related to packet forwarding or MTU discovery?
+> But then again, I will then send them one by one, with the cover
+> letter? +35 email?
 
-These were in earlier releases than 3.4.92.
+Have you seen my other reply? Use git-format-patch --cover-letter.
+Why would you need 35 mails? A commit should logically group a
+change per driver. So, one commit probably touches rtlXXXX/reg.h
+and rtlXXXX/hw.c (perhaps others? grep for it!)
 
-> some combination of old kernel and backport of ("net: ipv4:
-> ip_forward: fix inverted local_df test") ?
-> just guessing
+Be sure to manually check each change. Your last patchset included
+non-sensial commit messages and subjects.
 
-Excellent guess.  Yes, this is the culprit.
+> Then the macro I should add in all the:
+> 
+> net/wireless/rtlwifi/rtl****se/reg.h
+> 
+> 
+> And in the:
+> drivers/staging/rtl8188eu/include/rtl8188e_spec.h
+> drivers/staging/rtl8192e/rtl8192e/r8192E_hw.h
+> drivers/staging/rtl8712/rtl871x_wlan_sme.h
+> drivers/staging/rtl8723au/include/rtl8723a_spec.h
+> drivers/staging/rtl8821ae/rtl8821ae/reg.h
 
-Quoting that patch changelog:
+The staging drivers will be taken by Greg KH, see MAINTAINERS
+for the addresses for staging drivers.
 
-'This wasn't noticed earlier [..] because netfilter ip defrag did not s=
-et local_df
-until couple of days ago.'
+> And should I put it like:
+> #define MSR_MASK 0x03
+> 
+> Or is this more accurate:
+> #define MSR_MASK   (MSR_INFRA | MSR_ADHOC)
 
--stable lacks commit 895162b1101b3ea5db08ca6822ae9672717efec0, so
-netfilter never sets ->local_df.  Thus all defragmented packets
-that go over the mtu are refused to be forwarded.
+Since the integer resulting from the mask is a decimal sequence rather
+than a bitmap, it makes more sense to use 0x03 instead. Please have a
+look at the drivers and be sure to understand why the changes are needed.
 
-Gergely, please either revert
+Peter
 
-commit bd91cb56f951a7b0da8c3098ea9cd56854ece66c
-Author: Florian Westphal <fw@strlen.de>
-net: ipv4: ip_forward: fix inverted local_df test
-[ Upstream commit ca6c5d4ad216d5942ae544bbf02503041bd802aa ]
-
-Or, alternatively, also apply upstream commit 895162b1101b3ea5db08ca682=
-2ae9672717efec0
-Author: Florian Westphal <fw@strlen.de>
-Date:   Fri May 2 15:32:16 2014 +0200
-netfilter: ipv4: defrag: set local_df flag on defragmented skb
-
-on top of your 3.4.92 kernel.
-
-(The latter might be a better option since it will also fix the
- long-standing issue where netfilter sends bogus frag-needed message
- under very rare circumstances).
-
-Thanks for reporting, and sorry for not noticing during stable review
-cycle 8-(
+PS. please do not top-post. For driver discussions, you should keep
+the list cc'd too. That makes it more likely for someone to respond to
+such queries.
