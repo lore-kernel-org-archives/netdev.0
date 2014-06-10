@@ -1,22 +1,20 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest
- Customer Bridge group addresses
-Date: Tue, 10 Jun 2014 16:05:07 +0900
-Message-ID: <5396AE23.80808@lab.ntt.co.jp>
-References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	
-	<1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>	
-	<20140609085243.32f88582@nehalam.linuxnetplumber.net>
-	<1402332351.1742.16.camel@localhost.localdomain>
-	<5396363E.2020501@redhat.com>
+Subject: Re: [PATCH net-next 4/4] bridge: Support 802.1ad vlan
+	filtering
+Date: Tue, 10 Jun 2014 16:15:35 +0900
+Message-ID: <5396B097.8050100@lab.ntt.co.jp>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<1402313687-28067-5-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<5396564A.5040108@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	"David S . Miller" <davem@davemloft.net>
-To: vyasevic@redhat.com, Toshiaki Makita <toshiaki.makita1@gmail.com>,
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
 	Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <5396363E.2020501@redhat.com>
+In-Reply-To: <5396564A.5040108@gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -28,28 +26,40 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-(2014/06/10 7:33), Vlad Yasevich wrote:
-...
->>> Rather than special casing this around vlan filtering, I would prefer
->>> the code always forward these packets, or manipulate group_fwd_mask
->>> to allow it that way.
+(2014/06/10 9:50), Vlad Yasevich wrote:
+> On 06/09/2014 07:34 AM, Toshiaki Makita wrote:
+>> This enables us to change the vlan protocol for vlan filtering.
+>> We come to be able to filter frames on the basis of 802.1ad vlan tags
+>> through a bridge.
 >>
->> These addresses must be forwarded only if the bridge is an S-VLAN
->> bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
->> forwarded. So, I don't think we can forward them always.
+>> This also changes br->group_addr if it has not been set by user.
+>> This is needed for an 802.1ad bridge.
+>> (See IEEE 802.1Q-2011 8.13.5.)
 >>
->> Using group_fwd_mask is a bit complicated. If we use it to forward them,
->> user can optionally turn off forwarding ability of those addresses...
->> but we maybe need another information (named like group_fwd_mask_set)
->> that indicates which bit is set by user. (We have to set group_fwd_mask
->> automatically when we set vlan_proto to 88a8.)
->> Is this way acceptable?
+>> To change the vlan protocol, write a protocol in sysfs:
+>> # echo 0x88a8 > /sys/class/net/br0/bridge/vlan_protocol
+>>
+>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>> ---
+>>  net/bridge/br_private.h  |  2 ++
+>>  net/bridge/br_sysfs_br.c | 18 +++++++++++
+>>  net/bridge/br_vlan.c     | 81 ++++++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 101 insertions(+)
+>>
+>> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+>> index 65204c2..3c5b23b 100644
+>> --- a/net/bridge/br_private.h
+>> +++ b/net/bridge/br_private.h
+>> @@ -246,6 +246,7 @@ struct net_bridge
+>>  	unsigned long			bridge_forward_delay;
+>>  
+>>  	u8				group_addr[ETH_ALEN];
+>> +	unsigned char			group_addr_set;
 > 
-> May be separate it into required mask and user mask.  Set required
-> mask when this is an S-VLAN bridge.
+> nit:  can be bool since you just use true/false.
 
-Sounds like a good idea.
-I'll give it a try, thank you for your suggestion.
+I'm not sure which is better in struct... but maybe it's more explicit.
+will change it in v2.
 
 Thanks,
 Toshiaki Makita
