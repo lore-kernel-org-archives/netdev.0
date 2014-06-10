@@ -1,63 +1,48 @@
 From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH v2 1/2] net: sh_eth: Fix receive packet "exceeded" condition
- in sh_eth_rx()
-Date: Tue, 10 Jun 2014 09:40:14 +0900
-Message-ID: <539653EE.1000700@renesas.com>
+Subject: [PATCH v2 2/2] net: sh_eth: Fix timing of RACT setting in sh_eth_rx()
+Date: Tue, 10 Jun 2014 09:40:24 +0900
+Message-ID: <539653F8.6020603@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
 Cc: SH-Linux <linux-sh@vger.kernel.org>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relmlor4.renesas.com ([210.160.252.174]:25426 "EHLO
+	relmlie3.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933181AbaFJAkc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 20:40:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the packet "exceeded" condition in sh_eth_rx() when
-RACT in an RX descriptor is not set and the "quota" is 0.
-Otherwise, kernel panic happens because the "&n->poll_list" is deleted
-twice in sh_eth_poll() which calls napi_complete() and net_rx_action().
+This patch fixes an issue that we cannot use nfs rootfs correctly
+on r8a7790 when the command below runs on a host PC.
 
-Signed-off-by: Kouei Abe <kouei.abe.cp@renesas.com>
+ $ sudo ping -f -l 8 $BOARD_IP_ADDR
+
+Since the driver sets the RACT to 1 in the first while loop of
+sh_eth_rx(), the controller accepts a next frame into the next RX
+descriptor during the while loop. But, in the first while loop
+doesn't allocate a next skb. So, this patch removes the RACT setting
+in the first while loop of sh_eth_rx().
+
 Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 ---
- drivers/net/ethernet/renesas/sh_eth.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    1 -
+ 1 file changed, 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 08ed9a3..5761f8c 100644
+index 5761f8c..621c581 100644
 --- a/drivers/net/ethernet/renesas/sh_eth.c
 +++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1399,7 +1399,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 	int entry = mdp->cur_rx % mdp->num_rx_ring;
- 	int boguscnt = (mdp->dirty_rx + mdp->num_rx_ring) - mdp->cur_rx;
- 	struct sk_buff *skb;
--	int exceeded = 0;
- 	u16 pkt_len = 0;
- 	u32 desc_status;
-
-@@ -1411,10 +1410,9 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		if (--boguscnt < 0)
- 			break;
-
--		if (*quota <= 0) {
--			exceeded = 1;
-+		if (*quota <= 0)
- 			break;
--		}
-+
- 		(*quota)--;
-
- 		if (!(desc_status & RDFEND))
-@@ -1508,7 +1506,7 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
- 		sh_eth_write(ndev, EDRRR_R, EDRRR);
+@@ -1460,7 +1460,6 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status, int *quota)
+ 			ndev->stats.rx_packets++;
+ 			ndev->stats.rx_bytes += pkt_len;
+ 		}
+-		rxdesc->status |= cpu_to_edmac(mdp, RD_RACT);
+ 		entry = (++mdp->cur_rx) % mdp->num_rx_ring;
+ 		rxdesc = &mdp->rx_ring[entry];
  	}
-
--	return exceeded;
-+	return *quota <= 0;
- }
-
- static void sh_eth_rcv_snd_disable(struct net_device *ndev)
 -- 
 1.7.9.5
-
