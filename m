@@ -1,31 +1,73 @@
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: [PATCH net-next] some mac802154 fixes
-Date: Tue, 10 Jun 2014 17:08:40 +0200
-Message-ID: <1402412922-14180-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:43639 "EHLO
-	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbaFJPJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 11:09:07 -0400
-Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.4/8.14.4/Debian-7) with ESMTP id s5AF90Cv026395
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 17:09:00 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: [PATCH net-next 2/2] mac802154: don't deliver
+	packets to devices that are down
+Date: Tue, 10 Jun 2014 17:08:42 +0200
+Message-ID: <1402412922-14180-3-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1402412922-14180-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1402412922-14180-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Recent llsec code introduced a memory leak on decryption failures during rx.
-This fixes said leak, and optimizes the receive loop to only deliver skbs to
-the (single) device that's actually up.
+Only one WPAN devices can be active at any given time, so only deliver
+packets to that one interface that is actually up.
 
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
+ net/mac802154/wpan.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-Phoebe Buckheister (2):
-      mac802154: properly free incoming skbs on decryption failure
-      mac802154: don't deliver packets to devices that are down
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index c8cfd54..1ba648e 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -567,7 +567,6 @@ static int mac802154_parse_frame_start(struct sk_buff *skb,
+ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+ {
+ 	int ret;
+-	struct sk_buff *sskb;
+ 	struct mac802154_sub_if_data *sdata;
+ 	struct ieee802154_hdr hdr;
+ 
+@@ -579,12 +578,15 @@ void mac802154_wpans_rx(struct mac802154_priv *priv, struct sk_buff *skb)
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(sdata, &priv->slaves, list) {
+-		if (sdata->type != IEEE802154_DEV_WPAN)
++		if (sdata->type != IEEE802154_DEV_WPAN ||
++		    !netif_running(sdata->dev))
+ 			continue;
+ 
+-		sskb = skb_clone(skb, GFP_ATOMIC);
+-		if (sskb)
+-			mac802154_subif_frame(sdata, sskb, &hdr);
++		skb = skb_clone(skb, GFP_ATOMIC);
++		if (skb)
++			mac802154_subif_frame(sdata, skb, &hdr);
++
++		break;
+ 	}
+ 	rcu_read_unlock();
+ }
+-- 
+1.7.9.5
 
 
- net/mac802154/wpan.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
