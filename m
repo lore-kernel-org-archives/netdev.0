@@ -1,46 +1,71 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] rtlwifi: btcoexist: avoid format string in printk
-Date: Tue, 10 Jun 2014 10:37:24 -0700
-Message-ID: <20140610173724.GA29543@www.outflux.net>
+From: Milos Vyletel <milos.vyletel@gmail.com>
+Subject: Re: [patch net-next 3/5] ipv6: consider net.ipv6.conf.all sysctls
+ when making decisions
+Date: Tue, 10 Jun 2014 13:42:51 -0400
+Message-ID: <CAAFXRd2QhXneN0RLe2+NZLTYVt9rq+COXyox91008QGuCzkd0w@mail.gmail.com>
+References: <1402417153-2551-1-git-send-email-milos.vyletel@gmail.com>
+	<1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
+	<53973D42.4010209@enst-bretagne.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Kees Cook <keescook@chromium.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>, amwang@redhat.com,
+	netdev@vger.kernel.org, Oliver Neukum <oliver@neukum.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Tom Herbert <therbert@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Paul Durrant <Paul.Durrant@citrix.com>,
+	"open list:USB CDC ETHERNET..." <linux-usb@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <53973D42.4010209@enst-bretagne.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since CL_PRINTF only ever takes a single argument, make sure a format
-string cannot leak into printk.
+> Hello,
+>
+>>
+>> IN6_DEV_MAXCONF
+>>       IN6_DEV_HOPLIMIT
+>>       IN6_DEV_MTU
+>
+> I'm a little bit surprise to set the MTU as the maximum of all/dev
+> value. Since the default for "all" is IPV6_MIN_MTU, it is probably
+> harmless, but it could be a little bit surprising for administrators.
+>
+>>  IN6_DEV_USE_TEMPADDR
+>
+> For this one, the default is zero, except for point-to-point and
+> loopback, with -1. I didn't see any difference between 0 and -1 in the
+> current kernel code, but if I missed something, it could be a little
+> problem.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi,
 
-diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-index 871fc3c6d559..049f4c8d98a8 100644
---- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-+++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-@@ -114,7 +114,7 @@ extern u32 btc_dbg_type[];
- 
- 
- #define	CL_SPRINTF	snprintf
--#define	CL_PRINTF	printk
-+#define	CL_PRINTF(buf)	printk("%s", buf)
- 
- #define	BTC_PRINT(dbgtype, dbgflag, printstr, ...)		\
- 	do {							\
--- 
-1.7.9.5
+these are both valid points. It does not make too much sense to get
+max value for MTU and I'd say we should either get min or simply get
+interface setting and don't change the current behavior for this particular
+one.
 
+use_tempaddr will have special treatment too since it can range from:
+use_tempaddr - INTEGER
+    Preference for Privacy Extensions (RFC3041).
+      <= 0 : disable Privacy Extensions
+      == 1 : enable Privacy Extensions, but prefer public
+             addresses over temporary addresses.
+      >  1 : enable Privacy Extensions and prefer temporary
+             addresses over public addresses.
+    Default:  0 (for most devices)
+         -1 (for point-to-point devices and loopback devices)
 
--- 
-Kees Cook
-Chrome OS Security
+Milos
