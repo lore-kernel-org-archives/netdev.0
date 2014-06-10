@@ -1,24 +1,56 @@
-From: Birgit Kruse <bojono@arcor.de>
-Subject: P/s Get back to me on this email: mrs.florenceevans3@gmail.com
-Date: Tue, 10 Jun 2014 13:17:19 +0200 (CEST)
-Message-ID: <2076244165.132752.1402399039789.JavaMail.ngmail@webmail20.arcor-online.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: sctp bug: sk_ack_backlog wrap-around problem
+Date: Tue, 10 Jun 2014 07:33:42 -0400
+Message-ID: <20140610113342.GC6275@hmsreliant.think-freely.org>
+References: <CA+=dFzg6gXDTXr6AusZ40_swrjQa-yoS1YLv3=SJAjKYgKzrbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: florenceevans@safrica.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-in-10.arcor-online.net ([151.189.21.50]:48651 "EHLO
-	mail-in-10.arcor-online.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751012AbaFJLRV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 07:17:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	linux-sctp <linux-sctp@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	xufeng zhang <xufeng.zhang@windriver.com>
+To: Xufeng Zhang <xufengzhang.main@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+=dFzg6gXDTXr6AusZ40_swrjQa-yoS1YLv3=SJAjKYgKzrbQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello my beloved in the Lord.
+On Tue, Jun 10, 2014 at 02:27:07PM +0800, Xufeng Zhang wrote:
+> Hi Vlad and Neil,
+> 
+> I found a sk_ack_backlog wrap-around problem during handling received
+> COOKIE_ECHO.
+> 
+> Consider the scenario:
+> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+> sctp_sf_do_5_1D_ce(),
+> after it has passed a series of sanity check, a new association would
+> be created in
+> sctp_unpack_cookie(), but afterwards, some processing maybe failed,
+> and sctp_association_free()
+> will be called to free the previously allocated association, in
+> sctp_association_free(),
+> sk_ack_backlog value is decremented for this socket, since the initial
+> value for sk_ack_backlog is 0,
+> after the decrement, it will be 65535, a wrap-around problem happens,
+> and if we want to establish
+> new associations afterward in the same socket, ABORT would be
+> triggered since sctp deem the
+> accept queue as full.
+> 
+> Do you have any idea to fix such kind of issue?
+> 
 
-I am MRS. FLORENCE EVANS, from republic of Ireland, I am legally married to MR. JOHN EVANS, a South Africa citizen born brought up in Switzerland, I live in Switzerland with my husband for 32 years before we move down to south Africa in 1985 after my husband retirement in 1974, I am 71 years old by the grace of god, I am a new Christian convert, suffering from long time cancer of the breast. All indication from my doctor that my condition is really deteriorating and it is quite obvious that i wouldn't live more than two months. My dear husband was involved with the January 2000 Kenya airways plane crashed as you can see on the news line web site.
-http://news.bbc.co.uk/2/hi/africa/6627485.stm
-I have confident in you because i have prayed. I am willing to donate the sum of $20.5m U.S dollars, to the less privileged. May the grace of our lord be with you, P/s Get back to me on this email: mrs.florenceevans3@gmail.com
+first thought would be to traverse the list of associations on the endpoint in
+sctp_association_free if its a tcp style socket, and then only decrement the
+backlog if we find the association being freed on the list.  By doing that we
+can be confident that we've increased the backlog via sctp_endpoint_add_asoc.
 
-Remain blessed,
-MRS. FLORENCE EVANS
+Best
+Neil
+
+> Thanks a lot!
+> Xufeng
+> 
