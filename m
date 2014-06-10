@@ -1,40 +1,129 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: filter: cleanup A/X name usage
-Date: Tue, 10 Jun 2014 09:29:00 +0200
-Message-ID: <5396B3BC.30504@redhat.com>
-References: <1402091166-5206-1-git-send-email-ast@plumgrid.com> <5394C5CB.7050000@redhat.com> <CAMEtUux+sj7o9=57JAaHvGJXJmfuyRKb+dFL_3ZdkmAoHy9XzA@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: SCTP seems to lose its socket state.
+Date: Tue, 10 Jun 2014 08:29:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725A0A8@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17259993@AcuExch.aculab.com>
+ <5395FF05.90101@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58238 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S936237AbaFJH3H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 03:29:07 -0400
-In-Reply-To: <CAMEtUux+sj7o9=57JAaHvGJXJmfuyRKb+dFL_3ZdkmAoHy9XzA@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57041 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752759AbaFJIaX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 04:30:23 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25041-08 for <netdev@vger.kernel.org>;
+ Tue, 10 Jun 2014 09:30:14 +0100 (BST)
+In-Reply-To: <5395FF05.90101@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2014 09:25 PM, Alexei Starovoitov wrote:
-...
-> Point taken. Will do more thorough documentation patch to
-> explain eBPF instruction set a bit better. Mainly to clarify encoding.
-> eBPF tried to be as close as possible to classic BPF, since I thought
-> it will make it easier to understand. That's why I reused A/X in names
-> and bits in opcode encoding.
-> In classic, A is accumulator and X is indeX. In eBPF I thought
-> calling destination register 'a_reg' made sense, since it would
-> indicate that this 'a_reg' is a register that is used as 'accumulator'
-> in the instruction. Like in "bpf_add R2, 5", R2 is Accumulator.
-> In "bpf_add R2, R3", R2  is Accumulator and R3 is indeX
-> and BPF_X bit in opcode indicates whether 'x_reg' field of the
-> instruction is used. Unfortunately that decision caused the whole
-> A/X naming confusion, that this patch is addressing.
-> src_reg and dst_reg are indeed better names.
+From: Vlad Yasevich
+> On 06/09/2014 08:49 AM, David Laight wrote:
+> > I think I have now reproduced the problem.
+> >
+> >> From: David Laight
+> >>> I've been looking at an ethernet trace from one of our customers.
+> >>> They seem to have got an SCTP socket into a rather confused state.
+> >>>
+> >>> There seem to be a significant number of transmit ethernet frames
+> >>> that don't read the far end.
+> >>> This shouldn't cause a real problem, but we end up with the following:
+> >>> This trace was taken on the linux system:
+> >>>
+> >>> 39964   0.304473        ->      SCTP    INIT
+> >>> 39965   0.292669        <-      SCTP    INIT  (I think this has an invalid checksum)
+> >>> 39968   0.467935        <-      SCTP    INIT
+> >>> 39969   0.000093        ->      SCTP    INIT_ACK
+> >>> 39970   0.003947        <-      SCTP    COOKIE_ECHO
+> >>> 39971   0.000072        ->      SCTP    COOKIE_ACK
+> >>> 39972   0.000337        ->      M3UA    ASPUP
+> >>> 39979   0.809659        <-      SCTP    COOKIE_ECHO
+> >>> 39980   0.000058        ->      SCTP    COOKIE_ACK
+> >>> shutdown() called here - seems to be ignored
+> >>> 39983   0.949471        <-      SCTP    COOKIE_ECHO
+> >>> 39984   0.000053        ->      SCTP    COOKIE_ACK
+> >>> 39986   0.730072        ->      M3UA    ASPUP           Same TSN as above
+> >>> 40002   0.270589        ->      M3UA    ASPUP           Same TSN as above
+> >>> 40008   3.689088        <-      SCTP    HEARTBEAT
+> >>> 40009   0.000027        ->      SCTP    HEARTBEAT_ACK
+> >>> 40014   0.261152        <-      SCTP    HEARTBEAT
+> >>> 40015   0.000033        ->      SCTP    HEARTBEAT_ACK
+> >>> 40026   0.123048        <-      SCTP    HEARTBEAT
+> >>> 40027   0.000030        ->      SCTP    HEARTBEAT_ACK
+> >>> 40036   1.615048        ->      M3UA    ASPUP           Same TSN as above
+> >>>
+> >>> There are no signs of any SACKs for the ASPUP, I think they have the
+> >>> correct TSN (the same value as in the INIT_ACK).
+> >>> No signs of any shutdowns or aborts from either system.
+> >>>
+> >>> As seems to be typical for M3UA the source and destination ports are
+> >>> the same. No additional IP addresses appear in the INIT (etc) messages.
+> >>
+> >> I think I've reproduced this on a 3.14.0 kernel.
+> >>
+> >> System A: Bind to port 1234, connect to B:1234.
+> >>           If the connect fails, retry 10 seconds later.
+> >>           When the connection completes send some data.
+> >>           Disconnect if the reflected data isn't received within 2 seconds.
+> >> System B: Bind to port 1234, connect to A:1234.
+> >>           If the connect fails, retry 10 seconds later.
+> >>           Reflect any received data.
+> >
+> > Add here, setsockopt(sock, SO_LINGER, { 1, 0 }, ...);
+> > If no data is received with a few seconds, close() the socket
+> > (do not call shutdown()), and retry.
+> >
+> > Initially the INIT chunks generate ABORTs (no listener) so both
+> > programs just retry every 10 seconds.
+> >
+> > On B run:
+> >     iptables -A OUPUT -p sctp --chunk-types any ABORT -j DROP
+> >     iptables -A INPUT -p sctp --chunk-types any DATA -j DROP
+> > The first allows the connection to complete, and then drops the
+> > ABORT sent by close().
+> > The second stops B acking the data.
+> 
+> Not only that, but the second entry stops B from accepting DATA.
+> So, now system B is is guaranteed to destroy it's association after
+> it hasn't heard anything for a while, but ABORT is dropped so A
+> doesn't learn about it.
 
-I think both naming conventions (before/after) are fine, imho.
+Indeed, that is carefully contrived so that A will receive a
+duplicate INIT.
+
+B shouldn't destroy the association, these should be TCP-like connections.
+The application might give up, but nothing in the M3UA spec requires it
+to run a timer (although our version does).
+
+> > System A now receives a new INIT (with a different TSN) and responds with
+> > an INIT_ACK (followed by a COOKIE_ECHO and COOKIE_ACK) even though
+> > it doesn't have a socket in a suitable state for the connection.
+> 
+> It still has an association in a SHUTDOWN-PENDING state.
+> This is collision case A where one end has restarted while the other
+> remains open.
+> 
+> The troubling spot here is the ULP has closed the socket already, but
+> the association is still around waiting for DATA to be acked.
+> 
+> This appears to be a hole in the spec.  I think that the correct
+> sequence here would be to send a COOKIE-ACK followed by SHUTDOWN
+> so that the remote comes correctly configures an association and
+> immediately enters statefull close.
+...
+> The other solution would be to change the sending application to send
+> an ABORT if the data hasn't been reflected back.
+
+I will probably change our code to disconnect with ABORT rather than
+SHUTDOWN, especially in the cases where the remote system doesn't
+seem to be responding.
+
+	David
