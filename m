@@ -1,79 +1,33 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch iproute2 1/3] iproute2: arpd: use ll_addr_a2n and
- ll_addr_n2a
-Date: Tue, 10 Jun 2014 18:09:40 +0200
-Message-ID: <20140610160940.GD2991@minipsycho.orion>
-References: <1400159422-11797-1-git-send-email-jiri@resnulli.us>
- <1400159422-11797-2-git-send-email-jiri@resnulli.us>
- <20140515084342.1aaae42a@nehalam.linuxnetplumber.net>
- <20140515165051.GA2939@minipsycho.orion>
- <20140516205816.180bf3ac@nehalam.linuxnetplumber.net>
- <20140517085031.GA3006@minipsycho.orion>
- <20140609124722.33295eb5@nehalam.linuxnetplumber.net>
- <20140610155025.GC2991@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mschmidt@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH v2 net-next 0/2] some mac802154 fixes
+Date: Tue, 10 Jun 2014 18:11:09 +0200
+Message-ID: <1402416671-30305-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:54212 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750735AbaFJQJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 12:09:43 -0400
-Received: by mail-wg0-f42.google.com with SMTP id z12so4057866wgg.13
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 09:09:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140610155025.GC2991@minipsycho.orion>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:50701 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245AbaFJQLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 12:11:36 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.4/8.14.4/Debian-7) with ESMTP id s5AGBSUj021119
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 18:11:30 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jun 10, 2014 at 05:50:25PM CEST, jiri@resnulli.us wrote:
->Mon, Jun 09, 2014 at 09:47:22PM CEST, stephen@networkplumber.org wrote:
->>On Sat, 17 May 2014 10:50:31 +0200
->>Jiri Pirko <jiri@resnulli.us> wrote:
->>
->>> Sat, May 17, 2014 at 05:58:16AM CEST, stephen@networkplumber.org wrote:
->>> >On Thu, 15 May 2014 18:50:51 +0200
->>> >Jiri Pirko <jiri@resnulli.us> wrote:
->>> >
->>> >> Thu, May 15, 2014 at 05:43:42PM CEST, stephen@networkplumber.org wrote:
->>> >> >On Thu, 15 May 2014 15:10:20 +0200
->>> >> >Jiri Pirko <jiri@resnulli.us> wrote:
->>> >> >
->>> >> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->>> >> >> ---
->>> >> >>  misc/arpd.c | 6 +++---
->>> >> >>  1 file changed, 3 insertions(+), 3 deletions(-)
->>> >> >> 
->>> >> >
->>> >> >Why not use more standard ether_ntoa ?
->>> >> 
->>> >> Because the rest of the code uses ll_addr_n2a. There is no user of
->>> >> ether_ntoa in iproute2.
->>> >
->>> >arpd is more of a standalone program.
->>> 
->>> I know but it is a part of the package (git tree). The other instances
->>> use ll_addr_n2a. I'm ok with using ether_ntoa, I just wanted to follow
->>> what is already there.
->>> 
->>> I can change it and post v2 it you want. I can also change other instances
->>> of usage ll_addr_n2a to ether_ntoa.
->>> 
->>> 
->>
->>This is fine, just went ahead and merged this version.
->
->
->Stephen, looks like you missed the last (3/3) patch from this set. I
->can't see it in the iproute2 git.
+Recent llsec code introduced a memory leak on decryption failures during rx.
+This fixes said leak, and optimizes the receive loops for monitor and wpan
+devices to only deliver skbs to devices that are actually up.
 
-Oh, you already applied that before. That confused me because "iproute2:
-ipa: show port id" actuall adds code which calls hexstring_n2a :)
+---
 
-Anyway, all good now. Sorry for the fuzz.
 
->
->Thanks
->
->Jiri
+Phoebe Buckheister (2):
+      mac802154: properly free incoming skbs on decryption failure
+      mac802154: don't deliver packets to devices that are down
+
+ net/mac802154/monitor.c |    3 ++-
+ net/mac802154/rx.c      |    9 ++++++---
+ net/mac802154/wpan.c    |   14 +++++++++-----
+ 3 files changed, 17 insertions(+), 9 deletions(-)
