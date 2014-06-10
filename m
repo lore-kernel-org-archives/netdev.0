@@ -1,80 +1,130 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next PATCH 2] net: ethernet driver: Fujitsu OGMA
-Date: Mon, 09 Jun 2014 20:12:06 -0700
-Message-ID: <1402369926.13361.3.camel@joe-AO725>
-References: <20140610010803.18695.88446.stgit@localhost.localdomain>
-	 <CAGVrzcYrXrsN+_2fA7LUWMFMxnVmv72JMDLyftVx68JS-X7FDg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andy Green <andy.green@linaro.org>,
-	netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>, patches@linaro.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0043.hostedemail.com ([216.40.44.43]:46152 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932844AbaFJDMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 9 Jun 2014 23:12:09 -0400
-In-Reply-To: <CAGVrzcYrXrsN+_2fA7LUWMFMxnVmv72JMDLyftVx68JS-X7FDg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: [PATCH] net: phy: realtek: register/unregister multiple drivers properly
+Date: Tue, 10 Jun 2014 12:50:12 +0900
+Message-ID: <1402372212-19553-1-git-send-email-neidhard.kim@lge.com>
+Cc: r58129@freescale.com, linux-kernel@vger.kernel.org,
+	Jongsung Kim <neidhard.kim@lge.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-06-09 at 19:14 -0700, Florian Fainelli wrote:
-> 2014-06-09 18:08 GMT-07:00 Andy Green <andy.green@linaro.org>:
-> > This driver adds support for "ogma", a Fujitsu Semiconductor Ltd IP Gigabit
-> > Ethernet + PHY IP used in a variety of their ARM-based ASICs.
+Using phy_drivers_register/_unregister functions is proper way to
+handle multiple PHY drivers registration. For Realtek PHY drivers
+module, it fixes incomplete current error-handlings up and adds
+missed unregistration for the RTL8201CP driver.
 
-trivial notes:
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+---
+ drivers/net/phy/realtek.c |   88 +++++++++++++++++++--------------------------
+ 1 files changed, 37 insertions(+), 51 deletions(-)
 
-> > +                                             desc->len * param->entries,
-> > +                                             &desc->deschys_addr, GFP_KERNEL);
-> > +       if (!desc->ring_vaddr) {
-> > +               ret = -ENOMEM;
-> > +               dev_err(priv->dev, "%s: failed to alloc\n", __func__);
-> > +               goto err;
-> > +       }
-> > +
-> > +       memset(desc->ring_vaddr, 0, (u32) desc->len * param->entries);
-> > +       desc->frag = kmalloc(sizeof(*desc->frag) * param->entries,
-> > +                            GFP_NOWAIT);
-> 
-> Is not GFP_KERNEL suitable here? If not, cannot you move the
-> allocation to a code-path that is allowed to sleep. e.g the ndo_open()
-> function for instance?
-> 
-> > +       if (!desc->frag) {
-> > +               ret = -ENOMEM;
-> > +               dev_err(priv->dev, "%s: failed to alloc\n", __func__);
-> > +               goto err;
-> > +       }
-> > +
-> > +       memset(desc->frag, 0, sizeof(struct ogma_frag_info) * param->entries);
-> 
-> kzalloc() does a kmalloc() + memset().
-
-kcalloc does that and checks for overflow too.
-
-> > +       if (!desc->priv) {
-> > +               ret = -ENOMEM;
-> > +               dev_err(priv->dev, "%s: failed to alloc priv\n", __func__);
-
-OOM messages are unnecessary as there's a generic one.
-
->  +               ret = ogma_get_rx_pkt_data(ndev->priv, OGMA_RING_NRM_RX,
-> > +                                          &rx_pkt_info, &frag, &len, &skb);
-> > +               if (ret == -ENOMEM) {
-> > +                       dev_err(ndev->priv->dev, "%s: rx fail %d",
-> > +                               __func__, ret);
-> > +                       net_device->stats.rx_dropped++;
-> > +                       continue;
-> > +               }
-> 
-> The hardware does not tell you whether the packet is oversized, or if
-> there any errors? That looks a little unusual.
-> 
-> Use netdev_err() here instead. Or even better netif_err() with
-> rx_status, this comment applies to the entire driver BTW.
-
-That and please terminate all messages with \n to
-avoid possible message interleaving from other modules.
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index fa1d69a..45483fd 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -64,65 +64,51 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
+ 	return err;
+ }
+ 
+-/* RTL8201CP */
+-static struct phy_driver rtl8201cp_driver = {
+-	.phy_id         = 0x00008201,
+-	.name           = "RTL8201CP Ethernet",
+-	.phy_id_mask    = 0x0000ffff,
+-	.features       = PHY_BASIC_FEATURES,
+-	.flags          = PHY_HAS_INTERRUPT,
+-	.config_aneg    = &genphy_config_aneg,
+-	.read_status    = &genphy_read_status,
+-	.driver         = { .owner = THIS_MODULE,},
+-};
+-
+-/* RTL8211B */
+-static struct phy_driver rtl8211b_driver = {
+-	.phy_id		= 0x001cc912,
+-	.name		= "RTL8211B Gigabit Ethernet",
+-	.phy_id_mask	= 0x001fffff,
+-	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT,
+-	.config_aneg	= &genphy_config_aneg,
+-	.read_status	= &genphy_read_status,
+-	.ack_interrupt	= &rtl821x_ack_interrupt,
+-	.config_intr	= &rtl8211b_config_intr,
+-	.driver		= { .owner = THIS_MODULE,},
+-};
+-
+-/* RTL8211E */
+-static struct phy_driver rtl8211e_driver = {
+-	.phy_id		= 0x001cc915,
+-	.name		= "RTL8211E Gigabit Ethernet",
+-	.phy_id_mask	= 0x001fffff,
+-	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT,
+-	.config_aneg	= &genphy_config_aneg,
+-	.read_status	= &genphy_read_status,
+-	.ack_interrupt	= &rtl821x_ack_interrupt,
+-	.config_intr	= &rtl8211e_config_intr,
+-	.suspend	= genphy_suspend,
+-	.resume		= genphy_resume,
+-	.driver		= { .owner = THIS_MODULE,},
++static struct phy_driver realtek_drvs[] = {
++	{
++		.phy_id         = 0x00008201,
++		.name           = "RTL8201CP Ethernet",
++		.phy_id_mask    = 0x0000ffff,
++		.features       = PHY_BASIC_FEATURES,
++		.flags          = PHY_HAS_INTERRUPT,
++		.config_aneg    = &genphy_config_aneg,
++		.read_status    = &genphy_read_status,
++		.driver         = { .owner = THIS_MODULE,},
++	}, {
++		.phy_id		= 0x001cc912,
++		.name		= "RTL8211B Gigabit Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_GBIT_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl821x_ack_interrupt,
++		.config_intr	= &rtl8211b_config_intr,
++		.driver		= { .owner = THIS_MODULE,},
++	}, {
++		.phy_id		= 0x001cc915,
++		.name		= "RTL8211E Gigabit Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_GBIT_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl821x_ack_interrupt,
++		.config_intr	= &rtl8211e_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.driver		= { .owner = THIS_MODULE,},
++	},
+ };
+ 
+ static int __init realtek_init(void)
+ {
+-	int ret;
+-
+-	ret = phy_driver_register(&rtl8201cp_driver);
+-	if (ret < 0)
+-		return -ENODEV;
+-	ret = phy_driver_register(&rtl8211b_driver);
+-	if (ret < 0)
+-		return -ENODEV;
+-	return phy_driver_register(&rtl8211e_driver);
++	return phy_drivers_register(realtek_drvs, ARRAY_SIZE(realtek_drvs));
+ }
+ 
+ static void __exit realtek_exit(void)
+ {
+-	phy_driver_unregister(&rtl8211b_driver);
+-	phy_driver_unregister(&rtl8211e_driver);
++	phy_drivers_unregister(realtek_drvs, ARRAY_SIZE(realtek_drvs));
+ }
+ 
+ module_init(realtek_init);
+-- 
+1.7.1
