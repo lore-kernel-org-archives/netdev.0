@@ -1,60 +1,55 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v4 2/6] net: fec: Enable IP header hardware checksum
-Date: Tue, 10 Jun 2014 17:32:20 +0800
-Message-ID: <1402392744-24368-3-git-send-email-b38611@freescale.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v4 5/6] net: fec: Add Scatter/gather support
+Date: Tue, 10 Jun 2014 11:10:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725A303@AcuExch.aculab.com>
 References: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+ <1402392744-24368-6-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<ezequiel.garcia@free-electrons.com>, <b20596@freescale.com>,
-	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ezequiel.garcia@free-electrons.com"
+	<ezequiel.garcia@free-electrons.com>,
+	"b20596@freescale.com" <b20596@freescale.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
+To: 'Fugang Duan' <b38611@freescale.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0205.outbound.protection.outlook.com ([207.46.163.205]:23729
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751146AbaFJK5z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 06:57:55 -0400
-In-Reply-To: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+Received: from mx0.aculab.com ([213.249.233.131]:32798 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750978AbaFJLLb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 07:11:31 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 29615-09 for <netdev@vger.kernel.org>;
+ Tue, 10 Jun 2014 12:11:22 +0100 (BST)
+In-Reply-To: <1402392744-24368-6-git-send-email-b38611@freescale.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IP header checksum is calcalated by network layer in default.
-To support software TSO, it is better to use HW calculate the
-IP header checksum.
+From: Fugang Duan
+> Add Scatter/gather support for FEC.
+> This feature allows to improve outbound throughput performance.
+...
+> +static int fec_enet_get_free_txdesc_num(struct fec_enet_private *fep)
+> +{
+> +	int entries;
+> +
+> +	entries = ((const char *)fep->dirty_tx -
+> +			(const char *)fep->cur_tx) / fep->bufdesc_size;
+> +
+> +	return (fep->cur_tx >= fep->dirty_tx) ?
+> +		entries += fep->tx_ring_size : entries;
+> +}
 
-FEC hw checksum feature request the checksum field in frame
-is zero, otherwise the calculative CRC is not correct.
+That is a strange return statement - why += ??
 
-For segmentated TCP packet, HW calculate the IP header checksum again,
-it doesn't bring any impact. For SW TSO, HW calculated checksum bring
-better performance.
+You could also check the sign of 'entries'.
+Say:
+	return entries > 0 ? entries : entries + fep->tx_ring_size;
 
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Actually do you ever use the last entry?
+If you do then the full and empty conditions are not separated.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ee8e547..55b55d2 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -314,6 +314,7 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
- 	if (unlikely(skb_cow_head(skb, 0)))
- 		return -1;
- 
-+	ip_hdr(skb)->check = 0;
- 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
- 
- 	return 0;
-@@ -395,7 +396,7 @@ static int txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 			 * are done by the kernel
- 			 */
- 			if (skb->ip_summed == CHECKSUM_PARTIAL)
--				ebdp->cbd_esc |= BD_ENET_TX_PINS;
-+				ebdp->cbd_esc |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
- 		}
- 	}
- 
--- 
-1.7.8
+	David
