@@ -1,110 +1,104 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/8] flow_keys: Record IP layer protocol in skb_flow_dissect()
-Date: Tue, 10 Jun 2014 15:11:17 +0200
-Message-ID: <539703F5.8030707@redhat.com>
-References: <1402338773-5996-1-git-send-email-_govind@gmx.com> <1402338773-5996-2-git-send-email-_govind@gmx.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [net-next PATCH 2/2] bridge: netlink dump interface at par with
+ brctl
+Date: Tue, 10 Jun 2014 09:25:25 -0400
+Message-ID: <53970745.7040002@redhat.com>
+References: <1402151244-3324-1-git-send-email-jhs@emojatatu.com> <1402151244-3324-2-git-send-email-jhs@emojatatu.com> <5395E3C4.5080904@redhat.com> <5396EF01.7030009@mojatatu.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
-	gvaradar@cisco.com, benve@cisco.com, eric.dumazet@gmail.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
+Cc: netdev@vger.kernel.org, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
+	stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49313 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55764 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751125AbaFJNLg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 10 Jun 2014 09:11:36 -0400
-In-Reply-To: <1402338773-5996-2-git-send-email-_govind@gmx.com>
+	id S1750936AbaFJN0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 10 Jun 2014 09:26:13 -0400
+In-Reply-To: <5396EF01.7030009@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 06/10/2014 07:41 AM, Jamal Hadi Salim wrote:
+> On 06/09/14 12:41, Vlad Yasevich wrote:
+>> On 06/07/2014 10:27 AM, Jamal Hadi Salim wrote:
+>>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>>
+>>> Actually better than brctl showmacs because we can filter by bridge
+>>> port in the kernel.
+>>> The current bridge netlink interface doesnt scale when you have many
+>>> bridges each with large fdbs or even bridges with many bridge ports
+>>>
+>>> For example usage look at accompanying iproute2 patch.
+>>
+>> The code was a bit tough to follow.  I think the main reason is
+>> that you now always pass a filtering devices even when there was
+>> no filtering information requested.
+>>
+>> I am wondering if it could be made simpler...
+>>
+> 
+> The patch may be hard to follow i think. I cant think of a simple
+> way to do filtering by br and brport. If you have suggestions, shoot.
+> 
+
+I gave it some thought and I think something like the following
+pseudo-code would work.
+
+dump_dev_fdbs(dev, filter)
+{
+        if (dev->dumper)
+                dev->ndo_dumper(dev, filter);
+        else
+                default_dumper(dev, filter);
+}
+
+for_each_netdev() {
+        if (bridge_filter) {
+                if (dev->index != bridge_filter)
+                        skip;
+
+                dump_dev_fdbs(dev, port_filter);
+        } else {
+                if (port_filter) {
+                        if (bridge_port &&
+                            dev->index != port_filter)
+                                skip;
+
+                }
+
+                if (bridge_port) {
+                        br_dev = get_bridge();
+                        dump_dev_fdbs(br_dev, port_filter);
+                }
+
+                dump_dev_fdbs(dev, port_filter);
+        }
+}
 
 
-On 06/09/2014 08:32 PM, Govindarajulu Varadarajan wrote:
-> skb_flow_dissect() dissects only transport header type in ip_proto. It dose not
-> give any information about IPv4 or IPv6.
->
-> This patch adds new member, n_proto, to struct flow_keys. Which records the
-> IP layer type. i.e IPv4 or IPv6.
->
-> This can be used in netdev->ndo_rx_flow_steer driver function to dissect flow.
->
-> Adding new member to flow_keys increases the struct size by around 4 bytes.
-> This causes BUILD_BUG_ON(sizeof(qcb->data) < sz); to fail in
-> qdisc_cb_private_validate()
->
-> So increase data size by 4
->
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->   include/net/flow_keys.h   | 14 ++++++++++++++
->   include/net/sch_generic.h |  2 +-
->   net/core/flow_dissector.c |  1 +
->   3 files changed, 16 insertions(+), 1 deletion(-)
->
-> diff --git a/include/net/flow_keys.h b/include/net/flow_keys.h
-> index 7e64bd8..fbefdca 100644
-> --- a/include/net/flow_keys.h
-> +++ b/include/net/flow_keys.h
-> @@ -1,6 +1,19 @@
->   #ifndef _NET_FLOW_KEYS_H
->   #define _NET_FLOW_KEYS_H
->
-> +/* struct flow_keys:
-> + *	@src: source ip address in case of IPv4
-> + *	      For IPv6 it contains 32bit hash of src address
-> + *	@dst: destination ip address in case of IPv4
-> + *	      For IPv6 it contains 32bit hash of dst address
-> + *	@ports: port numbers of Transport header
-> + *		port16[0]: src port number
-> + *		port16[1]: dst port number
-> + *	@thoff: Transport header offset
-> + *	@n_proto: Network header protocol (eg. IPv4/IPv6)
-> + *	@ip_proto: Transport header protocol (eg. TCP/UDP)
-> + * All the members, except thoff, are in network byte order.
-> + */
->   struct flow_keys {
->   	/* (src,dst) must be grouped, in the same way than in IP header */
->   	__be32 src;
-> @@ -10,6 +23,7 @@ struct flow_keys {
->   		__be16 port16[2];
->   	};
->   	u16 thoff;
-> +	u16 n_proto;
->   	u8 ip_proto;
->   };
->
-> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-> index 624f985..a3cfb8e 100644
-> --- a/include/net/sch_generic.h
-> +++ b/include/net/sch_generic.h
-> @@ -231,7 +231,7 @@ struct qdisc_skb_cb {
->   	unsigned int		pkt_len;
->   	u16			slave_dev_queue_mapping;
->   	u16			_pad;
-> -	unsigned char		data[20];
-> +	unsigned char		data[24];
+What do you think?
 
-I'm wondering if this is actually needed. We add an extra
-u16 n_proto into the flow_keys *just* to determine IPv4/v6
-while if it finds anything else than this the dissector
-returns false anyway w/o filling out the flow keys structure.
-Plus, in case of IPv6 you'll have a hashed/folded src/dst
-addr anyway.
-
->   };
->
->   static inline void qdisc_cb_private_validate(const struct sk_buff *skb, int sz)
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 107ed12..c2b53c1 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -175,6 +175,7 @@ ipv6:
->   		break;
->   	}
->
-> +	flow->n_proto = proto;
->   	flow->ip_proto = ip_proto;
->   	flow->ports = skb_flow_get_ports(skb, nhoff, ip_proto);
->   	flow->thoff = (u16) nhoff;
->
+-vlad
+>>>       rcu_read_lock();
+>>> +    if (br_idx) {
+>>> +        br_dev = __dev_get_by_index(net, br_idx);
+>>> +        if (!br_dev) {
+>>> +            rcu_read_unlock();
+>>> +            return -ENODEV;
+>>> +        }
+>>> +        ops = br_dev->netdev_ops;
+>>> +        bdev = br_dev;
+>>> +    }
+>>> +
+>>
+>> I think this can be outside of the rcu since you hold an rtnl at this
+>> time.
+>>
+> 
+> Will fix on next iteration.
+> 
+> cheers,
+> jamal
