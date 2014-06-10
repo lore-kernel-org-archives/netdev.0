@@ -1,72 +1,110 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4 5/6] net: fec: Add Scatter/gather support
-Date: Tue, 10 Jun 2014 12:02:42 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725A352@AcuExch.aculab.com>
-References: <1402392744-24368-1-git-send-email-b38611@freescale.com>
- <1402392744-24368-6-git-send-email-b38611@freescale.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725A303@AcuExch.aculab.com>
- <8591edbcb6e3411dbc9d475e71ddb3fd@BLUPR03MB373.namprd03.prod.outlook.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: cdc-wdm: unable to connect after suspend
+Date: Tue, 10 Jun 2014 14:09:32 +0200
+Message-ID: <874mzt55kz.fsf@nemi.mork.no>
+References: <ln6m4k$q49$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ezequiel.garcia@free-electrons.com"
-	<ezequiel.garcia@free-electrons.com>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>
-To: "'fugang.duan@freescale.com'" <fugang.duan@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Florian Klink <flokli@flokli.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33772 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750883AbaFJMD2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:03:28 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 10309-02 for <netdev@vger.kernel.org>;
- Tue, 10 Jun 2014 13:03:19 +0100 (BST)
-In-Reply-To: <8591edbcb6e3411dbc9d475e71ddb3fd@BLUPR03MB373.namprd03.prod.outlook.com>
-Content-Language: en-US
+Received: from canardo.mork.no ([148.122.252.1]:37217 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750888AbaFJMJj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 08:09:39 -0400
+In-Reply-To: <ln6m4k$q49$1@ger.gmane.org> (Florian Klink's message of "Tue, 10
+	Jun 2014 12:20:02 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fugang.duan@freescale.com 
-> From: David Laight <David.Laight@ACULAB.COM> Sent: Tuesday, June 10, 2014 7:11 PM
-> >To: Duan Fugang-B38611; davem@davemloft.net
-> >Cc: netdev@vger.kernel.org; ezequiel.garcia@free-electrons.com; Li Frank-
-> >B20596; eric.dumazet@gmail.com
-> >Subject: RE: [PATCH v4 5/6] net: fec: Add Scatter/gather support
-> >
-> >From: Fugang Duan
-> >> Add Scatter/gather support for FEC.
-> >> This feature allows to improve outbound throughput performance.
-> >...
-> >> +static int fec_enet_get_free_txdesc_num(struct fec_enet_private *fep)
-> >> +{
-> >> +	int entries;
-> >> +
-> >> +	entries = ((const char *)fep->dirty_tx -
-> >> +			(const char *)fep->cur_tx) / fep->bufdesc_size;
-> >> +
-> >> +	return (fep->cur_tx >= fep->dirty_tx) ?
-> >> +		entries += fep->tx_ring_size : entries; }
-...
-> >Actually do you ever use the last entry?
-> >If you do then the full and empty conditions are not separated.
+=46lorian Klink <flokli@flokli.de> writes:
 
-> Don't use the last entry. When it is full condition, cur_tx is the last entry.
-> If (fep->cur_tx == fep->dirty_tx)
-> 	Empty
-> If (fep->cur_tx == fep->dirty_tx - 1)
-> 	Full
-> 
-> Since the patch set introduces tx_stop_threshold and tx_wake_threshold,
-> it never uses the rest of entry while
-> Free entry number is less than tx_stop_threshold.
+> Hi,
+>
+> I recently bought a notebook (Fujitsu Lifebook T904) with integrated
+> 3G/4G modem (Sierra Wireless EM7305) thats powered by the cdc-wdm dri=
+ver.
+>
+> It works without any problems on a fresh bootup using Networkmanager.
+>
+> However, after putting the notebook into standby and waking up again,
+> I'm unable to get a connection (always reproducible, not signal quali=
+ty
+> related).
 
-In which case I'd expect fec_enet_get_free_txdesc_num() to return
-one less than it does currently.
-Maybe the check for 'enough space' is 'needed < fec_enet_get_free_txdesc_num()'
-(rather than <=)
+Does it work again if you restart NetworkManager and ModemManager at
+this point?
 
-	David
+Does it help to do
+
+ echo  0 >/sys/bus/usb/devices/x-y/power/persist
+
+prior to suspending the notebook?  You'll have to replace "x-y" with th=
+e
+correct USB bus and port number.  You can find this in e.g. the dmesg
+output.  For example, if your log shows:
+
+  qmi_wwan 2-4:1.8: cdc-wdm0: USB WDM device
+
+then x-y =3D 2-4.
+
+
+> I see the following error messages:
+>
+>
+> Couldn't reload current power state: Transaction timed out
+> [/dev/cdc-wdm1] No transaction matched in received message
+> <warn> (cdc-wdm1) failed to connect modem: Transaction timed out
+> <info> (cdc-wdm1): device state change: prepare -> failed (reason
+> 'unknown') [40 120 1]
+> modem_prepare_result: assertion 'state =3D=3D NM_DEVICE_STATE_PREPARE=
+' failed
+>
+>
+> It looks like a driver bug for me, like the device not woken up
+> correctly. I attached the syslog.
+
+It is certainly bad interaction between userspace and the driver.  We'l=
+l
+have to fight about where the bug is :-)
+
+I believe the problem is that the modem is powered down when the
+notebook is suspended, combined with the "USB device persistence"
+feature and bad handling of "unexpected" states in ModemManager.
+The result is that MM and the device/driver ends up with different view=
+s
+of the current modem state. But I might be completely wrong here.
+Seeing kernel logs would have helped..
+
+Initially I'd like to claim that this is a userspace problem.  But I'm
+open to reconsider that view, given convincing arguments. It's not my
+intention to reject this as "someone elses problem".
+
+A short explanation of what's going on: The "USB device persistence"
+feature just cannot work with 3G/LTE modem devices because they lose
+necessary internal state on any power loss.  The persist feature makes
+the modem reappear as exact the same device after resume, but with a
+case of severe amnesia.  So why don't we just disable the feature when
+it cannot work? The reason is that modems often are composite devices,
+and many of them include card reader functions. USB device persistences
+is critical for such devices. Consider suspending a card reader with a
+mounted file system...
+
+=46or this reason I really do not want to disable the persist feature,
+even if it is pointless from a standalone modem point of view.  Instead
+userspace should be able to cope with modems "suddendly" entering
+unexpected states.
+
+> I'm running Arch Linux amd64 with an 3.15.0-rc8 kernel, and
+> NetworkManager 0.9.8.10.
+>
+> Is there anybody else who observed this behaviour?
+
+Yes, I must admit I've seen similar behaviour.  The interaction between
+system suspend and drivers/MM/NM is not good.
+
+Could you please bring this up on the ModemManager list?
+
+
+Bj=C3=B8rn
