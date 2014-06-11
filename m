@@ -1,48 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v5] sfc: PIO:Restrict to 64bit arch and use 64-bit
- writes.
-Date: Tue, 10 Jun 2014 23:32:00 -0700 (PDT)
-Message-ID: <20140610.233200.1652605957870754730.davem@davemloft.net>
-References: <53920741.4060704@solarflare.com>
+Subject: Re: [PATCH] ipip, sit: fix ipv4_{update_pmtu,redirect} calls
+Date: Tue, 10 Jun 2014 23:36:24 -0700 (PDT)
+Message-ID: <20140610.233624.23993271628864053.davem@davemloft.net>
+References: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42757 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825AbaFKGcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 02:32:04 -0400
-In-Reply-To: <53920741.4060704@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, trivial@kernel.org
+To: ixaphire@qrator.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140606231921.2ff39106ac54216fd9170fae@qrator.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Fri, 6 Jun 2014 19:24:01 +0100
+From: Dmitry Popov <ixaphire@qrator.net>
+Date: Fri, 6 Jun 2014 23:19:21 +0400
 
-> +/* Hardware issue requires that only 64-bit naturally aligned writes
-> + * are seen by hardware.
-> + */
-> +#if BITS_PER_LONG == 64
-> +/* not strictly necessary to restrict to x86 arch, but done for safety
-> + * since unusual write combining behaviour can break PIO.
-> + */
-> +#ifdef CONFIG_X86_64
->  /* PIO is a win only if write-combining is possible */
->  #ifdef ARCH_HAS_IOREMAP_WC
->  #define EFX_USE_PIO 1
->  #endif
-> +#endif
-> +#endif
+> ipv4_{update_pmtu,redirect} were called with tunnel's ifindex (t->dev is a 
+> tunnel netdevice). It caused wrong route lookup and failure of pmtu update or 
+> redirect. We should use the same ifindex that we use in ip_route_output_* in 
+> *tunnel_xmit code. It is t->parms.link .
+> 
+> Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
 
-Just restrict this plainly to X86_64, the 64-bit test is completely
-redundant.  It's obvious that x86_64 is the only platform you care
-about and plan on testing or caring about in any way, so just make
-that explicit.
-
-I'm sorry about giving you continually a hard time about this, but
-this is really gross, platform specific, ugly hackery going on here
-and I'm going to do whatever I can to minimize it's uglyness.
-
-Thank you.
+Applied and queued up for -stable, thanks.
