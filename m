@@ -1,35 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip_vti: fix sparse warnings for VTI_ISVTI
-Date: Wed, 11 Jun 2014 08:40:36 -0700
-Message-ID: <20140611084036.11f234f0@nehalam.linuxnetplumber.net>
-References: <20140611150914.c3cb48bb8a1a760564f5db6e@qrator.net>
-	<20140611160215.7b0fbe7c4f42cf02b5496852@qrator.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2 net-next 4/5] net: sctp: improve sctp_select_active_and_retran_path
+ selection
+Date: Wed, 11 Jun 2014 11:51:37 -0400
+Message-ID: <53987B09.30904@gmail.com>
+References: <1402499003-29355-1-git-send-email-dborkman@redhat.com> <1402499003-29355-5-git-send-email-dborkman@redhat.com> <539873E2.3020003@gmail.com> <539874E3.2010607@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org
-To: Dmitry Popov <ixaphire@qrator.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140611160215.7b0fbe7c4f42cf02b5496852@qrator.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:52505 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755583AbaFKPvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 11:51:41 -0400
+In-Reply-To: <539874E3.2010607@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jun 2014 16:02:15 +0400
-Dmitry Popov <ixaphire@qrator.net> wrote:
-
-> On Wed, 11 Jun 2014 15:09:14 +0400
-> Dmitry Popov <ixaphire@qrator.net> wrote:
+On 06/11/2014 11:25 AM, Daniel Borkmann wrote:
+> On 06/11/2014 05:21 PM, Vlad Yasevich wrote:
+>> On 06/11/2014 11:03 AM, Daniel Borkmann wrote:
+>>> In case we neither found a possible ACTIVE or UNKNOWN trans_pri
+>>> resp. trans_sec from our current transport list, we currently
+>> ^^^^^^
+>>
+>> Not sure what you wanted to say here.
 > 
-> > 
-> > Since VTI_ISVTI is always used with ip_tunnel_parm->i_flags (which is __be16),
-> > we can __force cast VTI_ISVTI to __be16 in header file.
-> > 
-> 
-> If this patch is okay I will submit it to iproute2 too. if_tunnel.h has to be
-> synced.
+> Actually just the case of trans_pri == NULL, trans_sec == NULL
+> since they weren't updated when traversing the list, sorry if
+> this was unclear.
 
-don't bother with iproute2 patch. I periodically resync sanitized headers from
-kernel to iproute2.
+The "resp." seemed like either an abbreviation or an incomplete
+word.  In either case, it should be clarified.
+
+-vlad
