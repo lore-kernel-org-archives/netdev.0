@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V7 0/2] cpumask,net: affinity hint helper
- function
-Date: Wed, 11 Jun 2014 14:59:38 -0700 (PDT)
-Message-ID: <20140611.145938.2160468514837164249.davem@davemloft.net>
-References: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [patch] qlcnic: remove duplicate QLC_83XX_GET_LSO_CAPABILITY
+ define
+Date: Wed, 11 Jun 2014 15:01:53 -0700 (PDT)
+Message-ID: <20140611.150153.1890331283649482551.davem@davemloft.net>
+References: <20140609145539.GB9600@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com, yuvala@mellanox.com
-To: amirv@mellanox.com
+Cc: shahed.shaikh@qlogic.com, Dept-HSGLinuxNICDev@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47431 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47447 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752199AbaFKV7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 17:59:42 -0400
-In-Reply-To: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1751797AbaFKWBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:01:54 -0400
+In-Reply-To: <20140609145539.GB9600@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Mon,  9 Jun 2014 10:24:37 +0300
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 9 Jun 2014 17:55:39 +0300
 
-> This patchset will set affinity hint to influence IRQs to be allocated on the
-> same NUMA node as the one where the card resides. As discussed in
-> http://www.spinics.net/lists/netdev/msg271497.html
+> The QLC_83XX_GET_LSO_CAPABILITY define is cut and pasted twice so we can
+> delete the second instance.
 > 
-> If number of IRQs allocated is greater than the number of local NUMA cores, all
-> local cores will be used first, and the rest of the IRQs will be on a remote
-> NUMA node.
-> If no NUMA support - IRQ's and cores will be mapped 1:1
-> 
-> Since the utility function to calculate the mapping could be useful in other mq
-> drivers in the kernel, it was added to cpumask.[ch]
-> 
-> This patchset was tested and applied on top of net-next since the first
-> consumer is a network device (mlx4_en).  Over commit fff1f59 "mac802154:
-> llsec: add forgotten list_del_rcu in key removal"
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Series applied, thanks.
+Applied.
