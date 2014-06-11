@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: Fixed up ipsec packet be re-routing issue
-Date: Wed, 11 Jun 2014 00:47:52 -0700 (PDT)
-Message-ID: <20140611.004752.1241689531611946239.davem@davemloft.net>
-References: <1402288645-6904-1-git-send-email-huizhang@marvell.com>
+Subject: Re: [PATCH net] net: fix UDP tunnel GSO of frag_list GRO packets
+Date: Wed, 11 Jun 2014 00:49:04 -0700 (PDT)
+Message-ID: <20140611.004904.2053967979976189800.davem@davemloft.net>
+References: <1402296534-8978-1-git-send-email-weichunc@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alan@lxorguk.ukuu.org.uk,
-	sergei.shtylyov@cogentembedded.com, nickcave.zhang@gmail.com
-To: huizhang@marvell.com
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+To: weichunc@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43128 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43141 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbaFKHry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:47:54 -0400
-In-Reply-To: <1402288645-6904-1-git-send-email-huizhang@marvell.com>
+	with ESMTP id S1751311AbaFKHtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:49:05 -0400
+In-Reply-To: <1402296534-8978-1-git-send-email-weichunc@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hui Zhang <huizhang@marvell.com>
-Date: Mon, 9 Jun 2014 12:37:25 +0800
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Date: Sun,  8 Jun 2014 23:48:54 -0700
 
-> Bug report on https://bugzilla.kernel.org/show_bug.cgi?id=75781
+> This patch fixes a kernel BUG_ON in skb_segment. It is hit when
+> testing two VMs on openvswitch with one VM acting as VXLAN gateway.
 > 
-> When a local output ipsec packet match the mangle table rule,
-> and be set mark value, the packet will be route again in
-> route_me_harder -> _session_decoder6
+> During VXLAN packet GSO, skb_segment is called with skb->data
+> pointing to inner TCP payload. skb_segment calls skb_network_protocol
+> to retrieve the inner protocol. skb_network_protocol actually expects
+> skb->data to point to MAC and it calls pskb_may_pull with ETH_HLEN.
+> This ends up pulling in ETH_HLEN data from header tail. As a result,
+> pskb_trim logic is skipped and BUG_ON is hit later.
 > 
-> In this case, the nhoff in CB of skb was still the default
-> value 0. So the protocal match can't success and the packet can't match
-> correct SA rule,and then the packet be send out in plaintext.
-> 
-> To fixed up the issue. The CB->nhoff must be set.
-> 
-> Signed-off-by: Hui Zhang <huizhang@marvell.com>
+> Move skb_push in front of skb_network_protocol so that skb->data
+> lines up properly.
+ ...
+> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
 
-Applied, thanks.
+Applied, thank you.
