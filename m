@@ -1,82 +1,154 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 06/13] i40e: implement anti-spoofing for VFs
-Date: Wed, 11 Jun 2014 05:13:02 -0700
-Message-ID: <1402488782.2306.18.camel@jtkirshe-mobl>
-References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1402303758-1429-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CAJZOPZJGZNhX7yPF6MvCjW+EYi-EGJgW1GhFa5CO=myAgJj-1A@mail.gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net] xen-netback: Fix handling of skbs requiring too many
+ slots
+Date: Wed, 11 Jun 2014 13:36:40 +0100
+Message-ID: <53984D58.7010708@citrix.com>
+References: <1401827406-9341-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-1LHZwg2YFwA4nA1gnfTU"
-Cc: David Miller <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <david.vrabel@citrix.com>
+To: <xen-devel@lists.xenproject.org>, <ian.campbell@citrix.com>,
+	<wei.liu2@citrix.com>, <paul.durrant@citrix.com>,
+	<linux@eikelenboom.it>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:48685 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753603AbaFKMN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 08:13:26 -0400
-In-Reply-To: <CAJZOPZJGZNhX7yPF6MvCjW+EYi-EGJgW1GhFa5CO=myAgJj-1A@mail.gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:33145 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932390AbaFKMg7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 08:36:59 -0400
+In-Reply-To: <1401827406-9341-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
---=-1LHZwg2YFwA4nA1gnfTU
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch have made the net and net-next trees already, but not the 
+mainline 3.15. That's unfortunate, because just 2 days after someone 
+already spotted the problem (see "netback oops in Linux 3.14 / 3.15" on 
+xen-devel)
+David, should I resend the patch for stable maintaners to include it in 
+the 3.15 stable branch?
 
-On Mon, 2014-06-09 at 22:49 +0300, Or Gerlitz wrote:
-> On Mon, Jun 9, 2014 at 11:49 AM, Jeff Kirsher
-> <jeffrey.t.kirsher@intel.com> wrote:
-> > From: Mitch Williams <mitch.a.williams@intel.com>
-> >
-> > Our hardware supports VF antispoofing for both MAC addresses and VLANs.
-> > Enable this feature by default for all VFs
->=20
-> What do you expect the HW to do when spoof check is enabled (by
-> default) but the admin didn't configure a MAC address for the VF
-> through the PF? that is the VF is allowed to use what ever MAC they
-> want to?
->=20
-> > and implement the netdev op to control it from the command line.
+Regards,
 
-Here is the answer I got:
-If the VF mac address is set within the VM and it is accepted by the PF,
-than any packets with that mac address would be allowed out of the
-interface.
+Zoli
 
-If the VF attempts to send a packet with a mac address that has not been
-sent to and accepted/configured by the PF than this would get blocked by
-the anti-spoof detection.
-
-The VF mac address must be configured by the PF in either case (set in
-the host or set in the VM).
-
---=-1LHZwg2YFwA4nA1gnfTU
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABCgAGBQJTmEfOAAoJEOVv75VaS+3OqQkP/R4CdstFcJqirnszR1Rg24bw
-6VE6scuM/ymNwxl7OyLhsPAlFaKITKCsnpyeyDmsR/86yUk7708V4I84WZMzhK3A
-bEHRDTJaKPoPyeO2z+y2+BwCWFVFB2zgyuu5ciFIQZBCXxlOaUIGbCkTIMrNw/8Z
-y+RjJd+tmtfGDIa6y0SCdBqjo9pJXNDREhJXylolFM1fihzHf5HIz08xNrurI8f5
-4GnaNM64/y/vjfpvqQZNYXuw1OC3Ju3t12uwjV99xqz70e+CfMeM5VKbUKbkGcpo
-hKhG9aaz+lSWdwZmhU+IRvVU2im7CWu+gs48BHWCyo2s1NrK8NlDYYpbX5TXIYv5
-fVFb96o7QU2H2JAMYu0Ubzun5KFKQ9mqRtq7TK/AEAv4aQcGHq1VZQ/Aks1BlS6G
-Qp6fcsETpng0unapZmr8FkbSjvbmt+P1Blxrm1a0KiRWXy3whm2ii0D0gCB/WL//
-dZ0KUJicOXW1FbPZL/k+mWxuYx8JFjzyiXNT6BsaSM1eypSryiQ0Hahp/Gd0vxwF
-w52yhcnJnnfEhLPZc1qOcXc7EzIggBYg4WdmboljhbyDikQGTEjQqF23W3Merkou
-Yrf55YLDfWCiUFiu+Wn18uR10uLZHeWWxi2nVqHwwKopz5HSFaR0Beseo1NcrwgG
-Zd/YXPB/BdlEZP8hdeay
-=pTBT
------END PGP SIGNATURE-----
-
---=-1LHZwg2YFwA4nA1gnfTU--
+On 03/06/14 21:30, Zoltan Kiss wrote:
+> A recent commit (a02eb4 "xen-netback: worse-case estimate in xenvif_rx_action is
+> underestimating") capped the slot estimation to MAX_SKB_FRAGS, but that triggers
+> the next BUG_ON a few lines down, as the packet consumes more slots than
+> estimated.
+> This patch introduces full_coalesce on the skb callback buffer, which is used in
+> start_new_rx_buffer() to decide whether netback needs coalescing more
+> aggresively. By doing that, no packet should need more than
+> XEN_NETIF_MAX_TX_SIZE / PAGE_SIZE data slots, as the provided buffers are fully
+> utilized.
+>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Cc: Paul Durrant <paul.durrant@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: David Vrabel <david.vrabel@citrix.com>
+> ---
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 64ab1d1..65fbcd1 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -163,7 +163,10 @@ bool xenvif_rx_ring_slots_available(struct xenvif *vif, int needed)
+>    * adding 'size' bytes to a buffer which currently contains 'offset'
+>    * bytes.
+>    */
+> -static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+> +static bool start_new_rx_buffer(int offset,
+> +				unsigned long size,
+> +				int head,
+> +				bool full_coalesce)
+>   {
+>   	/* simple case: we have completely filled the current buffer. */
+>   	if (offset == MAX_BUFFER_OFFSET)
+> @@ -175,6 +178,7 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>   	 *     (i)   this frag would fit completely in the next buffer
+>   	 * and (ii)  there is already some data in the current buffer
+>   	 * and (iii) this is not the head buffer.
+> +	 * and (iv)  there is no need to fully utilize the buffers
+>   	 *
+>   	 * Where:
+>   	 * - (i) stops us splitting a frag into two copies
+> @@ -185,6 +189,8 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>   	 *   by (ii) but is explicitly checked because
+>   	 *   netfront relies on the first buffer being
+>   	 *   non-empty and can crash otherwise.
+> +	 * - (iv) is needed for skbs which can use up more than MAX_SKB_FRAGS
+> +	 *   slot
+>   	 *
+>   	 * This means we will effectively linearise small
+>   	 * frags but do not needlessly split large buffers
+> @@ -192,7 +198,10 @@ static bool start_new_rx_buffer(int offset, unsigned long size, int head)
+>   	 * own buffers as before.
+>   	 */
+>   	BUG_ON(size > MAX_BUFFER_OFFSET);
+> -	if ((offset + size > MAX_BUFFER_OFFSET) && offset && !head)
+> +	if ((offset + size > MAX_BUFFER_OFFSET) &&
+> +	    offset &&
+> +	    !head &&
+> +	    !full_coalesce)
+>   		return true;
+>
+>   	return false;
+> @@ -227,6 +236,13 @@ static struct xenvif_rx_meta *get_next_rx_buffer(struct xenvif *vif,
+>   	return meta;
+>   }
+>
+> +struct xenvif_rx_cb {
+> +	int meta_slots_used;
+> +	bool full_coalesce;
+> +};
+> +
+> +#define XENVIF_RX_CB(skb) ((struct xenvif_rx_cb *)(skb)->cb)
+> +
+>   /*
+>    * Set up the grant operations for this fragment. If it's a flipping
+>    * interface, we also set up the unmap request from here.
+> @@ -261,7 +277,10 @@ static void xenvif_gop_frag_copy(struct xenvif *vif, struct sk_buff *skb,
+>   		if (bytes > size)
+>   			bytes = size;
+>
+> -		if (start_new_rx_buffer(npo->copy_off, bytes, *head)) {
+> +		if (start_new_rx_buffer(npo->copy_off,
+> +					bytes,
+> +					*head,
+> +					XENVIF_RX_CB(skb)->full_coalesce)) {
+>   			/*
+>   			 * Netfront requires there to be some data in the head
+>   			 * buffer.
+> @@ -541,12 +560,6 @@ static void xenvif_add_frag_responses(struct xenvif *vif, int status,
+>   	}
+>   }
+>
+> -struct xenvif_rx_cb {
+> -	int meta_slots_used;
+> -};
+> -
+> -#define XENVIF_RX_CB(skb) ((struct xenvif_rx_cb *)(skb)->cb)
+> -
+>   void xenvif_kick_thread(struct xenvif *vif)
+>   {
+>   	wake_up(&vif->wq);
+> @@ -602,10 +615,14 @@ static void xenvif_rx_action(struct xenvif *vif)
+>
+>   		/* To avoid the estimate becoming too pessimal for some
+>   		 * frontends that limit posted rx requests, cap the estimate
+> -		 * at MAX_SKB_FRAGS.
+> +		 * at MAX_SKB_FRAGS. In this case netback will fully coalesce
+> +		 * the skb into the provided slots.
+>   		 */
+> -		if (max_slots_needed > MAX_SKB_FRAGS)
+> +		if (max_slots_needed > MAX_SKB_FRAGS) {
+>   			max_slots_needed = MAX_SKB_FRAGS;
+> +			XENVIF_RX_CB(skb)->full_coalesce = true;
+> +		} else
+> +			XENVIF_RX_CB(skb)->full_coalesce = false;
+>
+>   		/* We may need one more slot for GSO metadata */
+>   		if (skb_is_gso(skb) &&
+>
