@@ -1,30 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH resend] ip: add nlmon as a device type to help message
-Date: Wed, 11 Jun 2014 23:53:05 +0200
-Message-ID: <5398CFC1.4040904@redhat.com>
-References: <1402513718-19035-1-git-send-email-yamato@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V7 0/2] cpumask,net: affinity hint helper
+ function
+Date: Wed, 11 Jun 2014 14:59:38 -0700 (PDT)
+Message-ID: <20140611.145938.2160468514837164249.davem@davemloft.net>
+References: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Masatake YAMATO <yamato@redhat.com>
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com, yuvala@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42909 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750958AbaFKVxI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 17:53:08 -0400
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s5BLr7Np002592
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 17:53:07 -0400
-In-Reply-To: <1402513718-19035-1-git-send-email-yamato@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47431 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752199AbaFKV7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 17:59:42 -0400
+In-Reply-To: <1402298679-22038-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2014 09:08 PM, Masatake YAMATO wrote:
-> Though nlmon device can be added, it was not listed
-> in the output of "ip link help".
->
-> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Date: Mon,  9 Jun 2014 10:24:37 +0300
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> This patchset will set affinity hint to influence IRQs to be allocated on the
+> same NUMA node as the one where the card resides. As discussed in
+> http://www.spinics.net/lists/netdev/msg271497.html
+> 
+> If number of IRQs allocated is greater than the number of local NUMA cores, all
+> local cores will be used first, and the rest of the IRQs will be on a remote
+> NUMA node.
+> If no NUMA support - IRQ's and cores will be mapped 1:1
+> 
+> Since the utility function to calculate the mapping could be useful in other mq
+> drivers in the kernel, it was added to cpumask.[ch]
+> 
+> This patchset was tested and applied on top of net-next since the first
+> consumer is a network device (mlx4_en).  Over commit fff1f59 "mac802154:
+> llsec: add forgotten list_del_rcu in key removal"
+
+Series applied, thanks.
