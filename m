@@ -1,52 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v6] sfc: PIO:Restrict to 64bit arch and use 64-bit
- writes.
-Date: Wed, 11 Jun 2014 15:36:53 -0700 (PDT)
-Message-ID: <20140611.153653.1894044183638797631.davem@davemloft.net>
-References: <53985A94.3080303@solarflare.com>
+Subject: Re: [PATCH v2 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
+Date: Wed, 11 Jun 2014 15:37:33 -0700 (PDT)
+Message-ID: <20140611.153733.758226399072849408.davem@davemloft.net>
+References: <539653E4.9080808@renesas.com>
+	<20140611.151555.814836065790733997.davem@davemloft.net>
+	<5398D658.2090100@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47675 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbaFKWgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:36:54 -0400
-In-Reply-To: <53985A94.3080303@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yoshihiro.shimoda.uh@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <5398D658.2090100@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Wed, 11 Jun 2014 14:33:08 +0100
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Thu, 12 Jun 2014 02:21:12 +0400
 
-> From: Jon Cooper <jcooper@solarflare.com>
+> Hello.
 > 
-> Fixes:ee45fd92c739
-> ("sfc: Use TX PIO for sufficiently small packets")
+> On 06/12/2014 02:15 AM, David Miller wrote:
 > 
-> The linux net driver uses memcpy_toio() in order to copy into
-> the PIO buffers.
-> Even on a 64bit machine this causes 32bit accesses to a write-
-> combined memory region.
-> There are hardware limitations that mean that only 64bit
-> naturally aligned accesses are safe in all cases.
-> Due to being write-combined memory region two 32bit accesses
-> may be coalesced to form a 64bit non 64bit aligned access.
-> Solution was to open-code the memory copy routines using pointers
-> and to only enable PIO for x86_64 machines.
+>>> I used the latest net.git repository.
+>>>   commit id = 87757a917b0b3c0787e0563c679762152be81312
+>>>   (net: force a list_del() in unregister_netdevice_many())
 > 
-> Not tested on platforms other than x86_64 because this patch
-> disables the PIO feature on other platforms.
-> Compile-tested on x86 to ensure that works.
+>>> I tested these patches on r8a7790.
 > 
-> The WARN_ON_ONCE() code in the previous version of this patch
-> has been moved into the internal sfc debug driver as the
-> assertion was unnecessary in the upstream kernel code.
+>>> Changes from v1:
+>>>   - Remove unnecessary parens in patch 1.
 > 
-> This bug fix applies to v3.13 and v3.14 stable branches.
+>> Applied, thanks.
 > 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+>    Eh, haven't had time to look at these patches in detail... :-/
 
-Applied and queued up for -stable, thanks.
+Sorry, we can do follow-up changes or a flat-out revert if you want.
