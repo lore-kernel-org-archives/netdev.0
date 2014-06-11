@@ -1,61 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: Fix a bug in ethtool for FD drop packet filter action
-Date: Wed, 11 Jun 2014 09:33:22 -0700
-Message-ID: <1402504404-8954-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] i40e/i40evf: Bump i40e to version 0.4.10 and i40evf to 0.9.34
+Date: Wed, 11 Jun 2014 09:33:24 -0700
+Message-ID: <1402504404-8954-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55587 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55591 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932460AbaFKQdf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932689AbaFKQdf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 11 Jun 2014 12:33:35 -0400
 In-Reply-To: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-A drop action comes down as a ring_cookie value, so allow it as
-a special value that can be used to configure destination control.
+Bump versions.
 
-Also fix the output to filter read command accordingly.
-
-Change-ID: I9956723cee42f3194885403317dd21ed4a151144
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Ic4a84354955061ca18321b1e97c9c30fe1563b5c
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index e330166..4a488ff 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1259,7 +1259,11 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
- 	fsp->h_u.tcp_ip4_spec.pdst = rule->src_port;
- 	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip[0];
- 	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip[0];
--	fsp->ring_cookie = rule->q_index;
-+
-+	if (rule->dest_ctl == I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET)
-+		fsp->ring_cookie = RX_CLS_FLOW_DISC;
-+	else
-+		fsp->ring_cookie = rule->q_index;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 06e0a52..a84ddaf 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -39,7 +39,7 @@ static const char i40e_driver_string[] =
  
- 	return 0;
- }
-@@ -1563,7 +1567,8 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 		return -EINVAL;
- 	}
+ #define DRV_VERSION_MAJOR 0
+ #define DRV_VERSION_MINOR 4
+-#define DRV_VERSION_BUILD 7
++#define DRV_VERSION_BUILD 10
+ #define DRV_VERSION __stringify(DRV_VERSION_MAJOR) "." \
+ 	     __stringify(DRV_VERSION_MINOR) "." \
+ 	     __stringify(DRV_VERSION_BUILD)    DRV_KERN
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 12aff07..7fc5f3b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -36,7 +36,7 @@ char i40evf_driver_name[] = "i40evf";
+ static const char i40evf_driver_string[] =
+ 	"Intel(R) XL710 X710 Virtual Function Network Driver";
  
--	if (fsp->ring_cookie >= vsi->num_queue_pairs)
-+	if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
-+	    (fsp->ring_cookie >= vsi->num_queue_pairs))
- 		return -EINVAL;
- 
- 	input = kzalloc(sizeof(*input), GFP_KERNEL);
+-#define DRV_VERSION "0.9.31"
++#define DRV_VERSION "0.9.34"
+ const char i40evf_driver_version[] = DRV_VERSION;
+ static const char i40evf_copyright[] =
+ 	"Copyright (c) 2013 - 2014 Intel Corporation.";
 -- 
 1.9.3
