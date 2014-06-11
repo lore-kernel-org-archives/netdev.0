@@ -1,69 +1,147 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: missing icmp redirects
-Date: Wed, 11 Jun 2014 19:04:25 +0400
-Message-ID: <20140611190425.6f5075756e726b743ed3f53c@qrator.net>
-References: <5343FE4D.40805@computer.org>
-	<DUB123-W19EE656C7ECB42B9D05319ED6B0@phx.gbl>
-	<53974A0F.7080908@computer.org>
-	<20140611000613.3fb3c563523b73244d90dc44@qrator.net>
-	<539802FA.3040207@computer.org>
+From: Aleksander Morgado <aleksander@aleksander.es>
+Subject: Re: cdc-wdm: unable to connect after suspend
+Date: Wed, 11 Jun 2014 17:05:03 +0200
+Message-ID: <CAAP7ucJ+3wM9wWYSXOBbfAY3zTt1q3TA1h5MWq=XUUqDPqWf=g@mail.gmail.com>
+References: <ln6m4k$q49$1@ger.gmane.org>
+	<874mzt55kz.fsf@nemi.mork.no>
+	<53971171.5070001@flokli.de>
+	<539712BA.5010004@flokli.de>
+	<87lht350y0.fsf@nemi.mork.no>
+	<53982AA7.3090508@flokli.de>
+	<CAAP7ucKXPt=Ya3+mfVJ8rEjEkKabFrK0Z4Khaw7U6k-vUuU_Eg@mail.gmail.com>
+	<53983C1B.5090805@flokli.de>
+	<87y4x33bnw.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lukas Tribus <luky-37@hotmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Per Jessen <per@computer.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Klink <flokli@flokli.de>, netdev@vger.kernel.org,
+	"ModemManager (development)"
+	<modemmanager-devel@lists.freedesktop.org>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:46830 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755302AbaFKPEa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 11:04:30 -0400
-Received: by mail-lb0-f181.google.com with SMTP id q8so4936560lbi.12
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 08:04:28 -0700 (PDT)
-In-Reply-To: <539802FA.3040207@computer.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:62303 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932194AbaFKPFE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 11:05:04 -0400
+Received: by mail-ob0-f170.google.com with SMTP id uz6so4527152obc.1
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 08:05:04 -0700 (PDT)
+In-Reply-To: <87y4x33bnw.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jun 2014 09:19:22 +0200
-Per Jessen <per@computer.org> wrote:
+On Wed, Jun 11, 2014 at 1:53 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+> ModemManager[1861]: <info>  [1402484754.484416] [mm-iface-modem-3gpp.=
+c:1167] update_registration_state(): Modem /org/freedesktop/ModemManage=
+r1/Modem/0: 3GPP Registration state changed (home -> idle)
+> ModemManager[1861]: <info>  [1402484754.484496] [mm-iface-modem-locat=
+ion.c:293] notify_3gpp_location_update(): Modem /org/freedesktop/ModemM=
+anager1/Modem/0: 3GPP location updated (MCC: '0', MNC: '0', Location ar=
+ea code: '0', Cell ID: '0')
+> ModemManager[1861]: <debug> [1402484754.484540] [mm-bearer.c:261] mod=
+em_3gpp_registration_state_changed(): Bearer not allowed to connect, no=
+t registered in 3GPP network
+> ModemManager[1861]: <info>  [1402484754.484570] [mm-iface-modem.c:894=
+] mm_iface_modem_update_access_technologies(): Modem /org/freedesktop/M=
+odemManager1/Modem/0: access technology changed (umts, hsdpa, hsupa -> =
+unknown)
+> NetworkManager[1862]: <warn> (cdc-wdm1) failed to connect modem: Netw=
+ork timeout
+> NetworkManager[1862]: <info> (cdc-wdm1): device state change: prepare=
+ -> failed (reason 'gsm-registration-timeout') [40 120 32]
+> NetworkManager[1862]: <info> NetworkManager state is now DISCONNECTED
+> NetworkManager[1862]: <debug> [1402484754.485784] [nm-manager.c:4165]=
+ policy_activating_device_changed(): ActivatingConnection now (none)
+> NetworkManager[1862]: <warn> Activation (cdc-wdm1) failed for connect=
+ion 'FONIC Vorgabe'
+> NetworkManager[1862]: <debug> [1402484754.485885] [nm-device.c:5261] =
+nm_device_queue_state(): (cdc-wdm1): queued state change to disconnecte=
+d (id 431)
+> NetworkManager[1862]: <debug> [1402484754.486259] [nm-device.c:5219] =
+queued_set_state(): (cdc-wdm1): running queued state change to disconne=
+cted (id 431)
+> NetworkManager[1862]: <info> (cdc-wdm1): device state change: failed =
+-> disconnected (reason 'none') [120 30 0]
+> NetworkManager[1862]: <info> (cdc-wdm1): deactivating device (reason =
+'none') [0]
+> NetworkManager[1862]: <debug> [1402484754.486360] [nm-firewall-manage=
+r.c:166] nm_firewall_manager_remove_from_zone(): (cdc-wdm1) firewall zo=
+ne remove skipped (not running)
+> NetworkManager[1862]: <debug> [1402484754.486649] [nm-dns-manager.c:9=
+95] nm_dns_manager_begin_updates(): (update_routing_and_dns): queueing =
+DNS updates (1)
+> NetworkManager[1862]: <debug> [1402484754.486718] [nm-dns-manager.c:1=
+013] nm_dns_manager_end_updates(): (nm_dns_manager_end_updates): DNS co=
+nfiguration did not change
+> NetworkManager[1862]: <debug> [1402484754.486745] [nm-dns-manager.c:1=
+017] nm_dns_manager_end_updates(): (update_routing_and_dns): no DNS cha=
+nges to commit (0)
+>
+>
+>
+> But there are no MBIM messages explaining why MM sets the state to
+> 'idle'.  Is this because of the missing reply, Alexander?  Why don't =
+we
+> just trust the (more current) result from the indication?  We do know
+> that the modem is registered to the home network here, or?
 
-> Dmitry Popov wrote:
-> > On Tue, 10 Jun 2014 20:10:23 +0200
-> > Per Jessen <per@computer.org> wrote:
-> > 
-> >> Lukas Tribus wrote:
-> >>>> See complete description here:
-> >>>>
-> >>>> https://bugzilla.kernel.org/show_bug.cgi?id=72561
-> >>>>
-> >>>> Summary - some ICMP redirects seem to be missing.
-> >>>>
-> > It's probably not a bug, but intended behavior. See ip_rt_send_redirect in 
-> > net/ipv4/route.c. The kernel has a built-in per-source-address limiter for icmp
-> > redirects. 
-> Any possibility that this limiter may have been inactive/faulty in e.g. 2.6.34? 
+Gah....
 
-Hi!
+Yeah, that's the thing:
 
-This limiter worked per-destination-address before kernel v3.6. More precisely,
-commit 1d861aa4b3(inet: Minimize use of cached route inetpeer) changed that
-behavior. I don't know the reasons behind it (both approaches have pros and 
-cons), I think you should ask David if you're curious.
+static void
+register_in_network_context_failed (RegisterInNetworkContext *ctx,
+                                    GError *error)
+{
+    mm_iface_modem_3gpp_update_cs_registration_state (ctx->self,
+MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
+    mm_iface_modem_3gpp_update_ps_registration_state (ctx->self,
+MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
+    mm_iface_modem_3gpp_update_eps_registration_state (ctx->self,
+MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
+    mm_iface_modem_3gpp_update_access_technologies (ctx->self,
+MM_MODEM_ACCESS_TECHNOLOGY_UNKNOWN);
+    mm_iface_modem_3gpp_update_location (ctx->self, 0, 0);
 
-* upd: it's not a limiter for icmp redirects only, it is used for other icmp
-errors too. 
+    g_simple_async_result_take_error (ctx->result, error);
+}
 
-> > You can disable it for example with 
-> > echo -1 > /proc/sys/net/ipv4/route/redirect_silence
-> > Though I am not sure if it is ok in wild networks.
-> 
-> Okay, that worked on the first attempt.
-> Should I also be looking at the other redirect settings?
-> 
-> /proc/sys/net/ipv4/route/redirect_load
-> /proc/sys/net/ipv4/route/redirect_number
+Well, I guess we should try to detect the indication and if so, use it
+as 'reply' to the request we sent. Luckily both the indication and the
+response will have the same info:
 
-redirect_silence is enough, you can look at the algorithm (it's simple enough)
-in net/ipv4/route.c:ip_rt_send_redirect if you're curious how it works and what 
-those settings mean.
+    imbim_message_register_state_notification_parse (
+            notification,
+            NULL, /* nw_error */
+            &register_state,
+            NULL, /* register_mode */
+            &available_data_classes,
+            NULL, /* current_cellular_class */
+            &provider_id,
+            &provider_name,
+            NULL, /* roaming_text */
+            NULL, /* registration_flag */
+            NULL)
+
+        mbim_message_register_state_response_parse (
+            response,
+            NULL, /* nw_error */
+            &register_state,
+            NULL, /* register_mode */
+            &available_data_classes,
+            NULL, /* current_cellular_class */
+            &provider_id,
+            &provider_name,
+            NULL, /* roaming_text */
+            NULL, /* registration_flag */
+            NULL)
+
+Ugly hack, but I guess there's no other way to handle this firmware iss=
+ue?
+
+Another option would be to avoid moving the state to IDLE when
+registration check fails, but that's pretty generic in every flow for
+every modem, not sure if we should touch that.
+
+--=20
+Aleksander
+https://aleksander.es
