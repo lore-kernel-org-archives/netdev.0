@@ -1,57 +1,194 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/15] i40e/i40evf: remove FTYPE
-Date: Wed, 11 Jun 2014 09:33:20 -0700
-Message-ID: <1402504404-8954-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e/i40evf: User ether_addr_copy instead of memcpy
+Date: Wed, 11 Jun 2014 09:33:18 -0700
+Message-ID: <1402504404-8954-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55595 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55591 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932631AbaFKQdb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932616AbaFKQdb (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 11 Jun 2014 12:33:31 -0400
 In-Reply-To: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This change drops the FTYPE field from the Rx descriptor, to
-match the hardware implementation.
+Linux gives us a function to copy Ethernet MAC addresses, let's use it.
 
-Change-ID: I66d31d2b43861da45e8ace4fb03df033abe88bab
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I0c861900029ca5ea65a53ca39565852fb633f6fd
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 -
- drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 -
- 2 files changed, 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c         | 20 +++++++++-----------
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c  |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 13 ++++++-------
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c |  4 ++--
+ 4 files changed, 18 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 42bfb2a..bb5b055 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -663,7 +663,6 @@ enum i40e_rx_desc_ext_status_bits {
- 	I40E_RX_DESC_EXT_STATUS_L2TAG3P_SHIFT	= 1,
- 	I40E_RX_DESC_EXT_STATUS_FLEXBL_SHIFT	= 2, /* 2 BITS */
- 	I40E_RX_DESC_EXT_STATUS_FLEXBH_SHIFT	= 4, /* 2 BITS */
--	I40E_RX_DESC_EXT_STATUS_FTYPE_SHIFT	= 6, /* 3 BITS */
- 	I40E_RX_DESC_EXT_STATUS_FDLONGB_SHIFT	= 9,
- 	I40E_RX_DESC_EXT_STATUS_FCOELONGB_SHIFT	= 10,
- 	I40E_RX_DESC_EXT_STATUS_PELONGB_SHIFT	= 11,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 0a7914d..92fae73 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -663,7 +663,6 @@ enum i40e_rx_desc_ext_status_bits {
- 	I40E_RX_DESC_EXT_STATUS_L2TAG3P_SHIFT	= 1,
- 	I40E_RX_DESC_EXT_STATUS_FLEXBL_SHIFT	= 2, /* 2 BITS */
- 	I40E_RX_DESC_EXT_STATUS_FLEXBH_SHIFT	= 4, /* 2 BITS */
--	I40E_RX_DESC_EXT_STATUS_FTYPE_SHIFT	= 6, /* 3 BITS */
- 	I40E_RX_DESC_EXT_STATUS_FDLONGB_SHIFT	= 9,
- 	I40E_RX_DESC_EXT_STATUS_FCOELONGB_SHIFT	= 10,
- 	I40E_RX_DESC_EXT_STATUS_PELONGB_SHIFT	= 11,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 211684c..e3916d0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1202,7 +1202,7 @@ struct i40e_mac_filter *i40e_add_filter(struct i40e_vsi *vsi,
+ 		if (!f)
+ 			goto add_filter_out;
+ 
+-		memcpy(f->macaddr, macaddr, ETH_ALEN);
++		ether_addr_copy(f->macaddr, macaddr);
+ 		f->vlan = vlan;
+ 		f->changed = true;
+ 
+@@ -1326,7 +1326,7 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+ 			return -EADDRNOTAVAIL;
+ 		}
+ 
+-		memcpy(vsi->back->hw.mac.addr, addr->sa_data, netdev->addr_len);
++		ether_addr_copy(vsi->back->hw.mac.addr, addr->sa_data);
+ 	}
+ 
+ 	/* In order to be sure to not drop any packets, add the new address
+@@ -1340,7 +1340,7 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+ 	i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY, false, false);
+ 	i40e_sync_vsi_filters(vsi);
+ 
+-	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
++	ether_addr_copy(netdev->dev_addr, addr->sa_data);
+ 
+ 	return 0;
+ }
+@@ -1597,8 +1597,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 			cmd_flags = 0;
+ 
+ 			/* add to delete list */
+-			memcpy(del_list[num_del].mac_addr,
+-			       f->macaddr, ETH_ALEN);
++			ether_addr_copy(del_list[num_del].mac_addr, f->macaddr);
+ 			del_list[num_del].vlan_tag =
+ 				cpu_to_le16((u16)(f->vlan ==
+ 					    I40E_VLAN_ANY ? 0 : f->vlan));
+@@ -1663,8 +1662,7 @@ int i40e_sync_vsi_filters(struct i40e_vsi *vsi)
+ 			cmd_flags = 0;
+ 
+ 			/* add to add array */
+-			memcpy(add_list[num_add].mac_addr,
+-			       f->macaddr, ETH_ALEN);
++			ether_addr_copy(add_list[num_add].mac_addr, f->macaddr);
+ 			add_list[num_add].vlan_tag =
+ 				cpu_to_le16(
+ 				 (u16)(f->vlan == I40E_VLAN_ANY ? 0 : f->vlan));
+@@ -7003,7 +7001,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 
+ 	if (vsi->type == I40E_VSI_MAIN) {
+ 		SET_NETDEV_DEV(netdev, &pf->pdev->dev);
+-		memcpy(mac_addr, hw->mac.perm_addr, ETH_ALEN);
++		ether_addr_copy(mac_addr, hw->mac.perm_addr);
+ 		/* The following two steps are necessary to prevent reception
+ 		 * of tagged packets - by default the NVM loads a MAC-VLAN
+ 		 * filter that will accept any tagged packet.  This is to
+@@ -7021,8 +7019,8 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 	}
+ 	i40e_add_filter(vsi, brdcast, I40E_VLAN_ANY, false, false);
+ 
+-	memcpy(netdev->dev_addr, mac_addr, ETH_ALEN);
+-	memcpy(netdev->perm_addr, mac_addr, ETH_ALEN);
++	ether_addr_copy(netdev->dev_addr, mac_addr);
++	ether_addr_copy(netdev->perm_addr, mac_addr);
+ 	/* vlan gets same features (except vlan offload)
+ 	 * after any tweaks for specific VSI types
+ 	 */
+@@ -8524,7 +8522,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_mac_addr;
+ 	}
+ 	dev_info(&pdev->dev, "MAC address: %pM\n", hw->mac.addr);
+-	memcpy(hw->mac.perm_addr, hw->mac.addr, ETH_ALEN);
++	ether_addr_copy(hw->mac.perm_addr, hw->mac.addr);
+ 
+ 	pci_set_drvdata(pdev, pf);
+ 	pci_save_state(pdev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index d9d0456..f5b9d20 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2075,7 +2075,7 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ 		ret = -EIO;
+ 		goto error_param;
+ 	}
+-	memcpy(vf->default_lan_addr.addr, mac, ETH_ALEN);
++	ether_addr_copy(vf->default_lan_addr.addr, mac);
+ 	vf->pf_set_mac = true;
+ 	dev_info(&pf->pdev->dev, "Reload the VF driver to make this change effective.\n");
+ 	ret = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index f454b58..8f681caed 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -772,7 +772,7 @@ i40evf_mac_filter *i40evf_add_filter(struct i40evf_adapter *adapter,
+ 			return NULL;
+ 		}
+ 
+-		memcpy(f->macaddr, macaddr, ETH_ALEN);
++		ether_addr_copy(f->macaddr, macaddr);
+ 
+ 		list_add(&f->list, &adapter->mac_filter_list);
+ 		f->add = true;
+@@ -805,9 +805,8 @@ static int i40evf_set_mac(struct net_device *netdev, void *p)
+ 
+ 	f = i40evf_add_filter(adapter, addr->sa_data);
+ 	if (f) {
+-		memcpy(hw->mac.addr, addr->sa_data, netdev->addr_len);
+-		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
+-		       netdev->addr_len);
++		ether_addr_copy(hw->mac.addr, addr->sa_data);
++		ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
+ 	}
+ 
+ 	return (f == NULL) ? -ENOMEM : 0;
+@@ -2059,8 +2058,8 @@ static void i40evf_init_task(struct work_struct *work)
+ 			 adapter->hw.mac.addr);
+ 		random_ether_addr(adapter->hw.mac.addr);
+ 	}
+-	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
++	ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
++	ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
+ 
+ 	INIT_LIST_HEAD(&adapter->mac_filter_list);
+ 	INIT_LIST_HEAD(&adapter->vlan_filter_list);
+@@ -2068,7 +2067,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 	if (NULL == f)
+ 		goto err_sw_init;
+ 
+-	memcpy(f->macaddr, adapter->hw.mac.addr, ETH_ALEN);
++	ether_addr_copy(f->macaddr, adapter->hw.mac.addr);
+ 	f->add = true;
+ 	adapter->aq_required |= I40EVF_FLAG_AQ_ADD_MAC_FILTER;
+ 
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 6d76f29..2dc0bac 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -407,7 +407,7 @@ void i40evf_add_ether_addrs(struct i40evf_adapter *adapter)
+ 	veal->num_elements = count;
+ 	list_for_each_entry(f, &adapter->mac_filter_list, list) {
+ 		if (f->add) {
+-			memcpy(veal->list[i].addr, f->macaddr, ETH_ALEN);
++			ether_addr_copy(veal->list[i].addr, f->macaddr);
+ 			i++;
+ 			f->add = false;
+ 		}
+@@ -468,7 +468,7 @@ void i40evf_del_ether_addrs(struct i40evf_adapter *adapter)
+ 	veal->num_elements = count;
+ 	list_for_each_entry_safe(f, ftmp, &adapter->mac_filter_list, list) {
+ 		if (f->remove) {
+-			memcpy(veal->list[i].addr, f->macaddr, ETH_ALEN);
++			ether_addr_copy(veal->list[i].addr, f->macaddr);
+ 			i++;
+ 			list_del(&f->list);
+ 			kfree(f);
 -- 
 1.9.3
