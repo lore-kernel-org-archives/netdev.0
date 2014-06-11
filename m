@@ -1,176 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] i40e/i40evf: Add Flow director stats to PF stats
-Date: Wed, 11 Jun 2014 09:33:21 -0700
-Message-ID: <1402504404-8954-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] i40e: Fix a bug in ethtool for FD drop packet filter action
+Date: Wed, 11 Jun 2014 09:33:22 -0700
+Message-ID: <1402504404-8954-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55591 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55587 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932642AbaFKQdc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 12:33:32 -0400
+	id S932460AbaFKQdf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 12:33:35 -0400
 In-Reply-To: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Add members to stat struct to keep track of Flow director ATR and
-SideBand filter packet matches.
+A drop action comes down as a ring_cookie value, so allow it as
+a special value that can be used to configure destination control.
 
-Change-ID: Ibbb31a53c7adcc2bb96991dd80565442a2f2513c
+Also fix the output to filter read command accordingly.
+
+Change-ID: I9956723cee42f3194885403317dd21ed4a151144
 Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         | 13 +++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  5 ++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 12 ++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  7 ++++++-
- drivers/net/ethernet/intel/i40e/i40e_type.h    |  3 +++
- drivers/net/ethernet/intel/i40evf/i40e_type.h  |  3 +++
- 6 files changed, 41 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 5a8bbaa..6598584 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -154,6 +154,17 @@ struct i40e_lump_tracking {
- #define I40E_FDIR_BUFFER_FULL_MARGIN	10
- #define I40E_FDIR_BUFFER_HEAD_ROOM	200
- 
-+enum i40e_fd_stat_idx {
-+	I40E_FD_STAT_ATR,
-+	I40E_FD_STAT_SB,
-+	I40E_FD_STAT_PF_COUNT
-+};
-+#define I40E_FD_STAT_PF_IDX(pf_id) ((pf_id) * I40E_FD_STAT_PF_COUNT)
-+#define I40E_FD_ATR_STAT_IDX(pf_id) \
-+			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_ATR)
-+#define I40E_FD_SB_STAT_IDX(pf_id)  \
-+			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_SB)
-+
- struct i40e_fdir_filter {
- 	struct hlist_node fdir_node;
- 	/* filter ipnut set */
-@@ -223,6 +234,8 @@ struct i40e_pf {
- 
- 	struct hlist_head fdir_filter_list;
- 	u16 fdir_pf_active_filters;
-+	u16 fd_sb_cnt_idx;
-+	u16 fd_atr_cnt_idx;
- 
- #ifdef CONFIG_I40E_VXLAN
- 	__be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c771863..e330166 100644
+index e330166..4a488ff 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -145,6 +145,9 @@ static struct i40e_stats i40e_gstrings_stats[] = {
- 	I40E_PF_STAT("rx_jabber", stats.rx_jabber),
- 	I40E_PF_STAT("VF_admin_queue_requests", vf_aq_requests),
- 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
-+	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
-+	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
+@@ -1259,7 +1259,11 @@ static int i40e_get_ethtool_fdir_entry(struct i40e_pf *pf,
+ 	fsp->h_u.tcp_ip4_spec.pdst = rule->src_port;
+ 	fsp->h_u.tcp_ip4_spec.ip4src = rule->dst_ip[0];
+ 	fsp->h_u.tcp_ip4_spec.ip4dst = rule->src_ip[0];
+-	fsp->ring_cookie = rule->q_index;
 +
- 	/* LPI stats */
- 	I40E_PF_STAT("tx_lpi_status", stats.tx_lpi_status),
- 	I40E_PF_STAT("rx_lpi_status", stats.rx_lpi_status),
-@@ -1581,7 +1584,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
- 	input->pctype = 0;
- 	input->dest_vsi = vsi->id;
- 	input->fd_status = I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID;
--	input->cnt_index = 0;
-+	input->cnt_index  = pf->fd_sb_cnt_idx;
- 	input->flow_type = fsp->flow_type;
- 	input->ip4_proto = fsp->h_u.usr_ip4_spec.proto;
++	if (rule->dest_ctl == I40E_FILTER_PROGRAM_DESC_DEST_DROP_PACKET)
++		fsp->ring_cookie = RX_CLS_FLOW_DISC;
++	else
++		fsp->ring_cookie = rule->q_index;
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e3916d0..06e0a52 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1013,6 +1013,14 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
- 			   pf->stat_offsets_loaded,
- 			   &osd->rx_jabber, &nsd->rx_jabber);
- 
-+	/* FDIR stats */
-+	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_atr_cnt_idx),
-+			   pf->stat_offsets_loaded,
-+			   &osd->fd_atr_match, &nsd->fd_atr_match);
-+	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_sb_cnt_idx),
-+			   pf->stat_offsets_loaded,
-+			   &osd->fd_sb_match, &nsd->fd_sb_match);
-+
- 	val = rd32(hw, I40E_PRTPM_EEE_STAT);
- 	nsd->tx_lpi_status =
- 		       (val & I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_MASK) >>
-@@ -6604,8 +6612,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	    (pf->hw.func_caps.fd_filters_best_effort > 0)) {
- 		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
- 		pf->atr_sample_rate = I40E_DEFAULT_ATR_SAMPLE_RATE;
-+		/* Setup a counter for fd_atr per pf */
-+		pf->fd_atr_cnt_idx = I40E_FD_ATR_STAT_IDX(pf->hw.pf_id);
- 		if (!(pf->flags & I40E_FLAG_MFP_ENABLED)) {
- 			pf->flags |= I40E_FLAG_FD_SB_ENABLED;
-+			/* Setup a counter for fd_sb per pf */
-+			pf->fd_sb_cnt_idx = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
- 		} else {
- 			dev_info(&pf->pdev->dev,
- 				 "Flow Director Sideband mode Disabled in MFP mode\n");
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index d84f427..e49f31d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -121,7 +121,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
- 		dcc |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
- 		dcc |= ((u32)fdir_data->cnt_index <<
- 			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
--		       I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
-+			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
+ 	return 0;
+ }
+@@ -1563,7 +1567,8 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 		return -EINVAL;
  	}
  
- 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
-@@ -1695,6 +1695,11 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	dtype_cmd |= I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID <<
- 		     I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT;
+-	if (fsp->ring_cookie >= vsi->num_queue_pairs)
++	if ((fsp->ring_cookie != RX_CLS_FLOW_DISC) &&
++	    (fsp->ring_cookie >= vsi->num_queue_pairs))
+ 		return -EINVAL;
  
-+	dtype_cmd |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
-+	dtype_cmd |=
-+		((u32)pf->fd_atr_cnt_idx << I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
-+		I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
-+
- 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
- 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
- }
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index bb5b055..9d39ff2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1023,6 +1023,9 @@ struct i40e_hw_port_stats {
- 	u64 tx_size_big;		/* ptc9522 */
- 	u64 mac_short_packet_dropped;	/* mspdc */
- 	u64 checksum_error;		/* xec */
-+	/* flow director stats */
-+	u64 fd_atr_match;
-+	u64 fd_sb_match;
- 	/* EEE LPI */
- 	u32 tx_lpi_status;
- 	u32 rx_lpi_status;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 92fae73..d3cf5a6 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -1023,6 +1023,9 @@ struct i40e_hw_port_stats {
- 	u64 tx_size_big;		/* ptc9522 */
- 	u64 mac_short_packet_dropped;	/* mspdc */
- 	u64 checksum_error;		/* xec */
-+	/* flow director stats */
-+	u64 fd_atr_match;
-+	u64 fd_sb_match;
- 	/* EEE LPI */
- 	u32 tx_lpi_status;
- 	u32 rx_lpi_status;
+ 	input = kzalloc(sizeof(*input), GFP_KERNEL);
 -- 
 1.9.3
