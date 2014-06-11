@@ -1,42 +1,69 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v2 net-next 5/5] net: sctp: fix incorrect type in gfp initializer
-Date: Wed, 11 Jun 2014 17:03:23 +0200
-Message-ID: <1402499003-29355-6-git-send-email-dborkman@redhat.com>
-References: <1402499003-29355-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: missing icmp redirects
+Date: Wed, 11 Jun 2014 19:04:25 +0400
+Message-ID: <20140611190425.6f5075756e726b743ed3f53c@qrator.net>
+References: <5343FE4D.40805@computer.org>
+	<DUB123-W19EE656C7ECB42B9D05319ED6B0@phx.gbl>
+	<53974A0F.7080908@computer.org>
+	<20140611000613.3fb3c563523b73244d90dc44@qrator.net>
+	<539802FA.3040207@computer.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lukas Tribus <luky-37@hotmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Per Jessen <per@computer.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37359 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932533AbaFKPDj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 11:03:39 -0400
-In-Reply-To: <1402499003-29355-1-git-send-email-dborkman@redhat.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:46830 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755302AbaFKPEa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 11:04:30 -0400
+Received: by mail-lb0-f181.google.com with SMTP id q8so4936560lbi.12
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 08:04:28 -0700 (PDT)
+In-Reply-To: <539802FA.3040207@computer.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes the following sparse warning:
+On Wed, 11 Jun 2014 09:19:22 +0200
+Per Jessen <per@computer.org> wrote:
 
-  net/sctp/associola.c:1556:29: warning: incorrect type in initializer (different base types)
-  net/sctp/associola.c:1556:29:    expected bool [unsigned] [usertype] preload
-  net/sctp/associola.c:1556:29:    got restricted gfp_t
+> Dmitry Popov wrote:
+> > On Tue, 10 Jun 2014 20:10:23 +0200
+> > Per Jessen <per@computer.org> wrote:
+> > 
+> >> Lukas Tribus wrote:
+> >>>> See complete description here:
+> >>>>
+> >>>> https://bugzilla.kernel.org/show_bug.cgi?id=72561
+> >>>>
+> >>>> Summary - some ICMP redirects seem to be missing.
+> >>>>
+> > It's probably not a bug, but intended behavior. See ip_rt_send_redirect in 
+> > net/ipv4/route.c. The kernel has a built-in per-source-address limiter for icmp
+> > redirects. 
+> Any possibility that this limiter may have been inactive/faulty in e.g. 2.6.34? 
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/associola.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi!
 
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 58bbb73..9e0509c 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1591,7 +1591,7 @@ int sctp_assoc_lookup_laddr(struct sctp_association *asoc,
- /* Set an association id for a given association */
- int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
- {
--	bool preload = gfp & __GFP_WAIT;
-+	bool preload = !!(gfp & __GFP_WAIT);
- 	int ret;
- 
- 	/* If the id is already assigned, keep it. */
--- 
-1.7.11.7
+This limiter worked per-destination-address before kernel v3.6. More precisely,
+commit 1d861aa4b3(inet: Minimize use of cached route inetpeer) changed that
+behavior. I don't know the reasons behind it (both approaches have pros and 
+cons), I think you should ask David if you're curious.
+
+* upd: it's not a limiter for icmp redirects only, it is used for other icmp
+errors too. 
+
+> > You can disable it for example with 
+> > echo -1 > /proc/sys/net/ipv4/route/redirect_silence
+> > Though I am not sure if it is ok in wild networks.
+> 
+> Okay, that worked on the first attempt.
+> Should I also be looking at the other redirect settings?
+> 
+> /proc/sys/net/ipv4/route/redirect_load
+> /proc/sys/net/ipv4/route/redirect_number
+
+redirect_silence is enough, you can look at the algorithm (it's simple enough)
+in net/ipv4/route.c:ip_rt_send_redirect if you're curious how it works and what 
+those settings mean.
