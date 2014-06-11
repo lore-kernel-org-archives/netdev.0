@@ -1,39 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
-Date: Wed, 11 Jun 2014 15:37:33 -0700 (PDT)
-Message-ID: <20140611.153733.758226399072849408.davem@davemloft.net>
-References: <539653E4.9080808@renesas.com>
-	<20140611.151555.814836065790733997.davem@davemloft.net>
-	<5398D658.2090100@cogentembedded.com>
+Subject: Re: [PATCH net-next v5] net: add __pskb_copy_fclone and
+ pskb_copy_for_clone
+Date: Wed, 11 Jun 2014 15:38:23 -0700 (PDT)
+Message-ID: <20140611.153823.1721612284882638761.davem@davemloft.net>
+References: <1402526186-18619-1-git-send-email-octavian.purdila@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshihiro.shimoda.uh@renesas.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <5398D658.2090100@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, christoph.paasch@uclouvain.be,
+	alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	antonio@meshcoding.com, marcel@holtmann.org, gustavo@padovan.org,
+	johan.hedberg@gmail.com, arvid.brodin@alten.se, kaber@trash.net,
+	pablo@netfilter.org, kadlec@blackhole.kfki.hu,
+	lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+	sameo@linux.intel.com, jon.maloy@ericsson.com,
+	allan.stephens@windriver.com, andrew.hendry@gmail.com,
+	edumazet@google.com
+To: octavian.purdila@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47702 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752704AbaFKWiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:38:24 -0400
+In-Reply-To: <1402526186-18619-1-git-send-email-octavian.purdila@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 12 Jun 2014 02:21:12 +0400
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Thu, 12 Jun 2014 01:36:26 +0300
 
-> Hello.
+> There are several instances where a pskb_copy or __pskb_copy is
+> immediately followed by an skb_clone.
 > 
-> On 06/12/2014 02:15 AM, David Miller wrote:
+> Add a couple of new functions to allow the copy skb to be allocated
+> from the fclone cache and thus speed up subsequent skb_clone calls.
+ ...
+> Reviewed-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+> ---
 > 
->>> I used the latest net.git repository.
->>>   commit id = 87757a917b0b3c0787e0563c679762152be81312
->>>   (net: force a list_del() in unregister_netdevice_many())
+> Changes since v4:
+>  * Oops, as Dave noticed, there is no need to rewrite pskb_copy()
 > 
->>> I tested these patches on r8a7790.
+> Changes since v3:
+>  * As suggested by David and Dave add new functions to keep the
+>    existing signatures unchanged and avoid unnecessary changes  
 > 
->>> Changes from v1:
->>>   - Remove unnecessary parens in patch 1.
+> Changes since v2:
+>  * As suggested by Dave, use a bool instead of directly exposing the
+>    internal allocation flags
 > 
->> Applied, thanks.
-> 
->    Eh, haven't had time to look at these patches in detail... :-/
+> Changes since v1:
+>  * add new parameter to pskb_copy as well, as suggested by Christoph
 
-Sorry, we can do follow-up changes or a flat-out revert if you want.
+Applied to net-next, thanks a lot.
