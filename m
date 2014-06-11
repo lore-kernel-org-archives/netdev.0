@@ -1,71 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Tue, 10 Jun 2014 22:54:50 -0700
-Message-ID: <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	  <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <alpine.DEB.2.02.1406101726390.11647@dtop>
-	  <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.10.1406102114520.28698@dinf>
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: [PATCH net-next 3/4] bridge: Consider the Nearest
+ Customer Bridge group addresses
+Date: Wed, 11 Jun 2014 15:12:01 +0900
+Message-ID: <5397F331.5020608@lab.ntt.co.jp>
+References: <1402313687-28067-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>	<1402313687-28067-4-git-send-email-makita.toshiaki@lab.ntt.co.jp>	<20140609085243.32f88582@nehalam.linuxnetplumber.net>	<1402332351.1742.16.camel@localhost.localdomain>	<5396363E.2020501@redhat.com>	<5396AE23.80808@lab.ntt.co.jp>
+	<20140610092127.5b4f528f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: dormando <dormando@rydia.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:63037 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaFKFyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 01:54:51 -0400
-Received: by mail-pb0-f47.google.com with SMTP id un15so1652625pbc.6
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 22:54:51 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.10.1406102114520.28698@dinf>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>, bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140610092127.5b4f528f@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-06-10 at 21:16 -0700, dormando wrote:
+(2014/06/11 1:21), Stephen Hemminger wrote:
+> On Tue, 10 Jun 2014 16:05:07 +0900
+> Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp> wrote:
+> 
+>> (2014/06/10 7:33), Vlad Yasevich wrote:
+>> ...
+>>>>> Rather than special casing this around vlan filtering, I would prefer
+>>>>> the code always forward these packets, or manipulate group_fwd_mask
+>>>>> to allow it that way.
+>>>>
+>>>> These addresses must be forwarded only if the bridge is an S-VLAN
+>>>> bridge. When it is a C-VLAN bridge or a .1D bridge, they may not be
+>>>> forwarded. So, I don't think we can forward them always.
+>>>>
+>>>> Using group_fwd_mask is a bit complicated. If we use it to forward them,
+>>>> user can optionally turn off forwarding ability of those addresses...
+>>>> but we maybe need another information (named like group_fwd_mask_set)
+>>>> that indicates which bit is set by user. (We have to set group_fwd_mask
+>>>> automatically when we set vlan_proto to 88a8.)
+>>>> Is this way acceptable?
+>>>
+>>> May be separate it into required mask and user mask.  Set required
+>>> mask when this is an S-VLAN bridge.
+>>
+>> Sounds like a good idea.
+>> I'll give it a try, thank you for your suggestion.
+>>
+>> Thanks,
+>> Toshiaki Makita
+>>
+> 
+> Looking again at the code.
+> 
+> 1. If doing vlan then it should forward frames as defined in standard
+>    by default.
+> 
+> 2. For compatiability, and for those users doing bump-on-wire, allow
+>    forwarding via group mask.
+> 
 
-> Ran our udpkill util against 3.10.42 with both of your patches applied...
-> seems like it ran a bit longer than normally would with this test (15-20
-> minutes), then died:
+Thank you for reviewing. I sent v2 and I'm thinking it can satisfy these
+two.
 
-Well, could you try a recent kernel instead ?
-
-I can see some races and fixes are probably worth it.
-
-$ git log --oneline v3.10.42..v3.15 net/ipv4/route.c
-fbdc0ad ipv4: initialise the itag variable in __mkroute_input
-0d5edc6 ipv4, route: pass 0 instead of LOOPBACK_IFINDEX to fib_validate_source()
-aad8872 ipv4: add a sock pointer to dst->output() path.
-9114615 ipv4: return valid RTA_IIF on ip route get
-3ed66e9 net: replace __this_cpu_inc in route.c with raw_cpu_inc
-0b8c7f6 ipv4: remove ip_rt_dump from route.c
-4a4eb21 ipv4: remove ipv4_ifdown_dst from route.c
-1e8d642 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-a625486 ipv4: fix counter in_slow_tot
-cd0f0b9 ipv4: distinguish EHOSTUNREACH from the ENETUNREACH
-2045cea net: remove unnecessary return's
-f87c10a ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing
-dcdfdf5 ipv4: fix race in concurrent ip_route_input_slow()
-482fc60 ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE
-0baf2b3 ipv4: shrink rt_cache_stat
-0a7e226 ipv4: fix ineffective source address selection
-734d272 ipv4: raise IP_MAX_MTU to theoretical limit
-ca4c3fc net: split rt_genid for ipv4 and ipv6
-2ffae99 ipv4: use next hop exceptions also for input routes
-fe2c633 net: Convert uses of typedef ctl_table to struct ctl_table
-6bc19fb Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-5aad1de ipv4: use separate genid for next hop exceptions
-f016229 ipv4: rate limit updating of next hop exceptions with same pmtu
-387aa65 ipv4: properly refresh rtable entries on pmtu/redirect events
+Thanks,
+Toshiaki Makita
