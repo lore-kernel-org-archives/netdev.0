@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: xen-netback: include linux/vmalloc.h again
-Date: Wed, 11 Jun 2014 15:19:49 -0700 (PDT)
-Message-ID: <20140611.151949.426688931837568113.davem@davemloft.net>
-References: <5508988.K5Wec8A6hA@wuerfel>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
+Date: Thu, 12 Jun 2014 02:21:12 +0400
+Message-ID: <5398D658.2090100@cogentembedded.com>
+References: <539653E4.9080808@renesas.com> <20140611.151555.814836065790733997.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
-	andrew.bennieston@citrix.com, xen-devel@lists.xenproject.org,
-	jwboyer@fedoraproject.org
-To: arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47594 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbaFKWTu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:19:50 -0400
-In-Reply-To: <5508988.K5Wec8A6hA@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	yoshihiro.shimoda.uh@renesas.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20140611.151555.814836065790733997.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 10 Jun 2014 10:34:36 +0200
+Hello.
 
-> commit e9ce7cb6b107 ("xen-netback: Factor queue-specific data into
-> queue struct") added a use of vzalloc/vfree to interface.c, but
-> removed the #include <linux/vmalloc.h> statement at the same time,
-> which causes this build error:
-> 
-> drivers/net/xen-netback/interface.c: In function 'xenvif_free':
-> drivers/net/xen-netback/interface.c:754:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
->   vfree(vif->queues);
->   ^
-> cc1: some warnings being treated as errors
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+On 06/12/2014 02:15 AM, David Miller wrote:
 
-Applied to net-next, thanks.
+>> I used the latest net.git repository.
+>>   commit id = 87757a917b0b3c0787e0563c679762152be81312
+>>   (net: force a list_del() in unregister_netdevice_many())
+
+>> I tested these patches on r8a7790.
+
+>> Changes from v1:
+>>   - Remove unnecessary parens in patch 1.
+
+> Applied, thanks.
+
+    Eh, haven't had time to look at these patches in detail... :-/
+
+WBR, Sergei
+
