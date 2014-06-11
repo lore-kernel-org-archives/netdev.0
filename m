@@ -1,35 +1,32 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
-Date: Thu, 12 Jun 2014 02:21:12 +0400
-Message-ID: <5398D658.2090100@cogentembedded.com>
-References: <539653E4.9080808@renesas.com> <20140611.151555.814836065790733997.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 0/6] net: fec: Enable Software TSO to improve the tx
+ performance
+Date: Wed, 11 Jun 2014 15:21:35 -0700 (PDT)
+Message-ID: <20140611.152135.1360424517453827169.davem@davemloft.net>
+References: <1402392744-24368-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20140611.151555.814836065790733997.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ezequiel.garcia@free-electrons.com,
+	b20596@freescale.com, David.Laight@ACULAB.COM,
+	eric.dumazet@gmail.com
+To: b38611@freescale.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47598 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752184AbaFKWVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:21:36 -0400
+In-Reply-To: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Fugang Duan <b38611@freescale.com>
+Date: Tue, 10 Jun 2014 17:32:18 +0800
 
-On 06/12/2014 02:15 AM, David Miller wrote:
+> Add SG and software TSO support for FEC.
 
->> I used the latest net.git repository.
->>   commit id = 87757a917b0b3c0787e0563c679762152be81312
->>   (net: force a list_del() in unregister_netdevice_many())
+This series still needs changes and it's getting too late to make it
+into net-next, please resubmit this after your feedback has been
+addressed and I've reopenned net-next after this merge window.
 
->> I tested these patches on r8a7790.
-
->> Changes from v1:
->>   - Remove unnecessary parens in patch 1.
-
-> Applied, thanks.
-
-    Eh, haven't had time to look at these patches in detail... :-/
-
-WBR, Sergei
-
+Thank you.
