@@ -1,30 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: filter: add test_bpf module under
- MAINTAINERS' networking section
-Date: Wed, 11 Jun 2014 15:39:35 -0700 (PDT)
-Message-ID: <20140611.153935.1676441367477511584.davem@davemloft.net>
-References: <1402396270-9726-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Wed, 11 Jun 2014 15:39:54 -0700 (PDT)
+Message-ID: <20140611.153954.494439641088532676.davem@davemloft.net>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+	<1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@plumgrid.com
-To: dborkman@redhat.com
+Cc: preobr@google.com, dormando@rydia.net,
+	steffen.klassert@secunet.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, kcc@google.com, dvyukov@google.com,
+	larsbull@google.com, edumazet@google.com, brutus@google.com,
+	maze@google.com, alexei.starovoitov@gmail.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47713 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47718 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811AbaFKWjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:39:36 -0400
-In-Reply-To: <1402396270-9726-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1752184AbaFKWjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:39:55 -0400
+In-Reply-To: <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Tue, 10 Jun 2014 12:31:10 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 Jun 2014 06:43:01 -0700
 
-> Add lib/test_bpf.c entry to maintainers file under networking.
-> All changes were posted via netdev for review, so make sure
-> other people Cc it as well when they call get_maintainer.pl.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Alexey gave a AddressSanitizer[1] report that finally gave a good hint
+> at where was the origin of various problems already reported by Dormando
+> in the past [2]
+> 
+> Problem comes from the fact that UDP can have a lockless TX path, and
+> concurrent threads can manipulate sk_dst_cache, while another thread,
+> is holding socket lock and calls __sk_dst_set() in
+> ip4_datagram_release_cb() (this was added in linux-3.8)
+> 
+> It seems that all we need to do is to use sk_dst_check() and
+> sk_dst_set() so that all the writers hold same spinlock
+> (sk->sk_dst_lock) to prevent corruptions.
+> 
+> TCP stack do not need this protection, as all sk_dst_cache writers hold
+> the socket lock.
+> 
+> [1]
+> https://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel
+ ...
+> Reported-by: Alexey Preobrazhensky <preobr@google.com>
+> Reported-by: dormando <dormando@rydia.ne>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 8141ed9fcedb2 ("ipv4: Add a socket release callback for datagram sockets")
 
-Applied.
+Applied and queued up for -stable.
