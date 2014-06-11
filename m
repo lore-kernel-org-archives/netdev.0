@@ -1,46 +1,49 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] ndisc: use netdev_alloc_skb
-Date: Wed, 11 Jun 2014 11:31:09 -0700
-Message-ID: <20140611113109.4c104592@nehalam.linuxnetplumber.net>
+Subject: Re: ethtool patch to support bypass / fail-to-wire function
+Date: Wed, 11 Jun 2014 11:35:58 -0700
+Message-ID: <20140611113558.6d0c6296@nehalam.linuxnetplumber.net>
+References: <3BFAEADE799AF145974162DF00E013AF018F794DE5@exchange2010.silicom.local>
+	<1402322812.23860.76.camel@deadeye.wl.decadent.org.uk>
+	<3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
+	<20140611091757.78e1002d@nehalam.linuxnetplumber.net>
+	<3BFAEADE799AF145974162DF00E013AF018F79A137@exchange2010.silicom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Elad Blatt <eladb@silicom.co.il>
+To: David Hendel <david@silicom.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:41458 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752667AbaFKSbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 14:31:14 -0400
-Received: by mail-pb0-f49.google.com with SMTP id jt11so88639pbb.22
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 11:31:13 -0700 (PDT)
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:60674 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753293AbaFKSgC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 14:36:02 -0400
+Received: by mail-pd0-f175.google.com with SMTP id z10so91038pdj.20
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 11:36:01 -0700 (PDT)
+In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F79A137@exchange2010.silicom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 neighbor discovery should use netdev_alloc_skb which adds
-extra space for headroom. The old code would allocate packet w/o any
-additional headroom and force drivers to reallocate and copy the
-packet in some cases.
+On Wed, 11 Jun 2014 16:55:27 +0000
+David Hendel <david@silicom.co.il> wrote:
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Stephen,
+> OK, so what should be the next step? How do we move forward with that?
+> 
+> Regards, David
+> 
+> 
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org] 
+> Sent: Wednesday, June 11, 2014 7:18 PM
+> To: David Hendel
+> Cc: netdev@vger.kernel.org; Elad Blatt
+> Subject: Re: ethtool patch to support bypass / fail-to-wire function
+> 
+> The driver using this is not upstream. You need to get that driver reviewed and incorporated in upstream kernel before the changes to ethtool will be considered.
+> 
+> I expect that the driver will not be accepted as is, and therefore you will have to make changes (including API changes), that render this ethtool API moot.
+> 
+> 
 
-
---- a/net/ipv6/ndisc.c	2014-06-03 08:06:35.549942475 -0700
-+++ b/net/ipv6/ndisc.c	2014-06-11 08:54:31.729764741 -0700
-@@ -375,7 +375,7 @@ static struct sk_buff *ndisc_alloc_skb(s
- 	struct sock *sk = dev_net(dev)->ipv6.ndisc_sk;
- 	struct sk_buff *skb;
- 
--	skb = alloc_skb(hlen + sizeof(struct ipv6hdr) + len + tlen, GFP_ATOMIC);
-+	skb = netdev_alloc_skb(dev, hlen + sizeof(struct ipv6hdr) + len + tlen);
- 	if (!skb) {
- 		ND_PRINTK(0, err, "ndisc: %s failed to allocate an skb\n",
- 			  __func__);
-@@ -383,7 +383,6 @@ static struct sk_buff *ndisc_alloc_skb(s
- 	}
- 
- 	skb->protocol = htons(ETH_P_IPV6);
--	skb->dev = dev;
- 
- 	skb_reserve(skb, hlen + sizeof(struct ipv6hdr));
- 	skb_reset_transport_header(skb);
+Read kernel/Documentation/SubmittingPatches
