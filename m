@@ -1,59 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next 0/4] bridge: multicast snooping
- patches / exports
-Date: Tue, 10 Jun 2014 23:51:23 -0700 (PDT)
-Message-ID: <20140610.235123.310487202447168937.davem@davemloft.net>
-References: <1402158389-13239-1-git-send-email-linus.luessing@web.de>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] amd-xgbe: unwind on error in xgbe_mdio_register()
+Date: Wed, 11 Jun 2014 09:56:26 +0300
+Message-ID: <20140611065626.GC16443@mwanda>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: b.a.t.m.a.n@lists.open-mesh.org, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, stephen@networkplumber.org
-To: linus.luessing@web.de
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1402158389-13239-1-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Tom Lendacky <thomas.lendacky@amd.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:31597 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752775AbaFKG4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 02:56:51 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus L=FCssing <linus.luessing@web.de>
-Date: Sat,  7 Jun 2014 18:26:25 +0200
+There is a typo here so we return directly instead of unwinding.
 
-> The first patch is simply a cosmetic patch. So far I (and maybe other=
-s
-> too?) have been regularly confusing these two structs, therefore I'd
-> suggest renaming them and therefore making the follow-up patches easi=
-er
-> to understand and nicer to fit in.
-> =
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-> The second patch fixes a minor issue, but probably not worth for stab=
-le.
-> =
-
-> On the other hand the first two patches are also preparations for the=
-
-> third and fourth patch:
-> =
-
-> These two patches are exporting functionality needed to marry the bri=
-dge
-> multicast snooping with the batman-adv multicast optimizations recent=
-ly
-> added for the 3.15 kernel, allowing to use these optimzations in comm=
-on
-> setups having a bridge on top of e.g. bat0, too. So far these bridged=
-
-> setups would fall back to simple flooding through the batman-adv mesh=
-
-> network for any multicast packet entering bat0.
-
-Series applied, thank you.
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index 52bbdbf..ea7a5d6 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -367,7 +367,7 @@ int xgbe_mdio_register(struct xgbe_prv_data *pdata)
+ 
+ 	if (!phydev->drv || (phydev->drv->phy_id == 0)) {
+ 		netdev_err(netdev, "phy_id not valid\n");
+-		return -ENODEV;
++		ret = -ENODEV;
+ 		goto err_phy_connect;
+ 	}
+ 	DBGPR("  phy_connect_direct succeeded for PHY %s, link=%d\n",
