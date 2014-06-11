@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] net: sh_eth: Fix two issues in sh_eth_rx()
-Date: Wed, 11 Jun 2014 15:15:55 -0700 (PDT)
-Message-ID: <20140611.151555.814836065790733997.davem@davemloft.net>
-References: <539653E4.9080808@renesas.com>
+Subject: Re: [PATCH] net: phy: realtek: register/unregister multiple
+ drivers properly
+Date: Wed, 11 Jun 2014 15:17:50 -0700 (PDT)
+Message-ID: <20140611.151750.163707451871716166.davem@davemloft.net>
+References: <1402372212-19553-1-git-send-email-neidhard.kim@lge.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	sergei.shtylyov@cogentembedded.com
-To: yoshihiro.shimoda.uh@renesas.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <539653E4.9080808@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, r58129@freescale.com,
+	linux-kernel@vger.kernel.org
+To: neidhard.kim@lge.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402372212-19553-1-git-send-email-neidhard.kim@lge.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Date: Tue, 10 Jun 2014 09:40:04 +0900
+From: Jongsung Kim <neidhard.kim@lge.com>
+Date: Tue, 10 Jun 2014 12:50:12 +0900
 
-> I used the latest net.git repository.
->  commit id = 87757a917b0b3c0787e0563c679762152be81312
->  (net: force a list_del() in unregister_netdevice_many())
+> Using phy_drivers_register/_unregister functions is proper way to
+> handle multiple PHY drivers registration. For Realtek PHY drivers
+> module, it fixes incomplete current error-handlings up and adds
+> missed unregistration for the RTL8201CP driver.
 > 
-> I tested these patches on r8a7790.
-> 
-> Changes from v1:
->  - Remove unnecessary parens in patch 1.
+> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
 
-Applied, thanks.
+Applied, thank you.
