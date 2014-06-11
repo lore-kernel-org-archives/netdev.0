@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_vti: fix sparse warnings for VTI_ISVTI
-Date: Wed, 11 Jun 2014 15:41:02 -0700 (PDT)
-Message-ID: <20140611.154102.358172856037880938.davem@davemloft.net>
-References: <20140611150914.c3cb48bb8a1a760564f5db6e@qrator.net>
+Subject: Re: [PATCH net-next 0/3] qlcnic: Enhancement and optimization
+Date: Wed, 11 Jun 2014 15:45:04 -0700 (PDT)
+Message-ID: <20140611.154504.362237935946139180.davem@davemloft.net>
+References: <1402510153-9928-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org
-To: ixaphire@qrator.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140611150914.c3cb48bb8a1a760564f5db6e@qrator.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
+To: shahed.shaikh@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47779 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443AbaFKWpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:45:06 -0400
+In-Reply-To: <1402510153-9928-1-git-send-email-shahed.shaikh@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Popov <ixaphire@qrator.net>
-Date: Wed, 11 Jun 2014 15:09:14 +0400
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Wed, 11 Jun 2014 14:09:10 -0400
 
-> This patch fixes the following sparse warnings:
+> This series contains an enhancement in the area of firmware minidump collection
+> and optimization of ring count validation function.
 > 
-> net/ipv4/ip_tunnel.c:245:53: warning: restricted __be16 degrades to integer
-> net/ipv4/ip_vti.c:321:19: warning: incorrect type in assignment (different base types)
-> net/ipv4/ip_vti.c:321:19:    expected restricted __be16 [addressable] [assigned] [usertype] i_flags
-> net/ipv4/ip_vti.c:321:19:    got int
-> net/ipv4/ip_vti.c:447:24: warning: incorrect type in assignment (different base types)
-> net/ipv4/ip_vti.c:447:24:    expected restricted __be16 [usertype] i_flags
-> net/ipv4/ip_vti.c:447:24:    got int
-> 
-> Since VTI_ISVTI is always used with ip_tunnel_parm->i_flags (which is __be16),
-> we can __force cast VTI_ISVTI to __be16 in header file.
-> 
-> Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+> Please apply this series to net-next.
 
-Applied.
+Applied, thanks.
