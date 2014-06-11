@@ -1,81 +1,34 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: Re: [PATCH net-next v3] net: add skb allocation flags to pskb_copy
-Date: Wed, 11 Jun 2014 12:59:26 +0300
-Message-ID: <CAE1zotKXQwk89QLmc-PWMO69qgUgTVmbQTbc2EzbTXCF61tyXw@mail.gmail.com>
-References: <1402477954-1267-1-git-send-email-octavian.purdila@intel.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1725AC13@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>,
-	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Gustavo Padovan <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	Arvid Brodin <arvid.brodin@alten.se>,
-	Patrick McHardy <kaber@trash.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hend
-To: David Laight <David.Laight@aculab.com>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: some mac802154 fixes
+Date: Wed, 11 Jun 2014 12:03:05 +0200
+Message-ID: <1402480987-492-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:58953 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbaFKJ72 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 05:59:28 -0400
-Received: by mail-we0-f173.google.com with SMTP id t60so1976917wes.4
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 02:59:27 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725AC13@AcuExch.aculab.com>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:55853 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751070AbaFKKDb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 06:03:31 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.4/8.14.4/Debian-7) with ESMTP id s5BA3T49005632
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 12:03:29 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 11, 2014 at 12:22 PM, David Laight <David.Laight@aculab.com> wrote:
-> From: Octavian Purdila
->> There are several instances where a pskb_copy or __pskb_copy is
->> immediately followed by an skb_clone. Add a new parameter to allow the
->> skb to be allocated from the fclone cache and thus speed up subsequent
->> skb_clone calls.
-> ...
->> @@ -2233,9 +2233,9 @@ static inline dma_addr_t skb_frag_dma_map(struct device *dev,
->>  }
->>
->>  static inline struct sk_buff *pskb_copy(struct sk_buff *skb,
->> -                                     gfp_t gfp_mask)
->> +                                     gfp_t gfp_mask, bool fclone)
->>  {
->> -     return __pskb_copy(skb, skb_headroom(skb), gfp_mask);
->> +     return __pskb_copy(skb, skb_headroom(skb), gfp_mask, fclone);
-> ...
->
-> Why not add:
-> static inline struct sk_buff *pskb_copy_for_clone(struct sk_buff *skb,
->                                         gfp_t gfp_mask)
-> {
->         return __pskb_copy(skb, skb_headroom(skb), gfp_mask, true);
-> }
->
-> So that only some of the call sites need changing.
-> The different function name is probably easier to grok than a Boolean
-> parameter.
->
+Recent llsec code introduced a memory leak on decryption failures during rx.
+This fixes said leak, and optimizes the receive loops for monitor and wpan
+devices to only deliver skbs to devices that are actually up. Also changes a
+dev_kfree_skb to kfree_skb when an invalid packet is dropped before being
+pushed into the stack.
 
-Hi David,
+---
 
-Since cloning a copy seems to be more frequent then one would thought,
-I think that explicitly adding the option will force people to think
-about allocating from the fclone cache.
+Phoebe Buckheister (2):
+      mac802154: properly free incoming skbs on decryption failure
+      mac802154: don't deliver packets to devices that are down
 
-But I don't care much either way, so if people think a new function is
-better I will rework the patch.
-
-Thanks,
-Tavi
+ net/mac802154/monitor.c |    3 ++-
+ net/mac802154/rx.c      |   11 +++++++----
+ net/mac802154/wpan.c    |   14 +++++++++-----
+ 3 files changed, 18 insertions(+), 10 deletions(-)
