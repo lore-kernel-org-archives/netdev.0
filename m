@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: fix UDP tunnel GSO of frag_list GRO packets
-Date: Wed, 11 Jun 2014 00:49:04 -0700 (PDT)
-Message-ID: <20140611.004904.2053967979976189800.davem@davemloft.net>
-References: <1402296534-8978-1-git-send-email-weichunc@plumgrid.com>
+Subject: Re: [PATCH] amd-xgbe: Rename MAX_DMA_CHANNELS to avoid powerpc
+ conflict
+Date: Wed, 11 Jun 2014 00:57:06 -0700 (PDT)
+Message-ID: <20140611.005706.1903191769820382324.davem@davemloft.net>
+References: <20140609141931.30639.72028.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
-To: weichunc@plumgrid.com
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, kbuild-all@01.org,
+	jet.chen@intel.com
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43141 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43174 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751311AbaFKHtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:49:05 -0400
-In-Reply-To: <1402296534-8978-1-git-send-email-weichunc@plumgrid.com>
+	with ESMTP id S1754058AbaFKH5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:57:07 -0400
+In-Reply-To: <20140609141931.30639.72028.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-Date: Sun,  8 Jun 2014 23:48:54 -0700
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Mon, 9 Jun 2014 09:19:32 -0500
 
-> This patch fixes a kernel BUG_ON in skb_segment. It is hit when
-> testing two VMs on openvswitch with one VM acting as VXLAN gateway.
+> MAX_DMA_CHANNELS is defined in asm/scatterlist.h of the powerpc
+> architecture.  Rename this #define in xgbe.h to avoid the
+> redefined warning issued during compilation.
 > 
-> During VXLAN packet GSO, skb_segment is called with skb->data
-> pointing to inner TCP payload. skb_segment calls skb_network_protocol
-> to retrieve the inner protocol. skb_network_protocol actually expects
-> skb->data to point to MAC and it calls pskb_may_pull with ETH_HLEN.
-> This ends up pulling in ETH_HLEN data from header tail. As a result,
-> pskb_trim logic is skipped and BUG_ON is hit later.
-> 
-> Move skb_push in front of skb_network_protocol so that skb->data
-> lines up properly.
- ...
-> Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 
-Applied, thank you.
+Applied to net-next, thanks.
