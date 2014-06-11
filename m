@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: fix potential bug in function
- tipc_backlog_rcv
-Date: Wed, 11 Jun 2014 15:02:05 -0700 (PDT)
-Message-ID: <20140611.150205.49850151033059080.davem@davemloft.net>
-References: <1402330098-4719-1-git-send-email-jon.maloy@ericsson.com>
+From: Andi Diaz <adiaz.3316@gmail.com>
+Subject: Looking for Quality Leads?
+Date: Wed, 11 Jun 2014 15:06:01 -0700
+Message-ID: <CAGJBV=nOu4x2_Wy-Hjxvs4OekrfujGm5c14bbxJAyrjJofAKAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: adiaz.3316@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47457 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753020AbaFKWCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:02:06 -0400
-In-Reply-To: <1402330098-4719-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-yh0-f52.google.com ([209.85.213.52]:62305 "EHLO
+	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751898AbaFKWGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:06:02 -0400
+Received: by mail-yh0-f52.google.com with SMTP id a41so324251yho.11
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 15:06:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon,  9 Jun 2014 11:08:18 -0500
+Hi,
 
-> In commit 4f4482dcd9a0606a30541ff165ddaca64748299b ("tipc: compensate
-> for double accounting in socket rcv buffer") we access 'truesize' of
-> a received buffer after it might have been released by the function
-> filter_rcv().
-> 
-> In this commit we correct this by reading the value of 'truesize' to
-> the stack before delivering the buffer to filter_rcv().
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Are you currently in need of help in generating leads or appointments
+for your business? We can help you through our sales calling campaign.
 
-Applied.
+I'd be happy to talk to you and discuss our program. Please let me
+know the best way for us to connect.
+
+Regards,
+
+Andi Diaz
+310.362.3194
