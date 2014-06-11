@@ -1,57 +1,31 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [ANNOUNCE] iproute2 3.15.0 release
-Date: Wed, 11 Jun 2014 09:07:37 -0700
-Message-ID: <20140611090737.5221c24c@nehalam.linuxnetplumber.net>
-References: <20140610103712.57d0b1ad@nehalam.linuxnetplumber.net>
-	<53986B68.5020401@6wind.com>
-	<20140611083907.3a3cab96@nehalam.linuxnetplumber.net>
-	<53987CAD.2010306@6wind.com>
+Subject: Re: ethtool patch to support bypass / fail-to-wire function
+Date: Wed, 11 Jun 2014 09:17:57 -0700
+Message-ID: <20140611091757.78e1002d@nehalam.linuxnetplumber.net>
+References: <3BFAEADE799AF145974162DF00E013AF018F794DE5@exchange2010.silicom.local>
+	<1402322812.23860.76.camel@deadeye.wl.decadent.org.uk>
+	<3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53987CAD.2010306@6wind.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Elad Blatt <eladb@silicom.co.il>
+To: David Hendel <david@silicom.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:47961 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752409AbaFKQSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 12:18:00 -0400
+Received: by mail-pa0-f47.google.com with SMTP id fa1so2050121pad.6
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 09:18:00 -0700 (PDT)
+In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jun 2014 17:58:37 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+The driver using this is not upstream. You need to get that driver reviewed
+and incorporated in upstream kernel before the changes to ethtool will be
+considered.
 
-> Le 11/06/2014 17:39, Stephen Hemminger a =E9crit :
-> > On Wed, 11 Jun 2014 16:44:56 +0200
-> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> >
-> >> Le 10/06/2014 19:37, Stephen Hemminger a =E9crit :
-> >>> Time for the release of iproute2 for 3.15
-> >>>
-> >>> The main new features are:
-> >>>     * ss gets more attention
-> >>>     * Support for HHF qdisc
-> >>>     * Updates to bridge command
-> >>>     * Lots of vxlan related changes
-> >>>     * Lots of little corrections and build fixes
-> >>>
-> >>> Source:
-> >>>     http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3=
-=2E15.0.tar.gz
-> >>>
-> >>> Repository:
-> >>>     git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/ipro=
-ute2.git
-> >> It seems that you have pushed the tag, but not the tagged commit
-> >> (ce7aff3b8d0bb55321af2dbaa2f911319fdcc76b). In fact, I don't see t=
-he tag in the
-> >> branch master.
-> >
-> > try now
-> >
-> Works, thank you.
-> You gave a shortlog in the announcement, it is done between which tag=
-s?
-> If I run 'git shortlog v3.14.0..v3.15.0', the output is shorter than =
-yours.
-
-Yes script does it but I think the merge branch from net-next confused
-git shortlog.
+I expect that the driver will not be accepted as is, and therefore you will
+have to make changes (including API changes), that render this ethtool API
+moot.
