@@ -1,75 +1,105 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH v2 net-next 1/5] ktime: add ktime_after and ktime_before helper
-Date: Wed, 11 Jun 2014 17:03:19 +0200
-Message-ID: <1402499003-29355-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH v2 net-next 3/5] net: sctp: migrate most recently used transport to ktime
+Date: Wed, 11 Jun 2014 17:03:21 +0200
+Message-ID: <1402499003-29355-4-git-send-email-dborkman@redhat.com>
 References: <1402499003-29355-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63732 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1161 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932386AbaFKPDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 11:03:30 -0400
+	id S932506AbaFKPDe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 11:03:34 -0400
 In-Reply-To: <1402499003-29355-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add two minimal helper functions analogous to time_before() and
-time_after() that will later on both be needed by SCTP code.
+Be more precise in transport path selection and use ktime
+helpers instead of jiffies to compare and pick the better
+primary and secondary recently used transports. This also
+avoids any side-effects during a possible roll-over, and
+could lead to better path decision-making.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/ktime.h    | 24 ++++++++++++++++++++++++
- net/sctp/sm_make_chunk.c |  2 +-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ include/net/sctp/structs.h | 6 +++---
+ net/sctp/associola.c       | 8 +++++---
+ net/sctp/endpointola.c     | 2 +-
+ net/sctp/transport.c       | 2 +-
+ 4 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/ktime.h b/include/linux/ktime.h
-index 31c0cd1..3787f33 100644
---- a/include/linux/ktime.h
-+++ b/include/linux/ktime.h
-@@ -304,6 +304,30 @@ static inline int ktime_compare(const ktime_t cmp1, const ktime_t cmp2)
- 	return 0;
- }
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 0dfcc92..f38588b 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -838,10 +838,10 @@ struct sctp_transport {
+ 	unsigned long sackdelay;
+ 	__u32 sackfreq;
  
-+/**
-+ * ktime_after - Compare if a ktime_t value is bigger than another one.
-+ * @cmp1:	comparable1
-+ * @cmp2:	comparable2
-+ *
-+ * Return: true if cmp1 happened after cmp2.
-+ */
-+static inline bool ktime_after(const ktime_t cmp1, const ktime_t cmp2)
-+{
-+	return ktime_compare(cmp1, cmp2) > 0;
-+}
-+
-+/**
-+ * ktime_before - Compare if a ktime_t value is smaller than another one.
-+ * @cmp1:	comparable1
-+ * @cmp2:	comparable2
-+ *
-+ * Return: true if cmp1 happened before cmp2.
-+ */
-+static inline bool ktime_before(const ktime_t cmp1, const ktime_t cmp2)
-+{
-+	return ktime_compare(cmp1, cmp2) < 0;
-+}
-+
- static inline s64 ktime_to_us(const ktime_t kt)
- {
- 	struct timeval tv = ktime_to_timeval(kt);
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index fee5552..ae0e616 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -1782,7 +1782,7 @@ no_hmac:
- 	else
- 		kt = ktime_get();
+-	/* When was the last time (in jiffies) that we heard from this
+-	 * transport?  We use this to pick new active and retran paths.
++	/* When was the last time that we heard from this transport? We use
++	 * this to pick new active and retran paths.
+ 	 */
+-	unsigned long last_time_heard;
++	ktime_t last_time_heard;
  
--	if (!asoc && ktime_compare(bear_cookie->expiration, kt) < 0) {
-+	if (!asoc && ktime_before(bear_cookie->expiration, kt)) {
- 		/*
- 		 * Section 3.3.10.3 Stale Cookie Error (3)
- 		 *
+ 	/* Last time(in jiffies) when cwnd is reduced due to the congestion
+ 	 * indication based on ECNE chunk.
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 9f1cc6f..620c99e 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1036,7 +1036,7 @@ static void sctp_assoc_bh_rcv(struct work_struct *work)
+ 		}
+ 
+ 		if (chunk->transport)
+-			chunk->transport->last_time_heard = jiffies;
++			chunk->transport->last_time_heard = ktime_get();
+ 
+ 		/* Run through the state machine. */
+ 		error = sctp_do_sm(net, SCTP_EVENT_T_CHUNK, subtype,
+@@ -1283,11 +1283,13 @@ static void sctp_select_active_and_retran_path(struct sctp_association *asoc)
+ 		    trans->state == SCTP_PF)
+ 			continue;
+ 		if (trans_pri == NULL ||
+-		    trans->last_time_heard > trans_pri->last_time_heard) {
++		    ktime_after(trans->last_time_heard,
++				trans_pri->last_time_heard)) {
+ 			trans_sec = trans_pri;
+ 			trans_pri = trans;
+ 		} else if (trans_sec == NULL ||
+-			   trans->last_time_heard > trans_sec->last_time_heard) {
++			   ktime_after(trans->last_time_heard,
++				       trans_sec->last_time_heard)) {
+ 			trans_sec = trans;
+ 		}
+ 	}
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 3d9f429..9da76ba 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -481,7 +481,7 @@ normal:
+ 		}
+ 
+ 		if (chunk->transport)
+-			chunk->transport->last_time_heard = jiffies;
++			chunk->transport->last_time_heard = ktime_get();
+ 
+ 		error = sctp_do_sm(net, SCTP_EVENT_T_CHUNK, subtype, state,
+ 				   ep, asoc, chunk, GFP_ATOMIC);
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 1d348d1..7dd672f 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -72,7 +72,7 @@ static struct sctp_transport *sctp_transport_init(struct net *net,
+ 	 */
+ 	peer->rto = msecs_to_jiffies(net->sctp.rto_initial);
+ 
+-	peer->last_time_heard = jiffies;
++	peer->last_time_heard = ktime_get();
+ 	peer->last_time_ecne_reduced = jiffies;
+ 
+ 	peer->param_flags = SPP_HB_DISABLE |
 -- 
 1.7.11.7
