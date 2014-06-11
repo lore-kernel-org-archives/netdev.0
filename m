@@ -1,32 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/6] net: fec: Enable Software TSO to improve the tx
- performance
-Date: Wed, 11 Jun 2014 15:21:35 -0700 (PDT)
-Message-ID: <20140611.152135.1360424517453827169.davem@davemloft.net>
-References: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+Subject: Re: [PATCH v2 net-next 0/4] bridge: 802.1ad vlan protocol support
+Date: Wed, 11 Jun 2014 15:23:21 -0700 (PDT)
+Message-ID: <20140611.152321.799416344244730112.davem@davemloft.net>
+References: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ezequiel.garcia@free-electrons.com,
-	b20596@freescale.com, David.Laight@ACULAB.COM,
-	eric.dumazet@gmail.com
-To: b38611@freescale.com
+Cc: stephen@networkplumber.org, vyasevic@redhat.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+To: makita.toshiaki@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47598 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47608 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184AbaFKWVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:21:36 -0400
-In-Reply-To: <1402392744-24368-1-git-send-email-b38611@freescale.com>
+	with ESMTP id S1752954AbaFKWXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:23:23 -0400
+In-Reply-To: <1402401565-15423-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Tue, 10 Jun 2014 17:32:18 +0800
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Tue, 10 Jun 2014 20:59:21 +0900
 
-> Add SG and software TSO support for FEC.
+> Currently bridge vlan filtering doesn't work fine with 802.1ad protocol.
+> Only if a bridge is configured without pvid, the bridge receives only
+> 802.1ad tagged frames and no STP is used, it will work.
+> Otherwise:
+> - If pvid is configured, it can put only 802.1Q tags but cannot put 802.1ad
+>   tags.
+> - If 802.1Q and 802.1ad tagged frames arrive in mixture, it applies filtering
+>   regardless of their protocols.
+> - While an 802.1ad bridge should use another mac address for STP BPDU and
+>   should forward customer's BPDU frames, it can't.
+> Thus, we can't properly handle frames once 802.1ad is used.
+> 
+> Handling 802.1ad is useful if we want to allow stacked vlans to be used,
+> e.g., guest VMs wants to use vlan tags and the host also wants to segregate
+> guest's traffic from other guests' by vlan tags.
+> 
+> Here is the image describing how to configure a bridge to filter VMs traffic.
+> 
+>          +-------+p/u   +-----+  +---------+
+>  +----+  |       |------|vnet0|--|User A VM|
+>  |eth0|--|802.1ad|      +-----+  +---------+
+>  +----+  |bridge |p/u   +-----+  +---------+
+>          |       |------|vnet1|--|User B VM|
+>          +-------+      +-----+  +---------+
+> p/u: pvid/untagged
+> 
+> This patch set enables us to set vlan protocols per bridge.
+> This tries to implement a bridge like S-VLAN component in IEEE 802.1Q-2011
+> spec.
 
-This series still needs changes and it's getting too late to make it
-into net-next, please resubmit this after your feedback has been
-addressed and I've reopenned net-next after this merge window.
-
-Thank you.
+Series applied, thanks.
