@@ -1,42 +1,69 @@
-From: Kostya Serebryany <kcc@google.com>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Wed, 11 Jun 2014 17:38:57 +0400
-Message-ID: <CAN=P9phzd34JtS_+Y1uimfmdZhyYNfTRPVXmmz7GG-+UJOebWQ@mail.gmail.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	<1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.DEB.2.02.1406101726390.11647@dtop>
-	<1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
-	<alpine.DEB.2.10.1406102114520.28698@dinf>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: infrastructure changes for 3.16
+Date: Wed, 11 Jun 2014 16:44:47 +0300
+Message-ID: <20140611134447.GA8208@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: dormando <dormando@rydia.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f170.google.com ([209.85.213.170]:35467 "EHLO
-	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755711AbaFKNi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 09:38:58 -0400
-Received: by mail-ig0-f170.google.com with SMTP id h3so6259778igd.3
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 06:38:58 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.10.1406102114520.28698@dinf>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, nab@daterainc.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-> Ran our udpkill util against 3.10.42 with both of your patches applied...
+Hi Linus,
+Please pull the following.
+Please note this needs to be merged before merging
+target-pending PULL which Nicholas will be sending
+out shortly.
 
-[plain text]
-Could you please tell us more about udpkill?
-Will it makes sense to run address-sanitized-kernel with udpkill?
+Thanks!
 
---kcc
+The following changes since commit 1860e379875dfe7271c649058aeddffe5afd9d0d:
+
+  Linux 3.15 (2014-06-08 11:19:54 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 47283bef7ed356629467d1fac61687756e48f254:
+
+  vhost: move memory pointer to VQs (2014-06-09 16:21:07 +0300)
+
+----------------------------------------------------------------
+vhost: infrastructure changes for 3.16
+
+This reworks vhost core dropping unnecessary RCU uses in favor of VQ mutexes
+which are used on fast path anyway.  This fixes worst-case latency for users
+which change the memory mappings a lot.
+Memory allocation for vhost-net now supports fallback on vmalloc (same as for
+vhost-scsi) this makes it possible to create the device on systems where memory
+is very fragmented, with slightly lower performance.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (4):
+      vhost-net: extend device allocation to vmalloc
+      vhost: replace rcu with mutex
+      vhost: move acked_features to VQs
+      vhost: move memory pointer to VQs
+
+ drivers/vhost/vhost.h | 19 ++++------
+ drivers/vhost/net.c   | 35 ++++++++++++-------
+ drivers/vhost/scsi.c  | 26 ++++++++------
+ drivers/vhost/test.c  | 11 +++---
+ drivers/vhost/vhost.c | 97 ++++++++++++++++++++++++++-------------------------
+ 5 files changed, 101 insertions(+), 87 deletions(-)
