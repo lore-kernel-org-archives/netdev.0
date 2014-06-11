@@ -1,84 +1,82 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 5/5] net: sctp: fix incorrect type in gfp initializer
-Date: Wed, 11 Jun 2014 10:18:39 -0700
-Message-ID: <CAADnVQLyNCUU0+onEHbygVE-M3WK59uB=NoKWi1V4Rh+6AZkVA@mail.gmail.com>
-References: <1402497297-27100-1-git-send-email-dborkman@redhat.com>
-	<1402497297-27100-6-git-send-email-dborkman@redhat.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1725AF78@AcuExch.aculab.com>
-	<5398712C.3000801@redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: [PATCH] pci/msi: fix memory leak in free_msi_irqs()
+Date: Wed, 11 Jun 2014 11:25:08 -0600
+Message-ID: <20140611172508.GA14357@google.com>
+References: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Tejun Heo <tj@kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:34938 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbaFKRSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 13:18:40 -0400
-In-Reply-To: <5398712C.3000801@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-pci@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1401922190-25357-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 11, 2014 at 8:09 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 06/11/2014 04:55 PM, David Laight wrote:
->>
->> From: Daniel Borkmann
->>>
->>> This fixes the following sparse warning:
->>>
->>>    net/sctp/associola.c:1556:29: warning: incorrect type in initializer
->>> (different base types)
->>>    net/sctp/associola.c:1556:29:    expected bool [unsigned] [usertype]
->>> preload
->>>    net/sctp/associola.c:1556:29:    got restricted gfp_t
->>
->> ...
->>>
->>> --- a/net/sctp/associola.c
->>> +++ b/net/sctp/associola.c
->>> @@ -1591,7 +1591,7 @@ int sctp_assoc_lookup_laddr(struct sctp_association
->>> *asoc,
->>>   /* Set an association id for a given association */
->>>   int sctp_assoc_set_id(struct sctp_association *asoc, gfp_t gfp)
->>>   {
->>> -       bool preload = gfp & __GFP_WAIT;
->>> +       bool preload = !!(gfp & __GFP_WAIT);
->>>         int ret;
->>>
->>>         /* If the id is already assigned, keep it. */
->>> --
->>
->>
->> I was wondering if the compiler still manages to optimise this in a
->> manner that avoids actually calculating the boolean value...
->>
->> So I disassembled the compilation I just did of the old code (gcc 4.7.3).
->> The object code looks strange.
+On Wed, Jun 04, 2014 at 03:49:50PM -0700, Alexei Starovoitov wrote:
+> free_msi_irqs() is leaking memory, since
+> list_for_each_entry(entry, &dev->msi_list, list) {...}
+> is never executed, because dev->msi_list is made empty by
+> the loop just above this one.
+> 
+> Fix it by relying on zero termination of attribute array like
+> populate_msi_sysfs() does.
+> 
+> Fixes: 1c51b50c2995 ("PCI/MSI: Export MSI mode using attributes, not kobjects")
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 
-I'm not sure where you see this.
-Just tried with gcc 4.7.2 on x64 and assembler code is exactly the
-same before/after this change.
+I added Neil and Greg's acks and a stable tag and will merge this for
+v3.16.  Thanks!
 
->> I think that idr_preload_end() must be an empty inline function.
->
->
-> Cc'ing Tejun. ;-)
->
->
->> The compiler has duplicated the code between the two 'if (preload)'
->> clauses (to avoid the conditional test), and the failed to tail
->> merge everything in the latter stages.
->> I suspect that an empty '#define' would generate smaller code.
->>
->>         David
->>
->>
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+> 
+> This was found by kmemleak report:
+> unreferenced object 0xffff880808eda600 (size 64):
+>   comm "modprobe", pid 1526, jiffies 4294902299 (age 58422.716s)
+>   hex dump (first 32 bytes):
+>     20 c4 66 09 08 88 ff ff 24 01 00 00 00 00 00 00   .f.....$.......
+>     50 97 77 82 ff ff ff ff 00 00 00 00 00 00 00 00  P.w.............
+>   backtrace:
+>     [<ffffffff816e5fc8>] kmemleak_alloc+0x28/0x50
+>     [<ffffffff811b885e>] kmem_cache_alloc_trace+0xde/0x230
+>     [<ffffffff813aa286>] populate_msi_sysfs+0xc6/0x250
+>     [<ffffffff813aafdb>] pci_enable_msix+0x34b/0x430
+>     [<ffffffff813ab0ec>] pci_enable_msix_range+0x2c/0x70
+>     [<ffffffffa0034ade>] igb_init_interrupt_scheme+0x9e/0x420 [igb]
+>     [<ffffffffa003d668>] igb_probe+0x4a8/0x1250 [igb]
+>     [<ffffffff813930de>] local_pci_probe+0x4e/0xa0
+>     [<ffffffff813933e9>] pci_device_probe+0xd9/0x120
+>     [<ffffffff814697cd>] driver_probe_device+0x8d/0x250
+>     [<ffffffff81469a3b>] __driver_attach+0xab/0xb0
+>     [<ffffffff8146799d>] bus_for_each_dev+0x5d/0xa0
+>     [<ffffffff814691de>] driver_attach+0x1e/0x20
+>     [<ffffffff81468e57>] bus_add_driver+0x117/0x220
+>     [<ffffffff8146a104>] driver_register+0x64/0xf0
+>     [<ffffffff813923f4>] __pci_register_driver+0x64/0x70
+> 
+> IGB driver is calling pci_enable_msix_range() and immediately pci_disable_msix()
+> which leaks the memory.
+> Obviously the leak happens with any driver.
+> 
+>  drivers/pci/msi.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index 955ab7990c5b..fb02fc2fb034 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -414,7 +414,7 @@ static void free_msi_irqs(struct pci_dev *dev)
+>  	if (dev->msi_irq_groups) {
+>  		sysfs_remove_groups(&dev->dev.kobj, dev->msi_irq_groups);
+>  		msi_attrs = dev->msi_irq_groups[0]->attrs;
+> -		list_for_each_entry(entry, &dev->msi_list, list) {
+> +		while (msi_attrs[count]) {
+>  			dev_attr = container_of(msi_attrs[count],
+>  						struct device_attribute, attr);
+>  			kfree(dev_attr->attr.name);
+> -- 
+> 1.7.9.5
+> 
