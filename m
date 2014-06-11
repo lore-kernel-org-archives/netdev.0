@@ -1,35 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] ceph: remove bogus extern
-Date: Tue, 10 Jun 2014 20:30:13 -0700
-Message-ID: <20140610203013.6a5e5904@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/core: Add VF link state control policy
+Date: Tue, 10 Jun 2014 20:47:24 -0700 (PDT)
+Message-ID: <20140610.204724.1766248023965511967.davem@davemloft.net>
+References: <d040256cbe494908726bb1d05612f69cee4ff040.1402430365.git.dledford@redhat.com>
+	<539765F4.10506@cogentembedded.com>
+	<1402431128.9149.8.camel@firewall.xsintricity.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Sage Weil <sage@inktank.com>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	ronye@mellanox.com, ogerlitz@mellanox.com
+To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:35123 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833AbaFKDaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 23:30:17 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so1405663pad.24
-        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 20:30:17 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:42175 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751708AbaFKDrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 23:47:25 -0400
+In-Reply-To: <1402431128.9149.8.camel@firewall.xsintricity.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sparse complained about this bogus extern on definition of
-a function.
+From: Doug Ledford <dledford@redhat.com>
+Date: Tue, 10 Jun 2014 16:12:08 -0400
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> On Wed, 2014-06-11 at 00:09 +0400, Sergei Shtylyov wrote:
+>> Hello.
+>> 
+>> On 06/10/2014 11:59 PM, Doug Ledford wrote:
+>> 
+>> > Commit 1d8faf48c7 added VF link state control to the netlink VF nested
+>> 
+>>     Please also specify that commit's summary line in parens.
+> 
+> It was almost a carbon copy of my own commit summary:
+> 
+> (net/core: Add VF link state control)
 
---- a/net/ceph/osd_client.c	2014-04-20 13:04:38.238240920 -0700
-+++ b/net/ceph/osd_client.c	2014-06-10 20:21:51.894499623 -0700
-@@ -2491,7 +2491,7 @@ EXPORT_SYMBOL(ceph_osdc_sync);
-  * Call all pending notify callbacks - for use after a watch is
-  * unregistered, to make sure no more callbacks for it will be invoked
-  */
--extern void ceph_osdc_flush_notifies(struct ceph_osd_client *osdc)
-+void ceph_osdc_flush_notifies(struct ceph_osd_client *osdc)
- {
- 	flush_workqueue(osdc->notify_wq);
- }
+But that is the way we absolutely require commits to be referred to,
+SHA IDs are ambiguous, especially when changes are backported into
+other trees.  Given that, the only unambiguous thing left is the
+precise text of the commit header line.
+
+That's why I require it to be explicitly provided alongside commit's
+referred to in commit messages.
