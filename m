@@ -1,31 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: ethtool patch to support bypass / fail-to-wire function
-Date: Wed, 11 Jun 2014 09:17:57 -0700
-Message-ID: <20140611091757.78e1002d@nehalam.linuxnetplumber.net>
-References: <3BFAEADE799AF145974162DF00E013AF018F794DE5@exchange2010.silicom.local>
-	<1402322812.23860.76.camel@deadeye.wl.decadent.org.uk>
-	<3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Elad Blatt <eladb@silicom.co.il>
-To: David Hendel <david@silicom.co.il>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH v3 net-next 0/5] SCTP update
+Date: Wed, 11 Jun 2014 18:19:27 +0200
+Message-ID: <1402503572-32237-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:47961 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409AbaFKQSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 12:18:00 -0400
-Received: by mail-pa0-f47.google.com with SMTP id fa1so2050121pad.6
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 09:18:00 -0700 (PDT)
-In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
+Received: from mx1.redhat.com ([209.132.183.28]:29776 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932490AbaFKQTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 12:19:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver using this is not upstream. You need to get that driver reviewed
-and incorporated in upstream kernel before the changes to ethtool will be
-considered.
+This set contains transport path selection improvements in
+SCTP. Please see individual patches for details.
 
-I expect that the driver will not be accepted as is, and therefore you will
-have to make changes (including API changes), that render this ethtool API
-moot.
+Thanks!
+
+v2->v3:
+ - Reworded commit message in patch 4, thanks Vlad!
+v1->v2:
+ - Fixed a typo in a comment in patch 1, thanks Florian Westphal
+   for pointing this out, rest stays as is.
+
+Daniel Borkmann (5):
+  ktime: add ktime_after and ktime_before helper
+  net: sctp: refactor active path selection
+  net: sctp: migrate most recently used transport to ktime
+  net: sctp: improve sctp_select_active_and_retran_path selection
+  net: sctp: fix incorrect type in gfp initializer
+
+ include/linux/ktime.h      |  24 +++++++
+ include/net/sctp/structs.h |   6 +-
+ net/sctp/associola.c       | 168 ++++++++++++++++++++++++++++-----------------
+ net/sctp/endpointola.c     |   2 +-
+ net/sctp/sm_make_chunk.c   |   2 +-
+ net/sctp/transport.c       |   2 +-
+ 6 files changed, 136 insertions(+), 68 deletions(-)
+
+-- 
+1.7.11.7
