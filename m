@@ -1,638 +1,176 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] igb: unhide invariant returns
-Date: Wed, 11 Jun 2014 09:33:10 -0700
-Message-ID: <1402504404-8954-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/15] i40e/i40evf: Add Flow director stats to PF stats
+Date: Wed, 11 Jun 2014 09:33:21 -0700
+Message-ID: <1402504404-8954-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55587 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55591 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932438AbaFKQd3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 12:33:29 -0400
+	id S932642AbaFKQdc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 12:33:32 -0400
 In-Reply-To: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Todd Fujinaka <todd.fujinaka@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Return a 0 directly rather than a constant.
+Add members to stat struct to keep track of Flow director ATR and
+SideBand filter packet matches.
 
-Reported-by: Peter Senna Tschudin <peter.senna@gmail.com>
-Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Change-ID: Ibbb31a53c7adcc2bb96991dd80565442a2f2513c
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 28 ++++-----
- drivers/net/ethernet/intel/igb/e1000_defines.h |  1 -
- drivers/net/ethernet/intel/igb/e1000_i210.c    | 86 +++++++++++++-------------
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 10 +--
- drivers/net/ethernet/intel/igb/igb_main.c      | 15 +++--
- 5 files changed, 66 insertions(+), 74 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h         | 13 +++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c |  5 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 12 ++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c    |  7 ++++++-
+ drivers/net/ethernet/intel/i40e/i40e_type.h    |  3 +++
+ drivers/net/ethernet/intel/i40evf/i40e_type.h  |  3 +++
+ 6 files changed, 41 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index 2e36c67..a2db388 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -155,7 +155,7 @@ static s32 igb_check_for_link_media_swap(struct e1000_hw *hw)
- 		ret_val = igb_check_for_link_82575(hw);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 5a8bbaa..6598584 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -154,6 +154,17 @@ struct i40e_lump_tracking {
+ #define I40E_FDIR_BUFFER_FULL_MARGIN	10
+ #define I40E_FDIR_BUFFER_HEAD_ROOM	200
+ 
++enum i40e_fd_stat_idx {
++	I40E_FD_STAT_ATR,
++	I40E_FD_STAT_SB,
++	I40E_FD_STAT_PF_COUNT
++};
++#define I40E_FD_STAT_PF_IDX(pf_id) ((pf_id) * I40E_FD_STAT_PF_COUNT)
++#define I40E_FD_ATR_STAT_IDX(pf_id) \
++			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_ATR)
++#define I40E_FD_SB_STAT_IDX(pf_id)  \
++			(I40E_FD_STAT_PF_IDX(pf_id) + I40E_FD_STAT_SB)
++
+ struct i40e_fdir_filter {
+ 	struct hlist_node fdir_node;
+ 	/* filter ipnut set */
+@@ -223,6 +234,8 @@ struct i40e_pf {
+ 
+ 	struct hlist_head fdir_filter_list;
+ 	u16 fdir_pf_active_filters;
++	u16 fd_sb_cnt_idx;
++	u16 fd_atr_cnt_idx;
+ 
+ #ifdef CONFIG_I40E_VXLAN
+ 	__be16  vxlan_ports[I40E_MAX_PF_UDP_OFFLOAD_PORTS];
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index c771863..e330166 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -145,6 +145,9 @@ static struct i40e_stats i40e_gstrings_stats[] = {
+ 	I40E_PF_STAT("rx_jabber", stats.rx_jabber),
+ 	I40E_PF_STAT("VF_admin_queue_requests", vf_aq_requests),
+ 	I40E_PF_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
++	I40E_PF_STAT("fdir_atr_match", stats.fd_atr_match),
++	I40E_PF_STAT("fdir_sb_match", stats.fd_sb_match),
++
+ 	/* LPI stats */
+ 	I40E_PF_STAT("tx_lpi_status", stats.tx_lpi_status),
+ 	I40E_PF_STAT("rx_lpi_status", stats.rx_lpi_status),
+@@ -1581,7 +1584,7 @@ static int i40e_add_fdir_ethtool(struct i40e_vsi *vsi,
+ 	input->pctype = 0;
+ 	input->dest_vsi = vsi->id;
+ 	input->fd_status = I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID;
+-	input->cnt_index = 0;
++	input->cnt_index  = pf->fd_sb_cnt_idx;
+ 	input->flow_type = fsp->flow_type;
+ 	input->ip4_proto = fsp->h_u.usr_ip4_spec.proto;
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index e3916d0..06e0a52 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1013,6 +1013,14 @@ static void i40e_update_pf_stats(struct i40e_pf *pf)
+ 			   pf->stat_offsets_loaded,
+ 			   &osd->rx_jabber, &nsd->rx_jabber);
+ 
++	/* FDIR stats */
++	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_atr_cnt_idx),
++			   pf->stat_offsets_loaded,
++			   &osd->fd_atr_match, &nsd->fd_atr_match);
++	i40e_stat_update32(hw, I40E_GLQF_PCNT(pf->fd_sb_cnt_idx),
++			   pf->stat_offsets_loaded,
++			   &osd->fd_sb_match, &nsd->fd_sb_match);
++
+ 	val = rd32(hw, I40E_PRTPM_EEE_STAT);
+ 	nsd->tx_lpi_status =
+ 		       (val & I40E_PRTPM_EEE_STAT_TX_LPI_STATUS_MASK) >>
+@@ -6604,8 +6612,12 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	    (pf->hw.func_caps.fd_filters_best_effort > 0)) {
+ 		pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
+ 		pf->atr_sample_rate = I40E_DEFAULT_ATR_SAMPLE_RATE;
++		/* Setup a counter for fd_atr per pf */
++		pf->fd_atr_cnt_idx = I40E_FD_ATR_STAT_IDX(pf->hw.pf_id);
+ 		if (!(pf->flags & I40E_FLAG_MFP_ENABLED)) {
+ 			pf->flags |= I40E_FLAG_FD_SB_ENABLED;
++			/* Setup a counter for fd_sb per pf */
++			pf->fd_sb_cnt_idx = I40E_FD_SB_STAT_IDX(pf->hw.pf_id);
+ 		} else {
+ 			dev_info(&pf->pdev->dev,
+ 				 "Flow Director Sideband mode Disabled in MFP mode\n");
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index d84f427..e49f31d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -121,7 +121,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 		dcc |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
+ 		dcc |= ((u32)fdir_data->cnt_index <<
+ 			I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
+-		       I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
++			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
  	}
  
--	return E1000_SUCCESS;
-+	return 0;
+ 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
+@@ -1695,6 +1695,11 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 	dtype_cmd |= I40E_FILTER_PROGRAM_DESC_FD_STATUS_FD_ID <<
+ 		     I40E_TXD_FLTR_QW1_FD_STATUS_SHIFT;
+ 
++	dtype_cmd |= I40E_TXD_FLTR_QW1_CNT_ENA_MASK;
++	dtype_cmd |=
++		((u32)pf->fd_atr_cnt_idx << I40E_TXD_FLTR_QW1_CNTINDEX_SHIFT) &
++		I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
++
+ 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
+ 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
  }
- 
- /**
-@@ -1004,7 +1004,6 @@ out:
- static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
- 	u16 data;
- 
- 	data = rd32(E1000_82580_PHY_POWER_MGMT);
-@@ -1028,7 +1027,7 @@ static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- 			data &= ~E1000_82580_PM_SPD; }
- 
- 	wr32(E1000_82580_PHY_POWER_MGMT, data);
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -1048,7 +1047,6 @@ static s32 igb_set_d0_lplu_state_82580(struct e1000_hw *hw, bool active)
- static s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
- 	u16 data;
- 
- 	data = rd32(E1000_82580_PHY_POWER_MGMT);
-@@ -1073,7 +1071,7 @@ static s32 igb_set_d3_lplu_state_82580(struct e1000_hw *hw, bool active)
- 	}
- 
- 	wr32(E1000_82580_PHY_POWER_MGMT, data);
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -1199,7 +1197,6 @@ static void igb_release_swfw_sync_82575(struct e1000_hw *hw, u16 mask)
- static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
- {
- 	s32 timeout = PHY_CFG_TIMEOUT;
--	s32 ret_val = 0;
- 	u32 mask = E1000_NVM_CFG_DONE_PORT_0;
- 
- 	if (hw->bus.func == 1)
-@@ -1223,7 +1220,7 @@ static s32 igb_get_cfg_done_82575(struct e1000_hw *hw)
- 	    (hw->phy.type == e1000_phy_igp_3))
- 		igb_phy_init_script_igp3(hw);
- 
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -1617,7 +1614,7 @@ static s32 igb_setup_serdes_link_82575(struct e1000_hw *hw)
- {
- 	u32 ctrl_ext, ctrl_reg, reg, anadv_reg;
- 	bool pcs_autoneg;
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 	u16 data;
- 
- 	if ((hw->phy.media_type != e1000_media_type_internal_serdes) &&
-@@ -2518,7 +2515,7 @@ out:
- static s32 __igb_access_emi_reg(struct e1000_hw *hw, u16 address,
- 				  u16 *data, bool read)
- {
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 
- 	ret_val = hw->phy.ops.write_reg(hw, E1000_EMIADD, address);
- 	if (ret_val)
-@@ -2552,7 +2549,6 @@ s32 igb_read_emi_reg(struct e1000_hw *hw, u16 addr, u16 *data)
-  **/
- s32 igb_set_eee_i350(struct e1000_hw *hw)
- {
--	s32 ret_val = 0;
- 	u32 ipcnfg, eeer;
- 
- 	if ((hw->mac.type < e1000_i350) ||
-@@ -2586,7 +2582,7 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
- 	rd32(E1000_EEER);
- out:
- 
--	return ret_val;
-+	return 0;
- }
- 
- /**
-@@ -2713,7 +2709,6 @@ static const u8 e1000_emc_therm_limit[4] = {
-  **/
- static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- {
--	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
- 	u16 ets_cfg;
- 	u16 ets_sensor;
-@@ -2731,7 +2726,7 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- 	/* Return the internal sensor only if ETS is unsupported */
- 	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
- 	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
--		return status;
-+		return 0;
- 
- 	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
- 	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
-@@ -2755,7 +2750,7 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
- 					E1000_I2C_THERMAL_SENSOR_ADDR,
- 					&data->sensor[i].temp);
- 	}
--	return status;
-+	return 0;
- }
- 
- /**
-@@ -2767,7 +2762,6 @@ static s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
-  **/
- static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- {
--	s32 status = E1000_SUCCESS;
- 	u16 ets_offset;
- 	u16 ets_cfg;
- 	u16 ets_sensor;
-@@ -2793,7 +2787,7 @@ static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- 	/* Return the internal sensor only if ETS is unsupported */
- 	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
- 	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
--		return status;
-+		return 0;
- 
- 	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
- 	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
-@@ -2824,7 +2818,7 @@ static s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
- 							low_thresh_delta;
- 		}
- 	}
--	return status;
-+	return 0;
- }
- 
- #endif
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 11ffdba..2a8bb35 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -459,7 +459,6 @@
- #define E1000_RAH_POOL_1 0x00040000
- 
- /* Error Codes */
--#define E1000_SUCCESS      0
- #define E1000_ERR_NVM      1
- #define E1000_ERR_PHY      2
- #define E1000_ERR_CONFIG   3
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index 2231598..337161f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -97,7 +97,7 @@ static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
- 		return -E1000_ERR_NVM;
- 	}
- 
--	return E1000_SUCCESS;
-+	return 0;
- }
- 
- /**
-@@ -139,7 +139,7 @@ s32 igb_acquire_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
- 	u32 swfw_sync;
- 	u32 swmask = mask;
- 	u32 fwmask = mask << 16;
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 	s32 i = 0, timeout = 200; /* FIXME: find real value to use here */
- 
- 	while (i < timeout) {
-@@ -184,7 +184,7 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
- {
- 	u32 swfw_sync;
- 
--	while (igb_get_hw_semaphore_i210(hw) != E1000_SUCCESS)
-+	while (igb_get_hw_semaphore_i210(hw))
- 		; /* Empty */
- 
- 	swfw_sync = rd32(E1000_SW_FW_SYNC);
-@@ -207,7 +207,7 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
- static s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 				  u16 *data)
- {
--	s32 status = E1000_SUCCESS;
-+	s32 status = 0;
- 	u16 i, count;
- 
- 	/* We cannot hold synchronization semaphores for too long,
-@@ -217,7 +217,7 @@ static s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 	for (i = 0; i < words; i += E1000_EERD_EEWR_MAX_COUNT) {
- 		count = (words - i) / E1000_EERD_EEWR_MAX_COUNT > 0 ?
- 			E1000_EERD_EEWR_MAX_COUNT : (words - i);
--		if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
-+		if (!(hw->nvm.ops.acquire(hw))) {
- 			status = igb_read_nvm_eerd(hw, offset, count,
- 						     data + i);
- 			hw->nvm.ops.release(hw);
-@@ -225,7 +225,7 @@ static s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 			status = E1000_ERR_SWFW_SYNC;
- 		}
- 
--		if (status != E1000_SUCCESS)
-+		if (status)
- 			break;
- 	}
- 
-@@ -250,7 +250,7 @@ static s32 igb_write_nvm_srwr(struct e1000_hw *hw, u16 offset, u16 words,
- 	struct e1000_nvm_info *nvm = &hw->nvm;
- 	u32 i, k, eewr = 0;
- 	u32 attempts = 100000;
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 
- 	/* A check for invalid values:  offset too large, too many words,
- 	 * too many words for the offset, and not enough words.
-@@ -272,13 +272,13 @@ static s32 igb_write_nvm_srwr(struct e1000_hw *hw, u16 offset, u16 words,
- 		for (k = 0; k < attempts; k++) {
- 			if (E1000_NVM_RW_REG_DONE &
- 			    rd32(E1000_SRWR)) {
--				ret_val = E1000_SUCCESS;
-+				ret_val = 0;
- 				break;
- 			}
- 			udelay(5);
- 	}
- 
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			hw_dbg("Shadow RAM write EEWR timed out\n");
- 			break;
- 		}
-@@ -307,7 +307,7 @@ out:
- static s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 				   u16 *data)
- {
--	s32 status = E1000_SUCCESS;
-+	s32 status = 0;
- 	u16 i, count;
- 
- 	/* We cannot hold synchronization semaphores for too long,
-@@ -317,7 +317,7 @@ static s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 	for (i = 0; i < words; i += E1000_EERD_EEWR_MAX_COUNT) {
- 		count = (words - i) / E1000_EERD_EEWR_MAX_COUNT > 0 ?
- 			E1000_EERD_EEWR_MAX_COUNT : (words - i);
--		if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
-+		if (!(hw->nvm.ops.acquire(hw))) {
- 			status = igb_write_nvm_srwr(hw, offset, count,
- 						      data + i);
- 			hw->nvm.ops.release(hw);
-@@ -325,7 +325,7 @@ static s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
- 			status = E1000_ERR_SWFW_SYNC;
- 		}
- 
--		if (status != E1000_SUCCESS)
-+		if (status)
- 			break;
- 	}
- 
-@@ -364,12 +364,12 @@ static s32 igb_read_invm_word_i210(struct e1000_hw *hw, u8 address, u16 *data)
- 				*data = INVM_DWORD_TO_WORD_DATA(invm_dword);
- 				hw_dbg("Read INVM Word 0x%02x = %x\n",
- 					  address, *data);
--				status = E1000_SUCCESS;
-+				status = 0;
- 				break;
- 			}
- 		}
- 	}
--	if (status != E1000_SUCCESS)
-+	if (status)
- 		hw_dbg("Requested word 0x%02x not found in OTP\n", address);
- 	return status;
- }
-@@ -385,7 +385,7 @@ static s32 igb_read_invm_word_i210(struct e1000_hw *hw, u8 address, u16 *data)
- static s32 igb_read_invm_i210(struct e1000_hw *hw, u16 offset,
- 				u16 words __always_unused, u16 *data)
- {
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 
- 	/* Only the MAC addr is required to be present in the iNVM */
- 	switch (offset) {
-@@ -395,42 +395,42 @@ static s32 igb_read_invm_i210(struct e1000_hw *hw, u16 offset,
- 						     &data[1]);
- 		ret_val |= igb_read_invm_word_i210(hw, (u8)offset+2,
- 						     &data[2]);
--		if (ret_val != E1000_SUCCESS)
-+		if (ret_val)
- 			hw_dbg("MAC Addr not found in iNVM\n");
- 		break;
- 	case NVM_INIT_CTRL_2:
- 		ret_val = igb_read_invm_word_i210(hw, (u8)offset, data);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			*data = NVM_INIT_CTRL_2_DEFAULT_I211;
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 		}
- 		break;
- 	case NVM_INIT_CTRL_4:
- 		ret_val = igb_read_invm_word_i210(hw, (u8)offset, data);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			*data = NVM_INIT_CTRL_4_DEFAULT_I211;
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 		}
- 		break;
- 	case NVM_LED_1_CFG:
- 		ret_val = igb_read_invm_word_i210(hw, (u8)offset, data);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			*data = NVM_LED_1_CFG_DEFAULT_I211;
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 		}
- 		break;
- 	case NVM_LED_0_2_CFG:
- 		ret_val = igb_read_invm_word_i210(hw, (u8)offset, data);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			*data = NVM_LED_0_2_CFG_DEFAULT_I211;
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 		}
- 		break;
- 	case NVM_ID_LED_SETTINGS:
- 		ret_val = igb_read_invm_word_i210(hw, (u8)offset, data);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			*data = ID_LED_RESERVED_FFFF;
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 		}
- 		break;
- 	case NVM_SUB_DEV_ID:
-@@ -486,14 +486,14 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
- 		/* Check if we have first version location used */
- 		if ((i == 1) && ((*record & E1000_INVM_VER_FIELD_ONE) == 0)) {
- 			version = 0;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 		/* Check if we have second version location used */
- 		else if ((i == 1) &&
- 			 ((*record & E1000_INVM_VER_FIELD_TWO) == 0)) {
- 			version = (*record & E1000_INVM_VER_FIELD_ONE) >> 3;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 		/* Check if we have odd version location
-@@ -504,7 +504,7 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
- 			 (i != 1))) {
- 			version = (*next_record & E1000_INVM_VER_FIELD_TWO)
- 				  >> 13;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 		/* Check if we have even version location
-@@ -513,12 +513,12 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
- 		else if (((*record & E1000_INVM_VER_FIELD_TWO) == 0) &&
- 			 ((*record & 0x3) == 0)) {
- 			version = (*record & E1000_INVM_VER_FIELD_ONE) >> 3;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 	}
- 
--	if (status == E1000_SUCCESS) {
-+	if (!status) {
- 		invm_ver->invm_major = (version & E1000_INVM_MAJOR_MASK)
- 					>> E1000_INVM_MAJOR_SHIFT;
- 		invm_ver->invm_minor = version & E1000_INVM_MINOR_MASK;
-@@ -531,7 +531,7 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
- 		/* Check if we have image type in first location used */
- 		if ((i == 1) && ((*record & E1000_INVM_IMGTYPE_FIELD) == 0)) {
- 			invm_ver->invm_img_type = 0;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 		/* Check if we have image type in first location used */
-@@ -540,7 +540,7 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
- 			 ((((*record & 0x3) != 0) && (i != 1)))) {
- 			invm_ver->invm_img_type =
- 				(*next_record & E1000_INVM_IMGTYPE_FIELD) >> 23;
--			status = E1000_SUCCESS;
-+			status = 0;
- 			break;
- 		}
- 	}
-@@ -556,10 +556,10 @@ s32 igb_read_invm_version(struct e1000_hw *hw,
-  **/
- static s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
- {
--	s32 status = E1000_SUCCESS;
-+	s32 status = 0;
- 	s32 (*read_op_ptr)(struct e1000_hw *, u16, u16, u16 *);
- 
--	if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
-+	if (!(hw->nvm.ops.acquire(hw))) {
- 
- 		/* Replace the read function with semaphore grabbing with
- 		 * the one that skips this for a while.
-@@ -591,7 +591,7 @@ static s32 igb_validate_nvm_checksum_i210(struct e1000_hw *hw)
-  **/
- static s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
- {
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 	u16 checksum = 0;
- 	u16 i, nvm_data;
- 
-@@ -600,12 +600,12 @@ static s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
- 	 * EEPROM read fails
- 	 */
- 	ret_val = igb_read_nvm_eerd(hw, 0, 1, &nvm_data);
--	if (ret_val != E1000_SUCCESS) {
-+	if (ret_val) {
- 		hw_dbg("EEPROM read failed\n");
- 		goto out;
- 	}
- 
--	if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
-+	if (!(hw->nvm.ops.acquire(hw))) {
- 		/* Do not use hw->nvm.ops.write, hw->nvm.ops.read
- 		 * because we do not want to take the synchronization
- 		 * semaphores twice here.
-@@ -623,7 +623,7 @@ static s32 igb_update_nvm_checksum_i210(struct e1000_hw *hw)
- 		checksum = (u16) NVM_SUM - checksum;
- 		ret_val = igb_write_nvm_srwr(hw, NVM_CHECKSUM_REG, 1,
- 						&checksum);
--		if (ret_val != E1000_SUCCESS) {
-+		if (ret_val) {
- 			hw->nvm.ops.release(hw);
- 			hw_dbg("NVM Write Error while updating checksum.\n");
- 			goto out;
-@@ -652,7 +652,7 @@ static s32 igb_pool_flash_update_done_i210(struct e1000_hw *hw)
- 	for (i = 0; i < E1000_FLUDONE_ATTEMPTS; i++) {
- 		reg = rd32(E1000_EECD);
- 		if (reg & E1000_EECD_FLUDONE_I210) {
--			ret_val = E1000_SUCCESS;
-+			ret_val = 0;
- 			break;
- 		}
- 		udelay(5);
-@@ -685,7 +685,7 @@ bool igb_get_flash_presence_i210(struct e1000_hw *hw)
-  **/
- static s32 igb_update_flash_i210(struct e1000_hw *hw)
- {
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 	u32 flup;
- 
- 	ret_val = igb_pool_flash_update_done_i210(hw);
-@@ -698,7 +698,7 @@ static s32 igb_update_flash_i210(struct e1000_hw *hw)
- 	wr32(E1000_EECD, flup);
- 
- 	ret_val = igb_pool_flash_update_done_i210(hw);
--	if (ret_val == E1000_SUCCESS)
-+	if (ret_val)
- 		hw_dbg("Flash update complete\n");
- 	else
- 		hw_dbg("Flash update time out\n");
-@@ -751,7 +751,7 @@ out:
- static s32 __igb_access_xmdio_reg(struct e1000_hw *hw, u16 address,
- 				  u8 dev_addr, u16 *data, bool read)
- {
--	s32 ret_val = E1000_SUCCESS;
-+	s32 ret_val = 0;
- 
- 	ret_val = hw->phy.ops.write_reg(hw, E1000_MMDAC, dev_addr);
- 	if (ret_val)
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index d3d2154..c737d1f 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2738,7 +2738,7 @@ static int igb_get_module_info(struct net_device *netdev,
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 status = E1000_SUCCESS;
-+	u32 status = 0;
- 	u16 sff8472_rev, addr_mode;
- 	bool page_swap = false;
- 
-@@ -2748,12 +2748,12 @@ static int igb_get_module_info(struct net_device *netdev,
- 
- 	/* Check whether we support SFF-8472 or not */
- 	status = igb_read_phy_reg_i2c(hw, IGB_SFF_8472_COMP, &sff8472_rev);
--	if (status != E1000_SUCCESS)
-+	if (status)
- 		return -EIO;
- 
- 	/* addressing mode is not supported */
- 	status = igb_read_phy_reg_i2c(hw, IGB_SFF_8472_SWAP, &addr_mode);
--	if (status != E1000_SUCCESS)
-+	if (status)
- 		return -EIO;
- 
- 	/* addressing mode is not supported */
-@@ -2780,7 +2780,7 @@ static int igb_get_module_eeprom(struct net_device *netdev,
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 status = E1000_SUCCESS;
-+	u32 status = 0;
- 	u16 *dataword;
- 	u16 first_word, last_word;
- 	int i = 0;
-@@ -2799,7 +2799,7 @@ static int igb_get_module_eeprom(struct net_device *netdev,
- 	/* Read EEPROM block, SFF-8079/SFF-8472, word at a time */
- 	for (i = 0; i < last_word - first_word + 1; i++) {
- 		status = igb_read_phy_reg_i2c(hw, first_word + i, &dataword[i]);
--		if (status != E1000_SUCCESS) {
-+		if (status) {
- 			/* Error occurred while reading module */
- 			kfree(dataword);
- 			return -EIO;
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 33b3a16..f145adb 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -2199,11 +2199,11 @@ static void igb_init_mas(struct igb_adapter *adapter)
-  **/
- static s32 igb_init_i2c(struct igb_adapter *adapter)
- {
--	s32 status = E1000_SUCCESS;
-+	s32 status = 0;
- 
- 	/* I2C interface supported on i350 devices */
- 	if (adapter->hw.mac.type != e1000_i350)
--		return E1000_SUCCESS;
-+		return 0;
- 
- 	/* Initialize the i2c bus which is controlled by the registers.
- 	 * This bus will use the i2c_algo_bit structue that implements
-@@ -7935,7 +7935,7 @@ static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
- 	wr32(reg_offset, reg_val);
- 
- 	adapter->vf_data[vf].spoofchk_enabled = setting;
--	return E1000_SUCCESS;
-+	return 0;
- }
- 
- static int igb_ndo_get_vf_config(struct net_device *netdev,
-@@ -8097,8 +8097,7 @@ s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 
- 	swfw_mask = E1000_SWFW_PHY0_SM;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask)
--	    != E1000_SUCCESS)
-+	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask))
- 		return E1000_ERR_SWFW_SYNC;
- 
- 	status = i2c_smbus_read_byte_data(this_client, byte_offset);
-@@ -8108,7 +8107,7 @@ s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 		return E1000_ERR_I2C;
- 	else {
- 		*data = status;
--		return E1000_SUCCESS;
-+		return 0;
- 	}
- }
- 
-@@ -8133,7 +8132,7 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 	if (!this_client)
- 		return E1000_ERR_I2C;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask) != E1000_SUCCESS)
-+	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask))
- 		return E1000_ERR_SWFW_SYNC;
- 	status = i2c_smbus_write_byte_data(this_client, byte_offset, data);
- 	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
-@@ -8141,7 +8140,7 @@ s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
- 	if (status)
- 		return E1000_ERR_I2C;
- 	else
--		return E1000_SUCCESS;
-+		return 0;
- 
- }
- 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index bb5b055..9d39ff2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -1023,6 +1023,9 @@ struct i40e_hw_port_stats {
+ 	u64 tx_size_big;		/* ptc9522 */
+ 	u64 mac_short_packet_dropped;	/* mspdc */
+ 	u64 checksum_error;		/* xec */
++	/* flow director stats */
++	u64 fd_atr_match;
++	u64 fd_sb_match;
+ 	/* EEE LPI */
+ 	u32 tx_lpi_status;
+ 	u32 rx_lpi_status;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 92fae73..d3cf5a6 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -1023,6 +1023,9 @@ struct i40e_hw_port_stats {
+ 	u64 tx_size_big;		/* ptc9522 */
+ 	u64 mac_short_packet_dropped;	/* mspdc */
+ 	u64 checksum_error;		/* xec */
++	/* flow director stats */
++	u64 fd_atr_match;
++	u64 fd_sb_match;
+ 	/* EEE LPI */
+ 	u32 tx_lpi_status;
+ 	u32 rx_lpi_status;
 -- 
 1.9.3
