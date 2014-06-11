@@ -1,42 +1,43 @@
-From: Shruti Kanetkar <Shruti@Freescale.com>
-Subject: [PATCH] net/fsl: Make xgmac_mdio read error message useful
-Date: Wed, 11 Jun 2014 13:41:40 -0500
-Message-ID: <1402512100-16735-1-git-send-email-Shruti@Freescale.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 3/3] qlcnic: Update version to 5.3.60
+Date: Wed, 11 Jun 2014 14:09:13 -0400
+Message-ID: <1402510153-9928-4-git-send-email-shahed.shaikh@qlogic.com>
+References: <1402510153-9928-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Shruti Kanetkar <Shruti@Freescale.com>
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:34586
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752436AbaFKSlw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 14:41:52 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:1555 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753712AbaFKSnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 14:43:19 -0400
+In-Reply-To: <1402510153-9928-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Print the device address, the register number and the PHY ID for
-which the MDIO read operation failed
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/freescale/xgmac_mdio.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index d449fcb..0c9d55c 100644
---- a/drivers/net/ethernet/freescale/xgmac_mdio.c
-+++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -162,7 +162,9 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index d85f7e1..be618b9 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -39,8 +39,8 @@
  
- 	/* Return all Fs if nothing was there */
- 	if (in_be32(&regs->mdio_stat) & MDIO_STAT_RD_ER) {
--		dev_err(&bus->dev, "MDIO read error\n");
-+		dev_err(&bus->dev,
-+			"Error while reading PHY%d reg at %d.%d\n",
-+			phy_id, dev_addr, regnum);
- 		return 0xffff;
- 	}
- 
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 3
+-#define _QLCNIC_LINUX_SUBVERSION 59
+-#define QLCNIC_LINUX_VERSIONID  "5.3.59"
++#define _QLCNIC_LINUX_SUBVERSION 60
++#define QLCNIC_LINUX_VERSIONID  "5.3.60"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 -- 
-1.8.3.1
+1.8.1.4
