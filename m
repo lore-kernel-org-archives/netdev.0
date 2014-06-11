@@ -1,73 +1,64 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3] net: add skb allocation flags to pskb_copy
-Date: Wed, 11 Jun 2014 09:22:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725AC13@AcuExch.aculab.com>
-References: <1402477954-1267-1-git-send-email-octavian.purdila@intel.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 2/2] openvswitch: Enable tunnel GSO for OVS bridge.
+Date: Wed, 11 Jun 2014 12:26:18 +0300
+Message-ID: <CAJZOPZJ0c21oxPs=B3rb+v5M+rE37+C1T-78fR73V-fUcOpJ6Q@mail.gmail.com>
+References: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>,
-	"Alexander Smirnov" <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	"Simon Wunderlich" <sw@simonwunderlich.de>,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"Arvid Brodin" <arvid.brodin@alten.se>,
-	Patrick McHardy <kaber@trash.net>,
-	"Pablo Neira Ayuso" <pablo@netfilter.org>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-	Samuel Ortiz <sameo@linux.intel.com>,
-	"Jon Maloy" <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	"Eric Dumazet" <edumazet
-To: 'Octavian Purdila' <octavian.purdila@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Alon Harel <alonha@mellanox.com>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:54226 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751015AbaFKJXG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 05:23:06 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 25541-10 for <netdev@vger.kernel.org>;
- Wed, 11 Jun 2014 10:22:55 +0100 (BST)
-In-Reply-To: <1402477954-1267-1-git-send-email-octavian.purdila@intel.com>
-Content-Language: en-US
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:60458 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750817AbaFKJ0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 05:26:19 -0400
+Received: by mail-qa0-f44.google.com with SMTP id j7so10805445qaq.31
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 02:26:19 -0700 (PDT)
+In-Reply-To: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila
-> There are several instances where a pskb_copy or __pskb_copy is
-> immediately followed by an skb_clone. Add a new parameter to allow the
-> skb to be allocated from the fclone cache and thus speed up subsequent
-> skb_clone calls.
-...
-> @@ -2233,9 +2233,9 @@ static inline dma_addr_t skb_frag_dma_map(struct device *dev,
->  }
-> 
->  static inline struct sk_buff *pskb_copy(struct sk_buff *skb,
-> -					gfp_t gfp_mask)
-> +					gfp_t gfp_mask, bool fclone)
->  {
-> -	return __pskb_copy(skb, skb_headroom(skb), gfp_mask);
-> +	return __pskb_copy(skb, skb_headroom(skb), gfp_mask, fclone);
-...
+On Sun, May 25, 2014 at 2:39 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-Why not add:
-static inline struct sk_buff *pskb_copy_for_clone(struct sk_buff *skb,
-					gfp_t gfp_mask)
-{
-	return __pskb_copy(skb, skb_headroom(skb), gfp_mask, true);
-}
+Hi Pravin,
 
-So that only some of the call sites need changing.
-The different function name is probably easier to grok than a Boolean
-parameter.
+Can you please provide a non-empty change log for this patch... I
+understand the patch
+addresses some openvswitch use case where offloads are currently
+non-coming into play and
+you want to support that, right?
 
-	David
+
+> +++ b/include/linux/netdev_features.h
+> @@ -152,6 +152,10 @@ enum {
+>  #define NETIF_F_ALL_FCOE       (NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
+>                                  NETIF_F_FSO)
+>
+> +#define NETIF_F_ALL_ENCAP_GSO   (NETIF_F_GSO_GRE | NETIF_F_GSO_GRE_CSUM | \
+> +                                NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |     \
+> +                                NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_MPLS)
+
+AFAIK OVS supports only VXLAN and GRE tunneling -- wouldn't it be
+enough to add here only
+NETIF_F_GSO_GRE and NETIF_F_GSO_UDP_TUNNEL?
+
+> +
+>  /*
+>   * If one device supports one of these features, then enable them
+>   * for all in netdev_increment_features.
+> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> index 789af92..b971610 100644
+> --- a/net/openvswitch/vport-internal_dev.c
+> +++ b/net/openvswitch/vport-internal_dev.c
+> @@ -134,7 +134,8 @@ static void do_setup(struct net_device *netdev)
+>         netdev->tx_queue_len = 0;
+>
+>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+> -                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+> +                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE |
+> +                          NETIF_F_ALL_ENCAP_GSO;
+>
+>         netdev->vlan_features = netdev->features;
+>         netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
