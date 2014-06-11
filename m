@@ -1,50 +1,60 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [net-next 06/13] i40e: implement anti-spoofing for VFs
-Date: Wed, 11 Jun 2014 15:43:01 +0300
-Message-ID: <CAJZOPZLr-QYMfQ6homSvkDfUh+np3q5qbmRNLzBgxyWjk+LONQ@mail.gmail.com>
-References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1402303758-1429-7-git-send-email-jeffrey.t.kirsher@intel.com>
-	<CAJZOPZJGZNhX7yPF6MvCjW+EYi-EGJgW1GhFa5CO=myAgJj-1A@mail.gmail.com>
-	<1402488782.2306.18.camel@jtkirshe-mobl>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: Fix sk_ack_backlog wrap-around problem
+Date: Wed, 11 Jun 2014 08:55:59 -0400
+Message-ID: <539851DF.3070808@gmail.com>
+References: <1402454244-8427-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f49.google.com ([209.85.216.49]:55064 "EHLO
-	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753367AbaFKMnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 08:43:03 -0400
-Received: by mail-qa0-f49.google.com with SMTP id w8so4104413qac.36
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 05:43:01 -0700 (PDT)
-In-Reply-To: <1402488782.2306.18.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402454244-8427-1-git-send-email-xufeng.zhang@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 11, 2014 at 3:13 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> On Mon, 2014-06-09 at 22:49 +0300, Or Gerlitz wrote:
->> On Mon, Jun 9, 2014 at 11:49 AM, Jeff Kirsher
->> <jeffrey.t.kirsher@intel.com> wrote:
->> > From: Mitch Williams <mitch.a.williams@intel.com>
->> >
->> > Our hardware supports VF antispoofing for both MAC addresses and VLANs.
->> > Enable this feature by default for all VFs
->>
->> What do you expect the HW to do when spoof check is enabled (by
->> default) but the admin didn't configure a MAC address for the VF
->> through the PF? that is the VF is allowed to use what ever MAC they
->> want to?
->>
->> > and implement the netdev op to control it from the command line.
->
-> Here is the answer I got:
-> If the VF mac address is set within the VM and it is accepted by the PF,
+On 06/10/2014 10:37 PM, Xufeng Zhang wrote:
+> Consider the scenario:
+> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
+> a new association would be created in sctp_unpack_cookie(), but afterwards,
+> some processing maybe failed, and sctp_association_free() will be called to
+> free the previously allocated association, in sctp_association_free(),
+> sk_ack_backlog value is decremented for this socket, since the initial
+> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
+> a wrap-around problem happens, and if we want to establish new associations
+> afterward in the same socket, ABORT would be triggered since sctp deem the
+> accept queue as full.
+> Fix this issue by only decrementing sk_ack_backlog for associations in
+> the endpoint's list.
+> 
+> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> ---
+>  net/sctp/associola.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 39579c3..60564f2 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -330,7 +330,7 @@ void sctp_association_free(struct sctp_association *asoc)
+>  	/* Only real associations count against the endpoint, so
+>  	 * don't bother for if this is a temporary association.
+>  	 */
+> -	if (!asoc->temp) {
+> +	if (!asoc->temp && !list_empty(&asoc->asocs)) {
+>  		list_del(&asoc->asocs);
+>  
+>  		/* Decrement the backlog value for a TCP-style listening
+> 
 
-When the admin doesn't configure MAC address for the VM, what logic is
-applied by the PF to decide whether or not to accept a VF MAC set by the VM?
+I am not crazy about this patch.   It's been suggested before that may
+be duplicate cookie processing should really be creating a temporary
+association since that's is how that association is being used.  It
+might be nice at that approach.  It actually benefits us as the
+association destruction would happen immediately instead of being delayed.
+
+-vlad
