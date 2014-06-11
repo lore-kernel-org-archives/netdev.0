@@ -1,28 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
- 2014-06-09
-Date: Tue, 10 Jun 2014 20:26:33 -0700 (PDT)
-Message-ID: <20140610.202633.508429246323265965.davem@davemloft.net>
-References: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] ceph: remove bogus extern
+Date: Tue, 10 Jun 2014 20:30:13 -0700
+Message-ID: <20140610203013.6a5e5904@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+To: Sage Weil <sage@inktank.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42089 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755036AbaFKD0g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 23:26:36 -0400
-In-Reply-To: <1402303758-1429-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:35123 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833AbaFKDaR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 10 Jun 2014 23:30:17 -0400
+Received: by mail-pa0-f51.google.com with SMTP id ey11so1405663pad.24
+        for <netdev@vger.kernel.org>; Tue, 10 Jun 2014 20:30:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon,  9 Jun 2014 01:49:05 -0700
+Sparse complained about this bogus extern on definition of
+a function.
 
-> This series contains more updates to i40e and i40evf.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Pulled, thanks Jeff.
-
-Please make sure the feedback given for patches #1 and #6 get addressed.
+--- a/net/ceph/osd_client.c	2014-04-20 13:04:38.238240920 -0700
++++ b/net/ceph/osd_client.c	2014-06-10 20:21:51.894499623 -0700
+@@ -2491,7 +2491,7 @@ EXPORT_SYMBOL(ceph_osdc_sync);
+  * Call all pending notify callbacks - for use after a watch is
+  * unregistered, to make sure no more callbacks for it will be invoked
+  */
+-extern void ceph_osdc_flush_notifies(struct ceph_osd_client *osdc)
++void ceph_osdc_flush_notifies(struct ceph_osd_client *osdc)
+ {
+ 	flush_workqueue(osdc->notify_wq);
+ }
