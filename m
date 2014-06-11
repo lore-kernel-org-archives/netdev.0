@@ -1,28 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ceph: remove bogus extern
-Date: Wed, 11 Jun 2014 15:40:30 -0700 (PDT)
-Message-ID: <20140611.154030.2284694286671326441.davem@davemloft.net>
-References: <20140610203013.6a5e5904@nehalam.linuxnetplumber.net>
+Subject: Re: [net-next PATCH] mrf24j40: add device managed APIs
+Date: Wed, 11 Jun 2014 15:40:38 -0700 (PDT)
+Message-ID: <20140611.154038.2217975059059399377.davem@davemloft.net>
+References: <1402461284-8435-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sage@inktank.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47731 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752625AbaFKWkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:40:31 -0400
-In-Reply-To: <20140610203013.6a5e5904@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, varkab@cdac.in
+To: varkabhadram@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402461284-8435-1-git-send-email-varkab@cdac.in>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 10 Jun 2014 20:30:13 -0700
+From: Varka Bhadram <varkabhadram@gmail.com>
+Date: Wed, 11 Jun 2014 10:04:44 +0530
 
-> Sparse complained about this bogus extern on definition of
-> a function.
+> adds the device managed APIs so that no need worry about
+> freeing the resources.
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
 
 Applied.
