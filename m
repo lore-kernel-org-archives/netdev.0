@@ -1,44 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ip_tunnel: GSO: Add check for nested encap.
-Date: Tue, 10 Jun 2014 22:21:20 -0700 (PDT)
-Message-ID: <20140610.222120.1648194413371340927.davem@davemloft.net>
-References: <1401017972-1544-1-git-send-email-pshelar@nicira.com>
+From: Mike Galbraith <umgwanakikbuti@gmail.com>
+Subject: Re: recvmmsg/sendmmsg result types inconsistent, integer overflows?
+Date: Wed, 11 Jun 2014 07:24:21 +0200
+Message-ID: <1402464261.5195.21.camel@marge.simpson.net>
+References: <20140611041243.GA1475@brightrain.aerifal.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42530 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299AbaFKFVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 01:21:23 -0400
-In-Reply-To: <1401017972-1544-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Rich Felker <dalias@libc.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140611041243.GA1475@brightrain.aerifal.cx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Sun, 25 May 2014 04:39:32 -0700
+(CCs network wizard hangout)
 
-> +	if (skb_is_gso(skb)) {
-> +		if (unlikely(skb->encapsulation)) {
-> +			/* Current networking GSO stack can handle
-> +			 * only one level of encapsulation. */
-> +			err = -ENOSYS;
-> +			goto error;
-> +		}
-
-This is not the correct way to format a comment in the kernel networking
-code, the proper way is:
-
-	/* Like
-	 * this.
-	 */
-
-Also, you need to provide a cover posting for a patch series explaining
-at a high level what this patch series is accomplishing.  Also you need
-to explicitly indicate what tree this set of changes is targetting.
-
-Given the amount of changes you've contributed in the past, I am at a
-loss as to why I have to explain all of this to someone with your level
-of experience.
+On Wed, 2014-06-11 at 00:12 -0400, Rich Felker wrote: 
+> While looking to add support for the recvmmsg and sendmmsg syscalls in
+> musl libc, I ran into some disturbing findings on the kernel side. In
+> the struct mmsghdr, the field where the result for each message is
+> stored has type int, which is inconsistent with the return type
+> ssize_t of recvmsg/sendmsg. So I tried to track down what happens when
+> the result is or would be larger than 2GB, and quickly found an
+> explanation for why the type in the structure was defined wrong:
+> internally, the kernel uses int as the return type for revcmsg and
+> sendmsg. Oops.
+> 
+> A bit more RTFS'ing brought me to tcp_sendmsg in net/ipv4/tcp.c (I
+> figured let's look at a stream-based protocol, since datagrams can
+> likely never be that big for any existing protocol), and as far as I
+> can tell, it's haphazardly mixing int and size_t with no checks for
+> overflows. I looked for anywhere the kernel might try to verify before
+> starting that the sum of the lengths of all the iovec components
+> doesn't overflow INT_MAX or even SIZE_MAX, but didn't find any such
+> checks.
+> 
+> Is there some magic that makes this all safe, or is this a big mess of
+> possibly-security-relevant bugs?
+> 
+> Rich
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
