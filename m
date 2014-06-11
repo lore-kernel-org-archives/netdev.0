@@ -1,78 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 1/4] bnx2x: Fix link for KR with swapped polarity
- lane
-Date: Wed, 11 Jun 2014 17:36:05 +0400
-Message-ID: <53985B45.9020604@cogentembedded.com>
-References: <1402493248-5427-1-git-send-email-yuval.mintz@qlogic.com> <1402493248-5427-2-git-send-email-yuval.mintz@qlogic.com>
+From: Kostya Serebryany <kcc@google.com>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Wed, 11 Jun 2014 17:38:57 +0400
+Message-ID: <CAN=P9phzd34JtS_+Y1uimfmdZhyYNfTRPVXmmz7GG-+UJOebWQ@mail.gmail.com>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+	<1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.DEB.2.02.1406101726390.11647@dtop>
+	<1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
+	<alpine.DEB.2.10.1406102114520.28698@dinf>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Yuval Mintz <yuval.mintz@qlogic.com>, davem@davemloft.net,
-	ariel.elior@qlogic.com
-To: netdev@vger.kernel.org, Yaniv Rosner <yaniv.rosner@qlogic.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Preobrazhensky <preobr@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: dormando <dormando@rydia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:56742 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755302AbaFKNgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 09:36:08 -0400
-Received: by mail-lb0-f173.google.com with SMTP id 10so4805716lbg.4
-        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 06:36:04 -0700 (PDT)
-In-Reply-To: <1402493248-5427-2-git-send-email-yuval.mintz@qlogic.com>
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:35467 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755711AbaFKNi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 09:38:58 -0400
+Received: by mail-ig0-f170.google.com with SMTP id h3so6259778igd.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 06:38:58 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.10.1406102114520.28698@dinf>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2014 05:27 PM, Yuval Mintz wrote:
+> Ran our udpkill util against 3.10.42 with both of your patches applied...
 
-> From: Yaniv Rosner <yaniv.rosner@qlogic.com>
+[plain text]
+Could you please tell us more about udpkill?
+Will it makes sense to run address-sanitized-kernel with udpkill?
 
-> This avoids clearing the RX polarity setting in KR mode when polarity lane
-> is swapped, as otherwise this will result in failed link.
-
-> Signed-off-by: Yaniv Rosner <yaniv.rosner@qlogic.com>
-> Signed-off-by: Yuval Mintz <yuval.mintz@qlogic.com>
-> Signed-off-by: Ariel Elior <ariel.elior@qlogic.com>
-> ---
->   drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 25 ++++++++++++++++++------
->   1 file changed, 19 insertions(+), 6 deletions(-)
-
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-> index 9b6b3d7..b052f56 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-[...]
-> @@ -3822,15 +3823,27 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
->   		/* Enable Auto-Detect to support 1G over CL37 as well */
->   		bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
->   				 MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X1, 0x10);
-> -
-> +		wc_lane_config = REG_RD(bp, params->shmem_base +
-> +					offsetof(struct shmem_region, dev_info.
-> +					shared_hw_config.wc_lane_config));
-> +		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
-> +				MDIO_WC_REG_RX0_PCI_CTRL + (0x10 * lane), &val);
-
-    () around * not needed. You could also replace it by (lane << 4).
-
->   		/* Force cl48 sync_status LOW to avoid getting stuck in CL73
->   		 * parallel-detect loop when CL73 and CL37 are enabled.
->   		 */
-> -		CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
-> -				  MDIO_AER_BLOCK_AER_REG, 0);
-> +		val |= (1<<11);
-
-    () not needed here. And could you please enclose << with spaces for 
-consistency?
-
-> +
-> +		/* Restore Polarity settings in case it was run over by
-> +		 * previous link owner
-> +		 */
-> +		if (wc_lane_config &
-> +		    (SHARED_HW_CFG_RX_LANE0_POL_FLIP_ENABLED << lane))
-> +			val |= (3<<2);
-> +		else
-> +			val &= ~(3<<2);
-
-    Same comments here (2nd case needs parens though).
-
-WBR, Sergei
+--kcc
