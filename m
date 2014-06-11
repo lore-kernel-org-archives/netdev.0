@@ -1,34 +1,53 @@
-From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
-Subject: some mac802154 fixes
-Date: Wed, 11 Jun 2014 12:03:05 +0200
-Message-ID: <1402480987-492-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
-Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw1.uni-kl.de ([131.246.120.220]:55853 "EHLO
-	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751070AbaFKKDb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 06:03:31 -0400
-Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
-	by mailgw1.uni-kl.de (8.14.4/8.14.4/Debian-7) with ESMTP id s5BA3T49005632
-	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 11 Jun 2014 12:03:29 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+Subject: [PATCH v3 net-next 1/2] mac802154: properly
+	free incoming skbs on decryption failure
+Date: Wed, 11 Jun 2014 12:03:06 +0200
+Message-ID: <1402480987-492-2-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+References: <1402480987-492-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1402480987-492-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Recent llsec code introduced a memory leak on decryption failures during rx.
-This fixes said leak, and optimizes the receive loops for monitor and wpan
-devices to only deliver skbs to devices that are actually up. Also changes a
-dev_kfree_skb to kfree_skb when an invalid packet is dropped before being
-pushed into the stack.
+mac802154 RX did not free skbs on decryption failure, assuming that the
+caller would when the local rx handler returned _DROP. This was false.
 
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
 ---
+ net/mac802154/wpan.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Phoebe Buckheister (2):
-      mac802154: properly free incoming skbs on decryption failure
-      mac802154: don't deliver packets to devices that are down
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 23bc91c..c8cfd54 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -472,6 +472,7 @@ mac802154_subif_frame(struct mac802154_sub_if_data *sdata, struct sk_buff *skb,
+ 	rc = mac802154_llsec_decrypt(&sdata->sec, skb);
+ 	if (rc) {
+ 		pr_debug("decryption failed: %i\n", rc);
++		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+ 
+-- 
+1.7.9.5
 
- net/mac802154/monitor.c |    3 ++-
- net/mac802154/rx.c      |   11 +++++++----
- net/mac802154/wpan.c    |   14 +++++++++-----
- 3 files changed, 18 insertions(+), 10 deletions(-)
+
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
