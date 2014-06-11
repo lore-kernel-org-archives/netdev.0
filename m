@@ -1,28 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: realtek: register/unregister multiple
- drivers properly
-Date: Wed, 11 Jun 2014 15:17:50 -0700 (PDT)
-Message-ID: <20140611.151750.163707451871716166.davem@davemloft.net>
-References: <1402372212-19553-1-git-send-email-neidhard.kim@lge.com>
+Subject: Re: [PATCH] net: xen-netback: include linux/vmalloc.h again
+Date: Wed, 11 Jun 2014 15:19:01 -0700 (PDT)
+Message-ID: <20140611.151901.986995853392690449.davem@davemloft.net>
+References: <5508988.K5Wec8A6hA@wuerfel>
+	<20140610084454.GB28084@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, r58129@freescale.com,
-	linux-kernel@vger.kernel.org
-To: neidhard.kim@lge.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402372212-19553-1-git-send-email-neidhard.kim@lge.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: arnd@arndb.de, netdev@vger.kernel.org,
+	andrew.bennieston@citrix.com, xen-devel@lists.xenproject.org,
+	jwboyer@fedoraproject.org
+To: wei.liu2@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47575 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754234AbaFKWTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:19:01 -0400
+In-Reply-To: <20140610084454.GB28084@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jongsung Kim <neidhard.kim@lge.com>
-Date: Tue, 10 Jun 2014 12:50:12 +0900
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Tue, 10 Jun 2014 09:44:54 +0100
 
-> Using phy_drivers_register/_unregister functions is proper way to
-> handle multiple PHY drivers registration. For Realtek PHY drivers
-> module, it fixes incomplete current error-handlings up and adds
-> missed unregistration for the RTL8201CP driver.
+> On Tue, Jun 10, 2014 at 10:34:36AM +0200, Arnd Bergmann wrote:
+>> commit e9ce7cb6b107 ("xen-netback: Factor queue-specific data into
+>> queue struct") added a use of vzalloc/vfree to interface.c, but
+>> removed the #include <linux/vmalloc.h> statement at the same time,
+>> which causes this build error:
+>> 
+>> drivers/net/xen-netback/interface.c: In function 'xenvif_free':
+>> drivers/net/xen-netback/interface.c:754:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+>>   vfree(vif->queues);
+>>   ^
+>> cc1: some warnings being treated as errors
+>> 
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> Cc: Wei Liu <wei.liu2@citrix.com>
+>> Cc: Andrew J. Bennieston <andrew.bennieston@citrix.com>
 > 
-> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+> Acked-by: Wei Liu <wei.liu2@citrix.com>
+> 
+> This didn't happen to me when I built it on x86 though. Just curious,
+> did you build it on othet platform, say, ARM?
 
-Applied, thank you.
+ARM and PowerPC will both show this problem.
+
+The issue is that x86 get's linux/vmalloc.h implicitly through one of
+it's asm/ headers, thus you'll never hit the issue if you only build
+test on that arch.
