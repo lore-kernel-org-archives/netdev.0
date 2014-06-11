@@ -1,60 +1,95 @@
-From: Per Jessen <per@computer.org>
-Subject: Re: missing icmp redirects
-Date: Wed, 11 Jun 2014 09:19:22 +0200
-Message-ID: <539802FA.3040207@computer.org>
-References: <5343FE4D.40805@computer.org>	<DUB123-W19EE656C7ECB42B9D05319ED6B0@phx.gbl>	<53974A0F.7080908@computer.org> <20140611000613.3fb3c563523b73244d90dc44@qrator.net>
+From: dormando <dormando@rydia.net>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Wed, 11 Jun 2014 00:20:12 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406110011170.11647@dtop>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>   <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.02.1406101726390.11647@dtop>   <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
+  <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>  <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.10.1406102114520.28698@dinf> <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lukas Tribus <luky-37@hotmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Popov <ixaphire@qrator.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Preobrazhensky <preobr@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound.spamchek.net ([88.198.172.124]:39543 "EHLO
-	outbound.spamchek.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161AbaFKHTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:19:25 -0400
-In-Reply-To: <20140611000613.3fb3c563523b73244d90dc44@qrator.net>
+Received: from rydia.net ([69.46.88.68]:50727 "EHLO mail.rydia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752183AbaFKHUO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 03:20:14 -0400
+In-Reply-To: <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dmitry Popov wrote:
-> On Tue, 10 Jun 2014 20:10:23 +0200
-> Per Jessen <per@computer.org> wrote:
-> 
->> Lukas Tribus wrote:
->>>> See complete description here:
->>>>
->>>> https://bugzilla.kernel.org/show_bug.cgi?id=72561
->>>>
->>>> Summary - some ICMP redirects seem to be missing.
->>>>
->> Okay, I have devised a way to reproduce the problem:
->>
->> ...
-> 
-> It's probably not a bug, but intended behavior. See ip_rt_send_redirect in 
-> net/ipv4/route.c. The kernel has a built-in per-source-address limiter for icmp
-> redirects. 
+On Tue, 10 Jun 2014, Eric Dumazet wrote:
 
-Hi Dmitry
+> On Tue, 2014-06-10 at 21:16 -0700, dormando wrote:
+>
+> > Ran our udpkill util against 3.10.42 with both of your patches applied...
+> > seems like it ran a bit longer than normally would with this test (15-20
+> > minutes), then died:
+>
+> Well, could you try a recent kernel instead ?
+>
+> I can see some races and fixes are probably worth it.
+>
+> $ git log --oneline v3.10.42..v3.15 net/ipv4/route.c
+> fbdc0ad ipv4: initialise the itag variable in __mkroute_input
+> 0d5edc6 ipv4, route: pass 0 instead of LOOPBACK_IFINDEX to fib_validate_source()
+> aad8872 ipv4: add a sock pointer to dst->output() path.
+> 9114615 ipv4: return valid RTA_IIF on ip route get
+> 3ed66e9 net: replace __this_cpu_inc in route.c with raw_cpu_inc
+> 0b8c7f6 ipv4: remove ip_rt_dump from route.c
+> 4a4eb21 ipv4: remove ipv4_ifdown_dst from route.c
+> 1e8d642 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> a625486 ipv4: fix counter in_slow_tot
+> cd0f0b9 ipv4: distinguish EHOSTUNREACH from the ENETUNREACH
+> 2045cea net: remove unnecessary return's
+> f87c10a ipv4: introduce ip_dst_mtu_maybe_forward and protect forwarding path against pmtu spoofing
+> dcdfdf5 ipv4: fix race in concurrent ip_route_input_slow()
+> 482fc60 ipv4: introduce new IP_MTU_DISCOVER mode IP_PMTUDISC_INTERFACE
+> 0baf2b3 ipv4: shrink rt_cache_stat
+> 0a7e226 ipv4: fix ineffective source address selection
+> 734d272 ipv4: raise IP_MAX_MTU to theoretical limit
+> ca4c3fc net: split rt_genid for ipv4 and ipv6
+> 2ffae99 ipv4: use next hop exceptions also for input routes
+> fe2c633 net: Convert uses of typedef ctl_table to struct ctl_table
+> 6bc19fb Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+> 5aad1de ipv4: use separate genid for next hop exceptions
+> f016229 ipv4: rate limit updating of next hop exceptions with same pmtu
+> 387aa65 ipv4: properly refresh rtable entries on pmtu/redirect events
+>
+>
 
-Any possibility that this limiter may have been inactive/faulty in e.g. 2.6.34? 
-  We only hit this issue when we upgraded the firewall to a newer openSUSE (for 
-ebtables) which came with kernel 3.11.6, but prior to that we had no issue with 
-missing redirects.
+Newest I can realistically roll would be 3.14.6, so I just tried
+that... Without your two patches, it still dies from the UDP bug.
 
-> You can disable it for example with 
-> echo -1 > /proc/sys/net/ipv4/route/redirect_silence
-> Though I am not sure if it is ok in wild networks.
+Unfortunately 3.14 has a few regressions.. one is some bad CPU usage i'll
+have to track down, and two something about pstore is broken, so I can't
+get the trace from the crash. It's compressing now and has more of the
+kernel log, but it's missing the actual panic part.
 
-Okay, that worked on the first attempt.
-Should I also be looking at the other redirect settings?
+$ git log --oneline v3.14..v3.15 net/ipv4/route.c
+fbdc0ad ipv4: initialise the itag variable in __mkroute_input
+0d5edc6 ipv4, route: pass 0 instead of LOOPBACK_IFINDEX to fib_validate_source()
+aad8872 ipv4: add a sock pointer to dst->output() path.
+9114615 ipv4: return valid RTA_IIF on ip route get
+3ed66e9 net: replace __this_cpu_inc in route.c with raw_cpu_inc
+0b8c7f6 ipv4: remove ip_rt_dump from route.c
+4a4eb21 ipv4: remove ipv4_ifdown_dst from route.c
+1e8d642 Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+2045cea net: remove unnecessary return's
 
-/proc/sys/net/ipv4/route/redirect_load
-/proc/sys/net/ipv4/route/redirect_number
+No more obvious race fixes. I can try 3.15 fully vanilla but I'm having
+doubts?
 
+We have a few patches on top of this, but none of them are active at the
+time of my test. I've tried removing them in the past and it did nothing
+as well.
 
-
-thanks
-Per
+Sorry :(
